@@ -56,9 +56,16 @@ export class UiActionsService {
     }
   }
 
-  booleanOf(value: string | boolean) {
-    const returnedValue = isBoolean(value) ? value : (["true", "false"].includes(value)) ? value === "true" : false;
-    this.logger.debug("booleanOf:value:", value, typeof value, "returning:", returnedValue);
-    return returnedValue;
+  booleanOf(value: any, fallback: boolean = false) {
+    const normalized = (value == null ? "" : value.toString()).trim().toLowerCase();
+    const resolved = isBoolean(value)
+      ? value
+      : ["true", "1", "yes"].includes(normalized)
+        ? true
+        : ["false", "0", "no"].includes(normalized)
+          ? false
+          : fallback;
+    this.logger.debug("booleanOf:value:", value, typeof value, "returning:", resolved);
+    return resolved;
   }
 }

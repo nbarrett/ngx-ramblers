@@ -50,3 +50,4 @@ Thumbs.db
 /server/chromedriver/
 /test-data/
 /.gemini-clipboard/
+.eslint-config/

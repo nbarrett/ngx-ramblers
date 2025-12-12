@@ -89,6 +89,7 @@ export class DynamicContentViewIndex implements OnInit {
   private searchDebounce: any;
 
   async ngOnInit() {
+    this.actions.ensureAlbumIndexMapConfigDefaults(this.row);
     const albumIndex = this.row.albumIndex;
     const searchParam = this.stringUtils.kebabCase(StoredValue.SEARCH);
     const urlSearchValue = this.route.snapshot.queryParamMap.get(searchParam);

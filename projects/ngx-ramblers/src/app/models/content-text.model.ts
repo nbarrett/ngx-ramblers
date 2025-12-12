@@ -166,6 +166,7 @@ export interface MapData {
   mapCenter?: [number, number];
   mapZoom?: number;
   mapHeight?: number;
+  useLocationFromPage?: boolean;
   provider?: string;
   osStyle?: string;
   showControlsDefault?: boolean;

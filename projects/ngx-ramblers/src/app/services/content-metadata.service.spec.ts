@@ -21,7 +21,7 @@ describe("ContentMetadataService", () => {
                 queryParams: {
                     subscribe: () => {
                     }
-                }, snapshot: { url: Array("admin", "member-bulk-load") }
+                }, snapshot: { url: ["admin", "member-bulk-load"] }
             }
         },
         StringUtilsService,

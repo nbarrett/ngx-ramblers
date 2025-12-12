@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, DoCheck, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { MapStyleInfo, OS_MAP_STYLE_LIST } from "../../models/map.model";
@@ -6,6 +6,17 @@ import { KeyValue } from "../../functions/enums";
 import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-button";
 import { faUndo } from "@fortawesome/free-solid-svg-icons";
 import { isUndefined } from "es-toolkit/compat";
+
+interface MapSliderControl {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: () => number;
+  onInput: (value: number) => void;
+  format?: (value: number) => string;
+}
 
 export interface MapOverlayConfig {
   provider?: string;
@@ -98,66 +109,24 @@ interface MapOverlayDefaults {
     </div>
 
     <div class="row align-items-end mb-2 g-2">
-      <div class="col-md-2">
-        <label class="form-label" for="zoom-input-{{id}}">Zoom Level</label>
-        <div class="editor-slider-group">
-          <input type="range"
-                 id="zoom-input-{{id}}"
-                 class="form-range editor-slider"
-                 min="5"
-                 max="18"
-                 step="0.1"
-                 [(ngModel)]="config.mapZoom"
-                 (input)="onChange()"
-                 (ngModelChange)="onChange()">
-          <span class="text-muted editor-slider-value">{{ config.mapZoom | number:"1.1-1" }}</span>
+      @for (slider of sliderControls; track slider.key) {
+        <div [ngClass]="sliderColumnClass">
+          <label class="form-label" [for]="sliderId(slider.key)">{{ slider.label }}</label>
+          <div class="editor-slider-group">
+            <input type="range"
+                   class="form-range editor-slider"
+                   [id]="sliderId(slider.key)"
+                   [min]="slider.min"
+                   [max]="slider.max"
+                   [step]="slider.step"
+                   [(ngModel)]="sliderValues[slider.key]"
+                   (ngModelChange)="onSliderChange(slider, $event)">
+            <span class="text-muted editor-slider-value">
+              {{ slider.format ? slider.format(sliderValues[slider.key]) : sliderValues[slider.key] }}
+            </span>
+          </div>
         </div>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label" for="height-input-{{id}}">Map Height (px)</label>
-        <div class="editor-slider-group">
-          <input type="range"
-                 id="height-input-{{id}}"
-                 class="form-range editor-slider"
-                 min="300"
-                 max="900"
-                 step="10"
-                 [(ngModel)]="config.mapHeight"
-                 (input)="onChange()"
-                 (ngModelChange)="onChange()">
-          <span class="text-muted editor-slider-value">{{ config.mapHeight }}</span>
-        </div>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label" for="center-lat-{{id}}">Vertical</label>
-        <div class="editor-slider-group">
-          <input type="range"
-                 id="center-lat-{{id}}"
-                 class="form-range editor-slider"
-                 min="49"
-                 max="61"
-                 step="0.01"
-                 [(ngModel)]="centerLat"
-                 (input)="updateMapCenter()"
-                 (ngModelChange)="updateMapCenter()">
-          <span class="text-muted editor-slider-value">{{ centerLat | number:"1.2-2" }}</span>
-        </div>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label" for="center-lng-{{id}}">Horizontal</label>
-        <div class="editor-slider-group">
-          <input type="range"
-                 id="center-lng-{{id}}"
-                 class="form-range editor-slider"
-                 min="-8"
-                 max="2"
-                 step="0.01"
-                 [(ngModel)]="centerLng"
-                 (input)="updateMapCenter()"
-                 (ngModelChange)="updateMapCenter()">
-          <span class="text-muted editor-slider-value">{{ centerLng | number:"1.2-2" }}</span>
-        </div>
-      </div>
+      }
       @if (showOpacityControls) {
         <div class="col-md-2">
           <label class="form-label" for="opacity-normal-{{id}}">Normal Opacity</label>
@@ -206,7 +175,7 @@ interface MapOverlayDefaults {
         </div>
       }
       @if (showClusteringControls) {
-        <div class="col-md-2">
+        <div [ngClass]="sliderColumnClass">
           <label class="form-label" for="clustering-threshold-{{id}}">Clustering Threshold</label>
           <div class="editor-slider-group">
             <input type="range"
@@ -225,8 +194,8 @@ interface MapOverlayDefaults {
       }
     </div>
 
-    <div class="row align-items-start mb-2 g-3">
-      <div class="col-md-3">
+    <div class="row align-items-center mb-2 g-3">
+      <div class="col-md-3 col-6">
         <div class="form-check">
           <input type="checkbox"
                  class="form-check-input"
@@ -238,7 +207,7 @@ interface MapOverlayDefaults {
           </label>
         </div>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-3 col-6">
         <div class="form-check">
           <input type="checkbox"
                  class="form-check-input"
@@ -251,7 +220,7 @@ interface MapOverlayDefaults {
         </div>
       </div>
       @if (showWaypointControls) {
-        <div class="col-md-3">
+        <div class="col-md-3 col-6">
           <div class="form-check">
             <input type="checkbox"
                    class="form-check-input"
@@ -263,7 +232,7 @@ interface MapOverlayDefaults {
             </label>
           </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3 col-6">
           <div class="form-check">
             <input type="checkbox"
                    class="form-check-input"
@@ -278,8 +247,8 @@ interface MapOverlayDefaults {
       }
     </div>
 
-    <div class="row align-items-start mb-2 g-3">
-      <div class="col-md-3">
+    <div class="row align-items-center mb-2 g-3">
+      <div class="col-md-3 col-6">
         <div class="form-check">
           <input type="checkbox"
                  class="form-check-input"
@@ -292,7 +261,7 @@ interface MapOverlayDefaults {
         </div>
       </div>
       @if (showClusteringControls) {
-        <div class="col-md-3">
+        <div class="col-md-3 col-6">
           <div class="form-check">
             <input class="form-check-input"
                    type="checkbox"
@@ -305,7 +274,7 @@ interface MapOverlayDefaults {
           </div>
         </div>
       }
-      <div class="col-md-3">
+      <div class="col-md-3 col-6">
         <app-badge-button [icon]="faUndo"
                           caption="Reset to Defaults"
                           (click)="resetToDefaults()"/>
@@ -314,7 +283,7 @@ interface MapOverlayDefaults {
   `,
   imports: [CommonModule, FormsModule, BadgeButtonComponent]
 })
-export class MapOverlayControls implements OnInit {
+export class MapOverlayControls implements OnInit, DoCheck {
   @Input() config!: MapOverlayConfig;
   @Input() id = "";
   @Input() defaults?: Partial<MapOverlayDefaults>;
@@ -331,6 +300,54 @@ export class MapOverlayControls implements OnInit {
   centerLat = 51.25;
   centerLng = 0.75;
   protected readonly faUndo = faUndo;
+  private lastCenter: [number, number] | undefined;
+  sliderValues: Record<string, number> = {};
+  sliderControls: MapSliderControl[] = [
+    {
+      key: "zoom",
+      label: "Zoom Level",
+      min: 0,
+      max: 18,
+      step: 0.1,
+      value: () => this.config?.mapZoom ?? this.defaultConfig.mapZoom,
+      onInput: value => this.updateZoomSlider(value),
+      format: value => value.toFixed(1)
+    },
+    {
+      key: "height",
+      label: "Map Height (px)",
+      min: 300,
+      max: 900,
+      step: 10,
+      value: () => this.config?.mapHeight ?? this.defaultConfig.mapHeight,
+      onInput: value => this.updateHeightSlider(value)
+    },
+    {
+      key: "vertical",
+      label: "Vertical",
+      min: 49,
+      max: 61,
+      step: 0.01,
+      value: () => this.centerLat,
+      onInput: value => this.updateCenterLat(value),
+      format: value => value.toFixed(2)
+    },
+    {
+      key: "horizontal",
+      label: "Horizontal",
+      min: -8,
+      max: 2,
+      step: 0.01,
+      value: () => this.centerLng,
+      onInput: value => this.updateCenterLng(value),
+      format: value => value.toFixed(2)
+    }
+  ];
+  get sliderColumnClass(): string {
+    return this.showClusteringControls
+      ? "col-xl-2 col-lg-3 col-md-4 col-sm-6 col-12"
+      : "col-lg-3 col-md-6 col-sm-6 col-12";
+  }
 
   private defaultConfig: MapOverlayDefaults = {
     provider: "osm",
@@ -354,19 +371,20 @@ export class MapOverlayControls implements OnInit {
     if (this.defaults) {
       this.defaultConfig = { ...this.defaultConfig, ...this.defaults };
     }
-
-    if (this.config?.mapCenter) {
-      this.centerLat = this.config.mapCenter[0];
-      this.centerLng = this.config.mapCenter[1];
-    }
-
     this.ensureDefaults();
+    this.syncCenterFromConfig();
+    this.syncSliderValues();
+  }
+
+  ngDoCheck() {
+    this.syncCenterFromConfig();
+    this.syncSliderValues();
   }
 
   private ensureDefaults() {
     if (!this.config.provider) this.config.provider = this.defaultConfig.provider;
     if (!this.config.osStyle) this.config.osStyle = this.defaultConfig.osStyle;
-    if (!this.config.mapCenter) this.config.mapCenter = this.defaultConfig.mapCenter;
+    if (!this.config.mapCenter) this.config.mapCenter = [...this.defaultConfig.mapCenter] as [number, number];
     if (!this.config.mapZoom) this.config.mapZoom = this.defaultConfig.mapZoom;
     if (!this.config.mapHeight) this.config.mapHeight = this.defaultConfig.mapHeight;
     if (this.showOpacityControls) {
@@ -378,19 +396,27 @@ export class MapOverlayControls implements OnInit {
       if (isUndefined(this.config.clusteringEnabled)) this.config.clusteringEnabled = this.defaultConfig.clusteringEnabled;
       if (!this.config.clusteringThreshold) this.config.clusteringThreshold = this.defaultConfig.clusteringThreshold;
     }
+    if (isUndefined(this.config.autoFitBounds)) this.config.autoFitBounds = this.defaultConfig.autoFitBounds;
   }
 
   updateMapCenter() {
     if (this.config && Number.isFinite(this.centerLat) && Number.isFinite(this.centerLng)) {
       this.config.mapCenter = [this.centerLat, this.centerLng];
+      this.lastCenter = [...this.config.mapCenter] as [number, number];
+      this.disableAutoFit();
       this.onChange();
     }
+  }
+
+  onZoomChange() {
+    this.disableAutoFit();
+    this.onChange();
   }
 
   resetToDefaults() {
     this.config.provider = this.defaultConfig.provider;
     this.config.osStyle = this.defaultConfig.osStyle;
-    this.config.mapCenter = [...this.defaultConfig.mapCenter];
+    this.config.mapCenter = [...this.defaultConfig.mapCenter] as [number, number];
     this.config.mapZoom = this.defaultConfig.mapZoom;
     this.config.mapHeight = this.defaultConfig.mapHeight;
 
@@ -405,8 +431,10 @@ export class MapOverlayControls implements OnInit {
       this.config.clusteringThreshold = this.defaultConfig.clusteringThreshold;
     }
 
+    this.config.autoFitBounds = this.defaultConfig.autoFitBounds;
     this.centerLat = this.config.mapCenter[0];
     this.centerLng = this.config.mapCenter[1];
+    this.lastCenter = [...this.config.mapCenter] as [number, number];
     this.onChange();
   }
 
@@ -418,7 +446,82 @@ export class MapOverlayControls implements OnInit {
     return `col-md-${remainingCols}`;
   }
 
+  private syncCenterFromConfig() {
+    if (this.config?.mapCenter) {
+      if (!this.lastCenter || !this.centersEqual(this.config.mapCenter, this.lastCenter)) {
+        this.centerLat = this.config.mapCenter[0];
+        this.centerLng = this.config.mapCenter[1];
+        this.lastCenter = [...this.config.mapCenter] as [number, number];
+      }
+    }
+  }
+
+  private centersEqual(current: [number, number], previous: [number, number]): boolean {
+    return current[0] === previous[0] && current[1] === previous[1];
+  }
+
   onChange() {
     this.configChange.emit(this.config);
+  }
+
+  private disableAutoFit() {
+    if (this.config) {
+      this.config.autoFitBounds = false;
+    }
+  }
+
+  sliderId(key: string): string {
+    return `${key}-input-${this.id}`;
+  }
+
+  onSliderChange(slider: MapSliderControl, value: number) {
+    const bounded = this.boundSliderValue(slider, value);
+    this.sliderValues[slider.key] = bounded;
+    slider.onInput(bounded);
+  }
+
+  private syncSliderValues() {
+    this.sliderControls.forEach(control => {
+      const nextValue = this.boundSliderValue(control, control.value());
+      if (this.sliderValues[control.key] !== nextValue) {
+        this.sliderValues[control.key] = nextValue;
+      }
+    });
+  }
+
+  private boundSliderValue(slider: MapSliderControl, value: number): number {
+    const boundedMin = Math.min(slider.min, slider.max);
+    const boundedMax = Math.max(slider.min, slider.max);
+    if (value < boundedMin) {
+      return boundedMin;
+    }
+    if (value > boundedMax) {
+      return boundedMax;
+    }
+    return value;
+  }
+
+  private updateZoomSlider(value: number) {
+    if (this.config) {
+      this.config.mapZoom = value;
+    }
+    this.onZoomChange();
+  }
+
+  private updateHeightSlider(value: number) {
+    if (this.config) {
+      this.config.mapHeight = value;
+    }
+    this.onChange();
+  }
+
+  private updateCenterLat(value: number) {
+    this.centerLat = value;
+    this.updateMapCenter();
+  }
+
+  private updateCenterLng(value: number) {
+    this.centerLng = value;
+    this.updateMapCenter();
   }
 }

@@ -276,8 +276,13 @@ export class AlbumIndexSiteEditComponent implements OnInit {
         provider: "osm",
         osStyle: "Leisure_27700",
         mapCenter: [51.25, 0.75],
-        mapZoom: 10
+        mapZoom: 10,
+        showControlsDefault: true,
+        allowControlsToggle: true
       };
+    }
+    if (this.showMapConfig()) {
+      this.actions.ensureAlbumIndexMapConfigDefaults(this.row);
     }
   }
 

@@ -216,41 +216,41 @@ describe("DateUtilsService", () => {
 
     it("should calculate duration correctly for same day walk times", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      
+
       const startDateTime = "2025-09-14T10:00:00+01:00";
       const endDateTime = "2025-09-14T16:00:00+01:00";
-      
+
       const startValue = dateUtils.asDateValue(startDateTime)?.value;
       const endValue = dateUtils.asDateValue(endDateTime)?.value;
-      
+
       const duration = dateUtils.formatDuration(startValue, endValue);
       expect(duration).toBe("6 hours");
     });
 
     it("should handle negative durations gracefully when end is before start", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      
+
       const startDateTime = "2025-09-15T10:00:00+01:00";
       const endDateTime = "2025-09-14T16:00:00+01:00";
-      
+
       const startValue = dateUtils.asDateValue(startDateTime)?.value;
       const endValue = dateUtils.asDateValue(endDateTime)?.value;
-      
+
       expect(startValue).toBeGreaterThan(endValue);
-      
+
       const duration = dateUtils.formatDuration(startValue, endValue);
       expect(duration).toContain("-");
     });
 
     it("should validate that walks start and end on the same day", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      
+
       const sameDay1 = "2025-09-14T10:00:00+01:00";
       const sameDay2 = "2025-09-14T16:00:00+01:00";
-      
+
       const dt1 = dateUtils.asDateTime(sameDay1);
       const dt2 = dateUtils.asDateTime(sameDay2);
-      
+
       expect(dt1.hasSame(dt2, "day")).toBe(true);
     });
 

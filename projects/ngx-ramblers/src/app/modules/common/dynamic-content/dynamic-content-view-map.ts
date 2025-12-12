@@ -80,6 +80,14 @@ interface RouteGpxData {
 
     .route-name
       font-size: 0.875rem
+    .map-loading-overlay
+      position: absolute
+      inset: 0
+      background: rgba(255, 255, 255, 0.85)
+      display: flex
+      align-items: center
+      justify-content: center
+      border-radius: 0.5rem
 
     :host ::ng-deep .leaflet-control-attribution
       font-size: 0.75rem
@@ -141,7 +149,7 @@ interface RouteGpxData {
     @if (row?.map) {
       <div [class]="actions.rowClasses(row)">
         @if (row.map.text) {
-          <div class="map-text" markdown>{{ row.map.text }}</div>
+          <div class="map-text" markdown [data]="row.map.text"></div>
         }
 
       @if (visibleRoutes.length > 1) {
@@ -182,13 +190,20 @@ interface RouteGpxData {
                   </div>
                 </div>
               } @else if (showMap) {
-                <div class="card shadow rounded"
+                <div class="card shadow rounded position-relative"
                      [style.height.px]="mapHeight"
                      leaflet
                      [leafletOptions]="options"
-                     [leafletLayers]="leafletLayers"
-                     [leafletFitBounds]="fitBounds"
-                     (leafletMapReady)="onMapReady($event)">
+              [leafletLayers]="leafletLayers"
+              [leafletFitBounds]="fitBounds"
+              (leafletMapReady)="onMapReady($event)">
+                @if (loadingRoutes) {
+                  <div class="map-loading-overlay">
+                    <div class="spinner-border text-secondary" role="status">
+                      <span class="visually-hidden">Loading map…</span>
+                    </div>
+                  </div>
+                }
                 </div>
                 <app-map-overlay
                   [showControls]="showControls"
@@ -234,6 +249,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
   public leafletLayers: L.Layer[] = [];
   public fitBounds: L.LatLngBounds | undefined;
   private mapRef: L.Map | undefined;
+  private mapLoadHandler = () => this.handleMapLoadComplete();
   public showMap = false;
   public visibleRoutes: MapRouteViewModel[] = [];
   public hasVisibleRoutes = false;
@@ -403,9 +419,6 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
       }
     }
 
-    this.logger.info("loadRoutes: All routes loaded, setting loadingRoutes=false");
-    this.loadingRoutes = false;
-
     const markers = this.row.map?.markers || [];
     const markerLayers = this.createStandaloneMarkers(markers);
     const allLayers = [...routeLayers, ...markerLayers];
@@ -418,14 +431,16 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
       this.logger.info("loadRoutes: Auto-fit check - shouldAutoFit:", shouldAutoFit, "hasSavedPosition:", hasSavedPosition, "autoFitBounds setting:", this.row.map?.autoFitBounds);
       if (shouldAutoFit || !hasSavedPosition) {
         this.calculateFitBounds();
-        this.logger.info("loadRoutes: Calculated fitBounds:", this.fitBounds ? `${this.fitBounds.getSouthWest()} to ${this.fitBounds.getNorthEast()}` : "none");
+      this.logger.info("loadRoutes: Calculated fitBounds:", this.fitBounds ? `${this.fitBounds.getSouthWest()} to ${this.fitBounds.getNorthEast()}` : "none");
       }
       this.showMap = true;
       this.logger.info("loadRoutes: Map ready to display (routes:", routeLayers.length, "markers:", markerLayers.length, ") - showMap=true");
       this.updateMapSize();
+      this.loadingRoutes = false;
     } else {
       this.showMap = false;
       this.logger.info("loadRoutes: No layers or markers, hiding map");
+      this.loadingRoutes = false;
     }
   }
 
@@ -574,6 +589,10 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     setTimeout(() => {
       map.invalidateSize();
     }, 100);
+    map.whenReady(() => {
+      this.loadingRoutes = false;
+      map.invalidateSize();
+    });
     if (this.editing) {
       this.attachMapListeners();
       this.captureMapView();
@@ -604,6 +623,71 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     this.updateLayersForWaypoints();
   }
 
+  async applyOverlayConfigFromEditor(config?: MapData) {
+    if (!config) {
+      return;
+    }
+    this.logger.info("applyOverlayConfigFromEditor: received config", config);
+    const provider = (config.provider || this.mapControlsState.provider) as MapProvider;
+    const style = config.osStyle || this.mapControlsState.osStyle;
+    const providerChanged = provider !== this.mapControlsState.provider;
+    const styleChanged = style !== this.mapControlsState.osStyle;
+    if (providerChanged || styleChanged) {
+      this.logger.info("applyOverlayConfigFromEditor: changing provider/style", provider, style);
+      this.mapControlsState = {...this.mapControlsState, provider, osStyle: style};
+      await this.initialiseMap();
+    }
+    if (!isUndefined(config.mapHeight) && config.mapHeight !== this.mapHeight) {
+      this.logger.info("applyOverlayConfigFromEditor: updating map height", config.mapHeight);
+      this.mapHeight = config.mapHeight;
+      this.mapControlsState = {...this.mapControlsState, mapHeight: config.mapHeight};
+      this.updateMapSize();
+    }
+    if (!isUndefined(config.mapZoom) && this.mapRef && config.mapZoom !== this.mapRef.getZoom()) {
+      this.logger.info("applyOverlayConfigFromEditor: updating map zoom", config.mapZoom);
+      this.mapRef.setZoom(config.mapZoom);
+    }
+    if (config.mapCenter && this.mapRef) {
+      const currentCenter = this.mapRef.getCenter();
+      const nextCenter = L.latLng(config.mapCenter[0], config.mapCenter[1]);
+      if (!currentCenter.equals(nextCenter)) {
+        this.logger.info("applyOverlayConfigFromEditor: updating map center", nextCenter);
+        this.mapRef.panTo(nextCenter, {animate: false});
+      }
+    }
+    const showControlsDefault = isUndefined(config.showControlsDefault) ? true : config.showControlsDefault;
+    if (showControlsDefault !== this.showControls) {
+      this.logger.info("applyOverlayConfigFromEditor: toggling controls visibility", showControlsDefault);
+      this.showControls = showControlsDefault;
+      setTimeout(() => this.updateMapSize(), 200);
+    }
+    const allowControls = config.allowControlsToggle !== false;
+    if (allowControls !== this.allowControlsToggle) {
+      this.logger.info("applyOverlayConfigFromEditor: updating allowControlsToggle", allowControls);
+      this.allowControlsToggle = allowControls;
+    }
+    const showWaypointsDefault = isUndefined(config.showWaypointsDefault) ? true : config.showWaypointsDefault;
+    if (showWaypointsDefault !== this.showWaypoints) {
+      this.logger.info("applyOverlayConfigFromEditor: toggling waypoint visibility", showWaypointsDefault);
+      this.showWaypoints = showWaypointsDefault;
+      this.updateLayersForWaypoints();
+    }
+    const allowWaypoints = config.allowWaypointsToggle !== false;
+    if (allowWaypoints !== this.allowWaypointsToggle) {
+      this.logger.info("applyOverlayConfigFromEditor: updating allowWaypointsToggle", allowWaypoints);
+      this.allowWaypointsToggle = allowWaypoints;
+    }
+    const autoFitEnabled = config.autoFitBounds !== false;
+    if (autoFitEnabled) {
+      this.logger.info("applyOverlayConfigFromEditor: auto-fit enabled, recalculating bounds");
+      this.calculateFitBounds();
+      if (this.mapRef && this.fitBounds) {
+        this.logger.info("applyOverlayConfigFromEditor: fitting to bounds", this.fitBounds.getSouthWest(), this.fitBounds.getNorthEast());
+        this.mapRef.fitBounds(this.fitBounds);
+      }
+    }
+  }
+
   private updateLayersForWaypoints() {
     const routeLayers: L.Layer[] = [];
 
@@ -617,7 +701,8 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
       }
     }
 
-    this.leafletLayers = routeLayers;
+    const markerLayers = this.showWaypoints ? this.createStandaloneMarkers(this.row.map?.markers || []) : [];
+    this.leafletLayers = [...routeLayers, ...markerLayers];
   }
 
   onProviderChange(provider: MapProvider) {
@@ -674,6 +759,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     } else {
       this.mapRef.on("moveend", this.mapViewChangeHandler);
       this.mapRef.on("zoomend", this.mapViewChangeHandler);
+      this.mapRef.once("load", this.mapLoadHandler);
     }
   }
 
@@ -683,7 +769,12 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     } else {
       this.mapRef.off("moveend", this.mapViewChangeHandler);
       this.mapRef.off("zoomend", this.mapViewChangeHandler);
+      this.mapRef.off("load", this.mapLoadHandler);
     }
+  }
+
+  private handleMapLoadComplete() {
+    this.loadingRoutes = false;
   }
 
   private captureMapView() {
@@ -702,6 +793,9 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
   private updateRowMap(partial: Partial<MapData>) {
     if (!this.row?.map) {
       return;
+    }
+    if (!isUndefined(partial.mapCenter) || !isUndefined(partial.mapZoom)) {
+      partial.autoFitBounds = false;
     }
     let changed = false;
     const currentMap = this.row.map as Record<string, any>;
