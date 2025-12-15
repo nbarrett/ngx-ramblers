@@ -1,4 +1,14 @@
-import { Component, DoCheck, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import {
+  ChangeDetectorRef,
+  Component,
+  DoCheck,
+  ElementRef,
+  inject,
+  Input,
+  OnDestroy,
+  OnInit,
+  ViewChild
+} from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   EM_DASH_WITH_SPACES,
@@ -8,6 +18,7 @@ import {
   PageContentRow,
   PageContentType
 } from "../../../models/content-text.model";
+import { RootFolder } from "../../../models/system.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
@@ -26,7 +37,8 @@ import { ALERT_SUCCESS, ALERT_WARNING } from "../../../models/alert-target.model
 import { AwsFileUploadResponse } from "../../../models/aws-object.model";
 import { DynamicContentViewMap } from "./dynamic-content-view-map";
 import { MapRouteStylePaletteComponent } from "./map-route-style-palette.component";
-import { isUndefined } from "es-toolkit/compat";
+import { isNumber, isUndefined } from "es-toolkit/compat";
+import { RouteImportService } from "../../../services/maps/route-import.service";
 
 @Component({
   selector: "app-dynamic-content-site-edit-map",
@@ -98,11 +110,16 @@ import { isUndefined } from "es-toolkit/compat";
                 <div class="list-group-item">
                   <div class="row align-items-center mb-2 gy-2">
                     <div class="col-md-4">
-                      <input type="text"
-                             class="form-control"
-                             [(ngModel)]="route.name"
-                             (ngModelChange)="broadcastChange()"
-                             placeholder="Route name">
+                      <div class="d-flex align-items-center gap-2">
+                        <input type="text"
+                               class="form-control"
+                               [(ngModel)]="route.name"
+                               (ngModelChange)="broadcastChange()"
+                               placeholder="Route name">
+                        @if (routeFeatureCount(route)) {
+                          <span class="badge badge-mintcake">{{ routeFeatureCount(route) }} paths</span>
+                        }
+                      </div>
                     </div>
                     <div class="col-md-3">
                       <app-map-route-style-palette
@@ -132,31 +149,58 @@ import { isUndefined } from "es-toolkit/compat";
                         (click)="removeRoute(route)"/>
                     </div>
                   </div>
-                  @if (route.gpxFile) {
-                    <div class="row">
-                      <div class="col-12">
-                        <small class="text-muted">{{ route.gpxFile.originalFileName }}</small>
+                  <div class="row gy-3">
+                    <div class="col-12">
+                      <small class="text-muted d-block mb-2">Upload a GPX file or import a zipped shapefile/GeoJSON</small>
+                      <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <button type="button"
+                                class="btn btn-primary btn-sm"
+                                (click)="routeFileInput.click()"
+                                [disabled]="anyImportInProgress()">
+                          Select file
+                        </button>
+                        <span class="text-muted small">{{ routeFileSummary(route) }}</span>
                       </div>
+                      <input #routeFileInput
+                             type="file"
+                             class="d-none"
+                             accept=".gpx,.zip,.geojson,.json"
+                             (change)="onRouteFileSelected($event, route)"
+                             [disabled]="anyImportInProgress()">
                     </div>
-                  } @else {
-                    <div class="row">
-                      <div class="col-12">
-                        <input type="file" class="form-control"
-                               accept=".gpx"
-                               (change)="onFileSelected($event, route)"
-                               [id]="'file-input-' + route.id">
-                        <small class="text-muted mt-1">Select a GPX file to upload</small>
-                      </div>
-                    </div>
-                  }
+                  </div>
                 </div>
               }
             </div>
           }
+          @if (anyImportInProgress() || currentImportProgressMessage()) {
+            <alert [type]="currentImportAlertType()" class="mb-3">
+              <fa-icon [icon]="currentImportAlertIcon()"/>
+              <strong class="ms-2">Route Import:</strong>
+              <span class="ms-1">{{ currentImportProgressMessage() || 'Processing route file…' }}</span>
+            </alert>
+            @if (anyImportInProgress() && currentImportPercent() > 0) {
+              <div class="progress mb-3" style="height: 8px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                     role="progressbar"
+                     [style.width.%]="currentImportPercent()"
+                     [attr.aria-valuenow]="currentImportPercent()"
+                     aria-valuemin="0"
+                     aria-valuemax="100">
+                </div>
+              </div>
+            }
+          }
           <app-badge-button
             [icon]="faAdd"
             caption="Add Route"
-            (click)="addRoute()"/>
+            [disabled]="anyImportInProgress()"
+            (click)="triggerRouteUpload()"/>
+          <input #globalRouteInput
+                 type="file"
+                 class="d-none"
+                 accept=".gpx,.zip,.geojson,.json"
+                 (change)="onRouteFileSelected($event, pendingRoute)">
         </div>
       </div>
 
@@ -212,11 +256,14 @@ import { isUndefined } from "es-toolkit/compat";
   imports: [CommonModule, FormsModule, MapOverlayControls, BadgeButtonComponent, AlertComponent, FontAwesomeModule, DynamicContentViewMap, MapRouteStylePaletteComponent]
 })
 export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditMap", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditMap", NgxLoggerLevel.INFO);
   private broadcastService = inject(BroadcastService);
   private numberUtils = inject(NumberUtilsService);
   private fileUploadService = inject(FileUploadService);
+  private routeImportService = inject(RouteImportService);
+  private cdr = inject(ChangeDetectorRef);
   @ViewChild(DynamicContentViewMap) private mapPreview?: DynamicContentViewMap;
+  @ViewChild("globalRouteInput") private globalRouteInput?: ElementRef<HTMLInputElement>;
   @Input() row!: PageContentRow;
   @Input() id!: string;
   @Input() pageContent?: PageContent;
@@ -226,6 +273,10 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
   protected readonly faEye = faEye;
   protected readonly faEyeSlash = faEyeSlash;
   private uploaders: Map<string, FileUploader> = new Map();
+  private importingRoutes: Set<string> = new Set();
+  private importProgressMessages: Map<string, string> = new Map();
+  private importProgressPercent: Map<string, number> = new Map();
+  protected pendingRoute: MapRoute | null = null;
   public previewVersion = 0;
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
   protected readonly ALERT_WARNING = ALERT_WARNING;
@@ -336,9 +387,9 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
     this.broadcastChange(true);
   }
 
-  addRoute() {
+  private addRoute(): MapRoute | undefined {
     if (!this.row.map) {
-      return;
+      return undefined;
     }
 
     const newRoute:MapRoute= {
@@ -353,6 +404,7 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
 
     this.row.map.routes.push(newRoute);
     this.broadcastChange();
+    return newRoute;
   }
 
   removeRoute(route: MapRoute) {
@@ -369,29 +421,42 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
     this.broadcastChange();
   }
 
-  onFileSelected(event: Event, route: MapRoute) {
+  onRouteFileSelected(event: Event, route?: MapRoute | null) {
     const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) {
+    const file = input.files?.[0];
+    if (!file) {
+      this.pendingRoute = null;
+      return;
+    }
+    const targetRoute = route ?? this.pendingRoute;
+    this.pendingRoute = null;
+    if (!targetRoute) {
+      this.logger.error("No route available for selected file");
+      input.value = "";
       return;
     }
 
-    const file = input.files[0];
-    if (!file.name.toLowerCase().endsWith(".gpx")) {
-      this.logger.error("Invalid file type: expected GPX file, got:", file.name);
-      return;
+    const name = file.name.toLowerCase();
+    if (name.endsWith(".gpx")) {
+      this.uploadGpxFile(file, targetRoute);
+    } else if (name.endsWith(".zip") || name.endsWith(".geojson") || name.endsWith(".json")) {
+      void this.importEsriFile(file, targetRoute);
+    } else {
+      this.logger.error("Unsupported route file type:", file.name);
     }
+    input.value = "";
+  }
 
-    const uploader = this.fileUploadService.createUploaderFor("gpx-routes", false);
+  private uploadGpxFile(file: File, route: MapRoute) {
+    const uploader = this.fileUploadService.createUploaderFor(RootFolder.gpxRoutes, false);
     this.uploaders.set(route.id, uploader);
-
+    const inheritedErrorHandler = uploader.onErrorItem;
     uploader.onSuccessItem = (item, response) => {
       this.logger.info("Upload successful for:", file.name);
       try {
-        const uploadData:AwsFileUploadResponse = JSON.parse(response);
-        this.logger.info("uploadData:", uploadData);
+        const uploadData: AwsFileUploadResponse = JSON.parse(response);
         if (uploadData.responses && uploadData.responses.length > 0) {
           route.gpxFile = uploadData.responses[0].fileNameData;
-          this.logger.info("route.gpxFile:", route.gpxFile, "row.map:", this.row.map);
           if (!route.name || route.name.startsWith("Route ")) {
             route.name = file.name.replace(/\.gpx$/i, "");
           }
@@ -404,12 +469,170 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
     };
 
     uploader.onErrorItem = (item, response, status) => {
+      inheritedErrorHandler?.call(uploader, item, response, status);
       this.logger.error("Upload failed:", response, status);
       this.uploaders.delete(route.id);
     };
 
     uploader.addToQueue([file]);
     uploader.uploadAll();
+  }
+
+  private async importEsriFile(file: File, route: MapRoute) {
+    this.importingRoutes.add(route.id);
+    this.importProgressMessages.set(route.id, "Starting import...");
+    try {
+      const response = await this.routeImportService.importEsri(file, (progress) => {
+        this.importProgressMessages.set(route.id, progress.message);
+        if (isNumber(progress.percent)) {
+          this.importProgressPercent.set(route.id, progress.percent);
+        }
+        this.logger.info(`Import progress for ${route.id}:`, progress.message, progress.percent ? `${progress.percent}%` : "");
+      });
+
+      if (response.gpxFiles && response.gpxFiles.length > 1) {
+        const firstGroup = response.gpxFiles[0];
+        route.gpxFile = firstGroup.file;
+        route.esriFile = response.esriFile;
+        route.name = `${response.routeName}-${firstGroup.type}`;
+        route.visible = false;
+        route.featureCount = firstGroup.count;
+        route.gpxFileSizeBytes = firstGroup.fileSizeBytes;
+        route.spatialRouteId = firstGroup.routeId;
+
+        for (let i = 1; i < response.gpxFiles.length; i++) {
+          const group = response.gpxFiles[i];
+          const newRoute = this.addRoute();
+          if (newRoute) {
+            newRoute.gpxFile = group.file;
+            newRoute.esriFile = response.esriFile;
+            newRoute.name = `${response.routeName}-${group.type}`;
+            newRoute.visible = false;
+            newRoute.featureCount = group.count;
+            newRoute.gpxFileSizeBytes = group.fileSizeBytes;
+            newRoute.spatialRouteId = group.routeId;
+          }
+        }
+        this.importProgressMessages.set(route.id, `✓ Created ${response.gpxFiles.length} routes - toggle visibility to view (large files!)`);
+      } else {
+        route.gpxFile = response.gpxFile;
+        route.esriFile = response.esriFile;
+        route.name = response.routeName;
+        this.importProgressMessages.set(route.id, `✓ Imported 1 route`);
+      }
+
+      this.broadcastChange();
+      setTimeout(() => {
+        this.importProgressMessages.delete(route.id);
+        this.importProgressPercent.delete(route.id);
+      }, 3000);
+    } catch (error) {
+      this.logger.error("ESRI import failed", error);
+      this.importProgressMessages.set(route.id, `✗ Import failed: ${(error as Error).message}`);
+      setTimeout(() => {
+        this.importProgressMessages.delete(route.id);
+        this.importProgressPercent.delete(route.id);
+      }, 5000);
+    } finally {
+      this.importingRoutes.delete(route.id);
+    }
+  }
+
+  triggerRouteUpload() {
+    const newRoute = this.addRoute();
+    if (!newRoute) {
+      return;
+    }
+    this.pendingRoute = newRoute;
+    this.globalRouteInput?.nativeElement?.click();
+  }
+
+  routeImportInProgress(routeId: string): boolean {
+    return this.importingRoutes.has(routeId);
+  }
+
+  routeImportProgressMessage(routeId: string): string {
+    return this.importProgressMessages.get(routeId) || "";
+  }
+
+  routeAlertType(routeId: string): string {
+    const message = this.routeImportProgressMessage(routeId);
+    if (message.startsWith("✓")) {
+      return "success";
+    }
+    if (message.startsWith("✗")) {
+      return "danger";
+    }
+    return "warning";
+  }
+
+  routeAlertIcon(routeId: string): any {
+    const message = this.routeImportProgressMessage(routeId);
+    if (message.startsWith("✓")) {
+      return ALERT_SUCCESS.icon;
+    }
+    if (message.startsWith("✗")) {
+      return ALERT_WARNING.icon;
+    }
+    return ALERT_WARNING.icon;
+  }
+
+  routeImportPercent(routeId: string): number {
+    return this.importProgressPercent.get(routeId) || 0;
+  }
+
+  anyImportInProgress(): boolean {
+    return this.importingRoutes.size > 0;
+  }
+
+  private findCurrentImportRouteId(): string | undefined {
+    return Array.from(this.importingRoutes)[0];
+  }
+
+  currentImportProgressMessage(): string {
+    const routeId = this.findCurrentImportRouteId();
+    return routeId ? this.routeImportProgressMessage(routeId) : "";
+  }
+
+  currentImportAlertType(): string {
+    const routeId = this.findCurrentImportRouteId();
+    return routeId ? this.routeAlertType(routeId) : "warning";
+  }
+
+  currentImportAlertIcon(): any {
+    const routeId = this.findCurrentImportRouteId();
+    return routeId ? this.routeAlertIcon(routeId) : ALERT_WARNING.icon;
+  }
+
+  currentImportPercent(): number {
+    const routeId = this.findCurrentImportRouteId();
+    return routeId ? this.routeImportPercent(routeId) : 0;
+  }
+
+  routeFileSummary(route: MapRoute): string {
+    const parts: string[] = [];
+    if (route.gpxFile?.originalFileName) {
+      let gpxPart = `GPX: ${route.gpxFile.originalFileName}`;
+      if (route.gpxFileSizeBytes) {
+        const sizeMB = (route.gpxFileSizeBytes / (1024 * 1024)).toFixed(1);
+        gpxPart += ` (${sizeMB} MB)`;
+        if (route.gpxFileSizeBytes > 5 * 1024 * 1024) {
+          gpxPart += " ⚠️";
+        }
+      }
+      parts.push(gpxPart);
+    }
+    if (route.esriFile?.originalFileName) {
+      parts.push(`ESRI: ${route.esriFile.originalFileName}`);
+    }
+    return parts.join(" | ") || "No file selected";
+  }
+
+  routeFeatureCount(route: MapRoute): string | null {
+    if (route.featureCount && route.featureCount > 0) {
+      return route.featureCount.toLocaleString();
+    }
+    return null;
   }
 
   private nextColor(): string {

@@ -32,7 +32,7 @@ const s3Config: AWSConfig = {
 };
 const s3: S3 = new AWS.S3(s3Config);
 const debugLog = debug(envConfig.logNamespace("aws"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 debugLog("configured with", s3Config, "Proxying S3 requests to", envConfig.aws.uploadUrl, "http.globalAgent.maxSockets:", https.globalAgent.maxSockets);
 
 export function queryAWSConfig(): AWSConfig {
@@ -121,17 +121,19 @@ export function putObjectDirect(rootFolder: string, fileName: string, localFileN
   debugLog("configured with", s3Config);
   const bucket = s3Config.bucket;
   const objectKey = `${rootFolder}/${path.basename(fileName)}`;
-  const data = fs.readFileSync(localFileName);
+  const fileStream = fs.createReadStream(localFileName);
+  const stats = fs.statSync(localFileName);
+  const fileSizeInBytes = stats.size;
   const params = {
     Bucket: bucket,
     Key: objectKey,
-    Body: data,
+    Body: fileStream,
     ContentType: contentTypeFrom(objectKey)
   };
-  debugLog(`Saving file to ${bucket}/${objectKey} using params:`, JSON.stringify(omit(params, "Body")));
+  debugLog(`Saving file to ${bucket}/${objectKey}, size: ${fileSizeInBytes} bytes, using params:`, JSON.stringify(omit(params, "Body")));
   return s3.putObject(params)
     .then(data => {
-      const information = `Successfully uploaded file to ${bucket}/${objectKey}`;
+      const information = `Successfully uploaded file to ${bucket}/${objectKey} (${fileSizeInBytes} bytes)`;
       debugLog(information, "->", data);
       return ({responseData: data, information});
     })

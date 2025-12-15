@@ -6,10 +6,10 @@ import { SystemConfigService } from "../system/system-config.service";
 import { MapMarker, PageContent, PageContentRow, PageContentType } from "../../models/content-text.model";
 import { LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
+import { EPSG_27700_PROJ4 } from "../../common/maps/map-projection.constants";
 
 @Injectable({ providedIn: "root" })
 export class MapTilesService {
-  private static readonly EPSG_27700_PROJ4_DEF = "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=-446.448,125.157,-542.06,-0.1502,-0.2470,-0.8421,20.4894 +units=m +no_defs";
   private static readonly EPSG_27700_CRS_OPTIONS = {
     resolutions: [896, 448, 224, 112, 56, 28, 14, 7, 3.5, 1.75],
     origin: [-238375.0, 1376256.0],
@@ -32,7 +32,7 @@ export class MapTilesService {
       projNS.setProj4(proj4);
     }
     if ((proj4 as any).defs && !(proj4 as any).defs["EPSG:27700"]) {
-      (proj4 as any).defs("EPSG:27700", MapTilesService.EPSG_27700_PROJ4_DEF);
+      (proj4 as any).defs("EPSG:27700", EPSG_27700_PROJ4);
     }
 
     this.projInitialized = true;
@@ -61,7 +61,7 @@ export class MapTilesService {
     if (provider === "os" && style.endsWith("27700")) {
       const crsCtor = (L as any).Proj?.CRS;
       if (crsCtor) {
-        return new crsCtor("EPSG:27700", MapTilesService.EPSG_27700_PROJ4_DEF, MapTilesService.EPSG_27700_CRS_OPTIONS);
+        return new crsCtor("EPSG:27700", EPSG_27700_PROJ4, MapTilesService.EPSG_27700_CRS_OPTIONS);
       }
     }
     return L.CRS.EPSG3857;

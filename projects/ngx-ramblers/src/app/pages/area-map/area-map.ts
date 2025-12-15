@@ -737,16 +737,20 @@ export class AreaMap implements OnInit, OnDestroy {
 
     const collides = (bounds: L.Bounds) => this.labelPlacements.some(existing => existing.intersects(bounds));
 
-    for (const step of range(0, maxSteps)) {
-      for (const direction of directions) {
-        const offset = direction.multiplyBy(stepDistance * step);
-        const candidatePoint = originPoint.add(offset);
-        const bounds = candidateBounds(candidatePoint);
-        if (!collides(bounds)) {
-          this.labelPlacements.push(bounds);
-          return this.mapRef.layerPointToLatLng(candidatePoint);
-        }
-      }
+    const candidatePlacement = range(0, maxSteps)
+      .map(step => directions
+        .map(direction => {
+          const offset = direction.multiplyBy(stepDistance * step);
+          const candidatePoint = originPoint.add(offset);
+          const bounds = candidateBounds(candidatePoint);
+          return {bounds, candidatePoint};
+        })
+        .find(candidate => !collides(candidate.bounds)))
+      .find((placement): placement is {bounds: L.Bounds; candidatePoint: L.Point} => !!placement);
+
+    if (candidatePlacement) {
+      this.labelPlacements.push(candidatePlacement.bounds);
+      return this.mapRef.layerPointToLatLng(candidatePlacement.candidatePoint);
     }
 
     this.labelPlacements.push(candidateBounds(originPoint));
