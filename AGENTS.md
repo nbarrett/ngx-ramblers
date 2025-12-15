@@ -131,6 +131,7 @@ docs(readme): update installation instructions
 - **Double quotes**: Always use `"` instead of `'` for strings
 - **Minimal changes**: Keep patches targeted and scoped to the request
 - **Follow existing patterns**: Don't introduce new patterns without discussion
+- **Structured branching**: Prefer explicit `if / else if / else` chains where each branch returns or handles outcomes inline, instead of scattering multiple early returns throughout the method
 - **Method naming**: Never prefix methods with "get" - the type system conveys that. Use more meaningful terms:
   - ✅ `user()` - returns user
   - ✅ `queryUsers()` - fetches users from database/API

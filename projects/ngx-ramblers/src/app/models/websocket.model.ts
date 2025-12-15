@@ -24,6 +24,7 @@ export enum EventType {
   RESIZE_UNSAVED_IMAGES = "resize-unsaved-images",
   TEST_STEP_REPORTER = "test-step-reporter",
   BACKUP_RESTORE = "backup-restore",
+  ESRI_ROUTE_IMPORT = "esri-route-import",
   PING = "ping",
 }
 

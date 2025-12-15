@@ -25,7 +25,11 @@ export function contentTypeFrom(fileName: string): string {
     return "application/msword";
   } else if ([".gpx"].includes(extension)) {
     return "application/gpx+xml";
+  } else if ([".zip"].includes(extension)) {
+    return "application/zip";
+  } else if ([".json", ".geojson"].includes(extension)) {
+    return "application/json";
   } else {
-    return "image/jpeg";
+    return "application/octet-stream";
   }
 }

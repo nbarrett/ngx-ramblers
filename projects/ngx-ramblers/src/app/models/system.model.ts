@@ -165,7 +165,9 @@ export enum RootFolder {
   siteContent = "site-content",
   walkImages = "walk-images",
   walkImports = "walk-imports",
-  socialEventsImages = "images-social-events"
+  gpxRoutes = "gpx-routes",
+  socialEventsImages = "images-social-events",
+  esriRoutes = "esri-routes"
 }
 
 export enum BuiltInAlbumName {

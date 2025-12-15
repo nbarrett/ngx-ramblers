@@ -149,10 +149,14 @@ export interface MapRoute {
   id: string;
   name: string;
   gpxFile?: FileNameData;
+  esriFile?: FileNameData;
   color?: string;
   visible?: boolean;
   weight?: number;
   opacity?: number;
+  featureCount?: number;
+  gpxFileSizeBytes?: number;
+  spatialRouteId?: string;
 }
 
 export interface MapMarker {
@@ -472,6 +476,15 @@ export enum ImageType {
 export enum View {
   EDIT = "edit",
   VIEW = "view"
+}
+
+export enum PaletteColor {
+  DARK_GRAY = "#3f3f3f",
+  PURPLE = "#5a45c6",
+  ROSE = "#c21d4b",
+  GREEN = "#4c6c3e",
+  ORANGE = "#bf8630",
+  BLUE = "#2e54a6"
 }
 
 export interface EditorState {

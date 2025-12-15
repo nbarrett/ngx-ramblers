@@ -1,8 +1,9 @@
 import { Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { MapRoute } from "../../../models/content-text.model";
+import { MapRoute, PaletteColor } from "../../../models/content-text.model";
 import { isUndefined } from "es-toolkit/compat";
+import { enumValues } from "../../../functions/enums";
 
 @Component({
   selector: "app-map-route-style-palette",
@@ -35,6 +36,14 @@ import { isUndefined } from "es-toolkit/compat";
       padding: 1rem
       box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15)
       z-index: 1080
+
+    .palette-panel .btn-close
+      font-size: 0.75rem
+      opacity: 0.5
+      transition: opacity 0.15s ease-in-out
+
+    .palette-panel .btn-close:hover
+      opacity: 1
 
     .palette-heading
       font-size: 0.85rem
@@ -122,6 +131,11 @@ import { isUndefined } from "es-toolkit/compat";
       </button>
       @if (open) {
         <div class="palette-panel">
+          <button type="button"
+                  class="btn-close position-absolute top-0 end-0 m-2"
+                  (click)="closePanel()"
+                  aria-label="Close style palette">
+          </button>
           <div class="palette-heading">Line Colour</div>
           <div class="color-options">
             @for (color of paletteColors; track color) {
@@ -163,7 +177,7 @@ export class MapRouteStylePaletteComponent implements OnInit, OnChanges {
   @Input() route: MapRoute;
   @Output() styleChange = new EventEmitter<void>();
 
-  paletteColors: string[] = ["#3f3f3f", "#5a45c6", "#c21d4b", "#4c6c3e", "#bf8630", "#2e54a6"];
+  paletteColors: string[] = enumValues(PaletteColor);
   thicknessOptions: number[] = [4, 6, 8, 10];
   defaultWeight = 8;
   defaultOpacity = 1.0;
@@ -188,6 +202,10 @@ export class MapRouteStylePaletteComponent implements OnInit, OnChanges {
   toggle(event: MouseEvent) {
     event.stopPropagation();
     this.open = !this.open;
+  }
+
+  closePanel() {
+    this.open = false;
   }
 
   selectColor(color: string) {
