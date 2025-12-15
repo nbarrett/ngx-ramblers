@@ -1,3 +1,5 @@
+import { MapRoute } from "./content-text.model";
+
 export type MapProvider = "osm" | "os";
 
 export enum OSMapStyleKey {
@@ -66,4 +68,29 @@ export interface ExtractedLocation {
   type: "postcode" | "gridReference" | "placeName";
   value: string;
   context?: string;
+}
+
+export interface TrackWithBounds {
+  track: any;
+  bounds: any;
+}
+
+export interface RouteGpxData {
+  tracks: any[];
+  tracksWithBounds: TrackWithBounds[];
+  waypoints: any[];
+  totalFeatures: number;
+}
+
+export interface MapRouteViewModel extends MapRoute {
+  gpxFileUrl?: string;
+}
+
+export interface GeocodeResult {
+  label: string;
+  lat: number;
+  lng: number;
+  district?: string;
+  county?: string;
+  type?: string;
 }

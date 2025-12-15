@@ -107,7 +107,7 @@ export class ImageCollectionSettingsComponent implements OnInit {
     this.logger.info("imageChanged:imageFileData:", imageFileData, "for imageIndex:", imageIndex, "images (after change):", this.images.images);
   }
 
-  activatePaste() {
+   activatePaste() {
     this.pasteActive = true;
   }
 
