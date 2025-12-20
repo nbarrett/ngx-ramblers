@@ -477,7 +477,7 @@ export enum WalkExportTab {
 export class WalkExportComponent implements OnInit, OnDestroy {
   faExclamationCircle = faExclamationCircle;
   faCheckCircle = faCheckCircle;
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.INFO);
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private walksAndEventsService: WalksAndEventsService = inject(WalksAndEventsService);
@@ -525,8 +525,6 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   private deletionsCleared = false;
   private actionableMap: { [id: string]: boolean } = {};
 
-  private postActionRefreshed = false;
-
   ngOnInit() {
     this.logger.debug("ngOnInit");
     this.audits = [];
@@ -540,7 +538,6 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       }
       this.pendingSessionParam = params["session"];
     }));
-
     this.systemConfigService.events().subscribe(async (_unused: SystemConfig) => {
       if (this.display.walkPopulationWalksManager()) {
         const message = {
@@ -627,6 +624,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
+
+  private postActionRefreshed = false;
 
   async uploadToRamblers() {
     const downloadCheck = await this.downloadStatusService.canStartNewDownload();
@@ -1074,6 +1073,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
 
   selectTab(tab: WalkExportTab): void {
     this.activeTabId = tab;
+    this.logger.info("setting tab to:", tab);
     this.updateUrl();
   }
 
@@ -1098,7 +1098,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     if (this.fileName?.fileName) {
       queryParams.session = this.sessionToUrlParam(this.fileName.fileName);
     }
-
+    this.logger.info("updateUrl:queryParams:", queryParams);
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams,

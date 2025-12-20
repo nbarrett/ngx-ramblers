@@ -3,6 +3,12 @@ export interface WalkCancellation {
   reason: string;
 }
 
+export interface WalkUploadInfo {
+  walkId: string;
+  date: string;
+  title: string;
+}
+
 export interface WalkUploadMetadata {
   fileName: string;
   walkCount: number;
@@ -10,4 +16,5 @@ export interface WalkUploadMetadata {
   walkDeletions: string[];
   walkCancellations: WalkCancellation[];
   walkUncancellations: string[];
+  walkUploads: WalkUploadInfo[];
 }

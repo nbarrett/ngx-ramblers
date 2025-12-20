@@ -22,6 +22,7 @@ import {
   RamblersGroupsApiResponseApiResponse,
   RamblersWalksUploadRequest,
   WalkCancellation,
+  WalkUploadInfo,
   WALKS_MANAGER_GO_LIVE_DATE,
   WalkStatus,
   WalkUploadColumnHeading,
@@ -398,6 +399,7 @@ export class RamblersWalksAndEventsService {
 
   public async createWalksUploadRequest(walkExports: WalkExport[]): Promise<RamblersWalksUploadRequest> {
     const walkIdDeletionList = this.walkDeletionList(walkExports);
+    const walkIdUploadList = this.walkUploadList(walkExports);
     const walkUncancellations = this.walkUncancellationList(walkExports);
     const uncancelSet = new Set(walkUncancellations);
     const walkCancellations = this.walkCancellationList(walkExports)
@@ -410,6 +412,7 @@ export class RamblersWalksAndEventsService {
       rows,
       fileName,
       walkIdDeletionList,
+      walkIdUploadList,
       walkCancellations,
       walkUncancellations,
       ramblersUser: this.memberLoginService.loggedInMember().firstName
@@ -427,6 +430,21 @@ export class RamblersWalksAndEventsService {
       })
       .filter(url => !isEmpty(url))
       .filter(url => !uncancels.has(url as string)) as string[];
+  }
+
+  public walkUploadList(walkExports: WalkExport[]): WalkUploadInfo[] {
+    return this.selectedExportableWalks(walkExports)
+      .filter(w => !!w?.displayedWalk?.walk?.fields?.publishing?.ramblers?.publish)
+      .filter(w => !!(w?.ramblersUrl || w?.displayedWalk?.walk?.groupEvent?.url))
+      .map(w => {
+        const walk = w.displayedWalk.walk;
+        const localUrl = walk?.groupEvent?.url;
+        const walkId = localUrl ? this.transformUrl(walk) : w.ramblersUrl;
+        const date = this.walkDate(walk, DateFormat.WALKS_MANAGER_CSV);
+        const title = this.walkTitle(walk);
+        return { walkId, date, title };
+      })
+      .filter(info => !isEmpty(info.walkId)) as WalkUploadInfo[];
   }
 
   public walkCancellationList(walkExports: WalkExport[]): WalkCancellation[] {
@@ -458,7 +476,7 @@ export class RamblersWalksAndEventsService {
   }
 
   private walkUploadHeadings() {
-    return enumValues(WalkUploadColumnHeading);
+    return enumValues(WalkUploadColumnHeading).filter(heading => heading !== WalkUploadColumnHeading.WALK_ID);
   }
 
   public toWalkExport(localAndRamblersWalk: LocalAndRamblersWalk): WalkExport {

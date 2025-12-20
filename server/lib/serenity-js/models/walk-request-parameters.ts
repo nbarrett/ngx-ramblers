@@ -1,4 +1,4 @@
-import { WalkCancellation } from "../../models/walk-upload-metadata";
+import { WalkCancellation, WalkUploadInfo } from "../../models/walk-upload-metadata";
 
 export interface WalkRequestParameters {
   fileName: string;
@@ -6,4 +6,5 @@ export interface WalkRequestParameters {
   walkCancellations: WalkCancellation[];
   walkUncancellations: string[];
   walkCount: number;
+  walkUploads: WalkUploadInfo[];
 }

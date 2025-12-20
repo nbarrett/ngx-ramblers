@@ -6,7 +6,9 @@ import { CancelWalks } from "../screenplay/tasks/ramblers/walks/cancel-walks";
 import { UncancelWalks } from "../screenplay/tasks/ramblers/walks/uncancel-walks";
 import { DeleteWalks } from "../screenplay/tasks/ramblers/walks/delete-walks";
 import { Publish } from "../screenplay/tasks/ramblers/walks/publish";
+import { Unpublish } from "../screenplay/tasks/ramblers/walks/unpublish";
 import { UploadWalks } from "../screenplay/tasks/ramblers/walks/upload-walks";
+import { SelectWalks } from "../screenplay/tasks/ramblers/walks/select-walks";
 import { Actors } from "./config/actors";
 import { after, beforeEach, describe, it } from "mocha";
 import debug from "debug";
@@ -41,6 +43,13 @@ describe("Walks Upload", () => {
       Login.toRamblers(),
       Navigate.to(`https://walks-manager.ramblers.org.uk/walks-manager/all-walks-events?search=&items_per_page=All&d[min]=${today}&d[max]=&rauid=all`),
     ];
+
+    if ((params.walkUploads?.length || 0) > 0) {
+      steps.push(
+        SelectWalks.byDateAndTitle(params.walkUploads),
+        Unpublish.selectedWalks()
+      );
+    }
 
     if ((params.walkCount || 0) > 0 || (params.walkDeletions?.length || 0) > 0) {
       steps.push(DeleteWalks.unpublishedOrWithIdsSupplied());

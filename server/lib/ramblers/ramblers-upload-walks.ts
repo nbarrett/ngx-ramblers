@@ -15,7 +15,7 @@ import { Environment } from "../env-config/environment-model";
 import { WalkUploadMetadata } from "../models/walk-upload-metadata";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 const debugNoLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload-no-log"));
 debugNoLog.enabled = false;
 const path = "/tmp/ramblers/";
@@ -47,6 +47,7 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
     walkCount: walksUploadRequest.rows.length,
     ramblersUser: walksUploadRequest.ramblersUser,
     walkDeletions: walksUploadRequest.walkIdDeletionList,
+    walkUploads: walksUploadRequest.walkIdUploadList || [],
     walkCancellations: walksUploadRequest.walkCancellations,
     walkUncancellations: walksUploadRequest.walkUncancellations || []
   };
@@ -58,7 +59,20 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
     auditNotifier.reportErrorAndClose(error, ws);
     return;
   }
-  debugLog("file", filePath, "saved");
+
+  const fileStats = fs.statSync(filePath);
+  const csvLines = csvData.split("\n");
+  const preview = csvLines.slice(0, 3).join("\n");
+
+  debugLog("=".repeat(80));
+  debugLog("CSV FILE SAVED FOR UPLOAD:");
+  debugLog("File path:", filePath);
+  debugLog("File size:", fileStats.size, "bytes");
+  debugLog("Number of walks:", walksUploadRequest.rows.length);
+  debugLog("Number of CSV lines:", csvLines.length);
+  debugLog("CSV Preview (first 3 lines):");
+  debugLog(preview);
+  debugLog("=".repeat(80));
   debugLog("metadata", metadataPath, "saved");
   downloadStatusManager.startDownload(fileName);
   process.env[Environment.RAMBLERS_METADATA_FILE] = metadataPath;

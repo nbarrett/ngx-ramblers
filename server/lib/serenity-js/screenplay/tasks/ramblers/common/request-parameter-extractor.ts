@@ -30,6 +30,7 @@ export class RequestParameterExtractor {
         fileName: metadata.fileName,
         walkCount: metadata.walkCount,
         walkDeletions: metadata.walkDeletions,
+        walkUploads: metadata.walkUploads || [],
         walkCancellations: metadata.walkCancellations,
         walkUncancellations: metadata.walkUncancellations,
       };
