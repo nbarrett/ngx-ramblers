@@ -4,6 +4,8 @@ import { SelectAllWalks } from "./select-all-walks";
 import { SelectWalksNotPublishedCancelledOrWithIds } from "./select-walks-not-published-cancelled-or-with-ids";
 import { SelectWalksWithIds } from "./select-walks-with-ids";
 import { SelectWalksWithStatus } from "./select-walks-with-status";
+import { SelectWalksByDateAndTitle } from "./select-walks-by-date-and-title";
+import { WalkUploadInfo } from "../../../../../models/walk-upload-metadata";
 import { lastItemFrom, pluraliseWithCount } from "../../../../../shared/string-utils";
 import debug from "debug";
 import { envConfig } from "../../../../../env-config/env-config";
@@ -35,6 +37,10 @@ export class SelectWalks {
 
   static withIds(...walkIds: string[]) {
     return new SelectWalksWithIds(walkIds);
+  }
+
+  static byDateAndTitle(walks: WalkUploadInfo[]) {
+    return new SelectWalksByDateAndTitle(walks);
   }
 
   static withStatus(...statuses: string[]) {

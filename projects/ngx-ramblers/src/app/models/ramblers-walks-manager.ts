@@ -12,9 +12,16 @@ export interface WalkCancellation {
   reason: string;
 }
 
+export interface WalkUploadInfo {
+  walkId: string;
+  date: string;
+  title: string;
+}
+
 export interface RamblersWalksUploadRequest {
   fileName: string;
   walkIdDeletionList: string[];
+  walkIdUploadList: WalkUploadInfo[];
   walkCancellations: WalkCancellation[];
   walkUncancellations: string[];
   headings: string[];
