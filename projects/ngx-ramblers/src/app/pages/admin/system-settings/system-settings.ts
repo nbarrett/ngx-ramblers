@@ -403,7 +403,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   navbarJustifications: KeyValue<string>[] = enumKeyValues(NavBarJustification);
   protected readonly colourSelectorsDarkLight = colourSelectorsDarkLight;
   protected readonly colourSelectors = colourSelectors;
-  private tab: any;
+  private tab: SystemSettingsTab = SystemSettingsTab.AREA_AND_GROUP;
   protected readonly SystemSettingsTab = SystemSettingsTab;
   protected readonly enumValueForKey = enumValueForKey;
   protected readonly faAdd = faAdd;

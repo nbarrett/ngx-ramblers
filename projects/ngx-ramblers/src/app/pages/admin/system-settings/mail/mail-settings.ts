@@ -306,7 +306,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   private error: any;
   public CREDITS_AVAILABLE = 300;
   public confirm: Confirm = new Confirm();
-  private tab: any;
+  private tab: MailSettingsTab = MailSettingsTab.EMAIL_CONFIGURATIONS;
   public listCreateRequest: ListCreateRequest;
   public listCreateResponse: ListCreateResponse;
   protected readonly MailSettingsTab = MailSettingsTab;
