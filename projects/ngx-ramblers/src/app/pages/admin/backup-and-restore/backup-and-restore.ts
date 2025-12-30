@@ -690,7 +690,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   private router = inject(Router);
   private subscriptions: Subscription[] = [];
   private refreshSubscription: Subscription | null = null;
-  private tab: any;
+  private tab: BackupRestoreTab = BackupRestoreTab.BACKUP;
   private wsConnected = false;
 
   protected readonly BackupRestoreTab = BackupRestoreTab;
