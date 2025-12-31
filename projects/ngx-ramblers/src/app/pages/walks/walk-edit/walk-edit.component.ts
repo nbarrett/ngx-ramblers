@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnDestroy, OnInit, Type, ViewChild } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
-import { ActivatedRoute } from "@angular/router";
+import { ActivatedRoute, Router } from "@angular/router";
 import { faCopy, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep } from "es-toolkit/compat";
 import { isEmpty } from "es-toolkit/compat";
@@ -12,7 +12,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ConfigKey } from "../../../models/config.model";
 import { MEETUP_API_AVAILABLE, MeetupConfig } from "../../../models/meetup-config.model";
 import { Member } from "../../../models/member.model";
-import { ConfirmType } from "../../../models/ui-actions";
+import { ConfirmType, StoredValue, WalkEditTab } from "../../../models/ui-actions";
 import { WalkEventType } from "../../../models/walk-event-type.model";
 import { DisplayedWalk, EventType, INITIALISED_LOCATION, WalkExport, WalkViewMode } from "../../../models/walk.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
@@ -22,6 +22,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
+import { enumValueForKey } from "../../../functions/enums";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
@@ -71,11 +72,15 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
       <app-walk-panel-expander [walk]="displayedWalk?.walk" collapsable [collapseAction]="'exit edit'"
                                [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()"/>
       <tabset class="custom-tabset">
-        <tab heading="Main Details">
+        <tab heading="{{WalkEditTab.MAIN_DETAILS}}"
+             [active]="tabActive(WalkEditTab.MAIN_DETAILS)"
+             (selectTab)="onTabSelect(WalkEditTab.MAIN_DETAILS)">
           <app-walk-edit-main-details [displayedWalk]="displayedWalk"
                                       [inputDisabled]="inputDisabled()"/>
         </tab>
-        <tab heading="Walk Details" (selectTab)="onTabSelect($event)">
+        <tab heading="{{WalkEditTab.WALK_DETAILS}}"
+             [active]="tabActive(WalkEditTab.WALK_DETAILS)"
+             (selectTab)="onTabSelect(WalkEditTab.WALK_DETAILS)">
           <app-walk-edit-details
             [displayedWalk]="displayedWalk"
             [inputDisabled]="inputDisabled()"
@@ -84,18 +89,24 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
             [notify]="notify"/>
         </tab>
         @if (display.allowEdits(displayedWalk?.walk)) {
-          <tab heading="Risk Assessment">
+          <tab heading="{{WalkEditTab.RISK_ASSESSMENT}}"
+               [active]="tabActive(WalkEditTab.RISK_ASSESSMENT)"
+               (selectTab)="onTabSelect(WalkEditTab.RISK_ASSESSMENT)">
             <app-walk-risk-assessment [displayedWalk]="displayedWalk"/>
           </tab>
         }
-        <tab heading="Related Links">
+        <tab heading="{{WalkEditTab.RELATED_LINKS}}"
+             [active]="tabActive(WalkEditTab.RELATED_LINKS)"
+             (selectTab)="onTabSelect(WalkEditTab.RELATED_LINKS)">
           <app-walk-edit-related-links
             [notify]="notify"
             [displayedWalk]="displayedWalk"
             [inputDisabled]="inputDisabled()"
             [saveInProgress]="saveInProgress"/>
         </tab>
-        <tab heading="Leader">
+        <tab heading="{{WalkEditTab.LEADER}}"
+             [active]="tabActive(WalkEditTab.LEADER)"
+             (selectTab)="onTabSelect(WalkEditTab.LEADER)">
           <app-walk-edit-leader
             [notify]="notify"
             [displayedWalk]="displayedWalk"
@@ -105,21 +116,29 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
             (clearWalkLeaderRequest)="requestClearWalkLeader()"
             (statusChange)="onWalkStatusChange($event)"/>
         </tab>
-        <tab app-walk-edit-features heading="Features"
+        <tab app-walk-edit-features heading="{{WalkEditTab.FEATURES}}"
+             [active]="tabActive(WalkEditTab.FEATURES)"
+             (selectTab)="onTabSelect(WalkEditTab.FEATURES)"
              [displayedWalk]="displayedWalk"
              [config]="config"/>
-        <tab app-edit-group-event-images heading="Images"
+        <tab app-edit-group-event-images heading="{{WalkEditTab.IMAGES}}"
+             [active]="tabActive(WalkEditTab.IMAGES)"
+             (selectTab)="onTabSelect(WalkEditTab.IMAGES)"
              [rootFolder]="RootFolder.walkImages"
              [notify]="notify"
              [extendedGroupEvent]="displayedWalk?.walk"
              [config]="config"/>
         @if (display.walkLeaderOrAdmin(displayedWalk?.walk)) {
-          <tab heading="History">
+          <tab heading="{{WalkEditTab.HISTORY}}"
+               [active]="tabActive(WalkEditTab.HISTORY)"
+               (selectTab)="onTabSelect(WalkEditTab.HISTORY)">
             <app-walk-edit-history [displayedWalk]="displayedWalk"/>
           </tab>
         }
         @if (displayedWalk?.walk?.fields?.contactDetails?.memberId) {
-          <tab heading="Copy...">
+          <tab heading="{{WalkEditTab.COPY}}"
+               [active]="tabActive(WalkEditTab.COPY)"
+               (selectTab)="onTabSelect(WalkEditTab.COPY)">
             <app-walk-edit-copy-from
               [notify]="notify"
               [displayedWalk]="displayedWalk"
@@ -269,6 +288,9 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.initialiseMilesPerHour();
     this.logger.info("initialiseWalk:cloning groupEvent for edit:", this.displayedWalk?.walk?.groupEvent, "original:", displayedWalk?.walk?.groupEvent);
     this.mapEditComponentDisplayedWalk = this.displayedWalk;
+    if (this.displayedWalk?.walk?.fields?.gpxFile?.awsFileName) {
+      this.renderMapEdit = true;
+    }
   }
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditComponent", NgxLoggerLevel.ERROR);
@@ -282,8 +304,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private memberLoginService = inject(MemberLoginService);
   route = inject(ActivatedRoute);
+  private router = inject(Router);
   private walkNotificationService = inject(WalkNotificationService);
   protected walkEventService = inject(GroupEventService);
+  protected currentTab: WalkEditTab = WalkEditTab.MAIN_DETAILS;
   private walksReferenceService = inject(WalksReferenceService);
   protected dateUtils = inject(DateUtilsService);
   display = inject(WalkDisplayService);
@@ -316,11 +340,20 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   public showGoogleMapsView = false;
   public walkDataAudit: WalkDataAudit;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
+  @ViewChild(WalkEditDetailsComponent) walkEditDetailsComponent: WalkEditDetailsComponent;
   protected readonly RootFolder = RootFolder;
   protected readonly faCopy = faCopy;
+  protected readonly WalkEditTab = WalkEditTab;
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.subscriptions.push(this.route.queryParams.subscribe(params => {
+      const defaultValue = this.stringUtils.kebabCase(WalkEditTab.MAIN_DETAILS);
+      const tabParameter = params[StoredValue.TAB];
+      const tab = tabParameter || defaultValue;
+      this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue, "selectTab:", tab);
+      this.selectTab(tab);
+    }));
     this.subscriptions.push(this.systemConfigService.events().subscribe((config: SystemConfig) => this.config = config));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
@@ -815,9 +848,55 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  onTabSelect(event: any): void {
-    this.logger.info("onTabSelect:event", event);
-    this.renderMapEdit = true;
+  onTabSelect(tab: WalkEditTab): void {
+    this.logger.info("onTabSelect:tab", tab);
+    this.selectTab(tab);
+    if (tab === WalkEditTab.WALK_DETAILS) {
+      this.renderMapEdit = true;
+      setTimeout(() => {
+        this.walkEditDetailsComponent?.invalidateMaps();
+      }, 100);
+    }
+  }
+
+  public selectTab(tab: string | WalkEditTab) {
+    let tabValue: WalkEditTab;
+
+    if (enumValueForKey(WalkEditTab, tab)) {
+      tabValue = tab as WalkEditTab;
+    } else {
+      tabValue = this.findTabByKebabCase(tab as string);
+    }
+
+    const newTabKebab = this.stringUtils.kebabCase(tabValue);
+    const currentTabKebab = this.stringUtils.kebabCase(this.currentTab);
+
+    this.logger.info("selectTab:", {tab, tabValue, newTabKebab, currentTabKebab, currentTab: this.currentTab});
+
+    if (currentTabKebab === newTabKebab) {
+      this.logger.info("Tab already selected, skipping navigation");
+      return;
+    }
+
+    this.currentTab = tabValue;
+    this.logger.info("Navigating to tab:", newTabKebab);
+
+    this.router.navigate([], {
+      queryParams: {[StoredValue.TAB]: newTabKebab},
+      queryParamsHandling: "merge",
+      fragment: this.route.snapshot.fragment
+    });
+  }
+
+  tabActive(tab: WalkEditTab): boolean {
+    return this.stringUtils.kebabCase(this.currentTab) === this.stringUtils.kebabCase(tab);
+  }
+
+  private findTabByKebabCase(kebabValue: string): WalkEditTab {
+    const found = Object.values(WalkEditTab).find(
+      tab => this.stringUtils.kebabCase(tab) === kebabValue
+    );
+    return found || WalkEditTab.MAIN_DETAILS;
   }
 
   setStatus(status: EventType) {

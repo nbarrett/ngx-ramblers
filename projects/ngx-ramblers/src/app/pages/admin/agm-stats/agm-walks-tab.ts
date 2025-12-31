@@ -5,15 +5,16 @@ import { ChartConfiguration } from "chart.js";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
+import { AGMSummaryTableComponent } from "./agm-summary-table";
 import {
-  AGMSummaryTableComponent,
   ChangeClassFn,
   GetYearLabelFn,
   SortedRowsFn,
   SortIconFn,
   SummaryRow,
-  ToggleSortFn
-} from "./agm-summary-table";
+  ToggleSortFn,
+  RankedLeaderRow
+} from "../../../models/agm-stats.model";
 import { LeaderStats, WalkListItem } from "../../../models/group-event.model";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";

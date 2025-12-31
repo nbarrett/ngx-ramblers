@@ -24,15 +24,11 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { isNull, isNumber, isUndefined, kebabCase } from "es-toolkit/compat";
 import { AGMWalksTabComponent } from "./agm-walks-tab";
-import { AGMSocialsTabComponent, SocialRow } from "./agm-socials-tab";
+import { AGMSocialsTabComponent } from "./agm-socials-tab";
 import { AGMExpensesTabComponent } from "./agm-expenses-tab";
 import { AGMMembershipTabComponent } from "./agm-membership-tab";
 import { PageComponent } from "../../../page/page.component";
-import { SummaryRow } from "./agm-summary-table";
-
-interface RankedLeaderRow extends LeaderStats {
-  rank: number;
-}
+import { SummaryRow, SocialRow, RankedLeaderRow } from "../../../models/agm-stats.model";
 
 Chart.register(...registerables);
 

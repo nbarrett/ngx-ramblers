@@ -66,6 +66,18 @@ export enum StoredValue {
   WALK_SORT_ASC = "walk-sort-asc",
 }
 
+export enum WalkEditTab {
+  MAIN_DETAILS = "Main Details",
+  WALK_DETAILS = "Walk Details",
+  RISK_ASSESSMENT = "Risk Assessment",
+  RELATED_LINKS = "Related Links",
+  LEADER = "Leader",
+  FEATURES = "Features",
+  IMAGES = "Images",
+  HISTORY = "History",
+  COPY = "Copy...",
+}
+
 export enum LegacyStoredValue {
   AUTH_TOKEN = "AUTH_TOKEN",
   REFRESH_TOKEN = "REFRESH_TOKEN",

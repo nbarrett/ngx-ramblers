@@ -13,6 +13,7 @@ export interface WalkEvent {
 export const AUDITED_FIELDS: string[] = [
   "fields.attachment",
   "fields.attendees",
+  "fields.gpxFile",
   "fields.contactDetails",
   "fields.imageConfig",
   "fields.links",
@@ -56,4 +57,3 @@ export const AUDITED_FIELDS: string[] = [
   "groupEvent.url",
   "groupEvent.walk_leader",
 ];
-

@@ -1,6 +1,7 @@
-import { AwsInfo, AwsUploadErrorResponse } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
+import { AwsInfo, AwsUploadErrorResponse, ServerFileNameData } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import path from "path";
 import { isUndefined } from "es-toolkit/compat";
+import { generateUid, uidFormat } from "../shared/string-utils";
 
 export function isAwsUploadErrorResponse(response: AwsInfo | AwsUploadErrorResponse): response is AwsUploadErrorResponse {
   return !isUndefined((response as AwsUploadErrorResponse)?.error);
@@ -32,4 +33,35 @@ export function contentTypeFrom(fileName: string): string {
   } else {
     return "application/octet-stream";
   }
+}
+
+export function generateAwsFileName(originalFileName: string, preserveIfGuid: boolean = true): string {
+  const parsedPath = path.parse(originalFileName);
+  const name = parsedPath.name;
+  const extension = extensionFrom(originalFileName);
+
+  if (preserveIfGuid && name.length === uidFormat.length) {
+    return originalFileName;
+  }
+
+  return generateUid() + extension;
+}
+
+export function createFileNameData(
+  rootFolder: string,
+  originalFileName: string,
+  awsFileName: string,
+  title?: string
+): ServerFileNameData {
+  const data: ServerFileNameData = {
+    rootFolder,
+    originalFileName,
+    awsFileName
+  };
+
+  if (title) {
+    data.title = title;
+  }
+
+  return data;
 }

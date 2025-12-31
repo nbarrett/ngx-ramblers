@@ -365,6 +365,18 @@ export interface WalkImageRow {
   "Image Order": string;
 }
 
+export interface GpxFileListItem {
+  fileData: { originalFileName: string; awsFileName: string; title: string; rootFolder: string };
+  startLat: number;
+  startLng: number;
+  name: string;
+  walkTitle: string;
+  walkDate: number;
+  uploadDate: number;
+  distance: number;
+  displayLabel: string;
+}
+
 export interface ImportData {
   inputSource: InputSource;
   importStage: ImportStage;

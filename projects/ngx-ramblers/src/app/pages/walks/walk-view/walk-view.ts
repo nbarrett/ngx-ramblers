@@ -153,6 +153,7 @@ import { PageService } from "../../../services/page.service";
                     <div app-map-edit class="map-walk-view" readonly
                          [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.groupEvent?.start_location:displayedWalk?.walk?.groupEvent?.end_location"
                          [walkStatus]="displayedWalk?.walk?.groupEvent?.status"
+                         [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
                          [notify]="notify"></div>
                   }
                 </div>

@@ -477,7 +477,7 @@ export enum WalkExportTab {
 export class WalkExportComponent implements OnInit, OnDestroy {
   faExclamationCircle = faExclamationCircle;
   faCheckCircle = faCheckCircle;
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.ERROR);
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private walksAndEventsService: WalksAndEventsService = inject(WalksAndEventsService);
