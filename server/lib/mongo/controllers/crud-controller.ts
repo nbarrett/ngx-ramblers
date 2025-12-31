@@ -246,20 +246,48 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
     all: async (req: Request, res: Response) => {
       try {
         const parameters: DataQueryOptions = transforms.parseQueryStringParameters(req);
-        const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort);
-        if (isNumber(parameters.limit)) {
-          query.limit(parameters.limit);
+        const page = parameters.page;
+        const limit = parameters.limit;
+        const usePagination = isNumber(page) && isNumber(limit);
+
+        if (usePagination) {
+          const total = await model.countDocuments(parameters.criteria).exec();
+          const skip = (page - 1) * limit;
+          const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort).skip(skip).limit(limit);
+          const allowDisk = (query as any).allowDiskUse;
+          if (isFunction(allowDisk)) {
+            allowDisk.call(query, true);
+          }
+          const results = await query.exec();
+          const totalPages = Math.ceil(total / limit);
+
+          debugLog(req.query, "paginated find - criteria:found", results.length, "of", total, "documents, page", page, "of", totalPages);
+          res.status(200).json({
+            action: ApiAction.QUERY,
+            response: results.map(result => transforms.toObjectWithId(result)),
+            pagination: {
+              total,
+              page,
+              limit,
+              totalPages
+            }
+          });
+        } else {
+          const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort);
+          if (isNumber(parameters.limit)) {
+            query.limit(parameters.limit);
+          }
+          const allowDisk = (query as any).allowDiskUse;
+          if (isFunction(allowDisk)) {
+            allowDisk.call(query, true);
+          }
+          const results = await query.exec();
+          debugLog(req.query, "find - criteria:found", results.length, "documents:", results);
+          res.status(200).json({
+            action: ApiAction.QUERY,
+            response: results.map(result => transforms.toObjectWithId(result))
+          });
         }
-        const allowDisk = (query as any).allowDiskUse;
-        if (isFunction(allowDisk)) {
-          allowDisk.call(query, true);
-        }
-        const results = await query.exec();
-        debugLog(req.query, "find - criteria:found", results.length, "documents:", results);
-        res.status(200).json({
-          action: ApiAction.QUERY,
-          response: results.map(result => transforms.toObjectWithId(result))
-        });
       } catch (error) {
         errorDebugLog("all:query", req.query, "error:", error);
         res.status(500).json({

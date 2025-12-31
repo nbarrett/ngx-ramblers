@@ -1,6 +1,9 @@
 import { inject, Injectable } from "@angular/core";
 import { cloneDeep, first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
+import { Observable } from "rxjs";
+import { HttpClient, HttpParams } from "@angular/common/http";
+import { DateTime } from "luxon";
 import {
   EventEventField,
   EventField,
@@ -16,7 +19,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { GroupEventService } from "./group-event.service";
 import { DataQueryOptions, FilterCriteria, MongoCriteria } from "../../models/api-request.model";
 import { StringUtilsService } from "../string-utils.service";
-import { FilterParameters, HasBasicEventSelection } from "../../models/search.model";
+import { FilterParameters, HasBasicEventSelection, GroupEventSearchParams, GroupEventSearchResponse, SyncStatusResponse } from "../../models/search.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventQueryParameters } from "../../models/ramblers-walks-manager";
 import { UrlService } from "../url.service";
@@ -29,10 +32,12 @@ import { isNumericRamblersId } from "../path-matchers";
 export class ExtendedGroupEventQueryService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("ExtendedGroupEventQueryService", NgxLoggerLevel.ERROR);
-  private walkEventsService = inject(GroupEventService);
+  private groupEventService = inject(GroupEventService);
   private dateUtils = inject(DateUtilsService);
   protected stringUtils = inject(StringUtilsService);
   private urlService: UrlService = inject(UrlService);
+  private http = inject(HttpClient);
+  private BASE_URL = "/api/database/walks";
 
   dataQueryOptions(filterParameters: HasBasicEventSelection, dateComparison?: string, upperDateComparison?: string): DataQueryOptions {
     const criteria = this.criteriaFor(filterParameters, dateComparison, upperDateComparison);
@@ -165,15 +170,15 @@ export class ExtendedGroupEventQueryService {
   }
 
   activeWalk(walk: ExtendedGroupEvent) {
-    return !this.walkEventsService.latestEventWithStatusChangeIs(walk, EventType.DELETED);
+    return !this.groupEventService.latestEventWithStatusChangeIs(walk, EventType.DELETED);
   }
 
   deletedWalk(walk: ExtendedGroupEvent) {
-    return this.walkEventsService.latestEventWithStatusChangeIs(walk, EventType.DELETED);
+    return this.groupEventService.latestEventWithStatusChangeIs(walk, EventType.DELETED);
   }
 
   approvedWalk(walk: ExtendedGroupEvent) {
-    return this.walkEventsService.latestEventWithStatusChangeIs(walk, EventType.APPROVED);
+    return this.groupEventService.latestEventWithStatusChangeIs(walk, EventType.APPROVED);
   }
 
   activeEvents(extendedGroupEvents: ExtendedGroupEvent[]): ExtendedGroupEvent[] {
@@ -188,10 +193,29 @@ export class ExtendedGroupEventQueryService {
 
   nextWalkId(walks: ExtendedGroupEvent[]): string {
     const today = this.dateUtils.dateTimeNow().toMillis();
-    const nextWalk: ExtendedGroupEvent = first(cloneDeep(walks)?.filter((walk: ExtendedGroupEvent) => this.dateUtils.asDateTime(walk?.groupEvent?.start_date_time).toMillis() >= today)?.sort(sortBy("groupEvent.start_date_time")));
+    const nextWalk: ExtendedGroupEvent = first(cloneDeep(walks)?.filter((walk: ExtendedGroupEvent) => this.dateUtils.asDateTime(walk?.groupEvent?.start_date_time).toMillis() >= today)?.sort(sortBy(GroupEventField.START_DATE)));
     const nextWalkId = nextWalk?.id || nextWalk?.groupEvent?.id;
     this.logger.info("nextWalk:", nextWalk, "nextWalkId:", nextWalkId);
     return nextWalkId;
+  }
+
+
+  getSyncStatus(groupCode?: string): Observable<SyncStatusResponse> {
+    let httpParams = new HttpParams();
+    if (groupCode) {
+      httpParams = httpParams.set("groupCode", groupCode);
+    }
+    return this.http.get<SyncStatusResponse>(
+      `${this.BASE_URL}/sync/status`,
+      { params: httpParams }
+    );
+  }
+
+  triggerSync(fullSync: boolean = false): Observable<{ message: string; added: number; updated: number }> {
+    return this.http.post<{ message: string; added: number; updated: number }>(
+      `${this.BASE_URL}/sync/walks-manager`,
+      { fullSync }
+    );
   }
 
 }

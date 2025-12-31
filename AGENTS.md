@@ -56,6 +56,22 @@ These rules MUST be followed in EVERY session without exception:
 - **Tests**: Use existing test framework logging or assertions, NOT `console.log()`
 - Logging is already comprehensive - use it instead of adding temporary debug statements
 
+### 7. INTERFACES IN MODEL FILES
+- **NEVER define interfaces inline in components, services, or other implementation files**
+- **ALL interfaces MUST be defined in appropriate model files** (e.g., `system.model.ts`, `group-event.model.ts`, `walk.model.ts`, etc.)
+- **When creating new interfaces**:
+  1. Identify the appropriate model file based on the domain (system, events, walks, members, etc.)
+  2. Add the interface to that model file with a descriptive name
+  3. Export the interface so it can be imported where needed
+  4. Import the interface in the component/service that uses it
+- **Red flags indicating violations**:
+  - `interface SomeInterface {` inside a component `.ts` file
+  - Inline type definitions that could be reused elsewhere
+  - Duplicated type definitions across files
+- **Example**:
+  - ❌ Bad: `interface SyncStats { ... }` at bottom of `ramblers-settings.ts`
+  - ✅ Good: `export interface WalksManagerSyncStats { ... }` in `system.model.ts` and imported in `ramblers-settings.ts`
+
 ## Project Overview
 
 NGX‑Ramblers is an Angular‑based website framework for local Ramblers groups, with an Express backend and MongoDB Atlas. It provides content management, member management, and walks/events with third‑party integrations.
@@ -129,17 +145,26 @@ docs(readme): update installation instructions
 ### Code Style Rules
 - **No comments in code**: Use self-documenting method names instead of inline comments
 - **Double quotes**: Always use `"` instead of `'` for strings
-- **Minimal changes**: Keep patches targeted and scoped to the request
+- **Minimal changes**: Keep patches targeted and scoped to request
 - **Follow existing patterns**: Don't introduce new patterns without discussion
 - **No imperative loops**: Replace `for`/`while` constructs with declarative array operations (`map`, `reduce`, `filter`, etc.) so that functions remain side-effect free where possible
 - **Structured branching**: Prefer explicit `if / else if / else` chains where each branch returns or handles outcomes inline, instead of scattering multiple early returns throughout the method
-- **Method naming**: Never prefix methods with "get" - the type system conveys that. Use more meaningful terms:
+- **Method naming**: Never prefix methods with "get" - type system conveys that. Use more meaningful terms:
   - ✅ `user()` - returns user
   - ✅ `queryUsers()` - fetches users from database/API
   - ✅ `createUser()` - creates a new user
   - ✅ `defaultContent()` - returns default content
   - ❌ `getUser()` - redundant "get" prefix
   - ❌ `getUserData()` - redundant "get" prefix
+- **Use null instead of undefined**: Always use `null` for absence of value, never `undefined`
+- **Immutable operations**: Use immutable ES6+ operations and es-toolkit/compat functions instead of mutating arrays/objects as side effects
+  - ✅ `const newArray = array.map()` 
+  - ✅ `const newMap = map.reduce()`
+  - ❌ `array.push()` or `map.set()` when avoidable
+- **Functional utilities**: Use es-toolkit/compat functions for comparisons and operations rather than direct primitive or object comparisons
+  - ✅ `equals()` from es-toolkit/compat
+  - ✅ `isEmpty()`, `isArray()`, `isObject()` etc.
+  - ❌ Direct `===` for object comparisons
 
 ### Error Handling
 - **No empty catches**: Never add `catch {}` or `catch (e) {}` blocks without at least one of:

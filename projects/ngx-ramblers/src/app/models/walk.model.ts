@@ -10,7 +10,8 @@ import {
   MetadataDescription,
   PublishStatus,
   RamblersEventSummaryResponse,
-  WalkStatus
+  WalkStatus,
+  WalkLeaderContact
 } from "./ramblers-walks-manager";
 import { HasBasicEventSelection } from "./search.model";
 import { Link } from "./page.model";
@@ -158,7 +159,7 @@ export interface RiskAssessmentRecord {
   riskAssessmentKey: string;
 }
 
-export interface WalkExport {
+export interface WalkExportData {
   displayedWalk: DisplayedWalk;
   validationMessages: string[];
   publishedOnRamblers: boolean;
@@ -172,11 +173,18 @@ export interface WalkExport {
 export interface WalkLeaderIdsApiResponse extends ApiResponse {
   request: any;
   response?: string[];
+  labels?: WalkLeaderLabelRecord[];
+}
+
+export interface WalkLeaderLabelRecord {
+  id: string;
+  label: string;
+  allLabels?: string[];
 }
 
 export interface WalkLeadersApiResponse extends ApiResponse {
   request: any;
-  response?: Contact[];
+  response?: WalkLeaderContact[];
 }
 
 export enum WalkType {
@@ -221,38 +229,116 @@ export enum WalkViewMode {
 
 export const ID = "_id";
 
+export enum DocumentField {
+  ID = "_id",
+  LAST_SYNCED_AT = "lastSyncedAt",
+  RAMBLERS_ID = "ramblersId",
+  SOURCE = "source",
+  SYNCED_VERSION = "syncedVersion"
+}
+
 export enum GroupEventField {
+  ACCESSIBILITY = "groupEvent.accessibility",
+  ADDITIONAL_DETAILS = "groupEvent.additional_details",
+  AREA_CODE = "groupEvent.area_code",
+  ASCENT_FEET = "groupEvent.ascent_feet",
+  ASCENT_METRES = "groupEvent.ascent_metres",
   CANCELLATION_REASON = "groupEvent.cancellation_reason",
   CREATED_BY = "groupEvent.created_by",
+  DATE_CREATED = "groupEvent.date_created",
+  DATE_UPDATED = "groupEvent.date_updated",
   DESCRIPTION = "groupEvent.description",
+  DIFFICULTY = "groupEvent.difficulty",
+  DISTANCE_KM = "groupEvent.distance_km",
+  DISTANCE_MILES = "groupEvent.distance_miles",
+  DURATION = "groupEvent.duration",
+  END_DATE_TIME = "groupEvent.end_date_time",
+  END_LOCATION = "groupEvent.end_location",
+  EVENT_ORGANISER = "groupEvent.event_organiser",
+  EVENT_ORGANISER_ID = "groupEvent.event_organiser.id",
+  EVENT_ORGANISER_NAME = "groupEvent.event_organiser.name",
   EXTERNAL_URL = "groupEvent.external_url",
+  FACILITIES = "groupEvent.facilities",
   GROUP_CODE = "groupEvent.group_code",
   GROUP_NAME = "groupEvent.group_name",
   ID = "groupEvent.id",
   ITEM_TYPE = "groupEvent.item_type",
+  LINKED_EVENT = "groupEvent.linked_event",
+  LOCATION = "groupEvent.location",
   LOCATION_DESCRIPTION = "groupEvent.location.description",
+  LOCATION_POSTCODE = "groupEvent.location.postcode",
   MEDIA = "groupEvent.media",
+  MEETING_DATE_TIME = "groupEvent.meeting_date_time",
+  MEETING_LOCATION = "groupEvent.meeting_location",
+  SHAPE = "groupEvent.shape",
+  START_DATE = "groupEvent.start_date_time",
+  START_LOCATION_COORDINATES = "groupEvent.start_location.coordinates",
+  START_LOCATION_DESCRIPTION = "groupEvent.start_location.description",
   START_LOCATION_LATITUDE = "groupEvent.start_location.latitude",
   START_LOCATION_LONGITUDE = "groupEvent.start_location.longitude",
-  START_DATE = "groupEvent.start_date_time",
+  START_LOCATION_NAME = "groupEvent.start_location.name",
+  START_LOCATION_POSTCODE = "groupEvent.start_location.postcode",
+  START_LOCATION_TOWN = "groupEvent.start_location.town",
   STATUS = "groupEvent.status",
   TITLE = "groupEvent.title",
+  TRANSPORT = "groupEvent.transport",
   URL = "groupEvent.url",
+  WALK_LEADER_EMAIL = "groupEvent.walk_leader.email",
+  WALK_LEADER_ID = "groupEvent.walk_leader.id",
   WALK_LEADER_NAME = "groupEvent.walk_leader.name"
 }
 
 export enum EventField {
   ATTACHMENT = "fields.attachment",
-  LINKS = "fields.links",
+  ATTENDEES = "fields.attendees",
+  CONTACT_DETAILS = "fields.contactDetails",
+  CONTACT_DETAILS_CONTACT_ID = "fields.contactDetails.contactId",
   CONTACT_DETAILS_DISPLAY_NAME = "fields.contactDetails.displayName",
+  CONTACT_DETAILS_EMAIL = "fields.contactDetails.email",
   CONTACT_DETAILS_MEMBER_ID = "fields.contactDetails.memberId",
   CONTACT_DETAILS_PHONE = "fields.contactDetails.phone",
+  GPX_FILE = "fields.gpxFile",
+  GPX_FILE_AWS_FILE_NAME = "fields.gpxFile.awsFileName",
+  IMAGE_CONFIG = "fields.imageConfig",
+  IMAGE_CONFIG_IMPORT_FROM_AREA_CODE = "fields.imageConfig.importFrom.areaCode",
+  IMAGE_CONFIG_IMPORT_FROM_FILTER_PARAMETERS_SELECT_TYPE = "fields.imageConfig.importFrom.filterParameters.selectType",
+  IMAGE_CONFIG_IMPORT_FROM_GROUP_CODE = "fields.imageConfig.importFrom.groupCode",
+  IMAGE_CONFIG_IMPORT_FROM_WALK_ID = "fields.imageConfig.importFrom.walkId",
+  IMAGE_CONFIG_SOURCE = "fields.imageConfig.source",
   INPUT_SOURCE = "fields.inputSource",
+  LINKS = "fields.links",
+  MEETUP = "fields.meetup",
+  MEETUP_ANNOUNCE = "fields.meetup.announce",
+  MEETUP_GUEST_LIMIT = "fields.meetup.guestLimit",
+  MEETUP_PUBLISH_STATUS = "fields.meetup.publishStatus",
   MIGRATED_FROM_ID = "fields.migratedFromId",
+  MILES_PER_HOUR = "fields.milesPerHour",
+  NOTIFICATIONS = "fields.notifications",
+  PUBLISHING = "fields.publishing",
+  PUBLISHING_MEETUP = "fields.publishing.meetup",
+  PUBLISHING_MEETUP_PUBLISH = "fields.publishing.meetup.publish",
+  PUBLISHING_RAMBLERS = "fields.publishing.ramblers",
+  PUBLISHING_RAMBLERS_CONTACT_NAME = "fields.publishing.ramblers.contactName",
+  PUBLISHING_RAMBLERS_PUBLISH = "fields.publishing.ramblers.publish",
+  RISK_ASSESSMENT = "fields.riskAssessment",
+  VENUE = "fields.venue",
+  VENUE_ADDRESS1 = "fields.venue.address1",
+  VENUE_ADDRESS2 = "fields.venue.address2",
+  VENUE_NAME = "fields.venue.name",
+  VENUE_POSTCODE = "fields.venue.postcode",
+  VENUE_PUBLISH = "fields.venue.venuePublish",
+  VENUE_TYPE = "fields.venue.type",
+  VENUE_URL = "fields.venue.url"
 }
 
 export enum EventEventField {
+  DATA = "events.data",
+  DATE = "events.date",
+  DESCRIPTION = "events.description",
   EVENT_TYPE = "events.eventType",
+  MEMBER_ID = "events.memberId",
+  NOTES = "events.notes",
+  REASON = "events.reason"
 }
 
 export enum WalkCopyOption {
@@ -405,4 +491,9 @@ export interface ServerDownloadStatus {
   processId?: number;
   canOverride: boolean;
   lastActivity?: number;
+}
+
+export enum WalkExportTab {
+  WALK_UPLOAD_SELECTION = "walk-upload-selection",
+  WALK_UPLOAD_AUDIT = "walk-upload-audit"
 }

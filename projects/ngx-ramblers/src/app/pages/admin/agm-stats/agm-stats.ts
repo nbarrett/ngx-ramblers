@@ -284,8 +284,8 @@ export class AGMStatsComponent implements OnInit {
   }
 
   private loadFromStorage() {
-    this.fromDate = this.parseDateInput(this.uiActions.initialValueFor(StoredValue.FROM_DATE, this.formatDateForParam(this.fromDate)), this.fromDate);
-    this.toDate = this.parseDateInput(this.uiActions.initialValueFor(StoredValue.TO_DATE, this.formatDateForParam(this.toDate)), this.toDate);
+    this.fromDate = this.parseDateInput(this.uiActions.initialValueFor(StoredValue.DATE_FROM, this.formatDateForParam(this.fromDate)), this.fromDate);
+    this.toDate = this.parseDateInput(this.uiActions.initialValueFor(StoredValue.DATE_TO, this.formatDateForParam(this.toDate)), this.toDate);
     this.chartType = this.resolveChartType(this.uiActions.initialValueFor(StoredValue.CHART_TYPE, this.chartType), this.chartType);
   }
 
@@ -303,12 +303,12 @@ export class AGMStatsComponent implements OnInit {
       } else if (this.preset !== PresetOption.CUSTOM) {
         this.applyPresetDates(this.preset);
       } else {
-        this.fromDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.FROM_DATE)), this.fromDate);
-        this.toDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.TO_DATE)), this.toDate);
+        this.fromDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.DATE_FROM)), this.fromDate);
+        this.toDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.DATE_TO)), this.toDate);
       }
     } else {
-      this.fromDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.FROM_DATE)), this.fromDate);
-      this.toDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.TO_DATE)), this.toDate);
+      this.fromDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.DATE_FROM)), this.fromDate);
+      this.toDate = this.parseDateInput(params.get(this.stringUtils.kebabCase(StoredValue.DATE_TO)), this.toDate);
     }
   }
 
@@ -328,12 +328,12 @@ export class AGMStatsComponent implements OnInit {
   }
 
   private persistState() {
-    this.uiActions.saveValueFor(StoredValue.FROM_DATE, this.formatDateForParam(this.fromDate));
-    this.uiActions.saveValueFor(StoredValue.TO_DATE, this.formatDateForParam(this.toDate));
+    this.uiActions.saveValueFor(StoredValue.DATE_FROM, this.formatDateForParam(this.fromDate));
+    this.uiActions.saveValueFor(StoredValue.DATE_TO, this.formatDateForParam(this.toDate));
     this.uiActions.saveValueFor(StoredValue.CHART_TYPE, this.chartType);
     this.replaceQueryParams({
-      [this.stringUtils.kebabCase(StoredValue.FROM_DATE)]: this.formatDateForParam(this.fromDate),
-      [this.stringUtils.kebabCase(StoredValue.TO_DATE)]: this.formatDateForParam(this.toDate),
+      [this.stringUtils.kebabCase(StoredValue.DATE_FROM)]: this.formatDateForParam(this.fromDate),
+      [this.stringUtils.kebabCase(StoredValue.DATE_TO)]: this.formatDateForParam(this.toDate),
       [this.stringUtils.kebabCase(StoredValue.CHART_TYPE)]: this.chartType,
       [this.stringUtils.kebabCase("preset")]: this.preset
     });

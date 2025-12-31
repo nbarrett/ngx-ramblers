@@ -83,6 +83,7 @@ export interface FirstAndLastName {
 }
 
 export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Auditable, Identifiable {
+  memberId?: string;
   hideSurname?: boolean;
   expiredPassword?: boolean;
   password?: string;

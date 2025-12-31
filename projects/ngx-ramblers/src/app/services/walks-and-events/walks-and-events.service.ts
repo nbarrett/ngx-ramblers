@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Observable } from "rxjs";
+import { firstValueFrom, Observable } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
@@ -10,6 +10,7 @@ import { SystemConfigService } from "../system/system-config.service";
 import { EventQueryParameters, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEvent, ExtendedGroupEventApiResponse } from "../../models/group-event.model";
 import { groupBy } from "es-toolkit/compat";
+import { SearchDateRange } from "../../models/search.model";
 
 @Injectable({
   providedIn: "root"
@@ -74,24 +75,42 @@ export class WalksAndEventsService {
     }
   }
 
-  async queryWalkLeaders(): Promise<string[]> {
+  async dateRange(): Promise<{ minDate: number | null; maxDate: number | null }> {
+    await this.ensureGroupLoaded();
+    return this.localWalksAndEventsService.dateRange();
+  }
+
+  async queryWalkLeaders(range?: SearchDateRange | null): Promise<string[]> {
+    await this.ensureGroupLoaded();
     this.logger.info("queryWalkLeaders:walkPopulation:", this?.group?.walkPopulation);
     switch (this?.group?.walkPopulation) {
       case EventPopulation.HYBRID:
         const ramblers = await this.queryWalkLeaderNames();
-        const local = await this.localWalksAndEventsService.queryWalkLeaders();
+        const local = await this.localWalksAndEventsService.queryWalkLeaders(range);
         return this.removeDuplicates([...ramblers, ...local]);
       case EventPopulation.WALKS_MANAGER:
         return await this.queryWalkLeaderNames();
       case EventPopulation.LOCAL:
-        return this.localWalksAndEventsService.queryWalkLeaders();
+        return this.localWalksAndEventsService.queryWalkLeaders(range);
+      default:
+        return [];
     }
+  }
+
+  leaderLabelMap(): Map<string, string> {
+    return this.localWalksAndEventsService.leaderLabelMap();
+  }
+
+  leaderLabelRecords() {
+    return this.localWalksAndEventsService.leaderLabelRecords();
   }
 
   private async queryWalkLeaderNames() {
     const walkLeaders = await this.ramblersWalksAndEventsService.queryWalkLeaders();
     this.logger.info("queryWalkLeaders:", walkLeaders);
-    return walkLeaders.map(item => item.name);
+    return walkLeaders
+      .map(item => item.id || item.name)
+      .filter(item => !!item);
   }
 
   async createOrUpdate(extendedGroupEvent: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
@@ -187,5 +206,18 @@ export class WalksAndEventsService {
 
   private removeDuplicates(items: string[]): string[] {
     return [...new Set(items)];
+  }
+
+  private async ensureGroupLoaded() {
+    if (this.group) {
+      return;
+    }
+    const cached = this.systemConfigService.systemConfig();
+    if (cached?.group) {
+      this.group = cached.group;
+      return;
+    }
+    const config = await firstValueFrom(this.systemConfigService.events());
+    this.group = config.group;
   }
 }

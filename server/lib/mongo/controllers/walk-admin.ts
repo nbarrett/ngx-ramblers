@@ -3,7 +3,7 @@ import { extendedGroupEvent } from "../models/extended-group-event";
 import { socialEvent } from "../models/social-event";
 import { memberBulkLoadAudit } from "../models/member-bulk-load-audit";
 import { deletedMember } from "../models/deleted-member";
-import { EventField, GroupEventField, EventType } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { EventField, GroupEventField, EventType, EventEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
@@ -167,7 +167,7 @@ export async function bulkUpdateEvents(req: Request, res: Response) {
 export async function recreateIndex(req: Request, res: Response) {
   try {
     debugLog("recreateIndex: starting");
-    const oldIndexFields = ["groupEvent.start_date_time", "groupEvent.item_type", "groupEvent.group_code"];
+    const oldIndexFields = [GroupEventField.START_DATE, GroupEventField.ITEM_TYPE, GroupEventField.GROUP_CODE];
     const indexes = await extendedGroupEvent.collection.indexInformation();
     debugLog("recreateIndex: existing indexes:", JSON.stringify(indexes, null, 2));
 
@@ -293,16 +293,16 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
   const isWalksManager = config.group.walkPopulation === EventPopulation.WALKS_MANAGER;
 
   const leaderIdFields = isWalksManager
-    ? [`$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "$fields.contactDetails.email", `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`]
-    : [`$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "$groupEvent.walk_leader.id", "$fields.contactDetails.email", `$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`];
+    ? [`$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, `$${EventField.CONTACT_DETAILS_EMAIL}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`]
+    : [`$${EventField.CONTACT_DETAILS_MEMBER_ID}`, `$${GroupEventField.WALK_LEADER_ID}`, `$${EventField.CONTACT_DETAILS_EMAIL}`, `$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`];
 
   const leaderNameFields = isWalksManager
     ? [`$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "Unknown"]
-    : [`$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`, `$${GroupEventField.WALK_LEADER_NAME}`, "$groupEvent.walk_leader.id", `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "Unknown"];
+    : [`$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`, `$${GroupEventField.WALK_LEADER_NAME}`, `$${GroupEventField.WALK_LEADER_ID}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "Unknown"];
 
   const leaderEmailFields = isWalksManager
-    ? ["$groupEvent.walk_leader.email", "$fields.contactDetails.email", ""]
-    : ["$fields.contactDetails.email", "$groupEvent.walk_leader.email", ""];
+    ? [`$${GroupEventField.WALK_LEADER_EMAIL}`, `$${EventField.CONTACT_DETAILS_EMAIL}`, ""]
+    : [`$${EventField.CONTACT_DETAILS_EMAIL}`, `$${GroupEventField.WALK_LEADER_EMAIL}`, ""];
 
   const confirmedStatusMatch = isWalksManager
     ? {
@@ -431,7 +431,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
                 $sum: {
                   $cond: [
                     confirmedStatusExpression,
-                    {$ifNull: ["$groupEvent.distance_miles", 0]},
+                    {$ifNull: [`$${GroupEventField.DISTANCE_MILES}`, 0]},
                     0
                   ]
                 }
@@ -440,7 +440,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
                 $sum: {
                   $cond: [
                     confirmedStatusExpression,
-                    {$size: {$ifNull: ["$fields.attendees", []]}},
+                    {$size: {$ifNull: [`$${EventField.ATTENDEES}`, []]}},
                     0
                   ]
                 }
@@ -522,7 +522,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
             email: {$first: {$ifNull: ["$leaderEmail", ""]}},
             walkCount: {$sum: 1},
             totalMiles: {
-                $sum: {$ifNull: ["$groupEvent.distance_miles", 0]}
+                $sum: {$ifNull: [`$${GroupEventField.DISTANCE_MILES}`, 0]}
               },
             firstWalkDate: {$min: `$${GroupEventField.START_DATE}`}
             }
@@ -926,7 +926,7 @@ async function allHistoricalLeaders(beforeDate: number): Promise<Set<string>> {
 
   const leaderIdFields = isWalksManager
     ? [`$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`]
-    : [`$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "$groupEvent.walk_leader.id"];
+    : [`$${EventField.CONTACT_DETAILS_MEMBER_ID}`, `$${GroupEventField.WALK_LEADER_ID}`];
 
   const confirmedStatusMatch = isWalksManager
     ? {
@@ -989,12 +989,12 @@ async function calculateSocialStats(fromDate: number, toDate: number): Promise<S
   debugLog(`calculateSocialStats: isSocialsWalksManager=${isSocialsWalksManager}, fromDate=${dateTimeFromMillis(fromDate).toISO()}, toDate=${dateTimeFromMillis(toDate).toISO()}`);
 
   const organiserNameFields = isSocialsWalksManager
-    ? ["$groupEvent.event_organiser.name", "$fields.contactDetails.displayName", "$fields.contactDetails.memberId"]
-    : ["$fields.contactDetails.displayName", "$groupEvent.event_organiser.name", "$fields.contactDetails.memberId"];
+    ? [`$${GroupEventField.EVENT_ORGANISER_NAME}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`]
+    : [`$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`, `$${GroupEventField.EVENT_ORGANISER_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`];
 
   const organiserIdFields = isSocialsWalksManager
-    ? ["$groupEvent.event_organiser.name", "$fields.contactDetails.memberId", "$fields.contactDetails.displayName"]
-    : ["$fields.contactDetails.memberId", "$groupEvent.event_organiser.id", "$fields.contactDetails.displayName", "$groupEvent.event_organiser.name"];
+    ? [`$${GroupEventField.EVENT_ORGANISER_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`]
+    : [`$${EventField.CONTACT_DETAILS_MEMBER_ID}`, `$${GroupEventField.EVENT_ORGANISER_ID}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`, `$${GroupEventField.EVENT_ORGANISER_NAME}`];
 
   const socialPipeline: PipelineStage[] = [
     {

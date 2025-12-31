@@ -85,7 +85,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
               <tab heading="Member Selection">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   @if (loadingBulkLoadData) {
-                    <div class="alert alert-info">
+                    <div class="alert alert-warning">
                       <fa-icon [icon]="spinnerIcon" [spin]="true"></fa-icon>
                       Loading member bulk load history...
                     </div>

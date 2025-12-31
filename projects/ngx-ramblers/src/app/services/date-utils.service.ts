@@ -314,4 +314,20 @@ export class DateUtilsService {
     }
   }
 
+  daysOfWeek(): string[] {
+    const startOfWeek = this.dateTimeNow().startOf("week");
+    return range(0, 7).map(offset => startOfWeek.plus({days: offset}).toFormat("cccc"));
+  }
+
+  mongoDayOfWeekFromName(dayName: string): number | null {
+    if (!dayName) {
+      return null;
+    }
+    const parsed = DateTime.fromFormat(dayName.trim(), "cccc");
+    if (!parsed?.isValid) {
+      return null;
+    }
+    return (parsed.weekday % 7) + 1;
+  }
+
 }

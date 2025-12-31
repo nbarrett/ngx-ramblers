@@ -8,7 +8,7 @@ import { StringUtilsService } from "../string-utils.service";
 import { GroupEventService } from "./group-event.service";
 import { createExtendedGroupEvent } from "../../pages/walks/walk-display.service.spec";
 import { DateUtilsService } from "../date-utils.service";
-import { EventType } from "../../models/walk.model";
+import { EventType, GroupEventField } from "../../models/walk.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { WalksConfigService } from "../system/walks-config.service";
 
@@ -93,6 +93,6 @@ describe("GroupEventService", () => {
     currentWalk.groupEvent.start_date_time = "2025-11-02T00:00:00+00:00";
     currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
     const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
-    expect(audit.changedItems.find(item => item.fieldName === "groupEvent.start_date_time")).toBeUndefined();
+    expect(audit.changedItems.find(item => item.fieldName === GroupEventField.START_DATE)).toBeUndefined();
   });
 });

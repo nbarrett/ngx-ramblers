@@ -17,7 +17,7 @@ import {
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage } from "../models/alert-target.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
-import { toKebabCase } from "../functions/strings";
+import { booleanOf as sharedBooleanOf, toKebabCase } from "../functions/strings";
 import he from "he";
 
 @Injectable({
@@ -43,7 +43,7 @@ StringUtilsService {
   }
 
   asBoolean(val: any): boolean {
-    return val === true || ["true", "yes"].includes(val?.toString().toLowerCase());
+    return sharedBooleanOf(val);
   }
 
   noValueFor(dataValue: any): boolean {

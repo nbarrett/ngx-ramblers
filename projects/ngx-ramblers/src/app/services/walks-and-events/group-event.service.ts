@@ -1,13 +1,15 @@
-import { cloneDeep } from "es-toolkit/compat";
-import { compact } from "es-toolkit/compat";
-import { get } from "es-toolkit/compat";
-import { isArray } from "es-toolkit/compat";
-import { isNull } from "es-toolkit/compat";
-import { isObject } from "es-toolkit/compat";
-import { isString } from "es-toolkit/compat";
-import { isUndefined } from "es-toolkit/compat";
-import { pick } from "es-toolkit/compat";
-import { take } from "es-toolkit/compat";
+import {
+  cloneDeep,
+  compact,
+  get,
+  isArray,
+  isNull,
+  isObject,
+  isString,
+  isUndefined,
+  pick,
+  take
+} from "es-toolkit/compat";
 import { AUDITED_FIELDS, WalkEvent } from "../../models/walk-event.model";
 import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-items.pipe";
 import { ChangedItem } from "../../models/changed-item.model";
@@ -18,7 +20,6 @@ import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { StringUtilsService } from "../string-utils.service";
 import { WalkDataAudit } from "../../models/walk-data-audit.model";
 import { WalksReferenceService } from "../walks/walks-reference-data.service";
 import { inject, Injectable } from "@angular/core";
@@ -33,7 +34,6 @@ export class GroupEventService {
   private memberLoginService = inject(MemberLoginService);
   private dateUtils = inject(DateUtilsService);
   private walksReferenceService = inject(WalksReferenceService);
-  private stringUtils = inject(StringUtilsService);
   private auditDeltaChangedItems = inject(AuditDeltaChangedItemsPipePipe);
 
   public latestEventWithStatusChange(extendedGroupEvent: ExtendedGroupEvent): WalkEvent {
