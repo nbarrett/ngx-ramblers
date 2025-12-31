@@ -4,25 +4,18 @@ import { BaseChartDirective } from "ng2-charts";
 import { ChartConfiguration } from "chart.js";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgxLoggerLevel } from "ngx-logger";
-import { AGMSummaryTableComponent, ChangeClassFn, GetYearLabelFn, SortedRowsFn, SortIconFn, SummaryRow, ToggleSortFn } from "./agm-summary-table";
+import { AGMSummaryTableComponent } from "./agm-summary-table";
+import {
+  ChangeClassFn,
+  GetYearLabelFn,
+  SortedRowsFn,
+  SortIconFn,
+  SummaryRow,
+  ToggleSortFn,
+  SocialRow
+} from "../../../models/agm-stats.model";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
-
-export interface SocialRow {
-  date: number;
-  description: string;
-  organiserName?: string;
-  id?: string;
-  link?: string;
-  groupEvent?: {
-    url?: string;
-    external_url?: string;
-    title?: string;
-    description?: string;
-    item_type?: string;
-    id?: string;
-  };
-}
 
 @Component({
   selector: "[app-agm-socials-tab]",

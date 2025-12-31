@@ -73,3 +73,9 @@ export function humaniseFileStemFromUrl(input: string): string {
 export function booleanOf(value: string | boolean) {
   return isBoolean(value) ? value : (["true", "false"].includes(value)) ? value === "true" : false;
 }
+
+export function hasFileExtension(fileName: string, extension: string): boolean {
+  if (!fileName) return false;
+  const normalizedExtension = extension.startsWith(".") ? extension : `.${extension}`;
+  return fileName.toLowerCase().endsWith(normalizedExtension.toLowerCase());
+}

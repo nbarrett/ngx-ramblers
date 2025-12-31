@@ -22,6 +22,7 @@ export interface ServerFileNameData {
   rootFolder: string;
   originalFileName: string;
   awsFileName: string;
+  title?: string;
 }
 
 export interface UploadedFile {

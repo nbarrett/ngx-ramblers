@@ -29,6 +29,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
            [class]="this.imageConfig.class"
            [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
            [walkStatus]="displayedWalk.walk?.groupEvent?.status"
+           [gpxFile]="displayedWalk.walk?.fields?.gpxFile"
            [notify]="notify"></div>
     }
     @if (display.displayImage(displayedWalk.walk)) {

@@ -3,37 +3,21 @@ import { AfterViewInit, Component, inject, Input, TemplateRef } from "@angular/c
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
+import { AGMSummaryTableComponent } from "./agm-summary-table";
 import {
-  AGMSummaryTableComponent,
   ChangeClassFn,
   GetYearLabelFn,
   SortedRowsFn,
   SortIconFn,
   SummaryRow,
-  ToggleSortFn
-} from "./agm-summary-table";
+  ToggleSortFn,
+  PayeeRow,
+  ExpenseYearStats
+} from "../../../models/agm-stats.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { UnpaidExpenseItem } from "../../../models/group-event.model";
-
-export interface PayeeRow {
-  id: string;
-  name: string;
-  totalCost: number;
-  totalItems: number;
-  claimCount: number;
-  items: Array<{description: string; cost: number; paidDate: number | null}>;
-}
-
-export interface ExpenseYearStats {
-  year: number;
-  periodFrom: number;
-  periodTo: number;
-  expenses: {
-    payees: PayeeRow[];
-  };
-}
 
 @Component({
   selector: "[app-agm-expenses-tab]",

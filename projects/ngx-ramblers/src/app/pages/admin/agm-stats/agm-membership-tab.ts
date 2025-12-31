@@ -4,15 +4,15 @@ import { BaseChartDirective } from "ng2-charts";
 import { ChartConfiguration } from "chart.js";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgxLoggerLevel } from "ngx-logger";
+import { AGMSummaryTableComponent } from "./agm-summary-table";
 import {
-  AGMSummaryTableComponent,
   ChangeClassFn,
   GetYearLabelFn,
   SortedRowsFn,
   SortIconFn,
   SummaryRow,
   ToggleSortFn
-} from "./agm-summary-table";
+} from "../../../models/agm-stats.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 
 @Component({

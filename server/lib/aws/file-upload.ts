@@ -9,10 +9,10 @@ import {
   UploadedFile
 } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { envConfig } from "../env-config/env-config";
-import { generateUid, uidFormat } from "../shared/string-utils";
+import { hasFileExtension } from "../shared/string-utils";
 import * as aws from "./aws-controllers";
 import debug from "debug";
-import { extensionFrom, isAwsUploadErrorResponse } from "./aws-utils";
+import { generateAwsFileName, createFileNameData, isAwsUploadErrorResponse } from "./aws-utils";
 import { Request, Response } from "express";
 import * as fs from "fs";
 import proj4 from "proj4";
@@ -76,16 +76,9 @@ function uploadFile(req: Request, res: Response) {
   }
 
   function generateFileNameData(uploadedFile: UploadedFile): ServerFileNameData {
-    const parsedPath = path.parse(uploadedFile.originalname);
-    const name = parsedPath.name;
-    const alreadyGuid = name.length === uidFormat.length;
-    const awsFileName = alreadyGuid ? uploadedFile.originalname : generateUid() + extensionFrom(uploadedFile.originalname);
-    debugLog("generateFileNameData:uploadedFile:", uploadedFile, "name:", name, "alreadyGuid:", alreadyGuid, "awsFileName:", awsFileName);
-    return {
-      rootFolder,
-      originalFileName: uploadedFile.originalname,
-      awsFileName
-    };
+    const awsFileName = generateAwsFileName(uploadedFile.originalname);
+    debugLog("generateFileNameData:uploadedFile:", uploadedFile, "awsFileName:", awsFileName);
+    return createFileNameData(rootFolder, uploadedFile.originalname, awsFileName);
   }
 
   function logWithStatus(status: AuditStatus, fileUploadResponseData: AwsFileUploadResponseData, ...argumentsData: any[]) {
@@ -105,7 +98,7 @@ function uploadFile(req: Request, res: Response) {
 
 async function normalizeGpxIfNeeded(uploadedFile: UploadedFile, rootFolder: string): Promise<boolean> {
   const fileName = uploadedFile?.originalname || "";
-  if (!fileName.toLowerCase().endsWith(".gpx")) {
+  if (!hasFileExtension(fileName, ".gpx")) {
     debugLog("normalizeGpxIfNeeded: skipping non-gpx file", fileName);
     return false;
   } else if (rootFolder && rootFolder !== RootFolder.gpxRoutes) {

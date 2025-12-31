@@ -105,6 +105,7 @@ const fields = new Schema({
   riskAssessment: [riskAssessmentRecord],
   venue: walkVenue,
   inputSource: {type: String},
+  gpxFile: fileNameData
 }, {_id: false});
 
 const extendedGroupEventSchema = new Schema({

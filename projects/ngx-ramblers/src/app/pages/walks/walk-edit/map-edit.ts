@@ -1,8 +1,8 @@
-import { Component, EventEmitter, inject, Input, NgZone, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from "@angular/core";
 import * as L from "leaflet";
 import { LatLng, LatLngBounds, Layer, LeafletEvent } from "leaflet";
 import "proj4leaflet";
-import { Subscription } from "rxjs";
+import { firstValueFrom, Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -21,6 +21,12 @@ import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.service";
+import { GpxParserService } from "../../../services/maps/gpx-parser.service";
+import { UrlService } from "../../../services/url.service";
+import { HttpClient } from "@angular/common/http";
+import { FileNameData } from "../../../models/aws-object.model";
+import { PaletteColor } from "../../../models/content-text.model";
+import { MapZoomService } from "../../../services/maps/map-zoom.service";
 
 @Component({
     selector: "[app-map-edit]",
@@ -40,7 +46,7 @@ import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.s
     `],
     imports: [LeafletModule]
 })
-export class MapEditComponent implements OnInit, OnDestroy {
+export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   protected id: string;
   public readonly = false;
 
@@ -67,6 +73,7 @@ export class MapEditComponent implements OnInit, OnDestroy {
   @Input() walkStatus?: WalkStatus;
   @Input() endLocationDetails: LocationDetails | null = null;
   @Input() showCombinedMap = false;
+  @Input() gpxFile: FileNameData;
   @Output() postcodeOptionsChange = new EventEmitter<{ postcode: string, distance: number }[]>();
   @Output() showPostcodeSelectChange = new EventEmitter<boolean>();
   public locationDetails: LocationDetails;
@@ -88,6 +95,11 @@ export class MapEditComponent implements OnInit, OnDestroy {
   private systemConfigService = inject(SystemConfigService);
   private mapTiles = inject(MapTilesService);
   private markerStyle = inject(MapMarkerStyleService);
+  private gpxParser = inject(GpxParserService);
+  private httpClient = inject(HttpClient);
+  private urlService = inject(UrlService);
+  private mapZoom = inject(MapZoomService);
+  private gpxLayers: L.Layer[] = [];
 
   async ngOnInit() {
     this.initializeSubscriptions();
@@ -98,6 +110,20 @@ export class MapEditComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.logger.info("ngOnDestroy fired:map:", this.map);
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes["gpxFile"] && !changes["gpxFile"].firstChange) {
+      this.gpxLayers.forEach(layer => {
+        const index = this.layers.indexOf(layer);
+        if (index > -1) this.layers.splice(index, 1);
+      });
+      this.gpxLayers = [];
+
+      if (this.gpxFile) {
+        this.loadAndRenderGpxRoute();
+      }
+    }
   }
 
   private initializeSubscriptions() {
@@ -202,6 +228,11 @@ export class MapEditComponent implements OnInit, OnDestroy {
     }
 
     this.fitBounds = bounds as any;
+
+    if (this.gpxFile?.awsFileName) {
+      this.loadAndRenderGpxRoute();
+    }
+
     this.logger.info("Map configured with options:", this.options, "layers:", this.layers, "fitBounds:", this.fitBounds);
   }
 
@@ -209,6 +240,57 @@ export class MapEditComponent implements OnInit, OnDestroy {
     return this.mapTiles.hasOsApiKey();
   }
 
+  private async loadAndRenderGpxRoute() {
+    if (!this.gpxFile?.awsFileName) return;
+
+    try {
+      const gpxUrl = this.urlService.resourceRelativePathForAWSFileName(
+        `gpx-routes/${this.gpxFile.awsFileName}`
+      );
+
+      const gpxContent = await firstValueFrom(
+        this.httpClient.get(gpxUrl, { responseType: "text" })
+      );
+
+      const parsed = this.gpxParser.parseGpxFile(gpxContent);
+
+      if (parsed.tracks.length > 0) {
+        const track = parsed.tracks[0];
+        const latLngs = this.gpxParser.toLeafletLatLngs(track);
+
+        if (latLngs.length >= 2) {
+          const routeColor = PaletteColor.ROSE;
+          const coreWeight = 8;
+          const haloWeight = 12;
+          const coreOpacity = 0.8;
+          const haloOpacity = 0.5;
+
+          const halo = L.polyline(latLngs, {
+            color: "#ffffff",
+            weight: haloWeight,
+            opacity: haloOpacity
+          });
+
+          const core = L.polyline(latLngs, {
+            color: routeColor,
+            weight: coreWeight,
+            opacity: coreOpacity
+          });
+
+          this.gpxLayers = [halo, core];
+          this.layers.push(...this.gpxLayers);
+
+          this.fitBounds = this.mapZoom.calculateBoundsFromLayers(this.gpxLayers, { paddingPercent: 0.15 });
+
+          if (this.map && this.fitBounds) {
+            this.mapZoom.invalidateAndApplyBounds(this.map, this.fitBounds, { maxZoom: 15 });
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error("Failed to load GPX route:", error);
+    }
+  }
 
   mapReady(): boolean {
     return !!(this.options && this.layers);
@@ -230,17 +312,19 @@ export class MapEditComponent implements OnInit, OnDestroy {
         });
       });
       this.logger.info("Map ready:", map, "detectChanges called");
-      try {
-        if (this.fitBounds) {
-          map.fitBounds(this.fitBounds, { padding: [50, 50] });
-        } else {
-          const { latitude, longitude } = this.locationDetails;
-          const current = map.getZoom() || 15;
-          const clamped = Math.min(current, map.getMaxZoom());
-          const oneOut = Math.max(1, clamped - 1);
-          map.setView(L.latLng(latitude, longitude), oneOut);
+
+      setTimeout(() => {
+        map.invalidateSize();
+        if (!this.gpxFile?.awsFileName) {
+          if (this.fitBounds) {
+            this.mapZoom.applyBoundsToMap(map, this.fitBounds, { maxZoom: 15 });
+          } else {
+            const { latitude, longitude } = this.locationDetails;
+            const zoom = this.mapZoom.calculateSinglePointZoom(map, { defaultZoom: 15, mapMaxZoom: map.getMaxZoom() });
+            map.setView(L.latLng(latitude, longitude), zoom);
+          }
         }
-      } catch {}
+      }, 100);
     }
 
   }
@@ -326,8 +410,8 @@ export class MapEditComponent implements OnInit, OnDestroy {
 
   invalidateSize() {
     if (this.map) {
-      this.logger.info("Invalidating map size");
-      this.map.invalidateSize();
+      this.logger.info("Invalidating map size and reapplying bounds");
+      this.mapZoom.invalidateAndApplyBounds(this.map, this.fitBounds, { maxZoom: 15 });
     }
   }
 }

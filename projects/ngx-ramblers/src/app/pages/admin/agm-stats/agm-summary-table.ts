@@ -1,25 +1,14 @@
 import { CommonModule } from "@angular/common";
 import { Component, Input } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
-
-export interface SummaryRow {
-  metric: string;
-  order?: number;
-  values?: Array<number | string>;
-  displayValues?: Array<number | string>;
-  totalForPeriod?: number;
-  current: number;
-  previous: number;
-  changeDisplay: string;
-  changeValue: number;
-}
-
-export type SortedRowsFn = <T>(rows: T[], key: string) => T[];
-export type ToggleSortFn = (listKey: string, column: string) => void;
-export type SortIconFn = (listKey: string, column: string) => IconDefinition | null;
-export type ChangeClassFn = (current: number, previous: number) => string;
-export type GetYearLabelFn = (periodLabel: string) => string;
+import {
+  SummaryRow,
+  SortedRowsFn,
+  ToggleSortFn,
+  SortIconFn,
+  ChangeClassFn,
+  GetYearLabelFn
+} from "../../../models/agm-stats.model";
 
 @Component({
   selector: "[app-agm-summary-table]",

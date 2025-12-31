@@ -13,6 +13,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
+import { FileNameData } from "../../../models/aws-object.model";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -157,6 +158,7 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
               [locationDetails]="locationDetails"
               [endLocationDetails]="endLocationDetails"
               [showCombinedMap]="showCombinedMap"
+              [gpxFile]="gpxFile"
               [notify]="notify"
               (postcodeOptionsChange)="handlePostcodeOptions($event)"
               (showPostcodeSelectChange)="showPostcodeSelect = $event">
@@ -200,6 +202,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   }
   @Input() endLocationDetails: LocationDetails | null = null;
   @Input() showCombinedMap = false;
+  @Input() gpxFile: FileNameData;
 
   public showLeafletView = false;
   public disabled: boolean;
