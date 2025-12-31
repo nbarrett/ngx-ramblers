@@ -25,7 +25,7 @@ export function replaceAll(find: string, replace: string, str: string): string |
 }
 
 export function asBoolean(val: any): boolean {
-  return val === true || ["true", "yes"].includes(val?.toString().toLowerCase());
+  return booleanOf(val);
 }
 
 export function tail<T>(results: T[]) {
@@ -70,8 +70,17 @@ export function humaniseFileStemFromUrl(input: string): string {
   }
 }
 
-export function booleanOf(value: string | boolean) {
-  return isBoolean(value) ? value : (["true", "false"].includes(value)) ? value === "true" : false;
+export function booleanOf(value: any, fallback: boolean = false): boolean {
+  const normalized = (value == null ? "" : value.toString()).trim().toLowerCase();
+  if (isBoolean(value)) {
+    return value;
+  } else if (["true", "1", "yes"].includes(normalized)) {
+    return true;
+  } else if (["false", "0", "no"].includes(normalized)) {
+    return false;
+  } else {
+    return fallback;
+  }
 }
 
 export function hasFileExtension(fileName: string, extension: string): boolean {

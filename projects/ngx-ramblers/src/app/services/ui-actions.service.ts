@@ -1,8 +1,9 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { isBoolean, isObject, isString } from "es-toolkit/compat";
+import { isObject, isString } from "es-toolkit/compat";
 import { StoredValue } from "../models/ui-actions";
 import { Logger, LoggerFactory } from "./logger-factory.service";
+import { booleanOf as sharedBooleanOf } from "../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -56,15 +57,8 @@ export class UiActionsService {
     }
   }
 
-  booleanOf(value: any, fallback: boolean = false) {
-    const normalized = (value == null ? "" : value.toString()).trim().toLowerCase();
-    const resolved = isBoolean(value)
-      ? value
-      : ["true", "1", "yes"].includes(normalized)
-        ? true
-        : ["false", "0", "no"].includes(normalized)
-          ? false
-          : fallback;
+  booleanOf(value: any, fallback: boolean = false): boolean {
+    const resolved = sharedBooleanOf(value, fallback);
     this.logger.debug("booleanOf:value:", value, typeof value, "returning:", resolved);
     return resolved;
   }

@@ -303,7 +303,7 @@ import { isObject, isUndefined } from "es-toolkit/compat";
                                 <div class="row">
                                   <div class="col-sm-12 p-2">
                                     @if ((column.content.type === '' || !column.content.type) && !column.nestedRows && (!column.rows || column.rows.length === 0)) {
-                                      <div class="alert alert-info p-1 mb-2">
+                                      <div class="alert alert-warning p-1 mb-2">
                                         <small>Choose a nested rows configuration below</small>
                                       </div>
                                     }
@@ -806,7 +806,7 @@ import { isObject, isUndefined } from "es-toolkit/compat";
                                [(ngModel)]="step.indexPageConfig.title">
                       </div>
                     </div>
-                    <div class="alert alert-info p-2 mb-2">
+                    <div class="alert alert-warning p-2 mb-2">
                       <small>Use ADD_INDEX_ROW configuration below to configure the index display</small>
                     </div>
                   </div>

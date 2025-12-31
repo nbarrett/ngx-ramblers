@@ -25,8 +25,8 @@ import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-g
     },
     {
       path: "admin/export",
-      loadComponent: () => import("../../pages/walks/walk-export/walk-export.component")
-        .then(m => m.WalkExportComponent),
+      loadComponent: () => import("../../pages/walks/walk-export/walk-export")
+        .then(m => m.WalkExport),
       canActivate: [WalksAuthGuard]
     },
     {

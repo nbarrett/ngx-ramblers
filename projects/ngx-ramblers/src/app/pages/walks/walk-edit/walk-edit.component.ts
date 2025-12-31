@@ -14,7 +14,7 @@ import { MEETUP_API_AVAILABLE, MeetupConfig } from "../../../models/meetup-confi
 import { Member } from "../../../models/member.model";
 import { ConfirmType, StoredValue, WalkEditTab } from "../../../models/ui-actions";
 import { WalkEventType } from "../../../models/walk-event-type.model";
-import { DisplayedWalk, EventType, INITIALISED_LOCATION, WalkExport, WalkViewMode } from "../../../models/walk.model";
+import { DisplayedWalk, EventType, INITIALISED_LOCATION, WalkExportData, WalkViewMode } from "../../../models/walk.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { ConfigService } from "../../../services/config.service";
@@ -578,7 +578,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.googleMapsUrl = this.display.googleMapsUrl(false, this.displayedWalk?.walk?.groupEvent?.start_location?.postcode, this.displayedWalk?.walk?.groupEvent?.start_location?.postcode);
   }
 
-  validateWalk(): WalkExport {
+  validateWalk(): WalkExportData {
     return this.ramblersWalksAndEventsService.toWalkExport({localWalk: this.displayedWalk.walk, ramblersWalk: null});
   }
 

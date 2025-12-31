@@ -5,7 +5,7 @@ import {
   GridReferenceLookupApiResponse,
   GridReferenceLookupResponse
 } from "../../../../../projects/ngx-ramblers/src/app/models/address-model";
-import { GroupEventField } from "../../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { GroupEventField, EventField } from "../../../../../projects/ngx-ramblers/src/app/models/walk.model";
 
 const debugLog = createMigrationLogger("enrich-migrated-walk-locations");
 
@@ -28,8 +28,8 @@ export async function up(db: Db, client: MongoClient) {
   const collection = db.collection("extendedgroupevents");
 
   const criteria = {
-    "fields.migratedFromId": {$exists: true},
-    "groupEvent.item_type": "group-walk",
+    [EventField.MIGRATED_FROM_ID]: {$exists: true},
+    [GroupEventField.ITEM_TYPE]: "group-walk",
     $and: [
       {
         $or: [
@@ -46,7 +46,7 @@ export async function up(db: Db, client: MongoClient) {
         ]
       }
     ],
-    "groupEvent.start_location.postcode": {$ne: null}
+    [GroupEventField.START_LOCATION_POSTCODE]: {$ne: null}
   };
 
   const total = await collection.countDocuments(criteria);
@@ -56,7 +56,7 @@ export async function up(db: Db, client: MongoClient) {
     return;
   }
 
-  const cursor = collection.find(criteria, {projection: {"groupEvent.start_location.postcode": 1}}).batchSize(50);
+  const cursor = collection.find(criteria, {projection: {[GroupEventField.START_LOCATION_POSTCODE]: 1}}).batchSize(50);
 
   let processed = 0;
   let updated = 0;

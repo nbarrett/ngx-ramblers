@@ -6,275 +6,269 @@ import { NgxLoggerLevel } from "ngx-logger";
 // Vendored code from geodesy by Chris Veness (MIT Licence)
 // https://www.movable-type.co.uk/scripts/geodesy-library.html
 
-namespace Geodesy {
+let dmsSeparator = "\u202f";
 
-  let dmsSeparator = '\u202f';
-
-  export class Dms {
-    static get separator() {
-      return dmsSeparator;
-    }
-
-    static set separator(char) {
-      dmsSeparator = char;
-    }
-
-    static parse(dms: any) {
-      if (!isNaN(parseFloat(dms)) && isFinite(dms)) return Number(dms);
-      const dmsParts = String(dms).trim().replace(/^-/, '').replace(/[NSEW]$/i, '').split(/[^0-9.,]+/);
-      if (dmsParts[dmsParts.length - 1] == '') dmsParts.splice(dmsParts.length - 1);
-      if (dmsParts.length === 0) return NaN;
-      let deg: any = null;
-      switch (dmsParts.length) {
-        case 3:
-          deg = Number(dmsParts[0]) + Number(dmsParts[1]) / 60 + Number(dmsParts[2]) / 3600;
-          break;
-        case 2:
-          deg = Number(dmsParts[0]) + Number(dmsParts[1]) / 60;
-          break;
-        case 1:
-          deg = Number(dmsParts[0]);
-          break;
-        default:
-          return NaN;
-      }
-      if (/^-|[WS]$/i.test(String(dms).trim())) deg = -deg;
-      return Number(deg);
-    }
-
-    static wrap90(degrees: number) {
-      if (-90 <= degrees && degrees <= 90) return degrees;
-      const x = degrees, a = 90, p = 360;
-      return 4 * a / p * Math.abs((((x - p / 4) % p) + p) % p - p / 2) - a;
-    }
-
-    static wrap180(degrees: number) {
-      if (-180 <= degrees && degrees <= 180) return degrees;
-      const x = degrees, a = 180, p = 360;
-      return (((2 * a * x / p - p / 2) % p) + p) % p - a;
-    }
+class Dms {
+  static get separator() {
+    return dmsSeparator;
   }
 
-  function toRadians(degrees: number) {
-    return degrees * Math.PI / 180;
+  static set separator(char) {
+    dmsSeparator = char;
   }
 
-  export class Vector3d {
-    x: number;
-    y: number;
-    z: number;
-
-    constructor(x: number, y: number, z: number) {
-      if (isNaN(x) || isNaN(y) || isNaN(z)) throw new TypeError(`invalid vector [${x},${y},${z}]`);
-      this.x = Number(x);
-      this.y = Number(y);
-      this.z = Number(z);
+  static parse(dms: any) {
+    if (!isNaN(parseFloat(dms)) && isFinite(dms)) return Number(dms);
+    const dmsParts = String(dms).trim().replace(/^-/, "").replace(/[NSEW]$/i, "").split(/[^0-9.,]+/);
+    if (dmsParts[dmsParts.length - 1] === "") dmsParts.splice(dmsParts.length - 1);
+    if (dmsParts.length === 0) return NaN;
+    let deg: any = null;
+    switch (dmsParts.length) {
+      case 3:
+        deg = Number(dmsParts[0]) + Number(dmsParts[1]) / 60 + Number(dmsParts[2]) / 3600;
+        break;
+      case 2:
+        deg = Number(dmsParts[0]) + Number(dmsParts[1]) / 60;
+        break;
+      case 1:
+        deg = Number(dmsParts[0]);
+        break;
+      default:
+        return NaN;
     }
-
-    get length() {
-      return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
-    }
-
-    plus(v: Vector3d) {
-      if (!(v instanceof Vector3d)) throw new TypeError('v is not Vector3d object');
-      return new Vector3d(this.x + v.x, this.y + v.y, this.z + v.z);
-    }
-
-    minus(v: Vector3d) {
-      if (!(v instanceof Vector3d)) throw new TypeError('v is not Vector3d object');
-      return new Vector3d(this.x - v.x, this.y - v.y, this.z - v.z);
-    }
-
-    times(x: number) {
-      if (isNaN(x)) throw new TypeError(`invalid scalar value ‘${x}’`);
-      return new Vector3d(this.x * x, this.y * x, this.z * x);
-    }
-
-    dot(v: Vector3d) {
-      if (!(v instanceof Vector3d)) throw new TypeError('v is not Vector3d object');
-      return this.x * v.x + this.y * v.y + this.z * v.z;
-    }
-
-    cross(v: Vector3d) {
-      if (!(v instanceof Vector3d)) throw new TypeError('v is not Vector3d object');
-      const x = this.y * v.z - this.z * v.y;
-      const y = this.z * v.x - this.x * v.z;
-      const z = this.x * v.y - this.y * v.x;
-      return new Vector3d(x, y, z);
-    }
-
-    unit() {
-      const norm = this.length;
-      if (norm == 1) return this;
-      if (norm == 0) return this;
-      const x = this.x / norm;
-      const y = this.y / norm;
-      const z = this.z / norm;
-      return new Vector3d(x, y, z);
-    }
+    if (/^-|[WS]$/i.test(String(dms).trim())) deg = -deg;
+    return Number(deg);
   }
 
-  const ellipsoids = {
-    WGS84: {a: 6378137, b: 6356752.314245, f: 1 / 298.257223563},
-    Airy1830: {a: 6377563.396, b: 6356256.909, f: 1 / 299.3249646},
-  };
-
-  export const datums = {
-    OSGB36: {
-      ellipsoid: ellipsoids.Airy1830,
-      transform: [-446.448, 125.157, -542.060, 20.4894, -0.1502, -0.2470, -0.8421]
-    },
-    WGS84: {ellipsoid: ellipsoids.WGS84, transform: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]},
-  };
-
-  export class Cartesian extends Vector3d {
-    constructor(x: number, y: number, z: number) {
-      super(x, y, z);
-    }
-
-    toLatLon(ellipsoid = ellipsoids.WGS84): LatLonEllipsoidal_Datum {
-      if (!ellipsoid || !ellipsoid.a) throw new TypeError(`invalid ellipsoid ‘${ellipsoid}’`);
-      const {x, y, z} = this;
-      const {a, b, f} = ellipsoid;
-      const e2 = 2 * f - f * f;
-      const ε2 = e2 / (1 - e2);
-      const p = Math.sqrt(x * x + y * y);
-      const R = Math.sqrt(p * p + z * z);
-      const tanβ = (b * z) / (a * p) * (1 + ε2 * b / R);
-      const sinβ = tanβ / Math.sqrt(1 + tanβ * tanβ);
-      const cosβ = sinβ / tanβ;
-      const φ = isNaN(cosβ) ? 0 : Math.atan2(z + ε2 * b * sinβ * sinβ * sinβ, p - e2 * a * cosβ * cosβ * cosβ);
-      const λ = Math.atan2(y, x);
-      const sinφ = Math.sin(φ);
-      const ν = a / Math.sqrt(1 - e2 * sinφ * sinφ);
-      const h = p * Math.cos(φ) + z * sinφ - (a * a / ν);
-      return new LatLonEllipsoidal_Datum(φ * 180 / Math.PI, λ * 180 / Math.PI, h);
-    }
+  static wrap90(degrees: number) {
+    if (degrees >= -90 && degrees <= 90) return degrees;
+    const a = 90;
+    const p = 360;
+    return (4 * a / p) * Math.abs((((degrees - p / 4) % p) + p) % p - p / 2) - a;
   }
 
-  export class Cartesian_Datum extends Cartesian {
-    _datum: any;
+  static wrap180(degrees: number) {
+    if (degrees >= -180 && degrees <= 180) return degrees;
+    const a = 180;
+    const p = 360;
+    return (((2 * a * degrees / p - p / 2) % p) + p) % p - a;
+  }
+}
 
-    constructor(x: number, y: number, z: number, datum: any = undefined) {
-      super(x, y, z);
-      if (datum) this._datum = datum;
-    }
+function toRadians(degrees: number) {
+  return degrees * Math.PI / 180;
+}
 
-    get datum() {
-      return this._datum;
-    }
+class Vector3d {
+  x: number;
+  y: number;
+  z: number;
 
-    toLatLon(deprecatedDatum: any = undefined): LatLonEllipsoidal_Datum {
-      if (deprecatedDatum) this._datum = deprecatedDatum;
-      const datum = this.datum || datums.WGS84;
-      const latLon = super.toLatLon(datum.ellipsoid);
-      return new LatLonEllipsoidal_Datum(latLon.lat, latLon.lon, latLon.height, this.datum);
-    }
-
-    convertDatum(toDatum: any) {
-      if (!toDatum || toDatum.ellipsoid == undefined) throw new TypeError(`unrecognised datum ‘${toDatum}’`);
-      if (!this.datum) throw new TypeError('cartesian coordinate has no datum');
-
-      let oldCartesian: Cartesian_Datum | null = null;
-      let transform: number[] | null = null;
-
-      if (this.datum == datums.WGS84) {
-        oldCartesian = this;
-        transform = toDatum.transform;
-      }
-      if (toDatum == datums.WGS84) {
-        oldCartesian = this;
-        transform = this.datum.transform.map((p: number) => -p);
-      }
-      if (transform == null) {
-        oldCartesian = this.convertDatum(datums.WGS84);
-        transform = toDatum.transform;
-      }
-
-      const newCartesian = oldCartesian.applyTransform(transform);
-      newCartesian._datum = toDatum;
-
-      return newCartesian;
-    }
-
-    applyTransform(t: number[]) {
-      const {x: x1, y: y1, z: z1} = this;
-      const tx = t[0];
-      const ty = t[1];
-      const tz = t[2];
-      const s = t[3] / 1e6 + 1;
-      const rx = toRadians(t[4] / 3600);
-      const ry = toRadians(t[5] / 3600);
-      const rz = toRadians(t[6] / 3600);
-      const x2 = tx + x1 * s - y1 * rz + z1 * ry;
-      const y2 = ty + x1 * rz + y1 * s - z1 * rx;
-      const z2 = tz - x1 * ry + y1 * rx + z1 * s;
-      return new Cartesian_Datum(x2, y2, z2);
-    }
+  constructor(x: number, y: number, z: number) {
+    if (isNaN(x) || isNaN(y) || isNaN(z)) throw new TypeError(`invalid vector [${x},${y},${z}]`);
+    this.x = Number(x);
+    this.y = Number(y);
+    this.z = Number(z);
   }
 
-  export class LatLonEllipsoidal {
-    _lat: number;
-    _lon: number;
-    _height: number;
-    _datum: any;
-
-    constructor(lat: number, lon: number, height = 0) {
-      if (isNaN(lat) || lat == null) throw new TypeError(`invalid lat ‘${lat}’`);
-      if (isNaN(lon) || lon == null) throw new TypeError(`invalid lon ‘${lon}’`);
-      if (isNaN(height) || height == null) throw new TypeError(`invalid height ‘${height}’`);
-      this._lat = Dms.wrap90(Number(lat));
-      this._lon = Dms.wrap180(Number(lon));
-      this._height = Number(height);
-    }
-
-    get lat() {
-      return this._lat;
-    }
-
-    get lon() {
-      return this._lon;
-    }
-
-    get height() {
-      return this._height;
-    }
-
-    get datum() {
-      return this._datum;
-    }
-
-    toCartesian(): Cartesian_Datum {
-      const ellipsoid = this.datum ? this.datum.ellipsoid : datums.WGS84;
-      const φ = toRadians(this.lat);
-      const λ = toRadians(this.lon);
-      const h = this.height;
-      const {a, f} = ellipsoid;
-      const sinφ = Math.sin(φ), cosφ = Math.cos(φ);
-      const sinλ = Math.sin(λ), cosλ = Math.cos(λ);
-      const eSq = 2 * f - f * f;
-      const ν = a / Math.sqrt(1 - eSq * sinφ * sinφ);
-      const x = (ν + h) * cosφ * cosλ;
-      const y = (ν + h) * cosφ * sinλ;
-      const z = (ν * (1 - eSq) + h) * sinφ;
-      const cartesian = new Cartesian_Datum(x, y, z, this.datum);
-      return cartesian;
-    }
+  get length() {
+    return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
   }
 
-  export class LatLonEllipsoidal_Datum extends LatLonEllipsoidal {
-    constructor(lat: number, lon: number, height = 0, datum = datums.WGS84) {
-      super(lat, lon, height);
-      if (!datum || datum.ellipsoid == undefined) throw new TypeError(`unrecognised datum ‘${datum}’`);
-      this._datum = datum;
+  plus(v: Vector3d) {
+    if (!(v instanceof Vector3d)) throw new TypeError("v is not Vector3d object");
+    return new Vector3d(this.x + v.x, this.y + v.y, this.z + v.z);
+  }
+
+  minus(v: Vector3d) {
+    if (!(v instanceof Vector3d)) throw new TypeError("v is not Vector3d object");
+    return new Vector3d(this.x - v.x, this.y - v.y, this.z - v.z);
+  }
+
+  times(x: number) {
+    if (isNaN(x)) throw new TypeError(`invalid scalar value “${x}”`);
+    return new Vector3d(this.x * x, this.y * x, this.z * x);
+  }
+
+  dot(v: Vector3d) {
+    if (!(v instanceof Vector3d)) throw new TypeError("v is not Vector3d object");
+    return this.x * v.x + this.y * v.y + this.z * v.z;
+  }
+
+  cross(v: Vector3d) {
+    if (!(v instanceof Vector3d)) throw new TypeError("v is not Vector3d object");
+    const x = this.y * v.z - this.z * v.y;
+    const y = this.z * v.x - this.x * v.z;
+    const z = this.x * v.y - this.y * v.x;
+    return new Vector3d(x, y, z);
+  }
+
+  unit() {
+    const norm = this.length;
+    if (norm === 1 || norm === 0) return this;
+    const x = this.x / norm;
+    const y = this.y / norm;
+    const z = this.z / norm;
+    return new Vector3d(x, y, z);
+  }
+}
+
+const ellipsoids = {
+  WGS84: {a: 6378137, b: 6356752.314245, f: 1 / 298.257223563},
+  Airy1830: {a: 6377563.396, b: 6356256.909, f: 1 / 299.3249646},
+};
+
+const datums = {
+  OSGB36: {
+    ellipsoid: ellipsoids.Airy1830,
+    transform: [-446.448, 125.157, -542.06, 20.4894, -0.1502, -0.2470, -0.8421]
+  },
+  WGS84: {ellipsoid: ellipsoids.WGS84, transform: [0, 0, 0, 0, 0, 0, 0]},
+};
+
+class Cartesian extends Vector3d {
+  constructor(x: number, y: number, z: number) {
+    super(x, y, z);
+  }
+
+  toLatLon(ellipsoid = ellipsoids.WGS84): LatLonEllipsoidal_Datum {
+    if (!ellipsoid || !ellipsoid.a) throw new TypeError(`invalid ellipsoid “${ellipsoid}”`);
+    const {x, y, z} = this;
+    const {a, b, f} = ellipsoid;
+    const e2 = 2 * f - f * f;
+    const epsilonSq = e2 / (1 - e2);
+    const p = Math.sqrt(x * x + y * y);
+    const R = Math.sqrt(p * p + z * z);
+    const tanBeta = (b * z) / (a * p) * (1 + epsilonSq * b / R);
+    const sinBeta = tanBeta / Math.sqrt(1 + tanBeta * tanBeta);
+    const cosBeta = sinBeta / tanBeta;
+    const phi = isNaN(cosBeta) ? 0 : Math.atan2(z + epsilonSq * b * sinBeta * sinBeta * sinBeta, p - e2 * a * cosBeta * cosBeta * cosBeta);
+    const lambda = Math.atan2(y, x);
+    const sinPhi = Math.sin(phi);
+    const nu = a / Math.sqrt(1 - e2 * sinPhi * sinPhi);
+    const h = p * Math.cos(phi) + z * sinPhi - (a * a / nu);
+    return new LatLonEllipsoidal_Datum(phi * 180 / Math.PI, lambda * 180 / Math.PI, h);
+  }
+}
+
+class Cartesian_Datum extends Cartesian {
+  _datum: any;
+
+  constructor(x: number, y: number, z: number, datum: any = undefined) {
+    super(x, y, z);
+    if (datum) this._datum = datum;
+  }
+
+  get datum() {
+    return this._datum;
+  }
+
+  toLatLon(deprecatedDatum: any = undefined): LatLonEllipsoidal_Datum {
+    if (deprecatedDatum) this._datum = deprecatedDatum;
+    const datum = this.datum || datums.WGS84;
+    const latLon = super.toLatLon(datum.ellipsoid);
+    return new LatLonEllipsoidal_Datum(latLon.lat, latLon.lon, latLon.height, this.datum);
+  }
+
+  convertDatum(toDatum: any) {
+    if (!toDatum || toDatum.ellipsoid === undefined) throw new TypeError(`unrecognised datum “${toDatum}”`);
+    if (!this.datum) throw new TypeError("cartesian coordinate has no datum");
+
+    let newCartesian: Cartesian_Datum;
+
+    if (this.datum === datums.WGS84) {
+      newCartesian = this.applyTransform(toDatum.transform);
+    } else if (toDatum === datums.WGS84) {
+      const transform = this.datum.transform.map((p: number) => -p);
+      newCartesian = this.applyTransform(transform);
+    } else {
+      const intermediate = this.convertDatum(datums.WGS84);
+      newCartesian = intermediate.applyTransform(toDatum.transform);
     }
 
-    convertDatum(toDatum: any) {
-      if (!toDatum || toDatum.ellipsoid == undefined) throw new TypeError(`unrecognised datum ‘${toDatum}’`);
-      const oldCartesian = this.toCartesian();
-      const newCartesian = oldCartesian.convertDatum(toDatum);
-      return newCartesian.toLatLon();
-    }
+    newCartesian._datum = toDatum;
+
+    return newCartesian;
+  }
+
+  applyTransform(t: number[]) {
+    const {x: x1, y: y1, z: z1} = this;
+    const tx = t[0];
+    const ty = t[1];
+    const tz = t[2];
+    const s = t[3] / 1e6 + 1;
+    const rx = toRadians(t[4] / 3600);
+    const ry = toRadians(t[5] / 3600);
+    const rz = toRadians(t[6] / 3600);
+    const x2 = tx + x1 * s - y1 * rz + z1 * ry;
+    const y2 = ty + x1 * rz + y1 * s - z1 * rx;
+    const z2 = tz - x1 * ry + y1 * rx + z1 * s;
+    return new Cartesian_Datum(x2, y2, z2);
+  }
+}
+
+class LatLonEllipsoidal {
+  _lat: number;
+  _lon: number;
+  _height: number;
+  _datum: any;
+
+  constructor(lat: number, lon: number, height = 0) {
+    if (isNaN(lat) || lat === null) throw new TypeError(`invalid lat “${lat}”`);
+    if (isNaN(lon) || lon === null) throw new TypeError(`invalid lon “${lon}”`);
+    if (isNaN(height) || height === null) throw new TypeError(`invalid height “${height}”`);
+    this._lat = Dms.wrap90(Number(lat));
+    this._lon = Dms.wrap180(Number(lon));
+    this._height = Number(height);
+  }
+
+  get lat() {
+    return this._lat;
+  }
+
+  get lon() {
+    return this._lon;
+  }
+
+  get height() {
+    return this._height;
+  }
+
+  get datum() {
+    return this._datum;
+  }
+
+  toCartesian(): Cartesian_Datum {
+    const ellipsoid = this.datum ? this.datum.ellipsoid : datums.WGS84;
+    const phi = toRadians(this.lat);
+    const lambda = toRadians(this.lon);
+    const h = this.height;
+    const {a, f} = ellipsoid;
+    const sinPhi = Math.sin(phi);
+    const cosPhi = Math.cos(phi);
+    const sinLambda = Math.sin(lambda);
+    const cosLambda = Math.cos(lambda);
+    const eSq = 2 * f - f * f;
+    const nu = a / Math.sqrt(1 - eSq * sinPhi * sinPhi);
+    const x = (nu + h) * cosPhi * cosLambda;
+    const y = (nu + h) * cosPhi * sinLambda;
+    const z = (nu * (1 - eSq) + h) * sinPhi;
+    return new Cartesian_Datum(x, y, z, this.datum);
+  }
+}
+
+class LatLonEllipsoidal_Datum extends LatLonEllipsoidal {
+  constructor(lat: number, lon: number, height = 0, datum = datums.WGS84) {
+    super(lat, lon, height);
+    if (!datum || datum.ellipsoid === undefined) throw new TypeError(`unrecognised datum “${datum}”`);
+    this._datum = datum;
+  }
+
+  convertDatum(toDatum: any) {
+    if (!toDatum || toDatum.ellipsoid === undefined) throw new TypeError(`unrecognised datum “${toDatum}”`);
+    const oldCartesian = this.toCartesian();
+    const newCartesian = oldCartesian.convertDatum(toDatum);
+    return newCartesian.toLatLon();
   }
 }
 
@@ -608,8 +602,8 @@ export class GpxParserService {
     tracks.forEach(track => {
       this.logger.info("convertOsGbTracks: converting track", track.name, "pointCount", track.points.length);
       track.points = track.points.map(point => {
-        const osgbPoint = new Geodesy.LatLonEllipsoidal_Datum(point.latitude, point.longitude, point.elevation || 0, Geodesy.datums.OSGB36);
-        const wgs84Point = osgbPoint.convertDatum(Geodesy.datums.WGS84);
+        const osgbPoint = new LatLonEllipsoidal_Datum(point.latitude, point.longitude, point.elevation || 0, datums.OSGB36);
+        const wgs84Point = osgbPoint.convertDatum(datums.WGS84);
         return {
           ...point,
           latitude: wgs84Point.lat,
@@ -625,8 +619,8 @@ export class GpxParserService {
       this.logger.info("convertOsGbWaypoints: converting waypoints", waypoints.length);
     }
     waypoints.forEach(point => {
-      const osgbPoint = new Geodesy.LatLonEllipsoidal_Datum(point.latitude, point.longitude, 0, Geodesy.datums.OSGB36);
-      const wgs84Point = osgbPoint.convertDatum(Geodesy.datums.WGS84);
+      const osgbPoint = new LatLonEllipsoidal_Datum(point.latitude, point.longitude, 0, datums.OSGB36);
+      const wgs84Point = osgbPoint.convertDatum(datums.WGS84);
       point.latitude = wgs84Point.lat;
       point.longitude = wgs84Point.lon;
     });

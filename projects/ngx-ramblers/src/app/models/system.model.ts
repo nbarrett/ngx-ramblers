@@ -22,6 +22,19 @@ export enum EventPopulation {
   WALKS_MANAGER = "walks-manager",
 }
 
+export interface WalksManagerSyncStats {
+  added: number;
+  updated: number;
+  deleted: number;
+  errors: string[];
+  lastSyncedAt: number;
+  totalProcessed: number;
+}
+
+export interface WalksManagerSyncStatusResponse {
+  lastSyncedAt: number;
+}
+
 export enum MailProvider {
   BREVO = "brevo",
   MAILCHIMP = "mailchimp",

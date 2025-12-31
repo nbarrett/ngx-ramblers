@@ -210,7 +210,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
         }
 
         @if (!hasVisibleRoutes && !loadingRoutes) {
-          <div class="alert alert-info">
+          <div class="alert alert-warning">
             No visible routes to display
           </div>
         } @else {

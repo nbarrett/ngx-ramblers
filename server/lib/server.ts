@@ -51,6 +51,7 @@ import { resolveClientPath } from "./shared/path-utils";
 import { Environment } from "./env-config/environment-model";
 import { mapRouteRoutes } from "./map-routes/map-route-routes";
 import { spatialFeaturesController } from "./map-routes/spatial-features-controller";
+import { scheduleWalksManagerSync } from "./cron/walks-manager-sync-job";
 import bodyParser = require("body-parser");
 import compression = require("compression");
 import errorHandler = require("errorhandler");
@@ -188,6 +189,10 @@ async function startServer() {
           debugLog("❌ Unhandled error in background migrations:", error);
         });
       }
+
+      scheduleWalksManagerSync().catch(error => {
+        debugLog("❌ Failed to schedule WALKS_MANAGER sync:", error);
+      });
     }).catch(error => {
       debugLog("❌ MongoDB connection failed:", error);
       debugLog("⚠️ Server will continue but database operations will fail");

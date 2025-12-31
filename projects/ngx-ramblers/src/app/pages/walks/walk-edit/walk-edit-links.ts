@@ -1,5 +1,5 @@
 import { Component, computed, inject, Input, OnInit, Signal, signal, WritableSignal } from "@angular/core";
-import { DisplayedWalk, Links, LinkSource, WalkExport } from "../../../models/walk.model";
+import { DisplayedWalk, Links, LinkSource, WalkExportData } from "../../../models/walk.model";
 import { FormsModule } from "@angular/forms";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { WalkVenueComponent } from "../walk-venue/walk-venue.component";
@@ -252,7 +252,7 @@ export class WalkEditRelatedLinksComponent implements OnInit {
   protected walkSignal: WritableSignal<ExtendedGroupEvent>;
   protected allowEditsSignal: WritableSignal<boolean>;
   protected ramblersWalkExistsSignal: WritableSignal<boolean>;
-  protected walkExportSignal: Signal<WalkExport>;
+  protected walkExportSignal: Signal<WalkExportData>;
   public walkCancelled = false;
   protected insufficientDataToUploadToRamblers: Signal<boolean> = computed(() => {
     const walk = this.walkSignal?.();
