@@ -122,6 +122,10 @@ export interface Contact {
   is_overridden: boolean;
 }
 
+export interface WalkLeaderContact extends Contact {
+  slug?: string;
+}
+
 export interface LocationDetails {
   latitude: number;
   longitude: number;
@@ -156,6 +160,7 @@ export interface EventsListRequest {
   order?: "asc" | "desc";
   date?: string;
   dateEnd?: string;
+  inputSource?: string;
 }
 
 export interface RamblersGroupsApiResponseApiResponse extends ApiResponse {

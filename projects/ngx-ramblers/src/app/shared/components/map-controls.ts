@@ -151,9 +151,7 @@ export interface MapControlsState {
           </label>
         </div>
       }
-
-      <!-- Content projection for additional controls -->
-      <ng-content></ng-content>
+      <ng-content/>
     </div>
   `
 })

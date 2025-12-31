@@ -1,11 +1,14 @@
 import debug from "debug";
-import { GroupListRequest, RamblersGroupsApiResponse } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import {
+  GroupListRequest,
+  MAXIMUM_PAGE_SIZE,
+  RamblersGroupsApiResponse
+} from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { envConfig } from "../env-config/env-config";
 import { httpRequest } from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
 import { systemConfig } from "../config/system-config";
-import { limitFor } from "./parameters";
 import { isArray } from "es-toolkit/compat";
 import { Request, Response } from "express";
 
@@ -32,8 +35,7 @@ async function requestRamblersGroups(groups: string[], req?: Request, res?: Resp
   const config: SystemConfig = await systemConfig();
 
   const body: GroupListRequest = {
-    groups,
-    limit: limitFor({ groups } as GroupListRequest)
+    groups, limit: MAXIMUM_PAGE_SIZE
   };
 
   const joinedGroups = body.groups.join(",");

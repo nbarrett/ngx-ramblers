@@ -1,12 +1,13 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Observable, Subject } from "rxjs";
+import { firstValueFrom, Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { EventField, GroupEventField, WalkLeaderIdsApiResponse } from "../../models/walk.model";
+import { EventField, GroupEventField, WalkLeaderIdsApiResponse, WalkLeaderLabelRecord } from "../../models/walk.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { StringUtilsService } from "../string-utils.service";
+import { SearchDateRange } from "../../models/search.model";
 import { DateUtilsService } from "../date-utils.service";
 import { ExtendedGroupEvent, ExtendedGroupEventApiResponse } from "../../models/group-event.model";
 import { DeleteDocumentsRequest } from "../../models/member.model";
@@ -28,6 +29,8 @@ export class LocalWalksAndEventsService {
   private BASE_URL = "/api/database/group-event";
   private extendedGroupEventApiResponseSubject = new Subject<ExtendedGroupEventApiResponse>();
   private walkLeaderIdNotifications = new Subject<WalkLeaderIdsApiResponse>();
+  private leaderLabelLookup = new Map<string, string>();
+  private leaderRecords: WalkLeaderLabelRecord[] = [];
   publicFieldsDataQueryOptions: DataQueryOptions = {
     select: {
       [GroupEventField.TITLE]: 1,
@@ -46,6 +49,11 @@ export class LocalWalksAndEventsService {
     return this.extendedGroupEventApiResponseSubject.asObservable();
   }
 
+  async dateRange(): Promise<{ minDate: number | null; maxDate: number | null }> {
+    const response = await firstValueFrom(this.http.get<{ minDate: number | null; maxDate: number | null }>(`${this.BASE_URL}/date-range`));
+    return response;
+  }
+
   urlFromTitle(title: string, id: string): Promise<string> {
     return this.http.post<{ url: string }>(this.BASE_URL + "/url-from-title", {title, id})
       .toPromise()
@@ -58,6 +66,12 @@ export class LocalWalksAndEventsService {
     this.logger.info("all:dataQueryOptions", dataQueryOptions, "params", params.toString());
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ExtendedGroupEventApiResponse>(`${this.BASE_URL}/all`, {params}), this.extendedGroupEventApiResponseSubject);
     return apiResponse.response as ExtendedGroupEvent[];
+  }
+
+  async allWithPagination(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEventApiResponse> {
+    const params = this.commonDataService.toHttpParams(dataQueryOptions);
+    this.logger.info("allWithPagination:dataQueryOptions", dataQueryOptions, "params", params.toString());
+    return await this.commonDataService.responseFrom(this.logger, this.http.get<ExtendedGroupEventApiResponse>(`${this.BASE_URL}/all`, {params}), this.extendedGroupEventApiResponseSubject);
   }
 
   async allPublic(eventQueryParameters?: EventQueryParameters): Promise<ExtendedGroupEvent[]> {
@@ -91,10 +105,22 @@ export class LocalWalksAndEventsService {
     return extendedGroupEvent;
   }
 
-  async queryWalkLeaders(): Promise<string[]> {
+  async queryWalkLeaders(range?: SearchDateRange | null): Promise<string[]> {
     this.logger.info("queryWalkLeaders:");
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<WalkLeaderIdsApiResponse>(`${this.BASE_URL}/walk-leaders`), this.walkLeaderIdNotifications);
-    return apiResponse.response;
+    const params = this.commonDataService.toHttpParams(range ? {
+      dateFrom: this.dateUtils.isoDateTime(range.from),
+      dateTo: this.dateUtils.isoDateTime(range.to)
+    } : {});
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<WalkLeaderIdsApiResponse>(`${this.BASE_URL}/walk-leaders`, {params}), this.walkLeaderIdNotifications);
+    const labels = (apiResponse.labels || [])
+      .filter(record => record?.id && record?.label)
+      .reduce((acc, record) => {
+        acc.set(record.id, record.label);
+        return acc;
+      }, new Map<string, string>());
+    this.leaderLabelLookup = labels;
+    this.leaderRecords = apiResponse.labels || [];
+    return apiResponse.response || [];
   }
 
   async update(walk: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
@@ -170,5 +196,13 @@ export class LocalWalksAndEventsService {
     const params = this.commonDataService.toHttpParams({criteria});
     const response = await this.http.get<{ count: number }>(`${this.BASE_URL}/count`, {params}).toPromise();
     return response.count;
+  }
+
+  leaderLabelMap(): Map<string, string> {
+    return new Map(this.leaderLabelLookup);
+  }
+
+  leaderLabelRecords(): WalkLeaderLabelRecord[] {
+    return [...this.leaderRecords];
   }
 }

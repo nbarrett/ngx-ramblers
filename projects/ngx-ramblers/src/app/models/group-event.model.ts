@@ -93,16 +93,34 @@ export interface ExtendedFields {
   gpxFile?: FileNameData;
 }
 
+export enum EventSource {
+  LOCAL = "local",
+  WALKS_MANAGER = "walks-manager"
+}
+
 export interface ExtendedGroupEvent extends Identifiable {
   groupEvent: GroupEvent;
   fields: ExtendedFields;
   events: WalkEvent[];
+  source?: EventSource;
+  lastSyncedAt?: number;
+  ramblersId?: string;
+  syncedVersion?: number;
 }
 
 export interface ExtendedGroupEventApiResponse extends ApiResponse {
   request: any;
   response?: ExtendedGroupEvent | ExtendedGroupEvent[];
+  pagination?: PaginationMetadata;
 }
+
+export interface PaginationMetadata {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export const FEET_TO_METRES_FACTOR = 0.3048;
 
 export enum EventViewDispatch {
@@ -136,6 +154,7 @@ export interface EventStats extends EventStatsRequest {
   eventCount: number,
   minDate: Date,
   maxDate: Date,
+  lastSyncedAt: Date,
   uniqueCreators: string[],
 }
 
@@ -262,6 +281,7 @@ export interface AGMStatsResponse {
 export enum InputSource {
   FILE_IMPORT = "file-import",
   WALKS_MANAGER_IMPORT = "walks-manager-import",
+  WALKS_MANAGER_CACHE = "walks-manager-cache",
   URL_TO_ID_LOOKUP = "url-to-id-lookup",
   MANUALLY_CREATED = "manually-created",
   UNKNOWN = "unknown",

@@ -1,5 +1,6 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
+import { GroupEventField } from "../../../../../projects/ngx-ramblers/src/app/models/walk.model";
 
 const debugLog = createMigrationLogger("migrate-media-urls");
 
@@ -8,7 +9,7 @@ export async function up(db: Db, client: MongoClient) {
 
   debugLog("Starting migration of media URLs from api/aws/s3/ format...");
 
-  const criteria = {"groupEvent.media.styles.url": {$regex: "api/aws/s3/"}};
+  const criteria = {[`${GroupEventField.MEDIA}.styles.url`]: {$regex: "api/aws/s3/"}};
 
   const count = await collection.countDocuments(criteria);
   debugLog(`Found ${count} documents with old media URL format`);
@@ -21,9 +22,9 @@ export async function up(db: Db, client: MongoClient) {
   const update = [
     {
       $set: {
-        "groupEvent.media": {
+        [GroupEventField.MEDIA]: {
           $map: {
-            input: "$groupEvent.media",
+            input: `$${GroupEventField.MEDIA}`,
             as: "media",
             in: {
               $mergeObjects: [

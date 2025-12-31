@@ -10,6 +10,7 @@ export interface MongoCriteria {
 
 export interface DataQueryOptions {
   limit?: number;
+  page?: number;
   criteria?: any;
   select?: any;
   sort?: any;

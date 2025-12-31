@@ -18,7 +18,8 @@ import {
   GroupEventField,
   ServerDownloadStatus,
   ServerDownloadStatusType,
-  WalkExport
+  WalkExportData,
+  WalkExportTab,
 } from "../../../models/walk.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -53,11 +54,6 @@ import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.mod
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pipe";
 import { ServerDownloadStatusService } from "../../../services/walks/download-status.service";
-
-export enum WalkExportTab {
-  WALK_UPLOAD_SELECTION = "walk-upload-selection",
-  WALK_UPLOAD_AUDIT = "walk-upload-audit"
-}
 
 @Component({
   selector: "app-walk-export",
@@ -180,8 +176,7 @@ export enum WalkExportTab {
                             <div class="row g-0">
                               <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
                                    class="col-sm-6 nowrap">
-                                <fa-icon title
-                                         tooltip="contact walk leader {{walkExport.displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
+                                <fa-icon title tooltip="contact walk leader {{walkExport.displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
                                          [icon]="faEnvelope"
                                          class="fa-icon me-1"/>
                                 <a content
@@ -470,14 +465,14 @@ export enum WalkExportTab {
         width: 100% !important
         max-width: 100% !important
   `],
-  styleUrls: ["./walk-export.component.sass"],
+  styleUrls: ["./walk-export.sass"],
   imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe]
 })
 
-export class WalkExportComponent implements OnInit, OnDestroy {
+export class WalkExport implements OnInit, OnDestroy {
   faExclamationCircle = faExclamationCircle;
   faCheckCircle = faCheckCircle;
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkExporter", NgxLoggerLevel.ERROR);
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private walksAndEventsService: WalksAndEventsService = inject(WalksAndEventsService);
@@ -497,7 +492,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   public audits: RamblersUploadAudit[];
   public filteredAudits: RamblersUploadAudit[];
   private readonly maxAuditRows = 500;
-  public walksForExport: WalkExport[] = [];
+  public walksForExport: WalkExportData[] = [];
   public fileName: FileUploadSummary;
   public fileNames: FileUploadSummary[] = [];
   public showDetail: boolean;
@@ -652,12 +647,13 @@ export class WalkExportComponent implements OnInit, OnDestroy {
         this.fileNames = [this.fileName].concat(this.fileNames);
         this.logger.info("added", this.fileName, "to filenames of", this.fileNames.length, "audit trail records");
       }
+      const startTimestamp = this.dateUtils.dateTimeNowAsValue();
       this.downloadStatusService.updateServerDownloadStatus({
         fileName: ramblersWalksUploadRequest.fileName,
         status: ServerDownloadStatusType.ACTIVE,
-        startTime: Date.now(),
+        startTime: startTimestamp,
         canOverride: false,
-        lastActivity: Date.now()
+        lastActivity: startTimestamp
       });
       this.ramblersWalksAndEventsService.notifyWalkUploadStarted(this.walkExportNotifier, ramblersWalksUploadRequest);
       this.selectTab(WalkExportTab.WALK_UPLOAD_AUDIT);
@@ -832,7 +828,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.filteredAudits = this.filteredAudits.slice(0, this.maxAuditRows);
   }
 
-  exportableWalks(): WalkExport[] {
+  exportableWalks(): WalkExportData[] {
     return this.ramblersWalksAndEventsService.selectedExportableWalks(this.walksForExport);
   }
 
@@ -844,7 +840,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.urlService.navigateToUrl("reports/target/site/serenity/index.html", event);
   }
 
-  populateWalkExport(walksForExport: WalkExport[]): WalkExport[] {
+  populateWalkExport(walksForExport: WalkExportData[]): WalkExportData[] {
     this.logger.info("populateWalkExport: found", this.stringUtils.pluraliseWithCount(walksForExport.length, "exportable walk"), "walks:", walksForExport);
     this.walksForExport = walksForExport;
     this.sortWalksForExport();
@@ -909,7 +905,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       });
       const active: ExtendedGroupEvent[] = this.extendedGroupEventQueryService.activeEvents(all);
       this.logger.info("showAvailableWalkExports:all:", all, "active:", active);
-      const exports: WalkExport[] = await this.ramblersWalksAndEventsService.createWalksForExportPrompt(active);
+      const exports: WalkExportData[] = await this.ramblersWalksAndEventsService.createWalksForExportPrompt(active);
       this.logger.info("showAvailableWalkExports:activeEvents:exports:", exports);
       const result = this.populateWalkExport(exports);
       await this.computeActionability();
@@ -924,7 +920,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     }
   }
 
-  async toggleWalkExportSelection(walkExport: WalkExport) {
+  async toggleWalkExportSelection(walkExport: WalkExportData) {
     if (walkExport.validationMessages.length > 0) {
       this.walkExportNotifier.error({
         title: `You can't export the walk for ${this.displayDate.transform(walkExport.displayedWalk.walk?.groupEvent?.start_date_time)}`,
@@ -952,7 +948,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     for (const w of this.walksForExport || []) {
       const key = w?.displayedWalk?.walk?.id || w?.displayedWalk?.walk?.groupEvent?.url || w?.displayedWalk?.walk?.groupEvent?.title || "";
       if (!key) { continue; }
-      const selectedClone: WalkExport = { ...w, selected: true } as WalkExport;
+      const selectedClone: WalkExportData = { ...w, selected: true } as WalkExportData;
       const single = [selectedClone];
       try {
         const uploads = await this.ramblersWalksAndEventsService.walkUploadRows(single);
@@ -967,7 +963,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.actionableMap = map;
   }
 
-  public isActionable(walkExport: WalkExport): boolean {
+  public isActionable(walkExport: WalkExportData): boolean {
     const key = walkExport?.displayedWalk?.walk?.id || walkExport?.displayedWalk?.walk?.groupEvent?.url || walkExport?.displayedWalk?.walk?.groupEvent?.title || "";
     return !!this.actionableMap[key];
   }
@@ -1014,7 +1010,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     return this.ramblersWalksAndEventsService.exportWalksFileName(true);
   }
 
-  logWalkSelected(walk: WalkExport) {
+  logWalkSelected(walk: WalkExportData) {
     this.logger.info("logWalkSelected:walkExport:", walk, "walkDeletionList:", this.ramblersWalksAndEventsService.walkDeletionList(this.walksForExport),);
   }
 
@@ -1107,7 +1103,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   }
 
   private cleanupStaleInProgressSessions(): void {
-    const now = Date.now();
+    const now = this.dateUtils.dateTimeNowAsValue();
     const staleThresholdMinutes = 15;
 
     this.fileNames = this.fileNames.map(session => {

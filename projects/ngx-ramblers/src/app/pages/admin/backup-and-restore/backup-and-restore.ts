@@ -629,7 +629,7 @@ import { asNumber } from "../../../functions/numbers";
                           </div>
                         </div>
                       } @else {
-                        <div class="alert alert-info">
+                        <div class="alert alert-warning">
                           <p>No environment configurations yet.</p>
                           <button type="button" class="btn btn-success btn-sm"
                                   (click)="addNewEnvironment()">

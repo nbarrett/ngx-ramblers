@@ -4,9 +4,9 @@ import uniqueValidator from "mongoose-unique-validator";
 import { media, metaData, riskAssessmentRecord, walkEvent, walkVenue } from "./walk";
 import { notification } from "./social-event";
 import { fileNameData } from "./banner";
-import { ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
+import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { WalkStatus } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
-import { EventType } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { EventType, GroupEventField, DocumentField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 
 const groupEvent = new Schema({
   id: {type: String},
@@ -112,8 +112,21 @@ const extendedGroupEventSchema = new Schema({
   groupEvent,
   fields,
   events: [walkEvent],
+  source: {
+    type: String,
+    enum: Object.values(EventSource),
+    default: EventSource.LOCAL
+  },
+  lastSyncedAt: {type: Date},
+  ramblersId: {type: String},
+  syncedVersion: {type: Number, default: 1}
 });
 groupEvent.index({start_date_time: 1, item_type: 1, title: 1, group_code: 1}, {unique: true});
+extendedGroupEventSchema.index({[DocumentField.SOURCE]: 1, [DocumentField.RAMBLERS_ID]: 1});
+extendedGroupEventSchema.index({[DocumentField.LAST_SYNCED_AT]: 1});
+extendedGroupEventSchema.index({[GroupEventField.START_DATE]: 1});
+extendedGroupEventSchema.index({[GroupEventField.WALK_LEADER_ID]: 1});
+extendedGroupEventSchema.index({[GroupEventField.START_LOCATION_COORDINATES]: "2dsphere"});
 extendedGroupEventSchema.plugin(uniqueValidator);
 
 extendedGroupEventSchema.pre("save", function(next) {

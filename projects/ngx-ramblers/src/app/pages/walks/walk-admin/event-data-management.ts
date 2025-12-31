@@ -23,6 +23,8 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { HumanisePipe } from "../../../pipes/humanise.pipe";
 import { TitleCasePipe } from "@angular/common";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
+import { sortBy } from "../../../functions/arrays";
+import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 
 @Component({
   selector: "app-event-data-management",
@@ -94,14 +96,55 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
                   <label class="form-check-label" for="select-all"></label>
                 </div>
               </th>
-              <th>Event Type</th>
+              <th (click)="sortBy('itemType')" class="pointer">
+                Event Type
+                @if (sortField === 'itemType') {
+                  <span class="sorting-header">{{ sortDirection }}</span>
+                }
+              </th>
               <th>Edit</th>
-              <th>Group Code</th>
-              <th>Group Name</th>
-              <th>Input Source</th>
-              <th>Event Count</th>
-              <th>From</th>
-              <th>To</th>
+              <th (click)="sortBy('groupCode')" class="pointer">
+                Group Code
+                @if (sortField === 'groupCode') {
+                  <span class="sorting-header">{{ sortDirection }}</span>
+                }
+              </th>
+              <th (click)="sortBy('groupName')" class="pointer">
+                Group Name
+                @if (sortField === 'groupName') {
+                  <span class="sorting-header">{{ sortDirection }}</span>
+                }
+              </th>
+              <th (click)="sortBy('inputSource')" class="pointer">
+                Input Source
+                @if (sortField === 'inputSource') {
+                  <span class="sorting-header">{{ sortDirection }}</span>
+                }
+              </th>
+              <th (click)="sortBy('eventCount')" class="pointer">
+                Event Count
+                @if (sortField === 'eventCount') {
+                  <span class="sorting-header">{{ sortDirection }}</span>
+                }
+              </th>
+              <th (click)="sortBy('minDate')" class="pointer">
+                From
+                @if (sortField === 'minDate') {
+                  <span class="sorting-header">{{ sortDirection }}</span>
+                }
+              </th>
+              <th (click)="sortBy('maxDate')" class="pointer">
+                To
+                @if (sortField === 'maxDate') {
+                  <span class="sorting-header">{{ sortDirection }}</span>
+                }
+              </th>
+              <th (click)="sortBy('lastSyncedAt')" class="pointer">
+                Last Updated
+                @if (sortField === 'lastSyncedAt') {
+                  <span class="sorting-header">{{ sortDirection }}</span>
+                }
+              </th>
             </tr>
             </thead>
             <tbody>
@@ -159,6 +202,7 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
                   <td>{{ eventStat.eventCount }}</td>
                   <td>{{ eventStat.minDate | displayDate }}</td>
                   <td>{{ eventStat.maxDate | displayDate }}</td>
+                  <td>{{ eventStat.lastSyncedAt | displayDate }}</td>
                 </tr>
               }
             </tbody>
@@ -188,6 +232,10 @@ export class EventDataManagement implements OnInit, OnDestroy {
   faEdit = faEdit;
   faUndo = faUndo;
   inputSources: KeyValue<string>[] = enumKeyValues(InputSource);
+  sortField: string = "itemType";
+  sortDirection: string = ASCENDING;
+  protected readonly ASCENDING = ASCENDING;
+  protected readonly DESCENDING = DESCENDING;
 
   get oneOrMoreSelectedForDelete(): boolean {
     return this.selectedEventStats.length > 0;
@@ -203,6 +251,10 @@ export class EventDataManagement implements OnInit, OnDestroy {
 
   get selectedEventStats() {
     return this.editableEventStats.filter(eventStatus => eventStatus.selected);
+  }
+
+  get totalEventCount() {
+    return this.editableEventStats.reduce((sum, stat) => sum + stat.eventCount, 0);
   }
 
   async ngOnInit() {
@@ -226,6 +278,21 @@ export class EventDataManagement implements OnInit, OnDestroy {
     }
   }
 
+  sortBy(field: string) {
+    if (this.sortField === field) {
+      this.sortDirection = this.sortDirection === ASCENDING ? DESCENDING : ASCENDING;
+    } else {
+      this.sortField = field;
+      this.sortDirection = ASCENDING;
+    }
+    this.applySorting();
+  }
+
+  applySorting() {
+    const direction = this.sortDirection === ASCENDING ? "" : "-";
+    this.editableEventStats = this.editableEventStats.sort(sortBy(`${direction}${this.sortField}`));
+  }
+
   private refreshStats() {
     this.walkGroupAdminService.eventStats().subscribe(data => {
       this.editableEventStats = data.map(stat => ({
@@ -235,6 +302,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
         editedInputSource: stat.inputSource,
         edited: false
       }));
+      this.applySorting();
       this.logger.info("Event stats loaded:", this.editableEventStats);
       if (this.editableEventStats.length === 0) {
         this.notify.warning({
@@ -242,7 +310,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
           message: "No events currently exist in your database. Visit the Walks -> Admin -> Ramblers Walks Admin Import page to create some"
         });
       } else {
-        this.notify.success({title: "Event Data Management", message: "Events data loaded successfully"});
+        this.notify.success({title: "Event Data Management", message: `${this.stringUtilsService.pluraliseWithCount(this.totalEventCount, "Event")} loaded successfully`});
       }
     });
   }

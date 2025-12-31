@@ -75,6 +75,15 @@
       width: 100%
       text-align: center
 
+.alert-wrapper
+  flex-basis: 100%
+  flex-shrink: 0
+
+@media (min-width: 992px)
+  .alert-wrapper
+    flex: 1 1 0
+    flex-shrink: 1
+
 @media (max-width: 767.98px)
   .events-header-full-width
     .pagination

@@ -8,6 +8,7 @@ import debug from "debug";
 import { DOMParser } from "@xmldom/xmldom";
 import { titleCase, humaniseFileStemFromUrl, hasFileExtension } from "../shared/string-utils";
 import { kebabCase } from "es-toolkit/compat";
+import { EventField, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("walk-gpx-list"));
 debugLog.enabled = true;
@@ -61,7 +62,7 @@ export async function listWalkGpxFiles(req: Request, res: Response) {
           const { startLat, startLng } = await parseGpxForFirstPoint(bucket, key);
 
           const walk = await extendedGroupEvent.findOne({
-            "fields.gpxFile.awsFileName": awsFileName
+            [EventField.GPX_FILE_AWS_FILE_NAME]: awsFileName
           }).exec();
 
           const originalFileName = walk?.fields?.gpxFile?.originalFileName || awsFileName;

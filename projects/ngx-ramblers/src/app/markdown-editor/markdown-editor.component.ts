@@ -430,7 +430,7 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
                     <div class="text-danger small mt-2">{{ pastePromptErrorMessage }}</div>
                   }
                   @if (pastePromptShowSaveToConfigPrompt) {
-                    <div class="alert alert-info small mt-2">
+                    <div class="alert alert-warning small mt-2">
                       <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="saveToConfig"
                                [(ngModel)]="pastePromptSaveToConfig">

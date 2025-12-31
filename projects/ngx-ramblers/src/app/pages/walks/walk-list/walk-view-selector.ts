@@ -2,7 +2,7 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DynamicContentPageComponent } from "../../../modules/common/dynamic-content-page/dynamic-content-page";
 import { WalkViewComponent } from "../walk-view/walk-view";
-import { WalkListComponent } from "./walk-list.component";
+import { WalkList } from "./walk-list";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
 import { EventViewDispatch, EventViewDispatchWithEvent, ExtendedGroupEvent } from "../../../models/group-event.model";
@@ -24,7 +24,7 @@ import { filter } from "rxjs/operators";
     imports: [
     DynamicContentPageComponent,
     WalkViewComponent,
-    WalkListComponent,
+    WalkList,
     StatusIconComponent,
     HumanisePipe,
   ],

@@ -90,12 +90,16 @@ export function parse(req: Request, queryParameter: string) {
 }
 
 export function parseQueryStringParameters(req: Request): DataQueryOptions {
-  return {
+  const parameters: DataQueryOptions = {
     criteria: parse(req, "criteria"),
     limit: parse(req, "limit"),
     select: parse(req, "select"),
     sort: parse(req, "sort")
   };
+  if (!isUndefined(req.query?.page)) {
+    parameters.page = parse(req, "page");
+  }
+  return parameters;
 }
 
 export function documentFromRequest<T>(documentOrRequest: T | (T & ControllerRequest)) {

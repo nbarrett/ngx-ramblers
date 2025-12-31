@@ -26,7 +26,8 @@ import {
   WALKS_MANAGER_GO_LIVE_DATE,
   WalkStatus,
   WalkUploadColumnHeading,
-  WalkUploadRow
+  WalkUploadRow,
+  WalkLeaderContact
 } from "../../models/ramblers-walks-manager";
 import { Ramblers } from "../../models/system.model";
 import {
@@ -40,11 +41,10 @@ import {
   LinkSource,
   LinkWithSource,
   LocalAndRamblersWalk,
-  LocalContact,
   MongoIdsSupplied,
   WalkAscent,
   WalkDistance,
-  WalkExport,
+  WalkExportData,
   WalkLeadersApiResponse,
   WalkType
 } from "../../models/walk.model";
@@ -75,6 +75,7 @@ import { WalksReferenceService } from "../walks/walks-reference-data.service";
 import { ALL_DESCRIBED_FEATURES, DescribedFeature, Feature } from "../../models/walk-feature.model";
 import { marked } from "marked";
 import { ExtendedFields, ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
+import { mapRamblersEventToExtendedGroupEvent } from "../../functions/walks/ramblers-event.mapper";
 import { MemberNamingService } from "../member/member-naming.service";
 import { UrlService } from "../url.service";
 import { FeaturesService } from "../features.service";
@@ -148,7 +149,7 @@ export class RamblersWalksAndEventsService {
     return this.groupsSubject.asObservable();
   }
 
-  async queryWalkLeaders(): Promise<Contact[]> {
+  async queryWalkLeaders(): Promise<WalkLeaderContact[]> {
     this.logger.info("queryWalkLeaders:");
     const date = WALKS_MANAGER_GO_LIVE_DATE;
     const dateEnd = this.dateUtils.dateTimeNow().plus({ months: 12 }).toFormat(DateFormat.WALKS_MANAGER_API);
@@ -250,12 +251,12 @@ export class RamblersWalksAndEventsService {
     return `walks-export-${this.dateUtils.dateTimeNow().toFormat(DateFormat.EXPORT_FILENAME)}${omitExtension ? "" : ".csv"}`;
   }
 
-  selectedExportableWalks(walkExports: WalkExport[]): WalkExport[] {
+  selectedExportableWalks(walkExports: WalkExportData[]): WalkExportData[] {
     return walkExports.filter(walkExport => walkExport.selected)
       .sort(sortBy("displayedWalk.walk.groupEvent.start_date_time"));
   }
 
-  async walkUploadRows(walkExports: WalkExport[]): Promise<WalkUploadRow[]> {
+  async walkUploadRows(walkExports: WalkExportData[]): Promise<WalkUploadRow[]> {
     const uncancelSet = new Set(
       this.walkUncancellationList(walkExports)
     );
@@ -269,7 +270,7 @@ export class RamblersWalksAndEventsService {
     );
   }
 
-  async createWalksForExportPrompt(walks: ExtendedGroupEvent[]): Promise<WalkExport[]> {
+  async createWalksForExportPrompt(walks: ExtendedGroupEvent[]): Promise<WalkExportData[]> {
     const ramblersWalksResponses = await this.listRamblersWalks();
     const updatedWalks: LocalAndRamblersWalk[] = await this.updateWalksWithRamblersWalkData(ramblersWalksResponses, walks);
     this.logger.info("createWalksForExportPrompt:", this.stringUtilsService.pluraliseWithCount(ramblersWalksResponses.length, "ramblers walk"), "found:updatedWalks:", updatedWalks);
@@ -372,7 +373,7 @@ export class RamblersWalksAndEventsService {
       ?.map(walk => walk.groupEvent.url);
   }
 
-  returnWalksExport(localAndRamblersWalks: LocalAndRamblersWalk[]): WalkExport[] {
+  returnWalksExport(localAndRamblersWalks: LocalAndRamblersWalk[]): WalkExportData[] {
     const todayValue = this.dateUtils.isoDateTimeStartOfDay();
     return localAndRamblersWalks
       .filter(walk => (walk.localWalk.groupEvent.start_date_time >= todayValue) && walk.localWalk.groupEvent.title)
@@ -397,7 +398,7 @@ export class RamblersWalksAndEventsService {
 
   }
 
-  public async createWalksUploadRequest(walkExports: WalkExport[]): Promise<RamblersWalksUploadRequest> {
+  public async createWalksUploadRequest(walkExports: WalkExportData[]): Promise<RamblersWalksUploadRequest> {
     const walkIdDeletionList = this.walkDeletionList(walkExports);
     const walkIdUploadList = this.walkUploadList(walkExports);
     const walkUncancellations = this.walkUncancellationList(walkExports);
@@ -419,7 +420,7 @@ export class RamblersWalksAndEventsService {
     };
   }
 
-  public walkDeletionList(walkExports: WalkExport[]): string[] {
+  public walkDeletionList(walkExports: WalkExportData[]): string[] {
     const uncancels = new Set(this.walkUncancellationList(walkExports));
     return this.selectedExportableWalks(walkExports)
       .filter(w => !w?.displayedWalk?.walk?.fields?.publishing?.ramblers?.publish)
@@ -432,7 +433,7 @@ export class RamblersWalksAndEventsService {
       .filter(url => !uncancels.has(url as string)) as string[];
   }
 
-  public walkUploadList(walkExports: WalkExport[]): WalkUploadInfo[] {
+  public walkUploadList(walkExports: WalkExportData[]): WalkUploadInfo[] {
     return this.selectedExportableWalks(walkExports)
       .filter(w => !!w?.displayedWalk?.walk?.fields?.publishing?.ramblers?.publish)
       .filter(w => !!(w?.ramblersUrl || w?.displayedWalk?.walk?.groupEvent?.url))
@@ -447,7 +448,7 @@ export class RamblersWalksAndEventsService {
       .filter(info => !isEmpty(info.walkId)) as WalkUploadInfo[];
   }
 
-  public walkCancellationList(walkExports: WalkExport[]): WalkCancellation[] {
+  public walkCancellationList(walkExports: WalkExportData[]): WalkCancellation[] {
     return this.selectedExportableWalks(walkExports)
       .map(walkExport => walkExport.displayedWalk.walk)
       .filter(walk => walk.groupEvent.status === WalkStatus.CANCELLED)
@@ -459,7 +460,7 @@ export class RamblersWalksAndEventsService {
       }));
   }
 
-  public walkUncancellationList(walkExports: WalkExport[]): string[] {
+  public walkUncancellationList(walkExports: WalkExportData[]): string[] {
     return this.selectedExportableWalks(walkExports)
       .filter(walkExport => walkExport?.displayedWalk?.walk?.groupEvent?.status !== WalkStatus.CANCELLED)
       .filter(walkExport => !!walkExport?.displayedWalk?.walk?.fields?.publishing?.ramblers?.publish)
@@ -479,7 +480,7 @@ export class RamblersWalksAndEventsService {
     return enumValues(WalkUploadColumnHeading).filter(heading => heading !== WalkUploadColumnHeading.WALK_ID);
   }
 
-  public toWalkExport(localAndRamblersWalk: LocalAndRamblersWalk): WalkExport {
+  public toWalkExport(localAndRamblersWalk: LocalAndRamblersWalk): WalkExportData {
     this.logger.off("toWalkExport:localAndRamblersWalk:", localAndRamblersWalk, "entered");
     let validationMessages = [] as string[];
     const walk: ExtendedGroupEvent = localAndRamblersWalk.localWalk;
@@ -851,79 +852,23 @@ export class RamblersWalksAndEventsService {
     return publishStatus;
   }
 
-  isWalk(groupEvent: GroupEvent): boolean {
-    return groupEvent.item_type === RamblersEventType.GROUP_WALK;
-  }
-
-  private localContact(groupEvent: GroupEvent): LocalContact {
-    const contact: Contact = groupEvent.walk_leader || groupEvent.event_organiser;
-    const telephone = contact?.telephone;
-    const id = contact?.id;
-    const email = contact?.email_form;
-    const contactName = contact?.name;
-    const displayName = this.memberNamingService.createDisplayNameFromContactName(contactName);
-    return {id, email, contactName, displayName, telephone};
-  }
-
   toExtendedGroupEvent(groupEvent: GroupEvent, inputSource: InputSource, migratedFromId?: string): ExtendedGroupEvent {
-    const localContact: LocalContact = this.localContact(groupEvent);
-    this.logger.off("groupEvent:", groupEvent, "contactName:", localContact.contactName, "displayName:", localContact.displayName);
-
-    const extendedFields: ExtendedFields = {
+    return mapRamblersEventToExtendedGroupEvent(groupEvent, {
       inputSource,
-      migratedFromId: migratedFromId || null,
-      attachment: null,
-      attendees: [],
-      milesPerHour: 0,
-      contactDetails: {
-        memberId: null,
-        displayName: localContact.displayName,
-        email: localContact.email,
-        phone: localContact.telephone,
-        contactId: localContact.id
-      },
-      publishing: {
-        ramblers: {
-          publish: true,
-          contactName: localContact.contactName
-        },
-        meetup: {
-          publish: false,
-          contactName: null
+      migratedFromId,
+      displayNameBuilder: contactName => this.memberNamingService.createDisplayNameFromContactName(contactName),
+      localLinkBuilder: event => this.walkDisplayService.walkLink({fields: null, id: null, groupEvent: event, events: []}),
+      additionalLinksBuilder: event => {
+        const links: LinkWithSource[] = [];
+        if (this.urlService.isMeetupUrl(event.external_url)) {
+          links.push({
+            title: event.title,
+            href: event.external_url,
+            source: LinkSource.MEETUP
+          });
         }
-      },
-      links: this.toLinks(groupEvent),
-      meetup: null,
-      venue: null,
-      riskAssessment: [],
-      imageConfig: null,
-      notifications: []
-    };
-
-    return {
-      groupEvent,
-      fields: extendedFields,
-      events: [],
-    };
-  }
-
-  private toLinks(groupEvent: GroupEvent): LinkWithSource[] {
-    return [
-      {
-        title: `this ${this.isWalk(groupEvent)}` ? "walk" : "social event",
-        href: this.walkDisplayService.walkLink({fields: null, id: null, groupEvent, events: []}),
-        source: LinkSource.LOCAL
-      },
-      {
-        title: groupEvent.title,
-        href: groupEvent.url,
-        source: LinkSource.RAMBLERS
-      },
-      {
-        title: this.urlService.isMeetupUrl(groupEvent.external_url) ? groupEvent.title : null,
-        href: this.urlService.isMeetupUrl(groupEvent.external_url) ? groupEvent.external_url : null,
-        source: LinkSource.MEETUP
+        return links;
       }
-    ].filter(item => item.href);
+    });
   }
 }

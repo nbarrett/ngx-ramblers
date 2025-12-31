@@ -20,23 +20,24 @@ import { systemConfig } from "../config/system-config";
 import { listEventsBySlug } from "./list-events-by-slug";
 import { dateEndParameter, dateParameter, limitFor } from "./parameters";
 import { lastItemFrom, pluraliseWithCount, toKebabCase } from "../shared/string-utils";
-import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import {
-  ExtendedFields,
   ExtendedGroupEvent,
   GroupEvent,
   InputSource
 } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
-import { findBySlug, identifierCanBeConvertedToSlug, identifierMatchesSlugFormat } from "../mongo/controllers/extended-group-event";
-import mongoose from "mongoose";
-import { EventField, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import {
+  findBySlug,
+  identifierCanBeConvertedToSlug,
+  identifierMatchesSlugFormat
+} from "../mongo/controllers/extended-group-event";
 import { dateTimeFromIso } from "../shared/dates";
 import { DateTime } from "luxon";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
+import { cacheEventIfNotFound, cacheEventsWithStats, mapToExtendedGroupEvent } from "../walks/walks-manager-cache";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:list-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:list-events-no-op"));
-noopDebugLog.enabled = true;
+noopDebugLog.enabled = false;
 debugLog.enabled = false;
 
 export async function listEvents(req: Request, res: Response): Promise<void> {
@@ -47,6 +48,7 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
   debugLog("listEvents:body:", body);
   const limit = limitFor(req.body);
   const ids = body.ids?.join(",");
+  const inputSource = body.inputSource as InputSource || InputSource.URL_TO_ID_LOOKUP;
 
   const singleIdentifier = body?.ids?.length === 1 ? body.ids[0] : null;
   if (singleIdentifier && (identifierMatchesSlugFormat(singleIdentifier) || identifierCanBeConvertedToSlug(singleIdentifier))) {
@@ -84,7 +86,7 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
             const kebabCaseSlug = toKebabCase(slug);
             const urlPathLastSegment = lastItemFrom(event.url);
             if (urlPathLastSegment === slug || toKebabCase(event.title) === kebabCaseSlug) {
-              await cacheEventIfNotFound(config, event);
+              await cacheEventIfNotFound(config, event, inputSource);
             } else {
               debugLog("Event URL or title mismatch with slug:", { urlPathLastSegment, kebabCaseSlug, event });
             }
@@ -131,9 +133,9 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
 
       const cacheEvents = async (events: GroupEvent[]) => {
         if (!body.suppressEventLinking) {
-          const persisted = await Promise.all(events.map((event: GroupEvent) => cacheEventIfNotFound(config, event)));
-          const filteredPersisted = persisted.filter(Boolean);
-          debugLog("Cached", pluraliseWithCount(filteredPersisted.length, "new event"), "from",
+          const {added, updated} = await cacheEventsWithStats(config, events, inputSource);
+          debugLog("Cached", pluraliseWithCount(added, "new event"), "and updated",
+            pluraliseWithCount(updated, "existing event"), "from",
             pluraliseWithCount(events.length, "event"));
         }
       };
@@ -216,77 +218,6 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
 }
 
 
-function groupNameFrom(config: SystemConfig, event: GroupEvent): string {
-  return event?.group_name || config?.group?.longName || "Unknown Group";
-}
-
-export function mapToExtendedGroupEvent(config: SystemConfig, event: GroupEvent): ExtendedGroupEvent {
-
-  const groupEvent: GroupEvent = {
-    accessibility: [],
-    additional_details: null,
-    ascent_feet: 0,
-    ascent_metres: 0,
-    cancellation_reason: null,
-    date_created: null,
-    date_updated: null,
-    description: null,
-    difficulty: null,
-    distance_km: 0,
-    duration: 0,
-    end_location: null,
-    external_url: "",
-    facilities: [],
-    linked_event: "",
-    media: [],
-    meeting_date_time: "",
-    meeting_location: null,
-    shape: "",
-    start_location: null,
-    transport: [],
-    item_type: event.item_type || RamblersEventType.GROUP_WALK,
-    group_code: event.group_code || config?.group?.groupCode,
-    group_name: groupNameFrom(config, event),
-    area_code: event.area_code || config?.area?.groupCode,
-    id: event.id,
-    url: event.url,
-    start_date_time: event.start_date_time,
-    end_date_time: event.end_date_time,
-    title: event.title,
-    status: event.status,
-    distance_miles: event.distance_miles,
-    walk_leader: event.walk_leader,
-    event_organiser: event.event_organiser
-  };
-
-  const fields: ExtendedFields = {
-    links: [],
-    meetup: null,
-    migratedFromId: null,
-    milesPerHour: null,
-    notifications: [],
-    publishing: null,
-    riskAssessment: [],
-    contactDetails: {
-      displayName: event.item_type === RamblersEventType.GROUP_EVENT
-        ? event.event_organiser?.name || ""
-        : event.walk_leader?.name || "",
-      memberId: null,
-      contactId: null,
-      email: null,
-      phone: null
-    },
-    attendees: [],
-    inputSource: InputSource.URL_TO_ID_LOOKUP
-  };
-
-  return {
-    groupEvent,
-    fields,
-    events: [],
-  };
-}
-
 export async function fetchMappedEvents(config: SystemConfig, fromDate: number, toDate: number): Promise<ExtendedGroupEvent[]> {
   const defaultOptions = requestDefaults.createApiRequestOptions(config);
   const params = [
@@ -310,56 +241,6 @@ export async function fetchMappedEvents(config: SystemConfig, fromDate: number, 
 
   const events = response.response?.data || [];
   return events.map(event => mapToExtendedGroupEvent(config, event));
-}
-
-async function cacheEventIfNotFound(config: SystemConfig, event: GroupEvent): Promise<mongoose.Document | null> {
-  try {
-    const existingEvent = await extendedGroupEvent.findOne({
-      [GroupEventField.START_DATE]: event.start_date_time,
-      [GroupEventField.TITLE]: event.title,
-      [GroupEventField.ITEM_TYPE]: event.item_type || RamblersEventType.GROUP_WALK,
-      [GroupEventField.GROUP_CODE]: event.group_code || config?.group?.groupCode,
-    }).exec();
-    if (existingEvent) {
-      const existUrl = existingEvent.get(GroupEventField.URL);
-      const existingId = existingEvent.get(GroupEventField.ID);
-      if (existUrl !== event.url || existingId !== event.id) {
-        debugLog("Event already cached, updating existUrl", existUrl, "to", event.url, "existingId", existingId, "to", event.id);
-        await extendedGroupEvent.updateOne(
-          {_id: existingEvent._id},
-          {
-            $set: {
-              [GroupEventField.URL]: event.url,
-              [GroupEventField.ID]: event.id,
-              [EventField.INPUT_SOURCE]: InputSource.URL_TO_ID_LOOKUP,
-            },
-          }
-        ).exec();
-        debugLog("Updated existing event:", event.url);
-        return existingEvent;
-      } else {
-        return null;
-      }
-    } else {
-      debugLog("No cached event found for URL:", event.url, "caching new event");
-      const document = {
-        fields: {inputSource: InputSource.URL_TO_ID_LOOKUP},
-        groupEvent: {
-          ...mapToExtendedGroupEvent(config, event).groupEvent,
-          url: event.url,
-          id: event.id,
-          start_date_time: event.start_date_time,
-          title: event.title
-        }
-      };
-      const created = await extendedGroupEvent.create(document);
-      debugLog("Successfully cached event for url:", event.url, "event id:", event.id, "group code:", document.groupEvent.group_code);
-      return created;
-    }
-  } catch (error) {
-    debugLog("cacheEventIfNotFound:error:", error);
-    throw error;
-  }
 }
 
 async function queryBasedOnExistingEvent(existingEvent: ExtendedGroupEvent, body: EventsListRequest, config: SystemConfig): Promise<RamblersEventsApiResponse> {

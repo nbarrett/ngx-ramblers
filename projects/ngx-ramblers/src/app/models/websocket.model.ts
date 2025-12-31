@@ -25,6 +25,7 @@ export enum EventType {
   TEST_STEP_REPORTER = "test-step-reporter",
   BACKUP_RESTORE = "backup-restore",
   ESRI_ROUTE_IMPORT = "esri-route-import",
+  WALKS_MANAGER_SYNC = "walks-manager-sync",
   PING = "ping",
 }
 

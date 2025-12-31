@@ -94,3 +94,12 @@ export interface GeocodeResult {
   county?: string;
   type?: string;
 }
+
+export const MAP_VIEW_SELECT: Record<string, number> = {
+    groupEvent: 1,
+    fields: 1,
+    "events.eventType": 1,
+    "events.date": 1,
+    "events.reason": 1,
+    "events.memberId": 1
+};

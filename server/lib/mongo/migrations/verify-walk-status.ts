@@ -1,4 +1,5 @@
 import { MongoClient } from "mongodb";
+import { EventField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 
 async function verifyWalkStatus() {
   const uri = process.env.MONGODB_URI;
@@ -22,32 +23,32 @@ async function verifyWalkStatus() {
     console.log(`Total groupEvents: ${totalWalks}`);
 
     const migratedWalks = await collection.countDocuments({
-      "fields.migratedFromId": { $exists: true }
+      [EventField.MIGRATED_FROM_ID]: { $exists: true }
     });
     console.log(`Migrated walks (have fields.migratedFromId): ${migratedWalks}`);
 
     const walksWithNoStatus = await collection.countDocuments({
-      "fields.migratedFromId": { $exists: true },
+      [EventField.MIGRATED_FROM_ID]: { $exists: true },
       $or: [
-        { "groupEvent.status": { $exists: false } },
-        { "groupEvent.status": null }
+        { [GroupEventField.STATUS]: { $exists: false } },
+        { [GroupEventField.STATUS]: null }
       ]
     });
     console.log(`Migrated walks WITHOUT status: ${walksWithNoStatus}`);
 
     const walksWithConfirmed = await collection.countDocuments({
-      "fields.migratedFromId": { $exists: true },
-      "groupEvent.status": "confirmed"
+      [EventField.MIGRATED_FROM_ID]: { $exists: true },
+      [GroupEventField.STATUS]: "confirmed"
     });
     console.log(`Migrated walks WITH status='confirmed': ${walksWithConfirmed}`);
 
     console.log("\n=== Sample Migrated Walks ===\n");
 
     const sampleWithoutStatus = await collection.findOne({
-      "fields.migratedFromId": { $exists: true },
+      [EventField.MIGRATED_FROM_ID]: { $exists: true },
       $or: [
-        { "groupEvent.status": { $exists: false } },
-        { "groupEvent.status": null }
+        { [GroupEventField.STATUS]: { $exists: false } },
+        { [GroupEventField.STATUS]: null }
       ]
     });
 
@@ -66,8 +67,8 @@ async function verifyWalkStatus() {
     }
 
     const sampleWithStatus = await collection.findOne({
-      "fields.migratedFromId": { $exists: true },
-      "groupEvent.status": "confirmed"
+      [EventField.MIGRATED_FROM_ID]: { $exists: true },
+      [GroupEventField.STATUS]: "confirmed"
     });
 
     if (sampleWithStatus) {
@@ -87,15 +88,15 @@ async function verifyWalkStatus() {
     console.log("\n=== Impact on Leader Aggregation ===\n");
 
     const confirmedWalksForLeaders = await collection.countDocuments({
-      "groupEvent.status": "confirmed"
+      [GroupEventField.STATUS]: "confirmed"
     });
     console.log(`Total walks that WILL be included in leader stats (status='confirmed'): ${confirmedWalksForLeaders}`);
 
     const excludedWalks = await collection.countDocuments({
       $or: [
-        { "groupEvent.status": { $exists: false } },
-        { "groupEvent.status": null },
-        { "groupEvent.status": { $ne: "confirmed" } }
+        { [GroupEventField.STATUS]: { $exists: false } },
+        { [GroupEventField.STATUS]: null },
+        { [GroupEventField.STATUS]: { $ne: "confirmed" } }
       ]
     });
     console.log(`Total walks that are EXCLUDED from leader stats (no status or not confirmed): ${excludedWalks}`);

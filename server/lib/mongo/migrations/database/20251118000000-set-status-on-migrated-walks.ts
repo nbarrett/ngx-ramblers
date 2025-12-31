@@ -1,7 +1,7 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { WalkStatus } from "../../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
-import { EventType } from "../../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { EventType, EventField, GroupEventField } from "../../../../../projects/ngx-ramblers/src/app/models/walk.model";
 
 const debugLog = createMigrationLogger("set-status-on-migrated-walks");
 
@@ -11,10 +11,10 @@ export async function up(db: Db, client: MongoClient) {
   debugLog("Starting migration to set status based on walk events...");
 
   const criteria = {
-    "fields.migratedFromId": { $exists: true },
+    [EventField.MIGRATED_FROM_ID]: { $exists: true },
     $or: [
-      { "groupEvent.status": { $exists: false } },
-      { "groupEvent.status": null }
+      { [GroupEventField.STATUS]: { $exists: false } },
+      { [GroupEventField.STATUS]: null }
     ]
   };
 
@@ -31,7 +31,7 @@ export async function up(db: Db, client: MongoClient) {
     [
       {
         $set: {
-          "groupEvent.status": {
+          [GroupEventField.STATUS]: {
             $let: {
               vars: {
                 hasEvents: { $gt: [{ $size: { $ifNull: ["$events", []] } }, 0] },
@@ -53,7 +53,7 @@ export async function up(db: Db, client: MongoClient) {
                     }
                   }
                 },
-                isWalk: { $eq: ["$groupEvent.item_type", "group-walk"] }
+                isWalk: { $eq: [`$${GroupEventField.ITEM_TYPE}`, "group-walk"] }
               },
               in: {
                 $cond: {
@@ -106,15 +106,15 @@ export async function down(db: Db, client: MongoClient) {
   debugLog("Rolling back: removing status field from migrated walks...");
 
   const criteria = {
-    "fields.migratedFromId": { $exists: true },
-    "groupEvent.status": WalkStatus.CONFIRMED
+    [EventField.MIGRATED_FROM_ID]: { $exists: true },
+    [GroupEventField.STATUS]: WalkStatus.CONFIRMED
   };
 
   const result = await collection.updateMany(
     criteria,
     {
       $unset: {
-        "groupEvent.status": ""
+        [GroupEventField.STATUS]: ""
       }
     }
   );
