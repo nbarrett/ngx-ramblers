@@ -131,6 +131,7 @@ docs(readme): update installation instructions
 - **Double quotes**: Always use `"` instead of `'` for strings
 - **Minimal changes**: Keep patches targeted and scoped to the request
 - **Follow existing patterns**: Don't introduce new patterns without discussion
+- **No imperative loops**: Replace `for`/`while` constructs with declarative array operations (`map`, `reduce`, `filter`, etc.) so that functions remain side-effect free where possible
 - **Structured branching**: Prefer explicit `if / else if / else` chains where each branch returns or handles outcomes inline, instead of scattering multiple early returns throughout the method
 - **Method naming**: Never prefix methods with "get" - the type system conveys that. Use more meaningful terms:
   - ✅ `user()` - returns user
@@ -176,6 +177,11 @@ npm run reinstall
 # Deployment (from server/)
 npm run deploy
 npm run manage-configs
+
+# Release Notes (from server/)
+npm run release-notes:interactive  # Interactive TUI mode
+npm run release-notes:latest       # Generate for latest commits
+npm run release-notes:all           # Generate all missing notes
 
 # Full stack development environment
 ./non-vcs/app-start-scripts/run.sh <environment-script>
@@ -349,6 +355,24 @@ Use Angular 17+ control flow syntax:
 - **Platform**: Fly.io (multiple group instances)
 - **Commands**: `npm run deploy` and `npm run manage-configs` (from server/)
 - **Scripts**: Located in `server/deploy/`
+
+### Release Notes Automation
+- **Location**: `server/lib/release-notes/`
+- **Purpose**: Automatically generate and publish release notes to the CMS
+- **Commands** (from server/):
+  - `npm run release-notes:interactive` - Interactive TUI for selecting releases
+  - `npm run release-notes:latest` - Generate for commits since last tag
+  - `npm run release-notes:all` - Generate all missing release notes
+  - `npm run release-notes -- --since <commit> --dry-run` - Preview changes
+- **Features**:
+  - Parses conventional commits and groups by type
+  - Generates user-friendly markdown summaries
+  - Authenticates with CMS using JWT
+  - Creates/updates pages at `/how-to/committee/release-notes`
+  - Updates index page with links to new entries
+  - Tracks processed commits to avoid duplicates
+- **Configuration**: Set `CMS_USERNAME` and `CMS_PASSWORD` environment variables
+- **Documentation**: See `server/lib/release-notes/README.md` for full details
 
 ## Bootstrap 5 Migration
 

@@ -105,6 +105,16 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           ts-node server/deploy/deploy-to-environments.ts --environment "${{ secrets.APP_NAME }}" --image-tag "${{ github.run_number }}"
+
+      - name: Generate Release Notes
+        if: github.ref_name == 'main' && github.event_name == 'push'
+        env:
+          CMS_USERNAME: ${{ secrets.CMS_USERNAME }}
+          CMS_PASSWORD: ${{ secrets.CMS_PASSWORD }}
+        run: |
+          cd server
+          npm run release-notes -- --latest --build-number ${{ github.run_number }}
+
       - name: Cleanup sensitive files
         if: always()
         run: rm -f non-vcs/fly-io/configs.json
