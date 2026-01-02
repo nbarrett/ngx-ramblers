@@ -1,5 +1,6 @@
-import { actorCalled, engage } from "@serenity-js/core";
+import { actorCalled, Check, engage } from "@serenity-js/core";
 import { Navigate } from "@serenity-js/web";
+import { equals } from "@serenity-js/assertions";
 import { Start } from "../screenplay/tasks/common/start";
 import { Login } from "../screenplay/tasks/ramblers/common/login";
 import { CancelWalks } from "../screenplay/tasks/ramblers/walks/cancel-walks";
@@ -18,6 +19,7 @@ import { DateFormat } from "../../../../projects/ngx-ramblers/src/app/models/ram
 import { CheckAndReportOn } from "../screenplay/tasks/ramblers/walks/check-and-report-on";
 import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-source";
 import { RequestParameterExtractor } from "../screenplay/tasks/ramblers/common/request-parameter-extractor";
+import { RequestParameters } from "../screenplay/questions/ramblers/request-parameters";
 
 const debugLog = debug(envConfig.logNamespace("serenity-walks-upload"));
 debugLog.enabled = false;
@@ -38,38 +40,27 @@ describe("Walks Upload", () => {
     const today = dateTimeNow().startOf("day").toFormat(DateFormat.WALKS_MANAGER_API);
     const params = RequestParameterExtractor.extract();
 
-    const steps: any[] = [
+    return actorCalled(actor).attemptsTo(
       Start.onWalksAndEventsManager(),
       Login.toRamblers(),
       Navigate.to(`https://walks-manager.ramblers.org.uk/walks-manager/all-walks-events?search=&items_per_page=All&d[min]=${today}&d[max]=&rauid=all`),
-    ];
-
-    if ((params.walkUploads?.length || 0) > 0) {
-      steps.push(
-        SelectWalks.byDateAndTitle(params.walkUploads),
-        Unpublish.selectedWalks()
-      );
-    }
-
-    if ((params.walkCount || 0) > 0 || (params.walkDeletions?.length || 0) > 0) {
-      steps.push(DeleteWalks.unpublishedOrWithIdsSupplied());
-    }
-
-    steps.push(
+      Check.whether(RequestParameters.hasWalkUploads(), equals(true))
+        .andIfSo(
+          SelectWalks.byDateAndTitle(params.walkUploads),
+          Unpublish.selectedWalks()
+        ),
+      Check.whether(RequestParameters.hasWalkDeletionsOrCount(), equals(true))
+        .andIfSo(
+          DeleteWalks.unpublishedOrWithIdsSupplied()
+        ),
       CancelWalks.withIdsSupplied(),
       UncancelWalks.withIdsSupplied(),
-    );
-
-    if ((params.walkCount || 0) > 0) {
-      steps.push(
-        UploadWalks.requested(),
-        CheckAndReportOn.uploadErrors(),
-        Publish.walksInDraftState()
-      );
-    }
-
-    return actorCalled(actor).attemptsTo(
-      ...steps
+      Check.whether(RequestParameters.hasWalkCount(), equals(true))
+        .andIfSo(
+          UploadWalks.requested(),
+          CheckAndReportOn.uploadErrors(),
+          Publish.walksInDraftState()
+        )
     );
   });
 });
