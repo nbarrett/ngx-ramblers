@@ -1,0 +1,199 @@
+import { execSync } from "child_process";
+import type { ConventionalCommit, IssueReference } from "./models.js";
+
+const CONVENTIONAL_COMMIT_REGEX = /^(\w+)(?:\(([^)]+)\))?(!)?:\s*(.+)$/;
+const ISSUE_REFERENCE_REGEX = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|ref(?:erence)?(?:s)?|see):?\s*(?:#|https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/)(\d+)/gi;
+
+export function parseCommit(raw: string): ConventionalCommit | null {
+  const lines = raw.split("\n");
+  if (lines.length < 4) {
+    return null;
+  }
+
+  const hash = lines[0].trim();
+  const shortHash = lines[1].trim();
+  const date = lines[2].trim();
+  const messageLines = lines.slice(3);
+  const subject = (messageLines.shift() || "").trim();
+  while (messageLines.length > 0 && !messageLines[0].trim()) {
+    messageLines.shift();
+  }
+
+  const bodyLines: string[] = [];
+  let footerStart = messageLines.length;
+
+  for (let i = 0; i < messageLines.length; i++) {
+    const line = messageLines[i];
+    if (line.match(/^[A-Z][a-z-]+:/)) {
+      footerStart = i;
+      break;
+    }
+    bodyLines.push(line);
+  }
+
+  const body = bodyLines.join("\n").trim();
+  const footer = messageLines.slice(footerStart).join("\n").trim();
+
+  const match = subject.match(CONVENTIONAL_COMMIT_REGEX);
+  if (!match) {
+    return {
+      hash,
+      shortHash,
+      date,
+      type: "other",
+      scope: null,
+      subject,
+      body,
+      footer,
+      issueReferences: extractIssueReferences(subject + "\n" + body + "\n" + footer),
+      breakingChange: subject.includes("BREAKING CHANGE") || body.includes("BREAKING CHANGE") || footer.includes("BREAKING CHANGE")
+    };
+  }
+
+  const [, type, scope, breakingMarker, description] = match;
+
+  return {
+    hash,
+    shortHash,
+    date,
+    type: type.toLowerCase(),
+    scope: scope || null,
+    subject: description,
+    body,
+    footer,
+    issueReferences: extractIssueReferences(subject + "\n" + body + "\n" + footer),
+    breakingChange: breakingMarker === "!" || subject.includes("BREAKING CHANGE") || body.includes("BREAKING CHANGE") || footer.includes("BREAKING CHANGE")
+  };
+}
+
+function extractIssueReferences(text: string): IssueReference[] {
+  const references: IssueReference[] = [];
+  const matches = text.matchAll(ISSUE_REFERENCE_REGEX);
+
+  for (const match of matches) {
+    const action = match[0].split(/\s+/)[0].toLowerCase();
+    const issue = match[1];
+    references.push({
+      action: action !== "see" && action !== "ref" && action !== "reference" && action !== "references" ? action : null,
+      issue,
+      raw: match[0]
+    });
+  }
+
+  return references;
+}
+
+export function gitLog(since?: string, until: string = "HEAD"): ConventionalCommit[] {
+  const COMMIT_SEPARATOR = "---COMMIT-SEPARATOR---";
+  const format = `${COMMIT_SEPARATOR}%n%H%n%h%n%cd%n%B`;
+  const dateFormat = "--date=format:%Y-%m-%d";
+
+  let command = `git log ${dateFormat} --format="${format}" --no-merges`;
+
+  if (since) {
+    command += ` ${since}..${until}`;
+  } else {
+    command += ` ${until}`;
+  }
+
+  try {
+    const output = execSync(command, {
+      encoding: "utf-8",
+      maxBuffer: 10 * 1024 * 1024
+    });
+
+    const commits: ConventionalCommit[] = [];
+    const rawCommits = output
+      .split(COMMIT_SEPARATOR)
+      .filter(c => c.trim())
+      .map(c => c.trim());
+
+    for (const rawCommit of rawCommits) {
+      const parsed = parseCommit(rawCommit);
+      if (parsed) {
+        commits.push(parsed);
+      }
+    }
+
+    return commits;
+  } catch (error) {
+    throw new Error(`Failed to fetch git log: ${error}`);
+  }
+}
+
+export function gitLogSinceDate(date: string, until: string = "HEAD"): ConventionalCommit[] {
+  const COMMIT_SEPARATOR = "---COMMIT-SEPARATOR---";
+  const format = `${COMMIT_SEPARATOR}%n%H%n%h%n%cd%n%B`;
+  const dateFormat = "--date=format:%Y-%m-%d";
+  const command = `git log ${dateFormat} --format="${format}" --no-merges --since="${date}" ${until}`;
+
+  try {
+    const output = execSync(command, {
+      encoding: "utf-8",
+      maxBuffer: 10 * 1024 * 1024
+    });
+
+    const commits: ConventionalCommit[] = [];
+    const rawCommits = output
+      .split(COMMIT_SEPARATOR)
+      .filter(c => c.trim())
+      .map(c => c.trim());
+
+    for (const rawCommit of rawCommits) {
+      const parsed = parseCommit(rawCommit);
+      if (parsed) {
+        commits.push(parsed);
+      }
+    }
+
+    return commits;
+  } catch (error) {
+    throw new Error(`Failed to fetch git log since date: ${error}`);
+  }
+}
+
+export function findCommitByHash(hash: string): ConventionalCommit | null {
+  const format = "%H%n%h%n%cd%n%B";
+  const dateFormat = "--date=format:%Y-%m-%d";
+
+  try {
+    const output = execSync(
+      `git log ${dateFormat} --format="${format}" -n 1 ${hash}`,
+      { encoding: "utf-8" }
+    );
+
+    const trimmed = output.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    return parseCommit(trimmed);
+  } catch (error) {
+    return null;
+  }
+}
+
+export function findCommitsSinceTag(tag: string): ConventionalCommit[] {
+  try {
+    execSync(`git rev-parse ${tag}`, { encoding: "utf-8", stdio: "pipe" });
+    return gitLog(`${tag}..HEAD`);
+  } catch {
+    return gitLog();
+  }
+}
+
+export function latestTag(): string | null {
+  try {
+    const output = execSync("git describe --tags --abbrev=0", {
+      encoding: "utf-8",
+      stdio: "pipe"
+    });
+    return output.trim();
+  } catch {
+    return null;
+  }
+}
+
+export function commitsBetween(from: string, to: string = "HEAD"): ConventionalCommit[] {
+  return gitLog(from, to);
+}

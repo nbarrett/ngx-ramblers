@@ -79,3 +79,60 @@ export function hasFileExtension(fileName: string, extension: string): boolean {
   const normalizedExtension = extension.startsWith(".") ? extension : `.${extension}`;
   return fileName.toLowerCase().endsWith(normalizedExtension.toLowerCase());
 }
+
+export function splitOnDashSegments(line: string): string[] {
+  return line
+    .split(/\s+-\s+/)
+    .map(part => part.trim())
+    .filter(part => part.length > 0);
+}
+
+export function capitalise(value: string): string {
+  if (!value) {
+    return value;
+  }
+  if (value.length === 1) {
+    return value.toUpperCase();
+  }
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+export function joinWithAnd(parts: string[]): string {
+  if (parts.length === 0) {
+    return "";
+  }
+  if (parts.length === 1) {
+    return parts[0];
+  }
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+export function truncateWithEllipsis(value: string, maxLength: number, ellipsis: string = "..."): string {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed || maxLength <= 0) {
+    return "";
+  }
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+  const sliceLength = Math.max(1, maxLength - ellipsis.length);
+  return `${trimmed.slice(0, sliceLength).trim()}${ellipsis}`;
+}
+
+export function textBeforeSeparators(value: string, separators: string[]): string {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed || separators.length === 0) {
+    return trimmed;
+  }
+
+  const indexes = separators
+    .map(separator => ({ separator, index: trimmed.indexOf(separator) }))
+    .filter(entry => entry.index > -1);
+
+  if (indexes.length === 0) {
+    return trimmed;
+  }
+
+  const earliest = indexes.reduce((best, current) => current.index < best.index ? current : best);
+  return trimmed.slice(0, earliest.index).trim();
+}
