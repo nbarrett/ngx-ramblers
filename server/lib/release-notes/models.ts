@@ -26,6 +26,7 @@ export interface CommitGroup {
 export interface ReleaseNotesData {
   date: string;
   buildNumber: string | null;
+  commitSha: string;
   commitHash: string;
   commitUrl: string;
   buildUrl: string | null;
@@ -41,6 +42,7 @@ export interface ReleaseNotesConfig {
   username: string;
   password: string;
   githubRepo: string;
+  githubToken: string | null;
   indexPath: string;
 }
 
@@ -54,4 +56,9 @@ export interface GenerateOptions {
   dryRun?: boolean;
   buildNumber?: string;
   includeUnassigned?: boolean;
+}
+
+export interface CMSAuth {
+  baseUrl: string;
+  authToken: string;
 }

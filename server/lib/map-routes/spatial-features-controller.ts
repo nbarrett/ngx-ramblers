@@ -4,6 +4,7 @@ import {SpatialFeatureModel} from "../mongo/models/spatial-feature";
 import {envConfig} from "../env-config/env-config";
 import debug from "debug";
 import {dateTimeNowAsValue} from "../shared/dates";
+import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
 
 const debugLog = debug(envConfig.logNamespace("spatial-features"));
 debugLog.enabled = true;
@@ -20,7 +21,7 @@ spatialFeaturesController.get("/api/spatial-features/search", authConfig.authent
       return res.status(400).json({error: "routeId and query parameters are required"});
     }
 
-    const searchLimit = Math.min(parseInt(limit as string, 10), 100);
+    const searchLimit = Math.min(asNumber(limit), 100);
 
     const results = await SpatialFeatureModel
       .find({
@@ -48,7 +49,7 @@ spatialFeaturesController.get("/api/spatial-features/autocomplete", authConfig.a
       return res.status(400).json({error: "routeId and query parameters are required"});
     }
 
-    const searchLimit = Math.min(parseInt(limit as string, 10), 50);
+    const searchLimit = Math.min(asNumber(limit), 50);
     const queryStr = query as string;
 
     debugLog(`Autocomplete query for: "${queryStr}" on routeId: ${routeId}`);
@@ -101,7 +102,7 @@ spatialFeaturesController.post("/api/spatial-features/viewport", authConfig.auth
     }
 
     const {southwest, northeast} = bounds;
-    const queryLimit = Math.min(parseInt(limit, 10), 5000);
+    const queryLimit = Math.min(asNumber(limit), 5000);
 
     debugLog(`Viewport query starting for routeId: ${routeId}, bounds: SW(${southwest.lat},${southwest.lng}) NE(${northeast.lat},${northeast.lng}), searchTerm: "${searchTerm || "none"}"`);
 

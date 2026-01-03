@@ -177,7 +177,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
   `
 })
 export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditDetailsComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditDetailsComponent", NgxLoggerLevel.INFO);
   private stringUtils = inject(StringUtilsService);
 
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {

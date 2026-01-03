@@ -6,6 +6,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { MapProvider, MapStyleInfo, OS_MAP_STYLE_LIST } from "../../models/map.model";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
 import { isUndefined } from "es-toolkit/compat";
+import { asNumber } from "../../functions/numbers";
 
 export interface MapControlsConfig {
   showProvider?: boolean;
@@ -205,7 +206,7 @@ export class MapControls implements OnInit {
 
   onHeightInput(event: Event) {
     const input = event.target as HTMLInputElement;
-    const value = parseInt(input.value, 10);
+    const value = asNumber(input.value);
     const height = Math.min(this.config.maxHeight || 900, Math.max(this.config.minHeight || 300, isNaN(value) ? (this.state.mapHeight || 520) : value));
     this.state = { ...this.state, mapHeight: height };
     this.stateChange.emit(this.state);

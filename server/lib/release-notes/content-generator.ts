@@ -59,6 +59,7 @@ const TYPE_SUMMARIES: Record<string, { singular: string; plural?: string }> = {
 };
 
 const TITLE_MAX_LENGTH = 90;
+const PAGE_TITLE_MAX_LENGTH = 200;
 const entryLineRegex = /^-\s*\[(.+?)\]\((.+?)\)\s*$/;
 
 export function groupCommitsByType(commits: ConventionalCommit[]): CommitGroup[] {
@@ -104,6 +105,17 @@ export function generateTitle(commits: ConventionalCommit[]): string {
 
   if (commits.length === 1) {
     return truncateWithEllipsis(commits[0].subject, TITLE_MAX_LENGTH);
+  }
+
+  const scopes = commits.map(c => c.scope).filter((s): s is string => Boolean(s));
+  const uniqueScopes = Array.from(new Set(scopes));
+
+  if (uniqueScopes.length === 1 && scopes.length === commits.length) {
+    const primaryCommit = commits[0];
+    let cleaned = primaryCommit.subject;
+    cleaned = textBeforeSeparators(cleaned, [" - ", " — ", " (", " ["]);
+    cleaned = textBeforeSeparators(cleaned, ["(", "["]);
+    return `${uniqueScopes[0]}: ${cleaned}`;
   }
 
   const scopeSummary = summariseScopes(commits);
@@ -169,7 +181,10 @@ function formatDisplayDateString(dateStr: string): string | null {
 
 export function generateMarkdown(data: ReleaseNotesData, githubRepo: string): string {
   const formattedDate = formatDate(data.date);
-  const titleReferences = data.allCommits.flatMap(commit => commit.issueReferences);
+  const allTitleReferences = data.allCommits.flatMap(commit => commit.issueReferences);
+  const titleReferences = Array.from(
+    new Map(allTitleReferences.map(ref => [ref.issue, ref])).values()
+  );
   const linkedTitle = linkIssueReferencesInText(data.title, titleReferences, githubRepo);
   const issueLink = data.issueNumber
     ? linkedTitle.linkedIssues.has(data.issueNumber)
@@ -179,7 +194,9 @@ export function generateMarkdown(data: ReleaseNotesData, githubRepo: string): st
 
   const headerLines = [`# ${formattedDate} — ${linkedTitle.text}${issueLink}`];
   const buildLine = data.buildNumber
-    ? `## [Build #${data.buildNumber}](${data.buildUrl}) — [commit ${data.commitHash.substring(0, 7)}](${data.commitUrl})`
+    ? data.buildUrl
+      ? `## [GitHub #${data.buildNumber}](${data.buildUrl}) — [commit ${data.commitHash.substring(0, 7)}](${data.commitUrl})`
+      : `## GitHub #${data.buildNumber} — [commit ${data.commitHash.substring(0, 7)}](${data.commitUrl})`
     : `## [Commit ${data.commitHash.substring(0, 7)}](${data.commitUrl})`;
 
   const commitSections = data.groups
@@ -197,6 +214,39 @@ export function generateMarkdown(data: ReleaseNotesData, githubRepo: string): st
 }
 
 function formatGroupCommits(group: CommitGroup, githubRepo: string): string[] {
+  if (group.commits.length === 0) {
+    return [];
+  }
+
+  const scopes = group.commits.map(c => c.scope).filter((s): s is string => Boolean(s));
+  const uniqueScopes = Array.from(new Set(scopes));
+
+  if (uniqueScopes.length === 1 && group.commits.length > 1) {
+    const allIssueRefs = group.commits.flatMap(c => c.issueReferences);
+    const uniqueIssues = Array.from(new Set(allIssueRefs.map(ref => ref.issue)));
+    const subjects = group.commits.map(c => {
+      let cleaned = c.subject;
+      cleaned = textBeforeSeparators(cleaned, [" - ", " — ", " (", " ["]);
+      cleaned = textBeforeSeparators(cleaned, ["(", "["]);
+      return cleaned;
+    });
+    const combinedSubject = joinWithAnd(subjects);
+    const scope = uniqueScopes[0];
+    const issueSuffix = uniqueIssues.length > 0
+      ? ` (${uniqueIssues.map(issue => `[#${issue}](https://github.com/${githubRepo}/issues/${issue})`).join(", ")})`
+      : "";
+    const heading = `### **${scope}**: ${combinedSubject}${issueSuffix}`;
+
+    const allBodies = group.commits
+      .map(c => formatCommitBody(c.body || ""))
+      .filter(body => body.length > 0);
+
+    if (allBodies.length > 0) {
+      return [`${heading}\n\n${allBodies.join("\n\n")}`];
+    }
+    return [heading];
+  }
+
   return group.commits
     .map(commit => formatCommitSection(commit, githubRepo))
     .filter(section => section.trim().length > 0);
@@ -206,9 +256,15 @@ function formatCommitSection(commit: ConventionalCommit, githubRepo: string): st
   const scope = commit.scope ? `**${commit.scope}**: ` : "";
   const summarySubject = textBeforeSeparators(commit.subject, [" - ", " — ", " ("]);
   const subjectWithLinks = linkIssueReferencesInText(summarySubject, commit.issueReferences, githubRepo);
-  const remainingIssues = commit.issueReferences
-    .filter(ref => !subjectWithLinks.linkedIssues.has(ref.issue))
-    .map(ref => `[#${ref.issue}](https://github.com/${githubRepo}/issues/${ref.issue})`)
+  const uniqueRemainingIssues = Array.from(
+    new Set(
+      commit.issueReferences
+        .filter(ref => !subjectWithLinks.linkedIssues.has(ref.issue))
+        .map(ref => ref.issue)
+    )
+  );
+  const remainingIssues = uniqueRemainingIssues
+    .map(issue => `[#${issue}](https://github.com/${githubRepo}/issues/${issue})`)
     .join(", ");
   const issueSuffix = remainingIssues ? ` (${remainingIssues})` : "";
   const heading = `### ${scope}${subjectWithLinks.text}${issueSuffix}`;
@@ -336,6 +392,7 @@ interface IndexEntry {
   displayDate: string;
   remainder: string;
   originalLabel: string;
+  issueNumber: string | null;
 }
 
 
@@ -353,6 +410,9 @@ function parseIndexLine(line: string): IndexEntry | null {
   const [, label, path] = match;
   const [dateSegment, ...rest] = label.split(" — ");
   const remainder = rest.join(" — ").trim();
+  const issueNumberFromLabel = remainder.match(/^#(\d+)\b/)?.[1] || null;
+  const issueNumberFromPath = path.match(/-issue-(\d+)$/)?.[1] || null;
+  const issueNumber = issueNumberFromLabel || issueNumberFromPath;
   const isoFromPath = extractDateFromPath(path);
   const isoFromLabel = dateSegment ? formatIsoDateString(dateSegment.trim()) : null;
   const baseDisplay = dateSegment ? dateSegment.trim() : (isoFromPath ? isoFromPath : label.trim());
@@ -363,7 +423,8 @@ function parseIndexLine(line: string): IndexEntry | null {
     date: isoFromPath || isoFromLabel,
     displayDate,
     remainder,
-    originalLabel: label.trim()
+    originalLabel: label.trim(),
+    issueNumber
   };
 }
 
@@ -400,6 +461,14 @@ function extractDateFromPath(path: string): string | null {
   return match ? match[1] : null;
 }
 
+function indexEntryKey(entry: IndexEntry): string {
+  const basePath = entry.path.replace(/(-issue-\d+|-other)$/, "");
+  if (entry.issueNumber) {
+    return `${basePath}::issue::${entry.issueNumber}`;
+  }
+  return `${basePath}::unassigned`;
+}
+
 export function generatePageContent(data: ReleaseNotesData, githubRepo: string, path: string): PageContent {
   const markdown = generateMarkdown(data, githubRepo);
 
@@ -412,7 +481,7 @@ export function generatePageContent(data: ReleaseNotesData, githubRepo: string, 
         {
           contentText: markdown,
           columns: 12
-        } as PageContentColumn
+        } satisfies PageContentColumn
       ]
     }
   ];
@@ -438,7 +507,8 @@ export function updateIndexPageContent(
     date: isoDate,
     displayDate,
     remainder: remainderText,
-    originalLabel: baseLabel
+    originalLabel: baseLabel,
+    issueNumber: newEntry.issueNumber
   };
 
   if (!existingContent.rows || existingContent.rows.length === 0) {
@@ -456,7 +526,7 @@ export function updateIndexPageContent(
             {
               contentText: initialContent,
               columns: 12
-            } as PageContentColumn
+            } satisfies PageContentColumn
           ]
         }
       ]
@@ -479,9 +549,9 @@ export function updateIndexPageContent(
     .map(line => parseIndexLine(line))
     .filter((entry): entry is IndexEntry => Boolean(entry))
     .filter(entry => allowUnassigned || !entry.path.endsWith("-other"));
-  const entries = new Map<string, IndexEntry>(parsedEntries.map(entry => [entry.path, entry]));
+  const entries = new Map<string, IndexEntry>(parsedEntries.map(entry => [indexEntryKey(entry), entry]));
 
-  entries.set(newIndexEntry.path, newIndexEntry);
+  entries.set(indexEntryKey(newIndexEntry), newIndexEntry);
 
   const sortedEntries = Array.from(entries.values()).sort(compareIndexEntries);
   const listLines = sortedEntries.map(formatIndexLine);
@@ -498,6 +568,47 @@ export function updateIndexPageContent(
   column.contentText = sections.join("\n\n");
 
   return existingContent;
+}
+
+export function extractExistingBuildMetadata(page: PageContent | null): { buildNumber: string; buildUrl: string | null } | null {
+  let metadata: { buildNumber: string; buildUrl: string | null } | null = null;
+
+  if (page && page.rows?.length) {
+    const textColumns = page.rows
+      .filter(row => row.type === PageContentType.TEXT)
+      .flatMap(row => row.columns || []);
+
+    const contentText = textColumns
+      .map(column => column.contentText || "")
+      .find(text => text.includes("Build #") || text.includes("GitHub #") || text.includes("## [#") || text.includes("## #"));
+
+    if (contentText) {
+      const buildLine = contentText
+        .split("\n")
+        .map(line => line.trim())
+        .find(line => line.startsWith("## [Build #") || line.startsWith("## [#") || line.startsWith("## #") || line.startsWith("## [GitHub #") || line.startsWith("## GitHub #"));
+
+      if (buildLine) {
+        const linkedMatch = buildLine.match(/## \[(?:GitHub |Build )?#(\d+)\]\(([^)]+)\)/);
+        if (linkedMatch) {
+          metadata = {
+            buildNumber: linkedMatch[1],
+            buildUrl: linkedMatch[2] || null
+          };
+        } else {
+          const plainMatch = buildLine.match(/## (?:GitHub )?#(\d+)/);
+          if (plainMatch) {
+            metadata = {
+              buildNumber: plainMatch[1],
+              buildUrl: null
+            };
+          }
+        }
+      }
+    }
+  }
+
+  return metadata;
 }
 
 export function extractPrimaryIssue(commits: ConventionalCommit[]): string | null {
@@ -522,6 +633,7 @@ export function createReleaseNotesData(
   return {
     date: latestCommit.date,
     buildNumber,
+    commitSha: latestCommit.hash,
     commitHash: latestCommit.shortHash,
     commitUrl: `https://github.com/${githubRepo}/commit/${latestCommit.hash}`,
     buildUrl: buildNumber ? `https://github.com/${githubRepo}/actions/runs/${buildNumber}` : null,

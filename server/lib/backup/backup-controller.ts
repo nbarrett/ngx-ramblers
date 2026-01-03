@@ -8,6 +8,7 @@ import { initializeBackupConfig } from "./config-initializer";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import type { MailMessagingConfig } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import * as config from "../mongo/controllers/config";
+import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
 
 const debugLog = debug(envConfig.logNamespace("backup"));
 debugLog.enabled = true;
@@ -77,7 +78,7 @@ export async function listBackups(req: Request, res: Response) {
 export async function listSessions(req: Request, res: Response) {
   try {
     const svc = await service();
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const limit = asNumber(req.query.limit || 50);
     const sessions = await svc.sessions(limit);
     debugLog("listSessions:response:", sessions.length, "sessions");
     res.status(200).json(sessions);

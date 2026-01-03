@@ -38,6 +38,7 @@ export const envConfig = {
   isProduction,
   logNamespace,
   production: env === "production",
+  value: environmentVariable,
   auth: {
     secret: validatedEnvironmentVariable(Environment.AUTH_SECRET),
   },

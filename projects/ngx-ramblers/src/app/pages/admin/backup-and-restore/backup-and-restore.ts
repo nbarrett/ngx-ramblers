@@ -36,6 +36,7 @@ import { sortBy } from "../../../functions/arrays";
 import { EnvironmentSelectComponent } from "../../../modules/common/selectors/environment-select";
 import { CollectionsMultiSelectComponent } from "../../../modules/common/selectors/collections-multi-select";
 import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/backups-multi-select";
+import { asNumber } from "../../../functions/numbers";
 
 @Component({
   selector: "app-backup-and-restore",
@@ -659,7 +660,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   set currentEnvironmentIndex(value: number) {
-    const numValue = isString(value) ? parseInt(value, 10) : value;
+    const numValue = isString(value) ? asNumber(value) : value;
     const maxIndex = Math.max(0, this.editableConfig.environments.length - 1);
     this._currentEnvironmentIndex = Math.min(Math.max(0, numValue), maxIndex);
   }

@@ -5,6 +5,7 @@ import { StoredValue } from "../../models/ui-actions";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
 import { MapControlsState } from "../components/map-controls";
 import { isUndefined } from "es-toolkit/compat";
+import { asNumber } from "../../functions/numbers";
 
 @Injectable({
   providedIn: "root"
@@ -41,7 +42,7 @@ export class MapControlsStateService {
       osStyle = storedStyle;
     }
 
-    const parsedHeight = parseInt(storedHeight as any, 10);
+    const parsedHeight = asNumber(storedHeight);
     const mapHeight = !isNaN(parsedHeight) ? Math.min(900, Math.max(300, parsedHeight))
       : (!isUndefined(defaults.mapHeight) ? defaults.mapHeight : 520);
 

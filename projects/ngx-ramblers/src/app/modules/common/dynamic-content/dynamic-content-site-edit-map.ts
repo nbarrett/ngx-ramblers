@@ -256,7 +256,7 @@ import { RouteImportService } from "../../../services/maps/route-import.service"
   imports: [CommonModule, FormsModule, MapOverlayControls, BadgeButtonComponent, AlertComponent, FontAwesomeModule, DynamicContentViewMap, MapRouteStylePaletteComponent]
 })
 export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditMap", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditMap", NgxLoggerLevel.INFO);
   private broadcastService = inject(BroadcastService);
   private numberUtils = inject(NumberUtilsService);
   private fileUploadService = inject(FileUploadService);

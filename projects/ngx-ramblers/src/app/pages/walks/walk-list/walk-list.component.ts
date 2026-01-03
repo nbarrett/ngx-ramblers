@@ -28,6 +28,7 @@ import { LoginModalComponent } from "../../login/login-modal/login-modal.compone
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { sortBy } from "../../../functions/arrays";
+import { asNumber } from "../../../functions/numbers";
 import { faImages, faPeopleGroup, faTableCells, faWalking } from "@fortawesome/free-solid-svg-icons";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
@@ -307,7 +308,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
         this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, this.walkListView);
       }
       if (page) {
-        const pageNum = parseInt(page, 10);
+        const pageNum = asNumber(page);
         if (!isNaN(pageNum) && pageNum > 0) {
           this.pageNumber = pageNum;
         }

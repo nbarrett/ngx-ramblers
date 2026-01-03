@@ -21,6 +21,7 @@
     "mongo:backup": "tsx deploy/mongo-cli.ts backup",
     "mongo:restore": "tsx deploy/mongo-cli.ts restore",
     "release-notes": "tsx lib/release-notes/generate-release-notes.ts",
+    "release-notes:delete-pages": "tsx lib/release-notes/delete-pages.ts",
     "migrate": "migrate-mongo up -f migrations/migrate-mongo-config.ts",
     "migrate:create": "migrate-mongo create -f migrations/migrate-mongo-config.ts",
     "migrate:down": "migrate-mongo down -f migrations/migrate-mongo-config.ts",

@@ -12,6 +12,7 @@ import { AreaGroup, SystemConfig } from "../../../../models/system.model";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { isString } from "es-toolkit/predicate";
+import { asNumber } from "../../../../functions/numbers";
 
 interface RamblersGroupsResponse {
   request: any;
@@ -506,9 +507,9 @@ export class SystemAreaMapSyncComponent implements OnInit {
     document.body.removeChild(tempElement);
     const match = computedColor.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
     if (match) {
-      const r = parseInt(match[1], 10).toString(16).padStart(2, "0");
-      const g = parseInt(match[2], 10).toString(16).padStart(2, "0");
-      const b = parseInt(match[3], 10).toString(16).padStart(2, "0");
+      const r = asNumber(match[1]).toString(16).padStart(2, "0");
+      const g = asNumber(match[2]).toString(16).padStart(2, "0");
+      const b = asNumber(match[3]).toString(16).padStart(2, "0");
       return `#${r}${g}${b}`;
     }
     return this.generateRandomColor();

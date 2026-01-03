@@ -11,6 +11,7 @@ import { isDateValue } from "./type-guards";
 import { ExtendedGroupEvent } from "../models/group-event.model";
 import { StringUtilsService } from "./string-utils.service";
 import { UIDateFormat } from "../models/date-format.model";
+import { asNumber } from "../functions/numbers";
 
 type DateInput = string | number | Date | DateValue | DateTime;
 
@@ -46,7 +47,7 @@ export class DateUtilsService {
   }
 
   yearFromDate(dateValue: number): number {
-    return dateValue ? parseInt(this.asString(dateValue, undefined, "yyyy"), 10) : null;
+    return dateValue ? asNumber(this.asString(dateValue, undefined, "yyyy")) : null;
   }
 
   isDate(value) {

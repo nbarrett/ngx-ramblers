@@ -1,3 +1,5 @@
+import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
+
 const GRID_LETTERS = [
   ["SV", "SW", "SX", "SY", "SZ", "TV", "TW"],
   ["SQ", "SR", "SS", "ST", "SU", "TQ", "TR"],
@@ -97,8 +99,8 @@ export function parseGridReference(gridRef: string): {eastings: number; northing
   const baseNorthing = rowIndex * 100000;
 
   const precision = Math.pow(10, 5 - halfLength);
-  const easting = baseEasting + parseInt(eastingPart, 10) * precision;
-  const northing = baseNorthing + parseInt(northingPart, 10) * precision;
+  const easting = baseEasting + asNumber(eastingPart) * precision;
+  const northing = baseNorthing + asNumber(northingPart) * precision;
 
   return {eastings: easting, northings: northing};
 }

@@ -3,6 +3,7 @@ import { BrowseTheWebWithWebdriverIO } from "@serenity-js/webdriverio";
 import { remote } from "webdriverio";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
+import { Environment } from "../env-config/environment-model";
 
 const debugLog = debug(envConfig.logNamespace("serenity-utils"));
 
@@ -45,8 +46,8 @@ interface RemoteOptions {
 }
 
 export async function launchBrowser(): Promise<WebdriverIO.Browser> {
-  const chromeBinary = process.env.CHROME_BIN;
-  const chromedriverPath = process.env.CHROMEDRIVER_PATH;
+  const chromeBinary = envConfig.value(Environment.CHROME_BIN);
+  const chromedriverPath = envConfig.value(Environment.CHROMEDRIVER_PATH);
 
   const chromeOptions: ChromeOptions = {
     args: [
