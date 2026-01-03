@@ -50,6 +50,7 @@ import { GroupEventTypeSelectorComponent } from "../../../group-events-selector/
 import { DatePicker } from "../../../date-and-time/date-picker";
 import { TagEditorComponent } from "../../../pages/tag/tag-editor.component";
 import { GroupEventSelectorComponent } from "../../../group-events-selector/group-event-selector";
+import { YoutubeEmbed } from "../../../modules/common/youtube-embed/youtube-embed";
 
 @Component({
     selector: "app-image-edit",
@@ -59,15 +60,17 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
           <div class="row">
             @if (editActive) {
               <div class="col-sm-12 mb-3">
-                <app-image-cropper-and-resizer noImageSave
-                                               [selectAspectRatio]="contentMetadata?.aspectRatio"
-                                               [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
-                                               [preloadImage]="imageSourceOrPreview()"
-                                               (imageChange)="imageChanged($event)"
-                                               (error)="imageCroppingError($event)"
-                                               (cropError)="imageCroppingError($event)"
-                                               (quit)="imageEditQuit()"
-                                               (save)="imagedSaved($event)"/>
+                @if (!item.youtubeId) {
+                  <app-image-cropper-and-resizer noImageSave
+                                                 [selectAspectRatio]="contentMetadata?.aspectRatio"
+                                                 [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
+                                                 [preloadImage]="imageSourceOrPreview()"
+                                                 (imageChange)="imageChanged($event)"
+                                                 (error)="imageCroppingError($event)"
+                                                 (cropError)="imageCroppingError($event)"
+                                                 (quit)="imageEditQuit()"
+                                                 (save)="imagedSaved($event)"/>
+                }
               </div>
             }
             <div class="col-sm-7">
@@ -75,16 +78,27 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
                 <div class="row mb-2">
                   <div class="col">Image {{ index + 1 }} of {{ filteredFiles?.length }}</div>
                   <div class="col text-end">
-                    <div>Image Size {{ imageSize() }}</div>
-                    @if (imagedIsCropped()) {
+                    @if (showImageSize()) {
+                      <div>Image Size {{ imageSize() }}</div>
+                    }
+                    @if (!item.youtubeId && imagedIsCropped()) {
                       <div class="ms-2">Cropped Size {{ croppedSize() }}</div>
                     }
                   </div>
                 </div>
-                @if (!imageLoadText) {
+                @if (!imageLoadText && !item.youtubeId) {
                   <img (load)="imageLoaded($event)" (error)="imageError(item, $event)" loading="lazy"
                        [id]="'image-' + index" class="img-fluid w-100" [src]="imageSourceOrPreview()"
                        [alt]="item.text"/>
+                }
+                @if (item.youtubeId) {
+                  <div class="youtube-preview-container">
+                    <div class="youtube-embed-preview">
+                      <app-youtube-embed
+                        [youtubeId]="item.youtubeId"
+                        [title]="item.text || 'YouTube video'"/>
+                    </div>
+                  </div>
                 }
                 @if (imageLoadText) {
                   <div class="row no-image"
@@ -221,7 +235,23 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
           </div>
         </div>
       </div>`,
-    imports: [ImageCropperAndResizerComponent, NgClass, FontAwesomeModule, BadgeButtonComponent, FormsModule, GroupEventTypeSelectorComponent, DatePicker, TagEditorComponent, GroupEventSelectorComponent]
+    styles: [`
+      .youtube-preview-container
+        margin-bottom: 1rem
+      
+      .youtube-embed-preview
+        position: relative
+        width: 100%
+        padding-bottom: 56.25%
+        height: 0
+        overflow: hidden
+        border: 1px solid #dee2e6
+        border-radius: 4px
+        
+        app-youtube-embed
+          pointer-events: none
+    `],
+    imports: [ImageCropperAndResizerComponent, NgClass, FontAwesomeModule, BadgeButtonComponent, FormsModule, GroupEventTypeSelectorComponent, DatePicker, TagEditorComponent, GroupEventSelectorComponent, YoutubeEmbed]
 })
 export class ImageEditComponent implements OnInit {
 
@@ -422,6 +452,7 @@ export class ImageEditComponent implements OnInit {
     return this.urlService.imageSource(qualifiedFileNameWithRoot);
   }
 
+
   editImage() {
     this.editActive = true;
     this.imageEdit.emit(this.item);
@@ -513,8 +544,12 @@ export class ImageEditComponent implements OnInit {
     return this.numberUtils.humanFileSize(this.awsFileDataFromEdit?.file?.size);
   }
 
+  showImageSize() {
+    return !!this.s3Metadata?.size && !this.item?.youtubeId;
+  }
+
   imageSize() {
-    return this.s3Metadata?.size ? this.numberUtils.humanFileSize(this.s3Metadata?.size) : this.item?.base64Content?.length ? this.numberUtils.humanFileSize(this.item?.base64Content?.length) : "unknown";
+    return this.numberUtils.humanFileSize(this.s3Metadata?.size);
   }
 
 }

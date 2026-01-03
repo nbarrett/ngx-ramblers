@@ -7,6 +7,7 @@ import { LoggerFactory } from "./logger-factory.service";
 import { PageContentActionsService } from "./page-content-actions.service";
 import { UrlService } from "./url.service";
 import { StringUtilsService } from "./string-utils.service";
+import { YouTubeService } from "./youtube.service";
 import { last } from "es-toolkit/compat";
 
 @Injectable({
@@ -17,6 +18,7 @@ export class LocationExtractionService {
   private actions = inject(PageContentActionsService);
   private urlService = inject(UrlService);
   private stringUtils = inject(StringUtilsService);
+  private youtubeService = inject(YouTubeService);
 
   extractLocationsFromPages(pages: PageContent[]): PageContentColumn[] {
     const columns: PageContentColumn[] = [];
@@ -24,7 +26,6 @@ export class LocationExtractionService {
     this.logger.info("extractLocationsFromPages: processing", pages.length, "pages");
     pages.forEach(pageContent => {
       const href = pageContent.path;
-      const title = this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(href)));
       const imageSource = this.findFirstImageInPage(pageContent);
 
       const locationRows = pageContent.rows.filter(row => this.actions.isLocation(row));
@@ -32,6 +33,7 @@ export class LocationExtractionService {
 
       let location = null;
       let description = null;
+      let title = null;
 
       if (locationRows.length > 0) {
         const firstLocationRow = locationRows[0];
@@ -42,7 +44,13 @@ export class LocationExtractionService {
       }
 
       if (!description) {
-        description = this.extractFirstParagraph(pageContent);
+        const extracted = this.extractTitleAndDescription(pageContent);
+        title = extracted.title;
+        description = extracted.description;
+      }
+
+      if (!title) {
+        title = this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(href)));
       }
 
       this.logger.info("Page:", title, "- location:", location ? "found" : "missing", "- imageSource:", imageSource);
@@ -62,18 +70,42 @@ export class LocationExtractionService {
     return columns;
   }
 
-  private extractFirstParagraph(pageContent: PageContent): string | null {
+  private extractTitleAndDescription(pageContent: PageContent): { title: string | null; description: string | null } {
+    let result = { title: null, description: null };
+
     for (const row of pageContent.rows || []) {
       for (const column of row.columns || []) {
         if (column.contentText) {
           const text = column.contentText.trim();
-          if (text.length > 0) {
-            return text.length > 200 ? text.substring(0, 197) + "..." : text;
+          const headingMatch = text.match(/^#\s+(.+?)(?:\n|$)/);
+
+          if (headingMatch) {
+            const title = headingMatch[1].trim();
+            const remainingText = text.substring(headingMatch[0].length).trim();
+            const description = this.stringUtils.stripMarkdown(remainingText);
+            const truncatedDescription = description.length > 200 ? description.substring(0, 197) + "..." : description;
+
+            result = {
+              title,
+              description: truncatedDescription || null
+            };
+            break;
+          } else {
+            const strippedText = this.stringUtils.stripMarkdown(text);
+            if (strippedText.length > 0) {
+              const truncated = strippedText.length > 200 ? strippedText.substring(0, 197) + "..." : strippedText;
+              result = { title: null, description: truncated };
+              break;
+            }
           }
         }
       }
+      if (result.description !== null) {
+        break;
+      }
     }
-    return null;
+
+    return result;
   }
 
   private formatLocationDescription(start: LocationDetails, end?: LocationDetails): string {
@@ -102,20 +134,30 @@ export class LocationExtractionService {
   }
 
   private findFirstImageInPage(pageContent: PageContent): string | undefined {
+    let result: string | undefined = undefined;
+
     for (const row of pageContent.rows || []) {
       for (const column of row.columns || []) {
         if (column.imageSource) {
-          return column.imageSource;
-        }
-        if (column.rows) {
+          result = column.imageSource;
+          break;
+        } else if (column.youtubeId) {
+          result = this.youtubeService.thumbnailUrl(column.youtubeId);
+          break;
+        } else if (column.rows) {
           const nestedImage = this.findFirstImageInPage({rows: column.rows} as PageContent);
           if (nestedImage) {
-            return nestedImage;
+            result = nestedImage;
+            break;
           }
         }
       }
+      if (result) {
+        break;
+      }
     }
-    return undefined;
+
+    return result;
   }
 
   private hasValidLocation(location: LocationDetails): boolean {

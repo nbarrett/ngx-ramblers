@@ -16,18 +16,30 @@ import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-bu
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { imageTracker } from "../../functions/trackers";
 import { LazyLoadDirective } from "../../notifications/common/lazy-load.directive";
+import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
 
 @Component({
     selector: "app-album-grid",
+    styleUrls: ["./album-grid.sass"],
     template: `
       <div class="row g-3">
         @for (image of lazyLoadingMetadata?.selectedSlides; track image._id) {
           <div class="col-lg-6 col-sm-12">
             <div class="card h-100">
-              <img class="card-img-top"
-                   (load)="loaded(image)"
-                   lazyLoad="{{ urlService.imageSourceFor(image, lazyLoadingMetadata?.contentMetadata) }}"
-                   [alt]="image.text">
+              @if (hasYoutubeVideo(image)) {
+                <div class="album-media card-img-top">
+                  <app-youtube-embed
+                    [youtubeId]="image.youtubeId"
+                    [title]="image.text || 'YouTube video'"/>
+                </div>
+              } @else {
+                <div class="album-media card-img-top">
+                  <img
+                    (load)="loaded(image)"
+                    lazyLoad="{{ urlService.imageSourceFor(image, lazyLoadingMetadata?.contentMetadata) }}"
+                    [alt]="image.text">
+                </div>
+              }
               @if (gridViewOptions.showTitles) {
                 <div class="card-body">
                   <h5 class="card-title">{{ image.text }}</h5>
@@ -49,7 +61,7 @@ import { LazyLoadDirective } from "../../notifications/common/lazy-load.directiv
                           (click)="viewMoreImages()" caption="load more images"/>
       }
     `,
-  imports: [BadgeButtonComponent, TooltipDirective, LazyLoadDirective]
+  imports: [BadgeButtonComponent, TooltipDirective, LazyLoadDirective, YoutubeEmbed]
 })
 export class AlbumGridComponent {
 
@@ -89,4 +101,9 @@ export class AlbumGridComponent {
   loaded(item: ContentMetadataItem) {
     this.logger.info("loadedevent:", imageTracker(item), "index position:", this.lazyLoadingMetadata?.selectedSlides.indexOf(item));
   }
+
+  hasYoutubeVideo(item: ContentMetadataItem): boolean {
+    return !!item?.youtubeId;
+  }
+
 }

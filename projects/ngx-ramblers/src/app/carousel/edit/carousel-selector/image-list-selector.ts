@@ -9,12 +9,13 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { UrlService } from "../../../services/url.service";
 import { MemberResourcesPermissions } from "../../../models/member-resource.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { faEraser, faEye } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faCopy, faEraser, faEye, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { PageContentService } from "../../../services/page-content.service";
 import { Confirm, ConfirmType, StoredValue } from "../../../models/ui-actions";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ImageListSelect } from "./image-list-select";
+import { FormsModule } from "@angular/forms";
 
 @Component({
   selector: "app-image-list-selector",
@@ -24,9 +25,9 @@ import { ImageListSelect } from "./image-list-select";
         <div class="row">
           <div class="col-sm-12 mb-2 mt-2">
             <h6>Edit images from</h6>
-            <div class="d-inline-flex align-items-center flex-wrap">
-              <app-image-list-select multiple="true" [maxWidth]="1300" [name]="name"
-                                     (metadataChange)="metadataChange($event)"/>
+            <app-image-list-select multiple="true" [maxWidth]="1300" [name]="name"
+                                   (metadataChange)="metadataChange($event)"/>
+            <div class="d-flex gap-2 mt-2 align-items-center">
               @if (confirm.deleteConfirmOutstanding()) {
                 <app-badge-button [disabled]="!selectedContentMetadata"
                                   caption="Confirm Delete of Selected Image Lists"
@@ -36,11 +37,24 @@ import { ImageListSelect } from "./image-list-select";
                                   caption="Cancel Delete of Selected Image Lists"
                                   (click)="confirm.clear()"
                                   [icon]="faEraser"/>
+              } @else if (duplicating) {
+                <input type="text" class="form-control" [(ngModel)]="newAlbumName"
+                       placeholder="Enter new album name" style="max-width: 400px;"/>
+                <app-badge-button caption="Confirm Duplicate"
+                                  (click)="confirmDuplicate()"
+                                  [icon]="faCheck"/>
+                <app-badge-button caption="Cancel"
+                                  (click)="cancelDuplicate()"
+                                  [icon]="faTimes"/>
               } @else {
                 <app-badge-button [disabled]="!selectedContentMetadata|| selectedContentMetadata.length>1"
                                   caption="View Selected Image List"
                                   (click)="navigateToSelected()"
                                   [icon]="faEye"/>
+                <app-badge-button [disabled]="!selectedContentMetadata|| selectedContentMetadata.length>1"
+                                  caption="Duplicate Selected Image List"
+                                  (click)="startDuplicate()"
+                                  [icon]="faCopy"/>
                 <app-badge-button [disabled]="!selectedContentMetadata"
                                   caption="Delete Selected Image Lists"
                                   (click)="confirm.as(ConfirmType.DELETE)"
@@ -72,7 +86,7 @@ import { ImageListSelect } from "./image-list-select";
         }
       </div>
     }`,
-  imports: [ImageListSelect, BadgeButtonComponent, FontAwesomeModule]
+  imports: [ImageListSelect, BadgeButtonComponent, FontAwesomeModule, FormsModule]
 })
 export class ImageListSelectorComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CarouselSelectorComponent", NgxLoggerLevel.ERROR);
@@ -88,7 +102,12 @@ export class ImageListSelectorComponent implements OnInit {
   public contentMetadataItems: ContentMetadata[];
   public selectedContentMetadata: ContentMetadata[] = [];
   protected readonly faEye = faEye;
+  protected readonly faCopy = faCopy;
+  protected readonly faCheck = faCheck;
+  protected readonly faTimes = faTimes;
   public confirm = new Confirm();
+  public duplicating = false;
+  public newAlbumName = "";
   @Input()
   public name: string;
 
@@ -156,5 +175,51 @@ export class ImageListSelectorComponent implements OnInit {
     this.selectedContentMetadata = contentMetadata || [];
     this.logger.info("metadataChange:selectedContentMetadata", this.selectedContentMetadata);
 
+  }
+
+  startDuplicate() {
+    if (this.selectedContentMetadata?.length === 1) {
+      const source = this.selectedContentMetadata[0];
+      this.newAlbumName = `${source.name}-copy`;
+      this.duplicating = true;
+    } else {
+      this.notify.warning({
+        title: "Image List duplication",
+        message: "Please select exactly one image list to duplicate."
+      });
+    }
+  }
+
+  cancelDuplicate() {
+    this.duplicating = false;
+    this.newAlbumName = "";
+  }
+
+  confirmDuplicate() {
+    if (this.newAlbumName && this.newAlbumName.trim()) {
+      const source = this.selectedContentMetadata[0];
+      const trimmedName = this.newAlbumName.trim();
+      const duplicate: ContentMetadata = {
+        ...source,
+        id: undefined,
+        name: trimmedName,
+        files: source.files?.map(file => ({...file, _id: undefined})) || []
+      };
+
+      this.contentMetadataService.create(duplicate)
+        .then(() => {
+          this.notify.success({
+            title: "Image List duplicated",
+            message: `Image List "${source.name}" duplicated as "${trimmedName}"`
+          });
+          this.duplicating = false;
+          this.newAlbumName = "";
+          this.refreshImageMetaData();
+        })
+        .catch(response => this.notify.error({
+          title: "Failed to duplicate Image List",
+          message: response
+        }));
+    }
   }
 }

@@ -569,8 +569,29 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
               title: "File upload success",
               message: `${this.stringUtils.pluraliseWithCount(responses.length, "file")} ${this.stringUtils.pluraliseWithCount(responses.length, "was", "were")} uploaded`
             });
+            const unmatchedQueue: ContentMetadataItem[] = [...this.unsavedImages()];
             const matches: ContentMetadataItem[] = responses.map(response => {
-              const metadataItem: ContentMetadataItem = this.contentMetadata.files.find(item => item.originalFileName === response.uploadedFile.originalname);
+              const baseResponseName = this.fileUtils.basename(response.uploadedFile.originalname)?.toLowerCase();
+              let metadataItem: ContentMetadataItem = this.contentMetadata.files.find(item => {
+                const baseOriginalName = this.fileUtils.basename(item.originalFileName || "")?.toLowerCase();
+                return baseOriginalName && baseOriginalName === baseResponseName;
+              });
+              if (!metadataItem) {
+                metadataItem = unmatchedQueue.find(item => (item.originalFileName || "").toLowerCase() === response.uploadedFile.originalname.toLowerCase());
+              }
+              if (metadataItem) {
+                const queueIndex = unmatchedQueue.indexOf(metadataItem);
+                if (queueIndex >= 0) {
+                  unmatchedQueue.splice(queueIndex, 1);
+                }
+              }
+              if (!metadataItem && unmatchedQueue.length > 0) {
+                metadataItem = unmatchedQueue.shift();
+                this.logger.warn("falling back to sequential match for", response.uploadedFile.originalname, "matched:", metadataItem?.originalFileName);
+                if (metadataItem && !metadataItem.originalFileName) {
+                  metadataItem.originalFileName = response.uploadedFile.originalname;
+                }
+              }
               if (metadataItem) {
                 metadataItem.image = response.fileNameData.awsFileName;
                 delete metadataItem.base64Content;
@@ -714,7 +735,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.duplicateImages = this.imageDuplicatesService.populateFrom(this.contentMetadata);
   }
 
-  private filterFiles() {
+  private   filterFiles() {
     this.filteredFiles = this.contentMetadataService.filterSlides(this.contentMetadata?.imageTags, this.contentMetadata?.files, this.duplicateImages, this.filterType, this.activeTag, this.showDuplicates, this.filterText) || [];
     this.logger.info("filteredFiles:", this.filteredFiles);
   }
@@ -1004,8 +1025,9 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   private duplicateMessage(): string {
-    const duplicatedImages: string[] = keys(this.duplicateImages);
-    return duplicatedImages.length > 0 ? ` and ${this.stringUtils.pluralise(duplicatedImages.length, "a duplicate", "duplicates")} on ${this.stringUtils.pluraliseWithCount(duplicatedImages.length, "image")} will need to be resolved before you can save this album` : "";
+    const imageFiles = this.contentMetadata?.files?.filter(file => !file.youtubeId) || [];
+    const imageDuplicates = Object.keys(this.duplicateImages).filter(key => key && key !== 'undefined');
+    return imageDuplicates.length > 0 ? ` and ${this.stringUtils.pluralise(imageDuplicates.length, "a duplicate", "duplicates")} on ${this.stringUtils.pluraliseWithCount(imageDuplicates.length, "image")} will need to be resolved before you can save this album` : "";
   }
 
   private nonImageMessage(): string {
