@@ -118,6 +118,7 @@ export interface ContentMetadataItem extends WithMongoId, HasEventId {
   originalFileName?: string;
   text?: string;
   tags?: number[];
+  youtubeId?: string;
 }
 
 export interface DuplicateImages {
