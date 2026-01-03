@@ -162,7 +162,7 @@ export class CMSClient {
     this.ensureAuthenticated();
 
     const url = `${this.baseUrl}/api/database/page-content/${id}`;
-    const { id: _, ...payload } = content;
+    const payload = { ...content, id };
 
     debugLog(`Updating page content: ${id} (${content.path})`);
 
