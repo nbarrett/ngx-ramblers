@@ -82,9 +82,9 @@ export class ContentMetadataService {
 
   private transformFileNames(contentMetadataApiResponse: ContentMetadata) {
     return contentMetadataApiResponse?.files
-      .filter(item => item?.image)
       .map(item => ({
-        ...item, image: this.truncatePathFromName(item.image)
+        ...item, 
+        image: item?.image ? this.truncatePathFromName(item.image) : undefined
       }));
   }
 

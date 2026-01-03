@@ -444,7 +444,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   public selectedLocation: GeocodeResult | null = null;
   public selectedPath: AutocompleteSuggestion | null = null;
   public numberUtils = inject(NumberUtilsService);
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.ERROR);
   private mapTiles = inject(MapTilesService);
   private mapMarkerStyle = inject(MapMarkerStyleService);
   private gpxParser = inject(GpxParserService);

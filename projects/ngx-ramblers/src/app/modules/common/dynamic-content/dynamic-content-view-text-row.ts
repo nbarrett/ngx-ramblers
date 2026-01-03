@@ -16,6 +16,7 @@ import { ActionButtons } from "../action-buttons/action-buttons";
 import { AreaMap } from "../../../pages/area-map/area-map";
 import { DynamicContentViewMap } from "./dynamic-content-view-map";
 import { DynamicContentViewIndex } from "./dynamic-content-view-index";
+import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
 
 @Component({
     selector: "app-dynamic-content-view-text-row",
@@ -105,6 +106,13 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
                 }
               }
               @if (!column.rows) {
+                @if (showYoutubeBeforeText(column)) {
+                  <div class="youtube-embed-container">
+                    <app-youtube-embed
+                      [youtubeId]="column.youtubeId"
+                      [title]="column?.alt || 'YouTube video'"/>
+                  </div>
+                }
                 @if (showImageBeforeText(column)) {
                   <app-card-image
                     [borderRadius]="column?.imageBorderRadius"
@@ -119,6 +127,13 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
                                        [styles]="column?.styles"
                                        [name]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentPath)"
                                        [category]="contentPath"/>
+                }
+                @if (showYoutubeAfterText(column)) {
+                  <div class="youtube-embed-container">
+                    <app-youtube-embed
+                      [youtubeId]="column.youtubeId"
+                      [title]="column?.alt || 'YouTube video'"/>
+                  </div>
                 }
                 @if (showImageAfterText(column)) {
                   <app-card-image
@@ -135,7 +150,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [MarkdownEditorComponent, CardImageComponent, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, ActionButtons, AreaMap, DynamicContentViewMap]
+    imports: [MarkdownEditorComponent, CardImageComponent, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, ActionButtons, AreaMap, DynamicContentViewMap, YoutubeEmbed]
 })
 export class DynamicContentViewTextRow implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewTextRow", NgxLoggerLevel.ERROR);
@@ -169,9 +184,16 @@ export class DynamicContentViewTextRow implements OnInit {
   }
 
   shouldShowImage(column: PageContentColumn): boolean {
+    if (this.hasYoutubeVideo(column)) {
+      return false;
+    }
     const hasActualImage = !!column?.imageSource;
     const showPlaceholder = column?.showPlaceholderImage && !column?.imageSource;
     return hasActualImage || showPlaceholder;
+  }
+
+  hasYoutubeVideo(column: PageContentColumn): boolean {
+    return !!column?.youtubeId;
   }
 
   imageSourceFor(column: PageContentColumn): string {
@@ -190,6 +212,14 @@ export class DynamicContentViewTextRow implements OnInit {
 
   showImageBeforeText(column: PageContentColumn) {
     return column.showTextAfterImage && this.shouldShowImage(column);
+  }
+
+  showYoutubeAfterText(column: PageContentColumn) {
+    return !column.showTextAfterImage && this.hasYoutubeVideo(column);
+  }
+
+  showYoutubeBeforeText(column: PageContentColumn) {
+    return column.showTextAfterImage && this.hasYoutubeVideo(column);
   }
 
   fragmentContentFor(row: PageContentRow): PageContent {

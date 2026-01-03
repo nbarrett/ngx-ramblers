@@ -55,6 +55,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { ALERT_WARNING } from "../../../models/alert-target.model";
+import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
 
 @Component({
     selector: "app-dynamic-content-site-edit-text-row",
@@ -257,6 +258,17 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
                                [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')"
                                type="text" class="form-control">
                       </ng-template>
+                      <ng-template #youtubeIdControl>
+                        <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'youtube-id')">
+                          YouTube Video ID</label>
+                        <input [(ngModel)]="column.youtubeId"
+                               [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'youtube-id')"
+                               type="text" class="form-control"
+                               placeholder="e.g., dQw4w9WgXcQ">
+                        <small class="form-text text-muted">
+                          If provided, YouTube video will be displayed instead of image
+                        </small>
+                      </ng-template>
                       <ng-template #imageAltControl>
                         <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-alt')">
                           Alt Text</label>
@@ -293,9 +305,19 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
                                           [imageSource]="imageDisplay(rowIndex, columnIndex, column).url"/>
                         </div>
                       </ng-template>
+                      <ng-template #youtubePreviewBlock>
+                        <div class="youtube-embed-container youtube-embed-preview">
+                          <app-youtube-embed
+                            [youtubeId]="column.youtubeId"
+                            [title]="column?.alt || 'YouTube video'"/>
+                        </div>
+                      </ng-template>
                       <div class="d-flex gap-2 align-items-stretch" [ngClass]="'flex-column'">
                         @if (imageDisplay(rowIndex, columnIndex, column).showBefore) {
                           <ng-container [ngTemplateOutlet]="cardImageBlock"></ng-container>
+                        }
+                        @if (showYoutubeBeforeText(column)) {
+                          <ng-container [ngTemplateOutlet]="youtubePreviewBlock"></ng-container>
                         }
                         <app-markdown-editor #markdownEditorComponent class="flex-grow-1 w-100"
                                              (changed)="actions.notifyPageContentTextChange($event, column, pageContent)"
@@ -313,6 +335,9 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
                                              [category]="contentPath">
                           <ng-container prepend/>
                         </app-markdown-editor>
+                        @if (showYoutubeAfterText(column)) {
+                          <ng-container [ngTemplateOutlet]="youtubePreviewBlock"></ng-container>
+                        }
                         @if (imageDisplay(rowIndex, columnIndex, column).showAfter) {
                           <ng-container [ngTemplateOutlet]="cardImageBlock"></ng-container>
                         }
@@ -350,6 +375,9 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
                               <ng-container [ngTemplateOutlet]="imageSourceControl"></ng-container>
                             </div>
                             <div class="col-sm-12">
+                              <ng-container [ngTemplateOutlet]="youtubeIdControl"></ng-container>
+                            </div>
+                            <div class="col-sm-12">
                               <ng-container [ngTemplateOutlet]="imageAltControl"></ng-container>
                             </div>
                             <div class="col-sm-12">
@@ -360,6 +388,11 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
                           <div class="row mt-2">
                             <div class="col-12">
                               <ng-container [ngTemplateOutlet]="imageSourceControl"></ng-container>
+                            </div>
+                          </div>
+                          <div class="row mt-2">
+                            <div class="col-12">
+                              <ng-container [ngTemplateOutlet]="youtubeIdControl"></ng-container>
                             </div>
                           </div>
                           <div class="row mt-2">
@@ -720,7 +753,7 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent]
+    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
@@ -1094,6 +1127,9 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   }
 
   imageDisplay(rowIndex: number, columnIndex: number, column: PageContentColumn): { showBefore: boolean; showAfter: boolean; url: string | null } {
+    if (this.hasYoutubeVideo(column)) {
+      return { showBefore: false, showAfter: false, url: null };
+    }
     const actual = this.resolveActualImage(rowIndex, columnIndex, column);
     const hasActual = !!actual;
     const showPlaceholder = !!column?.showPlaceholderImage && !hasActual;
@@ -1102,6 +1138,18 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const after = show && !column?.showTextAfterImage;
     const url = showPlaceholder ? FALLBACK_MEDIA.url : actual;
     return { showBefore: before, showAfter: after, url };
+  }
+
+  hasYoutubeVideo(column: PageContentColumn): boolean {
+    return !!column?.youtubeId;
+  }
+
+  showYoutubeBeforeText(column: PageContentColumn): boolean {
+    return !!column?.showTextAfterImage && this.hasYoutubeVideo(column);
+  }
+
+  showYoutubeAfterText(column: PageContentColumn): boolean {
+    return !column?.showTextAfterImage && this.hasYoutubeVideo(column);
   }
 
   onShowPlaceholderImageChanged(event: Event, column: PageContentColumn) {

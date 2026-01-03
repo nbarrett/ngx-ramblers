@@ -66,8 +66,8 @@ import { CarouselComponent } from "../../carousel/view/carousel";
           @if (noImages) {
             <div class="alert alert-warning">
               <fa-icon [icon]="faCircleInfo"/>
-              <strong class="ms-1">No images exist in this album</strong>
-              <div>Click the <strong>Edit images in album</strong> button to create new images in
+              <strong class="ms-1">No content exists in this album</strong>
+              <div>Click the <strong>Edit images in album</strong> button to add images or videos to
                 the {{ album.name }} album
               </div>
             </div>
@@ -152,7 +152,7 @@ export class AlbumComponent implements OnInit {
 
     this.contentMetadataService.contentMetadataNotifications().subscribe(metadataResponses => {
       const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.album?.name, metadataResponses);
-      this.noImages = !allAndSelectedContentMetaData.contentMetadata;
+      this.noImages = !allAndSelectedContentMetaData.contentMetadata || !allAndSelectedContentMetaData.contentMetadata.files || allAndSelectedContentMetaData.contentMetadata.files.length === 0;
       this.logger.info("in subscribe:album:", this.album, "allAndSelectedContentMetaData:", allAndSelectedContentMetaData);
     });
     this.broadcastService.on(NamedEventType.CONTENT_METADATA_CHANGED, (namedEvent: NamedEvent<ContentMetadata>) => {
@@ -171,7 +171,7 @@ export class AlbumComponent implements OnInit {
     this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
     const slideCount = this.albumView === AlbumView.GRID ? this.lazyLoadingMetadata?.contentMetadata?.files?.length : 10;
     this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS, slideCount);
-    this.noImages = !contentMetadata;
+    this.noImages = !contentMetadata || !contentMetadata.files || contentMetadata.files.length === 0;
     this.lazyLoadingMetadataChange.emit(this.lazyLoadingMetadata);
     this.logger.info("initialised with", slideCount, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
   }

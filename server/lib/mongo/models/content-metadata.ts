@@ -7,7 +7,8 @@ const contentMetadataItem = new mongoose.Schema({
   eventId: {type: String},
   dateSource: {type: String},
   date: {type: Number},
-  image: {type: String, required: true},
+  image: {type: String},
+  youtubeId: {type: String},
   originalFileName: {type: String},
   text: {type: String},
   tags: [{type: Number}]

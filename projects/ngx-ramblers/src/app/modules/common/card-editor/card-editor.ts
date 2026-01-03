@@ -17,6 +17,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
 import { PageContentService } from "../../../services/page-content.service";
 import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
+import { YouTubeService } from "../../../services/youtube.service";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { CardImageComponent } from "../card/image/card-image";
@@ -222,6 +223,7 @@ export class CardEditorComponent implements OnInit {
   pageContentService = inject(PageContentService);
   actions = inject(PageContentActionsService);
   private numberUtils = inject(NumberUtilsService);
+  private youtubeService = inject(YouTubeService);
 
   @Input() public pageContent: PageContent;
   @Input() public column: PageContentColumn;
@@ -282,10 +284,13 @@ export class CardEditorComponent implements OnInit {
 
   imageSourceOrPreview(): string {
     const actualImage = this.awsFileData?.image || this.column?.imageSource;
-    if (this.column?.showPlaceholderImage && !this.column?.imageSource) {
+    if (this.column?.showPlaceholderImage && !this.column?.imageSource && !this.column?.youtubeId) {
       return FALLBACK_MEDIA.url;
+    } else if (this.column?.youtubeId && !actualImage) {
+      return this.youtubeService.thumbnailUrl(this.column.youtubeId);
+    } else {
+      return actualImage;
     }
-    return actualImage;
   }
 
   onShowPlaceholderImageChanged(event: Event) {

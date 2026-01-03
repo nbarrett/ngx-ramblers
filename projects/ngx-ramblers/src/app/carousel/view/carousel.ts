@@ -27,6 +27,7 @@ import { CarouselComponent as CarouselComponent_1, SlideComponent } from "ngx-bo
 import { NgStyle } from "@angular/common";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
+import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
 
 @Component({
   selector: "app-carousel",
@@ -50,15 +51,24 @@ import { DisplayDatePipe } from "../../pipes/display-date.pipe";
               @for (slide of lazyLoadingMetadata?.selectedSlides; track imageSourceFor(slide)) {
                 <slide>
                   @if (slide) {
-                    <img loading="lazy" [src]="imageSourceFor(slide)"
-                         [alt]="slide.text" [ngStyle]="{
-                 'height.px': album.height,
-                  'min-width': '100%',
-                   'max-width': '100%',
-                   'object-fit': 'cover',
-                   'object-position': 'center'}"
-                         (load)="onImageLoad($event)"
-                         (error)="onImageError($event)">
+                    @if (hasYoutubeVideo(slide)) {
+                      <div class="youtube-embed-container" [ngStyle]="{'height.px': album.height || DEFAULT_HEIGHT}">
+                        <app-youtube-embed
+                          [youtubeId]="slide.youtubeId"
+                          [title]="slide.text || 'YouTube video'"
+                          (playbackStateChange)="onVideoPlaybackChange($event)"/>
+                      </div>
+                    } @else {
+                      <img loading="lazy" [src]="imageSourceFor(slide)"
+                           [alt]="slide.text" [ngStyle]="{
+                   'height.px': album.height,
+                     'min-width': '100%',
+                      'max-width': '100%',
+                      'object-fit': 'cover',
+                      'object-position': 'center'}"
+                           (load)="onImageLoad($event)"
+                           (error)="onImageError($event)">
+                    }
                   }
                   <div class="carousel-caption">
                     <h4>{{ slide.text || album.subtitle }}</h4>
@@ -94,7 +104,7 @@ import { DisplayDatePipe } from "../../pipes/display-date.pipe";
       </div>
     </div>`,
   styleUrls: ["./carousel.sass"],
-  imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe]
+  imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe, YoutubeEmbed]
 })
 export class CarouselComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CarouselComponent", NgxLoggerLevel.ERROR);
@@ -187,6 +197,10 @@ export class CarouselComponent implements OnInit, OnDestroy {
     return this.urlService.imageSource(this.urlService.qualifiedFileNameWithRoot(this.lazyLoadingMetadata?.contentMetadata?.rootFolder, this.lazyLoadingMetadata?.contentMetadata?.name, item));
   }
 
+  hasYoutubeVideo(item: ContentMetadataItem): boolean {
+    return !!item?.youtubeId;
+  }
+
   tagChanged(imageTag: ImageTag) {
     this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.TAG_CHANGE, this.duplicateImages, imageTag);
   }
@@ -199,6 +213,11 @@ export class CarouselComponent implements OnInit, OnDestroy {
   mouseLeave($event: MouseEvent) {
     this.noPause = true;
     this.logger.info("mouseLeave:", $event, "noPause:", this.noPause);
+  }
+
+  onVideoPlaybackChange(isPlaying: boolean) {
+    this.noPause = !isPlaying;
+    this.logger.info("Video playback changed. isPlaying:", isPlaying, "noPause:", this.noPause);
   }
 
   onImageLoad($event: Event) {

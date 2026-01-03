@@ -172,4 +172,20 @@ StringUtilsService {
     return key?.split("/").filter(item => item)?.pop();
   }
 
+  stripMarkdown(text: string): string {
+    if (!text) {
+      return text;
+    }
+    return text
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/(\*\*|__)(.*?)\1/g, "$2")
+      .replace(/(\*|_)(.*?)\1/g, "$2")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
+      .replace(/^\s*[-*+]\s+/gm, "")
+      .replace(/^\s*\d+\.\s+/gm, "")
+      .replace(/^\s*>\s+/gm, "")
+      .trim();
+  }
+
 }

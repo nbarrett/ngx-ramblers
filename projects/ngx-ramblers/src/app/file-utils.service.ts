@@ -264,8 +264,8 @@ export class FileUtilsService {
     });
   }
 
-  basename(path:string) {
-    return basename(path);
+  basename(path: string) {
+    return path ? basename(path) : "";
   }
 
   fileNameNoExtension(path): string {

@@ -203,6 +203,7 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   columns?: number;
   contentText?: string;
   imageSource?: string;
+  youtubeId?: string;
   alt?: string;
   imageBorderRadius?: number;
   icon?: string;
