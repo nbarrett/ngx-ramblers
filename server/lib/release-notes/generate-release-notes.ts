@@ -274,6 +274,20 @@ async function promptForCredentials(config: ReleaseNotesConfig): Promise<Release
     return config;
   }
 
+  const isInteractive = process.stdin.isTTY && process.stdout.isTTY;
+
+  if (!isInteractive) {
+    const missingFields = [];
+    if (!config.username) missingFields.push("CMS_USERNAME");
+    if (!config.password) missingFields.push("CMS_PASSWORD");
+
+    throw new Error(
+      `Missing credentials in non-interactive environment.\n` +
+      `Please set environment variables: ${missingFields.join(", ")}\n` +
+      `Or use --username and --password options.`
+    );
+  }
+
   const answers = await inquirer.prompt([
     {
       type: "input",
