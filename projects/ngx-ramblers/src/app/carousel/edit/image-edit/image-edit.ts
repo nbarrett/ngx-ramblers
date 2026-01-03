@@ -181,6 +181,15 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
                          [id]="'name-' + index" placeholder="Image source - updated automatically"/>
                 }
               </div>
+              <div class="form-group">
+                <label [for]="'youtube-' + index">YouTube Video ID</label>
+                <input [(ngModel)]="item.youtubeId" (ngModelChange)="callImageChange()" type="text"
+                       class="form-control input-sm"
+                       [id]="'youtube-' + index" placeholder="e.g., dQw4w9WgXcQ (from youtube.com/watch?v=dQw4w9WgXcQ)"/>
+                <small class="form-text text-muted">
+                  If provided, this will display as a YouTube video instead of an image
+                </small>
+              </div>
               @if (item.originalFileName) {
                 <div class="form-group">
                   <label [for]="'original-name-' + index">Original Name</label>

@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { Gallery, GalleryComponent, GalleryImageDef, GalleryRef, GalleryState, ImageItem } from "ng-gallery";
+import { Gallery, GalleryComponent, GalleryImageDef, GalleryRef, GalleryState, ImageItem, YoutubeItem } from "ng-gallery";
 import { ContentMetadata, ContentMetadataItem, LazyLoadingMetadata } from "../../models/content-metadata.model";
 import { PageService } from "../../services/page.service";
 import { ContentMetadataService } from "../../services/content-metadata.service";
@@ -95,7 +95,7 @@ export class AlbumGalleryComponent implements OnInit {
       this.showGallery = false;
       this.galleryId = this.stringUtils.kebabCase(this.album.name);
       this.galleryDomId = `${this.galleryId}-${Date.now()}`;
-      const images = this.lazyLoadingMetadata.selectedSlides.map(item => this.toImage(item));
+      const items = this.lazyLoadingMetadata.selectedSlides.map(item => this.toGalleryItem(item));
       setTimeout(() => {
         this.showGallery = true;
         this.galleryRef = this.gallery.ref(this.galleryDomId);
@@ -109,15 +109,21 @@ export class AlbumGalleryComponent implements OnInit {
         } else {
           this.logger.info("initialiseMetadata:not resetting galleryRef:", this.galleryRef);
         }
-        this.logger.info("initialiseMetadata:lazyLoadingMetadata:", this.lazyLoadingMetadata, "loading images:", images);
-        this.galleryRef.load(images);
+        this.logger.info("initialiseMetadata:lazyLoadingMetadata:", this.lazyLoadingMetadata, "loading items:", items);
+        this.galleryRef.load(items);
       });
     } else {
       this.logger.info("initialiseMetadata:lazyLoadingMetadata not initialised yet:");
     }
   }
 
-  private toImage(item: ContentMetadataItem) {
+  private toGalleryItem(item: ContentMetadataItem): ImageItem | YoutubeItem {
+    if (item.youtubeId) {
+      return new YoutubeItem({
+        src: item.youtubeId,
+        thumb: item.image ? this.urlService.imageSourceFor(item, this?.lazyLoadingMetadata.contentMetadata) : `https://img.youtube.com/vi/${item.youtubeId}/hqdefault.jpg`
+      });
+    }
     return new ImageItem({
       alt: item.text,
       src: this.urlService.imageSourceFor(item, this?.lazyLoadingMetadata.contentMetadata),
@@ -129,7 +135,7 @@ export class AlbumGalleryComponent implements OnInit {
     this.logger.debug("itemsChange:", galleryState, "selectedSlides:", this.lazyLoadingMetadata?.selectedSlides);
     const slideNumber = galleryState.currIndex + 1;
     if (slideNumber >= this.lazyLoadingMetadata?.selectedSlides?.length - 2) {
-      this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata, 1, "active slide change").map(item => this.galleryRef.add(this.toImage(item)));
+      this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata, 1, "active slide change").map(item => this.galleryRef.add(this.toGalleryItem(item)));
     } else {
       this.logger.info("Not adding new item as slide number is", slideNumber, "selectedSlide count:", this.lazyLoadingMetadata.selectedSlides.length);
     }
