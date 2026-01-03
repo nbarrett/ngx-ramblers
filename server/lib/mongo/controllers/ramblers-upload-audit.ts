@@ -10,13 +10,15 @@ import {
   FileUploadSummary,
   Status
 } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
+import { asNumber } from "../../../../projects/ngx-ramblers/src/app/functions/numbers";
 
 const debugLog = debug(envConfig.logNamespace("ramblers-upload-audit"));
 debugLog.enabled = false;
 
 export async function queryUploadSessions(req: Request, res: Response): Promise<any> {
-  const monthsParam = parseInt(String((req.query.months as string) || ""), 10);
-  const months = isNaN(monthsParam) ? 6 : Math.max(1, monthsParam);
+  const monthsInput = (req.query.months as string) || "";
+  const monthsParam = asNumber(monthsInput);
+  const months = monthsInput ? Math.max(1, monthsParam) : 6;
   const threshold = dateTimeNow().minus({ months }).toMillis();
 
   try {

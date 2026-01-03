@@ -16,7 +16,7 @@ This automation:
 
 - **CLI Mode**: Run with command-line options for automation
 - **Interactive Mode**: Use a TUI to select which release notes to generate
-- **State Tracking**: Keeps track of processed commits to avoid duplicates
+- **Duplicate Detection**: Automatically updates existing release notes via CMS
 - **Dry Run**: Preview changes without publishing
 - **Flexible Date Grouping**: Groups commits by date for organized release notes
 - **Issue Linking**: Automatically extracts and links GitHub issues from commits
@@ -189,14 +189,14 @@ The tool:
 3. Creates/updates page content at `/how-to/committee/release-notes/YYYY-MM-DD`
 4. Updates the index page at `/how-to/committee/release-notes` with a link to the new entry
 
-### 5. State Tracking
+### 5. Duplicate Detection
 
-Processed commits are tracked in:
-```
-../non-vcs/release-notes/processed-commits.json
-```
+The tool automatically detects existing release notes in the CMS:
+- Checks if a page exists for each release note path
+- Updates existing pages rather than creating duplicates
+- No local state file needed - all state is derived from CMS
 
-This prevents duplicate release notes from being generated.
+If you want to regenerate a release note, simply delete it from the CMS first.
 
 ## Release Note Format
 
@@ -277,14 +277,16 @@ If you get authentication errors:
 
 If commits aren't appearing:
 1. Ensure they follow conventional commit format
-2. Check the state file hasn't excluded them
-3. Use `--all` to regenerate all release notes
+2. Check if the release note already exists in the CMS
+3. Use the appropriate date range option to include those commits
 
-### Duplicate Release Notes
+### Regenerating Release Notes
 
-The tool tracks processed commits to prevent duplicates. To regenerate:
-1. Delete or edit `../non-vcs/release-notes/processed-commits.json`
-2. Run the tool again
+To regenerate an existing release note:
+1. Delete the page from the CMS (or use the delete-pages script)
+2. Run the tool again for that date range
+
+The tool will create/update pages based on what exists in the CMS.
 
 ### Page Not Found
 

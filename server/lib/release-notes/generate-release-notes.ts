@@ -2,55 +2,43 @@ import { Command } from "commander";
 import debug from "debug";
 import inquirer from "inquirer";
 import { execSync } from "child_process";
-import * as path from "path";
-import * as fs from "fs/promises";
-import { CMSClient } from "./cms-client.js";
-import { pluralise, pluraliseWithCount } from "../shared/string-utils";
-import {
-  commitsBetween,
-  findCommitByHash,
-  gitLog,
-  gitLogSinceDate,
-  latestTag
-} from "./commit-parser.js";
+import * as cms from "./cms-client.js";
+import { findWorkflowRunByCommit } from "./github-client.js";
+import { Environment } from "../env-config/environment-model";
+import { GitHubTokenProvider } from "../shared/github-token-provider.js";
+import { pluraliseWithCount } from "../shared/string-utils";
+import { commitsBetween, findCommitByHash, gitLog, gitLogSinceDate, latestTag } from "./commit-parser.js";
 import {
   createReleaseNotesData,
+  extractExistingBuildMetadata,
   formatDateForPath,
   generatePageContent,
   updateIndexPageContent
 } from "./content-generator.js";
-import type {
-  ConventionalCommit,
-  GenerateOptions,
-  ReleaseNotesConfig,
-  ReleaseNotesData
-} from "./models.js";
-import { dateTimeFromIso, dateTimeInTimezone, dateTimeFromJsDate } from "../shared/dates";
+import type { CMSAuth, ConventionalCommit, GenerateOptions, ReleaseNotesConfig, ReleaseNotesData } from "./models.js";
+import { dateTimeFromIso, dateTimeFromJsDate, dateTimeInTimezone } from "../shared/dates";
+import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
+import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
 const debugLog = debug("release-notes");
 debugLog.enabled = true;
 
 const DEFAULT_CONFIG: ReleaseNotesConfig = {
-  cmsUrl: process.env.CMS_URL || "https://www.ngx-ramblers.org.uk",
-  username: process.env.CMS_USERNAME || "",
-  password: process.env.CMS_PASSWORD || "",
+  cmsUrl: process.env[Environment.CMS_URL] || "https://www.ngx-ramblers.org.uk",
+  username: process.env[Environment.CMS_USERNAME] || "",
+  password: process.env[Environment.CMS_PASSWORD] || "",
   githubRepo: "nbarrett/ngx-ramblers",
+  githubToken: process.env[Environment.GITHUB_TOKEN] || process.env[Environment.GH_TOKEN] || process.env[Environment.GITHUB_PAT] || new GitHubTokenProvider().token(),
   indexPath: "how-to/committee/release-notes"
 };
 
-interface ReleaseEntry {
-  commits: ConventionalCommit[];
-  date: string;
-  title: string;
-}
-
-const DATE_INPUT_FORMATS = [
-  "d-MMM-yyyy",
-  "dd-MMM-yyyy",
-  "d MMM yyyy",
-  "dd MMM yyyy",
-  "MMM d yyyy",
-  "MMMM d yyyy"
+const DATE_INPUT_FORMATS: UIDateFormat[] = [
+  UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED,
+  UIDateFormat.DAY_MONTH_YEAR_WITH_SLASHES,
+  UIDateFormat.DISPLAY_DATE_NO_DAY,
+  UIDateFormat.DISPLAY_DATE,
+  UIDateFormat.DISPLAY_DATE_TH,
+  UIDateFormat.MONTH_YEAR_ABBREVIATED
 ];
 
 function normalizeDateInput(input: string): string {
@@ -84,11 +72,7 @@ function filterCommitsByDateRange(commits: ConventionalCommit[], sinceDate?: str
   return commits.filter(commit => {
     if (sinceDate && commit.date < sinceDate) {
       return false;
-    }
-    if (untilDate && commit.date > untilDate) {
-      return false;
-    }
-    return true;
+    } else return !(untilDate && commit.date > untilDate);
   });
 }
 
@@ -109,6 +93,50 @@ function getAllCommits(limit?: number): ConventionalCommit[] {
 
 function getRecentCommits(count: number = 50): ConventionalCommit[] {
   return gitLog(`HEAD~${count}`, "HEAD");
+}
+
+async function removeLegacyReleasePages(
+  auth: CMSAuth,
+  releasePath: string,
+  issueNumber: string | null,
+  pathSuffix: string
+): Promise<void> {
+  if (pathSuffix) {
+    return;
+  }
+
+  const legacyPaths: string[] = [];
+  if (issueNumber) {
+    legacyPaths.push(`${releasePath}-issue-${issueNumber}`);
+  }
+  legacyPaths.push(`${releasePath}-other`);
+
+  await legacyPaths.reduce(async (previous, candidatePath) => {
+    await previous;
+    if (candidatePath === releasePath) {
+      return;
+    }
+    const legacyPage = await cms.pageContent(auth, candidatePath);
+    if (legacyPage?.id) {
+      await cms.deletePageContent(auth, legacyPage.id);
+      debugLog(`Removed legacy release page: ${candidatePath}`);
+    }
+  }, Promise.resolve());
+}
+
+function needsBuildMetadataRefresh(data: ReleaseNotesData): boolean {
+  if (!data.buildNumber) {
+    return true;
+  } else if (!data.buildUrl) {
+    return true;
+  }
+  const runIdMatch = data.buildUrl.match(/\/runs\/(\d+)/);
+  if (!runIdMatch) {
+    return true;
+  } else if (data.buildNumber === runIdMatch[1]) {
+    return true;
+  }
+  return false;
 }
 
 interface ReleaseGroup {
@@ -199,7 +227,7 @@ function groupCommitsByDateAndIssue(commits: ConventionalCommit[]): ReleaseGroup
 
   const normalizedGroups = Array.from(groupsByDate.entries()).flatMap(([date, dateGroups]) => {
     const withIssue = dateGroups.filter(group => group.issueNumber);
-    const sortedIssues = [...withIssue].sort((a, b) => parseInt(b.issueNumber!) - parseInt(a.issueNumber!));
+    const sortedIssues = [...withIssue].sort((a, b) => asNumber(b.issueNumber) - asNumber(a.issueNumber));
     const normalizedIssues = sortedIssues.map(group => ({
       ...group,
       pathSuffix: sortedIssues.length > 1 ? `-issue-${group.issueNumber}` : ""
@@ -220,7 +248,7 @@ function groupCommitsByDateAndIssue(commits: ConventionalCommit[]): ReleaseGroup
       return dateComparison;
     }
     if (a.issueNumber && b.issueNumber) {
-      return parseInt(b.issueNumber) - parseInt(a.issueNumber);
+      return asNumber(b.issueNumber) - asNumber(a.issueNumber);
     }
     if (a.issueNumber) {
       return -1;
@@ -243,31 +271,6 @@ function commitsFromGroups(groups: ReleaseGroup[]): ConventionalCommit[] {
   return groups.flatMap(group => group.commits);
 }
 
-async function loadStateFile(): Promise<Set<string>> {
-  const statePath = path.join(process.cwd(), "../non-vcs/release-notes/processed-commits.json");
-
-  try {
-    const content = await fs.readFile(statePath, "utf-8");
-    const data = JSON.parse(content);
-    return new Set(data.processedCommits || []);
-  } catch {
-    return new Set();
-  }
-}
-
-async function saveStateFile(processedCommits: Set<string>): Promise<void> {
-  const statePath = path.join(process.cwd(), "../non-vcs/release-notes/processed-commits.json");
-  const dir = path.dirname(statePath);
-
-  await fs.mkdir(dir, { recursive: true });
-
-  const data = {
-    processedCommits: Array.from(processedCommits),
-    lastUpdated: new Date().toISOString()
-  };
-
-  await fs.writeFile(statePath, JSON.stringify(data, null, 2), "utf-8");
-}
 
 async function promptForCredentials(config: ReleaseNotesConfig): Promise<ReleaseNotesConfig> {
   if (config.username && config.password) {
@@ -315,13 +318,41 @@ async function promptForCredentials(config: ReleaseNotesConfig): Promise<Release
 
 async function generateReleaseNote(
   data: ReleaseNotesData,
-  client: CMSClient,
+  auth: CMSAuth,
   config: ReleaseNotesConfig,
   pathSuffix: string,
   dryRun: boolean,
   allowUnassigned: boolean
 ): Promise<void> {
   const releasePath = `${config.indexPath}/${formatDateForPath(data.date)}${pathSuffix}`;
+
+  const existingReleasePage = dryRun ? null : await cms.pageContent(auth, releasePath);
+
+  if (!data.buildNumber && existingReleasePage) {
+    const existingBuild = extractExistingBuildMetadata(existingReleasePage);
+    if (existingBuild) {
+      data.buildNumber = existingBuild.buildNumber;
+      data.buildUrl = existingBuild.buildUrl;
+      debugLog(`  Preserved build #${existingBuild.buildNumber}`);
+    }
+  }
+
+  if (!dryRun && needsBuildMetadataRefresh(data)) {
+    debugLog(`  Attempting GitHub build lookup for ${data.commitSha}`);
+    const githubRun = await findWorkflowRunByCommit(config.githubRepo, data.commitSha, config.githubToken || null);
+    if (githubRun) {
+      const displayNumber = githubRun.number || githubRun.id;
+      const resolvedUrl = githubRun.url || `https://github.com/${config.githubRepo}/actions/runs/${githubRun.id}`;
+      data.buildNumber = displayNumber;
+      data.buildUrl = resolvedUrl;
+      debugLog(`  Resolved build #${displayNumber} (run id ${githubRun.id}) from GitHub: ${resolvedUrl}`);
+    } else {
+      debugLog("  GitHub build lookup returned no results");
+    }
+  } else if (data.buildNumber) {
+    const existingUrl = data.buildUrl || "unknown URL";
+    debugLog(`  Using existing build metadata #${data.buildNumber} (${existingUrl})`);
+  }
 
   debugLog(`Generating release note for ${data.date}${pathSuffix}`);
   debugLog(`  Title: ${data.title}`);
@@ -337,10 +368,19 @@ async function generateReleaseNote(
     return;
   }
 
-  await client.createOrUpdatePageContent(pageContent);
-  debugLog(`Created/updated release note page: ${releasePath}`);
+  if (existingReleasePage) {
+    await cms.updatePageContent(auth, existingReleasePage.id!, pageContent);
+    debugLog(`Updated release note page: ${releasePath}`);
+  } else {
+    await cms.createPageContent(auth, pageContent);
+    debugLog(`Created release note page: ${releasePath}`);
+  }
 
-  const indexPage = await client.pageContent(config.indexPath);
+  if (!dryRun) {
+    await removeLegacyReleasePages(auth, releasePath, data.issueNumber, pathSuffix);
+  }
+
+  const indexPage = await cms.pageContent(auth, config.indexPath);
 
   if (!indexPage) {
     throw new Error(`Index page not found: ${config.indexPath}`);
@@ -357,13 +397,35 @@ async function generateReleaseNote(
     { allowUnassigned }
   );
 
-  await client.updatePageContent(indexPage.id!, updatedIndex);
+  await cms.updatePageContent(auth, indexPage.id!, updatedIndex);
   debugLog(`Updated index page: ${config.indexPath}`);
+}
+
+async function filterExistingReleaseNotes(
+  groups: ReleaseGroup[],
+  auth: CMSAuth,
+  config: ReleaseNotesConfig
+): Promise<{ new: ReleaseGroup[]; existing: ReleaseGroup[] }> {
+  const newGroups: ReleaseGroup[] = [];
+  const existingGroups: ReleaseGroup[] = [];
+
+  for (const group of groups) {
+    const releasePath = `${config.indexPath}/${formatDateForPath(group.date)}${group.pathSuffix}`;
+    const exists = await cms.pageExists(auth, releasePath);
+
+    if (exists) {
+      existingGroups.push(group);
+    } else {
+      newGroups.push(group);
+    }
+  }
+
+  return { new: newGroups, existing: existingGroups };
 }
 
 async function generateMultipleReleaseNotes(
   groups: ReleaseGroup[],
-  client: CMSClient,
+  auth: CMSAuth,
   config: ReleaseNotesConfig,
   buildNumber: string | null,
   dryRun: boolean,
@@ -376,7 +438,7 @@ async function generateMultipleReleaseNotes(
       data.issueNumber = group.issueNumber;
       data.issueUrl = `https://github.com/${config.githubRepo}/issues/${group.issueNumber}`;
     }
-    await generateReleaseNote(data, client!, config, group.pathSuffix, dryRun, includeUnassigned);
+    await generateReleaseNote(data, auth, config, group.pathSuffix, dryRun, includeUnassigned);
   }, Promise.resolve());
 }
 
@@ -389,17 +451,15 @@ async function testAuthentication(config: ReleaseNotesConfig): Promise<void> {
   debugLog(`Username: ${configWithCreds.username}`);
   debugLog("\nAttempting login...");
 
-  const client = new CMSClient(configWithCreds.cmsUrl);
-
   try {
-    await client.login(configWithCreds.username, configWithCreds.password);
+    const auth = await cms.login(configWithCreds.cmsUrl, configWithCreds.username, configWithCreds.password);
     debugLog("✓ Login successful");
     debugLog("✓ JWT token obtained");
     debugLog("✓ User has contentAdmin permission");
 
     debugLog("\nTesting API access...");
 
-    const indexPage = await client.pageContent(configWithCreds.indexPath);
+    const indexPage = await cms.pageContent(auth, configWithCreds.indexPath);
 
     if (indexPage) {
       debugLog(`✓ Successfully fetched index page: ${configWithCreds.indexPath}`);
@@ -426,20 +486,18 @@ async function testAuthentication(config: ReleaseNotesConfig): Promise<void> {
 }
 
 async function previewMissingReleaseNotes(includeUnassigned: boolean): Promise<void> {
-  const processedCommits = await loadStateFile();
   const recentCommits = getRecentCommits(100);
-  const unprocessedRecent = recentCommits.filter(c => !processedCommits.has(c.hash));
 
-  if (unprocessedRecent.length === 0) {
-    debugLog("No unprocessed commits in recent history (last 100 commits)");
+  if (recentCommits.length === 0) {
+    debugLog("No commits found in recent history");
     return;
   }
 
-  const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(unprocessedRecent), includeUnassigned);
+  const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(recentCommits), includeUnassigned);
 
-  debugLog(`\nPreview of missing release notes (recent 100 commits):`);
-  debugLog(`Total unprocessed commits: ${unprocessedRecent.length}`);
-  debugLog(`Release notes to generate: ${releaseGroups.length}\n`);
+  debugLog(`\nPreview of release notes (recent 100 commits):`);
+  debugLog(`Total commits: ${recentCommits.length}`);
+  debugLog(`Release notes that would be created/updated: ${releaseGroups.length}\n`);
 
   releaseGroups.slice(0, 15).forEach(group => {
     const primaryCommit = group.commits[0];
@@ -462,10 +520,10 @@ async function mainMenu(config: ReleaseNotesConfig, includeUnassigned: boolean):
       message: "Release Notes - What would you like to do?",
       choices: [
         { name: "Test authentication", value: "test-auth" },
-        { name: "Preview missing release notes", value: "preview" },
+        { name: "Preview release notes", value: "preview" },
         { name: "Generate release notes (interactive)", value: "interactive" },
         { name: "Generate latest (since last tag)", value: "latest" },
-        { name: "Generate all missing", value: "all" },
+        { name: "Generate all", value: "all" },
         { name: "Exit", value: "exit" }
       ]
     }
@@ -507,8 +565,6 @@ async function interactiveMode(config: ReleaseNotesConfig, includeUnassigned: bo
 }
 
 async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassigned: boolean): Promise<void> {
-  const processedCommits = await loadStateFile();
-
   const scopeAnswers = await inquirer.prompt([
     {
       type: "list",
@@ -536,22 +592,20 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
     allCommits = getAllCommits();
   }
 
-  const unprocessedCommits = allCommits.filter(c => !processedCommits.has(c.hash));
-
-  if (unprocessedCommits.length === 0) {
-    debugLog("No unprocessed commits found in selected scope");
+  if (allCommits.length === 0) {
+    debugLog("No commits found in selected scope");
     return;
   }
 
-  const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(unprocessedCommits), includeUnassigned);
+  const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(allCommits), includeUnassigned);
 
   if (releaseGroups.length === 0) {
-    debugLog("No release notes to generate for the selected scope (all remaining commits lack issue references). Use --include-unassigned to include them.");
+    debugLog("No release notes to generate for the selected scope (commits lack issue references). Use --include-unassigned to include them.");
     return;
   }
 
-  debugLog(`Found ${unprocessedCommits.length} unprocessed commits`);
-  debugLog(`Will generate ${releaseGroups.length} release note pages\n`);
+  debugLog(`Found ${allCommits.length} commits`);
+  debugLog(`Will create/update ${releaseGroups.length} release note pages\n`);
 
   const answers = await inquirer.prompt([
     {
@@ -559,7 +613,7 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
       name: "action",
       message: "What would you like to do?",
       choices: [
-        { name: `Generate all missing release notes (${releaseGroups.length} pages)`, value: "all" },
+        { name: `Generate all release notes (${releaseGroups.length} pages)`, value: "all" },
         { name: "Select specific release notes to generate", value: "select" },
         { name: "Generate for a specific commit range", value: "range" },
         { name: "← Back to scope selection", value: "back" }
@@ -572,15 +626,10 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
   }
 
   const configWithCreds = await promptForCredentials(config);
-  const client = new CMSClient(configWithCreds.cmsUrl);
-  await client.login(configWithCreds.username, configWithCreds.password);
+  const auth = await cms.login(configWithCreds.cmsUrl, configWithCreds.username, configWithCreds.password);
 
   if (answers.action === "all") {
-    await generateMultipleReleaseNotes(releaseGroups, client, configWithCreds, null, false, includeUnassigned);
-
-    commitsFromGroups(releaseGroups).forEach(commit => processedCommits.add(commit.hash));
-
-    await saveStateFile(processedCommits);
+    await generateMultipleReleaseNotes(releaseGroups, auth, configWithCreds, null, false, includeUnassigned);
     debugLog(`Generated ${releaseGroups.length} release notes`);
   } else if (answers.action === "select") {
     const groupAnswers = await inquirer.prompt([
@@ -602,11 +651,7 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
 
     const selectedGroups = groupAnswers.selectedGroups.map((index: number) => releaseGroups[index]);
 
-    await generateMultipleReleaseNotes(selectedGroups, client, configWithCreds, null, false, includeUnassigned);
-
-    commitsFromGroups(selectedGroups).forEach(commit => processedCommits.add(commit.hash));
-
-    await saveStateFile(processedCommits);
+    await generateMultipleReleaseNotes(selectedGroups, auth, configWithCreds, null, false, includeUnassigned);
     debugLog(`Generated ${selectedGroups.length} release notes`);
   } else if (answers.action === "range") {
     const rangeAnswers = await inquirer.prompt([
@@ -638,92 +683,107 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
       return;
     }
 
-    await generateMultipleReleaseNotes(groups, client, configWithCreds, null, false, includeUnassigned);
-
-    commitsFromGroups(groups).forEach(commit => processedCommits.add(commit.hash));
-
-    await saveStateFile(processedCommits);
+    await generateMultipleReleaseNotes(groups, auth, configWithCreds, null, false, includeUnassigned);
     debugLog(`Generated ${pluraliseWithCount(groups.length, "release note")} for commit range`);
   }
 }
 
 async function commandLineMode(options: GenerateOptions, config: ReleaseNotesConfig): Promise<void> {
   let configWithCreds = config;
-  let client: CMSClient | null = null;
+  let auth: CMSAuth | null = null;
   const includeUnassigned = Boolean(options.includeUnassigned);
 
   if (!options.dryRun) {
     configWithCreds = await promptForCredentials(config);
-    client = new CMSClient(configWithCreds.cmsUrl);
-    await client.login(configWithCreds.username, configWithCreds.password);
+    auth = await cms.login(configWithCreds.cmsUrl, configWithCreds.username, configWithCreds.password);
   } else {
     debugLog("DRY RUN MODE - Skipping authentication");
   }
 
-  const processedCommits = await loadStateFile();
-
   if (options.all) {
     const allCommits = getAllCommits();
-    const unprocessedCommits = allCommits.filter(c => !processedCommits.has(c.hash));
-    const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(unprocessedCommits), includeUnassigned);
+    const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(allCommits), includeUnassigned);
 
     if (releaseGroups.length === 0) {
-      debugLog("No release notes to generate (all remaining commits lack issue references). Use --include-unassigned to include them.");
-      return;
+      debugLog("No release notes to generate (commits lack issue references). Use --include-unassigned to include them.");
+    } else {
+      if (auth) {
+        const filtered = await filterExistingReleaseNotes(releaseGroups, auth, configWithCreds);
+        const newCount = filtered.new.length;
+        const existingCount = filtered.existing.length;
+
+        if (newCount > 0 && existingCount > 0) {
+          debugLog(`Found ${releaseGroups.length} release notes: ${newCount} new, ${existingCount} existing (will update all)`);
+        } else if (existingCount > 0) {
+          debugLog(`Found ${releaseGroups.length} existing release notes (will update all)`);
+        } else {
+          debugLog(`Found ${newCount} new release notes`);
+        }
+      }
+
+      await generateMultipleReleaseNotes(releaseGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+      debugLog(`Generated ${releaseGroups.length} release notes`);
     }
-
-    await generateMultipleReleaseNotes(releaseGroups, client!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
-
-    if (!options.dryRun) {
-      commitsFromGroups(releaseGroups).forEach(commit => processedCommits.add(commit.hash));
-      await saveStateFile(processedCommits);
-    }
-
-    debugLog(`Generated ${releaseGroups.length} release notes`);
   } else if (options.latest) {
     const tag = latestTag();
     const commits = tag ? commitsBetween(tag, "HEAD") : gitLog("HEAD~10", "HEAD");
 
     if (commits.length === 0) {
       debugLog("No new commits since last tag");
-      return;
-    }
+    } else {
+      const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(commits), includeUnassigned);
 
-    const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(commits), includeUnassigned);
-    if (releaseGroups.length === 0) {
-      debugLog("No release notes to generate for latest commits (commits lack issue references). Use --include-unassigned to include them.");
-      return;
-    }
-    await generateMultipleReleaseNotes(releaseGroups, client!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+      if (releaseGroups.length === 0) {
+        debugLog("No release notes to generate for latest commits (commits lack issue references). Use --include-unassigned to include them.");
+      } else {
+        if (auth) {
+          const filtered = await filterExistingReleaseNotes(releaseGroups, auth, configWithCreds);
+          const newCount = filtered.new.length;
+          const existingCount = filtered.existing.length;
 
-    if (!options.dryRun) {
-      commitsFromGroups(releaseGroups).forEach(commit => processedCommits.add(commit.hash));
-      await saveStateFile(processedCommits);
-    }
+          if (newCount > 0 && existingCount > 0) {
+            debugLog(`Found ${releaseGroups.length} release notes: ${newCount} new, ${existingCount} existing (will update all)`);
+          } else if (existingCount > 0) {
+            debugLog(`Found ${releaseGroups.length} existing release notes (will update all)`);
+          } else {
+            debugLog(`Found ${newCount} new release notes`);
+          }
+        }
 
-    debugLog(`Generated ${pluraliseWithCount(releaseGroups.length, "release note")} for latest commits`);
+        await generateMultipleReleaseNotes(releaseGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+        debugLog(`Generated ${pluraliseWithCount(releaseGroups.length, "release note")} for latest commits`);
+      }
+    }
   } else if (options.since) {
     const until = options.until || "HEAD";
     const commits = commitsBetween(options.since, until);
 
     if (commits.length === 0) {
       debugLog(`No commits between ${options.since} and ${until}`);
-      return;
-    }
+    } else {
+      const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(commits), includeUnassigned);
 
-    const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(commits), includeUnassigned);
-    if (releaseGroups.length === 0) {
-      debugLog("No release notes to generate for that range (commits lack issue references). Use --include-unassigned to include them.");
-      return;
-    }
-    await generateMultipleReleaseNotes(releaseGroups, client!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+      if (releaseGroups.length === 0) {
+        debugLog("No release notes to generate for that range (commits lack issue references). Use --include-unassigned to include them.");
+      } else {
+        if (auth) {
+          const filtered = await filterExistingReleaseNotes(releaseGroups, auth, configWithCreds);
+          const newCount = filtered.new.length;
+          const existingCount = filtered.existing.length;
 
-    if (!options.dryRun) {
-      commitsFromGroups(releaseGroups).forEach(commit => processedCommits.add(commit.hash));
-      await saveStateFile(processedCommits);
-    }
+          if (newCount > 0 && existingCount > 0) {
+            debugLog(`Found ${releaseGroups.length} release notes: ${newCount} new, ${existingCount} existing (will update all)`);
+          } else if (existingCount > 0) {
+            debugLog(`Found ${releaseGroups.length} existing release notes (will update all)`);
+          } else {
+            debugLog(`Found ${newCount} new release notes`);
+          }
+        }
 
-    debugLog(`Generated ${pluraliseWithCount(releaseGroups.length, "release note")} for commit range`);
+        await generateMultipleReleaseNotes(releaseGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+        debugLog(`Generated ${pluraliseWithCount(releaseGroups.length, "release note")} for commit range`);
+      }
+    }
   } else if (options.sinceDate) {
     let normalizedSince: string;
     let normalizedUntilDate: string | null = null;
@@ -737,7 +797,6 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
       const message = error instanceof Error ? error.message : String(error);
       debugLog(`Invalid date input: ${message}`);
       process.exit(1);
-      return;
     }
 
     const untilRef = options.until || "HEAD";
@@ -746,22 +805,30 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
 
     if (filteredCommits.length === 0) {
       debugLog(`No commits found on or after ${normalizedSince}${normalizedUntilDate ? ` and before ${normalizedUntilDate}` : ""}`);
-      return;
-    }
+    } else {
+      const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(filteredCommits), includeUnassigned);
 
-    const releaseGroups = filterReleaseGroups(groupCommitsByDateAndIssue(filteredCommits), includeUnassigned);
-    if (releaseGroups.length === 0) {
-      debugLog("No release notes to generate for that date range (commits lack issue references). Use --include-unassigned to include them.");
-      return;
-    }
-    await generateMultipleReleaseNotes(releaseGroups, client!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+      if (releaseGroups.length === 0) {
+        debugLog("No release notes to generate for that date range (commits lack issue references). Use --include-unassigned to include them.");
+      } else {
+        if (auth) {
+          const filtered = await filterExistingReleaseNotes(releaseGroups, auth, configWithCreds);
+          const newCount = filtered.new.length;
+          const existingCount = filtered.existing.length;
 
-    if (!options.dryRun) {
-      commitsFromGroups(releaseGroups).forEach(commit => processedCommits.add(commit.hash));
-      await saveStateFile(processedCommits);
-    }
+          if (newCount > 0 && existingCount > 0) {
+            debugLog(`Found ${releaseGroups.length} release notes: ${newCount} new, ${existingCount} existing (will update all)`);
+          } else if (existingCount > 0) {
+            debugLog(`Found ${releaseGroups.length} existing release notes (will update all)`);
+          } else {
+            debugLog(`Found ${newCount} new release notes`);
+          }
+        }
 
-    debugLog(`Generated ${pluraliseWithCount(releaseGroups.length, "release note")} for commits since ${normalizedSince}`);
+        await generateMultipleReleaseNotes(releaseGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+        debugLog(`Generated ${pluraliseWithCount(releaseGroups.length, "release note")} for commits since ${normalizedSince}`);
+      }
+    }
   } else {
     debugLog("No generation option specified. Use --latest, --all, --since, or --since-date");
   }
@@ -777,7 +844,7 @@ async function main(): Promise<void> {
 
   program
     .option("--latest", "Generate release notes for commits since the last tag")
-    .option("--all", "Generate release notes for all unprocessed commits")
+    .option("--all", "Generate release notes for all commits")
     .option("--since <commit>", "Generate release notes since this commit/tag")
     .option("--since-date <date>", "Generate release notes for commits on or after this date (e.g. 2025-11-19 or 19-Nov-2025)")
     .option("--until-date <date>", "Generate release notes until this calendar date (inclusive)")
@@ -785,7 +852,7 @@ async function main(): Promise<void> {
     .option("--build-number <number>", "GitHub Actions build/run number")
     .option("--include-unassigned", "Include commits without issue references when generating release notes")
     .option("--dry-run", "Preview changes without publishing to CMS")
-    .option("--preview", "Preview missing release notes without generating")
+    .option("--preview", "Preview release notes without generating")
     .option("--test-auth", "Test CMS authentication and permissions")
     .option("--cms-url <url>", "CMS base URL", DEFAULT_CONFIG.cmsUrl)
     .option("--username <username>", "CMS username")

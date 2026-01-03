@@ -21,6 +21,7 @@ import { NgSelectComponent } from "@ng-select/ng-select";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { BroadcastService } from "../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
+import { asNumber } from "../../functions/numbers";
 
 @Component({
   selector: "app-area-map",
@@ -861,7 +862,7 @@ export class AreaMap implements OnInit, OnDestroy {
         const overlays: L.Layer[] = sortedAreas.map((area, index) => {
           const borderColor = area.color || this.getOrCreateColorForArea(area.name);
           const fillColor = borderColor.replace(/(\d+)%\)$/, (match, lightness) =>
-            `${Math.min(90, parseInt(lightness, 10) + 30)}%)`
+            `${Math.min(90, asNumber(lightness) + 30)}%)`
           );
 
           const polygon = L.geoJSON(area.geoJsonFeature, {
