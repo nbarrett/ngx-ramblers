@@ -18,7 +18,7 @@ describe("Advanced Search Criteria Builder", () => {
   let mockDateUtils: jasmine.SpyObj<DateUtilsService>;
 
   beforeEach(() => {
-    mockDateUtils = jasmine.createSpyObj("DateUtilsService", ["daysOfWeek"]);
+    mockDateUtils = jasmine.createSpyObj("DateUtilsService", ["daysOfWeek", "mongoDayOfWeekFromName"]);
     mockDateUtils.daysOfWeek.and.returnValue([
       "Sunday",
       "Monday",
@@ -28,6 +28,18 @@ describe("Advanced Search Criteria Builder", () => {
       "Friday",
       "Saturday"
     ]);
+    mockDateUtils.mongoDayOfWeekFromName.and.callFake((dayName: string) => {
+      const days: { [key: string]: number } = {
+        "Sunday": 1,
+        "Monday": 2,
+        "Tuesday": 3,
+        "Wednesday": 4,
+        "Thursday": 5,
+        "Friday": 6,
+        "Saturday": 7
+      };
+      return days[dayName] || null;
+    });
   });
 
   describe("buildProximityCriteria", () => {
