@@ -1,12 +1,13 @@
 import { Component, inject, Input, OnDestroy, OnInit, signal } from "@angular/core";
-import { faAdd, faSync, faClock, faCheckCircle, faTimesCircle } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faSync, faClock, faCheckCircle, faTimesCircle, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { SystemConfig, WalksManagerSyncStats, WalksManagerSyncStatusResponse } from "../../../../models/system.model";
+import { EventPopulation, SystemConfig, WalksManagerSyncStats, WalksManagerSyncStatusResponse } from "../../../../models/system.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { FormsModule, ReactiveFormsModule } from "@angular/forms";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 import { HttpClient } from "@angular/common/http";
+import { RouterLink } from "@angular/router";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { WebSocketClientService } from "../../../../services/websockets/websocket-client.service";
@@ -110,113 +111,127 @@ import { Subscription } from "rxjs";
           </div>
         </div>
 
-        <div class="row mt-4">
-          <div class="col-md-12">
-            <h5>Walks Manager Data Sync</h5>
-            <div class="alert alert-warning">
-              <fa-icon [icon]="faClock" class="me-2"/>
-              <strong>Automatic Sync:</strong> Runs every 6 hours to keep cached data fresh
-            </div>
-          </div>
-
-          @if (lastSyncedAt) {
-            <div class="col-md-12 mb-3">
-              <strong>Last Synced:</strong> {{ dateUtils.displayDateAndTime(lastSyncedAt) }}
-              ({{ dateUtils.asDateTime(lastSyncedAt).toRelative() }})
-            </div>
-          }
-
-          <div class="col-md-12 mb-3">
-            <button type="button"
-                    class="btn btn-primary me-2"
-                    [disabled]="!!syncingMode"
-                    (click)="triggerSync(false)">
-              <fa-icon [icon]="faSync" [spin]="syncingMode === 'incremental'" class="me-2"/>
-              {{ syncingMode === "incremental" ? "Syncing..." : "Sync Now (Incremental)" }}
-            </button>
-            <button type="button"
-                    class="btn btn-warning"
-                    [disabled]="!!syncingMode"
-                    (click)="triggerSync(true)">
-              <fa-icon [icon]="faSync" [spin]="syncingMode === 'full'" class="me-2"/>
-              {{ syncingMode === "full" ? "Syncing..." : "Full Sync (All Time)" }}
-            </button>
-          </div>
-
-          @if (syncProgress() > 0 && syncProgress() < 100) {
-            <div class="col-md-12 mb-3">
-              <div class="alert alert-warning mb-2">
-                <fa-icon [icon]="faSync" [spin]="true" class="me-2"/>
-                <strong>Sync in progress:</strong> {{ syncMessage() }}
-              </div>
-              <div class="progress mt-3" style="height: 25px;">
-                <div class="progress-bar"
-                     role="progressbar"
-                     [attr.aria-valuenow]="syncProgress()"
-                     aria-valuemin="0"
-                     aria-valuemax="100"
-                     [style.width.%]="syncProgress()">
-                  {{ syncProgress() }}%
-                </div>
-              </div>
-            </div>
-          }
-
-          @if (syncStats) {
+        @if (syncEnabled()) {
+          <div class="row mt-4">
             <div class="col-md-12">
-              <div class="card">
-                <div class="card-header bg-success text-white">
-                  <fa-icon [icon]="faCheckCircle" class="me-2"/>
-                  Sync Complete
+              <h5>Walks Manager Data Sync</h5>
+              <div class="alert alert-warning">
+                <fa-icon [icon]="faClock" class="me-2"/>
+                <strong>Automatic Sync:</strong> Runs every 6 hours to keep cached data fresh
+              </div>
+            </div>
+
+            @if (lastSyncedAt) {
+              <div class="col-md-12 mb-3">
+                <strong>Last Synced:</strong> {{ dateUtils.displayDateAndTime(lastSyncedAt) }}
+                ({{ dateUtils.asDateTime(lastSyncedAt).toRelative() }})
+              </div>
+            }
+
+            <div class="col-md-12 mb-3">
+              <button type="button"
+                      class="btn btn-primary me-2"
+                      [disabled]="!!syncingMode"
+                      (click)="triggerSync(false)">
+                <fa-icon [icon]="faSync" [spin]="syncingMode === 'incremental'" class="me-2"/>
+                {{ syncingMode === "incremental" ? "Syncing..." : "Sync Now (Incremental)" }}
+              </button>
+              <button type="button"
+                      class="btn btn-warning"
+                      [disabled]="!!syncingMode"
+                      (click)="triggerSync(true)">
+                <fa-icon [icon]="faSync" [spin]="syncingMode === 'full'" class="me-2"/>
+                {{ syncingMode === "full" ? "Syncing..." : "Full Sync (All Time)" }}
+              </button>
+            </div>
+
+            @if (syncProgress() > 0 && syncProgress() < 100) {
+              <div class="col-md-12 mb-3">
+                <div class="alert alert-warning mb-2">
+                  <fa-icon [icon]="faSync" [spin]="true" class="me-2"/>
+                  <strong>Sync in progress:</strong> {{ syncMessage() }}
                 </div>
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col-md-3">
-                      <strong>Added:</strong> {{ syncStats.added }}
-                    </div>
-                    <div class="col-md-3">
-                      <strong>Updated:</strong> {{ syncStats.updated }}
-                    </div>
-                    <div class="col-md-3">
-                      <strong>Deleted:</strong> {{ syncStats.deleted }}
-                    </div>
-                    <div class="col-md-3">
-                      <strong>Total Processed:</strong> {{ syncStats.totalProcessed }}
-                    </div>
+                <div class="progress mt-3" style="height: 25px;">
+                  <div class="progress-bar"
+                       role="progressbar"
+                       [attr.aria-valuenow]="syncProgress()"
+                       aria-valuemin="0"
+                       aria-valuemax="100"
+                       [style.width.%]="syncProgress()">
+                    {{ syncProgress() }}%
                   </div>
-                  @if (syncStats.errors && syncStats.errors.length > 0) {
-                    <div class="row mt-3">
-                      <div class="col-md-12">
-                        <div class="alert alert-warning">
-                          <fa-icon [icon]="faTimesCircle" class="me-2"/>
-                          <strong>Errors ({{ syncStats.errors.length }}):</strong>
-                          <ul class="mb-0 mt-2">
-                            @for (error of syncStats.errors; track error) {
-                              <li>{{ error }}</li>
-                            }
-                          </ul>
-                        </div>
+                </div>
+              </div>
+            }
+
+            @if (syncStats) {
+              <div class="col-md-12">
+                <div class="card">
+                  <div class="card-header bg-success text-white">
+                    <fa-icon [icon]="faCheckCircle" class="me-2"/>
+                    Sync Complete
+                  </div>
+                  <div class="card-body">
+                    <div class="row">
+                      <div class="col-md-3">
+                        <strong>Added:</strong> {{ syncStats.added }}
+                      </div>
+                      <div class="col-md-3">
+                        <strong>Updated:</strong> {{ syncStats.updated }}
+                      </div>
+                      <div class="col-md-3">
+                        <strong>Deleted:</strong> {{ syncStats.deleted }}
+                      </div>
+                      <div class="col-md-3">
+                        <strong>Total Processed:</strong> {{ syncStats.totalProcessed }}
                       </div>
                     </div>
-                  }
+                    @if (syncStats.errors && syncStats.errors.length > 0) {
+                      <div class="row mt-3">
+                        <div class="col-md-12">
+                          <div class="alert alert-warning">
+                            <fa-icon [icon]="faTimesCircle" class="me-2"/>
+                            <strong>Errors ({{ syncStats.errors.length }}):</strong>
+                            <ul class="mb-0 mt-2">
+                              @for (error of syncStats.errors; track error) {
+                                <li>{{ error }}</li>
+                              }
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
                 </div>
               </div>
-            </div>
-          }
+            }
 
-          @if (syncError) {
+            @if (syncError) {
+              <div class="col-md-12">
+                <div class="alert alert-danger">
+                  <fa-icon [icon]="faTimesCircle" class="me-2"/>
+                  <strong>Sync Failed:</strong> {{ syncError }}
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="row mt-4">
             <div class="col-md-12">
-              <div class="alert alert-danger">
-                <fa-icon [icon]="faTimesCircle" class="me-2"/>
-                <strong>Sync Failed:</strong> {{ syncError }}
+              <h5>Walks Manager Data Sync</h5>
+              <div class="alert alert-warning">
+                <fa-icon [icon]="faInfoCircle" class="me-2"/>
+                <strong>Sync Disabled:</strong> Walk Population is set to Local. Change to Walks Manager or Hybrid in
+                <a routerLink="/admin/system-settings" [queryParams]="{tab: 'area-group'}">Area &amp; Group settings</a>
+                to enable syncing from Walks Manager.
               </div>
             </div>
-          }
-        </div>
+          </div>
+        }
       </div>
     }
   `,
-  imports: [ReactiveFormsModule, FormsModule, SecretInputComponent, FontAwesomeModule]
+  imports: [ReactiveFormsModule, FormsModule, SecretInputComponent, FontAwesomeModule, RouterLink]
 })
 export class RamblersSettings implements OnInit, OnDestroy {
 
@@ -231,6 +246,7 @@ export class RamblersSettings implements OnInit, OnDestroy {
   faClock = faClock;
   faCheckCircle = faCheckCircle;
   faTimesCircle = faTimesCircle;
+  faInfoCircle = faInfoCircle;
 
   @Input() config: SystemConfig;
 
@@ -320,5 +336,10 @@ export class RamblersSettings implements OnInit, OnDestroy {
 
     this.logger.info("Triggering sync via WebSocket, fullSync:", fullSync);
     this.wsClient.sendMessage(EventType.WALKS_MANAGER_SYNC, { fullSync });
+  }
+
+  syncEnabled(): boolean {
+    const walkPopulation = this.config?.group?.walkPopulation;
+    return walkPopulation === EventPopulation.WALKS_MANAGER || walkPopulation === EventPopulation.HYBRID;
   }
 }
