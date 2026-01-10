@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGX-Ramblers Codebase Evolution - Ramblers</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="https://www.ramblers.org.uk/_nuxt/img/horiz-colour.8829dc8.svg">
+    <style>
+        :root {
+            --ramblers-sunrise: rgb(249, 177, 4);
+            --ramblers-sunrise-hover: rgb(211, 150, 3);
+            --ramblers-mintcake: rgb(155, 200, 171);
+            --ramblers-mintcake-hover: rgb(133, 173, 146);
+            --ramblers-mintcake-light: rgba(175, 226, 194, 0.6);
+            --ramblers-granite: rgb(64, 65, 65);
+            --ramblers-cloudy: rgb(255, 255, 255);
+            --ramblers-grey: rgb(222, 226, 230);
+            --ramblers-black: rgb(33, 37, 41);
+            --ramblers-rosycheeks: rgb(246, 176, 157);
+            --ramblers-sunset: rgb(240, 128, 80);
+            --ramblers-graphite: #3c3d3e;
+
+            --bg-primary: var(--ramblers-cloudy);
+            --bg-secondary: #f8f9fa;
+            --bg-card: var(--ramblers-cloudy);
+            --text-primary: var(--ramblers-granite);
+            --text-secondary: #666;
+            --text-muted: #888;
+            --border-color: var(--ramblers-grey);
+            --shadow: rgba(0,0,0,0.06);
+            --shadow-hover: rgba(0,0,0,0.1);
+            --accent: var(--ramblers-sunrise);
+            --accent-secondary: var(--ramblers-mintcake);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: rgba(255,255,255,0.05);
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --text-muted: #888888;
+            --border-color: rgba(255,255,255,0.1);
+            --shadow: rgba(0,0,0,0.3);
+            --shadow-hover: rgba(0,217,255,0.2);
+            --accent: #00d9ff;
+            --accent-secondary: #00ff88;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
+        }
+        .header {
+            background: var(--ramblers-graphite);
+            padding: 16px 30px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 0 auto;
+            max-width: 1200px;
+            width: 100%;
+            gap: 16px;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+        .header-logo {
+            height: 50px;
+            width: auto;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header-link {
+            background: var(--ramblers-sunrise);
+            color: var(--ramblers-black);
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .header-link:hover {
+            background: var(--ramblers-sunrise-hover);
+        }
+        .theme-toggle {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 30px;
+            padding: 8px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--ramblers-cloudy);
+            transition: all 0.3s;
+        }
+        .theme-toggle:hover {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+        .theme-toggle .icon {
+            font-size: 1.1rem;
+        }
+        .hero {
+            text-align: center;
+            padding: 40px 20px 30px;
+        }
+        .hero-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        .hero-logo {
+            max-width: 240px;
+            width: 100%;
+            height: auto;
+        }
+        .website-link {
+            display: inline-block;
+            margin-top: 16px;
+            background: var(--ramblers-sunrise);
+            color: var(--ramblers-black);
+            padding: 10px 24px;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .website-link:hover {
+            background: var(--ramblers-sunrise-hover);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px 40px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+        [data-theme="dark"] h1 {
+            background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            font-size: 1.05rem;
+        }
+        .stats-hero {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px var(--shadow);
+            transition: transform 0.2s, box-shadow 0.2s, background 0.3s, border-color 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px var(--shadow-hover);
+        }
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .stat-value.highlight {
+            color: var(--accent);
+        }
+        .stat-label {
+            color: var(--text-secondary);
+            margin-top: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .stat-detail {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 4px;
+        }
+        .section {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 28px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px var(--shadow);
+            margin-bottom: 30px;
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .section h3 {
+            margin-bottom: 24px;
+            color: var(--text-primary);
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section h3::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        .chart-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px var(--shadow);
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .chart-card h3 {
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        .chart-container.tall {
+            height: 350px;
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        .repo-journey {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto 1fr;
+            gap: 16px;
+            align-items: center;
+        }
+        .repo-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            position: relative;
+            min-width: 0;
+            transition: background 0.3s, border-color 0.3s;
+        }
+        [data-theme="dark"] .repo-card {
+            background: rgba(255,255,255,0.03);
+        }
+        .repo-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            border-radius: 12px 12px 0 0;
+        }
+        .repo-card.angularjs::before { background: #dd1b16; }
+        .repo-card.angular::before { background: #dd0031; }
+        .repo-card.modern::before { background: var(--ramblers-mintcake); }
+        .repo-name {
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 1rem;
+            color: var(--accent);
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .repo-period {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-bottom: 12px;
+        }
+        .repo-stats {
+            display: flex;
+            gap: 20px;
+        }
+        .repo-stat {
+            text-align: center;
+        }
+        .repo-stat-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .repo-stat-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .repo-tech {
+            margin-top: 12px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .tech-badge {
+            background: var(--border-color);
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        .arrow {
+            color: var(--accent);
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        .timeline-items {
+            position: relative;
+            padding-left: 30px;
+        }
+        .timeline-items::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, #dd1b16, #dd0031, var(--ramblers-mintcake));
+            border-radius: 3px;
+        }
+        .timeline-item {
+            position: relative;
+            padding-bottom: 28px;
+        }
+        .timeline-item:last-child {
+            padding-bottom: 0;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 5px;
+            width: 14px;
+            height: 14px;
+            background: var(--accent-secondary);
+            border-radius: 50%;
+            border: 3px solid var(--bg-primary);
+            box-shadow: 0 0 0 2px var(--border-color);
+        }
+        .timeline-item.angularjs::before { background: #dd1b16; }
+        .timeline-item.angular::before { background: #dd0031; }
+        .timeline-item.modern::before { background: var(--accent-secondary); }
+        .timeline-year {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        .timeline-title {
+            color: var(--text-primary);
+            margin: 4px 0;
+            font-size: 0.95rem;
+        }
+        .timeline-desc {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .growth-badge {
+            display: inline-block;
+            background: var(--accent);
+            color: #1a1a2e;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            margin-left: 8px;
+        }
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .insight-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            transition: background 0.3s, border-color 0.3s;
+        }
+        [data-theme="dark"] .insight-card {
+            background: rgba(255,255,255,0.03);
+        }
+        .insight-card h4 {
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .insight-card h4::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent-secondary);
+            border-radius: 50%;
+        }
+        .insight-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 0.9rem;
+        }
+        .footer {
+            background: var(--ramblers-graphite);
+            text-align: center;
+            padding: 30px;
+            color: var(--ramblers-cloudy);
+            font-size: 0.85rem;
+        }
+        @media (max-width: 1100px) {
+            .repo-journey {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            .arrow {
+                transform: rotate(90deg);
+                text-align: center;
+            }
+            .stats-hero {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+        @media (max-width: 600px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            h1 {
+                font-size: 1.6rem;
+            }
+            .header {
+                padding: 12px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-inner">
+            <div class="header-left">
+                <img src="https://www.ngx-ramblers.org.uk/api/aws/s3/logos/21b1e74f-f0f0-4ad3-9bf4-6d894ed02fcd.png" alt="Ramblers NGX Ramblers" class="header-logo">
+            </div>
+            <div class="header-right">
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <span class="icon">☀️</span>
+                    <span class="label">Light</span>
+                </button>
+                <a href="https://www.ngx-ramblers.org.uk/" target="_blank" class="header-link">Visit Website</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="hero">
+            <div class="hero-title">
+                <img src="https://www.ramblers.org.uk/_nuxt/img/horiz-colour.8829dc8.svg" alt="Ramblers logotype" class="hero-logo" loading="lazy">
+                <h1>NGX-Ramblers Codebase Evolution</h1>
+            </div>
+            <p class="subtitle">13 Years of Development: From AngularJS to Modern TypeScript (2013 - 2026)</p>
+        </div>
+
+        <div class="stats-hero">
+            <div class="stat-card">
+                <div class="stat-value highlight">128,584</div>
+                <div class="stat-label">Lines of Code</div>
+                <div class="stat-detail">January 2026</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">1,530</div>
+                <div class="stat-label">Total Commits</div>
+                <div class="stat-detail">Across all repos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">961</div>
+                <div class="stat-label">TypeScript Files</div>
+                <div class="stat-detail">118,178 LOC</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value highlight">13</div>
+                <div class="stat-label">Years</div>
+                <div class="stat-detail">2013 - 2026</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">3</div>
+                <div class="stat-label">Repositories</div>
+                <div class="stat-detail">Major rewrites</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Repository Journey</h3>
+            <div class="repo-journey">
+                <div class="repo-card angularjs">
+                    <div class="repo-name">ekwg</div>
+                    <div class="repo-period">Dec 2013 - May 2019</div>
+                    <div class="repo-stats">
+                        <div class="repo-stat">
+                            <div class="repo-stat-value">750</div>
+                            <div class="repo-stat-label">Commits</div>
+                        </div>
+                        <div class="repo-stat">
+                            <div class="repo-stat-value">21K</div>
+                            <div class="repo-stat-label">Final LOC</div>
+                        </div>
+                    </div>
+                    <div class="repo-tech">
+                        <span class="tech-badge">AngularJS 1.x</span>
+                        <span class="tech-badge">JavaScript</span>
+                        <span class="tech-badge">CSS</span>
+                    </div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="repo-card angular">
+                    <div class="repo-name">ng-ekwg</div>
+                    <div class="repo-period">May 2019 - Aug 2023</div>
+                    <div class="repo-stats">
+                        <div class="repo-stat">
+                            <div class="repo-stat-value">435</div>
+                            <div class="repo-stat-label">Commits</div>
+                        </div>
+                        <div class="repo-stat">
+                            <div class="repo-stat-value">41K</div>
+                            <div class="repo-stat-label">Final LOC</div>
+                        </div>
+                    </div>
+                    <div class="repo-tech">
+                        <span class="tech-badge">Angular 7/14</span>
+                        <span class="tech-badge">TypeScript</span>
+                        <span class="tech-badge">Sass</span>
+                    </div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="repo-card modern">
+                    <div class="repo-name">ngx-ramblers</div>
+                    <div class="repo-period">Aug 2023 - Present</div>
+                    <div class="repo-stats">
+                        <div class="repo-stat">
+                            <div class="repo-stat-value">345</div>
+                            <div class="repo-stat-label">Commits</div>
+                        </div>
+                        <div class="repo-stat">
+                            <div class="repo-stat-value">129K</div>
+                            <div class="repo-stat-label">Current LOC</div>
+                        </div>
+                    </div>
+                    <div class="repo-tech">
+                        <span class="tech-badge">Angular 17+</span>
+                        <span class="tech-badge">Full TypeScript</span>
+                        <span class="tech-badge">Sass</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card full-width">
+                <h3>Codebase Growth Over Time (2013 - 2026)</h3>
+                <div class="chart-container tall">
+                    <canvas id="growthChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card full-width">
+                <h3>Commit Activity by Year</h3>
+                <div class="chart-container">
+                    <canvas id="commitsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3>Component Distribution (2026)</h3>
+                <div class="chart-container">
+                    <canvas id="componentChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3>Language Breakdown (2026)</h3>
+                <div class="chart-container">
+                    <canvas id="languageChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3>Technology Evolution</h3>
+                <div class="chart-container">
+                    <canvas id="techEvolutionChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3>Server Evolution: JS → TypeScript</h3>
+                <div class="chart-container">
+                    <canvas id="serverEvolutionChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Project Timeline</h3>
+            <div class="timeline-items">
+                <div class="timeline-item angularjs">
+                    <div class="timeline-year">December 2013</div>
+                    <div class="timeline-title">Project Genesis <span class="growth-badge">ekwg</span></div>
+                    <div class="timeline-desc">Initial commit on December 13, 2013. East Kent Walking Group website built with AngularJS 1.x, vanilla JavaScript, and CSS.</div>
+                </div>
+                <div class="timeline-item angularjs">
+                    <div class="timeline-year">2014 - 2018</div>
+                    <div class="timeline-title">AngularJS Growth <span class="growth-badge">~21,000 LOC</span></div>
+                    <div class="timeline-desc">Five years of feature development. Peak activity in 2014 (370 commits). Added member management, photo albums, and social features.</div>
+                </div>
+                <div class="timeline-item angular">
+                    <div class="timeline-year">May 2019</div>
+                    <div class="timeline-title">Angular Migration <span class="growth-badge">ng-ekwg</span></div>
+                    <div class="timeline-desc">Migration from AngularJS to modern Angular with TypeScript. Hybrid approach during transition.</div>
+                </div>
+                <div class="timeline-item angular">
+                    <div class="timeline-year">2022</div>
+                    <div class="timeline-title">Angular 7/14 Complete <span class="growth-badge">41,223 LOC</span></div>
+                    <div class="timeline-desc">Full migration to Angular 7/14 with TypeScript and Sass. Serenity-js E2E testing integrated.</div>
+                </div>
+                <div class="timeline-item modern">
+                    <div class="timeline-year">August 2023</div>
+                    <div class="timeline-title">Ramblers Rebrand <span class="growth-badge">ngx-ramblers</span></div>
+                    <div class="timeline-desc">New repository for rebranded application with Angular 17+ and full-stack TypeScript migration.</div>
+                </div>
+                <div class="timeline-item modern">
+                    <div class="timeline-year">January 2026</div>
+                    <div class="timeline-title">Modern Full-Stack TypeScript <span class="growth-badge">128,584 LOC</span></div>
+                    <div class="timeline-desc">197 commits in 2025. Full TypeScript across client (98K) and server (29K). Server grew 5x since July 2024.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Key Insights</h3>
+            <div class="insights-grid">
+                <div class="insight-card">
+                    <h4>13-Year Journey</h4>
+                    <p>From a humble AngularJS app in December 2013 to a modern 129K LOC TypeScript monorepo across three major repository transitions.</p>
+                </div>
+                <div class="insight-card">
+                    <h4>1,530 Commits</h4>
+                    <p>Consistent development: 750 in ekwg, 435 in ng-ekwg, 345 in ngx-ramblers. Peak years: 2014 (370) and 2025 (197).</p>
+                </div>
+                <div class="insight-card">
+                    <h4>6x Code Growth</h4>
+                    <p>From ~21K LOC to 129K LOC. Most dramatic growth 2024-2026 where the codebase more than doubled (+122%).</p>
+                </div>
+                <div class="insight-card">
+                    <h4>Server Transformation</h4>
+                    <p>Server exploded from 6K to 29K lines (+369%) since July 2024. Complete JS to TypeScript migration.</p>
+                </div>
+                <div class="insight-card">
+                    <h4>Clean Code Philosophy</h4>
+                    <p>Only 823 comments across 118K TypeScript lines (0.7%). Self-documenting code with meaningful names.</p>
+                </div>
+                <div class="insight-card">
+                    <h4>Technology Evolution</h4>
+                    <p>AngularJS → Angular 7/14 → Angular 17+. JavaScript → TypeScript. CSS → Sass. Express.js throughout.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <footer class="footer">
+        NGX-Ramblers | Open-source framework for Ramblers Group and Area websites
+    </footer>
+
+    <script>
+        const chartColors = {
+            sunrise: 'rgb(249, 177, 4)',
+            sunriseLight: 'rgba(249, 177, 4, 0.2)',
+            mintcake: 'rgb(155, 200, 171)',
+            mintcakeLight: 'rgba(155, 200, 171, 0.2)',
+            granite: 'rgb(64, 65, 65)',
+            rosycheeks: 'rgb(246, 176, 157)',
+            sunset: 'rgb(240, 128, 80)',
+            angularjs: '#dd1b16',
+            angular: '#dd0031',
+            grey: 'rgb(222, 226, 230)'
+        };
+
+        Chart.defaults.color = '#666';
+        Chart.defaults.borderColor = 'rgba(0,0,0,0.08)';
+        Chart.defaults.font.family = "'Open Sans', sans-serif";
+
+        new Chart(document.getElementById('growthChart'), {
+            type: 'line',
+            data: {
+                labels: ['2013', '2014', '2019\nekwg final', '2022\nAngular 7/14', 'Jul 2024', 'Jan 2026'],
+                datasets: [
+                    {
+                        label: 'Total LOC',
+                        data: [2000, 8000, 22572, 41223, 57974, 128584],
+                        borderColor: chartColors.sunrise,
+                        backgroundColor: chartColors.sunriseLight,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 8,
+                        pointHoverRadius: 12,
+                        pointBackgroundColor: chartColors.sunrise,
+                        borderWidth: 3
+                    },
+                    {
+                        label: 'Client',
+                        data: [1800, 7000, 19546, 35641, 50477, 98033],
+                        borderColor: chartColors.mintcake,
+                        backgroundColor: 'transparent',
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointBackgroundColor: chartColors.mintcake,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Server',
+                        data: [200, 1000, 1518, 4305, 6122, 28683],
+                        borderColor: chartColors.granite,
+                        backgroundColor: 'transparent',
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointBackgroundColor: chartColors.granite,
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { usePointStyle: true, padding: 20 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: value => value.toLocaleString()
+                        }
+                    }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('commitsChart'), {
+            type: 'bar',
+            data: {
+                labels: ['2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'],
+                datasets: [
+                    {
+                        label: 'ekwg (AngularJS)',
+                        data: [36, 370, 70, 22, 139, 66, 47, 0, 0, 0, 0, 0, 0, 0],
+                        backgroundColor: chartColors.angularjs,
+                        borderWidth: 0,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'ng-ekwg (Angular)',
+                        data: [0, 0, 0, 0, 0, 0, 96, 154, 28, 80, 77, 0, 0, 0],
+                        backgroundColor: chartColors.angular,
+                        borderWidth: 0,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'ngx-ramblers (Modern)',
+                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 99, 197, 8],
+                        backgroundColor: chartColors.mintcake,
+                        borderWidth: 0,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { usePointStyle: true, padding: 15 }
+                    }
+                },
+                scales: {
+                    x: { stacked: true },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('componentChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Client (98K)', 'Server (29K)', 'Serenity E2E (2K)'],
+                datasets: [{
+                    data: [98033, 28683, 1868],
+                    backgroundColor: [chartColors.sunrise, chartColors.granite, chartColors.mintcake],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { usePointStyle: true, padding: 15 }
+                    }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('languageChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['TypeScript (118K)', 'Sass (4.5K)', 'HTML (3.7K)', 'Other (2.2K)'],
+                datasets: [{
+                    data: [118178, 4496, 3671, 2239],
+                    backgroundColor: [chartColors.sunrise, chartColors.rosycheeks, chartColors.sunset, chartColors.grey],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { usePointStyle: true, padding: 15 }
+                    }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('techEvolutionChart'), {
+            type: 'bar',
+            data: {
+                labels: ['2013-2019\nAngularJS', '2019-2022\nAngular', '2022-2024\nAngular 7/14+', '2024-2026\nModern'],
+                datasets: [
+                    {
+                        label: 'JavaScript',
+                        data: [15000, 8000, 4000, 64],
+                        backgroundColor: chartColors.sunset,
+                        borderWidth: 0,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'TypeScript',
+                        data: [0, 15000, 35000, 118178],
+                        backgroundColor: chartColors.sunrise,
+                        borderWidth: 0,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { usePointStyle: true, padding: 15 }
+                    }
+                },
+                scales: {
+                    x: { stacked: true },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: {
+                            callback: value => value.toLocaleString()
+                        }
+                    }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('serverEvolutionChart'), {
+            type: 'bar',
+            data: {
+                labels: ['2019\nekwg', '2022\nng-ekwg', 'Jul 2024', 'Jan 2026'],
+                datasets: [
+                    {
+                        label: 'JavaScript',
+                        data: [1518, 3724, 757, 64],
+                        backgroundColor: chartColors.sunset,
+                        borderWidth: 0,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'TypeScript',
+                        data: [0, 550, 5365, 28619],
+                        backgroundColor: chartColors.sunrise,
+                        borderWidth: 0,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { usePointStyle: true, padding: 15 }
+                    }
+                },
+                scales: {
+                    x: { stacked: true },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: {
+                            callback: value => value.toLocaleString()
+                        }
+                    }
+                }
+            }
+        });
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const toggle = document.querySelector('.theme-toggle');
+            const icon = toggle.querySelector('.icon');
+            const label = toggle.querySelector('.label');
+
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.removeAttribute('data-theme');
+                icon.textContent = '☀️';
+                label.textContent = 'Light';
+                localStorage.setItem('theme', 'light');
+                updateChartColors('light');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                icon.textContent = '🌙';
+                label.textContent = 'Dark';
+                localStorage.setItem('theme', 'dark');
+                updateChartColors('dark');
+            }
+        }
+
+        function updateChartColors(theme) {
+            const isDark = theme === 'dark';
+            Chart.defaults.color = isDark ? '#888' : '#666';
+            Chart.defaults.borderColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+
+            Chart.instances.forEach(chart => {
+                chart.options.scales.y.grid.color = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+                chart.options.scales.x.grid.color = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+                chart.update();
+            });
+        }
+
+        (function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const toggle = document.querySelector('.theme-toggle');
+            const icon = toggle.querySelector('.icon');
+            const label = toggle.querySelector('.label');
+
+            if (savedTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                icon.textContent = '🌙';
+                label.textContent = 'Dark';
+            }
+        })();
+    </script>
+</body>
+</html>
