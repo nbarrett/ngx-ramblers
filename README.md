@@ -15,7 +15,7 @@
 
 - Visit the [Project website](https://ngx-ramblers.org.uk/) and have a look around to find out more. The site acts as the documentation centre for the project as well as showing many example pages that show the kind of content you can create.
 - You may be interested to note that all the content you see on this site was created using [NGX-Ramblers](https://ngx-ramblers.org.uk/)!
-- Explore the [Codebase Evolution snapshot](./codebase-evolution-stats.html) for interactive charts covering the 13-year development journey.
+- Explore the [Codebase Evolution snapshot](https://rawcdn.githack.com/nbarrett/ngx-ramblers/main/codebase-evolution-stats.html) (or open `codebase-evolution-stats.html` locally) for interactive charts covering the 13-year development journey.
 
 ## What does NGX-Ramblers do?
 
