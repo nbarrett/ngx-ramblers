@@ -105,12 +105,23 @@ NGX‑Ramblers is an Angular‑based website framework for local Ramblers groups
 ## Important Rules for AI Assistants
 
 ### Git workflow rules and Commit Message Policy
-**NEVER** add AI assistant attribution lines to commit messages. This includes:
-- ❌ `🤖 Generated with [Claude Code](https://claude.ai/code)`
-- ❌ `Co-Authored-By: Claude <noreply@anthropic.com>`
-- ❌ Any similar AI tool attribution
+
+**Git Hooks Enforcement:**
+A `commit-msg` hook is automatically installed during `npm install` that **blocks commits** containing AI attribution. The hook checks for patterns like:
+- `Co-Authored-By: Claude`
+- `🤖 Generated with`
+- `noreply@anthropic.com`
+
+**Manual Installation:**
+If hooks are not installed, run: `npm run setup:hooks`
+
+**Commit Message Rules:**
+- **NEVER** add AI assistant attribution lines to commit messages. This includes:
+  - ❌ `🤖 Generated with [Claude Code](https://claude.ai/code)`
+  - ❌ `Co-Authored-By: Claude <noreply@anthropic.com>`
+  - ❌ Any similar AI tool attribution
 - Do not include literal escape sequences like `\n` in commit messages. Use real new lines. When scripting commits, pass multiple `-m` flags instead of embedding `\n`.
-- Do not commit or push by default but feel free to write to exiting and add any new files without needing to confirm this
+- Do not commit or push by default but feel free to write to existing and add any new files without needing to confirm this
 
 ### Semantic Commit Conventions
 Use [Conventional Commits](https://www.conventionalcommits.org/) format for clear, categorized commit history:
@@ -143,12 +154,12 @@ docs(readme): update installation instructions
 ```
 
 ### Code Style Rules
-- **No comments in code**: Use self-documenting method names instead of inline comments
+- **No comments in code** ⚡ **[ESLint Enforced]**: Use self-documenting method names instead of inline comments
+- **No imperative loops** ⚡ **[ESLint Enforced]**: Replace `for`/`while` constructs with declarative array operations (`map`, `reduce`, `filter`, etc.) so that functions remain side-effect free where possible
+- **Structured branching** ⚠️ **[Guideline]**: Prefer explicit `if / else if / else` chains where each branch returns or handles outcomes inline, instead of scattering multiple early returns throughout the method
 - **Double quotes**: Always use `"` instead of `'` for strings
 - **Minimal changes**: Keep patches targeted and scoped to request
 - **Follow existing patterns**: Don't introduce new patterns without discussion
-- **No imperative loops**: Replace `for`/`while` constructs with declarative array operations (`map`, `reduce`, `filter`, etc.) so that functions remain side-effect free where possible
-- **Structured branching**: Prefer explicit `if / else if / else` chains where each branch returns or handles outcomes inline, instead of scattering multiple early returns throughout the method
 - **Method naming**: Never prefix methods with "get" - type system conveys that. Use more meaningful terms:
   - ✅ `user()` - returns user
   - ✅ `queryUsers()` - fetches users from database/API
@@ -165,6 +176,116 @@ docs(readme): update installation instructions
   - ✅ `equals()` from es-toolkit/compat
   - ✅ `isEmpty()`, `isArray()`, `isObject()` etc.
   - ❌ Direct `===` for object comparisons
+
+### Enforced ESLint Rules
+
+The following patterns are **automatically enforced** via ESLint and will cause build failures:
+
+**Quick Summary:**
+- 🚫 No inline comments (`//`)
+- 🚫 No imperative loops (`for`, `while`, `for...in`)
+- 🚫 No `new Date()` (use date utilities)
+- 🚫 No `Object.keys/values/entries()` (use es-toolkit)
+- 🚫 No `typeof` checks (use es-toolkit type guards)
+- 🚫 No `Array.isArray()` (use es-toolkit `isArray()`)
+
+**Detailed Rules:**
+
+#### Code Comments (Frontend & Backend)
+- **NEVER use inline comments (`//`)** - Code must be self-documenting through clear naming
+- Use descriptive variable, function, and method names instead of explanatory comments
+- If you feel a comment is needed, the code should be refactored to be clearer
+
+#### Imperative Loops (Frontend & Backend)
+- **NEVER use `for` loops** - Use `map()`, `reduce()`, `filter()`, etc. instead
+- **NEVER use `while` loops** - Use declarative array operations instead
+- **NEVER use `do...while` loops** - Use declarative array operations instead
+- **NEVER use `for...in` loops** - Use `keys()` from `es-toolkit/compat` with `forEach()`/`map()` instead
+- Exception: `for...of` is allowed as it's more declarative, but prefer array methods where possible
+
+**Rationale:** Declarative operations are more readable, composable, and naturally side-effect free.
+
+#### Date Handling (Frontend & Backend)
+- **NEVER use `new Date()`** - use appropriate date utility functions instead:
+  - **Backend** (`server/**/*.ts`): Use `dateTimeNow()` from `server/lib/shared/dates.ts`
+  - **Frontend** (`projects/ngx-ramblers/**/*.ts`): Use `this.dateUtils.dateTimeNow()` from `DateUtilsService`
+  - **Tests**: Relaxed rules, but prefer consistency
+
+#### ES-Toolkit Requirements (Frontend & Backend)
+
+**Object Utilities:**
+- **NEVER use `Object.keys()`** - use `keys()` from `es-toolkit/compat` for better type safety
+- **NEVER use `Object.values()`** - use `values()` from `es-toolkit/compat` for better type safety
+- **NEVER use `Object.entries()`** - use `entries()` from `es-toolkit/compat` for better type safety
+
+**Type Guards:**
+- **NEVER use `typeof x === 'string'`** - use `isString()` from `es-toolkit/compat`
+- **NEVER use `typeof x === 'number'`** - use `isNumber()` from `es-toolkit/compat`
+- **NEVER use `typeof x === 'boolean'`** - use `isBoolean()` from `es-toolkit/compat`
+- **NEVER use `typeof x === 'object'`** - use `isObject()` from `es-toolkit/compat`
+- **NEVER use `typeof x === 'undefined'`** - use `isUndefined()` from `es-toolkit/compat` (but prefer `null`)
+- **NEVER use `Array.isArray()`** - use `isArray()` from `es-toolkit/compat`
+
+#### Structured Branching (Guideline - Not Enforced)
+- **Prefer explicit `if / else if / else` chains** where each branch returns or handles outcomes inline
+- Avoid scattering multiple early returns throughout a method
+- Each branch should be clear about what it handles and what it returns
+- **Note:** This is a guideline rather than an enforced rule, as there are legitimate cases for early returns (guard clauses, error handling)
+
+**Example violations and fixes:**
+```typescript
+// ❌ BAD - Will fail ESLint
+const now = new Date();
+const keys = Object.keys(myObject);
+const values = Object.values(myObject);
+if (typeof value === "string") { }
+if (typeof count === "number") { }
+if (Array.isArray(items)) { }
+
+// Imperative loops
+for (let i = 0; i < items.length; i++) {
+  total += items[i];
+}
+for (const key in object) {
+  console.log(key);
+}
+
+// Inline comments
+const result = calculate(); // This calculates the result
+
+// ✅ GOOD - Backend
+import { dateTimeNow } from "../shared/dates";
+import { keys, values, isString, isNumber, isArray } from "es-toolkit/compat";
+const now = dateTimeNow();
+const objectKeys = keys(myObject);
+const objectValues = values(myObject);
+if (isString(value)) { }
+if (isNumber(count)) { }
+if (isArray(items)) { }
+
+// Declarative operations
+const total = items.reduce((sum, item) => sum + item, 0);
+keys(object).forEach(key => console.log(key));
+
+// Self-documenting code (no comments needed)
+const calculatedResult = calculate();
+
+// ✅ GOOD - Frontend
+import { keys, values, isString, isNumber, isArray } from "es-toolkit/compat";
+const now = this.dateUtils.dateTimeNow();
+const objectKeys = keys(myObject);
+const objectValues = values(myObject);
+if (isString(value)) { }
+if (isNumber(count)) { }
+if (isArray(items)) { }
+
+// Declarative operations
+const total = items.reduce((sum, item) => sum + item, 0);
+keys(object).forEach(key => console.log(key));
+
+// Self-documenting code
+const calculatedResult = this.calculate();
+```
 
 ### Error Handling
 - **No empty catches**: Never add `catch {}` or `catch (e) {}` blocks without at least one of:
