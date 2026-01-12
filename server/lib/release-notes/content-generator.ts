@@ -636,7 +636,7 @@ export function createReleaseNotesData(
     commitSha: latestCommit.hash,
     commitHash: latestCommit.shortHash,
     commitUrl: `https://github.com/${githubRepo}/commit/${latestCommit.hash}`,
-    buildUrl: buildNumber ? `https://github.com/${githubRepo}/actions/runs/${buildNumber}` : null,
+    buildUrl: null,
     issueNumber,
     issueUrl: issueNumber ? `https://github.com/${githubRepo}/issues/${issueNumber}` : null,
     title,

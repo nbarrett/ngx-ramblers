@@ -16,7 +16,7 @@ import {
   updateIndexPageContent
 } from "./content-generator.js";
 import type { CMSAuth, ConventionalCommit, GenerateOptions, ReleaseNotesConfig, ReleaseNotesData } from "./models.js";
-import { dateTimeFromIso, dateTimeFromJsDate, dateTimeInTimezone } from "../shared/dates";
+import { dateTimeFromIso, dateTimeFromJsDate, dateTimeInTimezone, dateTimeNow } from "../shared/dates";
 import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
@@ -267,6 +267,11 @@ function filterReleaseGroups(groups: ReleaseGroup[], includeUnassigned: boolean)
   return groups.filter(group => Boolean(group.issueNumber));
 }
 
+function filterReleaseGroupsByDate(groups: ReleaseGroup[]): ReleaseGroup[] {
+  const todayDate = dateTimeNow().startOf("day").toISODate();
+  return groups.filter(group => group.date === todayDate);
+}
+
 function commitsFromGroups(groups: ReleaseGroup[]): ConventionalCommit[] {
   return groups.flatMap(group => group.commits);
 }
@@ -369,8 +374,19 @@ async function generateReleaseNote(
   }
 
   if (existingReleasePage) {
+    const todayDate = dateTimeNow().startOf("day").toISODate();
+    const releaseDate = data.date;
+    const isSameDay = todayDate === releaseDate;
+
+    if (!isSameDay) {
+      debugLog(`Skipping update of existing release note: ${releasePath}`);
+      debugLog(`  Reason: release date (${releaseDate}) is not today (${todayDate})`);
+      debugLog(`  Existing release notes should only be updated on the same day they were created`);
+      return;
+    }
+
     await cms.updatePageContent(auth, existingReleasePage.id!, pageContent);
-    debugLog(`Updated release note page: ${releasePath}`);
+    debugLog(`Updated release note page: ${releasePath} (same day update)`);
   } else {
     await cms.createPageContent(auth, pageContent);
     debugLog(`Created release note page: ${releasePath}`);
@@ -405,22 +421,27 @@ async function filterExistingReleaseNotes(
   groups: ReleaseGroup[],
   auth: CMSAuth,
   config: ReleaseNotesConfig
-): Promise<{ new: ReleaseGroup[]; existing: ReleaseGroup[] }> {
+): Promise<{ new: ReleaseGroup[]; existing: ReleaseGroup[]; skipped: ReleaseGroup[] }> {
   const newGroups: ReleaseGroup[] = [];
   const existingGroups: ReleaseGroup[] = [];
+  const skippedGroups: ReleaseGroup[] = [];
+  const todayDate = dateTimeNow().startOf("day").toISODate();
 
   for (const group of groups) {
     const releasePath = `${config.indexPath}/${formatDateForPath(group.date)}${group.pathSuffix}`;
     const exists = await cms.pageExists(auth, releasePath);
+    const isSameDay = group.date === todayDate;
 
-    if (exists) {
+    if (exists && !isSameDay) {
+      skippedGroups.push(group);
+    } else if (exists) {
       existingGroups.push(group);
     } else {
       newGroups.push(group);
     }
   }
 
-  return { new: newGroups, existing: existingGroups };
+  return { new: newGroups, existing: existingGroups, skipped: skippedGroups };
 }
 
 async function generateMultipleReleaseNotes(
@@ -711,18 +732,32 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
         const filtered = await filterExistingReleaseNotes(releaseGroups, auth, configWithCreds);
         const newCount = filtered.new.length;
         const existingCount = filtered.existing.length;
+        const skippedCount = filtered.skipped.length;
+        const groupsToProcess = [...filtered.new, ...filtered.existing];
 
+        if (skippedCount > 0) {
+          debugLog(`Skipping ${skippedCount} existing release notes from previous days`);
+        }
         if (newCount > 0 && existingCount > 0) {
-          debugLog(`Found ${releaseGroups.length} release notes: ${newCount} new, ${existingCount} existing (will update all)`);
+          debugLog(`Found ${groupsToProcess.length} release notes: ${newCount} new, ${existingCount} existing from today (will update)`);
         } else if (existingCount > 0) {
-          debugLog(`Found ${releaseGroups.length} existing release notes (will update all)`);
-        } else {
+          debugLog(`Found ${existingCount} existing release notes from today (will update)`);
+        } else if (newCount > 0) {
           debugLog(`Found ${newCount} new release notes`);
         }
-      }
 
-      await generateMultipleReleaseNotes(releaseGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
-      debugLog(`Generated ${releaseGroups.length} release notes`);
+        await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+        debugLog(`Generated ${groupsToProcess.length} release notes`);
+      } else {
+        const todayGroups = filterReleaseGroupsByDate(releaseGroups);
+        const skippedCount = releaseGroups.length - todayGroups.length;
+        if (skippedCount > 0) {
+          debugLog(`Skipping ${skippedCount} release notes from previous days (dry-run mode)`);
+        }
+        debugLog(`Processing ${todayGroups.length} release notes from today`);
+        await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+        debugLog(`Generated ${todayGroups.length} release notes`);
+      }
     }
   } else if (options.latest) {
     const tag = latestTag();
@@ -740,18 +775,32 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
           const filtered = await filterExistingReleaseNotes(releaseGroups, auth, configWithCreds);
           const newCount = filtered.new.length;
           const existingCount = filtered.existing.length;
+          const skippedCount = filtered.skipped.length;
+          const groupsToProcess = [...filtered.new, ...filtered.existing];
 
+          if (skippedCount > 0) {
+            debugLog(`Skipping ${skippedCount} existing release notes from previous days`);
+          }
           if (newCount > 0 && existingCount > 0) {
-            debugLog(`Found ${releaseGroups.length} release notes: ${newCount} new, ${existingCount} existing (will update all)`);
+            debugLog(`Found ${groupsToProcess.length} release notes: ${newCount} new, ${existingCount} existing from today (will update)`);
           } else if (existingCount > 0) {
-            debugLog(`Found ${releaseGroups.length} existing release notes (will update all)`);
-          } else {
+            debugLog(`Found ${existingCount} existing release notes from today (will update)`);
+          } else if (newCount > 0) {
             debugLog(`Found ${newCount} new release notes`);
           }
-        }
 
-        await generateMultipleReleaseNotes(releaseGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
-        debugLog(`Generated ${pluraliseWithCount(releaseGroups.length, "release note")} for latest commits`);
+          await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          debugLog(`Generated ${pluraliseWithCount(groupsToProcess.length, "release note")} for latest commits`);
+        } else {
+          const todayGroups = filterReleaseGroupsByDate(releaseGroups);
+          const skippedCount = releaseGroups.length - todayGroups.length;
+          if (skippedCount > 0) {
+            debugLog(`Skipping ${skippedCount} release notes from previous days (dry-run mode)`);
+          }
+          debugLog(`Processing ${todayGroups.length} release notes from today`);
+          await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          debugLog(`Generated ${pluraliseWithCount(todayGroups.length, "release note")} for latest commits`);
+        }
       }
     }
   } else if (options.since) {
@@ -770,18 +819,32 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
           const filtered = await filterExistingReleaseNotes(releaseGroups, auth, configWithCreds);
           const newCount = filtered.new.length;
           const existingCount = filtered.existing.length;
+          const skippedCount = filtered.skipped.length;
+          const groupsToProcess = [...filtered.new, ...filtered.existing];
 
+          if (skippedCount > 0) {
+            debugLog(`Skipping ${skippedCount} existing release notes from previous days`);
+          }
           if (newCount > 0 && existingCount > 0) {
-            debugLog(`Found ${releaseGroups.length} release notes: ${newCount} new, ${existingCount} existing (will update all)`);
+            debugLog(`Found ${groupsToProcess.length} release notes: ${newCount} new, ${existingCount} existing from today (will update)`);
           } else if (existingCount > 0) {
-            debugLog(`Found ${releaseGroups.length} existing release notes (will update all)`);
-          } else {
+            debugLog(`Found ${existingCount} existing release notes from today (will update)`);
+          } else if (newCount > 0) {
             debugLog(`Found ${newCount} new release notes`);
           }
-        }
 
-        await generateMultipleReleaseNotes(releaseGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
-        debugLog(`Generated ${pluraliseWithCount(releaseGroups.length, "release note")} for commit range`);
+          await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          debugLog(`Generated ${pluraliseWithCount(groupsToProcess.length, "release note")} for commit range`);
+        } else {
+          const todayGroups = filterReleaseGroupsByDate(releaseGroups);
+          const skippedCount = releaseGroups.length - todayGroups.length;
+          if (skippedCount > 0) {
+            debugLog(`Skipping ${skippedCount} release notes from previous days (dry-run mode)`);
+          }
+          debugLog(`Processing ${todayGroups.length} release notes from today`);
+          await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          debugLog(`Generated ${pluraliseWithCount(todayGroups.length, "release note")} for commit range`);
+        }
       }
     }
   } else if (options.sinceDate) {
@@ -815,18 +878,32 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
           const filtered = await filterExistingReleaseNotes(releaseGroups, auth, configWithCreds);
           const newCount = filtered.new.length;
           const existingCount = filtered.existing.length;
+          const skippedCount = filtered.skipped.length;
+          const groupsToProcess = [...filtered.new, ...filtered.existing];
 
+          if (skippedCount > 0) {
+            debugLog(`Skipping ${skippedCount} existing release notes from previous days`);
+          }
           if (newCount > 0 && existingCount > 0) {
-            debugLog(`Found ${releaseGroups.length} release notes: ${newCount} new, ${existingCount} existing (will update all)`);
+            debugLog(`Found ${groupsToProcess.length} release notes: ${newCount} new, ${existingCount} existing from today (will update)`);
           } else if (existingCount > 0) {
-            debugLog(`Found ${releaseGroups.length} existing release notes (will update all)`);
-          } else {
+            debugLog(`Found ${existingCount} existing release notes from today (will update)`);
+          } else if (newCount > 0) {
             debugLog(`Found ${newCount} new release notes`);
           }
-        }
 
-        await generateMultipleReleaseNotes(releaseGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
-        debugLog(`Generated ${pluraliseWithCount(releaseGroups.length, "release note")} for commits since ${normalizedSince}`);
+          await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          debugLog(`Generated ${pluraliseWithCount(groupsToProcess.length, "release note")} for commits since ${normalizedSince}`);
+        } else {
+          const todayGroups = filterReleaseGroupsByDate(releaseGroups);
+          const skippedCount = releaseGroups.length - todayGroups.length;
+          if (skippedCount > 0) {
+            debugLog(`Skipping ${skippedCount} release notes from previous days (dry-run mode)`);
+          }
+          debugLog(`Processing ${todayGroups.length} release notes from today`);
+          await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          debugLog(`Generated ${pluraliseWithCount(todayGroups.length, "release note")} for commits since ${normalizedSince}`);
+        }
       }
     }
   } else {
