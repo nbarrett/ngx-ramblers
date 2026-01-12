@@ -282,7 +282,6 @@ export enum InputSource {
   FILE_IMPORT = "file-import",
   WALKS_MANAGER_IMPORT = "walks-manager-import",
   WALKS_MANAGER_CACHE = "walks-manager-cache",
-  URL_TO_ID_LOOKUP = "url-to-id-lookup",
   MANUALLY_CREATED = "manually-created",
   UNKNOWN = "unknown",
 }

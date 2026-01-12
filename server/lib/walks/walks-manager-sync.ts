@@ -135,23 +135,7 @@ export async function syncWalksManagerData(
     const groupCode = determineGroupCode(config);
     debugLog("Syncing for group code:", groupCode);
 
-    sendProgress(ws, 2, "Cleaning up orphaned data...");
-
-    const countBefore = await extendedGroupEvent.countDocuments({
-      [`${EventField.INPUT_SOURCE}`]: InputSource.URL_TO_ID_LOOKUP
-    }).exec();
-
-    debugLog(`Found ${countBefore} URL_TO_ID_LOOKUP records to delete`);
-
-    const deleteResult = await extendedGroupEvent.deleteMany({
-      [`${EventField.INPUT_SOURCE}`]: InputSource.URL_TO_ID_LOOKUP
-    }).exec();
-
-    result.deleted = deleteResult.deletedCount;
-    debugLog(`Deleted ${result.deleted} URL_TO_ID_LOOKUP records`);
-
-    sendProgress(ws, 5, "Cleanup complete");
-
+    sendProgress(ws, 5, "Sync starting");
     const defaultOptions = requestDefaults.createApiRequestOptions(config);
     const totalMonths = Math.ceil(dateTo.diff(dateFrom, "months").months);
     const chunkSizeMonths = options.fullSync ? 1 : Math.ceil(totalMonths);

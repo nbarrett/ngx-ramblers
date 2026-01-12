@@ -221,7 +221,7 @@ import { Subscription } from "rxjs";
               <h5>Walks Manager Data Sync</h5>
               <div class="alert alert-warning">
                 <fa-icon [icon]="faInfoCircle" class="me-2"/>
-                <strong>Sync Disabled:</strong> Walk Population is set to Local. Change to Walks Manager or Hybrid in
+                <strong>Sync Disabled:</strong> Walk Population is set to Local. Change to Walks Manager in
                 <a routerLink="/admin/system-settings" [queryParams]="{tab: 'area-group'}">Area &amp; Group settings</a>
                 to enable syncing from Walks Manager.
               </div>
@@ -340,6 +340,6 @@ export class RamblersSettings implements OnInit, OnDestroy {
 
   syncEnabled(): boolean {
     const walkPopulation = this.config?.group?.walkPopulation;
-    return walkPopulation === EventPopulation.WALKS_MANAGER || walkPopulation === EventPopulation.HYBRID;
+    return walkPopulation === EventPopulation.WALKS_MANAGER;
   }
 }

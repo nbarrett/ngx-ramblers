@@ -652,7 +652,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     const config = this.systemConfigService.systemConfig();
     const walkPopulation = config?.group?.walkPopulation;
 
-    if ([EventPopulation.WALKS_MANAGER, EventPopulation.HYBRID].includes(walkPopulation)) {
+    if (walkPopulation === EventPopulation.WALKS_MANAGER) {
       await this.loadLeaderContacts();
     }
 
