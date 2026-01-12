@@ -17,7 +17,7 @@ import { FileUploadModule } from "ng2-file-upload";
 import { Subscription } from "rxjs";
 import { FormsModule } from "@angular/forms";
 import { NgClass, NgStyle, NgTemplateOutlet, TitleCasePipe } from "@angular/common";
-import { EventPopulation, SystemConfig } from "../../../models/system.model";
+import { SystemConfig } from "../../../models/system.model";
 import { WalkImportFromFile } from "./walk-import-from-file";
 import { GroupEventField, ImportData, ImportStage, WalkImportField } from "../../../models/walk.model";
 import { WalkImportFromWalksManager } from "./walk-import-from-walks-manager";
@@ -554,16 +554,15 @@ export class WalkImport implements OnInit, OnDestroy {
     await this.walksImportService.saveImportedWalks(this.importData, this.notify)
       .then(async () => {
         await this.processImagesIfPresent();
-        const walkPopulationSwitchMessage = this.systemConfig.group.walkPopulation === EventPopulation.WALKS_MANAGER ? `${EM_DASH_WITH_SPACES}If you are happy with number of walks imported, Walk population should now be changed to ${this.stringUtilsService.asTitle(EventPopulation.HYBRID)} in System Settings` : "";
         if (this.importData?.errorMessages?.length > 0) {
           this.notify.warning({
             title: "Walks Import Completed With Errors",
-            message: `Imported completed with ${this.stringUtilsService.pluraliseWithCount(this.importData?.errorMessages?.length, "error")}${walkPopulationSwitchMessage}`
+            message: `Imported completed with ${this.stringUtilsService.pluraliseWithCount(this.importData?.errorMessages?.length, "error")}`
           });
         } else {
           this.notify.success({
             title: "Walks Import Complete",
-            message: `Imported completed successfully${walkPopulationSwitchMessage}`
+            message: "Imported completed successfully"
           });
         }
       })

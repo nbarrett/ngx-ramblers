@@ -29,6 +29,7 @@ import { MongoSort } from "../../../models/mongo-models";
 import { GroupEventField } from "../../../models/walk.model";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
+import { enumValues } from "../../../functions/enums";
 
 @Component({
     selector: "app-events",
@@ -168,11 +169,35 @@ export class Events implements OnInit, OnDestroy {
   }
 
   sort() {
-    return {[GroupEventField.START_DATE]: this.sortOrderToValue(this?.eventsData?.sortOrder)};
+    return {[GroupEventField.START_DATE]: this.sortOrderToValue(this.resolvedSortOrder())};
   }
 
   private sortOrderToValue(sortOrder: SortOrder): MongoSort {
     return sortOrder === SortOrder.DATE_DESCENDING ? MongoSort.DESCENDING : MongoSort.ASCENDING;
+  }
+
+  private resolvedSortOrder(): SortOrder {
+    const configuredSortOrder = this.normalizedSortOrder(this.eventsData?.sortOrder);
+    if (configuredSortOrder && configuredSortOrder !== SortOrder.CHOOSE) {
+      return configuredSortOrder;
+    }
+    if (this.filterParameters.fieldSort === MongoSort.DESCENDING) {
+      return SortOrder.DATE_DESCENDING;
+    }
+    return SortOrder.DATE_ASCENDING;
+  }
+
+  private normalizedSortOrder(sortOrder: SortOrder | string): SortOrder {
+    if (!sortOrder) {
+      return null;
+    }
+    const match = enumValues(SortOrder).find(value => value === sortOrder);
+    if (match) {
+      return match as SortOrder;
+    }
+    const titledMatch = enumValues(SortOrder)
+      .find(value => this.stringUtils.asTitle(value) === sortOrder);
+    return (titledMatch as SortOrder) || null;
   }
 
   applyFilterToSocialEvents(searchTerm?: NamedEvent<string>) {

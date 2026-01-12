@@ -35,7 +35,7 @@ function sourceFromInputSource(inputSource: InputSource): EventSource {
   }
 }
 
-export function mapToExtendedGroupEvent(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.URL_TO_ID_LOOKUP): ExtendedGroupEvent {
+export function mapToExtendedGroupEvent(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.WALKS_MANAGER_CACHE): ExtendedGroupEvent {
   const groupEvent: GroupEvent = {
     ...event,
     item_type: event.item_type || RamblersEventType.GROUP_WALK,
@@ -98,7 +98,7 @@ async function upsertEvent(config: SystemConfig, event: GroupEvent, inputSource:
   }
 }
 
-export async function cacheEventIfNotFound(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.URL_TO_ID_LOOKUP): Promise<mongoose.Document | null> {
+export async function cacheEventIfNotFound(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.WALKS_MANAGER_CACHE): Promise<mongoose.Document | null> {
   const result = await upsertEvent(config, event, inputSource);
   return result.document;
 }

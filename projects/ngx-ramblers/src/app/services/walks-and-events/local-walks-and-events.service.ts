@@ -33,6 +33,7 @@ export class LocalWalksAndEventsService {
   private leaderRecords: WalkLeaderLabelRecord[] = [];
   publicFieldsDataQueryOptions: DataQueryOptions = {
     select: {
+      [GroupEventField.ID]: 1,
       [GroupEventField.TITLE]: 1,
       [GroupEventField.ITEM_TYPE]: 1,
       [GroupEventField.START_DATE]: 1,

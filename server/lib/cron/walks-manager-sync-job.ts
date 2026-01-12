@@ -14,9 +14,8 @@ export async function scheduleWalksManagerSync() {
   try {
     const config = await systemConfig();
 
-    if (config.group.walkPopulation !== EventPopulation.WALKS_MANAGER &&
-        config.group.walkPopulation !== EventPopulation.HYBRID) {
-      debugLog("Walk population is LOCAL, skipping WALKS_MANAGER sync cron job");
+    if (config.group.walkPopulation !== EventPopulation.WALKS_MANAGER) {
+      debugLog("Walk population is not WALKS_MANAGER, skipping WALKS_MANAGER sync cron job");
       return;
     }
 

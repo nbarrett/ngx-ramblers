@@ -48,7 +48,7 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
   debugLog("listEvents:body:", body);
   const limit = limitFor(req.body);
   const ids = body.ids?.join(",");
-  const inputSource = body.inputSource as InputSource || InputSource.URL_TO_ID_LOOKUP;
+  const inputSource = body.inputSource as InputSource || InputSource.WALKS_MANAGER_CACHE;
 
   const singleIdentifier = body?.ids?.length === 1 ? body.ids[0] : null;
   if (singleIdentifier && (identifierMatchesSlugFormat(singleIdentifier) || identifierCanBeConvertedToSlug(singleIdentifier))) {
