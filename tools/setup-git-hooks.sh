@@ -7,8 +7,8 @@ HOOKS_DIR=".githooks"
 GIT_HOOKS_DIR=".git/hooks"
 
 if [ ! -d "$GIT_HOOKS_DIR" ]; then
-  echo "❌ Not a git repository or .git/hooks directory not found"
-  exit 1
+  # Silently skip if not in a git repository (e.g., Docker build, CI/CD)
+  exit 0
 fi
 
 if [ ! -d "$HOOKS_DIR" ]; then
