@@ -61,7 +61,7 @@ export class CsvExportComponent {
   private csv = "";
 
   @Input("data") set acceptData(data: any[]) {
-    this.data = typeof data === "string" ? JSON.parse(data) : data;
+    this.data = isString(data) ? JSON.parse(data) : data;
     this.logger.off("input:data:", data);
   }
 

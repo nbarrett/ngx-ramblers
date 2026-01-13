@@ -19,7 +19,7 @@ import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { MapEditComponent } from "./map-edit";
 import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
-import { isNull } from "es-toolkit/compat";
+import { isNull, isNumber } from "es-toolkit/compat";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { Subject } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
@@ -423,7 +423,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   }
 
   private shouldShowLeafletView(): boolean {
-    const hasLatLng = typeof this.locationDetails?.latitude === "number" && typeof this.locationDetails?.longitude === "number";
+    const hasLatLng = isNumber(this.locationDetails?.latitude) && isNumber(this.locationDetails?.longitude);
     const hasPostcode = !!this.locationDetails?.postcode?.trim();
     return hasLatLng || hasPostcode;
   }

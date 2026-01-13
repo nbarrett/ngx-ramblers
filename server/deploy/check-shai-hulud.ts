@@ -7,6 +7,7 @@ import { Command } from "commander";
 import debug from "debug";
 import * as semver from "semver";
 import * as yaml from "js-yaml";
+import { isArray, isString } from "es-toolkit/compat";
 
 const debugLog = debug("check-shai-hulud");
 debugLog.enabled = true;
@@ -250,8 +251,8 @@ function extractAuditIssues(raw: any[]): AuditIssue[] {
     name: vuln.name || "unknown",
     version: vuln.version || "unknown",
     severity: vuln.severity || "unknown",
-    via: Array.isArray(vuln.via)
-      ? vuln.via.map((item: any) => (typeof item === "string" ? item : item.title || item.source || "unknown"))
+    via: isArray(vuln.via)
+      ? vuln.via.map((item: any) => (isString(item) ? item : item.title || item.source || "unknown"))
       : []
   }));
 }

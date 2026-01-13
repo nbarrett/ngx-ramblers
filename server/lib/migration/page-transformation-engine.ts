@@ -46,7 +46,7 @@ import { humaniseFileStemFromUrl } from "../shared/string-utils";
 import { DateTime } from "luxon";
 import { bestLocation, extractLocations } from "../../../projects/ngx-ramblers/src/app/common/locations/location-extractor";
 import { ExtractedLocation } from "../../../projects/ngx-ramblers/src/app/models/map.model";
-import { isNull, isUndefined } from "es-toolkit/compat";
+import { isNull, isObject, isUndefined } from "es-toolkit/compat";
 
 type TextSegmentInfo = { index: number; cleaned: string; segment: ScrapedSegment; isTextBeforeHeading?: boolean; mergedIndices?: number[] };
 type ImageSegmentInfo = { index: number; segment: ScrapedSegment; image: ScrapedImage };
@@ -86,7 +86,7 @@ export class PageTransformationEngine {
 
   private log(...args: any[]): void {
     const message = args.map(arg =>
-      typeof arg === "object" ? JSON.stringify(arg, null, 2) : String(arg)
+      isObject(arg) ? JSON.stringify(arg, null, 2) : String(arg)
     ).join(" ");
     this.debugLogs.push(message);
     (debugLog as any)(...args);
@@ -1280,7 +1280,7 @@ export class PageTransformationEngine {
     if (Array.isArray(apiResponse.response)) {
       return apiResponse.response.length > 0 ? apiResponse.response[0] : null;
     }
-    if (typeof apiResponse.response === "object") {
+    if (isObject(apiResponse.response)) {
       return apiResponse.response;
     }
     return null;

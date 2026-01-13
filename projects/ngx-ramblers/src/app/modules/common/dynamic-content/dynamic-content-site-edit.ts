@@ -13,7 +13,7 @@ import {
   faSpinner,
   faUndo
 } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep, first, isEmpty, isNull, isNumber, isString, isUndefined, last, uniq } from "es-toolkit/compat";
+import { cloneDeep, first, isArray, isEmpty, isNull, isNumber, isObject, isString, isUndefined, last, uniq } from "es-toolkit/compat";
 import { BsDropdownConfig } from "ngx-bootstrap/dropdown";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -1114,25 +1114,22 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   private extractPastedPageContent(value: any): PageContent | null {
-    if (!value || typeof value !== "object") {
+    if (!value || !isObject(value) || isArray(value)) {
       return null;
+    } else {
+      const obj = value as Record<string, any>;
+      if (obj.rows && obj.path) {
+        return obj as PageContent;
+      } else if (obj.response) {
+        return this.extractPastedPageContent(obj.response);
+      } else if (obj.data) {
+        return this.extractPastedPageContent(obj.data);
+      } else if (obj.pageContent) {
+        return this.extractPastedPageContent(obj.pageContent);
+      } else {
+        return null;
+      }
     }
-    if (Array.isArray(value)) {
-      return null;
-    }
-    if (value.rows && value.path) {
-      return value as PageContent;
-    }
-    if (value.response) {
-      return this.extractPastedPageContent(value.response);
-    }
-    if (value.data) {
-      return this.extractPastedPageContent(value.data);
-    }
-    if (value.pageContent) {
-      return this.extractPastedPageContent(value.pageContent);
-    }
-    return null;
   }
 
   async applyPastedPageContent() {

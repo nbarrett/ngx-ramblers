@@ -3,6 +3,143 @@ import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 import angular from "angular-eslint";
 
+const sharedTypescriptRulesOff: Record<string, "off"> = {
+  "@typescript-eslint/consistent-generic-constructors": "off",
+  "@typescript-eslint/no-empty-object-type": "off",
+  "@typescript-eslint/no-explicit-any": "off",
+  "@typescript-eslint/no-unused-vars": "off",
+  "@typescript-eslint/no-inferrable-types": "off",
+  "@typescript-eslint/consistent-indexed-object-style": "off",
+  "@typescript-eslint/array-type": "off",
+  "@typescript-eslint/consistent-type-definitions": "off",
+  "@typescript-eslint/no-empty-function": "off",
+  "no-case-declarations": "off",
+  "no-dupe-else-if": "off",
+  "no-constant-condition": "off",
+  "no-empty": "off",
+  "no-extra-boolean-cast": "off",
+  "no-useless-escape": "off",
+};
+
+const typeofRestrictions = [
+  {
+    "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='string']",
+    "message": "Use isString() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='number']",
+    "message": "Use isNumber() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='boolean']",
+    "message": "Use isBoolean() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='object']",
+    "message": "Use isObject() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='undefined']",
+    "message": "Use isUndefined() from es-toolkit/compat instead of typeof checks. Note: prefer null over undefined for absence of value."
+  },
+  {
+    "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='string']",
+    "message": "Use !isString() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='number']",
+    "message": "Use !isNumber() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='boolean']",
+    "message": "Use !isBoolean() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='object']",
+    "message": "Use !isObject() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='undefined']",
+    "message": "Use !isUndefined() from es-toolkit/compat instead of typeof checks. Note: prefer null over undefined for absence of value."
+  },
+  {
+    "selector": "BinaryExpression[operator='=='][left.operator='typeof'][right.value='string']",
+    "message": "Use isString() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='=='][left.operator='typeof'][right.value='number']",
+    "message": "Use isNumber() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='=='][left.operator='typeof'][right.value='boolean']",
+    "message": "Use isBoolean() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='=='][left.operator='typeof'][right.value='object']",
+    "message": "Use isObject() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='=='][left.operator='typeof'][right.value='undefined']",
+    "message": "Use isUndefined() from es-toolkit/compat instead of typeof checks. Note: prefer null over undefined for absence of value."
+  },
+  {
+    "selector": "BinaryExpression[operator='!='][left.operator='typeof'][right.value='string']",
+    "message": "Use !isString() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='!='][left.operator='typeof'][right.value='number']",
+    "message": "Use !isNumber() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='!='][left.operator='typeof'][right.value='boolean']",
+    "message": "Use !isBoolean() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='!='][left.operator='typeof'][right.value='object']",
+    "message": "Use !isObject() from es-toolkit/compat instead of typeof checks for better type safety."
+  },
+  {
+    "selector": "BinaryExpression[operator='!='][left.operator='typeof'][right.value='undefined']",
+    "message": "Use !isUndefined() from es-toolkit/compat instead of typeof checks. Note: prefer null over undefined for absence of value."
+  }
+];
+
+const sharedSyntaxRestrictions = [
+  {
+    "selector": "ForStatement",
+    "message": "Imperative for loops are not allowed. Use declarative array operations (map, reduce, filter, etc.) instead for side-effect free code."
+  },
+  {
+    "selector": "WhileStatement",
+    "message": "Imperative while loops are not allowed. Use declarative array operations (map, reduce, filter, etc.) instead for side-effect free code."
+  },
+  {
+    "selector": "DoWhileStatement",
+    "message": "Imperative do-while loops are not allowed. Use declarative array operations (map, reduce, filter, etc.) instead for side-effect free code."
+  },
+  {
+    "selector": "ForInStatement",
+    "message": "for...in loops are not allowed. Use keys() from es-toolkit/compat with forEach/map, or declarative operations instead."
+  },
+  {
+    "selector": "MemberExpression[object.name='Object'][property.name='keys']",
+    "message": "Use keys() from es-toolkit/compat instead of Object.keys() for better type safety."
+  },
+  {
+    "selector": "MemberExpression[object.name='Object'][property.name='values']",
+    "message": "Use values() from es-toolkit/compat instead of Object.values() for better type safety."
+  },
+  {
+    "selector": "MemberExpression[object.name='Object'][property.name='entries']",
+    "message": "Use entries() from es-toolkit/compat instead of Object.entries() for better type safety."
+  },
+  {
+    "selector": "CallExpression[callee.object.name='Array'][callee.property.name='isArray']",
+    "message": "Use isArray() from es-toolkit/compat instead of Array.isArray() for consistency."
+  },
+  ...typeofRestrictions
+];
+
 export default defineConfig([
   {
     ignores: ["projects/ngx-ramblers/src/brevo/templates/**"],
@@ -15,99 +152,14 @@ export default defineConfig([
       tseslint.configs.stylistic,
     ],
     rules: {
-      "@typescript-eslint/consistent-generic-constructors": "off",
-      "@typescript-eslint/no-empty-object-type": "off",
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/no-inferrable-types": "off",
-      "@typescript-eslint/consistent-indexed-object-style": "off",
-      "@typescript-eslint/array-type": "off",
-      "@typescript-eslint/consistent-type-definitions": "off",
-      "@typescript-eslint/no-empty-function": "off",
-      "no-case-declarations": "off",
-      "no-dupe-else-if": "off",
-      "no-constant-condition": "off",
-      "no-empty": "off",
-      "no-extra-boolean-cast": "off",
-      "no-useless-escape": "off",
+      ...sharedTypescriptRulesOff,
       "no-inline-comments": "error",
       "no-restricted-syntax": [
         "error",
-        {
-          "selector": "ForStatement",
-          "message": "Imperative for loops are not allowed. Use declarative array operations (map, reduce, filter, etc.) instead for side-effect free code."
-        },
-        {
-          "selector": "WhileStatement",
-          "message": "Imperative while loops are not allowed. Use declarative array operations (map, reduce, filter, etc.) instead for side-effect free code."
-        },
-        {
-          "selector": "DoWhileStatement",
-          "message": "Imperative do-while loops are not allowed. Use declarative array operations (map, reduce, filter, etc.) instead for side-effect free code."
-        },
-        {
-          "selector": "ForInStatement",
-          "message": "for...in loops are not allowed. Use keys() from es-toolkit/compat with forEach/map, or declarative operations instead."
-        },
+        ...sharedSyntaxRestrictions,
         {
           "selector": "NewExpression[callee.name='Date']",
           "message": "Direct use of 'new Date()' is not allowed. Use dateTimeNow() from server/lib/shared/dates.ts (backend) instead."
-        },
-        {
-          "selector": "MemberExpression[object.name='Object'][property.name='keys']",
-          "message": "Use keys() from es-toolkit/compat instead of Object.keys() for better type safety."
-        },
-        {
-          "selector": "MemberExpression[object.name='Object'][property.name='values']",
-          "message": "Use values() from es-toolkit/compat instead of Object.values() for better type safety."
-        },
-        {
-          "selector": "MemberExpression[object.name='Object'][property.name='entries']",
-          "message": "Use entries() from es-toolkit/compat instead of Object.entries() for better type safety."
-        },
-        {
-          "selector": "CallExpression[callee.object.name='Array'][callee.property.name='isArray']",
-          "message": "Use isArray() from es-toolkit/compat instead of Array.isArray() for consistency."
-        },
-        {
-          "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='string']",
-          "message": "Use isString() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='number']",
-          "message": "Use isNumber() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='boolean']",
-          "message": "Use isBoolean() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='object']",
-          "message": "Use isObject() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='undefined']",
-          "message": "Use isUndefined() from es-toolkit/compat instead of typeof checks. Note: prefer null over undefined for absence of value."
-        },
-        {
-          "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='string']",
-          "message": "Use !isString() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='number']",
-          "message": "Use !isNumber() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='boolean']",
-          "message": "Use !isBoolean() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='object']",
-          "message": "Use !isObject() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='undefined']",
-          "message": "Use !isUndefined() from es-toolkit/compat instead of typeof checks. Note: prefer null over undefined for absence of value."
         }
       ],
     },
@@ -128,99 +180,14 @@ export default defineConfig([
       "@angular-eslint/no-empty-lifecycle-method": "off",
       "@angular-eslint/use-lifecycle-interface": "off",
       "@angular-eslint/prefer-inject": "off",
-      "@typescript-eslint/consistent-generic-constructors": "off",
-      "@typescript-eslint/no-empty-object-type": "off",
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/no-inferrable-types": "off",
-      "@typescript-eslint/consistent-indexed-object-style": "off",
-      "@typescript-eslint/array-type": "off",
-      "@typescript-eslint/consistent-type-definitions": "off",
-      "@typescript-eslint/no-empty-function": "off",
-      "no-case-declarations": "off",
-      "no-dupe-else-if": "off",
-      "no-constant-condition": "off",
-      "no-empty": "off",
-      "no-extra-boolean-cast": "off",
-      "no-useless-escape": "off",
+      ...sharedTypescriptRulesOff,
       "no-inline-comments": "error",
       "no-restricted-syntax": [
         "error",
-        {
-          "selector": "ForStatement",
-          "message": "Imperative for loops are not allowed. Use declarative array operations (map, reduce, filter, etc.) instead for side-effect free code."
-        },
-        {
-          "selector": "WhileStatement",
-          "message": "Imperative while loops are not allowed. Use declarative array operations (map, reduce, filter, etc.) instead for side-effect free code."
-        },
-        {
-          "selector": "DoWhileStatement",
-          "message": "Imperative do-while loops are not allowed. Use declarative array operations (map, reduce, filter, etc.) instead for side-effect free code."
-        },
-        {
-          "selector": "ForInStatement",
-          "message": "for...in loops are not allowed. Use keys() from es-toolkit/compat with forEach/map, or declarative operations instead."
-        },
+        ...sharedSyntaxRestrictions,
         {
           "selector": "NewExpression[callee.name='Date']",
           "message": "Direct use of 'new Date()' is not allowed. Use this.dateUtils.dateTimeNow() from DateUtilsService (frontend) instead."
-        },
-        {
-          "selector": "MemberExpression[object.name='Object'][property.name='keys']",
-          "message": "Use keys() from es-toolkit/compat instead of Object.keys() for better type safety."
-        },
-        {
-          "selector": "MemberExpression[object.name='Object'][property.name='values']",
-          "message": "Use values() from es-toolkit/compat instead of Object.values() for better type safety."
-        },
-        {
-          "selector": "MemberExpression[object.name='Object'][property.name='entries']",
-          "message": "Use entries() from es-toolkit/compat instead of Object.entries() for better type safety."
-        },
-        {
-          "selector": "CallExpression[callee.object.name='Array'][callee.property.name='isArray']",
-          "message": "Use isArray() from es-toolkit/compat instead of Array.isArray() for consistency."
-        },
-        {
-          "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='string']",
-          "message": "Use isString() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='number']",
-          "message": "Use isNumber() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='boolean']",
-          "message": "Use isBoolean() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='object']",
-          "message": "Use isObject() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='==='][left.operator='typeof'][right.value='undefined']",
-          "message": "Use isUndefined() from es-toolkit/compat instead of typeof checks. Note: prefer null over undefined for absence of value."
-        },
-        {
-          "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='string']",
-          "message": "Use !isString() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='number']",
-          "message": "Use !isNumber() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='boolean']",
-          "message": "Use !isBoolean() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='object']",
-          "message": "Use !isObject() from es-toolkit/compat instead of typeof checks for better type safety."
-        },
-        {
-          "selector": "BinaryExpression[operator='!=='][left.operator='typeof'][right.value='undefined']",
-          "message": "Use !isUndefined() from es-toolkit/compat instead of typeof checks. Note: prefer null over undefined for absence of value."
         }
       ],
     },
@@ -233,21 +200,7 @@ export default defineConfig([
       tseslint.configs.stylistic,
     ],
     rules: {
-      "@typescript-eslint/consistent-generic-constructors": "off",
-      "@typescript-eslint/no-empty-object-type": "off",
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/no-inferrable-types": "off",
-      "@typescript-eslint/consistent-indexed-object-style": "off",
-      "@typescript-eslint/array-type": "off",
-      "@typescript-eslint/consistent-type-definitions": "off",
-      "@typescript-eslint/no-empty-function": "off",
-      "no-case-declarations": "off",
-      "no-dupe-else-if": "off",
-      "no-constant-condition": "off",
-      "no-empty": "off",
-      "no-extra-boolean-cast": "off",
-      "no-useless-escape": "off",
+      ...sharedTypescriptRulesOff,
     },
   },
   {

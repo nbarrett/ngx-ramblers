@@ -1009,9 +1009,9 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       });
 
       const hasProximitySearch = this.locationMethod !== LocationMethod.NONE &&
-                                 typeof this.proximityLat === "number" &&
-                                 typeof this.proximityLng === "number" &&
-                                 typeof this.proximityRadiusMiles === "number";
+                                 isNumber(this.proximityLat) &&
+                                 isNumber(this.proximityLng) &&
+                                 isNumber(this.proximityRadiusMiles);
 
       this.logger.info("hasProximitySearch:", hasProximitySearch);
 
