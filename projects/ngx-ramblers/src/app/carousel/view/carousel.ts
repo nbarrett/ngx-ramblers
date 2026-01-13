@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, HostListener, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
@@ -42,7 +42,7 @@ import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
               (tagChanged)="tagChanged($event)"/>
           }
           @if (lazyLoadingMetadata?.selectedSlides.length > 0) {
-            <carousel (mouseenter)="mouseEnter($event)" (mouseleave)="mouseLeave($event)" [isAnimated]="true"
+            <carousel #carouselRef (mouseenter)="mouseEnter($event)" (mouseleave)="mouseLeave($event)" [isAnimated]="true"
                       [noPause]="noPause" [pauseOnFocus]="noPause"
                       [interval]="album.slideInterval || 5000"
                       [showIndicators]="album.showIndicators && showIndicators"
@@ -71,8 +71,10 @@ import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
                     }
                   }
                   <div class="carousel-caption">
-                    <h4>{{ slide.text || album.subtitle }}</h4>
-                    @if (slide.eventId || album.eventId) {
+                    @if (album.showImageTitles) {
+                      <h4>{{ slide.text || album.subtitle }}</h4>
+                    }
+                    @if (album.showImageDates && (slide.eventId || album.eventId)) {
                       <div>
                         <a [delay]="500" class="badge event-date"
                            [tooltip]="eventTooltip(slide.eventId? slide.dateSource : album.eventType)"
@@ -141,7 +143,11 @@ export class CarouselComponent implements OnInit, OnDestroy {
 
   @Input()
   public hideStoryNavigator: boolean;
+
+  @ViewChild("carouselRef") carouselRef: CarouselComponent_1;
+
   public noPause = true;
+  public videoIsPlaying = false;
   DEFAULT_HEIGHT = 400;
 
   @HostListener("window:resize", ["$event"])
@@ -182,6 +188,11 @@ export class CarouselComponent implements OnInit, OnDestroy {
 
   activeSlideChange(force: boolean, $event: number) {
     this.logger.debug("activeSlideChange:force", force, "$event:", $event, "activeSlideIndex:", this.lazyLoadingMetadata?.activeSlideIndex || 0);
+    if (this.videoIsPlaying) {
+      this.videoIsPlaying = false;
+      this.carouselRef?.play();
+      this.logger.info("Carousel resumed after slide change");
+    }
     this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata, 1, "active slide change");
     this.configureShowIndicators(window.innerWidth);
   }
@@ -218,8 +229,16 @@ export class CarouselComponent implements OnInit, OnDestroy {
   }
 
   onVideoPlaybackChange(isPlaying: boolean) {
+    this.videoIsPlaying = isPlaying;
     this.noPause = !isPlaying;
-    this.logger.info("Video playback changed. isPlaying:", isPlaying, "noPause:", this.noPause);
+    this.logger.info("Video playback changed. isPlaying:", isPlaying, "videoIsPlaying:", this.videoIsPlaying, "noPause:", this.noPause);
+    if (isPlaying) {
+      this.carouselRef?.pause();
+      this.logger.info("Carousel paused due to video playback");
+    } else {
+      this.carouselRef?.play();
+      this.logger.info("Carousel resumed after video stopped");
+    }
   }
 
   onImageLoad($event: Event) {

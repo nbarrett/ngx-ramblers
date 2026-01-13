@@ -51,6 +51,7 @@ import { DatePicker } from "../../../date-and-time/date-picker";
 import { TagEditorComponent } from "../../../pages/tag/tag-editor.component";
 import { GroupEventSelectorComponent } from "../../../group-events-selector/group-event-selector";
 import { YoutubeEmbed } from "../../../modules/common/youtube-embed/youtube-embed";
+import { YoutubeInputComponent } from "../../../modules/common/youtube-input/youtube-input";
 
 @Component({
     selector: "app-image-edit",
@@ -197,9 +198,13 @@ import { YoutubeEmbed } from "../../../modules/common/youtube-embed/youtube-embe
               </div>
               <div class="form-group">
                 <label [for]="'youtube-' + index">YouTube Video ID</label>
-                <input [(ngModel)]="item.youtubeId" (ngModelChange)="callImageChange()" type="text"
-                       class="form-control input-sm"
-                       [id]="'youtube-' + index" placeholder="e.g., dQw4w9WgXcQ (from youtube.com/watch?v=dQw4w9WgXcQ)"/>
+                <app-youtube-input
+                  [(youtubeId)]="item.youtubeId"
+                  (youtubeIdChange)="callImageChange()"
+                  [showError]="true"
+                  [showPreview]="false"
+                  placeholder="Paste URL or enter ID (e.g., dQw4w9WgXcQ)">
+                </app-youtube-input>
                 <small class="form-text text-muted">
                   If provided, this will display as a YouTube video instead of an image
                 </small>
@@ -251,7 +256,7 @@ import { YoutubeEmbed } from "../../../modules/common/youtube-embed/youtube-embe
         app-youtube-embed
           pointer-events: none
     `],
-    imports: [ImageCropperAndResizerComponent, NgClass, FontAwesomeModule, BadgeButtonComponent, FormsModule, GroupEventTypeSelectorComponent, DatePicker, TagEditorComponent, GroupEventSelectorComponent, YoutubeEmbed]
+    imports: [ImageCropperAndResizerComponent, NgClass, FontAwesomeModule, BadgeButtonComponent, FormsModule, GroupEventTypeSelectorComponent, DatePicker, TagEditorComponent, GroupEventSelectorComponent, YoutubeEmbed, YoutubeInputComponent]
 })
 export class ImageEditComponent implements OnInit {
 

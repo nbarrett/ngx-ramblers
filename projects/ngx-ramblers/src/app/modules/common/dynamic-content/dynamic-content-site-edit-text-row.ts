@@ -56,6 +56,7 @@ import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { ALERT_WARNING } from "../../../models/alert-target.model";
 import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
+import { YoutubeInputComponent } from "../youtube-input/youtube-input";
 
 @Component({
     selector: "app-dynamic-content-site-edit-text-row",
@@ -261,12 +262,14 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
                       <ng-template #youtubeIdControl>
                         <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'youtube-id')">
                           YouTube Video ID</label>
-                        <input [(ngModel)]="column.youtubeId"
-                               [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'youtube-id')"
-                               type="text" class="form-control"
-                               placeholder="e.g., dQw4w9WgXcQ">
+                        <app-youtube-input
+                          [(youtubeId)]="column.youtubeId"
+                          [showError]="true"
+                          [showPreview]="false"
+                          placeholder="Paste URL or enter ID (e.g., dQw4w9WgXcQ)">
+                        </app-youtube-input>
                         <small class="form-text text-muted">
-                          If provided, YouTube video will be displayed instead of image
+                          Paste a YouTube URL and it will be converted to video ID automatically
                         </small>
                       </ng-template>
                       <ng-template #imageAltControl>
@@ -753,7 +756,7 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed]
+    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
