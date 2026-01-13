@@ -4,6 +4,42 @@ import { NgxLoggerLevel } from "ngx-logger";
 
 declare const YT: any;
 
+const YOUTUBE_API_CALLBACKS: (() => void)[] = [];
+let youtubeApiLoading = false;
+let youtubeApiLoaded = false;
+
+function registerYouTubeCallback(callback: () => void): void {
+  if (youtubeApiLoaded) {
+    callback();
+  } else {
+    YOUTUBE_API_CALLBACKS.push(callback);
+  }
+}
+
+function loadYouTubeApiScript(): void {
+  if (youtubeApiLoading || youtubeApiLoaded) {
+    return;
+  }
+  youtubeApiLoading = true;
+
+  const existingScript = document.querySelector("script[src*=\"youtube.com/iframe_api\"]");
+  if (existingScript) {
+    return;
+  }
+
+  const tag = document.createElement("script");
+  tag.src = "https://www.youtube.com/iframe_api";
+  const firstScriptTag = document.getElementsByTagName("script")[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+  (window as any).onYouTubeIframeAPIReady = () => {
+    youtubeApiLoaded = true;
+    youtubeApiLoading = false;
+    YOUTUBE_API_CALLBACKS.forEach(cb => cb());
+    YOUTUBE_API_CALLBACKS.length = 0;
+  };
+}
+
 @Component({
     selector: "app-youtube-embed",
     standalone: true,
@@ -74,31 +110,26 @@ export class YoutubeEmbed implements AfterViewInit, OnDestroy {
 
   private initializePlayer() {
     this.logger.info("Initializing YouTube player for:", this.currentYoutubeId);
-    if (typeof YT === "undefined" || !YT.Player) {
-      this.logger.info("YouTube API not loaded, loading script...");
-      this.loadYouTubeAPI();
+    if (!(window as any).YT?.Player) {
+      this.logger.info("YouTube API not loaded, registering callback...");
+      registerYouTubeCallback(() => this.createPlayer());
+      loadYouTubeApiScript();
       return;
     }
 
     this.createPlayer();
   }
 
-  private loadYouTubeAPI() {
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    const firstScriptTag = document.getElementsByTagName("script")[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-    (window as any).onYouTubeIframeAPIReady = () => {
-      this.logger.info("YouTube API loaded");
-      this.createPlayer();
-    };
-  }
-
   private createPlayer() {
+    if (!this.playerContainer?.nativeElement) {
+      this.logger.warn("Player container not available");
+      return;
+    }
     this.logger.info("Creating YouTube player instance");
     this.player = new YT.Player(this.playerContainer.nativeElement, {
       videoId: this.currentYoutubeId,
+      width: "100%",
+      height: "100%",
       playerVars: {
         playsinline: 1
       },
@@ -112,6 +143,6 @@ export class YoutubeEmbed implements AfterViewInit, OnDestroy {
     this.logger.info("Player state changed:", event.data);
     const isPlaying = event.data === YT.PlayerState.PLAYING;
     this.logger.info("Emitting playback state:", isPlaying);
-    this.playbackStateChange.emit(isPlaying);
+    setTimeout(() => this.playbackStateChange.emit(isPlaying));
   }
 }

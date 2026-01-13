@@ -72,8 +72,8 @@ export function buildDistanceRangeCriteria(
   distanceMin?: number,
   distanceMax?: number
 ): any | null {
-  const hasValidMin = typeof distanceMin === "number" && !isNaN(distanceMin);
-  const hasValidMax = typeof distanceMax === "number" && !isNaN(distanceMax);
+  const hasValidMin = isNumber(distanceMin) && !isNaN(distanceMin);
+  const hasValidMax = isNumber(distanceMax) && !isNaN(distanceMax);
 
   if (!hasValidMin && !hasValidMax) {
     return null;

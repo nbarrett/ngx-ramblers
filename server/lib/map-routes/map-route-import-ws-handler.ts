@@ -21,6 +21,7 @@ import { putObjectDirect } from "../aws/aws-controllers";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
 import { SpatialFeatureModel } from "../mongo/models/spatial-feature";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { isNumber, isString } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("map-route-import-ws"));
 debugLog.enabled = true;
@@ -399,14 +400,14 @@ function featureName(feature: Feature): string | undefined {
   }
   const candidates = ["name", "Name", "TITLE", "title"];
   return candidates.map(key => feature.properties?.[key])
-    .find(value => typeof value === "string" && value.trim().length > 0);
+    .find(value => isString(value) && value.trim().length > 0);
 }
 
 function groupFeaturesByProperty(features: Feature[], propertyKey: string): GroupedFeatures {
   const grouped: GroupedFeatures = {};
   for (const feature of features) {
     const value = feature.properties?.[propertyKey];
-    const key = typeof value === "string" && value.trim() ? value : "Unknown";
+    const key = isString(value) && value.trim() ? value : "Unknown";
     if (!grouped[key]) {
       grouped[key] = [];
     }
@@ -437,10 +438,10 @@ function simplifyCoordinates(coordinates: any, tolerance: number): any {
   if (!Array.isArray(coordinates) || coordinates.length === 0) {
     return coordinates;
   }
-  if (typeof coordinates[0] === "number") {
+  if (isNumber(coordinates[0])) {
     return coordinates;
   }
-  if (typeof coordinates[0][0] === "number") {
+  if (isNumber(coordinates[0][0])) {
     if (coordinates.length <= 10) {
       return coordinates;
     }

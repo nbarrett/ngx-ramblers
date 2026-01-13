@@ -20,6 +20,7 @@ import {
 import { generateUid } from "../shared/string-utils";
 import { putObjectDirect } from "../aws/aws-controllers";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
+import { isString } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("map-route-import"));
 debugLog.enabled = true;
@@ -240,14 +241,14 @@ function featureName(feature: Feature): string | undefined {
   }
   const candidates = ["name", "Name", "TITLE", "title"];
   return candidates.map(key => feature.properties?.[key])
-    .find(value => typeof value === "string" && value.trim().length > 0);
+    .find(value => isString(value) && value.trim().length > 0);
 }
 
 function groupFeaturesByProperty(features: Feature[], propertyKey: string): GroupedFeatures {
   const grouped: GroupedFeatures = {};
   for (const feature of features) {
     const value = feature.properties?.[propertyKey];
-    const key = typeof value === "string" && value.trim() ? value : "Unknown";
+    const key = isString(value) && value.trim() ? value : "Unknown";
     if (!grouped[key]) {
       grouped[key] = [];
     }

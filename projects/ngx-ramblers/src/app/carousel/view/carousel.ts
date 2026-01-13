@@ -74,7 +74,7 @@ import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
                     <h4>{{ slide.text || album.subtitle }}</h4>
                     @if (slide.eventId || album.eventId) {
                       <div>
-                        <a delay="500" class="badge event-date"
+                        <a [delay]="500" class="badge event-date"
                            [tooltip]="eventTooltip(slide.eventId? slide.dateSource : album.eventType)"
                            [placement]="!showIndicators?'bottom':'right'"
                            [href]="urlService.eventUrl(slide.eventId? slide : {dateSource:album.eventType, eventId: album.eventId})">
@@ -114,11 +114,11 @@ export class CarouselComponent implements OnInit, OnDestroy {
   private imageDuplicatesService = inject(ImageDuplicatesService);
   contentMetadataService = inject(ContentMetadataService);
   urlService = inject(UrlService);
-  public showIndicators: boolean;
+  public showIndicators = false;
   private subscriptions: Subscription[] = [];
   public faPencil = faPencil;
   public album: AlbumData;
-  public preview: boolean;
+  public preview = false;
   public FALLBACK_MEDIA = FALLBACK_MEDIA;
 
   @Input("preview") set previewValue(value: boolean) {
@@ -156,10 +156,12 @@ export class CarouselComponent implements OnInit, OnDestroy {
     } else {
       this.contentMetadataService.items(RootFolder.carousels, this.album?.name)
         .then(contentMetadata => {
-          this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
-          this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
-          this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS);
-          this.logger.info("internally initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
+          setTimeout(() => {
+            this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
+            this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
+            this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS);
+            this.logger.info("internally initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
+          });
         });
     }
   }

@@ -11,6 +11,7 @@ import querystring from "querystring";
 import { ENDPOINT } from "./shared";
 import { gridReferenceLookupFromLatLng } from "./reverse-geocode";
 import proj4 from "proj4";
+import { isNumber, isString } from "es-toolkit/compat";
 
 interface PlacesLookupResult {
   name_1?: string;
@@ -56,10 +57,10 @@ function toDescription(place: PlacesLookupResult): string {
 }
 
 function numberFrom(value: string | number): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (isNumber(value) && Number.isFinite(value)) {
     return value;
   }
-  if (typeof value === "string") {
+  if (isString(value)) {
     const parsed = parseFloat(value);
     return Number.isFinite(parsed) ? parsed : null;
   }

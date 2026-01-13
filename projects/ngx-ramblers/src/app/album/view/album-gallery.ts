@@ -82,57 +82,15 @@ export class AlbumGalleryComponent implements OnInit, OnDestroy {
   public galleryDomId: string;
   public albumView: AlbumView = AlbumView.GRID;
   public showGallery = false;
-  private messageListener: any;
   private autoPlayEnabled = true;
 
   ngOnInit() {
     this.logger.info("ngOnInit:album:", this.album, "with galleryId:", this.galleryId);
-    this.setupYouTubeMessageListener();
+    this.youtubeService.setupIframeTracking((state) => this.handlePlayerStateChange(state));
   }
 
   ngOnDestroy() {
-    if (this.messageListener) {
-      window.removeEventListener("message", this.messageListener);
-    }
-  }
-
-  private setupYouTubeMessageListener() {
-    this.logger.info("Setting up YouTube message listener");
-    this.messageListener = (event: MessageEvent) => {
-      this.logger.info("Received postMessage event from:", event.origin, "data:", event.data);
-
-      if (event.origin !== "https://www.youtube-nocookie.com" && event.origin !== "https://www.youtube.com") {
-        this.logger.info("Ignoring message from non-YouTube origin:", event.origin);
-        return;
-      }
-
-      let data;
-      if (typeof event.data === "string") {
-        try {
-          data = JSON.parse(event.data);
-          this.logger.info("Parsed JSON data:", data);
-        } catch (e) {
-          this.logger.info("Failed to parse event data as JSON, ignoring");
-          return;
-        }
-      } else {
-        data = event.data;
-        this.logger.info("Event data is already an object:", data);
-      }
-
-      if (data.event === "infoDelivery" && data.info?.playerState !== undefined) {
-        this.logger.info("YouTube player state change via infoDelivery:", data.info.playerState);
-        this.handlePlayerStateChange(data.info.playerState);
-      } else if (data.event === "onStateChange" && data.info !== undefined) {
-        this.logger.info("YouTube player state change via onStateChange:", data.info);
-        this.handlePlayerStateChange(data.info);
-      } else {
-        this.logger.info("Event does not match expected YouTube state change format");
-      }
-    };
-
-    window.addEventListener("message", this.messageListener);
-    this.logger.info("YouTube message listener registered");
+    this.youtubeService.cleanupIframeTracking();
   }
 
   private handlePlayerStateChange(state: number) {
@@ -174,35 +132,11 @@ export class AlbumGalleryComponent implements OnInit, OnDestroy {
         }
         this.logger.info("initialiseMetadata:lazyLoadingMetadata:", this.lazyLoadingMetadata, "loading items:", items);
         this.galleryRef.load(items);
-        this.enableYouTubePlayerTracking();
+        this.youtubeService.triggerIframeTracking();
       });
     } else {
       this.logger.info("initialiseMetadata:lazyLoadingMetadata not initialised yet:");
     }
-  }
-
-  private enableYouTubePlayerTracking() {
-    setTimeout(() => {
-      this.logger.info("Searching for YouTube iframes in document");
-      const allIframes = document.querySelectorAll(`iframe[src*="youtube"]`);
-      this.logger.info("Found", allIframes.length, "YouTube iframes total in document");
-
-      allIframes.forEach((iframe: HTMLIFrameElement, index: number) => {
-        this.logger.info(`Processing iframe ${index + 1}:`, iframe.src);
-        this.logger.info(`  Parent element:`, iframe.parentElement?.tagName, iframe.parentElement?.className);
-        if (iframe.contentWindow) {
-          const message = JSON.stringify({ event: "listening" });
-          this.logger.info(`Sending 'listening' event to iframe ${index + 1}:`, message);
-          iframe.contentWindow.postMessage(message, "*");
-
-          const infoMessage = JSON.stringify({ event: "command", func: "addEventListener", args: ["onStateChange"] });
-          this.logger.info(`Sending addEventListener command to iframe ${index + 1}:`, infoMessage);
-          iframe.contentWindow.postMessage(infoMessage, "*");
-        } else {
-          this.logger.warn(`Iframe ${index + 1} has no contentWindow`);
-        }
-      });
-    }, 2000);
   }
 
   private toGalleryItem(item: ContentMetadataItem): ImageItem | IframeItem {
@@ -235,7 +169,7 @@ export class AlbumGalleryComponent implements OnInit, OnDestroy {
     } else {
       this.logger.info("Not adding new item as slide number is", slideNumber, "selectedSlide count:", this.lazyLoadingMetadata.selectedSlides.length);
     }
-    this.enableYouTubePlayerTracking();
+    this.youtubeService.triggerIframeTracking();
   }
 
 }
