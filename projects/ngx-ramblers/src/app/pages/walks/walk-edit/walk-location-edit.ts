@@ -92,9 +92,9 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
                   placeholder="Enter Postcode here">
               }
               <button type="button" class="btn btn-outline-secondary"
-                [disabled]="!locationDetails?.postcode?.trim()">
+                [disabled]="disabled || !locationDetails?.postcode?.trim()">
                 <app-copy-icon
-                  [disabled]="!locationDetails?.postcode?.trim()"
+                  [disabled]="disabled || !locationDetails?.postcode?.trim()"
                   [value]="locationDetails?.postcode"
                   [elementName]="locationType + ' postcode'"/>
               </button>
@@ -113,6 +113,7 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
                 placeholder="Enter {{locationType}} Grid Reference here">
               <button type="button" class="btn btn-outline-secondary pointer"
                 (click)="viewGridReference(display.gridReferenceFrom(locationDetails))"
+                [disabled]="disabled"
                 placement="top"
                 tooltip="View {{locationType}} Grid Reference position in gridreferencefinder.com">
                 <img src="/assets/images/local/grid-reference-finder.ico"/>
@@ -133,10 +134,12 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
         <div class="col-sm-12">
           <div class="btn-group w-100 mb-2" role="group" aria-label="Toggle Google Maps View">
             <button type="button" class="btn btn-primary" [class.active]="!showGoogleMapsView"
+              [disabled]="disabled"
               (click)="showGoogleMapsView = false">
               {{ locationType }} Pin Location
             </button>
             <button type="button" class="btn btn-primary" [class.active]="showGoogleMapsView"
+              [disabled]="disabled"
               (click)="showGoogleMapsView = true">
               {{ locationType }} Location Google Map
             </button>
@@ -159,6 +162,7 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
               [endLocationDetails]="endLocationDetails"
               [showCombinedMap]="showCombinedMap"
               [gpxFile]="gpxFile"
+              [readonly]="disabled"
               [notify]="notify"
               (postcodeOptionsChange)="handlePostcodeOptions($event)"
               (showPostcodeSelectChange)="showPostcodeSelect = $event">

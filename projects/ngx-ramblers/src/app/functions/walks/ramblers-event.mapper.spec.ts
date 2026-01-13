@@ -48,7 +48,7 @@ describe("mapRamblersEventToExtendedGroupEvent", () => {
   it("populates contact details and links when helpers provided", () => {
     const event = baseEvent();
     const result = mapRamblersEventToExtendedGroupEvent(event, {
-      inputSource: InputSource.WALKS_MANAGER_IMPORT,
+      inputSource: InputSource.WALKS_MANAGER_CACHE,
       migratedFromId: "legacy-42",
       displayNameBuilder: name => `Leader ${name}`,
       localLinkBuilder: () => "/walks/morning",
@@ -74,7 +74,7 @@ describe("mapRamblersEventToExtendedGroupEvent", () => {
   it("falls back to default display name when helper missing", () => {
     const event = baseEvent({ walk_leader: { ...baseEvent().walk_leader, name: "Bob Example" } });
     const result = mapRamblersEventToExtendedGroupEvent(event, {
-      inputSource: InputSource.WALKS_MANAGER_IMPORT
+      inputSource: InputSource.WALKS_MANAGER_CACHE
     });
 
     expect(result.fields.contactDetails.displayName).toEqual(defaultDisplayName("Bob Example"));

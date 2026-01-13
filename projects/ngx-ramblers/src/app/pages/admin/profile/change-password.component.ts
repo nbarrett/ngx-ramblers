@@ -15,6 +15,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 import { SecretInputComponent } from "../../../modules/common/secret-input/secret-input.component";
+import { InputSize } from "../../../models/ui-size.model";
 
 const pleaseTryAgain = " - please try again";
 
@@ -35,6 +36,7 @@ export class ChangePasswordComponent implements OnInit, OnDestroy {
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public enteredMemberCredentials: EnteredMemberCredentials = {};
+  protected readonly InputSize = InputSize;
   faUnlockAlt = faUnlockAlt;
   private subscriptions: Subscription[] = [];
 
@@ -95,11 +97,13 @@ export class ChangePasswordComponent implements OnInit, OnDestroy {
           })
           .catch(error => {
             if (error instanceof HttpErrorResponse && error.status === 404) {
-              resolve(this.logger.debug("validateUserNameExistence:", this.enteredMemberCredentials.userName, "available"));
+              this.logger.debug("validateUserNameExistence:", this.enteredMemberCredentials.userName, "available")
+              return resolve(null);
             }
           });
       } else {
-        resolve(this.logger.debug("validateUserNameExistence:", this.enteredMemberCredentials.userName, "no changes"));
+        this.logger.debug("validateUserNameExistence:", this.enteredMemberCredentials.userName, "no changes")
+        return resolve(null);
       }
     });
   }

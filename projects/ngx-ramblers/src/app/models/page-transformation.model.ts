@@ -1,4 +1,5 @@
-import { MigrationTemplateMapMapping, PageContentRow, PageContentType, LocationRowData } from "./content-text.model";
+import { IndexContentType, IndexRenderMode, LocationRowData, MigrationTemplateMapMapping, PageContentRow, PageContentType } from "./content-text.model";
+import { DEFAULT_OS_STYLE, MapProvider } from "./map.model";
 import { UIDateFormat } from "./date-format.model";
 
 export enum TransformationActionType {
@@ -96,7 +97,11 @@ export interface NestedRowsConfig {
   };
 }
 
-export type Mode = "none" | "dynamic" | "explicit";
+export enum PageTransformationMode {
+  NONE = "none",
+  DYNAMIC = "dynamic",
+  EXPLICIT = "explicit"
+}
 
 export interface ColumnConfig {
   columns: number;
@@ -128,8 +133,8 @@ export interface LocationRowConfig {
 }
 
 export interface IndexRowConfig {
-  contentTypes?: string[];
-  renderModes?: string[];
+  contentTypes?: IndexContentType[];
+  renderModes?: IndexRenderMode[];
   contentPaths?: Array<{contentPath: string; stringMatch: string}>;
   minCols?: number;
   maxCols?: number;
@@ -713,8 +718,8 @@ export function createRouteIndexTransformationConfig(): PageTransformationConfig
           path: "/routes",
           title: "Routes",
           indexConfig: {
-            contentTypes: ["pages"],
-            renderModes: ["map", "action-buttons"],
+            contentTypes: [IndexContentType.PAGES],
+            renderModes: [IndexRenderMode.MAP, IndexRenderMode.ACTION_BUTTONS],
             contentPaths: [
               {
                 contentPath: "routes/*",
@@ -724,8 +729,8 @@ export function createRouteIndexTransformationConfig(): PageTransformationConfig
             minCols: 2,
             maxCols: 4,
             mapConfig: {
-              provider: "osm",
-              osStyle: "Leisure_27700",
+              provider: MapProvider.OSM,
+              osStyle: DEFAULT_OS_STYLE,
               mapCenter: [51.25, 0.75],
               mapZoom: 10,
               height: 500,

@@ -39,6 +39,7 @@ import { DynamicContentViewMap } from "./dynamic-content-view-map";
 import { MapRouteStylePaletteComponent } from "./map-route-style-palette.component";
 import { isNumber, isUndefined } from "es-toolkit/compat";
 import { RouteImportService } from "../../../services/maps/route-import.service";
+import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 
 @Component({
   selector: "app-dynamic-content-site-edit-map",
@@ -236,8 +237,8 @@ import { RouteImportService } from "../../../services/maps/route-import.service"
               [id]="id"
               [showOpacityControls]="false"
               [defaults]="{
-                provider: 'osm',
-                osStyle: 'Leisure_27700',
+                provider: MapProvider.OSM,
+                osStyle: DEFAULT_OS_STYLE,
                 mapCenter: [51.25, 0.75],
                 mapZoom: 10,
                 mapHeight: 500,
@@ -278,6 +279,8 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
   private importProgressPercent: Map<string, number> = new Map();
   protected pendingRoute: MapRoute | null = null;
   public previewVersion = 0;
+  protected readonly MapProvider = MapProvider;
+  protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   private mapTilesService = inject(MapTilesService);
@@ -331,8 +334,8 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
         mapZoom: 10,
         mapHeight: 500,
         useLocationFromPage: this.hasLocationRow(),
-        provider: "osm",
-        osStyle: "Leisure_27700",
+        provider: MapProvider.OSM,
+        osStyle: DEFAULT_OS_STYLE,
         showControlsDefault: true,
         allowControlsToggle: true,
         showWaypointsDefault: true,

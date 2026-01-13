@@ -1,6 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { IndexRenderMode, PageContent, PageContentRow } from "../../../models/content-text.model";
+import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { ActionButtons } from "../action-buttons/action-buttons";
@@ -58,8 +59,8 @@ import { isNull } from "es-toolkit/compat";
                 [mapHeight]="row.albumIndex.mapConfig?.height || 500"
                 [clusteringEnabled]="row.albumIndex.mapConfig?.clusteringEnabled ?? true"
                 [clusteringThreshold]="row.albumIndex.mapConfig?.clusteringThreshold || 10"
-                [provider]="row.albumIndex.mapConfig?.provider || 'osm'"
-                [osStyle]="row.albumIndex.mapConfig?.osStyle || 'Leisure_27700'"
+                [provider]="row.albumIndex.mapConfig?.provider || MapProvider.OSM"
+                [osStyle]="row.albumIndex.mapConfig?.osStyle || DEFAULT_OS_STYLE"
                 [mapCenter]="row.albumIndex.mapConfig?.mapCenter || [51.25, 0.75]"
                 [mapZoom]="row.albumIndex.mapConfig?.mapZoom || 10"
                 [showControlsDefault]="row.albumIndex.mapConfig?.showControlsDefault ?? true"
@@ -85,6 +86,8 @@ export class DynamicContentViewIndex implements OnInit {
   public logger = this.loggerFactory.createLogger("DynamicContentViewAlbumIndexComponent", NgxLoggerLevel.ERROR);
   protected readonly IndexRenderMode = IndexRenderMode;
   protected readonly faSearch = faSearch;
+  protected readonly MapProvider = MapProvider;
+  protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
   public searchText = "";
   private searchDebounce: any;
 

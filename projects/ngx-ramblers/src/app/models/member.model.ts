@@ -119,6 +119,16 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
 export interface MemberWithLabel extends Member, HasNgSelectAttributes {
 }
 
+export const SYSTEM_MEMBER_ID = "system";
+export const MIGRATION_MEMBER_ID = "migration";
+export const SYSTEM_MEMBER: Member = {
+  id: SYSTEM_MEMBER_ID,
+  memberId: SYSTEM_MEMBER_ID,
+  firstName: "System",
+  lastName: "User",
+  displayName: "System User"
+};
+
 export interface MemberPrivileges {
   groupMember?: boolean;
   memberAdmin?: boolean;

@@ -10,7 +10,7 @@ import {
   PutObjectCommand,
   S3Client
 } from "@aws-sdk/client-s3";
-import { dateTimeInTimezone, dateTimeNow } from "../shared/dates";
+import { dateTimeFromMillis, dateTimeInTimezone, dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
 import { backupSession, BackupSession } from "../mongo/models/backup-session";
 import { BackupNotificationService } from "./backup-notification-service";
 import { BackupConfig } from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
@@ -134,7 +134,7 @@ export class BackupAndRestoreService {
       database: dbName,
       collections: options.collections,
       status: "pending",
-      startTime: new Date(),
+      startTime: dateTimeNow().toJSDate(),
       options: {
         scaleDown: options.scaleDown,
         upload: options.upload,
@@ -196,7 +196,7 @@ export class BackupAndRestoreService {
       database: dbName,
       collections: options.collections,
       status: "pending",
-      startTime: new Date(),
+      startTime: dateTimeNow().toJSDate(),
       options: {
         from: options.from,
         drop: options.drop !== false,
@@ -222,7 +222,7 @@ export class BackupAndRestoreService {
     } else {
       await this.updateSession(savedSession._id!.toString(), {
         status: "completed",
-        endTime: new Date(),
+        endTime: dateTimeNow().toJSDate(),
         logs: ["DRY RUN - No changes made"]
       });
     }
@@ -308,7 +308,7 @@ export class BackupAndRestoreService {
         }
       }
 
-      await this.updateSession(sessionId, { status: "completed", endTime: new Date() });
+      await this.updateSession(sessionId, { status: "completed", endTime: dateTimeNow().toJSDate() });
 
       if (this.notificationService) {
         const completedSession = await this.session(sessionId);
@@ -468,7 +468,7 @@ export class BackupAndRestoreService {
       await this.addLog(sessionId, `Starting mongorestore from ${restoreDir}`);
       await this.execCommand("mongorestore", restoreArgs, sessionId);
       await this.addLog(sessionId, `Restore completed to ${options.environment}`);
-      await this.updateSession(sessionId, { status: "completed", endTime: new Date() });
+      await this.updateSession(sessionId, { status: "completed", endTime: dateTimeNow().toJSDate() });
 
       if (this.notificationService) {
         const completedSession = await this.session(sessionId);
@@ -613,7 +613,7 @@ export class BackupAndRestoreService {
   private async updateSessionError(sessionId: string, error: string): Promise<void> {
     await backupSession.updateOne(
       { _id: sessionId },
-      { $set: { status: "failed", error, endTime: new Date() } }
+      { $set: { status: "failed", error, endTime: dateTimeNow().toJSDate() } }
     );
 
     if (this.notificationService) {
@@ -633,7 +633,7 @@ export class BackupAndRestoreService {
   }
 
   async cleanupStuckSessions(): Promise<number> {
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const tenMinutesAgo = dateTimeFromMillis(dateTimeNowAsValue() - 10 * 60 * 1000).toJSDate();
 
     const stuckSessions = await backupSession.find({
       status: "in_progress",

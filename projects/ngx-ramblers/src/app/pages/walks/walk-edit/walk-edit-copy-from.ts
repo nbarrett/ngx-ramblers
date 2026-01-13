@@ -62,6 +62,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                       <input [id]="WalkCopyOption.COPY_SELECTED_WALK_LEADER"
                              type="radio"
                              class="form-check-input"
+                             [disabled]="inputDisabled"
                              [(ngModel)]="copySource"
                              (change)="populateWalkTemplates()"
                              [value]="WalkCopyOption.COPY_SELECTED_WALK_LEADER"/>
@@ -69,7 +70,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                         led
                         by:
                         <select
-                          [disabled]="copySource!==WalkCopyOption.COPY_SELECTED_WALK_LEADER"
+                          [disabled]="inputDisabled || copySource!==WalkCopyOption.COPY_SELECTED_WALK_LEADER"
                           class="input-md input-led-by"
                           [(ngModel)]="copySourceFromWalkLeaderMemberId"
                           (ngModelChange)="copySelectedWalkLeader()"
@@ -87,6 +88,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                       <input [id]="WalkCopyOption.COPY_WITH_OS_MAPS_ROUTE_SELECTED"
                              type="radio"
                              class="form-check-input"
+                             [disabled]="inputDisabled"
                              [(ngModel)]="copySource"
                              (change)="populateWalkTemplates()"
                              [value]="WalkCopyOption.COPY_WITH_OS_MAPS_ROUTE_SELECTED"/>

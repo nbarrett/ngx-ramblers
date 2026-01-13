@@ -6,6 +6,8 @@ import {
   GridReferenceLookupResponse
 } from "../../../../../projects/ngx-ramblers/src/app/models/address-model";
 import { GroupEventField, EventField } from "../../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { RamblersEventType } from "../../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { InputSource } from "../../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 
 const debugLog = createMigrationLogger("enrich-migrated-walk-locations");
 
@@ -29,7 +31,8 @@ export async function up(db: Db, client: MongoClient) {
 
   const criteria = {
     [EventField.MIGRATED_FROM_ID]: {$exists: true},
-    [GroupEventField.ITEM_TYPE]: "group-walk",
+    [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK,
+    [EventField.INPUT_SOURCE]: {$ne: InputSource.MANUALLY_CREATED},
     $and: [
       {
         $or: [
@@ -82,13 +85,13 @@ export async function up(db: Db, client: MongoClient) {
     };
 
     if (!doc.groupEvent?.start_location?.grid_reference_6 && lookup.gridReference6) {
-      update.$set["groupEvent.start_location.grid_reference_6"] = lookup.gridReference6;
+      update.$set[GroupEventField.START_LOCATION_GRID_REFERENCE_6] = lookup.gridReference6;
     }
     if (!doc.groupEvent?.start_location?.grid_reference_8 && lookup.gridReference8) {
-      update.$set["groupEvent.start_location.grid_reference_8"] = lookup.gridReference8;
+      update.$set[GroupEventField.START_LOCATION_GRID_REFERENCE_8] = lookup.gridReference8;
     }
     if (!doc.groupEvent?.start_location?.grid_reference_10 && lookup.gridReference10) {
-      update.$set["groupEvent.start_location.grid_reference_10"] = lookup.gridReference10;
+      update.$set[GroupEventField.START_LOCATION_GRID_REFERENCE_10] = lookup.gridReference10;
     }
 
     const result = await collection.updateOne({_id: id}, update);

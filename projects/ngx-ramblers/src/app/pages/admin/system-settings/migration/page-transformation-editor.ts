@@ -9,7 +9,7 @@ import { RowTypeSelectorInlineComponent } from "../../../../modules/common/dynam
 import { FragmentSelectorComponent } from "../../../../modules/common/dynamic-content/fragment-selector.component";
 import { MarginSelectComponent } from "../../../../modules/common/dynamic-content/dynamic-content-margin-select";
 import { FragmentService } from "../../../../services/fragment.service";
-import { EM_DASH_WITH_SPACES, FragmentWithLabel, PageContentType } from "../../../../models/content-text.model";
+import { EM_DASH_WITH_SPACES, FragmentWithLabel, IndexContentType, IndexRenderMode, PageContentType } from "../../../../models/content-text.model";
 import { UIDateFormat } from "../../../../models/date-format.model";
 import { StoredValue } from "../../../../models/ui-actions";
 import { PageContentService } from "../../../../services/page-content.service";
@@ -25,7 +25,7 @@ import {
   createTwoColumnWithImageTransformationConfig,
   createWalkingRouteLayoutTransformationConfig,
   ImageMatchPattern,
-  Mode,
+  PageTransformationMode,
   PageTransformationConfig,
   RowConfig,
   SegmentType,
@@ -34,6 +34,7 @@ import {
   TransformationActionType
 } from "../../../../models/page-transformation.model";
 import { isObject, isUndefined } from "es-toolkit/compat";
+import { DEFAULT_OS_STYLE, MapProvider } from "../../../../models/map.model";
 
 @Component({
   selector: "app-page-transformation-editor",
@@ -317,7 +318,7 @@ import { isObject, isUndefined } from "es-toolkit/compat";
                                              [id]="'nested-mode-none-' + stepIndex + '-' + colIndex"
                                              [name]="'nested-mode-' + stepIndex + '-' + colIndex"
                                              [checked]="!column.nestedRows && (!column.rows || column.rows.length === 0)"
-                                             (change)="setNestedMode(column, 'none')">
+                                             (change)="setNestedMode(column, PageTransformationMode.NONE)">
                                       <label class="form-check-label"
                                              [for]="'nested-mode-none-' + stepIndex + '-' + colIndex">
                                           None${EM_DASH_WITH_SPACES}
@@ -330,7 +331,7 @@ import { isObject, isUndefined } from "es-toolkit/compat";
                                              [id]="'nested-mode-dynamic-' + stepIndex + '-' + colIndex"
                                              [name]="'nested-mode-' + stepIndex + '-' + colIndex"
                                              [checked]="!!column.nestedRows"
-                                             (change)="setNestedMode(column, 'dynamic')">
+                                             (change)="setNestedMode(column, PageTransformationMode.DYNAMIC)">
                                       <label class="form-check-label"
                                              [for]="'nested-mode-dynamic-' + stepIndex + '-' + colIndex">
                                         Dynamic Collection${EM_DASH_WITH_SPACES}Automatically collect
@@ -344,7 +345,7 @@ import { isObject, isUndefined } from "es-toolkit/compat";
                                              [id]="'nested-mode-explicit-' + stepIndex + '-' + colIndex"
                                              [name]="'nested-mode-' + stepIndex + '-' + colIndex"
                                              [checked]="!!column.rows && column.rows.length > 0"
-                                             (change)="setNestedMode(column, 'explicit')">
+                                             (change)="setNestedMode(column, PageTransformationMode.EXPLICIT)">
                                       <label class="form-check-label"
                                              [for]="'nested-mode-explicit-' + stepIndex + '-' + colIndex">
                                         Explicit Rows${EM_DASH_WITH_SPACES}Manually define specific
@@ -638,14 +639,14 @@ import { isObject, isUndefined } from "es-toolkit/compat";
                         <div class="d-flex gap-3">
                           <div class="form-check">
                             <input type="checkbox" class="form-check-input" id="content-albums"
-                                   [ngModel]="includesContentType(step, 'albums')"
-                                   (ngModelChange)="toggleContentType(step, 'albums', $event)">
+                                   [ngModel]="includesContentType(step, IndexContentType.ALBUMS)"
+                                   (ngModelChange)="toggleContentType(step, IndexContentType.ALBUMS, $event)">
                             <label class="form-check-label" for="content-albums">Albums</label>
                           </div>
                           <div class="form-check">
                             <input type="checkbox" class="form-check-input" id="content-pages"
-                                   [ngModel]="includesContentType(step, 'pages')"
-                                   (ngModelChange)="toggleContentType(step, 'pages', $event)">
+                                   [ngModel]="includesContentType(step, IndexContentType.PAGES)"
+                                   (ngModelChange)="toggleContentType(step, IndexContentType.PAGES, $event)">
                             <label class="form-check-label" for="content-pages">Pages</label>
                           </div>
                         </div>
@@ -655,14 +656,14 @@ import { isObject, isUndefined } from "es-toolkit/compat";
                         <div class="d-flex gap-3">
                           <div class="form-check">
                             <input type="checkbox" class="form-check-input" id="render-buttons"
-                                   [ngModel]="includesRenderMode(step, 'action-buttons')"
-                                   (ngModelChange)="toggleRenderMode(step, 'action-buttons', $event)">
+                                   [ngModel]="includesRenderMode(step, IndexRenderMode.ACTION_BUTTONS)"
+                                   (ngModelChange)="toggleRenderMode(step, IndexRenderMode.ACTION_BUTTONS, $event)">
                             <label class="form-check-label" for="render-buttons">Action Buttons</label>
                           </div>
                           <div class="form-check">
                             <input type="checkbox" class="form-check-input" id="render-map"
-                                   [ngModel]="includesRenderMode(step, 'map')"
-                                   (ngModelChange)="toggleRenderMode(step, 'map', $event)">
+                                   [ngModel]="includesRenderMode(step, IndexRenderMode.MAP)"
+                                   (ngModelChange)="toggleRenderMode(step, IndexRenderMode.MAP, $event)">
                             <label class="form-check-label" for="render-map">Map</label>
                           </div>
                         </div>
@@ -680,7 +681,7 @@ import { isObject, isUndefined } from "es-toolkit/compat";
                                [(ngModel)]="step.indexRowConfig.maxCols" placeholder="4">
                       </div>
                     </div>
-                    @if (includesRenderMode(step, 'map')) {
+                    @if (includesRenderMode(step, IndexRenderMode.MAP)) {
                       <div class="row thumbnail-heading-frame mt-2">
                         <div class="thumbnail-heading">Map Configuration</div>
                         <div class="row">
@@ -694,7 +695,7 @@ import { isObject, isUndefined } from "es-toolkit/compat";
                               <div class="col-sm-6">
                                 <label class="form-label-sm">Map Provider</label>
                                 <select class="form-select form-select-sm" [(ngModel)]="step.indexRowConfig.mapConfig.provider">
-                                  <option value="osm">OpenStreetMap</option>
+                                  <option [ngValue]="MapProvider.OSM">OpenStreetMap</option>
                                 </select>
                               </div>
                             </div>
@@ -780,12 +781,12 @@ import { isObject, isUndefined } from "es-toolkit/compat";
                       <div class="col-sm-4">
                         <label class="form-label-sm">Provider</label>
                         <select class="form-select form-select-sm" [(ngModel)]="step.mapRowConfig.provider">
-                          <option value="osm">OpenStreetMap</option>
+                          <option [ngValue]="MapProvider.OSM">OpenStreetMap</option>
                         </select>
                       </div>
                       <div class="col-sm-4">
                         <label class="form-label-sm">OS Style</label>
-                        <input type="text" class="form-control" placeholder="Leisure_27700"
+                        <input type="text" class="form-control" [placeholder]="DEFAULT_OS_STYLE"
                                [(ngModel)]="step.mapRowConfig.osStyle">
                       </div>
                     </div>
@@ -943,8 +944,13 @@ export class PageTransformationEditor implements OnInit {
   protected readonly TextMatchPattern = TextMatchPattern;
   protected readonly ImageMatchPattern = ImageMatchPattern;
   protected readonly PageContentType = PageContentType;
+  protected readonly IndexContentType = IndexContentType;
   protected readonly SegmentType = SegmentType;
+  protected readonly PageTransformationMode = PageTransformationMode;
+  protected readonly IndexRenderMode = IndexRenderMode;
   protected readonly migrationNoteDateFormat = UIDateFormat.YEAR_MONTH_DAY_TIME_WITH_MINUTES;
+  protected readonly MapProvider = MapProvider;
+  protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
 
   async ngOnInit() {
     this.initialExtractFromContentValue = this.uiActionsService.initialBooleanValueFor(StoredValue.MIGRATION_MAP_EXTRACT_FROM_CONTENT, false);
@@ -1129,16 +1135,16 @@ export class PageTransformationEditor implements OnInit {
     } else if (step.type === TransformationActionType.ADD_INDEX_ROW) {
       if (!step.indexRowConfig) {
         step.indexRowConfig = {
-          contentTypes: ["pages"],
-          renderModes: ["action-buttons"],
+          contentTypes: [IndexContentType.PAGES],
+          renderModes: [IndexRenderMode.ACTION_BUTTONS],
           minCols: 2,
           maxCols: 4,
           mapConfig: {
             height: 500,
             clusteringEnabled: true,
             clusteringThreshold: 10,
-            provider: "osm",
-            osStyle: "Leisure_27700",
+            provider: MapProvider.OSM,
+            osStyle: DEFAULT_OS_STYLE,
             showControlsDefault: true,
             allowControlsToggle: true
           }
@@ -1148,8 +1154,8 @@ export class PageTransformationEditor implements OnInit {
       if (!step.mapRowConfig) {
         step.mapRowConfig = {
           height: 500,
-          provider: "osm",
-          osStyle: "Leisure_27700",
+          provider: MapProvider.OSM,
+          osStyle: DEFAULT_OS_STYLE,
           extractFromContent: this.initialExtractFromContentValue,
           useLocationFromRow: true
         };
@@ -1160,16 +1166,16 @@ export class PageTransformationEditor implements OnInit {
           path: "/routes",
           title: "Routes",
           indexConfig: {
-            contentTypes: ["pages"],
-            renderModes: ["action-buttons", "map"],
+            contentTypes: [IndexContentType.PAGES],
+            renderModes: [IndexRenderMode.ACTION_BUTTONS, IndexRenderMode.MAP],
             minCols: 2,
             maxCols: 4,
             mapConfig: {
               height: 500,
               clusteringEnabled: true,
               clusteringThreshold: 10,
-              provider: "osm",
-              osStyle: "Leisure_27700",
+              provider: MapProvider.OSM,
+              osStyle: DEFAULT_OS_STYLE,
               showControlsDefault: true,
               allowControlsToggle: true
             }
@@ -1389,14 +1395,14 @@ export class PageTransformationEditor implements OnInit {
     this.emitChange();
   }
 
-  setNestedMode(column: ColumnConfig, mode: Mode) {
-    if (mode === "none") {
+  setNestedMode(column: ColumnConfig, mode: PageTransformationMode) {
+    if (mode === PageTransformationMode.NONE) {
       delete column.nestedRows;
       delete column.rows;
       if (!column.content) {
         column.content = {type: ContentMatchType.ALL_CONTENT};
       }
-    } else if (mode === "dynamic") {
+    } else if (mode === PageTransformationMode.DYNAMIC) {
       delete column.rows;
       if (!column.nestedRows) {
         column.nestedRows = {
@@ -1414,7 +1420,7 @@ export class PageTransformationEditor implements OnInit {
       }
       if (!column.nestedRows.textRowTemplate) column.nestedRows.textRowTemplate = { type: PageContentType.TEXT, maxColumns: 1, showSwiper: false } as any;
       if (!column.nestedRows.imageRowTemplate) column.nestedRows.imageRowTemplate = { type: PageContentType.TEXT, maxColumns: 1, showSwiper: false } as any;
-    } else if (mode === "explicit") {
+    } else if (mode === PageTransformationMode.EXPLICIT) {
       delete column.nestedRows;
       if (!column.rows || column.rows.length === 0) {
         column.rows = [this.createDefaultExplicitNestedRow()];
@@ -1488,15 +1494,15 @@ export class PageTransformationEditor implements OnInit {
     this.uiActionsService.saveValueFor(StoredValue.MIGRATION_MAP_EXTRACT_FROM_CONTENT, isChecked);
   }
 
-  includesContentType(step: TransformationAction, contentType: string): boolean {
+  includesContentType(step: TransformationAction, contentType: IndexContentType): boolean {
     return step.indexRowConfig?.contentTypes?.includes(contentType) || false;
   }
 
-  toggleContentType(step: TransformationAction, contentType: string, isChecked: boolean) {
+  toggleContentType(step: TransformationAction, contentType: IndexContentType, isChecked: boolean) {
     if (!step.indexRowConfig) {
       step.indexRowConfig = {
         contentTypes: [],
-        renderModes: ["action-buttons"],
+        renderModes: [IndexRenderMode.ACTION_BUTTONS],
         minCols: 2,
         maxCols: 4
       };
@@ -1518,14 +1524,14 @@ export class PageTransformationEditor implements OnInit {
     this.emitChange();
   }
 
-  includesRenderMode(step: TransformationAction, renderMode: string): boolean {
+  includesRenderMode(step: TransformationAction, renderMode: IndexRenderMode): boolean {
     return step.indexRowConfig?.renderModes?.includes(renderMode) || false;
   }
 
-  toggleRenderMode(step: TransformationAction, renderMode: string, isChecked: boolean) {
+  toggleRenderMode(step: TransformationAction, renderMode: IndexRenderMode, isChecked: boolean) {
     if (!step.indexRowConfig) {
       step.indexRowConfig = {
-        contentTypes: ["pages"],
+        contentTypes: [IndexContentType.PAGES],
         renderModes: [],
         minCols: 2,
         maxCols: 4
@@ -1546,14 +1552,14 @@ export class PageTransformationEditor implements OnInit {
       }
     }
 
-    if (renderMode === "map" && step.indexRowConfig.renderModes.includes("map")) {
+    if (renderMode === IndexRenderMode.MAP && step.indexRowConfig.renderModes.includes(IndexRenderMode.MAP)) {
       if (!step.indexRowConfig.mapConfig) {
         step.indexRowConfig.mapConfig = {
           height: 500,
           clusteringEnabled: true,
           clusteringThreshold: 10,
-          provider: "osm",
-          osStyle: "Leisure_27700",
+          provider: MapProvider.OSM,
+          osStyle: DEFAULT_OS_STYLE,
           showControlsDefault: true,
           allowControlsToggle: true
         };

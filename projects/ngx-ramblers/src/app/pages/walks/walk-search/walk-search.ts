@@ -29,7 +29,11 @@ import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { AdvancedSearchPane } from "./advanced-search-pane";
-import { advancedCriteriaQueryParams, advancedSearchCriteriaFromParams, hasAdvancedCriteria } from "../../../functions/walks/advanced-search";
+import {
+  advancedCriteriaQueryParams,
+  advancedSearchCriteriaFromParams,
+  hasAdvancedCriteria
+} from "../../../functions/walks/advanced-search";
 import { NgSelectModule } from "@ng-select/ng-select";
 import { FilterCriteria } from "../../../models/api-request.model";
 import { DateTime } from "luxon";
@@ -377,7 +381,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   onAdvancedSearchChange(event: { criteria: AdvancedSearchCriteria; leaderOptions: WalkLeaderOption[] }) {
     this.logger.info("Advanced search criteria:", event.criteria);
     this.advancedCriteria = hasAdvancedCriteria(event.criteria) ? event.criteria : null;
-    const queryParams = advancedCriteriaQueryParams(this.advancedCriteria, this.stringUtils, event.leaderOptions);
+    const queryParams = advancedCriteriaQueryParams(this.advancedCriteria, this.stringUtils, this.dateUtils, event.leaderOptions);
     this.replaceQueryParams(queryParams);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ADVANCED_SEARCH, event.criteria));
   }
@@ -462,11 +466,12 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
     if (option.preset) {
       const range = option.preset.range();
       const criteria: AdvancedSearchCriteria = {
+        ...(this.advancedCriteria || {}),
         dateFrom: range.from,
         dateTo: range.to
       };
       this.advancedCriteria = criteria;
-      const queryParams = advancedCriteriaQueryParams(criteria, this.stringUtils, []);
+      const queryParams = advancedCriteriaQueryParams(criteria, this.stringUtils, this.dateUtils, []);
       this.replaceQueryParams(queryParams);
       this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ADVANCED_SEARCH, criteria));
     }

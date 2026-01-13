@@ -1,6 +1,11 @@
 import { MapRoute } from "./content-text.model";
+import { GeocodeMatchType } from "./address-model";
+import { values } from "es-toolkit/compat";
 
-export type MapProvider = "osm" | "os";
+export enum MapProvider {
+  OSM = "osm",
+  OS = "os"
+}
 
 export enum OSMapStyleKey {
   LEISURE_27700 = "LEISURE_27700",
@@ -17,55 +22,76 @@ export type MapStyleInfo = {
   key: string;
   name: string;
   description: string;
+  is27700: boolean;
+  is3857: boolean;
 };
 
+function createOsStyleInfo(key: string, name: string, description: string): MapStyleInfo {
+  const is27700 = key.endsWith("_27700");
+  const is3857 = key.endsWith("_3857");
+  return {key, name, description, is27700, is3857};
+}
+
 export const OSMapStyle: Record<OSMapStyleKey, MapStyleInfo> = {
-  [OSMapStyleKey.LEISURE_27700]: {
-    key: "Leisure_27700",
-    name: "OS Explorer (1:25,000)",
-    description: "Colorful style based on OS Explorer maps, ideal for parks and leisure activities in the UK.",
-  },
-  [OSMapStyleKey.LEISURE_3857]: {
-    key: "Leisure_3857",
-    name: "Leisure Explorer (Web Mercator)",
-    description: "Same colorful leisure style, optimized for web and global viewing.",
-  },
-  [OSMapStyleKey.OUTDOOR_27700]: {
-    key: "Outdoor_27700",
-    name: "OS Outdoor",
-    description: "Traditional outdoor map with paths and contours, perfect for hiking in the UK.",
-  },
-  [OSMapStyleKey.OUTDOOR_3857]: {
-    key: "Outdoor_3857",
-    name: "Outdoor Trails (Web Mercator)",
-    description: "Outdoor-focused map with trail details, ready for web applications.",
-  },
-  [OSMapStyleKey.LIGHT_27700]: {
-    key: "Light_27700",
-    name: "OS Light",
-    description: "Subtle, clean base map highlighting key features.",
-  },
-  [OSMapStyleKey.LIGHT_3857]: {
-    key: "Light_3857",
-    name: "Minimal Light (Web Mercator)",
-    description: "Light and simple style for versatile web mapping.",
-  },
-  [OSMapStyleKey.ROAD_27700]: {
-    key: "Road_27700",
-    name: "OS Road (1:250,000)",
-    description: "Road-focused map for navigation and driving in the UK.",
-  },
-  [OSMapStyleKey.ROAD_3857]: {
-    key: "Road_3857",
-    name: "Road Navigator (Web Mercator)",
-    description: "Clear road emphasis, suitable for online route planning.",
-  },
+  [OSMapStyleKey.LEISURE_27700]: createOsStyleInfo(
+    "Leisure_27700",
+    "OS Explorer (1:25,000)",
+    "Colorful style based on OS Explorer maps, ideal for parks and leisure activities in the UK."
+  ),
+  [OSMapStyleKey.LEISURE_3857]: createOsStyleInfo(
+    "Leisure_3857",
+    "Leisure Explorer (Web Mercator)",
+    "Same colorful leisure style, optimized for web and global viewing."
+  ),
+  [OSMapStyleKey.OUTDOOR_27700]: createOsStyleInfo(
+    "Outdoor_27700",
+    "OS Outdoor",
+    "Traditional outdoor map with paths and contours, perfect for hiking in the UK."
+  ),
+  [OSMapStyleKey.OUTDOOR_3857]: createOsStyleInfo(
+    "Outdoor_3857",
+    "Outdoor Trails (Web Mercator)",
+    "Outdoor-focused map with trail details, ready for web applications."
+  ),
+  [OSMapStyleKey.LIGHT_27700]: createOsStyleInfo(
+    "Light_27700",
+    "OS Light",
+    "Subtle, clean base map highlighting key features."
+  ),
+  [OSMapStyleKey.LIGHT_3857]: createOsStyleInfo(
+    "Light_3857",
+    "Minimal Light (Web Mercator)",
+    "Light and simple style for versatile web mapping."
+  ),
+  [OSMapStyleKey.ROAD_27700]: createOsStyleInfo(
+    "Road_27700",
+    "OS Road (1:250,000)",
+    "Road-focused map for navigation and driving in the UK."
+  ),
+  [OSMapStyleKey.ROAD_3857]: createOsStyleInfo(
+    "Road_3857",
+    "Road Navigator (Web Mercator)",
+    "Clear road emphasis, suitable for online route planning."
+  )
 } as const;
 
-export const OS_MAP_STYLE_LIST: MapStyleInfo[] = Object.values(OSMapStyle).filter(s => !s.key.endsWith("_3857"));
+export const OS_STYLE_BY_KEY: Record<string, MapStyleInfo> = values(OSMapStyle).reduce((acc, style) => {
+  acc[style.key] = style;
+  return acc;
+}, {} as Record<string, MapStyleInfo>);
+
+export function osStyleForKey(key?: string | null): MapStyleInfo | undefined {
+  return key ? OS_STYLE_BY_KEY[key] : undefined;
+}
+
+export const OS_MAP_STYLE_LIST: MapStyleInfo[] = values(OSMapStyle).filter(s => s.is27700);
+export const DEFAULT_OS_STYLE = OSMapStyle[OSMapStyleKey.LEISURE_27700].key;
+export const OUTDOOR_OS_STYLE = OSMapStyle[OSMapStyleKey.OUTDOOR_27700].key;
+
+export type ExtractedLocationType = GeocodeMatchType.POSTCODE | GeocodeMatchType.GRID_REFERENCE | GeocodeMatchType.PLACE_NAME;
 
 export interface ExtractedLocation {
-  type: "postcode" | "gridReference" | "placeName";
+  type: ExtractedLocationType;
   value: string;
   context?: string;
 }

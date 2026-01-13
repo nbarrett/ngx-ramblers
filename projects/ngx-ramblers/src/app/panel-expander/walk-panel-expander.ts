@@ -78,10 +78,10 @@ export class WalkPanelExpanderComponent implements OnInit {
         this.display.toggleExpandedViewFor(this.walk, WalkViewMode.EDIT);
         break;
       case WalkViewMode.VIEW_SINGLE:
-        this.display.editFullscreen(this.walk);
+        this.display.editFullScreen(this.walk);
         break;
       case WalkViewMode.EDIT:
-        this.display.editFullscreen(this.walk);
+        this.display.editFullScreen(this.walk);
         break;
     }
     this.expanded.emit();

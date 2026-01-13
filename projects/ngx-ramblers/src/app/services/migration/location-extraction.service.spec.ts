@@ -2,6 +2,7 @@ import { TestBed } from "@angular/core/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { MigrationLocationExtractionService } from "./location-extraction.service";
 import { ExtractedLocation } from "../../models/map.model";
+import { GeocodeMatchType } from "../../models/address-model";
 import { SystemConfigService } from "../system/system-config.service";
 import { ReplaySubject } from "rxjs";
 import { SystemConfig } from "../../models/system.model";
@@ -44,7 +45,7 @@ describe("MigrationLocationExtractionService", () => {
       const locations = service.extractLocations(text);
 
       expect(locations.length).toBeGreaterThan(0);
-      const gridRef = locations.find(l => l.type === "gridReference");
+      const gridRef = locations.find(l => l.type === GeocodeMatchType.GRID_REFERENCE);
       expect(gridRef).toBeDefined();
       expect(gridRef?.value).toBe("TQ848581");
       expect(gridRef?.context).toBe("explicitly mentioned grid reference");
@@ -54,7 +55,7 @@ describe("MigrationLocationExtractionService", () => {
       const text = "Start at grid reference TQ 848 581 and walk north";
       const locations = service.extractLocations(text);
 
-      const gridRef = locations.find(l => l.type === "gridReference");
+      const gridRef = locations.find(l => l.type === GeocodeMatchType.GRID_REFERENCE);
       expect(gridRef).toBeDefined();
       expect(gridRef?.value).toBe("TQ848581");
     });
@@ -63,7 +64,7 @@ describe("MigrationLocationExtractionService", () => {
       const text = "Park at the car park near RH1 4QA and follow the signs";
       const locations = service.extractLocations(text);
 
-      const postcode = locations.find(l => l.type === "postcode");
+      const postcode = locations.find(l => l.type === GeocodeMatchType.POSTCODE);
       expect(postcode).toBeDefined();
       expect(postcode?.value).toBe("RH14QA");
     });
@@ -72,7 +73,7 @@ describe("MigrationLocationExtractionService", () => {
       const text = "Meet at the pub in TN15 7PH at 9am";
       const locations = service.extractLocations(text);
 
-      const postcode = locations.find(l => l.type === "postcode");
+      const postcode = locations.find(l => l.type === GeocodeMatchType.POSTCODE);
       expect(postcode).toBeDefined();
       expect(postcode?.value).toBe("TN157PH");
     });
@@ -121,8 +122,8 @@ describe("MigrationLocationExtractionService", () => {
       const locations = service.extractLocations(text);
 
       expect(locations.length).toBeGreaterThan(3);
-      expect(locations.some(l => l.type === "gridReference")).toBe(true);
-      expect(locations.some(l => l.type === "postcode")).toBe(true);
+      expect(locations.some(l => l.type === GeocodeMatchType.GRID_REFERENCE)).toBe(true);
+      expect(locations.some(l => l.type === GeocodeMatchType.POSTCODE)).toBe(true);
       expect(locations.some(l => l.context === "start location")).toBe(true);
       expect(locations.some(l => l.context === "parking")).toBe(true);
     });
@@ -131,7 +132,7 @@ describe("MigrationLocationExtractionService", () => {
       const text = "Start at grid reference TQ848581 and the reference TQ848581 is on OS map";
       const locations = service.extractLocations(text);
 
-      const gridRefs = locations.filter(l => l.type === "gridReference" && l.value === "TQ848581");
+      const gridRefs = locations.filter(l => l.type === GeocodeMatchType.GRID_REFERENCE && l.value === "TQ848581");
       expect(gridRefs.length).toBe(1);
     });
 
@@ -161,44 +162,44 @@ describe("MigrationLocationExtractionService", () => {
 
     it("should prioritize postcode over other types", () => {
       const locations: ExtractedLocation[] = [
-        { type: "placeName", value: "Otford Station", context: "start location" },
-        { type: "postcode", value: "TN145QY", context: "found in text" },
-        { type: "placeName", value: "Village Hall", context: "parking" }
+        { type: GeocodeMatchType.PLACE_NAME, value: "Otford Station", context: "start location" },
+        { type: GeocodeMatchType.POSTCODE, value: "TN145QY", context: "found in text" },
+        { type: GeocodeMatchType.PLACE_NAME, value: "Village Hall", context: "parking" }
       ];
 
       const result = service.bestLocation(locations);
-      expect(result?.type).toBe("postcode");
+      expect(result?.type).toBe(GeocodeMatchType.POSTCODE);
       expect(result?.value).toBe("TN145QY");
     });
 
     it("should prioritize grid reference over place names", () => {
       const locations: ExtractedLocation[] = [
-        { type: "placeName", value: "Otford Station", context: "start location" },
-        { type: "gridReference", value: "TQ848581", context: "explicitly mentioned grid reference" },
-        { type: "placeName", value: "Village Hall", context: "parking" }
+        { type: GeocodeMatchType.PLACE_NAME, value: "Otford Station", context: "start location" },
+        { type: GeocodeMatchType.GRID_REFERENCE, value: "TQ848581", context: "explicitly mentioned grid reference" },
+        { type: GeocodeMatchType.PLACE_NAME, value: "Village Hall", context: "parking" }
       ];
 
       const result = service.bestLocation(locations);
-      expect(result?.type).toBe("gridReference");
+      expect(result?.type).toBe(GeocodeMatchType.GRID_REFERENCE);
       expect(result?.value).toBe("TQ848581");
     });
 
     it("should prioritize postcode over grid reference", () => {
       const locations: ExtractedLocation[] = [
-        { type: "gridReference", value: "TQ848581", context: "found in text" },
-        { type: "postcode", value: "TN145QY", context: "found in text" }
+        { type: GeocodeMatchType.GRID_REFERENCE, value: "TQ848581", context: "found in text" },
+        { type: GeocodeMatchType.POSTCODE, value: "TN145QY", context: "found in text" }
       ];
 
       const result = service.bestLocation(locations);
-      expect(result?.type).toBe("postcode");
+      expect(result?.type).toBe(GeocodeMatchType.POSTCODE);
       expect(result?.value).toBe("TN145QY");
     });
 
     it("should prioritize start location over other place names", () => {
       const locations: ExtractedLocation[] = [
-        { type: "placeName", value: "Village Hall", context: "parking" },
-        { type: "placeName", value: "Otford Station", context: "start location" },
-        { type: "placeName", value: "Shoreham Station", context: "end location" }
+        { type: GeocodeMatchType.PLACE_NAME, value: "Village Hall", context: "parking" },
+        { type: GeocodeMatchType.PLACE_NAME, value: "Otford Station", context: "start location" },
+        { type: GeocodeMatchType.PLACE_NAME, value: "Shoreham Station", context: "end location" }
       ];
 
       const result = service.bestLocation(locations);
@@ -208,8 +209,8 @@ describe("MigrationLocationExtractionService", () => {
 
     it("should return first location if no priority matches", () => {
       const locations: ExtractedLocation[] = [
-        { type: "placeName", value: "Village Hall", context: "parking" },
-        { type: "placeName", value: "Church", context: "landmark" }
+        { type: GeocodeMatchType.PLACE_NAME, value: "Village Hall", context: "parking" },
+        { type: GeocodeMatchType.PLACE_NAME, value: "Church", context: "landmark" }
       ];
 
       const result = service.bestLocation(locations);
@@ -226,19 +227,19 @@ describe("MigrationLocationExtractionService", () => {
 
       const cernesFarm = locations.find(l => l.value.includes("Cernes Farm"));
       expect(cernesFarm).withContext(`Expected to find Cernes Farm in: ${JSON.stringify(locations)}`).toBeDefined();
-      expect(cernesFarm?.type).toBe("placeName");
+      expect(cernesFarm?.type).toBe(GeocodeMatchType.PLACE_NAME);
       expect(cernesFarm?.value).toMatch(/Cernes Farm/);
 
       const tonbridgeCastle = locations.find(l => l.value.includes("Tonbridge Castle"));
       expect(tonbridgeCastle).withContext(`Expected to find Tonbridge Castle in: ${JSON.stringify(locations)}`).toBeDefined();
-      expect(tonbridgeCastle?.type).toBe("placeName");
+      expect(tonbridgeCastle?.type).toBe(GeocodeMatchType.PLACE_NAME);
 
       const edenbridge = locations.find(l => l.value.includes("Edenbridge"));
       expect(edenbridge).withContext(`Expected to find Edenbridge in: ${JSON.stringify(locations)}`).toBeDefined();
 
       const penshurst = locations.find(l => l.value.includes("Penshurst"));
       expect(penshurst).withContext(`Expected to find Penshurst in: ${JSON.stringify(locations)}`).toBeDefined();
-      expect(penshurst?.type).toBe("placeName");
+      expect(penshurst?.type).toBe(GeocodeMatchType.PLACE_NAME);
     });
 
     it("should extract Cudham and Christmas Tree Farm walk and extract the starting Grid ref as TQ446597 then use this", () => {
@@ -257,7 +258,7 @@ describe("MigrationLocationExtractionService", () => {
       const locations = service.extractLocations(text);
 
       expect(locations.length).toBeGreaterThanOrEqual(2);
-      const gridRef = locations.find(l => l.type === "gridReference");
+      const gridRef = locations.find(l => l.type === GeocodeMatchType.GRID_REFERENCE);
       expect(gridRef).withContext(`Expected to find grid reference in: ${JSON.stringify(locations)}`).toBeDefined();
       expect(gridRef?.value).toBe("TQ446597");
       expect(gridRef?.context).toBe("explicitly mentioned grid reference");
@@ -288,12 +289,12 @@ describe("MigrationLocationExtractionService", () => {
       expect(locations.length).toBeGreaterThanOrEqual(2);
       const gravesend = locations.find(l => l.value.includes("Gravesend"));
       expect(gravesend).withContext(`Expected to find Gravesend in: ${JSON.stringify(locations)}`).toBeDefined();
-      expect(gravesend?.type).toBe("placeName");
+      expect(gravesend?.type).toBe(GeocodeMatchType.PLACE_NAME);
       expect(gravesend?.value).toMatch(/Gravesend/);
 
       const hastings = locations.find(l => l.value.includes("Hastings"));
       expect(hastings).withContext(`Expected to find Hastings in: ${JSON.stringify(locations)}`).toBeDefined();
-      expect(hastings?.type).toBe("placeName");
+      expect(hastings?.type).toBe(GeocodeMatchType.PLACE_NAME);
     });
 
     it("should extract Thames Estuary and Beachy Head as start/end locations", () => {
@@ -305,23 +306,23 @@ describe("MigrationLocationExtractionService", () => {
       expect(locations.length).toBeGreaterThanOrEqual(1);
       const gravesend = locations.find(l => l.value.includes("Gravesend"));
       if (gravesend) {
-        expect(gravesend?.type).toBe("placeName");
+        expect(gravesend?.type).toBe(GeocodeMatchType.PLACE_NAME);
         expect(gravesend?.value).toMatch(/Gravesend/);
       }
 
       const beachyHead = locations.find(l => l.value.includes("Beachy Head"));
       if (beachyHead) {
-        expect(beachyHead?.type).toBe("placeName");
+        expect(beachyHead?.type).toBe(GeocodeMatchType.PLACE_NAME);
       }
 
       const eastbourne = locations.find(l => l.value.includes("Eastbourne"));
       if (eastbourne) {
-        expect(eastbourne?.type).toBe("placeName");
+        expect(eastbourne?.type).toBe(GeocodeMatchType.PLACE_NAME);
       }
 
       const thamesEstuary = locations.find(l => l.value.includes("Thames Estuary"));
       if (thamesEstuary) {
-        expect(thamesEstuary?.type).toBe("placeName");
+        expect(thamesEstuary?.type).toBe(GeocodeMatchType.PLACE_NAME);
       }
 
       expect(gravesend || beachyHead || eastbourne || thamesEstuary).withContext(`Expected to find at least one major location in: ${JSON.stringify(locations)}`).toBeDefined();
@@ -334,7 +335,7 @@ describe("MigrationLocationExtractionService", () => {
       expect(locations.length).toBeGreaterThanOrEqual(1);
       const chipstead = locations.find(l => l.value.includes("Chipstead"));
       expect(chipstead).withContext(`Expected to find Chipstead in: ${JSON.stringify(locations)}`).toBeDefined();
-      expect(chipstead?.type).toBe("placeName");
+      expect(chipstead?.type).toBe(GeocodeMatchType.PLACE_NAME);
       expect(chipstead?.value).toEqual("Chipstead");
 
     });
@@ -438,7 +439,7 @@ Kent Ramblers have published a new guide to three of west Kent's river valley wa
       expect(locations.length).toBeGreaterThan(2);
 
       const best = service.bestLocation(locations);
-      expect(best?.type).toBe("postcode");
+      expect(best?.type).toBe(GeocodeMatchType.POSTCODE);
       expect(best?.value).toBe("TN145QY");
     });
 
@@ -446,7 +447,7 @@ Kent Ramblers have published a new guide to three of west Kent's river valley wa
       const text = "OS Map: Explorer 148 (Start at grid reference TQ848581)";
       const locations = service.extractLocations(text);
 
-      const gridRef = locations.find(l => l.type === "gridReference");
+      const gridRef = locations.find(l => l.type === GeocodeMatchType.GRID_REFERENCE);
       expect(gridRef?.value).toBe("TQ848581");
       expect(gridRef?.context).toBe("explicitly mentioned grid reference");
     });
@@ -463,9 +464,21 @@ Kent Ramblers have published a new guide to three of west Kent's river valley wa
 
       const locations = service.extractLocations(text);
 
-      expect(locations.some(l => l.type === "gridReference")).toBe(true);
-      expect(locations.some(l => l.type === "postcode")).toBe(true);
+      expect(locations.some(l => l.type === GeocodeMatchType.GRID_REFERENCE)).toBe(true);
+      expect(locations.some(l => l.type === GeocodeMatchType.POSTCODE)).toBe(true);
       expect(locations.some(l => l.context === "parking")).toBe(true);
+    });
+
+    it("should extract Hitchin station as the start location", () => {
+      const text = "Hitchin Pub CrawlSpend Sunday afternoon ambling around the fields and meadows around Hitchin whilst taking in a number (3+?) of pub stops along the way. Walk finishes c 4pm in Hitchin town centre.Time split between walking (2.5 hours) and refreshments (2.5 hours). Come prepared for both!Meet at Hitchin station (11am - accessible by train or coach) or from 10am onwards at Hitchin Kitchen for pre walk sustenance.";
+      const locations = service.extractLocations(text);
+
+      const startLocation = locations.find(l => l.context === "start location" && l.value === "Hitchin station");
+      expect(startLocation).toBeDefined();
+
+      const best = service.bestLocation(locations);
+      expect(best?.context).toBe("start location");
+      expect(best?.value).toBe("Hitchin station");
     });
   });
 });

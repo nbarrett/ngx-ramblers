@@ -5,6 +5,7 @@ import { UrlService } from "../../../../services/url.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MediaQueryService } from "../../../../services/committee/media-query.service";
 import { DisplayedWalk, FALLBACK_MEDIA } from "../../../../models/walk.model";
+import { InputSource } from "../../../../models/group-event.model";
 import { WalkDisplayService } from "../../../../pages/walks/walk-display.service";
 import { MapEditComponent } from "../../../../pages/walks/walk-edit/map-edit";
 import { MemberLoginService } from "../../../../services/member/member-login.service";
@@ -17,12 +18,15 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 @Component({
   selector: "app-card-image-or-map",
   template: `
-    @if (display.walkPopulationLocal() && memberLoginService.memberLoggedIn() && displayedWalk?.walkAccessMode?.walkWritable) {
+    @if (memberLoginService.allowWalkAdminEdits() && displayedWalk?.walk?.fields?.inputSource !== InputSource.WALKS_MANAGER_CACHE) {
       <input
         id="walkAction-{{displayedWalk?.walk?.id}}" type="submit"
         value="{{displayedWalk?.walkAccessMode?.caption}}"
         (click)="display.edit(displayedWalk)"
         class="btn btn-primary button-container">
+    } @else {
+      <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
+         class="btn btn-primary button-container">view</a>
     }
     @if (display.displayMapAsImageFallback(displayedWalk.walk)) {
       <div app-map-edit readonly
@@ -55,6 +59,7 @@ export class CardImageOrMap implements OnInit {
   protected imageConfig: { class: string, height: number };
   protected imageNavigationEnabled: boolean;
   private _displayedWalk: DisplayedWalk;
+  protected readonly InputSource = InputSource;
   @Input() notify!: AlertInstance;
   @Input() maxColumns!: number;
 

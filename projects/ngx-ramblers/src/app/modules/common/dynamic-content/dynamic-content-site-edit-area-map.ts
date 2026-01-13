@@ -12,6 +12,7 @@ import { AreaMap } from "../../../pages/area-map/area-map";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { GroupAreasService } from "../../../services/group-areas.service";
 import { MapOverlayControls } from "../../../shared/components/map-overlay-controls";
+import { MapProvider, OUTDOOR_OS_STYLE } from "../../../models/map.model";
 
 interface RegionOption extends KeyValue<string> {}
 
@@ -44,8 +45,8 @@ interface RegionOption extends KeyValue<string> {}
         [id]="id"
         [showOpacityControls]="true"
         [defaults]="{
-          provider: 'osm',
-          osStyle: 'Outdoor_27700',
+          provider: MapProvider.OSM,
+          osStyle: OUTDOOR_OS_STYLE,
           mapCenter: [51.25, 0.75],
           mapZoom: 10,
           mapHeight: 480,
@@ -79,6 +80,7 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   public regionOptions: RegionOption[] = [];
   public availableGroups: string[] = [];
   public showAreaMap = true;
+  protected readonly MapProvider = MapProvider;
   ngOnInit() {
     const systemConfig = this.systemConfigService.systemConfig();
     const regionName = systemConfig?.area?.shortName;
@@ -105,8 +107,8 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
         opacityNormal: 0.5,
         opacityHover: 0.8,
         textOpacity: 0.9,
-        provider: "osm",
-        osStyle: "Outdoor_27700",
+        provider: MapProvider.OSM,
+        osStyle: OUTDOOR_OS_STYLE,
         areaColors: {}
       };
       this.broadcastChange();

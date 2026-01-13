@@ -39,7 +39,7 @@ export interface GroupEvent extends Identifiable, GroupEventUniqueKey, HasStartA
   meeting_date_time: string;
   event_organiser?: Contact,
   location?: LocationDetails;
-  start_location: LocationDetails;
+  start_location?: LocationDetails;
   meeting_location: LocationDetails;
   end_location: LocationDetails;
   distance_km: number;
@@ -280,7 +280,6 @@ export interface AGMStatsResponse {
 
 export enum InputSource {
   FILE_IMPORT = "file-import",
-  WALKS_MANAGER_IMPORT = "walks-manager-import",
   WALKS_MANAGER_CACHE = "walks-manager-cache",
   MANUALLY_CREATED = "manually-created",
   UNKNOWN = "unknown",

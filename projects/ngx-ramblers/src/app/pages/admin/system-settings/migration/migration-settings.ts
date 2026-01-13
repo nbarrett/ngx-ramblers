@@ -11,7 +11,7 @@ import {
 import { faAdd, faArrowUpRightFromSquare, faClose, faCompress, faCopy, faExpand, faPaste, faPlay, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
-import { MigrationConfig, ParentPageConfig, SiteMigrationConfig } from "../../../../models/migration-config.model";
+import { MigrationConfig, ParentPageConfig, ParentPageMode, SiteMigrationConfig } from "../../../../models/migration-config.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { UrlService } from "../../../../services/url.service";
@@ -377,12 +377,12 @@ type SitePasteState = { active: boolean; value: string; error?: string };
                                         <label
                                           [for]="stringUtils.kebabCase('migrate-parent-mode', siteIndex, parentIndex)">
                                           Migrate parent page</label>
-                                        <select class="form-select form-select-sm"
+                                          <select class="form-select form-select-sm"
                                                 [id]="stringUtils.kebabCase('migrate-parent-mode', siteIndex, parentIndex)"
                                                 [(ngModel)]="parentPage.parentPageMode">
-                                          <option [ngValue]="undefined">Not migrated</option>
-                                          <option [ngValue]="'as-is'">As-is</option>
-                                          <option [ngValue]="'action-buttons'">With Links as Action Buttons Row
+                                          <option [ngValue]="null">Not migrated</option>
+                                          <option [ngValue]="ParentPageMode.AS_IS">As-is</option>
+                                          <option [ngValue]="ParentPageMode.ACTION_BUTTONS">With Links as Action Buttons Row
                                           </option>
                                         </select>
                                       </div>
@@ -747,6 +747,7 @@ type SitePasteState = { active: boolean; value: string; error?: string };
 export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("MigrationSettingsComponent", NgxLoggerLevel.ERROR);
+  protected readonly ParentPageMode = ParentPageMode;
   stringUtils = inject(StringUtilsService);
   private urlService = inject(UrlService);
   private migrationConfigService = inject(MigrationConfigService);
@@ -840,7 +841,8 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
         if (message) {
           this.activityMessages.push(message);
           this.activityNotifier.warning(message);
-          const log = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, status: "info", time: Date.now(), message };
+          const now = this.dateUtils.dateTimeNowAsValue();
+          const log = { id: `${now}-${Math.random().toString(36).slice(2, 8)}`, status: "info", time: now, message };
           this.streamingLogs = [log, ...this.streamingLogs];
           const messageHistoryId = this.historySessionId(data?.history) || this.historySessionId(data?.historyRef) || this.activeHistorySessionId;
           if (this.shouldDisplayStreamingLog(messageHistoryId)) {
@@ -1130,7 +1132,8 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
   }
 
   private addLog(status: string, message: string): void {
-    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, status, time: Date.now(), message };
+    const now = this.dateUtils.dateTimeNowAsValue();
+    const entry = { id: `${now}-${Math.random().toString(36).slice(2, 8)}`, status, time: now, message };
     this.logs = [entry, ...this.logs];
     this.applyLogSorting();
   }

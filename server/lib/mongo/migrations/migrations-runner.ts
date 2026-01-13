@@ -1,11 +1,11 @@
 import debug from "debug";
-import { isFunction } from "es-toolkit/compat";
+import { isFunction, isNumber, isString } from "es-toolkit/compat";
 import { envConfig } from "../../env-config/env-config";
 import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
 import * as path from "path";
 import * as fs from "fs";
-import { dateTimeNow } from "../../shared/dates";
+import { dateTimeFromIso, dateTimeFromJsDate, dateTimeFromMillis, dateTimeNow } from "../../shared/dates";
 import {
   MigrationFile,
   MigrationFileStatus,
@@ -21,8 +21,44 @@ import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/s
 const debugLog = debug(envConfig.logNamespace("migration-runner"));
 debugLog.enabled = true;
 
+let sharedMongoClient: MongoClient | null = null;
+
 const CHANGELOG_COLLECTION = "changelog";
 const CHANGELOG_SIMULATION_COLLECTION = "changelogSimulation";
+
+const normalizeMigrationFileName = (fileName: string) => fileName?.replace(/\.ts$/, ".js");
+const manualMigrationFileNames: Set<string> = new Set(
+  (migrateMongoConfig.manualMigrations || [])
+    .map(normalizeMigrationFileName)
+    .filter(Boolean)
+);
+
+type MigrationMetadata = {
+  manual: boolean;
+};
+
+async function mongoClient(): Promise<MongoClient> {
+  if (sharedMongoClient) {
+    return sharedMongoClient;
+  }
+  sharedMongoClient = await MongoClient.connect(migrateMongoConfig.mongodb.url, migrateMongoConfig.mongodb.options);
+  return sharedMongoClient;
+}
+
+function appliedAtTimestamp(value: any): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  if (isString(value)) {
+    const parsed = dateTimeFromIso(value);
+    return parsed.isValid ? parsed.toISO() : undefined;
+  }
+  if (isNumber(value)) {
+    const parsed = dateTimeFromMillis(value);
+    return parsed.isValid ? parsed.toISO() : undefined;
+  }
+  return dateTimeFromJsDate(value as Date).toISO();
+}
 
 async function activeChangelogCollection(): Promise<string> {
   try {
@@ -61,7 +97,7 @@ export async function setMigrationSimulation(pending: number, failed: boolean) {
       return;
     }
 
-    const client = await MongoClient.connect(migrateMongoConfig.mongodb.url, migrateMongoConfig.mongodb.options);
+    const client = await mongoClient();
     const db = client.db();
 
     const sourceCollection = db.collection(CHANGELOG_COLLECTION);
@@ -93,7 +129,6 @@ export async function setMigrationSimulation(pending: number, failed: boolean) {
     }
 
     await setActiveChangelogCollection(CHANGELOG_SIMULATION_COLLECTION);
-    await client.close();
     debugLog("Migration simulation enabled: copied changelog to changelogSimulation");
   } catch (error) {
     debugLog("Failed to enable simulation:", error);
@@ -103,7 +138,7 @@ export async function setMigrationSimulation(pending: number, failed: boolean) {
 
 export async function clearMigrationSimulation() {
   try {
-    const client = await MongoClient.connect(migrateMongoConfig.mongodb.url, migrateMongoConfig.mongodb.options);
+    const client = await mongoClient();
     const db = client.db();
 
     await db.collection(CHANGELOG_SIMULATION_COLLECTION).drop().catch(() => {
@@ -123,7 +158,6 @@ export async function clearMigrationSimulation() {
     debugLog(`Removed ${result.deletedCount} simulated entries from changelog collection`);
 
     await setActiveChangelogCollection(CHANGELOG_COLLECTION);
-    await client.close();
     debugLog("Migration simulation cleared: dropped changelogSimulation, reset to changelog");
   } catch (error) {
     debugLog("Failed to clear simulation:", error);
@@ -149,7 +183,7 @@ export async function readMigrationSimulation() {
 
 export async function clearFailedMigrations() {
   try {
-    const client = await MongoClient.connect(migrateMongoConfig.mongodb.url, migrateMongoConfig.mongodb.options);
+    const client = await mongoClient();
     const db = client.db();
     const collectionName = await activeChangelogCollection();
     const changelogCollection = db.collection(collectionName);
@@ -157,7 +191,6 @@ export async function clearFailedMigrations() {
     const result = await changelogCollection.deleteMany({ error: { $exists: true } });
     debugLog(`Removed ${result.deletedCount} failed migration entries from ${collectionName} collection`);
 
-    await client.close();
     return { success: true, deletedCount: result.deletedCount };
   } catch (error) {
     debugLog("Failed to clear failed migrations:", error);
@@ -167,6 +200,47 @@ export async function clearFailedMigrations() {
 
 export class MigrationRunner {
   private normalizedToActualFileMap = new Map<string, string>();
+  private migrationMetadataCache = new Map<string, MigrationMetadata>();
+  private async loadMigrationMetadata(normalizedFileName: string, actualFileName?: string): Promise<MigrationMetadata> {
+    if (!normalizedFileName) {
+      return { manual: false };
+    }
+    if (this.migrationMetadataCache.has(normalizedFileName)) {
+      return this.migrationMetadataCache.get(normalizedFileName)!;
+    }
+    if (!actualFileName) {
+      const metadata = { manual: false };
+      this.migrationMetadataCache.set(normalizedFileName, metadata);
+      return metadata;
+    }
+    try {
+      const migrationPath = path.join(migrateMongoConfig.migrationsDir, actualFileName);
+      const loadedMigration = await import(migrationPath);
+      const metadata = { manual: Boolean(loadedMigration?.manual) };
+      this.migrationMetadataCache.set(normalizedFileName, metadata);
+      return metadata;
+    } catch (error) {
+      debugLog(`Failed to load migration metadata for ${normalizedFileName}:`, error);
+      const metadata = { manual: false };
+      this.migrationMetadataCache.set(normalizedFileName, metadata);
+      return metadata;
+    }
+  }
+
+  private async isManualMigration(fileName: string, actualFileName?: string): Promise<boolean> {
+    if (!fileName) {
+      return false;
+    }
+    const normalized = normalizeMigrationFileName(fileName);
+    if (!normalized) {
+      return false;
+    }
+    if (manualMigrationFileNames.has(normalized)) {
+      return true;
+    }
+    const metadata = await this.loadMigrationMetadata(normalized, actualFileName);
+    return metadata.manual;
+  }
 
   async migrationStatus(): Promise<MigrationStatus> {
     const status: MigrationStatus = {
@@ -175,18 +249,19 @@ export class MigrationRunner {
     };
 
     try {
-      const client = await MongoClient.connect(migrateMongoConfig.mongodb.url, migrateMongoConfig.mongodb.options);
+      const client = await mongoClient();
       const db = client.db();
       const collectionName = await activeChangelogCollection();
       debugLog("Using collection:", collectionName);
       const changelogCollection = db.collection(collectionName);
       const appliedMigrations = await changelogCollection.find({}).toArray();
       debugLog("Found", appliedMigrations.length, "entries in", collectionName);
-      const appliedMap = new Map<string, { timestamp?: string; error?: string }>();
+      const appliedMap = new Map<string, { startedAt?: string; timestamp?: string; error?: string }>();
 
       appliedMigrations.forEach((m: any) => {
         appliedMap.set(m.fileName, {
-          timestamp: m.appliedAt ? new Date(m.appliedAt).toISOString() : undefined,
+          startedAt: appliedAtTimestamp(m.startedAt),
+          timestamp: appliedAtTimestamp(m.appliedAt),
           error: m.error || undefined
         });
       });
@@ -215,44 +290,52 @@ export class MigrationRunner {
         const appliedAsIs = appliedMap.get(fileName);
         const appliedAsTs = appliedMap.get(fileName.replace(/\.js$/, ".ts"));
         const applied = appliedAsIs || appliedAsTs;
+        const actualFileName = this.normalizedToActualFileMap.get(fileName) || fileName;
+        const manual = await this.isManualMigration(fileName, actualFileName);
 
         if (applied?.error) {
-          files.push({
-            fileName,
-            status: MigrationFileStatus.FAILED,
-            timestamp: applied.timestamp,
-            error: applied.error
-          });
+            files.push({
+              fileName,
+              status: MigrationFileStatus.FAILED,
+              startedAt: applied.startedAt,
+              timestamp: applied.timestamp,
+              error: applied.error,
+              manual
+            });
         } else if (applied) {
           files.push({
             fileName,
             status: MigrationFileStatus.APPLIED,
-            timestamp: applied.timestamp
+            startedAt: applied.startedAt,
+            timestamp: applied.timestamp,
+            manual
           });
         } else {
           files.push({
             fileName,
-            status: MigrationFileStatus.PENDING
+            status: MigrationFileStatus.PENDING,
+            manual
           });
         }
       }
 
-      appliedMigrations.forEach((m: any) => {
+      for (const m of appliedMigrations) {
         const normalizedFileName = m.fileName.replace(/\.ts$/, ".js");
         if (!allFiles.includes(normalizedFileName) && m.error) {
+          const manual = await this.isManualMigration(normalizedFileName);
           files.push({
             fileName: normalizedFileName,
             status: MigrationFileStatus.FAILED,
-            timestamp: m.appliedAt ? new Date(m.appliedAt).toISOString() : undefined,
-            error: m.error
+            timestamp: appliedAtTimestamp(m.appliedAt),
+            error: m.error,
+            manual
           });
         }
-      });
+      }
 
       status.files = files;
       status.failed = files.some(f => f.status === MigrationFileStatus.FAILED);
 
-      await client.close();
     } catch (error) {
       status.failed = true;
       status.error = error.message;
@@ -286,25 +369,33 @@ export class MigrationRunner {
         debugLog(`Failed migrations: ${failedFileNames.join(", ")}`);
       }
 
-      if (pendingFiles.length === 0) {
-        debugLog("No pending migrations to apply");
+      const manualPendingFiles = pendingFiles.filter(f => Boolean(f.manual));
+      if (manualPendingFiles.length > 0) {
+        debugLog(`Skipping ${manualPendingFiles.length} manual migration(s):`, manualPendingFiles.map(f => f.fileName));
+      }
+
+      const pendingFilesToRun = pendingFiles.filter(f => !Boolean(f.manual));
+
+      if (pendingFilesToRun.length === 0) {
+        debugLog("No pending migrations to apply (manual migrations skipped)");
         return { success: true, appliedFiles: [] };
       }
 
-      debugLog(`Applying ${pendingFiles.length} pending migration(s):`, pendingFiles.map(f => f.fileName));
+      debugLog(`Applying ${pendingFilesToRun.length} pending migration(s):`, pendingFilesToRun.map(f => f.fileName));
 
-      const client = await MongoClient.connect(migrateMongoConfig.mongodb.url, migrateMongoConfig.mongodb.options);
+      const client = await mongoClient();
       const db = client.db();
       const collectionName = await activeChangelogCollection();
       const changelogCollection = db.collection(collectionName);
 
       const appliedFiles: string[] = [];
 
-      for (const file of pendingFiles) {
+      for (const file of pendingFilesToRun) {
         const fileName = file.fileName;
         const actualFileName = this.normalizedToActualFileMap.get(fileName) || fileName;
         debugLog(`Running migration: ${fileName} (actual file: ${actualFileName})`);
         const migrationPath = path.join(migrateMongoConfig.migrationsDir, actualFileName);
+        const startedAt = dateTimeNow().toJSDate();
 
         try {
           const loadedMigration = await import(migrationPath);
@@ -318,6 +409,7 @@ export class MigrationRunner {
 
           await changelogCollection.insertOne({
             fileName,
+            startedAt,
             appliedAt: dateTimeNow().toJSDate()
           });
 
@@ -327,15 +419,14 @@ export class MigrationRunner {
           debugLog(`Failed to apply migration ${fileName}:`, error);
           await changelogCollection.insertOne({
             fileName,
+            startedAt,
             appliedAt: dateTimeNow().toJSDate(),
             error: error.message
           });
-          await client.close();
           return { success: false, error: `Migration ${fileName} failed: ${error.message}`, appliedFiles };
         }
       }
 
-      await client.close();
       debugLog(`Successfully applied ${appliedFiles.length} migration(s)`);
       return { success: true, appliedFiles };
     } catch (error) {
@@ -345,12 +436,13 @@ export class MigrationRunner {
   }
 
   async runMigration(fileName: string): Promise<MigrationRetryResult> {
+    const startedAt = dateTimeNow().toJSDate();
     try {
       if (!migrateMongoConfig) {
         return { success: false, error: "Migration configuration not found", appliedFiles: [] };
       }
 
-      const client = await MongoClient.connect(migrateMongoConfig.mongodb.url, migrateMongoConfig.mongodb.options);
+      const client = await mongoClient();
       const db = client.db();
       const collectionName = await activeChangelogCollection();
       const changelogCollection = db.collection(collectionName);
@@ -362,25 +454,24 @@ export class MigrationRunner {
       const migration = loadedMigration.default || loadedMigration;
 
       if (!isFunction(migration.up)) {
-        await client.close();
         return { success: false, error: `Migration ${fileName} does not export an "up" function`, appliedFiles: [] };
       }
 
       await migration.up(db, client);
-      await changelogCollection.insertOne({ fileName, appliedAt: dateTimeNow().toJSDate() });
-      await client.close();
+      await changelogCollection.insertOne({ fileName, startedAt, appliedAt: dateTimeNow().toJSDate() });
+      debugLog(`Successfully applied migration: ${fileName}`);
       return { success: true, appliedFiles: [fileName] };
     } catch (error) {
-      const client = await MongoClient.connect(migrateMongoConfig.mongodb.url, migrateMongoConfig.mongodb.options);
+      const client = await mongoClient();
       const db = client.db();
       const collectionName = await activeChangelogCollection();
       const changelogCollection = db.collection(collectionName);
       await changelogCollection.insertOne({
         fileName,
+        startedAt,
         appliedAt: dateTimeNow().toJSDate(),
         error: error.message
       });
-      await client.close();
       return { success: false, error: error.message, appliedFiles: [] };
     }
   }

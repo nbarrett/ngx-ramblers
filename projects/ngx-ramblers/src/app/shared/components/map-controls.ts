@@ -3,7 +3,7 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { MapProvider, MapStyleInfo, OS_MAP_STYLE_LIST } from "../../models/map.model";
+import { MapProvider, MapStyleInfo, OS_MAP_STYLE_LIST, OUTDOOR_OS_STYLE } from "../../models/map.model";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
 import { isUndefined } from "es-toolkit/compat";
 import { asNumber } from "../../functions/numbers";
@@ -88,15 +88,15 @@ export interface MapControlsState {
           <select class="form-select form-select-sm map-control-select"
                   [ngModel]="state.provider"
                   (ngModelChange)="onProviderChange($event)">
-            <option value="osm">OpenStreetMap</option>
-            <option value="os" [disabled]="!hasOsApiKey">
+            <option [ngValue]="MapProvider.OSM">OpenStreetMap</option>
+            <option [ngValue]="MapProvider.OS" [disabled]="!hasOsApiKey">
               {{ hasOsApiKey ? 'OS Maps' : 'OS Maps (API key required)' }}
             </option>
           </select>
         </div>
       }
 
-      @if (config.showStyle && state.provider === 'os') {
+      @if (config.showStyle && state.provider === MapProvider.OS) {
         <div class="d-flex align-items-center map-control-item">
           <span class="small mx-2 text-nowrap">Style</span>
           <select class="form-select form-select-sm map-control-select"
@@ -168,8 +168,8 @@ export class MapControls implements OnInit {
   };
 
   @Input() state: MapControlsState = {
-    provider: "osm",
-    osStyle: "outdoor"
+    provider: MapProvider.OSM,
+    osStyle: OUTDOOR_OS_STYLE
   };
 
   @Output() stateChange = new EventEmitter<MapControlsState>();
@@ -183,6 +183,7 @@ export class MapControls implements OnInit {
   public hasOsApiKey = false;
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly isUndefined = isUndefined;
+  protected readonly MapProvider = MapProvider;
 
   private mapTiles = inject(MapTilesService);
 

@@ -19,6 +19,7 @@ import { MeetupButtonComponent } from "../../../../modules/common/third-parties/
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
+import { InputSize } from "../../../../models/ui-size.model";
 
 @Component({
     selector: "app-system-meetup-settings",
@@ -53,7 +54,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                   [(ngModel)]="config.externalSystems.meetup.clientSecret"
                   id="meetup-client-secret"
                   name="clientSecret"
-                  size="sm"
+                  [size]="InputSize.SM"
                   placeholder="Enter Meetup OAuth Client 'Secret' value">
                 </app-secret-input>
               </div>
@@ -65,7 +66,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                   [(ngModel)]="config.externalSystems.meetup.clientId"
                   id="meetup-client-id"
                   name="clientId"
-                  size="sm"
+                  [size]="InputSize.SM"
                   placeholder="Enter Meetup OAuth Client 'Your Key' value">
                 </app-secret-input>
               </div>
@@ -86,7 +87,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                   [(ngModel)]="config.externalSystems.meetup.accessToken"
                   id="meetup-access-token"
                   name="accessToken"
-                  size="sm"
+                  [size]="InputSize.SM"
                   placeholder="Enter Meetup Access Token">
                 </app-secret-input>
               </div>
@@ -98,7 +99,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                   [(ngModel)]="config.externalSystems.meetup.refreshToken"
                   id="meetup-api-key"
                   name="refreshToken"
-                  size="sm"
+                  [size]="InputSize.SM"
                   placeholder="Enter Refresh Token">
                 </app-secret-input>
               </div>
@@ -142,6 +143,7 @@ export class SystemMeetupSettingsComponent implements OnInit, OnDestroy {
   public config: SystemConfig;
   private subscriptions: Subscription[] = [];
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
+  protected readonly InputSize = InputSize;
   private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   private meetupService: MeetupService = inject(MeetupService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);

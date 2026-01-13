@@ -58,3 +58,8 @@ export interface RestoreOptions {
   drop: boolean;
   dryRun: boolean;
 }
+
+export enum PackageManager {
+  NPM = "npm",
+  PNPM = "pnpm"
+}

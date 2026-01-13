@@ -5,6 +5,7 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContentService } from "./page-content.service";
 import { SystemConfigService } from "./system/system-config.service";
+import { MapProvider, OUTDOOR_OS_STYLE } from "../models/map.model";
 
 @Injectable({
   providedIn: "root"
@@ -79,8 +80,8 @@ export class AreaMapCmsService {
       opacityNormal: 0.5,
       opacityHover: 0.8,
       textOpacity: 0.9,
-      provider: "osm",
-      osStyle: "Outdoor_27700",
+      provider: MapProvider.OSM,
+      osStyle: OUTDOOR_OS_STYLE,
       areaColors: {}
     };
   }

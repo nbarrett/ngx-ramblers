@@ -11,7 +11,7 @@ import {
   PageContentType
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { capitalise, joinWithAnd, pluralise, pluraliseWithCount, splitOnDashSegments, textBeforeSeparators, truncateWithEllipsis } from "../shared/string-utils";
-import { dateTimeFromIso, dateTimeInTimezone, dateTimeFromJsDate } from "../shared/dates";
+import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone } from "../shared/dates";
 
 const TYPE_TITLES: Record<string, string> = {
   feat: "New Features",
@@ -156,9 +156,9 @@ function formatIsoDateString(dateStr: string): string | null {
     return shortMonthParsed.toISODate();
   }
 
-  const fallbackDate = new Date(trimmed);
-  if (!Number.isNaN(fallbackDate.getTime())) {
-    const fallback = dateTimeFromJsDate(fallbackDate);
+  const fallbackMillis = Date.parse(trimmed);
+  if (!Number.isNaN(fallbackMillis)) {
+    const fallback = dateTimeFromMillis(fallbackMillis);
     if (fallback.isValid) {
       return fallback.toISODate();
     }

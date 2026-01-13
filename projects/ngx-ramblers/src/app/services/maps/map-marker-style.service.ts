@@ -1,18 +1,19 @@
 import { Injectable } from "@angular/core";
 import * as L from "leaflet";
+import { MapProvider } from "../../models/map.model";
 import { WalkStatus } from "../../models/ramblers-walks-manager";
 
 @Injectable({ providedIn: "root" })
 export class MapMarkerStyleService {
-  markerIcon(provider: "osm" | "os", style: string, walkStatus?: WalkStatus): L.Icon | L.DivIcon {
-    if (provider === "os") {
+  markerIcon(provider: MapProvider, style: string, walkStatus?: WalkStatus): L.Icon | L.DivIcon {
+    if (provider === MapProvider.OS) {
       return this.explorerPinIcon(walkStatus);
     }
     return new L.Icon.Default();
   }
 
-  clusterIconCreate(provider: "osm" | "os", style: string): ((cluster: any) => L.DivIcon) | undefined {
-    if (provider === "os") {
+  clusterIconCreate(provider: MapProvider, style: string): ((cluster: any) => L.DivIcon) | undefined {
+    if (provider === MapProvider.OS) {
       return (cluster: any) => {
         const childCount = cluster.getChildCount();
         const c = childCount < 10 ? "small" : childCount < 50 ? "medium" : "large";
@@ -39,4 +40,3 @@ export class MapMarkerStyleService {
     return L.divIcon({ className: "os-explorer-pin", html, iconSize: [28, 36] as any, iconAnchor: [14, 36] as any, popupAnchor: [0, -28] as any });
   }
 }
-

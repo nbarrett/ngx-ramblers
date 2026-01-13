@@ -32,6 +32,7 @@ import { WalksReferenceService } from "../../../services/walks/walks-reference-d
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { UrlService } from "../../../services/url.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { MailMessagingConfig } from "../../../models/mail.model";
@@ -92,7 +93,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
           <tab heading="{{WalkEditTab.RISK_ASSESSMENT}}"
                [active]="tabActive(WalkEditTab.RISK_ASSESSMENT)"
                (selectTab)="onTabSelect(WalkEditTab.RISK_ASSESSMENT)">
-            <app-walk-risk-assessment [displayedWalk]="displayedWalk"/>
+            <app-walk-risk-assessment [displayedWalk]="displayedWalk" [inputDisabled]="inputDisabled()"/>
           </tab>
         }
         <tab heading="{{WalkEditTab.RELATED_LINKS}}"
@@ -120,14 +121,16 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
              [active]="tabActive(WalkEditTab.FEATURES)"
              (selectTab)="onTabSelect(WalkEditTab.FEATURES)"
              [displayedWalk]="displayedWalk"
-             [config]="config"/>
+             [config]="config"
+             [inputDisabled]="inputDisabled()"/>
         <tab app-edit-group-event-images heading="{{WalkEditTab.IMAGES}}"
              [active]="tabActive(WalkEditTab.IMAGES)"
              (selectTab)="onTabSelect(WalkEditTab.IMAGES)"
              [rootFolder]="RootFolder.walkImages"
              [notify]="notify"
              [extendedGroupEvent]="displayedWalk?.walk"
-             [config]="config"/>
+             [config]="config"
+             [inputDisabled]="inputDisabled()"/>
         @if (display.walkLeaderOrAdmin(displayedWalk?.walk)) {
           <tab heading="{{WalkEditTab.HISTORY}}"
                [active]="tabActive(WalkEditTab.HISTORY)"
@@ -163,16 +166,8 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
           changedItems: {{ walkEventService.walkDataAuditFor(this.displayedWalk?.walk, status(), true)?.changedItems | json }}
         </pre>
       }
-      @if (display.walkLink(displayedWalk.walk)) {
-        <div class="mb-2">
-          <app-copy-icon [icon]="faCopy" title [value]="display.walkLink(displayedWalk.walk)"
-                         [elementName]="'event link'">copy link to this
-          </app-copy-icon>
-          <a class="rams-text-decoration-pink" [href]="display.walkLink(displayedWalk.walk)"
-             target="_blank">{{ stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type) }}</a>
-        </div>
-      }
-      <div class="d-inline-flex align-items-center flex-wrap mb-4 align-middle">
+      <div class="d-flex flex-wrap align-items-center mb-4 gap-3">
+        <div class="d-inline-flex align-items-center flex-wrap align-middle">
         @if (allowClose()) {
           <input [disabled]="saveInProgress" type="submit"
                  value="Close"
@@ -264,6 +259,26 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
             </label>
           </div>
         }
+        </div>
+        @if (display.walkLink(displayedWalk.walk)) {
+          <div class="d-inline-flex align-items-center gap-3 ms-auto">
+            <div class="d-inline-flex align-items-center gap-2">
+              <app-copy-icon [icon]="faCopy" title [value]="display.walkLink(displayedWalk.walk)"
+                             [elementName]="'event link'">copy link to this
+              </app-copy-icon>
+              <a class="rams-text-decoration-pink" [href]="display.walkLink(displayedWalk.walk)"
+                 target="_blank">{{ stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type) }}</a>
+            </div>
+            @if (display.allowAdminEdits()) {
+              <div class="d-inline-flex align-items-center gap-2">
+                <app-copy-icon [value]="extendedGroupEventJson"
+                               [elementName]="'event JSON'"
+                               iconClass="colour-mintcake">copy event JSON
+                </app-copy-icon>
+              </div>
+            }
+          </div>
+        }
       </div>
     }
   `,
@@ -275,11 +290,11 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   @Input("displayedWalk")
   set initialiseWalk(displayedWalk: DisplayedWalk) {
     this.logger.info("initialiseWalk:displayedWalk displayedWalk input:", displayedWalk);
-    if (displayedWalk && !displayedWalk?.walk?.groupEvent?.start_location) {
+    if (displayedWalk?.walk?.groupEvent && !displayedWalk.walk.groupEvent.start_location) {
       this.logger.info("initialiseWalk:initialising walk start location with:", INITIALISED_LOCATION);
       displayedWalk.walk.groupEvent.start_location = cloneDeep(INITIALISED_LOCATION);
     }
-    if (displayedWalk && !displayedWalk?.walk?.fields?.contactDetails) {
+    if (displayedWalk?.walk?.fields && !displayedWalk.walk.fields.contactDetails) {
       const contactDetails = this.eventDefaultsService.defaultContactDetails();
       this.logger.info("initialiseWalk:initialising walk contactDetails with:", contactDetails);
       displayedWalk.walk.fields.contactDetails = contactDetails;
@@ -312,6 +327,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   protected dateUtils = inject(DateUtilsService);
   display = inject(WalkDisplayService);
   stringUtils = inject(StringUtilsService);
+  private urlService = inject(UrlService);
   private displayDate = inject(DisplayDatePipe);
   protected notifierService = inject(NotifierService);
   private configService = inject(ConfigService);
@@ -381,13 +397,13 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   private initialiseMilesPerHour() {
-    if (this.displayedWalk?.walk?.fields.milesPerHour > 0) {
-      this.logger.info("initialiseMilesPerHour:milesPerHour already set to:", this.displayedWalk?.walk?.fields.milesPerHour);
-    } else if (this.walksConfig?.milesPerHour) {
-      this.logger.info("initialiseMilesPerHour:setting milesPerHour from:", this.displayedWalk?.walk?.fields.milesPerHour, "to:", this.walksConfig.milesPerHour);
+    if (this.displayedWalk?.walk?.fields?.milesPerHour > 0) {
+      this.logger.info("initialiseMilesPerHour:milesPerHour already set to:", this.displayedWalk?.walk?.fields?.milesPerHour);
+    } else if (this.displayedWalk?.walk?.fields && this.walksConfig?.milesPerHour) {
+      this.logger.info("initialiseMilesPerHour:setting milesPerHour from:", this.displayedWalk?.walk?.fields?.milesPerHour, "to:", this.walksConfig.milesPerHour);
       this.displayedWalk.walk.fields.milesPerHour = this.walksConfig.milesPerHour;
     } else {
-      this.logger.info("initialiseMilesPerHour:not setting as this.displayedWalk.walk:", this.displayedWalk.walk, "this.walksConfig.milesPerHour:", this.walksConfig?.milesPerHour);
+      this.logger.info("initialiseMilesPerHour:not setting as this.displayedWalk?.walk:", this.displayedWalk?.walk, "this.walksConfig?.milesPerHour:", this.walksConfig?.milesPerHour);
     }
   }
 
@@ -427,9 +443,14 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     return !this.inputEnabled();
   }
 
+  isViewMode(): boolean {
+    return this.urlService.pathContains("view");
+  }
+
   inputEnabled() {
-    return this.confirmAction === ConfirmType.NONE && !this.saveInProgress && (this.display.allowAdminEdits() ||
-      this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk));
+    return !this.isViewMode() && this.confirmAction === ConfirmType.NONE && !this.saveInProgress &&
+      this.displayedWalk?.walkAccessMode?.walkWritable &&
+      (this.display.allowAdminEdits() || this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk));
   }
 
   allowSave() {
@@ -533,7 +554,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   showWalk(displayedWalk: DisplayedWalk) {
-    if (displayedWalk) {
+    if (displayedWalk?.walk?.fields) {
       this.logger.info("showWalk", displayedWalk.walk, "mailConfig:", this?.mailMessagingConfig?.mailConfig);
       if (!displayedWalk.walk.fields.venue) {
         this.logger.debug("initialising walk venue");
@@ -695,6 +716,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       .catch(error => this.notifyError(error));
   }
 
+  public get extendedGroupEventJson(): string {
+    return this.displayedWalk?.walk ? JSON.stringify(this.displayedWalk.walk, null, 2) : "";
+  }
+
   public generateMeetupDescriptionHTML(walkNotification: WalkNotification): Promise<string> {
     const component: Type<MeetupDescriptionComponent> = MeetupDescriptionComponent;
     const componentAndData = new NotificationComponent<MeetupDescriptionComponent>(component);
@@ -820,7 +845,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   isExpandable(): boolean {
-    return this.display.walkMode(this.displayedWalk.walk) === WalkViewMode.EDIT;
+    return this.displayedWalk?.walk && this.display.walkMode(this.displayedWalk.walk) === WalkViewMode.EDIT;
   }
 
   async postcodeChange() {

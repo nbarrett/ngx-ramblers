@@ -23,6 +23,7 @@ import {
 } from "../walk-meetup-config-parameters/walk-meetup-config-parameters.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { LinksService } from "../../../services/links.service";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
     selector: "app-walk-meetup",
@@ -38,7 +39,7 @@ import { LinksService } from "../../../services/links.service";
         @if (allowEdits()) {
           <div class="col-sm-12">
             <div class="form-check">
-              <input [disabled]="!allowEdits() || saveInProgress"
+              <input [disabled]="inputDisabled || !allowEdits() || saveInProgress"
                      (ngModelChange)="changedPublishMeetup($event)"
                      [(ngModel)]="displayedWalk.walk.fields.publishing.meetup"
                      type="checkbox" class="form-check-input" id="walk-publish-meetup">
@@ -54,7 +55,8 @@ import { LinksService } from "../../../services/links.service";
               <app-walk-meetup-config-parameters
                 [contentTextItems]="contentTextItems"
                 [renderMarkdownField]="!meetupEventDescriptionExists()"
-                [config]="displayedWalk?.walk?.fields.meetup"/>
+                [config]="displayedWalk?.walk?.fields.meetup"
+                [inputDisabled]="inputDisabled"/>
             }
           </div>
           <div class="col-sm-12 mb-2 mt-3">
@@ -63,6 +65,8 @@ import { LinksService } from "../../../services/links.service";
                 [name]="'meetup-event-description'"
                 [category]="ContentTextCategory.MEETUP_DESCRIPTION_PREFIX"
                 [text]="meetupEventDescription"
+                [presentationMode]="inputDisabled"
+                [hideEditToggle]="inputDisabled"
                 [rows]="7"
                 [description]="'Meetup event description'"
                 (changed)="changeContent($event)"/>
@@ -73,7 +77,7 @@ import { LinksService } from "../../../services/links.service";
               <div class="form-group">
                 <label for="meetup-event-url">Meetup Event Url</label>
                 <input [(ngModel)]="linkWithSource.href"
-                       [disabled]="inputDisabled()"
+                       [disabled]="inputDisabled"
                        type="text" class="form-control input-sm"
                        id="meetup-event-url"
                        placeholder="Enter URL to Meetup Event">
@@ -128,6 +132,11 @@ export class WalkMeetupComponent implements OnInit {
   @Input()
   public saveInProgress: boolean;
   public linkWithSource: LinkWithSource;
+  public inputDisabled = false;
+
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+  }
 
 
   ngOnInit() {
@@ -188,7 +197,4 @@ export class WalkMeetupComponent implements OnInit {
     this.changeDetectorRef.detectChanges();
   }
 
-  inputDisabled(): boolean {
-    return false;
-  }
 }

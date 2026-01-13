@@ -2,6 +2,7 @@ import { ApiResponse } from "./api-response.model";
 import { DataQueryOptions } from "./api-request.model";
 import { GroupEvent, InputSource } from "./group-event.model";
 import { RamblersWalksManagerDateFormat } from "./date-format.model";
+import { SortDirection } from "./sort.model";
 
 export { RamblersWalksManagerDateFormat as DateFormat } from "./date-format.model";
 
@@ -67,6 +68,11 @@ export enum RamblersEventType {
   GROUP_WALK = "group-walk",
   GROUP_EVENT = "group-event",
   WELLBEING_WALK = "wellbeing-walk"
+}
+
+export enum EventsListSortBy {
+  DATE = "date",
+  DISTANCE = "distance"
 }
 
 export enum WalkStatus {
@@ -156,8 +162,8 @@ export interface EventsListRequest {
   rawData?: boolean;
   limit?: number;
   groupCode?: string;
-  sort?: "date" | "distance";
-  order?: "asc" | "desc";
+  sort?: EventsListSortBy;
+  order?: SortDirection;
   date?: string;
   dateEnd?: string;
   inputSource?: string;

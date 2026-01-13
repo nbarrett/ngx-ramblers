@@ -2,7 +2,7 @@ import express, { NextFunction } from "express";
 import * as authConfig from "../../auth/auth-config";
 import * as crudController from "../controllers/crud-controller";
 import { extendedGroupEvent } from "../models/extended-group-event";
-import { count, dateRange, queryWalkLeaders, urlFromTitle } from "../controllers/extended-group-event";
+import { count, dateRange, nextWalkId, queryWalkLeaders, urlFromTitle } from "../controllers/extended-group-event";
 import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { DocumentField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 
@@ -46,6 +46,7 @@ router.post("/update-many", authConfig.authenticate(), controller.updateMany);
 router.post("/all", authConfig.authenticate(), controller.createOrUpdateAll);
 router.get("/walk-leaders", queryWalkLeaders);
 router.get("/date-range", dateRange);
+router.get("/next-walk-id", nextWalkId);
 router.get("/:id", controller.findById);
 router.delete("/:id", authConfig.authenticate(), controller.deleteOne);
 router.post("/url-from-title", authConfig.authenticate(), urlFromTitle);

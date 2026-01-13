@@ -29,6 +29,7 @@ import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-default
 import { NgClass } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
+import { InputSize } from "../../../../models/ui-size.model";
 
 @Component({
     selector: "app-mailchimp-settings",
@@ -70,7 +71,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                             [(ngModel)]="mailchimpConfig.apiKey"
                             id="api-key"
                             name="apiKey"
-                            size="sm"
+                            [size]="InputSize.SM"
                             placeholder="The API key for the mailchimp api">
                           </app-secret-input>
                         </div>
@@ -526,6 +527,7 @@ export class MailchimpSettingsComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("MailchimpSettingsComponent", NgxLoggerLevel.ERROR);
   private mailchimpConfigService = inject(MailchimpConfigService);
+  protected readonly InputSize = InputSize;
   private mailchimpCampaignService = inject(MailchimpCampaignService);
   private systemConfigService = inject(SystemConfigService);
   private notifierService = inject(NotifierService);

@@ -13,7 +13,7 @@ import {
   MapControlsConfig,
   MapControlsState
 } from "../../../shared/components/map-controls";
-import { MapProvider } from "../../../models/map.model";
+import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 import { MapOverlay } from "../../../shared/components/map-overlay";
 import { UiActionsService } from "../../../services/ui-actions.service";
 
@@ -117,8 +117,8 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   @Input() mapHeight = 500;
   @Input() clusteringEnabled = true;
   @Input() clusteringThreshold = 10;
-  @Input() provider = "osm";
-  @Input() osStyle = "Leisure_27700";
+  @Input() provider: MapProvider = MapProvider.OSM;
+  @Input() osStyle = DEFAULT_OS_STYLE;
   @Input() mapCenter: [number, number] = [51.25, 0.75];
   @Input() mapZoom = 10;
   @Input() showControlsDefault = true;
@@ -142,8 +142,8 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   };
 
   public mapControlsState: MapControlsState = {
-    provider: "osm" as MapProvider,
-    osStyle: "Leisure_27700",
+    provider: MapProvider.OSM,
+    osStyle: DEFAULT_OS_STYLE,
     mapHeight: 500,
     smoothScroll: false,
     autoShowAll: false
@@ -157,7 +157,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
 
   ngOnInit() {
     this.mapTiles.initializeProjections();
-    this.mapControlsState.provider = this.provider as MapProvider;
+    this.mapControlsState.provider = this.provider;
     this.mapControlsState.osStyle = this.osStyle;
     this.mapControlsState.mapHeight = this.mapHeight;
     this.showControls = this.uiActions.booleanOf(this.showControlsDefault, true);
@@ -170,7 +170,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
       this.updateMarkers();
     }
     if (changes["provider"] && !changes["provider"].firstChange) {
-      this.mapControlsState.provider = this.provider as MapProvider;
+      this.mapControlsState.provider = this.provider;
       this.recreateMap();
     }
     if (changes["osStyle"] && !changes["osStyle"].firstChange) {

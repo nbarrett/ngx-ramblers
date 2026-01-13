@@ -1,9 +1,9 @@
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { MapStyleInfo, OS_MAP_STYLE_LIST } from "../../models/map.model";
+import { MapProvider, MapStyleInfo, OS_MAP_STYLE_LIST } from "../../models/map.model";
 
 export interface MapConfigData {
-  provider?: string;
+  provider?: MapProvider | string;
   osStyle?: string;
   mapCenter?: [number, number];
   mapZoom?: number;
@@ -20,11 +20,11 @@ export interface MapConfigData {
                 id="provider-select-{{id}}"
                 [(ngModel)]="config.provider"
                 (ngModelChange)="onConfigChange()">
-          <option value="osm">OpenStreetMap</option>
-          <option value="os">OS Maps</option>
+          <option [ngValue]="MapProvider.OSM">OpenStreetMap</option>
+          <option [ngValue]="MapProvider.OS">OS Maps</option>
         </select>
       </div>
-      @if (config.provider === 'os') {
+      @if (config.provider === MapProvider.OS) {
         <div class="col-md-3">
           <label class="form-label" for="style-select-{{id}}">OS Map Style</label>
           <select class="form-select"
@@ -96,6 +96,7 @@ export class MapConfigControls implements OnInit {
   osStyles: MapStyleInfo[] = OS_MAP_STYLE_LIST;
   centerLat = 51.25;
   centerLng = 0.75;
+  protected readonly MapProvider = MapProvider;
 
   ngOnInit() {
     if (this.config?.mapCenter) {

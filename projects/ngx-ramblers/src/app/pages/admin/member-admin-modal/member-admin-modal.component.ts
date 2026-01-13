@@ -48,6 +48,9 @@ import { UpdatedAuditPipe } from "../../../pipes/updated-audit-pipe";
 import { FormatAuditPipe } from "../../../pipes/format-audit-pipe";
 import { sortBy } from "../../../functions/arrays";
 import { DeletedMemberService } from "../../../services/member/deleted-member.service";
+import { SortDirection } from "../../../models/sort.model";
+import { MemberAuditSortColumn } from "../../../models/member-admin.model";
+import { InputSize } from "../../../models/ui-size.model";
 
 @Component({
   selector: "app-member-admin-modal",
@@ -104,8 +107,10 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   protected readonly faSortUp = faSortUp;
   protected readonly faSortDown = faSortDown;
   protected readonly MailProvider = MailProvider;
-  protected auditSortColumn: "updateTime" | "memberAction" | "auditMessage" = "updateTime";
-  protected auditSortDirection: "asc" | "desc" = "desc";
+  protected readonly MemberAuditSortColumn = MemberAuditSortColumn;
+  protected readonly InputSize = InputSize;
+  protected auditSortColumn: MemberAuditSortColumn = MemberAuditSortColumn.UPDATE_TIME;
+  protected auditSortDirection: SortDirection = SortDirection.DESC;
   protected isLifeMember(): boolean {
     return (this.member?.memberTerm?.toString()?.toLowerCase() === MemberTerm.LIFE);
   }
@@ -173,24 +178,24 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   }
 
   protected sortedMemberUpdateAudits(): MemberUpdateAudit[] {
-    const comparator = sortBy(`${this.auditSortDirection === "asc" ? "" : "-"}${this.auditSortColumn}`);
+    const comparator = sortBy(`${this.auditSortDirection === SortDirection.ASC ? "" : "-"}${this.auditSortColumn}`);
     return [...this.memberUpdateAudits].sort(comparator);
   }
 
-  protected toggleAuditSort(column: "updateTime" | "memberAction" | "auditMessage") {
+  protected toggleAuditSort(column: MemberAuditSortColumn) {
     if (this.auditSortColumn === column) {
-      this.auditSortDirection = this.auditSortDirection === "asc" ? "desc" : "asc";
+      this.auditSortDirection = this.auditSortDirection === SortDirection.ASC ? SortDirection.DESC : SortDirection.ASC;
     } else {
       this.auditSortColumn = column;
-      this.auditSortDirection = column === "updateTime" ? "desc" : "asc";
+      this.auditSortDirection = column === MemberAuditSortColumn.UPDATE_TIME ? SortDirection.DESC : SortDirection.ASC;
     }
   }
 
-  protected auditSortIcon(column: "updateTime" | "memberAction" | "auditMessage") {
+  protected auditSortIcon(column: MemberAuditSortColumn) {
     if (this.auditSortColumn !== column) {
       return this.faSort;
     }
-    return this.auditSortDirection === "asc" ? this.faSortUp : this.faSortDown;
+    return this.auditSortDirection === SortDirection.ASC ? this.faSortUp : this.faSortDown;
   }
 
   deleteMemberDetails() {

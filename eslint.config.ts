@@ -106,6 +106,10 @@ const typeofRestrictions = [
 
 const sharedSyntaxRestrictions = [
   {
+    "selector": "CallExpression[callee.object.name='console'][callee.property.name='log']",
+    "message": "console.log is not allowed. Use Logger (frontend) or debugLog (backend) instead."
+  },
+  {
     "selector": "ForStatement",
     "message": "Imperative for loops are not allowed. Use declarative array operations (map, reduce, filter, etc.) instead for side-effect free code."
   },

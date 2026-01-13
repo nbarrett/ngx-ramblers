@@ -191,7 +191,7 @@ The following patterns are **automatically enforced** via ESLint and will cause 
 **Quick Summary:**
 - 🚫 No inline comments (`//`)
 - 🚫 No imperative loops (`for`, `while`, `for...in`)
-- 🚫 No `new Date()` (use date utilities)
+- 🚫 No `new Date()` or `Date.now()` (use date utilities)
 - 🚫 No `Object.keys/values/entries()` (use es-toolkit)
 - 🚫 No `typeof` checks (use es-toolkit type guards)
 - 🚫 No `Array.isArray()` (use es-toolkit `isArray()`)

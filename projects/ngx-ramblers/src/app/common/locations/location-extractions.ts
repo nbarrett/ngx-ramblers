@@ -1,4 +1,5 @@
 import { ExtractedLocation } from "../../models/map.model";
+import { GeocodeMatchType } from "../../models/address-model";
 
 
 export function extractLocations(text: string): ExtractedLocation[] {
@@ -8,7 +9,7 @@ export function extractLocations(text: string): ExtractedLocation[] {
   const gridRefInTextMatches = Array.from(text.matchAll(gridRefInTextRegex));
   gridRefInTextMatches.forEach(match => {
     locations.push({
-      type: "gridReference",
+      type: GeocodeMatchType.GRID_REFERENCE,
       value: match[1].replace(/\s/g, ""),
       context: "explicitly mentioned grid reference"
     });
@@ -19,7 +20,7 @@ export function extractLocations(text: string): ExtractedLocation[] {
   postcodeMatches.forEach(match => {
     const matchIndex = match.index ?? 0;
     locations.push({
-      type: "postcode",
+      type: GeocodeMatchType.POSTCODE,
       value: match[1].replace(/\s/g, ""),
       context: contextFor(text, matchIndex)
     });
@@ -29,11 +30,11 @@ export function extractLocations(text: string): ExtractedLocation[] {
   const gridRefMatches = Array.from(text.matchAll(gridRefRegex));
   gridRefMatches.forEach(match => {
     const value = match[1].replace(/\s/g, "");
-    const alreadyAdded = locations.some(l => l.type === "gridReference" && l.value === value);
+    const alreadyAdded = locations.some(l => l.type === GeocodeMatchType.GRID_REFERENCE && l.value === value);
     if (!alreadyAdded) {
       const matchIndex = match.index ?? 0;
       locations.push({
-        type: "gridReference",
+        type: GeocodeMatchType.GRID_REFERENCE,
         value,
         context: contextFor(text, matchIndex)
       });
@@ -53,7 +54,7 @@ export function extractLocations(text: string): ExtractedLocation[] {
 
     if (fromPlace && fromPlace.length > 2 && fromPlace.length < 150) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: fromPlace,
         context: "start location"
       });
@@ -61,7 +62,7 @@ export function extractLocations(text: string): ExtractedLocation[] {
 
     if (toPlace && toPlace.length > 2 && toPlace.length < 100) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: toPlace,
         context: "end location"
       });
@@ -75,7 +76,7 @@ export function extractLocations(text: string): ExtractedLocation[] {
 
     if (fromPlace && fromPlace.length > 2 && fromPlace.length < 150) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: fromPlace,
         context: "start location"
       });
@@ -83,7 +84,7 @@ export function extractLocations(text: string): ExtractedLocation[] {
 
     if (toPlace && toPlace.length > 2 && toPlace.length < 100) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: toPlace,
         context: "end location"
       });
@@ -93,15 +94,17 @@ export function extractLocations(text: string): ExtractedLocation[] {
   const startLocationRegex = /start(?:ing)?\s+(?:point|location|from|at)?[:\/\s-]+([^.\n)]+)/gi;
   const startMatches = Array.from(text.matchAll(startLocationRegex));
 
-const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+([^,\n]+?))?/gi;
+  const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+([^,\n]+?))?/gi;
   const startsAtMatches = Array.from(text.matchAll(startsAtRegex));
+  const meetAtRegex = /meet\s+at\s+([^.\n)]+)/gi;
+  const meetAtMatches = Array.from(text.matchAll(meetAtRegex));
   startsAtMatches.forEach(match => {
     const place1 = match[1]?.trim();
     const place2 = match[2]?.trim();
 
     if (place1 && place1.length > 2) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: place1,
         context: "start location"
       });
@@ -109,7 +112,7 @@ const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+
 
     if (place2 && place2.length > 2) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: place2,
         context: "start location"
       });
@@ -124,7 +127,7 @@ const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+
 
     if (place1 && place1.length > 2) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: place1,
         context: "start location"
       });
@@ -132,7 +135,7 @@ const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+
 
     if (place2 && place2.length > 2) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: place2,
         context: "start location"
       });
@@ -143,7 +146,19 @@ const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+
     place = place.replace(/^(?:at|in|on)\s+/i, "");
     if (place && place.length > 2) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
+        value: place,
+        context: "start location"
+      });
+    }
+  });
+  meetAtMatches.forEach(match => {
+    let place = match[1].trim();
+    place = place.replace(/^(?:at|in|on)\s+/i, "");
+    place = place.replace(/\s*\(.*$/, "").trim();
+    if (place && place.length > 2) {
+      locations.push({
+        type: GeocodeMatchType.PLACE_NAME,
         value: place,
         context: "start location"
       });
@@ -168,7 +183,7 @@ const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+
         endLocation = place1.replace(/bank of the\s+/, "");
       }
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: endLocation,
         context: "end location"
       });
@@ -176,7 +191,7 @@ const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+
 
     if (place2 && place2.length > 2) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: place2,
         context: "mentioned location"
       });
@@ -192,7 +207,7 @@ const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+
         endLocation = place1.replace(/bank of the\s+/, "");
       }
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: endLocation,
         context: "end location"
       });
@@ -200,7 +215,7 @@ const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+
 
     if (place2 && place2.length > 2) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: place2,
         context: "mentioned location"
       });
@@ -210,7 +225,7 @@ const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+
     const place = match[1].trim();
     if (place && place.length > 2) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: place,
         context: "end location"
       });
@@ -223,7 +238,7 @@ const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+
     const place = match[1].trim();
     if (place && place.length > 2) {
       locations.push({
-        type: "placeName",
+        type: GeocodeMatchType.PLACE_NAME,
         value: place,
         context: "parking"
       });
@@ -235,12 +250,10 @@ const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+
   ofPlaceMatches.forEach(match => {
     const place = match[1].trim();
     if (place && place.length > 3 && !isCommonWord(place)) {
-      const alreadyAdded = locations.some(l =>
-        l.type === "placeName" && l.value.includes(place)
-      );
+      const alreadyAdded = locations.some(l => l.type === GeocodeMatchType.PLACE_NAME && l.value.includes(place));
       if (!alreadyAdded) {
         locations.push({
-          type: "placeName",
+          type: GeocodeMatchType.PLACE_NAME,
           value: place,
           context: "mentioned location"
         });
@@ -270,12 +283,12 @@ export function bestLocation(locations: ExtractedLocation[]): ExtractedLocation 
     return null;
   }
 
-  const postcodes = locations.filter(l => l.type === "postcode");
+  const postcodes = locations.filter(l => l.type === GeocodeMatchType.POSTCODE);
   if (postcodes.length > 0) {
     return postcodes[0];
   }
 
-  const gridRefs = locations.filter(l => l.type === "gridReference");
+  const gridRefs = locations.filter(l => l.type === GeocodeMatchType.GRID_REFERENCE);
   if (gridRefs.length > 0) {
     return gridRefs[0];
   }

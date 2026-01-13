@@ -80,7 +80,7 @@ export class CommitteeQueryService {
     };
 
     if (groupEventsFilter.includeWalks || groupEventsFilter.includeSocialEvents) {
-      const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {["groupEvent.title"]: regex} : null;
+      const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {[GroupEventField.TITLE]: regex} : null;
       const eventQueryParameters: EventQueryParameters = {
         inputSource: InputSource.UNKNOWN,
         suppressEventLinking: true,

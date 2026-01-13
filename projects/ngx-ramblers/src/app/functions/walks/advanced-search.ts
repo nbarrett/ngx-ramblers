@@ -1,8 +1,9 @@
 import { ParamMap } from "@angular/router";
-import { isArray, isBoolean, isNull, isNumber, isUndefined } from "es-toolkit/compat";
-import { AdvancedSearchCriteria, ADVANCED_SEARCH_CRITERIA_FIELDS, WalkLeaderOption } from "../../models/search.model";
+import { isArray, isBoolean, isNull, isNumber, isUndefined, values } from "es-toolkit/compat";
+import { AdvancedSearchCriteria, AdvancedSearchFieldType, ADVANCED_SEARCH_CRITERIA_FIELDS, WalkLeaderOption } from "../../models/search.model";
 import { StoredValue } from "../../models/ui-actions";
 import { StringUtilsService } from "../../services/string-utils.service";
+import { DateUtilsService } from "../../services/date-utils.service";
 
 const DATE_STORED_VALUES: Set<StoredValue> = new Set([StoredValue.DATE_FROM, StoredValue.DATE_TO]);
 
@@ -43,7 +44,7 @@ export function advancedSearchCriteriaFromParams(params: ParamMap, stringUtils: 
       return;
     }
 
-    if (field.type === "array") {
+    if (field.type === AdvancedSearchFieldType.ARRAY) {
       const values = rawValue.split(",")
         .map(value => value.trim())
         .filter(value => value.length > 0);
@@ -59,7 +60,7 @@ export function advancedSearchCriteriaFromParams(params: ParamMap, stringUtils: 
       return;
     }
 
-    if (field.type === "boolean") {
+    if (field.type === AdvancedSearchFieldType.BOOLEAN) {
       const booleanValue = rawValue === "true";
       if (isBoolean(booleanValue)) {
         assignValue(field.key, booleanValue as AdvancedSearchCriteria[keyof AdvancedSearchCriteria]);
@@ -67,7 +68,7 @@ export function advancedSearchCriteriaFromParams(params: ParamMap, stringUtils: 
       return;
     }
 
-    if (field.type === "string") {
+    if (field.type === AdvancedSearchFieldType.STRING) {
       if (rawValue && rawValue.trim().length > 0) {
         assignValue(field.key, rawValue as AdvancedSearchCriteria[keyof AdvancedSearchCriteria]);
       }
@@ -90,7 +91,7 @@ export function advancedSearchCriteriaFromParams(params: ParamMap, stringUtils: 
   return hasAdvancedCriteria(criteria as AdvancedSearchCriteria) ? criteria as AdvancedSearchCriteria : null;
 }
 
-export function advancedCriteriaQueryParams(criteria: AdvancedSearchCriteria | null, stringUtils: StringUtilsService, leaderOptions: WalkLeaderOption[] = []): Record<string, string | number | null> {
+export function advancedCriteriaQueryParams(criteria: AdvancedSearchCriteria | null, stringUtils: StringUtilsService, dateUtils: DateUtilsService, leaderOptions: WalkLeaderOption[] = []): Record<string, string | number | null> {
   const params: Record<string, string | number | null> = {};
 
   const idToLabelMap = new Map<string, string>();
@@ -111,19 +112,19 @@ export function advancedCriteriaQueryParams(criteria: AdvancedSearchCriteria | n
   ADVANCED_SEARCH_CRITERIA_FIELDS.forEach(field => {
     const value = criteria?.[field.key];
     const queryKey = stringUtils.kebabCase(field.storedValue);
-    if (field.type === "array") {
+    if (field.type === AdvancedSearchFieldType.ARRAY) {
       if (field.key === "leaderIds" && isArray(value) && value.length > 0) {
         const labels = (value as string[]).map(id => idToLabelMap.get(id) || id);
         params[queryKey] = labels.join(",");
       } else {
         params[queryKey] = isArray(value) && value.length > 0 ? (value as string[]).join(",") : null;
       }
-    } else if (field.type === "boolean") {
+    } else if (field.type === AdvancedSearchFieldType.BOOLEAN) {
       params[queryKey] = value ? "true" : null;
-    } else if (field.type === "string") {
+    } else if (field.type === AdvancedSearchFieldType.STRING) {
       params[queryKey] = value && String(value).trim().length > 0 ? String(value) : null;
     } else if (DATE_STORED_VALUES.has(field.storedValue) && isNumber(value)) {
-      params[queryKey] = new Date(value).toISOString();
+      params[queryKey] = dateUtils.isoDateTime(value);
     } else if (isUndefined(value) || value === null || Number.isNaN(value as number)) {
       params[queryKey] = null;
     } else {
@@ -137,13 +138,13 @@ export function hasAdvancedCriteria(criteria: AdvancedSearchCriteria | null | un
   if (!criteria) {
     return false;
   }
-  return Object.values(criteria).some(value => {
+  return values(criteria).some(value => {
     if (isArray(value)) {
       return value.length > 0;
     }
     if (isBoolean(value)) {
       return value;
     }
-    return !isUndefined(value) && value !== null && value !== "";
+    return value;
   });
 }

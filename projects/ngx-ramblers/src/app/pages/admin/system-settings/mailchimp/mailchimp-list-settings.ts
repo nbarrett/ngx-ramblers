@@ -7,7 +7,8 @@ import {
   CustomMergeFieldTag,
   MailchimpConfig,
   MailchimpListingResponse,
-  MergeFieldAddResponse
+  MergeFieldAddResponse,
+  MergeFieldType
 } from "../../../../models/mailchimp.model";
 import { Confirm } from "../../../../models/ui-actions";
 import { BroadcastService } from "../../../../services/broadcast-service";
@@ -266,7 +267,7 @@ export class MailchimpListSettingsComponent implements OnInit {
             public: false,
             required: false,
             name: this.stringUtils.asTitle(tag),
-            type: "text"
+            type: MergeFieldType.TEXT
           })))
             .then((mergeFieldAddResponses: MergeFieldAddResponse[]) => {
               this.logger.info("mergeFieldAddResponses:", mergeFieldAddResponses);

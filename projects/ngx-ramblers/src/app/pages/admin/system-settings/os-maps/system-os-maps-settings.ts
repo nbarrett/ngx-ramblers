@@ -5,6 +5,7 @@ import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
+import { InputSize } from "../../../../models/ui-size.model";
 
 @Component({
   selector: "app-system-os-maps-settings",
@@ -19,7 +20,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                 <label for="os-maps-api-key">API Key</label>
                 <app-secret-input [(ngModel)]="configInternal.externalSystems.osMaps.apiKey"
                                   id="os-maps-api-key"
-                                  size="sm"
+                                  [size]="InputSize.SM"
                                   placeholder="Enter OS Maps API Key"/>
               </div>
             </div>
@@ -34,6 +35,7 @@ export class SystemOsMapsSettings implements OnInit, OnDestroy {
   configInternal: SystemConfig;
   private logger = inject(LoggerFactory).createLogger("SystemOsMapsSettings", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
+  protected readonly InputSize = InputSize;
 
   @Input({ alias: "config", required: true }) set configValue(systemConfig: SystemConfig) {
     this.configInternal = systemConfig;

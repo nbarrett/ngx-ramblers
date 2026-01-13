@@ -6,6 +6,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { SystemConfig } from "../../../models/system.model";
 import { WalkFeatureListComponent } from "./walk-edit-feature-category";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "[app-walk-edit-features]",
@@ -16,11 +17,14 @@ import { WalkFeatureListComponent } from "./walk-edit-feature-category";
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row ms-3">
         <div class="col-md-6">
-          <app-walk-edit-feature-category [featureCategory]="FeatureCategory.FACILITIES" [displayedWalk]="displayedWalk"/>
-          <app-walk-edit-feature-category [featureCategory]="FeatureCategory.TRANSPORT" [displayedWalk]="displayedWalk"/>
+          <app-walk-edit-feature-category [featureCategory]="FeatureCategory.FACILITIES" [displayedWalk]="displayedWalk"
+                                          [inputDisabled]="inputDisabled"/>
+          <app-walk-edit-feature-category [featureCategory]="FeatureCategory.TRANSPORT" [displayedWalk]="displayedWalk"
+                                          [inputDisabled]="inputDisabled"/>
         </div>
         <div class="col-md-6">
-          <app-walk-edit-feature-category [featureCategory]="FeatureCategory.ACCESSIBILITY" [displayedWalk]="displayedWalk"/>
+          <app-walk-edit-feature-category [featureCategory]="FeatureCategory.ACCESSIBILITY" [displayedWalk]="displayedWalk"
+                                          [inputDisabled]="inputDisabled"/>
         </div>
       </div>
     </div>
@@ -29,6 +33,11 @@ import { WalkFeatureListComponent } from "./walk-edit-feature-category";
 export class WalkEditFeaturesComponent implements OnInit {
   stringUtils = inject(StringUtilsService);
   dateUtils = inject(DateUtilsService);
+
+  public inputDisabled = false;
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+  }
 
   @Input() config: SystemConfig;
   @Input() displayedWalk!: DisplayedWalk;
@@ -41,7 +50,7 @@ export class WalkEditFeaturesComponent implements OnInit {
   protected readonly FeatureCategory = FeatureCategory;
 
   ngOnInit() {
-    if (!this.displayedWalk?.walk.groupEvent.accessibility) {
+    if (this.displayedWalk?.walk?.groupEvent && !this.displayedWalk.walk.groupEvent.accessibility) {
       this.displayedWalk.walk.groupEvent.accessibility = [];
     }
   }

@@ -122,6 +122,12 @@ export class GroupEventService {
     return this.eventsLatestFirst(extendedGroupEvent)?.[0];
   }
 
+  public changedItemsBetween(currentData: object, previousData: object): ChangedItem[] {
+    const current = currentData || {};
+    const previous = previousData || {};
+    return this.calculateChangedItems(current, previous);
+  }
+
   private currentPreviousData(eventsLatestFirst: WalkEvent[], extendedGroupEvent: ExtendedGroupEvent, basedOnUnsavedData: boolean): CurrentPreviousData {
     if (basedOnUnsavedData) {
       const currentData = pick(extendedGroupEvent, AUDITED_FIELDS);

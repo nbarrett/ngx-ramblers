@@ -77,3 +77,39 @@ export interface GridReferenceLookupApiResponse extends ApiResponse {
   response?: GridReferenceLookupResponse | GridReferenceLookupResponse[];
 }
 
+export enum GeocodeMatchType {
+  COORDINATES = "coordinates",
+  POSTCODE = "postcode",
+  GRID_REFERENCE = "grid-reference",
+  PLACE_NAME = "place-name",
+  TITLE_EXTRACTION = "title-extraction",
+  START_LOCATION = "start-location"
+}
+
+export enum GeocodeSourceField {
+  TITLE = "title",
+  DESCRIPTION = "description"
+}
+
+export interface GeocodeMatchData {
+  matchType: GeocodeMatchType;
+  sourceField: GeocodeSourceField;
+  sourceText: string;
+}
+
+export interface NominatimPlaceResult {
+  display_name: string;
+  lat: string;
+  lon: string;
+  importance?: number;
+  address?: {
+    postcode?: string;
+    country_code?: string;
+    county?: string;
+    state?: string;
+    region?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+  };
+}

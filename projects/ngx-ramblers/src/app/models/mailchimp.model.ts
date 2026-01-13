@@ -3,9 +3,21 @@ import { ApiResponse } from "./api-response.model";
 import { AuditStatus } from "./audit";
 import { MergeFields } from "./mail.model";
 
-type EmailType = "text"|"html";
+export const EmailType = {
+  TEXT: "text",
+  HTML: "html"
+} as const;
 
-export type Status = "subscribed" | "unsubscribed" | "cleaned" | "pending" | "transactional";
+export type EmailType = typeof EmailType[keyof typeof EmailType];
+export const Status = {
+  SUBSCRIBED: "subscribed",
+  UNSUBSCRIBED: "unsubscribed",
+  CLEANED: "cleaned",
+  PENDING: "pending",
+  TRANSACTIONAL: "transactional"
+} as const;
+
+export type Status = typeof Status[keyof typeof Status];
 
 export interface BatchListMembersBodyMembersObject {
   email_address: string;
@@ -16,13 +28,13 @@ export interface BatchListMembersBodyMembersObject {
     latitude: number;
     longtitude: number;
   };
-  tags?: string[]; // non-documented tho still available to use
+  tags?: string[];
   ip_signup?: string;
   timestamp_signup?: string;
   ip_opt?: string;
   timestamp_opt?: string;
-  language?: string; // https://mailchimp.com/help/view-and-edit-contact-languages/
-  merge_fields?: {[k: string]: string}; // https://mailchimp.com/developer/marketing/docs/merge-fields/#structure
+  language?: string;
+  merge_fields?: {[k: string]: string};
 }
 
 export interface BatchListMembersOpts {
@@ -72,12 +84,14 @@ export interface MailchimpConfig {
   };
 }
 
-export enum SubscriptionStatus {
-  SUBSCRIBED = "subscribed",
-  UNSUBSCRIBED = "unsubscribed",
-  CLEANED = "cleaned",
-  PENDING = "pending"
-}
+export const SubscriptionStatus = {
+  SUBSCRIBED: "subscribed",
+  UNSUBSCRIBED: "unsubscribed",
+  CLEANED: "cleaned",
+  PENDING: "pending"
+} as const;
+
+export type SubscriptionStatus = typeof SubscriptionStatus[keyof typeof SubscriptionStatus];
 
 export enum Frequency {
   DAILY = "daily",
@@ -153,7 +167,21 @@ export interface MailchimpCampaignDefaults {
   language: string;
 }
 
-export type MergeFieldType = "text" | "number" | "address" | "phone" | "date" | "url" | "imageurl" | "radio" | "dropdown" | "birthday" | "zip";
+export const MergeFieldType = {
+  TEXT: "text",
+  NUMBER: "number",
+  ADDRESS: "address",
+  PHONE: "phone",
+  DATE: "date",
+  URL: "url",
+  IMAGE_URL: "imageurl",
+  RADIO: "radio",
+  DROPDOWN: "dropdown",
+  BIRTHDAY: "birthday",
+  ZIP: "zip"
+} as const;
+
+export type MergeFieldType = typeof MergeFieldType[keyof typeof MergeFieldType];
 
 export interface MergeField {
   merge_id?: number;
@@ -1220,4 +1248,3 @@ interface MailchimpCampaignContentResponse {
   archive_html: string;
   _links: Link[];
 }
-

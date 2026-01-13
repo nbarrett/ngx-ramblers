@@ -406,6 +406,23 @@ describe("Advanced Search Criteria Builder", () => {
       expect(criteria[0][`${GroupEventField.FACILITIES}.description`]).toBeDefined();
     });
 
+    it("should build no location criteria requiring both coordinates missing", () => {
+      const searchCriteria: AdvancedSearchCriteria = {
+        noLocation: true
+      };
+
+      const criteria = buildAdvancedSearchCriteria({
+        advancedSearchCriteria: searchCriteria,
+        dateUtils: mockDateUtils
+      });
+
+      expect(criteria.length).toBe(1);
+      expect(criteria[0].$and).toBeDefined();
+      expect(criteria[0].$and.length).toBe(2);
+      expect(criteria[0].$and[0].$and).toBeDefined();
+      expect(criteria[0].$and[1].$and).toBeDefined();
+    });
+
     it("should build comprehensive criteria with all filters", () => {
       const searchCriteria: AdvancedSearchCriteria = {
         leaderIds: ["507f1f77bcf86cd799439011"],

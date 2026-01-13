@@ -23,12 +23,13 @@ import { Metadata } from "../../../models/ramblers-walks-manager";
           <div class="form-check">
             <input type="checkbox"
                    id="feature-{{ feature.code }}"
+                   [disabled]="inputDisabled"
                    [checked]="ramblersWalksAndEventsService.featureSelected(feature.code, displayedWalk?.walk)"
                    (change)="toggleFeature(feature.code)"
                    class="form-check-input">
             <label for="feature-{{ feature.code }}" class="form-check-label">
               <app-walk-feature [feature]="feature"
-                                [disabled]="!ramblersWalksAndEventsService.featureSelected(feature.code, displayedWalk.walk)"/>
+                                [disabled]="inputDisabled || !ramblersWalksAndEventsService.featureSelected(feature.code, displayedWalk?.walk)"/>
             </label>
           </div>
         }
@@ -44,6 +45,7 @@ export class WalkFeatureListComponent implements OnInit {
   protected categorisedFeatures: CategorisedFeatures[] = [];
   @Input() displayedWalk!: DisplayedWalk;
   @Input() featureCategory!: FeatureCategory;
+  @Input() inputDisabled = false;
   private featureKey: string;
 
   async ngOnInit() {
@@ -53,6 +55,9 @@ export class WalkFeatureListComponent implements OnInit {
   }
 
   toggleFeature(featureCode: string): void {
+    if (this.inputDisabled) {
+      return;
+    }
     const features: Metadata[] = this.displayedWalk?.walk?.groupEvent[this.featureKey];
     if (!features) {
       this.logger.info("initialising features for featureKey:", this.featureKey);

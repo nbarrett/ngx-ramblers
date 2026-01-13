@@ -176,6 +176,20 @@ interface RamblersGroup {
                               Current version: <code>{{ effectiveKey }}</code>
                           </p>
                       }
+                      @if (hasAreaGroups) {
+                          <div class="mt-3">
+                              <label class="form-label">Outlier distance cutoff (miles)</label>
+                              <input type="number"
+                                     class="form-control"
+                                     min="100"
+                                     max="2000"
+                                     step="50"
+                                     [(ngModel)]="config.area.mapOutlierMaxDistanceMiles">
+                              <div class="form-text">
+                                  Points beyond this distance from the area center are excluded from map bounds.
+                              </div>
+                          </div>
+                      }
                   </div>
               </div>
           </div>

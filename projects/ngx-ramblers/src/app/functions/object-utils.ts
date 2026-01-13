@@ -1,4 +1,4 @@
-import { isArray, isObject, isUndefined } from "es-toolkit/compat";
+import { isArray, isObject, isUndefined, keys } from "es-toolkit/compat";
 import { DeepPartial } from "../models/utility-types";
 
 export function assignDeep<T>(target: T, source?: DeepPartial<T>): T {
@@ -7,7 +7,7 @@ export function assignDeep<T>(target: T, source?: DeepPartial<T>): T {
   }
   const targetRecord = target as Record<string, any>;
   const sourceRecord = source as Record<string, any>;
-  Object.keys(sourceRecord).forEach(key => {
+  keys(sourceRecord).forEach(key => {
     const value = sourceRecord[key];
     if (isUndefined(value)) {
       return;
@@ -20,4 +20,8 @@ export function assignDeep<T>(target: T, source?: DeepPartial<T>): T {
     }
   });
   return target;
+}
+
+export function entries<T>(object: Record<string, T>): [string, T][] {
+  return keys(object).map(entryKey => [entryKey, object[entryKey]]);
 }

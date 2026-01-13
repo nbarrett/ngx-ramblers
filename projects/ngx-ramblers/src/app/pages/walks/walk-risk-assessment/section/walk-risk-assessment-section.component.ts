@@ -9,6 +9,7 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
 import { WalkChangesService } from "../../../../services/walks/walk-changes.service";
 import { WalkDisplayService } from "../../walk-display.service";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
     selector: "app-walk-risk-assessment-section",
@@ -30,34 +31,53 @@ export class WalkRiskAssessmentSectionComponent implements OnInit {
   public displayedWalk: DisplayedWalk;
   @Input()
   public riskAssessmentSection: string;
+  public inputDisabled = false;
+
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+  }
 
   confirmParameter(checked: boolean) {
+    if (this.inputDisabled) {
+      return;
+    }
     this.logger.debug("checked", this.riskAssessmentKey, "as", checked);
     const riskAssessmentRecord: RiskAssessmentRecord = this.findOrCreateRiskAssessmentRecord();
-    riskAssessmentRecord.confirmed = checked;
-    if (checked) {
-      riskAssessmentRecord.confirmationDate = this.dateUtilsService.nowAsValue();
-      riskAssessmentRecord.memberId = this.memberLoginService.loggedInMember().memberId;
+    if (riskAssessmentRecord) {
+      riskAssessmentRecord.confirmed = checked;
+      if (checked) {
+        riskAssessmentRecord.confirmationDate = this.dateUtilsService.nowAsValue();
+        riskAssessmentRecord.memberId = this.memberLoginService.loggedInMember().memberId;
+      }
+      this.logger.debug("confirmParameter", this.riskAssessmentKey, ":", riskAssessmentRecord);
+      this.walkChangesService.notifyChange(this.displayedWalk.walk);
     }
-    this.logger.debug("confirmParameter", this.riskAssessmentKey, ":", riskAssessmentRecord);
-    this.walkChangesService.notifyChange(this.displayedWalk.walk);
   }
 
   confirmParameterText(value: string) {
+    if (this.inputDisabled) {
+      return;
+    }
     const riskAssessmentRecord: RiskAssessmentRecord = this.findOrCreateRiskAssessmentRecord();
-    riskAssessmentRecord.confirmationText = value;
-    this.logger.debug("confirmParameterText", this.riskAssessmentKey, ":", riskAssessmentRecord);
-    this.walkChangesService.notifyChange(this.displayedWalk.walk);
+    if (riskAssessmentRecord) {
+      riskAssessmentRecord.confirmationText = value;
+      this.logger.debug("confirmParameterText", this.riskAssessmentKey, ":", riskAssessmentRecord);
+      this.walkChangesService.notifyChange(this.displayedWalk.walk);
+    }
   }
 
   private findOrCreateRiskAssessmentRecord(): RiskAssessmentRecord {
 
-    if (!this.displayedWalk.walk?.fields?.riskAssessment) {
-      this.displayedWalk.walk.fields.riskAssessment = [];
+    if (!this.displayedWalk?.walk?.fields?.riskAssessment) {
+      if (this.displayedWalk?.walk?.fields) {
+        this.displayedWalk.walk.fields.riskAssessment = [];
+      } else {
+        return null;
+      }
     }
 
-    const riskAssessmentRecord: RiskAssessmentRecord = this.displayedWalk?.walk?.fields.riskAssessment
-      .find(item => item.riskAssessmentKey === this.riskAssessmentKey);
+    const riskAssessmentRecord: RiskAssessmentRecord = this.displayedWalk?.walk?.fields?.riskAssessment
+      ?.find(item => item.riskAssessmentKey === this.riskAssessmentKey);
 
     if (!riskAssessmentRecord) {
       const newRecord: RiskAssessmentRecord = {
@@ -79,19 +99,25 @@ export class WalkRiskAssessmentSectionComponent implements OnInit {
   ngOnInit() {
     this.riskAssessmentKey = kebabCase(this.riskAssessmentSection);
     this.findOrCreateRiskAssessmentRecord();
-    this.walkChangesService.notifyChange(this.displayedWalk.walk);
+    if (this.displayedWalk?.walk) {
+      this.walkChangesService.notifyChange(this.displayedWalk.walk);
+    }
   }
 
   riskAssessmentConfirmed(): boolean {
-    return this.findOrCreateRiskAssessmentRecord().confirmed;
+    return this.findOrCreateRiskAssessmentRecord()?.confirmed;
   }
 
   riskAssessmentConfirmationText(): string {
-    return this.findOrCreateRiskAssessmentRecord().confirmationText || "";
+    return this.findOrCreateRiskAssessmentRecord()?.confirmationText || "";
   }
 
   confirmLabel() {
     const riskAssessmentRecord: RiskAssessmentRecord = this.findOrCreateRiskAssessmentRecord();
-    return riskAssessmentRecord.confirmed ? `${this.riskAssessmentSection} section confirmed by ${this.memberIdToFullNamePipe.transform(riskAssessmentRecord.memberId, this.display.members)} at ${this.dateUtilsService.displayDateAndTime(riskAssessmentRecord.confirmationDate)}` : `Please confirm you have reviewed ${this.riskAssessmentSection} section above`;
+    if (riskAssessmentRecord?.confirmed) {
+      return `${this.riskAssessmentSection} section confirmed by ${this.memberIdToFullNamePipe.transform(riskAssessmentRecord.memberId, this.display.members)} at ${this.dateUtilsService.displayDateAndTime(riskAssessmentRecord.confirmationDate)}`;
+    } else {
+      return `Please confirm you have reviewed ${this.riskAssessmentSection} section above`;
+    }
   }
 }

@@ -54,6 +54,12 @@ import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-g
       canActivate: [WalksPopulationLocalGuard]
     },
     {
+      path: "view/:walk-id",
+      loadComponent: () => import("../../pages/walks/walk-edit-fullpage/walk-edit-full-page.component")
+        .then(m => m.WalkEditFullPageComponent),
+      canActivate: [WalksAuthGuard]
+    },
+    {
       path: ":path",
       loadComponent: () =>
         import("../../pages/walks/walk-list/walk-view-selector").then(

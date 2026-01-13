@@ -13,6 +13,7 @@ import { sortBy } from "../../functions/arrays";
     <ng-select
       [items]="membersWithLabel"
       bindLabel="ngSelectAttributes.label"
+      [disabled]="disabled"
       [searchable]="true"
       [clearable]="true"
       dropdownPosition="bottom"
@@ -34,6 +35,7 @@ export class MemberSelector implements OnInit {
 
   @Input() selectedMember: Member | null = null;
   @Input() placeholder = "Select member";
+  @Input() disabled = false;
   @Output() selectedMemberChange = new EventEmitter<Member | null>();
 
   public membersWithLabel: MemberWithLabel[] = [];

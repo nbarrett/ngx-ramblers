@@ -14,6 +14,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
+import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 import { LocationDetails, WalkStatus } from "../../../models/ramblers-walks-manager";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { sortBy } from "../../../functions/arrays";
@@ -185,11 +186,11 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   private configureMap() {
     const {latitude, longitude} = this.locationDetails;
     const hasKey = this.hasOsApiKey();
-    const provider = hasKey ? "os" : "osm";
-    const style = hasKey ? "Leisure_27700" : "";
-    const base = this.mapTiles.createBaseLayer(provider as any, style);
-    const crs = this.mapTiles.crsForStyle(provider as any, style);
-    const maxZoom = this.mapTiles.maxZoomForStyle(provider as any, style);
+    const provider = hasKey ? MapProvider.OS : MapProvider.OSM;
+    const style = hasKey ? DEFAULT_OS_STYLE : "";
+    const base = this.mapTiles.createBaseLayer(provider, style);
+    const crs = this.mapTiles.crsForStyle(provider, style);
+    const maxZoom = this.mapTiles.maxZoomForStyle(provider, style);
     const initialZoom = Math.max(1, Math.min(15, maxZoom) - 1);
 
     let center = L.latLng(latitude, longitude);
@@ -210,7 +211,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
       maxZoom
     };
 
-    const markerIcon = this.markerStyle.markerIcon(provider as any, style, this.walkStatus);
+    const markerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
     this.layers = [
       L.marker([latitude, longitude], { draggable: !this.readonly, icon: markerIcon as any }).on("dragend", (event) =>
         this.zone.run(() => this.onMarkerDragEnd(event))
@@ -218,7 +219,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     ];
 
     if (this.showCombinedMap && this.endLocationDetails?.latitude && this.endLocationDetails?.longitude) {
-      const endMarkerIcon = this.markerStyle.markerIcon(provider as any, style, this.walkStatus);
+      const endMarkerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
       this.layers.push(
         L.marker([this.endLocationDetails.latitude, this.endLocationDetails.longitude], {
           draggable: false,

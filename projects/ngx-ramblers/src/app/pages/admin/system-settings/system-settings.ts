@@ -80,11 +80,13 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                      [rootFolder]="logos"
                      [config]="config"
                      [images]="config.logos"/>
-                <tab app-image-settings heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.IMAGES)}}"
+                <tab app-image-settings
+                     heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.IMAGES)}}"
                      [config]="config"
                      [active]="tabActive(SystemSettingsTab.IMAGES)"
                      (selectTab)="selectTab(SystemSettingsTab.IMAGES)"/>
-                <tab app-global-styles heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.STYLES)}}"
+                <tab app-global-styles
+                     heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.STYLES)}}"
                      [config]="config"
                      [active]="tabActive(SystemSettingsTab.STYLES)"
                      (selectTab)="selectTab(SystemSettingsTab.STYLES)"/>
@@ -99,7 +101,8 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                         <div class="col-md-12">
                           <div class="form-check">
                             <input [(ngModel)]="config.header.headerBar.show"
-                                   type="checkbox" class="form-check-input" id="show-header-bar">
+                                   type="checkbox" class="form-check-input"
+                                   id="show-header-bar">
                             <label class="form-check-label"
                                    for="show-header-bar">Show
                             </label>
@@ -112,7 +115,8 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                                    type="checkbox" class="form-check-input"
                                    id="show-header-bar-login-links-and-site-edit">
                             <label class="form-check-label"
-                                   for="show-header-bar-login-links-and-site-edit">Show Login Links and Site Edit
+                                   for="show-header-bar-login-links-and-site-edit">Show Login
+                              Links and Site Edit
                             </label>
                           </div>
                         </div>
@@ -120,7 +124,8 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                           <div class="form-check">
                             <input [(ngModel)]="config.header.headerBar.showNavigationButtons"
                                    [disabled]="!config.header.headerBar.show"
-                                   type="checkbox" class="form-check-input" id="show-header-bar-buttons">
+                                   type="checkbox" class="form-check-input"
+                                   id="show-header-bar-buttons">
                             <label class="form-check-label"
                                    for="show-header-bar-buttons">Show Header Buttons
                             </label>
@@ -134,7 +139,8 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                         <div class="col-md-12">
                           <div class="form-check">
                             <input [(ngModel)]="config.header.rightPanel.show"
-                                   type="checkbox" class="form-check-input" id="show-right-panel">
+                                   type="checkbox" class="form-check-input"
+                                   id="show-right-panel">
                             <label class="form-check-label"
                                    for="show-right-panel">Show
                             </label>
@@ -144,7 +150,8 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                           <div class="form-check">
                             <input [(ngModel)]="config.header.rightPanel.showNavigationButtons"
                                    [disabled]="!config.header.rightPanel.show"
-                                   type="checkbox" class="form-check-input" id="show-header-buttons">
+                                   type="checkbox" class="form-check-input"
+                                   id="show-header-buttons">
                             <label class="form-check-label"
                                    for="show-header-buttons">Show Header Buttons
                             </label>
@@ -154,9 +161,11 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                           <div class="form-check">
                             <input [(ngModel)]="config.header.rightPanel.showLoginLinksAndSiteEdit"
                                    [disabled]="!config.header.rightPanel.show"
-                                   type="checkbox" class="form-check-input" id="show-login-links-and-site-edit">
+                                   type="checkbox" class="form-check-input"
+                                   id="show-login-links-and-site-edit">
                             <label class="form-check-label"
-                                   for="show-login-links-and-site-edit">Show Login Links and Site Edit
+                                   for="show-login-links-and-site-edit">Show Login Links and
+                              Site Edit
                             </label>
                           </div>
                         </div>
@@ -164,7 +173,8 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                           <div class="form-check mb-3">
                             <input [(ngModel)]="config.header.rightPanel.socialMediaLinks.show"
                                    [disabled]="!config.header.rightPanel.show"
-                                   type="checkbox" class="form-check-input" id="show-social-media-links">
+                                   type="checkbox" class="form-check-input"
+                                   id="show-social-media-links">
                             <label class="form-check-label"
                                    for="show-social-media-links">Show Social Media Links
                             </label>
@@ -179,9 +189,10 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                             </div>
                             <div class="col-md-6">
                               <label>Colour</label>
-                              <app-colour-selector [itemWithClassOrColour]="config.header.rightPanel.socialMediaLinks"
-                                                   [disabled]="!config.header.rightPanel.socialMediaLinks.show"
-                                                   [colours]="colourSelectors" noLabel/>
+                              <app-colour-selector
+                                [itemWithClassOrColour]="config.header.rightPanel.socialMediaLinks"
+                                [disabled]="!config.header.rightPanel.socialMediaLinks.show"
+                                [colours]="colourSelectors" noLabel/>
                             </div>
                           </div>
                         </div>
@@ -258,7 +269,8 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                           <div class="col-md-6">
                             <div class="form-check">
                               <input [(ngModel)]="config.externalSystems.meetup.showFooterLink"
-                                     type="checkbox" class="form-check-input" id="meetup-show-footer-link">
+                                     type="checkbox" class="form-check-input"
+                                     id="meetup-show-footer-link">
                               <label class="form-check-label"
                                      for="meetup-show-footer-link">Show Meetup
                               </label>
@@ -288,7 +300,8 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                           <div class="col-md-6">
                             <div class="form-check">
                               <input [(ngModel)]="config.externalSystems.instagram.showFooterLink"
-                                     type="checkbox" class="form-check-input" id="instagram-show-footer-link">
+                                     type="checkbox" class="form-check-input"
+                                     id="instagram-show-footer-link">
                               <label class="form-check-label"
                                      for="instagram-show-footer-link">Show Instagram
                               </label>
@@ -326,9 +339,9 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                     </div>
                   </div>
                 </tab>
-                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.AREA_MAP_SYNC)}}"
-                     [active]="tabActive(SystemSettingsTab.AREA_MAP_SYNC)"
-                     (selectTab)="selectTab(SystemSettingsTab.AREA_MAP_SYNC)">
+                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.MAPS)}}"
+                     [active]="tabActive(SystemSettingsTab.MAPS)"
+                     (selectTab)="selectTab(SystemSettingsTab.MAPS)">
                   <app-area-map-sync-settings [config]="config" (busyChange)="areaMapSyncBusy=$event"/>
                 </tab>
                 <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.EXTERNAL_SYSTEMS)}}"
@@ -364,13 +377,17 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
           <div class="col-sm-12">
             <div class="col-sm-12">
               <input type="submit" value="Save settings and exit" (click)="saveAndExit()"
-                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady() || areaMapSyncBusy">
+                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'"
+                     [disabled]="notReady() || areaMapSyncBusy">
               <input type="submit" value="Save" (click)="save()"
-                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady() || areaMapSyncBusy">
+                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'"
+                     [disabled]="notReady() || areaMapSyncBusy">
               <input type="submit" value="Undo Changes" (click)="undoChanges()"
-                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady() || areaMapSyncBusy">
+                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'"
+                     [disabled]="notReady() || areaMapSyncBusy">
               <input type="submit" value="Exit Without Saving" (click)="cancel()"
-                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady() || areaMapSyncBusy">
+                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'"
+                     [disabled]="notReady() || areaMapSyncBusy">
             </div>
           </div>
         </div>

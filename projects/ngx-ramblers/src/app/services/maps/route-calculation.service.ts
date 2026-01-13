@@ -4,6 +4,8 @@ import { Observable, throwError } from "rxjs";
 import { catchError, map } from "rxjs/operators";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
+import { DateUtilsService } from "../date-utils.service";
+import { RouteProfile } from "../../models/route-calculation.model";
 
 export interface RoutePoint {
   latitude: number;
@@ -33,10 +35,11 @@ export interface CalculatedRoute {
 export class RouteCalculationService {
   private http = inject(HttpClient);
   private logger: Logger = inject(LoggerFactory).createLogger("RouteCalculationService", NgxLoggerLevel.ERROR);
+  private dateUtils = inject(DateUtilsService);
 
   private readonly ORS_API_URL = "https://api.openrouteservice.org/v2/directions";
 
-  calculateWalkingRoute(waypoints: RoutePoint[], profile: "foot-walking" | "foot-hiking" = "foot-hiking", apiKey?: string): Observable<CalculatedRoute> {
+  calculateWalkingRoute(waypoints: RoutePoint[], profile: RouteProfile = RouteProfile.FOOT_HIKING, apiKey?: string): Observable<CalculatedRoute> {
     if (waypoints.length < 2) {
       return throwError(() => new Error("At least 2 waypoints required"));
     }
@@ -113,7 +116,7 @@ export class RouteCalculationService {
   }
 
   routeToGpx(route: CalculatedRoute, name: string, description?: string): string {
-    const timestamp = new Date().toISOString();
+    const timestamp = this.dateUtils.isoDateTimeNow();
 
     let gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="ngx-ramblers" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">

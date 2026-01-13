@@ -1,9 +1,9 @@
 @if (config) {
   <label class="control-label" for="default-prefix">Description prefix: </label>
   <select class="form-control input-sm"
+          [disabled]="inputDisabled"
           [(ngModel)]="config.defaultContent"
           (ngModelChange)="changeDefaultContent($event)"
-          class="form-control"
           id="default-prefix">
     @for (contentTextItem of contentTextItems; track contentTextItem.id) {
       <option
@@ -14,8 +14,8 @@
   </select>
   <label class="control-label mt-2" for="publish-status">Create as:</label>
   <select class="form-control"
-          [(ngModel)]="config.publishStatus"
-          class="form-control" id="publish-status">
+          [disabled]="inputDisabled"
+          [(ngModel)]="config.publishStatus" id="publish-status">
     @for (publishStatus of publishStatuses; track publishStatus) {
       <option
         [ngValue]="publishStatus"
@@ -25,9 +25,10 @@
   </select>
   <label class="control-label mt-2" for="guest-limit">RSVP limit:</label>
   <select class="form-control"
+          [disabled]="inputDisabled"
           [(ngModel)]="config.guestLimit"
           (ngModelChange)="changeGuestLimit($event)"
-          class="form-control" id="guest-limit">
+          id="guest-limit">
     @for (guestLimit of guestLimits; track guestLimit) {
       <option
         [ngValue]="guestLimit"
@@ -37,6 +38,7 @@
   </select>
   <div class="form-check mt-2">
     <input [(ngModel)]="config.announce"
+           [disabled]="inputDisabled"
            name="showDetail" class="form-check-input" type="checkbox" id="announce">
     <label class="form-check-label"
            for="announce">Announce

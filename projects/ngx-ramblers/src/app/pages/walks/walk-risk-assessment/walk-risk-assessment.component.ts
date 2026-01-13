@@ -12,31 +12,39 @@ import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-edito
 import { WalkRiskAssessmentSectionComponent } from "./section/walk-risk-assessment-section.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
     selector: "app-walk-risk-assessment",
     template: `
       <div class="img-thumbnail thumbnail-admin-edit">
         <app-markdown-editor standalone [category]="'risk-assessments'" [name]="'risk-assessments-heading'"
+                             [presentationMode]="inputDisabled"
+                             [hideEditToggle]="inputDisabled"
                              [description]="'Risk Assessments Heading'"/>
         <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
-                                          [riskAssessmentSection]="'Traffic'">
+                                          [riskAssessmentSection]="'Traffic'"
+                                          [inputDisabled]="inputDisabled">
 
         </app-walk-risk-assessment-section>
         <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
-                                          [riskAssessmentSection]="'Path surface and obstacles'">
+                                          [riskAssessmentSection]="'Path surface and obstacles'"
+                                          [inputDisabled]="inputDisabled">
 
         </app-walk-risk-assessment-section>
         <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
-                                          [riskAssessmentSection]="'Animals'">
+                                          [riskAssessmentSection]="'Animals'"
+                                          [inputDisabled]="inputDisabled">
 
         </app-walk-risk-assessment-section>
         <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
-                                          [riskAssessmentSection]="'Communications'">
+                                          [riskAssessmentSection]="'Communications'"
+                                          [inputDisabled]="inputDisabled">
 
         </app-walk-risk-assessment-section>
         <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
-                                          [riskAssessmentSection]="'Other'">
+                                          [riskAssessmentSection]="'Other'"
+                                          [inputDisabled]="inputDisabled">
         </app-walk-risk-assessment-section>
         <div class="form-group">
           @if (notifyTarget.showAlert) {
@@ -65,11 +73,18 @@ export class WalkRiskAssessmentComponent implements OnInit, OnDestroy {
 
   @Input()
   public displayedWalk: DisplayedWalk;
+  public inputDisabled = false;
+
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+  }
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.walkChangesService.notifications().subscribe(walk => this.updateCompletionStatus(walk)));
-    this.updateCompletionStatus(this.displayedWalk.walk);
+    if (this.displayedWalk?.walk) {
+      this.updateCompletionStatus(this.displayedWalk.walk);
+    }
   }
 
   ngOnDestroy(): void {
@@ -78,10 +93,12 @@ export class WalkRiskAssessmentComponent implements OnInit, OnDestroy {
 
   private updateCompletionStatus(walk: ExtendedGroupEvent) {
     this.logger.debug("updateCompletionStatus:walk:", walk);
-    if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk.fields.riskAssessment)) {
-      this.notify.warning(this.riskAssessmentService.warningMessage(walk.fields.riskAssessment));
-    } else {
-      this.notify.success(this.riskAssessmentService.successMessage(walk.fields.riskAssessment));
+    if (walk?.fields?.riskAssessment) {
+      if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk.fields.riskAssessment)) {
+        this.notify.warning(this.riskAssessmentService.warningMessage(walk.fields.riskAssessment));
+      } else {
+        this.notify.success(this.riskAssessmentService.successMessage(walk.fields.riskAssessment));
+      }
     }
   };
 }

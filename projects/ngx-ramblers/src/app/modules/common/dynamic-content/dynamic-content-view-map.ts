@@ -32,7 +32,7 @@ import { UrlService } from "../../../services/url.service";
 import { FileNameData, ServerFileNameData } from "../../../models/aws-object.model";
 import { MapControls, MapControlsConfig, MapControlsState } from "../../../shared/components/map-controls";
 import { MapOverlay } from "../../../shared/components/map-overlay";
-import { MapProvider, MapRouteViewModel, RouteGpxData, TrackWithBounds } from "../../../models/map.model";
+import { DEFAULT_OS_STYLE, MapProvider, MapRouteViewModel, RouteGpxData, TrackWithBounds } from "../../../models/map.model";
 import { isUndefined } from "es-toolkit/compat";
 import { MarkdownComponent } from "ngx-markdown";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -42,11 +42,13 @@ import { faExclamationTriangle, faSearch, faTimes } from "@fortawesome/free-soli
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { AlertModule } from "ngx-bootstrap/alert";
 import { FormsModule } from "@angular/forms";
-import { AutocompleteSuggestion, SpatialFeaturesService } from "../../../services/spatial-features.service";
+import { AutocompleteSuggestion } from "../../../models/spatial-features.model";
+import { SpatialFeaturesService } from "../../../services/spatial-features.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { GeocodeResult } from "../../../models/map.model";
 import { NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { NumberUtilsService } from "../../../services/number-utils.service";
+import { DateUtilsService } from "../../../services/date-utils.service";
 
 @Component({
   selector: "app-dynamic-content-view-map",
@@ -444,6 +446,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   public selectedLocation: GeocodeResult | null = null;
   public selectedPath: AutocompleteSuggestion | null = null;
   public numberUtils = inject(NumberUtilsService);
+  private dateUtils = inject(DateUtilsService);
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.ERROR);
   private mapTiles = inject(MapTilesService);
   private mapMarkerStyle = inject(MapMarkerStyleService);
@@ -490,8 +493,8 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   };
 
   public mapControlsState: MapControlsState = {
-    provider: "osm",
-    osStyle: "Leisure_27700",
+    provider: MapProvider.OSM,
+    osStyle: DEFAULT_OS_STYLE,
     mapHeight: 500
   };
 
@@ -690,8 +693,8 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     this.mapTilesService.syncMarkersFromLocation(this.pageContent, this.row);
     this.refreshRouteCollections(true);
     this.mapHeight = this.row.map?.mapHeight || 500;
-    const provider = (this.row.map?.provider || "osm") as MapProvider;
-    const osStyle = this.row.map?.osStyle || "Leisure_27700";
+    const provider = (this.row.map?.provider as MapProvider) || MapProvider.OSM;
+    const osStyle = this.row.map?.osStyle || DEFAULT_OS_STYLE;
     this.allowControlsToggle = this.row.map?.allowControlsToggle !== false;
     const showDefault = this.row.map?.showControlsDefault;
     this.showControls = isUndefined(showDefault) ? true : showDefault;
@@ -955,7 +958,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
         } catch (error) {
           this.logger.warn("Map not fully initialized, skipping bounds check:", error);
         }
-        const startTime = Date.now();
+        const startTime = this.dateUtils.dateTimeNowAsValue();
 
         const tracksWithBounds: TrackWithBounds[] = parsedGpx.tracks.map(track => {
           const latLngs = this.gpxParser.toLeafletLatLngs(track);
@@ -963,7 +966,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
           return { track, bounds };
         });
 
-        const processingTime = Date.now() - startTime;
+        const processingTime = this.dateUtils.dateTimeNowAsValue() - startTime;
         this.logger.info(`Processed ${parsedGpx.tracks.length} tracks in ${processingTime}ms for ${route.name}`);
 
         if (currentBounds && this.useViewportFiltering) {
@@ -999,11 +1002,11 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
         northeast: {lat: currentBounds.getNorth(), lng: currentBounds.getEast()}
       };
 
-      const startTime = Date.now();
+      const startTime = this.dateUtils.dateTimeNowAsValue();
       const response = await firstValueFrom(
         this.spatialFeaturesService.queryViewport(route.spatialRouteId, bounds, this.searchTerm)
       );
-      const queryTime = Date.now() - startTime;
+      const queryTime = this.dateUtils.dateTimeNowAsValue() - startTime;
 
       this.logger.info(`MongoDB query returned ${response.features.length} features in ${queryTime}ms for ${route.name}`);
 
@@ -1218,7 +1221,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       return;
     }
     this.logger.info("applyOverlayConfigFromEditor: received config", config);
-    const provider = (config.provider || this.mapControlsState.provider) as MapProvider;
+    const provider = (config.provider as MapProvider) || this.mapControlsState.provider;
     const style = config.osStyle || this.mapControlsState.osStyle;
     const providerChanged = provider !== this.mapControlsState.provider;
     const styleChanged = style !== this.mapControlsState.osStyle;
@@ -1482,8 +1485,8 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   private createStandaloneMarkers(markers: MapMarker[]): L.Layer[] {
-    const provider = (this.row.map?.provider || "osm") as "osm" | "os";
-    const osStyle = this.row.map?.osStyle || "Leisure_27700";
+    const provider = (this.row.map?.provider as MapProvider) || MapProvider.OSM;
+    const osStyle = this.row.map?.osStyle || DEFAULT_OS_STYLE;
     const icon = this.mapMarkerStyle.markerIcon(provider, osStyle);
     return markers.map(marker => {
       const latlng: [number, number] = [marker.latitude, marker.longitude];
@@ -1542,8 +1545,8 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       return markers;
     }
 
-    const provider = (this.row.map?.provider || "osm") as "osm" | "os";
-    const osStyle = this.row.map?.osStyle || "Leisure_27700";
+    const provider = (this.row.map?.provider as MapProvider) || MapProvider.OSM;
+    const osStyle = this.row.map?.osStyle || DEFAULT_OS_STYLE;
     const icon = this.mapMarkerStyle.markerIcon(provider, osStyle);
 
     let unnamedIndex = 1;

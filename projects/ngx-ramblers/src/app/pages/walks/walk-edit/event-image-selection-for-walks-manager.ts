@@ -14,6 +14,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { HasBasicEventSelection } from "../../../models/search.model";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { GroupSelector } from "./group-selector";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-walk-images-selection-walks-manager",
@@ -27,6 +28,7 @@ import { GroupSelector } from "./group-selector";
       <app-group-selector label="Import images from a walk in another Ramblers Group"
                           [groupCode]="groupEvent.fields.imageConfig.importFrom.groupCode"
                           [areaCode]="groupEvent.fields.imageConfig.importFrom.areaCode"
+                          [disabled]="inputDisabled"
                           (groupChanged)="groupChange($event)"/>
       <div class="form-group">
         <label for="walk-filter">Walk Selection</label>
@@ -34,6 +36,7 @@ import { GroupSelector } from "./group-selector";
                 [(ngModel)]="groupEvent.fields.imageConfig.importFrom.filterParameters.selectType"
                 (ngModelChange)="refreshRamblersWalks()"
                 name="selectType"
+                [disabled]="inputDisabled"
                 class="form-control rounded">
           @for (filter of walksFilter(); track filter.value) {
             <option [ngValue]="filter.value" [selected]="filter.selected">
@@ -49,6 +52,7 @@ import { GroupSelector } from "./group-selector";
                      [items]="eventsForSelect"
                      bindLabel="ngSelectAttributes.label"
                      bindValue="groupEvent.id"
+                     [disabled]="inputDisabled"
                      [placeholder]="'Select a walk - type part of title to filter items'"
                      [dropdownPosition]="'bottom'"
                      [clearAllText]="'clear current selection'"
@@ -71,6 +75,11 @@ export class EventImageSelectionForWalksManager implements OnInit {
   public eventsForSelect: ExtendedGroupEventWithLabel[] = [];
   public event: ExtendedGroupEventWithLabel;
   @Input() groupEvent!: ExtendedGroupEvent;
+  public inputDisabled = false;
+
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+  }
 
   async ngOnInit() {
   }

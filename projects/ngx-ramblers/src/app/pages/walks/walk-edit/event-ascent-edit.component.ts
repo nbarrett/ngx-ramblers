@@ -19,7 +19,7 @@ import { AscentValidationService } from "../../../services/walks/ascent-validati
                type="number" class="form-control input-sm ascent-input" [id]="id"
                placeholder="Enter Ascent">
       }
-      <select [(ngModel)]="ascentUnit" (ngModelChange)="onUnitChange($event)"
+      <select [disabled]="disabled" [(ngModel)]="ascentUnit" (ngModelChange)="onUnitChange($event)"
               class="form-control input-sm">
         <option [value]="DistanceUnit.FEET">{{ DistanceUnit.FEET }}</option>
         <option [value]="DistanceUnit.METRES">{{ DistanceUnit.METRES }}</option>

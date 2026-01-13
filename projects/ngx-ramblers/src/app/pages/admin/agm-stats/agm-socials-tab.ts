@@ -6,6 +6,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AGMSummaryTableComponent } from "./agm-summary-table";
 import {
+  AgmChartType,
   ChangeClassFn,
   GetYearLabelFn,
   SortedRowsFn,
@@ -166,7 +167,7 @@ export class AGMSocialsTabComponent implements AfterViewInit, OnChanges {
   @Input() toDate: number;
   @Input() socialChartData: ChartConfiguration["data"];
   @Input() chartOptions: ChartConfiguration["options"];
-  @Input() chartType: "bar" | "line";
+  @Input() chartType: AgmChartType;
   @Input() aggregatedSocialEvents: SocialRow[] = [];
   @Input() organisers: Array<{ id: string; name: string; eventCount: number }> = [];
   @Input() sortedRowsFn: SortedRowsFn;

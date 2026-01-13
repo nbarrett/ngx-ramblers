@@ -7,6 +7,7 @@ import {
   DEFAULT_GALLERY_OPTIONS,
   PageContent,
   PageContentRow,
+  ThumbPosition,
   View
 } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -372,7 +373,7 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   @Input()
   public pageContent: PageContent;
   enumKeyValuesForAlbumView: KeyValue<string>[] = enumKeyValues(AlbumView);
-  thumbPositions: string[] = ["top", "left", "right", "bottom"];
+  thumbPositions: ThumbPosition[] = [ThumbPosition.TOP, ThumbPosition.LEFT, ThumbPosition.RIGHT, ThumbPosition.BOTTOM];
   faPencil = faPencil;
   groupEventType: GroupEventType;
   protected readonly faChevronRight = faChevronRight;

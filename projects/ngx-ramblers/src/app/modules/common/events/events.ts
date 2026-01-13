@@ -134,7 +134,7 @@ export class Events implements OnInit, OnDestroy {
 
   private queryAndReturnEvents(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
     const eventQueryParameters: EventQueryParameters = {
-      inputSource: this.walkDisplayService.walkPopulationLocal() ? InputSource.MANUALLY_CREATED : InputSource.WALKS_MANAGER_IMPORT,
+      inputSource: this.walkDisplayService.walkPopulationLocal() ? InputSource.MANUALLY_CREATED : InputSource.WALKS_MANAGER_CACHE,
       suppressEventLinking: false,
       types: this?.eventsData?.eventTypes || [RamblersEventType.GROUP_EVENT],
       dataQueryOptions

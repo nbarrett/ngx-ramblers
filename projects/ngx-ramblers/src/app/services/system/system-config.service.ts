@@ -196,6 +196,7 @@ export class SystemConfigService {
       allowSwitchWalkView: false,
       walkContactDetailsPublic: true,
       socialDetailsPublic: true,
+      mapOutlierMaxDistanceMiles: 800,
       href: null,
       longName: null,
       pages: [],

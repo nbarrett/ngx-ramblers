@@ -20,6 +20,7 @@ import { EditMode } from "../../models/ui-actions";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventDefaultsService } from "../../services/event-defaults.service";
 import { isNull, isObject, isUndefined } from "es-toolkit/compat";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "[app-edit-group-event-images]",
@@ -39,6 +40,7 @@ import { isNull, isObject, isUndefined } from "es-toolkit/compat";
                              name="image-source"
                              type="radio"
                              [value]="source.key"
+                             [disabled]="inputDisabled"
                              (ngModelChange)="imageSourceChanged($event)"
                              [(ngModel)]="extendedGroupEvent.fields.imageConfig.source"/>
                       <label class="form-check-label"
@@ -54,11 +56,12 @@ import { isNull, isObject, isUndefined } from "es-toolkit/compat";
           @if (extendedGroupEvent?.fields?.imageConfig?.source === ImageSource.LOCAL) {
             <input id="add-image-{{extendedGroupEvent.id}}" type="submit"
                    value="add"
+                   [disabled]="inputDisabled"
                    (click)="createNewImage()"
                    class="btn btn-primary">
           }
           @if (extendedGroupEvent?.fields?.imageConfig?.source === ImageSource.WALKS_MANAGER) {
-            <app-walk-images-selection-walks-manager [groupEvent]="extendedGroupEvent"/>
+            <app-walk-images-selection-walks-manager [groupEvent]="extendedGroupEvent" [inputDisabled]="inputDisabled"/>
           }
         </div>
         <div class="col-md-6">
@@ -66,12 +69,12 @@ import { isNull, isObject, isUndefined } from "es-toolkit/compat";
             <div class="col-sm-12">
               @if (extendedGroupEvent?.groupEvent?.media?.length > 0 || awsFileData?.image) {
                 <app-group-event-images [imagePreview]="awsFileData?.image" [extendedGroupEvent]="extendedGroupEvent"
-                                 (mediaChanged)="mediaChanged($event)" allowEditImage/>
+                                 (mediaChanged)="mediaChanged($event)" [allowEditImage]="!inputDisabled"/>
               }
             </div>
           </div>
         </div>
-        @if (editMode) {
+        @if (editMode && !inputDisabled) {
           <div class="col-sm-12 mt-4">
             <app-image-cropper-and-resizer wrapButtons
                                            [rootFolder]="rootFolder"
@@ -98,6 +101,10 @@ export class EditGroupEventImagesComponent implements OnInit {
   @Input() rootFolder: RootFolder;
   @Input() private notify: AlertInstance;
   @Input({transform: booleanAttribute}) public disallowImageSourceSelection = false;
+  public inputDisabled = false;
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+  }
   imageSources: KeyValue<string>[] = enumKeyValues(ImageSource);
   ImageSource = ImageSource;
   public editMode: EditMode;
@@ -107,6 +114,9 @@ export class EditGroupEventImagesComponent implements OnInit {
 
   async ngOnInit() {
     this.logger.info("constructed with:config:", this.config, "this.groupEvent:", this.extendedGroupEvent, "disallowImageSourceSelection:", this.disallowImageSourceSelection);
+    if (!this.extendedGroupEvent?.fields) {
+      return;
+    }
     const defaultImageConfig = this.eventDefaultsService.defaultImageConfig(this.disallowImageSourceSelection ? ImageSource.LOCAL : ImageSource.NONE);
     if (!this.extendedGroupEvent.fields.imageConfig) {
       this.logger.info("creating default value for imageConfig:", defaultImageConfig);
@@ -149,6 +159,9 @@ export class EditGroupEventImagesComponent implements OnInit {
   }
 
   createNewImage() {
+    if (this.inputDisabled) {
+      return;
+    }
     this.editMode = EditMode.ADD_NEW;
     this.awsFileData = null;
     this.media = null;
@@ -178,6 +191,9 @@ export class EditGroupEventImagesComponent implements OnInit {
   }
 
   mediaChanged(media: Media) {
+    if (this.inputDisabled) {
+      return;
+    }
     this.logger.info("mediaChanged:", media);
     this.editMode = media ? EditMode.EDIT : null;
     this.media = media;

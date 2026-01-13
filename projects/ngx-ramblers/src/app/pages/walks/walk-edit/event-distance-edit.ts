@@ -27,7 +27,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
                type="number" step="0.25" class="form-control input-sm distance-input" id="distance-miles-{{id}}"
                placeholder="Enter Distance in miles here">
       }
-      <select [(ngModel)]="distanceUnit" (ngModelChange)="onUnitChange($event)"
+      <select [disabled]="disabled" [(ngModel)]="distanceUnit" (ngModelChange)="onUnitChange($event)"
               class="form-control input-sm">
         <option [value]="DistanceUnit.MILES">{{ DistanceUnit.MILES }}</option>
         <option [value]="DistanceUnit.KILOMETRES">{{ DistanceUnit.KILOMETRES }}</option>

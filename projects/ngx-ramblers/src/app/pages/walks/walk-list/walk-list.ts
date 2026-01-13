@@ -42,7 +42,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { WalkCardListComponent } from "../walk-view/walk-card-list";
-import { WalksMapViewComponent } from "./walks-map-view";
+import { WalksMapView } from "./walks-map-view";
 import { WalkViewComponent } from "../walk-view/walk-view";
 import { WalkEditComponent } from "../walk-edit/walk-edit.component";
 import { NgClass } from "@angular/common";
@@ -241,9 +241,9 @@ import { advancedCriteriaQueryParams } from "../../../functions/walks/advanced-s
         <app-dynamic-content [anchor]="BuiltInAnchor.ACTION_BUTTONS" contentPathReadOnly/>
       </app-page>
     `,
-    styleUrls: ["./walk-list.component.sass"],
+    styleUrls: ["./walk-list.sass"],
     changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, DynamicContentComponent, WalkSearch, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, PaginationComponent, FormsModule, WalkCardListComponent, WalkViewComponent, WalkEditComponent, NgClass, WalkGradingComponent, TooltipDirective, WalkPanelExpanderComponent, DisplayDatePipe, DisplayTimePipe, WalksMapViewComponent]
+  imports: [PageComponent, DynamicContentComponent, WalkSearch, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, PaginationComponent, FormsModule, WalkCardListComponent, WalkViewComponent, WalkEditComponent, NgClass, WalkGradingComponent, TooltipDirective, WalkPanelExpanderComponent, DisplayDatePipe, DisplayTimePipe, WalksMapView]
 })
 export class WalkList implements OnInit, OnDestroy {
 
@@ -464,7 +464,7 @@ export class WalkList implements OnInit, OnDestroy {
 
   query() {
     return this.walksAndEventsService.all({
-      inputSource: this.display.walkPopulationLocal() ? InputSource.MANUALLY_CREATED : InputSource.WALKS_MANAGER_IMPORT,
+      inputSource: this.display.walkPopulationLocal() ? InputSource.MANUALLY_CREATED : InputSource.WALKS_MANAGER_CACHE,
       suppressEventLinking: false,
       types: [RamblersEventType.GROUP_WALK],
       dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions(this.filterParameters)
@@ -479,7 +479,7 @@ export class WalkList implements OnInit, OnDestroy {
     this.useServerSideSearch = true;
     if (shouldResetPage) {
       this.pageNumber = 1;
-      const criteriaParams = advancedCriteriaQueryParams(criteria, this.stringUtils);
+      const criteriaParams = advancedCriteriaQueryParams(criteria, this.stringUtils, this.dateUtils);
       this.replaceQueryParams({
         [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1,
         ...criteriaParams
@@ -573,7 +573,8 @@ export class WalkList implements OnInit, OnDestroy {
       const advancedCriteria = buildAdvancedSearchCriteria({
         advancedSearchCriteria: this.advancedSearchCriteria,
         dateUtils: this.dateUtils,
-        walkPopulationLocal: this.display.walkPopulationLocal()
+        walkPopulationLocal: this.display.walkPopulationLocal(),
+        logger: this.logger
       });
 
       this.logger.info("Built advanced criteria parts:", advancedCriteria);
@@ -668,7 +669,7 @@ export class WalkList implements OnInit, OnDestroy {
       this.notify.progress(`Refreshing ${this.stringUtils.asTitle(this.display?.group?.walkPopulation)} walks...`, true);
       return this.query()
         .then(walks => {
-          this.display.setNextWalkId(walks);
+          this.display.setNextWalkId();
           this.queryGroups(walks);
           this.logger.info("refreshWalks", "hasWalksId", this.currentWalkId, "walks:", walks);
           this.applyWalks(this.currentWalkId || this.filterParameters.selectType === FilterCriteria.ALL_EVENTS ? walks : this.extendedGroupEventQueryService.activeEvents(walks));
