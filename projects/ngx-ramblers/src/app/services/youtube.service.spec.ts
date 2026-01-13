@@ -35,6 +35,7 @@ describe("YouTubeService", () => {
       expect(service.extractVideoId("https://www.youtube.com/watch?v=-sltmkQkoUs")).toBe("-sltmkQkoUs");
       expect(service.extractVideoId("http://youtube.com/watch?v=dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
       expect(service.extractVideoId("https://youtube.com/watch?v=abc123DEF_-&t=120")).toBe("abc123DEF_-");
+      expect(service.extractVideoId("https://www.youtube.com/watch?v=2N1-m2e9nqw")).toBe("2N1-m2e9nqw");
     });
 
     it("should extract video ID from youtube.com embed URLs", () => {

@@ -21,7 +21,9 @@ These rules MUST be followed in EVERY session without exception:
 
 ### 3. FILE OPERATIONS
 - **Always free to write/edit existing files and create new files** - no confirmation needed
-- **NEVER commit or push without being explicitly asked**
+- **NEVER commit without explicit user request** - user must say "commit" or similar
+- **NEVER push without explicit user request** - user must say "push" or similar
+- **NEVER proactively commit and push together** - wait for each to be requested separately
 
 ### 4. CODE STYLE
 - **Always use double quotes** `"` not single quotes `'` for strings
@@ -115,13 +117,18 @@ A `commit-msg` hook is automatically installed during `npm install` that **block
 **Manual Installation:**
 If hooks are not installed, run: `npm run setup:hooks`
 
+**Git Operations - EXPLICIT PERMISSION REQUIRED:**
+- **NEVER commit without explicit user request** - Wait for the user to say "commit", "please commit", etc.
+- **NEVER push without explicit user request** - Wait for the user to say "push", "push to pre-main", etc.
+- **NEVER combine commit and push** unless the user explicitly requests both in the same message
+- Writing/editing files is allowed without permission, but git operations require explicit approval
+
 **Commit Message Rules:**
 - **NEVER** add AI assistant attribution lines to commit messages. This includes:
   - ❌ `🤖 Generated with [Claude Code](https://claude.ai/code)`
   - ❌ `Co-Authored-By: Claude <noreply@anthropic.com>`
   - ❌ Any similar AI tool attribution
 - Do not include literal escape sequences like `\n` in commit messages. Use real new lines. When scripting commits, pass multiple `-m` flags instead of embedding `\n`.
-- Do not commit or push by default but feel free to write to existing and add any new files without needing to confirm this
 
 ### Semantic Commit Conventions
 Use [Conventional Commits](https://www.conventionalcommits.org/) format for clear, categorized commit history:
