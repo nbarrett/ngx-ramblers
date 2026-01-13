@@ -10,3 +10,8 @@ export interface HtmlFetchResult {
 export interface BrowserContext {
   browser: WebdriverIO.Browser;
 }
+
+export enum ExtractedContentKind {
+  TEXT = "text",
+  IMAGE = "image"
+}

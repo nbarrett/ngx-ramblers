@@ -88,6 +88,14 @@ export class WalksReferenceService {
       description: "Deleted",
       notifyLeader: true,
       notifyCoordinator: true
+    } as WalkEventType,
+    locationGeocoded: {
+      eventType: EventType.LOCATION_GEOCODED,
+      description: "Location geocoded"
+    } as WalkEventType,
+    finishTimeFixed: {
+      eventType: EventType.FINISH_TIME_FIXED,
+      description: "Finish time fixed"
     } as WalkEventType
   };
 
@@ -99,7 +107,9 @@ export class WalksReferenceService {
     this.walkEventTypeMappings.walkDetailsCopied,
     this.walkEventTypeMappings.awaitingApproval,
     this.walkEventTypeMappings.approved,
-    this.walkEventTypeMappings.deleted
+    this.walkEventTypeMappings.deleted,
+    this.walkEventTypeMappings.locationGeocoded,
+    this.walkEventTypeMappings.finishTimeFixed
   ];
 
   venueTypes(): VenueType[] {

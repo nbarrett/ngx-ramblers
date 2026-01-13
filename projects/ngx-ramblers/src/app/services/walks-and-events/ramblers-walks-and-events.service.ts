@@ -9,6 +9,7 @@ import {
   DateFormat,
   EventQueryParameters,
   EventsListRequest,
+  EventsListSortBy,
   GroupListRequest,
   MAXIMUM_PAGE_SIZE,
   Metadata,
@@ -30,6 +31,7 @@ import {
   WalkLeaderContact
 } from "../../models/ramblers-walks-manager";
 import { Ramblers } from "../../models/system.model";
+import { SortDirection } from "../../models/sort.model";
 import {
   EventStartDateAscending,
   EventStartDateDescending,
@@ -165,12 +167,12 @@ export class RamblersWalksAndEventsService {
   async queryById(walkId: string): Promise<ExtendedGroupEvent> {
     this.logger.info("queryById:walkId", walkId);
     const walksRawData: RamblersGroupEventsRawApiResponse = await this.allRamblersEvents({
-      inputSource: InputSource.WALKS_MANAGER_IMPORT,
+      inputSource: InputSource.WALKS_MANAGER_CACHE,
       ids: [walkId],
       suppressEventLinking: false
     });
     this.logger.info("queryById:walkId", walkId, "walksRawData:", walksRawData);
-    const walks = walksRawData.data.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk, InputSource.WALKS_MANAGER_IMPORT));
+    const walks = walksRawData.data.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk, InputSource.WALKS_MANAGER_CACHE));
     if (walks?.length === 1) {
       this.logger.info("walkId", walkId, "returned", this.stringUtilsService.pluraliseWithCount(walks.length, "walk"), "walks were:", walks);
     } else {
@@ -189,8 +191,8 @@ export class RamblersWalksAndEventsService {
   async allRamblersEvents(eventQueryParameters: EventQueryParameters): Promise<RamblersGroupEventsRawApiResponse> {
     const walkIdsFromCriteria = this.extractWalkIds(eventQueryParameters.dataQueryOptions?.criteria);
     const usedIds = eventQueryParameters.ids || walkIdsFromCriteria;
-    const order = isEqual(eventQueryParameters.dataQueryOptions?.sort, EventStartDateDescending) ? "desc" : "asc";
-    const sort = isEqual(eventQueryParameters.dataQueryOptions?.sort, EventStartDateDescending) || isEqual(eventQueryParameters.dataQueryOptions?.sort, EventStartDateAscending) ? "date" : "date";
+    const order = isEqual(eventQueryParameters.dataQueryOptions?.sort, EventStartDateDescending) ? SortDirection.DESC : SortDirection.ASC;
+    const sort = EventsListSortBy.DATE;
     const date = usedIds.length > 0 ? null : this.createStartDate(eventQueryParameters.dataQueryOptions?.criteria);
     const dateEnd = usedIds.length > 0 ? null : this.createEndDate(eventQueryParameters.dataQueryOptions?.criteria);
     const body: EventsListRequest = {
@@ -783,7 +785,7 @@ export class RamblersWalksAndEventsService {
   }
 
   featureSelected(featureCode: Feature, extendedGroupEvent: ExtendedGroupEvent): boolean {
-    return this.featuresService.combinedFeatures(extendedGroupEvent.groupEvent).some(feature => feature.code === featureCode);
+    return extendedGroupEvent?.groupEvent && this.featuresService.combinedFeatures(extendedGroupEvent.groupEvent).some(feature => feature.code === featureCode);
   }
 
   allFeatures(): Metadata[] {

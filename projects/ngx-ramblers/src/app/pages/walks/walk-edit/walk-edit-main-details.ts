@@ -31,6 +31,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
     ReactiveFormsModule
   ],
   template: `
+    @if (displayedWalk?.walk?.fields) {
     <div class="img-thumbnail thumbnail-admin-edit">
       <form>
         <div class="row align-items-center">
@@ -63,6 +64,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
                      (change)="calculateAndSetFinishTime()"
                      (ngModelChange)="walkChanged($event)" name="milesPerHour"
                      type="number" step="0.25"
+                     [disabled]="inputDisabled"
                      class="form-control input-sm"
                      id="miles-per-hour"
                      placeholder="Enter Estimated MPH of walk">
@@ -91,6 +93,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
               <label for="brief-description-and-start-point">Walk Title ({{100 - (displayedWalk.walk.groupEvent.title?.length || 0)}} characters left)</label>
               <textarea [(ngModel)]="displayedWalk.walk.groupEvent.title" type="text"
                         (ngModelChange)="walkChanged($event)" name="title"
+                        [disabled]="inputDisabled"
                         class="form-control input-sm" rows="3"
                         id="brief-description-and-start-point"
                         maxlength="100"
@@ -137,6 +140,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 
       </form>
     </div>
+    }
   `,
   styles: [`
     .duration

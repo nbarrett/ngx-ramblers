@@ -36,6 +36,7 @@ import { MailListEditorComponent } from "./list-editor";
 import { MailListSettingsComponent } from "./mail-list-settings";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
+import { InputSize } from "../../../../models/ui-size.model";
 
 @Component({
     selector: "app-mail-settings",
@@ -123,7 +124,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                           <app-secret-input
                             [(ngModel)]="mailMessagingConfig.mailConfig.apiKey"
                             id="api-key"
-                            size="sm"
+                            [size]="InputSize.SM"
                             autocomplete="off"
                             [ignorePasswordManagers]="true"
                             placeholder="The API key for the mail api"/>
@@ -310,6 +311,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   public listCreateRequest: ListCreateRequest;
   public listCreateResponse: ListCreateResponse;
   protected readonly MailSettingsTab = MailSettingsTab;
+  protected readonly InputSize = InputSize;
 
   ngOnInit() {
     this.logger.debug("constructed");

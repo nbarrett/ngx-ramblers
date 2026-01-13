@@ -20,6 +20,7 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
 import { MapOverlayControls } from "../../../shared/components/map-overlay-controls";
 import { DynamicContentViewIndexMap } from "./dynamic-content-view-index-map";
 import { IndexService } from "../../../services/index.service";
+import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 
 @Component({
     selector: "app-album-index-site-edit",
@@ -142,8 +143,8 @@ import { IndexService } from "../../../services/index.service";
           [showClusteringControls]="true"
           [showWaypointControls]="false"
           [defaults]="{
-          provider: 'osm',
-          osStyle: 'Leisure_27700',
+          provider: MapProvider.OSM,
+          osStyle: DEFAULT_OS_STYLE,
           mapCenter: [51.25, 0.75],
           mapZoom: 10,
           mapHeight: 500,
@@ -168,8 +169,8 @@ import { IndexService } from "../../../services/index.service";
                 [mapHeight]="row.albumIndex.mapConfig.height || 500"
                 [clusteringEnabled]="row.albumIndex.mapConfig.clusteringEnabled ?? true"
                 [clusteringThreshold]="row.albumIndex.mapConfig.clusteringThreshold || 10"
-                [provider]="row.albumIndex.mapConfig.provider || 'osm'"
-                [osStyle]="row.albumIndex.mapConfig.osStyle || 'Leisure_27700'"
+                [provider]="row.albumIndex.mapConfig.provider || MapProvider.OSM"
+                [osStyle]="row.albumIndex.mapConfig.osStyle || DEFAULT_OS_STYLE"
                 [mapCenter]="row.albumIndex.mapConfig.mapCenter || [51.25, 0.75]"
                 [mapZoom]="row.albumIndex.mapConfig.mapZoom || 10"
                 [showControlsDefault]="row.albumIndex.mapConfig.showControlsDefault ?? true"
@@ -215,6 +216,8 @@ export class AlbumIndexSiteEditComponent implements OnInit {
   renderModeValues: (KeyValue<string> & {title: string})[] = enumKeyValues(IndexRenderMode)
     .map(item => ({...item, title: this.stringUtils.asTitle(item.value)}));
   showMapPreview = false;
+  protected readonly MapProvider = MapProvider;
+  protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
 
   async ngOnInit() {
     this.logger.info("ngOnInit:albumIndex:", this.row.albumIndex);
@@ -273,8 +276,8 @@ export class AlbumIndexSiteEditComponent implements OnInit {
         height: 500,
         clusteringEnabled: true,
         clusteringThreshold: 10,
-        provider: "osm",
-        osStyle: "Leisure_27700",
+        provider: MapProvider.OSM,
+        osStyle: DEFAULT_OS_STYLE,
         mapCenter: [51.25, 0.75],
         mapZoom: 10,
         showControlsDefault: true,

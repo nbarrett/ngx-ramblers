@@ -4,11 +4,13 @@ import { Observable } from "rxjs";
 import { ServerFileNameData } from "../../models/aws-object.model";
 import { GpxFileListItem } from "../../models/walk.model";
 import { DistanceValidationService } from "./distance-validation.service";
+import { DateUtilsService } from "../date-utils.service";
 
 @Injectable({ providedIn: "root" })
 export class WalkGpxService {
   private http = inject(HttpClient);
   private distanceValidationService = inject(DistanceValidationService);
+  private dateUtils = inject(DateUtilsService);
   private BASE_URL = "/api/database/walks/gpx";
 
   uploadGpxFile(file: File): Observable<{ gpxFile: ServerFileNameData }> {
@@ -42,14 +44,14 @@ export class WalkGpxService {
 
         let label: string;
         if (file.walkTitle && file.walkDate) {
-          const date = new Date(file.walkDate).toLocaleDateString();
+          const date = this.dateUtils.displayDate(file.walkDate);
           label = `${file.walkTitle} - ${date} (${distanceMiles.toFixed(1)} miles away)`;
         } else if (file.walkTitle) {
           label = `${file.walkTitle} (${distanceMiles.toFixed(1)} miles away)`;
         } else if (file.name && !file.name.match(/^[0-9a-f]{8}-[0-9a-f]{4}-/)) {
           label = `${file.name} (${distanceMiles.toFixed(1)} miles away)`;
         } else if (file.uploadDate) {
-          const uploadDateStr = new Date(file.uploadDate).toLocaleDateString();
+          const uploadDateStr = this.dateUtils.displayDate(file.uploadDate);
           label = `Uploaded ${uploadDateStr} (${distanceMiles.toFixed(1)} miles away)`;
         } else {
           label = `Route ${distanceMiles.toFixed(1)} miles from start`;

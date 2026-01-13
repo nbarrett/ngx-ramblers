@@ -35,6 +35,7 @@ import { HumanisePipe } from "../../../pipes/humanise.pipe";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { InputSource } from "../../../models/group-event.model";
 import { ImportStepperKey, ImportStepperStep } from "../../../models/import-stepper.model";
+import { WalkImportFilterMatch, WalkImportStepStatus } from "../../../models/walk-import.model";
 import { FileSizeSelectorComponent } from "../../../carousel/edit/file-size-selector/file-size-selector";
 import { first } from "es-toolkit/compat";
 
@@ -89,7 +90,7 @@ import { first } from "es-toolkit/compat";
                                        id="import-source-walks-manager"
                                        name="import-source"
                                        type="radio"
-                                       [value]="ImportSource.WALKS_MANAGER_IMPORT"
+                                       [value]="ImportSource.WALKS_MANAGER_CACHE"
                                        (ngModelChange)="reset()"
                                        [disabled]="importData.importStage !== ImportStage.NONE"
                                        [(ngModel)]="importData.inputSource"/>
@@ -111,14 +112,14 @@ import { first } from "es-toolkit/compat";
                           </div>
                           <div class="row">
                             <div class="col-sm-12 mb-3 mx-2">
-                              @if (importData.inputSource === ImportSource.WALKS_MANAGER_IMPORT) {
+                              @if (importData.inputSource === ImportSource.WALKS_MANAGER_CACHE) {
                                 <app-markdown-editor standalone name="ramblers-import-help-page" description="Ramblers import help page"/>
                               } @else {
                                 <app-markdown-editor standalone name="file-import-help-page" description="File import help page"/>
                               }
                             </div>
                           </div>
-                          @if (importData.inputSource === ImportSource.WALKS_MANAGER_IMPORT) {
+                          @if (importData.inputSource === ImportSource.WALKS_MANAGER_CACHE) {
                             <app-walk-import-from-walks-manager [importData]="importData" [notify]="notify"
                                                                 (postImportPreparation)="postImportPreparation($event)">
                               <ng-container *ngTemplateOutlet="backAndResetButtons"/>
@@ -144,7 +145,7 @@ import { first } from "es-toolkit/compat";
                                          type="radio"
                                          id="filter-all"
                                          name="filterMatched"
-                                         value="all"
+                                         [ngValue]="WalkImportFilterMatch.ALL"
                                          [(ngModel)]="filterMatched">
                                   <label class="form-check-label" for="filter-all">All</label>
                                 </div>
@@ -153,7 +154,7 @@ import { first } from "es-toolkit/compat";
                                          type="radio"
                                          id="filter-matched"
                                          name="filterMatched"
-                                         value="matched"
+                                         [ngValue]="WalkImportFilterMatch.MATCHED"
                                          [(ngModel)]="filterMatched">
                                   <label class="form-check-label" for="filter-matched">Matched to a member</label>
                                 </div>
@@ -162,7 +163,7 @@ import { first } from "es-toolkit/compat";
                                          type="radio"
                                          id="filter-unmatched"
                                          name="filterMatched"
-                                         value="unmatched"
+                                         [ngValue]="WalkImportFilterMatch.UNMATCHED"
                                          [(ngModel)]="filterMatched">
                                   <label class="form-check-label" for="filter-unmatched">Not matched to a member</label>
                                 </div>
@@ -171,7 +172,7 @@ import { first } from "es-toolkit/compat";
                                          type="radio"
                                          id="filter-excluded"
                                          name="filterMatched"
-                                         value="excluded"
+                                         [ngValue]="WalkImportFilterMatch.EXCLUDED"
                                          [(ngModel)]="filterMatched">
                                   <label class="form-check-label" for="filter-excluded">Excluded (e.g. duplicates)</label>
                                 </div>
@@ -391,11 +392,11 @@ export class WalkImport implements OnInit, OnDestroy {
     const rows = this.importData.bulkLoadMembersAndMatchesToWalks.filter(row => {
       if (row === this.lastUpdatedRow) {
         return true;
-      } else if (this.filterMatched === "matched") {
+      } else if (this.filterMatched === WalkImportFilterMatch.MATCHED) {
         return !!row.bulkLoadMemberAndMatch.member;
-      } else if (this.filterMatched === "unmatched") {
+      } else if (this.filterMatched === WalkImportFilterMatch.UNMATCHED) {
         return !row.bulkLoadMemberAndMatch.member;
-      } else if (this.filterMatched === "excluded") {
+      } else if (this.filterMatched === WalkImportFilterMatch.EXCLUDED) {
         return !row.include;
       } else {
         return true;
@@ -427,7 +428,7 @@ export class WalkImport implements OnInit, OnDestroy {
   public lastUpdatedRow: BulkLoadMemberAndMatchToWalk = null;
   public sortField = "start_date_time";
   public sortDirection = ASCENDING;
-  public filterMatched: "all" | "matched" | "unmatched" | "excluded" = "all";
+  public filterMatched: WalkImportFilterMatch = WalkImportFilterMatch.ALL;
   walkImportFields: KeyValue<string>[] = enumKeyValues(WalkImportField);
   protected readonly GroupEventField = GroupEventField;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
@@ -441,6 +442,7 @@ export class WalkImport implements OnInit, OnDestroy {
   ];
 
   protected readonly ImportStepperKey = ImportStepperKey;
+  protected readonly WalkImportFilterMatch = WalkImportFilterMatch;
   protected hasImageFileOver: boolean;
   protected imageFiles: File[] = [];
 
@@ -676,7 +678,7 @@ export class WalkImport implements OnInit, OnDestroy {
     return [ImportStage.SAVING].includes(this.importData.importStage);
   }
 
-  stepStatus(key: ImportStepperKey): "pending" | "active" | "done" {
+  stepStatus(key: ImportStepperKey): WalkImportStepStatus {
     const hasWalks = this.importData.fileImportRows?.length > 0 || this.importData.bulkLoadMembersAndMatchesToWalks?.length > 0;
     const hasMatches = this.importData.bulkLoadMembersAndMatchesToWalks?.length > 0;
     const hasImages = !!(this.importData.imageImportRows?.length && this.imageFilesForUpload()?.length);
@@ -686,22 +688,22 @@ export class WalkImport implements OnInit, OnDestroy {
 
     switch (key) {
       case ImportStepperKey.UPLOAD:
-        return isImporting || isMatching || isSaving || hasWalks ? "done" : "active";
+        return isImporting || isMatching || isSaving || hasWalks ? WalkImportStepStatus.DONE : WalkImportStepStatus.ACTIVE;
       case ImportStepperKey.MATCH:
-        if (isSaving) return "done";
-        if (isMatching || hasMatches) return "active";
-        return "pending";
+        if (isSaving) return WalkImportStepStatus.DONE;
+        if (isMatching || hasMatches) return WalkImportStepStatus.ACTIVE;
+        return WalkImportStepStatus.PENDING;
       case ImportStepperKey.IMAGES:
-        if (isSaving && hasImages) return "done";
-        if (hasImages) return "done";
-        if (isSaving) return "pending";
-        return "active";
+        if (isSaving && hasImages) return WalkImportStepStatus.DONE;
+        if (hasImages) return WalkImportStepStatus.DONE;
+        if (isSaving) return WalkImportStepStatus.PENDING;
+        return WalkImportStepStatus.ACTIVE;
       case ImportStepperKey.IMPORT:
-        if (isSaving) return "active";
-        if (hasWalks && !isMatching && !isImporting) return "done";
-        return "pending";
+        if (isSaving) return WalkImportStepStatus.ACTIVE;
+        if (hasWalks && !isMatching && !isImporting) return WalkImportStepStatus.DONE;
+        return WalkImportStepStatus.PENDING;
       default:
-        return "pending";
+        return WalkImportStepStatus.PENDING;
     }
   }
 
@@ -729,7 +731,7 @@ export class WalkImport implements OnInit, OnDestroy {
   }
 
   activeStepIndex(): number {
-    const index = this.stepperStepsList.findIndex(step => this.stepStatus(step.key) === "active");
+    const index = this.stepperStepsList.findIndex(step => this.stepStatus(step.key) === WalkImportStepStatus.ACTIVE);
     if (index >= 0) {
       return index;
     }

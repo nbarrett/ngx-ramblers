@@ -35,7 +35,7 @@ export const walkEvent = new mongoose.Schema({
   memberId: {type: String},
   notes: {type: String},
   description: {type: String},
-  reason: {type: String}
+  reason: {type: String},
 }, {_id: false});
 
 export const walkVenue = new mongoose.Schema({

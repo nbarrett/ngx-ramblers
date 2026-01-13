@@ -47,7 +47,7 @@ import { PageService } from "../../../services/page.service";
       }
     </div>
     @if (display.allow.edits && (!eventsData || eventsData?.allow?.addNew)) {
-      <div class="col-lg-2 col-xs-12">
+      <div class="col-lg-2 col-md-3 col-sm-4 col-12">
         @if (display.confirm.noneOutstanding()) {
           <input type="submit" [disabled]="notifyTarget.busy"
                  class="btn btn-primary float-lg-end mb-3"

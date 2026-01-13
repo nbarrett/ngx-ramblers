@@ -7,7 +7,7 @@ import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
 import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
-import { EventQueryParameters, RamblersEventType } from "../../models/ramblers-walks-manager";
+import { EventQueryParameters } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEvent, ExtendedGroupEventApiResponse } from "../../models/group-event.model";
 import { SearchDateRange } from "../../models/search.model";
 
@@ -103,12 +103,7 @@ export class WalksAndEventsService {
   }
 
   async queryById(walkId: string): Promise<ExtendedGroupEvent> {
-    switch (this?.group?.walkPopulation) {
-      case EventPopulation.WALKS_MANAGER:
-        return this.ramblersWalksAndEventsService.queryById(walkId);
-      case EventPopulation.LOCAL:
-        return this.localWalksAndEventsService.queryById(walkId);
-    }
+    return this.localWalksAndEventsService.queryById(walkId);
   }
 
   async updateMany(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
@@ -128,13 +123,7 @@ export class WalksAndEventsService {
   }
 
   async delete(extendedGroupEvent: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
-    const eventPopulation: EventPopulation = extendedGroupEvent?.groupEvent?.item_type === RamblersEventType.GROUP_WALK ? this?.group?.walkPopulation : this?.group?.socialEventPopulation;
-    switch (eventPopulation) {
-      case EventPopulation.WALKS_MANAGER:
-        throw new Error(`cannot delete event as ${extendedGroupEvent?.groupEvent?.item_type} is ${eventPopulation}`);
-      case EventPopulation.LOCAL:
-        return this.localWalksAndEventsService.delete(extendedGroupEvent);
-    }
+    return this.localWalksAndEventsService.delete(extendedGroupEvent);
   }
 
   async update(extendedGroupEvent: ExtendedGroupEvent) {

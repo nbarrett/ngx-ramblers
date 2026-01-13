@@ -25,6 +25,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
       margin: 34px 0px 0px -14px
   `,
   template: `
+    @if (displayedWalk?.walk?.fields) {
     <div class="img-thumbnail thumbnail-admin-edit">
       @if (false) {
         <pre>fields:{{ displayedWalk.walk.fields|json }}</pre>
@@ -36,6 +37,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
               <div class="form-check form-check-inline">
                 <input id="showOnlyWalkLeadersTrue" type="radio" class="form-check-input"
                        name="showOnlyWalkLeaders"
+                       [disabled]="inputDisabled"
                        [(ngModel)]="showOnlyWalkLeaders" [value]="true">
                 <label class="form-check-label" for="showOnlyWalkLeadersTrue">
                   Show Only Walk Leaders ({{ previousWalkLeadersWithAliasOrMe.length }})</label>
@@ -43,6 +45,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
               <div class="form-check form-check-inline">
                 <input id="showOnlyWalkLeadersFalse" type="radio" class="form-check-input"
                        name="showOnlyWalkLeaders"
+                       [disabled]="inputDisabled"
                        [(ngModel)]="showOnlyWalkLeaders" [value]="false">
                 <label class="form-check-label" for="showOnlyWalkLeadersFalse">
                   Show All Members ({{ membersWithAliasOrMe.length }})</label>
@@ -52,7 +55,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
           <div class="col-sm-12">
             <div class="form-group">
               <label for="walk-status">Walk Status</label>
-              <select [disabled]="!display.allowAdminEdits()"
+              <select [disabled]="!display.allowAdminEdits() || inputDisabled"
                       [(ngModel)]="displayedWalk.status"
                       (change)="statusChange.emit(displayedWalk.status)"
                       class="form-control input-sm" id="walk-status">
@@ -73,7 +76,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
             <div class="form-group">
               <div class="form-check">
                 <input id="walk-cancelled" type="checkbox" class="form-check-input"
-                       [disabled]="!display.allowAdminEdits()"
+                       [disabled]="!display.allowAdminEdits() || inputDisabled"
                        [(ngModel)]="walkCancelled"
                        (change)="onCancelledChange()">
                 <label class="form-check-label" for="walk-cancelled">
@@ -86,7 +89,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
             <div class="col-sm-12">
               <div class="form-group">
                 <label for="cancellation-reason">Cancellation Reason</label>
-                <textarea [disabled]="!display.allowAdminEdits()"
+                <textarea [disabled]="!display.allowAdminEdits() || inputDisabled"
                           [(ngModel)]="displayedWalk.walk.groupEvent.cancellation_reason"
                           class="form-control input-sm"
                           id="cancellation-reason"
@@ -106,6 +109,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
               @if (allowDetailView) {
                 <app-member-selector
                   [selectedMember]="selectedWalkLeader"
+                  [disabled]="inputDisabled"
                   (selectedMemberChange)="onWalkLeaderChange($event)"
                   placeholder="(no walk leader selected)">
                 </app-member-selector>
@@ -114,13 +118,13 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
           </div>
           <div class="col-sm-1">
             <div class="form-group">
-              <input type="submit" [disabled]="saveInProgress" value="Me" (click)="setWalkLeaderToMe()"
+              <input type="submit" [disabled]="inputDisabled || saveInProgress" value="Me" (click)="setWalkLeaderToMe()"
                      class="btn btn-primary button-bottom-aligned w-100">
             </div>
           </div>
           <div class="col-sm-1">
             <div class="form-group">
-              <input type="submit" [disabled]="saveInProgress || !display.hasWalkLeader(displayedWalk.walk)"
+              <input type="submit" [disabled]="inputDisabled || saveInProgress || !display.hasWalkLeader(displayedWalk.walk)"
                      value="Clear" (click)="clearWalkLeader()"
                      class="btn btn-primary button-bottom-aligned w-100">
             </div>
@@ -134,6 +138,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
               <label for="display-name">Display Name (how it will be published on this walk)</label>
               <input [(ngModel)]="displayedWalk.walk.fields.contactDetails.displayName"
                      type="text"
+                     [disabled]="inputDisabled"
                      class="form-control input-sm" id="display-name"
                      placeholder="Name as displayed to the public and sent to Ramblers in CSV export file">
             </div>
@@ -152,7 +157,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
             <div class="form-group">
               <input type="submit" [value]="toggleRamblersWalkLeaderContactName"
                      (click)="toggleRamblersWalkLeader()"
-                     [disabled]="saveInProgress"
+                     [disabled]="inputDisabled || saveInProgress"
                      class="btn btn-primary button-bottom-aligned w-100">
             </div>
           </div>
@@ -188,6 +193,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
         </div>
       </div>
     </div>
+    }
   `
 })
 export class WalkEditLeaderComponent implements OnInit, OnDestroy {

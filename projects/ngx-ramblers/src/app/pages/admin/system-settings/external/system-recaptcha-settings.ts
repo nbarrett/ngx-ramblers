@@ -10,6 +10,7 @@ import { FormsModule } from "@angular/forms";
 import { RecaptchaModule } from "ng-recaptcha-2";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
+import { InputSize } from "../../../../models/ui-size.model";
 
 @Component({
     selector: "app-system-recaptcha-settings",
@@ -42,7 +43,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                       [(ngModel)]="systemConfigInternal.recaptcha.secretKey"
                       id="recaptcha-secret-key"
                       name="secretKey"
-                      size="sm"
+                      [size]="InputSize.SM"
                       placeholder="Enter reCAPTCHA Secret Key">
                     </app-secret-input>
                     @if (!systemConfigInternal?.recaptcha?.secretKey) {
@@ -94,6 +95,7 @@ export class SystemRecaptchaSettingsComponent implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget = {};
   private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   private logger = this.loggerFactory.createLogger("SystemRecaptchaSettingsComponent", NgxLoggerLevel.ERROR);
+  protected readonly InputSize = InputSize;
 
   @Input({
     alias: "config",

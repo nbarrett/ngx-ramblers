@@ -11,6 +11,7 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
     selector: "app-walk-venue",
@@ -91,11 +92,11 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
             </div>
             @if (allowEdits()) {
               <div class="col-sm-6">
-                <div class="form-check">
-                  <input [(ngModel)]="displayedWalk.walk.fields.venue.venuePublish"
-                         [disabled]="!allowEdits()"
-                         name="showDetail" class="form-check-input" type="checkbox"
-                         id="walk-publish-venue">
+              <div class="form-check">
+                <input [(ngModel)]="displayedWalk.walk.fields.venue.venuePublish"
+                       [disabled]="!allowEdits() || inputDisabled"
+                       name="showDetail" class="form-check-input" type="checkbox"
+                       id="walk-publish-venue">
                   <label class="form-check-label"
                          for="walk-publish-venue">Publish venue on site
                   </label>
@@ -134,6 +135,11 @@ export class WalkVenueComponent implements OnInit {
 
   @Input()
   public displayedWalk: DisplayedWalk;
+  public inputDisabled = false;
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+    this.updateDisabledInput();
+  }
   public venueTypes: VenueType[];
   public disabledInput: boolean;
 
@@ -144,11 +150,15 @@ export class WalkVenueComponent implements OnInit {
   ngOnInit() {
     this.venueTypes = this.walksReferenceService.venueTypes();
     this.logger.debug("venue is", this.displayedWalk.walk.fields.venue, "venueTypes", this.venueTypes);
-    this.disabledInput = !this.allowEdits() && !this.displayedWalk?.walk?.fields?.venue?.venuePublish;
+    this.updateDisabledInput();
   }
 
   allowEdits() {
     return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) || this.memberLoginService.allowWalkAdminEdits();
+  }
+
+  private updateDisabledInput() {
+    this.disabledInput = this.inputDisabled || (!this.allowEdits() && !this.displayedWalk?.walk?.fields?.venue?.venuePublish);
   }
 
 }

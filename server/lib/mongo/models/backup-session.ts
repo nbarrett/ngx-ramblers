@@ -1,14 +1,20 @@
 import mongoose from "mongoose";
+import { values } from "es-toolkit/compat";
 import { ensureModel } from "../utils/model-utils";
+import {
+  BackupSessionStatus,
+  BackupSessionTrigger,
+  BackupSessionType
+} from "../../../../projects/ngx-ramblers/src/app/models/backup-session.model";
 
 export interface BackupSession {
   _id?: string;
   sessionId: string;
-  type: "backup" | "restore";
+  type: BackupSessionType;
   environment: string;
   database: string;
   collections?: string[];
-  status: "pending" | "in_progress" | "completed" | "failed";
+  status: BackupSessionStatus;
   startTime: Date;
   endTime?: Date;
   options: {
@@ -27,21 +33,21 @@ export interface BackupSession {
   error?: string;
   metadata?: {
     user?: string;
-    triggeredBy: "cli" | "web";
+    triggeredBy: BackupSessionTrigger;
   };
 }
 
 const backupSessionSchema = new mongoose.Schema({
   sessionId: { type: String, required: true, unique: true },
-  type: { type: String, required: true, enum: ["backup", "restore"] },
+  type: { type: String, required: true, enum: values(BackupSessionType) },
   environment: { type: String, required: true },
   database: { type: String, required: true },
   collections: [{ type: String }],
   status: {
     type: String,
     required: true,
-    enum: ["pending", "in_progress", "completed", "failed"],
-    default: "pending"
+    enum: values(BackupSessionStatus),
+    default: BackupSessionStatus.PENDING
   },
   startTime: { type: Date, required: true, default: Date.now },
   endTime: { type: Date },
@@ -61,7 +67,7 @@ const backupSessionSchema = new mongoose.Schema({
   error: { type: String },
   metadata: {
     user: { type: String },
-    triggeredBy: { type: String, enum: ["cli", "web"], default: "web" }
+    triggeredBy: { type: String, enum: values(BackupSessionTrigger), default: BackupSessionTrigger.WEB }
   }
 }, { collection: "backupSessions", timestamps: true });
 

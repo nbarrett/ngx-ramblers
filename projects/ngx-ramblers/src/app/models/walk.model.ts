@@ -207,6 +207,8 @@ export enum EventType {
   AWAITING_APPROVAL = "awaitingApproval",
   APPROVED = "approved",
   DELETED = "deleted",
+  LOCATION_GEOCODED = "locationGeocoded",
+  FINISH_TIME_FIXED = "finishTimeFixed",
   UNKNOWN = "unknown"
 }
 
@@ -266,14 +268,23 @@ export enum GroupEventField {
   LINKED_EVENT = "groupEvent.linked_event",
   LOCATION = "groupEvent.location",
   LOCATION_DESCRIPTION = "groupEvent.location.description",
+  LOCATION_GRID_REFERENCE_6 = "groupEvent.location.grid_reference_6",
+  LOCATION_GRID_REFERENCE_8 = "groupEvent.location.grid_reference_8",
+  LOCATION_GRID_REFERENCE_10 = "groupEvent.location.grid_reference_10",
+  LOCATION_LATITUDE = "groupEvent.location.latitude",
+  LOCATION_LONGITUDE = "groupEvent.location.longitude",
   LOCATION_POSTCODE = "groupEvent.location.postcode",
   MEDIA = "groupEvent.media",
   MEETING_DATE_TIME = "groupEvent.meeting_date_time",
   MEETING_LOCATION = "groupEvent.meeting_location",
   SHAPE = "groupEvent.shape",
+  START_LOCATION = "groupEvent.start_location",
   START_DATE = "groupEvent.start_date_time",
   START_LOCATION_COORDINATES = "groupEvent.start_location.coordinates",
   START_LOCATION_DESCRIPTION = "groupEvent.start_location.description",
+  START_LOCATION_GRID_REFERENCE_6 = "groupEvent.start_location.grid_reference_6",
+  START_LOCATION_GRID_REFERENCE_8 = "groupEvent.start_location.grid_reference_8",
+  START_LOCATION_GRID_REFERENCE_10 = "groupEvent.start_location.grid_reference_10",
   START_LOCATION_LATITUDE = "groupEvent.start_location.latitude",
   START_LOCATION_LONGITUDE = "groupEvent.start_location.longitude",
   START_LOCATION_NAME = "groupEvent.start_location.name",
@@ -285,7 +296,8 @@ export enum GroupEventField {
   URL = "groupEvent.url",
   WALK_LEADER_EMAIL = "groupEvent.walk_leader.email",
   WALK_LEADER_ID = "groupEvent.walk_leader.id",
-  WALK_LEADER_NAME = "groupEvent.walk_leader.name"
+  WALK_LEADER_NAME = "groupEvent.walk_leader.name",
+  WALK_LEADER_TELEPHONE = "groupEvent.walk_leader.telephone"
 }
 
 export enum EventField {
@@ -426,7 +438,7 @@ export enum ImportType {
 }
 
 export const IMPORT_SOURCE_MAPPING = {
-  [InputSource.WALKS_MANAGER_IMPORT]: {
+  [InputSource.WALKS_MANAGER_CACHE]: {
     name: "ramblers-import-help-page",
     description: "Ramblers import help page"
   },

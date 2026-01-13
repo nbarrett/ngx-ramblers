@@ -3,3 +3,10 @@ export interface ChangedItem {
   previousValue?: any;
   currentValue: any;
 }
+
+export interface ChangedItemDisplay {
+  fieldName: string;
+  field: string;
+  from: string;
+  to: string;
+}

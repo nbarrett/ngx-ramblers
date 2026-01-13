@@ -1,6 +1,11 @@
 import { Identifiable } from "./api-response.model";
 import { PageTransformationConfig } from "./page-transformation.model";
 
+export enum ParentPageMode {
+  AS_IS = "as-is",
+  ACTION_BUTTONS = "action-buttons"
+}
+
 export interface PageLink {
   path: string;
   title: string;
@@ -12,7 +17,7 @@ export interface ParentPageConfig {
   pathPrefix: string;
   linkSelector?: string;
   migrateParent?: boolean;
-  parentPageMode?: "as-is" | "action-buttons";
+  parentPageMode?: ParentPageMode | null;
   maxChildren?: number;
   pageTransformation?: PageTransformationConfig;
   templateFragmentId?: string;

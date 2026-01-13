@@ -76,7 +76,7 @@ export class WalkImportFromWalksManager implements OnInit, OnDestroy {
   }
 
   reset() {
-    this.importData = this.walksImportService.importDataDefaults(InputSource.WALKS_MANAGER_IMPORT);
+    this.importData = this.walksImportService.importDataDefaults(InputSource.WALKS_MANAGER_CACHE);
     this.notify.hide();
   }
 

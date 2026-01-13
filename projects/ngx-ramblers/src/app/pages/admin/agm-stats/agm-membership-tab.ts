@@ -6,6 +6,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AGMSummaryTableComponent } from "./agm-summary-table";
 import {
+  AgmChartType,
   ChangeClassFn,
   GetYearLabelFn,
   SortedRowsFn,
@@ -71,7 +72,7 @@ export class AGMMembershipTabComponent implements AfterViewInit, OnChanges {
   @Input() dateRangeControls: TemplateRef<any>;
   @Input() membershipChartData: ChartConfiguration["data"];
   @Input() chartOptions: ChartConfiguration["options"];
-  @Input() chartType: "bar" | "line";
+  @Input() chartType: AgmChartType;
   @Input() years: string[] = [];
   @Input() membershipSummaryRows: SummaryRow[] = [];
   @Input() membershipSummaryKey = "membershipSummary";

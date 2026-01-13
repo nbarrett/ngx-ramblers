@@ -1,9 +1,7 @@
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep, first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";
 import { HttpClient, HttpParams } from "@angular/common/http";
-import { DateTime } from "luxon";
 import {
   EventEventField,
   EventField,
@@ -13,7 +11,6 @@ import {
   GroupEventField,
   ID
 } from "../../models/walk.model";
-import { sortBy } from "../../functions/arrays";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { GroupEventService } from "./group-event.service";
@@ -24,6 +21,7 @@ import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventQueryParameters } from "../../models/ramblers-walks-manager";
 import { UrlService } from "../url.service";
 import { isNumericRamblersId } from "../path-matchers";
+import { toSlug } from "../../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -110,24 +108,31 @@ export class ExtendedGroupEventQueryService {
   }
 
   private slugCriteria(identifier: string): MongoCriteria {
-    const slug = this.stringUtils.kebabCase(identifier);
+    const slug = toSlug(identifier);
     return {
       $or: [
         {
           $expr: {
-            $eq: [
-              {$arrayElemAt: [{$split: [`$${GroupEventField.URL}`, "/"]}, -1]},
-              slug
-            ]
+            $regexMatch: {
+              input: {$arrayElemAt: [{$split: [`$${GroupEventField.URL}`, "/"]}, -1]},
+              regex: slug,
+              options: "i"
+            }
           }
         },
-        {[GroupEventField.URL]: slug},
+        {[GroupEventField.URL]: {$regex: slug, $options: "i"}},
         {
           $expr: {
             $eq: [
               {
                 $replaceAll: {
-                  input: {$toLower: `$${GroupEventField.TITLE}`},
+                  input: {
+                    $replaceAll: {
+                      input: {$toLower: `$${GroupEventField.TITLE}`},
+                      find: "/",
+                      replacement: ""
+                    }
+                  },
                   find: " ",
                   replacement: "-"
                 }
@@ -191,12 +196,15 @@ export class ExtendedGroupEventQueryService {
     return walks?.filter(walk => this.deletedWalk(walk));
   }
 
-  nextWalkId(walks: ExtendedGroupEvent[]): string {
-    const today = this.dateUtils.dateTimeNow().toMillis();
-    const nextWalk: ExtendedGroupEvent = first(cloneDeep(walks)?.filter((walk: ExtendedGroupEvent) => this.dateUtils.asDateTime(walk?.groupEvent?.start_date_time).toMillis() >= today)?.sort(sortBy(GroupEventField.START_DATE)));
-    const nextWalkId = nextWalk?.id || nextWalk?.groupEvent?.id;
-    this.logger.info("nextWalk:", nextWalk, "nextWalkId:", nextWalkId);
-    return nextWalkId;
+  fetchNextWalkId(groupCode?: string): Observable<{ nextWalkId: string }> {
+    let httpParams = new HttpParams();
+    if (groupCode) {
+      httpParams = httpParams.set("groupCode", groupCode);
+    }
+    return this.http.get<{ nextWalkId: string }>(
+      `${this.BASE_URL}/next-walk-id`,
+      { params: httpParams }
+    );
   }
 
 

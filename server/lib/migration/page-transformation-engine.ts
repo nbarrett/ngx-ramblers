@@ -45,21 +45,23 @@ import * as exclusions from "./text-exclusions";
 import { humaniseFileStemFromUrl } from "../shared/string-utils";
 import { DateTime } from "luxon";
 import { bestLocation, extractLocations } from "../../../projects/ngx-ramblers/src/app/common/locations/location-extractor";
-import { ExtractedLocation } from "../../../projects/ngx-ramblers/src/app/models/map.model";
-import { isNull, isObject, isUndefined } from "es-toolkit/compat";
+import { DEFAULT_OS_STYLE, ExtractedLocation } from "../../../projects/ngx-ramblers/src/app/models/map.model";
+import { GeocodeMatchType } from "../../../projects/ngx-ramblers/src/app/models/address-model";
+import { isNull, isObject, isUndefined, values } from "es-toolkit/compat";
+import { ExtractedContentKind } from "./migration-types";
 
 type TextSegmentInfo = { index: number; cleaned: string; segment: ScrapedSegment; isTextBeforeHeading?: boolean; mergedIndices?: number[] };
 type ImageSegmentInfo = { index: number; segment: ScrapedSegment; image: ScrapedImage };
 type TextMatcherExecutor = (ctx: TransformationContext, matcher: ContentMatcher) => Partial<PageContentColumn>;
 type ImageMatcherExecutor = (ctx: TransformationContext, matcher: ContentMatcher, uploadImageFn: (img: ScrapedImage) => Promise<string>) => Promise<Partial<PageContentColumn>>;
-type ExtractedContent = { kind: "text" | "image"; column: Partial<PageContentColumn> };
+type ExtractedContent = { kind: ExtractedContentKind; column: Partial<PageContentColumn> };
 
 const debugLog = debug(envConfig.logNamespace("page-transformation-engine"));
 debugLog.enabled = true;
 
 export class PageTransformationEngine {
   private debugLogs: string[] = [];
-  private readonly supportedTextPatterns = new Set<string>(Object.values(TextMatchPattern));
+  private readonly supportedTextPatterns = new Set<string>(values(TextMatchPattern));
   private readonly textMatcherHandlers: Record<TextMatchPattern, TextMatcherExecutor> = {
     [TextMatchPattern.STARTS_WITH_HEADING]: (ctx, matcher) => this.extractHeadingStart(ctx),
     [TextMatchPattern.ALL_TEXT_UNTIL_IMAGE]: (ctx, matcher) => this.extractTextBeforeFirstImage(ctx),
@@ -1128,7 +1130,7 @@ export class PageTransformationEngine {
     debugLog("extractLocations: Input text:", ctx.markdown);
     const chosenLocation: ExtractedLocation | null = bestLocation(allExtractedLocations);
     const endLocation = this.richestLocationForContext(allExtractedLocations, "end location");
-    const hasValidGridReference = allExtractedLocations.some(location => location.type === "gridReference");
+    const hasValidGridReference = allExtractedLocations.some(location => location.type === GeocodeMatchType.GRID_REFERENCE);
 
     if (chosenLocation) {
       debugLog(`  Found best location: ${chosenLocation.value} (Type: ${chosenLocation.type}, Context: ${chosenLocation.context})`);
@@ -1329,7 +1331,7 @@ export class PageTransformationEngine {
     if (!value) {
       return false;
     }
-    if (location.type === "gridReference" || location.type === "postcode") {
+    if (location.type === GeocodeMatchType.GRID_REFERENCE || location.type === GeocodeMatchType.POSTCODE) {
       return true;
     }
     if (value.length > 80) {
@@ -1867,7 +1869,7 @@ export class PageTransformationEngine {
     const defaultMapData: MapData = {
       mapHeight: 500,
       provider: "osm",
-      osStyle: "Leisure_27700",
+      osStyle: DEFAULT_OS_STYLE,
       mapCenter: [51.073, 0.58],
       mapZoom: 11,
       showControlsDefault: true,
@@ -2435,7 +2437,7 @@ export class PageTransformationEngine {
       const imageResult = await this.extractImageForColumn(mapping, ctx, uploadImageFn);
       if (textResult && imageResult) {
         return {
-          kind: "image",
+          kind: ExtractedContentKind.IMAGE,
           column: {
             ...imageResult.column,
             contentText: textResult.column.contentText
@@ -2469,7 +2471,7 @@ export class PageTransformationEngine {
     const groupCaptions = mapping.groupShortTextWithImage;
     if (mode === ImagePattern.ALL) {
       const combined = await this.matchAllImages(ctx, uploadImageFn);
-      return combined ? {kind: "text", column: combined} : null;
+      return combined ? {kind: ExtractedContentKind.TEXT, column: combined} : null;
     }
     if (mode === ImagePattern.PATTERN_MATCH && mapping.imagePatternValue) {
       const matcher: ContentMatcher = {
@@ -2479,27 +2481,27 @@ export class PageTransformationEngine {
         groupTextWithImage: groupCaptions
       };
       const column = await this.matchImageByFilename(ctx, matcher, uploadImageFn);
-      return column ? {kind: "image", column} : null;
+      return column ? {kind: ExtractedContentKind.IMAGE, column} : null;
     }
     if (mode === ImagePattern.LAST) {
       const column = await this.matchLastImage(ctx, {
         type: ContentMatchType.IMAGE,
         groupTextWithImage: groupCaptions
       }, uploadImageFn);
-      return column ? {kind: "image", column} : null;
+      return column ? {kind: ExtractedContentKind.IMAGE, column} : null;
     }
     if (mode === ImagePattern.FIRST) {
       const column = await this.matchFirstImage(ctx, {
         type: ContentMatchType.IMAGE,
         groupTextWithImage: groupCaptions
       }, uploadImageFn);
-      return column ? {kind: "image", column} : null;
+      return column ? {kind: ExtractedContentKind.IMAGE, column} : null;
     }
     const column = await this.matchRemainingImages(ctx, {
       type: ContentMatchType.IMAGE,
       groupTextWithImage: groupCaptions
     }, uploadImageFn);
-    return column ? {kind: "image", column} : null;
+    return column ? {kind: ExtractedContentKind.IMAGE, column} : null;
   }
 
   private async populateNestedRowsForColumn(
@@ -2590,7 +2592,7 @@ export class PageTransformationEngine {
       case NestedRowContentSource.ALL_IMAGES:
         if (aggregate) {
           const column = await this.matchAllImages(ctx, uploadImageFn);
-          return column ? {kind: "text", column} : null;
+          return column ? {kind: ExtractedContentKind.TEXT, column} : null;
         }
         return this.extractImageContent({
           type: ContentMatchType.IMAGE,
@@ -2607,7 +2609,7 @@ export class PageTransformationEngine {
       case NestedRowContentSource.ALL_CONTENT:
         if (aggregate) {
           const column = await this.matchAll(ctx, uploadImageFn);
-          return column ? {kind: "text", column} : null;
+          return column ? {kind: ExtractedContentKind.TEXT, column} : null;
         }
         return this.extractTextContent({
           type: ContentMatchType.TEXT,
@@ -2639,12 +2641,12 @@ export class PageTransformationEngine {
     uploadImageFn: (img: ScrapedImage) => Promise<string>
   ): Promise<ExtractedContent | null> {
     const column = await this.matchImage(matcher, ctx, uploadImageFn);
-    return this.toExtracted("image", column);
+    return this.toExtracted(ExtractedContentKind.IMAGE, column);
   }
 
   private extractTextContent(matcher: ContentMatcher, ctx: TransformationContext): ExtractedContent | null {
     const column = this.matchText(matcher, ctx);
-    return this.toExtracted("text", column);
+    return this.toExtracted(ExtractedContentKind.TEXT, column);
   }
 
   private async applyExtractedContentToRow(row: PageContentRow, item: ExtractedContent, mapping?: ColumnMappingConfig): Promise<boolean> {
@@ -2662,10 +2664,10 @@ export class PageTransformationEngine {
       const result = this.applyExtractedContentToColumn(column, item, typePreference);
       imageApplied = imageApplied || result.imageApplied;
       textApplied = textApplied || result.textApplied;
-      if (item.kind === "text" && textApplied) {
+      if (item.kind === ExtractedContentKind.TEXT && textApplied) {
         break;
       }
-      if (item.kind === "image") {
+      if (item.kind === ExtractedContentKind.IMAGE) {
         const needsText = Boolean(item.column.contentText);
         if (imageApplied && (!needsText || textApplied)) {
           break;
@@ -2685,7 +2687,7 @@ export class PageTransformationEngine {
     const supportsText = this.columnSupportsText(type);
     let imageApplied = false;
     let textApplied = false;
-    if (item.kind === "image" && supportsImage) {
+    if (item.kind === ExtractedContentKind.IMAGE && supportsImage) {
       if (item.column.imageSource) {
         column.imageSource = item.column.imageSource;
         column.alt = item.column.alt;
@@ -2697,7 +2699,7 @@ export class PageTransformationEngine {
         column.showTextAfterImage = item.column.showTextAfterImage;
         textApplied = true;
       }
-    } else if (item.kind === "text" && supportsText && item.column.contentText) {
+    } else if (item.kind === ExtractedContentKind.TEXT && supportsText && item.column.contentText) {
       column.contentText = item.column.contentText;
       column.showTextAfterImage = item.column.showTextAfterImage;
       textApplied = true;
@@ -2725,7 +2727,7 @@ export class PageTransformationEngine {
     return ColumnContentType.TEXT;
   }
 
-  private toExtracted(kind: "text" | "image", column: Partial<PageContentColumn> | null): ExtractedContent | null {
+  private toExtracted(kind: ExtractedContentKind, column: Partial<PageContentColumn> | null): ExtractedContent | null {
     return column ? {kind, column} : null;
   }
 

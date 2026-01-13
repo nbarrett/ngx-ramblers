@@ -204,11 +204,19 @@ export class UrlService {
       return false;
     } else if (this.pathContainsMongoId() || this.pathContainsNumericRamblersId()) {
       return true;
-    } else if (this.pathSegments().length === 2) {
-      return this.looksLikeASlug(identifier) || this.identifierCanBeConvertedToSlug(identifier);
-    } else {
-      return false;
     }
+
+    const segments = this.pathSegments();
+    if (segments.length === 2) {
+      return this.looksLikeASlug(identifier) || this.identifierCanBeConvertedToSlug(identifier);
+    }
+
+    if (segments.length >= 3 && segments[segments.length - 2] === "view") {
+      const identifier = this.lastPathSegment();
+      return this.looksLikeASlug(identifier) || this.identifierCanBeConvertedToSlug(identifier) || this.pathContainsMongoId() || this.pathContainsNumericRamblersId();
+    }
+
+    return false;
   }
 
   pathContainsNumericRamblersId(): boolean {

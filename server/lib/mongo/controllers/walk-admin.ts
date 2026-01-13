@@ -24,13 +24,14 @@ import { PipelineStage } from "mongoose";
 import * as transforms from "./transforms";
 import { isNull, isNumber, isUndefined, kebabCase } from "es-toolkit/compat";
 import { sortBy } from "../../../../projects/ngx-ramblers/src/app/functions/arrays";
-import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone } from "../../shared/dates";
+import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone, dateTimeNow, dateTimeNowAsValue } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
 import { EventPopulation } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import * as crudController from "./crud-controller";
 import { fetchMappedEvents } from "../../ramblers/list-events";
 import { calculateExpenseStats } from "./agm-expense-stats";
 import { expenseClaim } from "../models/expense-claim";
+import { LocalWalkStatus } from "../models/walk-admin.model";
 
 const debugLog = debug(envConfig.logNamespace("walk-admin"));
 debugLog.enabled = false;
@@ -416,7 +417,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
                         {
                           $and: [
                             {$eq: [`$${GroupEventField.ITEM_TYPE}`, RamblersEventType.GROUP_WALK]},
-                            {$lte: [{$toDate: `$${GroupEventField.START_DATE}`}, new Date()]},
+                            {$lte: [{$toDate: `$${GroupEventField.START_DATE}`}, dateTimeNow().toJSDate()]},
                             {
                               $or: [
                                 {$eq: [`$${GroupEventField.STATUS}`, null]},
@@ -759,7 +760,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     [`${GroupEventField.ITEM_TYPE}`]: RamblersEventType.GROUP_WALK,
     [`${GroupEventField.START_DATE}`]: {
       $gte: dateTimeFromMillis(fromDate).toISO(),
-      $lte: new Date().toISOString()
+      $lte: dateTimeNow().toISO()
     },
     $or: [
       {[`${EventField.CONTACT_DETAILS_MEMBER_ID}`]: null},
@@ -808,11 +809,11 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
   const localCancelledWalks: any[] = [];
   const localUnfilledWalks: any[] = [];
 
-  const classifyLocalWalk = (walk: any): "deleted" | "unfilled" | "cancelled" | "evening" | "morning" => {
+  const classifyLocalWalk = (walk: any): LocalWalkStatus => {
     const events: any[] = Array.isArray(walk.events) ? walk.events : [];
     const hasDeletedEvent = events.some(event => event?.eventType === EventType.DELETED);
     if (hasDeletedEvent) {
-      return "deleted";
+      return LocalWalkStatus.DELETED;
     }
     const title = (walk.groupEvent?.title || "") as string;
     const status = walk.groupEvent?.status as string | undefined;
@@ -827,39 +828,39 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     const cancelled = cancelledByStatus || cancelledByTitle;
 
     if (cancelled) {
-      return "cancelled";
+      return LocalWalkStatus.CANCELLED;
     }
 
     if (!start) {
-      return "unfilled";
+      return LocalWalkStatus.UNFILLED;
     }
 
     const dt = dateTimeFromIso(start);
-    const nowMillis = Date.now();
+    const nowMillis = dateTimeNowAsValue();
     const pastOrToday = dt.toMillis() <= nowMillis;
 
     if (pastOrToday && (leaderMissing || titleMissing)) {
-      return "unfilled";
+      return LocalWalkStatus.UNFILLED;
     }
 
     if (dt.hour >= 15) {
-      return "evening";
+      return LocalWalkStatus.EVENING;
     }
 
-    return "morning";
+    return LocalWalkStatus.MORNING;
   };
 
   if (!isWalksManager) {
     for (const walk of allWalksForStats) {
       const bucket = classifyLocalWalk(walk);
-      if (bucket === "deleted") {
+      if (bucket === LocalWalkStatus.DELETED) {
         continue;
       }
-      if (bucket === "unfilled") {
+      if (bucket === LocalWalkStatus.UNFILLED) {
         localUnfilledWalks.push(walk);
-      } else if (bucket === "cancelled") {
+      } else if (bucket === LocalWalkStatus.CANCELLED) {
         localCancelledWalks.push(walk);
-      } else if (bucket === "evening") {
+      } else if (bucket === LocalWalkStatus.EVENING) {
         localEveningWalks.push(walk);
       } else {
         localMorningWalks.push(walk);

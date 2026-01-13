@@ -1,16 +1,42 @@
-import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
-import { LeaderStats } from "./group-event.model";
+import { IconDefinition } from "@fortawesome/fontawesome-common-types";
+import { GroupEvent, LeaderStats, PayeeStats, YearComparison } from "./group-event.model";
+
+export enum AgmChartType {
+  BAR = "bar",
+  LINE = "line"
+}
+
+export enum AgmStatsSection {
+  WALKS = "walks",
+  SOCIALS = "socials",
+  EXPENSES = "expenses",
+  MEMBERSHIP = "membership"
+}
 
 export interface SummaryRow {
   metric: string;
+  values: number[];
   order?: number;
-  values?: Array<number | string>;
-  displayValues?: Array<number | string>;
+  previous?: number;
+  current?: number;
+  changeValue?: number;
+  changeDisplay?: string;
+  displayValues?: number[];
   totalForPeriod?: number;
-  current: number;
-  previous: number;
-  changeDisplay: string;
-  changeValue: number;
+}
+
+export interface SocialRow {
+  id?: string;
+  date: number;
+  description: string;
+  organiserName?: string;
+  link?: string;
+  linkTitle?: string;
+  groupEvent?: Partial<GroupEvent>;
+}
+
+export interface RankedLeaderRow extends LeaderStats {
+  rank: number;
 }
 
 export type SortedRowsFn = <T>(rows: T[], key: string) => T[];
@@ -19,39 +45,5 @@ export type SortIconFn = (listKey: string, column: string) => IconDefinition | n
 export type ChangeClassFn = (current: number, previous: number) => string;
 export type GetYearLabelFn = (periodLabel: string) => string;
 
-export interface SocialRow {
-  date: number;
-  description: string;
-  organiserName?: string;
-  id?: string;
-  link?: string;
-  groupEvent?: {
-    url?: string;
-    external_url?: string;
-    title?: string;
-    description?: string;
-    item_type?: string;
-  };
-}
-
-export interface RankedLeaderRow extends LeaderStats {
-  rank: number;
-}
-
-export interface PayeeRow {
-  id: string;
-  name: string;
-  totalCost: number;
-  totalItems: number;
-  claimCount: number;
-  items: Array<{ description: string; cost: number; paidDate: number | null }>;
-}
-
-export interface ExpenseYearStats {
-  year: number;
-  periodFrom: number;
-  periodTo: number;
-  expenses: {
-    payees: PayeeRow[];
-  };
-}
+export type PayeeRow = PayeeStats;
+export interface ExpenseYearStats extends YearComparison {}

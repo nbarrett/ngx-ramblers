@@ -7,10 +7,15 @@ import { Command } from "commander";
 import debug from "debug";
 import * as semver from "semver";
 import * as yaml from "js-yaml";
-import { isArray, isString } from "es-toolkit/compat";
+import { isArray, isString, keys, values } from "es-toolkit/compat";
+import { PackageManager } from "./types";
 
 const debugLog = debug("check-shai-hulud");
 debugLog.enabled = true;
+
+function objectEntries<T>(object: Record<string, T>): [string, T][] {
+  return keys(object).map(key => [key, object[key]]);
+}
 
 const LOCKFILES: string[] = ["package-lock.json", "pnpm-lock.yaml"];
 
@@ -107,10 +112,10 @@ function parsePnpmLockfile(lockfilePath: string): Record<string, string> {
   const data = yaml.load(fs.readFileSync(lockfilePath, "utf8")) as Record<string, any>;
   const deps: Record<string, string> = {};
   const packages = (data && (data.packages || data.snapshots)) || {};
-  const keys = Object.keys(packages);
+  const packageKeys = keys(packages);
   debugLog(`🔍 Lockfile format: pnpm (${lockfilePath})`);
-  debugLog(`🔍 Raw package entries: ${keys.length}`);
-  keys.forEach((key: string) => {
+  debugLog(`🔍 Raw package entries: ${packageKeys.length}`);
+  packageKeys.forEach((key: string) => {
     const pkgData = packages[key] || {};
     const name = pkgData.name || derivePnpmName(key).name;
     const versionFromKey = derivePnpmName(key).version;
@@ -121,8 +126,8 @@ function parsePnpmLockfile(lockfilePath: string): Record<string, string> {
       debugLog(`⚠️  Skipping invalid entry at ${key}: missing name/version`);
     }
   });
-  const sample = Object.entries(deps).slice(0, 5).map(([k, v]) => `${k}@${v}`).join(", ");
-  debugLog(`🔍 Sample extracted deps (first 5): ${sample}${Object.keys(deps).length > 5 ? ` ... (total ${Object.keys(deps).length})` : ""}`);
+  const sample = objectEntries(deps).slice(0, 5).map(([k, v]) => `${k}@${v}`).join(", ");
+  debugLog(`🔍 Sample extracted deps (first 5): ${sample}${keys(deps).length > 5 ? ` ... (total ${keys(deps).length})` : ""}`);
   return deps;
 }
 
@@ -142,12 +147,12 @@ function parseLockfile(lockfilePath: string): Record<string, string> {
   }
 
   const packages = lockData.packages || {};
-  const rawCount = Object.keys(packages).length;
+  const rawCount = keys(packages).length;
   const isV3 = !!packages;
   debugLog(`🔍 Lockfile format: ${isV3 ? "v3 (modern npm 7+)" : "v2 (older; limited support)"}`);
   debugLog(`🔍 Raw package entries: ${rawCount}`);
 
-  Object.entries(packages).forEach(([pkgPath, pkgData]) => {
+  objectEntries(packages).forEach(([pkgPath, pkgData]) => {
     const version = pkgData.version;
     const name = pkgData.name || deriveName(pkgPath);
     if (name && version) {
@@ -163,23 +168,23 @@ function parseLockfile(lockfilePath: string): Record<string, string> {
         deps[node.name] = node.version;
       }
       if (node.dependencies) {
-        Object.values(node.dependencies).forEach((dep: PackageLock) => extractV2(dep));
+        values(node.dependencies).forEach((dep: PackageLock) => extractV2(dep));
       }
     }
 
     extractV2(lockData);
-    debugLog(`🔍 v2 fallback: Added ${Object.keys(deps).length - rawCount} extra deps`);
+    debugLog(`🔍 v2 fallback: Added ${keys(deps).length - rawCount} extra deps`);
   }
 
-  const sample = Object.entries(deps).slice(0, 5).map(([k, v]) => `${k}@${v}`).join(", ");
-  debugLog(`🔍 Sample extracted deps (first 5): ${sample}${Object.keys(deps).length > 5 ? ` ... (total ${Object.keys(deps).length})` : ""}`);
+  const sample = objectEntries(deps).slice(0, 5).map(([k, v]) => `${k}@${v}`).join(", ");
+  debugLog(`🔍 Sample extracted deps (first 5): ${sample}${keys(deps).length > 5 ? ` ... (total ${keys(deps).length})` : ""}`);
 
   return deps;
 }
 
 function checkCompromised(deps: Record<string, string>): Vulnerability[] {
   const vulnerabilities: Vulnerability[] = [];
-  Object.entries(deps).forEach(([pkg, ver]) => {
+  objectEntries(deps).forEach(([pkg, ver]) => {
     const compromisedVersions = KNOWN_COMPROMISED[pkg];
     if (compromisedVersions) {
       const isVulnerable = compromisedVersions.some((range: string) => {
@@ -210,16 +215,16 @@ interface AuditIssue {
   via: string[];
 }
 
-function runNpmAudit(baseDir: string, packageManager: "npm" | "pnpm", skipAudit: boolean): AuditResult {
+function runNpmAudit(baseDir: string, packageManager: PackageManager, skipAudit: boolean): AuditResult {
   if (skipAudit) {
     return { issues: [], skipped: true, reason: "skipped by flag" };
   }
   try {
-    const auditCmd = packageManager === "pnpm" ? "pnpm audit --json" : "npm audit --json";
+    const auditCmd = packageManager === PackageManager.PNPM ? "pnpm audit --json" : "npm audit --json";
     const auditOutput: string = execSync(auditCmd, { encoding: "utf8", cwd: baseDir });
     const audit: any = JSON.parse(auditOutput);
     const highVulns = audit.vulnerabilities
-      ? Object.values(audit.vulnerabilities).filter((v: any) => v.severity === "high" || v.severity === "critical")
+      ? values(audit.vulnerabilities).filter((v: any) => v.severity === "high" || v.severity === "critical")
       : [];
     return { issues: extractAuditIssues(highVulns), skipped: false };
   } catch (err: unknown) {
@@ -229,7 +234,7 @@ function runNpmAudit(baseDir: string, packageManager: "npm" | "pnpm", skipAudit:
       try {
         const audit: any = JSON.parse(stdout.toString());
         const highVulns = audit.vulnerabilities
-          ? Object.values(audit.vulnerabilities).filter((v: any) => v.severity === "high" || v.severity === "critical")
+          ? values(audit.vulnerabilities).filter((v: any) => v.severity === "high" || v.severity === "critical")
           : [];
         return { issues: extractAuditIssues(highVulns), skipped: false };
       } catch {
@@ -296,11 +301,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const lockfilePath = path.join(targetDir, lockfile);
-  const packageManager: "npm" | "pnpm" = lockfile.includes("pnpm-lock") ? "pnpm" : "npm";
+  const packageManager: PackageManager = lockfile.includes("pnpm-lock") ? PackageManager.PNPM : PackageManager.NPM;
   debugLog(`🔗 Using lockfile: ${lockfilePath}`);
   debugLog(`🔧 Package manager: ${packageManager}`);
   const deps: Record<string, string> = parseLockfile(lockfilePath);
-  debugLog(`📦 Found ${Object.keys(deps).length} dependencies.\n`);
+  debugLog(`📦 Found ${keys(deps).length} dependencies.\n`);
 
   const exitReasons: string[] = [];
   const compromised: Vulnerability[] = checkCompromised(deps);

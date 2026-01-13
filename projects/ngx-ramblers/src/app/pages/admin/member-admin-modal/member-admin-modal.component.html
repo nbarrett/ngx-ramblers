@@ -131,7 +131,7 @@
                       id="new-password"
                       name="new-password"
                       [(ngModel)]="member.password"
-                      size="sm"
+                      [size]="InputSize.SM"
                       placeholder="Enter new password here">
                     </app-secret-input>
                   </form>
@@ -456,17 +456,17 @@
                     class="round styled-table table-striped table-hover table-sm table-pointer">
                     <thead>
                     <tr>
-                      <th (click)="toggleAuditSort('updateTime')" class="sortable">
+                      <th (click)="toggleAuditSort(MemberAuditSortColumn.UPDATE_TIME)" class="sortable">
                         Update Time
-                        <fa-icon [icon]="auditSortIcon('updateTime')" size="xs" class="ms-1"/>
+                        <fa-icon [icon]="auditSortIcon(MemberAuditSortColumn.UPDATE_TIME)" size="xs" class="ms-1"/>
                       </th>
-                      <th (click)="toggleAuditSort('memberAction')" class="sortable">
+                      <th (click)="toggleAuditSort(MemberAuditSortColumn.MEMBER_ACTION)" class="sortable">
                         Member Action
-                        <fa-icon [icon]="auditSortIcon('memberAction')" size="xs" class="ms-1"/>
+                        <fa-icon [icon]="auditSortIcon(MemberAuditSortColumn.MEMBER_ACTION)" size="xs" class="ms-1"/>
                       </th>
-                      <th (click)="toggleAuditSort('auditMessage')" class="sortable">
+                      <th (click)="toggleAuditSort(MemberAuditSortColumn.AUDIT_MESSAGE)" class="sortable">
                         Audit Message
-                        <fa-icon [icon]="auditSortIcon('auditMessage')" size="xs" class="ms-1"/>
+                        <fa-icon [icon]="auditSortIcon(MemberAuditSortColumn.AUDIT_MESSAGE)" size="xs" class="ms-1"/>
                       </th>
                     </tr>
                     </thead>

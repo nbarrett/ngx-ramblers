@@ -17,6 +17,7 @@ import { isEqual } from "es-toolkit/compat";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
+import { InputSize } from "../../../../models/ui-size.model";
 
 @Component({
     selector: "app-system-instagram-settings",
@@ -51,7 +52,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                     [(ngModel)]="config.externalSystems.instagram.accessToken"
                     id="instagram-access-token"
                     name="accessToken"
-                    size="sm"
+                    [size]="InputSize.SM"
                     placeholder="Enter Instagram Access Token">
                   </app-secret-input>
                 </div>
@@ -78,6 +79,7 @@ export class InstagramSettings implements OnInit, OnDestroy {
   public config: SystemConfig;
   private subscriptions: Subscription[] = [];
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
+  protected readonly InputSize = InputSize;
   private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   private meetupService: MeetupService = inject(MeetupService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);

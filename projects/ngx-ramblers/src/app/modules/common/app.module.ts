@@ -33,11 +33,13 @@ import { TagifyModule } from "ngx-tagify";
 import { UiSwitchModule } from "ngx-ui-switch";
 import { AuthInterceptor } from "../../auth/auth.interceptor";
 import { GALLERY_CONFIG, GalleryConfig, GalleryModule } from "ng-gallery";
+import { ImageFit } from "../../models/content-text.model";
 import { LIGHTBOX_CONFIG, LightboxConfig, LightboxModule } from "ng-gallery/lightbox";
 import { NgxCaptureModule } from "ngx-capture";
 import { ButtonsModule } from "ngx-bootstrap/buttons";
 import { NgxGoogleAnalyticsModule, NgxGoogleAnalyticsRouterModule } from "ngx-google-analytics";
 import { CustomReuseStrategy } from "../../routing/custom-reuse-strategy";
+import { DateUtilsService } from "../../services/date-utils.service";
 import { initializeGtag } from "../../pages/admin/system-settings/google-analytics/tag-manager";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { LoggerFactory } from "../../services/logger-factory.service";
@@ -142,10 +144,10 @@ import { EventDatesAndTimesPipe } from "../../pipes/event-times-and-dates.pipe";
     ValueOrDefaultPipe,
     {provide: RouteReuseStrategy, useClass: CustomReuseStrategy},
     {provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true},
-    {provide: GALLERY_CONFIG, useValue: {imageSize: "cover"} as GalleryConfig},
+    {provide: GALLERY_CONFIG, useValue: {imageSize: ImageFit.COVER} as GalleryConfig},
     {provide: LIGHTBOX_CONFIG, useValue: {keyboardShortcuts: false, exitAnimationTime: 1000} as LightboxConfig},
     provideAppInitializer(() => {
-      const initializerFn = (initializeGtag)(inject(SystemConfigService), inject(LoggerFactory));
+      const initializerFn = (initializeGtag)(inject(SystemConfigService), inject(LoggerFactory), inject(DateUtilsService));
       return initializerFn();
     }),
     provideAppInitializer(checkMigrationStatus)

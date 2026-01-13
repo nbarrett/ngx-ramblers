@@ -2,6 +2,7 @@ import { inject, Injectable } from "@angular/core";
 import { isUndefined } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
+import { DateUtilsService } from "../date-utils.service";
 
 // Vendored code from geodesy by Chris Veness (MIT Licence)
 // https://www.movable-type.co.uk/scripts/geodesy-library.html
@@ -317,6 +318,7 @@ export interface ParsedGpx {
 })
 export class GpxParserService {
   private logger: Logger = inject(LoggerFactory).createLogger("GpxParserService", NgxLoggerLevel.ERROR);
+  private dateUtils = inject(DateUtilsService);
 
   parseGpxFile(gpxContent: string): ParsedGpx {
     const parser = new DOMParser();
@@ -550,8 +552,8 @@ export class GpxParserService {
     if (!dateString) {
       return undefined;
     }
-    const date = new Date(dateString);
-    return isNaN(date.getTime()) ? undefined : date;
+    const parsed = this.dateUtils.asDateTime(dateString);
+    return parsed.isValid ? parsed.toJSDate() : undefined;
   }
 
   toLeafletLatLngs(track: GpxTrack): [number, number][] {

@@ -6,14 +6,44 @@ export enum BackupRestoreTab {
   SETTINGS = "Settings"
 }
 
+export const BackupSessionType = {
+  BACKUP: "backup",
+  RESTORE: "restore"
+} as const;
+
+export type BackupSessionType = typeof BackupSessionType[keyof typeof BackupSessionType];
+
+export const BackupSessionStatus = {
+  PENDING: "pending",
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed",
+  FAILED: "failed"
+} as const;
+
+export type BackupSessionStatus = typeof BackupSessionStatus[keyof typeof BackupSessionStatus];
+
+export const BackupSessionTrigger = {
+  CLI: "cli",
+  WEB: "web"
+} as const;
+
+export type BackupSessionTrigger = typeof BackupSessionTrigger[keyof typeof BackupSessionTrigger];
+
+export const BackupLocation = {
+  LOCAL: "local",
+  S3: "s3"
+} as const;
+
+export type BackupLocation = typeof BackupLocation[keyof typeof BackupLocation];
+
 export interface BackupSession {
   _id?: string;
   sessionId: string;
-  type: "backup" | "restore";
+  type: BackupSessionType;
   environment: string;
   database: string;
   collections?: string[];
-  status: "pending" | "in_progress" | "completed" | "failed";
+  status: BackupSessionStatus;
   startTime: Date | number;
   endTime?: Date | number;
   options: BackupSessionOptions;
@@ -37,7 +67,7 @@ export interface BackupSessionOptions {
 
 export interface BackupSessionMetadata {
   user?: string;
-  triggeredBy: "cli" | "web";
+  triggeredBy: BackupSessionTrigger;
 }
 
 export interface BackupRequest {
@@ -71,7 +101,7 @@ export interface BackupListItem {
   size?: number;
   environment?: string;
   database?: string;
-  location: "local" | "s3";
+  location: BackupLocation;
 }
 
 export interface EnvironmentBackupConfig {

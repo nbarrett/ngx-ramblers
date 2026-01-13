@@ -4,6 +4,7 @@ import "proj4leaflet";
 import proj4 from "proj4";
 import { SystemConfigService } from "../system/system-config.service";
 import { MapMarker, PageContent, PageContentRow, PageContentType } from "../../models/content-text.model";
+import { MapProvider, osStyleForKey } from "../../models/map.model";
 import { LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { EPSG_27700_PROJ4 } from "../../common/maps/map-projection.constants";
@@ -38,17 +39,18 @@ export class MapTilesService {
     this.projInitialized = true;
   }
 
-  createBaseLayer(provider: "osm" | "os", style: string): L.TileLayer {
+  createBaseLayer(provider: MapProvider, style: string): L.TileLayer {
     this.initializeProjections();
 
-    if (provider === "os") {
+    if (provider === MapProvider.OS) {
       if (!this.osApiKeyConfigured()) {
         return L.tileLayer(this.osmUrl(), { attribution: "© OpenStreetMap (OS Maps unavailable)", maxZoom: 19, noWrap: true });
       }
 
       const url = this.osProxyUrl(style);
+      const styleInfo = osStyleForKey(style);
 
-      if (style.endsWith("27700") && (L as any).Proj?.TileLayer) {
+      if (styleInfo?.is27700 && (L as any).Proj?.TileLayer) {
         return new (L as any).Proj.TileLayer(url, { attribution: "© Ordnance Survey", continuousWorld: true, noWrap: true, maxZoom: 9 });
       }
       return L.tileLayer(url, { attribution: "© Ordnance Survey", maxZoom: 19, noWrap: true });
@@ -56,9 +58,10 @@ export class MapTilesService {
     return L.tileLayer(this.osmUrl(), { attribution: "© OpenStreetMap", maxZoom: 19, noWrap: true });
   }
 
-  crsForStyle(provider: "osm" | "os", style: string): any {
+  crsForStyle(provider: MapProvider, style: string): any {
     this.initializeProjections();
-    if (provider === "os" && style.endsWith("27700")) {
+    const styleInfo = osStyleForKey(style);
+    if (provider === MapProvider.OS && styleInfo?.is27700) {
       const crsCtor = (L as any).Proj?.CRS;
       if (crsCtor) {
         return new crsCtor("EPSG:27700", EPSG_27700_PROJ4, MapTilesService.EPSG_27700_CRS_OPTIONS);
@@ -67,8 +70,9 @@ export class MapTilesService {
     return L.CRS.EPSG3857;
   }
 
-  maxZoomForStyle(provider: "osm" | "os", style: string): number {
-    if (provider === "os" && style.endsWith("27700")) {
+  maxZoomForStyle(provider: MapProvider, style: string): number {
+    const styleInfo = osStyleForKey(style);
+    if (provider === MapProvider.OS && styleInfo?.is27700) {
       return 9;
     }
     return 19;

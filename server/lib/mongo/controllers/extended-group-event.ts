@@ -5,6 +5,7 @@ import { isEmpty, isString, kebabCase } from "es-toolkit/compat";
 import { extendedGroupEvent } from "../models/extended-group-event";
 import * as crudController from "./crud-controller";
 import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
+import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import {
   DocumentField,
@@ -12,12 +13,12 @@ import {
   GroupEventField
 } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { parseError } from "./transforms";
-import { dateTimeFromIso } from "../../shared/dates";
+import { dateTimeFromIso, dateTimeNow } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
 
 const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent, true);
 const debugLog = debug(envConfig.logNamespace("extended-group-event"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const LOCAL_ACTIVE_FILTER = {
   $or: [
     {[DocumentField.SOURCE]: {$ne: EventSource.LOCAL}},
@@ -311,10 +312,16 @@ export async function queryWalkLeaders(req: Request, res: Response) {
 
 export async function dateRange(req: Request, res: Response) {
   try {
-    const totalDocs = await extendedGroupEvent.countDocuments({});
-    debugLog("dateRange: total documents in collection:", totalDocs);
-
+    const matchFilter = {
+      [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK,
+      [GroupEventField.START_DATE]: { $exists: true, $ne: null }
+    };
+    const totalDocs = await extendedGroupEvent.countDocuments(matchFilter);
+    debugLog("dateRange: total group-walk documents with start_date:", totalDocs);
     const [result] = await extendedGroupEvent.aggregate([
+      {
+        $match: matchFilter
+      },
       {
         $group: {
           _id: null,
@@ -332,6 +339,34 @@ export async function dateRange(req: Request, res: Response) {
     controller.errorDebugLog("dateRange error:", error);
     res.status(500).json({
       message: "Failed to fetch date range",
+      error: parseError(error)
+    });
+  }
+}
+
+export async function nextWalkId(req: Request, res: Response) {
+  try {
+    const groupCode = req.query.groupCode as string;
+    const now = dateTimeNow().toISO();
+    const matchFilter: any = {
+      [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK,
+      [GroupEventField.START_DATE]: { $gte: now }
+    };
+    if (groupCode) {
+      matchFilter[GroupEventField.GROUP_CODE] = { $regex: `^${groupCode}$`, $options: "i" };
+    }
+    debugLog("nextWalkId: groupCode:", groupCode, "matchFilter:", JSON.stringify(matchFilter));
+    const nextWalk = await extendedGroupEvent.findOne(matchFilter)
+      .sort({ [GroupEventField.START_DATE]: 1 })
+      .select({ _id: 1, [GroupEventField.ID]: 1 })
+      .lean();
+    const nextWalkId = nextWalk?._id?.toString() || nextWalk?.groupEvent?.id;
+    debugLog("nextWalkId: returning:", nextWalkId);
+    res.status(200).json({ nextWalkId });
+  } catch (error) {
+    controller.errorDebugLog("nextWalkId error:", error);
+    res.status(500).json({
+      message: "Failed to fetch next walk ID",
       error: parseError(error)
     });
   }

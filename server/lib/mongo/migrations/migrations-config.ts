@@ -13,6 +13,7 @@ export interface MigrateMongoConfig {
   migrationFileExtension: string;
   useFileHash: boolean;
   moduleSystem: string;
+  manualMigrations?: string[];
 }
 
 export const migrateMongoConfig: MigrateMongoConfig = {
@@ -34,4 +35,10 @@ export const migrateMongoConfig: MigrateMongoConfig = {
   useFileHash: false,
 
   moduleSystem: "esm",
+  manualMigrations: [
+    "20251118000000-set-status-on-migrated-walks.js",
+    "20251118010000-enrich-migrated-walk-locations.js",
+    "20260113000000-reverse-geocode-missing-postcodes.js",
+    "20260113000001-geocode-from-title-description.js"
+  ]
 };

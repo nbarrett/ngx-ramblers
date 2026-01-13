@@ -51,6 +51,7 @@ import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.s
 import { LocalWalksAndEventsService } from "../../../services/walks-and-events/local-walks-and-events.service";
 import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
 import { GroupEventField } from "../../../models/walk.model";
+import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 
 @Component({
   selector: "app-advanced-search-panel",
@@ -233,7 +234,7 @@ import { GroupEventField } from "../../../models/walk.model";
                 Show free routes
               </label>
             </div>
-            <div class="form-check">
+            <div class="form-check me-4">
               <input
                 class="form-check-input"
                 type="checkbox"
@@ -242,6 +243,17 @@ import { GroupEventField } from "../../../models/walk.model";
                 (ngModelChange)="onCriteriaChange()">
               <label class="form-check-label" for="cancelled">
                 Show cancelled walks
+              </label>
+            </div>
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="noLocation"
+                [(ngModel)]="noLocation"
+                (ngModelChange)="onCriteriaChange()">
+              <label class="form-check-label" for="noLocation">
+                No location details
               </label>
             </div>
           </div>
@@ -632,6 +644,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
 
   freeOnly = false;
   cancelled = false;
+  noLocation = false;
   presetRanges: AdvancedSearchPreset[] = [];
   private selectedFilterCriteria: FilterCriteria | null = null;
   customRangeAmount = 7;
@@ -663,7 +676,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     this.criteriaChangeSubject.pipe(
       debounceTime(500)
     ).subscribe(() => {
-      const timeSinceLastFlush = Date.now() - this.lastFlushTime;
+      const timeSinceLastFlush = this.dateUtils.dateTimeNowAsValue() - this.lastFlushTime;
       if (timeSinceLastFlush < 600) {
         return;
       }
@@ -771,6 +784,8 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       if (isNumber(range.maxDate) && !Number.isNaN(range.maxDate)) {
         this.dataMaxDate = this.dateUtils.asDateTime(range.maxDate).endOf("day");
       }
+      this.minDate = this.dataMinDate;
+      this.maxDate = this.dataMaxDate;
       this.logger.info("loadDateRange: bounds", this.dataMinDate.toISO(), this.dataMaxDate.toISO());
     } catch (error) {
       this.logger.error("Failed to load date range:", error);
@@ -946,7 +961,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       return;
     }
     if (flush) {
-      this.lastFlushTime = Date.now();
+      this.lastFlushTime = this.dateUtils.dateTimeNowAsValue();
       this.applySearch();
       return;
     }
@@ -1031,7 +1046,8 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
         accessibility: this.selectedAccessibility.length > 0 ? this.selectedAccessibility : undefined,
         facilities: this.selectedFacilities.length > 0 ? this.selectedFacilities : undefined,
         freeOnly: this.freeOnly,
-        cancelled: this.cancelled
+        cancelled: this.cancelled,
+        noLocation: this.noLocation
       };
 
       this.logger.info("Final search criteria being emitted:", criteria);
@@ -1071,6 +1087,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     this.selectedFacilities = [];
     this.freeOnly = false;
     this.cancelled = false;
+    this.noLocation = false;
     this.customRangeAmount = 7;
     this.customRangeUnit = DateRangeUnit.DAYS;
     this.selectDefaultPreset();
@@ -1256,8 +1273,8 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     this.mapTilesService.initializeProjections();
 
     const hasOsKey = this.mapTilesService.hasOsApiKey();
-    const provider = hasOsKey ? "os" : "osm";
-    const style = hasOsKey ? "Leisure_27700" : "";
+    const provider = hasOsKey ? MapProvider.OS : MapProvider.OSM;
+    const style = hasOsKey ? DEFAULT_OS_STYLE : "";
 
     this.logger.info(`Initializing proximity map with provider: ${provider}, style: ${style}, hasOsKey: ${hasOsKey}`);
 
@@ -1350,7 +1367,8 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       accessibility: this.selectedAccessibility.length > 0 ? this.selectedAccessibility : undefined,
       facilities: this.selectedFacilities.length > 0 ? this.selectedFacilities : undefined,
       freeOnly: this.freeOnly,
-      cancelled: this.cancelled
+      cancelled: this.cancelled,
+      noLocation: this.noLocation
     };
 
     const criteriaParts: any[] = [];
@@ -1380,7 +1398,8 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     const advancedCriteria = buildAdvancedSearchCriteria({
       advancedSearchCriteria: criteriaForMap,
       dateUtils: this.dateUtils,
-      walkPopulationLocal: false
+      walkPopulationLocal: false,
+      logger: this.logger
     });
 
     criteriaParts.push(...advancedCriteria);
@@ -1579,6 +1598,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     this.selectedFacilities = criteria?.facilities ? [...criteria.facilities] : [];
     this.freeOnly = criteria?.freeOnly ?? false;
     this.cancelled = criteria?.cancelled ?? false;
+    this.noLocation = criteria?.noLocation ?? false;
     const hasFrom = isNumber(criteria?.dateFrom);
     const hasTo = isNumber(criteria?.dateTo);
     this.dateRange = hasFrom && hasTo ? { from: criteria.dateFrom as number, to: criteria.dateTo as number } : undefined;

@@ -10,7 +10,7 @@ import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass, DatePipe } from "@angular/common";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { MigrationFileStatus, MigrationSortColumn } from "../../../models/mongo-migration-model";
+import { MaintenanceMigrationFile, MigrationFileStatus, MigrationSortColumn } from "../../../models/mongo-migration-model";
 import { sortBy } from "../../../functions/arrays";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { isNull } from "es-toolkit/compat";
@@ -57,47 +57,55 @@ import { isNull } from "es-toolkit/compat";
                 }
 
                 @if (isAdmin) {
-                  <div class="admin-controls mt-4">
-                    <h5 class="mb-3">Administrator Controls</h5>
+                  <div class="mt-4">
                     @if (allMigrationFiles().length > 0) {
                       <div class="mb-3 text-start">
-                        <strong>All migrations:</strong>
-                        <div class="mt-2 table-responsive">
+                        <div class="table-responsive">
                           <table class="table table-sm table-hover">
                             <thead>
                               <tr>
-                                <th class="sortable" style="width: 12%;" (click)="toggleSort(MigrationSortColumn.STATUS)">
+                                <th class="sortable" style="width: 10%;" (click)="toggleSort(MigrationSortColumn.STATUS)">
                                   Status
                                   @if (sortColumn === MigrationSortColumn.STATUS) {
                                     <fa-icon [icon]="sortDirection === ASCENDING ? faChevronUp : faChevronDown" class="ms-1" size="xs"/>
                                   }
                                 </th>
-                                <th class="sortable" style="width: 48%;" (click)="toggleSort(MigrationSortColumn.FILE)">
+                                <th class="sortable" style="width: 40%;" (click)="toggleSort(MigrationSortColumn.FILE)">
                                   Migration File
                                   @if (sortColumn === MigrationSortColumn.FILE) {
                                     <fa-icon [icon]="sortDirection === ASCENDING ? faChevronUp : faChevronDown" class="ms-1" size="xs"/>
                                   }
                                 </th>
-                                <th class="sortable" style="width: 25%;" (click)="toggleSort(MigrationSortColumn.TIMESTAMP)">
+                                <th class="sortable" style="width: 20%;" (click)="toggleSort(MigrationSortColumn.TIMESTAMP)">
                                   Applied/Failed At
                                   @if (sortColumn === MigrationSortColumn.TIMESTAMP) {
                                     <fa-icon [icon]="sortDirection === ASCENDING ? faChevronUp : faChevronDown" class="ms-1" size="xs"/>
                                   }
                                 </th>
+                                <th style="width: 15%;">Duration</th>
                                 <th style="width: 13%;">Actions</th>
                               </tr>
                             </thead>
                             <tbody>
                               @for (migration of sortedMigrations(); track migration.file) {
-                                <tr [ngClass]="{'migration-applied': isApplied(migration.status), 'migration-failed': isFailed(migration.status), 'migration-pending': isPending(migration.status)}">
+                                <tr [ngClass]="{'migration-applied': isApplied(migration.status), 'migration-failed': isFailed(migration.status), 'migration-pending': isPending(migration.status), 'migration-running': isRunning(migration.file)}">
                                   <td>
-                                    <span class="badge"
-                                          [ngClass]="isApplied(migration.status) ? 'bg-success' : isFailed(migration.status) ? 'bg-danger' : 'bg-warning'">
-                                      {{ isApplied(migration.status) ? 'Applied' : isFailed(migration.status) ? 'Failed' : 'Pending' }}
-                                    </span>
+                                    @if (isRunning(migration.file)) {
+                                      <span class="badge bg-primary">
+                                        <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"/>Running
+                                      </span>
+                                    } @else {
+                                      <span class="badge"
+                                            [ngClass]="isApplied(migration.status) ? 'bg-success' : isFailed(migration.status) ? 'bg-danger' : 'bg-warning'">
+                                        {{ isApplied(migration.status) ? 'Applied' : isFailed(migration.status) ? 'Failed' : 'Pending' }}
+                                      </span>
+                                    }
                                   </td>
                                   <td>
-                                    <code>{{ migration.file }}</code>
+                                    {{ migration.file }}
+                                    @if (migration.manual) {
+                                      <span class="badge bg-info text-dark ms-2">Manual</span>
+                                    }
                                     @if (isFailed(migration.status) && migration.error) {
                                       <div class="alert alert-danger mt-2 mb-0 p-2">
                                         <small>
@@ -114,12 +122,19 @@ import { isNull } from "es-toolkit/compat";
                                     }
                                   </td>
                                   <td>
-                                    <button class="btn btn-sm"
+                                    @if (migration.startedAt && migration.timestamp) {
+                                      <small>{{ dateUtils.formatDuration(dateUtils.asValue(migration.startedAt), dateUtils.asValue(migration.timestamp)) }}</small>
+                                    } @else {
+                                      <small class="text-muted">—</small>
+                                    }
+                                  </td>
+                                  <td>
+                                    <button class="btn btn-sm text-nowrap"
                                             [ngClass]="isFailed(migration.status) ? 'btn-danger' : 'btn-primary'"
                                             [disabled]="retrying || !isNull(retryingFile)"
                                             (click)="retryMigrationFile(migration.file)">
                                       <fa-icon [icon]="retryingFile === migration.file ? faSpinner : faRedo" [spin]="retryingFile === migration.file" class="me-1"/>
-                                      {{ isFailed(migration.status) ? 'Retry' : isApplied(migration.status) ? 'Re-run' : 'Run' }}
+                                      {{ runButtonLabel(migration) }}
                                     </button>
                                   </td>
                                 </tr>
@@ -193,11 +208,6 @@ import { isNull } from "es-toolkit/compat";
       background-color: rgba(0, 0, 0, 0.05)
       border-radius: 0.25rem
 
-    .admin-controls
-      padding: 1.5rem
-      background-color: #f8f9fa
-      border-radius: 0.5rem
-
     .sortable
       cursor: pointer
       user-select: none
@@ -228,6 +238,7 @@ import { isNull } from "es-toolkit/compat";
 
       tbody tr td
         border-right: 1px solid #dee2e6
+        vertical-align: middle
 
         &:last-child
           border-right: none
@@ -243,6 +254,9 @@ import { isNull } from "es-toolkit/compat";
 
       tbody tr.migration-failed td:first-child
         border-left-color: #dc3545
+
+      tbody tr.migration-running td:first-child
+        border-left-color: #0d6efd
 
     .text-warning
       color: #ffc107 !important
@@ -260,7 +274,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger(SiteMaintenanceComponent, NgxLoggerLevel.OFF);
   private memberLoginService = inject(MemberLoginService);
   private siteMaintenanceService = inject(SiteMaintenanceService);
-  private dateUtils = inject(DateUtilsService);
+  protected dateUtils = inject(DateUtilsService);
 
   faExclamationTriangle = faExclamationTriangle;
   faCheckCircle = faCheckCircle;
@@ -442,7 +456,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
            !this.migrationStatus?.migrations?.failed;
   }
 
-  allMigrationFiles(): Array<{file: string; status: MigrationFileStatus; timestamp: string; error?: string}> {
+  allMigrationFiles(): MaintenanceMigrationFile[] {
     if (!this.migrationStatus?.migrations?.files) {
       return [];
     }
@@ -453,8 +467,10 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
       return {
         file: migrationFile.fileName,
         status: migrationFile.status,
+        startedAt: migrationFile.startedAt,
         timestamp,
-        error: migrationFile.error
+        error: migrationFile.error,
+        manual: migrationFile.manual
       };
     });
   }
@@ -468,7 +484,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
     }
   }
 
-  sortedMigrations(): Array<{file: string; status: MigrationFileStatus; timestamp: string; error?: string}> {
+  sortedMigrations(): MaintenanceMigrationFile[] {
     const migrations = this.allMigrationFiles();
     const prefix = this.sortDirection === DESCENDING ? "-" : "";
     return migrations.sort(sortBy(`${prefix}${this.sortColumn}`));
@@ -484,5 +500,19 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
 
   isPending(status: MigrationFileStatus): boolean {
     return status === MigrationFileStatus.PENDING;
+  }
+
+  isRunning(fileName: string): boolean {
+    return this.retryingFile === fileName;
+  }
+
+  runButtonLabel(migration: MaintenanceMigrationFile): string {
+    if (this.isFailed(migration.status)) {
+      return "Retry";
+    }
+    if (this.isApplied(migration.status)) {
+      return "Re-run";
+    }
+    return migration.manual ? "Run manually" : "Run";
   }
 }

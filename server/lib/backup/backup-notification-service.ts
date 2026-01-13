@@ -3,6 +3,8 @@ import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { envConfig } from "../env-config/env-config";
 import { configuredBrevo } from "../brevo/brevo-config";
 import { BackupSession } from "../mongo/models/backup-session";
+import { dateTimeFromJsDate } from "../shared/dates";
+import { DateTime } from "luxon";
 
 const debugLog = debug(envConfig.logNamespace("backup-notification"));
 debugLog.enabled = true;
@@ -107,7 +109,7 @@ export class BackupNotificationService {
             <li><strong>Environment:</strong> ${session.environment}</li>
             <li><strong>Database:</strong> ${session.database}</li>
             ${collectionsText}
-            <li><strong>Started:</strong> ${new Date(session.startTime).toLocaleString()}</li>
+            <li><strong>Started:</strong> ${dateTimeFromJsDate(session.startTime).toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}</li>
             <li><strong>Triggered by:</strong> ${session.metadata?.triggeredBy} ${session.metadata?.user ? `(${session.metadata.user})` : ""}</li>
           </ul>
           ${session.options.upload ? `<p><strong>Note:</strong> Backup will be uploaded to S3 bucket: ${session.options.s3Bucket}</p>` : ""}
@@ -119,7 +121,7 @@ export class BackupNotificationService {
 
   private buildCompletedEmailHtml(session: BackupSession): string {
     const duration = session.endTime
-      ? this.formatDuration(new Date(session.startTime).getTime(), new Date(session.endTime).getTime())
+      ? this.formatDuration(dateTimeFromJsDate(session.startTime).toMillis(), dateTimeFromJsDate(session.endTime).toMillis())
       : "Unknown";
 
     const locationInfo = session.s3Location
@@ -163,7 +165,7 @@ export class BackupNotificationService {
             ${collectionsText}
             <li><strong>Source:</strong> ${session.options.from}</li>
             <li><strong>Drop collections:</strong> ${session.options.drop ? "Yes" : "No"}</li>
-            <li><strong>Started:</strong> ${new Date(session.startTime).toLocaleString()}</li>
+            <li><strong>Started:</strong> ${dateTimeFromJsDate(session.startTime).toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}</li>
             <li><strong>Triggered by:</strong> ${session.metadata?.triggeredBy} ${session.metadata?.user ? `(${session.metadata.user})` : ""}</li>
           </ul>
           ${session.options.dryRun ? `<p style="color: #2563eb;"><strong>Note:</strong> This is a DRY RUN - no changes will be made.</p>` : ""}
@@ -175,7 +177,7 @@ export class BackupNotificationService {
 
   private buildRestoreCompletedEmailHtml(session: BackupSession): string {
     const duration = session.endTime
-      ? this.formatDuration(new Date(session.startTime).getTime(), new Date(session.endTime).getTime())
+      ? this.formatDuration(dateTimeFromJsDate(session.startTime).toMillis(), dateTimeFromJsDate(session.endTime).toMillis())
       : "Unknown";
 
     return `
@@ -209,7 +211,7 @@ export class BackupNotificationService {
             <li><strong>Session ID:</strong> ${session.sessionId}</li>
             <li><strong>Environment:</strong> ${session.environment}</li>
             <li><strong>Database:</strong> ${session.database}</li>
-            <li><strong>Started:</strong> ${new Date(session.startTime).toLocaleString()}</li>
+            <li><strong>Started:</strong> ${dateTimeFromJsDate(session.startTime).toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}</li>
           </ul>
           <h3>Error Details:</h3>
           <pre style="background-color: #fee2e2; padding: 10px; border-radius: 4px; overflow-x: auto;">${session.error}</pre>

@@ -1,7 +1,14 @@
 import mongoose from "mongoose";
+import { values } from "es-toolkit/compat";
+
+export enum SpatialFeatureGeometryType {
+  POINT = "Point",
+  LINE_STRING = "LineString",
+  MULTI_LINE_STRING = "MultiLineString"
+}
 
 const pointSchema = new mongoose.Schema({
-  type: {type: String, enum: ["Point"], required: true, default: "Point"},
+  type: {type: String, enum: [SpatialFeatureGeometryType.POINT], required: true, default: SpatialFeatureGeometryType.POINT},
   coordinates: {type: [Number], required: true}
 }, {_id: false});
 
@@ -13,7 +20,7 @@ const spatialFeatureSchema = new mongoose.Schema({
   description: {type: String},
   properties: {type: mongoose.Schema.Types.Mixed},
   geometry: {
-    type: {type: String, enum: ["Point", "LineString", "MultiLineString"], required: true},
+    type: {type: String, enum: values(SpatialFeatureGeometryType), required: true},
     coordinates: {type: mongoose.Schema.Types.Mixed, required: true}
   },
   bounds: {
@@ -40,12 +47,12 @@ export interface SpatialFeature extends mongoose.Document {
   description?: string;
   properties?: Record<string, unknown>;
   geometry: {
-    type: "Point" | "LineString" | "MultiLineString";
+    type: SpatialFeatureGeometryType;
     coordinates: number[] | number[][] | number[][][];
   };
   bounds: {
-    southwest: {type: "Point"; coordinates: [number, number]};
-    northeast: {type: "Point"; coordinates: [number, number]};
+    southwest: {type: SpatialFeatureGeometryType.POINT; coordinates: [number, number]};
+    northeast: {type: SpatialFeatureGeometryType.POINT; coordinates: [number, number]};
   };
   simplified: boolean;
   createdAt: Date;

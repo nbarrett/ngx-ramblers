@@ -1,6 +1,7 @@
 import { AdvancedSearchCriteria } from "../../models/search.model";
 import { EventField, GroupEventField } from "../../models/walk.model";
 import { DateUtilsService } from "../../services/date-utils.service";
+import { Logger } from "../../services/logger-factory.service";
 import { isMongoId } from "../../services/mongo-utils";
 import { isRamblersContactId } from "../../services/ramblers-utils";
 import { isNumber } from "es-toolkit/compat";
@@ -9,6 +10,7 @@ export interface CriteriaBuilderOptions {
   advancedSearchCriteria?: AdvancedSearchCriteria;
   dateUtils: DateUtilsService;
   walkPopulationLocal?: boolean;
+  logger?: Logger;
 }
 
 export function buildProximityCriteria(
@@ -22,22 +24,12 @@ export function buildProximityCriteria(
   const minLng = lng - (radiusDegrees / Math.cos(lat * Math.PI / 180));
   const maxLng = lng + (radiusDegrees / Math.cos(lat * Math.PI / 180));
 
-  const criteria = {
+  return {
     $and: [
       { [GroupEventField.START_LOCATION_LATITUDE]: { $gte: minLat, $lte: maxLat } },
       { [GroupEventField.START_LOCATION_LONGITUDE]: { $gte: minLng, $lte: maxLng } }
     ]
   };
-
-  console.log("buildProximityCriteria (using lat/lng fields):", {
-    lat,
-    lng,
-    radiusMiles,
-    radiusDegrees,
-    bounds: { minLat, maxLat, minLng, maxLng },
-    criteria: JSON.stringify(criteria, null, 2)
-  });
-  return criteria;
 }
 
 export function buildDaysOfWeekCriteria(
@@ -120,6 +112,39 @@ export function buildcancelledCriteria(): any {
   };
 }
 
+function latLngMissingOrInvalid(field: GroupEventField): any[] {
+  return [
+    { [field]: { $exists: false } },
+    { [field]: null },
+    { [field]: 0 },
+    { [field]: { $gt: -0.001, $lt: 0.001 } }
+  ];
+}
+
+function locationMissingCriteria(latField: GroupEventField, lngField: GroupEventField): any {
+  return {
+    $and: [
+      { $or: latLngMissingOrInvalid(latField) },
+      { $or: latLngMissingOrInvalid(lngField) }
+    ]
+  };
+}
+
+export function buildNoLocationCriteria(): any {
+  return {
+    $and: [
+      locationMissingCriteria(
+        GroupEventField.START_LOCATION_LATITUDE,
+        GroupEventField.START_LOCATION_LONGITUDE
+      ),
+      locationMissingCriteria(
+        GroupEventField.LOCATION_LATITUDE,
+        GroupEventField.LOCATION_LONGITUDE
+      )
+    ]
+  };
+}
+
 function extractLeaderMatchPatterns(leaderId: string): { groupCode?: string; namePattern?: string } {
   const parts = leaderId.split("-");
   if (parts.length >= 2) {
@@ -145,15 +170,14 @@ function extractLeaderMatchPatterns(leaderId: string): { groupCode?: string; nam
   return {};
 }
 
-export function buildLeaderIdsCriteria(leaderIds: string[], walkPopulationLocal?: boolean): any {
+export function buildLeaderIdsCriteria(leaderIds: string[], walkPopulationLocal?: boolean, logger?: Logger): any {
   const mongoIds = leaderIds.filter(id => isMongoId(id));
   const compositeIds = leaderIds.filter(id => !isMongoId(id));
   const ramblersIds = compositeIds.filter(id => isRamblersContactId(id));
   const slugIds = compositeIds.filter(id => !isRamblersContactId(id));
-
-  console.log("buildLeaderIdsCriteria: leaderIds:", leaderIds, "mongoIds:", mongoIds, "compositeIds:", compositeIds);
-
   const orConditions: any[] = [];
+
+  logger?.debug("buildLeaderIdsCriteria: leaderIds:", leaderIds, "mongoIds:", mongoIds, "compositeIds:", compositeIds);
 
   if (mongoIds.length > 0) {
     orConditions.push({ [EventField.CONTACT_DETAILS_MEMBER_ID]: { $in: mongoIds } });
@@ -171,7 +195,7 @@ export function buildLeaderIdsCriteria(leaderIds: string[], walkPopulationLocal?
   if (slugIds.length > 0) {
     slugIds.forEach(leaderId => {
       const { groupCode, namePattern } = extractLeaderMatchPatterns(leaderId);
-      console.log("buildLeaderIdsCriteria: leaderId:", leaderId, "extracted groupCode:", groupCode, "namePattern:", namePattern);
+      logger?.debug("buildLeaderIdsCriteria: leaderId:", leaderId, "extracted groupCode:", groupCode, "namePattern:", namePattern);
       if (groupCode && namePattern) {
         orConditions.push({
           $and: [
@@ -180,7 +204,7 @@ export function buildLeaderIdsCriteria(leaderIds: string[], walkPopulationLocal?
               $or: [
                 { [GroupEventField.WALK_LEADER_NAME]: { $regex: namePattern, $options: "i" } },
                 { [EventField.CONTACT_DETAILS_DISPLAY_NAME]: { $regex: namePattern, $options: "i" } },
-                { "groupEvent.walk_leader.telephone": { $regex: namePattern.replace(/\s/g, ""), $options: "i" } }
+                { [GroupEventField.WALK_LEADER_TELEPHONE]: { $regex: namePattern.replace(/\s/g, ""), $options: "i" } }
               ]
             }
           ]
@@ -195,7 +219,7 @@ export function buildLeaderIdsCriteria(leaderIds: string[], walkPopulationLocal?
       ? orConditions[0]
       : { $or: orConditions };
 
-  console.log("buildLeaderIdsCriteria: result:", JSON.stringify(result, null, 2));
+  logger?.debug("buildLeaderIdsCriteria: result:", JSON.stringify(result, null, 2));
   return result;
 }
 
@@ -215,21 +239,21 @@ export function buildGroupCodesCriteria(groupCodes: string[]): any {
 export function buildAdvancedSearchCriteria(
   options: CriteriaBuilderOptions
 ): any[] {
-  const { advancedSearchCriteria, dateUtils, walkPopulationLocal } = options;
+  const { advancedSearchCriteria, dateUtils, walkPopulationLocal, logger } = options;
   const criteriaParts: any[] = [];
 
   if (!advancedSearchCriteria) {
     return criteriaParts;
   } else {
     if (advancedSearchCriteria.leaderIds?.length) {
-      criteriaParts.push(buildLeaderIdsCriteria(advancedSearchCriteria.leaderIds, walkPopulationLocal));
+      criteriaParts.push(buildLeaderIdsCriteria(advancedSearchCriteria.leaderIds, walkPopulationLocal, logger));
     }
 
     if (advancedSearchCriteria.groupCodes?.length) {
       criteriaParts.push(buildGroupCodesCriteria(advancedSearchCriteria.groupCodes));
     }
 
-    console.log("Checking proximity criteria:", {
+    logger?.debug("Checking proximity criteria:", {
       proximityLat: advancedSearchCriteria.proximityLat,
       proximityLng: advancedSearchCriteria.proximityLng,
       proximityRadiusMiles: advancedSearchCriteria.proximityRadiusMiles,
@@ -243,7 +267,7 @@ export function buildAdvancedSearchCriteria(
       advancedSearchCriteria.proximityLng &&
       advancedSearchCriteria.proximityRadiusMiles
     ) {
-      console.log("Adding proximity criteria to search");
+      logger?.debug("Adding proximity criteria to search");
       criteriaParts.push(
         buildProximityCriteria(
           advancedSearchCriteria.proximityLat,
@@ -252,7 +276,7 @@ export function buildAdvancedSearchCriteria(
         )
       );
     } else {
-      console.log("Proximity criteria NOT added - one or more values are falsy");
+      logger?.debug("Proximity criteria NOT added - one or more values are falsy");
     }
 
     if (advancedSearchCriteria.daysOfWeek?.length) {
@@ -288,6 +312,10 @@ export function buildAdvancedSearchCriteria(
 
     if (advancedSearchCriteria.cancelled) {
       criteriaParts.push(buildcancelledCriteria());
+    }
+
+    if (advancedSearchCriteria.noLocation) {
+      criteriaParts.push(buildNoLocationCriteria());
     }
 
     return criteriaParts;

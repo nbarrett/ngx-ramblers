@@ -19,7 +19,8 @@ import { Request, Response } from "express";
 import { systemConfig } from "../config/system-config";
 import { listEventsBySlug } from "./list-events-by-slug";
 import { dateEndParameter, dateParameter, limitFor } from "./parameters";
-import { lastItemFrom, pluraliseWithCount, toKebabCase } from "../shared/string-utils";
+import { lastItemFrom, pluraliseWithCount } from "../shared/string-utils";
+import { toSlug } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import {
   ExtendedGroupEvent,
   GroupEvent,
@@ -33,7 +34,7 @@ import {
 import { dateTimeFromIso } from "../shared/dates";
 import { DateTime } from "luxon";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
-import { cacheEventIfNotFound, cacheEventsWithStats, mapToExtendedGroupEvent } from "../walks/walks-manager-cache";
+import { cacheEventIfNotFound, cacheEventsWithStats, toExtendedGroupEvent } from "../walks/walks-manager-cache";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:list-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:list-events-no-op"));
@@ -83,9 +84,9 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
         if (!body.suppressEventLinking) {
           if (apiResponse?.response?.data?.length === 1) {
             const event: GroupEvent = apiResponse.response.data[0];
-            const kebabCaseSlug = toKebabCase(slug);
+            const kebabCaseSlug = toSlug(slug);
             const urlPathLastSegment = lastItemFrom(event.url);
-            if (urlPathLastSegment === slug || toKebabCase(event.title) === kebabCaseSlug) {
+            if (urlPathLastSegment === slug || toSlug(event.title) === kebabCaseSlug) {
               await cacheEventIfNotFound(config, event, inputSource);
             } else {
               debugLog("Event URL or title mismatch with slug:", { urlPathLastSegment, kebabCaseSlug, event });
@@ -240,7 +241,7 @@ export async function fetchMappedEvents(config: SystemConfig, fromDate: number, 
   }) as RamblersEventsApiResponse;
 
   const events = response.response?.data || [];
-  return events.map(event => mapToExtendedGroupEvent(config, event));
+  return events.map(event => toExtendedGroupEvent(config, event));
 }
 
 async function queryBasedOnExistingEvent(existingEvent: ExtendedGroupEvent, body: EventsListRequest, config: SystemConfig): Promise<RamblersEventsApiResponse> {

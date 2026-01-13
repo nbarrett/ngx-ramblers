@@ -9,6 +9,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MeetupService } from "../../../services/meetup.service";
 import { isString } from "es-toolkit/compat";
 import { FormsModule } from "@angular/forms";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
     selector: "app-walk-meetup-config-parameters",
@@ -33,6 +34,11 @@ export class WalkMeetupConfigParametersComponent implements OnInit {
 
   @Input()
   public contentTextItems: ContentText[];
+  public inputDisabled = false;
+
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit:renderMarkdownField", this.renderMarkdownField);

@@ -45,15 +45,6 @@ export function lastItemFrom(key: string) {
   return key?.split("/").filter(item => item)?.pop();
 }
 
-export function toKebabCase(input: string): string {
-  if (!input) return "";
-  return input
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim();
-}
 
 export function titleCase(str: string): string {
     return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());

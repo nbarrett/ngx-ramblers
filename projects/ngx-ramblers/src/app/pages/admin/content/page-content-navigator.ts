@@ -23,6 +23,7 @@ import { StoredValue } from "../../../models/ui-actions";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { sortBy } from "../../../functions/arrays";
 import { isNull, isUndefined } from "es-toolkit/compat";
+import { PageContentViewMode } from "../../../models/page-content-navigator.model";
 
 @Component({
   selector: "app-page-content-navigator",
@@ -32,13 +33,13 @@ import { isNull, isUndefined } from "es-toolkit/compat";
       <div class="mb-3 d-flex align-items-center flex-nowrap">
         <label class="me-2 text-nowrap">View Mode: </label>
         <button class="btn btn-sm btn-primary me-2 text-nowrap"
-                [class.active]="viewMode() === 'duplicates'"
-                (click)="switchToViewMode('duplicates')">
+                [class.active]="viewMode() === PageContentViewMode.DUPLICATES"
+                (click)="switchToViewMode(PageContentViewMode.DUPLICATES)">
           <fa-icon [icon]="faWarning"/> Duplicates
         </button>
         <button class="btn btn-sm btn-primary me-3 text-nowrap"
-                [class.active]="viewMode() === 'all'"
-                (click)="switchToViewMode('all')">
+                [class.active]="viewMode() === PageContentViewMode.ALL"
+                (click)="switchToViewMode(PageContentViewMode.ALL)">
           <fa-icon [icon]="faList"/> All Content
         </button>
         <input class="form-control flex-grow-1" style="min-width: 0" type="text" placeholder="Filter by path"
@@ -66,14 +67,14 @@ import { isNull, isUndefined } from "es-toolkit/compat";
           </form>
           @for (item of filteredContentItems(); track $index) {
             <h3>
-              @if (viewMode() === 'duplicates') {
+              @if (viewMode() === PageContentViewMode.DUPLICATES) {
                 <fa-icon class="fa-icon-sunrise me-1" [icon]="faWarning"/>
                 Duplicate {{ $index + 1 }} of {{ filteredContentItems().length }}:
               } @else {
                 Content Item {{ $index + 1 }} of {{ filteredContentItems().length }}:
               }
               <a class="rams-text-decoration-pink" [href]="item.path">{{ item.path }}</a>
-              @if (viewMode() === 'duplicates') {
+              @if (viewMode() === PageContentViewMode.DUPLICATES) {
                 {{ EM_DASH_WITH_SPACES }} {{ stringUtils.pluraliseWithCount(getContentCount(item), "duplicate") }}
               }
             </h3>
@@ -177,7 +178,8 @@ export class PageContentNavigatorComponent implements OnInit {
   protected readonly faTrash = faTrash;
   protected readonly faList = faList;
 
-  viewMode = signal<"duplicates" | "all">("duplicates");
+  protected readonly PageContentViewMode = PageContentViewMode;
+  viewMode = signal<PageContentViewMode>(PageContentViewMode.DUPLICATES);
   contentItems = signal<PageContentGroup[]>([]);
   selectedIds = signal<string[]>([]);
   allContentItems = signal<PageContent[]>([]);
@@ -202,9 +204,10 @@ export class PageContentNavigatorComponent implements OnInit {
       const viewMode = params.get(this.stringUtils.kebabCase(StoredValue.CONTENT_VIEW_MODE));
       const search = params.get(this.stringUtils.kebabCase(StoredValue.SEARCH));
 
-      if (viewMode === "duplicates" || viewMode === "all") {
-        this.viewMode.set(viewMode);
-        this.uiActionsService.saveValueFor(StoredValue.CONTENT_VIEW_MODE, viewMode);
+      if (viewMode === PageContentViewMode.DUPLICATES || viewMode === PageContentViewMode.ALL) {
+        const normalizedViewMode = viewMode as PageContentViewMode;
+        this.viewMode.set(normalizedViewMode);
+        this.uiActionsService.saveValueFor(StoredValue.CONTENT_VIEW_MODE, normalizedViewMode);
       }
 
       if (!isNull(search)) {
@@ -310,7 +313,7 @@ export class PageContentNavigatorComponent implements OnInit {
     }, 300);
   }
 
-  switchToViewMode(mode: "duplicates" | "all") {
+  switchToViewMode(mode: PageContentViewMode) {
     this.viewMode.set(mode);
     this.uiActionsService.saveValueFor(StoredValue.CONTENT_VIEW_MODE, mode);
     this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.CONTENT_VIEW_MODE)]: mode });

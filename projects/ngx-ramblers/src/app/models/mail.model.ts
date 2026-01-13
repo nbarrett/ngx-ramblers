@@ -5,6 +5,7 @@ import { BannerConfig } from "./banner-configuration.model";
 import { Auditable, HasEmailFirstAndLastName, Member, MemberFilterSelection } from "./member.model";
 import { NotificationDirective } from "../notifications/common/notification.directive";
 import { AuditStatus } from "./audit";
+import { SortDirection } from "./sort.model";
 
 export enum MailSettingsTab {
   EMAIL_CONFIGURATIONS = "Email Configurations",
@@ -221,7 +222,7 @@ export interface TemplateOptions extends OptionalRequestOptions {
 export interface OptionalRequestOptions {
   limit?: number,
   offset?: number,
-  sort?: "asc" | "desc",
+  sort?: SortDirection,
   options?: {
     headers: {
       [name: string]: string;

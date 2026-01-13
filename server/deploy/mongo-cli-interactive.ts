@@ -10,6 +10,7 @@ import {
 import type { EnvironmentConfig } from "./types.js";
 import { getAwsConfigForEnvironment, loadConfigs } from "./config-loader.js";
 import { isUndefined } from "es-toolkit/compat";
+import { dateTimeFromJsDate } from "../lib/shared/dates";
 
 interface BackupAnswers {
   environment: string;
@@ -202,7 +203,7 @@ async function runRestore(configs: EnvironmentConfig[], dumpBaseDir: string) {
   const from = await select({
     message: "Select backup to restore:",
     choices: backups.map(b => ({
-      name: `${b.name} (${new Date(b.timestamp).toLocaleString()})`,
+      name: `${b.name} (${dateTimeFromJsDate(b.timestamp).toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)})`,
       value: b.path
     })),
     pageSize: 15

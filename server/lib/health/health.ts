@@ -40,9 +40,10 @@ export async function systemStatus(req: Request, res: Response<Partial<HealthRes
       migrationStatus = { files: [], failed: false };
     }
 
-    const pending = migrationStatus.files.filter(f => f.status === MigrationFileStatus.PENDING).length;
-    const applied = migrationStatus.files.filter(f => f.status === MigrationFileStatus.APPLIED).length;
-    const failed = migrationStatus.files.some(f => f.status === MigrationFileStatus.FAILED);
+    const automaticMigrations = migrationStatus.files.filter(f => !f.manual);
+    const pending = automaticMigrations.filter(f => f.status === MigrationFileStatus.PENDING).length;
+    const applied = automaticMigrations.filter(f => f.status === MigrationFileStatus.APPLIED).length;
+    const failed = automaticMigrations.some(f => f.status === MigrationFileStatus.FAILED);
 
     const isHealthy = !failed && pending === 0;
 

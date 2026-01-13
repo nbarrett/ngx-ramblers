@@ -8,7 +8,7 @@ import { MapControls, MapControlsConfig, MapControlsState } from "../../shared/c
 import { MapOverlay } from "../../shared/components/map-overlay";
 import { MapControlsStateService } from "../../shared/services/map-controls-state.service";
 import { MapRecreationService } from "../../shared/services/map-recreation.service";
-import { MapProvider } from "../../models/map.model";
+import { MapProvider, OUTDOOR_OS_STYLE } from "../../models/map.model";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { StoredValue } from "../../models/ui-actions";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
@@ -236,8 +236,8 @@ export class AreaMap implements OnInit, OnDestroy {
   public showMap = true;
   public mapHeight = 480;
   public mapKey = 0;
-  public provider: MapProvider = "osm";
-  public osStyle = "Outdoor_27700";
+  public provider: MapProvider = MapProvider.OSM;
+  public osStyle = OUTDOOR_OS_STYLE;
   public opacityNormal = 0.5;
   public opacityHover = 0.8;
   public textOpacity = 0.9;
@@ -256,8 +256,8 @@ export class AreaMap implements OnInit, OnDestroy {
     heightStep: 10
   };
   public mapControlsState: MapControlsState = {
-    provider: "osm",
-    osStyle: "Outdoor_27700",
+    provider: MapProvider.OSM,
+    osStyle: OUTDOOR_OS_STYLE,
     mapHeight: 480
   };
   private mapRef: L.Map | undefined;
@@ -452,8 +452,8 @@ export class AreaMap implements OnInit, OnDestroy {
       opacityNormal: 0.5,
       opacityHover: 0.8,
       textOpacity: 0.9,
-      provider: "osm",
-      osStyle: "Outdoor_27700",
+      provider: MapProvider.OSM,
+      osStyle: OUTDOOR_OS_STYLE,
       areaColors: {}
     };
   }
@@ -467,8 +467,8 @@ export class AreaMap implements OnInit, OnDestroy {
   private initializeStandaloneMode() {
     this.logger.info("Initializing standalone mode");
     const initialState = this.mapControlsStateService.queryInitialState({
-      provider: "osm",
-      osStyle: "outdoor",
+      provider: MapProvider.OSM,
+      osStyle: OUTDOOR_OS_STYLE,
       mapHeight: 480
     });
     this.logger.info("Initial map state:", initialState);
@@ -491,8 +491,8 @@ export class AreaMap implements OnInit, OnDestroy {
     } else if (this.row?.areaMap) {
       this.provider = value;
       this.row.areaMap.provider = value;
-      if (value === "os" && !this.osStyle) {
-        this.osStyle = "Outdoor_27700";
+      if (value === MapProvider.OS && !this.osStyle) {
+        this.osStyle = OUTDOOR_OS_STYLE;
         this.row.areaMap.osStyle = this.osStyle;
       }
       this.broadcastCmsChange();

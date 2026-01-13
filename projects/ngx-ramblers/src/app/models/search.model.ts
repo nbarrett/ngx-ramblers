@@ -1,6 +1,7 @@
 import { AccessLevelData } from "./member-resource.model";
 import { FilterCriteria } from "./api-request.model";
 import { StoredValue } from "./ui-actions";
+import { SortDirection } from "./sort.model";
 import { DateTime } from "luxon";
 
 export enum LocationMethod {
@@ -56,7 +57,7 @@ export interface GroupEventSearchParams {
   page?: number;
   limit?: number;
   sort?: string;
-  sortDirection?: "asc" | "desc";
+  sortDirection?: SortDirection;
 }
 
 export interface AdvancedSearchCriteria {
@@ -76,9 +77,15 @@ export interface AdvancedSearchCriteria {
   facilities?: string[];
   freeOnly?: boolean;
   cancelled?: boolean;
+  noLocation?: boolean;
 }
 
-export type AdvancedSearchFieldType = "number" | "array" | "boolean" | "string";
+export enum AdvancedSearchFieldType {
+  NUMBER = "number",
+  ARRAY = "array",
+  BOOLEAN = "boolean",
+  STRING = "string"
+}
 
 export interface AdvancedSearchCriteriaField {
   key: keyof AdvancedSearchCriteria;
@@ -87,22 +94,23 @@ export interface AdvancedSearchCriteriaField {
 }
 
 export const ADVANCED_SEARCH_CRITERIA_FIELDS: AdvancedSearchCriteriaField[] = [
-  { key: "dateFrom", storedValue: StoredValue.DATE_FROM, type: "number" },
-  { key: "dateTo", storedValue: StoredValue.DATE_TO, type: "number" },
-  { key: "leaderIds", storedValue: StoredValue.LEADERS, type: "array" },
-  { key: "groupCodes", storedValue: StoredValue.GROUP_CODES, type: "array" },
-  { key: "locationMethod", storedValue: StoredValue.LOCATION_METHOD, type: "string" },
-  { key: "proximityLat", storedValue: StoredValue.PROXIMITY_LAT, type: "number" },
-  { key: "proximityLng", storedValue: StoredValue.PROXIMITY_LNG, type: "number" },
-  { key: "proximityRadiusMiles", storedValue: StoredValue.PROXIMITY_RADIUS, type: "number" },
-  { key: "daysOfWeek", storedValue: StoredValue.DAYS_OF_WEEK, type: "array" },
-  { key: "difficulty", storedValue: StoredValue.DIFFICULTY, type: "array" },
-  { key: "distanceMin", storedValue: StoredValue.DISTANCE_MIN, type: "number" },
-  { key: "distanceMax", storedValue: StoredValue.DISTANCE_MAX, type: "number" },
-  { key: "accessibility", storedValue: StoredValue.ACCESSIBILITY, type: "array" },
-  { key: "facilities", storedValue: StoredValue.FACILITIES, type: "array" },
-  { key: "freeOnly", storedValue: StoredValue.FREE_ONLY, type: "boolean" },
-  { key: "cancelled", storedValue: StoredValue.CANCELLED, type: "boolean" }
+  { key: "dateFrom", storedValue: StoredValue.DATE_FROM, type: AdvancedSearchFieldType.NUMBER },
+  { key: "dateTo", storedValue: StoredValue.DATE_TO, type: AdvancedSearchFieldType.NUMBER },
+  { key: "leaderIds", storedValue: StoredValue.LEADERS, type: AdvancedSearchFieldType.ARRAY },
+  { key: "groupCodes", storedValue: StoredValue.GROUP_CODES, type: AdvancedSearchFieldType.ARRAY },
+  { key: "locationMethod", storedValue: StoredValue.LOCATION_METHOD, type: AdvancedSearchFieldType.STRING },
+  { key: "proximityLat", storedValue: StoredValue.PROXIMITY_LAT, type: AdvancedSearchFieldType.NUMBER },
+  { key: "proximityLng", storedValue: StoredValue.PROXIMITY_LNG, type: AdvancedSearchFieldType.NUMBER },
+  { key: "proximityRadiusMiles", storedValue: StoredValue.PROXIMITY_RADIUS, type: AdvancedSearchFieldType.NUMBER },
+  { key: "daysOfWeek", storedValue: StoredValue.DAYS_OF_WEEK, type: AdvancedSearchFieldType.ARRAY },
+  { key: "difficulty", storedValue: StoredValue.DIFFICULTY, type: AdvancedSearchFieldType.ARRAY },
+  { key: "distanceMin", storedValue: StoredValue.DISTANCE_MIN, type: AdvancedSearchFieldType.NUMBER },
+  { key: "distanceMax", storedValue: StoredValue.DISTANCE_MAX, type: AdvancedSearchFieldType.NUMBER },
+  { key: "accessibility", storedValue: StoredValue.ACCESSIBILITY, type: AdvancedSearchFieldType.ARRAY },
+  { key: "facilities", storedValue: StoredValue.FACILITIES, type: AdvancedSearchFieldType.ARRAY },
+  { key: "freeOnly", storedValue: StoredValue.FREE_ONLY, type: AdvancedSearchFieldType.BOOLEAN },
+  { key: "cancelled", storedValue: StoredValue.CANCELLED, type: AdvancedSearchFieldType.BOOLEAN },
+  { key: "noLocation", storedValue: StoredValue.NO_LOCATION, type: AdvancedSearchFieldType.BOOLEAN }
 ];
 
 export interface SearchDateRange {

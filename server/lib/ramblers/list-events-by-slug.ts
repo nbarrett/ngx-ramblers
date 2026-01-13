@@ -10,7 +10,8 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { dateTimeFromIso, dateTimeNow } from "../shared/dates";
 import * as requestDefaults from "./request-defaults";
-import { lastItemFrom, pluraliseWithCount, toKebabCase } from "../shared/string-utils";
+import { lastItemFrom, pluraliseWithCount } from "../shared/string-utils";
+import { toSlug } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import { isEmpty } from "es-toolkit/compat";
 import { GroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
@@ -45,7 +46,7 @@ export async function listEventsBySlug(req: Request, suppliedSlug?: string): Pro
   noopDebugLog("listEventsBySlug:defaultOptions:", defaultOptions);
 
   let offset = 0;
-  const kebabCaseSlug = toKebabCase(slug);
+  const kebabCaseSlug = toSlug(slug);
 
   while (true) {
     const parameters = [
@@ -75,7 +76,7 @@ export async function listEventsBySlug(req: Request, suppliedSlug?: string): Pro
           throw new Error("Invalid API response structure");
         }
         const filteredResponse = rawResponse.data.filter((event: GroupEvent) => {
-          const kebabCaseTitle = toKebabCase(event.title);
+          const kebabCaseTitle = toSlug(event.title);
           const urlPathLastSegment = lastItemFrom(event.url);
           const matched = urlPathLastSegment.includes(slug) || kebabCaseTitle === kebabCaseSlug;
           if (matched) {

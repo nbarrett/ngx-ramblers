@@ -12,7 +12,10 @@ import {
   Member,
   MemberApiResponse,
   MemberFilterSelection,
-  MemberPrivileges
+  MemberPrivileges,
+  MIGRATION_MEMBER_ID,
+  SYSTEM_MEMBER,
+  SYSTEM_MEMBER_ID
 } from "../../models/member.model";
 import { CommonDataService } from "../common-data-service";
 import { DbUtilsService } from "../db-utils.service";
@@ -177,7 +180,14 @@ export class MemberService {
 
   toMember(memberIdOrObject: any, members: Member[]): Member {
     const memberId = this.extractMemberId(memberIdOrObject);
-    return members?.find((member: Member) => this.extractMemberId(member) === memberId);
+    const member = members?.find((member: Member) => this.extractMemberId(member) === memberId);
+    if (member) {
+      return member;
+    }
+    if (memberId === SYSTEM_MEMBER_ID || memberId === MIGRATION_MEMBER_ID) {
+      return SYSTEM_MEMBER;
+    }
+    return undefined;
   }
 
   allMemberMembersWithPrivilege(privilege: keyof MemberPrivileges, members: Member[]): Member[] {

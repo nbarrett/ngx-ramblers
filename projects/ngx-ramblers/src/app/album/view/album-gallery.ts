@@ -7,7 +7,7 @@ import { UrlService } from "../../services/url.service";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../../services/date-utils.service";
-import { AlbumData, AlbumView } from "../../models/content-text.model";
+import { AlbumData, AlbumView, ImageFit, LoadingStrategy, ThumbPosition, ThumbView, VerticalPosition } from "../../models/content-text.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata.service";
 import { StringUtilsService } from "../../services/string-utils.service";
@@ -23,15 +23,15 @@ import { YouTubeQuality } from "../../models/youtube.model";
                  [id]="galleryDomId || galleryId"
                  [autoPlay]="album?.slideInterval>0"
                  [playerInterval]="album?.slideInterval"
-                 imageSize="cover"
-                 [thumbPosition]="album.galleryViewOptions?.thumbPosition ||'left'"
-                 [thumbView]="'default'"
-                 [thumbImageSize]="album.galleryViewOptions?.thumbImageSize || 'cover'"
+                 [imageSize]="ImageFit.COVER"
+                 [thumbPosition]="album.galleryViewOptions?.thumbPosition || ThumbPosition.LEFT"
+                 [thumbView]="ThumbView.DEFAULT"
+                 [thumbImageSize]="album.galleryViewOptions?.thumbImageSize || ImageFit.COVER"
                  [thumb]="!album.galleryViewOptions?.thumb"
-                 [loadingStrategy]="album.galleryViewOptions?.loadingStrategy || 'lazy'"
+                 [loadingStrategy]="album.galleryViewOptions?.loadingStrategy || LoadingStrategy.LAZY"
                  [dots]="album?.galleryViewOptions?.dots||true"
                  (indexChange)="indexChange($event)"
-                 [dotsPosition]="album?.galleryViewOptions?.dotsPosition ||'bottom'">
+                 [dotsPosition]="album?.galleryViewOptions?.dotsPosition || VerticalPosition.BOTTOM">
           <ng-container *galleryImageDef="let item; let active = active">
             @if (active) {
               <div class="item-panel-heading">
@@ -83,6 +83,11 @@ export class AlbumGalleryComponent implements OnInit, OnDestroy {
   public albumView: AlbumView = AlbumView.GRID;
   public showGallery = false;
   private autoPlayEnabled = true;
+  protected readonly ImageFit = ImageFit;
+  protected readonly ThumbPosition = ThumbPosition;
+  protected readonly ThumbView = ThumbView;
+  protected readonly LoadingStrategy = LoadingStrategy;
+  protected readonly VerticalPosition = VerticalPosition;
 
   ngOnInit() {
     this.logger.info("ngOnInit:album:", this.album, "with galleryId:", this.galleryId);
@@ -115,7 +120,7 @@ export class AlbumGalleryComponent implements OnInit, OnDestroy {
       }
       this.showGallery = false;
       this.galleryId = this.stringUtils.kebabCase(this.album.name);
-      this.galleryDomId = `${this.galleryId}-${Date.now()}`;
+      this.galleryDomId = `${this.galleryId}-${this.dateUtils.dateTimeNowAsValue()}`;
       const items = this.mediaItems.map(item => this.toGalleryItem(item));
       setTimeout(() => {
         this.showGallery = true;

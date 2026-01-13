@@ -5,6 +5,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faEye, faEyeSlash, faCopy, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { ClipboardService } from "../../../services/clipboard.service";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
+import { InputSize } from "../../../models/ui-size.model";
 
 @Component({
   selector: "app-secret-input",
@@ -73,7 +74,7 @@ import { TooltipModule } from "ngx-bootstrap/tooltip";
         type="text"
         class="form-control secret-input"
         [class.masked]="!isVisible"
-        [class.input-sm]="size === 'sm'"
+        [class.input-sm]="size === InputSize.SM"
         [id]="id"
         [value]="value"
         (input)="onInputChange($event)"
@@ -111,10 +112,11 @@ import { TooltipModule } from "ngx-bootstrap/tooltip";
 })
 export class SecretInputComponent implements ControlValueAccessor {
   private clipboardService = inject(ClipboardService);
+  protected readonly InputSize = InputSize;
 
   @Input() id = "";
   @Input() placeholder = "";
-  @Input() size: "sm" | "md" = "md";
+  @Input() size: InputSize = InputSize.MD;
   @Input() autocomplete = "new-password";
   @Input() ignorePasswordManagers = false;
 

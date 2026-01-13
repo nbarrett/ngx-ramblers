@@ -4,9 +4,13 @@ import { PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import {
   AlbumView,
   ContentText,
+  ImageFit,
+  LoadingStrategy,
   PageContent,
   PageContentRow,
-  PageContentType
+  PageContentType,
+  ThumbPosition,
+  VerticalPosition
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import * as mongooseClient from "../mongo/mongoose-client";
 import { pageContent as pageContentModel } from "../mongo/models/page-content";
@@ -378,11 +382,11 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
                 showDates: true
               },
               galleryViewOptions: {
-                thumbPosition: "left",
-                imageSize: "cover",
-                thumbImageSize: "cover",
-                loadingStrategy: "lazy",
-                dotsPosition: "bottom"
+                thumbPosition: ThumbPosition.LEFT,
+                imageSize: ImageFit.COVER,
+                thumbImageSize: ImageFit.COVER,
+                loadingStrategy: LoadingStrategy.LAZY,
+                dotsPosition: VerticalPosition.BOTTOM
               },
               allowSwitchView: true,
               showStoryNavigator: true,

@@ -1,5 +1,6 @@
 export enum MigrationFileStatus {
   PENDING = "pending",
+  RUNNING = "running",
   APPLIED = "applied",
   FAILED = "failed"
 }
@@ -13,8 +14,19 @@ export enum MigrationSortColumn {
 export interface MigrationFile {
   fileName: string;
   status: MigrationFileStatus;
+  startedAt?: string;
   timestamp?: string;
   error?: string;
+  manual?: boolean;
+}
+
+export interface MaintenanceMigrationFile {
+  file: string;
+  status: MigrationFileStatus;
+  startedAt?: string;
+  timestamp: string;
+  error?: string;
+  manual?: boolean;
 }
 
 export interface MigrationStatus {

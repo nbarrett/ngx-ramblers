@@ -3,6 +3,7 @@ import { SystemConfig } from "../../../../models/system.model";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
+import { DateUtilsService } from "../../../../services/date-utils.service";
 
 declare global {
   interface Window {
@@ -11,7 +12,7 @@ declare global {
   }
 }
 
-export function initializeGtag(systemConfigService: SystemConfigService, loggerFactory: LoggerFactory) {
+export function initializeGtag(systemConfigService: SystemConfigService, loggerFactory: LoggerFactory, dateUtils: DateUtilsService) {
   const logger = loggerFactory.createLogger("initializeGtag", NgxLoggerLevel.ERROR);
   return async () => {
     try {
@@ -23,10 +24,11 @@ export function initializeGtag(systemConfigService: SystemConfigService, loggerF
         gtagScript.src = `https://www.googletagmanager.com/gtag/js?id=${trackingId}`;
         gtagScript.async = true;
         const inlineScript = document.createElement("script");
+        const initTimestamp = dateUtils.dateTimeNow().toMillis();
         inlineScript.innerHTML = `
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
+          gtag('js', ${initTimestamp});
           gtag('config', '${trackingId}');
           `;
 

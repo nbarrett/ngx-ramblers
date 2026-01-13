@@ -57,6 +57,7 @@ export enum StoredValue {
   MAP_SMOOTH_SCROLL = "map-smooth-scroll",
   MAP_ZOOM = "map-zoom",
   MARKDOWN_FIELD_HIDDEN = "markdown-field-hidden",
+  NO_LOCATION = "no-location",
   MIGRATION_MAP_EXTRACT_FROM_CONTENT = "migration-map-extract-from-content",
   MIGRATION_SITE_EXPANDED = "migration-site-expanded",
   MIGRATION_TEMPLATE_MAPPING_MODE = "migration-template-mapping-mode",

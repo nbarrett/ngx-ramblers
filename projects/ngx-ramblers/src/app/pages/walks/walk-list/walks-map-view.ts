@@ -1,33 +1,38 @@
 import { Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
+import { ActivatedRoute } from "@angular/router";
 import * as L from "leaflet";
 import { isFunction, isNumber } from "es-toolkit/compat";
 import "leaflet.markercluster";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { FormsModule } from "@angular/forms";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
-import { MapProvider, MapStyleInfo, OS_MAP_STYLE_LIST } from "../../../models/map.model";
+import {
+  DEFAULT_OS_STYLE,
+  MapProvider,
+  MapStyleInfo,
+  OS_MAP_STYLE_LIST,
+  osStyleForKey
+} from "../../../models/map.model";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
-import { StoredValue } from "../../../models/ui-actions";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
 import { MapPopupService } from "../../../services/maps/map-popup.service";
 import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.service";
 import { UrlService } from "../../../services/url.service";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
+import { WalkDisplayService } from "../walk-display.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
-import {
-  MapControls,
-  MapControlsConfig,
-  MapControlsState
-} from "../../../shared/components/map-controls";
+import { faEye, faEyeSlash, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { MapControls, MapControlsConfig, MapControlsState } from "../../../shared/components/map-controls";
 import { MapControlsStateService } from "../../../shared/services/map-controls-state.service";
 import { MapRecreationService } from "../../../shared/services/map-recreation.service";
 import { MapOverlay } from "../../../shared/components/map-overlay";
+import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-walks-map-view",
@@ -113,6 +118,47 @@ import { MapOverlay } from "../../../shared/components/map-overlay";
     .map-controls-docked
       z-index: 700
 
+    .map-loading
+      display: flex
+      flex-direction: column
+      align-items: center
+      gap: 12px
+      color: #6c757d
+      font-weight: 600
+      font-size: 1.1rem
+      letter-spacing: 0.01em
+
+    .map-loading-icon
+      font-size: 2.8rem
+      color: var(--ramblers-colour-sunrise, #e2a100)
+      display: inline-flex
+
+
+    .map-loading-icon svg
+      animation: map-loading-spin 1s linear infinite
+      transform-origin: 50% 50%
+
+    .map-loading-text
+      animation: pulse 2.2s ease-in-out infinite
+
+    .map-loading-range
+      font-size: 0.9rem
+      color: #8a8f94
+
+    @keyframes pulse
+      0%
+        opacity: 0.75
+      50%
+        opacity: 0.95
+      100%
+        opacity: 0.75
+
+    @keyframes map-loading-spin
+      0%
+        transform: rotate(0deg)
+      100%
+        transform: rotate(360deg)
+
     :host ::ng-deep .leaflet-popup.popup-below .leaflet-popup-tip
       transform: rotate(180deg)
       margin-top: -1px
@@ -139,7 +185,11 @@ import { MapOverlay } from "../../../shared/components/map-overlay";
           @if (loading || !options) {
             <div class="map-walks-list-view card shadow d-flex align-items-center justify-content-center rounded"
                  [style.height.px]="mapHeight">
-              <div class="spinner-border text-secondary" role="status"><span class="visually-hidden">Loading…</span></div>
+              <div class="map-loading">
+                <fa-icon class="map-loading-icon" [icon]="faSpinner" [spin]="true" [pulse]="true"></fa-icon>
+                <div class="map-loading-text">Fetching your map data…back in a moment</div>
+                <div class="map-loading-range">{{ mapDateRange }}</div>
+              </div>
             </div>
           } @else if (showMap && options) {
             <div class="map-walks-list-view card shadow rounded"
@@ -151,6 +201,7 @@ import { MapOverlay } from "../../../shared/components/map-overlay";
                  (leafletMapReady)="onMapReady($event)"></div>
             <app-map-overlay
               [showControls]="showControls"
+              [allowWaypointsToggle]="false"
               (toggleControls)="toggleControls()">
               <div slot="additional-buttons">
                 @if (openPopupCount > 1) {
@@ -177,13 +228,14 @@ import { MapOverlay } from "../../../shared/components/map-overlay";
   `,
   imports: [LeafletModule, FormsModule, FontAwesomeModule, MapControls, MapOverlay]
 })
-export class WalksMapViewComponent implements OnInit, OnChanges {
+export class WalksMapView implements OnInit, OnChanges {
+  private logger: Logger = inject(LoggerFactory).createLogger("WalksMapView", NgxLoggerLevel.ERROR);
   @Input() filteredWalks: DisplayedWalk[] = [];
   @Input() loading = false;
   @Output() selected = new EventEmitter<DisplayedWalk>();
   @Output() autoShowAllChange = new EventEmitter<boolean>();
-  public provider: MapProvider = "osm";
-  public osStyle = "Leisure_27700";
+  public provider: MapProvider = MapProvider.OSM;
+  public osStyle = DEFAULT_OS_STYLE;
   public osStyles: MapStyleInfo[] = OS_MAP_STYLE_LIST;
   public mapControlsConfig: MapControlsConfig = {
     showProvider: true,
@@ -196,8 +248,8 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     heightStep: 10
   };
   public mapControlsState: MapControlsState = {
-    provider: "osm",
-    osStyle: "Leisure_27700",
+    provider: MapProvider.OSM,
+    osStyle: DEFAULT_OS_STYLE,
     mapHeight: 520,
     smoothScroll: true,
     autoShowAll: false
@@ -217,13 +269,13 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
   private lastValidCoords = 0;
   protected readonly faEye = faEye;
   protected readonly faEyeSlash = faEyeSlash;
+  protected readonly faSpinner = faSpinner;
   public smoothScroll = true;
   private savedCenter: L.LatLng | null = null;
   private savedZoom: number | null = null;
   private preserveNextView = false;
-
-  private logger: Logger = inject(LoggerFactory).createLogger("WalksMapViewComponent", NgxLoggerLevel.ERROR);
   private dateUtils = inject(DateUtilsService);
+  private route = inject(ActivatedRoute);
   private uiActions = inject(UiActionsService);
   private distanceValidationService = inject(DistanceValidationService);
   private mediaQueryService = inject(MediaQueryService);
@@ -233,6 +285,28 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
   private urlService = inject(UrlService);
   private mapControlsStateService = inject(MapControlsStateService);
   private mapRecreation = inject(MapRecreationService);
+  private display = inject(WalkDisplayService);
+  private systemConfigService = inject(SystemConfigService);
+  public maxAreaDistanceMiles = 800;
+  public areaCenterLatLng: { lat: number; lng: number } | null = null;
+
+  get mapDateRange(): string {
+    const queryParams = this.route.snapshot.queryParams || {};
+    const fromDate = queryParams[StoredValue.DATE_FROM];
+    const toDate = queryParams[StoredValue.DATE_TO];
+    const fromLabel = fromDate ? this.dateUtils.displayDate(fromDate) : null;
+    const toLabel = toDate ? this.dateUtils.displayDate(toDate) : null;
+    if (fromLabel && toLabel) {
+      return `Between ${fromLabel} and ${toLabel}`;
+    }
+    if (fromLabel) {
+      return `From ${fromLabel}`;
+    }
+    if (toLabel) {
+      return `Up to ${toLabel}`;
+    }
+    return "Between all dates";
+  }
 
   ngOnInit() {
     this.mapTiles.initializeProjections();
@@ -253,6 +327,16 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     this.mapControlsState = initialState;
 
     this.logger.info("ngOnInit:filteredWalks:", this.filteredWalks?.length, "provider:", this.provider, "osStyle:", this.osStyle);
+    this.systemConfigService.events().subscribe(config => {
+      const center = config?.area?.center;
+      if (center && isNumber(center[0]) && isNumber(center[1])) {
+        this.areaCenterLatLng = { lat: center[0], lng: center[1] };
+      } else {
+        this.areaCenterLatLng = null;
+      }
+      const maxDistance = config?.area?.mapOutlierMaxDistanceMiles;
+      this.maxAreaDistanceMiles = isNumber(maxDistance) && maxDistance > 0 ? maxDistance : 800;
+    });
     this.rebuildMap();
   }
 
@@ -320,10 +404,20 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     const clusters: { lat: number; lng: number; walks: DisplayedWalk[]; postcodes: Set<string> }[] = [];
     const thresholdMeters = 60;
     this.logger.info("createMarkers: processing", items.length, "walks");
+    const missingLocationWalks: { url: string; title: string; lat: number | undefined; lng: number | undefined; postcode: string; inputSource: string }[] = [];
     for (const dw of items) {
-      const lat = dw?.walk?.groupEvent?.start_location?.latitude;
-      const lng = dw?.walk?.groupEvent?.start_location?.longitude;
-      if (isNumber(lat) && isNumber(lng) && lat !== 0 && lng !== 0 && Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001) {
+      const startLat = dw?.walk?.groupEvent?.start_location?.latitude;
+      const startLng = dw?.walk?.groupEvent?.start_location?.longitude;
+      const locationLat = dw?.walk?.groupEvent?.location?.latitude;
+      const locationLng = dw?.walk?.groupEvent?.location?.longitude;
+      const hasStartCoords = isNumber(startLat) && isNumber(startLng) && startLat !== 0 && startLng !== 0 && Math.abs(startLat) > 0.001 && Math.abs(startLng) > 0.001;
+      const lat = hasStartCoords ? startLat : locationLat;
+      const lng = hasStartCoords ? startLng : locationLng;
+      const hasCoords = isNumber(lat) && isNumber(lng) && lat !== 0 && lng !== 0 && Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001;
+      const isWithinArea = hasCoords && this.areaCenterLatLng
+        ? this.distanceMiles({ lat, lng }, this.areaCenterLatLng) <= this.maxAreaDistanceMiles
+        : hasCoords;
+      if (isWithinArea) {
         validCoords++;
         const pc = (dw?.walk?.groupEvent?.start_location?.postcode || "").toString().toUpperCase().replace(/\s+/g, "");
         let placed = false;
@@ -344,12 +438,34 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
         }
       } else {
         invalidCoords++;
+        const walkToken = this.display.walkSlug(dw?.walk);
+        missingLocationWalks.push({
+          url: walkToken ? `/walks/${walkToken}` : `/walks`,
+          title: dw?.walk?.groupEvent?.title || "Unknown",
+          lat: hasStartCoords ? startLat : locationLat,
+          lng: hasStartCoords ? startLng : locationLng,
+          postcode: dw?.walk?.groupEvent?.start_location?.postcode || dw?.walk?.groupEvent?.location?.postcode || "",
+          inputSource: dw?.walk?.fields?.inputSource || "unknown"
+        });
       }
+    }
+    if (missingLocationWalks.length > 0) {
+      this.logger.info(`${missingLocationWalks.length} walks missing location:`, missingLocationWalks);
     }
 
     clusters.forEach((cluster) => {
-      const lat = cluster.walks.reduce((a, b) => a + (b?.walk?.groupEvent?.start_location?.latitude || 0), 0) / cluster.walks.length;
-      const lng = cluster.walks.reduce((a, b) => a + (b?.walk?.groupEvent?.start_location?.longitude || 0), 0) / cluster.walks.length;
+      const lat = cluster.walks.reduce((a, b) => {
+        const startLat = b?.walk?.groupEvent?.start_location?.latitude;
+        const locationLat = b?.walk?.groupEvent?.location?.latitude;
+        const value = isNumber(startLat) && startLat !== 0 && Math.abs(startLat) > 0.001 ? startLat : locationLat;
+        return a + (isNumber(value) ? value : 0);
+      }, 0) / cluster.walks.length;
+      const lng = cluster.walks.reduce((a, b) => {
+        const startLng = b?.walk?.groupEvent?.start_location?.longitude;
+        const locationLng = b?.walk?.groupEvent?.location?.longitude;
+        const value = isNumber(startLng) && startLng !== 0 && Math.abs(startLng) > 0.001 ? startLng : locationLng;
+        return a + (isNumber(value) ? value : 0);
+      }, 0) / cluster.walks.length;
       const icon = this.markerStyle.markerIcon(this.provider, this.osStyle);
       const marker = L.marker([lat, lng], {icon});
       const ordered = cluster.walks.slice().sort((a, b) => {
@@ -380,6 +496,18 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     this.logger.info("createMarkers: results - proximity clusters:", clusters.length, "valid coordinates:", validCoords, "invalid coordinates:", invalidCoords);
     this.allMarkers = points;
     return points;
+  }
+
+  private distanceMiles(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+    const toRadians = (value: number) => value * (Math.PI / 180);
+    const lat1 = toRadians(a.lat);
+    const lat2 = toRadians(b.lat);
+    const deltaLat = toRadians(b.lat - a.lat);
+    const deltaLng = toRadians(b.lng - a.lng);
+    const sinDeltaLat = Math.sin(deltaLat / 2);
+    const sinDeltaLng = Math.sin(deltaLng / 2);
+    const haversine = sinDeltaLat * sinDeltaLat + Math.cos(lat1) * Math.cos(lat2) * sinDeltaLng * sinDeltaLng;
+    return 3958.7613 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
   }
 
 
@@ -558,7 +686,8 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
 
 
   private maxZoomForCurrentStyle(): number {
-    if (this.provider === "os" && this.osStyle.endsWith("27700")) {
+    const styleInfo = osStyleForKey(this.osStyle);
+    if (this.provider === MapProvider.OS && styleInfo?.is27700) {
       return 9;
     }
     return 19;
@@ -579,8 +708,6 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
   }
 
   onProviderChange(value: MapProvider) {
-    const oldProvider = this.provider;
-
     this.provider = value;
     this.mapControlsState.provider = value;
     this.mapControlsStateService.saveProvider(value);

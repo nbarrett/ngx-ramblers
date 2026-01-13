@@ -85,20 +85,22 @@ import { PageService } from "../../../services/page.service";
                 Time: {{ displayedWalk?.walk?.groupEvent?.start_date_time | displayTime }}{{ EM_DASH_WITH_SPACES }}
                 Estimated Finish Time: {{ displayedWalk?.walk?.groupEvent?.end_date_time | displayTime }}</h2>
             }
-            @if (displayedWalk?.walkAccessMode?.walkWritable || displayedWalk?.walk?.groupEvent?.description) {
-              <div class="event-description">
-                @if (displayedWalk?.walkAccessMode?.walkWritable) {
-                  <input type="submit"
-                         [value]="displayedWalk?.walkAccessMode?.caption"
-                         (click)="display.edit(displayedWalk)"
-                         [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
-                         class="btn btn-primary float-end ms-2 mb-2">
-                }
-                @if (displayedWalk?.walk?.groupEvent?.description) {
-                  <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description"></p>
-                }
-              </div>
-            }
+            <div class="event-description">
+              @if (displayedWalk?.walkAccessMode?.walkWritable) {
+                <input type="submit"
+                       [value]="displayedWalk?.walkAccessMode?.caption"
+                       (click)="display.edit(displayedWalk)"
+                       [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
+                       class="btn btn-primary btn-sm float-end ms-2 walk-view-action">
+              } @else if (allowWalkAdminEdits) {
+                <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
+                   tooltip="View this walk"
+                   class="btn btn-primary btn-sm float-end ms-2 walk-view-action">view</a>
+              }
+              @if (displayedWalk?.walk?.groupEvent?.description) {
+                <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description"></p>
+              }
+            </div>
             @if (display.hasWalkLeader(displayedWalk.walk)) {
               <app-walk-leader [displayedWalk]="displayedWalk"/>
             }
@@ -296,7 +298,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loggedIn = this.memberLoginService.memberLoggedIn();
-    this.allowWalkAdminEdits = this.display.walkPopulationLocal() && this.memberLoginService.allowWalkAdminEdits();
+    this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
     this.refreshHomePostcode();
     this.walkIdOrPath = this.urlService.lastPathSegment();
     this.logger.info("initialised with walk", this.displayedWalk, "pathContainsWalkId:", this.urlService.pathContainsEventIdOrSlug(), "walkIdOrPath:", this.walkIdOrPath);
@@ -313,7 +315,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.logger.info("loginResponseObservable:", loginResponse);
       this.display.refreshCachedData();
       this.loggedIn = loginResponse?.memberLoggedIn;
-      this.allowWalkAdminEdits = this.display.walkPopulationLocal() && this.memberLoginService.allowWalkAdminEdits();
+      this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
       this.refreshHomePostcode();
       this.updateGoogleMapIfApplicable();
     }));
@@ -478,7 +480,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   navigateToArea() {
-    this.urlService.navigateTo([this.area]);
+    this.urlService.navigateUnconditionallyTo([this.area]);
   }
 
   private focusFromPostcodeInput() {

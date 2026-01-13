@@ -1,3 +1,4 @@
+import { Location } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -52,6 +53,7 @@ export class WalkDisplayService {
   private memberService = inject(MemberService);
   private memberLoginService = inject(MemberLoginService);
   private router = inject(Router);
+  private location = inject(Location);
   private urlService = inject(UrlService);
   protected stringUtils = inject(StringUtilsService);
   private route = inject(ActivatedRoute);
@@ -66,6 +68,8 @@ export class WalkDisplayService {
   public expandedWalks: ExpandedWalk [] = [];
   public walkTypes: WalkType[] = enumValues(WalkType);
   private nextWalkId: string;
+  private nextWalkIdFetched = false;
+  private viewReturnUrl: string;
   public members: Member[] = [];
   public googleMapsConfig: GoogleMapsConfig;
   public group: Organisation;
@@ -191,7 +195,7 @@ export class WalkDisplayService {
     return this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
   }
 
-  editFullscreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
+  editFullScreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
     this.logger.debug("editing walk fullscreen:", walk);
     return this.router.navigate(["walks/edit/" + this.walkIdFrom(walk)], {relativeTo: this.route}).then(() => {
       this.logger.debug("area is now", this.urlService.area());
@@ -213,7 +217,7 @@ export class WalkDisplayService {
       this.expandedWalks.push(newWalk);
       this.logger.info("display.toggleViewFor", toggleTo, "added", newWalk, "expandedWalks:", this.expandedWalks);
       if (this.urlService.pathContainsEventIdOrSlug() && toggleTo === WalkViewMode.EDIT) {
-        this.editFullscreen(walk);
+        this.editFullScreen(walk);
       }
     }
     return existingWalk;
@@ -285,16 +289,25 @@ export class WalkDisplayService {
     displayedWalk.ramblersLink = this.ramblersLink(displayedWalk.walk);
   }
 
-  walkLink(extendedGroupEvent: ExtendedGroupEvent): string {
-    this.logger.info("walkLink:groupEvent:url:", extendedGroupEvent?.groupEvent.url, "title:", extendedGroupEvent?.groupEvent?.title);
+  walkSlug(extendedGroupEvent: ExtendedGroupEvent): string {
     const urlToUse = extendedGroupEvent?.groupEvent?.url
       || this.stringUtils.kebabCase(extendedGroupEvent?.groupEvent?.title, this.dateUtils.yearMonthDayWithDashes(extendedGroupEvent?.groupEvent?.start_date_time))
       || extendedGroupEvent?.groupEvent?.id
       || extendedGroupEvent?.id;
+    return this.stringUtils.lastItemFrom(urlToUse);
+  }
+
+  walkLink(extendedGroupEvent: ExtendedGroupEvent): string {
+    this.logger.info("walkLink:groupEvent:url:", extendedGroupEvent?.groupEvent.url, "title:", extendedGroupEvent?.groupEvent?.title);
     return this.urlService.linkUrl({
       area: "walks",
-      id: this.stringUtils.lastItemFrom(urlToUse)
+      id: this.walkSlug(extendedGroupEvent)
     });
+  }
+
+  walkViewLink(extendedGroupEvent: ExtendedGroupEvent): string[] {
+    this.viewReturnUrl = this.router.url;
+    return ["/walks", "view", this.walkSlug(extendedGroupEvent)];
   }
 
   ramblersLink(walk: ExtendedGroupEvent): string {
@@ -302,20 +315,40 @@ export class WalkDisplayService {
   }
 
   isNextWalk(walk: ExtendedGroupEvent): boolean {
-    return walk && (walk.id === this.nextWalkId || walk.groupEvent?.id === this.nextWalkId);
+    const walkStartDate = this.dateUtils.asValueNoTime(walk?.groupEvent?.start_date_time);
+    const todayValue = this.dateUtils.dateTimeNowNoTime().toMillis();
+    const isFutureOrToday = walkStartDate >= todayValue;
+    const matchesNextWalkId = walk && (walk.id === this.nextWalkId || walk.groupEvent?.id === this.nextWalkId);
+    return isFutureOrToday && matchesNextWalkId;
   }
 
-  setNextWalkId(walks: ExtendedGroupEvent[]) {
-    this.nextWalkId = this.extendedGroupEventQueryService.nextWalkId(walks);
+  refreshNextWalkId(): void {
+    if (!this.nextWalkIdFetched) {
+      this.nextWalkIdFetched = true;
+      this.extendedGroupEventQueryService.fetchNextWalkId(this.group?.groupCode).subscribe({
+        next: (response) => {
+          this.nextWalkId = response.nextWalkId;
+          this.logger.info("refreshNextWalkId: fetched nextWalkId:", this.nextWalkId, "for groupCode:", this.group?.groupCode);
+        },
+        error: (error) => {
+          this.logger.error("refreshNextWalkId: failed to fetch nextWalkId:", error);
+          this.nextWalkIdFetched = false;
+        }
+      });
+    }
   }
 
-  setExpandedWalks(expandedWalks: ExpandedWalk[]) {
-    this.expandedWalks = expandedWalks;
+  setNextWalkId(): void {
+    this.refreshNextWalkId();
   }
 
   closeEditView(walk: ExtendedGroupEvent) {
     if (this.urlService.pathContains("edit")) {
       this.urlService.navigateTo(["walks"]);
+    } else if (this.urlService.pathContains("view")) {
+      const returnUrl = this.viewReturnUrl || "/walks";
+      this.viewReturnUrl = null;
+      this.router.navigateByUrl(returnUrl);
     }
     this.toggleExpandedViewFor(walk, WalkViewMode.VIEW);
   }

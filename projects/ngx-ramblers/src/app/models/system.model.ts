@@ -5,7 +5,7 @@ import { HasStyles } from "./content-text.model";
 
 export enum SystemSettingsTab {
   AREA_AND_GROUP = "Area & Group",
-  AREA_MAP_SYNC = "Area Map Data",
+  MAPS = "Maps",
   BACKGROUNDS = "Backgrounds",
   ICONS = "Icons",
   LOGOS = "Logos",
@@ -19,6 +19,11 @@ export enum SystemSettingsTab {
 export enum EventPopulation {
   LOCAL = "local",
   WALKS_MANAGER = "walks-manager",
+}
+
+export enum RamblersSyncMode {
+  INCREMENTAL = "incremental",
+  FULL = "full"
 }
 
 export interface WalksManagerSyncStats {
@@ -67,6 +72,7 @@ export interface Organisation extends Group {
   groups?: AreaGroup[];
   center?: [number, number];
   zoom?: number;
+  mapOutlierMaxDistanceMiles?: number;
 }
 
 export interface Ramblers {

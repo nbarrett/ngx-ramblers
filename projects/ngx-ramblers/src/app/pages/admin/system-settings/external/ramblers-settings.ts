@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnDestroy, OnInit, signal } from "@angular/core";
 import { faAdd, faSync, faClock, faCheckCircle, faTimesCircle, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EventPopulation, SystemConfig, WalksManagerSyncStats, WalksManagerSyncStatusResponse } from "../../../../models/system.model";
+import { EventPopulation, RamblersSyncMode, SystemConfig, WalksManagerSyncStats, WalksManagerSyncStatusResponse } from "../../../../models/system.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { FormsModule, ReactiveFormsModule } from "@angular/forms";
@@ -13,6 +13,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { WebSocketClientService } from "../../../../services/websockets/websocket-client.service";
 import { EventType, MessageType } from "../../../../models/websocket.model";
 import { Subscription } from "rxjs";
+import { InputSize } from "../../../../models/ui-size.model";
 
 @Component({
   selector: "app-ramblers-settings",
@@ -92,7 +93,7 @@ import { Subscription } from "rxjs";
                 [(ngModel)]="config.national.walksManager.password"
                 id="walks-manager-password"
                 name="password"
-                size="sm"
+                [size]="InputSize.SM"
                 placeholder="Enter Walks Manager password">
               </app-secret-input>
             </form>
@@ -104,7 +105,7 @@ import { Subscription } from "rxjs";
                 [(ngModel)]="config.national.walksManager.apiKey"
                 id="walks-manager-api-key"
                 name="apiKey"
-                size="sm"
+                [size]="InputSize.SM"
                 placeholder="Enter Walks Manager API key">
               </app-secret-input>
             </form>
@@ -133,15 +134,15 @@ import { Subscription } from "rxjs";
                       class="btn btn-primary me-2"
                       [disabled]="!!syncingMode"
                       (click)="triggerSync(false)">
-                <fa-icon [icon]="faSync" [spin]="syncingMode === 'incremental'" class="me-2"/>
-                {{ syncingMode === "incremental" ? "Syncing..." : "Sync Now (Incremental)" }}
+                <fa-icon [icon]="faSync" [spin]="syncingMode === RamblersSyncMode.INCREMENTAL" class="me-2"/>
+                {{ syncingMode === RamblersSyncMode.INCREMENTAL ? "Syncing..." : "Sync Now (Incremental)" }}
               </button>
               <button type="button"
                       class="btn btn-warning"
                       [disabled]="!!syncingMode"
                       (click)="triggerSync(true)">
-                <fa-icon [icon]="faSync" [spin]="syncingMode === 'full'" class="me-2"/>
-                {{ syncingMode === "full" ? "Syncing..." : "Full Sync (All Time)" }}
+                <fa-icon [icon]="faSync" [spin]="syncingMode === RamblersSyncMode.FULL" class="me-2"/>
+                {{ syncingMode === RamblersSyncMode.FULL ? "Syncing..." : "Full Sync (All Time)" }}
               </button>
             </div>
 
@@ -252,7 +253,9 @@ export class RamblersSettings implements OnInit, OnDestroy {
 
   protected readonly JSON = JSON;
 
-  syncingMode: "incremental" | "full" | null = null;
+  protected readonly RamblersSyncMode = RamblersSyncMode;
+  protected readonly InputSize = InputSize;
+  syncingMode: RamblersSyncMode | null = null;
   lastSyncedAt: number;
   syncStats: WalksManagerSyncStats | null = null;
   syncError: string | null = null;
@@ -328,7 +331,7 @@ export class RamblersSettings implements OnInit, OnDestroy {
   }
 
   triggerSync(fullSync: boolean) {
-    this.syncingMode = fullSync ? "full" : "incremental";
+    this.syncingMode = fullSync ? RamblersSyncMode.FULL : RamblersSyncMode.INCREMENTAL;
     this.syncStats = null;
     this.syncError = null;
     this.syncProgress.set(0);

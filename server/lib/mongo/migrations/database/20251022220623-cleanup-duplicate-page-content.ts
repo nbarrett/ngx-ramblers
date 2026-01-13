@@ -1,8 +1,27 @@
 import { Db, MongoClient, ObjectId } from "mongodb";
-import { isArray, isEqual, isString } from "es-toolkit/compat";
+import { isArray, isEqual, isNumber, isString } from "es-toolkit/compat";
 import createMigrationLogger from "../migrations-logger";
+import { dateTimeFromIso, dateTimeFromJsDate, dateTimeFromMillis } from "../../../shared/dates";
 
 const debugLog = createMigrationLogger("cleanup-and-inline-page-content");
+
+function updatedAtMillis(value: any): number | null {
+  if (!value) {
+    return null;
+  }
+  if (isString(value)) {
+    const isoParsed = dateTimeFromIso(value);
+    if (isoParsed.isValid) {
+      return isoParsed.toMillis();
+    }
+    const fallbackMillis = Date.parse(value);
+    return Number.isNaN(fallbackMillis) ? null : dateTimeFromMillis(fallbackMillis).toMillis();
+  }
+  if (isNumber(value)) {
+    return dateTimeFromMillis(value).toMillis();
+  }
+  return dateTimeFromJsDate(value as Date).toMillis();
+}
 
 export async function up(db: Db, client: MongoClient) {
     const pageContentCollection = db.collection("pageContent");
@@ -32,11 +51,13 @@ export async function up(db: Db, client: MongoClient) {
       const duplicateDocs = duplicate.docs;
 
       duplicateDocs.sort((a: any, b: any) => {
-        if (a.updatedAt && b.updatedAt) {
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        const aUpdatedAt = updatedAtMillis(a.updatedAt);
+        const bUpdatedAt = updatedAtMillis(b.updatedAt);
+        if (aUpdatedAt && bUpdatedAt) {
+          return bUpdatedAt - aUpdatedAt;
         }
-        if (a.updatedAt) return -1;
-        if (b.updatedAt) return 1;
+        if (aUpdatedAt) return -1;
+        if (bUpdatedAt) return 1;
         return b.rowCount - a.rowCount;
       });
 

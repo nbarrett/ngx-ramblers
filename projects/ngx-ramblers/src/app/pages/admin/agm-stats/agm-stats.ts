@@ -22,13 +22,15 @@ import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { sortBy } from "../../../functions/arrays";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
-import { isNull, isNumber, isUndefined, kebabCase } from "es-toolkit/compat";
+import { isNull, isNumber, isUndefined, kebabCase, values } from "es-toolkit/compat";
 import { AGMWalksTabComponent } from "./agm-walks-tab";
 import { AGMSocialsTabComponent } from "./agm-socials-tab";
 import { AGMExpensesTabComponent } from "./agm-expenses-tab";
 import { AGMMembershipTabComponent } from "./agm-membership-tab";
 import { PageComponent } from "../../../page/page.component";
-import { SummaryRow, SocialRow, RankedLeaderRow } from "../../../models/agm-stats.model";
+import { AgmChartType, AgmStatsSection, SummaryRow, SocialRow, RankedLeaderRow } from "../../../models/agm-stats.model";
+import { SortDirection } from "../../../models/sort.model";
+import { entries } from "../../../functions/object-utils";
 
 Chart.register(...registerables);
 
@@ -156,8 +158,8 @@ Chart.register(...registerables);
             <label for="chartType" class="form-label">Chart Type</label>
             <select id="chartType" class="form-select" [(ngModel)]="chartType"
                     (ngModelChange)="onChartTypeChange($event)">
-              <option value="bar">Bar Chart</option>
-              <option value="line">Line Chart</option>
+              <option [ngValue]="AgmChartType.BAR">Bar Chart</option>
+              <option [ngValue]="AgmChartType.LINE">Line Chart</option>
             </select>
           </div>
           <div class="col-12 col-lg-3 d-flex align-items-end">
@@ -199,14 +201,15 @@ export class AGMStatsComponent implements OnInit {
   error: string | null = null;
   preset: PresetOption = PresetOption.LAST_2_YEARS;
   presetOptions: KeyValue<string>[] = enumKeyValues(PresetOption);
-  private sortState: Record<string, { key: string; direction: "asc" | "desc" }> = {};
+  private sortState: Record<string, { key: string; direction: SortDirection }> = {};
   protected readonly AGMStatsTab = AGMStatsTab;
+  protected readonly AgmChartType = AgmChartType;
   private tab: string;
   currencyMetrics = ["Total Cost", "Total Paid", "Total Unpaid"];
 
   fromDate: number;
   toDate: number;
-  chartType: "bar" | "line" = "bar";
+  chartType: AgmChartType = AgmChartType.BAR;
 
   walkChartData: ChartConfiguration["data"] = {
     labels: [],
@@ -323,8 +326,8 @@ export class AGMStatsComponent implements OnInit {
     return parsedFromFormat > 0 ? parsedFromFormat : fallback;
   }
 
-  private resolveChartType(value: string | null, fallback: "bar" | "line"): "bar" | "line" {
-    return value === "bar" || value === "line" ? value : fallback;
+  private resolveChartType(value: string | null, fallback: AgmChartType): AgmChartType {
+    return value === AgmChartType.BAR || value === AgmChartType.LINE ? value : fallback;
   }
 
   private persistState() {
@@ -340,7 +343,7 @@ export class AGMStatsComponent implements OnInit {
   }
 
   private replaceQueryParams(params: Record<string, string | number>) {
-    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => !isUndefined(v) && !isNull(v)));
+    const queryParams = Object.fromEntries(entries(params).filter(([, v]) => !isUndefined(v) && !isNull(v)));
     this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: "merge" });
   }
 
@@ -389,7 +392,7 @@ export class AGMStatsComponent implements OnInit {
     }
   }
 
-  onChartTypeChange(type: "bar" | "line") {
+  onChartTypeChange(type: AgmChartType) {
     this.chartType = type;
     this.persistState();
   }
@@ -472,7 +475,7 @@ export class AGMStatsComponent implements OnInit {
 
   sortedRows<T>(items: T[], table: string): T[] {
     const state = this.sortStateFor(table);
-    const prefix = state.direction === "desc" ? "-" : "";
+    const prefix = state.direction === SortDirection.DESC ? "-" : "";
     return [...items].sort(sortBy(prefix + state.key));
   }
 
@@ -673,7 +676,7 @@ export class AGMStatsComponent implements OnInit {
     }
   }
 
-  periodValue(periodLabel: string, section: "walks" | "socials" | "expenses" | "membership", field: string): number {
+  periodValue(periodLabel: string, section: AgmStatsSection, field: string): number {
     const index = this.yearsInRange().indexOf(periodLabel);
     if (index >= 0 && this.stats?.yearlyStats?.[index]) {
       return (this.stats.yearlyStats[index] as any)[section]?.[field] || 0;
@@ -683,33 +686,35 @@ export class AGMStatsComponent implements OnInit {
 
   toggleSort(table: string, key: string) {
     const current = this.sortState[table];
-    const direction = current && current.key === key && current.direction === "asc" ? "desc" : "asc";
+    const direction = current && current.key === key && current.direction === SortDirection.ASC
+      ? SortDirection.DESC
+      : SortDirection.ASC;
     this.sortState[table] = { key, direction };
   }
 
-  private sortStateFor(table: string): { key: string; direction: "asc" | "desc" } {
+  private sortStateFor(table: string): { key: string; direction: SortDirection } {
     const state = this.sortState[table];
     if (state) {
       return state;
     }
     if (table.startsWith("payees-")) {
-      return {key: "totalCost", direction: "desc"};
+      return {key: "totalCost", direction: SortDirection.DESC};
     }
     switch (table) {
       case "expensesSummary":
-        return {key: "order", direction: "asc"};
+        return {key: "order", direction: SortDirection.ASC};
       case "walkSummary":
-        return {key: "order", direction: "asc"};
+        return {key: "order", direction: SortDirection.ASC};
       case "aggregateLeaders":
-        return {key: "walkCount", direction: "desc"};
+        return {key: "walkCount", direction: SortDirection.DESC};
       case "leaders":
-        return {key: "rank", direction: "asc"};
+        return {key: "rank", direction: SortDirection.ASC};
       case "socialEvents":
-        return {key: "date", direction: "asc"};
+        return {key: "date", direction: SortDirection.ASC};
       case "organisers":
-        return {key: "eventCount", direction: "desc"};
+        return {key: "eventCount", direction: SortDirection.DESC};
       default:
-        return {key: "metric", direction: "asc"};
+        return {key: "metric", direction: SortDirection.ASC};
     }
   }
 
@@ -719,14 +724,14 @@ export class AGMStatsComponent implements OnInit {
     }
     const periods = this.yearsInRange();
     const rows: {metric: string; values: number[]; order: number}[] = [
-      {metric: "New Walk Leaders", values: periods.map(p => this.periodValue(p, "walks", "newLeaders")), order: 0},
-      {metric: "Active Walk Leaders", values: periods.map(p => this.periodValue(p, "walks", "activeLeaders")), order: 1},
-      {metric: "Walk Slots Not Filled", values: periods.map(p => this.periodValue(p, "walks", "unfilledSlots")), order: 2},
-      {metric: "Morning Walks", values: periods.map(p => this.periodValue(p, "walks", "morningWalks")), order: 3},
-      {metric: "Cancelled Walks", values: periods.map(p => this.periodValue(p, "walks", "cancelledWalks")), order: 4},
-      {metric: "Evening Walks", values: periods.map(p => this.periodValue(p, "walks", "eveningWalks")), order: 5},
-      {metric: "Total Walks on Programme", values: periods.map(p => this.periodValue(p, "walks", "totalWalks")), order: 6},
-      {metric: "Total Miles Walked", values: periods.map(p => this.periodValue(p, "walks", "totalMiles")), order: 7}
+      {metric: "New Walk Leaders", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "newLeaders")), order: 0},
+      {metric: "Active Walk Leaders", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "activeLeaders")), order: 1},
+      {metric: "Walk Slots Not Filled", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "unfilledSlots")), order: 2},
+      {metric: "Morning Walks", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "morningWalks")), order: 3},
+      {metric: "Cancelled Walks", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "cancelledWalks")), order: 4},
+      {metric: "Evening Walks", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "eveningWalks")), order: 5},
+      {metric: "Total Walks on Programme", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "totalWalks")), order: 6},
+      {metric: "Total Miles Walked", values: periods.map(p => this.periodValue(p, AgmStatsSection.WALKS, "totalMiles")), order: 7}
     ];
 
     return rows.map(row => {
@@ -748,8 +753,8 @@ export class AGMStatsComponent implements OnInit {
     }
     const periods = this.yearsInRange();
     return [
-      {metric: "Total Social Events", values: periods.map(p => this.periodValue(p, "socials", "totalSocials"))},
-      {metric: "Social Organisers", values: periods.map(p => this.periodValue(p, "socials", "uniqueOrganisers"))}
+      {metric: "Total Social Events", values: periods.map(p => this.periodValue(p, AgmStatsSection.SOCIALS, "totalSocials"))},
+      {metric: "Social Organisers", values: periods.map(p => this.periodValue(p, AgmStatsSection.SOCIALS, "uniqueOrganisers"))}
     ].map(row => {
       const previous = row.values[row.values.length - 2] ?? 0;
       const current = row.values[row.values.length - 1] ?? 0;
@@ -773,14 +778,14 @@ export class AGMStatsComponent implements OnInit {
       metric === "Total Cost" || metric === "Total Paid" || metric === "Total Unpaid";
 
     const rows: {metric: string; values: number[]; order: number}[] = [
-      {metric: "Total Claims", values: periods.map(p => this.periodValue(p, "expenses", "totalClaims")), order: 0},
-      {metric: "Total Expense Items", values: periods.map(p => this.periodValue(p, "expenses", "totalItems")), order: 1},
-      {metric: "Total Paid", values: periods.map(p => this.periodValue(p, "expenses", "totalCost")), order: 2},
-      {metric: "Total Unpaid", values: periods.map(p => this.periodValue(p, "expenses", "totalUnpaidCost")), order: 3},
+      {metric: "Total Claims", values: periods.map(p => this.periodValue(p, AgmStatsSection.EXPENSES, "totalClaims")), order: 0},
+      {metric: "Total Expense Items", values: periods.map(p => this.periodValue(p, AgmStatsSection.EXPENSES, "totalItems")), order: 1},
+      {metric: "Total Paid", values: periods.map(p => this.periodValue(p, AgmStatsSection.EXPENSES, "totalCost")), order: 2},
+      {metric: "Total Unpaid", values: periods.map(p => this.periodValue(p, AgmStatsSection.EXPENSES, "totalUnpaidCost")), order: 3},
       {
         metric: "Total Cost",
         values: periods.map(p =>
-          this.periodValue(p, "expenses", "totalCost") + this.periodValue(p, "expenses", "totalUnpaidCost")
+          this.periodValue(p, AgmStatsSection.EXPENSES, "totalCost") + this.periodValue(p, AgmStatsSection.EXPENSES, "totalUnpaidCost")
         ),
         order: 4
       }
@@ -808,10 +813,10 @@ export class AGMStatsComponent implements OnInit {
     }
     const periods = this.yearsInRange();
     return [
-      {metric: "Total Members", values: periods.map(p => this.periodValue(p, "membership", "totalMembers"))},
-      {metric: "New Joiners", values: periods.map(p => this.periodValue(p, "membership", "newJoiners"))},
-      {metric: "Leavers", values: periods.map(p => this.periodValue(p, "membership", "leavers"))},
-      {metric: "Deletions (Period)", values: periods.map(p => this.periodValue(p, "membership", "deletions"))}
+      {metric: "Total Members", values: periods.map(p => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "totalMembers"))},
+      {metric: "New Joiners", values: periods.map(p => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "newJoiners"))},
+      {metric: "Leavers", values: periods.map(p => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "leavers"))},
+      {metric: "Deletions (Period)", values: periods.map(p => this.periodValue(p, AgmStatsSection.MEMBERSHIP, "deletions"))}
     ].map(row => {
       const previous = row.values[row.values.length - 2] ?? 0;
       const current = row.values[row.values.length - 1] ?? 0;
@@ -850,7 +855,7 @@ export class AGMStatsComponent implements OnInit {
       const normalizedEmail = leader.email?.trim().toLowerCase() || "";
 
       let matchedKey: string | null = null;
-      for (const [existingKey, existingLeader] of Object.entries(acc)) {
+      for (const [existingKey, existingLeader] of entries(acc)) {
         const existingName = existingLeader.name?.trim().toLowerCase() || "";
         const existingEmail = existingLeader.email?.trim().toLowerCase() || "";
 
@@ -878,7 +883,7 @@ export class AGMStatsComponent implements OnInit {
       return acc;
     }, {} as Record<string, {id: string; name: string; email: string; walkCount: number; totalMiles: number}>);
 
-    const result: RankedLeaderRow[] = Object.values(aggregate)
+    const result: RankedLeaderRow[] = values(aggregate)
       .sort(sortBy("-walkCount", "-totalMiles"))
       .map((leader, index) => ({
         ...leader,
@@ -945,7 +950,7 @@ export class AGMStatsComponent implements OnInit {
       return acc;
     }, {} as Record<string, {id: string; name: string; eventCount: number}>);
 
-    return Object.values(aggregate).sort(sortBy("-eventCount", "name"));
+    return values(aggregate).sort(sortBy("-eventCount", "name"));
   }
 
   aggregatedSocialEvents() {
@@ -1029,7 +1034,7 @@ export class AGMStatsComponent implements OnInit {
     if (state.key !== key) {
       return null;
     }
-    return state.direction === "asc" ? this.faChevronUp : this.faChevronDown;
+    return state.direction === SortDirection.ASC ? this.faChevronUp : this.faChevronDown;
   }
 
   presetLabel(option: string): string {

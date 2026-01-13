@@ -7,6 +7,7 @@ import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AGMSummaryTableComponent } from "./agm-summary-table";
 import {
+  AgmChartType,
   ChangeClassFn,
   GetYearLabelFn,
   SortedRowsFn,
@@ -471,7 +472,7 @@ export class AGMWalksTabComponent implements AfterViewInit, OnChanges {
   @Input() walkChartData: ChartConfiguration["data"];
   @Input() leaderChartData: ChartConfiguration["data"];
   @Input() chartOptions: ChartConfiguration["options"];
-  @Input() chartType: "bar" | "line";
+  @Input() chartType: AgmChartType;
   @Input() years: string[] = [];
   @Input() walkSummaryRows: SummaryRow[] = [];
   @Input() walkSummaryKey = "walkSummary";

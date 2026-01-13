@@ -16,12 +16,14 @@ import {
   BackupConfig,
   BackupListItem,
   BackupRequest,
+  BackupLocation,
   BackupRestoreTab,
   BackupSession,
   EnvironmentBackupConfig,
   EnvironmentInfo,
   RestoreRequest
 } from "../../../models/backup-session.model";
+import { InputSize } from "../../../models/ui-size.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NotifierService } from "../../../services/notifier.service";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -153,7 +155,7 @@ import { asNumber } from "../../../functions/numbers";
                     <label class="form-label me-3">Backup Source</label>
                     <div class="form-check form-check-inline">
                       <input class="form-check-input" type="radio" id="sourceS3" name="backupSource"
-                             value="s3"
+                             [value]="BackupLocation.S3"
                              [(ngModel)]="backupSource" (ngModelChange)="onBackupSourceChange()"
                              checked>
                       <label class="form-check-label" for="sourceS3">S3</label>
@@ -161,7 +163,7 @@ import { asNumber } from "../../../functions/numbers";
                     <div class="form-check form-check-inline">
                       <input class="form-check-input" type="radio" id="sourceLocal"
                              name="backupSource"
-                             value="local"
+                             [value]="BackupLocation.LOCAL"
                              [(ngModel)]="backupSource" (ngModelChange)="onBackupSourceChange()">
                       <label class="form-check-label" for="sourceLocal">Local</label>
                     </div>
@@ -207,7 +209,7 @@ import { asNumber } from "../../../functions/numbers";
                         appearance="outline">
                         <ng-template ng-option-tmp let-item="item">
                           <div class="d-flex flex-column align-items-start gap-1" [title]="item.path || item.name">
-                            @if (backupSource === 's3') {
+                            @if (backupSource === BackupLocation.S3) {
                               <div class="d-flex align-items-center gap-2 flex-wrap">
                                 <span class="badge bg-light text-body border">{{ s3Env(item) }}</span>
                                 <span class="badge bg-light text-muted">{{ s3Date(item) }}</span>
@@ -527,7 +529,7 @@ import { asNumber } from "../../../functions/numbers";
                                 <app-secret-input
                                   [(ngModel)]="currentEnvironment.aws.accessKeyId"
                                   name="awsKeyId"
-                                  size="sm">
+                                  [size]="InputSize.SM">
                                 </app-secret-input>
                               </div>
                               <div class="col-md-6 mb-2">
@@ -536,7 +538,7 @@ import { asNumber } from "../../../functions/numbers";
                                 <app-secret-input
                                   [(ngModel)]="currentEnvironment.aws.secretAccessKey"
                                   name="awsSecret"
-                                  size="sm">
+                                  [size]="InputSize.SM">
                                 </app-secret-input>
                               </div>
                             </div>
@@ -575,7 +577,7 @@ import { asNumber } from "../../../functions/numbers";
                                 <app-secret-input
                                   [(ngModel)]="currentEnvironment.mongo.password"
                                   name="mongoPass"
-                                  size="sm">
+                                  [size]="InputSize.SM">
                                 </app-secret-input>
                               </div>
                             </div>
@@ -588,7 +590,7 @@ import { asNumber } from "../../../functions/numbers";
                                 <app-secret-input
                                   [(ngModel)]="currentEnvironment.flyio.apiKey"
                                   name="flyApiKey"
-                                  size="sm">
+                                  [size]="InputSize.SM">
                                 </app-secret-input>
                               </div>
                               <div class="col-md-4 mb-2">
@@ -695,6 +697,8 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   private wsConnected = false;
 
   protected readonly BackupRestoreTab = BackupRestoreTab;
+  protected readonly BackupLocation = BackupLocation;
+  protected readonly InputSize = InputSize;
   protected readonly faBackward = faBackward;
   protected readonly faForward = faForward;
   protected readonly faCopy = faCopy;
@@ -712,7 +716,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   selectedBackups: BackupListItem[] = [];
   allBackups: BackupListItem[] = [];
   selectedBackupForRestore: BackupListItem | null = null;
-  backupSource: "s3" | "local" = "s3";
+  backupSource: BackupLocation = BackupLocation.S3;
   sourceEnvironment = "";
   sessions: BackupSession[] = [];
   selectedSession?: BackupSession;
@@ -913,7 +917,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
 
   loadBackups() {
     this.subscriptions.push(
-      (this.backupSource === "s3" ? this.backupRestoreService.listS3Backups() : this.backupRestoreService.listBackups()).subscribe({
+      (this.backupSource === BackupLocation.S3 ? this.backupRestoreService.listS3Backups() : this.backupRestoreService.listBackups()).subscribe({
         next: backups => {
           this.allBackups = [...backups].sort(sortBy("-timestamp", "name"));
           this.applyBackupFilter();
@@ -1091,8 +1095,8 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   duration(start: Date | number, end: Date | number): string {
-    const startTime = isNumber(start) ? start : new Date(start).getTime();
-    const endTime = isNumber(end) ? end : new Date(end).getTime();
+    const startTime = isNumber(start) ? start : this.dateUtils.asDateTime(start).toMillis();
+    const endTime = isNumber(end) ? end : this.dateUtils.asDateTime(end).toMillis();
     const durationMs = endTime - startTime;
     const seconds = Math.floor(durationMs / 1000);
     const minutes = Math.floor(seconds / 60);
@@ -1338,7 +1342,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     }
 
     const names = this.selectedBackups.map(b => b.name);
-    const obs = this.backupSource === "s3"
+    const obs = this.backupSource === BackupLocation.S3
       ? this.backupRestoreService.deleteS3Backups(names)
       : this.backupRestoreService.deleteBackups(names);
     this.subscriptions.push(

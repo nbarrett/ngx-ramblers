@@ -13,7 +13,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { Organisation, SystemConfig } from "../../../models/system.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
-import { faEnvelope, faPhone } from "@fortawesome/free-solid-svg-icons";
+import { faEnvelope, faEye, faPencil, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { LoginResponse } from "../../../models/member.model";
@@ -200,6 +200,8 @@ export class WalkCardViewComponent implements OnInit, OnDestroy {
   @Input() maxColumns!: number;
   protected readonly faPhone = faPhone;
   protected readonly faEnvelope = faEnvelope;
+  protected readonly faEye = faEye;
+  protected readonly faPencil = faPencil;
   protected readonly EventType = EventType;
   protected readonly WalkStatus = WalkStatus;
   protected readonly faPersonWalking = faPersonWalking;

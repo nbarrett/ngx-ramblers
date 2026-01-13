@@ -1,47 +1,13 @@
 import {inject, Injectable} from "@angular/core";
 import {HttpClient} from "@angular/common/http";
 import {Observable} from "rxjs";
-
-export interface SpatialFeature {
-  _id: string;
-  routeId: string;
-  routeName: string;
-  featureType: string;
-  name?: string;
-  description?: string;
-  properties?: Record<string, unknown>;
-  geometry: {
-    type: "Point" | "LineString" | "MultiLineString";
-    coordinates: number[] | number[][] | number[][][];
-  };
-  bounds: {
-    southwest: {type: "Point"; coordinates: [number, number]};
-    northeast: {type: "Point"; coordinates: [number, number]};
-  };
-}
-
-export interface ViewportBounds {
-  southwest: {lat: number; lng: number};
-  northeast: {lat: number; lng: number};
-}
-
-export interface ViewportFeaturesResponse {
-  features: SpatialFeature[];
-  totalCount: number;
-  limited: boolean;
-}
-
-export interface AutocompleteSuggestion {
-  value: string;
-  label: string;
-  description?: string;
-  type: string;
-}
-
-export interface RouteStats {
-  totalCount: number;
-  byType: Record<string, number>;
-}
+import {
+  AutocompleteSuggestion,
+  RouteStats,
+  SpatialFeature,
+  ViewportBounds,
+  ViewportFeaturesResponse
+} from "../models/spatial-features.model";
 
 @Injectable({
   providedIn: "root"

@@ -25,6 +25,7 @@ import { NumberUtilsService } from "./number-utils.service";
 import { StringUtilsService } from "./string-utils.service";
 import { KeyValue } from "../functions/enums";
 import { UrlService } from "./url.service";
+import { DEFAULT_OS_STYLE, MapProvider } from "../models/map.model";
 
 @Injectable({
   providedIn: "root"
@@ -398,8 +399,8 @@ export class PageContentActionsService {
         mapCenter: [51.25, 0.75],
         mapZoom: 10,
         mapHeight: 500,
-        provider: "osm",
-        osStyle: "Leisure_27700",
+        provider: MapProvider.OSM,
+        osStyle: DEFAULT_OS_STYLE,
         showControlsDefault: true,
         allowControlsToggle: true,
         routes: []

@@ -5,13 +5,15 @@
       <div class="row">
         <div class="col-sm-12">
           <app-markdown-editor standalone [category]="'risk-assessments'" [name]="'risk-assessments-' +riskAssessmentKey"
+                               [presentationMode]="inputDisabled"
+                               [hideEditToggle]="inputDisabled"
                                [description]="riskAssessmentSection"/>
         </div>
       </div>
       <div class="row">
         <div class="col-sm-12">
           <div class="form-group">
-                <textarea [disabled]="!display.allowEdits(displayedWalk.walk)"
+                <textarea [disabled]="inputDisabled || !display.allowEdits(displayedWalk.walk)"
                           #input (input)="confirmParameterText(input.value)"
                           [value]="riskAssessmentConfirmationText()" type="text"
                           class="form-control input-sm" rows="2"
@@ -26,6 +28,7 @@
           <div class="form-check">
             <input #checkbox (change)="confirmParameter(checkbox.checked)"
                    [checked]="riskAssessmentConfirmed()" type="checkbox" class="form-check-input"
+                   [disabled]="inputDisabled || !display.allowEdits(displayedWalk.walk)"
                    [id]="'risk-assessment-' + riskAssessmentKey">
             <label class="form-check-label"
                    [for]="'risk-assessment-' + riskAssessmentKey">{{confirmLabel()}}

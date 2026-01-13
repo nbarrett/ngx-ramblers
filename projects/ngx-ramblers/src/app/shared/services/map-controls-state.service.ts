@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { MapProvider } from "../../models/map.model";
+import { DEFAULT_OS_STYLE, MapProvider, OUTDOOR_OS_STYLE } from "../../models/map.model";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { StoredValue } from "../../models/ui-actions";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
@@ -25,20 +25,20 @@ export class MapControlsStateService {
     const hasKey = this.mapTiles.hasOsApiKey();
 
     let provider: MapProvider;
-    if (storedProvider === "os" || storedProvider === "osm") {
+    if (storedProvider === MapProvider.OS || storedProvider === MapProvider.OSM) {
       provider = storedProvider;
     } else {
-      provider = hasKey ? "os" : "osm";
+      provider = hasKey ? MapProvider.OS : MapProvider.OSM;
     }
 
-    if (provider === "os" && !hasKey) {
-      provider = "osm";
-      this.uiActions.saveValueFor(StoredValue.MAP_PROVIDER, "osm");
+    if (provider === MapProvider.OS && !hasKey) {
+      provider = MapProvider.OSM;
+      this.uiActions.saveValueFor(StoredValue.MAP_PROVIDER, MapProvider.OSM);
     }
 
-    const defaultOsStyle = hasKey ? "Leisure_27700" : "outdoor";
+    const defaultOsStyle = hasKey ? DEFAULT_OS_STYLE : OUTDOOR_OS_STYLE;
     let osStyle = defaults.osStyle || defaultOsStyle;
-    if (storedStyle && provider === "os") {
+    if (storedStyle && provider === MapProvider.OS) {
       osStyle = storedStyle;
     }
 

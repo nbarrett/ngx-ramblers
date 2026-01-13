@@ -20,6 +20,8 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
+import { DateUtilsService } from "../../../services/date-utils.service";
+import { isNull, isUndefined } from "es-toolkit/compat";
 
 @Component({
   selector: "app-walk-edit-related-links",
@@ -32,6 +34,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
     DisplayDatePipe,
   ],
   template: `
+    @if (displayedWalk?.walk?.fields) {
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row">
         <div class="col-sm-12">
@@ -43,9 +46,13 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
                 <div>url: {{ displayedWalk?.walk?.groupEvent.url }}</div>
               }
               @if (!insufficientDataToUploadToRamblers() && !ramblersWalkExists()) {
-                <p>This walk has not been uploaded to Ramblers yet - check back when date is closer to
-                  <b>{{ displayedWalk?.walk?.groupEvent.start_date_time | displayDate }}</b>.
-                </p>
+                @if (walkIsInPast()) {
+                  <p>This walk was not uploaded to Ramblers.</p>
+                } @else {
+                  <p>This walk has not been uploaded to Ramblers yet - check back when date is closer to
+                    <b>{{ displayedWalk?.walk?.groupEvent.start_date_time | displayDate }}</b>.
+                  </p>
+                }
               }
               @if (walkExportSignal().validationMessages.length > 0) {
                 <p>
@@ -59,6 +66,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
                       <input type="submit" value="Unlink"
                              (click)="unlinkRamblersDataFromCurrentWalk()"
                              title="Remove link between this walk and Ramblers"
+                             [disabled]="inputDisabled || saveInProgress"
                              class="btn btn-primary">
                     </div>
                     <div class="col-sm-10">
@@ -157,9 +165,9 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
         </div>
       </div>
       @if (displayedWalk?.walk?.fields?.venue) {
-        <app-walk-venue [displayedWalk]="displayedWalk"/>
+        <app-walk-venue [displayedWalk]="displayedWalk" [inputDisabled]="inputDisabled"/>
       }
-      <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress"/>
+      <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress" [inputDisabled]="inputDisabled"/>
       <div class="row">
         <div class="col-sm-12">
           <div class="row img-thumbnail thumbnail-walk-edit">
@@ -228,10 +236,23 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
         </div>
       </div>
     </div>
+    }
   `
 })
 export class WalkEditRelatedLinksComponent implements OnInit {
-  @Input() protected displayedWalk!: DisplayedWalk;
+  private displayedWalkValue!: DisplayedWalk;
+  @Input() set displayedWalk(value: DisplayedWalk) {
+    this.displayedWalkValue = value;
+    this.ensurePublishingDefaults();
+    this.initialiseLinks();
+    this.walkCancelled = this.displayedWalkValue?.walk?.groupEvent?.status === WalkStatus.CANCELLED;
+    if (this.walkSignal && this.displayedWalkValue?.walk) {
+      this.walkSignal.set({...this.displayedWalkValue.walk});
+    }
+  }
+  get displayedWalk(): DisplayedWalk {
+    return this.displayedWalkValue;
+  }
   public inputDisabled = false;
 
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
@@ -244,6 +265,7 @@ export class WalkEditRelatedLinksComponent implements OnInit {
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   protected display = inject(WalkDisplayService);
   protected stringUtilsService = inject(StringUtilsService);
+  private dateUtils = inject(DateUtilsService);
   private memberLoginService = inject(MemberLoginService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private linksService = inject(LinksService);
@@ -290,6 +312,12 @@ export class WalkEditRelatedLinksComponent implements OnInit {
     return this.walkExportSignal().publishedOnRamblers;
   }
 
+  walkIsInPast(): boolean {
+    const walkDate = this.dateUtils.asValueNoTime(this.displayedWalk?.walk?.groupEvent?.start_date_time);
+    const today = this.dateUtils.dateTimeNowNoTime().toMillis();
+    return walkDate < today;
+  }
+
   walkValidations() {
     const walkValidations = this.walkExportSignal().validationMessages;
     return "This walk cannot be included in the Ramblers Walks and Events Manager export due to the following "
@@ -298,6 +326,37 @@ export class WalkEditRelatedLinksComponent implements OnInit {
 
   private initialiseLinks() {
     this.links = this.linksService.linksFrom(this.displayedWalk?.walk);
+  }
+
+  private ensurePublishingDefaults() {
+    const fields = this.displayedWalkValue?.walk?.fields;
+    if (!fields) {
+      return;
+    }
+    if (!fields.publishing) {
+      fields.publishing = {
+        meetup: {publish: false, contactName: null},
+        ramblers: {publish: true, contactName: null}
+      };
+    }
+    if (!fields.publishing.meetup) {
+      fields.publishing.meetup = {publish: false, contactName: null};
+    }
+    if (!fields.publishing.ramblers) {
+      fields.publishing.ramblers = {publish: true, contactName: null};
+    }
+    if (isUndefined(fields.publishing.meetup.publish) || isNull(fields.publishing.meetup.publish)) {
+      fields.publishing.meetup.publish = false;
+    }
+    if (isUndefined(fields.publishing.ramblers.publish) || isNull(fields.publishing.ramblers.publish)) {
+      fields.publishing.ramblers.publish = true;
+    }
+    if (isUndefined(fields.publishing.meetup.contactName)) {
+      fields.publishing.meetup.contactName = null;
+    }
+    if (isUndefined(fields.publishing.ramblers.contactName)) {
+      fields.publishing.ramblers.contactName = null;
+    }
   }
 
   canUnlinkRamblers() {
@@ -332,7 +391,7 @@ export class WalkEditRelatedLinksComponent implements OnInit {
   }
 
   linkExists(source: LinkSource): boolean {
-    return this.linksService.linkExists(this.displayedWalk.walk.fields, source);
+    return this.displayedWalk?.walk?.fields && this.linksService.linkExists(this.displayedWalk.walk.fields, source);
   }
 
   logLinkChange() {

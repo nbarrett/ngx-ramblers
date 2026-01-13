@@ -895,7 +895,7 @@ export class WalkExport implements OnInit, OnDestroy {
       this.walksForExport = [];
       this.walkExportNotifier.warning("Refreshing export status of future walks", false, true);
       const all: ExtendedGroupEvent[] = await this.walksAndEventsService.all({
-        inputSource: this.display.walkPopulationWalksManager() ? InputSource.WALKS_MANAGER_IMPORT : InputSource.MANUALLY_CREATED,
+        inputSource: this.display.walkPopulationWalksManager() ? InputSource.WALKS_MANAGER_CACHE : InputSource.MANUALLY_CREATED,
         suppressEventLinking: true,
         types: [RamblersEventType.GROUP_WALK],
         dataQueryOptions: {

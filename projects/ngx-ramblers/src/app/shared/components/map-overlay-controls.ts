@@ -1,7 +1,7 @@
 import { Component, DoCheck, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { CommonModule } from "@angular/common";
-import { MapStyleInfo, OS_MAP_STYLE_LIST } from "../../models/map.model";
+import { DEFAULT_OS_STYLE, MapProvider, MapStyleInfo, OS_MAP_STYLE_LIST } from "../../models/map.model";
 import { KeyValue } from "../../functions/enums";
 import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-button";
 import { faUndo } from "@fortawesome/free-solid-svg-icons";
@@ -19,7 +19,7 @@ interface MapSliderControl {
 }
 
 export interface MapOverlayConfig {
-  provider?: string;
+  provider?: MapProvider | string;
   osStyle?: string;
   mapCenter?: [number, number];
   mapZoom?: number;
@@ -37,7 +37,7 @@ export interface MapOverlayConfig {
 }
 
 interface MapOverlayDefaults {
-  provider: string;
+  provider: MapProvider;
   osStyle: string;
   mapCenter: [number, number];
   mapZoom: number;
@@ -93,7 +93,7 @@ interface MapOverlayDefaults {
           }
         </select>
       </div>
-      @if (config.provider === 'os') {
+      @if (config.provider === MapProvider.OS) {
         <div class="col-md-3">
           <label class="form-label" for="style-select-{{id}}">OS Map Style</label>
           <select class="form-select form-select-sm"
@@ -292,14 +292,15 @@ export class MapOverlayControls implements OnInit, DoCheck {
   @Input() showWaypointControls = false;
   @Output() configChange = new EventEmitter<MapOverlayConfig>();
 
-  providerOptions: KeyValue<string>[] = [
-    { key: "osm", value: "OpenStreetMap" },
-    { key: "os", value: "OS Maps" }
+  providerOptions: KeyValue<MapProvider>[] = [
+    { key: "OpenStreetMap", value: MapProvider.OSM },
+    { key: "OS Maps", value: MapProvider.OS }
   ];
   osStyles: MapStyleInfo[] = OS_MAP_STYLE_LIST;
   centerLat = 51.25;
   centerLng = 0.75;
   protected readonly faUndo = faUndo;
+  protected readonly MapProvider = MapProvider;
   private lastCenter: [number, number] | undefined;
   sliderValues: Record<string, number> = {};
   sliderControls: MapSliderControl[] = [
@@ -350,8 +351,8 @@ export class MapOverlayControls implements OnInit, DoCheck {
   }
 
   private defaultConfig: MapOverlayDefaults = {
-    provider: "osm",
-    osStyle: "Leisure_27700",
+    provider: MapProvider.OSM,
+    osStyle: DEFAULT_OS_STYLE,
     mapCenter: [51.25, 0.75],
     mapZoom: 10,
     mapHeight: 500,

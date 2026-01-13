@@ -12,6 +12,7 @@ import { GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/w
 import { mapRamblersEventToExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/functions/walks/ramblers-event.mapper";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { envConfig } from "../env-config/env-config";
+import { dateTimeNow } from "../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("walks-manager-cache"));
 debugLog.enabled = false;
@@ -35,7 +36,7 @@ function sourceFromInputSource(inputSource: InputSource): EventSource {
   }
 }
 
-export function mapToExtendedGroupEvent(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.WALKS_MANAGER_CACHE): ExtendedGroupEvent {
+export function toExtendedGroupEvent(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.WALKS_MANAGER_CACHE): ExtendedGroupEvent {
   const groupEvent: GroupEvent = {
     ...event,
     item_type: event.item_type || RamblersEventType.GROUP_WALK,
@@ -56,7 +57,7 @@ async function upsertEvent(config: SystemConfig, event: GroupEvent, inputSource:
       [GroupEventField.GROUP_CODE]: event.group_code || config?.group?.groupCode,
     }).exec();
 
-    const mappedEvent = mapToExtendedGroupEvent(config, event, inputSource);
+    const mappedEvent = toExtendedGroupEvent(config, event, inputSource);
     const groupEvent = {
       ...mappedEvent.groupEvent,
       url: event.url,
@@ -71,13 +72,16 @@ async function upsertEvent(config: SystemConfig, event: GroupEvent, inputSource:
     const syncMetadata = {
       source: sourceFromInputSource(inputSource),
       ramblersId: event.id,
-      lastSyncedAt: new Date()
+      lastSyncedAt: dateTimeNow().toJSDate()
     };
 
     if (existingEvent) {
       await extendedGroupEvent.updateOne(
         {_id: existingEvent._id},
-        {$set: {groupEvent, fields, ...syncMetadata}}
+        {
+          $set: {groupEvent, fields, ...syncMetadata},
+          $inc: {syncedVersion: 1}
+        }
       ).exec();
       debugLog("Updated existing event:", event.url);
       return {document: existingEvent, action: "updated"};

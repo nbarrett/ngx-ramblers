@@ -559,6 +559,44 @@ export enum AlbumView {
   GRID = "grid",
 }
 
+export enum ImageFit {
+  COVER = "cover",
+  CONTAIN = "contain"
+}
+
+export enum VerticalPosition {
+  TOP = "top",
+  BOTTOM = "bottom"
+}
+
+export enum SlidingDirection {
+  HORIZONTAL = "horizontal",
+  VERTICAL = "vertical"
+}
+
+export enum LoadingAttr {
+  EAGER = "eager",
+  LAZY = "lazy"
+}
+
+export enum LoadingStrategy {
+  PRELOAD = "preload",
+  LAZY = "lazy",
+  DEFAULT = "default"
+}
+
+export enum ThumbPosition {
+  TOP = "top",
+  LEFT = "left",
+  RIGHT = "right",
+  BOTTOM = "bottom"
+}
+
+export enum ThumbView {
+  DEFAULT = "default",
+  CONTAIN = "contain"
+}
+
 export interface GridViewOptions {
   showTitles: boolean;
   showDates: boolean;
@@ -586,15 +624,15 @@ export interface GalleryViewOptions {
   slidingDuration?: number;
   slidingEase?: BezierEasingOptions;
   resizeDebounceTime?: number;
-  imageSize?: "cover" | "contain";
-  thumbImageSize?: "cover" | "contain";
-  dotsPosition?: "top" | "bottom";
-  counterPosition?: "top" | "bottom";
-  slidingDirection?: "horizontal" | "vertical";
-  loadingAttr?: "eager" | "lazy";
-  loadingStrategy?: "preload" | "lazy" | "default";
-  thumbPosition?: "top" | "left" | "right" | "bottom";
-  thumbView?: "default" | "contain";
+  imageSize?: ImageFit;
+  thumbImageSize?: ImageFit;
+  dotsPosition?: VerticalPosition;
+  counterPosition?: VerticalPosition;
+  slidingDirection?: SlidingDirection;
+  loadingAttr?: LoadingAttr;
+  loadingStrategy?: LoadingStrategy;
+  thumbPosition?: ThumbPosition;
+  thumbView?: ThumbView;
   thumbAutosize?: boolean;
   itemAutosize?: boolean;
   autoHeight?: boolean;
@@ -612,11 +650,11 @@ export interface ColumnInsertData {
 }
 
 export const DEFAULT_GALLERY_OPTIONS: GalleryViewOptions = {
-  thumbPosition: "left",
-  imageSize: "cover",
-  thumbImageSize: "cover",
-  loadingStrategy: "lazy",
-  dotsPosition: "bottom"
+  thumbPosition: ThumbPosition.LEFT,
+  imageSize: ImageFit.COVER,
+  thumbImageSize: ImageFit.COVER,
+  loadingStrategy: LoadingStrategy.LAZY,
+  dotsPosition: VerticalPosition.BOTTOM
 };
 
 export const DEFAULT_GRID_OPTIONS = {showTitles: true, showDates: true};

@@ -43,7 +43,7 @@ describe("DateUtilsService", () => {
 
     it("should support a Date as an argument", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const injectedData = new Date(2018, 10, 15);
+      const injectedData = DateTime.fromObject({ year: 2018, month: 11, day: 15 }).toJSDate();
       expect(dateUtils.asDateTime(injectedData).toJSDate()).toEqual(injectedData);
     });
 
@@ -75,7 +75,7 @@ describe("DateUtilsService", () => {
 
     it("should support a Date as an argument", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const dateValue = dateUtils.asDateValue(new Date(2014, 5, 13));
+      const dateValue = dateUtils.asDateValue(DateTime.fromObject({ year: 2014, month: 6, day: 13 }).toJSDate());
       expect(dateValue.value).toEqual(1402614000000);
       const london = DateTime.fromMillis(dateValue.value).setZone("Europe/London");
       expect(london.day).toEqual(13);
@@ -133,7 +133,8 @@ describe("DateUtilsService", () => {
   describe("nowAsValue", () => {
     it("should return a millisecond timestamp value as of now", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      expect(dateUtils.nowAsValue() - Date.parse(new Date().toISOString())).toBeLessThan(2);
+      const nowIso = dateUtils.isoDateTimeNow();
+      expect(dateUtils.nowAsValue() - Date.parse(nowIso)).toBeLessThan(2);
     });
   });
 

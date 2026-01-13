@@ -9,6 +9,7 @@ import { DOMParser } from "@xmldom/xmldom";
 import { titleCase, humaniseFileStemFromUrl, hasFileExtension } from "../shared/string-utils";
 import { kebabCase } from "es-toolkit/compat";
 import { EventField, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { dateTimeFromIso } from "../shared/dates";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("walk-gpx-list"));
 debugLog.enabled = true;
@@ -85,7 +86,7 @@ export async function listWalkGpxFiles(req: Request, res: Response) {
           if (walk) {
             item.walkTitle = walk.groupEvent?.title;
             item.walkDate = walk.groupEvent?.start_date_time
-              ? new Date(walk.groupEvent.start_date_time).getTime()
+              ? dateTimeFromIso(walk.groupEvent.start_date_time).toMillis()
               : undefined;
           }
 

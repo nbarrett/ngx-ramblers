@@ -49,6 +49,7 @@ import {
   SplitEvent,
   View
 } from "../models/content-text.model";
+import { MarkdownLineType, MarkdownListType } from "../models/markdown.model";
 import { BroadcastService } from "../services/broadcast-service";
 import { ContentTextService } from "../services/content-text.service";
 import { ContentConversionService } from "../services/content-conversion.service";
@@ -320,13 +321,13 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
           </button>
         </div>
         <div class="toolbar-item">
-          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatList('ul')"
+          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatList(MarkdownListType.UNORDERED)"
                   tooltip="Make selection a Bulleted List" container="body">
             <fa-icon [icon]="faListUl"/>
           </button>
         </div>
         <div class="toolbar-item">
-          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatList('ol')"
+          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatList(MarkdownListType.ORDERED)"
                   tooltip="Make selection a Numbered List" container="body">
             <fa-icon [icon]="faListOl"/>
           </button>
@@ -653,6 +654,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   faAngleDown = faAngleDown;
   protected readonly faRefresh = faRefresh;
   protected readonly faRotateLeft = faRotateLeft;
+  protected readonly MarkdownListType = MarkdownListType;
   private originalContent: ContentText;
   public editorState: EditorState;
   public content: ContentText = {};
@@ -1024,7 +1026,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const lvl = Math.min(Math.max(level, 1), 6);
     this.transformSelectionLines((line) => {
       const info = this.stripKnownPrefix(line);
-      if (info.type === "heading" && info.level === lvl) {
+      if (info.type === MarkdownLineType.HEADING && info.level === lvl) {
         return info.stripped;
       }
       return "#".repeat(lvl) + " " + info.stripped;
@@ -1046,23 +1048,23 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   formatQuote() {
     this.transformSelectionLines((line) => {
       const info = this.stripKnownPrefix(line);
-      if (info.type === "quote") {
+      if (info.type === MarkdownLineType.QUOTE) {
         return info.stripped;
       }
       return "> " + info.stripped;
     });
   }
 
-  formatList(type: "ul" | "ol") {
+  formatList(type: MarkdownListType) {
     this.transformSelectionLines((line, idx) => {
       const info = this.stripKnownPrefix(line);
-      if (type === "ul") {
-        if (info.type === "ul") {
+      if (type === MarkdownListType.UNORDERED) {
+        if (info.type === MarkdownLineType.UNORDERED_LIST) {
           return info.stripped;
         }
         return "- " + info.stripped;
       } else {
-        if (info.type === "ol") {
+        if (info.type === MarkdownLineType.ORDERED_LIST) {
           return info.stripped;
         }
         return `${idx + 1}. ` + info.stripped;
@@ -1078,7 +1080,8 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       if (/^https?:\/\/\S+$/i.test(text)) {
         url = text;
       }
-    } catch {
+    } catch (error) {
+      this.logger.debug("formatLink:clipboard-read-failed", error);
     }
     this.replaceSelection("[", `](${url})`, s => s || "title");
   }
@@ -1139,21 +1142,21 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   private stripKnownPrefix(line: string): {
     stripped: string;
-    type: "heading" | "quote" | "ul" | "ol" | null;
+    type: MarkdownLineType | null;
     level?: number
   } {
     const heading = line.match(/^\s{0,3}(#{1,6})\s+/);
     if (heading) {
-      return {stripped: line.replace(/^\s{0,3}#{1,6}\s+/, ""), type: "heading", level: heading[1].length};
+      return {stripped: line.replace(/^\s{0,3}#{1,6}\s+/, ""), type: MarkdownLineType.HEADING, level: heading[1].length};
     }
     if (/^\s{0,3}>\s+/.test(line)) {
-      return {stripped: line.replace(/^\s{0,3}>\s+/, ""), type: "quote"};
+      return {stripped: line.replace(/^\s{0,3}>\s+/, ""), type: MarkdownLineType.QUOTE};
     }
     if (/^\s{0,3}[-*+]\s+/.test(line)) {
-      return {stripped: line.replace(/^\s{0,3}[-*+]\s+/, ""), type: "ul"};
+      return {stripped: line.replace(/^\s{0,3}[-*+]\s+/, ""), type: MarkdownLineType.UNORDERED_LIST};
     }
     if (/^\s{0,3}\d+\.\s+/.test(line)) {
-      return {stripped: line.replace(/^\s{0,3}\d+\.\s+/, ""), type: "ol"};
+      return {stripped: line.replace(/^\s{0,3}\d+\.\s+/, ""), type: MarkdownLineType.ORDERED_LIST};
     }
     return {stripped: line, type: null};
   }

@@ -14,12 +14,12 @@ import {
   InputSource
 } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { EventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { dateTimeNowAsValue } from "../shared/dates";
+import { dateTimeFromIso, dateTimeFromJsDate, dateTimeNowAsValue } from "../shared/dates";
 import { cacheEventsWithStats } from "./walks-manager-cache";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import * as requestDefaults from "../ramblers/request-defaults";
-import { isEmpty, isNumber } from "es-toolkit/compat";
+import { isEmpty, isNumber, isString } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("walks-manager-sync"));
 debugLog.enabled = true;
@@ -288,5 +288,12 @@ export async function getLastSyncTimestamp(groupCode: string): Promise<number | 
   if (!lastSyncedAt) {
     return null;
   }
-  return isNumber(lastSyncedAt) ? lastSyncedAt : new Date(lastSyncedAt).getTime();
+  if (isNumber(lastSyncedAt)) {
+    return lastSyncedAt;
+  }
+  if (isString(lastSyncedAt)) {
+    const parsed = dateTimeFromIso(lastSyncedAt);
+    return parsed.isValid ? parsed.toMillis() : null;
+  }
+  return dateTimeFromJsDate(lastSyncedAt as Date).toMillis();
 }

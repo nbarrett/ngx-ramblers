@@ -16,7 +16,7 @@ import {
   updateIndexPageContent
 } from "./content-generator.js";
 import type { CMSAuth, ConventionalCommit, GenerateOptions, ReleaseNotesConfig, ReleaseNotesData } from "./models.js";
-import { dateTimeFromIso, dateTimeFromJsDate, dateTimeInTimezone, dateTimeNow } from "../shared/dates";
+import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone, dateTimeNow } from "../shared/dates";
 import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
@@ -60,9 +60,9 @@ function normalizeDateInput(input: string): string {
     return matchingFormat.startOf("day").toISODate();
   }
 
-  const fallback = new Date(trimmed);
-  if (!Number.isNaN(fallback.getTime())) {
-    return dateTimeFromJsDate(fallback).startOf("day").toISODate();
+  const fallbackMillis = Date.parse(trimmed);
+  if (!Number.isNaN(fallbackMillis)) {
+    return dateTimeFromMillis(fallbackMillis).startOf("day").toISODate();
   }
 
   throw new Error(`Unable to parse date value: ${input}`);

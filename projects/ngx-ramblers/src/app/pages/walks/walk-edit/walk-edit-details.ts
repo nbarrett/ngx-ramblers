@@ -17,6 +17,7 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { DateUtilsService } from "../../../services/date-utils.service";
 
 @Component({
   selector: "app-walk-edit-details",
@@ -32,6 +33,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
     DecimalPipe
   ],
   template: `
+    @if (displayedWalk?.walk?.groupEvent) {
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row">
         @if (false) {
@@ -113,6 +115,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
               <input
                 type="file"
                 #fileInput
+                [disabled]="inputDisabled"
                 accept=".gpx"
                 style="display: none"
                 (change)="onFileSelected($event)">
@@ -139,15 +142,18 @@ import { StringUtilsService } from "../../../services/string-utils.service";
             <div class="col d-flex justify-content-center gap-2">
               <div class="btn-group" role="group">
                 <button type="button" class="btn btn-primary" [class.active]="!showCombinedMap"
+                        [disabled]="inputDisabled"
                         (click)="showCombinedMap = false">
                   Separate Maps
                 </button>
                 <button type="button" class="btn btn-primary" [class.active]="showCombinedMap"
+                        [disabled]="inputDisabled"
                         (click)="showCombinedMap = true">
                   Combined Map
                 </button>
               </div>
               <button type="button" class="btn btn-secondary"
+                      [disabled]="inputDisabled"
                       (click)="swapStartAndEndLocations()">
                 Swap Start & End Locations
               </button>
@@ -161,6 +167,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                                     [endLocationDetails]="showCombinedMap ? displayedWalk?.walk?.groupEvent.end_location : null"
                                     [showCombinedMap]="showCombinedMap"
                                     [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
+                                    [disabled]="inputDisabled"
                                     [notify]="notify"/>
           </div>
           @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR && !showCombinedMap) {
@@ -168,17 +175,20 @@ import { StringUtilsService } from "../../../services/string-utils.service";
               <app-walk-location-edit locationType="Finishing"
                                       [locationDetails]="displayedWalk?.walk?.groupEvent?.end_location"
                                       [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
+                                      [disabled]="inputDisabled"
                                       [notify]="notify"/>
             </div>
           }
         </div>
       }
     </div>
+    }
   `
 })
 export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditDetailsComponent", NgxLoggerLevel.ERROR);
   private stringUtils = inject(StringUtilsService);
+  private dateUtils = inject(DateUtilsService);
 
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
     this.inputDisabled = coerceBooleanProperty(inputDisabled);
@@ -323,7 +333,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
     const isUuid = item.name && item.name.match(/^[0-9a-f]{8}-[0-9a-f]{4}-/i);
 
     if (isUuid && item.uploadDate) {
-      return `Uploaded ${new Date(item.uploadDate).toLocaleDateString()}`;
+      return `Uploaded ${this.dateUtils.displayDate(item.uploadDate)}`;
     }
 
     if (item.walkTitle) {
@@ -334,22 +344,22 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
       return this.transformFilename(item.fileData.originalFileName);
     }
 
-    return 'GPX Route';
+    return "GPX Route";
   }
 
   private transformFilename(filename: string): string {
     const decoded = this.decodeHtmlEntities(filename);
-    const withoutExtension = decoded.replace(/\.gpx$/i, '');
+    const withoutExtension = decoded.replace(/\.gpx$/i, "");
     const withSpaces = withoutExtension
-      .replace(/([a-z])([A-Z])/g, '$1 $2')
-      .replace(/[-_,&]+/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/[-_,&]+/g, " ")
+      .replace(/\s+/g, " ")
       .trim();
     return this.stringUtils.asTitle(withSpaces);
   }
 
   private decodeHtmlEntities(text: string): string {
-    const textarea = document.createElement('textarea');
+    const textarea = document.createElement("textarea");
     textarea.innerHTML = text;
     return textarea.value;
   }
