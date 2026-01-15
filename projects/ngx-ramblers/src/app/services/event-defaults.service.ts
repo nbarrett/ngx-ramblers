@@ -106,6 +106,7 @@ export class EventDefaultsService {
     const overridingFields = overrides?.fields;
     const itemType: RamblersEventType = isUndefined(overridingGroupEvent?.item_type) ? RamblersEventType.GROUP_WALK : overridingGroupEvent?.item_type as RamblersEventType;
     const startDateTime = isUndefined(overridingGroupEvent?.start_date_time) ? now : overridingGroupEvent?.start_date_time;
+    const endDateTime = this.dateUtils.asDateTime(startDateTime).plus({hours: 1}).toISO({suppressMilliseconds: true});
     const groupEventId = overridingGroupEvent && has(overridingGroupEvent, "id") ? overridingGroupEvent.id : id;
     const inputSource = isUndefined(overridingFields?.inputSource) ? InputSource.MANUALLY_CREATED : overridingFields?.inputSource;
     const walk: ExtendedGroupEvent = {
@@ -120,7 +121,7 @@ export class EventDefaultsService {
         description: null,
         additional_details: null,
         start_date_time: startDateTime,
-        end_date_time: startDateTime,
+        end_date_time: endDateTime,
         meeting_date_time: null,
         location: itemType === RamblersEventType.GROUP_EVENT ? this.defaultLocation() : null,
         start_location: itemType === RamblersEventType.GROUP_EVENT ? null : this.defaultLocation(),

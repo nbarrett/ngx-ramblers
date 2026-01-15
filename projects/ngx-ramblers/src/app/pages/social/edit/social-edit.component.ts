@@ -223,7 +223,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                     </div>
                   </div>
                 </tab>
-                <tab app-edit-group-event-images disallowImageSourceSelection heading="Images"
+                <tab app-edit-group-event-images [disallowImageSourceSelection]="true" heading="Images"
                      [rootFolder]="RootFolder.socialEventsImages"
                      [extendedGroupEvent]="socialEvent"
                      [config]="config"/>
@@ -266,7 +266,8 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                                 as: {{ socialEvent.fields.attachment.originalFileName }}</label>
                             </div>
                             <div class="form-group">
-                              <label class="d-inline-flex align-items-center flex-wrap" for="attachment-title">Title</label>
+                              <label class="d-inline-flex align-items-center flex-wrap"
+                                     for="attachment-title">Title</label>
                               @if (display.allow.edits) {
                                 <input [(ngModel)]="socialEvent.fields.attachment.title"
                                        [disabled]="inputDisabled()"
@@ -428,6 +429,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   protected readonly RootFolder = RootFolder;
   protected config: SystemConfig;
   protected showUrl = false;
+  private endDateManuallySet = false;
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -478,7 +480,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
           }
         });
         this.logger.info("ngOnInit:created new socialEvent:", this.socialEvent);
-      })
+      });
     } else {
       this.notify.error({title: "Cannot edit social event", message: "path does not contain social event id"});
     }
@@ -620,14 +622,27 @@ export class SocialEditComponent implements OnInit, OnDestroy {
 
   startDateChanged(dateValue: DateValue) {
     if (dateValue) {
-      this.logger.debug("eventDateChanged", dateValue);
-      this.socialEvent.groupEvent.start_date_time = this.dateUtils.isoDateTime(dateValue);
+      this.logger.info("startDateChanged:", dateValue);
+      const startDateTime = this.dateUtils.asDateTime(dateValue);
+      this.socialEvent.groupEvent.start_date_time = startDateTime.toISO({suppressMilliseconds: true});
+      if (!this.endDateManuallySet) {
+        const currentEndDateTime = this.dateUtils.asDateTime(this.socialEvent.groupEvent.end_date_time);
+        const newEndDateTime = startDateTime.set({
+          hour: currentEndDateTime.hour,
+          minute: currentEndDateTime.minute
+        });
+        const minimumEndDateTime = startDateTime.plus({hours: 1});
+        const finalEndDateTime = newEndDateTime < minimumEndDateTime ? minimumEndDateTime : newEndDateTime;
+        this.socialEvent.groupEvent.end_date_time = finalEndDateTime.toISO({suppressMilliseconds: true});
+        this.logger.info("startDateChanged:synced end date to", this.socialEvent.groupEvent.end_date_time);
+      }
     }
   }
 
   endDateChanged(dateValue: DateValue) {
     if (dateValue) {
-      this.logger.debug("eventDateChanged", dateValue);
+      this.logger.info("endDateChanged:", dateValue);
+      this.endDateManuallySet = true;
       this.socialEvent.groupEvent.end_date_time = this.dateUtils.isoDateTime(dateValue);
     }
   }
