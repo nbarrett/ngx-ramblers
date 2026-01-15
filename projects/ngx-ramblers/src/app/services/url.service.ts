@@ -199,10 +199,12 @@ export class UrlService {
   }
 
   pathContainsEventIdOrSlug(): boolean {
-    if (this.pathContainsMongoId() || this.pathContainsNumericRamblersId()) {
+    const identifier = this.lastPathSegment();
+    if (identifier === "new") {
+      return false;
+    } else if (this.pathContainsMongoId() || this.pathContainsNumericRamblersId()) {
       return true;
     } else if (this.pathSegments().length === 2) {
-      const identifier = this.lastPathSegment();
       return this.looksLikeASlug(identifier) || this.identifierCanBeConvertedToSlug(identifier);
     } else {
       return false;
