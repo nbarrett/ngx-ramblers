@@ -146,12 +146,14 @@ export class ExtendedGroupEventQueryService {
   }
 
   private identifierCriteria(identifier: string): MongoCriteria {
-    return {
-      $or: [
-        {[ID]: identifier},
-        {[EventField.MIGRATED_FROM_ID]: identifier}
-      ]
-    };
+    const orCriteria: MongoCriteria[] = [
+      {[GroupEventField.ID]: identifier},
+      {[EventField.MIGRATED_FROM_ID]: identifier}
+    ];
+    if (this.urlService.isMongoId(identifier)) {
+      orCriteria.unshift({[ID]: identifier});
+    }
+    return {$or: orCriteria};
   }
 
   sortFor(filterParameters: HasBasicEventSelection) {
