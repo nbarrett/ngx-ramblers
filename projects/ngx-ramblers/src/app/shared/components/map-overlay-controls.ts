@@ -1,8 +1,7 @@
 import { Component, DoCheck, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { CommonModule } from "@angular/common";
-import { DEFAULT_OS_STYLE, MapProvider, MapStyleInfo, OS_MAP_STYLE_LIST } from "../../models/map.model";
-import { KeyValue } from "../../functions/enums";
+import { DEFAULT_OS_STYLE, MapProvider, MapStyleInfo, MAP_PROVIDER_OPTIONS, mapProviderFromLabel, OS_MAP_STYLE_LIST } from "../../models/map.model";
 import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-button";
 import { faUndo } from "@fortawesome/free-solid-svg-icons";
 import { isUndefined } from "es-toolkit/compat";
@@ -89,7 +88,7 @@ interface MapOverlayDefaults {
                 [(ngModel)]="config.provider"
                 (ngModelChange)="onChange()">
           @for (option of providerOptions; track option.key) {
-            <option [ngValue]="option.key">{{ option.value }}</option>
+            <option [ngValue]="option.value">{{ option.key }}</option>
           }
         </select>
       </div>
@@ -292,10 +291,7 @@ export class MapOverlayControls implements OnInit, DoCheck {
   @Input() showWaypointControls = false;
   @Output() configChange = new EventEmitter<MapOverlayConfig>();
 
-  providerOptions: KeyValue<MapProvider>[] = [
-    { key: "OpenStreetMap", value: MapProvider.OSM },
-    { key: "OS Maps", value: MapProvider.OS }
-  ];
+  providerOptions = MAP_PROVIDER_OPTIONS;
   osStyles: MapStyleInfo[] = OS_MAP_STYLE_LIST;
   centerLat = 51.25;
   centerLng = 0.75;
@@ -372,17 +368,24 @@ export class MapOverlayControls implements OnInit, DoCheck {
     if (this.defaults) {
       this.defaultConfig = { ...this.defaultConfig, ...this.defaults };
     }
+    this.normalizeProviderValue();
     this.ensureDefaults();
     this.syncCenterFromConfig();
     this.syncSliderValues();
   }
 
   ngDoCheck() {
+    this.normalizeProviderValue();
     this.syncCenterFromConfig();
     this.syncSliderValues();
   }
 
   private ensureDefaults() {
+    if (this.config.provider === "OpenStreetMap") {
+      this.config.provider = MapProvider.OSM;
+    } else if (this.config.provider === "OS Maps") {
+      this.config.provider = MapProvider.OS;
+    }
     if (!this.config.provider) this.config.provider = this.defaultConfig.provider;
     if (!this.config.osStyle) this.config.osStyle = this.defaultConfig.osStyle;
     if (!this.config.mapCenter) this.config.mapCenter = [...this.defaultConfig.mapCenter] as [number, number];
@@ -462,6 +465,7 @@ export class MapOverlayControls implements OnInit, DoCheck {
   }
 
   onChange() {
+    this.normalizeProviderValue();
     this.configChange.emit(this.config);
   }
 
@@ -524,5 +528,12 @@ export class MapOverlayControls implements OnInit, DoCheck {
   private updateCenterLng(value: number) {
     this.centerLng = value;
     this.updateMapCenter();
+  }
+
+  private normalizeProviderValue() {
+    const mappedValue = mapProviderFromLabel(this.config.provider as string);
+    if (mappedValue) {
+      this.config.provider = mappedValue;
+    }
   }
 }

@@ -3,7 +3,7 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { MapProvider, MapStyleInfo, OS_MAP_STYLE_LIST, OUTDOOR_OS_STYLE } from "../../models/map.model";
+import { MapProvider, MapStyleInfo, MAP_PROVIDER_LABELS, OS_MAP_STYLE_LIST, OUTDOOR_OS_STYLE } from "../../models/map.model";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
 import { isUndefined } from "es-toolkit/compat";
 import { asNumber } from "../../functions/numbers";
@@ -88,9 +88,9 @@ export interface MapControlsState {
           <select class="form-select form-select-sm map-control-select"
                   [ngModel]="state.provider"
                   (ngModelChange)="onProviderChange($event)">
-            <option [ngValue]="MapProvider.OSM">OpenStreetMap</option>
+            <option [ngValue]="MapProvider.OSM">{{ providerLabels[MapProvider.OSM] }}</option>
             <option [ngValue]="MapProvider.OS" [disabled]="!hasOsApiKey">
-              {{ hasOsApiKey ? 'OS Maps' : 'OS Maps (API key required)' }}
+              {{ hasOsApiKey ? providerLabels[MapProvider.OS] : providerLabels[MapProvider.OS] + " (API key required)" }}
             </option>
           </select>
         </div>
@@ -184,6 +184,7 @@ export class MapControls implements OnInit {
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly isUndefined = isUndefined;
   protected readonly MapProvider = MapProvider;
+  protected readonly providerLabels = MAP_PROVIDER_LABELS;
 
   private mapTiles = inject(MapTilesService);
 

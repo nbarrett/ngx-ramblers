@@ -64,28 +64,6 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
           <small class="text-muted">Selection order determines display order</small>
         </div>
       </div>
-      <div class="row mb-3">
-        <div class="col-sm-6">
-          <label for="min-cols-{{id}}">
-            Minimum Columns</label>
-          <input type="number"
-                 class="form-control"
-                 id="min-cols-{{id}}"
-                 [(ngModel)]="row.albumIndex.minCols"
-                 min="1"
-                 max="12">
-        </div>
-        <div class="col-sm-6">
-          <label for="max-cols-{{id}}">
-            Maximum Columns</label>
-          <input type="number"
-                 class="form-control"
-                 id="max-cols-{{id}}"
-                 [(ngModel)]="row.albumIndex.maxCols"
-                 min="1"
-                 max="12">
-        </div>
-      </div>
       <div class="d-flex justify-content-start mb-2">
         <app-badge-button [icon]="faAdd" [caption]="'Add new Content Path Match'"
                           (click)="addNewAlbum()"/>
@@ -174,7 +152,10 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
                 [mapCenter]="row.albumIndex.mapConfig.mapCenter || [51.25, 0.75]"
                 [mapZoom]="row.albumIndex.mapConfig.mapZoom || 10"
                 [showControlsDefault]="row.albumIndex.mapConfig.showControlsDefault ?? true"
-                [allowControlsToggle]="row.albumIndex.mapConfig.allowControlsToggle ?? true"/>
+                [allowControlsToggle]="row.albumIndex.mapConfig.allowControlsToggle ?? true"
+                (mapProviderChange)="previewMapProviderChanged($event)"
+                (mapStyleChange)="previewMapStyleChanged($event)"
+                (mapHeightChange)="previewMapHeightChanged($event)"/>
             } @else {
               <div class="card shadow d-flex align-items-center justify-content-center"
                    [style.height.px]="row.albumIndex.mapConfig.height || 500">
@@ -233,7 +214,7 @@ export class AlbumIndexSiteEditComponent implements OnInit {
     this.logger.info("albumIndex:", this.row?.albumIndex, "albumIndexPageContent:", this.indexPageContent);
   }
 
-  protected async refreshContentPreview() {
+  public async refreshContentPreview() {
     this.logger.info("refreshContentPreview called with contentPaths:", this.row.albumIndex.contentPaths);
     this.indexPageContent = await this.indexService.albumIndexToPageContent(this.row, this.rowIndex);
     this.logger.info("refreshContentPreview result:", this.indexPageContent?.rows?.[0]?.columns?.length, "items");
@@ -295,6 +276,27 @@ export class AlbumIndexSiteEditComponent implements OnInit {
     setTimeout(() => {
       this.showMapPreview = true;
     }, 100);
+  }
+
+  previewMapProviderChanged(provider: MapProvider) {
+    if (this.row?.albumIndex?.mapConfig) {
+      this.row.albumIndex.mapConfig.provider = provider;
+      this.onMapConfigChange();
+    }
+  }
+
+  previewMapStyleChanged(osStyle: string) {
+    if (this.row?.albumIndex?.mapConfig) {
+      this.row.albumIndex.mapConfig.osStyle = osStyle;
+      this.onMapConfigChange();
+    }
+  }
+
+  previewMapHeightChanged(height: number) {
+    if (this.row?.albumIndex?.mapConfig) {
+      this.row.albumIndex.mapConfig.height = height;
+      this.onMapConfigChange();
+    }
   }
 
 }

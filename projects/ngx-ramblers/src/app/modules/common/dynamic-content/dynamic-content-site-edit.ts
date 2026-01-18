@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit, QueryList, ViewChildren } from "@angular/core";
 import {
   faAdd,
   faArrowsUpDown,
@@ -350,7 +350,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                     </div>
                     @if (actions.isActionButtons(row) || actions.isIndex(row)) {
                       <div class="d-inline-flex align-items-end flex-wrap gap-3" app-row-settings-action-buttons
-                           [row]="row"></div>
+                           [row]="row" (columnsChange)="refreshAlbumIndexPreviews()"></div>
                     }
                     <div class="d-inline-flex align-items-end flex-wrap gap-3">
                       <div app-margin-select label="Margin Top" [data]="row" field="marginTop"></div>
@@ -772,6 +772,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   @Input() public notify: AlertInstance;
   @Input() public contentDescription: string;
   @Input() public contentPath: string;
+  @ViewChildren(AlbumIndexSiteEditComponent) albumIndexComponents: QueryList<AlbumIndexSiteEditComponent>;
   private queriedContentPath: string;
   private albumIndexDataRows: PageContent[] = [];
   public showUnreferenced: boolean;
@@ -787,7 +788,6 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public templateFragments: PageContent[] = [];
   public templateFragmentsLoading = false;
   public selectedTemplateFragmentId = "";
-  public publishingTemplateFragment = false;
   public pastePageContentVisible = false;
   public pastePageContentText = "";
   public pastePageContentError = "";
@@ -2194,5 +2194,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.savePageContent()
       ?.catch(error => this.notify.error({title: "Failed to save page", message: error}))
       ?.finally(() => this.savingPage = false);
+  }
+
+  refreshAlbumIndexPreviews() {
+    this.albumIndexComponents?.forEach(component => component.refreshContentPreview());
   }
 }

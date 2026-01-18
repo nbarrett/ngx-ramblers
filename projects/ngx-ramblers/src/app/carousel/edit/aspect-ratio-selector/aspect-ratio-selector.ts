@@ -6,7 +6,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 import { Dimensions } from "ngx-image-cropper";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { FormsModule } from "@angular/forms";
-import { RAMBLERS_LANDING_PAGE, SQUARE } from "../../../models/images.model";
+import { FREE_SELECTION, RAMBLERS_LANDING_PAGE, SQUARE } from "../../../models/images.model";
 
 
 @Component({
@@ -43,6 +43,7 @@ export class AspectRatioSelectorComponent implements OnInit {
 
   public dimension: DescribedDimensions;
   public dimensions: DescribedDimensions[] = [
+    {width: 0, height: 0, description: FREE_SELECTION},
     {width: 1, height: 1, description: SQUARE},
     {width: 3, height: 2, description: "Classic 35mm still"},
     {width: 4, height: 3, description: "Default"},
@@ -57,18 +58,21 @@ export class AspectRatioSelectorComponent implements OnInit {
 
   ngOnInit(): void {
     this.id = this.numberUtils.generateUid();
-    this.dimension = this.dimensions.find(item => item.description === (this.dimensionsDescription || SQUARE));
+    this.dimension = this.dimensions.find(item => item.description === (this.dimensionsDescription || FREE_SELECTION));
     this.initialised.emit({describedDimensions: this.dimension, preselected: !!this.dimensionsDescription});
     this.logger.debug("constructed with dimensionsDescription", this.dimensionsDescription, "dimension:", this.dimension);
   }
 
   formatAspectRatio(dimensions: DescribedDimensions): string {
-    return this.aspectRatioMaintained(dimensions) ? "Free selection" : `${dimensions.width} x ${dimensions.height} ${dimensions.description ?
-      " (" + dimensions.description + ")" : ""}`;
+    if (this.isFreeSelection(dimensions)) {
+      return FREE_SELECTION;
+    } else {
+      return `${dimensions.width} x ${dimensions.height} ${dimensions.description ? " (" + dimensions.description + ")" : ""}`;
+    }
   }
 
-  private aspectRatioMaintained(dimensions: Dimensions): boolean {
-    return dimensions.width === 1 && dimensions.height === 1;
+  private isFreeSelection(dimensions: Dimensions): boolean {
+    return dimensions.width === 0 && dimensions.height === 0;
   }
 
   changeAspectRatioSettings(describedDimensions: DescribedDimensions) {

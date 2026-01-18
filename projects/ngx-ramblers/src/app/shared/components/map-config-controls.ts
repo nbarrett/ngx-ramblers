@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { MapProvider, MapStyleInfo, OS_MAP_STYLE_LIST } from "../../models/map.model";
+import { MapProvider, MapStyleInfo, mapProviderFromLabel, MAP_PROVIDER_OPTIONS, OS_MAP_STYLE_LIST } from "../../models/map.model";
 
 export interface MapConfigData {
   provider?: MapProvider | string;
@@ -20,8 +20,9 @@ export interface MapConfigData {
                 id="provider-select-{{id}}"
                 [(ngModel)]="config.provider"
                 (ngModelChange)="onConfigChange()">
-          <option [ngValue]="MapProvider.OSM">OpenStreetMap</option>
-          <option [ngValue]="MapProvider.OS">OS Maps</option>
+          @for (option of providerOptions; track option.key) {
+            <option [ngValue]="option.value">{{ option.key }}</option>
+          }
         </select>
       </div>
       @if (config.provider === MapProvider.OS) {
@@ -94,11 +95,13 @@ export class MapConfigControls implements OnInit {
   @Output() configChange = new EventEmitter<MapConfigData>();
 
   osStyles: MapStyleInfo[] = OS_MAP_STYLE_LIST;
+  providerOptions = MAP_PROVIDER_OPTIONS;
   centerLat = 51.25;
   centerLng = 0.75;
   protected readonly MapProvider = MapProvider;
 
   ngOnInit() {
+    this.normalizeProviderValue();
     if (this.config?.mapCenter) {
       this.centerLat = this.config.mapCenter[0];
       this.centerLng = this.config.mapCenter[1];
@@ -113,6 +116,14 @@ export class MapConfigControls implements OnInit {
   }
 
   onConfigChange() {
+    this.normalizeProviderValue();
     this.configChange.emit(this.config);
+  }
+
+  private normalizeProviderValue() {
+    const mappedValue = mapProviderFromLabel(this.config?.provider as string);
+    if (mappedValue) {
+      this.config.provider = mappedValue;
+    }
   }
 }

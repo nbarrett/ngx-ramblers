@@ -25,10 +25,11 @@ import {
     faSave,
     faUpDown
 } from "@fortawesome/free-solid-svg-icons";
-import { first } from "es-toolkit/compat";
+import { first, isNumber } from "es-toolkit/compat";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import {
     Dimensions,
+    CropperPosition,
     ImageCroppedEvent,
     ImageCropperComponent,
     ImageCropperModule,
@@ -65,6 +66,7 @@ import { BadgeButtonComponent } from "../modules/common/badge-button/badge-butto
 import { NgClass, NgStyle, NgTemplateOutlet } from "@angular/common";
 import { AspectRatioSelectorComponent } from "../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { ImageCropperPosition } from "../models/image-cropper.model";
 
 @Component({
     selector: "app-image-cropper-and-resizer",
@@ -82,6 +84,11 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     private notifierService = inject(NotifierService);
     private fileUtils = inject(FileUtilsService);
     public wrapButtons: boolean;
+    public hideFileSelection: boolean;
+    public hideActionButtons: boolean;
+    public nonDestructive = true;
+    public allowPermanentSave = true;
+    public cropOnlyMode = false;
     private noImageSave: boolean;
     private subscriptions: Subscription[] = [];
     public notify: AlertInstance;
@@ -118,6 +125,9 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     public croppedFile: AwsFileData;
     public originalImageData: ImageData;
     public fileTypeAttributes: FileTypeAttributes = null;
+    public cropperPosition: ImageCropperPosition = null;
+    public resolvedCropperPosition: CropperPosition = null;
+    private forceSavePermanently = false;
     protected readonly faRemove = faRemove;
     @ViewChild(ImageCropperComponent) imageCropperComponent: ImageCropperComponent;
     @Input() selectAspectRatio: string;
@@ -126,7 +136,10 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     @Output() quit: EventEmitter<void> = new EventEmitter();
     @Output() cropError: EventEmitter<ErrorEvent> = new EventEmitter();
     @Output() save: EventEmitter<AwsFileData> = new EventEmitter();
+    @Output() apply: EventEmitter<void> = new EventEmitter();
     @Output() imageChange: EventEmitter<AwsFileData> = new EventEmitter();
+    @Output() cropPositionChange: EventEmitter<number> = new EventEmitter();
+    @Output() cropperPositionChange: EventEmitter<ImageCropperPosition> = new EventEmitter();
     @Output() multiImageLoad: EventEmitter<Base64File[]> = new EventEmitter();
 
     @Input("noImageSave") set noImageSaveValue(noImageSave: boolean) {
@@ -135,6 +148,25 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
 
     @Input("wrapButtons") set noWrapButtonsValue(wrapButtons: boolean) {
         this.wrapButtons = coerceBooleanProperty(wrapButtons);
+    }
+    @Input("hideFileSelection") set hideFileSelectionValue(hideFileSelection: boolean) {
+        this.hideFileSelection = coerceBooleanProperty(hideFileSelection);
+    }
+    @Input("hideActionButtons") set hideActionButtonsValue(hideActionButtons: boolean) {
+        this.hideActionButtons = coerceBooleanProperty(hideActionButtons);
+    }
+    @Input("nonDestructive") set nonDestructiveValue(nonDestructive: boolean) {
+        this.nonDestructive = coerceBooleanProperty(nonDestructive);
+    }
+    @Input("allowPermanentSave") set allowPermanentSaveValue(allowPermanentSave: boolean) {
+        this.allowPermanentSave = coerceBooleanProperty(allowPermanentSave);
+    }
+    @Input("cropOnlyMode") set cropOnlyModeValue(cropOnlyMode: boolean) {
+        this.cropOnlyMode = coerceBooleanProperty(cropOnlyMode);
+    }
+    @Input("cropperPosition") set cropperPositionValue(cropperPosition: ImageCropperPosition) {
+        this.cropperPosition = cropperPosition || null;
+        this.logger.info("cropperPositionValue set:", this.cropperPosition);
     }
 
     ngAfterViewInit(): void {
@@ -220,6 +252,20 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
         this.logger.info("imageCropped:quality,", this.imageQuality, "original size,", this.originalFile.size, this.originalSize(), "croppedFile size", this.croppedFile.file.size, "croppedSize:", this.croppedSize());
         this.imageChange.emit(awsFileData);
         this.updateActionDisabled();
+        const cropPosition = this.coverImagePosition(event);
+        if (cropPosition !== null) {
+            this.cropPositionChange.emit(cropPosition);
+        }
+        this.logger.info("imageCropped - raw positions:", {
+            cropperPosition: event?.cropperPosition,
+            imagePosition: event?.imagePosition,
+            imageSize: this.originalImageData?.size
+        });
+        const normalizedCropperPosition = this.normalizedCropperPosition(event?.imagePosition);
+        if (normalizedCropperPosition) {
+            this.logger.info("imageCropped - emitting cropperPositionChange:", normalizedCropperPosition);
+            this.cropperPositionChange.emit(normalizedCropperPosition);
+        }
     }
 
 
@@ -238,6 +284,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     imageLoaded(loadedImage: LoadedImage) {
         this.originalImageData = loadedImage.original;
         this.logger.info("Image loaded:", this.originalImageData);
+        this.updateResolvedCropperPosition();
         this.manuallySubmitCrop();
     }
 
@@ -247,8 +294,24 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     }
 
     cropperReady(sourceImageDimensions: Dimensions) {
-        this.logger.debug("Cropper ready", sourceImageDimensions);
+        this.logger.info("Cropper ready", sourceImageDimensions, "resolvedCropperPosition:", this.resolvedCropperPosition);
         this.notify.hide();
+        if (this.isValidCropperPosition(this.resolvedCropperPosition) && this.imageCropperComponent) {
+            this.logger.info("Applying saved cropper position:", this.resolvedCropperPosition);
+            setTimeout(() => {
+                this.imageCropperComponent.cropper = this.resolvedCropperPosition;
+                this.manuallySubmitCrop();
+            }, 0);
+        } else {
+            this.logger.info("Invalid or missing cropper position, using default");
+        }
+    }
+
+    private isValidCropperPosition(position: CropperPosition): boolean {
+        if (!position) return false;
+        const width = position.x2 - position.x1;
+        const height = position.y2 - position.y1;
+        return width > 10 && height > 10; // Minimum 10px crop area
     }
 
     error(errorEvent: ErrorEvent) {
@@ -399,14 +462,25 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     public changeAspectRatioSettings(dimension: DescribedDimensions) {
         this.logger.info("changeAspectRatioSettings:dimension:", dimension);
         this.dimension = dimension;
-        this.aspectRatio = this.dimension.width / this.dimension.height;
-        this.maintainAspectRatio = !this.aspectRatioMaintained(this.dimension);
+        this.aspectRatio = this.isFreeSelection(dimension) ? 1 : this.dimension.width / this.dimension.height;
+        this.maintainAspectRatio = !this.isFreeSelection(this.dimension);
     }
 
     manuallySubmitCrop() {
         setTimeout(() => {
             this.cropForCurrentCompression();
         }, 0);
+    }
+
+    applyCrop() {
+        this.apply.emit();
+        this.action = null;
+    }
+
+    saveImagePermanently() {
+        this.forceSavePermanently = true;
+        this.saveImage();
+        this.forceSavePermanently = false;
     }
 
     saveImage() {
@@ -418,9 +492,10 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
                 });
                 return;
             }
-            if (this.noImageSave) {
+            const shouldSavePermanently = this.forceSavePermanently || (!this.nonDestructive && !this.noImageSave);
+            if (!shouldSavePermanently) {
                 this.logger.info("emitting image changes but not saving:", this.croppedFile);
-                this.save.emit(this.croppedFile);
+                this.apply.emit();
                 this.action = null;
             } else {
                 this.notify.success({title: "File upload", message: "saving image"});
@@ -447,8 +522,8 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
         this.actionDisabled = actionDisabled;
     }
 
-    private aspectRatioMaintained(dimensions: Dimensions): boolean {
-        return dimensions.width === 1 && dimensions.height === 1;
+    private isFreeSelection(dimensions: Dimensions): boolean {
+        return dimensions.width === 0 && dimensions.height === 0;
     }
 
     transformChanged(imageTransform: ImageTransform) {
@@ -461,5 +536,104 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
         if (crop) {
             this.manuallySubmitCrop();
         }
+    }
+
+    private coverImagePosition(event: ImageCroppedEvent): number | null {
+        const imagePosition = event?.imagePosition;
+        const imageHeight = this.originalImageData?.size?.height;
+        if (!imagePosition || !imageHeight) {
+            return null;
+        }
+        const centerY = (imagePosition.y1 + imagePosition.y2) / 2;
+        if (Number.isNaN(centerY)) {
+            return null;
+        }
+        const position = (centerY / imageHeight) * 100;
+        return Math.max(0, Math.min(100, position));
+    }
+
+    private updateResolvedCropperPosition() {
+        const size = this.originalImageData?.size;
+        if (this.cropperPosition) {
+            this.resolvedCropperPosition = this.cropperPositionFromPercent(this.cropperPosition, size);
+        } else if (this.validCropperSize(size)) {
+            this.resolvedCropperPosition = this.defaultCropperPosition(size);
+        } else {
+            this.resolvedCropperPosition = null;
+        }
+        this.logger.info("updateResolvedCropperPosition - cropperPosition:", this.cropperPosition, "imageSize:", size, "resolvedCropperPosition:", this.resolvedCropperPosition);
+    }
+
+    private defaultCropperPosition(size: Dimensions): CropperPosition {
+        const imageAspectRatio = size.width / size.height;
+        const aspectRatio = (this.maintainAspectRatio && this.aspectRatio > 0) ? this.aspectRatio : imageAspectRatio;
+
+        let cropWidth: number;
+        let cropHeight: number;
+
+        if (aspectRatio > imageAspectRatio) {
+            cropWidth = size.width;
+            cropHeight = size.width / aspectRatio;
+        } else {
+            cropHeight = size.height;
+            cropWidth = size.height * aspectRatio;
+        }
+
+        const x1 = (size.width - cropWidth) / 2;
+        const y1 = (size.height - cropHeight) / 2;
+        const x2 = x1 + cropWidth;
+        const y2 = y1 + cropHeight;
+
+        this.logger.info("defaultCropperPosition - aspectRatio:", aspectRatio, "imageAspectRatio:", imageAspectRatio, "size:", size, "crop:", {x1, y1, x2, y2});
+        return {x1, y1, x2, y2};
+    }
+
+    private cropperPositionFromPercent(position: ImageCropperPosition, size: Dimensions): CropperPosition | null {
+        if (!position || !this.validCropperSize(size)) {
+            return null;
+        }
+        const x1 = this.cropperValueFromPercent(position.x1, size.width);
+        const y1 = this.cropperValueFromPercent(position.y1, size.height);
+        const x2 = this.cropperValueFromPercent(position.x2, size.width);
+        const y2 = this.cropperValueFromPercent(position.y2, size.height);
+        if (x1 === null || y1 === null || x2 === null || y2 === null) {
+            return null;
+        }
+        return {x1, y1, x2, y2};
+    }
+
+    private normalizedCropperPosition(position: CropperPosition): ImageCropperPosition | null {
+        const size = this.originalImageData?.size;
+        if (!position || !this.validCropperSize(size)) {
+            return null;
+        }
+        const x1 = this.cropperPercent(position.x1, size.width);
+        const y1 = this.cropperPercent(position.y1, size.height);
+        const x2 = this.cropperPercent(position.x2, size.width);
+        const y2 = this.cropperPercent(position.y2, size.height);
+        if (x1 === null || y1 === null || x2 === null || y2 === null) {
+            return null;
+        }
+        return {x1, y1, x2, y2};
+    }
+
+    private cropperPercent(value: number, total: number): number | null {
+        if (!isNumber(value) || !isNumber(total) || total <= 0) {
+            return null;
+        }
+        const percent = (value / total) * 100;
+        return Math.max(0, Math.min(100, percent));
+    }
+
+    private cropperValueFromPercent(value: number, total: number): number | null {
+        if (!isNumber(value) || !isNumber(total) || total <= 0) {
+            return null;
+        }
+        const resolved = (value / 100) * total;
+        return Math.max(0, Math.min(total, resolved));
+    }
+
+    private validCropperSize(size: Dimensions): boolean {
+        return !!(size && isNumber(size.width) && isNumber(size.height) && size.width > 0 && size.height > 0);
     }
 }

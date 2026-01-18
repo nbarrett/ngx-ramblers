@@ -1,10 +1,31 @@
 import { MapRoute } from "./content-text.model";
 import { GeocodeMatchType } from "./address-model";
 import { values } from "es-toolkit/compat";
+import { KeyValue } from "../functions/enums";
 
 export enum MapProvider {
   OSM = "osm",
   OS = "os"
+}
+
+export const MAP_PROVIDER_LABELS: Record<MapProvider, string> = {
+  [MapProvider.OSM]: "OpenStreetMap",
+  [MapProvider.OS]: "OS Maps"
+};
+
+export const MAP_PROVIDER_OPTIONS: KeyValue<MapProvider>[] = [
+  { key: MAP_PROVIDER_LABELS[MapProvider.OSM], value: MapProvider.OSM },
+  { key: MAP_PROVIDER_LABELS[MapProvider.OS], value: MapProvider.OS }
+];
+
+export function mapProviderFromLabel(value: string): MapProvider | null {
+  if (value === MAP_PROVIDER_LABELS[MapProvider.OSM]) {
+    return MapProvider.OSM;
+  } else if (value === MAP_PROVIDER_LABELS[MapProvider.OS]) {
+    return MapProvider.OS;
+  } else {
+    return null;
+  }
 }
 
 export enum OSMapStyleKey {

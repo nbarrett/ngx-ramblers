@@ -264,11 +264,11 @@ export class ActionsDropdownComponent implements OnInit {
   }
 
   allowInsertNestedRows(): boolean {
-    return this.actions.isTextRow(this.row) && this.columnIndex >= 0 && !this.rowIsNested && !this.actions.nestedRowsExistFor(this?.column);
+    return this.actions.isTextRow(this.row) && this.columnIndex >= 0 && !this.rowIsNested && !this.actions.nestedRowsExistFor(this?.column || null);
   }
 
   allowDeleteNestedRows(): boolean {
-    return !this.rowIsNested && this.actions.nestedRowsExistFor(this?.column);
+    return !this.rowIsNested && this.actions.nestedRowsExistFor(this?.column || null);
   }
 
   allowColumnMoveLeft() {

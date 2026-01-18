@@ -175,7 +175,7 @@ StringUtilsService {
   stripMarkdown(text: string): string {
     if (!text) {
       return text;
-    }
+    } else {
     return text
       .replace(/^#{1,6}\s+/gm, "")
       .replace(/(\*\*|__)(.*?)\1/g, "$2")
@@ -186,6 +186,7 @@ StringUtilsService {
       .replace(/^\s*\d+\.\s+/gm, "")
       .replace(/^\s*>\s+/gm, "")
       .trim();
+    }
   }
 
 }

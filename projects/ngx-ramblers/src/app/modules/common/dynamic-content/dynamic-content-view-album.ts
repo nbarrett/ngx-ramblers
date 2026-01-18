@@ -1,6 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { PageContentRow } from "../../../models/content-text.model";
+import { FocalPointTarget, PageContentRow } from "../../../models/content-text.model";
+import { FocalPoint } from "../focal-point-picker/focal-point-picker";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { UrlService } from "../../../services/url.service";
@@ -34,12 +35,13 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
           </div>
         }
         @if (row.carousel?.showCoverImageAndText) {
-          <div class="col-sm-12">
+          <div class="col-sm-12 mb-2">
             <div markdown [data]="row.carousel?.introductoryText"></div>
             @if (lazyLoadingMetadata?.contentMetadata?.coverImage) {
               <app-card-image
                 [height]="row.carousel?.coverImageHeight"
                 [borderRadius]="row.carousel?.coverImageBorderRadius"
+                [focalPoint]="coverImageFocalPoint()"
                 [imageSource]="urlService.imageSourceFor({image:lazyLoadingMetadata.contentMetadata?.coverImage},
                                   lazyLoadingMetadata.contentMetadata)">
               </app-card-image>
@@ -71,6 +73,12 @@ export class DynamicContentViewAlbum implements OnInit {
 
   ngOnInit() {
     this.logger.info("ngOnInit for", this.row.carousel?.name);
+  }
+
+  coverImageFocalPoint(): FocalPoint | null {
+    const focalPointTarget = this.row?.carousel?.coverImageFocalPointTarget || FocalPointTarget.BOTH;
+    const applyFocalPointToCover = [FocalPointTarget.COVER_IMAGE, FocalPointTarget.BOTH].includes(focalPointTarget);
+    return applyFocalPointToCover ? this.row?.carousel?.coverImageFocalPoint : null;
   }
 
 }

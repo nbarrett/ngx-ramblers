@@ -39,6 +39,7 @@ import { isEmpty } from "es-toolkit/compat";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { KeyValue } from "../../../functions/enums";
 import { ImageMessage } from "../../../models/images.model";
+import { ImageCropperPosition } from "../../../models/image-cropper.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
@@ -62,14 +63,17 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
             @if (editActive) {
               <div class="col-sm-12 mb-3">
                 @if (!item.youtubeId) {
-                  <app-image-cropper-and-resizer noImageSave
+                  <app-image-cropper-and-resizer nonDestructive
                                                  [selectAspectRatio]="contentMetadata?.aspectRatio"
                                                  [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
                                                  [preloadImage]="imageSourceOrPreview()"
+                                                 [cropperPosition]="item?.cropperPosition"
                                                  (imageChange)="imageChanged($event)"
+                                                 (cropperPositionChange)="cropperPositionChanged($event)"
                                                  (error)="imageCroppingError($event)"
                                                  (cropError)="imageCroppingError($event)"
                                                  (quit)="imageEditQuit()"
+                                                 (apply)="imageEditQuit()"
                                                  (save)="imagedSaved($event)"/>
                 }
               </div>
@@ -313,6 +317,9 @@ export class ImageEditComponent implements OnInit {
   @Input("noImageSave") set noImageSaveValue(noImageSave: boolean) {
     this.noImageSave = coerceBooleanProperty(noImageSave);
   }
+  @Input("nonDestructive") set nonDestructiveValue(nonDestructive: boolean) {
+    this.nonDestructive = coerceBooleanProperty(nonDestructive);
+  }
   @Output() imagedSavedOrReverted: EventEmitter<ContentMetadataItem> = new EventEmitter();
   @Output() imageChange: EventEmitter<ContentMetadataItem> = new EventEmitter();
   @Output() moveUp: EventEmitter<ContentMetadataItem> = new EventEmitter();
@@ -322,6 +329,7 @@ export class ImageEditComponent implements OnInit {
   @Output() imageEdit: EventEmitter<ContentMetadataItem> = new EventEmitter();
 
   private noImageSave: boolean;
+  private nonDestructive = true;
   public duplicateImages: DuplicateImages;
   public groupEventType: GroupEventType;
   public contentMetadataImageTags: ImageTag[];
@@ -408,10 +416,21 @@ export class ImageEditComponent implements OnInit {
     this.awsFileDataFromEdit = awsFileData;
     if (awsFileData) {
       this.imageLoadText = null;
-      this.item.base64Content = awsFileData.image;
-      this.logger.info("imageChanged after item base64Content change:", this.item);
+      if (!this.nonDestructive) {
+        this.item.base64Content = awsFileData.image;
+        this.logger.info("imageChanged after item base64Content change:", this.item);
+      }
     }
-    this.callImageChange();
+    if (!this.nonDestructive) {
+      this.callImageChange();
+    }
+  }
+
+  cropperPositionChanged(position: ImageCropperPosition) {
+    if (this.item) {
+      this.item.cropperPosition = position || null;
+      this.callImageChange();
+    }
   }
 
   imageCroppingError(errorEvent: ErrorEvent) {
@@ -453,6 +472,9 @@ export class ImageEditComponent implements OnInit {
   }
 
   imageSourceOrPreview(): string {
+    if (this.editActive && this.awsFileDataFromEdit?.image) {
+      return this.awsFileDataFromEdit.image;
+    }
     const qualifiedFileNameWithRoot = this.urlService.qualifiedFileNameWithRoot(this.contentMetadata?.rootFolder, this.contentMetadata?.name, this.item);
     return this.urlService.imageSource(qualifiedFileNameWithRoot);
   }

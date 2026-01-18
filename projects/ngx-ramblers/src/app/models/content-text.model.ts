@@ -6,6 +6,8 @@ import { fieldContainsValue, fieldEqualsValue, fieldStartsWithValue, MongoRegex 
 import { HasClass } from "./banner-configuration.model";
 import { EventsData } from "./social-events.model";
 import { DescribedDimensions, FileNameData } from "./aws-object.model";
+import { ImageCropperPosition } from "./image-cropper.model";
+import { FocalPoint } from "../modules/common/focal-point-picker/focal-point-picker";
 import { HasNgSelectAttributes, LocationDetails } from "./ramblers-walks-manager";
 
 export const EM_DASH = " — ";
@@ -29,6 +31,12 @@ export enum IndexContentType {
 export enum IndexRenderMode {
   ACTION_BUTTONS = "action-buttons",
   MAP = "map"
+}
+
+export enum FocalPointTarget {
+  INDEX_PREVIEW = "index-preview",
+  COVER_IMAGE = "cover-image",
+  BOTH = "both"
 }
 
 export enum LocationRenderingMode {
@@ -206,6 +214,9 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   youtubeId?: string;
   alt?: string;
   imageBorderRadius?: number;
+  imageVerticalPosition?: number;
+  imageCropperPosition?: ImageCropperPosition | null;
+  imageFocalPoint?: FocalPoint | null;
   icon?: string;
   accessLevel?: AccessLevel;
   showPlaceholderImage?: boolean;
@@ -370,6 +381,10 @@ export interface AlbumData {
   showCoverImageAndText: boolean;
   introductoryText: string;
   coverImageHeight: number;
+  coverImageVerticalPosition: number;
+  coverImageCropperPosition?: ImageCropperPosition | null;
+  coverImageFocalPoint?: FocalPoint | null;
+  coverImageFocalPointTarget?: FocalPointTarget;
   coverImageBorderRadius: number;
   showPreAlbumText: boolean;
   preAlbumText: string;
@@ -557,6 +572,13 @@ export enum AlbumView {
   CAROUSEL = "carousel",
   GALLERY = "gallery",
   GRID = "grid",
+}
+
+export enum AlbumEditTab {
+  ALBUM_SETTINGS = "Album Settings",
+  TITLES_AND_EVENT_LINKING = "Titles and Event Linking",
+  COVER_IMAGE_AND_INTRODUCTORY_TEXT = "Cover Image and introductory text",
+  PRE_ALBUM_TEXT = "Pre-Album Text"
 }
 
 export enum ImageFit {

@@ -15,12 +15,36 @@ import { FALLBACK_MEDIA } from "../../../../models/walk.model";
 import { DescribedDimensions } from "../../../../models/aws-object.model";
 import { FileUtilsService } from "../../../../file-utils.service";
 import { isUndefined } from "es-toolkit/compat";
+import { CropperDebugOffsets, ImageCropperPosition } from "../../../../models/image-cropper.model";
+import { cropperImageStyles, cropperWrapperStyles } from "../../../../functions/image-cropper-styles";
+import { FocalPoint } from "../../focal-point-picker/focal-point-picker";
 
 @Component({
     selector: "app-card-image",
     template: `
     @if (displayImage()) {
-      @if (unconstrainedHeight) {
+      @if (hasFocalPoint()) {
+        <div class="card-image-focal-wrapper" [ngStyle]="focalPointWrapperStyles()">
+          <img class="card-img-top card-img-focal"
+               (load)="imageLoaded($event)"
+               (error)="imageError($event)"
+               [ngStyle]="focalPointImageStyles()"
+               [src]="urlService.imageSource(imageSource, false, true)"
+               [alt]="fileUtils.altFrom(alt, imageSource)"
+               [routerLink]="urlService.routerLinkUrl(imageLink)">
+        </div>
+      }
+      @if (!hasFocalPoint() && hasCropperPosition()) {
+        <div class="card-image-cropper" [ngStyle]="cropperWrapperStyles()">
+          <img class="card-img-top" (load)="imageLoaded($event)"
+               (error)="imageError($event)"
+               [ngStyle]="cropperImageStyles()"
+               [src]="urlService.imageSource(imageSource, false, true)"
+               [alt]="fileUtils.altFrom(alt, imageSource)"
+               [routerLink]="urlService.routerLinkUrl(imageLink)">
+        </div>
+      }
+      @if (!hasFocalPoint() && !hasCropperPosition() && unconstrainedHeight) {
         <img class="card-img-top" (load)="imageLoaded($event)"
              (error)="imageError($event)"
              [ngStyle]="imageStyles()"
@@ -29,7 +53,7 @@ import { isUndefined } from "es-toolkit/compat";
              [alt]="fileUtils.altFrom(alt, imageSource)"
              [routerLink]="urlService.routerLinkUrl(imageLink)">
       }
-      @if (!unconstrainedHeight) {
+      @if (!hasFocalPoint() && !hasCropperPosition() && !unconstrainedHeight) {
         <img class="card-img-top" [height]="constrainedHeight"
              (load)="imageLoaded($event)"
              (error)="imageError($event)"
@@ -103,11 +127,25 @@ export class CardImageComponent implements OnInit {
   @Input() public icon: IconProp;
   @Input() public borderRadius: number;
   @Input() public aspectRatio: DescribedDimensions;
+  @Input("objectPositionY") set objectPositionYValue(objectPositionY: number) {
+    this.objectPositionY = isUndefined(objectPositionY) ? null : objectPositionY;
+  }
+  @Input("cropperPosition") set cropperPositionValue(cropperPosition: ImageCropperPosition) {
+    this.cropperPosition = cropperPosition || null;
+  }
+  @Input() public cropperDebugOffsets: CropperDebugOffsets = null;
+
+  @Input("focalPoint") set focalPointValue(focalPoint: FocalPoint) {
+    this.focalPoint = focalPoint || null;
+  }
 
   public height: number;
   public unconstrainedHeight: boolean;
   public fixedHeight: boolean;
   public smallIconContainer: boolean;
+  public objectPositionY: number = null;
+  public cropperPosition: ImageCropperPosition = null;
+  public focalPoint: FocalPoint = null;
 
   faSearch = faSearch;
 
@@ -164,6 +202,58 @@ export class CardImageComponent implements OnInit {
       styles["aspect-ratio"] = `${this.aspectRatio.width} / ${this.aspectRatio.height}`;
       styles["object-fit"] = "cover";
     }
+    if (this.focalPoint) {
+      styles["object-fit"] = "cover";
+      styles["object-position"] = `${this.focalPoint.x}% ${this.focalPoint.y}%`;
+    } else if (this.objectPositionY !== null) {
+      const clampedObjectPosition = Math.max(0, Math.min(100, this.objectPositionY));
+      styles["object-fit"] = "cover";
+      styles["object-position"] = `50% ${clampedObjectPosition}%`;
+    }
     return styles;
+  }
+
+  hasFocalPoint(): boolean {
+    return !!this.focalPoint;
+  }
+
+  hasCropperPosition(): boolean {
+    return !!this.cropperPosition;
+  }
+
+  focalPointWrapperStyles(): any {
+    const styles: any = {
+      overflow: "hidden",
+      position: "relative",
+      width: "100%",
+      height: `${this.constrainedHeight || 200}px`
+    };
+    if (!this.noBorderRadius) {
+      styles["border-radius.px"] = !isUndefined(this.borderRadius) ? this.borderRadius : 6;
+    }
+    return styles;
+  }
+
+  focalPointImageStyles(): any {
+    const zoom = this.focalPoint?.zoom ?? 1;
+    const styles: any = {
+      width: "100%",
+      height: "100%",
+      "object-fit": "cover",
+      "object-position": `${this.focalPoint.x}% ${this.focalPoint.y}%`
+    };
+    if (zoom > 1) {
+      styles["transform"] = `scale(${zoom})`;
+      styles["transform-origin"] = `${this.focalPoint.x}% ${this.focalPoint.y}%`;
+    }
+    return styles;
+  }
+
+  cropperWrapperStyles(): any {
+    return cropperWrapperStyles(this.constrainedHeight, this.borderRadius, this.noBorderRadius);
+  }
+
+  cropperImageStyles(): any {
+    return cropperImageStyles(this.cropperPosition, this.constrainedHeight, this.cropperDebugOffsets);
   }
 }

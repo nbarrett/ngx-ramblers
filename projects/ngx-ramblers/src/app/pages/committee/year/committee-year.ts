@@ -100,7 +100,7 @@ export class CommitteeYearComponent implements OnInit, OnDestroy {
   private columnHasRelativePathMatch(pageContentRow: PageContentRow, relativeUrl: string) {
     const pageContentColumn: PageContentColumn = pageContentRow?.columns.find(column => {
       const relativePathMatch = relativeUrl.endsWith(column.href);
-      this.logger.off("column:", column, "relativePathMatch:", relativePathMatch, "column?.imageSource:", column?.imageSource);
+      this.logger.off("column:", column, "relativePathMatch:", relativePathMatch, "column.imageSource:", column.imageSource);
       return relativePathMatch;
     });
     return pageContentColumn;

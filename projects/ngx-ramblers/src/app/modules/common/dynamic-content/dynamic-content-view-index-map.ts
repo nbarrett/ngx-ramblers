@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnChanges, OnInit, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import * as L from "leaflet";
 import "leaflet.markercluster";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
@@ -123,6 +123,9 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   @Input() mapZoom = 10;
   @Input() showControlsDefault = true;
   @Input() allowControlsToggle = true;
+  @Output() mapProviderChange = new EventEmitter<MapProvider>();
+  @Output() mapStyleChange = new EventEmitter<string>();
+  @Output() mapHeightChange = new EventEmitter<number>();
 
   public options: any;
   public leafletLayers: L.Layer[] = [];
@@ -338,17 +341,20 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   onProviderChange(provider: MapProvider) {
     this.mapControlsState.provider = provider;
     this.recreateMap();
+    this.mapProviderChange.emit(provider);
   }
 
   onStyleChange(style: string) {
     this.mapControlsState.osStyle = style;
     this.recreateMap();
+    this.mapStyleChange.emit(style);
   }
 
   onHeightChange(height: number) {
     this.mapControlsState.mapHeight = height;
     this.mapHeight = height;
     this.updateMapSize();
+    this.mapHeightChange.emit(height);
   }
 
   private recreateMap() {

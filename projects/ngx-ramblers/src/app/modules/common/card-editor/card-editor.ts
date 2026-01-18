@@ -20,6 +20,7 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { YouTubeService } from "../../../services/youtube.service";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { CropperDebugOffsets } from "../../../models/image-cropper.model";
 import { CardImageComponent } from "../card/image/card-image";
 import { RouterLink } from "@angular/router";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
@@ -40,23 +41,27 @@ import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-rati
       <app-card-image noBorderRadius
         [smallIconContainer]="smallIconContainer"
         [imageType]="imageType"
-        [icon]="iconService.iconForName(column.icon)"
+        [icon]="iconService.iconForName(column?.icon)"
         [aspectRatio]="column?.imageAspectRatio"
         [imageSource]="imageSourceOrPreview()"
+        [objectPositionY]="column?.imageVerticalPosition"
+        [cropperPosition]="column?.imageCropperPosition"
+        [focalPoint]="column?.imageFocalPoint"
+        [cropperDebugOffsets]="cropperDebugOffsets"
         [fixedHeight]="actions.isActionButtons(row)"
         [height]="actions.isActionButtons(row) ? (row?.carousel?.coverImageHeight || 200) : null"
-        [imageLink]="column.href"
+        [imageLink]="column?.href"
         [borderRadius]="imageBorderRadius(column)"/>
       <div [class]="columnClass()">
         <h4 class="card-title">
           @if (routerLink) {
             <a class="rams-text-decoration-pink"
                [routerLink]="routerLink"
-               target="_self">{{ column.title }}</a>
+               target="_self">{{ column?.title }}</a>
           }
           @if (!routerLink) {
-            <a class="rams-text-decoration-pink" [href]="column.href"
-               target="_self">{{ column.title }}</a>
+            <a class="rams-text-decoration-pink" [href]="column?.href"
+               target="_self">{{ column?.title }}</a>
           }
         </h4>
         @if (pageContentEdit?.editActive) {
@@ -137,18 +142,18 @@ import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-rati
                 <input [name]="generateUniqueCheckboxId('show-placeholder-image')"
                        type="checkbox" class="form-check-input"
                        [id]="generateUniqueCheckboxId('show-placeholder-image')"
-                       [checked]="column.showPlaceholderImage"
+                       [checked]="column?.showPlaceholderImage"
                        (change)="onShowPlaceholderImageChanged($event)">
                 <label class="form-check-label"
                        [for]="generateUniqueCheckboxId('show-placeholder-image')">Show Placeholder Image
                 </label>
               </div>
             </div>
-            @if (column.showPlaceholderImage) {
+            @if (column?.showPlaceholderImage) {
               <div class="form-group">
                 <app-aspect-ratio-selector
                   label="Image Aspect Ratio"
-                  [dimensionsDescription]="column.imageAspectRatio?.description"
+                  [dimensionsDescription]="column?.imageAspectRatio?.description"
                   (dimensionsChanged)="onImageAspectRatioChanged($event)">
                 </app-aspect-ratio-selector>
               </div>
@@ -231,6 +236,7 @@ export class CardEditorComponent implements OnInit {
   private _columnIndex: number;
 
   @Input() public smallIconContainer: boolean;
+  @Input() public cropperDebugOffsets: CropperDebugOffsets = null;
   @Output() pageContentEditEvents: EventEmitter<PageContentEditEvent> = new EventEmitter();
   public presentationMode: boolean;
   public pageContentEdit: PageContentEditEvent;
@@ -263,14 +269,14 @@ export class CardEditorComponent implements OnInit {
     const initialColumnIndex = this._columnIndex;
     this.row.columns.indexOf(this.column);
     this._columnIndex = initialColumnIndex;
-    this.imageType = (this.column.imageSource || this.column.showPlaceholderImage) ? ImageType.IMAGE : ImageType.ICON;
+    this.imageType = (this.column?.imageSource || this.column?.showPlaceholderImage) ? ImageType.IMAGE : ImageType.ICON;
     this.pageContentEdit = {
       path: this.pageContent.path,
       columnIndex: initialColumnIndex,
       rowIndex: this.rowIndex,
       editActive: false
     };
-    this.routerLink = this.urlService.routerLinkUrl(this.column.href);
+    this.routerLink = this.urlService.routerLinkUrl(this.column?.href);
     this.logger.debug("ngOnInit:column", this.column, "this.row:", this.row, "this.imageType:", this.imageType, "pageContentEdit:", this.pageContentEdit, "content path:", this.pageContent.path);
   }
 
@@ -287,7 +293,7 @@ export class CardEditorComponent implements OnInit {
     if (this.column?.showPlaceholderImage && !this.column?.imageSource && !this.column?.youtubeId) {
       return FALLBACK_MEDIA.url;
     } else if (this.column?.youtubeId && !actualImage) {
-      return this.youtubeService.thumbnailUrl(this.column.youtubeId);
+      return this.youtubeService.thumbnailUrl(this.column?.youtubeId);
     } else {
       return actualImage;
     }
@@ -296,7 +302,7 @@ export class CardEditorComponent implements OnInit {
   onShowPlaceholderImageChanged(event: Event) {
     const target = event.target as HTMLInputElement;
     this.column.showPlaceholderImage = target.checked;
-    if (target.checked && !this.column.imageAspectRatio) {
+    if (target.checked && !this.column?.imageAspectRatio) {
       this.column.imageAspectRatio = {
         width: 16,
         height: 9,
@@ -358,8 +364,8 @@ export class CardEditorComponent implements OnInit {
   }
 
   reformatHref($event: any) {
-    this.logger.info("reformat:", $event, "this.column.href", this.column.href);
-    this.column.href = this.urlService.reformatLocalHref(this.column.href);
+    this.logger.info("reformat:", $event, "this.column.href", this.column?.href);
+    this.column.href = this.urlService.reformatLocalHref(this.column?.href);
   }
 
   siteEditActive() {

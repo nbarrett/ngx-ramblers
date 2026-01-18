@@ -31,8 +31,12 @@ import { NgClass } from "@angular/common";
             <app-image-cropper-and-resizer
               [rootFolder]="images?.rootFolder"
               [preloadImage]="image.awsFileName"
+              [cropperPosition]="image?.cropperPosition"
+              nonDestructive
               (imageChange)="imageChange($event)"
+              (cropperPositionChange)="imageCropperChange($event)"
               (quit)="exitImageEdit()"
+              (apply)="exitImageEdit()"
               (save)="imagedSaved($event)">
             </app-image-cropper-and-resizer>
           }
@@ -88,7 +92,7 @@ import { NgClass } from "@angular/common";
               <label>Image Preview</label>
             </div>
             <img [src]="imageSourceOrPreview()" [alt]="image.originalFileName"
-                 [style]="'width:' + image.width +'px; padding: '+ image.padding +'px; height: auto;'"
+                 [ngStyle]="imagePreviewStyles()"
                  [ngClass]="image.awsFileName.endsWith('png') ? 'image-border-png':'image-border'">
           </div>
         }

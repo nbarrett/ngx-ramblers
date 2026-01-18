@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { PageContentRow } from "../../../models/content-text.model";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -11,7 +11,7 @@ import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-c
     template: `
       @if (actions.isActionButtons(row) || actions.isIndex(row)) {
         <div class="row align-items-center">
-          <div class="col-auto" app-dynamic-content-max-columns-editor [hasColumnRange]="row"></div>
+          <div class="col-auto" app-dynamic-content-max-columns-editor [hasColumnRange]="row" (columnsChange)="columnsChange.emit()"></div>
           @if (actions.isActionButtons(row) || actions.isIndex(row)) {
             <div class="col-auto">
               <div class="form-check form-check-inline mb-0">
@@ -37,11 +37,11 @@ export class RowSettingsActionButtonsComponent implements OnInit {
   actions = inject(PageContentActionsService);
   @Input()
   public row: PageContentRow;
+  @Output() columnsChange = new EventEmitter<void>();
   protected id: string;
 
   ngOnInit() {
     this.id = this.numberUtils.generateUid();
   }
-
 
 }
