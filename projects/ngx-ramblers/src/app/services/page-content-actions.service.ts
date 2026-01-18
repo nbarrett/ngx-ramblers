@@ -79,8 +79,11 @@ export class PageContentActionsService {
     return `${this.stringUtils.asTitle(actionType)} ${(columnIndex >= 0 ? columnIndex : rowIndex) + 1}`;
   }
 
-  public nestedRowsExistFor(column: PageContentColumn): boolean {
-    return column?.rows?.length > 0;
+  public nestedRowsExistFor(column: PageContentColumn | null): boolean {
+    if (!column || !column.rows) {
+      return false;
+    }
+    return column.rows.length > 0;
   }
 
   public initialView(column: PageContentColumn): View {
@@ -105,7 +108,7 @@ export class PageContentActionsService {
       column.contentText = contentText?.text;
     }
     const incomingStyles = contentText?.styles ? cloneDeep(contentText.styles) : undefined;
-    const currentStyles = column?.styles;
+    const currentStyles = column.styles;
     const stylesChanged = !isEqual(incomingStyles, currentStyles);
     if (stylesChanged || (!incomingStyles && currentStyles)) {
       column.styles = incomingStyles;
@@ -147,6 +150,8 @@ export class PageContentActionsService {
       showTitle: true,
       introductoryText: null,
       coverImageHeight: 400,
+      coverImageVerticalPosition: 50,
+      coverImageCropperPosition: null,
       coverImageBorderRadius: 6,
       showCoverImageAndText: true,
       showPreAlbumText: true,
@@ -442,8 +447,8 @@ export class PageContentActionsService {
     return hasRows && queryCompleted;
   }
 
-  public rowContainer(pageContent: PageContent, rowIsNested: boolean, column: PageContentColumn): HasPageContentRows {
-    return rowIsNested && column?.rows ? column : pageContent;
+  public rowContainer(pageContent: PageContent, rowIsNested: boolean, column: PageContentColumn | null): HasPageContentRows {
+    return rowIsNested && column && column.rows ? column : pageContent;
   }
 
   public moveColumnLeft(columns: PageContentColumn[], fromIndex: number) {
@@ -475,7 +480,7 @@ export class PageContentActionsService {
   }
 
   private transferNestedRowToParent(pageContent: PageContent, column: PageContentColumn, nestedRowIndex: number, parentInsertOffset: number) {
-    if (!column?.rows || nestedRowIndex < 0 || nestedRowIndex >= column.rows.length) {
+    if (!column.rows || nestedRowIndex < 0 || nestedRowIndex >= column.rows.length) {
       this.logger.warn("Cannot unnest: invalid parameters");
       return;
     }

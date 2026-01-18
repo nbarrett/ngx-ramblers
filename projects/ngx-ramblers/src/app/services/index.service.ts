@@ -3,6 +3,7 @@ import { first, last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   ContentPathMatchConfigs,
+  FocalPointTarget,
   IndexContentType,
   PageContent,
   PageContentColumn,
@@ -167,11 +168,16 @@ export class IndexService {
         }
         contentText = this.stringUtils.stripMarkdown(contentText);
 
+        const focalPointTarget = row.carousel?.coverImageFocalPointTarget || FocalPointTarget.BOTH;
+        const applyFocalPointToIndex = [FocalPointTarget.INDEX_PREVIEW, FocalPointTarget.BOTH].includes(focalPointTarget);
+
         columns.push({
           title: row.carousel?.title || title,
           contentText,
           href,
           imageSource,
+          imageBorderRadius: row.carousel?.coverImageBorderRadius,
+          imageFocalPoint: applyFocalPointToIndex ? row.carousel?.coverImageFocalPoint : null,
           accessLevel: AccessLevel.public,
           location
         });

@@ -6,17 +6,18 @@ import { UrlService } from "../../services/url.service";
 import { ServerFileNameData } from "../../models/aws-object.model";
 import { NgStyle } from "@angular/common";
 import { MarkdownComponent } from "ngx-markdown";
+import { cropperTransformStyles } from "../../functions/image-cropper-styles";
 
 @Component({
     selector: "app-papercut-output",
     styleUrls: ["./banner.component.sass"],
     template: `
     <div class="d-flex flex-column flex-md-row position-relative">
-      <div class="wrapper w-100 position-relative">
+      <div class="wrapper w-100 position-relative" [ngStyle]="paperCutWrapperStyles()">
         <img class="crop"
           [src]="urlService.imageSource(this.tempImage || banner?.photo?.image?.awsFileName)"
           (load)="setPaperCutImageHeight()"
-          [ngStyle]="{'height.px': paperCutImageHeight, 'width.px': banner.background.image.width}"/><img/>
+          [ngStyle]="paperCutPhotoStyles()"/><img/>
           <img class="h-100 position-absolute" #paperCutImage
             [src]="urlService.resourceRelativePathForAWSFileName(banner?.background?.image?.awsFileName)">
         </div>
@@ -68,6 +69,18 @@ export class BannerPapercutOutputComponent implements OnInit {
     const paperCutImageHeight = this.paperCutImage?.nativeElement?.clientHeight;
     this.logger.debug("papercutHeight:", paperCutImageHeight);
     this.paperCutImageHeight = paperCutImageHeight;
+  }
+
+  paperCutWrapperStyles(): any {
+    return {"overflow": "hidden"};
+  }
+
+  paperCutPhotoStyles(): any {
+    const styles: any = {
+      "height.px": this.paperCutImageHeight,
+      "width.px": this.banner?.background?.image?.width
+    };
+    return {...styles, ...cropperTransformStyles(this.banner?.photo?.image?.cropperPosition || null)};
   }
 
 }

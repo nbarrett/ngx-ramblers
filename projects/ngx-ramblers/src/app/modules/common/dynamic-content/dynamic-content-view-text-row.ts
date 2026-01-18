@@ -110,21 +110,22 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
                   <div class="youtube-embed-container">
                     <app-youtube-embed
                       [youtubeId]="column.youtubeId"
-                      [title]="column?.alt || 'YouTube video'"/>
+                      [title]="column.alt || 'YouTube video'"/>
                   </div>
                 }
                 @if (showImageBeforeText(column)) {
                   <app-card-image
-                    [borderRadius]="column?.imageBorderRadius"
-                    [aspectRatio]="column?.imageAspectRatio"
-                    [alt]="column?.alt"
+                    [borderRadius]="column.imageBorderRadius"
+                    [aspectRatio]="column.imageAspectRatio"
+                    [alt]="column.alt"
                     unconstrainedHeight
+                    [cropperPosition]="column.imageCropperPosition"
                     [imageSource]="imageSourceFor(column)">
                   </app-card-image>
                 }
-                @if (column?.contentText) {
+                @if (column.contentText) {
                   <app-markdown-editor [text]="column.contentText"
-                                       [styles]="column?.styles"
+                                       [styles]="column.styles"
                                        [name]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentPath)"
                                        [category]="contentPath"/>
                 }
@@ -132,15 +133,16 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
                   <div class="youtube-embed-container">
                     <app-youtube-embed
                       [youtubeId]="column.youtubeId"
-                      [title]="column?.alt || 'YouTube video'"/>
+                      [title]="column.alt || 'YouTube video'"/>
                   </div>
                 }
                 @if (showImageAfterText(column)) {
                   <app-card-image
-                    [borderRadius]="column?.imageBorderRadius"
-                    [aspectRatio]="column?.imageAspectRatio"
-                    [alt]="column?.alt"
+                    [borderRadius]="column.imageBorderRadius"
+                    [aspectRatio]="column.imageAspectRatio"
+                    [alt]="column.alt"
                     unconstrainedHeight
+                    [cropperPosition]="column.imageCropperPosition"
                     [imageSource]="imageSourceFor(column)">
                   </app-card-image>
                 }
@@ -187,22 +189,22 @@ export class DynamicContentViewTextRow implements OnInit {
     if (this.hasYoutubeVideo(column)) {
       return false;
     }
-    const hasActualImage = !!column?.imageSource;
-    const showPlaceholder = column?.showPlaceholderImage && !column?.imageSource;
+    const hasActualImage = !!column.imageSource;
+    const showPlaceholder = column.showPlaceholderImage && !column.imageSource;
     return hasActualImage || showPlaceholder;
   }
 
   hasYoutubeVideo(column: PageContentColumn): boolean {
-    return !!column?.youtubeId;
+    return !!column.youtubeId;
   }
 
   imageSourceFor(column: PageContentColumn): string {
-    if (column?.imageSource) {
+    if (column.imageSource) {
       return column.imageSource;
-    } else if (column?.showPlaceholderImage && !column?.imageSource) {
+    } else if (column.showPlaceholderImage && !column.imageSource) {
       return FALLBACK_MEDIA.url;
     } else {
-      return column?.imageSource;
+      return column.imageSource;
     }
   }
 

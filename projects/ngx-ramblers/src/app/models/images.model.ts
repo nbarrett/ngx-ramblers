@@ -12,4 +12,5 @@ export interface FontAwesomeIcon {
 }
 
 export const SQUARE = "Square";
+export const FREE_SELECTION = "Free selection";
 export const RAMBLERS_LANDING_PAGE = "Ramblers Landing page";

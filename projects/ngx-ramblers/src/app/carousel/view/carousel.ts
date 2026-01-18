@@ -28,6 +28,7 @@ import { NgStyle } from "@angular/common";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
+import { cropperImageStyles, cropperWrapperStyles } from "../../functions/image-cropper-styles";
 
 @Component({
   selector: "app-carousel",
@@ -59,15 +60,26 @@ import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
                           (playbackStateChange)="onVideoPlaybackChange($event)"/>
                       </div>
                     } @else {
-                      <img loading="lazy" [src]="imageSourceFor(slide)"
-                           [alt]="slide.text" [ngStyle]="{
+                      @if (hasCropperPosition(slide)) {
+                        <div class="carousel-image-cropper" [ngStyle]="carouselCropperWrapperStyles()">
+                          <img loading="lazy" [src]="imageSourceFor(slide)"
+                               [alt]="slide.text"
+                               [ngStyle]="carouselCropperImageStyles(slide)"
+                               (load)="onImageLoad($event)"
+                               (error)="onImageError($event)">
+                        </div>
+                      }
+                      @if (!hasCropperPosition(slide)) {
+                        <img loading="lazy" [src]="imageSourceFor(slide)"
+                             [alt]="slide.text" [ngStyle]="{
                    'height.px': album.height,
                      'min-width': '100%',
                       'max-width': '100%',
                       'object-fit': 'cover',
                       'object-position': 'center'}"
-                           (load)="onImageLoad($event)"
-                           (error)="onImageError($event)">
+                             (load)="onImageLoad($event)"
+                             (error)="onImageError($event)">
+                      }
                     }
                   }
                   <div class="carousel-caption">
@@ -208,6 +220,18 @@ export class CarouselComponent implements OnInit, OnDestroy {
 
   imageSourceFor(item: ContentMetadataItem): string {
     return this.urlService.imageSource(this.urlService.qualifiedFileNameWithRoot(this.lazyLoadingMetadata?.contentMetadata?.rootFolder, this.lazyLoadingMetadata?.contentMetadata?.name, item));
+  }
+
+  hasCropperPosition(item: ContentMetadataItem): boolean {
+    return !!item?.cropperPosition;
+  }
+
+  carouselCropperWrapperStyles(): any {
+    return cropperWrapperStyles(this.album?.height || null, null, true);
+  }
+
+  carouselCropperImageStyles(item: ContentMetadataItem): any {
+    return cropperImageStyles(item?.cropperPosition || null, this.album?.height || null);
   }
 
   hasYoutubeVideo(item: ContentMetadataItem): boolean {

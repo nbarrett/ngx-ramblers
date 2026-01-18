@@ -372,6 +372,7 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
               showTitle: true,
               introductoryText: "To be completed",
               coverImageHeight: 400,
+              coverImageVerticalPosition: 50,
               coverImageBorderRadius: 6,
               showCoverImageAndText: false,
               showPreAlbumText: true,

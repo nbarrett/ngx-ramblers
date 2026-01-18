@@ -2,6 +2,7 @@ import { Link } from "./page.model";
 import { HasClass, HasColour } from "./banner-configuration.model";
 import { WalkListView } from "./walk.model";
 import { HasStyles } from "./content-text.model";
+import { ImageCropperPosition } from "./image-cropper.model";
 
 export enum SystemSettingsTab {
   AREA_AND_GROUP = "Area & Group",
@@ -172,6 +173,7 @@ export interface Image {
   originalFileName?: string;
   width: number;
   padding: number;
+  cropperPosition?: ImageCropperPosition | null;
 }
 
 export enum RootFolder {

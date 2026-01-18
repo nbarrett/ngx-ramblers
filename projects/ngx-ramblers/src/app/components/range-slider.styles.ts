@@ -54,7 +54,17 @@ export const rangeSliderStyles = `
     background: transparent
     outline: none
 
-  .range-slider::-webkit-slider-thumb,
+  .range-slider::-webkit-slider-thumb
+    -webkit-appearance: none
+    appearance: none
+    width: 16px
+    height: 16px
+    background: var(--ramblers-colour-sunrise)
+    border: 2px solid #fff
+    border-radius: 50%
+    cursor: pointer
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2)
+
   .range-slider::-moz-range-thumb
     width: 16px
     height: 16px

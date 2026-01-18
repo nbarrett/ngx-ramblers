@@ -17,6 +17,7 @@ import { colourSelectors, Image, RootFolder, SystemConfig } from "../../models/s
 import { FullNamePipe } from "../../pipes/full-name.pipe";
 import { sortBy } from "../../functions/arrays";
 import { BannerConfigService } from "../../services/banner-config.service";
+import { ImageCropperPosition } from "../../models/image-cropper.model";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { enumKeyValues, KeyValue } from "../../functions/enums";
 import { LoggerFactory } from "../../services/logger-factory.service";
@@ -218,8 +219,12 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
                           <app-image-cropper-and-resizer
                             [rootFolder]="bannerPhotos"
                             [preloadImage]="preLoadImage()"
+                            [cropperPosition]="editableBanner?.banner?.photo?.image?.cropperPosition"
+                            nonDestructive
                             (imageChange)="imageChange($event)"
+                            (cropperPositionChange)="bannerPhotoCropperChange($event)"
                             (quit)="exitImageEdit()"
+                            (apply)="exitImageEdit()"
                             (save)="imagedSaved($event)">
                           </app-image-cropper-and-resizer>
                         }
@@ -358,6 +363,7 @@ export class BannerComponent implements OnInit, OnDestroy {
     const background = this.editablePapercutBackgroundBanner();
     this.logger.info("imagedSaved:", awsFileData, "setting logoImageSource to", awsFileData.awsFileName);
     background.photo.image.awsFileName = awsFileData.awsFileName;
+    background.photo.image.cropperPosition = null;
     this.exitImageEdit();
   }
 
@@ -367,6 +373,13 @@ export class BannerComponent implements OnInit, OnDestroy {
     this.logger.info("imageChanged:", awsFileData, "background:", background);
     if (!background?.photo?.image?.originalFileName && awsFileData?.file?.name) {
       background.photo.image.originalFileName = awsFileData?.file?.name;
+    }
+  }
+
+  bannerPhotoCropperChange(position: ImageCropperPosition) {
+    const background = this.editablePapercutBackgroundBanner();
+    if (background?.photo?.image) {
+      background.photo.image.cropperPosition = position || null;
     }
   }
 

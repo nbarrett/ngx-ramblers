@@ -31,6 +31,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
 import { PageContentEditService } from "../../../services/page-content-edit.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
+import { ImageCropperPosition } from "../../../models/image-cropper.model";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { HtmlPasteResult, HtmlPasteRow } from "../../../models/html-paste.model";
 import { FormsModule } from "@angular/forms";
@@ -245,8 +246,12 @@ import { YoutubeInputComponent } from "../youtube-input/youtube-input";
                           <app-image-cropper-and-resizer
                             (quit)="exitImageEdit(rowIndex, columnIndex)"
                             (imageChange)="imageChanged(rowIndex, columnIndex, $event)"
+                            (apply)="exitImageEdit(rowIndex, columnIndex)"
                             (save)="imagedSaved(rowIndex, columnIndex, column, $event)"
-                            [preloadImage]="imageSource(rowIndex, columnIndex, column?.imageSource)"
+                            [preloadImage]="imageSource(rowIndex, columnIndex, column.imageSource)"
+                            [cropperPosition]="column.imageCropperPosition"
+                            (cropperPositionChange)="cropperPositionChanged(column, $event)"
+                            nonDestructive
                             wrapButtons>
                           </app-image-cropper-and-resizer>
                         </div>
@@ -301,9 +306,9 @@ import { YoutubeInputComponent } from "../youtube-input/youtube-input";
                       <ng-template #cardImageBlock>
                         <div>
                           <app-card-image class="w-100"
-                                          [borderRadius]="column?.imageBorderRadius"
-                                          [aspectRatio]="column?.imageAspectRatio"
-                                          [alt]="column?.alt"
+                                          [borderRadius]="column.imageBorderRadius"
+                                          [aspectRatio]="column.imageAspectRatio"
+                                          [alt]="column.alt"
                                           unconstrainedHeight
                                           [imageSource]="imageDisplay(rowIndex, columnIndex, column).url"/>
                         </div>
@@ -312,7 +317,7 @@ import { YoutubeInputComponent } from "../youtube-input/youtube-input";
                         <div class="youtube-embed-container youtube-embed-preview">
                           <app-youtube-embed
                             [youtubeId]="column.youtubeId"
-                            [title]="column?.alt || 'YouTube video'"/>
+                            [title]="column.alt || 'YouTube video'"/>
                         </div>
                       </ng-template>
                       <div class="d-flex gap-2 align-items-stretch" [ngClass]="'flex-column'">
@@ -330,8 +335,8 @@ import { YoutubeInputComponent } from "../youtube-input/youtube-input";
                                              hideEditToggle
                                              [presentationMode]="!controlsShown(column)"
                                              [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
-                                             [text]="column?.contentText"
-                                             [styles]="column?.styles"
+                                             [text]="column.contentText"
+                                             [styles]="column.styles"
                                              [parentRowColumnCount]="row.columns?.length"
                                              [initialView]="actions.view()"
                                              [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)"
@@ -907,6 +912,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   removeImage(column: PageContentColumn) {
     column.imageSource = null;
+    column.imageCropperPosition = null;
   }
 
   replaceImage(column: PageContentColumn, rowIndex: number, columnIndex: number) {
@@ -923,6 +929,12 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
       editActive: true,
       image: awsFileData.image
     }, this.pageContentEditEvents);
+  }
+
+  cropperPositionChanged(column: PageContentColumn, position: ImageCropperPosition) {
+    if (column) {
+      column.imageCropperPosition = position || null;
+    }
   }
 
   async onImageSourcePaste(event: ClipboardEvent, rowIndex: number, columnIndex: number) {
@@ -958,6 +970,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   imagedSaved(rowIndex: number, columnIndex: number, column: PageContentColumn, awsFileData: AwsFileData) {
     this.logger.info("imagedSaved:", awsFileData, "setting imageSource for column", column, "to", awsFileData.awsFileName);
     column.imageSource = awsFileData.awsFileName;
+    column.imageCropperPosition = null;
     this.pageContentEditEvents = this.pageContentEditService.handleEvent({
       path: this.pageContent.path,
       rowIndex,
@@ -967,11 +980,11 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   }
 
   isNarrow(column: PageContentColumn): boolean {
-    return (column?.columns || 12) <= 6;
+    return (column.columns || 12) <= 6;
   }
 
   focusSensitiveColumns(pageContentColumn: PageContentColumn) {
-    return this.expanded ? 12 : (pageContentColumn?.columns || 12);
+    return this.expanded ? 12 : (pageContentColumn.columns || 12);
   }
 
   markdownEditorFocusChange(editorInstanceState: EditorInstanceState) {
@@ -1126,7 +1139,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   }
 
   private resolveActualImage(rowIndex: number, columnIndex: number, column: PageContentColumn): string | null {
-    return this.imageSource(rowIndex, columnIndex, column?.imageSource) || null;
+    return this.imageSource(rowIndex, columnIndex, column.imageSource) || null;
   }
 
   imageDisplay(rowIndex: number, columnIndex: number, column: PageContentColumn): { showBefore: boolean; showAfter: boolean; url: string | null } {
@@ -1135,24 +1148,24 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
     const actual = this.resolveActualImage(rowIndex, columnIndex, column);
     const hasActual = !!actual;
-    const showPlaceholder = !!column?.showPlaceholderImage && !hasActual;
+    const showPlaceholder = !!column.showPlaceholderImage && !hasActual;
     const show = hasActual || showPlaceholder;
-    const before = show && !!column?.showTextAfterImage;
-    const after = show && !column?.showTextAfterImage;
+    const before = show && !!column.showTextAfterImage;
+    const after = show && !column.showTextAfterImage;
     const url = showPlaceholder ? FALLBACK_MEDIA.url : actual;
     return { showBefore: before, showAfter: after, url };
   }
 
   hasYoutubeVideo(column: PageContentColumn): boolean {
-    return !!column?.youtubeId;
+    return !!column.youtubeId;
   }
 
   showYoutubeBeforeText(column: PageContentColumn): boolean {
-    return !!column?.showTextAfterImage && this.hasYoutubeVideo(column);
+    return !!column.showTextAfterImage && this.hasYoutubeVideo(column);
   }
 
   showYoutubeAfterText(column: PageContentColumn): boolean {
-    return !column?.showTextAfterImage && this.hasYoutubeVideo(column);
+    return !column.showTextAfterImage && this.hasYoutubeVideo(column);
   }
 
   onShowPlaceholderImageChanged(event: Event, column: PageContentColumn) {

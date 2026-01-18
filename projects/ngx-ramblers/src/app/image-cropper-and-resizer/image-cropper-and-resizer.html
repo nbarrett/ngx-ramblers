@@ -11,41 +11,43 @@
     </div>
   </div>
 }
-<div class="row">
-  @if (false) {
-    <div class="col">
-      <label for="rotation">Rotation:</label>
+@if (!hideFileSelection) {
+  <div class="row">
+    @if (false) {
+      <div class="col">
+        <label for="rotation">Rotation:</label>
+      </div>
+      <div class="col">
+        <input id="rotation" [(ngModel)]="rotation" placeholder="Rotation" type="number"
+               (keyup)="updateRotation()"
+               class="form-control input-sm flex-grow-1"/>
+      </div>
+    }
+    <input #fileElement class="d-none" type="file" ng2FileSelect multiple (onFileSelected)="onFileSelect($event)"
+           [uploader]="uploader">
+    <div class="col-6">
+      <app-badge-button fullWidth [disabled]="notifyTarget.busy"
+                        [icon]="faFile"
+                        caption="Choose File"
+                        (click)="browseToFile(fileElement)"/>
     </div>
-    <div class="col">
-      <input id="rotation" [(ngModel)]="rotation" placeholder="Rotation" type="number"
-             (keyup)="updateRotation()"
-             class="form-control input-sm flex-grow-1"/>
+    <div class="col-sm-6 align-self-center">
+      <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
+           (fileOver)="fileOver($event)"
+           (onFileDrop)="onFileDropped($event)"
+           [uploader]="uploader"
+           class="badge-drop-zone-single-height mb-2">Or drop file here
+      </div>
     </div>
-  }
-  <input #fileElement class="d-none" type="file" ng2FileSelect multiple (onFileSelected)="onFileSelect($event)"
-         [uploader]="uploader">
-  <div class="col-6">
-    <app-badge-button fullWidth [disabled]="notifyTarget.busy"
-                      [icon]="faFile"
-                      caption="Choose File"
-                      (click)="browseToFile(fileElement)"/>
   </div>
-  <div class="col-sm-6 align-self-center">
-    <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
-         (fileOver)="fileOver($event)"
-         (onFileDrop)="onFileDropped($event)"
-         [uploader]="uploader"
-         class="badge-drop-zone-single-height mb-2">Or drop file here
-    </div>
-  </div>
-</div>
+}
 <div class="row mt-2 mb-2">
   <div class="col-sm-12 img-fluid w-100"
        (mousedown)="$event.stopPropagation()"
        (pointerdown)="$event.stopPropagation()"
        (touchstart)="$event.stopPropagation()"
        (dragstart)="$event.stopPropagation(); $event.preventDefault()">
-    @if (fileTypeAttributes?.croppable) {
+    @if (fileTypeAttributes?.croppable && originalFile) {
       <image-cropper
         [allowMoveImage]="true"
         [imageFile]="originalFile"
@@ -74,18 +76,20 @@
                                (initialised)="initialiseAspectRatioSettings($event)"
                                (dimensionsChanged)="changeAspectRatioSettingsAndCrop($event)"/>
   </div>
-  <div class="col-sm-6 mb-2">
-    <label for="compression">Compress to size ({{ imageQuality }}%):</label>
-    <input type="range" min="1" max="100" value="90" step="1" class="form-range" id="compression"
-           [attr.draggable]="false"
-           (mousedown)="$event.stopPropagation()"
-           (pointerdown)="$event.stopPropagation()"
-           (touchstart)="$event.stopPropagation()"
-           (dragstart)="$event.stopPropagation(); $event.preventDefault()"
-           [disabled]="actionDisabled" (change)="changeRange($event, true)" (input)="changeRange($event, false)">
-  </div>
+  @if (!cropOnlyMode) {
+    <div class="col-sm-6 mb-2">
+      <label for="compression">Compress to size ({{ imageQuality }}%):</label>
+      <input type="range" min="1" max="100" value="90" step="1" class="form-range" id="compression"
+             [attr.draggable]="false"
+             (mousedown)="$event.stopPropagation()"
+             (pointerdown)="$event.stopPropagation()"
+             (touchstart)="$event.stopPropagation()"
+             (dragstart)="$event.stopPropagation(); $event.preventDefault()"
+             [disabled]="actionDisabled" (change)="changeRange($event, true)" (input)="changeRange($event, false)">
+    </div>
+  }
 </div>
-@if (imagePresent()) {
+@if (imagePresent() && !cropOnlyMode) {
   <div class="row mb-2">
     <div class="col-sm-6">
       Original Size: {{ originalSize() }}
@@ -161,24 +165,60 @@
                       [icon]="faClose"
                       caption="quit"/>
   </div>
-  <div class="col">
-    <app-badge-button fullWidth (click)="saveImage()"
-                      delay=500 tooltip="save changes" [disabled]="!fileTypeAttributes"
-                      [icon]="faSave"
-                      caption="save"/>
-  </div>
+  @if (nonDestructive) {
+    <div class="col pe-1">
+      <app-badge-button fullWidth (click)="applyCrop()"
+                        delay=500 tooltip="apply crop" [disabled]="!fileTypeAttributes"
+                        [icon]="faSave"
+                        caption="apply"/>
+    </div>
+  }
+  @if (!nonDestructive) {
+    <div class="col">
+      <app-badge-button fullWidth (click)="saveImage()"
+                        delay=500 tooltip="save changes" [disabled]="!fileTypeAttributes"
+                        [icon]="faSave"
+                        caption="save"/>
+    </div>
+  }
+  @if (nonDestructive && allowPermanentSave) {
+    <div class="col">
+      <app-badge-button fullWidth (click)="saveImagePermanently()"
+                        delay=500 tooltip="save image" [disabled]="!fileTypeAttributes"
+                        [icon]="faSave"
+                        caption="save image"/>
+    </div>
+  }
 </ng-template>
-@if (!wrapButtons) {
-  <div class="row g-0">
-    <ng-container *ngTemplateOutlet="buttonSet1"/>
-    <ng-container *ngTemplateOutlet="buttonSet2"/>
-  </div>
-}
-@if (wrapButtons) {
-  <div class="row g-0">
-    <ng-container *ngTemplateOutlet="buttonSet1"/>
-  </div>
-  <div class="row g-0">
-    <ng-container *ngTemplateOutlet="buttonSet2"/>
-  </div>
+@if (!hideActionButtons) {
+  @if (cropOnlyMode) {
+    <div class="row g-0">
+      <div class="col pe-1">
+        <app-badge-button fullWidth (click)="quit.next()"
+                          delay=500 tooltip="quit without saving"
+                          [icon]="faClose"
+                          caption="quit"/>
+      </div>
+      <div class="col">
+        <app-badge-button fullWidth (click)="applyCrop()"
+                          delay=500 tooltip="apply crop" [disabled]="!fileTypeAttributes"
+                          [icon]="faSave"
+                          caption="apply"/>
+      </div>
+    </div>
+  }
+  @if (!cropOnlyMode && !wrapButtons) {
+    <div class="row g-0">
+      <ng-container *ngTemplateOutlet="buttonSet1"/>
+      <ng-container *ngTemplateOutlet="buttonSet2"/>
+    </div>
+  }
+  @if (!cropOnlyMode && wrapButtons) {
+    <div class="row g-0">
+      <ng-container *ngTemplateOutlet="buttonSet1"/>
+    </div>
+    <div class="row g-0">
+      <ng-container *ngTemplateOutlet="buttonSet2"/>
+    </div>
+  }
 }

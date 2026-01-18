@@ -354,7 +354,7 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
         </div>
       </div>
       @for (imageMetaDataItem of currentPageImages; track metadataItemTracker(index, imageMetaDataItem); let index = $index) {
-        <app-image-edit noImageSave
+        <app-image-edit nonDestructive
                         [index]="index"
                         [duplicateImages]="duplicateImages"
                         [contentMetadata]="contentMetadata"

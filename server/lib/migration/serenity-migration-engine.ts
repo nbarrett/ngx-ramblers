@@ -461,6 +461,7 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
           showTitle: true,
           introductoryText: "To be completed",
           coverImageHeight: 400,
+          coverImageVerticalPosition: 50,
           coverImageBorderRadius: 6,
           showCoverImageAndText: false,
           showPreAlbumText: true,

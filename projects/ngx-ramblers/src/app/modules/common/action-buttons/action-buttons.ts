@@ -9,6 +9,7 @@ import {
   PageContentEditEvent,
   PageContentRow
 } from "../../../models/content-text.model";
+import { CropperDebugOffsets } from "../../../models/image-cropper.model";
 import { DeviceSize } from "../../../models/page.model";
 import { CARD_MARGIN_BOTTOM, cardClasses } from "../../../services/card-utils";
 import { LoggerFactory } from "../../../services/logger-factory.service";
@@ -62,6 +63,7 @@ import { CardEditorComponent } from "../card-editor/card-editor";
                                [columnIndex]="columnIndex"
                                [column]="column"
                                [pageContent]="pageContent"
+                               [cropperDebugOffsets]="cropperDebugOffsets"
                                (pageContentEditEvents)="pageContentEditEvents = pageContentEditService.handleEvent($event, pageContentEditEvents)">
               </app-card-editor>
             </div>
@@ -101,6 +103,8 @@ export class ActionButtons implements OnInit {
   @Input("rowIndex") set rowIndexValue(rowIndex: number) {
     this.rowIndex = rowIndex;
   }
+
+  @Input() public cropperDebugOffsets: CropperDebugOffsets = null;
 
   @HostListener("window:resize", ["event"])
   onResize() {
