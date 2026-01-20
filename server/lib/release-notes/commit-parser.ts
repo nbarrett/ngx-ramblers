@@ -2,7 +2,8 @@ import { execSync } from "child_process";
 import type { ConventionalCommit, IssueReference } from "./models.js";
 
 const CONVENTIONAL_COMMIT_REGEX = /^(\w+)(?:\(([^)]+)\))?(!)?:\s*(.+)$/;
-const ISSUE_REFERENCE_REGEX = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|ref(?:erence)?(?:s)?|see):?\s*(?:#|https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/)(\d+)/gi;
+const KEYWORD_ISSUE_REGEX = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|ref(?:erence)?(?:s)?|see):?\s*(?:#|https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/)(\d+)/gi;
+const STANDALONE_ISSUE_REGEX = /(?:^|[\s(])#(\d+)(?=[\s).,;:]|$)/gm;
 
 export function parseCommit(raw: string): ConventionalCommit | null {
   const lines = raw.split("\n");
@@ -68,17 +69,34 @@ export function parseCommit(raw: string): ConventionalCommit | null {
 
 function extractIssueReferences(text: string): IssueReference[] {
   const references: IssueReference[] = [];
-  const matches = text.matchAll(ISSUE_REFERENCE_REGEX);
+  const seenIssues = new Set<string>();
 
-  for (const match of matches) {
+  const keywordMatches = text.matchAll(KEYWORD_ISSUE_REGEX);
+  Array.from(keywordMatches).forEach(match => {
     const action = match[0].split(/\s+/)[0].toLowerCase();
     const issue = match[1];
-    references.push({
-      action: action !== "see" && action !== "ref" && action !== "reference" && action !== "references" ? action : null,
-      issue,
-      raw: match[0]
-    });
-  }
+    if (!seenIssues.has(issue)) {
+      seenIssues.add(issue);
+      references.push({
+        action: action !== "see" && action !== "ref" && action !== "reference" && action !== "references" ? action : null,
+        issue,
+        raw: match[0]
+      });
+    }
+  });
+
+  const standaloneMatches = text.matchAll(STANDALONE_ISSUE_REGEX);
+  Array.from(standaloneMatches).forEach(match => {
+    const issue = match[1];
+    if (!seenIssues.has(issue)) {
+      seenIssues.add(issue);
+      references.push({
+        action: null,
+        issue,
+        raw: `#${issue}`
+      });
+    }
+  });
 
   return references;
 }

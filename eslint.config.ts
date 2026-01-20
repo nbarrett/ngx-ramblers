@@ -222,5 +222,16 @@ export default defineConfig([
       "@angular-eslint/template/mouse-events-have-key-events": "off",
       "@angular-eslint/template/elements-content": "off",
     },
+  },
+  {
+    files: ["**/*.html"],
+    rules: {
+      "@typescript-eslint/adjacent-overload-signatures": "off",
+      "@typescript-eslint/ban-ts-comment": "off",
+      "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/no-empty-function": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+    },
   }
 ]);
