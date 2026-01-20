@@ -612,3 +612,24 @@ export interface StatusMappedResponse {
   message: string;
   status: number;
 }
+
+export interface CreateTemplateRequest {
+  templateName: string;
+  htmlContent: string;
+  subject: string;
+  isActive?: boolean;
+  senderName?: string;
+  senderEmail?: string;
+}
+
+export interface UpdateTemplateRequest {
+  templateId: number;
+  htmlContent?: string;
+  subject?: string;
+  templateName?: string;
+  isActive?: boolean;
+}
+
+export interface CreateTemplateResponse {
+  id: number;
+}

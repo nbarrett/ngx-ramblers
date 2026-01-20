@@ -115,7 +115,7 @@ jobs:
           CMS_PASSWORD: ${{ secrets.CMS_PASSWORD }}
         run: |
           cd server
-          npm run release-notes -- --latest --build-number ${{ github.run_number }}
+          npm run release-notes -- --latest --build-number ${{ github.run_number }} --include-unassigned
 
       - name: Cleanup sensitive files
         if: always()
