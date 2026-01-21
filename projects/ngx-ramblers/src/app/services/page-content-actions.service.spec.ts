@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing";
 import { PageContentActionsService } from "./page-content-actions.service";
-import { PageContentRow, PageContentType } from "../models/content-text.model";
+import { PageContent, PageContentRow, PageContentType } from "../models/content-text.model";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { UrlService } from "./url.service";
 
@@ -141,5 +141,130 @@ describe("PageContentActionsService", () => {
     service.moveColumnBetweenRows(rowA, 1, rowB, 0);
     expect(rowA.columns.length).toBe(1);
     expect(rowB.columns.length).toBe(2);
+  });
+
+  describe("extractMarkdownLinkHrefs", () => {
+    it("returns empty array for null or undefined text", () => {
+      expect(service.extractMarkdownLinkHrefs(null)).toEqual([]);
+      expect(service.extractMarkdownLinkHrefs(undefined)).toEqual([]);
+      expect(service.extractMarkdownLinkHrefs("")).toEqual([]);
+    });
+
+    it("extracts single markdown link", () => {
+      const text = "Check out [this page](how-to/guide) for more info.";
+      expect(service.extractMarkdownLinkHrefs(text)).toEqual(["how-to/guide"]);
+    });
+
+    it("extracts multiple markdown links", () => {
+      const text = `
+- [Release 1](how-to/committee/release-notes/2023-11-30)
+- [Release 2](how-to/committee/release-notes/2024-03-06)
+- [Release 3](how-to/committee/release-notes/2026-01-03)
+`;
+      expect(service.extractMarkdownLinkHrefs(text)).toEqual([
+        "how-to/committee/release-notes/2023-11-30",
+        "how-to/committee/release-notes/2024-03-06",
+        "how-to/committee/release-notes/2026-01-03"
+      ]);
+    });
+
+    it("strips leading slashes from paths", () => {
+      const text = "[page link](/how-to/guide)";
+      expect(service.extractMarkdownLinkHrefs(text)).toEqual(["how-to/guide"]);
+    });
+
+    it("filters out external URLs", () => {
+      const text = `
+- [External](https://example.com)
+- [Local](how-to/page)
+- [WWW](www.example.com)
+- [Mail](mailto:test@example.com)
+`;
+      expect(service.extractMarkdownLinkHrefs(text)).toEqual(["how-to/page"]);
+    });
+
+    it("handles links with special characters in label", () => {
+      const text = "[03-Jan-2026 — #111 — Release-notes: 1 feature](how-to/release)";
+      expect(service.extractMarkdownLinkHrefs(text)).toEqual(["how-to/release"]);
+    });
+
+    it("returns empty array when no markdown links present", () => {
+      const text = "This is just plain text without any links.";
+      expect(service.extractMarkdownLinkHrefs(text)).toEqual([]);
+    });
+  });
+
+  describe("allPageHrefs", () => {
+    it("returns empty array for null page content", () => {
+      expect(service.allPageHrefs(null)).toEqual([]);
+    });
+
+    it("extracts hrefs from column href property", () => {
+      const pageContent: PageContent = {
+        rows: [{
+          type: PageContentType.ACTION_BUTTONS,
+          maxColumns: 2,
+          showSwiper: false,
+          columns: [
+            { href: "page1" },
+            { href: "page2" }
+          ]
+        }]
+      };
+      expect(service.allPageHrefs(pageContent)).toContain("page1");
+      expect(service.allPageHrefs(pageContent)).toContain("page2");
+    });
+
+    it("extracts hrefs from contentText markdown links", () => {
+      const pageContent: PageContent = {
+        rows: [{
+          type: PageContentType.TEXT,
+          maxColumns: 1,
+          showSwiper: false,
+          columns: [{
+            contentText: "See [page one](how-to/page1) and [page two](how-to/page2)"
+          }]
+        }]
+      };
+      const hrefs = service.allPageHrefs(pageContent);
+      expect(hrefs).toContain("how-to/page1");
+      expect(hrefs).toContain("how-to/page2");
+    });
+
+    it("extracts hrefs from nested rows", () => {
+      const pageContent: PageContent = {
+        rows: [{
+          type: PageContentType.TEXT,
+          maxColumns: 1,
+          showSwiper: false,
+          columns: [{
+            rows: [{
+              type: PageContentType.TEXT,
+              maxColumns: 1,
+              showSwiper: false,
+              columns: [{ contentText: "[nested link](nested/path)" }]
+            }]
+          }]
+        }]
+      };
+      expect(service.allPageHrefs(pageContent)).toContain("nested/path");
+    });
+
+    it("combines column hrefs and contentText hrefs", () => {
+      const pageContent: PageContent = {
+        rows: [{
+          type: PageContentType.TEXT,
+          maxColumns: 2,
+          showSwiper: false,
+          columns: [
+            { href: "direct/link" },
+            { contentText: "Check [markdown link](markdown/path)" }
+          ]
+        }]
+      };
+      const hrefs = service.allPageHrefs(pageContent);
+      expect(hrefs).toContain("direct/link");
+      expect(hrefs).toContain("markdown/path");
+    });
   });
 });
