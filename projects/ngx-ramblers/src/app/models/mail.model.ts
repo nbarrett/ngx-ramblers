@@ -628,6 +628,9 @@ export interface UpdateTemplateRequest {
   subject?: string;
   templateName?: string;
   isActive?: boolean;
+  senderName?: string;
+  senderEmail?: string;
+  senderId?: number;
 }
 
 export interface CreateTemplateResponse {
