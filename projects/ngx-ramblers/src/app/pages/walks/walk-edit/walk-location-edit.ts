@@ -23,6 +23,7 @@ import { isNull, isNumber } from "es-toolkit/compat";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { Subject } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
+import { LocationAutocompleteComponent } from "../../../shared/components/location-autocomplete";
 
 @Component({
     selector: "app-walk-location-edit",
@@ -32,20 +33,11 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
         <div class="col-12">
           <div class="form-group">
             <label for="nearest-town">{{ locationType }} Location</label>
-            <div class="input-group">
-              <input [disabled]="disabled" [(ngModel)]="locationDetails.description"
-                (keyup.enter)="lookupPlaceName()"
-                type="text" class="form-control input-sm locate-input"
-                id="nearest-town"
-                placeholder="Enter a UK place name, landmark, or description">
-              <span class="input-group-text locate-button-addon">
-                <button type="button" class="btn btn-primary locate-button"
-                  [disabled]="disabled || placeLookupBusy || !locationDetails?.description?.trim()"
-                  (click)="lookupPlaceName()">
-                  {{ placeLookupBusy ? "Searching..." : "Locate" }}
-                </button>
-              </span>
-            </div>
+            <app-location-autocomplete
+              [disabled]="disabled"
+              [value]="locationDetails?.description"
+              placeholder="Enter a UK place name, landmark, or description"
+              (locationChange)="onAutocompleteLocationChange($event)"/>
           </div>
         </div>
       </div>
@@ -172,7 +164,7 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
       </div>
     }`,
     styleUrls: ["./walk-edit.component.sass"],
-    imports: [FormsModule, TooltipDirective, MapEditComponent, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, CopyIconComponent]
+    imports: [FormsModule, TooltipDirective, MapEditComponent, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, CopyIconComponent, LocationAutocompleteComponent]
 })
 export class WalkLocationEditComponent implements OnInit, OnDestroy {
 
@@ -424,6 +416,14 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
     this.showLeafletView = true;
     this.toggleGoogleOrLeafletMapView();
     this.updateGoogleMapsUrl();
+  }
+
+  onAutocompleteLocationChange(result: GridReferenceLookupResponse) {
+    if (!result || !this.locationDetails) {
+      return;
+    }
+    this.applyPlaceLookupResult(result, result.description || "");
+    this.notify?.success(`Location resolved for "${result.description}"`);
   }
 
   private shouldShowLeafletView(): boolean {

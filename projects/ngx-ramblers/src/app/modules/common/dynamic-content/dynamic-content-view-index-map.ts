@@ -96,6 +96,7 @@ import { UiActionsService } from "../../../services/ui-actions.service";
                [leafletOptions]="options"
                [leafletLayers]="leafletLayers"
                [leafletFitBounds]="fitBounds"
+               [leafletFitBoundsOptions]="fitBoundsOptions"
                (leafletMapReady)="onMapReady($event)">
           </div>
           @if (allowControlsToggle) {
@@ -130,6 +131,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   public options: any;
   public leafletLayers: L.Layer[] = [];
   public fitBounds: L.LatLngBounds | undefined;
+  public fitBoundsOptions: L.FitBoundsOptions = { padding: [50, 50] };
   private mapRef: L.Map | undefined;
   public showMap = true;
   public showControls = true;

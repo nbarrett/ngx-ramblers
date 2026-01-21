@@ -117,8 +117,14 @@ export class IndexService {
           if (walkId) {
             walkMap.set(walkId, walk);
           }
+          if (walk?.groupEvent?.id) {
+            walkMap.set(walk.groupEvent.id, walk);
+          }
+          if (walk?.fields?.migratedFromId) {
+            walkMap.set(walk.fields.migratedFromId, walk);
+          }
         });
-        this.logger.info("Fetched", walkMap.size, "walks successfully in single query");
+        this.logger.info("Fetched", walks.length, "walks, mapped to", walkMap.size, "keys (including migratedFromId)");
       } catch (error) {
         this.logger.error("Failed to batch fetch walks:", error);
       }
