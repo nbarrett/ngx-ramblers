@@ -17,6 +17,12 @@ export enum SystemSettingsTab {
   EXTERNAL_SYSTEMS = "External Systems",
 }
 
+export enum ImageMigrationTab {
+  SCAN = "Scan Configuration",
+  RESULTS = "Scan Results",
+  ACTIVITY = "Activity"
+}
+
 export enum EventPopulation {
   LOCAL = "local",
   WALKS_MANAGER = "walks-manager",
@@ -358,4 +364,82 @@ export interface CaptchaVerificationResponse {
   score?: number;
   action?: string;
   "error-codes"?: string[];
+}
+
+export enum ImageMigrationStatus {
+  PENDING = "pending",
+  IN_PROGRESS = "in-progress",
+  MIGRATED = "migrated",
+  FAILED = "failed",
+  SKIPPED = "skipped"
+}
+
+export enum ImageMigrationSourceType {
+  CONTENT_METADATA = "content-metadata",
+  PAGE_CONTENT = "page-content",
+  GROUP_EVENT = "group-event",
+  SOCIAL_EVENT = "social-event"
+}
+
+export interface ExternalImageReference {
+  id: string;
+  sourceType: ImageMigrationSourceType;
+  sourceId: string;
+  sourcePath: string;
+  sourceTitle: string;
+  currentUrl: string;
+  thumbnailUrl: string;
+  fileSize: number | null;
+  status: ImageMigrationStatus;
+  selected: boolean;
+  newS3Url: string | null;
+  errorMessage: string | null;
+}
+
+export interface ImageMigrationGroup {
+  sourcePath: string;
+  sourceType: ImageMigrationSourceType;
+  sourceTitle: string;
+  expanded: boolean;
+  selectAll: boolean;
+  images: ExternalImageReference[];
+}
+
+export interface ImageMigrationScanRequest {
+  hostPattern: string;
+  scanAlbums: boolean;
+  scanPageContent: boolean;
+  scanGroupEvents: boolean;
+  scanSocialEvents: boolean;
+}
+
+export interface ImageMigrationScanResult {
+  hostPattern: string;
+  groups: ImageMigrationGroup[];
+  totalImages: number;
+  totalPages: number;
+  scanDurationMs: number;
+}
+
+export interface ImageMigrationRequest {
+  images: ExternalImageReference[];
+  targetRootFolder: RootFolder;
+  maxImageSize?: number;
+}
+
+export interface ImageMigrationProgress {
+  totalImages: number;
+  processedImages: number;
+  successCount: number;
+  failureCount: number;
+  currentImage: string;
+  percent: number;
+}
+
+export interface ImageMigrationResult {
+  totalProcessed: number;
+  successCount: number;
+  failureCount: number;
+  migratedImages: ExternalImageReference[];
+  failedImages: ExternalImageReference[];
 }
