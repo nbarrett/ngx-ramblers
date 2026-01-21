@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
-import { AsyncPipe, CommonModule } from "@angular/common";
+import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronUp, faLocationDot, faTimes } from "@fortawesome/free-solid-svg-icons";
@@ -26,7 +26,7 @@ import { MemberService } from "../../../services/member/member.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { RamblersGroupWithLabel, WalkLeaderContact } from "../../../models/ramblers-walks-manager";
-import { from, Observable, of, Subject } from "rxjs";
+import { from, Subject } from "rxjs";
 import { WALK_GRADES } from "../../../models/walk.model";
 import { FEATURE_CATEGORIES, FeatureCategory } from "../../../models/walk-feature.model";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
@@ -41,9 +41,9 @@ import { DistanceRangeSlider } from "../../../components/distance-range-slider/d
 import { ActivatedRoute } from "@angular/router";
 import { advancedSearchCriteriaFromParams } from "../../../functions/walks/advanced-search";
 import { buildAdvancedSearchCriteria } from "../../../functions/walks/advanced-search-criteria-builder";
-import { AddressQueryService } from "../../../services/walks/address-query.service";
-import { GeocodeResult } from "../../../models/map.model";
-import { catchError, debounceTime, distinctUntilChanged, map, switchMap, tap } from "rxjs/operators";
+import { LocationAutocompleteComponent } from "../../../shared/components/location-autocomplete";
+import { GridReferenceLookupResponse } from "../../../models/address-model";
+import { debounceTime } from "rxjs/operators";
 import * as L from "leaflet";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
@@ -63,9 +63,9 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
     NgSelectModule,
     DateRangeSlider,
     DistanceRangeSlider,
-    AsyncPipe,
     NgOptionTemplateDirective,
-    LeafletModule
+    LeafletModule,
+    LocationAutocompleteComponent
   ],
   template: `
     <div class="advanced-search-panel card mt-3 mb-2">
@@ -311,25 +311,9 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
                 @if (locationMethod === LocationMethod.ENTER_LOCATION) {
                   <div class="mb-2">
                     <label class="form-label mb-1">Location Search</label>
-                    <ng-select
-                      [items]="locationSuggestions$ | async"
-                      [typeahead]="locationInput$"
-                      [loading]="locationLoading"
-                      [multiple]="false"
-                      [searchable]="true"
-                      [clearable]="true"
-                      [minTermLength]="3"
-                      dropdownPosition="bottom"
-                      bindLabel="label"
+                    <app-location-autocomplete
                       placeholder="Enter UK postcode or place name..."
-                      [(ngModel)]="selectedLocation"
-                      (ngModelChange)="onLocationSelected($event)">
-                      <ng-template ng-option-tmp let-item="item">
-                        <div>
-                          <strong>{{ item.label }}</strong>
-                        </div>
-                      </ng-template>
-                    </ng-select>
+                      (locationChange)="onLocationSelected($event)"/>
                   </div>
                 }
                 @if (locationMethod !== LocationMethod.NONE) {
@@ -558,16 +542,11 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
   private dateUtils = inject(DateUtilsService);
   private stringUtils = inject(StringUtilsService);
   private route = inject(ActivatedRoute);
-  private addressQueryService = inject(AddressQueryService);
   private mapTilesService = inject(MapTilesService);
   private mapMarkerStyleService = inject(MapMarkerStyleService);
   private localWalksAndEventsService = inject(LocalWalksAndEventsService);
   private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private criteriaChangeSubject = new Subject<void>();
-  locationInput$ = new Subject<string>();
-  locationSuggestions$!: Observable<GeocodeResult[]>;
-  locationLoading = false;
-  selectedLocation: GeocodeResult | null = null;
   proximityMapOptions?: L.MapOptions;
   proximityMapLayers: L.Layer[] = [];
   private proximityMap?: L.Map;
@@ -657,7 +636,6 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     this.logger.info("ngOnInit: starting initialization");
     this.updateDateScale();
     this.updatePresetRanges();
-    this.setupLocationSearch();
     this.loadMembers();
     await this.loadGroups();
     await this.loadDateRange();
@@ -1080,7 +1058,6 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     this.proximityRadiusMiles = undefined;
     this.radiusRange = undefined;
     this.locationMethod = LocationMethod.NONE;
-    this.selectedLocation = null;
     this.selectedDaysOfWeek = [];
     this.selectedDifficulty = [];
     this.selectedAccessibility = [];
@@ -1102,7 +1079,6 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       this.proximityLng = undefined;
       this.proximityRadiusMiles = undefined;
       this.radiusRange = undefined;
-      this.selectedLocation = null;
     } else if (this.locationMethod === LocationMethod.CURRENT_LOCATION) {
       this.useCurrentLocation();
     }
@@ -1189,68 +1165,13 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     );
   }
 
-  private setupLocationSearch() {
-    this.locationSuggestions$ = this.locationInput$.pipe(
-      tap(term => this.logger.info(`Location search input: "${term}"`)),
-      debounceTime(300),
-      distinctUntilChanged(),
-      tap(() => this.locationLoading = true),
-      switchMap(term => {
-        if (!term || term.length < 3) {
-          this.locationLoading = false;
-          return of([]);
-        }
-
-        const ukPostcodeRegex = /^[A-Z]{1,2}\d{1,2}\s?\d[A-Z]{2}$/i;
-        if (ukPostcodeRegex.test(term.trim())) {
-          this.logger.info(`Searching postcode: ${term}`);
-          return from(this.addressQueryService.gridReferenceLookup(term)).pipe(
-            map(response => [{
-              label: response.description || response.postcode || term,
-              lat: response.latlng?.lat || 0,
-              lng: response.latlng?.lng || 0
-            }]),
-            tap(results => this.logger.info(`Postcode found:`, results)),
-            catchError(error => {
-              this.logger.warn("Postcode not found, trying place name search:", error);
-              return from(this.addressQueryService.placeNameLookup(term)).pipe(
-                map(response => [{
-                  label: response.description || term,
-                  lat: response.latlng?.lat || 0,
-                  lng: response.latlng?.lng || 0
-                }])
-              );
-            }),
-            tap(() => this.locationLoading = false)
-          );
-        }
-
-        this.logger.info(`Searching address: ${term}`);
-        return from(this.addressQueryService.placeNameLookup(term)).pipe(
-          map(response => [{
-            label: response.description || term,
-            lat: response.latlng?.lat || 0,
-            lng: response.latlng?.lng || 0
-          }]),
-          tap(results => this.logger.info(`Address search returned ${results.length} results`)),
-          tap(() => this.locationLoading = false),
-          catchError(error => {
-            this.logger.error("Location search error:", error);
-            this.locationLoading = false;
-            return of([]);
-          })
-        );
-      })
-    );
-  }
-
-  onLocationSelected(location: GeocodeResult | null) {
-    if (!location) {
+  onLocationSelected(location: GridReferenceLookupResponse | null) {
+    if (!location || !location.latlng) {
       return;
     }
     this.logger.info(`Location selected:`, location);
-    this.proximityLat = location.lat;
-    this.proximityLng = location.lng;
+    this.proximityLat = location.latlng.lat;
+    this.proximityLng = location.latlng.lng;
     if (!this.proximityRadiusMiles) {
       this.proximityRadiusMiles = 5;
       this.radiusRange = { min: 1, max: 5, unit: DistanceUnit.MILES };

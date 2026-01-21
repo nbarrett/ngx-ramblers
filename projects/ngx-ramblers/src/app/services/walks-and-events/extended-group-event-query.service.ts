@@ -51,7 +51,13 @@ export class ExtendedGroupEventQueryService {
       andCriteria.push({[GroupEventField.GROUP_CODE]: eventQueryParameters.groupCode});
     }
     if (eventQueryParameters?.ids && eventQueryParameters?.ids?.length > 0) {
-      andCriteria.push({[GroupEventField.ID]: {$in: eventQueryParameters.ids}});
+      andCriteria.push({
+        $or: [
+          {[ID]: {$in: eventQueryParameters.ids}},
+          {[GroupEventField.ID]: {$in: eventQueryParameters.ids}},
+          {[EventField.MIGRATED_FROM_ID]: {$in: eventQueryParameters.ids}}
+        ]
+      });
     }
     if (eventQueryParameters?.types && eventQueryParameters.types.length > 0) {
       andCriteria.push({[GroupEventField.ITEM_TYPE]: {$in: eventQueryParameters.types}});
