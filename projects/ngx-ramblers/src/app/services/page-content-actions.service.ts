@@ -99,7 +99,51 @@ export class PageContentActionsService {
   }
 
   allPageHrefs(pageContent: PageContent): string[] {
-    return (pageContent?.rows?.map(row => row.columns.map(col => this.urlService.pathOnlyFrom(col?.href))?.filter(item => item)))?.flat(2) || [];
+    const columnHrefs = this.extractColumnHrefs(pageContent?.rows);
+    const contentTextHrefs = this.extractContentTextHrefs(pageContent?.rows);
+    return columnHrefs.concat(contentTextHrefs);
+  }
+
+  private extractColumnHrefs(rows: PageContentRow[]): string[] {
+    return (rows?.map(row => row.columns.map(col => {
+      const columnHref = this.normalizeLocalHref(col?.href);
+      const nestedHrefs = this.extractColumnHrefs(col?.rows);
+      return [columnHref].concat(nestedHrefs);
+    })?.filter(item => item)))?.flat(3) || [];
+  }
+
+  private extractContentTextHrefs(rows: PageContentRow[]): string[] {
+    return (rows?.map(row => row.columns.map(col => {
+      const markdownHrefs = this.extractMarkdownLinkHrefs(col?.contentText);
+      const nestedHrefs = this.extractContentTextHrefs(col?.rows);
+      return markdownHrefs.concat(nestedHrefs);
+    })))?.flat(3) || [];
+  }
+
+  extractMarkdownLinkHrefs(text: string): string[] {
+    if (!text) {
+      return [];
+    }
+    const markdownLinkPattern = /\[([^\]]*)\]\(([^)]+)\)/g;
+    const matches = Array.from(text.matchAll(markdownLinkPattern));
+    return matches
+      .map(match => this.normalizeLocalHref(match[2]))
+      .filter(href => href);
+  }
+
+  private normalizeLocalHref(href: string): string {
+    if (!href) {
+      return null;
+    }
+    const pathOnly = this.urlService.pathOnlyFrom(href);
+    if (this.isExternalUrl(pathOnly)) {
+      return null;
+    }
+    return pathOnly.replace(/^\/+/, "");
+  }
+
+  private isExternalUrl(url: string): boolean {
+    return url?.startsWith("http") || url?.startsWith("www") || url?.includes("://") || url?.startsWith("mailto:");
   }
 
   notifyPageContentTextChange(contentText: ContentText, column: PageContentColumn, pageContent?: PageContent) {
