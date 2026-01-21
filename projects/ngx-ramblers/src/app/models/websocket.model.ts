@@ -26,6 +26,9 @@ export enum EventType {
   BACKUP_RESTORE = "backup-restore",
   ESRI_ROUTE_IMPORT = "esri-route-import",
   WALKS_MANAGER_SYNC = "walks-manager-sync",
+  IMAGE_MIGRATION_SCAN_HOSTS = "image-migration-scan-hosts",
+  IMAGE_MIGRATION_SCAN = "image-migration-scan",
+  IMAGE_MIGRATION_EXECUTE = "image-migration-execute",
   PING = "ping",
 }
 

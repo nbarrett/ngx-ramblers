@@ -114,6 +114,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
+      path: "image-migration",
+      loadComponent: () => import("../../pages/admin/system-settings/image-migration/image-migration-settings")
+        .then(m => m.ImageMigrationSettingsComponent),
+      canActivate: [SystemHealthyGuard, AdminAuthGuard]
+    },
+    {
       path: "backup-and-restore",
       loadComponent: () => import("../../pages/admin/backup-and-restore/backup-and-restore")
         .then(m => m.BackupAndRestore),
