@@ -41,7 +41,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
             <div class="form-check">
               <input [disabled]="inputDisabled || !allowEdits() || saveInProgress"
                      (ngModelChange)="changedPublishMeetup($event)"
-                     [(ngModel)]="displayedWalk.walk.fields.publishing.meetup"
+                     [(ngModel)]="displayedWalk.walk.fields.publishing.meetup.publish"
                      type="checkbox" class="form-check-input" id="walk-publish-meetup">
               <label class="form-check-label"
                      for="walk-publish-meetup">Publish this walk to Meetup
@@ -49,7 +49,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
             </div>
           </div>
         }
-        @if (displayedWalk?.walk.fields.publishing.meetup) {
+        @if (displayedWalk?.walk.fields.publishing.meetup?.publish) {
           <div class="col-sm-12">
             @if (contentTextItems.length > 0 && meetupConfigExists()) {
               <app-walk-meetup-config-parameters
