@@ -29,6 +29,7 @@ export enum EventType {
   IMAGE_MIGRATION_SCAN_HOSTS = "image-migration-scan-hosts",
   IMAGE_MIGRATION_SCAN = "image-migration-scan",
   IMAGE_MIGRATION_EXECUTE = "image-migration-execute",
+  IMAGE_MIGRATION_CANCEL = "image-migration-cancel",
   PING = "ping",
 }
 
@@ -36,6 +37,7 @@ export enum MessageType {
   COMPLETE = "complete",
   PROGRESS = "progress",
   ERROR = "error",
+  CANCELLED = "cancelled",
 }
 
 export const allowableStatusCodes: number[] = [1000, 1005];

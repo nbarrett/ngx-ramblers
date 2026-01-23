@@ -5,22 +5,27 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { FormsModule } from "@angular/forms";
 import { range } from "es-toolkit";
+import { NgSelectComponent } from "@ng-select/ng-select";
 
+interface FileSizeOption {
+  value: number;
+  label: string;
+}
 
 @Component({
   selector: "app-file-size-selector",
   template: `
-    <label [for]="id">{{ label || 'File Size' }}</label>
-    <select class="form-control input-sm"
-            [(ngModel)]="fileSize"
-            [disabled]="disabled"
-            (ngModelChange)="changeFileSize($event)"
-            [id]="id">
-      @for (fileSize of fileSizes; track fileSize) {
-        <option [ngValue]="fileSize">{{ formatFileSize(fileSize) }}</option>
-      }
-    </select>`,
-  imports: [FormsModule]
+    <label [for]="id">{{ label || "File Size" }}</label>
+    <ng-select [id]="id"
+               [items]="fileSizeOptions"
+               bindLabel="label"
+               bindValue="value"
+               [(ngModel)]="fileSize"
+               [disabled]="disabled"
+               [clearable]="false"
+               dropdownPosition="bottom"
+               (ngModelChange)="changeFileSize($event)"/>`,
+  imports: [FormsModule, NgSelectComponent]
 })
 
 export class FileSizeSelectorComponent implements OnInit {
@@ -39,15 +44,16 @@ export class FileSizeSelectorComponent implements OnInit {
 
   @Output() fileSizeChanged: EventEmitter<number> = new EventEmitter();
 
-  public fileSizes: number[] = range(0, 1000 * 1024, 50 * 1024).concat(range(1000 * 1024, 7000 * 1024, 1000 * 1024));
+  public fileSizeOptions: FileSizeOption[];
   public id = this.numberUtils.generateUid();
 
   ngOnInit(): void {
-    this.logger.info("constructed with fileSize:", this.fileSize, "fileSizes:", this.fileSizes);
-  }
-
-  formatFileSize(fileSize: number): string {
-    return fileSize === 0 ? "No Resizing" : this.numberUtils.humanFileSize(fileSize);
+    const fileSizes = range(0, 1000 * 1024, 50 * 1024).concat(range(1000 * 1024, 7000 * 1024, 1000 * 1024));
+    this.fileSizeOptions = fileSizes.map(size => ({
+      value: size,
+      label: size === 0 ? "No Resizing" : this.numberUtils.humanFileSize(size)
+    }));
+    this.logger.info("constructed with fileSize:", this.fileSize, "fileSizeOptions:", this.fileSizeOptions);
   }
 
   changeFileSize(fileSize: number) {

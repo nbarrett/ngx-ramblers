@@ -265,8 +265,8 @@ export class ImageMigrationGroupComponent {
   }
 
   sourceLinkFor(group: ImageMigrationGroup): string | null {
-    // External URLs (http/https) are not local resources - return null
-    if (group.sourcePath.startsWith("http://") || group.sourcePath.startsWith("https://")) {
+    const isExternalUrl = group.sourcePath.startsWith("http://") || group.sourcePath.startsWith("https://");
+    if (isExternalUrl) {
       return null;
     }
     switch (group.sourceType) {

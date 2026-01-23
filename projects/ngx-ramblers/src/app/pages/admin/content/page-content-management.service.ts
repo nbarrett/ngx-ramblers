@@ -47,7 +47,13 @@ export class PageContentManagementService {
   }
 
   async changePath(contentPathId: string, changedPath: string): Promise<PageContent> {
-    const pageContent = await this.pageContentService.findByPath(contentPathId);
+    let pageContent = await this.pageContentService.findByPath(contentPathId);
+    if (!pageContent) {
+      pageContent = await this.pageContentService.findById(contentPathId);
+    }
+    if (!pageContent) {
+      throw new Error(`Page content not found for path or id: ${contentPathId}`);
+    }
     pageContent.path = changedPath;
     this.logger.info("changePath:contentPathId:", contentPathId, "changedPath:", changedPath, "pageContent:", pageContent);
     return await this.pageContentService.update(pageContent);

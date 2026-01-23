@@ -692,12 +692,39 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
               @if (pastePageContentError) {
                 <div class="text-danger mt-1">{{ pastePageContentError }}</div>
               }
+              @if (pastePathMismatch) {
+                <div class="alert alert-warning mt-2 mb-2">
+                  <strong>Path Mismatch:</strong> The pasted content has a different path. Which path should be used?
+                  <div class="mt-2">
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" [name]="'pathChoice-' + componentId"
+                             [id]="'keepCurrentPath-' + componentId"
+                             [value]="pageContent?.path" [(ngModel)]="selectedPastePath">
+                      <label class="form-check-label" [for]="'keepCurrentPath-' + componentId">
+                        Keep current path: <strong>{{ pageContent?.path }}</strong>
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" [name]="'pathChoice-' + componentId"
+                             [id]="'usePastedPath-' + componentId"
+                             [value]="pastedContentPath" [(ngModel)]="selectedPastePath"
+                             [disabled]="pastedPathExists">
+                      <label class="form-check-label" [for]="'usePastedPath-' + componentId">
+                        Use pasted path: <strong>{{ pastedContentPath }}</strong>
+                        @if (pastedPathExists) {
+                          <span class="text-danger ms-2">(path already exists)</span>
+                        }
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              }
               <div class="d-flex flex-wrap gap-2 mt-2">
                 <app-badge-button
                   [icon]="pastingPageContent ? faSpinner : faSave"
                   [spin]="pastingPageContent"
-                  caption="Apply pasted content"
-                  [disabled]="pastingPageContent"
+                  [caption]="pastePathMismatch ? 'Apply with selected path' : 'Apply pasted content'"
+                  [disabled]="pastingPageContent || (pastePathMismatch && !selectedPastePath)"
                   (click)="applyPastedPageContent()"/>
                 <app-badge-button
                   [icon]="faRemove"
@@ -792,6 +819,12 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public pastePageContentText = "";
   public pastePageContentError = "";
   public pastingPageContent = false;
+  public pastePathMismatch = false;
+  public pastedContentPath = "";
+  public selectedPastePath = "";
+  public pastedPathExists = false;
+  public componentId = Math.random().toString(36).substring(2, 9);
+  private pendingPastedContent: PageContent | null = null;
   protected readonly MigrationTemplateSourceType = MigrationTemplateSourceType;
   readonly contentTemplateTypeOptions = [
     {
@@ -1111,6 +1144,11 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.pastePageContentText = "";
     this.pastePageContentError = "";
     this.pastingPageContent = false;
+    this.pastePathMismatch = false;
+    this.pastedContentPath = "";
+    this.selectedPastePath = "";
+    this.pastedPathExists = false;
+    this.pendingPastedContent = null;
   }
 
   private extractPastedPageContent(value: any): PageContent | null {
@@ -1136,6 +1174,25 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     if (this.pastingPageContent) {
       return;
     }
+
+    if (this.pastePathMismatch && this.pendingPastedContent && this.selectedPastePath) {
+      this.pastingPageContent = true;
+      try {
+        this.pendingPastedContent.path = this.selectedPastePath;
+        await this.initialisePageContent(this.pendingPastedContent);
+        this.notify.success({
+          title: "Paste Page Content",
+          message: `Applied pasted content to ${this.pendingPastedContent.path}`
+        });
+        this.cancelPastePageContent();
+      } catch (error) {
+        this.pastePageContentError = error instanceof Error ? error.message : "Failed to apply content";
+      } finally {
+        this.pastingPageContent = false;
+      }
+      return;
+    }
+
     const raw = this.pastePageContentText?.trim();
     if (!raw) {
       this.pastePageContentError = "Paste JSON representing PageContent";
@@ -1149,7 +1206,24 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       if (!extracted) {
         throw new Error("Unable to locate PageContent in pasted JSON");
       }
-      extracted.path = this.urlService.reformatLocalHref(extracted.path || this.pageContent?.path || "");
+      delete extracted.id;
+      delete (extracted as any)._id;
+
+      const pastedPath = this.urlService.reformatLocalHref(extracted.path || "");
+      const currentPath = this.pageContent?.path || "";
+
+      if (pastedPath && currentPath && pastedPath !== currentPath) {
+        const existingPage = await this.pageContentService.findByPath(pastedPath);
+        this.pastedPathExists = !!existingPage;
+        this.pastedContentPath = pastedPath;
+        this.selectedPastePath = currentPath;
+        this.pendingPastedContent = extracted;
+        this.pastePathMismatch = true;
+        this.pastingPageContent = false;
+        return;
+      }
+
+      extracted.path = pastedPath || currentPath;
       await this.initialisePageContent(extracted);
       this.notify.success({
         title: "Paste Page Content",

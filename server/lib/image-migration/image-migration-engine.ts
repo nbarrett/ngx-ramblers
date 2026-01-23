@@ -21,13 +21,40 @@ import { pageContent } from "../mongo/models/page-content";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { isAwsUploadErrorResponse, generateAwsFileName } from "../aws/aws-utils";
 import * as mongooseClient from "../mongo/mongoose-client";
-import { isArray } from "es-toolkit/compat";
+import { isArray, keys } from "es-toolkit/compat";
 import { humanFileSize } from "../../../projects/ngx-ramblers/src/app/functions/file-utils";
+import { createProcessTimer } from "../shared/process-timer";
+import { dateTimeNowAsValue } from "../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("image-migration-engine"));
 debugLog.enabled = true;
 
 type ProgressCallback = (progress: ImageMigrationProgress) => void;
+type CancellationCheck = () => boolean;
+type UrlMapping = Record<string, string>;
+
+function rootFolderForSourceType(sourceType: ImageMigrationSourceType, fallbackFolder: RootFolder): RootFolder {
+  if (sourceType === ImageMigrationSourceType.CONTENT_METADATA) {
+    return RootFolder.carousels;
+  } else {
+    return fallbackFolder;
+  }
+}
+
+function extractAlbumNameFromSourcePath(sourcePath: string): string {
+  const parts = sourcePath.split("/");
+  return parts.length > 1 ? parts.slice(1).join("/") : sourcePath;
+}
+
+function targetPathForImage(imageRef: ExternalImageReference, fallbackFolder: RootFolder): string {
+  const rootFolder = rootFolderForSourceType(imageRef.sourceType, fallbackFolder);
+  if (imageRef.sourceType === ImageMigrationSourceType.CONTENT_METADATA) {
+    const albumName = extractAlbumNameFromSourcePath(imageRef.sourcePath);
+    return `${rootFolder}/${albumName}`;
+  } else {
+    return rootFolder;
+  }
+}
 
 async function downloadExternalImage(url: string): Promise<{ buffer: Buffer; contentType: string }> {
   return new Promise((resolve, reject) => {
@@ -76,14 +103,18 @@ function extractFileNameFromUrl(url: string): string {
     if (fileName && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileName)) {
       return fileName;
     }
-    return `image-${Date.now()}.jpg`;
+    return `image-${dateTimeNowAsValue()}.jpg`;
   } catch {
-    return `image-${Date.now()}.jpg`;
+    return `image-${dateTimeNowAsValue()}.jpg`;
   }
 }
 
 async function resizeImageIfNeeded(buffer: Buffer, imagePath: string, maxFileSize: number): Promise<{ buffer: Buffer; wasResized: boolean }> {
-  if (maxFileSize <= 0 || buffer.length <= maxFileSize) {
+  if (maxFileSize <= 0) {
+    debugLog(`resizeImageIfNeeded:skipping resize for ${imagePath}, size ${humanFileSize(buffer.length)} (no size limit set)`);
+    return { buffer, wasResized: false };
+  }
+  if (buffer.length <= maxFileSize) {
     debugLog(`resizeImageIfNeeded:skipping resize for ${imagePath}, size ${humanFileSize(buffer.length)} already under ${humanFileSize(maxFileSize)}`);
     return { buffer, wasResized: false };
   }
@@ -112,12 +143,7 @@ async function resizeImageIfNeeded(buffer: Buffer, imagePath: string, maxFileSiz
   return { buffer: resizedBuffer, wasResized: true };
 }
 
-interface UploadTarget {
-  rootFolder: string;
-  awsFileName: string;
-}
-
-async function uploadToS3(buffer: Buffer, originalFileName: string, targetFolder: string): Promise<UploadTarget> {
+async function uploadToS3(buffer: Buffer, originalFileName: string, targetFolder: string): Promise<string> {
   const tempDir = os.tmpdir();
   const awsFileName = generateAwsFileName(originalFileName);
   const tempFilePath = path.join(tempDir, awsFileName);
@@ -131,8 +157,9 @@ async function uploadToS3(buffer: Buffer, originalFileName: string, targetFolder
       throw new Error(result.error || "S3 upload failed");
     }
 
-    debugLog("uploadToS3:success:", targetFolder, awsFileName);
-    return { rootFolder: targetFolder, awsFileName };
+    const s3Path = `${targetFolder}/${awsFileName}`;
+    debugLog("uploadToS3:success:", s3Path);
+    return s3Path;
   } finally {
     try {
       await fs.promises.unlink(tempFilePath);
@@ -142,58 +169,92 @@ async function uploadToS3(buffer: Buffer, originalFileName: string, targetFolder
   }
 }
 
-async function getAlbumTargetFolder(sourceId: string): Promise<string | null> {
-  await mongooseClient.connect(debugLog);
-  const doc = await contentMetadata.findById(sourceId).exec();
-  if (doc && doc.rootFolder && doc.name) {
-    return `${doc.rootFolder}/${doc.name}`;
-  }
-  return null;
+function replaceUrlsInText(text: string, urlMapping: UrlMapping): string {
+  let result = text;
+  keys(urlMapping).forEach(oldUrl => {
+    const newUrl = urlMapping[oldUrl];
+    const containsUrl = result.includes(oldUrl);
+    debugLog("replaceUrlsInText:checking", oldUrl, "->", newUrl, "containsUrl:", containsUrl);
+    if (containsUrl) {
+      const escapedOldUrl = oldUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const markdownRegex = new RegExp(`(!\\[[^\\]]*\\]\\()${escapedOldUrl}(\\))`, "g");
+      const markdownMatches = result.match(markdownRegex);
+      debugLog("replaceUrlsInText:markdown matches:", markdownMatches?.length || 0);
+      result = result.replace(markdownRegex, `$1${newUrl}$2`);
+      const htmlRegex = new RegExp(`(<img[^>]+src=["'])${escapedOldUrl}(["'][^>]*>)`, "gi");
+      const htmlMatches = result.match(htmlRegex);
+      debugLog("replaceUrlsInText:HTML matches:", htmlMatches?.length || 0);
+      result = result.replace(htmlRegex, `$1${newUrl}$2`);
+    }
+  });
+  return result;
 }
 
-async function updateContentMetadataReference(image: ExternalImageReference, newImageValue: string, maxImageSize?: number): Promise<void> {
-  debugLog("updateContentMetadataReference:updating", image.sourceId, "from", image.currentUrl, "to", newImageValue);
+async function updateContentMetadataWithMapping(sourceId: string, urlMapping: UrlMapping, maxImageSize?: number): Promise<void> {
+  debugLog("updateContentMetadataWithMapping:updating", sourceId, "with", keys(urlMapping).length, "URL replacements");
   await mongooseClient.connect(debugLog);
 
-  const doc = await contentMetadata.findById(image.sourceId).exec();
+  const doc = await contentMetadata.findById(sourceId).exec();
   if (!doc) {
-    throw new Error(`ContentMetadata not found: ${image.sourceId}`);
+    throw new Error(`ContentMetadata not found: ${sourceId}`);
   }
 
   const files = doc.files || [];
   const updatedFiles = files.map((file: any) => {
-    if (file.image === image.currentUrl) {
-      return { ...file.toObject ? file.toObject() : file, image: newImageValue };
+    const fileObj = file.toObject ? file.toObject() : file;
+    if (fileObj.image && urlMapping[fileObj.image]) {
+      const newUrl = urlMapping[fileObj.image];
+      const fileName = newUrl.split("/").pop();
+      return { ...fileObj, image: fileName };
     }
-    return file.toObject ? file.toObject() : file;
+    return fileObj;
   });
 
-  const updateData: any = { files: updatedFiles };
+  const updateData: any = {
+    files: updatedFiles,
+    rootFolder: RootFolder.carousels
+  };
+
+  if (doc.coverImage && urlMapping[doc.coverImage]) {
+    const newUrl = urlMapping[doc.coverImage];
+    updateData.coverImage = newUrl.split("/").pop();
+  }
 
   if (maxImageSize > 0 && !doc.maxImageSize) {
-    debugLog("updateContentMetadataReference:setting maxImageSize to", maxImageSize);
+    debugLog("updateContentMetadataWithMapping:setting maxImageSize to", maxImageSize);
     updateData.maxImageSize = maxImageSize;
   }
 
-  await contentMetadata.findByIdAndUpdate(image.sourceId, updateData).exec();
-  debugLog("updateContentMetadataReference:updated successfully");
+  debugLog("updateContentMetadataWithMapping:setting rootFolder to", RootFolder.carousels);
+  await contentMetadata.findByIdAndUpdate(sourceId, updateData).exec();
+  debugLog("updateContentMetadataWithMapping:updated successfully");
 }
 
-async function updatePageContentReference(image: ExternalImageReference, newS3Url: string): Promise<void> {
-  debugLog("updatePageContentReference:updating", image.sourceId, "from", image.currentUrl, "to", newS3Url);
+async function updatePageContentWithMapping(sourceId: string, urlMapping: UrlMapping): Promise<void> {
+  debugLog("updatePageContentWithMapping:updating", sourceId, "with", keys(urlMapping).length, "URL replacements:", keys(urlMapping));
   await mongooseClient.connect(debugLog);
 
-  const doc = await pageContent.findById(image.sourceId).exec();
+  const doc = await pageContent.findById(sourceId).exec();
   if (!doc) {
-    throw new Error(`PageContent not found: ${image.sourceId}`);
+    debugLog("updatePageContentWithMapping:document not found:", sourceId);
+    throw new Error(`PageContent not found: ${sourceId}`);
   }
+  debugLog("updatePageContentWithMapping:found document:", doc.path);
 
   const docObj = doc.toObject ? doc.toObject() : doc;
 
   function updateColumnImages(column: any): any {
     const updatedColumn = { ...column };
-    if (updatedColumn.imageSource === image.currentUrl) {
-      updatedColumn.imageSource = newS3Url;
+    if (updatedColumn.imageSource && urlMapping[updatedColumn.imageSource]) {
+      debugLog("updatePageContentWithMapping:replacing imageSource:", updatedColumn.imageSource, "->", urlMapping[updatedColumn.imageSource]);
+      updatedColumn.imageSource = urlMapping[updatedColumn.imageSource];
+    }
+    if (updatedColumn.contentText) {
+      const originalText = updatedColumn.contentText;
+      updatedColumn.contentText = replaceUrlsInText(updatedColumn.contentText, urlMapping);
+      if (originalText !== updatedColumn.contentText) {
+        debugLog("updatePageContentWithMapping:contentText was modified");
+      }
     }
     if (updatedColumn.rows && isArray(updatedColumn.rows)) {
       updatedColumn.rows = updatedColumn.rows.map((nestedRow: any) => ({
@@ -209,17 +270,29 @@ async function updatePageContentReference(image: ExternalImageReference, newS3Ur
     columns: (row.columns || []).map(updateColumnImages)
   }));
 
-  await pageContent.findByIdAndUpdate(image.sourceId, { rows: updatedRows }).exec();
-  debugLog("updatePageContentReference:updated successfully");
+  const changedColumns = updatedRows.flatMap((row: any) =>
+    (row.columns || []).filter((col: any) => col.imageSource && col.imageSource.startsWith("site-content"))
+  );
+  debugLog("updatePageContentWithMapping:columns with updated imageSource:", JSON.stringify(changedColumns.map((c: any) => ({ imageSource: c.imageSource })), null, 2));
+
+  const updateResult = await pageContent.findByIdAndUpdate(sourceId, { $set: { rows: updatedRows } }, { new: true }).exec();
+  debugLog("updatePageContentWithMapping:update result:", updateResult ? "document returned" : "no document returned");
+
+  if (updateResult) {
+    const verifyColumns = (updateResult.rows || []).flatMap((row: any) =>
+      (row.columns || []).filter((col: any) => col.imageSource)
+    );
+    debugLog("updatePageContentWithMapping:verification - imageSource values after update:", JSON.stringify(verifyColumns.map((c: any) => ({ imageSource: c.imageSource })), null, 2));
+  }
 }
 
-async function updateGroupEventReference(image: ExternalImageReference, newS3Url: string): Promise<void> {
-  debugLog("updateGroupEventReference:updating", image.sourceId, "from", image.currentUrl, "to", newS3Url);
+async function updateGroupEventWithMapping(sourceId: string, urlMapping: UrlMapping): Promise<void> {
+  debugLog("updateGroupEventWithMapping:updating", sourceId, "with", keys(urlMapping).length, "URL replacements");
   await mongooseClient.connect(debugLog);
 
-  const doc = await extendedGroupEvent.findById(image.sourceId).exec();
+  const doc = await extendedGroupEvent.findById(sourceId).exec();
   if (!doc) {
-    throw new Error(`ExtendedGroupEvent not found: ${image.sourceId}`);
+    throw new Error(`ExtendedGroupEvent not found: ${sourceId}`);
   }
 
   const docObj = doc.toObject ? doc.toObject() : doc;
@@ -228,122 +301,232 @@ async function updateGroupEventReference(image: ExternalImageReference, newS3Url
   const updatedMedia = media.map((mediaItem: any) => ({
     ...mediaItem,
     styles: (mediaItem.styles || []).map((style: any) => {
-      if (style.url === image.currentUrl) {
-        return { ...style, url: newS3Url };
+      if (style.url && urlMapping[style.url]) {
+        return { ...style, url: urlMapping[style.url] };
       }
       return style;
     })
   }));
 
-  await extendedGroupEvent.findByIdAndUpdate(image.sourceId, {
+  const updateFields: any = {
     "groupEvent.media": updatedMedia
-  }).exec();
-  debugLog("updateGroupEventReference:updated successfully");
+  };
+
+  if (docObj.groupEvent?.description) {
+    updateFields["groupEvent.description"] = replaceUrlsInText(docObj.groupEvent.description, urlMapping);
+  }
+  if (docObj.groupEvent?.additional_details) {
+    updateFields["groupEvent.additional_details"] = replaceUrlsInText(docObj.groupEvent.additional_details, urlMapping);
+  }
+
+  await extendedGroupEvent.findByIdAndUpdate(sourceId, updateFields).exec();
+  debugLog("updateGroupEventWithMapping:updated successfully");
 }
 
-async function updateContentReference(image: ExternalImageReference, upload: UploadTarget, maxImageSize?: number): Promise<string> {
-  const relativeS3Url = `${upload.rootFolder}/${upload.awsFileName}`;
-
-  switch (image.sourceType) {
+async function updateDocumentWithMapping(
+  sourceType: ImageMigrationSourceType,
+  sourceId: string,
+  urlMapping: UrlMapping,
+  maxImageSize?: number
+): Promise<void> {
+  switch (sourceType) {
     case ImageMigrationSourceType.CONTENT_METADATA:
-      await updateContentMetadataReference(image, upload.awsFileName, maxImageSize);
+      await updateContentMetadataWithMapping(sourceId, urlMapping, maxImageSize);
       break;
     case ImageMigrationSourceType.PAGE_CONTENT:
-      await updatePageContentReference(image, relativeS3Url);
+      await updatePageContentWithMapping(sourceId, urlMapping);
       break;
     case ImageMigrationSourceType.GROUP_EVENT:
     case ImageMigrationSourceType.SOCIAL_EVENT:
-      await updateGroupEventReference(image, relativeS3Url);
+      await updateGroupEventWithMapping(sourceId, urlMapping);
       break;
     default:
-      throw new Error(`Unknown source type: ${image.sourceType}`);
+      throw new Error(`Unknown source type: ${sourceType}`);
   }
-
-  return relativeS3Url;
 }
 
 export async function migrateImages(
   request: ImageMigrationRequest,
-  progressCallback?: ProgressCallback
+  progressCallback?: ProgressCallback,
+  isCancelled?: CancellationCheck
 ): Promise<ImageMigrationResult> {
-  debugLog("migrateImages:starting migration of", request.images.length, "images to", request.targetRootFolder);
+  const timer = createProcessTimer("migrateImages", debugLog);
+  debugLog("migrateImages:migrating", request.images.length, "images to", request.targetRootFolder);
 
   const migratedImages: ExternalImageReference[] = [];
   const failedImages: ExternalImageReference[] = [];
-  let processedCount = 0;
 
-  const sendProgress = (currentImage: string) => {
+  const maxImageSize = request.maxImageSize || 0;
+
+  const urlToImageRef = request.images.reduce((acc, img) => {
+    if (!acc[img.currentUrl]) {
+      acc[img.currentUrl] = img;
+    }
+    return acc;
+  }, {} as Record<string, ExternalImageReference>);
+
+  const uniqueUrls = keys(urlToImageRef);
+  debugLog("migrateImages:found", uniqueUrls.length, "unique URLs from", request.images.length, "image references");
+
+  const globalUrlMapping: UrlMapping = {};
+  const failedUrls = new Set<string>();
+  let uploadedCount = 0;
+
+  const sendProgress = (currentImage: string, phase: "upload" | "update") => {
     if (progressCallback) {
+      const uploadWeight = 0.8;
+      const updateWeight = 0.2;
+      let percent: number;
+      let processedImages: number;
+      let successCount: number;
+      let failureCount: number;
+
+      if (phase === "upload") {
+        percent = Math.round((uploadedCount / uniqueUrls.length) * uploadWeight * 100);
+        processedImages = uploadedCount;
+        successCount = keys(globalUrlMapping).length;
+        failureCount = failedUrls.size;
+      } else {
+        const uploadPercent = uploadWeight * 100;
+        const updatePercent = (migratedImages.length + failedImages.length) / request.images.length * updateWeight * 100;
+        percent = Math.round(uploadPercent + updatePercent);
+        processedImages = migratedImages.length + failedImages.length;
+        successCount = migratedImages.length;
+        failureCount = failedImages.length;
+      }
+
       progressCallback({
-        totalImages: request.images.length,
-        processedImages: processedCount,
-        successCount: migratedImages.length,
-        failureCount: failedImages.length,
+        totalImages: phase === "upload" ? uniqueUrls.length : request.images.length,
+        processedImages,
+        successCount,
+        failureCount,
         currentImage,
-        percent: Math.round((processedCount / request.images.length) * 100)
+        percent: Math.min(percent, 100)
       });
     }
   };
 
-  const maxImageSize = request.maxImageSize || 0;
+  uniqueUrls.forEach((url, index) => {
+    debugLog("migrateImages:queued for upload:", index + 1, "/", uniqueUrls.length, url);
+  });
 
-  const imagePromises = request.images.map(async (image) => {
+  for (const url of uniqueUrls) {
+    if (isCancelled?.()) {
+      debugLog("migrateImages:cancellation requested, stopping upload phase");
+      break;
+    }
     try {
-      debugLog("migrateImages:processing image:", image.currentUrl);
-      sendProgress(image.currentUrl);
+      debugLog("migrateImages:downloading unique image:", url);
+      sendProgress(url, "upload");
 
-      const { buffer: downloadedBuffer } = await downloadExternalImage(image.currentUrl);
-      const fileName = extractFileNameFromUrl(image.currentUrl);
+      const { buffer: downloadedBuffer } = await downloadExternalImage(url);
+      const fileName = extractFileNameFromUrl(url);
 
       const { buffer: finalBuffer, wasResized } = await resizeImageIfNeeded(downloadedBuffer, fileName, maxImageSize);
       if (wasResized) {
         debugLog("migrateImages:resized image from", humanFileSize(downloadedBuffer.length), "to", humanFileSize(finalBuffer.length));
       }
 
-      let targetFolder: string = request.targetRootFolder;
-      if (image.sourceType === ImageMigrationSourceType.CONTENT_METADATA) {
-        const albumFolder = await getAlbumTargetFolder(image.sourceId);
-        if (albumFolder) {
-          targetFolder = albumFolder;
-          debugLog("migrateImages:using album folder:", targetFolder);
-        }
-      }
+      const imageRef = urlToImageRef[url];
+      const targetFolder = targetPathForImage(imageRef, request.targetRootFolder);
+      debugLog("migrateImages:target folder for", url, "is", targetFolder, "based on source type", imageRef.sourceType, "sourcePath", imageRef.sourcePath);
 
-      const upload = await uploadToS3(finalBuffer, fileName, targetFolder);
-      const newS3Url = await updateContentReference(image, upload, maxImageSize);
-
-      const migratedImage: ExternalImageReference = {
-        ...image,
-        status: ImageMigrationStatus.MIGRATED,
-        newS3Url
-      };
-      migratedImages.push(migratedImage);
-      debugLog("migrateImages:successfully migrated:", image.currentUrl, "->", newS3Url);
+      const newS3Url = await uploadToS3(finalBuffer, fileName, targetFolder);
+      globalUrlMapping[url] = newS3Url;
+      uploadedCount++;
+      debugLog("migrateImages:uploaded:", url, "->", newS3Url);
+      sendProgress(url, "upload");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      debugLog("migrateImages:failed to migrate:", image.currentUrl, "error:", errorMessage);
-
-      const failedImage: ExternalImageReference = {
-        ...image,
-        status: ImageMigrationStatus.FAILED,
-        errorMessage
-      };
-      failedImages.push(failedImage);
-    } finally {
-      processedCount++;
-      sendProgress(image.currentUrl);
+      debugLog("migrateImages:failed to download/upload:", url, "error:", errorMessage);
+      failedUrls.add(url);
+      uploadedCount++;
+      sendProgress(url, "upload");
     }
-  });
+  }
 
-  await Promise.all(imagePromises.map(p => p.catch(() => {})));
+  timer.log(`upload phase complete. Success: ${keys(globalUrlMapping).length}, Failed: ${failedUrls.size}`);
 
-  debugLog("migrateImages:completed migration. Success:", migratedImages.length, "Failed:", failedImages.length);
+  const imagesByDocument = request.images.reduce((acc, image) => {
+    const key = `${image.sourceType}:::${image.sourceId}`;
+    if (!acc[key]) {
+      acc[key] = { sourceType: image.sourceType, sourceId: image.sourceId, images: [] };
+    }
+    acc[key].images.push(image);
+    return acc;
+  }, {} as Record<string, { sourceType: ImageMigrationSourceType; sourceId: string; images: ExternalImageReference[] }>);
+
+  const wasCancelledDuringUpload = isCancelled?.() || false;
+  if (wasCancelledDuringUpload) {
+    debugLog("migrateImages:cancelled during upload phase, will still save", keys(globalUrlMapping).length, "successfully uploaded images");
+  }
+
+  timer.log(`updating ${keys(imagesByDocument).length} documents`);
+
+  for (const docGroup of Object.values(imagesByDocument)) {
+    const documentUrlMapping: UrlMapping = {};
+    const documentImages = docGroup.images;
+
+    documentImages.forEach(image => {
+      if (globalUrlMapping[image.currentUrl]) {
+        documentUrlMapping[image.currentUrl] = globalUrlMapping[image.currentUrl];
+      }
+    });
+
+    if (keys(documentUrlMapping).length > 0) {
+      try {
+        debugLog("migrateImages:updating document", docGroup.sourceType, docGroup.sourceId, "with", keys(documentUrlMapping).length, "URL mappings");
+        await updateDocumentWithMapping(docGroup.sourceType, docGroup.sourceId, documentUrlMapping, maxImageSize);
+        debugLog("migrateImages:document updated successfully", docGroup.sourceId);
+
+        documentImages.forEach(image => {
+          if (globalUrlMapping[image.currentUrl]) {
+            migratedImages.push({
+              ...image,
+              status: ImageMigrationStatus.MIGRATED,
+              newS3Url: globalUrlMapping[image.currentUrl]
+            });
+          } else {
+            failedImages.push({
+              ...image,
+              status: ImageMigrationStatus.FAILED,
+              errorMessage: "Failed to download or upload image"
+            });
+          }
+          sendProgress(image.currentUrl, "update");
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        debugLog("migrateImages:failed to update document:", docGroup.sourceId, "error:", errorMessage);
+        documentImages.forEach(image => {
+          failedImages.push({
+            ...image,
+            status: ImageMigrationStatus.FAILED,
+            errorMessage
+          });
+          sendProgress(image.currentUrl, "update");
+        });
+      }
+    } else {
+      documentImages.forEach(image => {
+        failedImages.push({
+          ...image,
+          status: ImageMigrationStatus.FAILED,
+          errorMessage: "Failed to download or upload image"
+        });
+        sendProgress(image.currentUrl, "update");
+      });
+    }
+  }
+
+  timer.complete(`Success: ${migratedImages.length}, Failed: ${failedImages.length}${wasCancelledDuringUpload ? " (cancelled)" : ""}`);
 
   return {
-    totalProcessed: processedCount,
+    totalProcessed: migratedImages.length + failedImages.length,
     successCount: migratedImages.length,
     failureCount: failedImages.length,
     migratedImages,
-    failedImages
+    failedImages,
+    cancelled: wasCancelledDuringUpload
   };
 }

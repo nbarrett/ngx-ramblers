@@ -442,4 +442,12 @@ export interface ImageMigrationResult {
   failureCount: number;
   migratedImages: ExternalImageReference[];
   failedImages: ExternalImageReference[];
+  cancelled?: boolean;
+}
+
+export interface ImageMigrationActivityLog {
+  id: string;
+  status: string;
+  time: number;
+  message: string;
 }

@@ -12,13 +12,12 @@ import { envConfig } from "../env-config/env-config";
 import { hasFileExtension } from "../shared/string-utils";
 import * as aws from "./aws-controllers";
 import debug from "debug";
-import { generateAwsFileName, createFileNameData, isAwsUploadErrorResponse } from "./aws-utils";
+import { createFileNameData, generateAwsFileName, isAwsUploadErrorResponse } from "./aws-utils";
 import { Request, Response } from "express";
 import * as fs from "fs";
 import proj4 from "proj4";
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import path = require("path");
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("s3-file-upload"));
 debugLog.enabled = true;
