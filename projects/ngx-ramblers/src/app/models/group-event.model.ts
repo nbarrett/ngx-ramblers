@@ -152,6 +152,7 @@ export interface EditableEventStats extends EventStatsRequest, EventStats {
 
 export interface EventStats extends EventStatsRequest {
   eventCount: number,
+  duplicateCount: number,
   minDate: Date,
   maxDate: Date,
   lastSyncedAt: Date,

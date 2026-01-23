@@ -127,6 +127,12 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
                   <span class="sorting-header">{{ sortDirection }}</span>
                 }
               </th>
+              <th (click)="sortBy('duplicateCount')" class="pointer">
+                Duplicates
+                @if (sortField === 'duplicateCount') {
+                  <span class="sorting-header">{{ sortDirection }}</span>
+                }
+              </th>
               <th (click)="sortBy('minDate')" class="pointer">
                 From
                 @if (sortField === 'minDate') {
@@ -200,6 +206,7 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
                     <td>{{ eventStat.inputSource | titlecase | humanise }}</td>
                   }
                   <td>{{ eventStat.eventCount }}</td>
+                  <td [class.bg-danger]="eventStat.duplicateCount > 0" [class.text-white]="eventStat.duplicateCount > 0">{{ eventStat.duplicateCount }}</td>
                   <td>{{ eventStat.minDate | displayDate }}</td>
                   <td>{{ eventStat.maxDate | displayDate }}</td>
                   <td>{{ eventStat.lastSyncedAt | displayDate }}</td>

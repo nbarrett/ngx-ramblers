@@ -38,6 +38,47 @@ debugLog.enabled = false;
 const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent);
 export async function eventStats(req: Request, res: Response) {
   try {
+    const duplicatePipeline: PipelineStage[] = [
+      {
+        $match: {
+          [GroupEventField.ID]: { $ne: null, $exists: true }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            groupEventId: `$${GroupEventField.ID}`,
+            itemType: `$${GroupEventField.ITEM_TYPE}`,
+            groupCode: `$${GroupEventField.GROUP_CODE}`,
+            inputSource: `$${EventField.INPUT_SOURCE}`
+          },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $match: {
+          count: { $gt: 1 }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            itemType: "$_id.itemType",
+            groupCode: "$_id.groupCode",
+            inputSource: "$_id.inputSource"
+          },
+          duplicateCount: { $sum: { $subtract: ["$count", 1] } }
+        }
+      }
+    ];
+
+    const duplicates = await extendedGroupEvent.aggregate(duplicatePipeline);
+    const duplicateMap = new Map<string, number>();
+    duplicates.forEach((d: any) => {
+      const key = `${d._id.itemType}|${d._id.groupCode}|${d._id.inputSource}`;
+      duplicateMap.set(key, d.duplicateCount);
+    });
+
     const pipeline: PipelineStage[] = [
       {
         $project: {
@@ -102,9 +143,16 @@ export async function eventStats(req: Request, res: Response) {
       },
     ];
 
-    const eventStats = await extendedGroupEvent.aggregate<EventStats>(pipeline);
-    debugLog("eventStats returned:", eventStats);
-    res.json(eventStats);
+    const stats = await extendedGroupEvent.aggregate<EventStats>(pipeline);
+    const statsWithDuplicates = stats.map(stat => {
+      const key = `${stat.itemType}|${stat.groupCode}|${stat.inputSource}`;
+      return {
+        ...stat,
+        duplicateCount: duplicateMap.get(key) || 0
+      };
+    });
+    debugLog("eventStats returned:", statsWithDuplicates);
+    res.json(statsWithDuplicates);
   } catch (error) {
     debugLog("eventStats error:", error);
     res.status(500).json({ error: error.message });
