@@ -27,6 +27,7 @@ export enum NamedEventType {
     WALK_CHANGED = "walk-changed",
     WALK_SAVED = "walk-saved",
     WALK_SLOTS_CREATED = "walk-slots-created",
+    WALK_START_LOCATION_CHANGED = "walk-start-location-changed",
 }
 
 export class NamedEvent<T> {

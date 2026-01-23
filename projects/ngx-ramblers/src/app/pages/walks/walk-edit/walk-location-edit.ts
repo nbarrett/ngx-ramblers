@@ -21,9 +21,11 @@ import { MapEditComponent } from "./map-edit";
 import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { isNull, isNumber } from "es-toolkit/compat";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
-import { Subject } from "rxjs";
+import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { LocationAutocompleteComponent } from "../../../shared/components/location-autocomplete";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { NamedEventType } from "../../../models/broadcast.model";
 
 @Component({
     selector: "app-walk-location-edit",
@@ -171,6 +173,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("WalkLocationEditComponent", NgxLoggerLevel.ERROR);
   googleMapsService = inject(GoogleMapsService);
   private addressQueryService = inject(AddressQueryService);
+  private broadcastService = inject<BroadcastService<string>>(BroadcastService);
   route = inject(ActivatedRoute);
   protected dateUtils = inject(DateUtilsService);
   display = inject(WalkDisplayService);
@@ -179,6 +182,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   protected notifierService = inject(NotifierService);
   private notifyInstance: AlertInstance;
   private gridReferenceInput$ = new Subject<string>();
+  private subscriptions: Subscription[] = [];
   @ViewChild(MapEditComponent) mapComponent: MapEditComponent;
   @Input() set notify(value: AlertInstance | undefined) {
     this.notifyInstance = value ?? this.notifierService.createGlobalAlert();
@@ -231,10 +235,22 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
           this.gridReferenceChange();
         }
       });
+
+    if (this.locationType === "Starting") {
+      this.subscriptions.push(
+        this.broadcastService.on(NamedEventType.WALK_START_LOCATION_CHANGED, (event) => {
+          this.logger.info("WALK_START_LOCATION_CHANGED received:", event.data);
+          if (event.data && this.locationDetails) {
+            this.postcodeChange();
+          }
+        })
+      );
+    }
   }
 
   ngOnDestroy() {
     this.gridReferenceInput$.complete();
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   toggleGoogleOrLeafletMapView() {

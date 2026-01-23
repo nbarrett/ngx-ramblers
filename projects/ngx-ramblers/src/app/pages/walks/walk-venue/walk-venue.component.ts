@@ -1,17 +1,21 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { VenueType } from "../../../models/event-venue.model";
+import { Venue, VenueType, VenueWithUsageStats } from "../../../models/event-venue.model";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
+import { VenueService } from "../../../services/venue/venue.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
+import { VenueAutocompleteComponent } from "./venue-autocomplete";
+import { VenueSmartPasteComponent } from "./venue-smart-paste";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { isEmpty } from "es-toolkit/compat";
 
 @Component({
     selector: "app-walk-venue",
@@ -21,6 +25,34 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         <div class="col-sm-12">
           <app-markdown-editor standalone name="meetup-venue-help" description="Walk venue or pub"/>
         </div>
+        @if (allowEdits()) {
+          <div class="col-sm-12 mb-3">
+            <div class="row">
+              <div class="col-sm-6">
+                <label class="form-label">Search previous venues</label>
+                <app-venue-autocomplete
+                  [disabled]="disabledInput"
+                  (venueSelected)="onVenueSelected($event)"/>
+              </div>
+              <div class="col-sm-6">
+                <app-venue-smart-paste
+                  [disabled]="disabledInput"
+                  (venueParsed)="onVenueParsed($event)"/>
+              </div>
+            </div>
+          </div>
+        }
+        @if (showStartingPointPrompt) {
+          <div class="col-sm-12">
+            <div class="alert alert-info d-flex align-items-center justify-content-between py-2">
+              <span>Use venue postcode <strong>{{ displayedWalk.walk.fields.venue.postcode }}</strong> as the walk starting point?</span>
+              <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-primary" (click)="applyVenuePostcodeToStartingPoint()">Apply</button>
+                <button type="button" class="btn btn-outline-secondary" (click)="dismissStartingPointPrompt()">Dismiss</button>
+              </div>
+            </div>
+          </div>
+        }
         <div class="col-sm-12">
           <div class="row">
             <div class="col-sm-4">
@@ -75,6 +107,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
                 <label for="postcode">Postcode</label>
                 <input [disabled]="disabledInput"
                        [(ngModel)]="displayedWalk.walk.fields.venue.postcode"
+                       (ngModelChange)="onPostcodeChange($event)"
                        type="text" class="form-control input-sm"
                        id="postcode"
                        placeholder="Enter postcode">
@@ -124,12 +157,13 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         </div>
       </div>
     `,
-    imports: [MarkdownEditorComponent, FormsModule, FontAwesomeModule, TooltipDirective, VenueIconPipe]
+    imports: [MarkdownEditorComponent, FormsModule, FontAwesomeModule, TooltipDirective, VenueIconPipe, VenueAutocompleteComponent, VenueSmartPasteComponent]
 })
 export class WalkVenueComponent implements OnInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkVenueComponent", NgxLoggerLevel.ERROR);
   private memberLoginService = inject(MemberLoginService);
+  private venueService = inject(VenueService);
   public display: WalkDisplayService = inject(WalkDisplayService);
   private walksReferenceService = inject(WalksReferenceService);
 
@@ -140,8 +174,12 @@ export class WalkVenueComponent implements OnInit {
     this.inputDisabled = coerceBooleanProperty(inputDisabled);
     this.updateDisabledInput();
   }
+  @Output() venuePostcodeChange = new EventEmitter<string>();
+
   public venueTypes: VenueType[];
   public disabledInput: boolean;
+  public showStartingPointPrompt = false;
+  private promptDismissed = false;
 
   venueTracker(index: number, venueType: VenueType) {
     return venueType?.type;
@@ -159,6 +197,74 @@ export class WalkVenueComponent implements OnInit {
 
   private updateDisabledInput() {
     this.disabledInput = this.inputDisabled || (!this.allowEdits() && !this.displayedWalk?.walk?.fields?.venue?.venuePublish);
+  }
+
+  onVenueSelected(venue: VenueWithUsageStats) {
+    this.logger.info("onVenueSelected:", venue);
+    this.applyVenueToForm(venue);
+  }
+
+  onVenueParsed(venue: Partial<Venue>) {
+    this.logger.info("onVenueParsed:", venue);
+    this.applyVenueToForm(venue);
+  }
+
+  private applyVenueToForm(venue: Partial<Venue>) {
+    const currentVenue = this.displayedWalk.walk.fields.venue;
+    if (venue.type) {
+      currentVenue.type = venue.type;
+    }
+    if (venue.name) {
+      currentVenue.name = venue.name;
+    }
+    if (venue.address1) {
+      currentVenue.address1 = venue.address1;
+    }
+    if (venue.address2) {
+      currentVenue.address2 = venue.address2;
+    }
+    if (venue.postcode) {
+      currentVenue.postcode = venue.postcode;
+      this.checkStartingPointPrompt(venue.postcode);
+    }
+    if (venue.url) {
+      currentVenue.url = venue.url;
+    }
+    if (venue.venuePublish !== undefined) {
+      currentVenue.venuePublish = venue.venuePublish;
+    }
+  }
+
+  onPostcodeChange(postcode: string) {
+    this.checkStartingPointPrompt(postcode);
+  }
+
+  private checkStartingPointPrompt(venuePostcode: string) {
+    if (this.promptDismissed || !this.allowEdits()) {
+      return;
+    }
+
+    const normalizedVenuePostcode = this.venueService.normalizePostcode(venuePostcode);
+    const startPostcode = this.displayedWalk.walk.groupEvent?.start_location?.postcode;
+    const normalizedStartPostcode = this.venueService.normalizePostcode(startPostcode);
+
+    const hasVenuePostcode = !isEmpty(normalizedVenuePostcode);
+    const postcodesDiffer = normalizedVenuePostcode !== normalizedStartPostcode;
+
+    this.showStartingPointPrompt = hasVenuePostcode && postcodesDiffer;
+    this.logger.debug("checkStartingPointPrompt: venuePostcode:", normalizedVenuePostcode, "startPostcode:", normalizedStartPostcode, "showPrompt:", this.showStartingPointPrompt);
+  }
+
+  applyVenuePostcodeToStartingPoint() {
+    const postcode = this.displayedWalk.walk.fields.venue.postcode;
+    this.logger.info("applyVenuePostcodeToStartingPoint:", postcode);
+    this.venuePostcodeChange.emit(postcode);
+    this.showStartingPointPrompt = false;
+  }
+
+  dismissStartingPointPrompt() {
+    this.showStartingPointPrompt = false;
+    this.promptDismissed = true;
   }
 
 }

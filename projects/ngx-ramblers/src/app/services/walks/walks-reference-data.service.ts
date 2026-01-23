@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { faCutlery, faMapMarker } from "@fortawesome/free-solid-svg-icons";
+import { faBeer, faBuilding, faChurch, faCoffee, faCar, faMapMarker, faQuestion, faUtensils } from "@fortawesome/free-solid-svg-icons";
 import { isString, isUndefined } from "es-toolkit/compat";
 import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
@@ -113,7 +113,16 @@ export class WalksReferenceService {
   ];
 
   venueTypes(): VenueType[] {
-    return [{type: "Pub", icon: faCutlery}, {type: "Meeting place", icon: faMapMarker}];
+    return [
+      {type: "pub", icon: faBeer},
+      {type: "cafe", icon: faCoffee},
+      {type: "restaurant", icon: faUtensils},
+      {type: "church", icon: faChurch},
+      {type: "hall", icon: faBuilding},
+      {type: "car park", icon: faCar},
+      {type: "other", icon: faQuestion},
+      {type: "meeting place", icon: faMapMarker}
+    ];
   }
 
   toWalkEventType(eventType: EventType | string): WalkEventType {

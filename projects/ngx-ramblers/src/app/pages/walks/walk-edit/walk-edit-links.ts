@@ -17,7 +17,7 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { BroadcastService } from "../../../services/broadcast-service";
-import { NamedEventType } from "../../../models/broadcast.model";
+import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -165,7 +165,8 @@ import { isBoolean, isNull, isUndefined } from "es-toolkit/compat";
         </div>
       </div>
       @if (displayedWalk?.walk?.fields?.venue) {
-        <app-walk-venue [displayedWalk]="displayedWalk" [inputDisabled]="inputDisabled"/>
+        <app-walk-venue [displayedWalk]="displayedWalk" [inputDisabled]="inputDisabled"
+          (venuePostcodeChange)="onVenuePostcodeChange($event)"/>
       }
       <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress" [inputDisabled]="inputDisabled"/>
       <div class="row">
@@ -396,6 +397,29 @@ export class WalkEditRelatedLinksComponent implements OnInit {
 
   logLinkChange() {
     this.logger.info("links object:", this.links, "publishing:", this.displayedWalk.walk.fields.publishing, "walk links:", this.displayedWalk?.walk?.fields?.links);
+  }
+
+  onVenuePostcodeChange(postcode: string) {
+    this.logger.info("onVenuePostcodeChange: applying venue postcode to starting point:", postcode);
+    if (!this.displayedWalk?.walk?.groupEvent?.start_location) {
+      this.displayedWalk.walk.groupEvent.start_location = {
+        latitude: null,
+        longitude: null,
+        grid_reference_6: null,
+        grid_reference_8: null,
+        grid_reference_10: null,
+        postcode: postcode,
+        description: null,
+        w3w: null
+      };
+    } else {
+      this.displayedWalk.walk.groupEvent.start_location.postcode = postcode;
+    }
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_START_LOCATION_CHANGED, postcode));
+    this.notify?.success({
+      title: "Starting point updated",
+      message: `Starting point postcode set to ${postcode}`
+    });
   }
 
   onCancelledChange() {
