@@ -3,7 +3,7 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronUp, faLocationDot, faTimes } from "@fortawesome/free-solid-svg-icons";
-import { NgOptionTemplateDirective, NgSelectModule } from "@ng-select/ng-select";
+import { NgSelectModule } from "@ng-select/ng-select";
 import { DateRange, DateRangeSlider } from "../../../components/date-range-slider/date-range-slider";
 import { DateTime } from "luxon";
 import { Member } from "../../../models/member.model";
@@ -63,7 +63,6 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
     NgSelectModule,
     DateRangeSlider,
     DistanceRangeSlider,
-    NgOptionTemplateDirective,
     LeafletModule,
     LocationAutocompleteComponent
   ],

@@ -5,6 +5,8 @@ export interface FileNameData {
   originalFileName?: string;
   awsFileName?: string;
   title?: string;
+  startLat?: number;
+  startLng?: number;
 }
 
 export interface AwsFileData {
@@ -23,6 +25,8 @@ export interface ServerFileNameData {
   originalFileName: string;
   awsFileName: string;
   title?: string;
+  startLat?: number;
+  startLng?: number;
 }
 
 export interface UploadedFile {

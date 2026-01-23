@@ -5,9 +5,49 @@ import { generateAwsFileName, createFileNameData, isAwsUploadErrorResponse } fro
 import * as aws from "../aws/aws-controllers";
 import { envConfig } from "../env-config/env-config";
 import debug from "debug";
+import { DOMParser } from "@xmldom/xmldom";
+import * as fs from "fs";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("walk-gpx-upload"));
 debugLog.enabled = true;
+
+function parseGpxFileForStartPoint(filePath: string): { startLat: number; startLng: number } {
+  try {
+    const fileContents = fs.readFileSync(filePath, "utf8");
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(fileContents, "text/xml");
+
+    const trkpts = doc.getElementsByTagName("trkpt");
+    if (trkpts.length > 0) {
+      const firstPoint = trkpts[0];
+      const lat = parseFloat(firstPoint.getAttribute("lat") || "0");
+      const lon = parseFloat(firstPoint.getAttribute("lon") || "0");
+      return { startLat: lat, startLng: lon };
+    }
+
+    const wpts = doc.getElementsByTagName("wpt");
+    if (wpts.length > 0) {
+      const firstPoint = wpts[0];
+      const lat = parseFloat(firstPoint.getAttribute("lat") || "0");
+      const lon = parseFloat(firstPoint.getAttribute("lon") || "0");
+      return { startLat: lat, startLng: lon };
+    }
+
+    const rtepts = doc.getElementsByTagName("rtept");
+    if (rtepts.length > 0) {
+      const firstPoint = rtepts[0];
+      const lat = parseFloat(firstPoint.getAttribute("lat") || "0");
+      const lon = parseFloat(firstPoint.getAttribute("lon") || "0");
+      return { startLat: lat, startLng: lon };
+    }
+
+    debugLog("No track/waypoint/route points found in GPX file");
+    return { startLat: 0, startLng: 0 };
+  } catch (error) {
+    debugLog("Error parsing GPX file for start point:", error);
+    return { startLat: 0, startLng: 0 };
+  }
+}
 
 export function uploadWalkGpx(req: Request, res: Response) {
   const file = req.file;
@@ -24,7 +64,11 @@ export function uploadWalkGpx(req: Request, res: Response) {
   const title = file.originalname.replace(/\.gpx$/i, "");
   const fileNameData = createFileNameData(RootFolder.gpxRoutes, file.originalname, awsFileName, title);
 
-  debugLog("Uploading GPX file:", file.originalname, "as", awsFileName);
+  const { startLat, startLng } = parseGpxFileForStartPoint(file.path);
+  fileNameData.startLat = startLat;
+  fileNameData.startLng = startLng;
+
+  debugLog("Uploading GPX file:", file.originalname, "as", awsFileName, "with start point:", startLat, startLng);
 
   aws.putObjectDirect(RootFolder.gpxRoutes, awsFileName, file.path)
     .then((response) => {

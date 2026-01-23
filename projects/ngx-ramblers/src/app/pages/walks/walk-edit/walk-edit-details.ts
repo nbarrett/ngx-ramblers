@@ -95,8 +95,10 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                 id="gpx-route"
                 [items]="gpxFiles"
                 [disabled]="inputDisabled"
+                [loading]="gpxFilesLoading"
                 [(ngModel)]="selectedGpxFile"
                 (ngModelChange)="onGpxFileChange()"
+                (open)="onDropdownOpen()"
                 [clearable]="true"
                 placeholder="Select existing GPX file..."
                 class="flex-grow-1">
@@ -214,9 +216,11 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
   public selectedGpxFile: GpxFileListItem | null = null;
   public uploadInProgress = false;
   public uploadError: string | null = null;
+  public gpxFilesLoaded = false;
+  public gpxFilesLoading = false;
 
   ngOnInit() {
-    this.loadGpxFiles();
+    this.initializeDisplayLabel();
   }
 
   ngAfterViewInit() {
@@ -231,12 +235,34 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
     });
   }
 
+  private initializeDisplayLabel() {
+    const currentGpx = this.displayedWalk?.walk?.fields?.gpxFile;
+    if (currentGpx?.awsFileName) {
+      const displayItem: GpxFileListItem = {
+        fileData: currentGpx,
+        startLat: currentGpx.startLat || 0,
+        startLng: currentGpx.startLng || 0,
+        name: currentGpx.originalFileName || currentGpx.awsFileName,
+        displayLabel: this.transformFilename(currentGpx.title || currentGpx.originalFileName || currentGpx.awsFileName)
+      };
+      this.gpxFiles = [displayItem];
+      this.selectedGpxFile = displayItem;
+    }
+  }
+
+  onDropdownOpen() {
+    if (!this.gpxFilesLoaded && !this.gpxFilesLoading) {
+      this.loadGpxFiles();
+    }
+  }
+
   private loadGpxFiles() {
     const walkStart = this.displayedWalk?.walk?.groupEvent?.start_location;
     if (!walkStart?.latitude || !walkStart?.longitude) {
       return;
     }
 
+    this.gpxFilesLoading = true;
     this.walkGpxService.listGpxFiles().subscribe({
       next: (files: GpxFileListItem[]) => {
         this.logger.info("GpxFileList", files);
@@ -245,9 +271,12 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
           walkStart.longitude,
           files
         );
+        this.gpxFilesLoaded = true;
+        this.gpxFilesLoading = false;
         this.initializeSelectedGpxFile();
       },
       error: (error) => {
+        this.gpxFilesLoading = false;
         this.notify.error({ title: "Error loading GPX files", message: error });
       }
     });
