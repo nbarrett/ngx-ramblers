@@ -9,8 +9,9 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { UrlService } from "../../../services/url.service";
 import { MemberResourcesPermissions } from "../../../models/member-resource.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { faCheck, faCopy, faEraser, faEye, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faCopy, faEraser, faEye, faPaste, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { PageContentService } from "../../../services/page-content.service";
+import { ClipboardService } from "../../../services/clipboard.service";
 import { Confirm, ConfirmType, StoredValue } from "../../../models/ui-actions";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -59,6 +60,13 @@ import { FormsModule } from "@angular/forms";
                                   caption="Delete Selected Image Lists"
                                   (click)="confirm.as(ConfirmType.DELETE)"
                                   [icon]="faEraser"/>
+                <app-badge-button [disabled]="!selectedContentMetadata?.length"
+                                  caption="Copy Selected Image Lists"
+                                  (click)="copyToClipboard()"
+                                  [icon]="faCopy"/>
+                <app-badge-button caption="Paste Image Lists"
+                                  (click)="pasteFromClipboard()"
+                                  [icon]="faPaste"/>
               }
             </div>
             @if (selectedContentMetadata?.length) {
@@ -96,6 +104,7 @@ export class ImageListSelectorComponent implements OnInit {
   stringUtils = inject(StringUtilsService);
   private memberLoginService = inject(MemberLoginService);
   private urlService = inject(UrlService);
+  private clipboardService = inject(ClipboardService);
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public allow: MemberResourcesPermissions = {};
@@ -112,6 +121,7 @@ export class ImageListSelectorComponent implements OnInit {
   public name: string;
 
   protected readonly faEraser = faEraser;
+  protected readonly faPaste = faPaste;
 
   protected readonly Confirm = Confirm;
   protected readonly ConfirmType = ConfirmType;
@@ -221,5 +231,102 @@ export class ImageListSelectorComponent implements OnInit {
           message: response
         }));
     }
+  }
+
+  copyToClipboard() {
+    if (this.selectedContentMetadata?.length > 0) {
+      const exportDataArray = this.selectedContentMetadata.map(source => {
+        const exportData: ContentMetadata = {
+          ...source,
+          id: undefined,
+          files: source.files?.map(file => ({...file, _id: undefined})) || []
+        };
+        delete (exportData as any)._id;
+        return exportData;
+      });
+      const totalImages = exportDataArray.reduce((sum, item) => sum + (item.files?.length || 0), 0);
+      const json = JSON.stringify(exportDataArray.length === 1 ? exportDataArray[0] : exportDataArray, null, 2);
+      this.clipboardService.copyToClipboard(json)
+        .then(() => {
+          this.notify.success({
+            title: "Image Lists copied",
+            message: `${this.stringUtils.pluraliseWithCount(exportDataArray.length, "Image List")} with ${this.stringUtils.pluraliseWithCount(totalImages, "image")} copied to clipboard`
+          });
+        });
+    }
+  }
+
+  async pasteFromClipboard() {
+    try {
+      const clipboardText = await this.clipboardService.readFromClipboard();
+      if (!clipboardText) {
+        this.notify.warning({title: "Paste Image List", message: "No data found in clipboard"});
+        return;
+      }
+      const parsed = JSON.parse(clipboardText);
+      const itemsToPaste: ContentMetadata[] = Array.isArray(parsed) ? parsed : [parsed];
+      if (itemsToPaste.some(item => !item.name || !item.files)) {
+        this.notify.warning({title: "Paste Image List", message: "Invalid Image List format in clipboard"});
+        return;
+      }
+      const existingNames = this.contentMetadataItems.map(item => item.name);
+      const existingTagKeys = this.collectAllTagKeys();
+      let nextTagKey = Math.max(...existingTagKeys, 0) + 1;
+      const createdItems: ContentMetadata[] = [];
+      for (const item of itemsToPaste) {
+        let newName = item.name;
+        let suffix = 1;
+        while (existingNames.includes(newName)) {
+          newName = `${item.name}-imported-${suffix}`;
+          suffix++;
+        }
+        existingNames.push(newName);
+        const tagKeyMapping = new Map<number, number>();
+        const remappedTags = item.imageTags?.map(tag => {
+          if (tag.key !== undefined && tag.key > 0 && existingTagKeys.includes(tag.key)) {
+            const newKey = nextTagKey++;
+            tagKeyMapping.set(tag.key, newKey);
+            existingTagKeys.push(newKey);
+            return {...tag, key: newKey};
+          }
+          return tag;
+        }) || [];
+        const remappedFiles = item.files.map(file => {
+          const remappedFileTags = file.tags?.map(tagKey => tagKeyMapping.get(tagKey) ?? tagKey);
+          return {...file, _id: undefined, tags: remappedFileTags};
+        });
+        const importData: ContentMetadata = {
+          ...item,
+          id: undefined,
+          name: newName,
+          imageTags: remappedTags,
+          files: remappedFiles
+        };
+        delete (importData as any)._id;
+        createdItems.push(importData);
+      }
+      const totalImages = createdItems.reduce((sum, item) => sum + (item.files?.length || 0), 0);
+      await Promise.all(createdItems.map(item => this.contentMetadataService.create(item)));
+      this.notify.success({
+        title: "Image Lists pasted",
+        message: `${this.stringUtils.pluraliseWithCount(createdItems.length, "Image List")} created with ${this.stringUtils.pluraliseWithCount(totalImages, "image")}`
+      });
+      this.refreshImageMetaData();
+    } catch (error) {
+      this.logger.error("Failed to paste from clipboard", error);
+      this.notify.error({title: "Paste Image List", message: "Failed to parse clipboard content as Image List"});
+    }
+  }
+
+  private collectAllTagKeys(): number[] {
+    const keys: number[] = [];
+    this.contentMetadataItems?.forEach(item => {
+      item.imageTags?.forEach(tag => {
+        if (tag.key !== undefined && tag.key > 0) {
+          keys.push(tag.key);
+        }
+      });
+    });
+    return keys;
   }
 }

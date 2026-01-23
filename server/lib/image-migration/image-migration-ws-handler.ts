@@ -14,6 +14,8 @@ import { migrateImages } from "./image-migration-engine";
 const debugLog = debug(envConfig.logNamespace("image-migration-ws-handler"));
 debugLog.enabled = true;
 
+let migrationCancelled = false;
+
 function sendProgress(ws: WebSocket, message: string, data?: any): void {
   ws.send(JSON.stringify({
     type: MessageType.PROGRESS,
@@ -31,6 +33,13 @@ function sendError(ws: WebSocket, message: string): void {
 function sendComplete(ws: WebSocket, message: string, data?: any): void {
   ws.send(JSON.stringify({
     type: MessageType.COMPLETE,
+    data: { action: ApiAction.UPDATE, message, ...data }
+  }));
+}
+
+function sendCancelled(ws: WebSocket, message: string, data?: any): void {
+  ws.send(JSON.stringify({
+    type: MessageType.CANCELLED,
     data: { action: ApiAction.UPDATE, message, ...data }
   }));
 }
@@ -99,6 +108,8 @@ export async function handleImageMigrationScan(ws: WebSocket, data: any): Promis
 export async function handleImageMigrationExecute(ws: WebSocket, data: any): Promise<void> {
   debugLog("handleImageMigrationExecute:received request with", data?.images?.length, "images, maxImageSize:", data?.maxImageSize);
 
+  migrationCancelled = false;
+
   try {
     const request: ImageMigrationRequest = {
       images: data?.images || [],
@@ -115,22 +126,31 @@ export async function handleImageMigrationExecute(ws: WebSocket, data: any): Pro
     sendProgress(ws, `Starting migration of ${request.images.length} images to ${request.targetRootFolder}${resizeNote}`);
 
     const progressCallback = (progress: ImageMigrationProgress) => {
-      sendProgress(
-        ws,
-        `Migrating: ${progress.processedImages}/${progress.totalImages} (${progress.percent}%) - ${progress.currentImage}`,
-        { progress }
-      );
+      sendProgress(ws, progress.currentImage, { progress });
     };
 
-    const result = await migrateImages(request, progressCallback);
+    const isCancelled = () => migrationCancelled;
 
-    const summary = `Migration complete: ${result.successCount} succeeded, ${result.failureCount} failed`;
-    debugLog("handleImageMigrationExecute:completed:", summary);
+    const result = await migrateImages(request, progressCallback, isCancelled);
 
-    sendComplete(ws, summary, { migrationResult: result });
+    if (result.cancelled) {
+      const summary = `Migration cancelled: ${result.successCount} succeeded, ${result.failureCount} failed before cancellation`;
+      debugLog("handleImageMigrationExecute:cancelled:", summary);
+      sendCancelled(ws, summary, { migrationResult: result });
+    } else {
+      const summary = `Migration complete: ${result.successCount} succeeded, ${result.failureCount} failed`;
+      debugLog("handleImageMigrationExecute:completed:", summary);
+      sendComplete(ws, summary, { migrationResult: result });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Migration failed";
     debugLog("handleImageMigrationExecute:error:", message);
     sendError(ws, message);
   }
+}
+
+export async function handleImageMigrationCancel(ws: WebSocket, data: any): Promise<void> {
+  debugLog("handleImageMigrationCancel:cancellation requested");
+  migrationCancelled = true;
+  sendProgress(ws, "Cancellation requested, stopping after current image...");
 }

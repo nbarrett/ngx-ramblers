@@ -344,7 +344,11 @@ export class UrlService {
     if (!url || (url.startsWith("http") || url.startsWith("www") || url.includes("://"))) {
       return url;
     } else {
-      const reformatted: string = url.split("/").map(item => /[A-Z\s]/.test(item) ? this.stringUtils.kebabCase(item) : item).join("/");
+      const reformatted: string = url
+        .split("/")
+        .map(item => /[A-Z\s]/.test(item) ? this.stringUtils.kebabCase(item) : item)
+        .filter(item => item.length > 0)
+        .join("/");
       this.logger.off("received", url, "reformatted to:", reformatted);
       return reformatted;
     }

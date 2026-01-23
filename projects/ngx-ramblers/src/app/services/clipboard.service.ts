@@ -51,4 +51,20 @@ export class ClipboardService {
   public clipboardText(): string {
     return this.lastCopiedText;
   }
+
+  public async readFromClipboard(): Promise<string> {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        const text = await navigator.clipboard.readText();
+        this.logger.info("read from clipboard using navigator.clipboard:", text?.substring(0, 100));
+        return text;
+      } else {
+        this.logger.warn("clipboard read not available in non-secure context");
+        return null;
+      }
+    } catch (err) {
+      this.logger.error("failed to read from clipboard:", err);
+      return null;
+    }
+  }
 }

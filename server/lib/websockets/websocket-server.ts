@@ -20,7 +20,7 @@ import { handleSiteMigration } from "../migration/site-migration-ws-handler";
 import { handleBackupRestoreWebSocket } from "../backup/backup-ws-handler";
 import { handleEsriRouteImport } from "../map-routes/map-route-import-ws-handler";
 import { handleWalksManagerSync } from "../walks/walks-manager-sync-ws-handler";
-import { handleImageMigrationScanHosts, handleImageMigrationScan, handleImageMigrationExecute } from "../image-migration/image-migration-ws-handler";
+import { handleImageMigrationScanHosts, handleImageMigrationScan, handleImageMigrationExecute, handleImageMigrationCancel } from "../image-migration/image-migration-ws-handler";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
@@ -37,6 +37,7 @@ const messageHandlers: MessageHandlers = {
   [EventType.IMAGE_MIGRATION_SCAN_HOSTS]: async (ws: WebSocket, data: any) => handleImageMigrationScanHosts(ws, data),
   [EventType.IMAGE_MIGRATION_SCAN]: async (ws: WebSocket, data: any) => handleImageMigrationScan(ws, data),
   [EventType.IMAGE_MIGRATION_EXECUTE]: async (ws: WebSocket, data: any) => handleImageMigrationExecute(ws, data),
+  [EventType.IMAGE_MIGRATION_CANCEL]: async (ws: WebSocket, data: any) => handleImageMigrationCancel(ws, data),
   [EventType.PING]: (ws: WebSocket, data: any) => {
     debugLog("✅ Received ping, responding with pong");
     ws.send(JSON.stringify({ type: "pong", data: {} }));

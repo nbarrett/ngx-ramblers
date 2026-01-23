@@ -18,12 +18,15 @@ import { Media, MediaStyle, RamblersEventType } from "../../../projects/ngx-ramb
 import * as transforms from "../mongo/controllers/transforms";
 import * as mongooseClient from "../mongo/mongoose-client";
 import { isArray } from "es-toolkit/compat";
+import { createProcessTimer } from "../shared/process-timer";
+import { dateTimeNowAsValue } from "../shared/dates";
+import { pluraliseWithCount } from "../shared/string-utils";
 
 const debugLog = debug(envConfig.logNamespace("image-migration-scanner"));
 debugLog.enabled = true;
 
 function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  return `${dateTimeNowAsValue()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
 function urlMatchesHost(url: string, hostPattern: string): boolean {
@@ -43,15 +46,71 @@ function generateThumbnailUrl(url: string): string {
   return url;
 }
 
+function extractImageUrlsFromMarkdown(text: string, hostPattern: string): string[] {
+  if (!text) {
+    return [];
+  }
+  const urls: string[] = [];
+  const markdownImageRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
+  let match;
+  while ((match = markdownImageRegex.exec(text)) !== null) {
+    const url = match[1];
+    if (urlMatchesHost(url, hostPattern)) {
+      urls.push(url);
+    }
+  }
+  const htmlImgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  while ((match = htmlImgRegex.exec(text)) !== null) {
+    const url = match[1];
+    if (urlMatchesHost(url, hostPattern)) {
+      urls.push(url);
+    }
+  }
+  return urls;
+}
+
+function extractHostsFromMarkdown(text: string, hosts: Set<string>): void {
+  if (!text) {
+    return;
+  }
+  const markdownImageRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
+  let match;
+  while ((match = markdownImageRegex.exec(text)) !== null) {
+    extractHost(match[1], hosts);
+  }
+  const htmlImgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  while ((match = htmlImgRegex.exec(text)) !== null) {
+    extractHost(match[1], hosts);
+  }
+}
+
 async function scanContentMetadata(hostPattern: string): Promise<ImageMigrationGroup[]> {
-  debugLog("scanContentMetadata:starting scan with hostPattern:", hostPattern);
+  const timer = createProcessTimer("scanContentMetadata", debugLog);
   await mongooseClient.connect(debugLog);
   const allMetadata = await contentMetadata.find({}).exec();
+  timer.log(`queried ${pluraliseWithCount(allMetadata.length, "album")}`);
   const groups: ImageMigrationGroup[] = [];
 
   allMetadata.forEach((doc: any) => {
     const metadata: ContentMetadata = transforms.toObjectWithId(doc);
     const matchingImages: ExternalImageReference[] = [];
+
+    if (metadata.coverImage && urlMatchesHost(metadata.coverImage, hostPattern)) {
+      matchingImages.push({
+        id: generateId(),
+        sourceType: ImageMigrationSourceType.CONTENT_METADATA,
+        sourceId: metadata.id,
+        sourcePath: `${metadata.rootFolder}/${metadata.name}`,
+        sourceTitle: `${metadata.name || "Unnamed Album"} (cover)`,
+        currentUrl: metadata.coverImage,
+        thumbnailUrl: generateThumbnailUrl(metadata.coverImage),
+        fileSize: null,
+        status: ImageMigrationStatus.PENDING,
+        selected: true,
+        newS3Url: null,
+        errorMessage: null
+      });
+    }
 
     (metadata.files || []).forEach((file: ContentMetadataItem) => {
       if (file.image && urlMatchesHost(file.image, hostPattern)) {
@@ -84,7 +143,7 @@ async function scanContentMetadata(hostPattern: string): Promise<ImageMigrationG
     }
   });
 
-  debugLog("scanContentMetadata:found", groups.length, "groups with matching images");
+  timer.complete(`found ${pluraliseWithCount(groups.length, "group")} with matching images`);
   return groups;
 }
 
@@ -93,6 +152,10 @@ function extractImagesFromColumn(column: PageContentColumn, hostPattern: string)
 
   if (column.imageSource && urlMatchesHost(column.imageSource, hostPattern)) {
     images.push(column.imageSource);
+  }
+
+  if (column.contentText) {
+    images.push(...extractImageUrlsFromMarkdown(column.contentText, hostPattern));
   }
 
   if (column.rows && isArray(column.rows)) {
@@ -107,9 +170,10 @@ function extractImagesFromColumn(column: PageContentColumn, hostPattern: string)
 }
 
 async function scanPageContent(hostPattern: string): Promise<ImageMigrationGroup[]> {
-  debugLog("scanPageContent:starting scan with hostPattern:", hostPattern);
+  const timer = createProcessTimer("scanPageContent", debugLog);
   await mongooseClient.connect(debugLog);
   const allPages = await pageContent.find({}).exec();
+  timer.log(`queried ${pluraliseWithCount(allPages.length, "page")}`);
   const groups: ImageMigrationGroup[] = [];
 
   allPages.forEach((doc: any) => {
@@ -150,12 +214,12 @@ async function scanPageContent(hostPattern: string): Promise<ImageMigrationGroup
     }
   });
 
-  debugLog("scanPageContent:found", groups.length, "groups with matching images");
+  timer.complete(`found ${pluraliseWithCount(groups.length, "group")} with matching images`);
   return groups;
 }
 
 async function scanGroupEvents(hostPattern: string, eventType?: RamblersEventType): Promise<ImageMigrationGroup[]> {
-  debugLog("scanGroupEvents:starting scan with hostPattern:", hostPattern, "eventType:", eventType);
+  const timer = createProcessTimer(`scanGroupEvents:${eventType}`, debugLog);
   await mongooseClient.connect(debugLog);
 
   const query: any = {};
@@ -164,6 +228,7 @@ async function scanGroupEvents(hostPattern: string, eventType?: RamblersEventTyp
   }
 
   const allEvents = await extendedGroupEvent.find(query).exec();
+  timer.log(`queried ${pluraliseWithCount(allEvents.length, "event")}`);
   const groups: ImageMigrationGroup[] = [];
   const sourceType = eventType === RamblersEventType.GROUP_EVENT
     ? ImageMigrationSourceType.SOCIAL_EVENT
@@ -195,6 +260,27 @@ async function scanGroupEvents(hostPattern: string, eventType?: RamblersEventTyp
       });
     });
 
+    [event.groupEvent?.description, event.groupEvent?.additional_details].forEach(textField => {
+      if (textField) {
+        extractImageUrlsFromMarkdown(textField, hostPattern).forEach(url => {
+          matchingImages.push({
+            id: generateId(),
+            sourceType,
+            sourceId: event.id,
+            sourcePath: event.groupEvent?.url || event.id,
+            sourceTitle: event.groupEvent?.title || "Unnamed Event",
+            currentUrl: url,
+            thumbnailUrl: generateThumbnailUrl(url),
+            fileSize: null,
+            status: ImageMigrationStatus.PENDING,
+            selected: true,
+            newS3Url: null,
+            errorMessage: null
+          });
+        });
+      }
+    });
+
     if (matchingImages.length > 0) {
       groups.push({
         sourcePath: event.groupEvent?.url || event.id,
@@ -207,40 +293,36 @@ async function scanGroupEvents(hostPattern: string, eventType?: RamblersEventTyp
     }
   });
 
-  debugLog("scanGroupEvents:found", groups.length, "groups with matching images");
+  timer.complete(`found ${pluraliseWithCount(groups.length, "group")} with matching images`);
   return groups;
 }
 
 export async function scanForExternalImages(request: ImageMigrationScanRequest): Promise<ImageMigrationScanResult> {
-  const startTime = Date.now();
-  debugLog("scanForExternalImages:starting scan with request:", request);
+  const timer = createProcessTimer("scanForExternalImages", debugLog);
+  debugLog("scanForExternalImages:scan request:", request);
 
-  const allGroups: ImageMigrationGroup[] = [];
+  const scanPromises: Promise<ImageMigrationGroup[]>[] = [];
 
   if (request.scanAlbums) {
-    const albumGroups = await scanContentMetadata(request.hostPattern);
-    allGroups.push(...albumGroups);
+    scanPromises.push(scanContentMetadata(request.hostPattern));
   }
-
   if (request.scanPageContent) {
-    const pageGroups = await scanPageContent(request.hostPattern);
-    allGroups.push(...pageGroups);
+    scanPromises.push(scanPageContent(request.hostPattern));
   }
-
   if (request.scanGroupEvents) {
-    const walkGroups = await scanGroupEvents(request.hostPattern, RamblersEventType.GROUP_WALK);
-    allGroups.push(...walkGroups);
+    scanPromises.push(scanGroupEvents(request.hostPattern, RamblersEventType.GROUP_WALK));
+  }
+  if (request.scanSocialEvents) {
+    scanPromises.push(scanGroupEvents(request.hostPattern, RamblersEventType.GROUP_EVENT));
   }
 
-  if (request.scanSocialEvents) {
-    const socialGroups = await scanGroupEvents(request.hostPattern, RamblersEventType.GROUP_EVENT);
-    allGroups.push(...socialGroups);
-  }
+  const results = await Promise.all(scanPromises);
+  const allGroups = results.flat();
 
   const totalImages = allGroups.reduce((sum, group) => sum + group.images.length, 0);
-  const scanDurationMs = Date.now() - startTime;
+  const scanDurationMs = timer.elapsed();
 
-  debugLog("scanForExternalImages:completed scan in", scanDurationMs, "ms, found", totalImages, "images in", allGroups.length, "groups");
+  timer.complete(`found ${pluraliseWithCount(totalImages, "image")} in ${pluraliseWithCount(allGroups.length, "group")}`);
 
   return {
     hostPattern: request.hostPattern,
@@ -268,6 +350,9 @@ function extractHostsFromColumn(column: PageContentColumn, hosts: Set<string>): 
   if (column.imageSource) {
     extractHost(column.imageSource, hosts);
   }
+  if (column.contentText) {
+    extractHostsFromMarkdown(column.contentText, hosts);
+  }
   if (column.rows && isArray(column.rows)) {
     column.rows.forEach((nestedRow: PageContentRow) => {
       (nestedRow.columns || []).forEach((nestedColumn: PageContentColumn) => {
@@ -278,13 +363,17 @@ function extractHostsFromColumn(column: PageContentColumn, hosts: Set<string>): 
 }
 
 export async function scanForUniqueHosts(): Promise<string[]> {
-  debugLog("scanForUniqueHosts: starting scan for all unique external hosts");
+  const timer = createProcessTimer("scanForUniqueHosts", debugLog);
   await mongooseClient.connect(debugLog);
 
   const hosts = new Set<string>();
 
-  // Scan ContentMetadata
-  const allMetadata = await contentMetadata.find({}).exec();
+  const [allMetadata, allPages] = await Promise.all([
+    contentMetadata.find({}).exec(),
+    pageContent.find({}).exec()
+  ]);
+  timer.log(`queried ${pluraliseWithCount(allMetadata.length, "album")}, ${pluraliseWithCount(allPages.length, "page")}`);
+
   allMetadata.forEach((doc: any) => {
     const metadata: ContentMetadata = transforms.toObjectWithId(doc);
     if (metadata.coverImage) {
@@ -297,8 +386,6 @@ export async function scanForUniqueHosts(): Promise<string[]> {
     });
   });
 
-  // Scan PageContent
-  const allPages = await pageContent.find({}).exec();
   allPages.forEach((doc: any) => {
     const page: PageContent = transforms.toObjectWithId(doc);
     (page.rows || []).forEach((row: PageContentRow) => {
@@ -308,21 +395,7 @@ export async function scanForUniqueHosts(): Promise<string[]> {
     });
   });
 
-  // Scan GroupEvents
-  const allEvents = await extendedGroupEvent.find({}).exec();
-  allEvents.forEach((doc: any) => {
-    const event: ExtendedGroupEvent = transforms.toObjectWithId(doc);
-    const media: Media[] = event.groupEvent?.media || [];
-    media.forEach((mediaItem: Media) => {
-      (mediaItem.styles || []).forEach((style: MediaStyle) => {
-        if (style.url) {
-          extractHost(style.url, hosts);
-        }
-      });
-    });
-  });
-
   const uniqueHosts = Array.from(hosts).sort();
-  debugLog("scanForUniqueHosts: found", uniqueHosts.length, "unique hosts:", uniqueHosts);
+  timer.complete(`found ${pluraliseWithCount(uniqueHosts.length, "unique host")}: ${JSON.stringify(uniqueHosts)}`);
   return uniqueHosts;
 }

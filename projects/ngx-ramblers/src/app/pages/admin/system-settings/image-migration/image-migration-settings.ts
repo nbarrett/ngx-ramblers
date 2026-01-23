@@ -1,5 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faPlay, faSpinner, faCheck, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faPlay, faSpinner, faCheck, faTimes, faBan } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -17,6 +17,7 @@ import { DisplayTimeWithSecondsPipe } from "../../../../pipes/display-time.pipe-
 import { StatusIconComponent } from "../../status-icon";
 import {
   ExternalImageReference,
+  ImageMigrationActivityLog,
   ImageMigrationGroup,
   ImageMigrationProgress,
   ImageMigrationScanResult,
@@ -26,19 +27,11 @@ import {
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { kebabCase, values } from "es-toolkit/compat";
 import { ImageMigrationGroupComponent } from "./image-migration-group";
-import { ProgressbarModule } from "ngx-bootstrap/progressbar";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../../models/ui-actions";
 import { enumValueForKey } from "../../../../functions/enums";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-selector/file-size-selector";
-
-interface ActivityLog {
-  id: string;
-  status: string;
-  time: number;
-  message: string;
-}
 
 @Component({
   selector: "app-image-migration-settings",
@@ -52,12 +45,12 @@ interface ActivityLog {
             <div class="row p-3">
               <div class="col-sm-12">
                 <h5>Scan for External Images</h5>
-                <p class="text-muted">Select a host to find images hosted externally that can be migrated to S3.</p>
+                <p class="text-muted">Select a host to find images hosted externally that need to be migrated to S3.</p>
               </div>
             </div>
-            <div class="row p-3">
+            <div class="row p-3 align-items-end">
               <div class="col-sm-4">
-                <div class="form-group">
+                <div class="form-group mb-0">
                   <label for="host-pattern">External Host</label>
                   <ng-select id="host-pattern"
                              [items]="availableHosts"
@@ -65,25 +58,29 @@ interface ActivityLog {
                              [loading]="loadingHosts"
                              [addTag]="true"
                              [clearable]="true"
+                             dropdownPosition="bottom"
                              placeholder="Select or type external host">
                   </ng-select>
                 </div>
               </div>
               <div class="col-sm-4">
-                <div class="form-group">
+                <div class="form-group mb-0">
                   <label for="target-folder">Target S3 Folder</label>
                   <ng-select id="target-folder"
                              [items]="rootFolders"
                              [(ngModel)]="targetRootFolder"
                              [clearable]="false"
+                             dropdownPosition="bottom"
                              placeholder="Select target folder">
                   </ng-select>
                 </div>
               </div>
               <div class="col-sm-4">
-                <app-file-size-selector label="Auto Resize Images"
-                                        [fileSize]="maxImageSize"
-                                        (fileSizeChanged)="maxImageSize=$event"/>
+                <div class="form-group mb-0">
+                  <app-file-size-selector label="Auto Resize Images"
+                                          [fileSize]="maxImageSize"
+                                          (fileSizeChanged)="maxImageSize=$event"/>
+                </div>
               </div>
             </div>
             <div class="row p-3">
@@ -142,6 +139,10 @@ interface ActivityLog {
                     <div>
                       <app-badge-button [icon]="faCheck" (click)="selectAll()" caption="Select All"/>
                       <app-badge-button [icon]="faTimes" (click)="deselectAll()" caption="Deselect All"/>
+                      <app-badge-button [icon]="migrating ? faSpinner : faPlay"
+                                        [disabled]="!hasSelectedImages() || migrating"
+                                        (click)="runMigration()"
+                                        [caption]="'Migrate ' + stringUtils.pluraliseWithCount(selectedImageCount(), 'Selected Image')"/>
                     </div>
                   </div>
                 </div>
@@ -155,14 +156,6 @@ interface ActivityLog {
                         (groupChanged)="onGroupChanged($event)"/>
                     }
                   </div>
-                </div>
-              </div>
-              <div class="row p-3">
-                <div class="col-sm-12">
-                  <app-badge-button [icon]="migrating ? faSpinner : faPlay"
-                                    [disabled]="!hasSelectedImages() || migrating"
-                                    (click)="runMigration()"
-                                    [caption]="'Migrate ' + stringUtils.pluraliseWithCount(selectedImageCount(), 'Selected Image')"/>
                 </div>
               </div>
             } @else {
@@ -179,9 +172,9 @@ interface ActivityLog {
              heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.ACTIVITY)}}">
           <div class="img-thumbnail thumbnail-admin-edit">
             @if (activityTarget.showAlert) {
-              <div class="row p-3">
+              <div class="row px-3 pt-3">
                 <div class="col-sm-12">
-                  <div class="alert {{activityTarget.alert.class}}">
+                  <div class="alert mb-0 {{activityTarget.alert.class}}">
                     <fa-icon [icon]="activityTarget.alert.icon"></fa-icon>
                     @if (activityTarget.alertTitle) {
                       <strong class="ms-2">{{ activityTarget.alertTitle }}: </strong>
@@ -191,14 +184,30 @@ interface ActivityLog {
               </div>
             }
             @if (migrationProgress) {
-              <div class="row p-3">
+              <div class="row px-3 pt-3">
                 <div class="col-sm-12">
-                  <progressbar [value]="migrationProgress.percent"
-                               [type]="migrationProgress.percent === 100 ? 'success' : 'info'"
-                               [striped]="migrationProgress.percent < 100"
-                               [animated]="migrationProgress.percent < 100">
-                    {{ migrationProgress.percent }}%
-                  </progressbar>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="progress flex-grow-1" style="height: 25px;">
+                      <div class="progress-bar"
+                           role="progressbar"
+                           [attr.aria-valuenow]="migrationProgress.percent"
+                           aria-valuemin="0"
+                           aria-valuemax="100"
+                           [style.width.%]="migrationProgress.percent">
+                        {{ migrationProgress.percent }}%
+                      </div>
+                    </div>
+                    @if (migrating && !cancelling) {
+                      <app-badge-button [icon]="faBan"
+                                        (click)="cancelMigration()"
+                                        caption="Cancel"/>
+                    }
+                    @if (cancelling) {
+                      <app-badge-button [icon]="faSpinner"
+                                        [disabled]="true"
+                                        caption="Cancelling..."/>
+                    }
+                  </div>
                   <div class="text-muted mt-2">
                     {{ migrationProgress.processedImages }} / {{ migrationProgress.totalImages }} images
                     ({{ migrationProgress.successCount }} succeeded, {{ migrationProgress.failureCount }} failed)
@@ -281,7 +290,6 @@ interface ActivityLog {
     StatusIconComponent,
     NgSelectComponent,
     ImageMigrationGroupComponent,
-    ProgressbarModule,
     FileSizeSelectorComponent
   ]
 })
@@ -299,6 +307,7 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
   protected readonly faSpinner = faSpinner;
   protected readonly faCheck = faCheck;
   protected readonly faTimes = faTimes;
+  protected readonly faBan = faBan;
   protected readonly ImageMigrationTab = ImageMigrationTab;
   protected readonly enumValueForKey = enumValueForKey;
 
@@ -312,17 +321,18 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
   maxImageSize = 0;
   scanAlbums = true;
   scanPageContent = true;
-  scanGroupEvents = true;
-  scanSocialEvents = true;
+  scanGroupEvents = false;
+  scanSocialEvents = false;
 
   scanning = false;
   migrating = false;
+  cancelling = false;
   scanResult: ImageMigrationScanResult | null = null;
   migrationProgress: ImageMigrationProgress | null = null;
 
   activityTarget: AlertTarget = {};
   activityNotifier: AlertInstance;
-  logs: ActivityLog[] = [];
+  logs: ImageMigrationActivityLog[] = [];
 
   ngOnInit(): void {
     this.activityNotifier = this.notifierService.createAlertInstance(this.activityTarget);
@@ -340,10 +350,12 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
         this.webSocketClientService.receiveMessages<any>(MessageType.PROGRESS).subscribe((data: any) => {
           const message = data?.message || JSON.stringify(data);
           this.addLog("info", message);
-          this.activityNotifier.warning(message);
 
           if (data?.progress) {
             this.migrationProgress = data.progress;
+            this.activityNotifier.warning({ title: "Migration Progress", message: `Currently migrating ${data.progress.currentImage}` });
+          } else {
+            this.activityNotifier.warning(message);
           }
         })
       );
@@ -354,7 +366,19 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
           this.activityNotifier.error({ title: "Error", message });
           this.scanning = false;
           this.migrating = false;
+          this.cancelling = false;
           this.loadingHosts = false;
+        })
+      );
+      this.subscriptions.push(
+        this.webSocketClientService.receiveMessages<any>(MessageType.CANCELLED).subscribe((data: any) => {
+          const message = data?.message || JSON.stringify(data);
+          this.addLog("cancelled", message);
+          this.activityNotifier.warning({ title: "Cancelled", message });
+          this.migrating = false;
+          this.cancelling = false;
+          this.migrationProgress = null;
+          this.scanForAvailableHosts();
         })
       );
       this.subscriptions.push(
@@ -363,8 +387,11 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
 
           if (data?.hosts) {
             this.availableHosts = data.hosts;
+            this.hostPattern = this.availableHosts[0] || "";
             this.loadingHosts = false;
-            this.logger.debug("Loaded", this.availableHosts.length, "available hosts");
+            this.logger.debug("Loaded", this.availableHosts.length, "available hosts, pre-selected:", this.hostPattern);
+            this.activityNotifier.showContactUs(false);
+            this.activityNotifier.warning("Select a migration action on the Scan Configuration tab");
           } else {
             this.addLog("complete", message);
             this.activityNotifier.success({ title: "Complete", message });
@@ -377,7 +404,9 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
 
             if (data?.migrationResult) {
               this.migrating = false;
+              this.cancelling = false;
               this.migrationProgress = null;
+              this.scanForAvailableHosts();
             }
           }
         })
@@ -445,6 +474,16 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
       targetRootFolder: this.targetRootFolder,
       maxImageSize: this.maxImageSize
     });
+  }
+
+  cancelMigration(): void {
+    if (!this.migrating || this.cancelling) {
+      return;
+    }
+
+    this.cancelling = true;
+    this.addLog("info", "Cancellation requested...");
+    this.webSocketClientService.sendMessage(EventType.IMAGE_MIGRATION_CANCEL, {});
   }
 
   selectAll(): void {
