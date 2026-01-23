@@ -21,7 +21,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { isNull, isUndefined } from "es-toolkit/compat";
+import { isBoolean, isNull, isUndefined } from "es-toolkit/compat";
 
 @Component({
   selector: "app-walk-edit-related-links",
@@ -339,10 +339,10 @@ export class WalkEditRelatedLinksComponent implements OnInit {
         ramblers: {publish: true, contactName: null}
       };
     }
-    if (!fields.publishing.meetup) {
+    if (!fields.publishing.meetup || isBoolean(fields.publishing.meetup)) {
       fields.publishing.meetup = {publish: false, contactName: null};
     }
-    if (!fields.publishing.ramblers) {
+    if (!fields.publishing.ramblers || isBoolean(fields.publishing.ramblers)) {
       fields.publishing.ramblers = {publish: true, contactName: null};
     }
     if (isUndefined(fields.publishing.meetup.publish) || isNull(fields.publishing.meetup.publish)) {
