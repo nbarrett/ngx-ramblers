@@ -19,7 +19,7 @@ import { ImageCropperAndResizerComponent } from "../../../../image-cropper-and-r
 import { FormsModule } from "@angular/forms";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { NgClass } from "@angular/common";
+import { NgClass, NgStyle } from "@angular/common";
 
 @Component({
     selector: "app-system-image-edit",
@@ -99,7 +99,7 @@ import { NgClass } from "@angular/common";
       </div>
     `,
     styleUrls: ["./system-image.sass"],
-    imports: [ImageCropperAndResizerComponent, FormsModule, BadgeButtonComponent, TooltipDirective, NgClass]
+  imports: [ImageCropperAndResizerComponent, FormsModule, BadgeButtonComponent, TooltipDirective, NgClass, NgStyle]
 })
 export class SystemImageEditComponent implements OnInit {
 
@@ -198,5 +198,21 @@ export class SystemImageEditComponent implements OnInit {
   imageValid(image: Image) {
     this.logger.debug("imageValid:", image?.awsFileName,"this?.images?.rootFolder:", this?.images?.rootFolder);
     return image?.awsFileName?.startsWith(this?.images?.rootFolder);
+  }
+
+  imageCropperChange(cropperPosition: any) {
+    this.logger.info("imageCropperChange:", cropperPosition);
+    this.image.cropperPosition = cropperPosition;
+    this.imageChanged.emit(this.image);
+  }
+
+  imagePreviewStyles(): { [key: string]: string } {
+    return {
+      maxHeight: this.image.width ? `${this.image.width}px` : "300px",
+      maxWidth: "100%",
+      width: "auto",
+      height: "auto",
+      padding: this.image.padding ? `${this.image.padding}px` : "0"
+    };
   }
 }

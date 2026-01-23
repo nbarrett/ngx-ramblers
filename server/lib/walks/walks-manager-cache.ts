@@ -50,12 +50,22 @@ export function toExtendedGroupEvent(config: SystemConfig, event: GroupEvent, in
 
 async function upsertEvent(config: SystemConfig, event: GroupEvent, inputSource: InputSource): Promise<CacheAction> {
   try {
-    const existingEvent = await extendedGroupEvent.findOne({
-      [GroupEventField.START_DATE]: event.start_date_time,
-      [GroupEventField.TITLE]: event.title,
-      [GroupEventField.ITEM_TYPE]: event.item_type || RamblersEventType.GROUP_WALK,
-      [GroupEventField.GROUP_CODE]: event.group_code || config?.group?.groupCode,
-    }).exec();
+    let existingEvent = null;
+    if (event.id) {
+      existingEvent = await extendedGroupEvent.findOne({
+        [GroupEventField.ID]: event.id
+      }).exec();
+      debugLog("Searching by groupEvent.id:", event.id, "found:", !!existingEvent);
+    }
+    if (!existingEvent) {
+      existingEvent = await extendedGroupEvent.findOne({
+        [GroupEventField.START_DATE]: event.start_date_time,
+        [GroupEventField.TITLE]: event.title,
+        [GroupEventField.ITEM_TYPE]: event.item_type || RamblersEventType.GROUP_WALK,
+        [GroupEventField.GROUP_CODE]: event.group_code || config?.group?.groupCode,
+      }).exec();
+      debugLog("Fallback search by date/title/group found:", !!existingEvent);
+    }
 
     const mappedEvent = toExtendedGroupEvent(config, event, inputSource);
     const groupEvent = {
@@ -110,6 +120,87 @@ export async function cacheEventIfNotFound(config: SystemConfig, event: GroupEve
 export interface CacheStats {
   added: number;
   updated: number;
+}
+
+export interface DuplicateDetail {
+  groupEventId: string;
+  keptDocId: string;
+  deletedDocIds: string[];
+}
+
+export interface CleanupStats {
+  duplicatesRemoved: number;
+  ramblersIdsProcessed: number;
+  details: DuplicateDetail[];
+}
+
+export async function cleanupDuplicatesByRamblersId(): Promise<CleanupStats> {
+  const stats: CleanupStats = {
+    duplicatesRemoved: 0,
+    ramblersIdsProcessed: 0,
+    details: []
+  };
+
+  const duplicates = await extendedGroupEvent.aggregate([
+    {
+      $match: {
+        [GroupEventField.ID]: { $ne: null, $exists: true }
+      }
+    },
+    {
+      $group: {
+        _id: `$${GroupEventField.ID}`,
+        count: { $sum: 1 },
+        docs: {
+          $push: {
+            docId: "$_id",
+            syncedVersion: "$syncedVersion",
+            lastSyncedAt: "$lastSyncedAt"
+          }
+        }
+      }
+    },
+    {
+      $match: {
+        count: { $gt: 1 }
+      }
+    }
+  ]).exec();
+
+  debugLog(`Found ${duplicates.length} groupEvent.id values with duplicates`);
+
+  const deletePromises = duplicates.map(async (group: { _id: string; count: number; docs: Array<{ docId: string; syncedVersion: number; lastSyncedAt: Date }> }) => {
+    stats.ramblersIdsProcessed++;
+    const sortedDocs = group.docs.sort((a, b) => {
+      const versionDiff = (b.syncedVersion || 0) - (a.syncedVersion || 0);
+      if (versionDiff !== 0) {
+        return versionDiff;
+      }
+      const aTime = a.lastSyncedAt ? new Date(a.lastSyncedAt).getTime() : 0;
+      const bTime = b.lastSyncedAt ? new Date(b.lastSyncedAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    const idsToDelete = sortedDocs.slice(1).map(doc => doc.docId.toString());
+    debugLog(`groupEvent.id ${group._id}: keeping doc ${sortedDocs[0].docId}, deleting ${idsToDelete.length} duplicates`);
+
+    if (idsToDelete.length > 0) {
+      stats.details.push({
+        groupEventId: group._id,
+        keptDocId: sortedDocs[0].docId.toString(),
+        deletedDocIds: idsToDelete
+      });
+      const deleteResult = await extendedGroupEvent.deleteMany({
+        _id: { $in: idsToDelete }
+      }).exec();
+      stats.duplicatesRemoved += deleteResult.deletedCount || 0;
+    }
+  });
+
+  await Promise.all(deletePromises);
+
+  debugLog(`Cleanup complete: removed ${stats.duplicatesRemoved} duplicates across ${stats.ramblersIdsProcessed} groupEvent.id values`);
+  return stats;
 }
 
 export async function cacheEventsWithStats(config: SystemConfig, events: GroupEvent[], inputSource: InputSource): Promise<CacheStats> {

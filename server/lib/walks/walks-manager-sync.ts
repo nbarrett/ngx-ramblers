@@ -15,7 +15,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { EventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { dateTimeFromIso, dateTimeFromJsDate, dateTimeNowAsValue } from "../shared/dates";
-import { cacheEventsWithStats } from "./walks-manager-cache";
+import { cacheEventsWithStats, cleanupDuplicatesByRamblersId } from "./walks-manager-cache";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import * as requestDefaults from "../ramblers/request-defaults";
@@ -134,6 +134,16 @@ export async function syncWalksManagerData(
 
     const groupCode = determineGroupCode(config);
     debugLog("Syncing for group code:", groupCode);
+
+    sendProgress(ws, 2, "Cleaning up duplicates...");
+    const cleanupStats = await cleanupDuplicatesByRamblersId();
+    if (cleanupStats.duplicatesRemoved > 0) {
+      debugLog(`Cleanup removed ${cleanupStats.duplicatesRemoved} duplicate walks across ${cleanupStats.ramblersIdsProcessed} groupEvent.id values`);
+      cleanupStats.details.forEach(detail => {
+        debugLog(`  groupEvent.id ${detail.groupEventId}: kept ${detail.keptDocId}, deleted [${detail.deletedDocIds.join(", ")}]`);
+      });
+      result.deleted = cleanupStats.duplicatesRemoved;
+    }
 
     sendProgress(ws, 5, "Sync starting");
     const defaultOptions = requestDefaults.createApiRequestOptions(config);
