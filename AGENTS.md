@@ -130,6 +130,40 @@ If hooks are not installed, run: `npm run setup:hooks`
   - ❌ Any similar AI tool attribution
 - Do not include literal escape sequences like `\n` in commit messages. Use real new lines. When scripting commits, pass multiple `-m` flags instead of embedding `\n`.
 
+### Git Worktrees and Branch Integration
+
+**Worktree Location:**
+- Feature branches are developed in worktrees at `../ngx-ramblers-worktrees/<issue-name>/`
+- Each worktree has its own working directory but shares the same git repository
+
+**Rebase and Cherry-pick over Merge - ALWAYS:**
+- **NEVER use `git merge`** - it creates merge commits and can resurrect squashed intermediate commits
+- **Use `git cherry-pick`** to bring a single clean commit from a feature branch
+- **Use `git rebase`** when you need to replay multiple commits cleanly
+
+**Integrating a worktree branch into main:**
+```bash
+cd /Users/nick/dev/git-personal/ngx-ramblers
+
+git cherry-pick <commit-hash>
+
+git branch -d <branch-name>
+```
+
+**Example workflow:**
+```bash
+cd /Users/nick/dev/git-personal/ngx-ramblers-worktrees/issue-133-gpx-startup
+git add -A && git commit -m "perf(gpx): cache start coordinates (ref: #133)"
+
+cd /Users/nick/dev/git-personal/ngx-ramblers
+git cherry-pick 636be9f4
+```
+
+**Key principles:**
+- Cherry-pick brings exactly one commit cleanly onto HEAD
+- No merge commits means cleaner `git log` and easier bisecting
+- Avoids resurrecting intermediate commits that were squashed
+
 ### Semantic Commit Conventions
 Use [Conventional Commits](https://www.conventionalcommits.org/) format for clear, categorized commit history:
 

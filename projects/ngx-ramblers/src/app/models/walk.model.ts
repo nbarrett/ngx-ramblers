@@ -20,6 +20,7 @@ import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { ExtendedGroupEvent, HasGroupCodeAndName, InputSource } from "./group-event.model";
 import { FilterCriteria } from "./api-request.model";
 import { BulkLoadMemberAndMatchToWalk } from "./member.model";
+import { FileNameData } from "./aws-object.model";
 
 export interface GoogleMapsConfig {
   apiKey: string;
@@ -464,15 +465,15 @@ export interface WalkImageRow {
 }
 
 export interface GpxFileListItem {
-  fileData: { originalFileName: string; awsFileName: string; title: string; rootFolder: string };
+  fileData: FileNameData;
   startLat: number;
   startLng: number;
   name: string;
-  walkTitle: string;
-  walkDate: number;
-  uploadDate: number;
-  distance: number;
-  displayLabel: string;
+  walkTitle?: string;
+  walkDate?: number;
+  uploadDate?: number;
+  distance?: number;
+  displayLabel?: string;
 }
 
 export interface ImportData {
