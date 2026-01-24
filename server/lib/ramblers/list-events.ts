@@ -19,7 +19,7 @@ import { Request, Response } from "express";
 import { systemConfig } from "../config/system-config";
 import { listEventsBySlug } from "./list-events-by-slug";
 import { dateEndParameter, dateParameter, limitFor } from "./parameters";
-import { lastItemFrom, pluraliseWithCount } from "../shared/string-utils";
+import { lastItemFrom, pluraliseWithCount, uniqueCommaDelimitedList } from "../shared/string-utils";
 import { toSlug } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import {
   ExtendedGroupEvent,
@@ -108,7 +108,7 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
       const defaultOptions = requestDefaults.createApiRequestOptions(config);
 
       const buildParameters = (offset?: number) => [
-        optionalParameter("groups", [body.groupCode, config?.group?.groupCode].filter(Boolean).join(",")),
+        optionalParameter("groups", uniqueCommaDelimitedList(body.groupCode, config?.group?.groupCode)),
         optionalParameter("types", body.types || ALL_EVENT_TYPES),
         optionalParameter("ids", ids),
         optionalParameter("limit", limit),
@@ -222,7 +222,7 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
 export async function fetchMappedEvents(config: SystemConfig, fromDate: number, toDate: number): Promise<ExtendedGroupEvent[]> {
   const defaultOptions = requestDefaults.createApiRequestOptions(config);
   const params = [
-    optionalParameter("groups", [config?.group?.groupCode].filter(Boolean).join(",")),
+    optionalParameter("groups", uniqueCommaDelimitedList(config?.group?.groupCode)),
     optionalParameter("types", [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT].join(",")),
     optionalParameter("date", DateTime.fromMillis(fromDate).toFormat(DateFormat.WALKS_MANAGER_API)),
     optionalParameter("date_end", DateTime.fromMillis(toDate).toFormat(DateFormat.WALKS_MANAGER_API)),
@@ -247,7 +247,7 @@ export async function fetchMappedEvents(config: SystemConfig, fromDate: number, 
 async function queryBasedOnExistingEvent(existingEvent: ExtendedGroupEvent, body: EventsListRequest, config: SystemConfig): Promise<RamblersEventsApiResponse> {
   const defaultOptions = requestDefaults.createApiRequestOptions(config);
   const parameters = [
-    optionalParameter("groups", [existingEvent?.groupEvent?.group_code, config?.group?.groupCode].filter(Boolean).join(",")),
+    optionalParameter("groups", uniqueCommaDelimitedList(existingEvent?.groupEvent?.group_code, config?.group?.groupCode)),
     optionalParameter("date", dateParameter(body, debugLog)),
     optionalParameter("date_end", dateEndParameter(body, debugLog)),
     optionalParameter("types", ALL_EVENT_TYPES),

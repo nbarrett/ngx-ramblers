@@ -123,6 +123,7 @@ const extendedGroupEventSchema = new Schema({
 });
 groupEvent.index({start_date_time: 1, item_type: 1, title: 1, group_code: 1}, {unique: true});
 extendedGroupEventSchema.index({[DocumentField.SOURCE]: 1, [DocumentField.RAMBLERS_ID]: 1});
+extendedGroupEventSchema.index({[DocumentField.RAMBLERS_ID]: 1}, {unique: true, sparse: true});
 extendedGroupEventSchema.index({[DocumentField.LAST_SYNCED_AT]: 1});
 extendedGroupEventSchema.index({[GroupEventField.START_DATE]: 1});
 extendedGroupEventSchema.index({[GroupEventField.WALK_LEADER_ID]: 1});

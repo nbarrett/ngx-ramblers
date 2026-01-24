@@ -136,3 +136,13 @@ export function textBeforeSeparators(value: string, separators: string[]): strin
   const earliest = indexes.reduce((best, current) => current.index < best.index ? current : best);
   return trimmed.slice(0, earliest.index).trim();
 }
+
+export function uniqueCommaDelimitedList(...values: (string | null | undefined)[]): string {
+  return Array.from(new Set(
+    values
+      .filter(Boolean)
+      .flatMap(value => value.split(","))
+      .map(item => item.trim())
+      .filter(item => item.length > 0)
+  )).join(",");
+}
