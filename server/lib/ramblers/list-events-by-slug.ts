@@ -10,7 +10,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { dateTimeFromIso, dateTimeNow } from "../shared/dates";
 import * as requestDefaults from "./request-defaults";
-import { lastItemFrom, pluraliseWithCount } from "../shared/string-utils";
+import { lastItemFrom, pluraliseWithCount, uniqueCommaDelimitedList } from "../shared/string-utils";
 import { toSlug } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import { isEmpty } from "es-toolkit/compat";
@@ -50,7 +50,7 @@ export async function listEventsBySlug(req: Request, suppliedSlug?: string): Pro
 
   while (true) {
     const parameters = [
-      optionalParameter("groups", [req.body.groupCode, groupCode].filter(Boolean).join(",")),
+      optionalParameter("groups", uniqueCommaDelimitedList(req.body.groupCode, groupCode)),
       optionalParameter("types", types),
       optionalParameter("limit", limit),
       optionalParameter("offset", offset),
