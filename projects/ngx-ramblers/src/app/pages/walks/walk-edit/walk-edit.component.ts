@@ -2,8 +2,7 @@ import { Component, inject, Input, OnDestroy, OnInit, Type, ViewChild } from "@a
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCopy, faPencil } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep } from "es-toolkit/compat";
-import { isEmpty } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isUndefined } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
@@ -560,8 +559,17 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         this.logger.debug("initialising walk venue");
         displayedWalk.walk.fields.venue = {
           type: this.walksReferenceService.venueTypes()[0].type,
-          postcode: displayedWalk.walk?.groupEvent?.start_location?.postcode
+          postcode: displayedWalk.walk?.groupEvent?.start_location?.postcode,
+          isMeetingPlace: false,
+          venuePublish: false
         };
+      } else {
+        if (isUndefined(displayedWalk.walk.fields.venue.isMeetingPlace)) {
+          displayedWalk.walk.fields.venue.isMeetingPlace = false;
+        }
+        if (isUndefined(displayedWalk.walk.fields.venue.venuePublish)) {
+          displayedWalk.walk.fields.venue.venuePublish = false;
+        }
       }
       this.confirmAction = ConfirmType.NONE;
       this.updateGoogleMapsUrl();

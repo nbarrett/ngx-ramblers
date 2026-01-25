@@ -89,9 +89,41 @@ export function parse(req: Request, queryParameter: string) {
   }
 }
 
+export function isMongoIdString(value: unknown): value is string {
+  return isString(value) && /^[a-fA-F0-9]{24}$/.test(value);
+}
+
+export function convertIdStringsToObjectId(criteria: any): any {
+  if (!criteria || !isObject(criteria)) {
+    return criteria;
+  }
+
+  if (isArray(criteria)) {
+    return criteria.map(item => convertIdStringsToObjectId(item));
+  }
+
+  const result: any = {};
+  for (const key of Object.keys(criteria)) {
+    const value = criteria[key];
+    if (key === "_id" && isMongoIdString(value)) {
+      result[key] = new mongoose.Types.ObjectId(value);
+    } else if (key === "$in" && isArray(value)) {
+      result[key] = value.map(item => isMongoIdString(item) ? new mongoose.Types.ObjectId(item) : item);
+    } else if (isObject(value) && !isArray(value)) {
+      result[key] = convertIdStringsToObjectId(value);
+    } else if (isArray(value)) {
+      result[key] = value.map(item => convertIdStringsToObjectId(item));
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 export function parseQueryStringParameters(req: Request): DataQueryOptions {
+  const rawCriteria = parse(req, "criteria");
   const parameters: DataQueryOptions = {
-    criteria: parse(req, "criteria"),
+    criteria: convertIdStringsToObjectId(rawCriteria),
     limit: parse(req, "limit"),
     select: parse(req, "select"),
     sort: parse(req, "sort")

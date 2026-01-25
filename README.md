@@ -38,9 +38,13 @@ There are a mature set of server-side APIs to third party systems and social med
 - [Instagram](https://www.instagram.com/) — recent image posts feed.
 - [Meetup](https://www.meetup.com/) — publishing of walks and venues, listing of events.
 - [Mailchimp](https://mailchimp.com/) or [Brevo](https://www.brevo.com/) — synchronisation of mailing lists from member data, sending of transactional and campaign emails to members.
-- [Google Maps](https://developers.google.com/maps)— visualisation of walk start and endpoints, driving directions from home to walks.
-- [postcodes.io](https://postcodes.io/) — calculation of postcodes, grid references and Lat/long Geocoding.
-- [OpenStreetMaps](https://www.openstreetmap.org/) / [OS Maps](https://osdatahub.os.uk/) — map views of walks, editing of routes, GPX authoring, and OS basemap overlays throughout walk planning workflows.
+- [Google Maps](https://developers.google.com/maps) — visualisation of walk start and endpoints, driving directions from home to walks. Requires API key.
+- [OpenStreetMaps](https://www.openstreetmap.org/) / [OS Maps](https://osdatahub.os.uk/) — map views of walks, editing of routes, GPX authoring, and OS basemap overlays throughout walk planning workflows. OS Maps requires API key.
+
+### Geocoding & Location Services (no API keys required)
+
+- [postcodes.io](https://postcodes.io/) — UK postcode lookup, reverse geocoding (coordinates to postcode), and grid reference calculation.
+- [Nominatim](https://nominatim.openstreetmap.org/) — OpenStreetMap's geocoding service for place name search and address lookup with UK filtering.
 
 ## Why the name NGX-Ramblers?
 

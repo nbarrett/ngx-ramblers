@@ -260,6 +260,7 @@ export interface MailMessagingConfig {
   externalSystems: ExternalSystems;
   brevo: {
     account: Account;
+    accountError?: string;
     folders: FoldersListResponse;
     lists: ListsResponse;
     mailTemplates: MailTemplates;
@@ -295,7 +296,8 @@ export function DEFAULT_MAIL_MESSAGING_CONFIG(): MailMessagingConfig {
       mailTemplates: null,
       folders: null,
       lists: null,
-      account: null
+      account: null,
+      accountError: null
     },
     notificationConfigs: null,
     committeeReferenceData: null,

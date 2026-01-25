@@ -21,27 +21,32 @@ import { MapEditComponent } from "./map-edit";
 import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { isNull, isNumber } from "es-toolkit/compat";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
-import { Subject } from "rxjs";
+import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { LocationAutocompleteComponent } from "../../../shared/components/location-autocomplete";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { NamedEventType } from "../../../models/broadcast.model";
 
 @Component({
     selector: "app-walk-location-edit",
     template: `
     @if (locationDetails) {
-      <div class="row">
-        <div class="col-12">
-          <div class="form-group">
-            <label for="nearest-town">{{ locationType }} Location</label>
-            <app-location-autocomplete
-              [disabled]="disabled"
-              [value]="locationDetails?.description"
-              placeholder="Enter a UK place name, landmark, or description"
-              (locationChange)="onAutocompleteLocationChange($event)"/>
+      @if (!hideLocationDropdown) {
+        <div class="row">
+          <div class="col-12">
+            <div class="form-group" [class.mb-0]="showLocationOnly">
+              <label for="nearest-town">{{ locationType }} Location</label>
+              <app-location-autocomplete
+                [disabled]="disabled"
+                [value]="locationDetails?.description"
+                placeholder="Enter a UK place name, landmark, or description"
+                (locationChange)="onAutocompleteLocationChange($event)"/>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="row mt-3">
+      }
+      @if (!showLocationOnly) {
+      <div class="row" [class.mt-3]="!hideLocationDropdown">
         <div class="col-sm-6">
           <div class="form-group mb-0">
             <label for="post-code">{{ locationType }} Postcode</label>
@@ -162,6 +167,7 @@ import { LocationAutocompleteComponent } from "../../../shared/components/locati
           }
         </div>
       </div>
+      }
     }`,
     styleUrls: ["./walk-edit.component.sass"],
     imports: [FormsModule, TooltipDirective, MapEditComponent, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, CopyIconComponent, LocationAutocompleteComponent]
@@ -171,6 +177,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("WalkLocationEditComponent", NgxLoggerLevel.ERROR);
   googleMapsService = inject(GoogleMapsService);
   private addressQueryService = inject(AddressQueryService);
+  private broadcastService = inject<BroadcastService<string>>(BroadcastService);
   route = inject(ActivatedRoute);
   protected dateUtils = inject(DateUtilsService);
   display = inject(WalkDisplayService);
@@ -179,6 +186,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   protected notifierService = inject(NotifierService);
   private notifyInstance: AlertInstance;
   private gridReferenceInput$ = new Subject<string>();
+  private subscriptions: Subscription[] = [];
   @ViewChild(MapEditComponent) mapComponent: MapEditComponent;
   @Input() set notify(value: AlertInstance | undefined) {
     this.notifyInstance = value ?? this.notifierService.createGlobalAlert();
@@ -199,6 +207,8 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   @Input() endLocationDetails: LocationDetails | null = null;
   @Input() showCombinedMap = false;
   @Input() gpxFile: FileNameData;
+  @Input() showLocationOnly = false;
+  @Input() hideLocationDropdown = false;
 
   public showLeafletView = false;
   public disabled: boolean;
@@ -209,7 +219,6 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   public googleMapsUrl: SafeResourceUrl;
   public faPencil = faPencil;
   public showGoogleMapsView = false;
-  public placeLookupBusy = false;
   public gridRefLookupBusy = false;
 
   gridReferenceValid(): boolean {
@@ -231,10 +240,22 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
           this.gridReferenceChange();
         }
       });
+
+    if (this.locationType === "Starting") {
+      this.subscriptions.push(
+        this.broadcastService.on(NamedEventType.WALK_START_LOCATION_CHANGED, (event) => {
+          this.logger.info("WALK_START_LOCATION_CHANGED received:", event.data);
+          if (event.data && this.locationDetails) {
+            this.postcodeChange();
+          }
+        })
+      );
+    }
   }
 
   ngOnDestroy() {
     this.gridReferenceInput$.complete();
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   toggleGoogleOrLeafletMapView() {
@@ -367,35 +388,6 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
 
   viewGridReference(gridReference: string) {
     return window.open(this.display.gridReferenceLink(gridReference));
-  }
-
-  async lookupPlaceName() {
-    const query = this.locationDetails?.description?.trim();
-    if (!query || this.placeLookupBusy || this.disabled) {
-      return;
-    }
-    this.placeLookupBusy = true;
-    this.notify?.progress(`Resolving "${query}"`, true);
-    try {
-      const result = await this.addressQueryService.placeNameLookup(query);
-      if (!result) {
-        throw new Error("Location lookup failed");
-      }
-      if (result.error) {
-        this.notify?.error(result.error);
-        return;
-      }
-      this.applyPlaceLookupResult(result, query);
-      this.notify?.success(`Location resolved for "${query}"`);
-    } catch (error: any) {
-      this.logger.error("lookupPlaceName:error", error);
-      this.notify?.error(error?.message || "Unable to resolve location");
-    } finally {
-      this.placeLookupBusy = false;
-      if (this.notify) {
-        this.notify.clearBusy();
-      }
-    }
   }
 
   private applyPlaceLookupResult(result: GridReferenceLookupResponse, fallbackDescription: string) {

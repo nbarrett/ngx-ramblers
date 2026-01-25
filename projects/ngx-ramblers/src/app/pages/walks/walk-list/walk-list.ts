@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { range } from "es-toolkit";
-import { isNull, isUndefined, uniq } from "es-toolkit/compat";
+import { isNull, isUndefined } from "es-toolkit/compat";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -13,7 +13,6 @@ import { LoginResponse } from "../../../models/member.model";
 import { DeviceSize } from "../../../models/page.model";
 import { EventPopulation, SystemConfig } from "../../../models/system.model";
 import { DisplayedWalk, EventField, GroupEventField, WalkListView } from "../../../models/walk.model";
-import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -22,14 +21,10 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { PageService } from "../../../services/page.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
-import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
-import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { LocalWalksAndEventsService } from "../../../services/walks-and-events/local-walks-and-events.service";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-import { sortBy } from "../../../functions/arrays";
 import { asNumber } from "../../../functions/numbers";
 import { quickSearchCriteria } from "../../../functions/walks/quick-search";
 import { faImages, faPeopleGroup, faTableCells, faWalking } from "@fortawesome/free-solid-svg-icons";
@@ -50,13 +45,12 @@ import { WalkGradingComponent } from "../walk-view/walk-grading";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
-import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
+import { AdvancedSearchCriteria, DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
 import { BuiltInAnchor, EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
-import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
+import { InputSource } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { DataQueryOptions, FilterCriteria } from "../../../models/api-request.model";
-import { AdvancedSearchCriteria } from "../../../models/search.model";
 import { MAP_VIEW_SELECT } from "../../../models/map.model";
 import { buildAdvancedSearchCriteria } from "../../../functions/walks/advanced-search-criteria-builder";
 import { advancedCriteriaQueryParams } from "../../../functions/walks/advanced-search";
@@ -253,16 +247,12 @@ export class WalkList implements OnInit, OnDestroy {
   private modalService = inject(BsModalService);
   private pageService = inject(PageService);
   googleMapsService = inject(GoogleMapsService);
-  protected walksAndEventsService = inject(WalksAndEventsService);
   private authService = inject(AuthService);
-  ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   memberLoginService = inject(MemberLoginService);
   display = inject(WalkDisplayService);
   protected stringUtils = inject(StringUtilsService);
-  private searchFilterPipe = inject(SearchFilterPipe);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private notifierService = inject(NotifierService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   private localWalksAndEventsService = inject(LocalWalksAndEventsService);
@@ -270,7 +260,6 @@ export class WalkList implements OnInit, OnDestroy {
   protected readonly faWalking = faWalking;
   protected readonly faPeopleGroup = faPeopleGroup;
   public currentWalkId: string;
-  public walks: ExtendedGroupEvent[];
   public filteredWalks: DisplayedWalk[] = [];
   public currentPageWalks: DisplayedWalk[] = [];
   public filterParameters: FilterParameters = DEFAULT_FILTER_PARAMETERS();
@@ -281,7 +270,6 @@ export class WalkList implements OnInit, OnDestroy {
   public pageCount: number;
   public pages: number[] = [];
   public advancedSearchCriteria: AdvancedSearchCriteria | null = null;
-  private useServerSideSearch = true;
   private serverSideTotalItems = 0;
   private lastNonMapPageNumber = 1;
   private searchCounter = 0;
@@ -341,7 +329,7 @@ export class WalkList implements OnInit, OnDestroy {
     this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshWalks(NamedEventType.REFRESH));
     this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilterToWalks(searchTerm));
     this.broadcastService.on(NamedEventType.ADVANCED_SEARCH, (event: NamedEvent<AdvancedSearchCriteria>) => this.onAdvancedSearch(event.data));
-    this.broadcastService.on(NamedEventType.WALK_SAVED, (event: NamedEvent<ExtendedGroupEvent>) => this.replaceWalkInList(event.data));
+    this.broadcastService.on(NamedEventType.WALK_SAVED, () => this.refreshWalks(NamedEventType.WALK_SAVED));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       this.currentWalkId = paramMap.get("walk-id");
       this.logger.debug("walk-id from route params:", this.currentWalkId);
@@ -349,16 +337,11 @@ export class WalkList implements OnInit, OnDestroy {
     this.display.refreshCachedData();
     this.pageService.setTitle("Home");
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => this.refreshWalks(loginResponse)));
-
-    if (this.useServerSideSearch) {
-      setTimeout(() => {
-        this.logger.info("Initial server-side search with page:", this.pageNumber);
-        this.performServerSideSearch();
-        this.isInitializing = false;
-      }, 100);
-    } else {
+    setTimeout(() => {
+      this.logger.info("Initial search with page:", this.pageNumber);
+      this.performServerSideSearch();
       this.isInitializing = false;
-    }
+    }, 100);
   }
 
   ngOnDestroy(): void {
@@ -375,10 +358,6 @@ export class WalkList implements OnInit, OnDestroy {
     return maxSize;
   }
 
-  paginate(walks: DisplayedWalk[], pageSize, pageNumber): DisplayedWalk[] {
-    return walks.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
-  }
-
   applyFilterToWalks(searchTerm?: NamedEvent<string>): void {
     const searchTriggered = Boolean(searchTerm);
     if (searchTriggered) {
@@ -388,28 +367,11 @@ export class WalkList implements OnInit, OnDestroy {
         [this.stringUtils.kebabCase(StoredValue.SEARCH)]: this.filterParameters.quickSearch || null
       });
     }
-    if (this.useServerSideSearch) {
-      this.performServerSideSearch();
-      return;
-    }
-    if (!this.walks) {
-      return;
-    }
-    this.notify.setBusy();
-    const sort = this.extendedGroupEventQueryService.localWalksSortObject(this.filterParameters);
-    this.logger.info("applyFilterToWalks:searchTerm:", searchTerm, "filterParameters:", this.filterParameters, "localWalksSortObject:", sort);
-    const displayedWalks = this.walks.map(walk => this.display.toDisplayedWalk(walk));
-    this.filteredWalks = this.searchFilterPipe.transform(displayedWalks, this.filterParameters.quickSearch)
-      .sort(sortBy(sort));
-    this.applyPagination();
-    if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0) {
-      this.display.view(this.currentPageWalks[0].walk);
-    }
-    this.notify.clearBusy();
+    this.performServerSideSearch();
   }
 
-  private applyPagination() {
-    const totalItems = this.useServerSideSearch ? this.serverSideTotalItems : this.filteredWalks?.length;
+  private updatePaginationStatus() {
+    const totalItems = this.serverSideTotalItems;
     this.paginationTotalItems = totalItems;
     if (this.walkListView === WalkListView.MAP) {
       this.pageCount = 1;
@@ -422,13 +384,9 @@ export class WalkList implements OnInit, OnDestroy {
         this.pageNumber = 1;
         this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1 });
       }
-      if (!this.useServerSideSearch) {
-        this.currentPageWalks = this.paginate(this.filteredWalks, this.pageSize, this.pageNumber);
-      }
       this.pages = range(1, this.pageCount + 1);
     }
-    this.logger.debug("total walks count", this.walks?.length, "walks:", this.walks, "filteredWalks count", this.filteredWalks?.length, "currentPageWalks count", this.currentPageWalks.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages);
-    this.logger.info("total walks count", this.walks?.length, "filteredWalks count", this.filteredWalks?.length, "currentPageWalks:", this.currentPageWalks, "pageSize:", this.pageSize, "pageCount", this.pageCount);
+    this.logger.info("filteredWalks count", this.filteredWalks?.length, "currentPageWalks:", this.currentPageWalks, "pageSize:", this.pageSize, "pageCount", this.pageCount);
     const hasWalks = this.currentPageWalks.length > 0;
     const offset = hasWalks ? ((this.pageNumber - 1) * this.pageSize + 1) : 0;
     const pageIndicator = this.pages.length > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : "";
@@ -439,7 +397,7 @@ export class WalkList implements OnInit, OnDestroy {
     const alertMessage = this.walkListView === WalkListView.MAP
       ? (this.filteredWalks?.length ? `Showing ${totalOnly}` : noResultsMessage)
       : (hasWalks ? (this.pageCount <= 1 ? totalOnly : `${offset} to ${toWalkNumber} of ${totalOnly}${pageIndicator ? EM_DASH_WITH_SPACES + pageIndicator : ""}`) : noResultsMessage);
-    this.logger.info("ALERT DEBUG - applyPagination:", {
+    this.logger.info("ALERT DEBUG - updatePaginationStatus:", {
       walkListView: this.walkListView,
       pageCount: this.pageCount,
       filteredWalksLength: this.filteredWalks?.length,
@@ -462,21 +420,11 @@ export class WalkList implements OnInit, OnDestroy {
     return this.memberLoginService.memberLoggedIn();
   }
 
-  query() {
-    return this.walksAndEventsService.all({
-      inputSource: this.display.walkPopulationLocal() ? InputSource.MANUALLY_CREATED : InputSource.WALKS_MANAGER_CACHE,
-      suppressEventLinking: false,
-      types: [RamblersEventType.GROUP_WALK],
-      dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions(this.filterParameters)
-    });
-  }
-
   onAdvancedSearch(criteria: AdvancedSearchCriteria) {
     this.logger.info("Advanced search triggered:", criteria, "isInitializing:", this.isInitializing);
     const criteriaChanged = JSON.stringify(this.advancedSearchCriteria) !== JSON.stringify(criteria);
     const shouldResetPage = !this.isInitializing && criteriaChanged;
     this.advancedSearchCriteria = criteria;
-    this.useServerSideSearch = true;
     if (shouldResetPage) {
       this.pageNumber = 1;
       const criteriaParams = advancedCriteriaQueryParams(criteria, this.stringUtils, this.dateUtils);
@@ -489,10 +437,6 @@ export class WalkList implements OnInit, OnDestroy {
   }
 
   private async performServerSideSearch() {
-    if (!this.useServerSideSearch) {
-      return;
-    }
-
     this.searchCounter++;
     const thisSearchId = this.searchCounter;
     this.latestSearchId = thisSearchId;
@@ -577,16 +521,16 @@ export class WalkList implements OnInit, OnDestroy {
         logger: this.logger
       });
 
-      this.logger.info("Built advanced criteria parts:", advancedCriteria);
-      this.logger.info("Advanced criteria count:", advancedCriteria.length);
+      this.logger.debug("Built advanced criteria parts:", advancedCriteria);
+      this.logger.debug("Advanced criteria count:", advancedCriteria.length);
 
       criteriaParts.push(...advancedCriteria);
 
-      this.logger.info("All criteria parts before combining:", criteriaParts);
+      this.logger.debug("All criteria parts before combining:", criteriaParts);
 
       const criteria = criteriaParts.length === 0 ? {} : (criteriaParts.length === 1 ? criteriaParts[0] : {$and: criteriaParts});
 
-      this.logger.info("Final MongoDB criteria:", JSON.stringify(criteria, null, 2));
+      this.logger.debug("Final MongoDB criteria:", JSON.stringify(criteria, null, 2));
 
       const sortAscending = this.uiActionsService.booleanOf(this.filterParameters.ascending);
       const sort = sortAscending
@@ -604,7 +548,7 @@ export class WalkList implements OnInit, OnDestroy {
         dataQueryOptions.limit = this.pageSize;
       }
 
-      this.logger.info("Performing server-side search with options:", dataQueryOptions);
+      this.logger.debug("Performing server-side search with options:", dataQueryOptions);
 
       const response = await this.localWalksAndEventsService.allWithPagination(dataQueryOptions);
 
@@ -616,7 +560,7 @@ export class WalkList implements OnInit, OnDestroy {
         const displayedWalks = events.map(event => this.display.toDisplayedWalk(event));
         this.filteredWalks = displayedWalks;
         this.currentPageWalks = displayedWalks;
-        this.applyPagination();
+        this.updatePaginationStatus();
         if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0) {
           this.display.view(this.currentPageWalks[0].walk);
         }
@@ -651,45 +595,9 @@ export class WalkList implements OnInit, OnDestroy {
     return !this.tableRowOdd(walk);
   }
 
-  private replaceWalkInList(walk: ExtendedGroupEvent) {
-    this.logger.debug("Received updated walk", walk);
-    const existingWalk: ExtendedGroupEvent = this.walks?.find(listedWalk => listedWalk?.id === walk?.id);
-    if (existingWalk) {
-      this.walks[(this.walks?.indexOf(existingWalk))] = walk;
-      this.applyFilterToWalks();
-    }
-  }
-
-  refreshWalks(event?: any): Promise<any> {
+  refreshWalks(event?: any): void {
     this.logger.info("Refreshing walks due to", event, "event and walkPopulation:", this.display?.group?.walkPopulation);
-    if (this.useServerSideSearch) {
-      this.performServerSideSearch();
-      return Promise.resolve();
-    } else {
-      this.notify.progress(`Refreshing ${this.stringUtils.asTitle(this.display?.group?.walkPopulation)} walks...`, true);
-      return this.query()
-        .then(walks => {
-          this.display.setNextWalkId();
-          this.queryGroups(walks);
-          this.logger.info("refreshWalks", "hasWalksId", this.currentWalkId, "walks:", walks);
-          this.applyWalks(this.currentWalkId || this.filterParameters.selectType === FilterCriteria.ALL_EVENTS ? walks : this.extendedGroupEventQueryService.activeEvents(walks));
-          this.applyFilterToWalks();
-          this.notify.clearBusy();
-        }).catch(error => {
-          this.logger.error("error->", error);
-          this.notify.error({
-            title: "Problem with querying walks",
-            continue: true,
-            message: error
-          });
-        });
-    }
-  }
-
-  private applyWalks(walks: ExtendedGroupEvent[]) {
-    this.walks = walks;
-    this.applyFilterToWalks();
-    this.notify.clearBusy();
+    this.performServerSideSearch();
   }
 
   login() {
@@ -707,11 +615,7 @@ export class WalkList implements OnInit, OnDestroy {
 
   goToPage(pageNumber) {
     this.pageNumber = pageNumber;
-    if (this.useServerSideSearch) {
-      this.performServerSideSearch();
-    } else {
-      this.applyPagination();
-    }
+    this.performServerSideSearch();
     this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.PAGE)]: pageNumber });
   }
 
@@ -736,27 +640,12 @@ export class WalkList implements OnInit, OnDestroy {
     }
   }
 
-
-  private queryGroups(walks: ExtendedGroupEvent[]): void {
-    const groups: string[] = uniq(walks.map((groupWalk: ExtendedGroupEvent) => groupWalk?.groupEvent?.group_code)).filter(item => item);
-    if (groups.length > 0) {
-      this.logger.info("finding groups:", groups);
-      this.ramblersWalksAndEventsService.listRamblersGroups(groups);
-    } else {
-      this.logger.info("no groups to query:", groups);
-    }
-  }
-
   switchToView(walkListView: WalkListView) {
     this.updateViewAndPagination(walkListView);
     this.logger.info("switching to", walkListView, "view");
     this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, walkListView);
     this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW)]: this.stringUtils.kebabCase(walkListView) });
-    if (this.useServerSideSearch) {
-      this.performServerSideSearch();
-    } else {
-      this.applyPagination();
-    }
+    this.performServerSideSearch();
   }
 
   private updateViewAndPagination(nextView: WalkListView) {

@@ -337,6 +337,8 @@ export enum EventField {
   VENUE = "fields.venue",
   VENUE_ADDRESS1 = "fields.venue.address1",
   VENUE_ADDRESS2 = "fields.venue.address2",
+  VENUE_LAT = "fields.venue.lat",
+  VENUE_LON = "fields.venue.lon",
   VENUE_NAME = "fields.venue.name",
   VENUE_POSTCODE = "fields.venue.postcode",
   VENUE_PUBLISH = "fields.venue.venuePublish",
@@ -509,4 +511,16 @@ export interface ServerDownloadStatus {
 export enum WalkExportTab {
   WALK_UPLOAD_SELECTION = "walk-upload-selection",
   WALK_UPLOAD_AUDIT = "walk-upload-audit"
+}
+
+export enum RelatedLinksTab {
+  RAMBLERS = "Ramblers",
+  OS_MAPS = "OS Maps",
+  MEETUP = "Meetup"
+}
+
+export enum DetailsTab {
+  ROUTE_AND_VENUE = "Route & Venue",
+  ROUTE = "Route",
+  VENUE = "Venue"
 }

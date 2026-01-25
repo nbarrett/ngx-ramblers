@@ -135,7 +135,28 @@ import { InputSize } from "../../../../models/ui-size.model";
                       </div>
                     </div>
                   </div>
-                  @if (mailMessagingConfig.brevo.account) {
+                  @if (mailMessagingConfig.brevo.accountError) {
+                    <div class="thumbnail-heading-frame">
+                      <div class="thumbnail-heading">Account Profile</div>
+                      <div class="row">
+                        <div class="col-sm-12 mb-2">
+                          <div class="alert alert-danger mb-0 p-4">
+                            <h5><fa-icon [icon]="'exclamation-triangle'" class="me-2"></fa-icon>Failed to load Brevo account</h5>
+                            <p class="mb-2"><strong>Error:</strong> {{ mailMessagingConfig.brevo.accountError }}</p>
+                            <p class="mb-2">This usually means the API key is invalid or has expired. To resolve this:</p>
+                            <ol class="mb-3">
+                              <li>Log into your <a [href]="mailMessagingConfig.mailConfig.baseUrl" target="_blank">Brevo account</a></li>
+                              <li>Navigate to <strong>SMTP &amp; API</strong> &gt; <strong>API Keys</strong> (or use the button below)</li>
+                              <li>Generate a new API key or verify your existing key is valid</li>
+                              <li>Update the API Key field above and save</li>
+                            </ol>
+                            <app-brevo-button button title="Open Brevo API Keys"
+                              (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"/>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  } @else if (mailMessagingConfig.brevo.account?.email) {
                     <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Account Profile</div>
                       <div class="row">
@@ -148,19 +169,19 @@ import { InputSize } from "../../../../models/ui-size.model";
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="email">Email</label>
-                            <div class="form-control input-sm" id="email">{{ mailMessagingConfig.brevo.account?.email }}</div>
+                            <div class="form-control-plaintext" id="email">{{ mailMessagingConfig.brevo.account?.email }}</div>
                           </div>
                         </div>
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="firstName">First Name</label>
-                            <div class="form-control input-sm" id="firstName">{{ mailMessagingConfig.brevo.account?.firstName }}</div>
+                            <div class="form-control-plaintext" id="firstName">{{ mailMessagingConfig.brevo.account?.firstName }}</div>
                           </div>
                         </div>
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="lastName">Last Name</label>
-                            <div class="form-control input-sm" id="lastName">{{ mailMessagingConfig.brevo.account?.lastName }}</div>
+                            <div class="form-control-plaintext" id="lastName">{{ mailMessagingConfig.brevo.account?.lastName }}</div>
                           </div>
                         </div>
                       </div>
@@ -168,19 +189,19 @@ import { InputSize } from "../../../../models/ui-size.model";
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="companyName">Company Name</label>
-                            <div class="form-control input-sm" id="companyName">{{ mailMessagingConfig.brevo.account?.companyName }}</div>
+                            <div class="form-control-plaintext" id="companyName">{{ mailMessagingConfig.brevo.account?.companyName }}</div>
                           </div>
                         </div>
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="street">Street</label>
-                            <div class="form-control input-sm" id="street">{{ mailMessagingConfig.brevo.account?.address?.street }}</div>
+                            <div class="form-control-plaintext" id="street">{{ mailMessagingConfig.brevo.account?.address?.street }}</div>
                           </div>
                         </div>
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="postcode">Postcode</label>
-                            <div class="form-control input-sm" id="postcode">{{ mailMessagingConfig.brevo.account?.address?.zipCode }}</div>
+                            <div class="form-control-plaintext" id="postcode">{{ mailMessagingConfig.brevo.account?.address?.zipCode }}</div>
                           </div>
                         </div>
                       </div>
@@ -188,13 +209,13 @@ import { InputSize } from "../../../../models/ui-size.model";
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="town">Town</label>
-                            <div type="text" class="form-control input-sm" id="town">{{ mailMessagingConfig.brevo.account?.address?.city }}</div>
+                            <div class="form-control-plaintext" id="town">{{ mailMessagingConfig.brevo.account?.address?.city }}</div>
                           </div>
                         </div>
                         <div class="col-sm-4">
                           <div class="form-group">
                             <label for="country">Country</label>
-                            <div class="form-control input-sm">{{ mailMessagingConfig.brevo.account?.address?.country }}</div>
+                            <div class="form-control-plaintext">{{ mailMessagingConfig.brevo.account?.address?.country }}</div>
                           </div>
                         </div>
                         <div class="col">
@@ -206,7 +227,7 @@ import { InputSize } from "../../../../models/ui-size.model";
                       </div>
                     </div>
                   }
-                  @if (mailMessagingConfig.brevo.account) {
+                  @if (mailMessagingConfig.brevo.account?.email) {
                     <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Free Email Plan Usage</div>
                       <div class="row">

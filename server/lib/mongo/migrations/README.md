@@ -145,6 +145,47 @@ Removes duplicate page content entries and creates a unique index on the `path` 
 - Cleans up existing duplicates (keeps most recently updated)
 - Prevents future duplicates via unique constraint
 
+### 20260113000000-reverse-geocode-missing-postcodes.ts
+Reverse geocodes walks that have coordinates but are missing postcodes.
+
+**Purpose**: Populate missing postcode data from existing latitude/longitude coordinates.
+
+**How it works**:
+1. Finds walks with `startLocationLatitude` and `startLocationLongitude` but missing `startLocationPostcode`
+2. Calls postcodes.io reverse geocoding API with the coordinates
+3. Validates the result is within 50 miles of the area center (configurable)
+4. Populates postcode and grid reference fields (6, 8, 10 digit formats)
+5. Creates audit events tracking the geocoding source
+
+**External API**: [postcodes.io](https://postcodes.io/) (free, no API key required)
+
+### 20260113000001-geocode-from-title-description.ts
+Extracts location information from walk titles and descriptions for walks still missing postcodes.
+
+**Purpose**: Use text analysis to geocode walks that couldn't be reverse geocoded from coordinates.
+
+**How it works**:
+1. Finds walks still missing `startLocationPostcode` after the reverse geocoding migration
+2. Extracts location candidates from title and description using regex patterns:
+   - UK postcodes (`SW1A 1AA`)
+   - OS grid references (`TQ308806`)
+   - Place names ("walk from X to Y", "meet at X", etc.)
+3. Prioritises matches: postcode > grid reference > place name
+4. Geocodes using Nominatim with UK filtering and county preference
+5. Populates location fields and tracks the match type (`GeocodeMatchType`)
+
+**External APIs**:
+- [postcodes.io](https://postcodes.io/) — postcode and grid reference lookup
+- [Nominatim](https://nominatim.openstreetmap.org/) — place name geocoding
+
+**Match Types** (`GeocodeMatchType` enum):
+- `COORDINATES` — existing lat/lng
+- `POSTCODE` — extracted UK postcode
+- `GRID_REFERENCE` — extracted OS grid reference
+- `PLACE_NAME` — geocoded place name
+- `TITLE_EXTRACTION` — place name from walk title
+- `START_LOCATION` — explicit start location text
+
 ## Best Practices
 
 1. **Test First**: Test migrations on local/staging before production

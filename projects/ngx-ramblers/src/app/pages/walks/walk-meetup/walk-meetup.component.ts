@@ -28,14 +28,13 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 @Component({
     selector: "app-walk-meetup",
     template: `
-      <div class="row img-thumbnail thumbnail-walk-edit">
-        <div class="thumbnail-heading">Meetup</div>
-        <div class="d-none">
-          <ng-template app-notification-directive/>
-        </div>
-        <div class="col-sm-12">
-          <app-markdown-editor standalone name="meetup-help" description="Linking to Meetup"/>
-        </div>
+      <div class="thumbnail-heading">Meetup</div>
+      <div class="d-none">
+        <ng-template app-notification-directive/>
+      </div>
+      <div class="col-sm-12">
+        <app-markdown-editor standalone name="meetup-help" description="Linking to Meetup"/>
+      </div>
         @if (allowEdits()) {
           <div class="col-sm-12">
             <div class="form-check">
@@ -101,8 +100,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
               }
             </div>
           }
-        }
-      </div>`,
+        }`,
     imports: [NotificationDirective, MarkdownEditorComponent, FormsModule, WalkMeetupConfigParametersComponent, TooltipDirective]
 })
 export class WalkMeetupComponent implements OnInit {

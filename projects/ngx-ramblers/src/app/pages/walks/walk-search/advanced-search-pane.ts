@@ -27,7 +27,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NgxLoggerLevel } from "ngx-logger";
 import { RamblersGroupWithLabel, WalkLeaderContact } from "../../../models/ramblers-walks-manager";
 import { from, Subject } from "rxjs";
-import { WALK_GRADES } from "../../../models/walk.model";
+import { GroupEventField, WALK_GRADES } from "../../../models/walk.model";
 import { FEATURE_CATEGORIES, FeatureCategory } from "../../../models/walk-feature.model";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -47,10 +47,7 @@ import { debounceTime } from "rxjs/operators";
 import * as L from "leaflet";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
-import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.service";
 import { LocalWalksAndEventsService } from "../../../services/walks-and-events/local-walks-and-events.service";
-import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
-import { GroupEventField } from "../../../models/walk.model";
 import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 
 @Component({
@@ -542,9 +539,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
   private stringUtils = inject(StringUtilsService);
   private route = inject(ActivatedRoute);
   private mapTilesService = inject(MapTilesService);
-  private mapMarkerStyleService = inject(MapMarkerStyleService);
   private localWalksAndEventsService = inject(LocalWalksAndEventsService);
-  private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private criteriaChangeSubject = new Subject<void>();
   proximityMapOptions?: L.MapOptions;
   proximityMapLayers: L.Layer[] = [];
@@ -906,31 +901,20 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     return [...options].sort((a, b) => a.label.localeCompare(b.label));
   }
 
-  private async loadGroups() {
-    try {
-      this.loadingGroups = true;
-      const config = this.systemConfigService.systemConfig();
-      const allowedCodes = new Set([
-        config?.group?.groupCode,
-        config?.area?.groupCode,
-        ...(config?.area?.groups?.map(group => group.groupCode) || [])
-      ].filter(Boolean));
-      const groups = await this.ramblersWalksAndEventsService.listRamblersGroups([]);
-      this.availableGroups = groups
+  private loadGroups(): void {
+    this.loadingGroups = true;
+    this.ramblersWalksAndEventsService.groupNotifications().subscribe(response => {
+      this.availableGroups = response.response
         .filter(group => group.scope === "G")
-        .filter(group => allowedCodes.size === 0 || allowedCodes.has(group.group_code))
         .map(group => ({
           ...group,
           ngSelectAttributes: { label: `${group.name} (${group.group_code})` }
         }))
         .sort(sortBy("name"));
       this.showGroupSelector = this.availableGroups.length > 1;
-      this.logger.info("Loaded groups:", this.availableGroups.length);
-    } catch (error) {
-      this.logger.error("Failed to load groups:", error);
-    } finally {
       this.loadingGroups = false;
-    }
+      this.logger.info("Loaded groups from service:", this.availableGroups.length);
+    });
   }
 
   onCriteriaChange(flush = false) {

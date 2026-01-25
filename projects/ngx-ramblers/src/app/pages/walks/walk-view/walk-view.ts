@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Component, ElementRef, inject, Input, OnDestroy, OnInit, ViewChild, ViewChildren, QueryList } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -26,6 +26,7 @@ import { MarkdownComponent } from "ngx-markdown";
 import { WalkLeaderComponent } from "./walk-leader";
 import { WalkFeaturesComponent } from "./walk-features";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faCompress, faExpand } from "@fortawesome/free-solid-svg-icons";
 import { RouterLink } from "@angular/router";
 import { GroupEventImages } from "./group-event-images";
 import { MapEditComponent } from "../walk-edit/map-edit";
@@ -51,7 +52,7 @@ import { PageService } from "../../../services/page.service";
                                    collapsable [collapseAction]="'collapse'"/>
         }
         <div class="row">
-          <div class="col-sm-12 col-lg-6 rounded">
+          <div class="col-sm-12 col-lg-6 rounded" [class.d-none]="mapExpanded">
             @if (displayedWalk?.walk?.groupEvent?.title) {
               <h1 id="{{displayedWalk?.walk?.id}}-title">
                 {{ displayedWalk.walk?.groupEvent?.title }}</h1>
@@ -135,7 +136,7 @@ import { PageService } from "../../../services/page.service";
               }
             }
           </div>
-          <div class="col-sm-12 col-lg-6 rounded">
+          <div class="rounded" [class.col-sm-12]="true" [class.col-lg-6]="!mapExpanded" [class.col-lg-12]="mapExpanded">
             @if (!display.displayMap(displayedWalk?.walk) || displayedWalk?.walk?.groupEvent?.media?.length > 0) {
               <div class="row">
                 <div class="col-sm-12">
@@ -145,14 +146,22 @@ import { PageService } from "../../../services/page.service";
             }
             @if (display.displayMap(displayedWalk?.walk)) {
               <div class="row">
-                <div class="col-sm-12">
+                <div class="col-sm-12 position-relative">
+                  <button type="button" class="btn btn-sm btn-light map-expand-btn"
+                          (click)="toggleMapExpanded()"
+                          [tooltip]="mapExpanded ? 'Collapse map' : 'Expand map'"
+                          placement="left">
+                    <fa-icon [icon]="mapExpanded ? faCompress : faExpand"></fa-icon>
+                  </button>
                   @if (display.mapViewReady(googleMapsUrl) && showGoogleMapsView) {
-                    <iframe allowfullscreen class="map-walk-view map-walk-view-google"
+                    <iframe allowfullscreen [class.map-walk-view-expanded]="mapExpanded"
+                            class="map-walk-view map-walk-view-google"
                             style="border:0;border-radius: 10px;"
                             [src]="googleMapsUrl"></iframe>
                   }
                   @if (!showGoogleMapsView) {
-                    <div app-map-edit class="map-walk-view" readonly
+                    <div app-map-edit [class.map-walk-view-expanded]="mapExpanded"
+                         class="map-walk-view" readonly
                          [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.groupEvent?.start_location:displayedWalk?.walk?.groupEvent?.end_location"
                          [walkStatus]="displayedWalk?.walk?.groupEvent?.status"
                          [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
@@ -160,7 +169,7 @@ import { PageService } from "../../../services/page.service";
                   }
                 </div>
               </div>
-              <form class="rounded img-thumbnail map-radio-frame">
+              <form class="rounded img-thumbnail map-radio-frame d-flex flex-wrap align-items-center justify-content-center">
                 <div class="ms-2 me-2 d-flex align-items-center flex-wrap">
                   <span class="me-2 fw-bold">Show Map As</span>
                   <div class="form-check form-check-inline ms-2">
@@ -180,7 +189,7 @@ import { PageService } from "../../../services/page.service";
                       Google Maps</label>
                   </div>
                 </div>
-                <div class="col-sm-12 ms-2 me-2 mt-2">
+                <div class="ms-2 me-2 d-flex align-items-center flex-wrap" [class.mt-2]="!mapExpanded" [class.w-100]="!mapExpanded">
                   <div class="form-check form-check-inline">
                     <input class="form-check-input" id="{{index}}-show-start-point"
                            type="radio"
@@ -280,6 +289,9 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly EventType = EventType;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
   protected readonly WalkStatus = WalkStatus;
+  protected readonly faCompress = faCompress;
+  protected readonly faExpand = faExpand;
+  public mapExpanded = false;
   @Input() showPanelExpander = true;
 
   get hasOsApiKey(): boolean {
@@ -290,6 +302,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     return this.hasOsApiKey ? "OS Maps" : "Pin Location View";
   }
   @ViewChild("fromPostcodeInput") fromPostcodeInput: ElementRef<HTMLInputElement>;
+  @ViewChild(MapEditComponent) mapEditComponent: MapEditComponent;
   @Input() index: number;
 
   @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {
@@ -485,5 +498,12 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   private focusFromPostcodeInput() {
     setTimeout(() => this.fromPostcodeInput?.nativeElement?.focus(), 0);
+  }
+
+  toggleMapExpanded() {
+    this.mapExpanded = !this.mapExpanded;
+    setTimeout(() => {
+      this.mapEditComponent?.invalidateSize();
+    }, 50);
   }
 }

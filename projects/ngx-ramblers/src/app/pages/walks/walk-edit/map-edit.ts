@@ -208,7 +208,9 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
       zoom: initialZoom,
       center,
       crs,
-      maxZoom
+      maxZoom,
+      zoomSnap: 0.5,
+      zoomDelta: 0.5
     };
 
     const markerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
@@ -307,7 +309,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
         this.zone.run(() => {
           const zoomLevel = map.getZoom();
           this.logger.info("Map zoom level changed:", zoomLevel);
-          if (!this.showCombinedMap && this.locationDetails?.latitude && this.locationDetails?.longitude) {
+          if (!this.showCombinedMap && !this.gpxFile?.awsFileName && this.locationDetails?.latitude && this.locationDetails?.longitude) {
             map.panTo(L.latLng(this.locationDetails.latitude, this.locationDetails.longitude));
           }
         });
@@ -316,14 +318,12 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
 
       setTimeout(() => {
         map.invalidateSize();
-        if (!this.gpxFile?.awsFileName) {
-          if (this.fitBounds) {
-            this.mapZoom.applyBoundsToMap(map, this.fitBounds, { maxZoom: 15 });
-          } else {
-            const { latitude, longitude } = this.locationDetails;
-            const zoom = this.mapZoom.calculateSinglePointZoom(map, { defaultZoom: 15, mapMaxZoom: map.getMaxZoom() });
-            map.setView(L.latLng(latitude, longitude), zoom);
-          }
+        if (this.fitBounds) {
+          this.mapZoom.applyBoundsToMap(map, this.fitBounds, { maxZoom: 15 });
+        } else if (!this.gpxFile?.awsFileName) {
+          const { latitude, longitude } = this.locationDetails;
+          const zoom = this.mapZoom.calculateSinglePointZoom(map, { defaultZoom: 15, mapMaxZoom: map.getMaxZoom() });
+          map.setView(L.latLng(latitude, longitude), zoom);
         }
       }, 100);
     }

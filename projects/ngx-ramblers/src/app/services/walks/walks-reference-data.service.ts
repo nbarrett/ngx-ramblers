@@ -1,9 +1,9 @@
 import { Injectable } from "@angular/core";
-import { faCutlery, faMapMarker } from "@fortawesome/free-solid-svg-icons";
+import { faBeer, faBuilding, faChurch, faCoffee, faCar, faMapMarker, faQuestion, faTrain, faUtensils } from "@fortawesome/free-solid-svg-icons";
 import { isString, isUndefined } from "es-toolkit/compat";
 import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
-import { VenueType } from "../../models/event-venue.model";
+import { VenueType, VenueTypeValue } from "../../models/event-venue.model";
 import { EventType, WalkFilter } from "../../models/walk.model";
 import { FilterCriteria } from "../../models/api-request.model";
 
@@ -113,7 +113,16 @@ export class WalksReferenceService {
   ];
 
   venueTypes(): VenueType[] {
-    return [{type: "Pub", icon: faCutlery}, {type: "Meeting place", icon: faMapMarker}];
+    return [
+      {type: VenueTypeValue.PUB, icon: faBeer},
+      {type: VenueTypeValue.CAFE, icon: faCoffee},
+      {type: VenueTypeValue.RESTAURANT, icon: faUtensils},
+      {type: VenueTypeValue.CHURCH, icon: faChurch},
+      {type: VenueTypeValue.HALL, icon: faBuilding},
+      {type: VenueTypeValue.CAR_PARK, icon: faCar},
+      {type: VenueTypeValue.STATION, icon: faTrain},
+      {type: VenueTypeValue.OTHER, icon: faQuestion}
+    ];
   }
 
   toWalkEventType(eventType: EventType | string): WalkEventType {
