@@ -201,7 +201,7 @@ export class GroupEventService {
           continue;
         }
         if (prevNullish !== currNullish) {
-          continue;
+          return false;
         }
         if (!this.valuesEqual(prevVal, currVal)) {
           return false;

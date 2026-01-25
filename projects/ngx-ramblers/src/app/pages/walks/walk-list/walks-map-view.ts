@@ -19,6 +19,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
+import { GeoDistanceService } from "../../../services/maps/geo-distance.service";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
 import { MapPopupService } from "../../../services/maps/map-popup.service";
 import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.service";
@@ -278,6 +279,7 @@ export class WalksMapView implements OnInit, OnChanges {
   private route = inject(ActivatedRoute);
   private uiActions = inject(UiActionsService);
   private distanceValidationService = inject(DistanceValidationService);
+  private geoDistanceService = inject(GeoDistanceService);
   private mediaQueryService = inject(MediaQueryService);
   private mapTiles = inject(MapTilesService);
   private popupService = inject(MapPopupService);
@@ -415,7 +417,10 @@ export class WalksMapView implements OnInit, OnChanges {
       const lng = hasStartCoords ? startLng : locationLng;
       const hasCoords = isNumber(lat) && isNumber(lng) && lat !== 0 && lng !== 0 && Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001;
       const isWithinArea = hasCoords && this.areaCenterLatLng
-        ? this.distanceMiles({ lat, lng }, this.areaCenterLatLng) <= this.maxAreaDistanceMiles
+        ? this.geoDistanceService.calculateDistanceMiles(
+            { latitude: lat, longitude: lng },
+            { latitude: this.areaCenterLatLng.lat, longitude: this.areaCenterLatLng.lng }
+          ) <= this.maxAreaDistanceMiles
         : hasCoords;
       if (isWithinArea) {
         validCoords++;
@@ -497,19 +502,6 @@ export class WalksMapView implements OnInit, OnChanges {
     this.allMarkers = points;
     return points;
   }
-
-  private distanceMiles(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-    const toRadians = (value: number) => value * (Math.PI / 180);
-    const lat1 = toRadians(a.lat);
-    const lat2 = toRadians(b.lat);
-    const deltaLat = toRadians(b.lat - a.lat);
-    const deltaLng = toRadians(b.lng - a.lng);
-    const sinDeltaLat = Math.sin(deltaLat / 2);
-    const sinDeltaLng = Math.sin(deltaLng / 2);
-    const haversine = sinDeltaLat * sinDeltaLat + Math.cos(lat1) * Math.cos(lat2) * sinDeltaLng * sinDeltaLng;
-    return 3958.7613 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-  }
-
 
   private popupHtml(dw: DisplayedWalk, linkId: string): string {
     const title = dw?.walk?.groupEvent?.title || "Walk";

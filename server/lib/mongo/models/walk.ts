@@ -40,6 +40,7 @@ export const walkEvent = new mongoose.Schema({
 
 export const walkVenue = new mongoose.Schema({
   venuePublish: {type: Boolean},
+  isMeetingPlace: {type: Boolean},
   type: {type: String},
   name: {type: String},
   address1: {type: String},

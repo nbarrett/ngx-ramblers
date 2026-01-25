@@ -1,8 +1,7 @@
 import { Component, computed, inject, Input, OnInit, Signal, signal, WritableSignal } from "@angular/core";
-import { DisplayedWalk, Links, LinkSource, WalkExportData } from "../../../models/walk.model";
+import { DisplayedWalk, Links, LinkSource, RelatedLinksTab, WalkExportData } from "../../../models/walk.model";
 import { FormsModule } from "@angular/forms";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
-import { WalkVenueComponent } from "../walk-venue/walk-venue.component";
 import { WalkMeetupComponent } from "../walk-meetup/walk-meetup.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { LinksService } from "../../../services/links.service";
@@ -17,28 +16,35 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { BroadcastService } from "../../../services/broadcast-service";
-import { NamedEventType } from "../../../models/broadcast.model";
+import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { isBoolean, isNull, isUndefined } from "es-toolkit/compat";
+import { enumValues } from "../../../functions/enums";
+import { SectionToggle } from "../../../shared/components/section-toggle";
 
 @Component({
   selector: "app-walk-edit-related-links",
     imports: [
     FormsModule,
     MarkdownEditorComponent,
-    WalkVenueComponent,
     WalkMeetupComponent,
     TooltipDirective,
     DisplayDatePipe,
+    SectionToggle,
   ],
   template: `
     @if (displayedWalk?.walk?.fields) {
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row">
         <div class="col-sm-12">
+          <app-section-toggle
+            [tabs]="tabs"
+            [(selectedTab)]="selectedTab"
+            [queryParamKey]="'sub-tab'"/>
           <div class="img-thumbnail thumbnail-walk-edit">
+            @if (selectedTab === RelatedLinksTab.RAMBLERS) {
             <div class="thumbnail-heading">Ramblers</div>
             <div class="form-group">
               @if (showDiagnosticData) {
@@ -161,16 +167,11 @@ import { isBoolean, isNull, isUndefined } from "es-toolkit/compat";
                 </div>
               </div>
             }
-          </div>
-        </div>
-      </div>
-      @if (displayedWalk?.walk?.fields?.venue) {
-        <app-walk-venue [displayedWalk]="displayedWalk" [inputDisabled]="inputDisabled"/>
-      }
-      <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress" [inputDisabled]="inputDisabled"/>
-      <div class="row">
-        <div class="col-sm-12">
-          <div class="row img-thumbnail thumbnail-walk-edit">
+            }
+            @if (selectedTab === RelatedLinksTab.MEETUP) {
+              <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress" [inputDisabled]="inputDisabled"/>
+            }
+            @if (selectedTab === RelatedLinksTab.OS_MAPS) {
             <div class="thumbnail-heading">OS Maps</div>
             <div class="col-sm-12">
               <app-markdown-editor standalone name="os-maps-help" description="Linking to OS Maps"/>
@@ -232,6 +233,7 @@ import { isBoolean, isNull, isUndefined } from "es-toolkit/compat";
                 }
               </div>
             </div>
+            }
           </div>
         </div>
       </div>
@@ -271,11 +273,14 @@ export class WalkEditRelatedLinksComponent implements OnInit {
   private linksService = inject(LinksService);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditRelatedLinksComponent", NgxLoggerLevel.ERROR);
   protected readonly LinkSource = LinkSource;
+  protected readonly RelatedLinksTab = RelatedLinksTab;
   protected walkSignal: WritableSignal<ExtendedGroupEvent>;
   protected allowEditsSignal: WritableSignal<boolean>;
   protected ramblersWalkExistsSignal: WritableSignal<boolean>;
   protected walkExportSignal: Signal<WalkExportData>;
   public walkCancelled = false;
+  public tabs: RelatedLinksTab[] = enumValues(RelatedLinksTab);
+  public selectedTab: RelatedLinksTab = RelatedLinksTab.RAMBLERS;
   protected insufficientDataToUploadToRamblers: Signal<boolean> = computed(() => {
     const walk = this.walkSignal?.();
     const allowEdits = this.allowEditsSignal?.();

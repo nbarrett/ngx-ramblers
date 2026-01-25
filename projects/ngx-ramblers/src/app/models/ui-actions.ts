@@ -74,6 +74,7 @@ export enum StoredValue {
   SORT = "sort",
   SORT_ORDER = "sort-order",
   STORY = "story",
+  SUB_TAB = "sub-tab",
   TAB = "tab",
   TEMPLATE_OPTIONS_VISIBLE = "template-options-visible",
   WALK_LIST_VIEW = "walk-list-view",

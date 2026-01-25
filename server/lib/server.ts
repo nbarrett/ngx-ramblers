@@ -42,6 +42,7 @@ import { health, systemStatus } from "./health/health";
 import { download } from "./files/files";
 import { setupSerenityReports } from "./reports/serenity-reports";
 import { extendedGroupEventRoutes } from "./mongo/routes/extended-group-event";
+import { venueRoutes } from "./mongo/routes/venue";
 import { configureLogging } from "./logging/logging";
 import { downloadStatusRoutes } from "./ramblers/download-status-routes";
 import { geoJsonRoutes } from "./geojson/geojson-routes";
@@ -128,6 +129,7 @@ app.use("/api/database/config", configRoutes);
 app.use("/api/database/walks", walksRoutes);
 app.use("/api/database/group-event", extendedGroupEventRoutes);
 app.use("/api/database/migrations", migrationsRoutes);
+app.use("/api/database/venues", venueRoutes);
 setupSerenityReports(app);
 if (fs.existsSync(distFolder)) {
   app.use("/", express.static(distFolder));

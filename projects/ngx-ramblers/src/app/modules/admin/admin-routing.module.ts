@@ -114,6 +114,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
+      path: "venue-settings",
+      loadComponent: () => import("../../pages/admin/system-settings/venue/venue-settings")
+        .then(m => m.VenueSettingsComponent),
+      canActivate: [SystemHealthyGuard, AdminAuthGuard]
+    },
+    {
       path: "image-migration",
       loadComponent: () => import("../../pages/admin/system-settings/image-migration/image-migration-settings")
         .then(m => m.ImageMigrationSettingsComponent),

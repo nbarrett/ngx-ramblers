@@ -47,7 +47,7 @@ describe("WalksEventService", () => {
         w3w: ""
       };
       const oldWalk: ExtendedGroupEvent = createExtendedGroupEvent(dateUtilsService, 12, [], "any-walk-id", null);
-      const data: ExtendedGroupEvent = pick(oldWalk, AUDITED_FIELDS) as ExtendedGroupEvent;
+      const data: ExtendedGroupEvent = pick(oldWalk,  AUDITED_FIELDS) as ExtendedGroupEvent;
       const events = [{
         eventType: EventType.AWAITING_APPROVAL, date: 23, memberId: "12",
         data

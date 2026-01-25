@@ -1,5 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
+import { isString } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { Member } from "../../models/member.model";
@@ -152,12 +153,26 @@ export class MailMessagingService {
     const configType = "Brevo Account";
     try {
       this.mailMessagingConfig.brevo.account = await this.mailService.queryAccount();
+      this.mailMessagingConfig.brevo.accountError = null;
       return this.broadcastSuccess(configType);
     } catch (error) {
       this.mailMessagingConfig.brevo.account = {};
+      this.mailMessagingConfig.brevo.accountError = this.extractErrorMessage(error);
       this.broadcastError(error, configType);
-
     }
+  }
+
+  private extractErrorMessage(error: any): string {
+    if (error?.error?.message) {
+      return error.error.message;
+    }
+    if (error?.message) {
+      return error.message;
+    }
+    if (isString(error)) {
+      return error;
+    }
+    return "An unknown error occurred";
   }
 
   private async configureBrevoLists() {

@@ -1,5 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import {
+  faMapMarkerAlt,
   faPeopleGroup,
   faPersonWalkingArrowLoopLeft,
   faPersonWalkingDashedLineArrowRight,
@@ -14,6 +15,7 @@ import { AscentValidationService } from "../../../services/walks/ascent-validati
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { DateUtilsService } from "../../../services/date-utils.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
@@ -132,6 +134,17 @@ import { enumValueForKey } from "../../../functions/enums";
               <p markdown>{{ displayedWalk?.walk?.groupEvent?.start_location?.description }}</p>
             </div>
           }
+          @if (displayedWalk?.walk?.groupEvent?.meeting_location?.postcode || displayedWalk?.walk?.groupEvent?.meeting_date_time) {
+            <div class="col-sm-12 mt-2">
+              <p class="fw-bold mb-1">
+                <fa-icon [icon]="faMapMarkerAlt" class="fa-icon me-2"></fa-icon>
+                Meeting Point
+              </p>
+              <div>@if (displayedWalk?.walk?.groupEvent?.meeting_date_time) {Meet at: {{ dateUtils.displayTime(displayedWalk?.walk?.groupEvent?.meeting_date_time) }}}@if (displayedWalk?.walk?.groupEvent?.meeting_date_time && (displayedWalk?.walk?.groupEvent?.meeting_location?.description || displayedWalk?.walk?.groupEvent?.meeting_location?.postcode)) { — }{{ displayedWalk?.walk?.groupEvent?.meeting_location?.description }}@if (displayedWalk?.walk?.groupEvent?.meeting_location?.description && displayedWalk?.walk?.groupEvent?.meeting_location?.postcode) {, }@if (displayedWalk?.walk?.groupEvent?.meeting_location?.postcode) {<a [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.groupEvent?.meeting_location?.postcode)"
+                   target="_blank"
+                   tooltip="Click to locate meeting point {{displayedWalk?.walk?.groupEvent?.meeting_location?.postcode}} on Google Maps">{{ displayedWalk?.walk?.groupEvent?.meeting_location?.postcode }}</a>}</div>
+            </div>
+          }
           @if (displayedWalk?.walk?.groupEvent?.event_organiser?.name) {
             <div class="col-sm-12 mt-1 list-tick-medium">
               <p markdown>**Organiser**: {{ displayedWalk.walk?.groupEvent?.event_organiser.name }}</p>
@@ -155,6 +168,7 @@ export class WalkDetailsComponent implements OnInit {
   ascentValidationService = inject(AscentValidationService);
   display = inject(WalkDisplayService);
   protected stringUtils = inject(StringUtilsService);
+  protected dateUtils = inject(DateUtilsService);
   @Input()
   public displayedWalk: DisplayedWalk;
   public walkDetailsMediaWidth = 70;
@@ -163,6 +177,7 @@ export class WalkDetailsComponent implements OnInit {
   protected readonly faRulerHorizontal = faRulerHorizontal;
   protected readonly faRulerVertical = faRulerVertical;
   protected readonly faPeopleGroup = faPeopleGroup;
+  protected readonly faMapMarkerAlt = faMapMarkerAlt;
   protected readonly enumValueForKey = enumValueForKey;
   protected readonly WalkType = WalkType;
 

@@ -5,7 +5,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import {
   ALL_EVENT_TYPES,
-  Contact,
   DateFormat,
   EventQueryParameters,
   EventsListRequest,
@@ -23,17 +22,17 @@ import {
   RamblersGroupsApiResponseApiResponse,
   RamblersWalksUploadRequest,
   WalkCancellation,
-  WalkUploadInfo,
+  WalkLeaderContact,
   WALKS_MANAGER_GO_LIVE_DATE,
   WalkStatus,
   WalkUploadColumnHeading,
-  WalkUploadRow,
-  WalkLeaderContact
+  WalkUploadInfo,
+  WalkUploadRow
 } from "../../models/ramblers-walks-manager";
 import { Ramblers } from "../../models/system.model";
+import { UIDateFormat } from "../../models/date-format.model";
 import { SortDirection } from "../../models/sort.model";
 import {
-  EventStartDateAscending,
   EventStartDateDescending,
   EventStartDateGreaterThanOrEqualTo,
   EventStartDateLessThan,
@@ -76,7 +75,7 @@ import { GroupEventService } from "./group-event.service";
 import { WalksReferenceService } from "../walks/walks-reference-data.service";
 import { ALL_DESCRIBED_FEATURES, DescribedFeature, Feature } from "../../models/walk-feature.model";
 import { marked } from "marked";
-import { ExtendedFields, ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
+import { ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
 import { mapRamblersEventToExtendedGroupEvent } from "../../functions/walks/ramblers-event.mapper";
 import { MemberNamingService } from "../member/member-naming.service";
 import { UrlService } from "../url.service";
@@ -124,11 +123,21 @@ export class RamblersWalksAndEventsService {
     this.systemConfigService.events().subscribe(item => {
       this.ramblers = item.national;
       this.logger.off("systemConfigService:ramblers:", this.ramblers, "item.system", item);
+      this.loadAreaGroups(item);
     });
     this.walksConfigService.events().subscribe(walksConfig => {
       this.walksConfig = walksConfig;
       this.logger.info("walksConfigService:walksConfig:", walksConfig);
     });
+  }
+
+  private async loadAreaGroups(systemConfig: any): Promise<void> {
+    const groupCodes = systemConfig?.area?.groups?.map(group => group.groupCode).filter(Boolean) || [];
+    if (groupCodes.length > 0) {
+      this.logger.info("loadAreaGroups:loading", groupCodes.length, "area groups:", groupCodes);
+      const groups = await this.listRamblersGroups(groupCodes);
+      this.logger.info("loadAreaGroups:returned groups:", groups);
+    }
   }
 
   static areMongoIdsSupplied(response: any): response is MongoIdsSupplied {
@@ -693,11 +702,11 @@ export class RamblersWalksAndEventsService {
     csvRecord[WalkUploadColumnHeading.STARTING_POSTCODE] = this.startingPostcode(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.STARTING_GRIDREF] = this.startingGridReference(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.STARTING_LOCATION_DETAILS] = this.startingLocationDetails(extendedGroupEvent);
-    csvRecord[WalkUploadColumnHeading.MEETING_TIME] = "";
+    csvRecord[WalkUploadColumnHeading.MEETING_TIME] = this.meetingTime(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.MEETING_LOCATION] = "";
-    csvRecord[WalkUploadColumnHeading.MEETING_POSTCODE] = "";
-    csvRecord[WalkUploadColumnHeading.MEETING_GRIDREF] = "";
-    csvRecord[WalkUploadColumnHeading.MEETING_LOCATION_DETAILS] = "";
+    csvRecord[WalkUploadColumnHeading.MEETING_POSTCODE] = extendedGroupEvent?.groupEvent?.meeting_location?.postcode || "";
+    csvRecord[WalkUploadColumnHeading.MEETING_GRIDREF] = this.walkDisplayService.gridReferenceFrom(extendedGroupEvent?.groupEvent?.meeting_location);
+    csvRecord[WalkUploadColumnHeading.MEETING_LOCATION_DETAILS] = extendedGroupEvent?.groupEvent?.meeting_location?.description || "";
     csvRecord[WalkUploadColumnHeading.EST_FINISH_TIME] = this.walkFinishTimeOrDefault(extendedGroupEvent, this.walksConfig?.milesPerHour);
     csvRecord[WalkUploadColumnHeading.FINISHING_LOCATION] = "";
     csvRecord[WalkUploadColumnHeading.FINISHING_POSTCODE] = this.walkFinishPostcode(extendedGroupEvent);
@@ -748,7 +757,13 @@ export class RamblersWalksAndEventsService {
   }
 
   walkStartTime(extendedGroupEvent: ExtendedGroupEvent): string {
-    return extendedGroupEvent?.groupEvent?.start_date_time ? this.dateUtils.asString(this.dateUtils.startTimeAsValue(extendedGroupEvent), null, "HH:mm") : "";
+    return extendedGroupEvent?.groupEvent?.start_date_time ? this.dateUtils.asString(this.dateUtils.startTimeAsValue(extendedGroupEvent), null, UIDateFormat.RAMBLERS_TIME) : "";
+  }
+
+  meetingTime(extendedGroupEvent: ExtendedGroupEvent): string {
+    return extendedGroupEvent?.groupEvent?.meeting_date_time
+      ? this.dateUtils.asString(extendedGroupEvent.groupEvent.meeting_date_time, null, UIDateFormat.RAMBLERS_TIME)
+      : "";
   }
 
   startingGridReference(extendedGroupEvent: ExtendedGroupEvent): string {

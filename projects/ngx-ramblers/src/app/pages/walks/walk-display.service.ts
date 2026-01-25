@@ -197,7 +197,7 @@ export class WalkDisplayService {
 
   editFullScreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
     this.logger.debug("editing walk fullscreen:", walk);
-    return this.router.navigate(["walks/edit/" + this.walkIdFrom(walk)], {relativeTo: this.route}).then(() => {
+    return this.router.navigate(["walks/edit/" + this.walkSlug(walk)], {relativeTo: this.route}).then(() => {
       this.logger.debug("area is now", this.urlService.area());
       return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
     });

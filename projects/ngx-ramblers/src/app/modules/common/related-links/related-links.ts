@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnChanges, OnInit, SimpleChanges } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { RelatedLinkComponent } from "./related-link";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -74,30 +74,41 @@ import { NgxLoggerLevel } from "ngx-logger";
       </div>
     }
     @if (displayedWalk?.walk?.fields?.venue?.venuePublish && (displayedWalk?.walk?.fields?.venue?.url || displayedWalk?.walk?.fields?.venue?.postcode)) {
-      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-           class="col-sm-12">
+      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
         <fa-icon title [icon]="displayedWalk?.walk?.fields.venue.type | toVenueIcon" class="fa-icon"></fa-icon>
-        <a content tooltip="Click to visit {{displayedWalk?.walk?.fields.venue.name}}"
-           [href]="displayedWalk?.walk?.fields.venue.url || googleMapsService.urlForPostcode(displayedWalk?.walk?.fields.venue.postcode)"
-           target="_blank">
-          {{ displayedWalk?.walk?.fields.venue.type }}: {{ displayedWalk?.walk?.fields.venue.name }}
-        </a>
+        <a content [href]="displayedWalk?.walk?.fields?.venue?.url || googleMapsService.urlForPostcode(displayedWalk?.walk?.fields.venue.postcode)"
+           target="_blank"
+           tooltip="{{displayedWalk?.walk?.fields?.venue?.url ? 'Visit ' + displayedWalk?.walk?.fields.venue.name + ' website' : 'View ' + venueLabel() + ' on Google Maps'}}">{{ venueLabel() }}: {{ displayedWalk?.walk?.fields.venue.name }}</a>
       </div>
     }
   `,
   imports: [FontAwesomeModule, RelatedLinkComponent, TooltipDirective, CopyIconComponent, VenueIconPipe]
 })
-export class RelatedLinksComponent implements OnInit {
+export class RelatedLinksComponent implements OnInit, OnChanges {
   private logger: Logger = inject(LoggerFactory).createLogger("RelatedLinksComponent", NgxLoggerLevel.ERROR);
   public googleMapsService = inject(GoogleMapsService);
   public meetupService = inject(MeetupService);
   public display = inject(WalkDisplayService);
-  public linksService = inject(LinksService);
+  private linksService = inject(LinksService);
   @Input() displayedWalk: DisplayedWalk;
   public links: Links = null;
 
   ngOnInit(): void {
-    this.links = this.linksService.linksFrom(this.displayedWalk.walk);
-    this.logger.info("ngOnInit:links:", this.links, "from displayedWalk?.walk?.fields.links:", this.displayedWalk?.walk?.fields.links);
+    this.refreshLinks();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes.displayedWalk) {
+      this.refreshLinks();
+    }
+  }
+
+  private refreshLinks(): void {
+    this.links = this.linksService.linksFrom(this.displayedWalk?.walk);
+    this.logger.info("refreshLinks:links:", this.links, "from displayedWalk?.walk?.fields.links:", this.displayedWalk?.walk?.fields.links);
+  }
+
+  venueLabel(): string {
+    return this.displayedWalk?.walk?.fields?.venue?.isMeetingPlace ? "Meeting place" : "Venue";
   }
 }

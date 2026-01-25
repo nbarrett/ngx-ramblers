@@ -12,9 +12,10 @@ import {
   EventField,
   GroupEventField
 } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { parseError } from "./transforms";
+import { isMongoIdString, parseError } from "./transforms";
 import { dateTimeFromIso, dateTimeNow } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
+import { VenueWithUsageStats } from "../../../../projects/ngx-ramblers/src/app/models/event-venue.model";
 
 const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent, true);
 const debugLog = debug(envConfig.logNamespace("extended-group-event"));
@@ -149,13 +150,9 @@ export async function queryWalkLeaders(req: Request, res: Response) {
     const matchStage = filters.length === 1 ? filters[0] : { $and: filters };
 
 
-    function isMongoId(id: string): boolean {
-      return isString(id) && /^[a-fA-F0-9]{24}$/.test(id);
-    }
-
     function isValidMemberId(id: string, source: string): boolean {
       const hasValue = !isEmpty(id) && isString(id);
-      const isLocalMongoId = isMongoId(id);
+      const isLocalMongoId = isMongoIdString(id);
       const isPurelyNumeric = /^\d+$/.test(id);
 
       if (source === EventSource.LOCAL) {
@@ -401,4 +398,119 @@ export function identifierCanBeConvertedToSlug(identifier: string): boolean {
   const canConvert = !isMongoObjectId && !isNumeric;
   debugLog("identifierCanBeConvertedToSlug:", identifier, "returning:", canConvert);
   return canConvert;
+}
+
+export async function queryVenues(req: Request, res: Response) {
+  try {
+    debugLog("queryVenues: starting aggregation");
+    const aggregationPipeline = [
+      {
+        $match: {
+          $and: [
+            LOCAL_ACTIVE_FILTER,
+            {
+              $or: [
+                {[EventField.VENUE_NAME]: {$exists: true, $nin: [null, ""]}},
+                {[EventField.VENUE_POSTCODE]: {$exists: true, $nin: [null, ""]}}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        $project: {
+          startDate: `$${GroupEventField.START_DATE}`,
+          venueName: `$${EventField.VENUE_NAME}`,
+          venueAddress1: `$${EventField.VENUE_ADDRESS1}`,
+          venueAddress2: `$${EventField.VENUE_ADDRESS2}`,
+          venuePostcode: `$${EventField.VENUE_POSTCODE}`,
+          venueType: `$${EventField.VENUE_TYPE}`,
+          venueUrl: `$${EventField.VENUE_URL}`,
+          venuePublish: `$${EventField.VENUE_PUBLISH}`,
+          venueLat: `$${EventField.VENUE_LAT}`,
+          venueLon: `$${EventField.VENUE_LON}`,
+          normalizedName: {
+            $trim: {
+              input: {
+                $reduce: {
+                  input: [" pub", " inn", " tavern", " restaurant", " cafe", " café", " hotel", " bar", " bistro", " kitchen", " arms", " house"],
+                  initialValue: {$toLower: {$ifNull: [`$${EventField.VENUE_NAME}`, ""]}},
+                  in: {
+                    $replaceAll: {
+                      input: "$$value",
+                      find: "$$this",
+                      replacement: ""
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            name: {$ifNull: ["$normalizedName", ""]},
+            postcode: {$toLower: {$trim: {input: {$ifNull: ["$venuePostcode", ""]}}}}
+          },
+          name: {$first: "$venueName"},
+          address1: {$first: "$venueAddress1"},
+          address2: {$first: "$venueAddress2"},
+          postcode: {$first: "$venuePostcode"},
+          type: {$first: "$venueType"},
+          url: {$first: "$venueUrl"},
+          venuePublish: {$first: "$venuePublish"},
+          lat: {$first: "$venueLat"},
+          lon: {$first: "$venueLon"},
+          usageCount: {$sum: 1},
+          lastUsed: {$max: "$startDate"}
+        }
+      },
+      {
+        $match: {
+          "_id.name": {$ne: ""}
+        }
+      },
+      {
+        $sort: {usageCount: -1 as const, "_id.name": 1 as const}
+      },
+      {
+        $project: {
+          _id: 0,
+          name: 1,
+          address1: 1,
+          address2: 1,
+          postcode: 1,
+          type: 1,
+          url: 1,
+          venuePublish: 1,
+          lat: 1,
+          lon: 1,
+          usageCount: 1,
+          lastUsed: 1
+        }
+      }
+    ];
+
+    const venues = await extendedGroupEvent.aggregate(aggregationPipeline);
+    debugLog("queryVenues: aggregation returned", venues?.length || 0, "venues");
+
+    const venuesWithLabels = (venues || []).map(venue => ({
+      ...venue,
+      ngSelectLabel: [venue.name, venue.address1, venue.postcode].filter(Boolean).join(", ")
+    }));
+
+    return res.status(200).json({
+      action: ApiAction.QUERY,
+      response: venuesWithLabels
+    });
+  } catch (error) {
+    controller.errorDebugLog(`queryVenues: ${extendedGroupEvent.modelName} error: ${error}`);
+    res.status(500).json({
+      message: `${extendedGroupEvent.modelName} venues query failed`,
+      request: req.query,
+      error: parseError(error)
+    });
+  }
 }
