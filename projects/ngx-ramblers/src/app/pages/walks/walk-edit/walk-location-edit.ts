@@ -25,7 +25,8 @@ import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { LocationAutocompleteComponent } from "../../../shared/components/location-autocomplete";
 import { BroadcastService } from "../../../services/broadcast-service";
-import { NamedEventType } from "../../../models/broadcast.model";
+import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
+import { LocationType } from "../../../models/map.model";
 
 @Component({
     selector: "app-walk-location-edit",
@@ -194,7 +195,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   get notify(): AlertInstance {
     return this.notifyInstance;
   }
-  @Input() public locationType!: string;
+  @Input() public locationType!: LocationType;
   @Input("disabled") set previewValue(disabled: boolean) {
     this.disabled = coerceBooleanProperty(disabled);
   }
@@ -241,7 +242,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
         }
       });
 
-    if (this.locationType === "Starting") {
+    if (this.locationType === LocationType.STARTING) {
       this.subscriptions.push(
         this.broadcastService.on(NamedEventType.WALK_START_LOCATION_CHANGED, (event) => {
           this.logger.info("WALK_START_LOCATION_CHANGED received:", event.data);
@@ -281,6 +282,10 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
     this.locationDetails.grid_reference_6 = null;
     this.locationDetails.grid_reference_8 = null;
     this.locationDetails.grid_reference_10 = null;
+
+    if (this.locationType === LocationType.STARTING && this.locationDetails.postcode?.length >= 5) {
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_STARTING_POSTCODE_UPDATED, this.locationDetails.postcode));
+    }
 
     if (!this.postcodeValid() && this.locationDetails.postcode?.length >= 5) {
       this.notify?.warning({

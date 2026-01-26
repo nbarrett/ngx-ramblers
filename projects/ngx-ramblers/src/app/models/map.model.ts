@@ -150,3 +150,11 @@ export const MAP_VIEW_SELECT: Record<string, number> = {
     "events.reason": 1,
     "events.memberId": 1
 };
+
+export enum LocationType {
+  STARTING = "Starting",
+  FINISHING = "Finishing",
+  MEETING = "Meeting",
+  START = "Start",
+  END = "End"
+}

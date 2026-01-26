@@ -11,6 +11,7 @@ import { GoogleMapsService } from "../../../services/google-maps.service";
 import { LinksService } from "../../../services/links.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
+import { VenueService } from "../../../services/venue/venue.service";
 
 @Component({
   selector: "app-related-links",
@@ -90,6 +91,7 @@ export class RelatedLinksComponent implements OnInit, OnChanges {
   public meetupService = inject(MeetupService);
   public display = inject(WalkDisplayService);
   private linksService = inject(LinksService);
+  private venueService = inject(VenueService);
   @Input() displayedWalk: DisplayedWalk;
   public links: Links = null;
 
@@ -109,6 +111,6 @@ export class RelatedLinksComponent implements OnInit, OnChanges {
   }
 
   venueLabel(): string {
-    return this.displayedWalk?.walk?.fields?.venue?.isMeetingPlace ? "Meeting place" : "Venue";
+    return this.venueService.venueLabel(this.displayedWalk?.walk?.fields?.venue?.isMeetingPlace);
   }
 }

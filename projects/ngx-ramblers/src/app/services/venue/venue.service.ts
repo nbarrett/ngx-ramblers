@@ -1,12 +1,12 @@
-import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { BehaviorSubject, Observable, Subject } from "rxjs";
-import { inferVenueTypeFromName, VenueApiResponse, VenueWithUsageStats } from "../../models/event-venue.model";
-import { CommonDataService } from "../common-data-service";
+import { BehaviorSubject, Observable } from "rxjs";
+import { inferVenueTypeFromName, StoredVenue, VenueWithUsageStats } from "../../models/event-venue.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { AddressQueryService } from "../walks/address-query.service";
+import { DateUtilsService } from "../date-utils.service";
 import { isEmpty, isString } from "es-toolkit/compat";
+import { StoredVenueService } from "./stored-venue.service";
 
 @Injectable({
   providedIn: "root"
@@ -14,11 +14,9 @@ import { isEmpty, isString } from "es-toolkit/compat";
 export class VenueService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("VenueService", NgxLoggerLevel.ERROR);
-  private BASE_URL = "/api/database/group-event";
-  private http = inject(HttpClient);
-  private commonDataService = inject(CommonDataService);
+  private storedVenueService = inject(StoredVenueService);
   private addressQueryService = inject(AddressQueryService);
-  private venueNotifications = new Subject<VenueApiResponse>();
+  private dateUtils = inject(DateUtilsService);
   private venuesCache$ = new BehaviorSubject<VenueWithUsageStats[]>([]);
   private loaded = false;
   private geocodingInProgress = false;
@@ -39,19 +37,32 @@ export class VenueService {
   }
 
   async queryVenues(): Promise<VenueWithUsageStats[]> {
-    this.logger.debug("queryVenues: fetching venues");
-    const response = await this.commonDataService.responseFrom(
-      this.logger,
-      this.http.get<VenueApiResponse>(`${this.BASE_URL}/venues`),
-      this.venueNotifications
-    );
-    const venues = (response.response || []).map(venue => ({
-      ...venue,
-      type: this.inferVenueType(venue.name)
+    this.logger.debug("queryVenues: fetching venues from stored venues collection");
+    const storedVenues: StoredVenue[] = await this.storedVenueService.all();
+    const venues: VenueWithUsageStats[] = storedVenues.map(venue => ({
+      storedVenueId: venue.id,
+      name: venue.name,
+      address1: venue.address1,
+      address2: venue.address2,
+      postcode: venue.postcode,
+      type: venue.type || this.inferVenueType(venue.name),
+      url: venue.url,
+      lat: venue.lat,
+      lon: venue.lon,
+      usageCount: venue.usageCount || 0,
+      lastUsed: venue.lastUsed ? this.dateUtils.isoDateTime(venue.lastUsed) : undefined,
+      ngSelectLabel: this.buildNgSelectLabel(venue)
     }));
     this.logger.info("queryVenues: received", venues.length, "venues");
     this.geocodeVenuesWithoutCoordinates(venues);
     return venues;
+  }
+
+  private buildNgSelectLabel(venue: StoredVenue): string {
+    const parts = [venue.name];
+    if (venue.address1) parts.push(venue.address1);
+    if (venue.postcode) parts.push(venue.postcode);
+    return parts.join(", ");
   }
 
   private async geocodeVenuesWithoutCoordinates(venues: VenueWithUsageStats[]): Promise<void> {
@@ -130,5 +141,9 @@ export class VenueService {
       return "";
     }
     return postcode.toUpperCase().replace(/\s+/g, " ").trim();
+  }
+
+  venueLabel(isMeetingPlace: boolean): string {
+    return isMeetingPlace ? "Meeting place" : "Venue";
   }
 }

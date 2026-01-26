@@ -31,7 +31,7 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
       [placeholder]="placeholder"
       [(ngModel)]="selectedVenue"
       (ngModelChange)="onVenueSelected($event)"
-      [inputAttrs]="{ autocomplete: 'off' }">
+      [inputAttrs]="{ autocomplete: 'one-time-code', 'data-lpignore': 'true', 'data-form-type': 'other' }">
       <ng-template ng-label-tmp let-item="item">
         <fa-icon [icon]="item.type | toVenueIcon" class="colour-mintcake me-2"></fa-icon>
         <span>{{ item.name }}{{ item.address1 ? ', ' + item.address1 : '' }}{{ item.postcode ? ', ' + item.postcode : '' }}</span>

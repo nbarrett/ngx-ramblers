@@ -17,11 +17,13 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { VenueTypeSelect } from "../../../walks/walk-venue/venue-type-select";
+import { DateUtilsService } from "../../../../services/date-utils.service";
+import { VenueEditorComponent } from "../../../walks/walk-venue/venue-editor";
 
 @Component({
   selector: "app-venue-settings",
   standalone: true,
-  imports: [FormsModule, FontAwesomeModule, VenueIconPipe, PageComponent, VenueTypeSelect, TooltipDirective, MarkdownEditorComponent, TabsetComponent, TabDirective],
+  imports: [FormsModule, FontAwesomeModule, VenueIconPipe, PageComponent, VenueTypeSelect, TooltipDirective, MarkdownEditorComponent, TabsetComponent, TabDirective, VenueEditorComponent],
   styles: [`
     .table-container
       max-height: calc(100vh - 520px)
@@ -74,6 +76,19 @@ import { VenueTypeSelect } from "../../../walks/walk-venue/venue-type-select";
                     </button>
                   </div>
                 </div>
+                @if (editingVenue) {
+                  <div class="mb-3">
+                    <app-venue-editor
+                      [venue]="editingVenue"
+                      [heading]="editingVenue.id ? 'Edit venue' : 'Add new venue'"
+                      [showActions]="true"
+                      [showCoordinates]="true"
+                      [saveButtonText]="editingVenue.id ? 'Save' : 'Create'"
+                      [notify]="notify"
+                      (save)="onEditorSave($event)"
+                      (cancel)="cancelEdit()"/>
+                  </div>
+                }
                 <div class="row mb-3">
                   <div class="col-sm-4">
                     <label class="form-label">Search</label>
@@ -124,41 +139,41 @@ import { VenueTypeSelect } from "../../../walks/walk-venue/venue-type-select";
                         Uses
                         <fa-icon [icon]="getSortIcon('usageCount')" class="sort-icon"></fa-icon>
                       </th>
+                      <th style="width: 100px" class="sortable" [class.sorted]="sortField === 'createdAt'"
+                          (click)="toggleSort('createdAt')">
+                        Created
+                        <fa-icon [icon]="getSortIcon('createdAt')" class="sort-icon"></fa-icon>
+                      </th>
+                      <th style="width: 100px" class="sortable" [class.sorted]="sortField === 'updatedAt'"
+                          (click)="toggleSort('updatedAt')">
+                        Updated
+                        <fa-icon [icon]="getSortIcon('updatedAt')" class="sort-icon"></fa-icon>
+                      </th>
                       <th style="width: 80px">Coords</th>
                       <th style="width: 120px">Actions</th>
                     </tr>
                     </thead>
                     <tbody>
                       @for (venue of filteredVenues; track venue.id) {
-                        <tr>
+                        <tr [class.table-primary]="editingVenue?.id === venue.id">
                           <td>
                             <fa-icon [icon]="venue.type | toVenueIcon" class="colour-mintcake"></fa-icon>
                           </td>
-                          <td>
-                            @if (editingVenue?.id === venue.id) {
-                              <input type="text" class="form-control form-control-sm" [(ngModel)]="editingVenue.name">
-                            } @else {
-                              {{ venue.name }}
-                            }
-                          </td>
-                          <td>
-                            @if (editingVenue?.id === venue.id) {
-                              <input type="text" class="form-control form-control-sm"
-                                     [(ngModel)]="editingVenue.address1" placeholder="Address 1">
-                            } @else {
-                              {{ venue.address1 }}
-                            }
-                          </td>
-                          <td>
-                            @if (editingVenue?.id === venue.id) {
-                              <input type="text" class="form-control form-control-sm"
-                                     [(ngModel)]="editingVenue.postcode">
-                            } @else {
-                              {{ venue.postcode }}
-                            }
-                          </td>
+                          <td>{{ venue.name }}</td>
+                          <td>{{ venue.address1 }}</td>
+                          <td>{{ venue.postcode }}</td>
                           <td class="text-center">
                             <span class="badge bg-primary">{{ venue.usageCount }}</span>
+                          </td>
+                          <td class="text-center small">
+                            @if (venue.createdAt) {
+                              {{ dateUtils.displayDate(venue.createdAt) }}
+                            }
+                          </td>
+                          <td class="text-center small">
+                            @if (venue.updatedAt) {
+                              {{ dateUtils.displayDate(venue.updatedAt) }}
+                            }
                           </td>
                           <td class="text-center">
                             @if (venue.lat && venue.lon) {
@@ -168,29 +183,22 @@ import { VenueTypeSelect } from "../../../walks/walk-venue/venue-type-select";
                             }
                           </td>
                           <td>
-                            @if (editingVenue?.id === venue.id) {
-                              <div class="btn-group btn-group-sm">
-                                <button class="btn btn-success" (click)="saveVenue()" tooltip="Save changes">Save
-                                </button>
-                                <button class="btn btn-secondary" (click)="cancelEdit()" tooltip="Cancel">Cancel
-                                </button>
-                              </div>
-                            } @else {
-                              <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary" (click)="editVenue(venue)" tooltip="Edit venue">
-                                  <fa-icon [icon]="faEdit"></fa-icon>
-                                </button>
-                                <button class="btn btn-outline-info" (click)="geocodeVenue(venue)"
-                                        [disabled]="!venue.postcode || geocoding === venue.id"
-                                        tooltip="Get coordinates from postcode">
-                                  <fa-icon [icon]="faMapMarkerAlt"></fa-icon>
-                                </button>
-                                <button class="btn btn-outline-danger" (click)="deleteVenue(venue)"
-                                        tooltip="Delete venue">
-                                  <fa-icon [icon]="faTrash"></fa-icon>
-                                </button>
-                              </div>
-                            }
+                            <div class="btn-group btn-group-sm">
+                              <button class="btn btn-outline-ramblers" (click)="editVenue(venue)" tooltip="Edit venue"
+                                      [disabled]="editingVenue">
+                                <fa-icon [icon]="faEdit"></fa-icon>
+                              </button>
+                              <button class="btn btn-outline-ramblers" (click)="geocodeVenue(venue)"
+                                      [disabled]="!venue.postcode || geocoding === venue.id || editingVenue"
+                                      tooltip="Get coordinates from postcode">
+                                <fa-icon [icon]="faMapMarkerAlt"></fa-icon>
+                              </button>
+                              <button class="btn btn-outline-ramblers" (click)="deleteVenue(venue)"
+                                      [disabled]="editingVenue"
+                                      tooltip="Delete venue">
+                                <fa-icon [icon]="faTrash"></fa-icon>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       }
@@ -211,6 +219,7 @@ export class VenueSettingsComponent implements OnInit, OnDestroy {
   private walksReferenceService = inject(WalksReferenceService);
   private addressQueryService = inject(AddressQueryService);
   private notifierService = inject(NotifierService);
+  protected dateUtils = inject(DateUtilsService);
   private subscriptions: Subscription[] = [];
 
   venues: StoredVenue[] = [];
@@ -313,14 +322,21 @@ export class VenueSettingsComponent implements OnInit, OnDestroy {
     this.editingVenue = null;
   }
 
-  async saveVenue() {
-    if (!this.editingVenue) return;
+  async onEditorSave(venue: Partial<StoredVenue>) {
+    this.logger.info("onEditorSave:", venue);
     try {
-      await this.storedVenueService.update(this.editingVenue);
+      if (venue.id) {
+        await this.storedVenueService.update(venue as StoredVenue);
+        this.statusMessage = `Venue "${venue.name}" updated`;
+      } else {
+        await this.storedVenueService.create(venue as StoredVenue);
+        this.statusMessage = `Venue "${venue.name}" created`;
+      }
       await this.refreshVenues();
       this.editingVenue = null;
     } catch (error) {
       this.logger.error("Error saving venue:", error);
+      this.statusMessage = `Error saving venue: ${error}`;
     }
   }
 
@@ -359,7 +375,6 @@ export class VenueSettingsComponent implements OnInit, OnDestroy {
       type: "other",
       usageCount: 0
     } as StoredVenue;
-    this.venues = [this.editingVenue, ...this.venues];
   }
 
   async redetectTypes() {

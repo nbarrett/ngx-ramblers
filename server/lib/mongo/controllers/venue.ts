@@ -6,10 +6,31 @@ import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import * as transforms from "./transforms";
 import { dateTimeNowAsValue } from "../../shared/dates";
+import { postcodeLookupFromPostcodesIo } from "../../addresses/postcode-lookup";
 
 const controller = crudController.create<StoredVenue>(venue);
 const debugLog = debug(envConfig.logNamespace("venue"));
 debugLog.enabled = false;
+
+async function geocodeFromPostcode(postcode: string): Promise<{ lat: number; lon: number } | null> {
+  const trimmedPostcode = (postcode || "").trim();
+  if (!trimmedPostcode) {
+    return null;
+  }
+  try {
+    const result = await postcodeLookupFromPostcodesIo(trimmedPostcode);
+    const response = Array.isArray(result?.response) ? result.response[0] : result?.response;
+    if (response?.latlng?.lat && response?.latlng?.lng) {
+      debugLog("geocodeFromPostcode: success for", trimmedPostcode, "->", response.latlng);
+      return { lat: response.latlng.lat, lon: response.latlng.lng };
+    }
+    debugLog("geocodeFromPostcode: no coordinates found for", trimmedPostcode);
+    return null;
+  } catch (error) {
+    debugLog("geocodeFromPostcode: error for", trimmedPostcode, error);
+    return null;
+  }
+}
 
 export const create = controller.create;
 export const all = controller.all;
@@ -27,45 +48,89 @@ export async function findOrCreate(req: Request, res: Response) {
   }
 
   try {
-    const normalizedName = venueData.name.trim().toLowerCase();
-    const normalizedPostcode = (venueData.postcode || "").trim().toLowerCase();
+    let existingVenue = null;
+    if (venueData.id) {
+      existingVenue = await venue.findById(venueData.id);
+      debugLog("findOrCreate: looked up by storedVenueId:", venueData.id, "found:", !!existingVenue);
+    }
 
-    const existingVenue = await venue.findOne({
-      $expr: {
-        $and: [
-          {$eq: [{$toLower: {$trim: {input: "$name"}}}, normalizedName]},
-          {$eq: [{$toLower: {$trim: {input: {$ifNull: ["$postcode", ""]}}}}, normalizedPostcode]}
-        ]
-      }
-    });
+    if (!existingVenue) {
+      const normalizedName = venueData.name.trim().toLowerCase();
+      const normalizedPostcode = (venueData.postcode || "").trim().toLowerCase();
+
+      existingVenue = await venue.findOne({
+        $expr: {
+          $and: [
+            {$eq: [{$toLower: {$trim: {input: "$name"}}}, normalizedName]},
+            {$eq: [{$toLower: {$trim: {input: {$ifNull: ["$postcode", ""]}}}}, normalizedPostcode]}
+          ]
+        }
+      });
+      debugLog("findOrCreate: looked up by name+postcode, found:", !!existingVenue);
+    }
 
     if (existingVenue) {
       debugLog("findOrCreate: found existing venue:", existingVenue._id);
       existingVenue.usageCount = (existingVenue.usageCount || 0) + 1;
       existingVenue.lastUsed = dateTimeNowAsValue();
-      if (venueData.type && !existingVenue.type) {
+      existingVenue.updatedAt = dateTimeNowAsValue();
+      if (venueData.name) {
+        existingVenue.name = venueData.name;
+      }
+      if (venueData.postcode) {
+        existingVenue.postcode = venueData.postcode;
+      }
+      if (venueData.type) {
         existingVenue.type = venueData.type;
       }
-      if (venueData.url && !existingVenue.url) {
+      if (venueData.url) {
         existingVenue.url = venueData.url;
       }
-      if (venueData.lat && !existingVenue.lat) {
+      if (venueData.lat) {
         existingVenue.lat = venueData.lat;
       }
-      if (venueData.lon && !existingVenue.lon) {
+      if (venueData.lon) {
         existingVenue.lon = venueData.lon;
       }
+      if (venueData.address1) {
+        existingVenue.address1 = venueData.address1;
+      }
+      if (venueData.address2) {
+        existingVenue.address2 = venueData.address2;
+      }
+
+      const postcodeToGeocode = venueData.postcode || existingVenue.postcode;
+      if (postcodeToGeocode && !existingVenue.lat && !existingVenue.lon) {
+        const coords = await geocodeFromPostcode(postcodeToGeocode);
+        if (coords) {
+          existingVenue.lat = coords.lat;
+          existingVenue.lon = coords.lon;
+          debugLog("findOrCreate: auto-geocoded existing venue to", coords);
+        }
+      }
+
       await existingVenue.save();
       return res.status(200).json(transforms.toObjectWithId(existingVenue));
     }
 
     debugLog("findOrCreate: creating new venue");
-    const newVenue = new venue({
+    const venueDocData: Partial<StoredVenue> = {
       ...venueData,
       usageCount: 1,
       lastUsed: dateTimeNowAsValue(),
       createdAt: dateTimeNowAsValue()
-    });
+    };
+
+    if (venueData.postcode && (!venueData.lat || !venueData.lon)) {
+      const coords = await geocodeFromPostcode(venueData.postcode);
+      if (coords) {
+        venueDocData.lat = coords.lat;
+        venueDocData.lon = coords.lon;
+        debugLog("findOrCreate: auto-geocoded new venue to", coords);
+      }
+    }
+
+    const newVenue = new venue(venueDocData);
     const savedVenue = await newVenue.save();
     return res.status(201).json(transforms.toObjectWithId(savedVenue));
 

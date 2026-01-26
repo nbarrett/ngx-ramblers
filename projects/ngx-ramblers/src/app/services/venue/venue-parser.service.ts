@@ -146,7 +146,7 @@ export class VenueParserService {
     }
 
     const streetIndicators = /\b(road|rd|street|st|lane|ln|avenue|ave|drive|dr|close|cl|way|place|pl|court|ct|crescent|cres|hill|green|park|terrace|grove|gardens|row|walk|mews|rise|view|fields|meadow|copse)\b/i;
-    const nameIndicators = /\b(pub|inn|tavern|hotel|house|arms|head|bell|crown|swan|bull|lion|rose|anchor|castle|oak|fox|bear|eagle|plough|cafe|coffee|restaurant|bistro|kitchen|hall|centre|center|church|chapel|farm|barn|manor|lodge|cottage|the\s+\w+)\b/i;
+    const nameIndicators = /\b(pub|inn|tavern|hotel|house|arms|head|bell|crown|swan|bull|lion|rose|anchor|castle|oak|fox|bear|eagle|plough|cafe|coffee|restaurant|bistro|kitchen|hall|centre|center|church|chapel|farm|barn|manor|lodge|cottage|fire\s+station|the\s+\w+)\b/i;
 
     let nameIndex = -1;
     let firstNonStreetIndex = -1;

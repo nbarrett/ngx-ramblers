@@ -45,6 +45,7 @@ export function inferVenueTypeFromName(name: string): VenueTypeValue {
 }
 
 export interface Venue {
+  storedVenueId?: string;
   venuePublish?: boolean;
   isMeetingPlace?: boolean;
   type?: string;
@@ -59,6 +60,7 @@ export interface Venue {
 
 export interface VenueType {
   type: string;
+  displayName: string;
   icon: IconDefinition;
 }
 

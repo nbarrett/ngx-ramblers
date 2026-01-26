@@ -114,14 +114,14 @@ export class WalksReferenceService {
 
   venueTypes(): VenueType[] {
     return [
-      {type: VenueTypeValue.PUB, icon: faBeer},
-      {type: VenueTypeValue.CAFE, icon: faCoffee},
-      {type: VenueTypeValue.RESTAURANT, icon: faUtensils},
-      {type: VenueTypeValue.CHURCH, icon: faChurch},
-      {type: VenueTypeValue.HALL, icon: faBuilding},
-      {type: VenueTypeValue.CAR_PARK, icon: faCar},
-      {type: VenueTypeValue.STATION, icon: faTrain},
-      {type: VenueTypeValue.OTHER, icon: faQuestion}
+      {type: VenueTypeValue.PUB, displayName: "Pub", icon: faBeer},
+      {type: VenueTypeValue.CAFE, displayName: "Cafe", icon: faCoffee},
+      {type: VenueTypeValue.RESTAURANT, displayName: "Restaurant", icon: faUtensils},
+      {type: VenueTypeValue.CHURCH, displayName: "Church", icon: faChurch},
+      {type: VenueTypeValue.HALL, displayName: "Hall", icon: faBuilding},
+      {type: VenueTypeValue.CAR_PARK, displayName: "Car Park", icon: faCar},
+      {type: VenueTypeValue.STATION, displayName: "Station", icon: faTrain},
+      {type: VenueTypeValue.OTHER, displayName: "Other", icon: faQuestion}
     ];
   }
 

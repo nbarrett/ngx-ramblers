@@ -139,6 +139,20 @@ CT4 6AN`;
 
     });
 
+    describe("descriptive locations without postcodes", () => {
+
+      it("should parse Sandwich Fire Station descriptive location", () => {
+        const input = "Sandwich Fire Station on Ash Road, opposite Richborough Road on the outskirts of Sandwich";
+
+        const result: VenueParseResult = service.parse(input);
+
+        expect(result.venue.name).toBe("Sandwich Fire Station on Ash Road");
+        expect(result.venue.address1).toBe("opposite Richborough Road on the outskirts of Sandwich");
+        expect(result.confidence).toBeGreaterThan(0);
+      });
+
+    });
+
     describe("postcode extraction", () => {
 
       it("should extract standard UK postcode", () => {

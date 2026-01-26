@@ -26,19 +26,19 @@ import { WalksReferenceService } from "../../../services/walks/walks-reference-d
       [clearable]="clearable"
       [searchable]="searchable"
       [placeholder]="placeholder"
-      bindLabel="type"
+      bindLabel="displayName"
       [(ngModel)]="selectedType"
       (ngModelChange)="onTypeChange($event)">
       <ng-template ng-label-tmp let-item="item">
         <div class="venue-type-item">
           <fa-icon [icon]="item.icon" class="venue-type-icon colour-mintcake"></fa-icon>
-          <span>{{ item.type }}</span>
+          <span>{{ item.displayName }}</span>
         </div>
       </ng-template>
       <ng-template ng-option-tmp let-item="item">
         <div class="venue-type-item">
           <fa-icon [icon]="item.icon" class="venue-type-icon colour-mintcake"></fa-icon>
-          <span>{{ item.type }}</span>
+          <span>{{ item.displayName }}</span>
         </div>
       </ng-template>
     </ng-select>

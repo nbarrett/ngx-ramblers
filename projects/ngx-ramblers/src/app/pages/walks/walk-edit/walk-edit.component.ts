@@ -31,6 +31,7 @@ import { WalksReferenceService } from "../../../services/walks/walks-reference-d
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { StoredVenueService } from "../../../services/venue/stored-venue.service";
 import { UrlService } from "../../../services/url.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
@@ -331,6 +332,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   protected notifierService = inject(NotifierService);
   private configService = inject(ConfigService);
   private eventDefaultsService = inject(EventDefaultsService);
+  private storedVenueService = inject(StoredVenueService);
   private broadcastService = inject<BroadcastService<ExtendedGroupEvent>>(BroadcastService);
   public config: SystemConfig;
   protected renderMapEdit: boolean;
@@ -684,9 +686,33 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   private async saveAndCloseIfNotSent(notificationSent: boolean): Promise<boolean> {
     this.logger.debug("saveAndCloseIfNotSent:saving walk:notificationSent", notificationSent);
     const savedWalk: ExtendedGroupEvent = await this.walksAndEventsService.createOrUpdate(this.displayedWalk.walk);
+    await this.persistVenueToCollection();
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_SAVED, savedWalk));
     this.afterSaveWith(notificationSent);
     return notificationSent;
+  }
+
+  private async persistVenueToCollection(): Promise<void> {
+    const venue = this.displayedWalk?.walk?.fields?.venue;
+    if (venue?.name) {
+      try {
+        const storedVenue = await this.storedVenueService.findOrCreate({
+          id: venue.storedVenueId,
+          name: venue.name,
+          postcode: venue.postcode,
+          type: venue.type,
+          url: venue.url,
+          lat: venue.lat,
+          lon: venue.lon,
+          address1: venue.address1,
+          address2: venue.address2
+        });
+        venue.storedVenueId = storedVenue.id;
+        this.logger.debug("persistVenueToCollection:venue persisted:", storedVenue);
+      } catch (error) {
+        this.logger.warn("persistVenueToCollection:failed to persist venue:", error);
+      }
+    }
   }
 
   afterSaveWith(notificationSent: boolean): void {

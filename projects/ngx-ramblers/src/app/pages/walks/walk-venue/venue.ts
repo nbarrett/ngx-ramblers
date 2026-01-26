@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { Venue as VenueModel, VenueType, VenueWithUsageStats } from "../../../models/event-venue.model";
@@ -13,11 +13,13 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
-import { VenueAutocompleteComponent } from "./venue-autocomplete";
-import { VenueSmartPasteComponent } from "./venue-smart-paste";
+import { VenueLookupComponent } from "./venue-lookup";
 import { VenueTypeSelect } from "./venue-type-select";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { isEmpty } from "es-toolkit/compat";
+import { Subscription } from "rxjs";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { NamedEventType } from "../../../models/broadcast.model";
 
 @Component({
     selector: "app-venue",
@@ -29,19 +31,15 @@ import { isEmpty } from "es-toolkit/compat";
         </div>
         @if (allowEdits()) {
           <div class="col-sm-12 mb-3">
-            <div class="row align-items-end">
-              <div class="col-sm-6">
-                <label class="form-label">Search previous venues</label>
-                <app-venue-autocomplete
+            <div class="row thumbnail-heading-frame">
+              <div class="thumbnail-heading">Find or add venue</div>
+              <div class="col-sm-12">
+                <app-venue-lookup
                   [disabled]="disabledInput"
                   [startingPoint]="startingPointCoordinates"
                   [initialVenue]="displayedWalk?.walk?.fields?.venue"
-                  (venueSelected)="onVenueSelected($event)"/>
-              </div>
-              <div class="col-sm-6">
-                <app-venue-smart-paste
-                  [disabled]="disabledInput"
-                  (venueParsed)="onVenueParsed($event)"/>
+                  [showManageVenuesButton]="isAdmin()"
+                  (venueLookup)="onVenueLookup($event)"/>
               </div>
             </div>
           </div>
@@ -49,7 +47,7 @@ import { isEmpty } from "es-toolkit/compat";
         @if (showStartingPointPrompt) {
           <div class="col-sm-12 mb-3">
             <div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-0">
-              <div class="d-flex align-items-center">
+              <div class="d-flex align-items-center ms-2">
                 <fa-icon [icon]="faMapMarkerAlt" class="me-2"></fa-icon>
                 <span><strong class="me-2">Starting Point:</strong>Change walk start postcode from <strong>{{ currentStartingPointPostcode || 'not set' }}</strong> to venue postcode <strong>{{ displayedWalk.walk.fields.venue.postcode }}</strong>?</span>
               </div>
@@ -63,7 +61,7 @@ import { isEmpty } from "es-toolkit/compat";
         @if (hasSeparateMeetingPoint && displayedWalk?.walk?.fields?.venue?.postcode && showMeetingPointButton()) {
           <div class="col-sm-12 mb-3">
             <div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-0">
-              <div class="d-flex align-items-center">
+              <div class="d-flex align-items-center ms-2">
                 <fa-icon [icon]="faMapMarkerAlt" class="me-2"></fa-icon>
                 <span><strong
                   class="me-2">Meeting Point:</strong>Use venue postcode <strong>{{ displayedWalk.walk.fields.venue.postcode }}</strong> as meeting point?</span>
@@ -74,6 +72,20 @@ import { isEmpty } from "es-toolkit/compat";
                 </button>
                 <button type="button" class="btn btn-outline-secondary" (click)="dismissMeetingPointPrompt()">Dismiss
                 </button>
+              </div>
+            </div>
+          </div>
+        }
+        @if (showVenueFromStartingPointPrompt) {
+          <div class="col-sm-12 mb-3">
+            <div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-0">
+              <div class="d-flex align-items-center ms-2">
+                <fa-icon [icon]="faMapMarkerAlt" class="me-2"></fa-icon>
+                <span><strong class="me-2">Venue Postcode:</strong>Use starting point postcode <strong>{{ pendingStartingPostcode || currentStartingPointPostcode }}</strong> for venue?</span>
+              </div>
+              <div class="btn-group btn-group-sm ms-2">
+                <button type="button" class="btn btn-primary" (click)="applyStartingPostcodeToVenue()">Apply</button>
+                <button type="button" class="btn btn-outline-secondary" (click)="dismissVenueFromStartingPointPrompt()">Dismiss</button>
               </div>
             </div>
           </div>
@@ -166,16 +178,16 @@ import { isEmpty } from "es-toolkit/compat";
                 </div>
               </div>
             }
-            @if (allowEdits() && displayedWalk?.walk?.fields.venue.url) {
+            @if (allowEdits() && (displayedWalk?.walk?.fields.venue.url || displayedWalk?.walk?.fields.venue.postcode)) {
               <div class="col-sm-6 mb-3">
                 <div class="form-group">
                   <span class="me-2">Link preview:</span>
                   <fa-icon [icon]="displayedWalk?.walk?.fields.venue?.type | toVenueIcon"
                            class="colour-mintcake me-2"></fa-icon>
-                  <a [href]="displayedWalk?.walk?.fields.venue.url"
-                     tooltip="Click to visit {{displayedWalk?.walk?.fields.venue?.name}}"
+                  <a [href]="venueLink()"
+                     [tooltip]="venueLinkTooltip()"
                      class="related-links-title" target="_blank">
-                    {{ displayedWalk.walk.fields.venue?.name }}
+                    {{ venueLabel() }}: {{ displayedWalk.walk.fields.venue?.name }}
                   </a>
                 </div>
               </div>
@@ -184,15 +196,16 @@ import { isEmpty } from "es-toolkit/compat";
         </div>
       </div>
     `,
-    imports: [MarkdownEditorComponent, FormsModule, FontAwesomeModule, TooltipDirective, VenueIconPipe, VenueAutocompleteComponent, VenueSmartPasteComponent, VenueTypeSelect]
+    imports: [MarkdownEditorComponent, FormsModule, FontAwesomeModule, TooltipDirective, VenueIconPipe, VenueLookupComponent, VenueTypeSelect]
 })
-export class Venue implements OnInit {
+export class Venue implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("Venue", NgxLoggerLevel.ERROR);
   private memberLoginService = inject(MemberLoginService);
   private venueService = inject(VenueService);
   public display: WalkDisplayService = inject(WalkDisplayService);
   private walksReferenceService = inject(WalksReferenceService);
+  private broadcastService = inject<BroadcastService<string>>(BroadcastService);
 
   @Input()
   public displayedWalk: DisplayedWalk;
@@ -209,7 +222,11 @@ export class Venue implements OnInit {
   public selectedVenueType: VenueType;
   public disabledInput: boolean;
   public showStartingPointPrompt = false;
+  public showVenueFromStartingPointPrompt = false;
   private dismissedForPostcode: string | null = null;
+  private dismissedVenueFromStartingPointForPostcode: string | null = null;
+  protected pendingStartingPostcode: string | null = null;
+  private subscriptions: Subscription[] = [];
   protected faMapMarkerAlt = faMapMarkerAlt;
 
   get startingPointCoordinates(): { latitude: number; longitude: number } | null {
@@ -232,6 +249,18 @@ export class Venue implements OnInit {
     this.selectedVenueType = this.venueTypes.find(vt => vt.type === this.displayedWalk.walk.fields.venue?.type) || this.venueTypes[0];
     this.logger.info("venue is", this.displayedWalk.walk.fields.venue, "venueTypes", this.venueTypes, "selectedVenueType", this.selectedVenueType);
     this.updateDisabledInput();
+    this.checkVenueFromStartingPointPrompt();
+    this.subscriptions.push(
+      this.broadcastService.on(NamedEventType.WALK_STARTING_POSTCODE_UPDATED, (event) => {
+        this.logger.info("WALK_STARTING_POSTCODE_UPDATED received:", event.data);
+        this.pendingStartingPostcode = event.data;
+        this.checkVenueFromStartingPointPrompt();
+      })
+    );
+  }
+
+  ngOnDestroy() {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   onVenueTypeChange(venueType: VenueType) {
@@ -245,24 +274,24 @@ export class Venue implements OnInit {
     return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) || this.memberLoginService.allowWalkAdminEdits();
   }
 
+  isAdmin() {
+    return this.memberLoginService.allowWalkAdminEdits();
+  }
+
   private updateDisabledInput() {
     this.disabledInput = this.inputDisabled || (!this.allowEdits() && !this.displayedWalk?.walk?.fields?.venue?.venuePublish);
   }
 
-  onVenueSelected(venue: VenueWithUsageStats) {
-    this.logger.info("onVenueSelected:", venue);
+  onVenueLookup(venue: Partial<VenueModel>) {
+    this.logger.info("onVenueLookup:", venue);
     this.applyVenueToForm(venue);
   }
 
-  onVenueParsed(venue: Partial<VenueModel>) {
-    this.logger.info("onVenueParsed:", venue);
-    this.applyVenueToForm(venue);
-  }
-
-  private applyVenueToForm(venue: Partial<VenueModel>) {
+  private applyVenueToForm(venue: Partial<VenueModel> | VenueWithUsageStats) {
     const currentVenue = this.displayedWalk.walk.fields.venue;
     const venuePublish = currentVenue.venuePublish;
     const isMeetingPlace = currentVenue.isMeetingPlace;
+    currentVenue.storedVenueId = (venue as VenueWithUsageStats).storedVenueId || venue.storedVenueId;
     currentVenue.type = venue.type;
     currentVenue.name = venue.name;
     currentVenue.address1 = venue.address1;
@@ -283,6 +312,7 @@ export class Venue implements OnInit {
 
   onPostcodeChange(postcode: string) {
     this.checkStartingPointPrompt(postcode);
+    this.checkVenueFromStartingPointPrompt();
   }
 
   private checkStartingPointPrompt(venuePostcode: string) {
@@ -335,7 +365,63 @@ export class Venue implements OnInit {
     this.dismissedMeetingPointForPostcode = this.venueService.normalizePostcode(this.displayedWalk.walk.fields.venue.postcode);
   }
 
+  private checkVenueFromStartingPointPrompt() {
+    if (!this.allowEdits()) {
+      return;
+    }
+
+    const venuePostcode = this.venueService.normalizePostcode(this.displayedWalk?.walk?.fields?.venue?.postcode);
+    const startingPostcode = this.pendingStartingPostcode || this.currentStartingPointPostcode;
+    const normalizedStartingPostcode = this.venueService.normalizePostcode(startingPostcode);
+
+    const hasStartingPostcode = !isEmpty(normalizedStartingPostcode);
+    const venuePostcodeEmpty = isEmpty(venuePostcode);
+    const wasDismissedForThisPostcode = this.dismissedVenueFromStartingPointForPostcode === normalizedStartingPostcode;
+
+    this.showVenueFromStartingPointPrompt = hasStartingPostcode && venuePostcodeEmpty && !wasDismissedForThisPostcode;
+    this.logger.debug("checkVenueFromStartingPointPrompt: startingPostcode:", normalizedStartingPostcode, "venuePostcode:", venuePostcode, "showPrompt:", this.showVenueFromStartingPointPrompt);
+  }
+
+  applyStartingPostcodeToVenue() {
+    const postcode = this.pendingStartingPostcode || this.currentStartingPointPostcode;
+    this.logger.info("applyStartingPostcodeToVenue:", postcode);
+    if (postcode) {
+      this.displayedWalk.walk.fields.venue.postcode = postcode.toUpperCase().trim();
+      this.showVenueFromStartingPointPrompt = false;
+    }
+  }
+
+  dismissVenueFromStartingPointPrompt() {
+    const postcode = this.pendingStartingPostcode || this.currentStartingPointPostcode;
+    this.dismissedVenueFromStartingPointForPostcode = this.venueService.normalizePostcode(postcode);
+    this.showVenueFromStartingPointPrompt = false;
+  }
+
   isMeetingPlaceChanged($event: any) {
     this.logger.info("isMeetingPlaceChanged:", $event, "venue:", this.displayedWalk?.walk?.fields.venue);
+  }
+
+  venueLink(): string {
+    const venue = this.displayedWalk?.walk?.fields?.venue;
+    if (venue?.url) {
+      return venue.url;
+    } else if (venue?.postcode) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.postcode)}`;
+    }
+    return "";
+  }
+
+  venueLinkTooltip(): string {
+    const venue = this.displayedWalk?.walk?.fields?.venue;
+    if (venue?.url) {
+      return `Click to visit ${venue.name}`;
+    } else if (venue?.postcode) {
+      return `Click to view ${venue.postcode} on Google Maps`;
+    }
+    return "";
+  }
+
+  venueLabel(): string {
+    return this.venueService.venueLabel(this.displayedWalk?.walk?.fields?.venue?.isMeetingPlace);
   }
 }
