@@ -76,6 +76,7 @@ export enum StoredValue {
   STORY = "story",
   SUB_TAB = "sub-tab",
   TAB = "tab",
+  VENUE_MODE = "venue-mode",
   TEMPLATE_OPTIONS_VISIBLE = "template-options-visible",
   WALK_LIST_VIEW = "walk-list-view",
   WALK_SELECT_TYPE = "walk-select-type",

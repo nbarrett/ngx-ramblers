@@ -14,7 +14,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
-import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
+import { DEFAULT_OS_STYLE, LocationType, MapProvider } from "../../../models/map.model";
 import { LocationDetails, WalkStatus } from "../../../models/ramblers-walks-manager";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { sortBy } from "../../../functions/arrays";
@@ -70,7 +70,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   get notify(): AlertInstance {
     return this.notifyInstance;
   }
-  @Input() public locationType!: string;
+  @Input() public locationType!: LocationType;
   @Input() walkStatus?: WalkStatus;
   @Input() endLocationDetails: LocationDetails | null = null;
   @Input() showCombinedMap = false;

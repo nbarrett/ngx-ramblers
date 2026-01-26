@@ -23,6 +23,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { TimePicker } from "../../../date-and-time/time-picker";
+import { LocationType } from "../../../models/map.model";
 
 @Component({
   selector: "app-walk-edit-details",
@@ -177,7 +178,7 @@ import { TimePicker } from "../../../date-and-time/time-picker";
               }
               <div class="row">
                 <div class="col">
-                  <app-walk-location-edit locationType="Starting"
+                  <app-walk-location-edit [locationType]="LocationType.STARTING"
                                           [locationDetails]="displayedWalk?.walk?.groupEvent.start_location"
                                           [endLocationDetails]="showCombinedMap ? displayedWalk?.walk?.groupEvent.end_location : null"
                                           [showCombinedMap]="showCombinedMap"
@@ -187,7 +188,7 @@ import { TimePicker } from "../../../date-and-time/time-picker";
                 </div>
                 @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR && !showCombinedMap) {
                   <div class="col">
-                    <app-walk-location-edit locationType="Finishing"
+                    <app-walk-location-edit [locationType]="LocationType.FINISHING"
                                             [locationDetails]="displayedWalk?.walk?.groupEvent?.end_location"
                                             [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
                                             [disabled]="inputDisabled"
@@ -205,7 +206,7 @@ import { TimePicker } from "../../../date-and-time/time-picker";
                          name="hasSeparateMeetingPoint" class="form-check-input" type="checkbox"
                          id="has-separate-meeting-point">
                   <label class="form-check-label" for="has-separate-meeting-point">
-                    My walk has a separate meeting point
+                    My walk has a separate meeting point or I want to specify a meeting time
                   </label>
                 </div>
               </div>
@@ -226,7 +227,7 @@ import { TimePicker } from "../../../date-and-time/time-picker";
                       }
                     </div>
                     <div class="col pt-3">
-                      <app-walk-location-edit locationType="Meeting"
+                      <app-walk-location-edit [locationType]="LocationType.MEETING"
                                               [locationDetails]="displayedWalk?.walk?.groupEvent?.meeting_location"
                                               [disabled]="inputDisabled"
                                               [showLocationOnly]="true"
@@ -235,7 +236,7 @@ import { TimePicker } from "../../../date-and-time/time-picker";
                   </div>
                 </div>
                 <div class="col-sm-12 mt-3">
-                  <app-walk-location-edit locationType="Meeting"
+                  <app-walk-location-edit [locationType]="LocationType.MEETING"
                                           [locationDetails]="displayedWalk?.walk?.groupEvent?.meeting_location"
                                           [disabled]="inputDisabled"
                                           [hideLocationDropdown]="true"
@@ -279,6 +280,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
 
   protected readonly WalkType = WalkType;
   protected readonly DetailsTab = DetailsTab;
+  protected readonly LocationType = LocationType;
   protected display = inject(WalkDisplayService);
   difficulties = this.display.difficulties();
   tabs: DetailsTab[] = enumValues(DetailsTab);

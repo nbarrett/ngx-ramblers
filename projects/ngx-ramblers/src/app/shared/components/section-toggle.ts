@@ -2,17 +2,35 @@ import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } fro
 import { ActivatedRoute, Router } from "@angular/router";
 import { Subscription } from "rxjs";
 import { kebabCase } from "es-toolkit/compat";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { IconDefinition } from "@fortawesome/fontawesome-common-types";
+
+export interface SectionToggleTab {
+  value: string;
+  label: string;
+  icon?: IconDefinition;
+}
 
 @Component({
   selector: "app-section-toggle",
   standalone: true,
+  imports: [FontAwesomeModule],
+  host: {
+    "[class.full-width-host]": "fullWidth"
+  },
   styles: [`
+    :host.full-width-host
+      display: contents
     .section-toggle
       margin-bottom: 0.75rem
       border: 2px solid var(--ramblers-colour-sunrise)
       border-radius: 0.375rem
       overflow: hidden
       display: inline-flex
+    .section-toggle.full-width
+      flex: 1
+    .section-toggle.full-width .btn
+      flex: 1
     .section-toggle .btn
       border: none
       border-radius: 0
@@ -28,14 +46,18 @@ import { kebabCase } from "es-toolkit/compat";
       color: var(--ramblers-colour-black)
   `],
   template: `
-    <div class="btn-group section-toggle" role="group">
-      @for (tab of tabs; track tab) {
+    <div class="btn-group section-toggle" [class.full-width]="fullWidth" role="group">
+      @for (tab of normalizedTabs; track tab.value) {
         <button type="button"
           class="btn"
-          [class.btn-primary]="selectedTab === tab"
-          [class.btn-outline-ramblers]="selectedTab !== tab"
-          (click)="selectTab(tab)">
-          {{ tab }}
+          [class.btn-primary]="selectedTab === tab.value"
+          [class.btn-outline-ramblers]="selectedTab !== tab.value"
+          [disabled]="disabled"
+          (click)="selectTab(tab.value)">
+          @if (tab.icon) {
+            <fa-icon [icon]="tab.icon" class="me-1"></fa-icon>
+          }
+          {{ tab.label }}
         </button>
       }
     </div>
@@ -46,10 +68,21 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
   private activatedRoute = inject(ActivatedRoute);
   private subscriptions: Subscription[] = [];
 
-  @Input() tabs: T[] = [];
+  @Input() tabs: (T | SectionToggleTab)[] = [];
   @Input() selectedTab: T;
   @Input() queryParamKey: string | null = null;
+  @Input() fullWidth = false;
+  @Input() disabled = false;
   @Output() selectedTabChange = new EventEmitter<T>();
+
+  get normalizedTabs(): SectionToggleTab[] {
+    return this.tabs.map(tab => {
+      if (typeof tab === "string") {
+        return { value: tab, label: tab };
+      }
+      return tab;
+    });
+  }
 
   ngOnInit() {
     if (this.queryParamKey) {
@@ -57,10 +90,10 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
         this.activatedRoute.queryParams.subscribe(params => {
           const tabParam = params[this.queryParamKey];
           if (tabParam) {
-            const matchedTab = this.tabs.find(tab => kebabCase(tab) === tabParam);
+            const matchedTab = this.normalizedTabs.find(tab => kebabCase(tab.value) === tabParam);
             if (matchedTab) {
-              this.selectedTab = matchedTab;
-              this.selectedTabChange.emit(matchedTab);
+              this.selectedTab = matchedTab.value as T;
+              this.selectedTabChange.emit(matchedTab.value as T);
             }
           }
         })
@@ -72,12 +105,12 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
     this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
-  selectTab(tab: T) {
-    this.selectedTab = tab;
-    this.selectedTabChange.emit(tab);
+  selectTab(tabValue: string) {
+    this.selectedTab = tabValue as T;
+    this.selectedTabChange.emit(tabValue as T);
     if (this.queryParamKey) {
       this.router.navigate([], {
-        queryParams: { [this.queryParamKey]: kebabCase(tab) },
+        queryParams: { [this.queryParamKey]: kebabCase(tabValue) },
         queryParamsHandling: "merge"
       });
     }

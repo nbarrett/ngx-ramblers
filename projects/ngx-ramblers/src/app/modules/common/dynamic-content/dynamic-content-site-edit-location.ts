@@ -11,6 +11,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { INITIALISED_LOCATION } from "../../../models/walk.model";
 import { cloneDeep } from "es-toolkit/compat";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { LocationType } from "../../../models/map.model";
 
 @Component({
   selector: "app-dynamic-content-site-edit-location",
@@ -46,14 +47,14 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         <div [class]="hasEndLocation ? 'col-md-6' : 'col-md-12'">
           <app-walk-location-edit
             [locationDetails]="row.location.start"
-            [locationType]="'Start'"
+            [locationType]="LocationType.START"
             [notify]="notify"/>
         </div>
         @if (hasEndLocation) {
           <div class="col-md-6 mt-4 mt-md-0">
             <app-walk-location-edit
               [locationDetails]="row.location.end"
-              [locationType]="'End'"
+              [locationType]="LocationType.END"
               [notify]="notify"/>
           </div>
         }
@@ -89,6 +90,7 @@ export class DynamicContentSiteEditLocation implements OnInit {
 
   renderingModes: KeyValue<string>[] = enumKeyValues(LocationRenderingMode);
   hasEndLocation = false;
+  protected readonly LocationType = LocationType;
 
   ngOnInit() {
     this.ensureLocationDefaults();

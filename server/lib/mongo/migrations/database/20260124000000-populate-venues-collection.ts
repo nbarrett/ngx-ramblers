@@ -3,6 +3,7 @@ import createMigrationLogger from "../migrations-logger";
 import { postcodeLookupFromPostcodesIo } from "../../../addresses/postcode-lookup";
 import { GridReferenceLookupApiResponse, GridReferenceLookupResponse } from "../../../../../projects/ngx-ramblers/src/app/models/address-model";
 import { inferVenueTypeFromName } from "../../../../../projects/ngx-ramblers/src/app/models/event-venue.model";
+import { EventField, GroupEventField } from "../../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { dateTimeNowAsValue, dateTimeFromJsDate } from "../../../shared/dates";
 
 const debugLog = createMigrationLogger("populate-venues-collection");
@@ -35,20 +36,20 @@ export async function up(db: Db, client: MongoClient) {
     {
       $match: {
         $or: [
-          {"fields.venue.name": {$exists: true, $nin: [null, ""]}},
-          {"fields.venue.postcode": {$exists: true, $nin: [null, ""]}}
+          {[EventField.VENUE_NAME]: {$exists: true, $nin: [null, ""]}},
+          {[EventField.VENUE_POSTCODE]: {$exists: true, $nin: [null, ""]}}
         ]
       }
     },
     {
       $project: {
-        startDate: "$groupEvent.start_date",
-        venueName: "$fields.venue.name",
-        venueAddress1: "$fields.venue.address1",
-        venueAddress2: "$fields.venue.address2",
-        venuePostcode: "$fields.venue.postcode",
-        venueType: "$fields.venue.type",
-        venueUrl: "$fields.venue.url"
+        startDate: `$${GroupEventField.START_DATE}`,
+        venueName: `$${EventField.VENUE_NAME}`,
+        venueAddress1: `$${EventField.VENUE_ADDRESS1}`,
+        venueAddress2: `$${EventField.VENUE_ADDRESS2}`,
+        venuePostcode: `$${EventField.VENUE_POSTCODE}`,
+        venueType: `$${EventField.VENUE_TYPE}`,
+        venueUrl: `$${EventField.VENUE_URL}`
       }
     },
     {
