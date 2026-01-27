@@ -586,6 +586,11 @@ export enum ImageFit {
   CONTAIN = "contain"
 }
 
+export enum GridLayoutMode {
+  FIXED_ASPECT = "fixed-aspect",
+  MASONRY = "masonry"
+}
+
 export enum VerticalPosition {
   TOP = "top",
   BOTTOM = "bottom"
@@ -619,9 +624,12 @@ export enum ThumbView {
   CONTAIN = "contain"
 }
 
-export interface GridViewOptions {
+export interface GridViewOptions extends HasColumnRange {
   showTitles: boolean;
   showDates: boolean;
+  layoutMode?: GridLayoutMode;
+  imageFit?: ImageFit;
+  gap?: number;
 }
 
 export interface GalleryViewOptions {
@@ -679,7 +687,15 @@ export const DEFAULT_GALLERY_OPTIONS: GalleryViewOptions = {
   dotsPosition: VerticalPosition.BOTTOM
 };
 
-export const DEFAULT_GRID_OPTIONS = {showTitles: true, showDates: true};
+export const DEFAULT_GRID_OPTIONS: GridViewOptions = {
+  showTitles: false,
+  showDates: false,
+  minColumns: 1,
+  maxColumns: 2,
+  layoutMode: GridLayoutMode.MASONRY,
+  imageFit: ImageFit.CONTAIN,
+  gap: 1
+};
 
 
 export interface PageContentGroup {

@@ -15,11 +15,12 @@ import { faMapMarkerAlt, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
+import { HeightResizerComponent } from "../../../modules/common/height-resizer/height-resizer";
 
 @Component({
   selector: "app-venue-map-selector",
   standalone: true,
-  imports: [LeafletModule, FormsModule, FontAwesomeModule],
+  imports: [LeafletModule, FormsModule, FontAwesomeModule, HeightResizerComponent],
   template: `
     <div class="venue-map-container">
       <div class="d-flex justify-content-between align-items-center mb-2">
@@ -33,9 +34,11 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
           (leafletMapReady)="onMapReady($event)"
           (leafletClick)="onMapClick($event)">
         </div>
-        <div class="resize-handle" (mousedown)="onResizeStart($event)" (touchstart)="onResizeTouchStart($event)">
-          <span class="grip-dots">⋯⋯⋯</span>
-        </div>
+        <app-height-resizer compact
+                            [height]="mapHeight"
+                            [minHeight]="200"
+                            [maxHeight]="800"
+                            (heightChange)="onHeightChange($event)"/>
       }
       @if (selectedVenue) {
         <div class="mt-2 alert alert-success py-2">
@@ -68,28 +71,9 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
       padding: 12px
       background-color: #f8f9fa
     .leaflet-map
-      border-radius: 4px
+      border-radius: 4px 4px 0 0
       min-height: 200px
       max-height: 800px
-    .resize-handle
-      display: flex
-      align-items: center
-      justify-content: center
-      height: 12px
-      cursor: ns-resize
-      background: linear-gradient(to bottom, #e0e0e0, #f0f0f0, #e0e0e0)
-      border: 1px solid #bbb
-      border-top: none
-      border-radius: 0 0 6px 6px
-      color: #888
-      user-select: none
-      font-size: 10px
-      box-shadow: inset 0 1px 2px rgba(255,255,255,0.5), 0 1px 2px rgba(0,0,0,0.1)
-      &:hover
-        background: linear-gradient(to bottom, #d5d5d5, #e8e8e8, #d5d5d5)
-        color: #666
-      &:active
-        background: linear-gradient(to bottom, #c8c8c8, #dcdcdc, #c8c8c8)
     :host ::ng-deep .venue-marker-icon
       background: transparent
       border: none
@@ -140,9 +124,6 @@ export class VenueMapSelectorComponent implements OnInit, OnDestroy {
   faMapMarkerAlt = faMapMarkerAlt;
   faPlus = faPlus;
   mapHeight = 300;
-  private isResizing = false;
-  private startY = 0;
-  private startHeight = 0;
 
   async ngOnInit() {
     this.venueTypes = this.walksReferenceService.venueTypes();
@@ -291,6 +272,7 @@ export class VenueMapSelectorComponent implements OnInit, OnDestroy {
       this.map.removeLayer(this.newVenueMarker);
       this.newVenueMarker = null;
     }
+    this.map.closePopup();
     this.logger.info("Venue selected:", venue);
     this.venueSelected.emit(venue);
   }
@@ -366,50 +348,8 @@ export class VenueMapSelectorComponent implements OnInit, OnDestroy {
     }
   }
 
-  onResizeStart(event: MouseEvent) {
-    event.preventDefault();
-    this.isResizing = true;
-    this.startY = event.clientY;
-    this.startHeight = this.mapHeight;
-    document.addEventListener("mousemove", this.onResizeMove);
-    document.addEventListener("mouseup", this.onResizeEnd);
+  onHeightChange(height: number) {
+    this.mapHeight = height;
+    this.map?.invalidateSize();
   }
-
-  onResizeTouchStart(event: TouchEvent) {
-    this.isResizing = true;
-    this.startY = event.touches[0].clientY;
-    this.startHeight = this.mapHeight;
-    document.addEventListener("touchmove", this.onResizeTouchMove);
-    document.addEventListener("touchend", this.onResizeTouchEnd);
-  }
-
-  private onResizeMove = (event: MouseEvent) => {
-    if (!this.isResizing) return;
-    const delta = event.clientY - this.startY;
-    this.zone.run(() => {
-      this.mapHeight = Math.min(800, Math.max(200, this.startHeight + delta));
-      this.map?.invalidateSize();
-    });
-  };
-
-  private onResizeTouchMove = (event: TouchEvent) => {
-    if (!this.isResizing) return;
-    const delta = event.touches[0].clientY - this.startY;
-    this.zone.run(() => {
-      this.mapHeight = Math.min(800, Math.max(200, this.startHeight + delta));
-      this.map?.invalidateSize();
-    });
-  };
-
-  private onResizeEnd = () => {
-    this.isResizing = false;
-    document.removeEventListener("mousemove", this.onResizeMove);
-    document.removeEventListener("mouseup", this.onResizeEnd);
-  };
-
-  private onResizeTouchEnd = () => {
-    this.isResizing = false;
-    document.removeEventListener("touchmove", this.onResizeTouchMove);
-    document.removeEventListener("touchend", this.onResizeTouchEnd);
-  };
 }

@@ -29,6 +29,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
 import { cropperImageStyles, cropperWrapperStyles } from "../../functions/image-cropper-styles";
+import { HeightResizerComponent } from "../../modules/common/height-resizer/height-resizer";
 
 @Component({
   selector: "app-carousel",
@@ -116,9 +117,15 @@ import { cropperImageStyles, cropperWrapperStyles } from "../../functions/image-
           }
         </div>
       </div>
-    </div>`,
+    </div>
+    @if (preview) {
+      <app-height-resizer [height]="album.height || DEFAULT_HEIGHT"
+                          [minHeight]="200"
+                          [maxHeight]="800"
+                          (heightChange)="onHeightChange($event)"/>
+    }`,
   styleUrls: ["./carousel.sass"],
-  imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe, YoutubeEmbed]
+  imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe, YoutubeEmbed, HeightResizerComponent]
 })
 export class CarouselComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CarouselComponent", NgxLoggerLevel.ERROR);
@@ -271,6 +278,12 @@ export class CarouselComponent implements OnInit, OnDestroy {
 
   onImageError($event: ErrorEvent) {
     this.logger.error("Image failed to load:", $event);
+  }
+
+  onHeightChange(height: number) {
+    if (this.album) {
+      this.album.height = height;
+    }
   }
 
 }

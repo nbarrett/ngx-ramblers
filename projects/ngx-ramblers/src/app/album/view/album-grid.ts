@@ -9,7 +9,8 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { take } from "es-toolkit/compat";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { faImages, faSearch } from "@fortawesome/free-solid-svg-icons";
-import { AlbumData, GridViewOptions } from "../../models/content-text.model";
+import { AlbumData, DEFAULT_GRID_OPTIONS, GridLayoutMode, GridViewOptions } from "../../models/content-text.model";
+import { cardClasses } from "../../services/card-utils";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata.service";
 import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-button";
@@ -22,10 +23,10 @@ import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
     selector: "app-album-grid",
     styleUrls: ["./album-grid.sass"],
     template: `
-      <div class="row g-3">
+      <div [class]="containerClasses()" [style]="containerStyles()">
         @for (image of lazyLoadingMetadata?.selectedSlides; track image._id) {
-          <div class="col-lg-6 col-sm-12">
-            <div class="card h-100">
+          <div [class]="cardColumnClasses()">
+            <div [class]="cardClasses()">
               @if (hasYoutubeVideo(image)) {
                 <div class="album-media card-img-top">
                   <app-youtube-embed
@@ -55,7 +56,7 @@ import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
         }
       </div>
       @if (lazyLoadingMetadata?.availableSlides?.length > lazyLoadingMetadata?.selectedSlides?.length) {
-        <app-badge-button class="float-end" noRightMargin
+        <app-badge-button class="float-end mt-2" noRightMargin
                           [tooltip]="'load more images'"
                           [icon]="faSearch"
                           (click)="viewMoreImages()" caption="load more images"/>
@@ -80,6 +81,10 @@ export class AlbumGridComponent {
   album: AlbumData;
   @Input()
   gridViewOptions: GridViewOptions;
+  @Input()
+  runtimeColumns: number | null = null;
+  @Input()
+  runtimeGap: number | null = null;
   public lazyLoadingMetadataService: LazyLoadingMetadataService = inject(LazyLoadingMetadataService);
   public gallery: Gallery = inject(Gallery);
   public pageService: PageService = inject(PageService);
@@ -104,6 +109,56 @@ export class AlbumGridComponent {
 
   hasYoutubeVideo(item: ContentMetadataItem): boolean {
     return !!item?.youtubeId;
+  }
+
+  isMasonryLayout(): boolean {
+    return this.gridViewOptions?.layoutMode === GridLayoutMode.MASONRY;
+  }
+
+  effectiveColumns(): number {
+    if (this.runtimeColumns !== null) {
+      return this.runtimeColumns;
+    }
+    return this.gridViewOptions?.maxColumns || 2;
+  }
+
+  containerClasses(): string {
+    const layoutClass = this.isMasonryLayout() ? "masonry-layout" : "fixed-aspect-layout";
+    const colsClass = `cols-${this.effectiveColumns()}`;
+    if (this.isMasonryLayout()) {
+      const zeroGapClass = this.effectiveGap() === 0 ? "zero-gap" : "";
+      return `album-grid-container ${layoutClass} ${colsClass} ${zeroGapClass}`.trim();
+    }
+    return `album-grid-container ${layoutClass} row g-3`;
+  }
+
+  cardColumnClasses(): string {
+    if (this.isMasonryLayout()) {
+      return "";
+    }
+    return cardClasses(this.effectiveColumns());
+  }
+
+  cardClasses(): string {
+    if (this.isMasonryLayout() && this.effectiveGap() === 0) {
+      return "card";
+    }
+    return "card h-100";
+  }
+
+  effectiveGap(): number {
+    if (this.runtimeGap !== null) {
+      return this.runtimeGap;
+    }
+    return this.gridViewOptions?.gap ?? DEFAULT_GRID_OPTIONS.gap;
+  }
+
+  containerStyles(): string {
+    const gapRem = this.effectiveGap();
+    if (this.isMasonryLayout()) {
+      return `column-gap: ${gapRem}rem; --masonry-gap: ${gapRem}rem;`;
+    }
+    return `--bs-gutter-x: ${gapRem}rem; --bs-gutter-y: ${gapRem}rem;`;
   }
 
 }

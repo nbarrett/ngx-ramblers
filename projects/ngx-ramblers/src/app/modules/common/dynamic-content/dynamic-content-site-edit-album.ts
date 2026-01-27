@@ -7,7 +7,10 @@ import {
   AlbumEditTab,
   AlbumView,
   DEFAULT_GALLERY_OPTIONS,
+  DEFAULT_GRID_OPTIONS,
   FocalPointTarget,
+  GridLayoutMode,
+  ImageFit,
   PageContent,
   PageContentRow,
   PageContentType,
@@ -109,30 +112,20 @@ import { rangeSliderStyles } from "../../../components/range-slider.styles";
                                    [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-allow-switch-view')">
                             <label class="form-check-label"
                                    [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-allow-switch-view')">
-                              Allow Switch View</label>
+                              Allow View To Be Changed In Presentation Mode</label>
                           </div>
                         </div>
                       }
                     </div>
-                    <div class="row">
-                      @if (actions.isAlbum(row)) {
-                        <div class="col-auto">
-                          <div class="form-group">
-                            <label
-                              [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-album-view')">
-                              Album View</label>
-                            <select class="form-control input-sm"
-                                    [(ngModel)]="row.carousel.albumView"
-                                    [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-album-view')">
-                              @for (type of enumKeyValuesForAlbumView; track type) {
-                                <option
-                                  [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
-                                </option>
-                              }
-                            </select>
-                          </div>
+                    <div class="row mt-3">
+                      <div class="col-sm-12">
+                        <div class="alert alert-warning mb-0">
+                          <strong>Grid settings</strong> (layout, columns, gap, titles) are configured using the toolbar
+                          controls below. Changes made there will be saved with the album.
                         </div>
-                      }
+                      </div>
+                    </div>
+                    <div class="row mt-3">
                       @if ((row.carousel.galleryViewOptions || row.carousel.allowSwitchView) && actions.isAlbum(row)) {
                         <div
                           class="col-auto">
@@ -500,7 +493,10 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   @Input()
   public pageContent: PageContent;
   enumKeyValuesForAlbumView: KeyValue<string>[] = enumKeyValues(AlbumView);
+  enumKeyValuesForGridLayoutMode: KeyValue<string>[] = enumKeyValues(GridLayoutMode);
+  enumKeyValuesForImageFit: KeyValue<string>[] = enumKeyValues(ImageFit);
   thumbPositions: ThumbPosition[] = [ThumbPosition.TOP, ThumbPosition.LEFT, ThumbPosition.RIGHT, ThumbPosition.BOTTOM];
+  protected readonly GridLayoutMode = GridLayoutMode;
   faRemove = faRemove;
   groupEventType: GroupEventType;
   protected readonly faChevronRight = faChevronRight;
@@ -524,6 +520,9 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
 
     if (!this.row?.carousel?.galleryViewOptions) {
       this.row.carousel.galleryViewOptions = DEFAULT_GALLERY_OPTIONS;
+    }
+    if (this.row?.carousel) {
+      this.row.carousel.gridViewOptions = {...DEFAULT_GRID_OPTIONS, ...this.row.carousel.gridViewOptions};
     }
     if (!this.row?.carousel?.coverImageFocalPointTarget) {
       this.row.carousel.coverImageFocalPointTarget = FocalPointTarget.BOTH;

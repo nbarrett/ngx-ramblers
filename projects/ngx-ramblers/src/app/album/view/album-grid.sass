@@ -1,29 +1,137 @@
-.album-media
-  position: relative
-  width: 100%
-  padding-bottom: 56.25%
-  height: 0
-  overflow: hidden
+.album-grid-container
+  &.fixed-aspect-layout
+    .album-media
+      position: relative
+      width: 100%
+      padding-bottom: 56.25%
+      height: 0
+      overflow: hidden
 
-  app-youtube-embed
-    position: absolute
-    top: 0
-    left: 0
-    width: 100%
-    height: 100%
+      app-youtube-embed
+        position: absolute
+        top: 0
+        left: 0
+        width: 100%
+        height: 100%
 
-  iframe
-    position: absolute
-    top: 0
-    left: 0
-    width: 100%
-    height: 100%
-    border: 0
+      iframe
+        position: absolute
+        top: 0
+        left: 0
+        width: 100%
+        height: 100%
+        border: 0
 
-  img
-    position: absolute
-    top: 0
-    left: 0
-    width: 100%
-    height: 100%
-    object-fit: cover
+      img
+        position: absolute
+        top: 0
+        left: 0
+        width: 100%
+        height: 100%
+        object-fit: cover
+
+  &.masonry-layout
+    --masonry-gap: 1rem
+    column-fill: balance
+
+    &.cols-1
+      column-count: 1
+    &.cols-2
+      column-count: 2
+    &.cols-3
+      column-count: 3
+    &.cols-4
+      column-count: 4
+    &.cols-5
+      column-count: 5
+    &.cols-6
+      column-count: 6
+
+    .card
+      break-inside: avoid
+      margin-bottom: var(--masonry-gap)
+      display: inline-block
+      width: 100%
+
+    .album-media
+      position: relative
+      width: 100%
+      height: auto
+      padding-bottom: 0
+      overflow: hidden
+
+      app-youtube-embed
+        position: relative
+        width: 100%
+        padding-bottom: 56.25%
+        height: 0
+
+      iframe
+        position: absolute
+        top: 0
+        left: 0
+        width: 100%
+        height: 100%
+        border: 0
+
+      img
+        position: relative
+        width: 100%
+        height: auto
+        object-fit: contain
+        display: block
+
+    &.zero-gap
+      column-gap: 0
+
+      > div
+        margin: 0
+        padding: 0
+        display: block
+
+      .card
+        margin: 0
+        padding: 0
+        border: none
+        border-radius: 0
+        background: transparent
+        display: block
+        box-shadow: -1px 0 0 0 rgba(255, 255, 255, 0.5)
+
+      .card-body
+        font-size: 1rem
+        line-height: normal
+        padding: 0.5rem 0.75rem
+        background: white
+
+        .card-title
+          margin-bottom: 0.25rem
+          font-size: 1rem
+
+        .card-text
+          margin-bottom: 0
+
+      .card-img-top
+        border-radius: 0
+        margin: 0
+        padding: 0
+        display: block
+        line-height: 0
+        font-size: 0
+
+      .album-media
+        margin: 0
+        padding: 0
+        display: block
+        line-height: 0
+        font-size: 0
+        overflow: hidden
+
+        img
+          border-radius: 0
+          margin: 0
+          padding: 0
+          display: block
+          vertical-align: bottom
+          width: 100%
+          height: auto

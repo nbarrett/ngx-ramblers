@@ -4,6 +4,7 @@ import { PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import {
   AlbumView,
   ContentText,
+  GridLayoutMode,
   ImageFit,
   LoadingStrategy,
   PageContent,
@@ -379,8 +380,13 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
               preAlbumText: null,
               albumView: AlbumView.GRID,
               gridViewOptions: {
-                showTitles: true,
-                showDates: true
+                showTitles: false,
+                showDates: false,
+                minColumns: 1,
+                maxColumns: 2,
+                layoutMode: GridLayoutMode.MASONRY,
+                imageFit: ImageFit.CONTAIN,
+                gap: 1
               },
               galleryViewOptions: {
                 thumbPosition: ThumbPosition.LEFT,
