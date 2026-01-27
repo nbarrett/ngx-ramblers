@@ -1,4 +1,5 @@
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
+import { entries } from "../functions/object-utils";
 import { ApiResponse } from "./api-response.model";
 
 export enum VenueTypeValue {
@@ -9,6 +10,8 @@ export enum VenueTypeValue {
   CHURCH = "church",
   PUB = "pub",
   STATION = "station",
+  POINT_OF_INTEREST = "point of interest",
+  LOCATION = "location",
   OTHER = "other"
 }
 
@@ -20,6 +23,8 @@ export const VENUE_TYPE_TERMS: Record<VenueTypeValue, string[]> = {
   [VenueTypeValue.HALL]: ["village hall", "community hall", "town hall", "memorial hall", "parish hall", "church hall", "hall", "centre", "center", "community"],
   [VenueTypeValue.CHURCH]: ["church", "chapel", "abbey", "cathedral", "priory", "minster"],
   [VenueTypeValue.STATION]: ["station", "railway", "rail", "train", "metro", "underground", "tube"],
+  [VenueTypeValue.POINT_OF_INTEREST]: ["viewpoint", "monument", "memorial", "landmark", "attraction", "museum", "gallery", "castle", "ruins", "bridge"],
+  [VenueTypeValue.LOCATION]: ["green", "common", "square", "crossroads", "junction", "corner", "gate", "woods", "forest", "park", "field", "meadow"],
   [VenueTypeValue.OTHER]: []
 };
 
@@ -30,7 +35,7 @@ export function inferVenueTypeFromName(name: string): VenueTypeValue {
     return VenueTypeValue.OTHER;
   }
   const nameLower = name.toLowerCase();
-  for (const [venueType, terms] of Object.entries(VENUE_TYPE_TERMS)) {
+  for (const [venueType, terms] of entries(VENUE_TYPE_TERMS)) {
     if (terms.length > 0 && terms.some(term => {
       if (WORD_BOUNDARY_TERMS.has(term)) {
         const regex = new RegExp(`\\b${term}\\b`, "i");
@@ -70,8 +75,14 @@ export interface VenueWithUsageStats extends Venue {
   ngSelectLabel?: string;
 }
 
+export enum VenueSource {
+  STORED = "stored",
+  GOOGLE = "google"
+}
+
 export interface VenueWithDistance extends VenueWithUsageStats {
   distance?: number;
+  source?: VenueSource;
 }
 
 export interface VenueParseResult {

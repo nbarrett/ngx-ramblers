@@ -16,7 +16,12 @@ import { VenueMapSelectorComponent } from "./venue-map-selector";
 import { Subscription } from "rxjs";
 import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
 
-export type VenueLookupMode = "url" | "paste" | "search" | "map";
+export enum VenueLookupMode {
+  SEARCH = "search",
+  URL = "url",
+  PASTE = "paste",
+  MAP = "map"
+}
 
 @Component({
   selector: "app-venue-lookup",
@@ -138,7 +143,7 @@ export type VenueLookupMode = "url" | "paste" | "search" | "map";
         }
         @case ("search") {
           <div class="search-mode">
-            <label class="form-label">Search previous venues</label>
+            <label class="form-label">Search by name or location</label>
             <app-venue-autocomplete
               [disabled]="disabled"
               [startingPoint]="startingPoint"
@@ -204,7 +209,7 @@ export class VenueLookupComponent implements OnInit, OnDestroy {
   @Input() showManageVenuesButton = false;
   @Output() venueLookup = new EventEmitter<Partial<Venue>>();
 
-  mode: VenueLookupMode = "search";
+  mode = VenueLookupMode.SEARCH;
   protected readonly StoredValue = StoredValue;
   websiteUrl = "";
   pastedText = "";
@@ -222,10 +227,10 @@ export class VenueLookupComponent implements OnInit, OnDestroy {
   faCheckCircle = faCheckCircle;
 
   modeTabs: SectionToggleTab[] = [
-    { value: "search", label: "Search Previous", icon: faSearch },
-    { value: "url", label: "Website URL", icon: faGlobe },
-    { value: "paste", label: "Smart Paste", icon: faMagic },
-    { value: "map", label: "Map", icon: faMap }
+    { value: VenueLookupMode.SEARCH, label: "Find Venue", icon: faSearch },
+    { value: VenueLookupMode.URL, label: "Website URL", icon: faGlobe },
+    { value: VenueLookupMode.PASTE, label: "Smart Paste", icon: faMagic },
+    { value: VenueLookupMode.MAP, label: "Map", icon: faMap }
   ];
 
   ngOnInit() {

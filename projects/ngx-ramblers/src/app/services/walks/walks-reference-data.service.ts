@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { faBeer, faBuilding, faChurch, faCoffee, faCar, faMapMarker, faQuestion, faTrain, faUtensils } from "@fortawesome/free-solid-svg-icons";
+import { faBeer, faBuilding, faChurch, faCoffee, faCar, faLandmark, faMapMarkerAlt, faMapPin, faQuestion, faTrain, faUtensils } from "@fortawesome/free-solid-svg-icons";
 import { isString, isUndefined } from "es-toolkit/compat";
 import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
@@ -121,6 +121,8 @@ export class WalksReferenceService {
       {type: VenueTypeValue.HALL, displayName: "Hall", icon: faBuilding},
       {type: VenueTypeValue.CAR_PARK, displayName: "Car Park", icon: faCar},
       {type: VenueTypeValue.STATION, displayName: "Station", icon: faTrain},
+      {type: VenueTypeValue.POINT_OF_INTEREST, displayName: "Point of Interest", icon: faLandmark},
+      {type: VenueTypeValue.LOCATION, displayName: "Location", icon: faMapMarkerAlt},
       {type: VenueTypeValue.OTHER, displayName: "Other", icon: faQuestion}
     ];
   }

@@ -118,13 +118,184 @@ function cleanAddressLine(line: string): string {
     .trim();
 }
 
+function looksLikeConcatenatedNavItems(text: string): boolean {
+  const separatorPattern = /\s*[-–—|•·]\s*/;
+  const parts = text.split(separatorPattern).filter(p => p.trim().length > 0);
+  if (parts.length < 2) {
+    return false;
+  }
+  const navKeywords = [
+    "home", "about", "contact", "menu", "menus", "gallery", "news", "events",
+    "booking", "reservations", "privacy", "cookies", "terms", "sitemap",
+    "faq", "help", "support", "blog", "shop", "cart", "login", "register",
+    "allergies", "hygiene", "accessibility", "careers", "jobs", "press",
+    "policy", "legal", "disclaimer", "subscribe", "newsletter", "social"
+  ];
+  const navMatches = parts.filter(part => {
+    const partLower = part.toLowerCase().trim();
+    return navKeywords.some(keyword => partLower.includes(keyword)) || partLower.length < 4;
+  });
+  return navMatches.length >= 2;
+}
+
+function looksLikeCallToAction(text: string): boolean {
+  const ctaPatterns = [
+    /^dine\s*with\s*us$/i,
+    /^eat\s*with\s*us$/i,
+    /^drink\s*with\s*us$/i,
+    /^stay\s*with\s*us$/i,
+    /^join\s*us$/i,
+    /^visit\s*us$/i,
+    /^come\s*and\s*(see|visit|join)/i,
+    /^discover\s*(our|the|more)/i,
+    /^explore\s*(our|the|more)/i,
+    /^experience\s*(our|the)/i,
+    /^enjoy\s*(our|the)/i,
+    /^taste\s*(our|the)/i,
+    /^try\s*(our|the)/i,
+    /^view\s*(our|the)/i,
+    /^see\s*(our|the|what|menu)/i,
+    /^find\s*out\s*more/i,
+    /^learn\s*more/i,
+    /^read\s*more/i,
+    /^click\s*here/i,
+    /^book\s*(now|today|online|a\s*table)/i,
+    /^reserve\s*(now|today|a\s*table)/i,
+    /^order\s*(now|online|food)/i,
+    /^call\s*(us|now|today)/i,
+    /^contact\s*(us|now)/i,
+    /^get\s*in\s*touch/i,
+    /^enquire\s*(now|today)/i,
+    /^make\s*a\s*(booking|reservation)/i,
+    /^sign\s*up/i,
+    /^subscribe/i,
+    /^follow\s*us/i,
+    /^connect\s*with\s*us/i,
+    /^welcome\s*to\s*(our|the)/i,
+    /see\s*menu.*book\s*a\s*table/i,
+    /book\s*a\s*table.*see\s*menu/i,
+    /^what'?s\s*on\??$/i
+  ];
+  return ctaPatterns.some(pattern => pattern.test(text.trim()));
+}
+
+function looksLikeMarketingCopy(text: string): boolean {
+  const lower = text.toLowerCase();
+  const marketingIndicators = [
+    "explore the", "discover the", "experience the", "enjoy the",
+    "offering", "offered at", "served at", "available at",
+    "perfect for", "ideal for", "great for", "best for",
+    "whether you", "if you're looking", "looking for",
+    "we offer", "we serve", "we provide", "we have",
+    "our menu", "our food", "our drinks", "our team",
+    "award-winning", "award winning", "critically acclaimed",
+    "voted", "rated", "reviewed", "recommended",
+    "in the heart of", "in the centre of", "in the center of",
+    "nestled in", "situated in", "located in",
+    "a traditional", "an historic", "a historic", "an 18th", "a 19th", "a 17th", "a 16th",
+    "century pub", "century inn", "century hotel",
+    "country pub", "village pub", "local pub", "family pub", "gastropub",
+    "welcoming", "friendly", "cosy", "cozy", "charming", "delightful",
+    "come and", "why not", "join us",
+    "take a look at", "check out our", "see our upcoming", "see upcoming",
+    "raise a glass", "cheers to"
+  ];
+  if (marketingIndicators.some(indicator => lower.includes(indicator))) {
+    return true;
+  }
+  if (text.length > 60 && (lower.includes(" and ") || lower.includes(", "))) {
+    return true;
+  }
+  return false;
+}
+
+function looksLikeSocialMedia(text: string): boolean {
+  const socialPatterns = [
+    /^facebook$/i,
+    /^twitter$/i,
+    /^instagram$/i,
+    /^linkedin$/i,
+    /^youtube$/i,
+    /^tiktok$/i,
+    /^pinterest$/i,
+    /^snapchat$/i,
+    /^whatsapp$/i,
+    /^tripadvisor$/i,
+    /^trip\s*advisor$/i,
+    /^yelp$/i,
+    /^google\s*(maps?|reviews?|business)?$/i,
+    /^follow\s*us\s*(on)?/i,
+    /^like\s*us\s*(on)?/i,
+    /^find\s*us\s*on/i,
+    /^connect\s*(with\s*us)?/i,
+    /^@\w+$/i,
+    /^#\w+$/i
+  ];
+  return socialPatterns.some(pattern => pattern.test(text.trim()));
+}
+
+function looksLikeOpeningHours(text: string): boolean {
+  const timePattern = /\b\d{1,2}[:.]\d{2}\s*[-–—to]\s*\d{1,2}[:.]\d{2}\b/i;
+  if (timePattern.test(text)) {
+    return true;
+  }
+  const amPmTimePattern = /\b\d{1,2}(am|pm)\s*[-–—to]\s*\d{1,2}(am|pm)\b/i;
+  if (amPmTimePattern.test(text)) {
+    return true;
+  }
+  const dayNames = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+  const dayAbbrevs = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const allDays = [...dayNames, ...dayAbbrevs];
+  const dayRangePattern = new RegExp(`\\b(${allDays.join("|")})\\s*[-–—to]+\\s*(${allDays.join("|")})\\b`, "i");
+  if (dayRangePattern.test(text)) {
+    return true;
+  }
+  const singleDayPattern = new RegExp(`^(${allDays.join("|")})s?$`, "i");
+  if (singleDayPattern.test(text.trim())) {
+    return true;
+  }
+  const otherTimePatterns = [
+    /^weekdays?$/i,
+    /^weekends?$/i,
+    /^daily$/i,
+    /^open\s*\d/i,
+    /^closed\s*(on\s*)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i,
+    /^\d{1,2}(am|pm|:\d{2})\s*$/i,
+    /^(breakfast|lunch|dinner)\s*(times?)?$/i,
+    /^last\s*orders?$/i,
+    /^kitchen\s*(hours|times|closes?)/i,
+    /^bar\s*(hours|times|closes?)/i
+  ];
+  return otherTimePatterns.some(pattern => pattern.test(text.trim()));
+}
+
+function looksLikeEmail(text: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim());
+}
+
 function isJunkLine(line: string): boolean {
   const lower = line.toLowerCase();
-  // Filter out copyright notices
   if (line.includes("©") || lower.includes("copyright") || lower.includes("all rights reserved")) {
     return true;
   }
-  // Filter out common labels that aren't address parts
+  if (looksLikeEmail(line)) {
+    return true;
+  }
+  if (looksLikeConcatenatedNavItems(lower)) {
+    return true;
+  }
+  if (looksLikeOpeningHours(lower)) {
+    return true;
+  }
+  if (looksLikeCallToAction(lower)) {
+    return true;
+  }
+  if (looksLikeMarketingCopy(line)) {
+    return true;
+  }
+  if (looksLikeSocialMedia(lower)) {
+    return true;
+  }
   const labelPatterns = [
     /^opening\s*(times|hours)?$/i,
     /^contact\s*(us|details)?$/i,
@@ -134,22 +305,146 @@ function isJunkLine(line: string): boolean {
     /^connect\s*with\s*us$/i,
     /^social\s*media$/i,
     /^menu$/i,
+    /^menus$/i,
+    /^food$/i,
+    /^food\s*(menu|&\s*drink|and\s*drink)?$/i,
+    /^traditional\s*food$/i,
+    /^(home\s*)?cooked\s*food$/i,
+    /^pub\s*food$/i,
+    /^bar\s*food$/i,
+    /^drinks?$/i,
+    /^wine\s*(list|menu)?$/i,
+    /^beer\s*(menu|list)?$/i,
+    /^real\s*ales?$/i,
+    /^cask\s*ales?$/i,
+    /^craft\s*beers?$/i,
+    /^live\s*music$/i,
+    /^music$/i,
+    /^music\s*(&|and)\s*events?$/i,
+    /^events?\s*(&|and)\s*music$/i,
+    /^events?$/i,
+    /^what'?s\s*on$/i,
+    /^pub\s*photos?$/i,
+    /^photos?$/i,
+    /^pictures?$/i,
+    /^(photo\s*)?gallery$/i,
+    /^gardens?\s*gallery$/i,
+    /^image\s*gallery$/i,
+    /^local\s*info(rmation)?$/i,
+    /^area\s*info(rmation)?$/i,
+    /^links?$/i,
+    /^legal$/i,
+    /^direction(s|\s*finder)?$/i,
+    /^get\s*directions?$/i,
+    /^prev(ious)?$/i,
+    /^next$/i,
+    /^prev(ious)?\s*next$/i,
+    /^back$/i,
+    /^forward$/i,
+    /^more$/i,
+    /^less$/i,
+    /^show\s*(more|less)$/i,
+    /^load\s*more$/i,
+    /^view\s*(more|all)$/i,
+    /^accommodation$/i,
+    /^rooms?$/i,
+    /^bed\s*(&|and)\s*breakfast$/i,
+    /^b\s*&\s*b$/i,
     /^book\s*(a\s*table|now|online)?$/i,
+    /^booking$/i,
     /^reservations?$/i,
     /^privacy\s*policy$/i,
+    /^privacy$/i,
+    /^privacy\s*(&|and)\s*cookies?$/i,
+    /^cookies?\s*(&|and)\s*privacy$/i,
     /^terms\s*(and|&)\s*conditions$/i,
     /^cookie\s*policy$/i,
+    /^cookies?$/i,
     /^sitemap$/i,
     /^home$/i,
     /^about\s*us$/i,
+    /^about$/i,
     /^gallery$/i,
     /^news$/i,
-    /^events$/i
+    /^events$/i,
+    /^news\s*(&|and)\s*events$/i,
+    /^plan\s*your\s*visit$/i,
+    /^things\s*to\s*(do|see)$/i,
+    /^special\s*events$/i,
+    /^group\s*visits?$/i,
+    /^experiences?$/i,
+    /^blog$/i,
+    /^visitor\s*info(rmation)?$/i,
+    /^tickets?$/i,
+    /^buy\s*tickets?$/i,
+    /^shop$/i,
+    /^gift\s*shop$/i,
+    /^our\s*story$/i,
+    /^history$/i,
+    /^faq(s)?$/i,
+    /^help$/i,
+    /^support$/i,
+    /^accessibility$/i,
+    /^careers?$/i,
+    /^jobs?$/i,
+    /^press$/i,
+    /^media$/i,
+    /^partners?$/i,
+    /^sponsors?$/i,
+    /^what's\s*on$/i,
+    /^whats\s*on$/i,
+    /^explore$/i,
+    /^discover$/i,
+    /^learn\s*more$/i,
+    /^read\s*more$/i,
+    /^see\s*more$/i,
+    /^view\s*all$/i,
+    /^more\s*info(rmation)?$/i,
+    /^subscribe$/i,
+    /^newsletter$/i,
+    /^sign\s*up$/i,
+    /^log\s*in$/i,
+    /^login$/i,
+    /^register$/i,
+    /^my\s*account$/i,
+    /^basket$/i,
+    /^cart$/i,
+    /^checkout$/i,
+    /^search$/i,
+    /^facilities$/i,
+    /^amenities$/i,
+    /^services$/i,
+    /^getting\s*(here|there)$/i,
+    /^how\s*to\s*(find|get)\s*us$/i,
+    /^directions$/i,
+    /^parking$/i,
+    /^location$/i,
+    /^maps?$/i,
+    /^opening$/i,
+    /^view\s*(all\s*)?(opening\s*)?(times?|hours?)$/i,
+    /^see\s*(all\s*)?(opening\s*)?(times?|hours?)$/i,
+    /^closed$/i,
+    /^admission$/i,
+    /^top$/i,
+    /^back\s*to\s*top$/i,
+    /^scroll\s*(up|to\s*top)$/i,
+    /^allergies?$/i,
+    /^hygiene$/i,
+    /^allergies?\s*(&|and)\s*hygiene$/i,
+    /^venue\s*hire$/i,
+    /^private\s*hire$/i,
+    /^function\s*room$/i,
+    /^wifi$/i,
+    /^free\s*wifi$/i,
+    /^creative\s*by\s*/i,
+    /^design(ed)?\s*by\s*/i,
+    /^built\s*by\s*/i,
+    /^powered\s*by\s*/i,
+    /^website\s*by\s*/i
   ];
   if (labelPatterns.some(pattern => pattern.test(lower))) {
     return true;
   }
-  // Filter out lines that are too long to be address parts (likely sentences/descriptions)
   if (line.length > 80) {
     return true;
   }
@@ -223,7 +518,11 @@ function extractAddressLines(lines: string[], postcode: string | null): { name: 
     result.name = filteredParts[nameIndex];
   }
 
-  const addressParts = filteredParts.filter((_, index) => index !== nameIndex);
+  const addressParts = filteredParts.filter((part, index) => {
+    if (index === nameIndex) return false;
+    if (nameIndicators.test(part)) return false;
+    return true;
+  });
 
   const streetIndex = addressParts.findIndex(part => streetIndicators.test(part));
   if (streetIndex !== -1) {
@@ -430,11 +729,50 @@ function extractFooterContent(html: string): string {
   return "";
 }
 
+function cleanVenueName(name: string): string {
+  if (!name) return "";
+  let cleaned = name.trim();
+
+  // Split on common title separators - use multiple approaches for robustness
+  const separatorPatterns = [
+    /\s+[|]\s+/,           // pipe with spaces
+    /\s+[-]\s+/,           // hyphen with spaces
+    /\s+[–]\s+/,           // en-dash with spaces (U+2013)
+    /\s+[—]\s+/,           // em-dash with spaces (U+2014)
+    /\s*:\s+/              // colon (typically title: subtitle)
+  ];
+
+  for (const pattern of separatorPatterns) {
+    if (pattern.test(cleaned)) {
+      cleaned = cleaned.split(pattern)[0].trim();
+      break;
+    }
+  }
+
+  // Remove common tagline phrases that follow venue names
+  const taglinePatterns = [
+    /\s+(traditional|classic|historic|modern|contemporary|award[- ]winning)\s+(country\s+)?(pub|inn|hotel|restaurant|cafe|bar|gastropub).*$/i,
+    /\s+in\s+the\s+heart\s+of\s+.*$/i,
+    /\s+located\s+in\s+.*$/i,
+    /\s+situated\s+in\s+.*$/i,
+    /\s+nestled\s+in\s+.*$/i,
+    /\s+(pub|inn|hotel)\s+(&|and|with)\s+(restaurant|rooms|accommodation|garden|terrace).*$/i,
+    /\s+your\s+(local|neighbourhood|neighborhood).*$/i,
+    /\s+a\s+(warm\s+)?welcome.*$/i
+  ];
+
+  for (const pattern of taglinePatterns) {
+    cleaned = cleaned.replace(pattern, "").trim();
+  }
+
+  return cleaned.trim();
+}
+
 function extractTitleFromHtml(html: string): string | null {
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   if (titleMatch) {
     let title = decodeHtmlEntities(titleMatch[1]).trim();
-    title = title.split(/[|\-–—]/)[0].trim();
+    title = cleanVenueName(title);
     if (title.length > 0 && title.length < 100) {
       return title;
     }
@@ -451,8 +789,20 @@ function extractMetaDescription(html: string): string | null {
   return null;
 }
 
+function extractMainHeading(html: string): string | null {
+  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if (h1Match) {
+    const heading = decodeHtmlEntities(stripHtmlTags(h1Match[1])).trim();
+    if (heading.length > 0 && heading.length < 100 && !isJunkLine(heading)) {
+      return heading;
+    }
+  }
+  return null;
+}
+
 export function extractTextFromHtml(html: string): string {
   let text = html
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, "")
@@ -493,6 +843,7 @@ export function parseVenueFromHtml(html: string, sourceUrl?: string): VenueParse
   const addressTagContent = extractAddressTagContent(html);
   const footerContent = extractFooterContent(html);
   const title = extractTitleFromHtml(html);
+  const mainHeading = extractMainHeading(html);
   const metaDescription = extractMetaDescription(html);
 
   const priorityText = [addressTagContent, footerContent].filter(t => t.length > 0).join("\n");
@@ -502,13 +853,18 @@ export function parseVenueFromHtml(html: string, sourceUrl?: string): VenueParse
     const priorityResult = parseVenueFromText(priorityText);
 
     if (priorityResult.confidence > 0) {
-      if (title && !priorityResult.venue.name) {
-        priorityResult.venue.name = title;
-        priorityResult.confidence += 15;
+      if (!priorityResult.venue.name) {
+        if (mainHeading) {
+          priorityResult.venue.name = mainHeading;
+          priorityResult.confidence += 20;
+        } else if (title) {
+          priorityResult.venue.name = title;
+          priorityResult.confidence += 15;
+        }
       }
 
       if (!priorityResult.venue.type || priorityResult.venue.type === VenueTypeValue.OTHER) {
-        priorityResult.venue.type = inferVenueTypeFromName((title || "") + " " + (priorityResult.venue.name || ""));
+        priorityResult.venue.type = inferVenueTypeFromName((mainHeading || "") + " " + (title || "") + " " + (priorityResult.venue.name || ""));
       }
 
       if (sourceUrl && !priorityResult.venue.url) {
@@ -525,13 +881,18 @@ export function parseVenueFromHtml(html: string, sourceUrl?: string): VenueParse
   const combinedText = [metaDescription, bodyText].filter(t => t).join("\n");
   const result = parseVenueFromText(combinedText);
 
-  if (title && !result.venue.name) {
-    result.venue.name = title;
-    result.confidence += 15;
+  if (!result.venue.name) {
+    if (mainHeading) {
+      result.venue.name = mainHeading;
+      result.confidence += 20;
+    } else if (title) {
+      result.venue.name = title;
+      result.confidence += 15;
+    }
   }
 
   if (!result.venue.type || result.venue.type === VenueTypeValue.OTHER) {
-    result.venue.type = inferVenueTypeFromName((title || "") + " " + (result.venue.name || ""));
+    result.venue.type = inferVenueTypeFromName((mainHeading || "") + " " + (title || "") + " " + (result.venue.name || ""));
   }
 
   if (sourceUrl && !result.venue.url) {
