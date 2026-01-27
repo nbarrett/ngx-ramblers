@@ -163,6 +163,24 @@ router.post("/html-from-url", async (req, res) => {
 });
 
 const PRIORITY_PATH_KEYWORDS = ["contact", "find", "location", "visit", "about", "where", "address", "directions"];
+const VENUE_NAME_INDICATORS = ["pub", "inn", "tavern", "arms", "hotel", "bar", "restaurant", "cafe", "coffee",
+  "kitchen", "room", "house", "lodge", "swan", "lion", "crown", "horse", "bull", "hare", "fox", "bear", "pig",
+  "sty", "thinker", "marquis", "duke", "king", "queen", "prince", "anchor", "bell", "plough"];
+const STANDARD_CONTACT_PATHS = [
+  "/contact-us/", "/contact/", "/contact-us", "/contact",
+  "/find-us/", "/find-us", "/location/", "/location",
+  "/visit/", "/visit", "/visit-us/", "/visit-us",
+  "/about/", "/about", "/about-us/", "/about-us",
+  "/where-to-find-us/", "/directions/", "/how-to-find-us/"
+];
+
+function looksLikeVenuePath(path: string): boolean {
+  const pathLower = path.toLowerCase();
+  const segments = pathLower.split("/").filter(p => p.length > 0);
+  if (segments.length === 0) return false;
+  const lastSegment = segments[segments.length - 1].replace(/-/g, " ");
+  return VENUE_NAME_INDICATORS.some(indicator => lastSegment.includes(indicator));
+}
 
 function extractTopLevelLinks(html: string, baseUrl: string): string[] {
   const linkRegex = /<a[^>]+href=["']([^"'#]+)["'][^>]*>/gi;
@@ -182,7 +200,7 @@ function extractTopLevelLinks(html: string, baseUrl: string): string[] {
       }
       const path = absoluteUrl.pathname;
       const pathParts = path.split("/").filter(p => p.length > 0);
-      if (pathParts.length <= 1 && path !== "/") {
+      if (pathParts.length <= 1 && path !== "/" && !looksLikeVenuePath(path)) {
         links.add(`${absoluteUrl.origin}${path}`);
       }
     } catch {
@@ -264,34 +282,74 @@ router.post("/scrape-venue", async (req, res) => {
     }
 
     const baseUrl = `${parsed.protocol}//${parsed.host}`;
+    const inputUrlWithoutTrailingSlash = parsed.toString().replace(/\/+$/, "");
     const html = await fetchHtmlFromUrl(parsed.toString());
-    let result = parseVenueFromHtml(html, baseUrl);
+    let result = parseVenueFromHtml(html, inputUrlWithoutTrailingSlash);
     debugLog("scrape-venue: initial result from", url, "confidence:", result.confidence);
 
     if (result.confidence < 50) {
-      debugLog("scrape-venue: low confidence, scanning top-level pages");
-      const topLevelLinks = extractTopLevelLinks(html, baseUrl);
-      const sortedLinks = sortLinksByPriority(topLevelLinks);
-      debugLog("scrape-venue: found", sortedLinks.length, "top-level links to try");
+      debugLog("scrape-venue: low confidence, trying contact paths");
+      const triedPaths = new Set<string>([parsed.pathname]);
+      const inputPath = parsed.pathname.replace(/\/+$/, "");
+      const RELATIVE_CONTACT_SUFFIXES = ["contact", "contact-us", "find-us", "location"];
 
-      for (const linkUrl of sortedLinks) {
-        if (linkUrl === parsed.toString() || linkUrl === baseUrl || linkUrl === baseUrl + "/") {
-          continue;
+      const pathsToTry: string[] = [];
+      RELATIVE_CONTACT_SUFFIXES.forEach(suffix => {
+        if (inputPath && inputPath !== "/") {
+          pathsToTry.push(`${inputPath}/${suffix}/`);
+          pathsToTry.push(`${inputPath}/${suffix}`);
         }
+      });
+      STANDARD_CONTACT_PATHS.forEach(path => pathsToTry.push(path));
+
+      for (const contactPath of pathsToTry) {
+        if (triedPaths.has(contactPath)) continue;
+        triedPaths.add(contactPath);
+        const contactUrl = `${baseUrl}${contactPath}`;
         try {
-          debugLog("scrape-venue: trying", linkUrl);
-          const pageHtml = await fetchHtmlFromUrl(linkUrl);
-          const pageResult = parseVenueFromHtml(pageHtml, baseUrl);
-          debugLog("scrape-venue: page result confidence:", pageResult.confidence);
+          debugLog("scrape-venue: trying contact path", contactUrl);
+          const pageHtml = await fetchHtmlFromUrl(contactUrl);
+          const pageResult = parseVenueFromHtml(pageHtml, inputUrlWithoutTrailingSlash);
+          debugLog("scrape-venue: contact path result confidence:", pageResult.confidence);
           if (pageResult.confidence > result.confidence) {
             result = pageResult;
-            debugLog("scrape-venue: using result from", linkUrl);
+            debugLog("scrape-venue: using result from contact path", contactUrl);
             if (result.confidence >= 50) {
               break;
             }
           }
         } catch (e) {
-          debugLog("scrape-venue: failed to fetch", linkUrl, e instanceof Error ? e.message : String(e));
+          debugLog("scrape-venue: contact path not found", contactUrl);
+        }
+      }
+
+      if (result.confidence < 50) {
+        debugLog("scrape-venue: still low confidence, scanning discovered links");
+        const topLevelLinks = extractTopLevelLinks(html, baseUrl);
+        const sortedLinks = sortLinksByPriority(topLevelLinks);
+        debugLog("scrape-venue: found", sortedLinks.length, "top-level links to try");
+
+        for (const linkUrl of sortedLinks) {
+          const linkPath = new URL(linkUrl).pathname;
+          if (triedPaths.has(linkPath) || linkUrl === baseUrl || linkUrl === baseUrl + "/") {
+            continue;
+          }
+          triedPaths.add(linkPath);
+          try {
+            debugLog("scrape-venue: trying discovered link", linkUrl);
+            const pageHtml = await fetchHtmlFromUrl(linkUrl);
+            const pageResult = parseVenueFromHtml(pageHtml, inputUrlWithoutTrailingSlash);
+            debugLog("scrape-venue: discovered link result confidence:", pageResult.confidence);
+            if (pageResult.confidence > result.confidence) {
+              result = pageResult;
+              debugLog("scrape-venue: using result from discovered link", linkUrl);
+              if (result.confidence >= 50) {
+                break;
+              }
+            }
+          } catch (e) {
+            debugLog("scrape-venue: failed to fetch discovered link", linkUrl, e instanceof Error ? e.message : String(e));
+          }
         }
       }
     }
@@ -354,8 +412,8 @@ router.post("/search-venue-website", async (req, res) => {
 
     const urlPattern = /<a[^>]+href="(https?:\/\/(?!www\.google|google|webcache|translate\.google)[^"]+)"[^>]*>/gi;
     const matches: string[] = [];
-    let match;
-    while ((match = urlPattern.exec(html)) !== null && matches.length < 10) {
+    for (const match of html.matchAll(urlPattern)) {
+      if (matches.length >= 10) break;
       const url = match[1];
       if (!url.includes("google.com") &&
           !url.includes("youtube.com") &&
@@ -371,8 +429,8 @@ router.post("/search-venue-website", async (req, res) => {
           if (!matches.includes(cleanUrl)) {
             matches.push(cleanUrl);
           }
-        } catch {
-          continue;
+        } catch (e) {
+          debugLog("search-venue-website: invalid URL skipped:", url, e);
         }
       }
     }

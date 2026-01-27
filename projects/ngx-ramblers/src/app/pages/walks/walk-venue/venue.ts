@@ -1,6 +1,6 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { Venue as VenueModel, VenueType, VenueWithUsageStats } from "../../../models/event-venue.model";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -16,6 +16,7 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
 import { VenueLookupComponent } from "./venue-lookup";
 import { VenueTypeSelect } from "./venue-type-select";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { isEmpty } from "es-toolkit/compat";
 import { Subscription } from "rxjs";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -192,11 +193,19 @@ import { NamedEventType } from "../../../models/broadcast.model";
                 </div>
               </div>
             }
+            @if (allowEdits() && venueJson) {
+              <div class="col-sm-12 d-flex justify-content-end">
+                <app-copy-icon [icon]="faCopy" [value]="venueJson"
+                               [elementName]="'venue JSON'"
+                               iconClass="colour-mintcake">copy venue JSON
+                </app-copy-icon>
+              </div>
+            }
           </div>
         </div>
       </div>
     `,
-    imports: [MarkdownEditorComponent, FormsModule, FontAwesomeModule, TooltipDirective, VenueIconPipe, VenueLookupComponent, VenueTypeSelect]
+    imports: [MarkdownEditorComponent, FormsModule, FontAwesomeModule, TooltipDirective, VenueIconPipe, VenueLookupComponent, VenueTypeSelect, CopyIconComponent]
 })
 export class Venue implements OnInit, OnDestroy {
 
@@ -228,6 +237,13 @@ export class Venue implements OnInit, OnDestroy {
   protected pendingStartingPostcode: string | null = null;
   private subscriptions: Subscription[] = [];
   protected faMapMarkerAlt = faMapMarkerAlt;
+  protected faCopy = faCopy;
+
+  get venueJson(): string {
+    return this.displayedWalk?.walk?.fields?.venue
+      ? JSON.stringify(this.displayedWalk.walk.fields.venue, null, 2)
+      : "";
+  }
 
   get startingPointCoordinates(): { latitude: number; longitude: number } | null {
     const startLocation = this.displayedWalk?.walk?.groupEvent?.start_location;

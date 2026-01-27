@@ -109,16 +109,73 @@ export class StoredVenueService {
     }
   }
 
-  async findByBaseUrl(url: string): Promise<StoredVenue | null> {
-    const baseUrl = this.extractBaseUrl(url);
-    if (!baseUrl) {
+  normalizeUrlForComparison(url: string): string | null {
+    if (!url?.trim()) {
       return null;
     }
-    this.logger.debug("findByBaseUrl:", baseUrl);
+    try {
+      const parsed = new URL(url.trim());
+      const path = parsed.pathname.replace(/\/+$/, "").toLowerCase();
+      return `${parsed.protocol}//${parsed.host}${path}`.toLowerCase();
+    } catch {
+      return null;
+    }
+  }
+
+  hasSignificantPath(url: string): boolean {
+    if (!url?.trim()) {
+      return false;
+    }
+    try {
+      const parsed = new URL(url.trim());
+      const path = parsed.pathname.replace(/\/+$/, "");
+      return path.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  async findByUrl(url: string): Promise<StoredVenue | null> {
+    const normalizedUrl = this.normalizeUrlForComparison(url);
+    const baseUrl = this.extractBaseUrl(url);
+    if (!normalizedUrl || !baseUrl) {
+      return null;
+    }
+
+    const searchUrlHasPath = this.hasSignificantPath(url);
+    this.logger.debug("findByUrl: searching for", normalizedUrl, "hasPath:", searchUrlHasPath);
     const allVenues = await this.all();
-    return allVenues.find(venue => {
+
+    const exactMatch = allVenues.find(venue => {
+      const venueNormalizedUrl = this.normalizeUrlForComparison(venue.url);
+      return venueNormalizedUrl && venueNormalizedUrl === normalizedUrl;
+    });
+
+    if (exactMatch) {
+      this.logger.debug("findByUrl: exact match found", exactMatch.name);
+      return exactMatch;
+    }
+
+    if (searchUrlHasPath) {
+      this.logger.debug("findByUrl: search URL has path but no exact match found - returning null");
+      return null;
+    }
+
+    const baseUrlMatches = allVenues.filter(venue => {
       const venueBaseUrl = this.extractBaseUrl(venue.url);
       return venueBaseUrl && venueBaseUrl.toLowerCase() === baseUrl.toLowerCase();
-    }) || null;
+    });
+
+    if (baseUrlMatches.length === 1) {
+      this.logger.debug("findByUrl: single base URL match found", baseUrlMatches[0].name);
+      return baseUrlMatches[0];
+    }
+
+    this.logger.debug("findByUrl: no match found");
+    return null;
+  }
+
+  async findByBaseUrl(url: string): Promise<StoredVenue | null> {
+    return this.findByUrl(url);
   }
 }

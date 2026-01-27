@@ -133,7 +133,7 @@ CT4 6AN`;
 
         expect(result.venue.postcode).toBe("CT4 6AN");
         expect(result.venue.name).toBe("The Lord Whisky Sanctuary Fund");
-        expect(result.venue.type).toBe("other");
+        expect(result.venue.type).toBe("location");
         expect(result.confidence).toBeGreaterThan(0);
       });
 
@@ -573,7 +573,7 @@ Kent
 TN18 5EJ`;
         const result = service.parse(input);
         expect(result.venue.postcode).toBe("TN18 5EJ");
-        expect(result.venue.type).toBe("other");
+        expect(result.venue.type).toBe("location");
       });
 
       it("should parse Vineyard Lamberhurst multi-line", () => {

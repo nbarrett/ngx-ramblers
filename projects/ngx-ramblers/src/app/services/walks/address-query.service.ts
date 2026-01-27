@@ -47,4 +47,35 @@ export class AddressQueryService {
     return response.response as GridReferenceLookupResponse;
   }
 
+  async venueSearch(query: string, lat?: number, lon?: number): Promise<VenueSearchResult[]> {
+    const params: Record<string, string> = { q: query };
+    if (lat !== undefined && lon !== undefined) {
+      params.lat = lat.toString();
+      params.lon = lon.toString();
+    }
+    this.logger.info("venueSearch:query", query, "lat", lat, "lon", lon);
+    const httpParams = this.commonDataService.toHttpParams(params);
+    const response = await this.http.get<VenueSearchResponse>(`${this.BASE_URL}/venue-search`, { params: httpParams }).toPromise();
+    this.logger.info("venueSearch:response", response);
+    return response?.results || [];
+  }
+
+}
+
+export interface VenueSearchResult {
+  name: string;
+  address1: string | null;
+  address2: string | null;
+  postcode: string | null;
+  lat: number;
+  lon: number;
+  type: string;
+  source: "google";
+  displayName: string;
+  url: string | null;
+}
+
+export interface VenueSearchResponse {
+  query: string;
+  results: VenueSearchResult[];
 }
