@@ -50,6 +50,11 @@ import { VenueEditorComponent } from "../../../walks/walk-venue/venue-editor";
       font-weight: 600
       padding-top: 0.75rem
       padding-bottom: 0.75rem
+    tr.row-selected
+      background-color: rgba(155, 200, 171, 0.15) !important
+      border-left: 3px solid var(--ramblers-colour-mintcake, rgb(155, 200, 171))
+    tr.row-selected:hover
+      background-color: rgba(155, 200, 171, 0.25) !important
   `],
   template: `
     <app-page autoTitle>
@@ -76,6 +81,15 @@ import { VenueEditorComponent } from "../../../walks/walk-venue/venue-editor";
                     </button>
                   </div>
                 </div>
+                @if (pendingDeleteVenue) {
+                  <div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-3">
+                    <span>Delete venue <strong>"{{ pendingDeleteVenue.name }}"</strong>?</span>
+                    <div class="btn-group btn-group-sm">
+                      <button type="button" class="btn btn-danger" (click)="executeDeleteVenue()">Delete</button>
+                      <button type="button" class="btn btn-outline-secondary" (click)="cancelDeleteVenue()">Cancel</button>
+                    </div>
+                  </div>
+                }
                 @if (editingVenue) {
                   <div class="mb-3">
                     <app-venue-editor
@@ -155,7 +169,7 @@ import { VenueEditorComponent } from "../../../walks/walk-venue/venue-editor";
                     </thead>
                     <tbody>
                       @for (venue of filteredVenues; track venue.id) {
-                        <tr [class.table-primary]="editingVenue?.id === venue.id">
+                        <tr [class.row-selected]="editingVenue?.id === venue.id || pendingDeleteVenue?.id === venue.id">
                           <td>
                             <fa-icon [icon]="venue.type | toVenueIcon" class="colour-mintcake"></fa-icon>
                           </td>
@@ -193,8 +207,8 @@ import { VenueEditorComponent } from "../../../walks/walk-venue/venue-editor";
                                       tooltip="Get coordinates from postcode">
                                 <fa-icon [icon]="faMapMarkerAlt"></fa-icon>
                               </button>
-                              <button class="btn btn-outline-ramblers" (click)="deleteVenue(venue)"
-                                      [disabled]="editingVenue"
+                              <button class="btn btn-outline-ramblers" (click)="confirmDeleteVenue(venue)"
+                                      [disabled]="editingVenue || pendingDeleteVenue"
                                       tooltip="Delete venue">
                                 <fa-icon [icon]="faTrash"></fa-icon>
                               </button>
@@ -225,6 +239,7 @@ export class VenueSettingsComponent implements OnInit, OnDestroy {
   venues: StoredVenue[] = [];
   venueTypes: VenueType[];
   editingVenue: StoredVenue | null = null;
+  pendingDeleteVenue: StoredVenue | null = null;
   searchTerm = "";
   filterType: VenueType | null = null;
   geocoding: string | null = null;
@@ -340,13 +355,25 @@ export class VenueSettingsComponent implements OnInit, OnDestroy {
     }
   }
 
-  async deleteVenue(venue: StoredVenue) {
-    if (!confirm(`Delete venue "${venue.name}"?`)) return;
-    try {
-      await this.storedVenueService.delete(venue);
-      await this.refreshVenues();
-    } catch (error) {
-      this.logger.error("Error deleting venue:", error);
+  confirmDeleteVenue(venue: StoredVenue) {
+    this.pendingDeleteVenue = venue;
+  }
+
+  cancelDeleteVenue() {
+    this.pendingDeleteVenue = null;
+  }
+
+  async executeDeleteVenue() {
+    if (this.pendingDeleteVenue) {
+      const venue = this.pendingDeleteVenue;
+      this.pendingDeleteVenue = null;
+      try {
+        await this.storedVenueService.delete(venue);
+        this.statusMessage = `Venue "${venue.name}" deleted`;
+        await this.refreshVenues();
+      } catch (error) {
+        this.logger.error("Error deleting venue:", error);
+      }
     }
   }
 

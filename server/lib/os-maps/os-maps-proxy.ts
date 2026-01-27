@@ -5,7 +5,7 @@ import { envConfig } from "../env-config/env-config";
 import * as systemConfig from "../config/system-config";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("os-maps-proxy"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function tileProxy(req: Request, res: Response) {
   const {layer, z, x, y} = req.params;

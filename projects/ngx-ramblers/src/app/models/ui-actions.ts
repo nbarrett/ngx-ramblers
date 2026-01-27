@@ -81,6 +81,11 @@ export enum StoredValue {
   WALK_LIST_VIEW = "walk-list-view",
   WALK_SELECT_TYPE = "walk-select-type",
   WALK_SORT_ASC = "walk-sort-asc",
+  GRID_COLUMNS = "grid-columns",
+  GRID_GAP = "grid-gap",
+  GRID_LAYOUT_MODE = "grid-layout-mode",
+  GRID_SHOW_TITLES = "grid-show-titles",
+  ALBUM_VIEW = "album-view",
 }
 
 export enum WalkEditTab {

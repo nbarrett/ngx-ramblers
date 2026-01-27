@@ -1,0 +1,45 @@
+@import "../../../assets/styles/colours"
+
+.badge-stepper
+  display: inline-flex
+  align-items: center
+  background: $ramblers-colour-mintcake
+  border-radius: 6px
+  padding: 0
+  margin-right: 8px
+  margin-bottom: 3px
+  height: 31px
+
+  &:hover
+    background-color: $ramblers-colour-sunrise
+
+.stepper-btn
+  display: flex
+  align-items: center
+  justify-content: center
+  background: transparent
+  border: none
+  color: $ramblers-colour-cloudy
+  padding: 0 6px
+  cursor: pointer
+  transition: background-color 0.15s ease
+  height: 100%
+
+  &:hover:not(:disabled)
+    background-color: rgba(0, 0, 0, 0.1)
+
+  &:disabled
+    opacity: 0.4
+    cursor: not-allowed
+
+.stepper-icon
+  color: $ramblers-colour-cloudy
+  margin-left: 2px
+
+.stepper-value
+  color: $ramblers-colour-cloudy
+  font-weight: 500
+  padding: 0 4px
+  min-width: 50px
+  text-align: center
+  font-size: 0.875rem

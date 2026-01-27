@@ -350,11 +350,19 @@ export interface ReCaptchaConfig {
   secretKey: string;
 }
 
+export interface AlbumGridDefaults {
+  columns: number;
+  gap: number;
+  layoutMode: string;
+  showTitles: boolean;
+}
+
 export interface ImageConfig {
   imageLists: {
     defaultMaxImageSize: number;
     defaultAspectRatio: string;
   };
+  albumGrid?: AlbumGridDefaults;
 }
 
 export interface CaptchaVerificationResponse {
