@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faAdd, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EventPopulation, SystemConfig } from "../../../../models/system.model";
+import { AvailableArea, EventPopulation, SystemConfig } from "../../../../models/system.model";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
@@ -17,32 +17,39 @@ import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ALERT_WARNING } from "../../../../models/alert-target.model";
 import { EM_DASH } from "../../../../models/content-text.model";
+import { HttpClient } from "@angular/common/http";
 
 @Component({
   selector: "[app-area-and-group-settings]",
+  styles: [`
+    .area-status-icon
+      position: absolute
+      right: 32px
+      top: 50%
+      transform: translateY(-50%)
+      z-index: 10
+      pointer-events: none
+  `],
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row">
-        <div class="col-md-6">
+        <div class="col-md-12">
           <div class="form-group">
-            <label for="area-group-code">Ramblers Area Code</label>
-            <div class="input-group">
-            <input [(ngModel)]="config.area.groupCode"
-                   (ngModelChange)="queryGroups(config.area.groupCode)"
-                   type="text" class="form-control input-sm"
-                   id="area-group-code"
-                   placeholder="Enter a 2 digit Area Code">
-            <span class="input-group-text"><app-status-icon noLabel [status]="groupQueryStatus"/></span>
+            <label for="area-group-code">Ramblers Area ({{ loadingAreas ? 'retrieving areas...' : availableAreas.length + ' areas available' }})</label>
+            <div class="position-relative">
+              <ng-select id="area-group-code"
+                         [items]="availableAreas"
+                         bindLabel="ngSelectLabel"
+                         bindValue="areaCode"
+                         [searchable]="true"
+                         [clearable]="false"
+                         dropdownPosition="bottom"
+                         placeholder="Select an area..."
+                         [(ngModel)]="config.area.groupCode"
+                         (ngModelChange)="onAreaCodeChange($event)">
+              </ng-select>
+              <app-status-icon noLabel [status]="areaQueryStatus" class="area-status-icon"/>
             </div>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <label for="area-name">Area Name</label>
-            <input [(ngModel)]="config.area.shortName"
-                   type="text" class="form-control input-sm"
-                   id="area-name"
-                   placeholder="Enter a 2 digit Area Code">
           </div>
         </div>
         <div class="col-md-12">
@@ -91,6 +98,7 @@ import { EM_DASH } from "../../../../models/content-text.model";
                            [searchable]="true"
                            [clearable]="true"
                            [loading]="loadingGroups"
+                           dropdownPosition="bottom"
                            placeholder="Select one or more groups..."
                            [ngModel]="selectedGroups"
                            (ngModelChange)="onGroupCodesChange($event)">
@@ -208,6 +216,7 @@ import { EM_DASH } from "../../../../models/content-text.model";
 })
 export class AreaAndGroupSettingsComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupSettingsComponent", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
   stringUtils = inject(StringUtilsService);
   dateUtils = inject(DateUtilsService);
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
@@ -218,12 +227,15 @@ export class AreaAndGroupSettingsComponent implements OnInit {
   faRemove = faRemove;
   groups: RamblersGroupsApiResponse[] = [];
   availableGroups: RamblersGroupWithLabel[] = [];
+  availableAreas: (AvailableArea & { ngSelectLabel: string })[] = [];
+  loadingAreas = false;
   @Input() config: SystemConfig;
   loadingGroups = false;
   selectedGroups: RamblersGroupsApiResponse[] = [];
   areaGroup: RamblersGroupsApiResponse;
   public selectionMode: string;
   protected readonly Status = Status;
+  protected areaQueryStatus: Status = Status.INFO;
   protected groupQueryStatus: Status = Status.INFO;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected groupSearchMessage: string;
@@ -246,9 +258,46 @@ export class AreaAndGroupSettingsComponent implements OnInit {
       this.config.area.groupCode = this.stringUtils.left(this.config.group.groupCode, 2);
     }
     this.selectionMode = this.config?.group?.groupCode?.length === 2 ? "area" : "group";
-    if (this.config.area.groupCode) {
-      await this.queryGroups(this.config.area.groupCode);
+    const initialAreaCode = this.config.area.groupCode;
+    await this.loadAvailableAreas();
+    if (initialAreaCode) {
+      await this.queryGroups(initialAreaCode);
       this.updateSelectedGroupCodes();
+    }
+  }
+
+  private async loadAvailableAreas(): Promise<void> {
+    this.loadingAreas = true;
+    this.areaQueryStatus = Status.ACTIVE;
+    try {
+      const response = await this.http.get<{ areas: AvailableArea[] }>("api/areas/available-areas").toPromise();
+      this.availableAreas = (response?.areas || []).map(area => ({
+        ...area,
+        ngSelectLabel: `${area.areaName} (${area.areaCode})`
+      }));
+      this.areaQueryStatus = this.availableAreas.length > 0 ? Status.COMPLETE : Status.ERROR;
+      this.logger.info("Loaded available areas:", this.availableAreas, "current groupCode:", this.config.area.groupCode);
+      // Trigger change detection by re-setting the value after items are loaded
+      if (this.config.area.groupCode) {
+        const currentCode = this.config.area.groupCode;
+        this.config.area.groupCode = null;
+        setTimeout(() => this.config.area.groupCode = currentCode, 0);
+      }
+    } catch (error) {
+      this.logger.error("Failed to load available areas:", error);
+      this.areaQueryStatus = Status.ERROR;
+    } finally {
+      this.loadingAreas = false;
+    }
+  }
+
+  async onAreaCodeChange(areaCode: string): Promise<void> {
+    if (areaCode) {
+      const selectedArea = this.availableAreas.find(a => a.areaCode === areaCode);
+      if (selectedArea) {
+        this.config.area.shortName = selectedArea.areaName;
+      }
+      await this.queryGroups(areaCode);
     }
   }
 
@@ -264,7 +313,7 @@ export class AreaAndGroupSettingsComponent implements OnInit {
         this.groups = await this.ramblersWalksAndEventsService.listRamblersGroups([group]);
         this.logger.info("Raw groups data returned from API:", this.groups);
         this.groupQueryStatus = this.groups.length > 0 ? Status.COMPLETE : Status.ERROR;
-        const suffix = this.groups.length === 0 ? `${EM_DASH}try entering a different 2 character value into the Ramblers Area Code` : "";
+        const suffix = this.groups.length === 0 ? `${EM_DASH}try selecting a different area` : "";
         this.groupSearchMessage = `${this.stringUtils.pluraliseWithCount(this.groups.length, "area and group record")} found${suffix}`;
         this.availableGroups = this.groups.filter(group => group.scope === "G").map(group => ({
           ...group, ngSelectAttributes: {label: `${group.name} (${group.group_code})`}

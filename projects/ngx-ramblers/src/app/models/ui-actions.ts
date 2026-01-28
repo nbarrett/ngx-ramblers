@@ -24,6 +24,9 @@ export enum EditMode {
 export enum StoredValue {
   ACCESSIBILITY = "accessibility",
   ALBUM_TAB = "album-tab",
+  AREA_GROUPS_FILTER = "area-groups-filter",
+  AREA_GROUPS_SORT_ASC = "area-groups-sort-asc",
+  AREA_GROUPS_SORT_FIELD = "area-groups-sort-field",
   AREA_MAP_CENTER = "area-map-center",
   AREA_MAP_CLICK_ACTION = "area-map-click-action",
   AREA_MAP_ZOOM = "area-map-zoom",

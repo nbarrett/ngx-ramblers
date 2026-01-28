@@ -9,6 +9,7 @@ import { DescribedDimensions, FileNameData } from "./aws-object.model";
 import { ImageCropperPosition } from "./image-cropper.model";
 import { FocalPoint } from "../modules/common/focal-point-picker/focal-point-picker";
 import { HasNgSelectAttributes, LocationDetails } from "./ramblers-walks-manager";
+import { SharedDistrictStyle } from "./system.model";
 
 export const EM_DASH = " — ";
 export const EM_DASH_WITH_SPACES = ` ${EM_DASH} `;
@@ -151,6 +152,17 @@ export interface AreaMapData {
   provider?: string;
   osStyle?: string;
   areaColors?: Record<string, string>;
+  showLegend?: boolean;
+  legendPosition?: LegendPosition;
+  sharedDistrictStyle?: SharedDistrictStyle;
+}
+
+export enum LegendPosition {
+  TOP_LEFT = "top-left",
+  TOP_RIGHT = "top-right",
+  BOTTOM_LEFT = "bottom-left",
+  BOTTOM_RIGHT = "bottom-right",
+  BELOW_MAP = "below-map"
 }
 
 export interface MapRoute {

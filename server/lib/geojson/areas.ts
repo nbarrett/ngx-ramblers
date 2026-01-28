@@ -8,6 +8,8 @@ import path from "path";
 import { DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import { systemConfig } from "../config/system-config";
+import { queryKey, createOrUpdateKey } from "../mongo/controllers/config";
+import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { isFunction } from "es-toolkit/compat";
 import {
   EventPopulation,
@@ -18,7 +20,7 @@ import { WalkListView } from "../../../projects/ngx-ramblers/src/app/models/walk
 import { dateTimeNow } from "../shared/dates";
 import { DateFormat, RamblersGroupsApiResponse } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { isArray, isNumber, isString } from "es-toolkit/compat";
-import { fetchRamblersGroupsFromApi } from "../ramblers/list-groups";
+import { fetchAllRamblersAreas, fetchRamblersGroupsFromApi } from "../ramblers/list-groups";
 import { isBlob } from "es-toolkit";
 
 interface AreaMappings {
@@ -193,7 +195,12 @@ function transformCoordinates(coordinates: any): any {
 
 export async function areas(req: Request, res: Response) {
   try {
-    const {areaName, regionName = "Kent"} = req.query;
+    const {areaName, areaNames, regionName = "Kent"} = req.query;
+
+    if (isString(areaNames) && areaNames.trim()) {
+      return batchAreas(req, res, areaNames.split(",").map(n => n.trim()).filter(Boolean));
+    }
+
     if (!isString(areaName) || !areaName.trim()) {
       debugLog("Missing or invalid areaName query parameter");
       return res.status(400).json({"error": "areaName query parameter is required"});
@@ -318,6 +325,64 @@ export async function areas(req: Request, res: Response) {
   } catch (error) {
     debugLog(`Caught error in areas endpoint: ${error.message}`);
     res.status(500).json({"error": "Internal server error"});
+  }
+}
+
+async function batchAreas(req: Request, res: Response, areaNames: string[]) {
+  try {
+    const geojson = await loadGeoJson();
+    const areaGroups = await areaGroupsFromConfig();
+    const mappings: AreaMappings = {};
+    areaGroups.forEach(group => {
+      mappings[group.name] = group.onsDistricts;
+    });
+
+    const results: Record<string, GeoJSON.FeatureCollection<GeoJSON.Polygon>> = {};
+
+    for (const areaName of areaNames) {
+      const normalizedAreaName = areaName.trim();
+      const lowerAreaName = normalizedAreaName.toLowerCase();
+      const matchedKey = Object.keys(mappings).find(key => key.toLowerCase() === lowerAreaName) || normalizedAreaName;
+      const targetNames = mappings[matchedKey];
+
+      if (!targetNames) {
+        results[areaName] = { type: "FeatureCollection", features: [] };
+        continue;
+      }
+
+      if (isArray(targetNames) && targetNames.length === 0) {
+        results[areaName] = { type: "FeatureCollection", features: [] };
+        continue;
+      }
+
+      const districtNames = isArray(targetNames) ? targetNames : [targetNames];
+      const features = districtNames
+        .map(name => geojson.features.find(f => f.properties?.LAD23NM === name))
+        .filter(Boolean) as GeoJSON.Feature<GeoJSON.Polygon>[];
+
+      const transformedFeatures = features.map(feature => {
+        const transformedGeometry = {
+          ...feature.geometry,
+          coordinates: transformCoordinates(feature.geometry.coordinates)
+        };
+        const transformedFeature: GeoJSON.Feature<GeoJSON.Polygon> = {
+          ...feature,
+          geometry: transformedGeometry
+        };
+        return turf.simplify(transformedFeature, {
+          tolerance: 0.0001,
+          highQuality: true
+        }) as GeoJSON.Feature<GeoJSON.Polygon>;
+      });
+
+      results[areaName] = { type: "FeatureCollection", features: transformedFeatures };
+    }
+
+    debugLog(`Batch processed ${areaNames.length} areas`);
+    res.status(200).json({ areas: results });
+  } catch (error) {
+    debugLog(`Batch areas error: ${error.message}`);
+    res.status(500).json({ error: "Failed to process batch areas request" });
   }
 }
 
@@ -594,35 +659,51 @@ export async function previewAreaDistricts(req: Request, res: Response) {
     const featureIndex = await districtFeatures();
     const areaNameParam = isString(req.query.areaName) ? req.query.areaName.trim() : "";
     const areaCodeParam = isString(req.query.areaCode) ? req.query.areaCode.trim().toUpperCase() : "";
+    const areaCodesParam = isString(req.query.areaCodes) ? req.query.areaCodes.trim().toUpperCase() : "";
+    const exclusiveParam = req.query.exclusive !== "false"; // default to exclusive
 
-    if (!areaNameParam && !areaCodeParam) {
+    if (!areaNameParam && !areaCodeParam && !areaCodesParam) {
       return res.status(200).json({
         districts: allDistrictsList,
         featureCount: geojson.features.length
       });
     }
 
-    if (areaCodeParam) {
+    const areaCodesToProcess: string[] = [];
+    if (areaCodesParam) {
+      areaCodesToProcess.push(...areaCodesParam.split(",").map(code => code.trim()).filter(code => /^[A-Z]{2}$/.test(code)));
+    } else if (areaCodeParam) {
+      areaCodesToProcess.push(areaCodeParam);
+    }
+
+    if (areaCodesToProcess.length > 0) {
       try {
-        const ramblersGroups = await fetchRamblersGroups(areaCodeParam);
-
         const districtList = allDistrictsList;
-
         const inferredDistricts = new Set<string>();
         const groupDistrictMap: Record<string, string[]> = {};
         const allocatedDistricts = new Set<string>();
+        const processedGroupCodes = new Set<string>();
 
-        ramblersGroups
-          .filter(group => group.group_code !== areaCodeParam)
-          .forEach(group => {
-            const districts = matchDistrictsForGroup(group.name, districtList, group.latitude, group.longitude, featureIndex);
-            const availableDistricts = districts.filter(d => !allocatedDistricts.has(d));
-            groupDistrictMap[group.group_code] = availableDistricts;
-            availableDistricts.forEach(district => {
-              inferredDistricts.add(district);
-              allocatedDistricts.add(district);
+        const groupPromises = areaCodesToProcess.map(code => fetchRamblersGroups(code));
+        const groupResults = await Promise.all(groupPromises);
+
+        groupResults.forEach((ramblersGroups, index) => {
+          const areaCode = areaCodesToProcess[index];
+          ramblersGroups
+            .filter(group => !areaCodesToProcess.includes(group.group_code) && !processedGroupCodes.has(group.group_code))
+            .forEach(group => {
+              processedGroupCodes.add(group.group_code);
+              const districts = matchDistrictsForGroup(group.name, districtList, group.latitude, group.longitude, featureIndex);
+              const availableDistricts = exclusiveParam ? districts.filter(d => !allocatedDistricts.has(d)) : districts;
+              groupDistrictMap[group.group_code] = availableDistricts;
+              availableDistricts.forEach(district => {
+                inferredDistricts.add(district);
+                if (exclusiveParam) {
+                  allocatedDistricts.add(district);
+                }
+              });
             });
-          });
+        });
 
         const inferredList = Array.from(inferredDistricts).sort();
         const inferredFeatures = filterGeoJsonByDistricts(geojson, inferredList);
@@ -633,7 +714,7 @@ export async function previewAreaDistricts(req: Request, res: Response) {
           groupDistrictMap
         });
       } catch (error) {
-        debugLog(`Failed to fetch Ramblers groups for ${areaCodeParam}: ${error.message}`);
+        debugLog(`Failed to fetch Ramblers groups for ${areaCodesToProcess.join(",")}: ${error.message}`);
         return res.status(502).json({ error: "Failed to fetch Ramblers groups for preview" });
       }
     }
@@ -826,6 +907,71 @@ export async function deleteAreaMapData(req: Request, res: Response) {
   } catch (error) {
     debugLog(`Failed to delete area map: ${error.message}`);
     res.status(500).json({ error: "Failed to delete area map data" });
+  }
+}
+
+interface CachedAreasData {
+  areas: { areaCode: string; areaName: string }[];
+  cachedAt: number;
+}
+
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
+async function getCachedAreas(): Promise<CachedAreasData | null> {
+  try {
+    const configDoc = await queryKey(ConfigKey.RAMBLERS_AREAS_CACHE);
+    if (configDoc?.value) {
+      const cached = configDoc.value as CachedAreasData;
+      const age = Date.now() - cached.cachedAt;
+      if (age < TWENTY_FOUR_HOURS_MS) {
+        debugLog(`Using cached areas (age: ${Math.round(age / 1000 / 60)} minutes)`);
+        return cached;
+      }
+      debugLog(`Cache expired (age: ${Math.round(age / 1000 / 60)} minutes)`);
+    }
+  } catch (error) {
+    debugLog(`Error reading areas cache: ${error.message}`);
+  }
+  return null;
+}
+
+async function setCachedAreas(areas: { areaCode: string; areaName: string }[]): Promise<void> {
+  try {
+    const cacheData: CachedAreasData = {
+      areas,
+      cachedAt: Date.now()
+    };
+    await createOrUpdateKey(ConfigKey.RAMBLERS_AREAS_CACHE, cacheData);
+    debugLog(`Cached ${areas.length} areas`);
+  } catch (error) {
+    debugLog(`Error caching areas: ${error.message}`);
+  }
+}
+
+export async function listAvailableAreas(req: Request, res: Response) {
+  try {
+    const forceRefresh = req.query.refresh === "true";
+
+    if (!forceRefresh) {
+      const cached = await getCachedAreas();
+      if (cached) {
+        return res.status(200).json({ areas: cached.areas, cached: true });
+      }
+    }
+
+    debugLog("Fetching areas from Ramblers API...");
+    const allAreas = await fetchAllRamblersAreas();
+    const areas = allAreas
+      .filter(area => area.scope === "A" && /^[A-Z]{2}$/.test(area.group_code))
+      .map(area => ({ areaCode: area.group_code, areaName: area.name }))
+      .sort((a, b) => a.areaName.localeCompare(b.areaName));
+
+    await setCachedAreas(areas);
+
+    res.status(200).json({ areas, cached: false });
+  } catch (error) {
+    debugLog(`Failed to list available areas: ${error.message}`);
+    res.status(500).json({ error: "Failed to list available areas" });
   }
 }
 

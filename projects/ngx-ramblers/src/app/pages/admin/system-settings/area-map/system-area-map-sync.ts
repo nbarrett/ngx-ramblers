@@ -6,29 +6,41 @@ import { AuthService } from "../../../../auth/auth.service";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
 import { CommonModule } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCheckCircle, faEdit, faRefresh, faSave, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faCheckCircle, faEdit, faInfoCircle, faRefresh, faSave, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FormsModule } from "@angular/forms";
-import { AreaGroup, SystemConfig } from "../../../../models/system.model";
+import { AreaGroup, AvailableArea, SharedDistrictStyle, SystemConfig } from "../../../../models/system.model";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { isString } from "es-toolkit/predicate";
 import { asNumber } from "../../../../functions/numbers";
-
-interface RamblersGroupsResponse {
-  request: any;
-  response?: RamblersGroup[];
-}
-
-interface RamblersGroup {
-  group_code: string;
-  name: string;
-  url: string;
-  latitude?: number;
-  longitude?: number;
-}
+import { AreaMap } from "../../../area-map/area-map";
+import { faArrowDown, faArrowUp, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { ActivatedRoute, Router } from "@angular/router";
+import { RamblersWalksAndEventsService } from "../../../../services/walks-and-events/ramblers-walks-and-events.service";
+import { RamblersGroupsApiResponse } from "../../../../models/ramblers-walks-manager";
+import { StringUtilsService } from "../../../../services/string-utils.service";
+import { SharedDistrictStyleSelectorComponent } from "../../../../shared/components/shared-district-style-selector";
 
 @Component({
   selector: "app-area-map-sync-settings",
+  styles: [`
+    .table-sticky-header thead th
+      position: sticky
+      top: 0
+      background: white
+      z-index: 1
+      box-shadow: 0 1px 0 #dee2e6
+
+    .sortable-header
+      cursor: pointer
+      user-select: none
+
+    .sortable-header:hover
+      background-color: #f0f0f0
+
+    .map-preview-container
+      border-radius: 0.5rem
+  `],
   template: `
       <div class="img-thumbnail thumbnail-admin-edit">
           <div class="thumbnail-heading-frame">
@@ -61,19 +73,86 @@ interface RamblersGroup {
                               <app-markdown-editor standalone category="admin" name="area-map-group-configuration-help"
                                                    description="Area Map Group Configuration Help"/>
                           </div>
-                          <div class="table-responsive mb-3">
-                              <table class="table table-sm table-striped">
+                          <div class="mb-3">
+                              <label class="form-label">Neighboring Areas ({{ stringUtils.pluraliseWithCount(neighboringAreaCodes?.length || 0, 'area') }} of {{ availableNeighboringAreas?.length || 0 }} selected)</label>
+                              <p class="text-muted small mb-2">
+                                  Select neighboring Ramblers areas to include their groups and districts in addition to {{ config?.area?.shortName || 'your area' }}.
+                              </p>
+                              <ng-select [items]="availableNeighboringAreas"
+                                         bindLabel="ngSelectLabel"
+                                         bindValue="areaCode"
+                                         [multiple]="true"
+                                         [searchable]="true"
+                                         [closeOnSelect]="false"
+                                         [hideSelected]="true"
+                                         [loading]="loadingNeighboringAreas"
+                                         dropdownPosition="bottom"
+                                         placeholder="Select neighboring areas..."
+                                         [(ngModel)]="neighboringAreaCodes"
+                                         (ngModelChange)="onNeighboringAreasChange($event)">
+                              </ng-select>
+                          </div>
+                          <div class="form-check mb-3">
+                              <input type="checkbox" class="form-check-input" id="shared-districts"
+                                     [(ngModel)]="sharedDistrictsEnabled">
+                              <label class="form-check-label" for="shared-districts">
+                                  Allow districts to be shared between multiple groups
+                              </label>
+                          </div>
+                          @if (sharedDistrictsEnabled) {
+                              <div class="mb-3">
+                                  <label class="form-label">Shared District Display Style</label>
+                                  <app-shared-district-style-selector
+                                      [(value)]="sharedDistrictStyle">
+                                  </app-shared-district-style-selector>
+                              </div>
+                          }
+                          @if (hasS3Data && hasAreaGroups) {
+                              <div class="mb-3">
+                                  <label class="form-label">Map Preview</label>
+                                  <div class="map-preview-container border rounded">
+                                      <app-area-map [region]="config?.area?.shortName"
+                                                    [preview]="true"
+                                                    [previewSharedDistrictStyle]="sharedDistrictStyle">
+                                      </app-area-map>
+                                  </div>
+                              </div>
+                          }
+                          <div class="mb-2">
+                              <div class="input-group input-group-sm">
+                                  <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+                                  <input type="text" class="form-control" placeholder="Filter groups..."
+                                         [(ngModel)]="filterText" (ngModelChange)="onFilterChange()">
+                              </div>
+                          </div>
+                          <div class="table-responsive mb-3" style="max-height: 500px; overflow-y: auto;">
+                              <table class="table table-sm table-striped table-sticky-header">
                                   <thead>
                                   <tr>
-                                      <th>Group Code</th>
-                                      <th>Group Name</th>
-                                      <th>Districts</th>
+                                      <th class="sortable-header" (click)="onSortChange('groupCode')">
+                                          Group Code
+                                          @if (sortField === 'groupCode') {
+                                              <fa-icon [icon]="sortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
+                                          }
+                                      </th>
+                                      <th class="sortable-header" (click)="onSortChange('name')">
+                                          Group Name
+                                          @if (sortField === 'name') {
+                                              <fa-icon [icon]="sortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
+                                          }
+                                      </th>
+                                      <th class="sortable-header" (click)="onSortChange('districts')">
+                                          Districts
+                                          @if (sortField === 'districts') {
+                                              <fa-icon [icon]="sortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
+                                          }
+                                      </th>
                                       <th>Color</th>
                                       <th class="text-center">Non-Geographic</th>
                                   </tr>
                                   </thead>
                                   <tbody>
-                                      @for (group of editingGroups; track group.groupCode) {
+                                      @for (group of filteredAndSortedGroups; track group.groupCode) {
                                           <tr>
                                               <td class="align-middle">{{ group.groupCode }}</td>
                                               <td class="align-middle">{{ group.name }}</td>
@@ -83,6 +162,8 @@ interface RamblersGroup {
                                                              [searchable]="true"
                                                              [clearable]="true"
                                                              [closeOnSelect]="false"
+                                                             [hideSelected]="true"
+                                                             [clearSearchOnAdd]="true"
                                                              [disabled]="group.nonGeographic"
                                                              placeholder="Select districts..."
                                                              [(ngModel)]="group.onsDistricts"
@@ -112,9 +193,10 @@ interface RamblersGroup {
                                       [disabled]="busy"/>
                           </div>
                       }
-                      @if (successMessage) {
+                      @if (groupsSuccessMessage) {
                           <div class="alert alert-success mt-3 mb-0" role="alert">
-                              {{ successMessage }}
+                              <fa-icon [icon]="faInfoCircle" class="me-2"></fa-icon>
+                              <strong>Groups refreshed from Ramblers API.</strong> {{ groupsSuccessMessage }}
                           </div>
                       }
                       @if (errorMessage) {
@@ -135,10 +217,17 @@ interface RamblersGroup {
                               your area groups below.
                           </div>
                       } @else if (hasS3Data) {
-                          <div class="alert alert-success mb-3" role="alert">
-                              <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
-                              <strong>Area Map Active:</strong> Your area map is configured and ready to use.
-                          </div>
+                          @if (geoDataNeedsUpdate) {
+                              <div class="alert alert-warning mb-3" role="alert">
+                                  <fa-icon [icon]="faInfoCircle" class="me-2"></fa-icon>
+                                  <strong>Update Required:</strong> Group configuration has changed. Click 'Update Geographic Data' to apply changes to the map.
+                              </div>
+                          } @else {
+                              <div class="alert alert-success mb-3" role="alert">
+                                  <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                                  <strong>Area Map Active:</strong> Your area map is configured and ready to use.
+                              </div>
+                          }
                           <div class="d-flex align-items-center mb-3" style="gap: 0.75rem;">
                               <app-badge-button
                                       [caption]="busy ? 'Updating Geographic Data...' : 'Update Geographic Data'"
@@ -161,9 +250,10 @@ interface RamblersGroup {
                                       [disabled]="busy"/>
                           </div>
                       }
-                      @if (successMessage) {
+                      @if (geoSuccessMessage) {
                           <div class="alert alert-success mt-3 mb-0" role="alert">
-                              {{ successMessage }}
+                              <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                              {{ geoSuccessMessage }}
                           </div>
                       }
                       @if (errorMessage) {
@@ -177,6 +267,40 @@ interface RamblersGroup {
                           </p>
                       }
                       @if (hasAreaGroups) {
+                          <div class="mt-3">
+                              <label class="form-label">Default Map Position</label>
+                              <div class="row g-2">
+                                  <div class="col-md-4">
+                                      <label class="form-label small text-muted mb-1">Latitude</label>
+                                      <input type="number"
+                                             class="form-control"
+                                             step="0.01"
+                                             placeholder="e.g. 51.25"
+                                             [(ngModel)]="centerLatitude">
+                                  </div>
+                                  <div class="col-md-4">
+                                      <label class="form-label small text-muted mb-1">Longitude</label>
+                                      <input type="number"
+                                             class="form-control"
+                                             step="0.01"
+                                             placeholder="e.g. 0.75"
+                                             [(ngModel)]="centerLongitude">
+                                  </div>
+                                  <div class="col-md-4">
+                                      <label class="form-label small text-muted mb-1">Zoom</label>
+                                      <input type="number"
+                                             class="form-control"
+                                             min="5"
+                                             max="15"
+                                             step="1"
+                                             placeholder="e.g. 10"
+                                             [(ngModel)]="mapZoom">
+                                  </div>
+                              </div>
+                              <div class="form-text">
+                                  The default center and zoom level for your area map when first loaded.
+                              </div>
+                          </div>
                           <div class="mt-3">
                               <label class="form-label">Outlier distance cutoff (miles)</label>
                               <input type="number"
@@ -195,11 +319,15 @@ interface RamblersGroup {
           </div>
       </div>
   `,
-  imports: [CommonModule, BadgeButtonComponent, FontAwesomeModule, FormsModule, MarkdownEditorComponent, NgSelectComponent]
+  imports: [CommonModule, BadgeButtonComponent, FontAwesomeModule, FormsModule, MarkdownEditorComponent, NgSelectComponent, AreaMap, SharedDistrictStyleSelectorComponent]
 })
 export class SystemAreaMapSyncComponent implements OnInit {
   private http = inject(HttpClient);
   private authService = inject(AuthService);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private ramblersService = inject(RamblersWalksAndEventsService);
+  stringUtils = inject(StringUtilsService);
   private logger: Logger = inject(LoggerFactory).createLogger("SystemAreaMapSyncComponent", NgxLoggerLevel.ERROR);
 
   @Input() config: SystemConfig;
@@ -207,7 +335,9 @@ export class SystemAreaMapSyncComponent implements OnInit {
 
   busy = false;
   errorMessage = "";
-  successMessage = "";
+  groupsSuccessMessage = "";
+  geoSuccessMessage = "";
+  geoDataNeedsUpdate = false;
   effectiveKey = "";
   hasS3Data = false;
   hasAreaGroups = false;
@@ -217,6 +347,79 @@ export class SystemAreaMapSyncComponent implements OnInit {
   private relevantDistricts: Set<string> = new Set<string>();
   missingGeographicData = false;
   geographicDataMessage = "";
+  neighboringAreaCodes: string[] = [];
+  availableNeighboringAreas: (AvailableArea & { ngSelectLabel: string })[] = [];
+  loadingNeighboringAreas = false;
+  filterText = "";
+  sortField: "groupCode" | "name" | "districts" = "groupCode";
+  sortAsc = true;
+  faSearch = faSearch;
+  faArrowUp = faArrowUp;
+  faArrowDown = faArrowDown;
+
+  get exclusiveDistricts(): boolean {
+    return this.config?.area?.exclusiveDistricts !== false;
+  }
+
+  set exclusiveDistricts(value: boolean) {
+    if (this.config?.area) {
+      this.config.area.exclusiveDistricts = value;
+    }
+  }
+
+  get sharedDistrictsEnabled(): boolean {
+    return !this.exclusiveDistricts;
+  }
+
+  set sharedDistrictsEnabled(value: boolean) {
+    this.exclusiveDistricts = !value;
+  }
+
+  get sharedDistrictStyle(): SharedDistrictStyle {
+    return this.config?.area?.sharedDistrictStyle || SharedDistrictStyle.FIRST_GROUP;
+  }
+
+  set sharedDistrictStyle(value: SharedDistrictStyle) {
+    if (this.config?.area) {
+      this.config.area.sharedDistrictStyle = value;
+    }
+  }
+
+  get centerLatitude(): number | null {
+    return this.config?.area?.center?.[0] ?? null;
+  }
+
+  set centerLatitude(value: number | null) {
+    if (this.config?.area) {
+      if (!this.config.area.center) {
+        this.config.area.center = [51.25, 0.75];
+      }
+      this.config.area.center[0] = value ?? 51.25;
+    }
+  }
+
+  get centerLongitude(): number | null {
+    return this.config?.area?.center?.[1] ?? null;
+  }
+
+  set centerLongitude(value: number | null) {
+    if (this.config?.area) {
+      if (!this.config.area.center) {
+        this.config.area.center = [51.25, 0.75];
+      }
+      this.config.area.center[1] = value ?? 0.75;
+    }
+  }
+
+  get mapZoom(): number | null {
+    return this.config?.area?.zoom ?? null;
+  }
+
+  set mapZoom(value: number | null) {
+    if (this.config?.area) {
+      this.config.area.zoom = value ?? 10;
+    }
+  }
 
   get editingGroups(): AreaGroup[] {
     return this.config?.area?.groups || [];
@@ -227,8 +430,65 @@ export class SystemAreaMapSyncComponent implements OnInit {
       this.config.area.groups = groups;
     }
   }
+
+  get filteredAndSortedGroups(): AreaGroup[] {
+    let groups = this.editingGroups;
+    if (this.filterText) {
+      const filter = this.filterText.toLowerCase();
+      groups = groups.filter(g =>
+        g.groupCode?.toLowerCase().includes(filter) ||
+        g.name?.toLowerCase().includes(filter) ||
+        (Array.isArray(g.onsDistricts) ? g.onsDistricts.join(" ").toLowerCase().includes(filter) : g.onsDistricts?.toLowerCase().includes(filter))
+      );
+    }
+    return groups.slice().sort((a, b) => {
+      let comparison = 0;
+      switch (this.sortField) {
+        case "groupCode":
+          comparison = (a.groupCode || "").localeCompare(b.groupCode || "");
+          break;
+        case "name":
+          comparison = (a.name || "").localeCompare(b.name || "");
+          break;
+        case "districts":
+          const aDistricts = Array.isArray(a.onsDistricts) ? a.onsDistricts.length : (a.onsDistricts ? 1 : 0);
+          const bDistricts = Array.isArray(b.onsDistricts) ? b.onsDistricts.length : (b.onsDistricts ? 1 : 0);
+          comparison = aDistricts - bDistricts;
+          break;
+      }
+      return this.sortAsc ? comparison : -comparison;
+    });
+  }
+
+  onFilterChange() {
+    this.updateQueryParams();
+  }
+
+  onSortChange(field: "groupCode" | "name" | "districts") {
+    if (this.sortField === field) {
+      this.sortAsc = !this.sortAsc;
+    } else {
+      this.sortField = field;
+      this.sortAsc = true;
+    }
+    this.updateQueryParams();
+  }
+
+  private updateQueryParams() {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        filter: this.filterText || null,
+        sort: this.sortField !== "groupCode" ? this.sortField : null,
+        sortAsc: this.sortAsc ? null : "false"
+      },
+      queryParamsHandling: "merge"
+    });
+  }
+
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faEdit = faEdit;
+  protected readonly faInfoCircle = faInfoCircle;
   protected readonly faRefresh = faRefresh;
   protected readonly faSave = faSave;
   protected readonly faTimes = faTimes;
@@ -237,12 +497,17 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.refreshKey();
     this.loadAreaGroups();
     this.loadAvailableDistricts();
+    this.loadAvailableNeighboringAreas();
+    const params = this.route.snapshot.queryParams;
+    this.filterText = params["filter"] || "";
+    this.sortField = params["sort"] || "groupCode";
+    this.sortAsc = params["sortAsc"] !== "false";
   }
 
   private loadAvailableDistricts() {
-    const areaCode = this.config?.area?.groupCode || this.config?.area?.groups?.[0]?.groupCode?.substring(0, 2);
+    const mainAreaCode = this.config?.area?.groupCode || this.config?.area?.groups?.[0]?.groupCode?.substring(0, 2);
 
-    if (!areaCode) {
+    if (!mainAreaCode) {
       this.districtsLoaded = true;
       return;
     }
@@ -250,7 +515,13 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.missingGeographicData = false;
     this.geographicDataMessage = "";
 
-    this.http.get<{ districts?: string[] }>("api/areas/preview-districts", { params: { areaCode } }).subscribe({
+    const neighboringCodes = this.config?.area?.neighboringAreaCodes || [];
+    const allAreaCodes = [mainAreaCode, ...neighboringCodes];
+    const params = allAreaCodes.length > 1
+      ? { areaCodes: allAreaCodes.join(",") }
+      : { areaCode: mainAreaCode };
+
+    this.http.get<{ districts?: string[] }>("api/areas/preview-districts", { params }).subscribe({
       next: (previewResponse) => {
         if (previewResponse.districts && previewResponse.districts.length > 0) {
           this.availableDistricts = previewResponse.districts;
@@ -271,6 +542,34 @@ export class SystemAreaMapSyncComponent implements OnInit {
     });
   }
 
+  private loadAvailableNeighboringAreas() {
+    this.loadingNeighboringAreas = true;
+    this.http.get<{ areas: AvailableArea[] }>("api/areas/available-areas").subscribe({
+      next: (response) => {
+        const currentAreaCode = this.config?.area?.groupCode;
+        this.availableNeighboringAreas = response.areas
+          .filter(area => area.areaCode !== currentAreaCode)
+          .map(area => ({
+            ...area,
+            ngSelectLabel: `${area.areaName} (${area.areaCode})`
+          }));
+        this.neighboringAreaCodes = this.config?.area?.neighboringAreaCodes || [];
+        this.loadingNeighboringAreas = false;
+      },
+      error: (error) => {
+        this.logger.error("Failed to load available areas:", error);
+        this.loadingNeighboringAreas = false;
+      }
+    });
+  }
+
+  onNeighboringAreasChange(selectedCodes: string[]) {
+    if (this.config?.area) {
+      this.config.area.neighboringAreaCodes = selectedCodes;
+    }
+    this.loadAvailableDistricts();
+  }
+
   upload() {
     if (this.busy) {
       return;
@@ -278,7 +577,8 @@ export class SystemAreaMapSyncComponent implements OnInit {
 
     this.setBusy(true);
     this.errorMessage = "";
-    this.successMessage = "";
+    this.groupsSuccessMessage = "";
+    this.geoSuccessMessage = "";
     const headers = new HttpHeaders({
       Authorization: `Bearer ${this.authService.authToken() ?? ""}`
     });
@@ -288,7 +588,9 @@ export class SystemAreaMapSyncComponent implements OnInit {
         if (response?.key) {
           this.logger.info("Uploaded area map to", response.key);
           const featureInfo = response.featureCount ? ` with ${response.featureCount} district${response.featureCount !== 1 ? "s" : ""}` : "";
-          this.successMessage = `Successfully uploaded area map${featureInfo}`;
+          this.geoSuccessMessage = `Successfully uploaded area map${featureInfo}`;
+          this.geoDataNeedsUpdate = false;
+          this.groupsSuccessMessage = "";
           this.refreshKey();
           this.loadAvailableDistricts();
         } else {
@@ -316,7 +618,8 @@ export class SystemAreaMapSyncComponent implements OnInit {
 
     this.setBusy(true);
     this.errorMessage = "";
-    this.successMessage = "";
+    this.groupsSuccessMessage = "";
+    this.geoSuccessMessage = "";
     const headers = new HttpHeaders({
       Authorization: `Bearer ${this.authService.authToken() ?? ""}`
     });
@@ -325,7 +628,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
       next: response => {
         const count = response.deletedKeys?.length || 0;
         this.logger.info(`Deleted ${count} area map object(s):`, response.deletedKeys);
-        this.successMessage = `Successfully reset area map data`;
+        this.geoSuccessMessage = `Successfully reset area map data`;
         this.refreshKey();
         this.loadAvailableDistricts();
         this.setBusy(false);
@@ -373,75 +676,47 @@ export class SystemAreaMapSyncComponent implements OnInit {
 
     this.setBusy(true);
     this.errorMessage = "";
-    this.successMessage = "";
+    this.groupsSuccessMessage = "";
+    this.geoSuccessMessage = "";
 
-    const areaCode = this.config?.area?.groupCode || this.config?.area?.groups?.[0]?.groupCode?.substring(0, 2);
-    if (!areaCode) {
+    const mainAreaCode = this.config?.area?.groupCode || this.config?.area?.groups?.[0]?.groupCode?.substring(0, 2);
+    if (!mainAreaCode) {
       this.errorMessage = "Unable to determine area code from configuration. Please configure Area & Group settings first.";
       this.setBusy(false);
       return;
     }
 
-    this.http.get<{ groups: any[], districts?: string[], groupDistrictMap?: Record<string, string[]> }>("api/areas/preview-districts", { params: { areaCode } }).subscribe({
-      next: previewResponse => {
+    const neighboringCodes = this.config?.area?.neighboringAreaCodes || [];
+    const allAreaCodes = [mainAreaCode, ...neighboringCodes];
+    const previewParams: Record<string, string> = allAreaCodes.length > 1
+      ? { areaCodes: allAreaCodes.join(","), exclusive: String(this.exclusiveDistricts) }
+      : { areaCode: mainAreaCode, exclusive: String(this.exclusiveDistricts) };
+
+    this.http.get<{ groups: any[], districts?: string[], groupDistrictMap?: Record<string, string[]> }>("api/areas/preview-districts", { params: previewParams }).subscribe({
+      next: async previewResponse => {
         if (previewResponse.districts && previewResponse.districts.length > 0 && this.availableDistricts.length === 0) {
           this.availableDistricts = previewResponse.districts;
           this.districtsLoaded = true;
           this.logger.info(`Loaded ${this.availableDistricts.length} districts from preview API`);
         }
 
-        const body = { groups: [areaCode] };
-        this.http.post<RamblersGroupsResponse>("api/ramblers/walks-manager/list-groups", body).subscribe({
-          next: ramblersResponse => {
-            const groups = ramblersResponse?.response || [];
-            this.http.get<{ groups: any[] }>("api/areas/groups").subscribe({
-              next: existingResponse => {
-                const existingGroupsMap = new Map((existingResponse?.groups || []).map(existing => [existing.groupCode, existing]));
-                const filteredGroups = groups.filter(group => group.group_code !== areaCode);
-                const usedColors = new Set<string>();
-                this.inferredDistrictsByGroup.clear();
-                const groupDistrictMap = previewResponse.groupDistrictMap || {};
-
-                this.editingGroups = filteredGroups.map(group => {
-                  const existing = existingGroupsMap.get(group.group_code);
-                  const inferredDistricts = groupDistrictMap[group.group_code] || [];
-                  this.inferredDistrictsByGroup.set(group.group_code, inferredDistricts);
-                  let existingDistricts: string[] = [];
-                  if (Array.isArray(existing?.onsDistricts)) {
-                    existingDistricts = [...existing.onsDistricts as string[]];
-                  } else if (isString(existing?.onsDistricts) && existing.onsDistricts.trim().length > 0) {
-                    existingDistricts = [existing.onsDistricts];
-                  }
-                  const onsDistricts = [...new Set(existingDistricts.length > 0 ? existingDistricts : inferredDistricts)];
-                  const nonGeographic = onsDistricts.length === 0 ? (existing?.nonGeographic ?? false) : false;
-                  const color = this.generateUniqueColor(usedColors);
-                  usedColors.add(color);
-                  return {
-                    groupCode: group.group_code,
-                    name: group.name,
-                    url: group.url,
-                    onsDistricts,
-                    color,
-                    nonGeographic
-                  };
-                });
-                this.hasAreaGroups = true;
-                this.updateRelevantDistricts();
-                this.setBusy(false);
-              },
-              error: error => {
-                this.errorMessage = isString(error?.error) ? error.error : "Failed to fetch existing groups";
-                this.logger.error("Existing groups fetch failed", error);
-                this.setBusy(false);
-              }
-            });
-          },
-          error: error => {
-            this.errorMessage = isString(error?.error) ? error.error : "Failed to fetch groups from Ramblers";
-            this.logger.error("Ramblers groups fetch failed", error);
-            this.setBusy(false);
-          }
-        });
+        try {
+          const groups = await this.ramblersService.listRamblersGroups(allAreaCodes);
+          this.http.get<{ groups: any[] }>("api/areas/groups").subscribe({
+            next: existingResponse => {
+              this.processRamblersGroups(groups, existingResponse?.groups || [], previewResponse.groupDistrictMap || {}, allAreaCodes);
+            },
+            error: error => {
+              this.errorMessage = isString(error?.error) ? error.error : "Failed to fetch existing groups";
+              this.logger.error("Existing groups fetch failed", error);
+              this.setBusy(false);
+            }
+          });
+        } catch (error: any) {
+          this.errorMessage = isString(error?.error) ? error.error : "Failed to fetch groups from Ramblers";
+          this.logger.error("Ramblers groups fetch failed", error);
+          this.setBusy(false);
+        }
       },
       error: () => {
         this.errorMessage = "No geographic data available. Please upload area map data first.";
@@ -449,6 +724,46 @@ export class SystemAreaMapSyncComponent implements OnInit {
         this.setBusy(false);
       }
     });
+  }
+
+  private processRamblersGroups(
+    groups: RamblersGroupsApiResponse[],
+    existingGroups: any[],
+    groupDistrictMap: Record<string, string[]>,
+    allAreaCodes: string[]
+  ) {
+    const existingGroupsMap = new Map(existingGroups.map(existing => [existing.groupCode, existing]));
+    const filteredGroups = groups.filter(group => !allAreaCodes.includes(group.group_code));
+    const usedColors = new Set<string>();
+    this.inferredDistrictsByGroup.clear();
+
+    this.editingGroups = filteredGroups.map(group => {
+      const existing = existingGroupsMap.get(group.group_code);
+      const inferredDistricts = groupDistrictMap[group.group_code] || [];
+      this.inferredDistrictsByGroup.set(group.group_code, inferredDistricts);
+      let existingDistricts: string[] = [];
+      if (Array.isArray(existing?.onsDistricts)) {
+        existingDistricts = [...existing.onsDistricts as string[]];
+      } else if (isString(existing?.onsDistricts) && existing.onsDistricts.trim().length > 0) {
+        existingDistricts = [existing.onsDistricts];
+      }
+      const onsDistricts = [...new Set(existingDistricts.length > 0 ? existingDistricts : inferredDistricts)];
+      const nonGeographic = onsDistricts.length === 0 ? (existing?.nonGeographic ?? false) : false;
+      const color = this.generateUniqueColor(usedColors);
+      usedColors.add(color);
+      return {
+        groupCode: group.group_code,
+        name: group.name,
+        url: group.url,
+        externalUrl: group.external_url,
+        onsDistricts,
+        color,
+        nonGeographic
+      };
+    });
+    this.hasAreaGroups = true;
+    this.updateRelevantDistricts();
+    this.setBusy(false);
   }
 
   private generateRandomColor(): string {
@@ -469,13 +784,13 @@ export class SystemAreaMapSyncComponent implements OnInit {
       "#F9B104",
       "#F08050",
       "#DEE2E6",
-      "#7FB3D5",  // Light Blue
-      "#C39BD3",  // Light Purple
-      "#F8C471",  // Light Orange
-      "#85C1E2",  // Sky Blue
-      "#F1948A",  // Light Red
-      "#73C6B6",  // Teal
-      "#D7BDE2"   // Lavender
+      "#7FB3D5",
+      "#C39BD3",
+      "#F8C471",
+      "#85C1E2",
+      "#F1948A",
+      "#73C6B6",
+      "#D7BDE2"
     ];
 
     const availableColors = ramblersColors.filter(color => !usedColors.has(color));
@@ -541,7 +856,9 @@ export class SystemAreaMapSyncComponent implements OnInit {
     const districts = Array.isArray(group.onsDistricts) ? group.onsDistricts : [];
     if (districts.length > 0) {
       group.nonGeographic = false;
-      this.removeDistrictsFromOtherGroups(group);
+      if (this.exclusiveDistricts) {
+        this.removeDistrictsFromOtherGroups(group);
+      }
     }
     this.updateRelevantDistricts();
   }
@@ -604,76 +921,82 @@ export class SystemAreaMapSyncComponent implements OnInit {
 
     this.setBusy(true);
     this.errorMessage = "";
-    this.successMessage = "";
+    this.groupsSuccessMessage = "";
+    this.geoSuccessMessage = "";
 
     const existingGroupsMap = new Map(this.editingGroups.map(g => [g.groupCode, g]));
     this.logger.info("Existing groups before rebuild:", this.editingGroups);
-    const areaCode = this.config?.area?.groupCode || this.editingGroups[0]?.groupCode?.substring(0, 2);
+    const mainAreaCode = this.config?.area?.groupCode || this.editingGroups[0]?.groupCode?.substring(0, 2);
 
-    if (!areaCode) {
+    if (!mainAreaCode) {
       this.errorMessage = "Unable to determine area code from current configuration. Please configure Area & Group settings first.";
       this.setBusy(false);
       return;
     }
 
+    const neighboringCodes = this.config?.area?.neighboringAreaCodes || [];
+    const allAreaCodes = [mainAreaCode, ...neighboringCodes];
+    const previewParams: Record<string, string> = allAreaCodes.length > 1
+      ? { areaCodes: allAreaCodes.join(","), exclusive: String(this.exclusiveDistricts) }
+      : { areaCode: mainAreaCode, exclusive: String(this.exclusiveDistricts) };
+
     this.editingGroups = [];
     this.inferredDistrictsByGroup.clear();
 
-    this.http.get<{ groupDistrictMap?: Record<string, string[]> }>("api/areas/preview-districts", { params: { areaCode } }).subscribe({
-      next: previewResponse => {
+    this.http.get<{ groupDistrictMap?: Record<string, string[]> }>("api/areas/preview-districts", { params: previewParams }).subscribe({
+      next: async previewResponse => {
         const groupDistrictMap = previewResponse.groupDistrictMap || {};
-        const body = { groups: [areaCode] };
-        this.http.post<RamblersGroupsResponse>("api/ramblers/walks-manager/list-groups", body).subscribe({
-          next: ramblersResponse => {
-            const groups = ramblersResponse?.response || [];
-            const filteredGroups = groups.filter(group => group.group_code !== areaCode);
-            if (filteredGroups.length === 0) {
-              this.errorMessage = "No groups found from Ramblers API";
-              this.setBusy(false);
-              return;
-            }
 
-            const usedColors = new Set<string>();
-            existingGroupsMap.forEach(existing => {
-              if (existing.color) {
-                usedColors.add(this.ensureHexColor(existing.color));
-              }
-            });
-
-            this.inferredDistrictsByGroup.clear();
-            this.editingGroups = filteredGroups.map(group => {
-              const existing = existingGroupsMap.get(group.group_code);
-              const inferredDistricts = groupDistrictMap[group.group_code] || [];
-              this.inferredDistrictsByGroup.set(group.group_code, inferredDistricts);
-              const onsDistricts = [...new Set(inferredDistricts)];
-              const suggestedNonGeographic = onsDistricts.length === 0 ? (existing?.nonGeographic ?? false) : false;
-              let newColor: string;
-              if (existing?.color) {
-                newColor = this.ensureHexColor(existing.color);
-              } else {
-                newColor = this.generateUniqueColor(usedColors);
-                usedColors.add(newColor);
-              }
-              this.logger.info(`Rebuilding group ${group.group_code}: color=${newColor}`);
-              return {
-                groupCode: group.group_code,
-                name: group.name,
-                url: group.url,
-                onsDistricts,
-                color: newColor,
-                nonGeographic: suggestedNonGeographic
-              };
-            });
-            this.successMessage = "Groups refreshed from Ramblers API";
-            this.updateRelevantDistricts();
+        try {
+          const groups = await this.ramblersService.listRamblersGroups(allAreaCodes);
+          const filteredGroups = groups.filter(group => !allAreaCodes.includes(group.group_code));
+          if (filteredGroups.length === 0) {
+            this.errorMessage = "No groups found from Ramblers API";
             this.setBusy(false);
-          },
-          error: error => {
-            this.errorMessage = isString(error?.error) ? error.error : "Failed to fetch groups from Ramblers";
-            this.logger.error("Ramblers groups fetch failed", error);
-            this.setBusy(false);
+            return;
           }
-        });
+
+          const usedColors = new Set<string>();
+          existingGroupsMap.forEach(existing => {
+            if (existing.color) {
+              usedColors.add(this.ensureHexColor(existing.color));
+            }
+          });
+
+          this.inferredDistrictsByGroup.clear();
+          this.editingGroups = filteredGroups.map(group => {
+            const existing = existingGroupsMap.get(group.group_code);
+            const inferredDistricts = groupDistrictMap[group.group_code] || [];
+            this.inferredDistrictsByGroup.set(group.group_code, inferredDistricts);
+            const onsDistricts = [...new Set(inferredDistricts)];
+            const suggestedNonGeographic = onsDistricts.length === 0 ? (existing?.nonGeographic ?? false) : false;
+            let newColor: string;
+            if (existing?.color) {
+              newColor = this.ensureHexColor(existing.color);
+            } else {
+              newColor = this.generateUniqueColor(usedColors);
+              usedColors.add(newColor);
+            }
+            this.logger.info(`Rebuilding group ${group.group_code}: color=${newColor}`);
+            return {
+              groupCode: group.group_code,
+              name: group.name,
+              url: group.url,
+              externalUrl: group.external_url,
+              onsDistricts,
+              color: newColor,
+              nonGeographic: suggestedNonGeographic
+            };
+          });
+          this.groupsSuccessMessage = "Click 'Update Geographic Data' below to apply changes to the map.";
+          this.geoDataNeedsUpdate = true;
+          this.updateRelevantDistricts();
+          this.setBusy(false);
+        } catch (error: any) {
+          this.errorMessage = isString(error?.error) ? error.error : "Failed to fetch groups from Ramblers";
+          this.logger.error("Ramblers groups fetch failed", error);
+          this.setBusy(false);
+        }
       },
       error: () => {
         this.errorMessage = "No geographic data available. Please upload area map data first.";

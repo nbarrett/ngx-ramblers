@@ -66,6 +66,38 @@ export async function fetchRamblersGroupsFromApi(groups: string[]): Promise<Ramb
   return extractGroupsFromPayload((response as any)?.response);
 }
 
+export async function fetchAllRamblersAreas(): Promise<RamblersGroupsApiResponse[]> {
+  const config: SystemConfig = await systemConfig();
+  const defaultOptions = requestDefaults.createApiRequestOptions(config);
+  const allAreas: RamblersGroupsApiResponse[] = [];
+  let offset = 0;
+
+  while (true) {
+    const response: any = await httpRequest({
+      apiRequest: {
+        hostname: defaultOptions.hostname,
+        protocol: defaultOptions.protocol,
+        headers: defaultOptions.headers,
+        method: "get",
+        path: `/api/volunteers/groups?limit=${MAXIMUM_PAGE_SIZE}&offset=${offset}&scope=A&api-key=${encodeURIComponent(config?.national?.walksManager?.apiKey)}`
+      },
+      debug: debugLog,
+      successStatusCodes: [200]
+    });
+
+    const data = extractGroupsFromPayload(response?.response);
+    allAreas.push(...data);
+
+    const summary = response?.response?.summary;
+    if (!summary || offset + data.length >= summary.total) {
+      break;
+    }
+    offset += MAXIMUM_PAGE_SIZE;
+  }
+
+  return allAreas;
+}
+
 export function listGroups(req, res): void {
   const groups: string[] = isArray(req.body?.groups) ? req.body.groups : [];
   requestRamblersGroups(groups, req, res)
