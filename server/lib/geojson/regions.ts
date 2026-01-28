@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import { queryKey } from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { isString } from "es-toolkit/compat";
+import { isArray, isString } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("regions"));
 debugLog.enabled = false;
@@ -11,10 +11,15 @@ debugLog.enabled = false;
 interface RamblersGroupConfig {
   name: string;
   url: string;
+  externalUrl?: string;
   groupCode: string;
   onsDistricts: string | string[];
   color?: string;
   nonGeographic?: boolean;
+}
+
+interface SharedDistrictInfo {
+  groups: { name: string; color: string }[];
 }
 
 interface RegionConfig {
@@ -22,6 +27,9 @@ interface RegionConfig {
   center: [number, number];
   zoom: number;
   groups: RamblersGroupConfig[];
+  sharedDistricts?: Record<string, SharedDistrictInfo>;
+  sharedDistrictStyle?: string;
+  mainAreaGroupCodes?: string[];
 }
 
 export async function regions(req: Request, res: Response) {
@@ -48,18 +56,51 @@ export async function regions(req: Request, res: Response) {
 
     const areaGroups = systemConfig.area.groups || [];
 
+    const districtToGroups: Record<string, { name: string; color: string }[]> = {};
+    areaGroups.forEach(group => {
+      if (group.nonGeographic) return;
+      const districts = isArray(group.onsDistricts)
+        ? group.onsDistricts
+        : (group.onsDistricts ? [group.onsDistricts] : []);
+      districts.forEach(district => {
+        if (!districtToGroups[district]) {
+          districtToGroups[district] = [];
+        }
+        districtToGroups[district].push({
+          name: group.name,
+          color: group.color || "hsl(0, 0%, 50%)"
+        });
+      });
+    });
+
+    const sharedDistricts: Record<string, SharedDistrictInfo> = {};
+    Object.entries(districtToGroups).forEach(([district, groups]) => {
+      if (groups.length > 1) {
+        sharedDistricts[district] = { groups };
+      }
+    });
+
+    const selectedGroupCodes = systemConfig.group?.groupCode
+      ? systemConfig.group.groupCode.split(",").map(code => code.trim()).filter(Boolean)
+      : [];
+
+    const defaultCenter: [number, number] = [52.5, -1.5];
     const regionConfig: RegionConfig = {
       name: systemConfig.area.longName || regionName,
-      center: [51.25, 0.75],
-      zoom: 10,
+      center: systemConfig.area.center || defaultCenter,
+      zoom: systemConfig.area.zoom || 8,
       groups: areaGroups.map(group => ({
         name: group.name,
         url: group.url || "",
+        externalUrl: group.externalUrl,
         groupCode: group.groupCode,
         onsDistricts: group.onsDistricts,
         color: group.color,
         nonGeographic: group.nonGeographic || false
-      }))
+      })),
+      sharedDistricts: Object.keys(sharedDistricts).length > 0 ? sharedDistricts : undefined,
+      sharedDistrictStyle: systemConfig.area.sharedDistrictStyle,
+      mainAreaGroupCodes: selectedGroupCodes
     };
 
     debugLog(`Successfully retrieved configuration for region: ${regionName}`);

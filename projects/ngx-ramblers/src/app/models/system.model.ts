@@ -61,9 +61,22 @@ export interface AreaGroup {
   groupCode: string;
   name: string;
   url?: string;
+  externalUrl?: string;
   onsDistricts: string | string[];
   color?: string;
   nonGeographic?: boolean;
+}
+
+export interface AvailableArea {
+  areaCode: string;
+  areaName: string;
+}
+
+export enum SharedDistrictStyle {
+  STRIPES = "stripes",
+  FIRST_GROUP = "first-group",
+  DASHED_BORDER = "dashed-border",
+  GRADIENT = "gradient"
 }
 
 export interface Organisation extends Group {
@@ -80,6 +93,9 @@ export interface Organisation extends Group {
   center?: [number, number];
   zoom?: number;
   mapOutlierMaxDistanceMiles?: number;
+  neighboringAreaCodes?: string[];
+  exclusiveDistricts?: boolean;
+  sharedDistrictStyle?: SharedDistrictStyle;
 }
 
 export interface Ramblers {

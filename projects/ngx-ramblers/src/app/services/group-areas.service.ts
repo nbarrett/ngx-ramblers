@@ -55,6 +55,7 @@ export class GroupAreasService {
           return of({
             name: areaName,
             url: group.url || "",
+            externalUrl: group.externalUrl,
             groupCode: group.groupCode,
             description: "",
             color: group.color || "hsl(0, 0%, 50%)",
@@ -77,6 +78,7 @@ export class GroupAreasService {
               return {
                 name: areaName,
                 url: group.url || "",
+                externalUrl: group.externalUrl,
                 description: "",
                 color: group.color || "hsl(0, 0%, 50%)",
                 geoJsonFeature: {
@@ -97,6 +99,7 @@ export class GroupAreasService {
             return {
               name: areaName,
               url: group.url,
+              externalUrl: group.externalUrl,
               groupCode: group.groupCode,
               description: `${areaName} Ramblers Group`,
               color: group.color || "hsl(0, 0%, 50%)",
@@ -108,6 +111,7 @@ export class GroupAreasService {
             return of({
               name: areaName,
               url: group.url || "",
+              externalUrl: group.externalUrl,
               groupCode: group.groupCode,
               description: "",
               color: group.color || "hsl(0, 0%, 50%)",
@@ -127,22 +131,54 @@ export class GroupAreasService {
     return this.queryRegionConfig(regionName).pipe(
       switchMap(regionConfig => {
         const geographicGroups: RegionGroup[] = regionConfig.groups.filter(group => !group.nonGeographic);
-        this.logger.info(`geographicGroups:`, geographicGroups);
+        this.logger.info(`geographicGroups:`, geographicGroups.length);
         if (geographicGroups.length === 0) {
           return of([]);
         }
 
-        const areaRequests = geographicGroups.map(group =>
-          this.queryArea(group.name, regionName).pipe(
-            catchError(error => {
-              this.logger.warn(`Failed to fetch ${group.name}:`, error);
-              return of(null);
-            })
-          )
-        );
+        const areaNames = geographicGroups.map(g => g.name).join(",");
+        return this.http.get<{ areas: Record<string, ONSGeoJSON> }>(`${this.apiUrl}/areas?areaNames=${encodeURIComponent(areaNames)}&regionName=${encodeURIComponent(regionName || "")}`).pipe(
+          map(response => {
+            return geographicGroups.map(group => {
+              const geojson = response.areas[group.name];
+              if (!geojson || geojson.features.length === 0) {
+                return {
+                  name: group.name,
+                  url: group.url || "",
+                  externalUrl: group.externalUrl,
+                  groupCode: group.groupCode,
+                  description: "",
+                  color: group.color || "hsl(0, 0%, 50%)",
+                  geoJsonFeature: {
+                    type: "Feature" as const,
+                    properties: {},
+                    geometry: { type: "Polygon" as const, coordinates: [] }
+                  }
+                };
+              }
 
-        return forkJoin(areaRequests).pipe(
-          map((results: (GroupAreaConfig | null)[]) => results.filter(area => !isNull(area)) as GroupAreaConfig[])
+              const geoJsonFeature = geojson.features.length === 1
+                ? geojson.features[0] as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>
+                : {
+                    type: "FeatureCollection" as const,
+                    features: geojson.features
+                  } as any;
+
+              return {
+                name: group.name,
+                url: group.url,
+                externalUrl: group.externalUrl,
+                groupCode: group.groupCode,
+                description: `${group.name} Ramblers Group`,
+                color: group.color || "hsl(0, 0%, 50%)",
+                geoJsonFeature
+              };
+            }).filter(area => area.geoJsonFeature.geometry?.coordinates?.length > 0 || area.geoJsonFeature.features?.length > 0);
+          }),
+          catchError(error => {
+            this.logger.error("Failed to fetch batch areas:", error);
+            return of([]);
+          })
         );
       })
     );
@@ -161,7 +197,10 @@ export class GroupAreasService {
             name: regionConfig.name,
             center: regionConfig.center as [number, number],
             zoom: regionConfig.zoom,
-            areas
+            areas,
+            sharedDistricts: regionConfig.sharedDistricts,
+            sharedDistrictStyle: regionConfig.sharedDistrictStyle,
+            mainAreaGroupCodes: regionConfig.mainAreaGroupCodes
           }))
         );
       }),

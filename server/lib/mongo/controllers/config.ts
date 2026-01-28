@@ -102,6 +102,17 @@ export function queryKey(configKey: ConfigKey): Promise<ConfigDocument> {
     .then(response => toObjectWithId(response));
 }
 
+export async function createOrUpdateKey(configKey: ConfigKey, value: any): Promise<ConfigDocument> {
+  const criteria = criteriaForKey(configKey);
+  const result = await config.findOneAndUpdate(
+    criteria,
+    { key: configKey, value },
+    { upsert: true, new: true, useFindAndModify: false }
+  );
+  debugLog(`createOrUpdateKey: ${configKey} updated`);
+  return toObjectWithId(result);
+}
+
 export function handleQuery(req: Request, res: Response): Promise<any> {
   try {
     const criteria = configCriteriaFromQuerystring(req);

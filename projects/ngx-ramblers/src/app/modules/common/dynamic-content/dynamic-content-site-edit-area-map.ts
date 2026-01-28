@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { PageContent, PageContentRow } from "../../../models/content-text.model";
+import { LegendPosition, PageContent, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
@@ -13,6 +13,9 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { GroupAreasService } from "../../../services/group-areas.service";
 import { MapOverlayControls } from "../../../shared/components/map-overlay-controls";
 import { MapProvider, OUTDOOR_OS_STYLE } from "../../../models/map.model";
+import { SharedDistrictStyle } from "../../../models/system.model";
+import { SharedDistrictStyleSelectorComponent } from "../../../shared/components/shared-district-style-selector";
+import { LegendPositionSelectorComponent } from "../../../shared/components/legend-position-selector";
 
 interface RegionOption extends KeyValue<string> {}
 
@@ -56,6 +59,41 @@ interface RegionOption extends KeyValue<string> {}
         }"
         (configChange)="onOverlayConfigChange()"/>
 
+      <div class="row mb-2">
+        <div class="col-md-6">
+          <div class="form-group">
+            <label>Shared District Display Style</label>
+            <app-shared-district-style-selector
+              [(value)]="row.areaMap.sharedDistrictStyle"
+              (valueChange)="onStyleChange()">
+            </app-shared-district-style-selector>
+            <small class="form-text text-muted">How to display districts shared between groups</small>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-group">
+            <label>Legend Position</label>
+            <app-legend-position-selector
+              [(value)]="row.areaMap.legendPosition"
+              [disabled]="!row.areaMap.showLegend"
+              (valueChange)="onLegendChange()">
+            </app-legend-position-selector>
+          </div>
+        </div>
+      </div>
+      <div class="row mb-2">
+        <div class="col-12">
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="show-legend-{{id}}"
+                   [(ngModel)]="row.areaMap.showLegend"
+                   (ngModelChange)="onLegendChange()">
+            <label class="form-check-label" for="show-legend-{{id}}">
+              Show legend with group names and colors
+            </label>
+          </div>
+        </div>
+      </div>
+
       <div class="row mb-3">
         <div class="col-12">
           <h6>Live Preview</h6>
@@ -66,7 +104,7 @@ interface RegionOption extends KeyValue<string> {}
       </div>
     }
   `,
-  imports: [CommonModule, FormsModule, NgSelectComponent, AreaMap, MapOverlayControls]
+  imports: [CommonModule, FormsModule, NgSelectComponent, AreaMap, MapOverlayControls, SharedDistrictStyleSelectorComponent, LegendPositionSelectorComponent]
 })
 export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditAreaMapComponent", NgxLoggerLevel.OFF);
@@ -81,6 +119,7 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   public availableGroups: string[] = [];
   public showAreaMap = true;
   protected readonly MapProvider = MapProvider;
+  protected readonly OUTDOOR_OS_STYLE = OUTDOOR_OS_STYLE;
   ngOnInit() {
     const systemConfig = this.systemConfigService.systemConfig();
     const regionName = systemConfig?.area?.shortName;
@@ -109,7 +148,10 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
         textOpacity: 0.9,
         provider: MapProvider.OSM,
         osStyle: OUTDOOR_OS_STYLE,
-        areaColors: {}
+        areaColors: {},
+        showLegend: false,
+        legendPosition: LegendPosition.TOP_RIGHT,
+        sharedDistrictStyle: systemConfig?.area?.sharedDistrictStyle || SharedDistrictStyle.FIRST_GROUP
       };
       this.broadcastChange();
     }
@@ -152,6 +194,16 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
 
   onGroupSelectionChange() {
     this.broadcastChange();
+  }
+
+  onLegendChange() {
+    this.broadcastChange();
+    this.recreateAreaMap();
+  }
+
+  onStyleChange() {
+    this.broadcastChange();
+    this.recreateAreaMap();
   }
 
   private recreateAreaMap() {

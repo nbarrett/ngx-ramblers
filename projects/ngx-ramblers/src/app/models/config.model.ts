@@ -8,6 +8,7 @@ export enum ConfigKey {
   MAILCHIMP = "mailchimp",
   MEETUP = "meetup",
   MIGRATION = "migration",
+  RAMBLERS_AREAS_CACHE = "ramblers-areas-cache",
   SYSTEM = "system",
   WALKS = "walks",
 }
