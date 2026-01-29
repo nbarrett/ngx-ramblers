@@ -22,6 +22,7 @@ export enum UIDateFormat {
   DISPLAY_DAY = "cccc MMMM d, yyyy",
   DAY_MONTH_YEAR_WITH_SLASHES = "dd/MM/yyyy",
   DAY_MONTH_YEAR_ABBREVIATED = "dd MMM yyyy",
+  DAY_MONTH_YEAR_DASHED = "d-MMM-yyyy",
   MONTH_YEAR_ABBREVIATED = "MMM yyyy",
   YEAR_MONTH_DAY_WITH_DASHES = "yyyy-MM-dd",
   YEAR_MONTH_DAY_TIME_WITH_MINUTES = "yyyy-LL-dd HH:mm",

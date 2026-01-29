@@ -1,19 +1,26 @@
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { RouterLink } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faGlobe, faMagic, faSearch, faExclamationTriangle, faSpinner, faCheckCircle, faMap } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCheckCircle,
+  faExclamationTriangle,
+  faGlobe,
+  faMagic,
+  faMap,
+  faSearch,
+  faSpinner
+} from "@fortawesome/free-solid-svg-icons";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { VenueParserService } from "../../../services/venue/venue-parser.service";
 import { VenueScraperService } from "../../../services/venue/venue-scraper.service";
 import { StoredVenueService } from "../../../services/venue/stored-venue.service";
-import { StoredVenue, Venue, VenueParseResult, VenueWithUsageStats } from "../../../models/event-venue.model";
+import { Venue, VenueParseResult, VenueWithUsageStats } from "../../../models/event-venue.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { isEmpty } from "es-toolkit/compat";
 import { VenueAutocompleteComponent } from "./venue-autocomplete";
 import { VenueMapSelectorComponent } from "./venue-map-selector";
-import { Subscription } from "rxjs";
 import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
 
 export enum VenueLookupMode {
@@ -38,7 +45,11 @@ export enum VenueLookupMode {
           [queryParamKey]="StoredValue.VENUE_MODE"
           (selectedTabChange)="onModeChange($event)"/>
         @if (showManageVenuesButton) {
-          <a routerLink="/admin/venue-settings" class="btn btn-primary text-nowrap manage-venues-btn">
+          <a routerLink="/admin/venue-settings"
+             class="btn btn-primary text-nowrap manage-venues-btn"
+             [class.disabled]="disabled"
+             [attr.tabindex]="disabled ? -1 : null"
+             [attr.aria-disabled]="disabled">
             Manage Venues
           </a>
         }
@@ -184,6 +195,10 @@ export enum VenueLookupMode {
       display: flex
       align-items: center
       justify-content: center
+
+    .manage-venues-btn.disabled
+      pointer-events: none
+      opacity: 0.65
     @media (min-width: 768px)
       .manage-venues-btn
         align-self: stretch
@@ -196,12 +211,11 @@ export enum VenueLookupMode {
       flex-shrink: 0
   `]
 })
-export class VenueLookupComponent implements OnInit, OnDestroy {
+export class VenueLookupComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("VenueLookupComponent", NgxLoggerLevel.ERROR);
   private venueParserService = inject(VenueParserService);
   private venueScraperService = inject(VenueScraperService);
   private storedVenueService = inject(StoredVenueService);
-  private subscriptions: Subscription[] = [];
 
   @Input() disabled = false;
   @Input() startingPoint: { latitude: number; longitude: number } | null = null;
@@ -216,7 +230,6 @@ export class VenueLookupComponent implements OnInit, OnDestroy {
   scraping = false;
   scrapeError: string | null = null;
   lastResult: VenueParseResult | null = null;
-  localMatchFound: StoredVenue | null = null;
 
   faGlobe = faGlobe;
   faMagic = faMagic;
@@ -237,10 +250,6 @@ export class VenueLookupComponent implements OnInit, OnDestroy {
     this.logger.info("VenueLookupComponent initialized");
   }
 
-  ngOnDestroy() {
-    this.subscriptions.forEach(sub => sub.unsubscribe());
-  }
-
   onModeChange(newMode: string) {
     this.mode = newMode as VenueLookupMode;
   }
@@ -257,16 +266,13 @@ export class VenueLookupComponent implements OnInit, OnDestroy {
     this.scraping = true;
     this.scrapeError = null;
     this.lastResult = null;
-    this.localMatchFound = null;
 
     try {
-      // First check local venues by base URL
       this.logger.info("Checking local venues for URL:", this.websiteUrl);
       const localVenue = await this.storedVenueService.findByBaseUrl(this.websiteUrl);
 
       if (localVenue) {
         this.logger.info("Found local venue match:", localVenue);
-        this.localMatchFound = localVenue;
         const venueWithStats: VenueWithUsageStats = {
           storedVenueId: localVenue.id,
           type: localVenue.type,
@@ -284,7 +290,6 @@ export class VenueLookupComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // No local match, scrape from web
       this.logger.info("No local match, scraping venue from URL:", this.websiteUrl);
       this.lastResult = await this.venueScraperService.scrapeVenueFromUrl(this.websiteUrl);
 
