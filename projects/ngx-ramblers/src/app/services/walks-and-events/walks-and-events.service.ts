@@ -1,11 +1,10 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { firstValueFrom, Observable } from "rxjs";
+import { Observable } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
-import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
-import { EventPopulation, Organisation } from "../../models/system.model";
+import { Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
 import { EventQueryParameters } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEvent, ExtendedGroupEventApiResponse } from "../../models/group-event.model";
@@ -19,7 +18,6 @@ export class WalksAndEventsService {
   private logger: Logger = inject(LoggerFactory).createLogger("WalksAndEventsService", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
   private localWalksAndEventsService = inject(LocalWalksAndEventsService);
-  private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   public group: Organisation;
 
   constructor() {
@@ -43,43 +41,22 @@ export class WalksAndEventsService {
   }
 
   async all(eventQueryParameters: EventQueryParameters): Promise<ExtendedGroupEvent[]> {
-    this.logger.info("all called with walkPopulation:", this.group?.walkPopulation, "eventQueryParameters:", eventQueryParameters);
-    switch (this.group?.walkPopulation) {
-      case EventPopulation.WALKS_MANAGER:
-        return this.ramblersWalksAndEventsService.all(eventQueryParameters);
-      case EventPopulation.LOCAL:
-        const localWalks = await this.localWalksAndEventsService.all(eventQueryParameters);
-        this.logger.info("walkPopulation:", this?.group?.walkPopulation, "queryById:eventQueryParameters:", eventQueryParameters, "ramblers returned no data:returning localWalks:", localWalks);
-        return localWalks;
-    }
+    this.logger.info("all called with eventQueryParameters:", eventQueryParameters);
+    return this.localWalksAndEventsService.all(eventQueryParameters);
   }
 
   async allPublic(eventQueryParameters: EventQueryParameters): Promise<ExtendedGroupEvent[]> {
-    this.logger.info("all called with walkPopulation:", this.group?.walkPopulation, "eventQueryParameters:", eventQueryParameters);
-    switch (this.group?.walkPopulation) {
-      case EventPopulation.WALKS_MANAGER:
-        return this.ramblersWalksAndEventsService.all(eventQueryParameters);
-      case EventPopulation.LOCAL:
-        return this.localWalksAndEventsService.allPublic(eventQueryParameters);
-    }
+    this.logger.info("allPublic called with eventQueryParameters:", eventQueryParameters);
+    return this.localWalksAndEventsService.allPublic(eventQueryParameters);
   }
 
   async dateRange(): Promise<{ minDate: number | null; maxDate: number | null }> {
-    await this.ensureGroupLoaded();
     return this.localWalksAndEventsService.dateRange();
   }
 
   async queryWalkLeaders(range?: SearchDateRange | null): Promise<string[]> {
-    await this.ensureGroupLoaded();
-    this.logger.info("queryWalkLeaders:walkPopulation:", this?.group?.walkPopulation);
-    switch (this?.group?.walkPopulation) {
-      case EventPopulation.WALKS_MANAGER:
-        return await this.queryWalkLeaderNames();
-      case EventPopulation.LOCAL:
-        return this.localWalksAndEventsService.queryWalkLeaders(range);
-      default:
-        return [];
-    }
+    this.logger.info("queryWalkLeaders called with range:", range);
+    return this.localWalksAndEventsService.queryWalkLeaders(range);
   }
 
   leaderLabelMap(): Map<string, string> {
@@ -88,14 +65,6 @@ export class WalksAndEventsService {
 
   leaderLabelRecords() {
     return this.localWalksAndEventsService.leaderLabelRecords();
-  }
-
-  private async queryWalkLeaderNames() {
-    const walkLeaders = await this.ramblersWalksAndEventsService.queryWalkLeaders();
-    this.logger.info("queryWalkLeaders:", walkLeaders);
-    return walkLeaders
-      .map(item => item.id || item.name)
-      .filter(item => !!item);
   }
 
   async createOrUpdate(extendedGroupEvent: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
@@ -139,28 +108,7 @@ export class WalksAndEventsService {
   }
 
   public async count({ criteria }: { criteria: any }): Promise<number> {
-    this.logger.info("count called with walkPopulation:", this.group?.walkPopulation, "criteria:", criteria);
-    switch (this.group?.walkPopulation) {
-      case EventPopulation.WALKS_MANAGER:
-        throw new Error("count: WALKS_MANAGER population not supported, use localWalksAndEventsService.count instead");
-      case EventPopulation.LOCAL:
-        return this.localWalksAndEventsService.count({ criteria });
-      default:
-        this.logger.warn("count: unknown walkPopulation, returning 0");
-        return 0;
-    }
-  }
-
-  private async ensureGroupLoaded() {
-    if (this.group) {
-      return;
-    }
-    const cached = this.systemConfigService.systemConfig();
-    if (cached?.group) {
-      this.group = cached.group;
-      return;
-    }
-    const config = await firstValueFrom(this.systemConfigService.events());
-    this.group = config.group;
+    this.logger.info("count called with criteria:", criteria);
+    return this.localWalksAndEventsService.count({ criteria });
   }
 }
