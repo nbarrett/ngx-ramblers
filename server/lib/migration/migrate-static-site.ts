@@ -1,3 +1,4 @@
+import fs from "fs";
 import { Request, Response } from "express";
 import { launchBrowser } from "./puppeteer-utils";
 import { PutObjectCommand, S3 } from "@aws-sdk/client-s3";
@@ -312,7 +313,7 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
       debugLog(`Response headers:`, response.headers());
       debugLog(`Redirect chain:`, response.request().redirectChain().map(r => r.url()));
       const html = await page.content();
-      require("fs").writeFileSync(`debug-${toKebabCase(title)}.html`, html);
+      fs.writeFileSync(`debug-${toKebabCase(title)}.html`, html);
       debugLog(`Saved HTML for ${path} to debug-${toKebabCase(title)}.html`);
       const imageEval = await page.evaluate(function imageEvalFn() {
         const logs: string[] = [];

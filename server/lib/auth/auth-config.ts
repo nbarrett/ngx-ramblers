@@ -8,26 +8,41 @@ import { DateTime } from "luxon";
 import { dateTimeNow } from "../shared/dates";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 
-const SECRET = envConfig.auth.secret;
+let passportInitialised = false;
+
+function secret(): string {
+  return envConfig.auth().secret;
+}
+
+function initialisePassport() {
+  if (passportInitialised) {
+    return;
+  }
+
+  const passportOpts = {
+    jwtFromRequest: passportJwt.ExtractJwt.fromAuthHeaderAsBearerToken(),
+    secretOrKey: secret()
+  };
+
+  passport.use(new passportJwt.Strategy(passportOpts, (jwtPayload, done) => {
+    const expirationDate: DateTime = DateTime.fromMillis(jwtPayload.exp * 1000);
+    if (expirationDate.toMillis() < dateTimeNow().toMillis()) {
+      return done(null, false);
+    }
+    done(null, jwtPayload);
+  }));
+
+  passport.serializeUser((user: Member, done) => {
+    done(null, user.userName);
+  });
+
+  passportInitialised = true;
+}
+
 const fastExpire = false;
 const ONE_DAY = {auth: 60 * 60 * 12, refresh: 60 * 60};
 const THIRTY_SECONDS = {auth: 30, refresh: 30};
-const passportOpts = {
-  jwtFromRequest: passportJwt.ExtractJwt.fromAuthHeaderAsBearerToken(),
-  secretOrKey: SECRET
-};
 
-passport.use(new passportJwt.Strategy(passportOpts, (jwtPayload, done) => {
-  const expirationDate: DateTime = DateTime.fromMillis(jwtPayload.exp * 1000);
-  if (expirationDate.toMillis() < dateTimeNow().toMillis()) {
-    return done(null, false);
-  }
-  done(null, jwtPayload);
-}));
-
-passport.serializeUser((user: Member, done) => {
-  done(null, user.userName)
-});
 export const tokenExpiry = fastExpire ? THIRTY_SECONDS : ONE_DAY;
 
 export function hashValue(value) {
@@ -39,7 +54,7 @@ export function randomToken() {
 }
 
 export function signValue(value: string | object, expiry: number) {
-  return jwt.sign(value, SECRET, {expiresIn: expiry});
+  return jwt.sign(value, secret(), {expiresIn: expiry});
 }
 
 export function compareValue(inputValue: string, storedValue: string) {
@@ -47,5 +62,6 @@ export function compareValue(inputValue: string, storedValue: string) {
 }
 
 export function authenticate() {
+  initialisePassport();
   return passport.authenticate("jwt");
 }

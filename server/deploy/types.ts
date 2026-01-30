@@ -15,7 +15,7 @@ export interface EnvironmentConfig {
   appName: string;
   memory: string;
   scaleCount: number;
-  organization: string;
+  organisation: string;
   mongo?: MongoConfig;
 }
 

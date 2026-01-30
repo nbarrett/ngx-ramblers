@@ -16,29 +16,31 @@ export interface MigrateMongoConfig {
   manualMigrations?: string[];
 }
 
-export const migrateMongoConfig: MigrateMongoConfig = {
-  mongodb: {
-    url: envConfig.mongo.uri,
-    options: {}
-  },
+export function migrateMongoConfig(): MigrateMongoConfig {
+  return {
+    mongodb: {
+      url: envConfig.mongo().uri,
+      options: {}
+    },
 
-  migrationsDir: path.resolve(__dirname, "database"),
+    migrationsDir: path.resolve(__dirname, "database"),
 
-  changelogCollectionName: "changelog",
+    changelogCollectionName: "changelog",
 
-  lockCollectionName: "changelog_lock",
+    lockCollectionName: "changelog_lock",
 
-  lockTtl: 300,
+    lockTtl: 300,
 
-  migrationFileExtension: ".js",
+    migrationFileExtension: ".js",
 
-  useFileHash: false,
+    useFileHash: false,
 
-  moduleSystem: "esm",
-  manualMigrations: [
-    "20251118000000-set-status-on-migrated-walks.js",
-    "20251118010000-enrich-migrated-walk-locations.js",
-    "20260113000000-reverse-geocode-missing-postcodes.js",
-    "20260113000001-geocode-from-title-description.js"
-  ]
-};
+    moduleSystem: "esm",
+    manualMigrations: [
+      "20251118000000-set-status-on-migrated-walks.js",
+      "20251118010000-enrich-migrated-walk-locations.js",
+      "20260113000000-reverse-geocode-missing-postcodes.js",
+      "20260113000001-geocode-from-title-description.js"
+    ]
+  };
+}

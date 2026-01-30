@@ -186,7 +186,7 @@ export async function googleVenueSearch(req, res) {
   const lat = parseFloat(req.query.lat);
   const lon = parseFloat(req.query.lon);
   const limit = Math.min(parseInt(req.query.limit) || 10, 20);
-  const apiKey = envConfig.googleMaps.apiKey;
+  const apiKey = envConfig.googleMaps().apiKey;
 
   if (!query || query.length < 2) {
     return res.status(400).json({

@@ -1,3 +1,4 @@
+import { browser } from "@wdio/globals";
 import { FileSystem, Path } from "@serenity-js/core/lib/io";
 import { Interaction, UsesAbilities } from "@serenity-js/core/lib/screenplay";
 

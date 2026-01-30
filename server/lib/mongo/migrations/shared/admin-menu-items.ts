@@ -126,6 +126,27 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
     icon: "faList",
     href: "admin/content-templates",
     contentText: "Browse shared fragments, user templates, and migration templates with live previews and usage links"
+  },
+  {
+    accessLevel: "committee",
+    title: "Duplicate Page Content",
+    icon: "faPencil",
+    href: "admin/duplicate-page-content-navigator",
+    contentText: "Allows the user to navigate to the page content that is duplicated in the system"
+  },
+  {
+    accessLevel: "committee",
+    title: "Venue Settings",
+    icon: "faMapMarkerAlt",
+    href: "admin/venue-settings",
+    contentText: "Manage stored venues used for walk meeting points and post-walk pubs"
+  },
+  {
+    accessLevel: "committee",
+    title: "Environment Setup",
+    icon: "faServer",
+    href: "admin/environment-setup",
+    contentText: "Provision new NGX-Ramblers environments for Ramblers groups"
   }
 ];
 

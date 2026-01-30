@@ -23,13 +23,16 @@ export function readConfigFile(filePath: string): DeploymentConfig {
   }
 }
 
-export function runCommand(command: string, returnOutput: boolean = false): string {
+export function runCommand(command: string, returnOutput: boolean = false, throwOnError: boolean = false): string {
   try {
     debugLog(`Running command: ${command}`);
     const output = execSync(command, { stdio: returnOutput ? "pipe" : "inherit", encoding: "utf-8" });
     return output || "";
   } catch (error) {
     debugLog(`Error running command: ${command}`, error);
+    if (throwOnError) {
+      throw error;
+    }
     process.exit(1);
   }
 }

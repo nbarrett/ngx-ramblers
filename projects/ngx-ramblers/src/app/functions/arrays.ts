@@ -35,3 +35,7 @@ export function firstPopulated<T>(...values: T[][]): T[] {
   return values?.find(item => item?.length > 0) || [];
 }
 
+export function reversed<T>(items: T[]): T[] {
+  return [...(items || [])].reverse();
+}
+

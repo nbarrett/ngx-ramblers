@@ -65,7 +65,7 @@ export async function upsert<T>(model: Model<T>, filter: any, data: T, debugLog?
 }
 
 export async function connect(debug?: debug.Debugger): Promise<boolean> {
-  const mongoUri = envConfig.mongo.uri.replace(/^"|"$/g, "");
+  const mongoUri = envConfig.mongo().uri.replace(/^"|"$/g, "");
   const debugConnect = debug || debugLog;
   if (mongoose.connection.readyState === 1) {
     debugConnect("Already connected to database:", mongoUri);

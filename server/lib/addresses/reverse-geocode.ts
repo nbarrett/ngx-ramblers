@@ -10,7 +10,7 @@ import {
 import { envConfig } from "../env-config/env-config";
 import debug from "debug";
 import { ENDPOINT, postcodeLookupServiceResponsesMapper } from "./shared";
-import url = require("url");
+import url from "url";
 
 const defaultDebugLog: debug.Debugger = debug(envConfig.logNamespace("reverse-gecode"));
 defaultDebugLog.enabled = false;

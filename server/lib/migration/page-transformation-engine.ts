@@ -44,6 +44,7 @@ import { LocationDetails } from "../../../projects/ngx-ramblers/src/app/models/r
 import * as exclusions from "./text-exclusions";
 import { humaniseFileStemFromUrl } from "../shared/string-utils";
 import { DateTime } from "luxon";
+import { dateTimeNow } from "../shared/dates";
 import { bestLocation, extractLocations } from "../../../projects/ngx-ramblers/src/app/common/locations/location-extractor";
 import { DEFAULT_OS_STYLE, ExtractedLocation } from "../../../projects/ngx-ramblers/src/app/models/map.model";
 import { GeocodeMatchType } from "../../../projects/ngx-ramblers/src/app/models/address-model";
@@ -236,7 +237,7 @@ export class PageTransformationEngine {
       case TransformationActionType.ADD_MIGRATION_NOTE: {
         const prefix = step.notePrefix || "Migrated from";
         const fmt = step.dateFormat || UIDateFormat.YEAR_MONTH_DAY_TIME_WITH_MINUTES;
-        const when = DateTime.now().toFormat(fmt);
+        const when = dateTimeNow().toFormat(fmt);
         const url = (ctx as any).originalUrl || "";
         const safeUrlText = url;
         const note = `${prefix} [${safeUrlText}](${url}) on ${when}`;
@@ -2270,7 +2271,7 @@ export class PageTransformationEngine {
       const format = mapping.metadataDateFormat || UIDateFormat.YEAR_MONTH_DAY_TIME_WITH_MINUTES;
       const url = scrapedPage.path || "";
       const link = url ? `[${url}](${url})` : "";
-      const timestamp = DateTime.now().toFormat(format);
+      const timestamp = dateTimeNow().toFormat(format);
       if (link) {
         return `${prefix} ${link} on ${timestamp}`;
       }

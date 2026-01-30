@@ -83,7 +83,7 @@ export class BackupNotificationService {
 
       const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
       sendSmtpEmail.subject = subject;
-      sendSmtpEmail.sender = this.options.sender || { email: "backup@ngx-ramblers.org.uk", name: "NGX Ramblers Backup System" };
+      sendSmtpEmail.sender = this.options.sender || { email: "backup@ngx-ramblers.org.uk", name: "NGX-Ramblers Backup System" };
       sendSmtpEmail.to = this.options.recipients;
       sendSmtpEmail.htmlContent = htmlContent;
 

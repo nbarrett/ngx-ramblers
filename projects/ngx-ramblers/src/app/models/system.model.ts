@@ -72,6 +72,10 @@ export interface AvailableArea {
   areaName: string;
 }
 
+export interface AvailableAreaWithLabel extends AvailableArea {
+  ngSelectLabel: string;
+}
+
 export enum SharedDistrictStyle {
   STRIPES = "stripes",
   FIRST_GROUP = "first-group",
@@ -117,8 +121,8 @@ export interface Footer {
   legals: Link[];
   pages: Link[];
   appDownloads: {
-    google: Link;
-    apple: Link
+    google: string | Link;
+    apple: string | Link;
   };
 }
 
@@ -129,18 +133,22 @@ export interface ExternalSystem {
 }
 
 export interface Instagram extends ExternalSystem {
-  groupName: string;
-  accessToken: string;
+  groupName?: string;
+  accessToken?: string;
+  clientId?: string;
+  clientSecret?: string;
+  userId?: string;
 }
 
 export interface Meetup extends ExternalSystem {
-  apiUrl: string;
-  groupName: string;
-  clientId: string;
-  clientSecret: string;
-  clientRedirectUrl: string;
-  accessToken: string;
-  refreshToken: string;
+  apiUrl?: string;
+  groupName?: string;
+  clientId?: string;
+  clientSecret?: string;
+  clientRedirectUrl?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  apiKey?: string;
 }
 
 export interface Facebook extends ExternalSystem {
@@ -153,7 +161,7 @@ export interface ExternalSystems {
   instagram?: Instagram;
   meetup?: Meetup;
   linkedIn?: ExternalSystem;
-  osMaps?: { apiKey: string };
+  osMaps?: { apiKey?: string };
   twitter?: ExternalSystem;
   youtube?: ExternalSystem;
 }

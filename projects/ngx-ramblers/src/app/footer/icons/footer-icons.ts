@@ -26,7 +26,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
     }
     @if (externalSystems?.twitter) {
       <li class="mb-0" placement="top"
-        [tooltip]="'View our Twitter page (opens a new browser tab)'"><a [href]="externalSystems?.twitter"
+        [tooltip]="'View our Twitter page (opens a new browser tab)'"><a [href]="externalSystems?.twitter?.groupUrl"
         target="_blank"
         class="d-block p-1">
         <app-svg icon="i-twitter" width="24" height="24" [colour]="colour"/>
@@ -37,7 +37,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
     }
     @if (externalSystems?.linkedIn) {
       <li class="mb-0" placement="top"
-        [tooltip]="'View our Linked in page (opens a new browser tab)'"><a [href]="externalSystems?.linkedIn"
+        [tooltip]="'View our Linked in page (opens a new browser tab)'"><a [href]="externalSystems?.linkedIn?.groupUrl"
         target="_blank"
         class="d-block p-1">
         <app-svg icon="i-linkedin-in" width="24" height="24" [colour]="colour"/>
@@ -48,7 +48,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
     }
     @if (externalSystems?.youtube) {
       <li class="mb-0" placement="top"
-        [tooltip]="'View our Youtube page (opens a new browser tab)'"><a [href]="externalSystems?.youtube"
+        [tooltip]="'View our Youtube page (opens a new browser tab)'"><a [href]="externalSystems?.youtube?.groupUrl"
         target="_blank" class="d-block p-1">
         <app-svg icon="i-youtube" width="24" height="24" [colour]="colour"/>
         <span class="visually-hidden">

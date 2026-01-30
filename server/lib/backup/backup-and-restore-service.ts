@@ -1,7 +1,11 @@
+import debug from "debug";
 import { ChildProcess, spawn } from "child_process";
 import * as fs from "fs/promises";
 import { createWriteStream } from "fs";
 import * as path from "path";
+import { envConfig } from "../env-config/env-config";
+const debugLog = debug(envConfig.logNamespace("backup-and-restore-service"));
+debugLog.enabled = true;
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
@@ -65,7 +69,7 @@ export class BackupAndRestoreService {
         apiKey: backupEnv.flyio?.apiKey || flyConfig?.apiKey || "",
         memory: backupEnv.flyio?.memory || flyConfig?.memory || "512mb",
         scaleCount: backupEnv.flyio?.scaleCount || flyConfig?.scaleCount || 1,
-        organization: backupEnv.flyio?.organization || flyConfig?.organization || "",
+        organisation: backupEnv.flyio?.organisation || flyConfig?.organisation || "",
         mongo: backupEnv.mongo ? {
           uri: backupEnv.mongo.uri || "",
           db: backupEnv.mongo.db || "",

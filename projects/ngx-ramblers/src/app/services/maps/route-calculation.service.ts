@@ -130,7 +130,7 @@ export class RouteCalculationService {
 
     gpx += `
     <author>
-      <name>NGX Ramblers Route Calculator</name>
+      <name>NGX-Ramblers Route Calculator</name>
     </author>
     <time>${timestamp}</time>
   </metadata>

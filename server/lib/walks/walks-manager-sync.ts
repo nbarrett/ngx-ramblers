@@ -14,7 +14,7 @@ import {
   InputSource
 } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { EventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { dateTimeFromIso, dateTimeFromJsDate, dateTimeNowAsValue } from "../shared/dates";
+import { dateTimeFromIso, dateTimeFromJsDate, dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
 import { cacheEventsWithStats, cleanupDuplicatesByRamblersId } from "./walks-manager-cache";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
@@ -110,22 +110,11 @@ export async function syncWalksManagerData(
       return result;
     }
 
-    if (config.area?.walkPopulation === EventPopulation.LOCAL) {
-      debugLog("Area walk population is LOCAL, skipping sync");
-      sendProgress(ws, 100, "Sync skipped: area walk population is LOCAL");
-      sendComplete(ws, {
-        ...result,
-        percent: 100,
-        message: "Sync skipped: area walk population is LOCAL"
-      });
-      return result;
-    }
-
     const dateFrom = options.dateFrom || (options.fullSync
-      ? DateTime.now().minus({ years: 3 })
-      : DateTime.now().minus({ days: 7 }));
+      ? dateTimeNow().minus({ years: 3 })
+      : dateTimeNow().minus({ days: 7 }));
 
-    const dateTo = options.dateTo || DateTime.now().plus({ years: 2 });
+    const dateTo = options.dateTo || dateTimeNow().plus({ years: 2 });
 
     debugLog("Sync date range:", {
       from: dateFrom.toFormat(DateFormat.DISPLAY_DATE_FULL),
@@ -273,19 +262,8 @@ export async function syncWalksManagerData(
 }
 
 function determineGroupCode(config: SystemConfig): string {
-  const useArea = config.area?.walkPopulation === EventPopulation.WALKS_MANAGER;
-  const useGroup = config.group?.walkPopulation === EventPopulation.WALKS_MANAGER;
-
-  if (useArea) {
-    debugLog("Using area mode - fetching walks for area code:", config.area.groupCode);
-    return config.area.groupCode;
-  } else if (useGroup) {
-    debugLog("Using group mode - fetching walks for group code:", config.group.groupCode);
-    return config.group.groupCode;
-  } else {
-    debugLog("No walks-manager population configured, defaulting to group code:", config.group?.groupCode);
-    return config.group?.groupCode;
-  }
+  debugLog("Fetching walks for group code:", config.group.groupCode);
+  return config.group.groupCode;
 }
 
 export async function getLastSyncTimestamp(groupCode: string): Promise<number | null> {

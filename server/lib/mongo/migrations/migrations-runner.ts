@@ -21,28 +21,44 @@ import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/s
 const debugLog = debug(envConfig.logNamespace("migration-runner"));
 debugLog.enabled = true;
 
-let sharedMongoClient: MongoClient | null = null;
-
 const CHANGELOG_COLLECTION = "changelog";
 const CHANGELOG_SIMULATION_COLLECTION = "changelogSimulation";
 
 const normalizeMigrationFileName = (fileName: string) => fileName?.replace(/\.ts$/, ".js");
-const manualMigrationFileNames: Set<string> = new Set(
-  (migrateMongoConfig.manualMigrations || [])
-    .map(normalizeMigrationFileName)
-    .filter(Boolean)
-);
+
+function manualMigrationFileNames(): Set<string> {
+  return new Set(
+    (migrateMongoConfig().manualMigrations || [])
+      .map(normalizeMigrationFileName)
+      .filter(Boolean)
+  );
+}
 
 type MigrationMetadata = {
   manual: boolean;
 };
 
+const mongoClientCache: { client?: MongoClient } = {};
+
 async function mongoClient(): Promise<MongoClient> {
-  if (sharedMongoClient) {
-    return sharedMongoClient;
+  if (mongoClientCache.client) {
+    return mongoClientCache.client;
   }
-  sharedMongoClient = await MongoClient.connect(migrateMongoConfig.mongodb.url, migrateMongoConfig.mongodb.options);
-  return sharedMongoClient;
+  const config = migrateMongoConfig();
+  mongoClientCache.client = await MongoClient.connect(config.mongodb.url, config.mongodb.options);
+  return mongoClientCache.client;
+}
+
+export async function closeMigrationConnection(): Promise<void> {
+  if (mongoClientCache.client) {
+    await mongoClientCache.client.close();
+    delete mongoClientCache.client;
+    debugLog("Closed migration runner connection");
+  }
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+    debugLog("Closed mongoose connection");
+  }
 }
 
 function appliedAtTimestamp(value: any): string | undefined {
@@ -214,7 +230,7 @@ export class MigrationRunner {
       return metadata;
     }
     try {
-      const migrationPath = path.join(migrateMongoConfig.migrationsDir, actualFileName);
+      const migrationPath = path.join(migrateMongoConfig().migrationsDir, actualFileName);
       const loadedMigration = await import(migrationPath);
       const metadata = { manual: Boolean(loadedMigration?.manual) };
       this.migrationMetadataCache.set(normalizedFileName, metadata);
@@ -235,7 +251,7 @@ export class MigrationRunner {
     if (!normalized) {
       return false;
     }
-    if (manualMigrationFileNames.has(normalized)) {
+    if (manualMigrationFileNames().has(normalized)) {
       return true;
     }
     const metadata = await this.loadMigrationMetadata(normalized, actualFileName);
@@ -268,9 +284,10 @@ export class MigrationRunner {
 
       const allFiles: string[] = [];
       this.normalizedToActualFileMap.clear();
+      const config = migrateMongoConfig();
 
-      if (fs.existsSync(migrateMongoConfig.migrationsDir)) {
-        const filesOnDisk = fs.readdirSync(migrateMongoConfig.migrationsDir)
+      if (fs.existsSync(config.migrationsDir)) {
+        const filesOnDisk = fs.readdirSync(config.migrationsDir)
           .filter(f => (f.endsWith(".js") || f.endsWith(".ts")) && !f.endsWith(".d.ts") && !f.endsWith(".d.js"))
           .filter(f => /^\d{14}-.+/.test(f.replace(/\.(js|ts)$/, "")))
           .sort();
@@ -348,7 +365,8 @@ export class MigrationRunner {
   async runPendingMigrations(): Promise<MigrationRetryResult> {
     debugLog("Checking for pending migrations...");
     try {
-      if (!migrateMongoConfig) {
+      const config = migrateMongoConfig();
+      if (!config) {
         return { success: false, error: "Migration configuration not found", appliedFiles: [] };
       }
 
@@ -394,7 +412,7 @@ export class MigrationRunner {
         const fileName = file.fileName;
         const actualFileName = this.normalizedToActualFileMap.get(fileName) || fileName;
         debugLog(`Running migration: ${fileName} (actual file: ${actualFileName})`);
-        const migrationPath = path.join(migrateMongoConfig.migrationsDir, actualFileName);
+        const migrationPath = path.join(config.migrationsDir, actualFileName);
         const startedAt = dateTimeNow().toJSDate();
 
         try {
@@ -438,7 +456,8 @@ export class MigrationRunner {
   async runMigration(fileName: string): Promise<MigrationRetryResult> {
     const startedAt = dateTimeNow().toJSDate();
     try {
-      if (!migrateMongoConfig) {
+      const config = migrateMongoConfig();
+      if (!config) {
         return { success: false, error: "Migration configuration not found", appliedFiles: [] };
       }
 
@@ -449,7 +468,7 @@ export class MigrationRunner {
       await changelogCollection.deleteOne({ fileName });
       await changelogCollection.deleteOne({ fileName: fileName.replace(/\.js$/, ".ts") });
       const actualFileName = this.normalizedToActualFileMap.get(fileName) || fileName;
-      const migrationPath = path.join(migrateMongoConfig.migrationsDir, actualFileName);
+      const migrationPath = path.join(config.migrationsDir, actualFileName);
       const loadedMigration = await import(migrationPath);
       const migration = loadedMigration.default || loadedMigration;
 

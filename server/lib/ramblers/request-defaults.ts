@@ -1,5 +1,5 @@
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import url = require("url");
+import url from "url";
 
 export function createApiRequestOptions(systemConfig: SystemConfig) {
   const ramblersUrl = url.parse(systemConfig.national.walksManager.href);

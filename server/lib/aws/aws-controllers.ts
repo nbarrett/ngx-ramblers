@@ -24,29 +24,45 @@ import { contentTypeFrom } from "./aws-utils";
 import { dateTimeFromJsDate, dateTimeNow } from "../shared/dates";
 
 const logObject = false;
-const s3Config: AWSConfig = {
-  accessKeyId: envConfig.aws.accessKeyId,
-  secretAccessKey: envConfig.aws.secretAccessKey,
-  region: envConfig.aws.region,
-  bucket: envConfig.aws.bucket
-};
-const s3: S3 = new AWS.S3(s3Config);
 const debugLog = debug(envConfig.logNamespace("aws-controllers"));
 debugLog.enabled = true;
-debugLog("configured with", s3Config, "Proxying S3 requests to", envConfig.aws.uploadUrl, "http.globalAgent.maxSockets:", https.globalAgent.maxSockets);
+
+const createLazyGetter = <T>(factory: () => T): (() => T) => {
+  const cache: { value?: T } = {};
+  return () => {
+    if (!("value" in cache)) {
+      cache.value = factory();
+    }
+    return cache.value;
+  };
+};
+
+const s3Config = createLazyGetter<AWSConfig>(() => {
+  const aws = envConfig.aws();
+  const config = {
+    accessKeyId: aws.accessKeyId,
+    secretAccessKey: aws.secretAccessKey,
+    region: aws.region,
+    bucket: aws.bucket
+  };
+  debugLog("configured with", config, "Proxying S3 requests to", aws.uploadUrl, "http.globalAgent.maxSockets:", https.globalAgent.maxSockets);
+  return config;
+});
+
+const s3 = createLazyGetter<S3>(() => new AWS.S3(s3Config()));
 
 export function queryAWSConfig(): AWSConfig {
-  return s3Config;
+  return s3Config();
 }
 
 export function listObjects(req: Request, res: Response) {
   const bucketParams = {
-    Bucket: s3Config.bucket,
+    Bucket: s3Config().bucket,
     Prefix: req.query.prefix.toString(),
     MaxKeys: 20000
   };
   debugLog("listObjects:request:bucketParams:", bucketParams);
-  s3.listObjects(bucketParams)
+  s3().listObjects(bucketParams)
     .then((data: ListObjectsCommandOutput) => {
       const response: S3Metadata[] = data.Contents?.map(item => ({
         key: item.Key,
@@ -65,14 +81,14 @@ export function listObjects(req: Request, res: Response) {
 
 export async function listPrefixes(req: Request, res: Response) {
   const bucketParams = {
-    Bucket: s3Config.bucket,
+    Bucket: s3Config().bucket,
     Prefix: (req.query.prefix || "").toString(),
     Delimiter: "/",
     MaxKeys: 20000
   };
   debugLog("listPrefixes:request:bucketParams:", bucketParams);
   try {
-    const data: ListObjectsV2CommandOutput = await s3.listObjectsV2(bucketParams);
+    const data: ListObjectsV2CommandOutput = await s3().listObjectsV2(bucketParams);
     const prefixes = (data.CommonPrefixes || []).map(p => p.Prefix);
     res.status(200).send({ request: bucketParams, response: prefixes });
   } catch (err) {
@@ -86,7 +102,7 @@ export async function getObject(req: Request, res: Response) {
   const getObjectCommand = new GetObjectCommand(options);
   try {
     debugLog("getting object command using options", options);
-    const s3Item: any = await s3.send(getObjectCommand);
+    const s3Item: any = await s3().send(getObjectCommand);
     if (logObject) {
       debugLog("got object", s3Item);
     }
@@ -104,11 +120,11 @@ export async function getObject(req: Request, res: Response) {
 }
 
 export function getConfig(req: Request, res: Response) {
-  return res.send(envConfig.aws);
+  return res.send(envConfig.aws());
 }
 
 export function listBuckets(req: Request, res: Response) {
-  s3.listBuckets((err, data) => {
+  s3().listBuckets((err, data) => {
     if (!err) {
       return res.status(200).send(data);
     } else {
@@ -118,8 +134,9 @@ export function listBuckets(req: Request, res: Response) {
 }
 
 export function putObjectDirect(rootFolder: string, fileName: string, localFileName: string): Promise<AwsInfo | AwsUploadErrorResponse> {
-  debugLog("configured with", s3Config);
-  const bucket = s3Config.bucket;
+  const config = s3Config();
+  debugLog("configured with", config);
+  const bucket = config.bucket;
   const objectKey = `${rootFolder}/${path.basename(fileName)}`;
   const fileStream = fs.createReadStream(localFileName);
   const stats = fs.statSync(localFileName);
@@ -131,7 +148,7 @@ export function putObjectDirect(rootFolder: string, fileName: string, localFileN
     ContentType: contentTypeFrom(objectKey)
   };
   debugLog(`Saving file to ${bucket}/${objectKey}, size: ${fileSizeInBytes} bytes, using params:`, JSON.stringify(omit(params, "Body")));
-  return s3.putObject(params)
+  return s3().putObject(params)
     .then(data => {
       const information = `Successfully uploaded file to ${bucket}/${objectKey} (${fileSizeInBytes} bytes)`;
       debugLog(information, "->", data);
@@ -163,14 +180,14 @@ function expiryTime() {
 
 function optionsFrom(req: Request): GetObjectRequest {
   const key = `${req.params.bucket}${req.params[0]}`;
-  return {Bucket: s3Config.bucket, Key: key};
+  return {Bucket: s3Config().bucket, Key: key};
 }
 
 async function getObjectAsBase64(req: Request, res: Response) {
   const options: GetObjectRequest = optionsFrom(req);
   debugLog("getting object", options);
   try {
-    const response: any = await s3.getObject(options);
+    const response: any = await s3().getObject(options);
     debugLog("received response Body:", response.Body);
     const text = await response.Body.text();
     const contentType = contentTypeFrom(options.Key);
@@ -185,7 +202,7 @@ async function getObjectAsBase64(req: Request, res: Response) {
 
 export async function get(req: Request, res: Response) {
   const options = optionsFrom(req);
-  const response: any = await s3.getObject(options);
+  const response: any = await s3().getObject(options);
   debugLog("received response Body:", response.Body);
   const imageBytes: any = await response.Body.arrayBuffer();
   const contentType = contentTypeFrom(options.Key);
@@ -197,29 +214,31 @@ export async function get(req: Request, res: Response) {
 
 function s3Policy(req: Request, res: Response) {
   debugLog("req.query.mimeType", req.query.mimeType, "req.query.objectKey", req.query.objectKey);
-  const s3Policy = {
+  const config = s3Config();
+  const aws = envConfig.aws();
+  const policy = {
     "expiration": expiryTime(),
     "conditions": [
       ["starts-with", "$key", `${req.query.objectKey ? req.query.objectKey : ""}/`],
-      {"bucket": s3Config.bucket},
+      {"bucket": config.bucket},
       {"acl": "public-read"},
       ["starts-with", "$Content-Type", req.query.mimeType ? req.query.mimeType : ""],
       {"success_action_status": "201"},
     ],
   };
 
-  const stringPolicy = JSON.stringify(s3Policy);
+  const stringPolicy = JSON.stringify(policy);
   const base64Policy = Buffer.from(stringPolicy, "utf-8").toString("base64");
 
-  debugLog("s3Policy", s3Policy);
-  debugLog("config.aws.secretAccessKey", envConfig.aws.secretAccessKey);
+  debugLog("s3Policy", policy);
+  debugLog("config.aws.secretAccessKey", aws.secretAccessKey);
 
-  const signature = crypto.createHmac("sha1", envConfig.aws.secretAccessKey)
+  const signature = crypto.createHmac("sha1", aws.secretAccessKey)
     .update(base64Policy, "utf-8").digest("base64");
 
   return res.status(200).send({
     s3Policy: base64Policy,
     s3Signature: signature,
-    AWSAccessKeyId: envConfig.aws.accessKeyId,
+    AWSAccessKeyId: aws.accessKeyId,
   });
 }

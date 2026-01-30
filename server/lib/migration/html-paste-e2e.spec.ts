@@ -7,6 +7,7 @@ import { PageTransformationEngine } from "./page-transformation-engine";
 import { PageContent, PageContentType } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { ScrapedImage, ScrapedPage, ScrapedSegment } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { ContentMatchType, ImageMatchPattern, PageTransformationConfig, SegmentType, TextMatchPattern, TransformationActionType } from "../../../projects/ngx-ramblers/src/app/models/page-transformation.model";
+import { buildMarkdownPastePreview, buildHtmlPastePreview } from "./html-paste-preview";
 
 function parseMarkdownToSegments(markdown: string): ScrapedSegment[] {
   const segments: ScrapedSegment[] = [];
@@ -438,7 +439,6 @@ describe("HTML Paste E2E", () => {
 
 Route description here.`;
 
-      const { buildMarkdownPastePreview } = require("./html-paste-preview");
       const preview = buildMarkdownPastePreview(markdown);
 
       expect(preview.rows.length).toBeGreaterThan(0);
@@ -453,7 +453,6 @@ Route description here.`;
         <p>Short caption</p>
       `;
       const baseUrl = "https://example.com/";
-      const { buildHtmlPastePreview } = require("./html-paste-preview");
 
       const preview = buildHtmlPastePreview(html, baseUrl);
 
@@ -468,7 +467,6 @@ Route description here.`;
       const markdown = `![Detailed description of photo](photo.jpg)
 
 Caption text`;
-      const { buildMarkdownPastePreview } = require("./html-paste-preview");
       const preview = buildMarkdownPastePreview(markdown);
 
       const imageRow = preview.rows.find((r: any) => r.imageSource);

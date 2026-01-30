@@ -123,7 +123,7 @@ export interface EnvironmentBackupConfig {
     appName?: string;
     memory?: string;
     scaleCount?: number;
-    organization?: string;
+    organisation?: string;
   };
 }
 

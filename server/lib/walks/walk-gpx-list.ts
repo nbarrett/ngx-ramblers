@@ -14,13 +14,21 @@ import { dateTimeFromIso } from "../shared/dates";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("walk-gpx-list"));
 debugLog.enabled = true;
 
-const s3 = new S3Client({
-  credentials: {
-    accessKeyId: envConfig.aws.accessKeyId,
-    secretAccessKey: envConfig.aws.secretAccessKey
-  },
-  region: envConfig.aws.region
-});
+const s3Cache: { client?: S3Client } = {};
+
+function s3(): S3Client {
+  if (!s3Cache.client) {
+    const awsConfig = envConfig.aws();
+    s3Cache.client = new S3Client({
+      credentials: {
+        accessKeyId: awsConfig.accessKeyId,
+        secretAccessKey: awsConfig.secretAccessKey
+      },
+      region: awsConfig.region
+    });
+  }
+  return s3Cache.client;
+}
 
 interface GpxFileListItem {
   fileData: ServerFileNameData;
@@ -35,7 +43,7 @@ interface GpxFileListItem {
 export async function listWalkGpxFiles(req: Request, res: Response) {
   try {
     const prefix = `${RootFolder.gpxRoutes}/`;
-    const bucket = envConfig.aws.bucket;
+    const bucket = envConfig.aws().bucket;
 
     debugLog("Listing GPX files from", bucket, prefix);
 
@@ -45,7 +53,7 @@ export async function listWalkGpxFiles(req: Request, res: Response) {
       MaxKeys: 1000
     });
 
-    const listResponse = await s3.send(listCommand);
+    const listResponse = await s3().send(listCommand);
     const contents = listResponse.Contents || [];
 
     debugLog("Found", contents.length, "objects in S3");
@@ -144,7 +152,7 @@ async function getOrFetchCoordinates(
 async function parseGpxForFirstPoint(bucket: string, key: string): Promise<{ startLat: number; startLng: number }> {
   try {
     const getCommand = new GetObjectCommand({ Bucket: bucket, Key: key });
-    const getResponse = await s3.send(getCommand);
+    const getResponse = await s3().send(getCommand);
 
     const bodyContents = await streamToString(getResponse.Body as any);
 

@@ -223,6 +223,7 @@ docs(readme): update installation instructions
 The following patterns are **automatically enforced** via ESLint and will cause build failures:
 
 **Quick Summary:**
+- 🚫 No JavaScript files in server/ (must use TypeScript)
 - 🚫 No inline comments (`//`)
 - 🚫 No imperative loops (`for`, `while`, `for...in`)
 - 🚫 No `new Date()` or `Date.now()` (use date utilities)
@@ -231,6 +232,12 @@ The following patterns are **automatically enforced** via ESLint and will cause 
 - 🚫 No `Array.isArray()` (use es-toolkit `isArray()`)
 
 **Detailed Rules:**
+
+#### No JavaScript Files (Server)
+- **NEVER create `.js` files in the server directory** - All server code must be TypeScript (`.ts`)
+- This includes models, routes, utilities, and any other server-side code
+- If you encounter an existing `.js` file, migrate it to TypeScript
+- ESLint will error on any `.js` file in the `server/` directory
 
 #### Code Comments (Frontend & Backend)
 - **NEVER use inline comments (`//`)** - Code must be self-documenting through clear naming

@@ -1,0 +1,29 @@
+#!/bin/bash
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+
+MARKER_FILE="node_modules/.install-marker"
+
+needs_install() {
+  [ ! -d "node_modules" ] && return 0
+  [ ! -f "$MARKER_FILE" ] && return 0
+  [ "package-lock.json" -nt "$MARKER_FILE" ] && return 0
+  [ "server/package-lock.json" -nt "$MARKER_FILE" ] && return 0
+  return 1
+}
+
+if needs_install; then
+  echo "Installing dependencies..."
+  npm install
+  npm install --prefix server
+  touch "$MARKER_FILE"
+fi
+
+./node_modules/.bin/ts-node server/lib/cli/index.ts "$@"

@@ -2,7 +2,7 @@ import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faTimes, faSearch, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faSearch, faSpinner, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { StoredVenue, Venue, VenueType, VenueWithUsageStats } from "../../../models/event-venue.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
@@ -10,13 +10,12 @@ import { VenueScraperService } from "../../../services/venue/venue-scraper.servi
 import { AlertInstance } from "../../../services/notifier.service";
 import { VenueLookupComponent } from "./venue-lookup";
 import { VenueTypeSelect } from "./venue-type-select";
-import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
   selector: "app-venue-editor",
   standalone: true,
-  imports: [FormsModule, FontAwesomeModule, VenueLookupComponent, VenueTypeSelect, VenueIconPipe, TooltipDirective],
+  imports: [FormsModule, FontAwesomeModule, VenueLookupComponent, VenueTypeSelect, TooltipDirective],
   template: `
     <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading d-flex justify-content-between align-items-center">

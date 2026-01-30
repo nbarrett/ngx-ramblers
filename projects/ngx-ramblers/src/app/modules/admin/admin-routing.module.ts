@@ -132,6 +132,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
+      path: "environment-setup",
+      loadComponent: () => import("../../pages/admin/environment-setup/environment-setup")
+        .then(m => m.EnvironmentSetupComponent),
+      canActivate: [SystemHealthyGuard, AdminAuthGuard]
+    },
+    {
       path: "banners", loadComponent: () => import("../../pages/banner/banner.component")
         .then(m => m.BannerComponent),
       canActivate: [SystemHealthyGuard]

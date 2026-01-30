@@ -45,7 +45,7 @@ const oldMigrationsUseJsExtensionAsThatIsWhatIsInProductionBuild = [
 
 (async () => {
   try {
-    await markMigrationsAsApplied(oldMigrationsUseJsExtensionAsThatIsWhatIsInProductionBuild, migrateMongoConfig);
+    await markMigrationsAsApplied(oldMigrationsUseJsExtensionAsThatIsWhatIsInProductionBuild, migrateMongoConfig());
     debugLog("Done");
     process.exit(0);
   } catch (error) {

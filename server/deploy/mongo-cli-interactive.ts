@@ -10,7 +10,7 @@ import {
 import type { EnvironmentConfig } from "./types.js";
 import { getAwsConfigForEnvironment, loadConfigs } from "./config-loader.js";
 import { isUndefined } from "es-toolkit/compat";
-import { dateTimeFromJsDate } from "../lib/shared/dates";
+import { dateTimeFromJsDate, dateTimeNow } from "../lib/shared/dates";
 
 interface BackupAnswers {
   environment: string;
@@ -123,7 +123,7 @@ async function runBackup(configs: EnvironmentConfig[], dumpBaseDir: string) {
     if (!env.mongo) continue;
 
     const dbName = database || env.mongo.db;
-    const timestamp = DateTime.now().toFormat(DateFormat.FILE_TIMESTAMP);
+    const timestamp = dateTimeNow().toFormat(DateFormat.FILE_TIMESTAMP);
     const backupName = `${timestamp}-${env.name}-${dbName}`;
     const outDir = path.join(dumpBaseDir, "backups", backupName);
 

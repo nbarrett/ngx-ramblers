@@ -286,13 +286,13 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                         </div>
                         <div class="form-group">
                           <label for="youtube-href">Youtube</label>
-                          <input [(ngModel)]="config.externalSystems.youtube"
+                          <input [(ngModel)]="config.externalSystems.youtube.groupUrl"
                                  type="text" class="form-control input-sm" id="youtube-href"
                                  placeholder="Enter a group url for Youtube">
                         </div>
                         <div class="form-group">
                           <label for="twitter-href">Twitter</label>
-                          <input [(ngModel)]="config.externalSystems.twitter"
+                          <input [(ngModel)]="config.externalSystems.twitter.groupUrl"
                                  type="text" class="form-control input-sm" id="twitter-href"
                                  placeholder="Enter a group url for Twitter">
                         </div>
@@ -443,6 +443,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
         this.config = config;
+        this.ensureExternalSystemsInitialised();
         this.logger.info("retrieved config", config);
       }));
   }
@@ -467,6 +468,21 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
 
   notReady() {
     return !this.config;
+  }
+
+  ensureExternalSystemsInitialised() {
+    if (this.config?.externalSystems) {
+      const defaultExternalSystem = { groupUrl: "", showFooterLink: false, showFeed: false };
+      if (!this.config.externalSystems.youtube) {
+        this.config.externalSystems.youtube = { ...defaultExternalSystem };
+      }
+      if (!this.config.externalSystems.twitter) {
+        this.config.externalSystems.twitter = { ...defaultExternalSystem };
+      }
+      if (!this.config.externalSystems.linkedIn) {
+        this.config.externalSystems.linkedIn = { ...defaultExternalSystem };
+      }
+    }
   }
 
   savePendingMembers() {

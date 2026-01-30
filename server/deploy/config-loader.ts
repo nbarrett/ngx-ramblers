@@ -33,7 +33,7 @@ function transformBackupConfigToEnvironmentConfigs(backupConfig: BackupConfig): 
       appName: env.flyio?.appName || "",
       memory: env.flyio?.memory || "512mb",
       scaleCount: env.flyio?.scaleCount || 1,
-      organization: env.flyio?.organization,
+      organisation: env.flyio?.organisation,
       mongo: mongoConfig
     };
   });

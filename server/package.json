@@ -12,6 +12,7 @@
     "clean-ts": "rimraf ts-gen",
     "copy-assets": "cp -r lib/geojson ts-gen/server/lib/ && cp lib/mongo/migrations/README.md ts-gen/server/lib/mongo/migrations/database/",
     "deploy": "ts-node deploy/deploy-to-environments.ts",
+    "cli": "tsx lib/cli/index.ts",
     "lint": "tslint --config ./tslint.json --project ./tsconfig.json --format stylish",
     "lintfix": "tslint --config ./tslint.json --project ./tsconfig.json --format stylish --fix",
     "lintversion": "tslint --version",
@@ -51,6 +52,7 @@
     ]
   },
   "dependencies": {
+    "@aws-sdk/client-iam": "^3.978.0",
     "@aws-sdk/client-s3": "3.180.0",
     "@getbrevo/brevo": "2.0.0-beta.4",
     "@mailchimp/mailchimp_marketing": "3.0.80",
