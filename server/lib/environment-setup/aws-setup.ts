@@ -12,13 +12,19 @@ import {
   CreateAccessKeyCommand,
   CreatePolicyCommand,
   CreateUserCommand,
+  DeleteAccessKeyCommand,
+  GetPolicyCommand,
   GetUserCommand,
-  IAMClient
+  IAMClient,
+  ListAccessKeysCommand,
+  ListAttachedUserPoliciesCommand
 } from "@aws-sdk/client-iam";
+import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../env-config/environment-model";
 import { AwsAdminConfig, AwsCustomerCredentials, ValidationResult } from "./types";
+import { AWS_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:aws-setup"));
 debugLog.enabled = true;
@@ -163,51 +169,142 @@ export async function createS3Bucket(
   debugLog("Configured CORS for bucket:", bucketName);
 }
 
-export async function createIamUserWithBucketPolicy(
-  iamClient: IAMClient,
-  userName: string,
-  bucketName: string,
-  policyName: string
-): Promise<{ accessKeyId: string; secretAccessKey: string; policyArn: string }> {
-  debugLog("Creating IAM user:", userName, "with policy for bucket:", bucketName);
+async function getAwsAccountId(adminConfig: AwsAdminConfig): Promise<string> {
+  const stsClient = new STSClient({
+    region: adminConfig.region,
+    credentials: {
+      accessKeyId: adminConfig.accessKeyId,
+      secretAccessKey: adminConfig.secretAccessKey
+    }
+  });
+  const response = await stsClient.send(new GetCallerIdentityCommand({}));
+  return response.Account || "";
+}
 
-  const exists = await userExists(iamClient, userName);
-  if (exists) {
-    debugLog("IAM user already exists:", userName);
-    throw new Error(`IAM user ${userName} already exists. Please use a different environment name or delete the existing user.`);
+async function policyExists(iamClient: IAMClient, policyArn: string): Promise<boolean> {
+  try {
+    await iamClient.send(new GetPolicyCommand({ PolicyArn: policyArn }));
+    return true;
+  } catch (error) {
+    if (error.name === "NoSuchEntity" || error.name === "NoSuchEntityException") {
+      return false;
+    }
+    throw error;
   }
+}
 
-  await iamClient.send(new CreateUserCommand({ UserName: userName }));
-  debugLog("Created IAM user:", userName);
-
-  const policyDocument = createBucketPolicy(bucketName);
-  const createPolicyResponse = await iamClient.send(new CreatePolicyCommand({
-    PolicyName: policyName,
-    PolicyDocument: policyDocument,
-    Description: `Policy for ngx-ramblers bucket ${bucketName}`
-  }));
-
-  const policyArn = createPolicyResponse.Policy?.Arn;
-  if (!policyArn) {
-    throw new Error("Failed to create policy - no ARN returned");
+async function isPolicyAttachedToUser(iamClient: IAMClient, userName: string, policyArn: string): Promise<boolean> {
+  try {
+    const response = await iamClient.send(new ListAttachedUserPoliciesCommand({ UserName: userName }));
+    return (response.AttachedPolicies || []).some(p => p.PolicyArn === policyArn);
+  } catch (error) {
+    debugLog("Error checking attached policies:", error.message);
+    return false;
   }
-  debugLog("Created policy:", policyArn);
+}
 
-  await iamClient.send(new AttachUserPolicyCommand({
-    UserName: userName,
-    PolicyArn: policyArn
-  }));
-  debugLog("Attached policy to user");
+function generatePolicyArn(accountId: string, policyName: string): string {
+  if (accountId) {
+    return `arn:aws:iam::${accountId}:policy/${policyName}`;
+  }
+  return "";
+}
 
-  const accessKeyResponse = await iamClient.send(new CreateAccessKeyCommand({
-    UserName: userName
-  }));
+async function deleteExistingAccessKeys(iamClient: IAMClient, userName: string): Promise<void> {
+  const existingKeysResponse = await iamClient.send(new ListAccessKeysCommand({ UserName: userName }));
+  const existingKeys = existingKeysResponse.AccessKeyMetadata || [];
+  debugLog(`User ${userName} has ${existingKeys.length} existing access keys`);
 
+  for (const key of existingKeys) {
+    if (key.AccessKeyId) {
+      await iamClient.send(new DeleteAccessKeyCommand({
+        UserName: userName,
+        AccessKeyId: key.AccessKeyId
+      }));
+      debugLog(`Deleted access key: ${key.AccessKeyId}`);
+    }
+  }
+}
+
+async function createAccessKeyForUser(iamClient: IAMClient, userName: string): Promise<{ AccessKeyId: string; SecretAccessKey: string }> {
+  const accessKeyResponse = await iamClient.send(new CreateAccessKeyCommand({ UserName: userName }));
   const accessKey = accessKeyResponse.AccessKey;
   if (!accessKey?.AccessKeyId || !accessKey?.SecretAccessKey) {
     throw new Error("Failed to create access key - no credentials returned");
   }
-  debugLog("Created access key for user");
+  debugLog("Created access key for user:", userName);
+  return { AccessKeyId: accessKey.AccessKeyId, SecretAccessKey: accessKey.SecretAccessKey };
+}
+
+export async function createIamUserWithBucketPolicy(
+  iamClient: IAMClient,
+  adminConfig: AwsAdminConfig,
+  userName: string,
+  bucketName: string,
+  policyName: string
+): Promise<{ accessKeyId: string; secretAccessKey: string; policyArn: string }> {
+  debugLog("Setting up IAM user:", userName, "with policy for bucket:", bucketName);
+
+  const accountId = await getAwsAccountId(adminConfig);
+  debugLog("AWS Account ID:", accountId);
+
+  const userAlreadyExists = await userExists(iamClient, userName);
+
+  if (userAlreadyExists) {
+    debugLog("IAM user already exists, reusing:", userName);
+  } else {
+    await iamClient.send(new CreateUserCommand({ UserName: userName }));
+    debugLog("Created IAM user:", userName);
+  }
+
+  const policyDocument = createBucketPolicy(bucketName);
+  let policyArn: string;
+
+  const expectedPolicyArn = generatePolicyArn(accountId, policyName);
+  const policyAlreadyExists = expectedPolicyArn && await policyExists(iamClient, expectedPolicyArn);
+
+  if (policyAlreadyExists) {
+    debugLog("Policy already exists, reusing:", expectedPolicyArn);
+    policyArn = expectedPolicyArn;
+  } else {
+    try {
+      const createPolicyResponse = await iamClient.send(new CreatePolicyCommand({
+        PolicyName: policyName,
+        PolicyDocument: policyDocument,
+        Description: `Policy for ngx-ramblers bucket ${bucketName}`
+      }));
+      policyArn = createPolicyResponse.Policy?.Arn;
+      if (!policyArn) {
+        throw new Error("Failed to create policy - no ARN returned");
+      }
+      debugLog("Created policy:", policyArn);
+    } catch (error) {
+      if (error.name === "EntityAlreadyExists") {
+        debugLog("Policy already exists (caught during create), using constructed ARN");
+        policyArn = expectedPolicyArn;
+        if (!policyArn) {
+          throw new Error(`Policy ${policyName} exists but couldn't determine ARN`);
+        }
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  const isAttached = await isPolicyAttachedToUser(iamClient, userName, policyArn);
+  if (!isAttached) {
+    await iamClient.send(new AttachUserPolicyCommand({
+      UserName: userName,
+      PolicyArn: policyArn
+    }));
+    debugLog("Attached policy to user");
+  } else {
+    debugLog("Policy already attached to user");
+  }
+
+  await deleteExistingAccessKeys(iamClient, userName);
+
+  const accessKey = await createAccessKeyForUser(iamClient, userName);
 
   return {
     accessKeyId: accessKey.AccessKeyId,
@@ -238,6 +335,7 @@ export async function setupAwsForCustomer(
 
   const { accessKeyId, secretAccessKey, policyArn } = await createIamUserWithBucketPolicy(
     iamClient,
+    adminConfig,
     userName,
     bucketName,
     policyName
@@ -272,7 +370,7 @@ export async function validateAwsAdminCredentials(adminConfig: AwsAdminConfig): 
 export function adminConfigFromEnvironment(): AwsAdminConfig | null {
   const accessKeyId = process.env[Environment.SETUP_AWS_ACCESS_KEY_ID] || process.env[Environment.AWS_ACCESS_KEY_ID];
   const secretAccessKey = process.env[Environment.SETUP_AWS_SECRET_ACCESS_KEY] || process.env[Environment.AWS_SECRET_ACCESS_KEY];
-  const region = process.env[Environment.SETUP_AWS_REGION] || process.env[Environment.AWS_REGION] || "eu-west-1";
+  const region = process.env[Environment.SETUP_AWS_REGION] || process.env[Environment.AWS_REGION] || AWS_DEFAULTS.REGION;
 
   if (!accessKeyId || !secretAccessKey) {
     return null;

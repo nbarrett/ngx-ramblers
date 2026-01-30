@@ -1,4 +1,4 @@
-import { ListStyle, LinkStyle } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { LinkStyle, ListStyle } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { RamblersGroupsApiResponse } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import {
   defaultHeaderBar,
@@ -159,6 +159,9 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
     recaptcha: {
       siteKey: recaptchaSiteKey || "",
       secretKey: recaptchaSecretKey || ""
+    },
+    googleMaps: {
+      apiKey: googleMapsApiKey || ""
     },
     enableMigration: {
       events: false

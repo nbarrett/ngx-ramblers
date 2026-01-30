@@ -25,10 +25,11 @@ import { dateTimeNowAsValue } from "../shared/dates";
 import { uid } from "rand-token";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
-  BackupConfig,
-  EnvironmentBackupConfig
-} from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
+  EnvironmentConfig,
+  EnvironmentsConfig
+} from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import * as configController from "../mongo/controllers/config";
+import { connect as ensureMongoConnection } from "../mongo/mongoose-client";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
 import { secretsPath, writeSecretsFile } from "../shared/secrets";
 import { addOrUpdateEnvironment } from "../shared/configs-json";
@@ -60,13 +61,11 @@ function buildMongoUri(request: EnvironmentSetupRequest): string {
   });
 }
 
-async function updateBackupConfig(
+async function updateEnvironmentsConfig(
   request: EnvironmentSetupRequest,
   awsCredentials: AwsCustomerCredentials
 ): Promise<void> {
-  const mongoUri = buildMongoUri(request);
-
-  const newEnvBackupConfig: EnvironmentBackupConfig = {
+  const newEnvConfig: EnvironmentConfig = {
     environment: request.environmentBasics.environmentName,
     aws: {
       bucket: awsCredentials.bucket,
@@ -75,7 +74,7 @@ async function updateBackupConfig(
       secretAccessKey: awsCredentials.secretAccessKey
     },
     mongo: {
-      uri: mongoUri,
+      cluster: request.serviceConfigs.mongodb.cluster,
       db: request.serviceConfigs.mongodb.database,
       username: request.serviceConfigs.mongodb.username,
       password: request.serviceConfigs.mongodb.password
@@ -89,8 +88,9 @@ async function updateBackupConfig(
   };
 
   try {
-    const existingConfigDoc = await configController.queryKey(ConfigKey.BACKUP);
-    const existingConfig: BackupConfig = existingConfigDoc?.value || { environments: [] };
+    await ensureMongoConnection();
+    const existingConfigDoc = await configController.queryKey(ConfigKey.ENVIRONMENTS);
+    const existingConfig: EnvironmentsConfig = existingConfigDoc?.value || { environments: [] };
 
     const environments = existingConfig.environments || [];
     const existingEnvIndex = environments.findIndex(
@@ -98,21 +98,21 @@ async function updateBackupConfig(
     );
 
     if (existingEnvIndex >= 0) {
-      environments[existingEnvIndex] = newEnvBackupConfig;
+      environments[existingEnvIndex] = newEnvConfig;
     } else {
-      environments.push(newEnvBackupConfig);
+      environments.push(newEnvConfig);
     }
 
-    const updatedConfig: BackupConfig = {
+    const updatedConfig: EnvironmentsConfig = {
       ...existingConfig,
       environments
     };
 
-    await configController.createOrUpdateKey(ConfigKey.BACKUP, updatedConfig);
-    debugLog("Updated backup config with new environment:", request.environmentBasics.environmentName);
+    await configController.createOrUpdateKey(ConfigKey.ENVIRONMENTS, updatedConfig);
+    debugLog("Updated environments config with new environment:", request.environmentBasics.environmentName);
   } catch (error) {
-    debugLog("Error updating backup config:", error);
-    throw new Error(`Failed to update backup configuration: ${error.message}`);
+    debugLog("Error updating environments config:", error);
+    throw new Error(`Failed to update environments configuration: ${error.message}`);
   }
 }
 
@@ -123,7 +123,7 @@ function buildSecretsConfig(
 ): SecretsConfig {
   const mongoUri = buildMongoUri(request);
 
-  return {
+  const secrets: SecretsConfig = {
     AUTH_SECRET: authSecret,
     AWS_ACCESS_KEY_ID: awsCredentials.accessKeyId,
     AWS_SECRET_ACCESS_KEY: awsCredentials.secretAccessKey,
@@ -132,7 +132,6 @@ function buildSecretsConfig(
     CHROME_VERSION: "131",
     DEBUG: "ngx-ramblers:*",
     DEBUG_COLORS: "true",
-    GOOGLE_MAPS_APIKEY: request.serviceConfigs.googleMaps?.apiKey || "",
     MONGODB_URI: mongoUri,
     NODE_ENV: "production",
     RAMBLERS_API_KEY: request.serviceConfigs.ramblers.apiKey,
@@ -141,6 +140,24 @@ function buildSecretsConfig(
     RAMBLERS_GROUP_CODE: request.ramblersInfo.groupCode,
     RAMBLERS_GROUP_NAME: request.ramblersInfo.groupName || ""
   };
+
+  if (request.serviceConfigs.googleMaps?.apiKey) {
+    secrets.GOOGLE_MAPS_APIKEY = request.serviceConfigs.googleMaps.apiKey;
+  }
+  if (request.serviceConfigs.osMaps?.apiKey) {
+    secrets.OS_MAPS_API_KEY = request.serviceConfigs.osMaps.apiKey;
+  }
+  if (request.serviceConfigs.brevo?.apiKey) {
+    secrets.BREVO_API_KEY = request.serviceConfigs.brevo.apiKey;
+  }
+  if (request.serviceConfigs.recaptcha?.siteKey) {
+    secrets.RECAPTCHA_SITE_KEY = request.serviceConfigs.recaptcha.siteKey;
+  }
+  if (request.serviceConfigs.recaptcha?.secretKey) {
+    secrets.RECAPTCHA_SECRET_KEY = request.serviceConfigs.recaptcha.secretKey;
+  }
+
+  return secrets;
 }
 
 export async function validateSetupRequest(request: EnvironmentSetupRequest): Promise<ValidationResult[]> {
@@ -178,8 +195,8 @@ export async function validateSetupRequest(request: EnvironmentSetupRequest): Pr
 
   if (!request.serviceConfigs.brevo.apiKey) {
     results.push({
-      valid: false,
-      message: "Brevo API Key: Required but not provided"
+      valid: true,
+      message: "Brevo API Key: Not provided (optional)"
     });
   } else {
     results.push({
@@ -252,6 +269,7 @@ export async function createEnvironment(
     reportProgress(SetupStep.QUERY_RAMBLERS_API, "completed", `Found group: ${groupData.name}`);
 
     let awsCredentials: AwsCustomerCredentials;
+    let copiedAssets: { icons: string[]; logos: string[]; backgrounds: string[] } | undefined;
     const awsAdminConfig = adminConfigFromEnvironment();
 
     if (!request.options.skipFlyDeployment && awsAdminConfig) {
@@ -270,7 +288,7 @@ export async function createEnvironment(
 
       if (request.options.copyStandardAssets) {
         reportProgress(SetupStep.COPY_STANDARD_ASSETS, "running", "Copying standard assets to S3 bucket");
-        const copiedAssets = await copyStandardAssets(awsAdminConfig, awsCredentials.bucket);
+        copiedAssets = await copyStandardAssets(awsAdminConfig, awsCredentials.bucket);
         const totalCopied = copiedAssets.icons.length + copiedAssets.logos.length + copiedAssets.backgrounds.length;
         reportProgress(SetupStep.COPY_STANDARD_ASSETS, "completed", `Copied ${totalCopied} assets (${copiedAssets.icons.length} icons, ${copiedAssets.logos.length} logos, ${copiedAssets.backgrounds.length} backgrounds)`);
       } else {
@@ -307,7 +325,7 @@ export async function createEnvironment(
     reportProgress(SetupStep.INITIALISE_DATABASE, "running", "Initialising MongoDB database");
     await initialiseDatabase(request, dbProgress => {
       debugLog(`[${sessionId}] Database: ${dbProgress.step} - ${dbProgress.status}`);
-    });
+    }, copiedAssets);
     reportProgress(SetupStep.INITIALISE_DATABASE, "completed", "Database initialised successfully");
 
     if (!request.options.skipFlyDeployment) {
@@ -343,9 +361,9 @@ export async function createEnvironment(
       reportProgress(SetupStep.DEPLOY_APP, "completed", "Skipped Fly.io deployment");
     }
 
-    reportProgress(SetupStep.UPDATE_BACKUP_CONFIG, "running", "Adding environment to backup configuration");
-    await updateBackupConfig(request, awsCredentials);
-    reportProgress(SetupStep.UPDATE_BACKUP_CONFIG, "completed", "Backup configuration updated");
+    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "running", "Adding environment to environments configuration");
+    await updateEnvironmentsConfig(request, awsCredentials);
+    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "completed", "Environments configuration updated");
 
     session.status = "completed";
     session.completedAt = dateTimeNowAsValue();

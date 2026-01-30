@@ -21,15 +21,15 @@ import {
   SetupOptions
 } from "../lib/environment-setup/types";
 import { adminConfigFromEnvironment, validateAwsAdminCredentials } from "../lib/environment-setup/aws-setup";
-import { log, error as logError } from "../lib/cli/cli-logger";
+import { error as logError, log } from "../lib/cli/cli-logger";
 import { RamblersGroupsApiResponse } from "../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { AWS_DEFAULTS, FLYIO_DEFAULTS } from "./types";
 
 const defaults = {
-  memory: "1024",
-  scaleCount: "1",
+  memory: FLYIO_DEFAULTS.MEMORY,
+  scaleCount: String(FLYIO_DEFAULTS.SCALE_COUNT),
   mongodbCluster: "",
-  awsRegion: "eu-west-1",
-  googleMapsApiKey: ""
+  awsRegion: AWS_DEFAULTS.REGION
 };
 
 const debugLog = debug("create-environment-cli");
@@ -314,8 +314,8 @@ async function promptGoogleMapsConfig(): Promise<GoogleMapsConfig> {
   const { apiKey } = await inquirer.prompt({
     type: "input",
     name: "apiKey",
-    message: `Google Maps API key (enter for shared default):`,
-    default: defaults.googleMapsApiKey
+    message: `Google Maps API key (enter for shared default or configure in database later):`,
+    default: ""
   });
 
   return { apiKey };

@@ -1,6 +1,7 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import https from "https";
+import * as systemConfig from "../config/system-config";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("google-venue-search"));
 debugLog.enabled = true;
@@ -186,7 +187,8 @@ export async function googleVenueSearch(req, res) {
   const lat = parseFloat(req.query.lat);
   const lon = parseFloat(req.query.lon);
   const limit = Math.min(parseInt(req.query.limit) || 10, 20);
-  const apiKey = envConfig.googleMaps().apiKey;
+  const config = await systemConfig.systemConfig();
+  const apiKey = config?.googleMaps?.apiKey;
 
   if (!query || query.length < 2) {
     return res.status(400).json({

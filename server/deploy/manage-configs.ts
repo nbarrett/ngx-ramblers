@@ -10,20 +10,26 @@ import {
   readConfigFile,
   runCommand
 } from "./fly-commands";
-import { DeploymentConfig, NewEnvironmentConfig, RuntimeConfig, SecretsConfig } from "./types";
+import {
+  AWS_DEFAULTS,
+  DeploymentConfig,
+  FLYIO_DEFAULTS,
+  NewEnvironmentConfig,
+  RuntimeConfig,
+  SecretsConfig
+} from "./types";
 import { Environment } from "../lib/env-config/environment-model";
 
 const defaults = {
   environmentName: "staging",
-  memory: "1024",
-  scaleCount: "1",
-  awsRegion: "eu-west-1",
+  memory: FLYIO_DEFAULTS.MEMORY,
+  scaleCount: String(FLYIO_DEFAULTS.SCALE_COUNT),
+  awsRegion: AWS_DEFAULTS.REGION,
   awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
   awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
   chromeVersion: "131",
   debug: "ngx-ramblers:*",
   debugColors: "true",
-  googleMapsApiKey: process.env.GOOGLE_MAPS_APIKEY || "",
   mongodbUsername: "",
   mongodbPassword: "",
   mongodbCluster: "",
@@ -75,7 +81,7 @@ async function queryAppConfig(appName: string): Promise<{ memory: string; count:
     const config = JSON.parse(output);
     const hasMachines = config.count > 0 || (config.processes && Object.keys(config.processes).length > 0);
     return {
-      memory: config.memory || "512mb",
+      memory: config.memory || FLYIO_DEFAULTS.MEMORY,
       count: config.count || 0,
       hasMachines
     };
@@ -90,7 +96,7 @@ async function getOrganization(): Promise<string> {
     const output = runCommand("flyctl orgs list", true);
     const lines = output.trim().split("\n");
     if (lines.length > 1) {
-      return lines[1].split(/\s+/)[0]; // First column of the second line (first org)
+      return lines[1].split(/\s+/)[0];
     }
     debugLog("No organizations found");
     return "";
@@ -210,12 +216,6 @@ async function queryNewEnvironmentConfig(): Promise<NewEnvironmentConfig> {
     },
     {
       type: "input",
-      name: "googleMapsApiKey",
-      message: `Google Maps API Key [default: ${defaults.googleMapsApiKey}]:`,
-      default: defaults.googleMapsApiKey
-    },
-    {
-      type: "input",
       name: "mongodbUsername",
       message: `MongoDB Username [default: ${defaults.mongodbUsername}]:`,
       default: defaults.mongodbUsername,
@@ -239,7 +239,7 @@ async function queryNewEnvironmentConfig(): Promise<NewEnvironmentConfig> {
       type: "input",
       name: "organization",
       message: "Fly.io organization (leave empty for default):",
-      default: org || "personal",
+      default: org || FLYIO_DEFAULTS.ORGANISATION,
       validate: input => !input || input.trim() ? true : "Organization is required if specified"
     }
   ]);
@@ -271,7 +271,6 @@ async function queryNewEnvironmentConfig(): Promise<NewEnvironmentConfig> {
     CHROME_VERSION: defaults.chromeVersion,
     DEBUG: defaults.debug,
     DEBUG_COLORS: defaults.debugColors,
-    GOOGLE_MAPS_APIKEY: answers.googleMapsApiKey || defaults.googleMapsApiKey,
     MONGODB_URI: mongodbUri,
     NODE_ENV: defaults.nodeEnv,
     FLY_API_TOKEN: flyApiToken
@@ -281,10 +280,10 @@ async function queryNewEnvironmentConfig(): Promise<NewEnvironmentConfig> {
     name: answers.name,
     apiKey: flyApiToken,
     appName: answers.appName,
-    memory: answers.memory || `${defaults.memory}mb`,
+    memory: answers.memory || defaults.memory,
     scaleCount: +answers.scaleCount || +defaults.scaleCount,
     secrets,
-    organisation: answers.organization || org || "personal"
+    organisation: answers.organization || org || FLYIO_DEFAULTS.ORGANISATION
   };
 }
 

@@ -8,9 +8,11 @@ import {
   RamblersWalksManagerDateFormat as DateFormat
 } from "../../projects/ngx-ramblers/src/app/models/date-format.model";
 import type { EnvironmentConfig } from "./types.js";
+import { AWS_DEFAULTS } from "./types.js";
 import { getAwsConfigForEnvironment, loadConfigs } from "./config-loader.js";
 import { isUndefined } from "es-toolkit/compat";
 import { dateTimeFromJsDate, dateTimeNow } from "../lib/shared/dates";
+import { buildMongoUri } from "../lib/shared/mongodb-uri";
 
 interface BackupAnswers {
   environment: string;
@@ -129,11 +131,15 @@ async function runBackup(configs: EnvironmentConfig[], dumpBaseDir: string) {
 
     await fs.mkdir(outDir, { recursive: true });
 
+    const uri = buildMongoUri({
+      cluster: env.mongo.cluster,
+      username: env.mongo.username,
+      password: env.mongo.password,
+      database: dbName
+    });
+
     const dumpArgs = [
-      "--uri", env.mongo.uri,
-      "--username", env.mongo.username,
-      "--password", env.mongo.password,
-      "--db", dbName,
+      "--uri", uri,
       "--gzip",
       "--out", outDir
     ];
@@ -159,7 +165,7 @@ async function runBackup(configs: EnvironmentConfig[], dumpBaseDir: string) {
       if (upload) {
         const awsConfig = await getAwsConfigForEnvironment(env.name);
         const s3Bucket = awsConfig?.bucket || process.env.AWS_BUCKET;
-        const s3Region = awsConfig?.region || process.env.AWS_REGION || "us-east-1";
+        const s3Region = awsConfig?.region || process.env.AWS_REGION || AWS_DEFAULTS.REGION;
         const s3AccessKeyId = awsConfig?.accessKeyId || process.env.AWS_ACCESS_KEY_ID;
         const s3SecretAccessKey = awsConfig?.secretAccessKey || process.env.AWS_SECRET_ACCESS_KEY;
 
@@ -256,12 +262,15 @@ async function runRestore(configs: EnvironmentConfig[], dumpBaseDir: string) {
 
   const fromPath = path.join(dumpBaseDir, from);
   const dbName = config.mongo!.db;
+  const uri = buildMongoUri({
+    cluster: config.mongo!.cluster,
+    username: config.mongo!.username,
+    password: config.mongo!.password,
+    database: dbName
+  });
 
   const restoreArgs = [
-    "--uri", config.mongo!.uri,
-    "--username", config.mongo!.username,
-    "--password", config.mongo!.password,
-    "--db", dbName,
+    "--uri", uri,
     "--gzip"
   ];
 

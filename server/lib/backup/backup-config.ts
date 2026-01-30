@@ -1,6 +1,9 @@
 import debug from "debug";
 import { ConfigDocument, ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { BackupConfig, EnvironmentBackupConfig } from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
+import {
+  BackupConfig,
+  EnvironmentBackupConfig
+} from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
 import { initializeBackupConfig } from "./config-initializer";

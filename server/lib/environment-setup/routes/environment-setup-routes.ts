@@ -3,16 +3,19 @@ import express, { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import { Environment } from "../../env-config/environment-model";
 import { groupDetails, listGroupsByAreaCode, validateRamblersApiKey } from "../ramblers-api-client";
-import { validateMongoConnection } from "../database-initialiser";
-import { adminConfigFromEnvironment, validateAwsAdminCredentials } from "../aws-setup";
+import { connectToDatabase, validateMongoConnection } from "../database-initialiser";
+import { adminConfigFromEnvironment, copyStandardAssets, validateAwsAdminCredentials } from "../aws-setup";
 import { createEnvironment, listSessions, sessionStatus, validateSetupRequest } from "../environment-setup-service";
 import { EnvironmentSetupRequest, RamblersAreaLookup, RamblersGroupLookup } from "../types";
-import { configsJsonExists, findEnvironment, listEnvironmentSummaries } from "../../shared/configs-json";
+import { findEnvironment } from "../../shared/configs-json";
 import { buildMongoUri, extractClusterFromUri, extractUsernameFromUri } from "../../shared/mongodb-uri";
 import { loadSecretsForEnvironment } from "../../shared/secrets";
 import { resumeEnvironment } from "../../cli/commands/environment";
 import { destroyEnvironment } from "../../cli/commands/destroy";
 import { booleanOf } from "../../shared/string-utils";
+import { configuredEnvironments } from "../../environments/environments-config";
+import * as systemConfig from "../../config/system-config";
+import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:routes"));
 debugLog.enabled = true;
@@ -217,6 +220,8 @@ router.get("/defaults", async (req: Request, res: Response) => {
     const mongoCluster = extractClusterFromUri(mongoUri) || "";
     const mongoUsername = extractUsernameFromUri(mongoUri) || "";
 
+    const config = await systemConfig.systemConfig();
+
     const defaults = {
       mongodb: {
         cluster: mongoCluster,
@@ -226,14 +231,14 @@ router.get("/defaults", async (req: Request, res: Response) => {
         region: envConfig.aws().region
       },
       googleMaps: {
-        apiKey: envConfig.googleMaps().apiKey || ""
+        apiKey: config?.googleMaps?.apiKey || ""
       },
       osMaps: {
-        apiKey: process.env[Environment.OS_MAPS_API_KEY] || ""
+        apiKey: config?.externalSystems?.osMaps?.apiKey || ""
       },
       recaptcha: {
-        siteKey: process.env[Environment.RECAPTCHA_SITE_KEY] || "",
-        secretKey: process.env[Environment.RECAPTCHA_SECRET_KEY] || ""
+        siteKey: config?.recaptcha?.siteKey || "",
+        secretKey: config?.recaptcha?.secretKey || ""
       }
     };
 
@@ -248,17 +253,20 @@ router.get("/defaults", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/existing-environments", (req: Request, res: Response) => {
+router.get("/existing-environments", async (req: Request, res: Response) => {
   if (!validateSetupAccess(req, res)) return;
 
   try {
-    if (!configsJsonExists()) {
-      res.json({ environments: [] });
-      return;
-    }
-
-    const environments = listEnvironmentSummaries();
-    debugLog("Returning existing environments:", environments.length);
+    const environmentsConfig = await configuredEnvironments();
+    const environments = (environmentsConfig.environments || []).map(env => ({
+      name: env.environment,
+      appName: env.flyio?.appName || `ngx-ramblers-${env.environment}`,
+      memory: env.flyio?.memory || FLYIO_DEFAULTS.MEMORY,
+      scaleCount: env.flyio?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT,
+      organisation: env.flyio?.organisation || FLYIO_DEFAULTS.ORGANISATION,
+      hasApiKey: Boolean(env.flyio?.apiKey)
+    }));
+    debugLog("Returning existing environments from MongoDB:", environments.length);
     res.json({ environments });
   } catch (error) {
     errorDebugLog("Error listing existing environments:", error);
@@ -375,6 +383,105 @@ router.delete("/destroy/:environmentName", async (req: Request, res: Response) =
   } catch (error) {
     errorDebugLog("Error destroying environment:", error.message);
     errorDebugLog("Error stack:", error.stack);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/copy-assets/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Copy assets request received for:", environmentName);
+
+    const environmentsConfig = await configuredEnvironments();
+    const envConfigData = environmentsConfig.environments?.find(e => e.environment === environmentName);
+
+    if (!envConfigData) {
+      res.status(404).json({ error: `Environment ${environmentName} not found in environments config` });
+      return;
+    }
+
+    const bucket = envConfigData.aws?.bucket;
+    if (!bucket) {
+      res.status(400).json({ error: `No S3 bucket configured for environment ${environmentName}` });
+      return;
+    }
+
+    const mongoConfig = envConfigData.mongo;
+    if (!mongoConfig?.cluster || !mongoConfig?.db) {
+      res.status(400).json({ error: `No MongoDB configured for environment ${environmentName}` });
+      return;
+    }
+    const database = mongoConfig.db;
+    const mongoUri = buildMongoUri({
+      cluster: mongoConfig.cluster,
+      username: mongoConfig.username || "",
+      password: mongoConfig.password || "",
+      database
+    });
+
+    const awsAdminConfig = adminConfigFromEnvironment();
+    if (!awsAdminConfig) {
+      res.status(400).json({ error: "AWS admin credentials not configured on this server" });
+      return;
+    }
+
+    debugLog("Copying standard assets to bucket:", bucket);
+    const copiedAssets = await copyStandardAssets(awsAdminConfig, bucket);
+    const totalCopied = copiedAssets.icons.length + copiedAssets.logos.length + copiedAssets.backgrounds.length;
+
+    debugLog("Copied assets:", copiedAssets);
+
+    if (totalCopied > 0) {
+      debugLog("Updating system config in database:", database);
+      const { client, db } = await connectToDatabase({ uri: mongoUri, database });
+      try {
+        const configCollection = db.collection("config");
+        const systemConfigDoc = await configCollection.findOne({ key: "system" });
+
+        if (systemConfigDoc?.value) {
+          const updates: any = {};
+
+          if (copiedAssets.icons.length > 0) {
+            updates["value.icons.images"] = copiedAssets.icons.map(fileName => ({
+              width: 150,
+              originalFileName: fileName,
+              awsFileName: `icons/${fileName}`
+            }));
+          }
+          if (copiedAssets.logos.length > 0) {
+            updates["value.logos.images"] = copiedAssets.logos.map(fileName => ({
+              width: 300,
+              originalFileName: fileName,
+              awsFileName: `logos/${fileName}`
+            }));
+          }
+          if (copiedAssets.backgrounds.length > 0) {
+            updates["value.backgrounds.images"] = copiedAssets.backgrounds.map(fileName => ({
+              width: 1920,
+              originalFileName: fileName,
+              awsFileName: `backgrounds/${fileName}`
+            }));
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await configCollection.updateOne({ key: "system" }, { $set: updates });
+            debugLog("Updated system config with copied assets");
+          }
+        }
+      } finally {
+        await client.close();
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Copied ${totalCopied} assets to ${bucket} and updated system config`,
+      copiedAssets
+    });
+  } catch (error) {
+    errorDebugLog("Error copying assets:", error.message);
     res.status(500).json({ error: error.message });
   }
 });

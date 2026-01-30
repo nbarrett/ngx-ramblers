@@ -1,13 +1,8 @@
 import debug from "debug";
-import { MongoClient, Db } from "mongodb";
+import { Db, MongoClient } from "mongodb";
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import {
-  EnvironmentSetupRequest,
-  MongoDbConnectionParams,
-  SetupProgress,
-  ValidationResult
-} from "./types";
+import { EnvironmentSetupRequest, MongoDbConnectionParams, SetupProgress, ValidationResult } from "./types";
 import { createSystemConfig, SystemConfigTemplateParams } from "./templates/system-config-template";
 import { createBrevoConfig } from "./templates/brevo-config-template";
 import { createCommitteeConfig } from "./templates/committee-config-template";
@@ -16,7 +11,7 @@ import { createAdminMember, createSystemMember } from "./templates/sample-data/a
 import { createAllSamplePageContent } from "./templates/sample-data/page-content-templates";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
-import { MigrationRunner, closeMigrationConnection } from "../mongo/migrations/migrations-runner";
+import { closeMigrationConnection, MigrationRunner } from "../mongo/migrations/migrations-runner";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:database-initialiser"));
 debugLog.enabled = true;
@@ -112,9 +107,16 @@ async function upsertConfigDocument(db: Db, key: ConfigKey, value: unknown): Pro
   debugLog("Upserted config document:", key);
 }
 
+export interface CopiedAssets {
+  icons: string[];
+  logos: string[];
+  backgrounds: string[];
+}
+
 export async function initialiseDatabase(
   request: EnvironmentSetupRequest,
-  progressCallback?: ProgressCallback
+  progressCallback?: ProgressCallback,
+  copiedAssets?: CopiedAssets
 ): Promise<void> {
   const uri = buildMongoUri(request);
   const database = request.serviceConfigs.mongodb.database;
@@ -145,7 +147,8 @@ export async function initialiseDatabase(
       googleMapsApiKey: request.serviceConfigs.googleMaps?.apiKey,
       osMapsApiKey: request.serviceConfigs.osMaps?.apiKey,
       recaptchaSiteKey: request.serviceConfigs.recaptcha?.siteKey,
-      recaptchaSecretKey: request.serviceConfigs.recaptcha?.secretKey
+      recaptchaSecretKey: request.serviceConfigs.recaptcha?.secretKey,
+      copiedAssets
     };
     const systemConfig = createSystemConfig(systemConfigParams);
     await upsertConfigDocument(db, ConfigKey.SYSTEM, systemConfig);

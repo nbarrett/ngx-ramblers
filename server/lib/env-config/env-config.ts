@@ -49,11 +49,6 @@ function aws() {
   };
 }
 
-function googleMaps() {
-  return {
-    apiKey: validatedEnvironmentVariable(Environment.GOOGLE_MAPS_APIKEY),
-  };
-}
 
 function mongo() {
   return {
@@ -71,7 +66,6 @@ export const envConfig = {
   aws,
   dev: env !== "production",
   env,
-  googleMaps,
   mongo,
   server: {
     listenPort: 5001,

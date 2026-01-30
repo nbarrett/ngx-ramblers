@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { BucketResult, IamUserResult, ProgressCallback } from "../types";
 import { log } from "../cli-logger";
+import { AWS_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 
 export async function createBucketAndUser(
   environmentName: string,
@@ -77,7 +78,7 @@ export function createAwsCommand(): Command {
   aws
     .command("create-resources [name]")
     .description("Create S3 bucket and IAM user for an environment")
-    .option("--region <region>", "AWS region (defaults to env or eu-west-1)")
+    .option("--region <region>", `AWS region (defaults to env or ${AWS_DEFAULTS.REGION})`)
     .action(async (name, options) => {
       try {
         if (!name) {

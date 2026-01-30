@@ -104,6 +104,11 @@ export interface BackupListItem {
   location: BackupLocation;
 }
 
+export interface SecretEntry {
+  key: string;
+  value: string;
+}
+
 export interface EnvironmentBackupConfig {
   environment: string;
   aws?: {
@@ -113,7 +118,7 @@ export interface EnvironmentBackupConfig {
     secretAccessKey?: string;
   };
   mongo?: {
-    uri?: string;
+    cluster?: string;
     db?: string;
     username?: string;
     password?: string;
@@ -125,6 +130,7 @@ export interface EnvironmentBackupConfig {
     scaleCount?: number;
     organisation?: string;
   };
+  secrets?: Record<string, string>;
 }
 
 export interface BackupConfig {
@@ -133,4 +139,5 @@ export interface BackupConfig {
     bucket?: string;
     region?: string;
   };
+  secrets?: Record<string, string>;
 }

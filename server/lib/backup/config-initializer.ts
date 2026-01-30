@@ -3,7 +3,12 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { envConfig } from "../env-config/env-config";
 import type { EnvironmentConfig } from "../../deploy/types";
-import type { EnvironmentBackupConfig, BackupConfig } from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
+import type {
+  BackupConfig,
+  EnvironmentBackupConfig
+} from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
+import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
+import * as config from "../mongo/controllers/config";
 
 const debugLog = debug(envConfig.logNamespace("config-initializer"));
 debugLog.enabled = true;
@@ -17,7 +22,7 @@ interface ParsedSecrets {
   AUTH_SECRET?: string;
 }
 
-export async function parseEnvFile(filePath: string): Promise<ParsedSecrets> {
+async function parseEnvFile(filePath: string): Promise<ParsedSecrets> {
   try {
     const content = await fs.readFile(filePath, "utf8");
     const secrets: ParsedSecrets = {};
@@ -51,7 +56,7 @@ export async function parseEnvFile(filePath: string): Promise<ParsedSecrets> {
   }
 }
 
-export function extractMongoConfig(mongoUri: string): { uri: string; db: string; username: string; password: string } | null {
+function extractMongoConfig(mongoUri: string): { cluster: string; db: string; username: string; password: string } | null {
   try {
     const match = mongoUri.match(/^mongodb(?:\+srv)?:\/\/([^:]+):([^@]+)@([^\/]+)\/([^?]+)/);
     if (!match) {
@@ -59,10 +64,11 @@ export function extractMongoConfig(mongoUri: string): { uri: string; db: string;
       return null;
     }
 
-    const [, username, password, , db] = match;
+    const [, username, password, host, db] = match;
+    const cluster = host.replace(".mongodb.net", "");
 
     return {
-      uri: mongoUri,
+      cluster,
       db: db.split("?")[0],
       username,
       password
@@ -134,4 +140,66 @@ export async function initializeBackupConfig(): Promise<BackupConfig> {
     debugLog("Error initializing backup config:", error.message);
     throw new Error(`Failed to initialize backup config: ${error.message}`);
   }
+}
+
+export async function initializeAndMergeBackupConfig(): Promise<BackupConfig> {
+  const fromFiles = await initializeBackupConfig();
+  const fileEnvironments = fromFiles.environments || [];
+
+  let existingEnvironments: EnvironmentBackupConfig[] = [];
+  try {
+    const backupConfigDoc = await config.queryKey(ConfigKey.BACKUP);
+    existingEnvironments = backupConfigDoc?.value?.environments || [];
+    debugLog("Found existing BACKUP config with", existingEnvironments.length, "environments");
+  } catch {
+    debugLog("No existing BACKUP config found");
+  }
+
+  if (existingEnvironments.length === 0) {
+    try {
+      const envsConfigDoc = await config.queryKey(ConfigKey.ENVIRONMENTS);
+      existingEnvironments = envsConfigDoc?.value?.environments || [];
+      debugLog("Found existing ENVIRONMENTS config with", existingEnvironments.length, "environments");
+    } catch {
+      debugLog("No existing ENVIRONMENTS config found");
+    }
+  }
+
+  const fileEnvNames = new Set(fileEnvironments.map(e => e.environment));
+  const existingEnvNames = new Set(existingEnvironments.map(e => e.environment));
+
+  const mergedEnvironments: EnvironmentBackupConfig[] = [];
+  const addedFromFiles: string[] = [];
+  const updatedFromFiles: string[] = [];
+  const keptFromDatabase: string[] = [];
+
+  fileEnvironments.forEach(fileEnv => {
+    if (existingEnvNames.has(fileEnv.environment)) {
+      mergedEnvironments.push(fileEnv);
+      updatedFromFiles.push(fileEnv.environment);
+    } else {
+      mergedEnvironments.push(fileEnv);
+      addedFromFiles.push(fileEnv.environment);
+    }
+  });
+
+  existingEnvironments.forEach(existingEnv => {
+    if (!fileEnvNames.has(existingEnv.environment)) {
+      mergedEnvironments.push(existingEnv);
+      keptFromDatabase.push(existingEnv.environment);
+    }
+  });
+
+  debugLog("Merge result:", {
+    total: mergedEnvironments.length,
+    addedFromFiles,
+    updatedFromFiles,
+    keptFromDatabase
+  });
+
+  return {
+    environments: mergedEnvironments,
+    aws: fromFiles.aws,
+    secrets: fromFiles.secrets
+  };
 }
