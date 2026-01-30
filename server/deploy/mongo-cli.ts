@@ -9,6 +9,7 @@ import {
   RamblersWalksManagerDateFormat as DateFormat
 } from "../../projects/ngx-ramblers/src/app/models/date-format.model";
 import type { BackupOptions, EnvironmentConfig, RestoreOptions } from "./types.js";
+import { buildMongoUri } from "../lib/shared/mongodb-uri";
 import { isUndefined } from "es-toolkit/compat";
 
 async function main() {
@@ -25,13 +26,15 @@ async function main() {
     proc.on("close", (code: number) => callback(code === 0 ? undefined : `Error: Exit ${code}`));
   }
 
-  function getMongoAuth(config: EnvironmentConfig): string[] {
+  function getMongoAuth(config: EnvironmentConfig, database: string): string[] {
     const mongo = config.mongo!;
-    return [
-      "--uri", mongo.uri,
-      "--username", mongo.username,
-      "--password", mongo.password
-    ];
+    const uri = buildMongoUri({
+      cluster: mongo.cluster,
+      username: mongo.username,
+      password: mongo.password,
+      database
+    });
+    return ["--uri", uri];
   }
 
   function scaleApp(envName: string, scaleCount: number | string, callback: (err?: string) => void): void {
@@ -104,8 +107,7 @@ async function main() {
         await fs.mkdir(outDir, {recursive: true});
 
         const dumpArgs: string[] = [
-          ...getMongoAuth(config),
-          "--db", dbName,
+          ...getMongoAuth(config, dbName),
           "--gzip",
           "--out", outDir
         ];
@@ -194,8 +196,7 @@ async function main() {
 
       const dbName: string = rawOptions.db || config.mongo.db;
       const restoreArgs: string[] = [
-        ...getMongoAuth(config),
-        "--db", dbName,
+        ...getMongoAuth(config, dbName),
         "--gzip"
       ];
 

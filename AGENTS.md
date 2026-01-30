@@ -129,6 +129,9 @@ If hooks are not installed, run: `npm run setup:hooks`
   - ❌ `Co-Authored-By: Claude <noreply@anthropic.com>`
   - ❌ Any similar AI tool attribution
 - Do not include literal escape sequences like `\n` in commit messages. Use real new lines. When scripting commits, pass multiple `-m` flags instead of embedding `\n`.
+- **Use UK English spelling** in commit messages and documentation:
+  - ✅ "centralised", "initialised", "organised", "colour", "behaviour"
+  - ❌ "centralized", "initialized", "organized", "color", "behavior"
 
 ### Git Worktrees and Branch Integration
 
@@ -534,6 +537,14 @@ Use Angular 17+ control flow syntax:
 - **Template-driven Forms**: Primary approach with Angular Forms module
 - **Validation**: Implement custom validators for business logic
 - **User Experience**: Provide immediate feedback and clear error messages
+
+### Alert Types (Bootstrap 5)
+Use the correct semantic alert type for the situation:
+- **alert-danger**: Errors, failures, destructive warnings (red)
+- **alert-warning**: Missing configuration, action required, caution states (yellow/amber)
+- **alert-success**: Completed actions, confirmations (green)
+- **alert-info**: Never used as the colour does not reflect ramblers styling.
+- **Never use `alert-info` for "missing" or "not configured" states** - these require action, so use `alert-warning`
 
 ## Development Workflow
 

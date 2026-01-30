@@ -4,6 +4,7 @@ export enum ConfigKey {
   BACKUP = "backup",
   BREVO = "brevo",
   COMMITTEE = "committee",
+  ENVIRONMENTS = "environments",
   MAIL = "mail",
   MAILCHIMP = "mailchimp",
   MEETUP = "meetup",

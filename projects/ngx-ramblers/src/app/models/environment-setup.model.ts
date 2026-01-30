@@ -1,5 +1,6 @@
 import { ApiResponse } from "./api-response.model";
 import { RamblersGroupsApiResponse } from "./ramblers-walks-manager";
+import { AWS_DEFAULTS, FLYIO_DEFAULTS } from "./environment-config.model";
 
 export interface EnvironmentSetupRequest {
   ramblersInfo: RamblersInfo;
@@ -355,7 +356,7 @@ export enum SetupStep {
   CREATE_FLY_APP = "create-fly-app",
   WRITE_SECRETS_FILE = "write-secrets-file",
   UPDATE_CONFIGS_JSON = "update-configs-json",
-  UPDATE_BACKUP_CONFIG = "update-backup-config",
+  UPDATE_ENVIRONMENTS_CONFIG = "update-environments-config",
   INITIALISE_DATABASE = "initialise-database",
   IMPORT_SECRETS = "import-secrets",
   DEPLOY_APP = "deploy-app"
@@ -378,6 +379,11 @@ export enum ManageAction {
   DESTROY = "destroy"
 }
 
+export enum EnvironmentSetupTab {
+  CREATE = "Create New",
+  SETTINGS = "Settings"
+}
+
 export function createEmptySetupRequest(): EnvironmentSetupRequest {
   return {
     ramblersInfo: {
@@ -389,12 +395,12 @@ export function createEmptySetupRequest(): EnvironmentSetupRequest {
     environmentBasics: {
       environmentName: "",
       appName: "",
-      memory: "1024",
-      scaleCount: 1,
-      organisation: "personal"
+      memory: FLYIO_DEFAULTS.MEMORY,
+      scaleCount: FLYIO_DEFAULTS.SCALE_COUNT,
+      organisation: FLYIO_DEFAULTS.ORGANISATION
     },
     serviceConfigs: {
-      aws: { bucket: "", region: "eu-west-1" },
+      aws: { bucket: "", region: AWS_DEFAULTS.REGION },
       mongodb: { cluster: "", username: "", password: "", database: "" },
       brevo: { apiKey: "" },
       googleMaps: { apiKey: "" },

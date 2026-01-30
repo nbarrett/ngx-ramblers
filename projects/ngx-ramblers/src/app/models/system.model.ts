@@ -1,8 +1,10 @@
 import { Link } from "./page.model";
 import { HasClass, HasColour } from "./banner-configuration.model";
-import { WalkListView } from "./walk.model";
+import { GoogleMapsConfig, WalkListView } from "./walk.model";
 import { HasStyles } from "./content-text.model";
 import { ImageCropperPosition } from "./image-cropper.model";
+
+export { GoogleMapsConfig };
 
 export enum SystemSettingsTab {
   AREA_AND_GROUP = "Area & Group",
@@ -254,6 +256,7 @@ export interface SystemConfig {
   national: Ramblers;
   externalSystems: ExternalSystems
   recaptcha: ReCaptchaConfig
+  googleMaps: GoogleMapsConfig
   enableMigration: { events: boolean }
   images: ImageConfig
   googleAnalytics: GoogleAnalyticsConfig

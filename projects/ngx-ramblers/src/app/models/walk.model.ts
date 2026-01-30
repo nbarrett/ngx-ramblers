@@ -3,15 +3,14 @@ import { WalkAccessMode } from "./walk-edit-mode.model";
 import { WalkEventType } from "./walk-event-type.model";
 import {
   BasicMedia,
-  Contact,
   Difficulty,
   HasNgSelectAttributes,
   LocationDetails,
   MetadataDescription,
   PublishStatus,
   RamblersEventSummaryResponse,
-  WalkStatus,
-  WalkLeaderContact
+  WalkLeaderContact,
+  WalkStatus
 } from "./ramblers-walks-manager";
 import { HasBasicEventSelection } from "./search.model";
 import { Link } from "./page.model";
@@ -24,7 +23,7 @@ import { FileNameData } from "./aws-object.model";
 
 export interface GoogleMapsConfig {
   apiKey: string;
-  zoomLevel: number;
+  zoomLevel?: number;
 }
 
 export interface ValueAndFormatted {

@@ -132,4 +132,13 @@ export class EnvironmentSetupService {
     );
     return response as unknown as { success: boolean; message: string };
   }
+
+  async copyAssets(environmentName: string): Promise<{ success: boolean; message: string; copiedAssets?: { icons: string[]; logos: string[]; backgrounds: string[] } }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/copy-assets/${environmentName}`, {}),
+      this.notifications
+    );
+    return response as unknown as { success: boolean; message: string; copiedAssets?: { icons: string[]; logos: string[]; backgrounds: string[] } };
+  }
 }

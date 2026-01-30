@@ -8,7 +8,7 @@ import { loadSecretsForEnvironment, secretsPath, writeSecretsFile } from "../../
 import { addOrUpdateEnvironment, configsJsonPath, findEnvironment } from "../../shared/configs-json";
 import { normaliseMemory } from "../../shared/spelling";
 import { DeployResult, FlyDeployConfig, ProgressCallback } from "../types";
-import { EnvironmentConfig } from "../../../deploy/types";
+import { EnvironmentConfig, FLYIO_DEFAULTS } from "../../../deploy/types";
 import { log } from "../cli-logger";
 
 const debugLog = debug("ngx-ramblers:cli:fly");
@@ -68,7 +68,7 @@ async function queryAppConfig(appName: string): Promise<{ memory: string; count:
     const config = JSON.parse(output);
     const hasMachines = config.count > 0 || (config.processes && Object.keys(config.processes).length > 0);
     return {
-      memory: config.memory || "512mb",
+      memory: config.memory || FLYIO_DEFAULTS.MEMORY,
       count: config.count || 0,
       hasMachines
     };
@@ -215,9 +215,9 @@ export function createFlyCommand(): Command {
     .command("deploy [name]")
     .description("Deploy an environment to fly.io")
     .option("--app-name <appName>", "fly.io app name (defaults to ngx-ramblers-<name>)")
-    .option("--memory <memory>", "Memory allocation (e.g., 512mb)", "512mb")
-    .option("--scale <count>", "Number of instances", "1")
-    .option("--org <organisation>", "fly.io organisation", "personal")
+    .option("--memory <memory>", `Memory allocation (e.g., ${FLYIO_DEFAULTS.MEMORY})`, FLYIO_DEFAULTS.MEMORY)
+    .option("--scale <count>", "Number of instances", String(FLYIO_DEFAULTS.SCALE_COUNT))
+    .option("--org <organisation>", "fly.io organisation", FLYIO_DEFAULTS.ORGANISATION)
     .action(async (name, options) => {
       try {
         if (!name) {
@@ -230,9 +230,9 @@ export function createFlyCommand(): Command {
         const config: FlyDeployConfig = {
           name,
           appName: options.appName || envConfig?.appName || `ngx-ramblers-${name}`,
-          memory: options.memory || envConfig?.memory || "512mb",
-          scaleCount: parseInt(options.scale, 10) || envConfig?.scaleCount || 1,
-          organisation: options.org || envConfig?.organisation || "personal",
+          memory: options.memory || envConfig?.memory || FLYIO_DEFAULTS.MEMORY,
+          scaleCount: parseInt(options.scale, 10) || envConfig?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT,
+          organisation: options.org || envConfig?.organisation || FLYIO_DEFAULTS.ORGANISATION,
           secrets,
           apiKey: envConfig?.apiKey
         };
@@ -255,7 +255,7 @@ export function createFlyCommand(): Command {
     .command("scale [appName]")
     .description("Scale a fly.io app")
     .option("--count <count>", "Number of instances")
-    .option("--memory <memory>", "Memory allocation (e.g., 512mb)")
+    .option("--memory <memory>", `Memory allocation (e.g., ${FLYIO_DEFAULTS.MEMORY})`)
     .action(async (appName, options) => {
       try {
         if (!appName) {

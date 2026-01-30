@@ -45,6 +45,7 @@ import { GlobalStyles } from "./styles/global-styles";
 import { InstagramSettings } from "./external/system-instagram-settings";
 import { RamblersSettings } from "./external/ramblers-settings";
 import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
+import { SystemGoogleMapsSettingsComponent } from "./external/system-google-maps-settings";
 
 @Component({
     selector: "app-system-settings",
@@ -354,6 +355,7 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                     <app-system-instagram-settings/>
                     <app-system-meetup-settings/>
                     <app-system-os-maps-settings [config]="config"/>
+                    <app-system-google-maps-settings [config]="config"/>
                     <app-system-recaptcha-settings [config]="config"/>
                     <app-system-google-analytics-settings [config]="config"/>
                   </div>
@@ -392,7 +394,7 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 

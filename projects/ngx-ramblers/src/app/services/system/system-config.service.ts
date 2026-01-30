@@ -12,6 +12,7 @@ import {
   EventPopulation,
   ExternalSystems,
   GoogleAnalyticsConfig,
+  GoogleMapsConfig,
   ImageConfig,
   Images,
   MailProvider,
@@ -228,6 +229,7 @@ export class SystemConfigService {
       globalStyles: this.defaultHasStyles(),
       enableMigration: {events: false},
       googleAnalytics: this.googleAnalyticsDefaults(),
+      googleMaps: this.googleMapsDefaults(),
       recaptcha: this.recaptchaDefaults(),
       mailDefaults: this.mailDefaults(),
       backgrounds: this.defaultImages(RootFolder.backgrounds),
@@ -260,5 +262,9 @@ export class SystemConfigService {
 
   public googleAnalyticsDefaults(): GoogleAnalyticsConfig {
     return {trackingId: null};
+  }
+
+  public googleMapsDefaults(): GoogleMapsConfig {
+    return {apiKey: null};
   }
 }

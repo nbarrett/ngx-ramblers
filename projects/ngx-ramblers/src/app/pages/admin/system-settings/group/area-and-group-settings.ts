@@ -239,6 +239,7 @@ export class AreaAndGroupSettingsComponent implements OnInit {
   protected groupQueryStatus: Status = Status.INFO;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected groupSearchMessage: string;
+  private queryingGroups = false;
 
   onSelectionModeChange() {
     if (this.selectionMode === "area") {
@@ -277,12 +278,6 @@ export class AreaAndGroupSettingsComponent implements OnInit {
       }));
       this.areaQueryStatus = this.availableAreas.length > 0 ? Status.COMPLETE : Status.ERROR;
       this.logger.info("Loaded available areas:", this.availableAreas, "current groupCode:", this.config.area.groupCode);
-      // Trigger change detection by re-setting the value after items are loaded
-      if (this.config.area.groupCode) {
-        const currentCode = this.config.area.groupCode;
-        this.config.area.groupCode = null;
-        setTimeout(() => this.config.area.groupCode = currentCode, 0);
-      }
     } catch (error) {
       this.logger.error("Failed to load available areas:", error);
       this.areaQueryStatus = Status.ERROR;
@@ -292,7 +287,7 @@ export class AreaAndGroupSettingsComponent implements OnInit {
   }
 
   async onAreaCodeChange(areaCode: string): Promise<void> {
-    if (areaCode) {
+    if (areaCode && !this.queryingGroups) {
       const selectedArea = this.availableAreas.find(a => a.areaCode === areaCode);
       if (selectedArea) {
         this.config.area.shortName = selectedArea.areaName;
@@ -307,6 +302,7 @@ export class AreaAndGroupSettingsComponent implements OnInit {
       this.groups = [];
     } else {
       try {
+        this.queryingGroups = true;
         this.groupSearchMessage = "searching for groups";
         this.groupQueryStatus = Status.ACTIVE;
         this.loadingGroups = true;
@@ -331,6 +327,7 @@ export class AreaAndGroupSettingsComponent implements OnInit {
         this.groupQueryStatus = Status.ERROR;
       } finally {
         this.loadingGroups = false;
+        this.queryingGroups = false;
       }
     }
   }
@@ -344,7 +341,12 @@ export class AreaAndGroupSettingsComponent implements OnInit {
 
   private updateSelectedGroupCodes() {
     const selectedCodes = this.groupCodes();
-    this.selectedGroups = this.availableGroups.filter(group => selectedCodes.includes(group.group_code));
+    const newSelectedGroups = this.availableGroups.filter(group => selectedCodes.includes(group.group_code));
+    const currentCodes = this.selectedGroups.map(g => g.group_code).sort().join(",");
+    const newCodes = newSelectedGroups.map(g => g.group_code).sort().join(",");
+    if (currentCodes !== newCodes) {
+      this.selectedGroups = newSelectedGroups;
+    }
   }
 
   public splitDelimitedList(groupCode: string): string[] {

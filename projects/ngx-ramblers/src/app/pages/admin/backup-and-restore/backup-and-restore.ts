@@ -8,22 +8,19 @@ import { switchMap } from "rxjs/operators";
 import { isNumber, isString, kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faBackward, faCopy, faForward, faPlus, faSpinner, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faSpinner, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { PageComponent } from "../../../page/page.component";
-import { SecretInputComponent } from "../../../modules/common/secret-input/secret-input.component";
-import { BackupConfigService } from "../../../services/backup-config.service";
+import { EnvironmentSettings } from "../../../modules/common/environment-settings/environment-settings";
+import { EnvironmentConfigService } from "../../../services/environment-config.service";
 import {
-  BackupConfig,
   BackupListItem,
-  BackupRequest,
   BackupLocation,
+  BackupRequest,
   BackupRestoreTab,
   BackupSession,
-  EnvironmentBackupConfig,
   EnvironmentInfo,
   RestoreRequest
 } from "../../../models/backup-session.model";
-import { InputSize } from "../../../models/ui-size.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NotifierService } from "../../../services/notifier.service";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -35,11 +32,10 @@ import { NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-sele
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { reversed, sortBy } from "../../../functions/arrays";
+import { AWS_DEFAULTS, EnvironmentsConfig } from "../../../models/environment-config.model";
 import { EnvironmentSelectComponent } from "../../../modules/common/selectors/environment-select";
 import { CollectionsMultiSelectComponent } from "../../../modules/common/selectors/collections-multi-select";
 import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/backups-multi-select";
-import { asNumber } from "../../../functions/numbers";
-import { parseMongoUri } from "../../../functions/mongo";
 
 @Component({
   selector: "app-backup-and-restore",
@@ -50,13 +46,13 @@ import { parseMongoUri } from "../../../functions/mongo";
     TabDirective,
     PageComponent,
     DatePipe,
-    SecretInputComponent,
     FontAwesomeModule,
     NgSelectComponent,
     NgOptionTemplateDirective,
     EnvironmentSelectComponent,
     CollectionsMultiSelectComponent,
-    BackupsMultiSelectComponent
+    BackupsMultiSelectComponent,
+    EnvironmentSettings
   ],
   styles: [`
     .session-status
@@ -358,296 +354,9 @@ import { parseMongoUri } from "../../../functions/mongo";
                  (selectTab)="selectTab(BackupRestoreTab.SETTINGS)"
                  [heading]="BackupRestoreTab.SETTINGS">
               @if (tabActive(BackupRestoreTab.SETTINGS)) {
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="row thumbnail-heading-frame">
-                  <div class="thumbnail-heading">Backup Configuration</div>
-                  <div class="d-flex justify-content-between align-items-center mb-3">
-                    <p class="text-muted mb-0">
-                      Manage backup configurations for each environment
-                    </p>
-                    <div class="btn-group" role="group">
-                      <button type="button"
-                              class="btn btn-sm"
-                              [class.btn-secondary]="!jsonViewMode"
-                              [class.btn-outline-secondary]="jsonViewMode"
-                              (click)="jsonViewMode = false">
-                        Form View
-                      </button>
-                      <button type="button"
-                              class="btn btn-sm"
-                              [class.btn-secondary]="jsonViewMode"
-                              [class.btn-outline-secondary]="!jsonViewMode"
-                              (click)="jsonViewMode = true">
-                        JSON View
-                      </button>
-                    </div>
-                  </div>
-                  <div class="mb-3">
-                    <button type="button" class="btn btn-info btn-sm me-2"
-                            (click)="initializeFromFiles()">
-                      Initialise from Files
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm" (click)="loadConfig()">
-                      Reload Config
-                    </button>
-                    <small class="form-text text-muted d-block mt-2">
-                      Initialise will read configs.json and secret files to populate per-environment
-                      configurations
-                    </small>
-                  </div>
-                  @if (configError) {
-                    <div class="alert alert-danger">
-                      {{ configError }}
-                    </div>
-                  }
-                  @if (jsonViewMode) {
-                    <form (ngSubmit)="saveConfig()" autocomplete="off">
-                      <div class="mb-3">
-                        <label class="form-label">Configuration JSON</label>
-                        <textarea
-                          class="form-control"
-                          [(ngModel)]="configJson"
-                          name="configJson"
-                          rows="20"
-                          style="font-family: monospace; font-size: 0.875rem;"></textarea>
-                        <small class="form-text text-muted">
-                          Paste complete JSON configuration here
-                        </small>
-                      </div>
-                      <button type="submit" class="btn btn-primary me-2">
-                        Save Configuration
-                      </button>
-                    </form>
-                  } @else {
-                    <form (ngSubmit)="saveConfigFromForm()" autocomplete="off">
-                      <div class="row thumbnail-heading-frame mb-5">
-                        <div class="thumbnail-heading">Global AWS S3 Configuration</div>
-                        <div class="row">
-                          <div class="col-md-6 mb-2">
-                            <label class="form-label">Bucket</label>
-                            <input type="text"
-                                   class="form-control"
-                                   [(ngModel)]="editableConfig.aws.bucket"
-                                   name="globalAwsBucket"
-                                   placeholder="e.g. ngx-ramblers-backups">
-                          </div>
-                          <div class="col-md-6 mb-2">
-                            <label class="form-label">Region</label>
-                            <input type="text"
-                                   class="form-control"
-                                   [(ngModel)]="editableConfig.aws.region"
-                                   name="globalAwsRegion"
-                                   placeholder="e.g. eu-west-2">
-                          </div>
-                        </div>
-                        <small class="form-text text-muted">If set, all uploads/listing/deletes will use this bucket,
-                          with per-environment bucket used only as a fallback.</small>
-                      </div>
-                      @if (currentEnvironment) {
-                        <div class="row thumbnail-heading-frame">
-                          <div class="thumbnail-heading-with-select">
-                            <strong class="text-nowrap">
-                              Environment Configuration {{ currentEnvironmentIndex + 1 }}
-                              of {{ environmentCount }}:</strong>
-                            <select class="form-control"
-                                    [(ngModel)]="currentEnvironmentIndex"
-                                    name="environmentSelector">
-                              @for (env of editableConfig.environments; let i = $index; track i) {
-                                <option [ngValue]="i">{{ env.environment || 'New Environment' }}</option>
-                              }
-                            </select>
-                          </div>
-                          <div class="d-flex gap-2 mb-3 flex-wrap">
-                            <button type="button"
-                                    class="btn btn-secondary"
-                                    [disabled]="!canNavigatePrevious"
-                                    (click)="navigatePrevious()">
-                              <fa-icon [icon]="faBackward"></fa-icon>
-                              Previous
-                            </button>
-                            <button type="button"
-                                    class="btn btn-success"
-                                    [disabled]="!canNavigateNext"
-                                    (click)="navigateNext()">
-                              <fa-icon [icon]="faForward"></fa-icon>
-                              Next
-                            </button>
-                            <button type="button"
-                                    class="btn btn-info"
-                                    (click)="duplicateEnvironment()">
-                              <fa-icon [icon]="faCopy"></fa-icon>
-                              Duplicate
-                            </button>
-                            <button type="button"
-                                    class="btn btn-success"
-                                    (click)="addNewEnvironment()">
-                              <fa-icon [icon]="faPlus"></fa-icon>
-                              Add New
-                            </button>
-                            <button type="button"
-                                    class="btn btn-danger"
-                                    (click)="deleteCurrentEnvironment()">
-                              <fa-icon [icon]="faTrash"></fa-icon>
-                              Delete
-                            </button>
-                          </div>
-                          <div class="row thumbnail-heading-frame">
-                            <div class="thumbnail-heading">Environment Details</div>
-                            <div class="row">
-                              <div class="col-md-12 mb-3">
-                                <label class="form-label">Environment Name</label>
-                                <input type="text"
-                                       class="form-control"
-                                       [(ngModel)]="currentEnvironment.environment"
-                                       name="envName"
-                                       autocomplete="off"
-                                       placeholder="e.g., staging, production">
-                              </div>
-                            </div>
-                          </div>
-                          <div class="row thumbnail-heading-frame">
-                            <div class="thumbnail-heading">AWS S3 Configuration</div>
-                            <div class="row">
-                              <div class="col-md-6 mb-2">
-                                <label class="form-label">Bucket</label>
-                                <input type="text"
-                                       class="form-control"
-                                       [(ngModel)]="currentEnvironment.aws.bucket"
-                                       name="awsBucket"
-                                       autocomplete="off">
-                              </div>
-                              <div class="col-md-6 mb-2">
-                                <label class="form-label">Region</label>
-                                <input type="text"
-                                       class="form-control"
-                                       [(ngModel)]="currentEnvironment.aws.region"
-                                       name="awsRegion"
-                                       autocomplete="off"
-                                       placeholder="us-east-1">
-                              </div>
-                              <div class="col-md-6 mb-2">
-                                <label class="form-label">Access Key ID</label>
-                                <app-secret-input
-                                  [(ngModel)]="currentEnvironment.aws.accessKeyId"
-                                  name="awsKeyId"
-                                  [size]="InputSize.SM">
-                                </app-secret-input>
-                              </div>
-                              <div class="col-md-6 mb-2">
-                                <label class="form-label">Secret Access
-                                  Key</label>
-                                <app-secret-input
-                                  [(ngModel)]="currentEnvironment.aws.secretAccessKey"
-                                  name="awsSecret"
-                                  [size]="InputSize.SM">
-                                </app-secret-input>
-                              </div>
-                            </div>
-                          </div>
-                          <div class="row thumbnail-heading-frame">
-                            <div class="thumbnail-heading">MongoDB Configuration</div>
-                            <div class="row">
-                              <div class="col-md-12 mb-2">
-                                <label class="form-label">Connection URI</label>
-                                <input type="text"
-                                       class="form-control"
-                                       [(ngModel)]="currentEnvironment.mongo.uri"
-                                       (blur)="handleParseMongoUri()"
-                                       name="mongoUri"
-                                       autocomplete="off"
-                                       placeholder="mongodb+srv://...">
-                              </div>
-                              <div class="col-md-4 mb-2">
-                                <label class="form-label">Database</label>
-                                <input type="text"
-                                       class="form-control"
-                                       [(ngModel)]="currentEnvironment.mongo.db"
-                                       name="mongoDb"
-                                       autocomplete="off">
-                              </div>
-                              <div class="col-md-4 mb-2">
-                                <label class="form-label">Username</label>
-                                <input type="text"
-                                       class="form-control"
-                                       [(ngModel)]="currentEnvironment.mongo.username"
-                                       name="mongoUser"
-                                       autocomplete="off">
-                              </div>
-                              <div class="col-md-4 mb-2">
-                                <label class="form-label">Password</label>
-                                <app-secret-input
-                                  [(ngModel)]="currentEnvironment.mongo.password"
-                                  name="mongoPass"
-                                  [size]="InputSize.SM">
-                                </app-secret-input>
-                              </div>
-                            </div>
-                          </div>
-                          <div class="row thumbnail-heading-frame">
-                            <div class="thumbnail-heading">Fly.io Configuration</div>
-                            <div class="row">
-                              <div class="col-md-12 mb-2">
-                                <label class="form-label">API Key</label>
-                                <app-secret-input
-                                  [(ngModel)]="currentEnvironment.flyio.apiKey"
-                                  name="flyApiKey"
-                                  [size]="InputSize.SM">
-                                </app-secret-input>
-                              </div>
-                              <div class="col-md-4 mb-2">
-                                <label class="form-label">App Name</label>
-                                <input type="text"
-                                       class="form-control"
-                                       [(ngModel)]="currentEnvironment.flyio.appName"
-                                       name="flyAppName"
-                                       autocomplete="off">
-                              </div>
-                              <div class="col-md-4 mb-2">
-                                <label class="form-label">Memory</label>
-                                <input type="text"
-                                       class="form-control"
-                                       [(ngModel)]="currentEnvironment.flyio.memory"
-                                       name="flyMemory"
-                                       autocomplete="off"
-                                       placeholder="512mb">
-                              </div>
-                              <div class="col-md-4 mb-2">
-                                <label class="form-label">Scale Count</label>
-                                <input type="number"
-                                       class="form-control"
-                                       [(ngModel)]="currentEnvironment.flyio.scaleCount"
-                                       name="flyScale"
-                                       autocomplete="off">
-                              </div>
-                              <div class="col-md-12 mb-2">
-                                <label class="form-label">Organisation</label>
-                                <input type="text"
-                                       class="form-control"
-                                       [(ngModel)]="currentEnvironment.flyio.organisation"
-                                       name="flyOrg"
-                                       autocomplete="off"
-                                       placeholder="Fly.io organisation/team name">
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      } @else {
-                        <div class="alert alert-warning">
-                          <p>No environment configurations yet.</p>
-                          <button type="button" class="btn btn-success btn-sm"
-                                  (click)="addNewEnvironment()">
-                            <fa-icon [icon]="faPlus"></fa-icon>
-                            Add New Environment
-                          </button>
-                        </div>
-                      }
-                      <button type="submit" class="btn btn-primary me-2">
-                        Save Configuration
-                      </button>
-                    </form>
-                  }
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <app-environment-settings/>
                 </div>
-              </div>
               }
             </tab>
           </tabset>
@@ -658,34 +367,9 @@ import { parseMongoUri } from "../../../functions/mongo";
 })
 export class BackupAndRestore implements OnInit, OnDestroy {
 
-  get currentEnvironmentIndex(): number {
-    return this._currentEnvironmentIndex;
-  }
-
-  set currentEnvironmentIndex(value: number) {
-    const numValue = isString(value) ? asNumber(value) : value;
-    const maxIndex = Math.max(0, this.editableConfig.environments.length - 1);
-    this._currentEnvironmentIndex = Math.min(Math.max(0, numValue), maxIndex);
-  }
-
-  get currentEnvironment(): EnvironmentBackupConfig | null {
-    return this.editableConfig.environments[this.currentEnvironmentIndex] ?? null;
-  }
-
-  get environmentCount(): number {
-    return this.editableConfig.environments.length;
-  }
-
-  get canNavigatePrevious(): boolean {
-    return this.currentEnvironmentIndex > 0;
-  }
-
-  get canNavigateNext(): boolean {
-    return this.currentEnvironmentIndex < this.editableConfig.environments.length - 1;
-  }
   private logger: Logger = inject(LoggerFactory).createLogger("BackupAndRestore", NgxLoggerLevel.ERROR);
   private backupRestoreService = inject(BackupAndRestoreService);
-  private backupConfigService = inject(BackupConfigService);
+  private environmentConfigService = inject(EnvironmentConfigService);
   private notifierService = inject(NotifierService);
   private websocketService = inject(WebSocketClientService);
   stringUtils = inject(StringUtilsService);
@@ -699,11 +383,6 @@ export class BackupAndRestore implements OnInit, OnDestroy {
 
   protected readonly BackupRestoreTab = BackupRestoreTab;
   protected readonly BackupLocation = BackupLocation;
-  protected readonly InputSize = InputSize;
-  protected readonly faBackward = faBackward;
-  protected readonly faForward = faForward;
-  protected readonly faCopy = faCopy;
-  protected readonly faPlus = faPlus;
   protected readonly faTrash = faTrash;
   protected readonly faSpinner = faSpinner;
 
@@ -726,13 +405,10 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   selectedCollections: string[] = [];
   restoreAvailableCollections: string[] = [];
   selectedRestoreCollections: string[] = [];
-  configJson = "";
-  configError = "";
-  jsonViewMode = false;
-  private _currentEnvironmentIndex = 0;
-  editableConfig: BackupConfig = {
+  editableConfig: EnvironmentsConfig = {
     environments: [],
-    aws: { bucket: "", region: "us-east-1" }
+    aws: {bucket: "", region: AWS_DEFAULTS.REGION},
+    secrets: {}
   };
 
   backupRequest: BackupRequest = {
@@ -1106,134 +782,29 @@ export class BackupAndRestore implements OnInit, OnDestroy {
 
   loadConfig() {
     this.subscriptions.push(
-      this.backupConfigService.events().subscribe({
+      this.environmentConfigService.events().subscribe({
         next: config => {
-          this.configJson = JSON.stringify(config, null, 2);
           this.populateFormFromConfig(config);
-          this.configError = "";
         },
         error: err => {
-          this.configError = `Error loading config: ${err.message}`;
+          this.logger.error("Error loading config:", err);
         }
       })
     );
   }
 
-  private populateFormFromConfig(config: BackupConfig) {
+  private populateFormFromConfig(config: EnvironmentsConfig) {
     this.editableConfig = JSON.parse(JSON.stringify(config));
     if (!this.editableConfig.environments) {
       this.editableConfig.environments = [];
     }
 
     if (!this.editableConfig.aws) {
-      this.editableConfig.aws = { bucket: "", region: "us-east-1" } as any;
+      this.editableConfig.aws = {bucket: "", region: AWS_DEFAULTS.REGION} as any;
     }
 
-    this.editableConfig.environments = this.editableConfig.environments.map(env => ({
-      environment: env.environment || "",
-      aws: env.aws || { bucket: "", region: "us-east-1", accessKeyId: "", secretAccessKey: "" },
-      mongo: env.mongo || { uri: "", db: "", username: "", password: "" },
-      flyio: env.flyio || { apiKey: "", appName: "", memory: "512mb", scaleCount: 1, organization: "" }
-    }));
-
-    if (this.currentEnvironmentIndex >= this.editableConfig.environments.length) {
-      this.currentEnvironmentIndex = Math.max(0, this.editableConfig.environments.length - 1);
-    }
-  }
-
-  saveConfig() {
-    this.configError = "";
-    const config: BackupConfig = JSON.parse(this.configJson);
-    this.backupConfigService.saveConfig(config).then(() => {
-      this.loadEnvironments();
-      this.notify.success({
-        title: "Configuration Saved",
-        message: "Backup configuration has been saved successfully"
-      });
-    }).catch(err => {
-        this.configError = `Error saving config: ${err.message}`;
-        this.notify.error({
-          title: "Error saving configuration",
-          message: err.message
-        });
-      }
-    );
-  }
-
-  saveConfigFromForm() {
-    this.configError = "";
-    const config: BackupConfig = {
-      environments: this.editableConfig.environments,
-      aws: this.editableConfig.aws
-    };
-
-    this.backupConfigService.saveConfig(config).then(() => {
-      this.configJson = JSON.stringify(config, null, 2);
-      this.loadEnvironments();
-      this.notify.success({
-        title: "Configuration Saved",
-        message: "Backup configuration has been saved successfully"
-      });
-    }).catch(err => {
-      this.configError = `Error saving config: ${err.message}`;
-      this.notify.error({
-        title: "Error saving configuration",
-        message: err.message
-      });
-    });
-  }
-
-  addEnvironment() {
-    const newEnv: EnvironmentBackupConfig = {
-      environment: "",
-      aws: {
-        bucket: "",
-        region: "us-east-1",
-        accessKeyId: "",
-        secretAccessKey: ""
-      },
-      mongo: {
-        uri: "",
-        db: "",
-        username: "",
-        password: ""
-      },
-      flyio: {
-        apiKey: "",
-        appName: "",
-        memory: "512mb",
-        scaleCount: 1,
-        organisation: ""
-      }
-    };
-    this.editableConfig.environments.push(newEnv);
-  }
-
-  removeEnvironment(index: number) {
-    this.editableConfig.environments.splice(index, 1);
-    if (this.currentEnvironmentIndex >= this.editableConfig.environments.length) {
-      this.currentEnvironmentIndex = Math.max(0, this.editableConfig.environments.length - 1);
-    }
-  }
-
-  navigatePrevious() {
-    if (this.canNavigatePrevious) {
-      this.currentEnvironmentIndex--;
-    }
-  }
-
-  navigateNext() {
-    if (this.canNavigateNext) {
-      this.currentEnvironmentIndex++;
-    }
-  }
-
-  duplicateEnvironment() {
-    if (this.currentEnvironment) {
-      const duplicated: EnvironmentBackupConfig = JSON.parse(JSON.stringify(this.currentEnvironment));
-      duplicated.environment = `${duplicated.environment} (Copy)`;
-      this.editableConfig.environments.splice(this.currentEnvironmentIndex + 1, 0, duplicated);
-      this.currentEnvironmentIndex++;
+    if (!this.editableConfig.secrets) {
+      this.editableConfig.secrets = {};
     }
   }
 
@@ -1250,59 +821,6 @@ export class BackupAndRestore implements OnInit, OnDestroy {
       const env = configs.find(c => c.environment === name);
       return !!env?.aws?.bucket;
     });
-  }
-
-  deleteCurrentEnvironment() {
-    if (this.editableConfig.environments.length > 0) {
-      this.removeEnvironment(this.currentEnvironmentIndex);
-    }
-  }
-
-  addNewEnvironment() {
-    this.addEnvironment();
-    this.currentEnvironmentIndex = this.editableConfig.environments.length - 1;
-  }
-
-  initializeFromFiles() {
-    this.configError = "";
-    this.subscriptions.push(
-      this.backupRestoreService.initializeConfig().subscribe({
-        next: config => {
-          this.configJson = JSON.stringify(config, null, 2);
-          this.populateFormFromConfig(config);
-          this.notify.success({
-            title: "Configuration Initialised",
-            message: `Successfully initialised ${config.environments?.length || 0} environment configurations from files`
-          });
-        },
-        error: err => {
-          this.configError = `Error initialising config: ${err.error?.error || err.message}`;
-          this.notify.error({
-            title: "Error initialising configuration",
-            message: err.error?.error || err.message
-          });
-        }
-      })
-    );
-  }
-
-  handleParseMongoUri() {
-    if (!this.currentEnvironment?.mongo?.uri) {
-      return;
-    }
-
-    const parsed = parseMongoUri(this.currentEnvironment.mongo.uri);
-    if (parsed) {
-      this.currentEnvironment.mongo.username = parsed.username;
-      this.currentEnvironment.mongo.password = parsed.password;
-      this.currentEnvironment.mongo.uri = parsed.uri;
-      this.currentEnvironment.mongo.db = parsed.database;
-
-      this.notify.success({
-        title: "MongoDB URI Parsed",
-        message: "Username and password extracted from URI"
-      });
-    }
   }
 
   private extractErrorMessage(err: any): string {

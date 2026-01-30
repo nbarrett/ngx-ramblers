@@ -4,13 +4,14 @@ import debug from "debug";
 import { execSync } from "child_process";
 import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation } from "./types";
 import { Environment } from "../lib/env-config/environment-model";
+import { resolveClientPath } from "../lib/shared/path-utils";
 
 const debugLog = debug("deploy-environments");
 const debugNoLog = debug("deploy-environments-nolog");
 debugLog.enabled = true;
 
 export function flyTomlAbsolutePath() {
-  return path.resolve(__dirname, "../..", "fly.toml");
+  return resolveClientPath("fly.toml");
 }
 
 export function readConfigFile(filePath: string): DeploymentConfig {

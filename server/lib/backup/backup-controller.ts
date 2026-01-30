@@ -4,7 +4,7 @@ import { envConfig } from "../env-config/env-config";
 import { BackupAndRestoreService } from "./backup-and-restore-service";
 import { BackupNotificationService } from "./backup-notification-service";
 import { configuredBackup } from "./backup-config";
-import { initializeBackupConfig } from "./config-initializer";
+import { initializeAndMergeBackupConfig } from "./config-initializer";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import type { MailMessagingConfig } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import * as config from "../mongo/controllers/config";
@@ -144,8 +144,8 @@ export async function startRestore(req: Request, res: Response) {
 
 export async function initializeConfig(req: Request, res: Response) {
   try {
-    debugLog("initializeConfig:request");
-    const backupConfig = await initializeBackupConfig();
+    debugLog("initializeConfig:request - using smart merge");
+    const backupConfig = await initializeAndMergeBackupConfig();
     debugLog("initializeConfig:response:", {
       environmentCount: backupConfig.environments?.length || 0
     });

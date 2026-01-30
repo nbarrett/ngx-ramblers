@@ -4,8 +4,6 @@ import * as fs from "fs/promises";
 import { createWriteStream } from "fs";
 import * as path from "path";
 import { envConfig } from "../env-config/env-config";
-const debugLog = debug(envConfig.logNamespace("backup-and-restore-service"));
-debugLog.enabled = true;
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
@@ -23,8 +21,14 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { getEnvironmentConfig } from "./backup-config";
 import type { EnvironmentConfig } from "../../deploy/types";
+import { FLYIO_DEFAULTS } from "../../deploy/types";
 import { NamedError } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
+import { AWS_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { buildMongoUri } from "../shared/mongodb-uri";
 import { isUndefined } from "es-toolkit/compat";
+
+const debugLog = debug(envConfig.logNamespace("backup-and-restore-service"));
+debugLog.enabled = true;
 
 export interface BackupOptions {
   environment: string;
@@ -62,16 +66,16 @@ export class BackupAndRestoreService {
     const flyConfig = this.configs.find(c => c.name === environmentName);
     const backupEnv = this.backupConfig.environments?.find(e => e.environment === environmentName);
 
-    if (backupEnv && (backupEnv.mongo?.uri || backupEnv.mongo?.db)) {
+    if (backupEnv && (backupEnv.mongo?.cluster || backupEnv.mongo?.db)) {
       return {
         name: environmentName,
         appName: backupEnv.flyio?.appName || flyConfig?.appName || environmentName,
         apiKey: backupEnv.flyio?.apiKey || flyConfig?.apiKey || "",
-        memory: backupEnv.flyio?.memory || flyConfig?.memory || "512mb",
-        scaleCount: backupEnv.flyio?.scaleCount || flyConfig?.scaleCount || 1,
+        memory: backupEnv.flyio?.memory || flyConfig?.memory || FLYIO_DEFAULTS.MEMORY,
+        scaleCount: backupEnv.flyio?.scaleCount || flyConfig?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT,
         organisation: backupEnv.flyio?.organisation || flyConfig?.organisation || "",
         mongo: backupEnv.mongo ? {
-          uri: backupEnv.mongo.uri || "",
+          cluster: backupEnv.mongo.cluster || "",
           db: backupEnv.mongo.db || "",
           username: backupEnv.mongo.username || "",
           password: backupEnv.mongo.password || ""
@@ -82,37 +86,8 @@ export class BackupAndRestoreService {
     return flyConfig || null;
   }
 
-  private buildMongoUri(baseUri: string, username: string, password: string, database: string): string {
-    const uriPattern = /^(mongodb(?:\+srv)?):\/\/(?:([^:]+):([^@]+)@)?([^\/]+)(?:\/([^?]+))?(\?.*)?$/;
-    const match = baseUri.match(uriPattern);
-
-    if (!match) {
-      throw new Error(`Invalid MongoDB URI: ${baseUri}`);
-    }
-
-    const [, protocol, existingUser, existingPass, host, existingDb, queryParams] = match;
-
-    const finalUsername = username || existingUser || "";
-    const finalPassword = password || existingPass || "";
-    const finalDatabase = database || existingDb || "";
-
-    let uri = `${protocol}://`;
-
-    if (finalUsername && finalPassword) {
-      uri += `${encodeURIComponent(finalUsername)}:${encodeURIComponent(finalPassword)}@`;
-    }
-
-    uri += host;
-
-    if (finalDatabase) {
-      uri += `/${finalDatabase}`;
-    }
-
-    if (queryParams) {
-      uri += queryParams;
-    }
-
-    return uri;
+  private buildMongoUriForConfig(cluster: string, username: string, password: string, database: string): string {
+    return buildMongoUri({ cluster, username, password, database });
   }
 
   async startBackup(options: BackupOptions): Promise<BackupSession> {
@@ -250,7 +225,7 @@ export class BackupAndRestoreService {
 
       await fs.mkdir(outDir, { recursive: true });
 
-      const mongoUri = this.buildMongoUri(config.mongo!.uri, config.mongo!.username, config.mongo!.password, dbName);
+      const mongoUri = this.buildMongoUriForConfig(config.mongo!.cluster, config.mongo!.username, config.mongo!.password, dbName);
 
       const dumpArgs = [
         "--uri", mongoUri,
@@ -278,7 +253,7 @@ export class BackupAndRestoreService {
 
       if (options.upload && (this.backupConfig.aws?.bucket || envBackupConfig?.aws)) {
         const preferredBucket = (this.backupConfig.aws?.bucket || envBackupConfig?.aws?.bucket)!;
-        const preferredRegion = (this.backupConfig.aws?.region || envBackupConfig?.aws?.region || "us-east-1");
+        const preferredRegion = (this.backupConfig.aws?.region || envBackupConfig?.aws?.region || AWS_DEFAULTS.REGION);
         const accessKeyId = envBackupConfig?.aws?.accessKeyId;
         const secretAccessKey = envBackupConfig?.aws?.secretAccessKey;
         const tsMatch = backupName.match(/^(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})/);
@@ -303,7 +278,7 @@ export class BackupAndRestoreService {
         } catch (e: any) {
           if (e?.Code === "NoSuchBucket" && envBackupConfig?.aws?.bucket && envBackupConfig.aws.bucket !== preferredBucket) {
             const fbBucket = envBackupConfig.aws.bucket;
-            const fbRegion = envBackupConfig.aws.region || "us-east-1";
+            const fbRegion = envBackupConfig.aws.region || AWS_DEFAULTS.REGION;
             await this.addLog(sessionId, `Global bucket missing; falling back to ${fbBucket}`);
             await uploadWith(fbBucket, fbRegion);
           } else {
@@ -362,7 +337,7 @@ export class BackupAndRestoreService {
         const s3BucketFromPath = options.from.replace("s3://", "").split("/")[0];
         const s3Prefix = options.from.replace(`s3://${s3BucketFromPath}/`, "");
         const configuredBucket = envBackupConfig?.aws?.bucket;
-        const region = envBackupConfig?.aws?.region || "us-east-1";
+        const region = envBackupConfig?.aws?.region || AWS_DEFAULTS.REGION;
         const accessKeyId = envBackupConfig?.aws?.accessKeyId;
         const secretAccessKey = envBackupConfig?.aws?.secretAccessKey;
 
@@ -419,7 +394,7 @@ export class BackupAndRestoreService {
         }
       }
 
-      const mongoUri = this.buildMongoUri(config.mongo!.uri, config.mongo!.username, config.mongo!.password, dbName);
+      const mongoUri = this.buildMongoUriForConfig(config.mongo!.cluster, config.mongo!.username, config.mongo!.password, dbName);
 
       const restoreArgs = [
         "--uri", mongoUri,
@@ -672,7 +647,7 @@ export class BackupAndRestoreService {
     if (this.backupConfig.environments) {
       for (const backupEnv of this.backupConfig.environments) {
         const flyConfig = this.configs.find(c => c.name === backupEnv.environment);
-        const hasMongoConfig = !!(backupEnv.mongo?.uri || backupEnv.mongo?.db);
+        const hasMongoConfig = !!(backupEnv.mongo?.cluster || backupEnv.mongo?.db);
 
         environments.push({
           name: backupEnv.environment,
@@ -751,7 +726,7 @@ export class BackupAndRestoreService {
       try {
         const bucket = this.backupConfig.aws?.bucket || env.aws?.bucket;
         if (!bucket) continue;
-        const region = this.backupConfig.aws?.region || env.aws?.region || "us-east-1";
+        const region = this.backupConfig.aws?.region || env.aws?.region || AWS_DEFAULTS.REGION;
         const accessKeyId = env.aws?.accessKeyId;
         const secretAccessKey = env.aws?.secretAccessKey;
         const s3 = new S3Client({
@@ -798,7 +773,7 @@ export class BackupAndRestoreService {
         const env = this.backupConfig.environments?.find(e => e.environment === envName);
         const bucket = this.backupConfig.aws?.bucket || env?.aws?.bucket;
         if (!bucket) throw new Error("No bucket configured for environment " + envName);
-        const region = this.backupConfig.aws?.region || env?.aws?.region || "us-east-1";
+        const region = this.backupConfig.aws?.region || env?.aws?.region || AWS_DEFAULTS.REGION;
         const s3 = new S3Client({
           region, credentials: env?.aws?.accessKeyId && env?.aws?.secretAccessKey ?
             {accessKeyId: env.aws.accessKeyId, secretAccessKey: env.aws.secretAccessKey} : undefined
@@ -827,7 +802,7 @@ export class BackupAndRestoreService {
       throw new Error(`Environment "${environmentName}" not found or has no mongo config`);
     }
 
-    const mongoUri = this.buildMongoUri(config.mongo.uri, config.mongo.username, config.mongo.password, config.mongo.db);
+    const mongoUri = this.buildMongoUriForConfig(config.mongo.cluster, config.mongo.username, config.mongo.password, config.mongo.db);
 
     return new Promise((resolve, reject) => {
       const proc = spawn("mongosh", [

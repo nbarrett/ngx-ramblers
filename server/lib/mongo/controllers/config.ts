@@ -26,6 +26,17 @@ const sensitiveKeys = new Set([
   "password",
   "username",
   "userName",
+  "uri",
+  "secretKey",
+  "siteKey",
+]);
+
+const adminOnlyConfigKeys = new Set([
+  ConfigKey.BACKUP,
+  ConfigKey.ENVIRONMENTS,
+  ConfigKey.BREVO,
+  ConfigKey.MAILCHIMP,
+  ConfigKey.MAIL,
 ]);
 export const create = controller.create;
 export const all = controller.all;
@@ -115,11 +126,21 @@ export async function createOrUpdateKey(configKey: ConfigKey, value: any): Promi
 
 export function handleQuery(req: Request, res: Response): Promise<any> {
   try {
-    const criteria = configCriteriaFromQuerystring(req);
+    const configKey = configKeyFromQuerystring(req);
+    const isAdmin = isAdminFromRequest(req);
+
+    if (adminOnlyConfigKeys.has(configKey) && !isAdmin) {
+      debugLog(`Blocked unauthenticated access to admin-only config: ${configKey}`);
+      return Promise.resolve(res.status(403).json({
+        message: "Authentication required to access this configuration",
+        error: "Forbidden"
+      }));
+    }
+
+    const criteria = criteriaForKey(configKey);
     return config.findOne(criteria)
       .then(response => {
         const configDocument: ConfigDocument = toObjectWithId(response);
-        const isAdmin = isAdminFromRequest(req);
         const redactedValue = isAdmin ? configDocument?.value : redactSensitive(configDocument?.value);
         debugLog(req.query, "findByConditions:criteria", criteria, "isAdmin:", isAdmin);
         return res.status(200).json({

@@ -1,6 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import type { EnvironmentConfig, MongoConfig } from "./types.js";
+import { FLYIO_DEFAULTS } from "./types.js";
 import type { BackupConfig } from "../../projects/ngx-ramblers/src/app/models/backup-session.model";
 import { configuredBackup } from "../lib/backup/backup-config.js";
 
@@ -21,7 +22,7 @@ async function loadConfigsFromFiles(): Promise<EnvironmentConfig[]> {
 function transformBackupConfigToEnvironmentConfigs(backupConfig: BackupConfig): EnvironmentConfig[] {
   return (backupConfig.environments || []).map(env => {
     const mongoConfig: MongoConfig | undefined = env.mongo ? {
-      uri: env.mongo.uri || "",
+      cluster: env.mongo.cluster || "",
       db: env.mongo.db || "",
       username: env.mongo.username || "",
       password: env.mongo.password || ""
@@ -31,8 +32,8 @@ function transformBackupConfigToEnvironmentConfigs(backupConfig: BackupConfig): 
       name: env.environment,
       apiKey: env.flyio?.apiKey || "",
       appName: env.flyio?.appName || "",
-      memory: env.flyio?.memory || "512mb",
-      scaleCount: env.flyio?.scaleCount || 1,
+      memory: env.flyio?.memory || FLYIO_DEFAULTS.MEMORY,
+      scaleCount: env.flyio?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT,
       organisation: env.flyio?.organisation,
       mongo: mongoConfig
     };

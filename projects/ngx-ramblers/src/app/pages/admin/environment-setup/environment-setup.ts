@@ -1,7 +1,10 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
+import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
+import { kebabCase } from "es-toolkit/compat";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
   createEmptySetupRequest,
@@ -10,6 +13,7 @@ import {
   EnvironmentSetupResult,
   EnvironmentSetupStepperKey,
   EnvironmentSetupStepperStep,
+  EnvironmentSetupTab,
   ExistingEnvironment,
   ManageAction,
   OperationInProgress,
@@ -17,6 +21,7 @@ import {
   SetupProgress,
   ValidationResult
 } from "../../../models/environment-setup.model";
+import { StoredValue } from "../../../models/ui-actions";
 import { parseMongoUri } from "../../../functions/mongo";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { AvailableArea, AvailableAreaWithLabel, SystemConfig } from "../../../models/system.model";
@@ -32,6 +37,7 @@ import { FormsModule } from "@angular/forms";
 import { NgClass } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
+  faArrowLeft,
   faCheck,
   faCheckCircle,
   faCog,
@@ -42,6 +48,7 @@ import {
   faSpinner,
   faTimes,
   faTrash,
+  faUndo,
   faUsers
 } from "@fortawesome/free-solid-svg-icons";
 import { StepperModule } from "primeng/stepper";
@@ -52,6 +59,8 @@ import { SecretInputComponent } from "../../../modules/common/secret-input/secre
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { EventType, MessageType } from "../../../models/websocket.model";
 import { SessionLogsComponent } from "../../../shared/components/session-logs";
+import { EnvironmentSettings } from "../../../modules/common/environment-settings/environment-settings";
+import { EnvironmentManagement } from "../../../modules/common/environment-management/environment-management";
 
 @Component({
   selector: "app-environment-setup",
@@ -66,193 +75,55 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
               Please use the CLI or staging environment.
             </div>
           } @else {
-            <div class="row mb-3">
-              <div class="col-sm-12">
-                <p-stepper [(value)]="stepperActiveIndex" [linear]="false">
-                  @for (step of stepperSteps; let idx = $index; track step.key) {
-                    <p-step-item [value]="idx">
-                      <p-step [disabled]="!canAccessStep(step.key)">
-                        <div class="import-step-header">
-                          <span class="import-step-number">{{ idx + 1 }}</span>
-                          <div class="import-step-text">
-                            <div class="import-step-label">{{ step.label }}</div>
-                            <div class="import-step-hint">{{ stepHint(step.key) }}</div>
-                          </div>
-                        </div>
-                      </p-step>
-                      <p-step-panel>
-                        <ng-template pTemplate="content">
-                          @if (step.key === EnvironmentSetupStepperKey.RAMBLERS_SELECTION) {
-                            <div>
-                              @if (existingEnvironments.length > 0) {
-                                <div class="row mb-4">
-                                  <div class="col-md-12">
-                                    <div class="form-check form-check-inline">
+            <tabset class="custom-tabset">
+              <tab [active]="tabActive(EnvironmentSetupTab.CREATE)"
+                   (selectTab)="selectTab(EnvironmentSetupTab.CREATE)"
+                   [heading]="EnvironmentSetupTab.CREATE">
+                @if (tabActive(EnvironmentSetupTab.CREATE)) {
+                  <div class="img-thumbnail thumbnail-admin-edit">
+                    <div class="row thumbnail-heading-frame">
+                      <div class="thumbnail-heading">Environment Setup</div>
+                      <p class="text-muted mb-3">
+                        Use this wizard to set up a new environment for a Ramblers group or area.
+                      </p>
+                      <p-stepper [(value)]="stepperActiveIndex" [linear]="false">
+                        @for (step of stepperSteps; let idx = $index; track step.key) {
+                          <p-step-item [value]="idx">
+                            <p-step [disabled]="!canAccessStep(step.key)">
+                              <div class="import-step-header">
+                                <span class="import-step-number">{{ idx + 1 }}</span>
+                                <div class="import-step-text">
+                                  <div class="import-step-label">{{ step.label }}</div>
+                                  <div class="import-step-hint">{{ stepHint(step.key) }}</div>
+                                </div>
+                              </div>
+                            </p-step>
+                            <p-step-panel>
+                              <ng-template pTemplate="content">
+                                @if (step.key === EnvironmentSetupStepperKey.RAMBLERS_SELECTION) {
+                                <div>
+                                  <div class="d-flex gap-4 mb-4">
+                                    <div class="form-check">
                                       <input class="form-check-input" type="radio" name="setupMode" id="modeCreate"
                                              [checked]="setupMode === SetupMode.CREATE"
                                              (change)="setSetupMode(SetupMode.CREATE)">
                                       <label class="form-check-label" for="modeCreate">
-                                        <fa-icon [icon]="faPlus" class="me-1"></fa-icon>
+                                        <fa-icon [icon]="faPlus" class="me-2"></fa-icon>
                                         Create New Environment
                                       </label>
                                     </div>
-                                    <div class="form-check form-check-inline">
-                                      <input class="form-check-input" type="radio" name="setupMode" id="modeManage"
+                                    <div class="form-check">
+                                      <input class="form-check-input" type="radio" name="setupMode" id="modeResume"
                                              [checked]="setupMode === SetupMode.MANAGE"
                                              (change)="setSetupMode(SetupMode.MANAGE)">
-                                      <label class="form-check-label" for="modeManage">
-                                        <fa-icon [icon]="faCog" class="me-1"></fa-icon>
-                                        Manage Existing Environment
+                                      <label class="form-check-label" for="modeResume">
+                                        <fa-icon [icon]="faRedo" class="me-2"></fa-icon>
+                                        Resume Existing Setup
                                       </label>
                                     </div>
                                   </div>
-                                </div>
-                              }
-                              @if (setupMode === SetupMode.MANAGE) {
-                                <div class="row thumbnail-heading-frame">
-                                  <div class="thumbnail-heading">Manage Existing Environment</div>
-                                  <div class="row">
-                                    <div class="col-md-6">
-                                      <label for="existing-env">Select Environment</label>
-                                      <ng-select id="existing-env"
-                                                 [items]="existingEnvironments"
-                                                 bindLabel="name"
-                                                 [(ngModel)]="selectedExistingEnv"
-                                                 (ngModelChange)="onExistingEnvironmentSelected($event)"
-                                                 placeholder="Select an environment">
-                                      </ng-select>
-                                    </div>
-                                    @if (selectedExistingEnv) {
-                                      <div class="col-md-6">
-                                        <label>Action</label>
-                                        <div class="d-flex gap-2">
-                                          <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="manageAction" id="actionResume"
-                                                   [checked]="manageAction === ManageAction.RESUME"
-                                                   (change)="setManageAction(ManageAction.RESUME)">
-                                            <label class="form-check-label" for="actionResume">
-                                              <fa-icon [icon]="faRedo" class="me-1"></fa-icon>
-                                              Resume Setup
-                                            </label>
-                                          </div>
-                                          <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="manageAction" id="actionDestroy"
-                                                   [checked]="manageAction === ManageAction.DESTROY"
-                                                   (change)="setManageAction(ManageAction.DESTROY)">
-                                            <label class="form-check-label text-danger" for="actionDestroy">
-                                              <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
-                                              Destroy
-                                            </label>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    }
-                                  </div>
-                                  @if (selectedExistingEnv && manageAction === ManageAction.RESUME) {
-                                    <div class="row mt-3">
-                                      <div class="col-md-12">
-                                        <strong>Steps to run:</strong>
-                                        <div class="form-check mt-2">
-                                          <input class="form-check-input" type="checkbox" id="runValidation"
-                                                 [(ngModel)]="resumeOptions.runValidation">
-                                          <label class="form-check-label" for="runValidation">
-                                            Run validation
-                                            @if (!resumeOptions.runValidation) {
-                                              <span class="badge" style="background-color: rgb(240, 128, 80); color: white;">✓ done</span>
-                                            }
-                                          </label>
-                                        </div>
-                                        <div class="form-check">
-                                          <input class="form-check-input" type="checkbox" id="runAwsCreation"
-                                                 [(ngModel)]="resumeOptions.runAwsCreation">
-                                          <label class="form-check-label" for="runAwsCreation">
-                                            Create AWS resources (bucket/IAM)
-                                            @if (!resumeOptions.runAwsCreation) {
-                                              <span class="badge" style="background-color: rgb(240, 128, 80); color: white;">✓ done</span>
-                                            }
-                                          </label>
-                                        </div>
-                                        <div class="form-check">
-                                          <input class="form-check-input" type="checkbox" id="runDbInit"
-                                                 [(ngModel)]="resumeOptions.runDbInit">
-                                          <label class="form-check-label" for="runDbInit">
-                                            Initialise database
-                                            @if (!resumeOptions.runDbInit) {
-                                              <span class="badge" style="background-color: rgb(240, 128, 80); color: white;">✓ done</span>
-                                            }
-                                          </label>
-                                        </div>
-                                        <div class="form-check">
-                                          <input class="form-check-input" type="checkbox" id="runFlyDeployment"
-                                                 [(ngModel)]="resumeOptions.runFlyDeployment">
-                                          <label class="form-check-label" for="runFlyDeployment">Deploy to Fly.io</label>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div class="stepper-nav">
-                                      <button type="button" class="btn btn-secondary" (click)="cancel()">Cancel</button>
-                                      <button class="btn btn-primary" (click)="resumeSetup()"
-                                              [disabled]="operationBusy">
-                                        @if (creating) {
-                                          <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
-                                        }
-                                        Resume Setup
-                                      </button>
-                                    </div>
-                                  }
-                                  @if (selectedExistingEnv && manageAction === ManageAction.DESTROY) {
-                                    <div class="row mt-3">
-                                      <div class="col-md-12">
-                                        <div class="alert alert-danger">
-                                          <fa-icon [icon]="faExclamationCircle" class="me-2"></fa-icon>
-                                          <strong>Warning:</strong> This will permanently destroy the environment <strong>{{ selectedExistingEnv.name }}</strong>.
-                                          <ul class="mb-0 mt-2">
-                                            <li>Delete the Fly.io app:
-                                              <strong>{{ selectedExistingEnv.appName }}</strong></li>
-                                            <li>Delete the S3 bucket:
-                                              <strong>ngx-ramblers-{{ selectedExistingEnv.name.toLowerCase() }}</strong>
-                                            </li>
-                                            <li>Delete the IAM user:
-                                              <strong>ngx-ramblers-{{ selectedExistingEnv.name.toLowerCase() }}
-                                                -user</strong></li>
-                                            <li>Clear all collections in database:
-                                              <strong>ngx-ramblers-{{ selectedExistingEnv.name.toLowerCase() }}</strong>
-                                              <br><small class="text-muted">Only the
-                                                ngx-ramblers-{{ selectedExistingEnv.name.toLowerCase() }} schema will be
-                                                cleared.{{ otherDatabasesSummary }}</small>
-                                            </li>
-                                            <li>Remove from configs.json</li>
-                                            <li>Delete the secrets file</li>
-                                          </ul>
-                                          <p class="mt-3 mb-0"><strong>This action is irreversible.</strong></p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    @if (destroyProgressMessages.length > 0) {
-                                      <app-session-logs [messages]="destroyProgressMessages"
-                                                        class="mt-3"></app-session-logs>
-                                    }
-                                    @if (destroyComplete) {
-                                      <div class="alert alert-success mt-3">
-                                        <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
-                                        <strong>Environment destroyed successfully.</strong> Select another environment
-                                        or create a new one.
-                                      </div>
-                                    }
-                                    <div class="stepper-nav">
-                                      <button type="button" class="btn btn-secondary" (click)="cancel()">Cancel</button>
-                                      <button class="btn btn-danger" (click)="destroyEnvironment()"
-                                              [disabled]="!canDestroy || operationBusy || destroyComplete">
-                                        @if (destroying) {
-                                          <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
-                                        }
-                                        Destroy Environment
-                                      </button>
-                                    </div>
-                                  }
-                                </div>
-                              } @else if (setupMode === SetupMode.CREATE) {
-                                <div class="row mb-3">
+                                  @if (setupMode === SetupMode.CREATE) {
+                                  <div class="row mb-3">
                                   <div class="col-md-6">
                                     <div class="form-group">
                                       <label for="ramblers-api-key">Ramblers API Key</label>
@@ -345,9 +216,11 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                                           [disabled]="!canAccessStep(EnvironmentSetupStepperKey.SERVICES_CONFIG)">Next
                                   </button>
                                 </div>
-                              }
-                            </div>
-                          } @else if (step.key === EnvironmentSetupStepperKey.SERVICES_CONFIG) {
+                                  } @else {
+                                    <app-environment-management/>
+                                  }
+                              </div>
+                            } @else if (step.key === EnvironmentSetupStepperKey.SERVICES_CONFIG) {
                             <div>
                               <div class="row thumbnail-heading-frame">
                                 <div class="thumbnail-heading">Environment Basics</div>
@@ -478,7 +351,7 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                                 <div class="thumbnail-heading">Brevo Email Configuration</div>
                                 <div class="row">
                                   <div class="col-md-8">
-                                    <label for="brevo-api-key">Brevo API Key (required)</label>
+                                    <label for="brevo-api-key">Brevo API Key (optional)</label>
                                     <app-secret-input [(ngModel)]="request.serviceConfigs.brevo.apiKey"
                                                       id="brevo-api-key"
                                                       placeholder="Enter your Brevo API key">
@@ -718,39 +591,61 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                                 </div>
                               }
                               <div class="stepper-nav">
-                                <button type="button" class="btn btn-secondary" (click)="cancel()">Back to Admin
+                                <button type="button" class="btn btn-primary me-2" (click)="retrySetup()">
+                                  <fa-icon [icon]="faRedo" class="me-1"></fa-icon>Retry
+                                </button>
+                                <button type="button" class="btn btn-secondary me-2" (click)="goToStep(3)">
+                                  <fa-icon [icon]="faArrowLeft" class="me-1"></fa-icon>Back
+                                </button>
+                                <button type="button" class="btn btn-warning me-2" (click)="startAgain()">
+                                  <fa-icon [icon]="faUndo" class="me-1"></fa-icon>Start Again
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
+                                  Back to Admin
                                 </button>
                               </div>
                             </div>
                           }
                         </ng-template>
-                      </p-step-panel>
-                    </p-step-item>
+                              </p-step-panel>
+                            </p-step-item>
+                          }
+                        </p-stepper>
+                    </div>
+                  </div>
+                }
+              </tab>
+                <tab [active]="tabActive(EnvironmentSetupTab.SETTINGS)"
+                     (selectTab)="selectTab(EnvironmentSetupTab.SETTINGS)"
+                     [heading]="EnvironmentSetupTab.SETTINGS">
+                  @if (tabActive(EnvironmentSetupTab.SETTINGS)) {
+                    <div class="img-thumbnail thumbnail-admin-edit">
+                      <app-environment-settings/>
+                    </div>
                   }
-                </p-stepper>
-              </div>
-            </div>
+                </tab>
+              </tabset>
 
-            @if (notifyTarget.showAlert) {
-              <div class="row mt-3">
-                <div class="col-sm-12">
-                  <div class="alert {{ notifyTarget.alert.class }}">
-                    <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                    @if (notifyTarget.alertTitle) {
-                      <strong>{{ notifyTarget.alertTitle }}: </strong>
-                    }
-                    {{ notifyTarget.alertMessage }}
+              @if (notifyTarget.showAlert) {
+                <div class="row mt-3">
+                  <div class="col-sm-12">
+                    <div class="alert {{ notifyTarget.alert.class }}">
+                      <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                      @if (notifyTarget.alertTitle) {
+                        <strong>{{ notifyTarget.alertTitle }}: </strong>
+                      }
+                      {{ notifyTarget.alertMessage }}
+                    </div>
                   </div>
                 </div>
-              </div>
+              }
             }
-          }
+          </div>
         </div>
-      </div>
-    </app-page>
-  `,
+      </app-page>
+    `,
   styleUrls: ["./environment-setup.sass"],
-  imports: [PageComponent, FormsModule, NgClass, FontAwesomeModule, StepperModule, NgSelectComponent, StatusIconComponent, SecretInputComponent, SessionLogsComponent]
+  imports: [PageComponent, FormsModule, NgClass, FontAwesomeModule, StepperModule, NgSelectComponent, StatusIconComponent, SecretInputComponent, SessionLogsComponent, TabsetComponent, TabDirective, EnvironmentSettings, EnvironmentManagement]
 })
 export class EnvironmentSetupComponent implements OnInit, OnDestroy {
 
@@ -768,8 +663,14 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   private urlService = inject(UrlService);
   private stringUtils = inject(StringUtilsService);
   private websocketService = inject(WebSocketClientService);
+  private activatedRoute = inject(ActivatedRoute);
+  private router = inject(Router);
   private systemConfig: SystemConfig;
   private environmentDefaults: EnvironmentDefaults;
+  private tab: EnvironmentSetupTab = EnvironmentSetupTab.CREATE;
+
+  protected readonly EnvironmentSetupTab = EnvironmentSetupTab;
+  protected readonly SetupMode = SetupMode;
 
   enabled = false;
   wsConnected = false;
@@ -864,34 +765,50 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   ];
 
   protected readonly EnvironmentSetupStepperKey = EnvironmentSetupStepperKey;
-  protected readonly SetupMode = SetupMode;
-  protected readonly ManageAction = ManageAction;
   protected readonly faCheck = faCheck;
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faCog = faCog;
   protected readonly faExclamationCircle = faExclamationCircle;
   protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly faPlus = faPlus;
+  protected readonly faArrowLeft = faArrowLeft;
   protected readonly faRedo = faRedo;
   protected readonly faSpinner = faSpinner;
   protected readonly faTimes = faTimes;
   protected readonly faTrash = faTrash;
+  protected readonly faUndo = faUndo;
   protected readonly faUsers = faUsers;
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
+      const defaultValue = kebabCase(EnvironmentSetupTab.CREATE);
+      const tabParameter = params[StoredValue.TAB];
+      this.tab = tabParameter || defaultValue;
+      this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue);
+    }));
     try {
       const status = await this.environmentSetupService.status();
       this.enabled = status.enabled;
       if (this.enabled) {
         await this.loadDefaults();
-        await this.loadExistingEnvironments();
         await this.connectWebSocket();
       }
     } catch (error) {
       this.logger.error("Failed to check setup status:", error);
       this.enabled = false;
     }
+  }
+
+  selectTab(tab: EnvironmentSetupTab) {
+    this.router.navigate([], {
+      queryParams: { [StoredValue.TAB]: kebabCase(tab) },
+      queryParamsHandling: "merge"
+    });
+  }
+
+  tabActive(tab: EnvironmentSetupTab): boolean {
+    return kebabCase(this.tab) === kebabCase(tab);
   }
 
   private async connectWebSocket(): Promise<void> {
@@ -925,9 +842,14 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
         }),
         this.websocketService.receiveMessages<any>(MessageType.ERROR).subscribe(data => {
           this.logger.error("WebSocket error:", data);
-          this.operationInProgress = OperationInProgress.NONE;
-          this.setupError = data?.message || "An error occurred";
-          this.progressMessages.push(`Error: ${this.setupError}`);
+          const isTransient = data?.transient === true;
+          if (isTransient) {
+            this.progressMessages.push(`Connection lost - server operation may still be running. Check Fly.io dashboard for deployment status.`);
+          } else {
+            this.operationInProgress = OperationInProgress.NONE;
+            this.setupError = data?.message || "An error occurred";
+            this.progressMessages.push(`Error: ${this.setupError}`);
+          }
         })
       );
     } catch (error) {
@@ -1155,8 +1077,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   private hasServicesConfigured(): boolean {
     return !!this.request.environmentBasics.environmentName &&
       !!this.request.serviceConfigs.mongodb.cluster &&
-      !!this.request.serviceConfigs.mongodb.password &&
-      !!this.request.serviceConfigs.brevo.apiKey;
+      !!this.request.serviceConfigs.mongodb.password;
   }
 
   private hasAdminConfigured(): boolean {
@@ -1275,6 +1196,17 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     this.updateAppName();
     this.request.serviceConfigs.aws.bucket = `ngx-ramblers-${envName}`;
     this.request.serviceConfigs.mongodb.database = `ngx-ramblers-${envName}`;
+
+    const firstWord = this.request.ramblersInfo.groupName
+      .split(/\s+/)[0]
+      .replace(/[^a-zA-Z]/g, "");
+    const firstName = firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase();
+
+    this.request.adminUser.firstName = firstName;
+    this.request.adminUser.lastName = "Admin";
+    this.request.adminUser.email = `${envName}@ngx-ramblers.org.uk`;
+    this.request.adminUser.password = "password";
+    this.confirmPassword = "password";
   }
 
   updateAppName() {
@@ -1384,5 +1316,18 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
 
   cancel() {
     this.urlService.navigateTo(["admin"]);
+  }
+
+  retrySetup() {
+    this.createEnvironment();
+  }
+
+  startAgain() {
+    this.setupProgress = [];
+    this.setupResult = null;
+    this.setupError = null;
+    this.progressMessages = [];
+    this.operationInProgress = OperationInProgress.NONE;
+    this.goToStep(0);
   }
 }
