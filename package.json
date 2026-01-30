@@ -4,6 +4,9 @@
   "version": "2.0.0",
   "license": "ISC",
   "private": true,
+  "bin": {
+    "ngx-cli": "./bin/ngx-cli"
+  },
   "scripts": {
     "analyze": "webpack-bundle-analyzer dist/ngx-ramblers/stats-es2015.json",
     "build:stats": "ng build --project ngx-ramblers --configuration production --statsJson=true",
@@ -21,7 +24,8 @@
     "test": "ng test --project ngx-ramblers --watch=false --browsers=ChromeHeadless",
     "test:watch": "ng test --project ngx-ramblers",
     "test:server": "sh -c 'cd server && npm run unit-test:once'",
-    "release-notes": "npm --prefix server run release-notes --"
+    "release-notes": "npm --prefix server run release-notes --",
+    "cli": "npx ts-node server/lib/cli/index.ts"
   },
   "cacheDirectories": [
     "node_modules",

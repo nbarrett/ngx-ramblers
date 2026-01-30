@@ -1,3 +1,4 @@
+import { spawn } from "child_process";
 import { RamblersWalksUploadRequest } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { envConfig } from "../env-config/env-config";
 import * as auditParser from "./ramblers-audit-parser";
@@ -77,7 +78,6 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
   downloadStatusManager.startDownload(fileName);
   process.env[Environment.RAMBLERS_METADATA_FILE] = metadataPath;
   process.env[Environment.RAMBLERS_FEATURE] = "walks-upload.ts";
-  const spawn = require("child_process").spawn;
   auditNotifier.registerUploadStart(fileName, ws);
   debugLog("Running RAMBLERS_FEATURE:", process.env[Environment.RAMBLERS_FEATURE],
     "CHROMEDRIVER_PATH:", process.env[Environment.CHROMEDRIVER_PATH],

@@ -30,26 +30,38 @@ interface AreaMappings {
 const debugLog = debug(envConfig.logNamespace("areas"));
 debugLog.enabled = false;
 
-const s3 = new S3({
-  region: envConfig.aws.region,
-  credentials: {
-    accessKeyId: envConfig.aws.accessKeyId,
-    secretAccessKey: envConfig.aws.secretAccessKey
-  }
-});
+const s3Cache: { client?: S3 } = {};
 
-let cachedGeoJson: GeoJSON.FeatureCollection<GeoJSON.Polygon> | null = null;
-let geoJsonLoadPromise: Promise<GeoJSON.FeatureCollection<GeoJSON.Polygon>> | null = null;
-let cachedGeoJsonKey: string | null = null;
-let cachedBundledGeoJson: GeoJSON.FeatureCollection<GeoJSON.Polygon> | null = null;
-let cachedS3GeoJson: GeoJSON.FeatureCollection<GeoJSON.Polygon> | null = null;
-let districtFeatureIndex: Map<string, GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>> | null = null;
+function s3(): S3 {
+  if (!s3Cache.client) {
+    const awsConfig = envConfig.aws();
+    s3Cache.client = new S3({
+      region: awsConfig.region,
+      credentials: {
+        accessKeyId: awsConfig.accessKeyId,
+        secretAccessKey: awsConfig.secretAccessKey
+      }
+    });
+  }
+  return s3Cache.client;
+}
+
+interface GeoJsonCache {
+  geoJson?: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+  loadPromise?: Promise<GeoJSON.FeatureCollection<GeoJSON.Polygon>>;
+  key?: string;
+  bundled?: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+  s3?: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+  districtIndex?: Map<string, GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>>;
+}
+
+const geoJsonCache: GeoJsonCache = {};
 const ramblersGroupsCache = new Map<string, RamblersGroupsApiResponse[] | null>();
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 async function loadBundledGeoJson(): Promise<GeoJSON.FeatureCollection<GeoJSON.Polygon>> {
-  if (cachedBundledGeoJson) {
-    return cachedBundledGeoJson;
+  if (geoJsonCache.bundled) {
+    return geoJsonCache.bundled;
   }
 
   const geojsonPath = path.join(__dirname, "areas.geojson");
@@ -58,32 +70,32 @@ async function loadBundledGeoJson(): Promise<GeoJSON.FeatureCollection<GeoJSON.P
     throw new Error("Bundled area GeoJSON not found");
   }
 
-  cachedBundledGeoJson = await fs.readJson(geojsonPath) as GeoJSON.FeatureCollection<GeoJSON.Polygon>;
-  districtFeatureIndex = null;
-  return cachedBundledGeoJson;
+  geoJsonCache.bundled = await fs.readJson(geojsonPath) as GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+  delete geoJsonCache.districtIndex;
+  return geoJsonCache.bundled;
 }
 
 async function loadGeoJson(): Promise<GeoJSON.FeatureCollection<GeoJSON.Polygon>> {
-  if (cachedGeoJson) {
-    return cachedGeoJson;
+  if (geoJsonCache.geoJson) {
+    return geoJsonCache.geoJson;
   }
 
-  if (!geoJsonLoadPromise) {
-    geoJsonLoadPromise = (async () => {
+  if (!geoJsonCache.loadPromise) {
+    geoJsonCache.loadPromise = (async () => {
       const key = await resolveAreaMapKey();
       if (key) {
         debugLog(`Loading area GeoJSON from S3 key ${key}`);
         const command = new GetObjectCommand({
-          Bucket: envConfig.aws.bucket,
+          Bucket: envConfig.aws().bucket,
           Key: key
         });
-        const response = await s3.send(command);
+        const response = await s3().send(command);
         if (!response.Body) {
           throw new Error("Area map S3 object has no body");
         }
         const json = await bodyToString(response.Body);
         const parsed = JSON.parse(json) as GeoJSON.FeatureCollection<GeoJSON.Polygon>;
-        cachedS3GeoJson = parsed;
+        geoJsonCache.s3 = parsed;
         return parsed;
       }
 
@@ -94,16 +106,16 @@ async function loadGeoJson(): Promise<GeoJSON.FeatureCollection<GeoJSON.Polygon>
   }
 
   try {
-    cachedGeoJson = await geoJsonLoadPromise;
-    return cachedGeoJson;
+    geoJsonCache.geoJson = await geoJsonCache.loadPromise;
+    return geoJsonCache.geoJson;
   } finally {
-    geoJsonLoadPromise = null;
+    delete geoJsonCache.loadPromise;
   }
 }
 
 async function loadS3GeoJson(): Promise<GeoJSON.FeatureCollection<GeoJSON.Polygon>> {
-  if (cachedS3GeoJson && cachedGeoJsonKey) {
-    return cachedS3GeoJson;
+  if (geoJsonCache.s3 && geoJsonCache.key) {
+    return geoJsonCache.s3;
   }
 
   const key = await resolveAreaMapKey();
@@ -112,16 +124,16 @@ async function loadS3GeoJson(): Promise<GeoJSON.FeatureCollection<GeoJSON.Polygo
   }
 
   const command = new GetObjectCommand({
-    Bucket: envConfig.aws.bucket,
+    Bucket: envConfig.aws().bucket,
     Key: key
   });
-  const response = await s3.send(command);
+  const response = await s3().send(command);
   if (!response.Body) {
     throw new Error("Area map S3 object has no body");
   }
   const json = await bodyToString(response.Body);
-  cachedS3GeoJson = JSON.parse(json) as GeoJSON.FeatureCollection<GeoJSON.Polygon>;
-  return cachedS3GeoJson;
+  geoJsonCache.s3 = JSON.parse(json) as GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+  return geoJsonCache.s3;
 }
 
 async function bodyToString(body: any): Promise<string> {
@@ -451,8 +463,8 @@ function transformFeatureToWgs84(feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJ
 }
 
 async function districtFeatures(): Promise<Map<string, GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>>> {
-  if (districtFeatureIndex) {
-    return districtFeatureIndex;
+  if (geoJsonCache.districtIndex) {
+    return geoJsonCache.districtIndex;
   }
 
   const geojson = await loadBundledGeoJson();
@@ -466,8 +478,8 @@ async function districtFeatures(): Promise<Map<string, GeoJSON.Feature<GeoJSON.P
     index.set(name, transformFeatureToWgs84(feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>));
   });
 
-  districtFeatureIndex = index;
-  return districtFeatureIndex;
+  geoJsonCache.districtIndex = index;
+  return geoJsonCache.districtIndex;
 }
 
 const COMMON_WORDS = new Set(["white", "green", "north", "south", "east", "west", "new", "old", "great", "little"]);
@@ -582,16 +594,16 @@ export async function uploadDefaultAreaMap(req: Request, res: Response) {
     const key = `area-map/areas-${timestamp}.geojson`;
 
     const command = new PutObjectCommand({
-      Bucket: envConfig.aws.bucket,
+      Bucket: envConfig.aws().bucket,
       Key: key,
       Body: data,
       ContentType: "application/geo+json"
     });
 
-    await s3.send(command);
-    cachedGeoJson = null;
-    cachedGeoJsonKey = key;
-    cachedS3GeoJson = null;
+    await s3().send(command);
+    delete geoJsonCache.geoJson;
+    geoJsonCache.key = key;
+    delete geoJsonCache.s3;
     debugLog(`Uploaded filtered area map with ${filteredGeoJson.features.length} features to ${key}`);
     res.status(200).json({ key, featureCount: filteredGeoJson.features.length });
   } catch (error) {
@@ -845,8 +857,8 @@ export async function configureAreaGroups(req: Request, res: Response) {
       status: (code: number) => ({
         json: (data: any) => {
           if (code === 200) {
-            cachedGeoJson = null;
-            cachedGeoJsonKey = null;
+            delete geoJsonCache.geoJson;
+            delete geoJsonCache.key;
             debugLog(`Configured ${processedGroups.length} area groups`);
             res.status(200).json({
               message: "Area groups configured successfully",
@@ -877,10 +889,10 @@ export async function configureAreaGroups(req: Request, res: Response) {
 export async function deleteAreaMapData(req: Request, res: Response) {
   try {
     const listCommand = new ListObjectsV2Command({
-      Bucket: envConfig.aws.bucket,
+      Bucket: envConfig.aws().bucket,
       Prefix: "area-map/"
     });
-    const listResponse = await s3.send(listCommand);
+    const listResponse = await s3().send(listCommand);
     const objects = listResponse.Contents || [];
 
     if (objects.length === 0) {
@@ -891,18 +903,18 @@ export async function deleteAreaMapData(req: Request, res: Response) {
     for (const obj of objects) {
       if (obj.Key) {
         const deleteCommand = new DeleteObjectCommand({
-          Bucket: envConfig.aws.bucket,
+          Bucket: envConfig.aws().bucket,
           Key: obj.Key
         });
-        await s3.send(deleteCommand);
+        await s3().send(deleteCommand);
         deletedKeys.push(obj.Key);
         debugLog(`Deleted area map from S3: ${obj.Key}`);
       }
     }
 
-    cachedGeoJson = null;
-    cachedGeoJsonKey = null;
-    cachedS3GeoJson = null;
+    delete geoJsonCache.geoJson;
+    delete geoJsonCache.key;
+    delete geoJsonCache.s3;
     res.status(200).json({ message: "Area map data deleted successfully", deletedKeys });
   } catch (error) {
     debugLog(`Failed to delete area map: ${error.message}`);
@@ -975,17 +987,17 @@ export async function listAvailableAreas(req: Request, res: Response) {
   }
 }
 
-async function resolveAreaMapKey(): Promise<string | null> {
-  if (cachedGeoJsonKey) {
-    return cachedGeoJsonKey;
+async function resolveAreaMapKey(): Promise<string | undefined> {
+  if (geoJsonCache.key) {
+    return geoJsonCache.key;
   }
 
   try {
     const command = new ListObjectsV2Command({
-      Bucket: envConfig.aws.bucket,
+      Bucket: envConfig.aws().bucket,
       Prefix: "area-map/"
     });
-    const response = await s3.send(command);
+    const response = await s3().send(command);
     const objects = (response.Contents || [])
       .filter(item => !!item.Key)
       .sort((a, b) => {
@@ -993,11 +1005,11 @@ async function resolveAreaMapKey(): Promise<string | null> {
         const bTime = b.LastModified ? b.LastModified.getTime() : 0;
         return bTime - aTime;
       });
-    const latestKey = objects[0]?.Key || null;
-    cachedGeoJsonKey = latestKey;
+    const latestKey = objects[0]?.Key;
+    geoJsonCache.key = latestKey;
     return latestKey;
   } catch (error) {
     debugLog(`Failed to list area map objects: ${error.message}`);
-    return null;
+    return undefined;
   }
 }

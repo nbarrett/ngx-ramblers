@@ -142,6 +142,7 @@ export class AlbumComponent implements OnInit {
   public noImages: boolean;
   public lazyLoadingMetadata: LazyLoadingMetadata;
   public duplicateImages: DuplicateImages;
+  private initialised = false;
 
   @Input("preview") set previewValue(value: boolean) {
     this.preview = coerceBooleanProperty(value);
@@ -201,6 +202,7 @@ export class AlbumComponent implements OnInit {
     }
     this.gridViewOptions = {...DEFAULT_GRID_OPTIONS, ...this.album.gridViewOptions};
     this.initFromUrlParams();
+    this.initialised = true;
     this.logger.info("ngOnInit:querying metadata service with root folder", RootFolder.carousels, "album name:", this.album?.name);
     this.contentMetadataService.items(RootFolder.carousels, this.album?.name)
       .then(contentMetadata => {
@@ -334,7 +336,7 @@ export class AlbumComponent implements OnInit {
   }
 
   private updateUrlParams() {
-    if (!this.preview) {
+    if (!this.preview && this.initialised) {
       const queryParams: Record<string, string | null> = {};
 
       queryParams[StoredValue.ALBUM_VIEW] = this.albumView;

@@ -30,6 +30,8 @@ export enum EventType {
   IMAGE_MIGRATION_SCAN = "image-migration-scan",
   IMAGE_MIGRATION_EXECUTE = "image-migration-execute",
   IMAGE_MIGRATION_CANCEL = "image-migration-cancel",
+  ENVIRONMENT_SETUP = "environment-setup",
+  ENVIRONMENT_CREATE = "environment-create",
   PING = "ping",
 }
 

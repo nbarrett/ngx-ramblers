@@ -151,7 +151,7 @@ function isAdminFromRequest(req: Request): boolean {
     const authHeader = req.headers?.authorization || "";
     const token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : undefined;
     if (!token) return false;
-    const payload: any = jwt.verify(token, envConfig.auth.secret);
+    const payload: any = jwt.verify(token, envConfig.auth().secret);
     return !!(payload?.memberAdmin || payload?.contentAdmin || payload?.fileAdmin || payload?.walkAdmin || payload?.socialAdmin || payload?.treasuryAdmin || payload?.financeAdmin);
   } catch {
     return false;

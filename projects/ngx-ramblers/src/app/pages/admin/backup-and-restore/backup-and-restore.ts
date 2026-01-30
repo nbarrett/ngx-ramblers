@@ -34,11 +34,12 @@ import { EventType, MessageType } from "../../../models/websocket.model";
 import { NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { sortBy } from "../../../functions/arrays";
+import { reversed, sortBy } from "../../../functions/arrays";
 import { EnvironmentSelectComponent } from "../../../modules/common/selectors/environment-select";
 import { CollectionsMultiSelectComponent } from "../../../modules/common/selectors/collections-multi-select";
 import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/backups-multi-select";
 import { asNumber } from "../../../functions/numbers";
+import { parseMongoUri } from "../../../functions/mongo";
 
 @Component({
   selector: "app-backup-and-restore",
@@ -384,13 +385,13 @@ import { asNumber } from "../../../functions/numbers";
                   <div class="mb-3">
                     <button type="button" class="btn btn-info btn-sm me-2"
                             (click)="initializeFromFiles()">
-                      Initialize from Files
+                      Initialise from Files
                     </button>
                     <button type="button" class="btn btn-secondary btn-sm" (click)="loadConfig()">
                       Reload Config
                     </button>
                     <small class="form-text text-muted d-block mt-2">
-                      Initialize will read configs.json and secret files to populate per-environment
+                      Initialise will read configs.json and secret files to populate per-environment
                       configurations
                     </small>
                   </div>
@@ -551,7 +552,7 @@ import { asNumber } from "../../../functions/numbers";
                                 <input type="text"
                                        class="form-control"
                                        [(ngModel)]="currentEnvironment.mongo.uri"
-                                       (blur)="parseMongoUri()"
+                                       (blur)="handleParseMongoUri()"
                                        name="mongoUri"
                                        autocomplete="off"
                                        placeholder="mongodb+srv://...">
@@ -622,7 +623,7 @@ import { asNumber } from "../../../functions/numbers";
                                 <label class="form-label">Organisation</label>
                                 <input type="text"
                                        class="form-control"
-                                       [(ngModel)]="currentEnvironment.flyio.organization"
+                                       [(ngModel)]="currentEnvironment.flyio.organisation"
                                        name="flyOrg"
                                        autocomplete="off"
                                        placeholder="Fly.io organisation/team name">
@@ -844,8 +845,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   logsNewestFirst(session: BackupSession): string[] {
-    const items = session?.logs || [];
-    return [...items].reverse();
+    return reversed(session?.logs);
   }
 
   private ensureInProgressExpanded(sessions: BackupSession[]) {
@@ -1203,7 +1203,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
         appName: "",
         memory: "512mb",
         scaleCount: 1,
-        organization: ""
+        organisation: ""
       }
     };
     this.editableConfig.environments.push(newEnv);
@@ -1271,14 +1271,14 @@ export class BackupAndRestore implements OnInit, OnDestroy {
           this.configJson = JSON.stringify(config, null, 2);
           this.populateFormFromConfig(config);
           this.notify.success({
-            title: "Configuration Initialized",
-            message: `Successfully initialized ${config.environments?.length || 0} environment configurations from files`
+            title: "Configuration Initialised",
+            message: `Successfully initialised ${config.environments?.length || 0} environment configurations from files`
           });
         },
         error: err => {
-          this.configError = `Error initializing config: ${err.error?.error || err.message}`;
+          this.configError = `Error initialising config: ${err.error?.error || err.message}`;
           this.notify.error({
-            title: "Error initializing configuration",
+            title: "Error initialising configuration",
             message: err.error?.error || err.message
           });
         }
@@ -1286,25 +1286,17 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     );
   }
 
-  parseMongoUri() {
+  handleParseMongoUri() {
     if (!this.currentEnvironment?.mongo?.uri) {
       return;
     }
 
-    const uri = this.currentEnvironment.mongo.uri.trim();
-    const uriPattern = /^mongodb(\+srv)?:\/\/([^:]+):([^@]+)@(.+)$/;
-    const match = uri.match(uriPattern);
-
-    if (match) {
-      const [, srvSuffix, username, password, rest] = match;
-      const protocol = `mongodb${srvSuffix || ""}`;
-
-      this.currentEnvironment.mongo.username = decodeURIComponent(username);
-      this.currentEnvironment.mongo.password = decodeURIComponent(password);
-      this.currentEnvironment.mongo.uri = `${protocol}://${rest}`;
-
-      const dbMatch = rest.match(/^[^\/]+\/([^?]+)/);
-      this.currentEnvironment.mongo.db = dbMatch ? dbMatch[1] : "";
+    const parsed = parseMongoUri(this.currentEnvironment.mongo.uri);
+    if (parsed) {
+      this.currentEnvironment.mongo.username = parsed.username;
+      this.currentEnvironment.mongo.password = parsed.password;
+      this.currentEnvironment.mongo.uri = parsed.uri;
+      this.currentEnvironment.mongo.db = parsed.database;
 
       this.notify.success({
         title: "MongoDB URI Parsed",

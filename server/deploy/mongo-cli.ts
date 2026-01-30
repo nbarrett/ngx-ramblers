@@ -4,6 +4,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { DateTime } from "luxon";
+import { dateTimeNow } from "../lib/shared/dates";
 import {
   RamblersWalksManagerDateFormat as DateFormat
 } from "../../projects/ngx-ramblers/src/app/models/date-format.model";
@@ -63,7 +64,7 @@ async function main() {
 
   program
     .name("mongo-cli")
-    .description("MongoDB backup and restore CLI for NGX Ramblers")
+    .description("MongoDB backup and restore CLI for NGX-Ramblers")
     .version("1.0.0");
 
   program
@@ -96,7 +97,7 @@ async function main() {
         }
 
         const dbName: string = rawOptions.db || config.mongo.db;
-        const timestamp: string = DateTime.now().toFormat(DateFormat.FILE_TIMESTAMP);
+        const timestamp: string = dateTimeNow().toFormat(DateFormat.FILE_TIMESTAMP);
         const backupName: string = `${timestamp}-${config.name}-${dbName}`;
         const outDir: string = path.join(dumpBaseDir, "backups", backupName);
 

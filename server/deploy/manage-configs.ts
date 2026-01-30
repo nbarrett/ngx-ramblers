@@ -11,8 +11,25 @@ import {
   runCommand
 } from "./fly-commands";
 import { DeploymentConfig, NewEnvironmentConfig, RuntimeConfig, SecretsConfig } from "./types";
-import { defaults } from "../../non-vcs/defaults";
 import { Environment } from "../lib/env-config/environment-model";
+
+const defaults = {
+  environmentName: "staging",
+  memory: "1024",
+  scaleCount: "1",
+  awsRegion: "eu-west-1",
+  awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+  awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+  chromeVersion: "131",
+  debug: "ngx-ramblers:*",
+  debugColors: "true",
+  googleMapsApiKey: process.env.GOOGLE_MAPS_APIKEY || "",
+  mongodbUsername: "",
+  mongodbPassword: "",
+  mongodbCluster: "",
+  mongodbBaseUri: "mongodb+srv://{{username}}:{{password}}@{{cluster}}.mongodb.net/ngx-ramblers-{{name}}?retryWrites=true&w=majority",
+  nodeEnv: "production"
+};
 
 const debugLog = debug("manage-configs");
 debugLog.enabled = true;
@@ -52,13 +69,15 @@ async function generateFlyApiToken(): Promise<string> {
   }
 }
 
-async function getCurrentAppConfig(appName: string): Promise<{ memory: string; count: number } | null> {
+async function queryAppConfig(appName: string): Promise<{ memory: string; count: number; hasMachines: boolean } | null> {
   try {
-    const output = runCommand(`flyctl scale show --app ${appName} --json`, true);
+    const output = runCommand(`flyctl scale show --app ${appName} --json`, true, true);
     const config = JSON.parse(output);
+    const hasMachines = config.count > 0 || (config.processes && Object.keys(config.processes).length > 0);
     return {
-      memory: config.memory || "1024mb",
-      count: config.count || 1
+      memory: config.memory || "512mb",
+      count: config.count || 0,
+      hasMachines
     };
   } catch (error) {
     debugLog(`Error fetching current app config for ${appName}: ${error}`);
@@ -81,19 +100,42 @@ async function getOrganization(): Promise<string> {
   }
 }
 
+function parseEnvConfig(envConfig: NewEnvironmentConfig): NewEnvironmentConfig {
+  if (!envConfig.name || !envConfig.appName || !envConfig.memory || !envConfig.scaleCount || !envConfig.secrets) {
+    debugLog("Invalid environment configuration: missing required fields. name:", envConfig.name,
+      "appName:", envConfig.appName, "memory:", envConfig.memory, "scaleCount:", envConfig.scaleCount,
+      "secrets:", !!envConfig.secrets);
+    process.exit(1);
+  }
+  if (!envConfig.apiKey) {
+    debugLog("No apiKey provided - will use authenticated Fly CLI session");
+  }
+  if (envConfig.memory && !envConfig.memory.includes("mb")) {
+    envConfig.memory = `${envConfig.memory}mb`;
+  }
+  return envConfig;
+}
+
 async function queryNewEnvironmentConfig(): Promise<NewEnvironmentConfig> {
+  const fileIndex = process.argv.indexOf("--new-environment-file");
+  if (fileIndex !== -1 && fileIndex + 1 < process.argv.length) {
+    try {
+      const filePath = process.argv[fileIndex + 1];
+      debugLog("Reading config from file:", filePath);
+      const fileContent = fs.readFileSync(filePath, "utf-8");
+      const envConfig = JSON.parse(fileContent) as NewEnvironmentConfig;
+      return parseEnvConfig(envConfig);
+    } catch (error) {
+      debugLog(`Error reading environment config file: ${error}`);
+      process.exit(1);
+    }
+  }
+
   const envIndex = process.argv.indexOf("--new-environment");
   if (envIndex !== -1 && envIndex + 1 < process.argv.length) {
     try {
       const envConfig = JSON.parse(process.argv[envIndex + 1]) as NewEnvironmentConfig;
-      if (!envConfig.name || !envConfig.apiKey || !envConfig.appName || !envConfig.memory || !envConfig.scaleCount || !envConfig.secrets) {
-        debugLog("Invalid environment configuration: missing required fields");
-        process.exit(1);
-      }
-      if (envConfig.memory && !envConfig.memory.includes("mb")) {
-        envConfig.memory = `${envConfig.memory}mb`;
-      }
-      return envConfig;
+      return parseEnvConfig(envConfig);
     } catch (error) {
       debugLog(`Error parsing new environment configuration: ${error}`);
       process.exit(1);
@@ -242,7 +284,7 @@ async function queryNewEnvironmentConfig(): Promise<NewEnvironmentConfig> {
     memory: answers.memory || `${defaults.memory}mb`,
     scaleCount: +answers.scaleCount || +defaults.scaleCount,
     secrets,
-    organization: answers.organization || org || "personal"
+    organisation: answers.organization || org || "personal"
   };
 }
 
@@ -284,7 +326,7 @@ function updateEnvironmentConfig(configFilePath: string, newEnvConfig: NewEnviro
       appName: newEnvConfig.appName,
       memory: newEnvConfig.memory,
       scaleCount: newEnvConfig.scaleCount,
-      organization: newEnvConfig.organization
+      organisation: newEnvConfig.organisation
     });
     debugLog(`Added new environment: ${newEnvConfig.name}`);
   }
@@ -300,6 +342,8 @@ function updateEnvironmentConfig(configFilePath: string, newEnvConfig: NewEnviro
 
 async function deployNewEnvironment(config: RuntimeConfig, newEnvConfig: NewEnvironmentConfig): Promise<void> {
   const secretsFilePath = writeSecretsFile(newEnvConfig.appName, newEnvConfig.secrets, config.currentDir);
+  const deploymentConfig: DeploymentConfig = readConfigFile(config.configFilePath);
+  const dockerImage = deploymentConfig.dockerImage;
 
   const flyTomlPath = flyTomlAbsolutePath();
   if (!fs.existsSync(flyTomlPath)) {
@@ -307,53 +351,83 @@ async function deployNewEnvironment(config: RuntimeConfig, newEnvConfig: NewEnvi
     process.exit(1);
   }
 
-  // Use the organization from the config
-  const org = newEnvConfig.organization;
+  // Use the organisation from the config
+  const org = newEnvConfig.organisation;
 
-  // Check if app exists, create if it doesn't with explicit organization
+  let isNewlyCreatedApp = false;
   try {
-    runCommand(`flyctl scale show --app ${newEnvConfig.appName} --json`, true);
+    runCommand(`flyctl scale show --app ${newEnvConfig.appName} --json`, true, true);
+    debugLog(`App ${newEnvConfig.appName} already exists`);
   } catch (error) {
-    debugLog(`App ${newEnvConfig.appName} does not exist, attempting to create it...`);
+    debugLog(`App ${newEnvConfig.appName} does not exist, creating it...`);
     try {
-      runCommand(`flyctl app create ${newEnvConfig.appName} --org ${org}`, true);
+      runCommand(`flyctl apps create ${newEnvConfig.appName} --org ${org}`, true, true);
       debugLog(`Successfully created app ${newEnvConfig.appName}`);
-      // Verify creation
-      runCommand(`flyctl app show ${newEnvConfig.appName}`, true); // No --json, just check existence
+      isNewlyCreatedApp = true;
     } catch (createError) {
       debugLog(`Failed to create app ${newEnvConfig.appName}: ${createError}`);
       process.exit(1);
     }
   }
 
-  // Get current app configuration
-  const currentConfig = await getCurrentAppConfig(newEnvConfig.appName);
-  if (currentConfig) {
-    if (currentConfig.memory === newEnvConfig.memory && currentConfig.count === newEnvConfig.scaleCount) {
-      debugLog(`App ${newEnvConfig.appName} already has desired memory and scale, skipping update`);
-    } else {
-      if (currentConfig.memory !== newEnvConfig.memory) {
-        runCommand(`flyctl scale memory ${newEnvConfig.memory} --app ${newEnvConfig.appName}`);
+  if (isNewlyCreatedApp && !newEnvConfig.apiKey) {
+    debugLog(`Generating deploy token for ${newEnvConfig.appName}...`);
+    try {
+      const tokenOutput = runCommand(`flyctl tokens create deploy --app ${newEnvConfig.appName} --expiry 0`, true, true);
+      const token = tokenOutput.trim();
+      if (token && token.startsWith("FlyV1")) {
+        newEnvConfig.apiKey = token;
+        debugLog(`Successfully generated deploy token for ${newEnvConfig.appName}`);
+      } else {
+        debugLog(`Warning: Could not parse deploy token from output`);
       }
-      if (currentConfig.count !== newEnvConfig.scaleCount) {
-        runCommand(`flyctl scale count ${newEnvConfig.scaleCount} --app ${newEnvConfig.appName} --yes`);
-      }
+    } catch (tokenError) {
+      debugLog(`Warning: Failed to generate deploy token: ${tokenError}. You may need to create one manually.`);
     }
-  } else {
-    // Initial setup
-    runCommand(`flyctl config validate --config ${flyTomlPath} --app ${newEnvConfig.appName}`);
-    runCommand(`flyctl secrets import --app ${newEnvConfig.appName} < ${secretsFilePath}`);
-    runCommand(`flyctl scale count ${newEnvConfig.scaleCount} --app ${newEnvConfig.appName} --yes`);
-    runCommand(`flyctl scale memory ${newEnvConfig.memory} --app ${newEnvConfig.appName}`);
+  }
+
+  const currentConfig = await queryAppConfig(newEnvConfig.appName);
+  const needsInitialDeploy = !currentConfig || !currentConfig.hasMachines;
+
+  runCommand(`flyctl config validate --config ${flyTomlPath} --app ${newEnvConfig.appName}`);
+  runCommand(`flyctl secrets import --app ${newEnvConfig.appName} < ${secretsFilePath}`);
+
+  if (needsInitialDeploy) {
+    debugLog(`No machines found - deploying ${newEnvConfig.appName} first to create machines...`);
+    runCommand(`flyctl deploy --app ${newEnvConfig.appName} --config ${flyTomlPath} --image ${dockerImage} --strategy rolling --wait-timeout 600`);
+  }
+
+  runCommand(`flyctl scale count ${newEnvConfig.scaleCount} --app ${newEnvConfig.appName} --yes`);
+  runCommand(`flyctl scale memory ${newEnvConfig.memory} --app ${newEnvConfig.appName}`);
+
+  if (!needsInitialDeploy) {
+    debugLog(`Redeploying ${newEnvConfig.appName}...`);
+    runCommand(`flyctl deploy --app ${newEnvConfig.appName} --config ${flyTomlPath} --image ${dockerImage} --strategy rolling --wait-timeout 600`);
   }
 
   configureEnvironment(newEnvConfig, readConfigFile(config.configFilePath));
   debugLog(`Configured environment ${newEnvConfig.appName}`);
+
+  updateGitHubSecret(config.configFilePath);
+}
+
+function updateGitHubSecret(configFilePath: string): void {
+  debugLog("Updating GitHub CONFIGS_JSON secret...");
+  try {
+    const configContent = fs.readFileSync(configFilePath, "utf-8");
+    const escapedContent = configContent.replace(/'/g, "'\\''");
+    runCommand(`gh secret set CONFIGS_JSON --body '${escapedContent}'`, false, true);
+    debugLog("Successfully updated GitHub CONFIGS_JSON secret");
+  } catch (error) {
+    debugLog(`Warning: Failed to update GitHub secret: ${error}. You may need to update it manually.`);
+    debugLog("To update manually, copy the contents of configs.json to the CONFIGS_JSON GitHub secret.");
+  }
 }
 
 async function main(): Promise<void> {
   program
     .option("--new-environment <config>", "JSON configuration for new environment")
+    .option("--new-environment-file <path>", "Path to JSON configuration file for new environment")
     .parse(process.argv);
 
   const config = createRuntimeConfig();

@@ -19,7 +19,6 @@ function booleanEnvironmentVariable(variableName: string) {
 }
 
 function validatedEnvironmentVariable(variableName: string): string {
-
   const variableValue = environmentVariable(variableName);
   if (!variableValue) {
     throw new Error(`Environment variable '${variableName}' must be set`);
@@ -33,30 +32,47 @@ function isProduction(): boolean {
   return env === "production";
 }
 
+function auth() {
+  return {
+    secret: validatedEnvironmentVariable(Environment.AUTH_SECRET),
+  };
+}
+
+function aws() {
+  const bucket = validatedEnvironmentVariable(Environment.AWS_BUCKET);
+  return {
+    accessKeyId: validatedEnvironmentVariable(Environment.AWS_ACCESS_KEY_ID),
+    bucket,
+    region: validatedEnvironmentVariable(Environment.AWS_REGION),
+    secretAccessKey: validatedEnvironmentVariable(Environment.AWS_SECRET_ACCESS_KEY),
+    uploadUrl: `https://${bucket}.s3.amazonaws.com`,
+  };
+}
+
+function googleMaps() {
+  return {
+    apiKey: validatedEnvironmentVariable(Environment.GOOGLE_MAPS_APIKEY),
+  };
+}
+
+function mongo() {
+  return {
+    uri: validatedEnvironmentVariable(Environment.MONGODB_URI),
+  };
+}
+
 export const envConfig = {
   booleanValue: booleanEnvironmentVariable,
   isProduction,
   logNamespace,
   production: env === "production",
   value: environmentVariable,
-  auth: {
-    secret: validatedEnvironmentVariable(Environment.AUTH_SECRET),
-  },
-  aws: {
-    accessKeyId: validatedEnvironmentVariable(Environment.AWS_ACCESS_KEY_ID),
-    bucket: validatedEnvironmentVariable(Environment.AWS_BUCKET),
-    region: validatedEnvironmentVariable(Environment.AWS_REGION),
-    secretAccessKey: validatedEnvironmentVariable(Environment.AWS_SECRET_ACCESS_KEY),
-    uploadUrl: `https://${validatedEnvironmentVariable(Environment.AWS_BUCKET)}.s3.amazonaws.com`,
-  },
+  auth,
+  aws,
   dev: env !== "production",
   env,
-  googleMaps: {
-    apiKey: validatedEnvironmentVariable(Environment.GOOGLE_MAPS_APIKEY),
-  },
-  mongo: {
-    uri: validatedEnvironmentVariable(Environment.MONGODB_URI),
-  },
+  googleMaps,
+  mongo,
   server: {
     listenPort: 5001,
     staticUrl: "/",

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "allowJs": true,
+    "allowJs": false,
     "allowSyntheticDefaultImports": true,
     "declaration": true,
     "downlevelIteration": true,
@@ -28,8 +28,9 @@
     "test-data"
   ],
   "include": [
-    "lib/**/*.*",
-    "../projects/ngx-ramblers/src/app/models/**/*.*",
-    "../projects/ngx-ramblers/src/app/common/**/*.*"
+    "lib/**/*.ts",
+    "deploy/**/*.ts",
+    "../projects/ngx-ramblers/src/app/models/**/*.ts",
+    "../projects/ngx-ramblers/src/app/common/**/*.ts"
   ]
 }

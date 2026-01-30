@@ -99,7 +99,7 @@ export async function initializeBackupConfig(): Promise<BackupConfig> {
           appName: env.appName,
           memory: env.memory,
           scaleCount: env.scaleCount,
-          organization: env.organization
+          organisation: env.organisation
         }
       };
 

@@ -1,8 +1,9 @@
-const express = require("express");
-const authConfig = require("../../auth/auth-config");
-const memberResource = require("../models/member-resource");
-const controller = require("../controllers/crud-controller").create(memberResource, false);
+import express from "express";
+import * as authConfig from "../../auth/auth-config";
+import memberResource from "../models/member-resource";
+import * as crudController from "../controllers/crud-controller";
 
+const controller = crudController.create(memberResource, false);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);
@@ -12,4 +13,4 @@ router.put("/:id", authConfig.authenticate(), controller.update);
 router.get("/:id", controller.findById);
 router.delete("/:id", authConfig.authenticate(), controller.deleteOne);
 
-module.exports = router;
+export default router;

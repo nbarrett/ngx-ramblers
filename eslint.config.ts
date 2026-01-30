@@ -149,7 +149,20 @@ export default defineConfig([
     ignores: ["projects/ngx-ramblers/src/brevo/templates/**"],
   },
   {
+    files: ["server/**/*.js"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          "selector": "Program",
+          "message": "JavaScript files are not allowed in the server directory. Convert to TypeScript (.ts) instead."
+        }
+      ],
+    },
+  },
+  {
     files: ["server/**/*.ts"],
+    ignores: ["server/lib/shared/dates.ts"],
     extends: [
       eslint.configs.recommended,
       tseslint.configs.recommended,
@@ -163,7 +176,11 @@ export default defineConfig([
         ...sharedSyntaxRestrictions,
         {
           "selector": "NewExpression[callee.name='Date']",
-          "message": "Direct use of 'new Date()' is not allowed. Use dateTimeNow() from server/lib/shared/dates.ts (backend) instead."
+          "message": "Direct use of 'new Date()' is not allowed. Use dateTimeNow() from server/lib/shared/dates.ts instead."
+        },
+        {
+          "selector": "CallExpression[callee.object.name='DateTime'][callee.property.name='now']",
+          "message": "Direct use of 'DateTime.now()' is not allowed. Use dateTimeNow() from server/lib/shared/dates.ts instead."
         }
       ],
     },

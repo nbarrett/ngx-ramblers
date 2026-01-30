@@ -6,7 +6,7 @@ import * as config from "../mongo/controllers/config";
 import { initializeBackupConfig } from "./config-initializer";
 
 const debugLog = debug(envConfig.logNamespace("backup-config"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 
 export async function configuredBackup(): Promise<BackupConfig> {
   try {
