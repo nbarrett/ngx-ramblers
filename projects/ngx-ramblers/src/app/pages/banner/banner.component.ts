@@ -8,6 +8,7 @@ import { AwsFileData, AwsFileUploadResponse, AwsFileUploadResponseData } from ".
 import {
   BannerConfig,
   BannerType,
+  ensureTitleLine,
   LogoAndTextLinesBanner,
   PapercutBackgroundBanner,
   TitleLine
@@ -407,7 +408,7 @@ export class BannerComponent implements OnInit, OnDestroy {
 
   private selectFirstItem() {
     if (this.banners.length > 0) {
-      this.editableBanner = this.banners[0];
+      this.editableBanner = this.normaliseBanner(this.banners[0]);
       this.bannerSelected(this.editableBanner);
     }
   }
@@ -576,7 +577,18 @@ export class BannerComponent implements OnInit, OnDestroy {
 
   bannerSelected(bannerConfig: BannerConfig) {
     this.logger.info("bannerSelected:", bannerConfig);
+    this.editableBanner = this.normaliseBanner(bannerConfig);
     this.lastSavedBanner = cloneDeep(bannerConfig);
+  }
+
+  private normaliseBanner(bannerConfig: BannerConfig): BannerConfig {
+    if (!bannerConfig || bannerConfig.bannerType !== BannerType.LOGO_AND_TEXT_LINES) {
+      return bannerConfig;
+    }
+    const banner = bannerConfig.banner as LogoAndTextLinesBanner;
+    banner.line1 = ensureTitleLine(banner.line1 || null);
+    banner.line2 = ensureTitleLine(banner.line2 || null);
+    return bannerConfig;
   }
 
   dataChanged() {

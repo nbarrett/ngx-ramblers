@@ -14,6 +14,7 @@ import { BasicMedia } from "../../../../models/ramblers-walks-manager";
 import { RouterLink } from "@angular/router";
 import { SocialDisplayService } from "../../../../pages/social/social-display.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { isEqual } from "es-toolkit/compat";
 
 @Component({
   selector: "app-card-image-or-map",
@@ -28,7 +29,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
          class="btn btn-primary button-container">view</a>
     }
-    @if (display.displayMapAsImageFallback(displayedWalk.walk)) {
+    @if (mapFallbackActive()) {
       <div app-map-edit readonly
            [class]="this.imageConfig.class"
            [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
@@ -36,7 +37,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
            [gpxFile]="displayedWalk.walk?.fields?.gpxFile"
            [notify]="notify"></div>
     }
-    @if (display.displayImage(displayedWalk.walk)) {
+    @if (!mapFallbackActive() && display.displayImage(displayedWalk.walk)) {
       <img (error)="imageError($event)"
            src="{{basicMedia?.url}}"
            alt="{{basicMedia?.alt}}"
@@ -124,5 +125,16 @@ export class CardImageOrMap implements OnInit {
     }
   }
 
-}
+  mapFallbackActive(): boolean {
+    return this.display.displayMapAsImageFallback(this.displayedWalk?.walk) || this.isFallbackMediaWithMap();
+  }
 
+  private isFallbackMediaWithMap(): boolean {
+    return this.display.displayMap(this.displayedWalk?.walk) && this.isFallbackMedia();
+  }
+
+  private isFallbackMedia(): boolean {
+    return isEqual(this.basicMedia?.url, FALLBACK_MEDIA.url);
+  }
+
+}

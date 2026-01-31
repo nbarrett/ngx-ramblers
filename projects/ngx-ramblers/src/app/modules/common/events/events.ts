@@ -26,7 +26,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 import { EventQueryParameters, RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { DateFilterParameters } from "../../../models/search.model";
 import { MongoSort } from "../../../models/mongo-models";
-import { GroupEventField } from "../../../models/walk.model";
+import { EventField, GroupEventField, ID } from "../../../models/walk.model";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { enumValues } from "../../../functions/enums";
@@ -129,13 +129,18 @@ export class Events implements OnInit, OnDestroy {
     if (!eventIds || eventIds.length === 0) {
       return events;
     }
-    return events.filter(event => eventIds.includes(event.groupEvent.id));
+    return events.filter(event => {
+      const ids = [event?.groupEvent?.id, event?.id].filter(value => !!value);
+      return ids.some(id => eventIds.includes(id));
+    });
   }
 
   private queryAndReturnEvents(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
+    const ids = this?.eventsData?.eventIds || [];
     const eventQueryParameters: EventQueryParameters = {
       inputSource: this.walkDisplayService.walkPopulationLocal() ? InputSource.MANUALLY_CREATED : InputSource.WALKS_MANAGER_CACHE,
       suppressEventLinking: false,
+      ids: ids.length > 0 ? ids : null,
       types: this?.eventsData?.eventTypes || [RamblersEventType.GROUP_EVENT],
       dataQueryOptions
     };
@@ -147,17 +152,20 @@ export class Events implements OnInit, OnDestroy {
   }
 
   criteria() {
-    const {filterCriteria, fromDate, toDate} = this?.eventsData || {};
+    const {filterCriteria, fromDate, toDate, eventIds} = this?.eventsData || {};
     const today = this.dateUtils.isoDateTimeStartOfDay();
+    const hasEventIds = eventIds?.length > 0;
     switch (filterCriteria) {
       case FilterCriteria.CHOOSE:
+        if (hasEventIds) {
+          return this.eventIdsCriteria(eventIds);
+        }
+        return this.dateRangeCriteria(fromDate, toDate);
       case FilterCriteria.DATE_RANGE:
-        return {
-          [GroupEventField.START_DATE]: {
-            $gte: this.dateUtils.asDateValue(fromDate)?.date,
-            $lte: this.dateUtils.asDateValue(toDate)?.date
-          }
-        };
+        if (hasEventIds) {
+          return {$and: [this.dateRangeCriteria(fromDate, toDate), this.eventIdsCriteria(eventIds)]};
+        }
+        return this.dateRangeCriteria(fromDate, toDate);
       case FilterCriteria.FUTURE_EVENTS:
         return {[GroupEventField.START_DATE]: {$gte: today}};
       case FilterCriteria.PAST_EVENTS:
@@ -166,6 +174,27 @@ export class Events implements OnInit, OnDestroy {
       default:
         return {};
     }
+  }
+
+  private dateRangeCriteria(fromDate: number, toDate: number) {
+    const fromDateTime = this.dateUtils.asDateTime(fromDate).startOf("day");
+    const toDateTime = this.dateUtils.asDateTime(toDate).endOf("day");
+    return {
+      [GroupEventField.START_DATE]: {
+        $gte: fromDateTime.toJSDate(),
+        $lte: toDateTime.toJSDate()
+      }
+    };
+  }
+
+  private eventIdsCriteria(eventIds: string[]) {
+    return {
+      $or: [
+        {[ID]: {$in: eventIds}},
+        {[GroupEventField.ID]: {$in: eventIds}},
+        {[EventField.MIGRATED_FROM_ID]: {$in: eventIds}}
+      ]
+    };
   }
 
   sort() {
