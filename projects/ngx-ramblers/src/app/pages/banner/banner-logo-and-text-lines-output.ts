@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { LogoAndTextLinesBanner } from "../../models/banner-configuration.model";
+import { ensureTitleLine, LogoAndTextLinesBanner } from "../../models/banner-configuration.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { BannerHeadLogoComponent } from "./banner-logo/banner-logo";
 import { BannerTitleOutputComponent } from "./banner-title-output.component";
@@ -28,7 +28,17 @@ import { BannerTitleOutputComponent } from "./banner-title-output.component";
 
 export class BannerLogoAndTextLinesOutputComponent implements OnInit {
 
-  @Input() public banner: LogoAndTextLinesBanner;
+  private bannerValue: LogoAndTextLinesBanner | null = null;
+  @Input() set banner(value: LogoAndTextLinesBanner) {
+    if (value) {
+      value.line1 = ensureTitleLine(value.line1 || null);
+      value.line2 = ensureTitleLine(value.line2 || null);
+    }
+    this.bannerValue = value || null;
+  }
+  get banner(): LogoAndTextLinesBanner | null {
+    return this.bannerValue;
+  }
   private logger: Logger = inject(LoggerFactory).createLogger("BannerLogoAndTextLinesOutputComponent", NgxLoggerLevel.ERROR);
 
   columnsLogo(): string {

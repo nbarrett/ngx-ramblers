@@ -200,9 +200,10 @@ export class GroupEventSelectorComponent implements OnInit, OnChanges {
     const fromDateValue = this.dateUtils.asDateValue(this.fromDate);
     const toDateValue = this.dateUtils.asDateValue(this.toDate);
     this.logger.info("queryGroupEvents called - dataSource:", this.dataSource, "internal dates - from millis:", this.internalFromDate, "to millis:", this.internalToDate, "fromDateValue:", fromDateValue?.date, "toDateValue:", toDateValue?.date);
+    const eventIdsForQuery = this.multiple ? [] : (this.eventId ? [this.eventId] : []);
     const groupEventsFilter: GroupEventsFilter = {
       search: this.search,
-      eventIds: this.multiple ? (this.eventIds || []) : (this.eventId ? [this.eventId] : []),
+      eventIds: eventIdsForQuery,
       selectAll: true,
       fromDate: fromDateValue,
       toDate: toDateValue,

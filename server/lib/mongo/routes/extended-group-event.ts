@@ -6,7 +6,7 @@ import { count, dateRange, nextWalkId, queryVenues, queryWalkLeaders, urlFromTit
 import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { DocumentField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 
-const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent, false);
+const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent, true);
 const router = express.Router();
 const LOCAL_ACTIVE_FILTER = {
   $or: [

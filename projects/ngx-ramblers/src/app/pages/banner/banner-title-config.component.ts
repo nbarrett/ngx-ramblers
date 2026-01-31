@@ -2,7 +2,7 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { TitleLine } from "../../models/banner-configuration.model";
+import { ensureTitleLine, TitleLine } from "../../models/banner-configuration.model";
 import { Images, SystemConfig } from "../../models/system.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
@@ -14,35 +14,37 @@ import { BannerTitlePartConfigComponent } from "./banner-title-part-config.compo
     selector: "app-banner-title-config",
     styleUrls: ["./banner.component.sass"],
     template: `
-    <h4>
-      <div class="form-check">
-        <input class="form-check-input"
-               [(ngModel)]="titleLine.include"
-               type="checkbox"
-               id="show-title-{{id}}">
-        <label class="form-check-label"
-               for="show-title-{{id}}">Line {{id}}</label>
-      </div>
-    </h4>
-    <div class="row">
-      <div class="col-sm-6">
+    @if (titleLine) {
+      <h4>
         <div class="form-check">
           <input class="form-check-input"
-                 [(ngModel)]="titleLine.showIcon" type="checkbox" id="show-icon-{{id}}">
+                 [(ngModel)]="titleLine.include"
+                 type="checkbox"
+                 id="show-title-{{id}}">
           <label class="form-check-label"
-                 for="show-icon-{{id}}">Prefix with icon</label>
+                 for="show-title-{{id}}">Line {{id}}</label>
         </div>
-        <app-icon-selector [titleLine]="titleLine" label="Prefix with icon"></app-icon-selector>
+      </h4>
+      <div class="row">
+        <div class="col-sm-6">
+          <div class="form-check">
+            <input class="form-check-input"
+                   [(ngModel)]="titleLine.showIcon" type="checkbox" id="show-icon-{{id}}">
+            <label class="form-check-label"
+                   for="show-icon-{{id}}">Prefix with icon</label>
+          </div>
+          <app-icon-selector [titleLine]="titleLine" label="Prefix with icon"></app-icon-selector>
+        </div>
+        <div class="col-sm-6">
+          <label>Font Size:</label>
+          <input [(ngModel)]="titleLine.fontSize"
+                 type="number" class="form-control input-sm">
+        </div>
       </div>
-      <div class="col-sm-6">
-        <label>Font Size:</label>
-        <input [(ngModel)]="titleLine.fontSize"
-               type="number" class="form-control input-sm">
-      </div>
-    </div>
-    <app-banner-title-part-config [titlePart]="titleLine.part1" id="1"></app-banner-title-part-config>
-    <app-banner-title-part-config [titlePart]="titleLine.part2" id="2"></app-banner-title-part-config>
-    <app-banner-title-part-config [titlePart]="titleLine.part3" id="3"></app-banner-title-part-config>
+      <app-banner-title-part-config [titlePart]="titleLine.part1" id="1"></app-banner-title-part-config>
+      <app-banner-title-part-config [titlePart]="titleLine.part2" id="2"></app-banner-title-part-config>
+      <app-banner-title-part-config [titlePart]="titleLine.part3" id="3"></app-banner-title-part-config>
+    }
   `,
     imports: [FormsModule, IconSelectorComponent, BannerTitlePartConfigComponent]
 })
@@ -50,8 +52,14 @@ import { BannerTitlePartConfigComponent } from "./banner-title-part-config.compo
 export class BannerTitleConfigComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("BannerTitleConfigComponent", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
+  private titleLineValue: TitleLine = ensureTitleLine(null);
   @Input()
-  public titleLine: TitleLine;
+  set titleLine(value: TitleLine) {
+    this.titleLineValue = ensureTitleLine(value || null);
+  }
+  get titleLine(): TitleLine {
+    return this.titleLineValue;
+  }
   @Input()
   public id: string;
   private icons: Images;

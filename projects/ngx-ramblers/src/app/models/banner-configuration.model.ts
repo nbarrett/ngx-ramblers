@@ -29,6 +29,34 @@ export interface TitleLine {
   part3?: BannerTextItem;
 }
 
+export function defaultTitleLine(): TitleLine {
+  return {
+    include: true,
+    showIcon: true,
+    fontSize: 33,
+    part1: { value: "", class: "", show: true },
+    part2: { value: "", class: "", show: true },
+    part3: { value: "", class: "", show: true }
+  };
+}
+
+export function ensureTitleLine(titleLine: TitleLine | null): TitleLine {
+  const base = defaultTitleLine();
+  const incoming = titleLine || {};
+  const part1 = { ...base.part1, ...(incoming.part1 || {}) };
+  const part2 = { ...base.part2, ...(incoming.part2 || {}) };
+  const part3 = { ...base.part3, ...(incoming.part3 || {}) };
+  return {
+    include: incoming.include ?? base.include,
+    showIcon: incoming.showIcon ?? base.showIcon,
+    fontSize: incoming.fontSize ?? base.fontSize,
+    image: incoming.image || base.image,
+    part1,
+    part2,
+    part3
+  };
+}
+
 export interface HasClass {
   class: string;
 }
