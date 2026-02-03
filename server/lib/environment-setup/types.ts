@@ -43,5 +43,8 @@ export {
   ResumeOptions,
   EnvironmentResult,
   ProgressCallback,
-  SetupStep
+  SetupStep,
+  ReconciliationResult,
+  ReconciliationReport,
+  DeployEnvironmentConfig
 } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
