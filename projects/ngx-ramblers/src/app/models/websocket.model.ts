@@ -32,6 +32,11 @@ export enum EventType {
   IMAGE_MIGRATION_CANCEL = "image-migration-cancel",
   ENVIRONMENT_SETUP = "environment-setup",
   ENVIRONMENT_CREATE = "environment-create",
+  EXTERNAL_ALBUM_FETCH = "external-album-fetch",
+  EXTERNAL_ALBUM_IMPORT = "external-album-import",
+  EXTERNAL_ALBUM_SPLIT_PREVIEW = "external-album-split-preview",
+  EXTERNAL_USER_ALBUMS_FETCH = "external-user-albums-fetch",
+  EXTERNAL_BULK_ALBUM_IMPORT = "external-bulk-album-import",
   PING = "ping",
 }
 

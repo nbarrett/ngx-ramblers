@@ -22,6 +22,7 @@ import { handleEsriRouteImport } from "../map-routes/map-route-import-ws-handler
 import { handleWalksManagerSync } from "../walks/walks-manager-sync-ws-handler";
 import { handleImageMigrationScanHosts, handleImageMigrationScan, handleImageMigrationExecute, handleImageMigrationCancel } from "../image-migration/image-migration-ws-handler";
 import { handleEnvironmentSetup, handleEnvironmentCreate } from "../environment-setup/environment-setup-ws-handler";
+import { handleExternalAlbumFetch, handleExternalAlbumImport, handleExternalUserAlbumsFetch, handleExternalBulkAlbumImport, handleExternalAlbumSplitPreview } from "../external-album/external-album-ws-handler";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
@@ -41,6 +42,11 @@ const messageHandlers: MessageHandlers = {
   [EventType.IMAGE_MIGRATION_CANCEL]: async (ws: WebSocket, data: any) => handleImageMigrationCancel(ws, data),
   [EventType.ENVIRONMENT_SETUP]: async (ws: WebSocket, data: any) => handleEnvironmentSetup(ws, data),
   [EventType.ENVIRONMENT_CREATE]: async (ws: WebSocket, data: any) => handleEnvironmentCreate(ws, data),
+  [EventType.EXTERNAL_ALBUM_FETCH]: async (ws: WebSocket, data: any) => handleExternalAlbumFetch(ws, data),
+  [EventType.EXTERNAL_ALBUM_IMPORT]: async (ws: WebSocket, data: any) => handleExternalAlbumImport(ws, data),
+  [EventType.EXTERNAL_ALBUM_SPLIT_PREVIEW]: async (ws: WebSocket, data: any) => handleExternalAlbumSplitPreview(ws, data),
+  [EventType.EXTERNAL_USER_ALBUMS_FETCH]: async (ws: WebSocket, data: any) => handleExternalUserAlbumsFetch(ws, data),
+  [EventType.EXTERNAL_BULK_ALBUM_IMPORT]: async (ws: WebSocket, data: any) => handleExternalBulkAlbumImport(ws, data),
   [EventType.PING]: (ws: WebSocket, data: any) => {
     debugLog("✅ Received ping, responding with pong");
     ws.send(JSON.stringify({ type: "pong", data: {} }));
