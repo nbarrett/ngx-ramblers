@@ -3,6 +3,7 @@ import { ChildProcess, spawn } from "child_process";
 import * as fs from "fs/promises";
 import { createWriteStream } from "fs";
 import * as path from "path";
+import mongoose from "mongoose";
 import { envConfig } from "../env-config/env-config";
 import {
   CreateBucketCommand,
@@ -853,43 +854,17 @@ export class BackupAndRestoreService {
     }
 
     const mongoUri = this.buildMongoUriForConfig(config.mongo.cluster, config.mongo.username, config.mongo.password, config.mongo.db);
+    const connection = await mongoose.createConnection(mongoUri, {
+      serverSelectionTimeoutMS: 30000,
+      maxPoolSize: 1
+    }).asPromise();
 
-    return new Promise((resolve, reject) => {
-      const proc = spawn("mongosh", [
-        mongoUri,
-        "--quiet",
-        "--eval",
-        "db.getCollectionNames().join(',')"
-      ]);
-
-      let stdout = "";
-      let stderr = "";
-
-      if (proc.stdout) {
-        proc.stdout.on("data", data => {
-          stdout += data.toString();
-        });
-      }
-
-      if (proc.stderr) {
-        proc.stderr.on("data", data => {
-          stderr += data.toString();
-        });
-      }
-
-      proc.on("close", code => {
-        if (code !== 0) {
-          reject(new Error(`mongosh exited with code ${code}: ${stderr}`));
-        } else {
-          const collections = stdout.trim().split(",").filter(c => c.length > 0);
-          resolve(collections);
-        }
-      });
-
-      proc.on("error", error => {
-        reject(error);
-      });
-    });
+    try {
+      const collections = await connection.db.listCollections({}, { nameOnly: true }).toArray();
+      return collections.map(collection => collection.name).filter(name => name.length > 0);
+    } finally {
+      await connection.close();
+    }
   }
 
   async deleteBackups(names: string[]): Promise<{ deleted: string[]; errors: NamedError[] }> {
