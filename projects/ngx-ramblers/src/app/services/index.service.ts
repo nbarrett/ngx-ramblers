@@ -45,7 +45,7 @@ export class IndexService {
   public logger = this.loggerFactory.createLogger("IndexService", NgxLoggerLevel.ERROR);
   public instance = this;
 
-  public async albumIndexToPageContent(pageContentRow: PageContentRow, rowIndex: number): Promise<PageContent> {
+  public async albumIndexToPageContent(pageContentRow: PageContentRow, rowIndex: number, visitedPaths: string[] = []): Promise<PageContent> {
     const albumIndex = pageContentRow.albumIndex;
     if (albumIndex?.contentPaths?.length > 0) {
       const contentTypes = albumIndex.contentTypes || [IndexContentType.ALBUMS];
@@ -61,26 +61,28 @@ export class IndexService {
       let allColumns: PageContentColumn[] = [];
 
       if (contentTypes.includes(IndexContentType.ALBUMS)) {
-        const albumColumns = await this.extractAlbumColumns(pages);
+        const albumColumns = await this.extractAlbumColumns(pages, visitedPaths);
         allColumns = allColumns.concat(albumColumns);
       }
 
       if (contentTypes.includes(IndexContentType.PAGES)) {
         const locationColumns = this.locationExtractionService.extractLocationsFromPages(pages);
-        allColumns = allColumns.concat(locationColumns);
+        const enrichedColumns = await this.enrichIndexColumnsWithImages(locationColumns, pages, visitedPaths);
+        allColumns = allColumns.concat(enrichedColumns);
       }
 
       const deduplicatedColumns = this.deduplicateByHref(allColumns);
+      const orderedColumns = this.sortColumnsByTitle(deduplicatedColumns);
 
-      const albumIndexPageContent: PageContent = this.pageContentFrom(pageContentRow, deduplicatedColumns, rowIndex);
-      this.logger.info("Generated index with", deduplicatedColumns.length, "items from content types:", contentTypes, "(", allColumns.length, "before deduplication) based on:", pathRegex);
+      const albumIndexPageContent: PageContent = this.pageContentFrom(pageContentRow, orderedColumns, rowIndex);
+      this.logger.info("Generated index with", orderedColumns.length, "items from content types:", contentTypes, "(", allColumns.length, "before deduplication) based on:", pathRegex);
       return albumIndexPageContent;
     } else {
       this.logger.info("no pages to query as no contentPaths defined in:", albumIndex);
     }
   }
 
-  private async extractAlbumColumns(pages: PageContent[]): Promise<PageContentColumn[]> {
+  private async extractAlbumColumns(pages: PageContent[], visitedPaths: string[]): Promise<PageContentColumn[]> {
     const pageContentToRows: PageContentToRows[] = pages.map(pageContent => ({
       pageContent,
       rows: pageContent.rows.filter(row => this.actions.isCarouselOrAlbum(row))
@@ -152,10 +154,18 @@ export class IndexService {
           this.logger.info("Using YouTube thumbnail for:", firstFileYoutubeId);
         }
         if (!imageSource || imageSource === "null") {
-          const firstPageImage = this.findFirstImageInPage(pageContentToRowsItem.pageContent);
-          this.logger.info("No metadata image found, using first page image:", firstPageImage);
-          imageSource = firstPageImage;
+          const nextVisitedPaths = this.nextVisitedPaths(visitedPaths, pageContentToRowsItem.pageContent.path);
+          const indexPreviewImage = await this.findIndexPreviewImage(pageContentToRowsItem.pageContent, nextVisitedPaths);
+          if (indexPreviewImage) {
+            this.logger.info("No metadata image found, using index preview image:", indexPreviewImage);
+            imageSource = indexPreviewImage;
+          } else {
+            const firstPageImage = this.findFirstImageInPage(pageContentToRowsItem.pageContent);
+            this.logger.info("No metadata image found, using first page image:", firstPageImage);
+            imageSource = firstPageImage;
+          }
         }
+        imageSource = this.optimiseIndexImageSource(imageSource);
         this.logger.info("Final imageSource:", imageSource);
 
         let location = null;
@@ -220,6 +230,71 @@ export class IndexService {
     return result;
   }
 
+  private async findIndexPreviewImage(pageContent: PageContent, visitedPaths: string[]): Promise<string | undefined> {
+    const indexRow = (pageContent.rows || []).find(row =>
+      row.type === PageContentType.ALBUM_INDEX && row.albumIndex?.contentPaths?.length > 0
+    );
+    const pagePath = pageContent.path || "";
+
+    if (indexRow && (!pagePath || !visitedPaths.includes(pagePath))) {
+      const nextVisitedPaths = this.nextVisitedPaths(visitedPaths, pagePath);
+      const previewContent = await this.albumIndexToPageContent(indexRow, 0, nextVisitedPaths);
+      if (previewContent) {
+        return this.findFirstImageInPage(previewContent);
+      } else {
+        return undefined;
+      }
+    } else {
+      return undefined;
+    }
+  }
+
+  private async enrichIndexColumnsWithImages(
+    columns: PageContentColumn[],
+    pages: PageContent[],
+    visitedPaths: string[]
+  ): Promise<PageContentColumn[]> {
+    const enriched = await Promise.all(columns.map(async column => {
+      if (column.imageSource) {
+        return column;
+      } else {
+        const pageMatch = pages.find(page => page.path === column.href);
+        if (pageMatch) {
+          const indexPreviewImage = await this.findIndexPreviewImage(pageMatch, visitedPaths);
+          if (indexPreviewImage) {
+            return { ...column, imageSource: this.optimiseIndexImageSource(indexPreviewImage) };
+          } else {
+            return column;
+          }
+        } else {
+          return column;
+        }
+      }
+    }));
+
+    return enriched;
+  }
+
+  private nextVisitedPaths(visitedPaths: string[], pathValue: string | undefined): string[] {
+    if (!pathValue) {
+      return visitedPaths;
+    } else if (visitedPaths.includes(pathValue)) {
+      return visitedPaths;
+    } else {
+      return visitedPaths.concat(pathValue);
+    }
+  }
+
+  private optimiseIndexImageSource(imageSource: string | undefined): string | undefined {
+    if (!imageSource) {
+      return imageSource;
+    } else if (imageSource.includes("staticflickr.com")) {
+      return imageSource.replace(/_(o|k|h|b|c|z|m|n|s|q|t)\.(jpg|jpeg|png)$/i, "_z.$2");
+    } else {
+      return imageSource;
+    }
+  }
+
   private findFirstTextInPage(pageContent: PageContent): string | undefined {
     let result: string | undefined = null;
 
@@ -270,6 +345,12 @@ export class IndexService {
     const score1 = this.calculateDataCompletenessScore(column1);
     const score2 = this.calculateDataCompletenessScore(column2);
     return score1 > score2;
+  }
+
+  private sortColumnsByTitle(columns: PageContentColumn[]): PageContentColumn[] {
+    return columns
+      .slice()
+      .sort((a, b) => (a?.title || "").localeCompare(b?.title || ""));
   }
 
   private calculateDataCompletenessScore(column: PageContentColumn): number {

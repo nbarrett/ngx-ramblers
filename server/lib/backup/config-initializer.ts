@@ -80,8 +80,8 @@ function extractMongoConfig(mongoUri: string): { cluster: string; db: string; us
 }
 
 export async function initializeBackupConfig(): Promise<BackupConfig> {
-  const configsPath = path.join(process.cwd(), "../non-vcs/fly-io/configs.json");
-  const secretsBasePath = path.join(process.cwd(), "../non-vcs/secrets");
+  const configsPath = path.resolve(__dirname, "../../../non-vcs/fly-io/configs.json");
+  const secretsBasePath = path.resolve(__dirname, "../../../non-vcs/secrets");
 
   try {
     const configsRaw = await fs.readFile(configsPath, "utf8");
@@ -148,21 +148,11 @@ export async function initializeAndMergeBackupConfig(): Promise<BackupConfig> {
 
   let existingEnvironments: EnvironmentBackupConfig[] = [];
   try {
-    const backupConfigDoc = await config.queryKey(ConfigKey.BACKUP);
-    existingEnvironments = backupConfigDoc?.value?.environments || [];
-    debugLog("Found existing BACKUP config with", existingEnvironments.length, "environments");
+    const envsConfigDoc = await config.queryKey(ConfigKey.ENVIRONMENTS);
+    existingEnvironments = envsConfigDoc?.value?.environments || [];
+    debugLog("Found ENVIRONMENTS config with", existingEnvironments.length, "environments");
   } catch {
-    debugLog("No existing BACKUP config found");
-  }
-
-  if (existingEnvironments.length === 0) {
-    try {
-      const envsConfigDoc = await config.queryKey(ConfigKey.ENVIRONMENTS);
-      existingEnvironments = envsConfigDoc?.value?.environments || [];
-      debugLog("Found existing ENVIRONMENTS config with", existingEnvironments.length, "environments");
-    } catch {
-      debugLog("No existing ENVIRONMENTS config found");
-    }
+    debugLog("No ENVIRONMENTS config found");
   }
 
   const fileEnvNames = new Set(fileEnvironments.map(e => e.environment));

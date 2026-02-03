@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { BucketResult, IamUserResult, ProgressCallback } from "../types";
+import { BucketResult, CopyAssetsCliResult, IamUserResult, ProgressCallback } from "../types";
 import { log } from "../cli-logger";
 import { AWS_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 
@@ -45,7 +45,7 @@ export async function createBucketAndUser(
 export async function copyAssets(
   targetBucket: string,
   onProgress?: ProgressCallback
-): Promise<{ icons: string[]; logos: string[]; backgrounds: string[] }> {
+): Promise<CopyAssetsCliResult> {
   const { copyStandardAssets, adminConfigFromEnvironment } = await import("../../environment-setup/aws-setup");
 
   const adminConfig = adminConfigFromEnvironment();
@@ -60,14 +60,20 @@ export async function copyAssets(
   const result = await copyStandardAssets(adminConfig, targetBucket);
 
   if (onProgress) {
+    const status = result.failures.length > 0 ? "failed" : "completed";
     onProgress({
       step: "copy-assets",
-      status: "completed",
-      message: `Copied ${result.icons.length} icons, ${result.logos.length} logos, ${result.backgrounds.length} backgrounds`
+      status,
+      message: `Copied ${result.icons.length} icons, ${result.logos.length} logos, ${result.backgrounds.length} backgrounds${result.failures.length > 0 ? `, ${result.failures.length} failed` : ""}`
     });
   }
 
-  return result;
+  return {
+    icons: result.icons.map(img => img.originalFileName),
+    logos: result.logos.map(img => img.originalFileName),
+    backgrounds: result.backgrounds.map(img => img.originalFileName),
+    failures: result.failures
+  };
 }
 
 export function createAwsCommand(): Command {
@@ -87,7 +93,7 @@ export function createAwsCommand(): Command {
         }
         log("Creating AWS resources for: %s", name);
 
-        const result = await createBucketAndUser(name, options.region, (progress) => {
+        const result = await createBucketAndUser(name, options.region, progress => {
           log("[%s] %s: %s", progress.status, progress.step, progress.message);
         });
 
@@ -107,7 +113,7 @@ export function createAwsCommand(): Command {
   aws
     .command("copy-assets [bucket]")
     .description("Copy standard assets to a bucket")
-    .action(async (bucket) => {
+    .action(async bucket => {
       try {
         if (!bucket) {
           log("Bucket name is required");
@@ -115,7 +121,7 @@ export function createAwsCommand(): Command {
         }
         log("Copying assets to: %s", bucket);
 
-        const result = await copyAssets(bucket, (progress) => {
+        const result = await copyAssets(bucket, progress => {
           log("[%s] %s: %s", progress.status, progress.step, progress.message);
         });
 

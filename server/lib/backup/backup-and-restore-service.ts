@@ -8,24 +8,26 @@ import {
   CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   ListObjectsV2Command,
-  PutObjectCommand,
   S3Client
 } from "@aws-sdk/client-s3";
-import { dateTimeFromMillis, dateTimeInTimezone, dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
+import { uploadDirectoryToS3 } from "../aws/s3-utils";
+import { dateTimeFromMillis, dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
 import { backupSession, BackupSession } from "../mongo/models/backup-session";
 import { BackupNotificationService } from "./backup-notification-service";
-import { BackupConfig } from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
+import { BackupConfig, EnvironmentBackupConfig } from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
 import {
   RamblersWalksManagerDateFormat as DateFormat
 } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
-import { getEnvironmentConfig } from "./backup-config";
+import { environmentConfigFor } from "./backup-config";
 import type { EnvironmentConfig } from "../../deploy/types";
 import { FLYIO_DEFAULTS } from "../../deploy/types";
 import { NamedError } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { AWS_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { buildMongoUri } from "../shared/mongodb-uri";
 import { isUndefined } from "es-toolkit/compat";
+import { buildS3KeyForBackup, buildS3LocationUrl, parseS3BackupPrefix, parseTimestampToDate } from "./backup-paths";
 
 const debugLog = debug(envConfig.logNamespace("backup-and-restore-service"));
 debugLog.enabled = true;
@@ -60,6 +62,30 @@ export class BackupAndRestoreService {
     this.backupConfig = backupConfig;
     this.dumpBaseDir = dumpBaseDir || path.join(process.cwd(), "../non-vcs/dump");
     this.notificationService = notificationService;
+  }
+
+  private preferredBucket(envBackupConfig?: EnvironmentBackupConfig): string | undefined {
+    return this.backupConfig.aws?.bucket || envBackupConfig?.aws?.bucket;
+  }
+
+  private preferredRegion(envBackupConfig?: EnvironmentBackupConfig): string {
+    return this.backupConfig.aws?.region || envBackupConfig?.aws?.region || AWS_DEFAULTS.REGION;
+  }
+
+  private preferredCredentials(envBackupConfig?: EnvironmentBackupConfig): { accessKeyId: string; secretAccessKey: string } | undefined {
+    if (this.backupConfig.aws?.accessKeyId && this.backupConfig.aws?.secretAccessKey) {
+      return {
+        accessKeyId: this.backupConfig.aws.accessKeyId,
+        secretAccessKey: this.backupConfig.aws.secretAccessKey
+      };
+    } else if (envBackupConfig?.aws?.accessKeyId && envBackupConfig?.aws?.secretAccessKey) {
+      return {
+        accessKeyId: envBackupConfig.aws.accessKeyId,
+        secretAccessKey: envBackupConfig.aws.secretAccessKey
+      };
+    } else {
+      return undefined;
+    }
   }
 
   private findEnvironmentConfig(environmentName: string): EnvironmentConfig | null {
@@ -100,7 +126,7 @@ export class BackupAndRestoreService {
       throw new Error(`Environment "${options.environment}" has no mongo config`);
     }
 
-    const envBackupConfig = getEnvironmentConfig(this.backupConfig, options.environment);
+    const envBackupConfig = environmentConfigFor(this.backupConfig, options.environment);
     const dbName = options.database || config.mongo.db;
     const timestampStr = dateTimeNow().toFormat(DateFormat.FILE_TIMESTAMP);
     const backupName = `${timestampStr}-${config.name}-${dbName}`;
@@ -117,8 +143,8 @@ export class BackupAndRestoreService {
       options: {
         scaleDown: options.scaleDown,
         upload: options.upload,
-        s3Bucket: options.upload ? (this.backupConfig.aws?.bucket || envBackupConfig?.aws?.bucket) : undefined,
-        s3Region: options.upload ? (this.backupConfig.aws?.region || envBackupConfig?.aws?.region) : undefined,
+        s3Bucket: options.upload ? this.preferredBucket(envBackupConfig) : undefined,
+        s3Region: options.upload ? this.preferredRegion(envBackupConfig) : undefined,
         s3Prefix: "backups"
       },
       logs: [],
@@ -214,7 +240,7 @@ export class BackupAndRestoreService {
     config: EnvironmentConfig,
     options: BackupOptions,
     backupName: string,
-    envBackupConfig?: ReturnType<typeof getEnvironmentConfig>
+    envBackupConfig?: ReturnType<typeof environmentConfigFor>
   ): Promise<void> {
     let originalScaleCount: number | undefined;
     try {
@@ -251,40 +277,38 @@ export class BackupAndRestoreService {
       await this.updateSession(sessionId, { backupPath: `backups/${backupName}` });
       await this.addLog(sessionId, `Backup completed: ${outDir}`);
 
-      if (options.upload && (this.backupConfig.aws?.bucket || envBackupConfig?.aws)) {
-        const preferredBucket = (this.backupConfig.aws?.bucket || envBackupConfig?.aws?.bucket)!;
-        const preferredRegion = (this.backupConfig.aws?.region || envBackupConfig?.aws?.region || AWS_DEFAULTS.REGION);
-        const accessKeyId = envBackupConfig?.aws?.accessKeyId;
-        const secretAccessKey = envBackupConfig?.aws?.secretAccessKey;
-        const tsMatch = backupName.match(/^(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})/);
-        const timestampFolder = tsMatch ? tsMatch[1] : backupName;
-        const s3Key = path.join(options.environment, dbName, timestampFolder).replace(/\\/g, "/");
-
-        const uploadWith = async (bucket: string, region: string) => {
-          const client = new S3Client({
-            region,
-            credentials: accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined
-          });
-          await this.ensureBucket(client, bucket, region);
-          await this.addLog(sessionId, `Starting S3 upload to ${bucket}`);
-          await this.uploadDirToS3(client, outDir, bucket, s3Key, sessionId);
-          const loc = `s3://${bucket}/${s3Key}`;
-          await this.updateSession(sessionId, { s3Location: loc });
-          await this.addLog(sessionId, `Uploaded to ${loc}`);
-        };
-
-        try {
-          await uploadWith(preferredBucket, preferredRegion);
-        } catch (e: any) {
-          if (e?.Code === "NoSuchBucket" && envBackupConfig?.aws?.bucket && envBackupConfig.aws.bucket !== preferredBucket) {
-            const fbBucket = envBackupConfig.aws.bucket;
-            const fbRegion = envBackupConfig.aws.region || AWS_DEFAULTS.REGION;
-            await this.addLog(sessionId, `Global bucket missing; falling back to ${fbBucket}`);
-            await uploadWith(fbBucket, fbRegion);
-          } else {
-            throw e;
-          }
+      if (options.upload) {
+        const bucket = this.preferredBucket(envBackupConfig);
+        if (!bucket) {
+          throw new Error(`No S3 bucket configured. Set a global backup bucket in Settings, or configure AWS settings for environment ${options.environment}.`);
         }
+
+        const region = this.preferredRegion(envBackupConfig);
+        const credentials = this.preferredCredentials(envBackupConfig);
+
+        if (!credentials) {
+          throw new Error(`No AWS credentials configured. Set global AWS credentials in Settings, or configure AWS settings for environment ${options.environment}.`);
+        }
+
+        const s3Key = buildS3KeyForBackup(options.environment, backupName);
+        const s3Location = buildS3LocationUrl(bucket, s3Key);
+
+        const client = new S3Client({
+          region,
+          credentials
+        });
+
+        await this.ensureBucket(client, bucket, region);
+        await this.addLog(sessionId, `Starting S3 upload to ${bucket} (region: ${region})`);
+        debugLog(`Starting S3 upload to ${bucket} (region: ${region})`);
+        await uploadDirectoryToS3(client, outDir, bucket, s3Key, (bucketName, key) => {
+          const message = `Uploaded: s3://${bucketName}/${key}`;
+          debugLog(message);
+          this.addLog(sessionId, message);
+        });
+        await this.updateSession(sessionId, { s3Location });
+        await this.addLog(sessionId, `Uploaded to ${s3Location}`);
+        debugLog(`Uploaded to ${s3Location}`);
       }
 
       await this.updateSession(sessionId, { status: "completed", endTime: dateTimeNow().toJSDate() });
@@ -312,6 +336,10 @@ export class BackupAndRestoreService {
   }
 
   private async ensureBucket(s3: S3Client, bucket: string, region: string): Promise<void> {
+    const bucketExists = await this.bucketExists(s3, bucket);
+    if (bucketExists) {
+      return;
+    }
     try {
       const input: any = { Bucket: bucket };
       if (region && region !== "us-east-1") {
@@ -323,6 +351,20 @@ export class BackupAndRestoreService {
       if (code === "BucketAlreadyOwnedByYou" || code === "BucketAlreadyExists") {
         return;
       }
+      throw new Error(`Failed to ensure bucket ${bucket} exists: ${code || e?.message || "Unknown error"}`);
+    }
+  }
+
+  private async bucketExists(s3: S3Client, bucket: string): Promise<boolean> {
+    try {
+      await s3.send(new HeadBucketCommand({ Bucket: bucket }));
+      return true;
+    } catch (e: any) {
+      const code = e?.Code || e?.name || e?.$metadata?.httpStatusCode;
+      if (code === "NotFound" || code === 404) {
+        return false;
+      }
+      return true;
     }
   }
 
@@ -333,17 +375,16 @@ export class BackupAndRestoreService {
   ): Promise<void> {
     try {
       if (options.from.startsWith("s3://")) {
-        const envBackupConfig = getEnvironmentConfig(this.backupConfig, options.environment);
+        const envBackupConfig = environmentConfigFor(this.backupConfig, options.environment);
         const s3BucketFromPath = options.from.replace("s3://", "").split("/")[0];
         const s3Prefix = options.from.replace(`s3://${s3BucketFromPath}/`, "");
-        const configuredBucket = envBackupConfig?.aws?.bucket;
-        const region = envBackupConfig?.aws?.region || AWS_DEFAULTS.REGION;
-        const accessKeyId = envBackupConfig?.aws?.accessKeyId;
-        const secretAccessKey = envBackupConfig?.aws?.secretAccessKey;
+        const configuredBucket = this.preferredBucket(envBackupConfig);
+        const region = this.preferredRegion(envBackupConfig);
+        const credentials = this.preferredCredentials(envBackupConfig);
 
         const s3 = new S3Client({
           region,
-          credentials: accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined
+          credentials
         });
 
         const destDir = path.join(this.dumpBaseDir, s3Prefix);
@@ -557,34 +598,6 @@ export class BackupAndRestoreService {
     });
   }
 
-  private async uploadDirToS3(
-    s3: S3Client,
-    localDir: string,
-    bucket: string,
-    prefix: string,
-    sessionId: string
-  ): Promise<void> {
-    const entries = await fs.readdir(localDir);
-    for (const entry of entries) {
-      const localPath = path.join(localDir, entry);
-      const stat = await fs.stat(localPath);
-      const key = path.join(prefix, entry).replace(/\\/g, "/");
-
-      if (stat.isDirectory()) {
-        await this.uploadDirToS3(s3, localPath, bucket, key, sessionId);
-      } else {
-        const fileContent = await fs.readFile(localPath);
-        await s3.send(new PutObjectCommand({
-          Bucket: bucket,
-          Key: key,
-          Body: fileContent,
-          ContentType: entry.endsWith(".gz") ? "application/gzip" : "application/octet-stream"
-        }));
-        await this.addLog(sessionId, `Uploaded: s3://${bucket}/${key}`);
-      }
-    }
-  }
-
   private async updateSession(sessionId: string, updates: Partial<BackupSession>): Promise<void> {
     await backupSession.updateOne({ _id: sessionId }, { $set: updates });
   }
@@ -721,36 +734,66 @@ export class BackupAndRestoreService {
 
   async listS3Backups(): Promise<{ name: string; path: string; timestamp?: Date }[]> {
     const results: { name: string; path: string; timestamp?: Date }[] = [];
-    if (!this.backupConfig.environments) return results;
-    for (const env of this.backupConfig.environments) {
-      try {
-        const bucket = this.backupConfig.aws?.bucket || env.aws?.bucket;
-        if (!bucket) continue;
-        const region = this.backupConfig.aws?.region || env.aws?.region || AWS_DEFAULTS.REGION;
-        const accessKeyId = env.aws?.accessKeyId;
-        const secretAccessKey = env.aws?.secretAccessKey;
-        const s3 = new S3Client({
-          region,
-          credentials: accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined
-        });
-        const envPrefix = `${env.environment}/`;
-        const dbPrefixes = await this.listPrefixes(s3, bucket, envPrefix);
-        for (const dbPrefix of dbPrefixes) {
-          const tsPrefixes = await this.listPrefixes(s3, bucket, dbPrefix);
-          for (const tsPrefix of tsPrefixes) {
-            const trimmed = tsPrefix.replace(/\/$/, "");
-            const folder = trimmed.split("/").pop() || "";
-            const dt = dateTimeInTimezone(folder, DateFormat.FILE_TIMESTAMP);
-            const name = `${env.environment}/${dbPrefix.substring(envPrefix.length)}${trimmed.substring(dbPrefix.length)}`;
-            const pathStr = `s3://${bucket}/${trimmed}`;
-            results.push({ name, path: pathStr, timestamp: dt.isValid ? dt.toJSDate() : undefined });
-          }
-        }
-      } catch (e) {
-        continue;
-      }
+    if (!this.backupConfig.environments) {
+      return results;
+    }
+
+    const globalBucket = this.backupConfig.aws?.bucket;
+    const globalRegion = this.backupConfig.aws?.region || AWS_DEFAULTS.REGION;
+
+    if (globalBucket) {
+      await this.listS3BackupsFromGlobalBucket(results, globalBucket, globalRegion);
+    } else {
+      await this.listS3BackupsFromEnvironmentBuckets(results);
     }
     return results;
+  }
+
+  private async listS3BackupsFromGlobalBucket(results: { name: string; path: string; timestamp?: Date }[], bucket: string, region: string): Promise<void> {
+    const credentials = this.preferredCredentials();
+    if (!credentials) {
+      return;
+    }
+
+    const s3 = new S3Client({ region, credentials });
+
+    for (const env of this.backupConfig.environments!) {
+      await this.collectBackupsForEnvironment(results, s3, bucket, env.environment);
+    }
+  }
+
+  private async listS3BackupsFromEnvironmentBuckets(results: { name: string; path: string; timestamp?: Date }[]): Promise<void> {
+    for (const env of this.backupConfig.environments!) {
+      const bucket = env.aws?.bucket;
+      const accessKeyId = env.aws?.accessKeyId;
+      const secretAccessKey = env.aws?.secretAccessKey;
+
+      if (bucket && accessKeyId && secretAccessKey) {
+        const region = env.aws?.region || AWS_DEFAULTS.REGION;
+        const s3 = new S3Client({ region, credentials: { accessKeyId, secretAccessKey } });
+        await this.collectBackupsForEnvironment(results, s3, bucket, env.environment);
+      }
+    }
+  }
+
+  private async collectBackupsForEnvironment(results: { name: string; path: string; timestamp?: Date }[], s3: S3Client, bucket: string, environment: string): Promise<void> {
+    try {
+      const envPrefix = `${environment}/`;
+      const tsPrefixes = await this.listPrefixes(s3, bucket, envPrefix);
+      for (const tsPrefix of tsPrefixes) {
+        const trimmed = tsPrefix.replace(/\/$/, "");
+        const parsed = parseS3BackupPrefix(trimmed);
+        if (parsed) {
+          results.push({
+            name: trimmed,
+            path: buildS3LocationUrl(bucket, trimmed),
+            timestamp: parseTimestampToDate(parsed.timestamp)
+          });
+        }
+      }
+    } catch {
+      debugLog(`Failed to list backups for environment ${environment}`);
+    }
   }
 
   private async listPrefixes(s3: S3Client, bucket: string, prefix: string): Promise<string[]> {
@@ -767,17 +810,24 @@ export class BackupAndRestoreService {
   async deleteS3Backups(names: string[]): Promise<{ deleted: string[]; errors: NamedError[] }> {
     const deleted: string[] = [];
     const errors: NamedError[] = [];
+    const globalBucket = this.backupConfig.aws?.bucket;
+    const globalRegion = this.backupConfig.aws?.region || AWS_DEFAULTS.REGION;
+    const credentials = this.preferredCredentials();
+
+    if (!credentials) {
+      return { deleted: [], errors: names.map(name => ({ name, error: "No AWS credentials configured" })) };
+    }
+
     for (const name of names) {
       try {
         const [envName] = name.split("/");
         const env = this.backupConfig.environments?.find(e => e.environment === envName);
-        const bucket = this.backupConfig.aws?.bucket || env?.aws?.bucket;
-        if (!bucket) throw new Error("No bucket configured for environment " + envName);
-        const region = this.backupConfig.aws?.region || env?.aws?.region || AWS_DEFAULTS.REGION;
-        const s3 = new S3Client({
-          region, credentials: env?.aws?.accessKeyId && env?.aws?.secretAccessKey ?
-            {accessKeyId: env.aws.accessKeyId, secretAccessKey: env.aws.secretAccessKey} : undefined
-        });
+        const bucket = globalBucket || env?.aws?.bucket;
+        if (!bucket) {
+          throw new Error(`No S3 bucket configured for environment ${envName}`);
+        }
+        const region = globalBucket ? globalRegion : (env?.aws?.region || AWS_DEFAULTS.REGION);
+        const s3 = new S3Client({ region, credentials });
         const prefix = name.endsWith("/") ? name : `${name}/`;
         let continuationToken: string | undefined = undefined;
         do {

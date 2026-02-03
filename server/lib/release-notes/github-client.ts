@@ -1,6 +1,7 @@
 import debug from "debug";
+import { envConfig } from "../env-config/env-config";
 
-const debugLog = debug("release-notes:github");
+const debugLog = debug(envConfig.logNamespace("release-notes:github"));
 debugLog.enabled = true;
 
 interface WorkflowRunResult {

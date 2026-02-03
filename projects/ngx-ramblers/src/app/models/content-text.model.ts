@@ -10,6 +10,7 @@ import { ImageCropperPosition } from "./image-cropper.model";
 import { FocalPoint } from "../modules/common/focal-point-picker/focal-point-picker";
 import { HasNgSelectAttributes, LocationDetails } from "./ramblers-walks-manager";
 import { SharedDistrictStyle } from "./system.model";
+import { MapProvider } from "./map.model";
 
 export const EM_DASH = " — ";
 export const EM_DASH_WITH_SPACES = ` ${EM_DASH} `;
@@ -250,6 +251,8 @@ export enum ContentTemplateType {
   MIGRATION_TEMPLATE = "migration-template"
 }
 
+export const USER_TEMPLATES_PATH_PREFIX = "fragments/templates/";
+
 export interface MigrationTemplateLocationMapping {
   extractFromContent?: boolean;
   hideRow?: boolean;
@@ -419,7 +422,7 @@ export interface IndexMapConfig {
   height?: number;
   clusteringEnabled?: boolean;
   clusteringThreshold?: number;
-  provider?: string;
+  provider?: MapProvider;
   osStyle?: string;
   mapCenter?: [number, number];
   mapZoom?: number;
@@ -429,6 +432,8 @@ export interface IndexMapConfig {
 
 export interface Index {
   contentPaths: ContentPathMatch[];
+  indexMarkdown?: string;
+  autoTitle?: boolean;
   contentTypes?: IndexContentType[];
   renderModes?: IndexRenderMode[];
   mapConfig?: IndexMapConfig;

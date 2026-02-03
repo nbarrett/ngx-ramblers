@@ -2,8 +2,7 @@ import { Command } from "commander";
 import { spawn } from "child_process";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { DateTime } from "luxon";
+import { S3Client } from "@aws-sdk/client-s3";
 import { dateTimeNow } from "../lib/shared/dates";
 import {
   RamblersWalksManagerDateFormat as DateFormat
@@ -11,6 +10,7 @@ import {
 import type { BackupOptions, EnvironmentConfig, RestoreOptions } from "./types.js";
 import { buildMongoUri } from "../lib/shared/mongodb-uri";
 import { isUndefined } from "es-toolkit/compat";
+import { uploadDirectoryToS3 } from "../lib/aws/s3-utils";
 
 async function main() {
   const program = new Command();
@@ -41,28 +41,6 @@ async function main() {
     const config: EnvironmentConfig | undefined = configs.find(c => c.name === envName);
     if (!config) return callback("Env not found");
     execCmd("flyctl", ["scale", "count", scaleCount.toString(), "--app", config.appName], callback);
-  }
-
-  async function uploadDirToS3(s3Client: S3Client, localDir: string, bucket: string, prefix: string = ""): Promise<void> {
-    const entries: string[] = await fs.readdir(localDir);
-    for (const entryName of entries) {
-      const localPath: string = path.join(localDir, entryName);
-      const statInfo = await fs.stat(localPath);
-      const key: string = path.join(prefix, entryName).replace(/\\/g, "/");
-      if (statInfo.isDirectory()) {
-        await uploadDirToS3(s3Client, localPath, bucket, key);
-      } else {
-        const fileContent: Buffer = await fs.readFile(localPath);
-        const command: PutObjectCommand = new PutObjectCommand({
-          Bucket: bucket,
-          Key: key,
-          Body: fileContent,
-          ContentType: entryName.endsWith(".gz") ? "application/gzip" : "application/octet-stream"
-        });
-        await s3Client.send(command);
-        console.log(`Uploaded: s3://${bucket}/${key}`);
-      }
-    }
   }
 
   program
@@ -146,7 +124,7 @@ async function main() {
             const s3Region = process.env.AWS_REGION!;
             const s3: S3Client = new S3Client({region: s3Region});
             const s3Key: string = path.join("backups", backupName).replace(/\\/g, "/");
-            await uploadDirToS3(s3, outDir, s3Bucket, s3Key);
+            await uploadDirectoryToS3(s3, outDir, s3Bucket, s3Key, (bucketName, key) => console.log(`Uploaded: s3://${bucketName}/${key}`));
             console.log(`Uploaded to s3://${s3Bucket}/${s3Key}`);
           }
         } finally {

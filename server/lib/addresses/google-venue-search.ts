@@ -20,11 +20,11 @@ interface GooglePlaceNew {
   };
   types?: string[];
   primaryType?: string;
-  addressComponents?: Array<{
+  addressComponents?: {
     longText: string;
     shortText: string;
     types: string[];
-  }>;
+  }[];
   websiteUri?: string;
 }
 

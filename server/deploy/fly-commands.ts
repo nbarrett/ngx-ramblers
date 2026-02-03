@@ -5,9 +5,10 @@ import { execSync } from "child_process";
 import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation } from "./types";
 import { Environment } from "../lib/env-config/environment-model";
 import { resolveClientPath } from "../lib/shared/path-utils";
+import { envConfig } from "../lib/env-config/env-config";
 
-const debugLog = debug("deploy-environments");
-const debugNoLog = debug("deploy-environments-nolog");
+const debugLog = debug(envConfig.logNamespace("deploy-environments"));
+const debugNoLog = debug(envConfig.logNamespace("deploy-environments-nolog"));
 debugLog.enabled = true;
 
 export function flyTomlAbsolutePath() {

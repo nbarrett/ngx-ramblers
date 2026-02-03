@@ -11,8 +11,9 @@ import fs from "fs";
 import { DeploymentConfig, EnvironmentConfig, RuntimeConfig } from "./types";
 import { pluraliseWithCount } from "../lib/shared/string-utils";
 import path from "path";
+import { envConfig } from "../lib/env-config/env-config";
 
-const debugLog = debug("deploy-environments");
+const debugLog = debug(envConfig.logNamespace("deploy-environments"));
 debugLog.enabled = true;
 const config: RuntimeConfig = createRuntimeConfig();
 if (config.targetEnvironments.length > 0) {

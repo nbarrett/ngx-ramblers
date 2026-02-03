@@ -16,11 +16,16 @@ import { Location } from "@angular/common";
 import { ActivatedRoute } from "@angular/router";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { isNull } from "es-toolkit/compat";
+import { MarkdownComponent } from "ngx-markdown";
+import { PageService } from "../../../services/page.service";
 
 @Component({
     selector: "app-dynamic-content-view-index",
     template: `
       @if (actions.isIndex(row)) {
+        @if (indexMarkdown()) {
+          <div class="mb-3" markdown [data]="indexMarkdown()"></div>
+        }
         @if (shouldShowSearch()) {
           <div class="row mb-3">
             <div class="col-12">
@@ -69,7 +74,7 @@ import { isNull } from "es-toolkit/compat";
           }
         }
       }`,
-    imports: [ActionButtons, DynamicContentViewIndexMap, FormsModule, FontAwesomeModule]
+    imports: [ActionButtons, DynamicContentViewIndexMap, FormsModule, FontAwesomeModule, MarkdownComponent]
 })
 export class DynamicContentViewIndex implements OnInit {
 
@@ -82,8 +87,9 @@ export class DynamicContentViewIndex implements OnInit {
   private location: Location = inject(Location);
   private route: ActivatedRoute = inject(ActivatedRoute);
   private stringUtils: StringUtilsService = inject(StringUtilsService);
+  private pageService: PageService = inject(PageService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  public logger = this.loggerFactory.createLogger("DynamicContentViewAlbumIndexComponent", NgxLoggerLevel.ERROR);
+  public logger = this.loggerFactory.createLogger("DynamicContentViewIndex", NgxLoggerLevel.ERROR);
   protected readonly IndexRenderMode = IndexRenderMode;
   protected readonly faSearch = faSearch;
   protected readonly MapProvider = MapProvider;
@@ -156,7 +162,6 @@ export class DynamicContentViewIndex implements OnInit {
       const contentMatch = column.contentText?.toLowerCase().includes(searchLower);
       return titleMatch || contentMatch;
     });
-
     return {
       ...this.albumIndexPageContent,
       rows: [{
@@ -164,6 +169,15 @@ export class DynamicContentViewIndex implements OnInit {
         columns: filteredColumns
       }]
     };
+  }
+
+  indexMarkdown(): string | null {
+    const autoTitle = this.row?.albumIndex?.autoTitle !== false;
+    if (autoTitle) {
+      const title = this.pageService.pageSubtitle();
+      return title ? `# ${title}` : null;
+    }
+    return this.row?.albumIndex?.indexMarkdown || null;
   }
 
 }

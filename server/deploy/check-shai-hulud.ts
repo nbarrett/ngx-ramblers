@@ -9,8 +9,9 @@ import * as semver from "semver";
 import * as yaml from "js-yaml";
 import { isArray, isString, keys, values } from "es-toolkit/compat";
 import { PackageManager } from "./types";
+import { envConfig } from "../lib/env-config/env-config";
 
-const debugLog = debug("check-shai-hulud");
+const debugLog = debug(envConfig.logNamespace("check-shai-hulud"));
 debugLog.enabled = true;
 
 function objectEntries<T>(object: Record<string, T>): [string, T][] {

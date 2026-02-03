@@ -11,8 +11,9 @@ import debug from "debug";
 import * as crudController from "../controllers/crud-controller";
 import { config } from "../models/config";
 import { ConfigDocument } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
+import { envConfig } from "../../env-config/env-config";
 
-const debugLog = debug("ngx-ramblers:migrations-routes");
+const debugLog = debug(envConfig.logNamespace("migrations-routes"));
 debugLog.enabled = true;
 const controller = crudController.create<ConfigDocument>(config);
 

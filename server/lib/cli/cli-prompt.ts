@@ -8,7 +8,7 @@ export type PromptResult<T> = T | typeof BACK | typeof QUIT;
 
 interface SelectOptions<T> {
   message: string;
-  choices: Array<{ name: string; value: T }>;
+  choices: { name: string; value: T }[];
   allowBack?: boolean;
 }
 

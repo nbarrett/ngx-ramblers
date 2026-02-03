@@ -2,12 +2,14 @@
 import debug from "debug";
 import * as fs from "fs";
 import * as path from "path";
+import { envConfig } from "../env-config/env-config";
 import { dateTimeFromObject } from "../shared/dates";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { login, createOrUpdatePageContent, pageContent } from "./cms-client.js";
+import { DEFAULT_CMS_BASE_URL } from "./models.js";
 import { PageContent, PageContentType, PageContentColumn } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
-const debugLog = debug("release-notes:publish-article");
+const debugLog = debug(envConfig.logNamespace("release-notes:publish-article"));
 debugLog.enabled = true;
 
 const INDEX_PATH = "how-to/technical-articles";
@@ -39,25 +41,25 @@ async function main() {
   const markdownFile = process.argv[2];
 
   if (!markdownFile) {
-    console.error("Error: Markdown file path is required");
-    console.error("Usage: npx tsx lib/release-notes/publish-technical-article.ts <markdown-file>");
-    console.error("Example: npx tsx lib/release-notes/publish-technical-article.ts ../non-vcs/technical-articles/2026-01-29-article.md");
+    debugLog("Error: Markdown file path is required");
+    debugLog("Usage: npx tsx lib/release-notes/publish-technical-article.ts <markdown-file>");
+    debugLog("Example: npx tsx lib/release-notes/publish-technical-article.ts ../non-vcs/technical-articles/2026-01-29-article.md");
     process.exit(1);
   }
 
-  const cmsUrl = process.env.CMS_URL || "https://www.ngx-ramblers.org.uk";
+  const cmsUrl = process.env.CMS_URL || DEFAULT_CMS_BASE_URL;
   const username = process.env.CMS_USERNAME;
   const password = process.env.CMS_PASSWORD;
 
   if (!username || !password) {
-    console.error("Error: CMS_USERNAME and CMS_PASSWORD environment variables are required");
-    console.error("Usage: CMS_USERNAME=user CMS_PASSWORD=pass npx tsx lib/release-notes/publish-technical-article.ts <file>");
+    debugLog("Error: CMS_USERNAME and CMS_PASSWORD environment variables are required");
+    debugLog("Usage: CMS_USERNAME=user CMS_PASSWORD=pass npx tsx lib/release-notes/publish-technical-article.ts <file>");
     process.exit(1);
   }
 
   const resolvedPath = path.resolve(markdownFile);
   if (!fs.existsSync(resolvedPath)) {
-    console.error(`Error: File not found: ${resolvedPath}`);
+    debugLog(`Error: File not found: ${resolvedPath}`);
     process.exit(1);
   }
 
@@ -65,14 +67,14 @@ async function main() {
   const fileInfo = extractInfoFromFilename(markdownFile);
 
   if (!fileInfo) {
-    console.error("Error: Filename must start with a date in YYYY-MM-DD format");
-    console.error("Example: 2026-01-29-my-article.md");
+    debugLog("Error: Filename must start with a date in YYYY-MM-DD format");
+    debugLog("Example: 2026-01-29-my-article.md");
     process.exit(1);
   }
 
   const articleTitle = extractTitleFromMarkdown(markdownContent);
   if (!articleTitle) {
-    console.error("Error: Could not extract title from markdown. Ensure it starts with a # heading");
+    debugLog("Error: Could not extract title from markdown. Ensure it starts with a # heading");
     process.exit(1);
   }
 
@@ -141,6 +143,6 @@ async function main() {
 }
 
 main().catch(error => {
-  console.error("Error:", error.message);
+  debugLog("Error:", error.message);
   process.exit(1);
 });

@@ -3,7 +3,7 @@ import path from "path";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 
-const debugLog = debug("serenity-reports");
+const debugLog = debug(envConfig.logNamespace("serenity-reports"));
 debugLog.enabled = true;
 
 export function setupSerenityReports(app: Express): void {

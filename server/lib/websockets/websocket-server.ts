@@ -47,8 +47,7 @@ const messageHandlers: MessageHandlers = {
   [EventType.EXTERNAL_ALBUM_SPLIT_PREVIEW]: async (ws: WebSocket, data: any) => handleExternalAlbumSplitPreview(ws, data),
   [EventType.EXTERNAL_USER_ALBUMS_FETCH]: async (ws: WebSocket, data: any) => handleExternalUserAlbumsFetch(ws, data),
   [EventType.EXTERNAL_BULK_ALBUM_IMPORT]: async (ws: WebSocket, data: any) => handleExternalBulkAlbumImport(ws, data),
-  [EventType.PING]: (ws: WebSocket, data: any) => {
-    debugLog("✅ Received ping, responding with pong");
+  [EventType.PING]: (ws: WebSocket) => {
     ws.send(JSON.stringify({ type: "pong", data: {} }));
   },
 };
@@ -81,7 +80,6 @@ export function createWebSocketServer(server: Server, port: number): void {
     debugLog("✅ Socket configured with no timeout and keep-alive every 30s");
 
     ws.on("message", (message: string) => {
-      debugLog(`✅ Message received of size: ${humanFileSize(message.length)}`);
       try {
         const request: WebSocketRequest = JSON.parse(message);
         const handler = messageHandlers[request.type];
@@ -89,7 +87,9 @@ export function createWebSocketServer(server: Server, port: number): void {
           clientWebSocketInstance.instance = ws;
         }
         if (handler) {
-          debugLog(`✅ About to invoke handler for message type: ${request.type}`);
+          if (request.type !== EventType.PING) {
+            debugLog(`✅ Message received of size: ${humanFileSize(message.length)} for type: ${request.type}`);
+          }
           handler(ws, request.data);
         } else {
           debugLog(`❌ No handler for message type: ${request.type}`);

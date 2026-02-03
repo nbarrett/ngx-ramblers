@@ -202,6 +202,7 @@ docs(readme): update installation instructions
 - **No imperative loops** ⚡ **[ESLint Enforced]**: Replace `for`/`while` constructs with declarative array operations (`map`, `reduce`, `filter`, etc.) so that functions remain side-effect free where possible
 - **Structured branching** ⚠️ **[Guideline]**: Prefer explicit `if / else if / else` chains where each branch returns or handles outcomes inline, instead of scattering multiple early returns throughout the method
 - **Double quotes**: Always use `"` instead of `'` for strings
+- **Array types**: Use `T[]` syntax instead of `Array<T>` (e.g., `string[]` not `Array<string>`)
 - **Minimal changes**: Keep patches targeted and scoped to request
 - **Follow existing patterns**: Don't introduce new patterns without discussion
 - **Method naming**: Never prefix methods with "get" - type system conveys that. Use more meaningful terms:
@@ -381,19 +382,25 @@ npm run release-notes:latest       # Generate for latest commits
 npm run release-notes:all           # Generate all missing notes
 
 # Full stack development environment
-./non-vcs/app-start-scripts/run.sh <environment-script>
+./bin/ngx-cli local dev <environment>
 ```
 
 ## Development Environment
 
 ### Full Stack Setup
-Use environment-specific scripts to start both frontend and backend:
+Use the CLI to start both frontend and backend:
 ```bash
-# Start staging environment
-./non-vcs/app-start-scripts/run.sh ngx-ramblers-staging.sh
+# List available environments
+./bin/ngx-cli local list
 
-# Start EKWG dev environment
-./non-vcs/app-start-scripts/run.sh ekwg-dev-2-ekwg-staging.sh
+# Start development mode (hot reload)
+./bin/ngx-cli local dev staging # Start staging environment
+./bin/ngx-cli local dev ashford # Start Ashford environment
+./bin/ngx-cli local dev ekwg    # Start EKWG environment
+
+# Start production mode (built assets)
+./bin/ngx-cli local prod staging
+
 ```
 
 ### Build Process
@@ -549,7 +556,7 @@ Use the correct semantic alert type for the situation:
 ## Development Workflow
 
 ### Making Changes
-1. **Full stack**: Use `./non-vcs/app-start-scripts/run.sh <environment-script>`
+1. **Full stack**: Use `./bin/ngx-cli local dev <environment>`
 2. **Frontend only**: Use `npm run serve` (backend proxied)
 3. **Always lint**: `npm run lint` or `npm run lintfix` before committing
 4. **Run tests**: `npm run test` and `npm run test:server`

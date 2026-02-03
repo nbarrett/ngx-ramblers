@@ -7,13 +7,12 @@ import { connectToDatabase, validateMongoConnection } from "../database-initiali
 import { adminConfigFromEnvironment, copyStandardAssets, validateAwsAdminCredentials } from "../aws-setup";
 import { createEnvironment, listSessions, sessionStatus, validateSetupRequest } from "../environment-setup-service";
 import { EnvironmentSetupRequest, RamblersAreaLookup, RamblersGroupLookup } from "../types";
-import { findEnvironment } from "../../shared/configs-json";
+import { configuredEnvironments, findEnvironmentFromDatabase } from "../../environments/environments-config";
 import { buildMongoUri, extractClusterFromUri, extractUsernameFromUri } from "../../shared/mongodb-uri";
 import { loadSecretsForEnvironment } from "../../shared/secrets";
 import { resumeEnvironment } from "../../cli/commands/environment";
 import { destroyEnvironment } from "../../cli/commands/destroy";
 import { booleanOf } from "../../shared/string-utils";
-import { configuredEnvironments } from "../../environments/environments-config";
 import * as systemConfig from "../../config/system-config";
 import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 
@@ -287,10 +286,10 @@ router.post("/resume", async (req: Request, res: Response) => {
       return;
     }
 
-    const envConfig = findEnvironment(environmentName);
+    const envConfig = await findEnvironmentFromDatabase(environmentName);
     if (!envConfig) {
-      debugLog(`Environment ${environmentName} not found in configs.json`);
-      res.status(404).json({ error: `Environment ${environmentName} not found in configs.json` });
+      debugLog(`Environment ${environmentName} not found in database`);
+      res.status(404).json({ error: `Environment ${environmentName} not found in database` });
       return;
     }
 
@@ -329,10 +328,10 @@ router.delete("/destroy/:environmentName", async (req: Request, res: Response) =
     const { skipFly, skipS3, skipDatabase, skipConfigs } = req.query;
     debugLog("Destroy request received:", { environmentName, skipFly, skipS3, skipDatabase, skipConfigs });
 
-    const envConfigData = findEnvironment(environmentName);
+    const envConfigData = await findEnvironmentFromDatabase(environmentName);
     if (!envConfigData) {
-      debugLog(`Environment ${environmentName} not found in configs.json`);
-      res.status(404).json({ error: `Environment ${environmentName} not found in configs.json` });
+      debugLog(`Environment ${environmentName} not found in database`);
+      res.status(404).json({ error: `Environment ${environmentName} not found in database` });
       return;
     }
 
@@ -428,10 +427,11 @@ router.post("/copy-assets/:environmentName", async (req: Request, res: Response)
     }
 
     debugLog("Copying standard assets to bucket:", bucket);
-    const copiedAssets = await copyStandardAssets(awsAdminConfig, bucket);
-    const totalCopied = copiedAssets.icons.length + copiedAssets.logos.length + copiedAssets.backgrounds.length;
+    const copyResult = await copyStandardAssets(awsAdminConfig, bucket);
+    const totalCopied = copyResult.icons.length + copyResult.logos.length + copyResult.backgrounds.length;
+    const totalFailed = copyResult.failures.length;
 
-    debugLog("Copied assets:", copiedAssets);
+    debugLog("Copied assets:", { totalCopied, totalFailed, failures: copyResult.failures });
 
     if (totalCopied > 0) {
       debugLog("Updating system config in database:", database);
@@ -442,32 +442,27 @@ router.post("/copy-assets/:environmentName", async (req: Request, res: Response)
 
         if (systemConfigDoc?.value) {
           const updates: any = {};
+          const existingConfig = systemConfigDoc.value;
 
-          if (copiedAssets.icons.length > 0) {
-            updates["value.icons.images"] = copiedAssets.icons.map(fileName => ({
-              width: 150,
-              originalFileName: fileName,
-              awsFileName: `icons/${fileName}`
-            }));
+          const mergeImages = (existing: any[] = [], copied: any[]) => {
+            const existingKeys = new Set(existing.map(img => img.awsFileName));
+            const newImages = copied.filter(img => !existingKeys.has(img.awsFileName));
+            return [...existing, ...newImages];
+          };
+
+          if (copyResult.icons.length > 0) {
+            updates["value.icons.images"] = mergeImages(existingConfig.icons?.images, copyResult.icons);
           }
-          if (copiedAssets.logos.length > 0) {
-            updates["value.logos.images"] = copiedAssets.logos.map(fileName => ({
-              width: 300,
-              originalFileName: fileName,
-              awsFileName: `logos/${fileName}`
-            }));
+          if (copyResult.logos.length > 0) {
+            updates["value.logos.images"] = mergeImages(existingConfig.logos?.images, copyResult.logos);
           }
-          if (copiedAssets.backgrounds.length > 0) {
-            updates["value.backgrounds.images"] = copiedAssets.backgrounds.map(fileName => ({
-              width: 1920,
-              originalFileName: fileName,
-              awsFileName: `backgrounds/${fileName}`
-            }));
+          if (copyResult.backgrounds.length > 0) {
+            updates["value.backgrounds.images"] = mergeImages(existingConfig.backgrounds?.images, copyResult.backgrounds);
           }
 
           if (Object.keys(updates).length > 0) {
             await configCollection.updateOne({ key: "system" }, { $set: updates });
-            debugLog("Updated system config with copied assets");
+            debugLog("Updated system config with merged assets");
           }
         }
       } finally {
@@ -475,10 +470,20 @@ router.post("/copy-assets/:environmentName", async (req: Request, res: Response)
       }
     }
 
+    const hasFailures = totalFailed > 0;
+    const message = hasFailures
+      ? `Copied ${totalCopied} assets but ${totalFailed} failed: ${copyResult.failures.map(f => f.file).join(", ")}`
+      : `Copied ${totalCopied} assets to ${bucket} and updated system config`;
+
     res.json({
-      success: true,
-      message: `Copied ${totalCopied} assets to ${bucket} and updated system config`,
-      copiedAssets
+      success: !hasFailures,
+      message,
+      copiedAssets: {
+        icons: copyResult.icons,
+        logos: copyResult.logos,
+        backgrounds: copyResult.backgrounds
+      },
+      failures: copyResult.failures
     });
   } catch (error) {
     errorDebugLog("Error copying assets:", error.message);

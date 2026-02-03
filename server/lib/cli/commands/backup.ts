@@ -4,9 +4,8 @@ import inquirer from "inquirer";
 import mongoose from "mongoose";
 import { envConfig } from "../../env-config/env-config";
 import { ProgressCallback } from "../types";
-import { log, error as logError } from "../cli-logger";
+import { error as logError, log } from "../cli-logger";
 import { BackupAndRestoreService, BackupOptions, RestoreOptions } from "../../backup/backup-and-restore-service";
-import { loadConfigsJson } from "../../shared/configs-json";
 import * as configController from "../../mongo/controllers/config";
 import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 import { BackupConfig } from "../../../../projects/ngx-ramblers/src/app/models/backup-session.model";
@@ -16,8 +15,11 @@ const debugLog = debug(envConfig.logNamespace("cli:backup"));
 
 async function getBackupConfig(): Promise<BackupConfig> {
   await connect();
-  const configDoc = await configController.queryKey(ConfigKey.BACKUP);
-  return configDoc?.value || { environments: [] };
+  const configDoc = await configController.queryKey(ConfigKey.ENVIRONMENTS);
+  if (configDoc?.value?.environments) {
+    return { environments: configDoc.value.environments };
+  }
+  return { environments: [] };
 }
 
 async function closeConnection(): Promise<void> {
@@ -83,7 +85,6 @@ export async function createBackup(
   try {
     await connect();
     const backupConfig = await getBackupConfig();
-    const configs = loadConfigsJson()?.environments || [];
 
     const targetEnv = environmentName || await selectEnvironment(backupConfig);
     if (!targetEnv) {
@@ -93,7 +94,7 @@ export async function createBackup(
     onProgress?.({ step: "backup", status: "running", message: `Starting backup of ${targetEnv}` });
     log(`\nStarting backup of environment: ${targetEnv}\n`);
 
-    const service = new BackupAndRestoreService(configs, backupConfig);
+    const service = new BackupAndRestoreService([], backupConfig);
 
     const backupOptions: BackupOptions = {
       environment: targetEnv,
@@ -125,7 +126,6 @@ export async function restoreBackup(
   try {
     await connect();
     const backupConfig = await getBackupConfig();
-    const configs = loadConfigsJson()?.environments || [];
 
     const targetEnv = environmentName || await selectEnvironment(backupConfig);
     if (!targetEnv) {
@@ -165,7 +165,7 @@ export async function restoreBackup(
     log(`\nStarting restore to environment: ${targetEnv}\n`);
     log(`From: ${fromPath}\n`);
 
-    const service = new BackupAndRestoreService(configs, backupConfig);
+    const service = new BackupAndRestoreService([], backupConfig);
 
     const restoreOptions: RestoreOptions = {
       environment: targetEnv,

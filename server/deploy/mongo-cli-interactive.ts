@@ -2,7 +2,7 @@ import { confirm, input, select } from "@inquirer/prompts";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { spawn } from "child_process";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { S3Client } from "@aws-sdk/client-s3";
 import { DateTime } from "luxon";
 import {
   RamblersWalksManagerDateFormat as DateFormat
@@ -13,6 +13,7 @@ import { getAwsConfigForEnvironment, loadConfigs } from "./config-loader.js";
 import { isUndefined } from "es-toolkit/compat";
 import { dateTimeFromJsDate, dateTimeNow } from "../lib/shared/dates";
 import { buildMongoUri } from "../lib/shared/mongodb-uri";
+import { uploadDirectoryToS3 } from "../lib/aws/s3-utils";
 
 interface BackupAnswers {
   environment: string;
@@ -184,8 +185,8 @@ async function runBackup(configs: EnvironmentConfig[], dumpBaseDir: string) {
         }
         const s3 = new S3Client(s3Config);
         const s3Key = path.join("backups", backupName).replace(/\\/g, "/");
-        await uploadDirToS3(s3, outDir, s3Bucket, s3Key);
-        console.log(`✅ Uploaded to s3://${s3Bucket}/${s3Key}`);
+        await uploadDirectoryToS3(s3, outDir, s3Bucket, s3Key, () => process.stdout.write("."));
+        console.log(`\n✅ Uploaded to s3://${s3Bucket}/${s3Key}`);
       }
     } finally {
       if (scaleDown && !isUndefined(originalScaleCount)) {
@@ -389,28 +390,6 @@ async function execCommand(cmd: string, args: string[]): Promise<void> {
     });
     proc.on("error", error => reject(error));
   });
-}
-
-async function uploadDirToS3(s3: S3Client, localDir: string, bucket: string, prefix: string): Promise<void> {
-  const entries = await fs.readdir(localDir);
-  for (const entry of entries) {
-    const localPath = path.join(localDir, entry);
-    const stat = await fs.stat(localPath);
-    const key = path.join(prefix, entry).replace(/\\/g, "/");
-
-    if (stat.isDirectory()) {
-      await uploadDirToS3(s3, localPath, bucket, key);
-    } else {
-      const fileContent = await fs.readFile(localPath);
-      await s3.send(new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: fileContent,
-        ContentType: entry.endsWith(".gz") ? "application/gzip" : "application/octet-stream"
-      }));
-      process.stdout.write(".");
-    }
-  }
 }
 
 main().catch(error => {

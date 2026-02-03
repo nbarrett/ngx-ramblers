@@ -3,14 +3,15 @@ import debug from "debug";
 import { EnvironmentSetupRequest } from "../../environment-setup/types";
 import { loadSecretsForEnvironment, updateSecretsFile } from "../../shared/secrets";
 import { parseMongoUri } from "../../shared/mongodb-uri";
-import { findEnvironment, listEnvironmentSummaries } from "../../shared/configs-json";
+import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
 import { normaliseMemory } from "../../shared/spelling";
 import { reinitDatabase, seedDatabase } from "./database";
 import { deployToFlyio } from "./fly";
 import { EnvironmentResult, FlyDeployConfig, ProgressCallback, ResumeOptions } from "../types";
 import { log } from "../cli-logger";
+import { envConfig } from "../../env-config/env-config";
 
-const debugLog = debug("ngx-ramblers:cli:environment");
+const debugLog = debug(envConfig.logNamespace("cli:environment"));
 
 export async function createEnvironment(
   request: EnvironmentSetupRequest,
@@ -36,9 +37,9 @@ export async function resumeEnvironment(
 ): Promise<EnvironmentResult> {
   debugLog("Resuming environment:", name, "options:", options);
 
-  const envConfig = findEnvironment(name);
+  const envConfig = await findEnvironmentFromDatabase(name);
   if (!envConfig) {
-    throw new Error(`Environment ${name} not found in configs.json`);
+    throw new Error(`Environment ${name} not found`);
   }
 
   const secrets = loadSecretsForEnvironment(envConfig.appName);
@@ -144,9 +145,9 @@ export function createEnvironmentCommand(): Command {
   environment
     .command("list")
     .description("List all configured environments")
-    .action(() => {
+    .action(async () => {
       try {
-        const environments = listEnvironmentSummaries();
+        const environments = await listEnvironmentSummariesFromDatabase();
 
         if (environments.length === 0) {
           log("No environments configured");
@@ -213,13 +214,13 @@ export function createEnvironmentCommand(): Command {
     .requiredOption("--area-name <areaName>", "Ramblers area name")
     .requiredOption("--group-code <groupCode>", "Ramblers group code")
     .requiredOption("--group-name <groupName>", "Ramblers group name")
-    .action((name, options) => {
+    .action(async (name, options) => {
       try {
         if (!name) {
           log("Environment name is required");
           process.exit(1);
         }
-        const envConfig = findEnvironment(name);
+        const envConfig = await findEnvironmentFromDatabase(name);
         if (!envConfig) {
           log("Environment not found: %s", name);
           process.exit(1);
@@ -246,13 +247,13 @@ export function createEnvironmentCommand(): Command {
   environment
     .command("show [name]")
     .description("Show details for an environment")
-    .action((name) => {
+    .action(async (name) => {
       try {
         if (!name) {
           log("Environment name is required");
           process.exit(1);
         }
-        const envConfig = findEnvironment(name);
+        const envConfig = await findEnvironmentFromDatabase(name);
         if (!envConfig) {
           log("Environment not found: %s", name);
           process.exit(1);

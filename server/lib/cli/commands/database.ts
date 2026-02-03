@@ -10,7 +10,7 @@ import {
 } from "../../environment-setup/database-initialiser";
 import { loadSecretsForEnvironment } from "../../shared/secrets";
 import { parseMongoUri } from "../../shared/mongodb-uri";
-import { findEnvironment } from "../../shared/configs-json";
+import { findEnvironmentFromDatabase } from "../../environments/environments-config";
 import { ProgressCallback, SeedConfig, ValidationResult } from "../types";
 import { log } from "../cli-logger";
 import { MigrationRunner } from "../../mongo/migrations/migrations-runner";
@@ -101,8 +101,8 @@ export async function validateDatabase(config: { uri: string; database: string }
   return validateMongoConnection(config);
 }
 
-function resolveMongoUri(name: string): SeedConfig | null {
-  const envConfig = findEnvironment(name);
+async function resolveMongoUri(name: string): Promise<SeedConfig | null> {
+  const envConfig = await findEnvironmentFromDatabase(name);
   if (!envConfig) {
     debugLog("Environment not found:", name);
     return null;
@@ -147,7 +147,7 @@ export function createDatabaseCommand(): Command {
         let config: SeedConfig;
 
         if (name) {
-          const resolved = resolveMongoUri(name);
+          const resolved = await resolveMongoUri(name);
           if (!resolved) {
             log("Failed to resolve MongoDB URI for environment: %s", name);
             process.exit(1);
@@ -200,7 +200,7 @@ export function createDatabaseCommand(): Command {
         let database: string;
 
         if (name) {
-          const resolved = resolveMongoUri(name);
+          const resolved = await resolveMongoUri(name);
           if (!resolved) {
             log("Failed to resolve MongoDB URI for environment: %s", name);
             process.exit(1);
@@ -229,10 +229,10 @@ export function createDatabaseCommand(): Command {
   database
     .command("migrate [name]")
     .description("Run pending database migrations")
-    .action(async (name) => {
+    .action(async name => {
       try {
         if (name) {
-          const resolved = resolveMongoUri(name);
+          const resolved = await resolveMongoUri(name);
           if (!resolved) {
             log("Failed to resolve MongoDB URI for environment: %s", name);
             process.exit(1);

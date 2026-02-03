@@ -203,6 +203,45 @@ export class DataPopulationService {
           "* Test migrations with dry-run mode before persisting data.\n" +
           "* Each site can be enabled/disabled individually.",
         category: "admin"
+      },
+      {
+        name: "external-album-import-single-help",
+        text: "**Single Album Import** creates a gallery page from a Flickr album. Images remain hosted on Flickr - no storage is used on your server.\n\n" +
+          "### Supported URL Formats\n" +
+          "* `https://www.flickr.com/photos/username/albums/123456` - standard album URL\n" +
+          "* `https://www.flickr.com/photos/username/sets/123456` - alternative set URL\n" +
+          "* `https://flic.kr/s/abc123` - short URL (will be automatically resolved)\n\n" +
+          "### Steps\n" +
+          "1. Paste the Flickr album URL and click **Fetch Preview**\n" +
+          "2. Review the album title, photo count, and thumbnail previews\n" +
+          "3. Enter a **Target Path** for the page (e.g., `gallery/2024/summer-walk`)\n" +
+          "4. Optionally customise the album title and subtitle\n" +
+          "5. Choose **Default layout** or **Create from template** if you have templates configured\n" +
+          "6. Click **Import** to create the gallery page\n\n" +
+          "### Notes\n" +
+          "* If an album with the same target path already exists, it will not be duplicated\n" +
+          "* Photos are displayed using Flickr's CDN URLs - ensure the Flickr album remains public",
+        category: "admin"
+      },
+      {
+        name: "external-album-import-bulk-help",
+        text: "**Bulk Import** creates multiple gallery pages at once from a Flickr user's album collection.\n\n" +
+          "### Supported URL Formats\n" +
+          "* `https://www.flickr.com/photos/username/albums` - user's albums page\n" +
+          "* `https://www.flickr.com/people/username` - user profile page (albums will be found automatically)\n\n" +
+          "### Steps\n" +
+          "1. Paste the user's albums page URL and click **Fetch Preview**\n" +
+          "2. Browse the list of available albums with cover photos and photo counts\n" +
+          "3. Use **Select All** / **Deselect All** or tick individual albums\n" +
+          "4. Set a **Base Path** (e.g., `gallery`) - albums are created at `base-path/album-name`\n" +
+          "5. Optionally edit the target path for any individual album\n" +
+          "6. Click **Import Selected Albums** to batch create all gallery pages\n\n" +
+          "### Notes\n" +
+          "* Albums are imported in parallel for faster processing\n" +
+          "* Each album's title is converted to a URL-friendly slug (e.g., `Summer Walk 2024` → `summer-walk-2024`)\n" +
+          "* Existing albums with the same path are skipped to prevent duplicates\n" +
+          "* The import summary shows success and failure counts for each album",
+        category: "admin"
       }
     ].concat(
       [{

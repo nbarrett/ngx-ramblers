@@ -3,7 +3,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { ReplaySubject } from "rxjs";
 import { ConfigKey } from "../models/config.model";
 import { AWS_DEFAULTS, EnvironmentsConfig } from "../models/environment-config.model";
-import { BackupConfig } from "../models/backup-session.model";
 import { ConfigService } from "./config.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 
@@ -38,24 +37,6 @@ export class EnvironmentConfigService {
     if (environmentsConfig && environmentsConfig.environments && environmentsConfig.environments.length > 0) {
       this.logger.info("Using environments config with", environmentsConfig.environments.length, "environments");
       return environmentsConfig;
-    }
-
-    this.logger.info("No environments config found, falling back to backup config");
-    const backupConfig = await this.config.queryConfig<BackupConfig>(ConfigKey.BACKUP, null);
-    if (backupConfig && backupConfig.environments && backupConfig.environments.length > 0) {
-      const converted: EnvironmentsConfig = {
-        environments: backupConfig.environments.map(env => ({
-          environment: env.environment,
-          aws: env.aws,
-          mongo: env.mongo,
-          flyio: env.flyio,
-          secrets: env.secrets
-        })),
-        aws: backupConfig.aws,
-        secrets: backupConfig.secrets
-      };
-      this.logger.info("Converted backup config with", converted.environments.length, "environments");
-      return converted;
     }
 
     this.logger.info("No config found, returning default");

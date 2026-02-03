@@ -336,7 +336,7 @@ export class AlbumComponent implements OnInit {
   }
 
   private updateUrlParams() {
-    if (!this.preview && this.initialised) {
+    if (this.initialised) {
       const queryParams: Record<string, string | null> = {};
 
       queryParams[StoredValue.ALBUM_VIEW] = this.albumView;

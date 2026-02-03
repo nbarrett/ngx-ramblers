@@ -1,19 +1,16 @@
-import type { CMSAuth } from "./models.js";
+import type { CMSAuth, PageToDelete } from "./models.js";
+import { DEFAULT_CMS_BASE_URL } from "./models.js";
 import * as cms from "./cms-client.js";
 import debug from "debug";
+import { envConfig } from "../env-config/env-config";
 
-const debugLog = debug("release-notes:delete");
+const debugLog = debug(envConfig.logNamespace("release-notes:delete"));
 debugLog.enabled = true;
 
-const DEFAULT_CMS_URL = process.env.CMS_URL || "https://www.ngx-ramblers.org.uk";
+const CMS_URL = process.env.CMS_URL || DEFAULT_CMS_BASE_URL;
 const USERNAME = process.env.CMS_USERNAME || "";
 const PASSWORD = process.env.CMS_PASSWORD || "";
 const INDEX_PATH = "how-to/committee/release-notes";
-
-interface PageToDelete {
-  path: string;
-  description: string;
-}
 
 const PAGES_TO_DELETE: PageToDelete[] = [
   {
@@ -40,7 +37,7 @@ async function deletePage(auth: CMSAuth, pagePath: string): Promise<boolean> {
     debugLog(`Successfully deleted: ${pagePath}`);
     return true;
   } catch (error) {
-    console.error(`Error deleting ${pagePath}:`, error);
+    debugLog(`Error deleting ${pagePath}:`, error);
     return false;
   }
 }
@@ -83,7 +80,7 @@ async function removeFromIndex(auth: CMSAuth, pathsToRemove: string[]): Promise<
     await cms.updatePageContent(auth, indexPage.id!, indexPage);
     debugLog(`Index page updated successfully`);
   } catch (error) {
-    console.error("Error updating index page:", error);
+    debugLog("Error updating index page:", error);
     throw error;
   }
 }
@@ -94,7 +91,7 @@ async function main(): Promise<void> {
   }
 
   debugLog("Logging in to CMS...");
-  const auth = await cms.login(DEFAULT_CMS_URL, USERNAME, PASSWORD);
+  const auth = await cms.login(CMS_URL, USERNAME, PASSWORD);
   debugLog("Login successful");
 
   debugLog(`\nDeleting ${PAGES_TO_DELETE.length} pages...`);
@@ -118,6 +115,6 @@ async function main(): Promise<void> {
 }
 
 main().catch(error => {
-  console.error("Fatal error:", error);
+  debugLog("Fatal error:", error);
   process.exit(1);
 });

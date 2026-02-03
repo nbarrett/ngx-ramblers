@@ -1,8 +1,9 @@
 import debug from "debug";
 import * as cmsClient from "../release-notes/cms-client";
 import type { PageContent, PageContentRow, PageContentColumn } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { envConfig } from "../env-config/env-config";
 
-const debugLog = debug("cms-update");
+const debugLog = debug(envConfig.logNamespace("cms-update"));
 debugLog.enabled = true;
 
 interface UpdateConfig {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import debug from "debug";
 import { createEnvironmentCommand } from "./commands/environment";
 import { createFlyCommand } from "./commands/fly";
 import { createDatabaseCommand } from "./commands/database";
@@ -8,6 +9,19 @@ import { createValidateCommand } from "./commands/validate";
 import { createDestroyCommand } from "./commands/destroy";
 import { createLocalCommand } from "./commands/local";
 import { createBackupCommand } from "./commands/backup";
+import { createLocksCommand } from "./commands/locks";
+import { Environment } from "../env-config/environment-model";
+import { envConfig } from "../env-config/env-config";
+
+const debugLog = debug(envConfig.logNamespace("cli"));
+
+function logEnvironmentVariables() {
+  debugLog("Environment variables loaded:");
+  Object.values(Environment).forEach(varName => {
+    const value = process.env[varName];
+    debugLog("  %s: %s", varName, value || "(not set)");
+  });
+}
 
 export { createEnvironment, resumeEnvironment, validateEnvironmentRequest } from "./commands/environment";
 export { deployToFlyio, scaleFlyApp, setFlySecrets } from "./commands/fly";
@@ -49,8 +63,10 @@ program.addCommand(configureHelp(createValidateCommand()));
 program.addCommand(configureHelp(createDestroyCommand()));
 program.addCommand(configureHelp(createLocalCommand()));
 program.addCommand(configureHelp(createBackupCommand()));
+program.addCommand(configureHelp(createLocksCommand()));
 
 if (require.main === module) {
+  logEnvironmentVariables();
   program.parse(normalizeFlags(process.argv));
 }
 

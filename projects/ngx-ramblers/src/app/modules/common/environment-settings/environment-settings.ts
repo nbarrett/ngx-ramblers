@@ -15,16 +15,18 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { SecretInputComponent } from "../secret-input/secret-input.component";
 import { SecretsEditor } from "../secrets-editor/secrets-editor";
+import { MongoUriInputComponent, MongoUriParseResult } from "../mongo-uri-input/mongo-uri-input";
 import { EnvironmentConfigService } from "../../../services/environment-config.service";
 import { BackupAndRestoreService } from "../../../services/backup-and-restore.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import {
-  AWS_DEFAULTS,
+  createDefaultFlyioConfig,
+  createEmptyAwsConfig,
   createEmptyEnvironmentConfig,
+  createEmptyMongoConfig,
   EnvironmentConfig,
-  EnvironmentsConfig,
-  FLYIO_DEFAULTS
+  EnvironmentsConfig
 } from "../../../models/environment-config.model";
 import { Image, SystemConfig } from "../../../models/system.model";
 import { InputSize } from "../../../models/ui-size.model";
@@ -42,7 +44,8 @@ import { sortBy } from "../../../functions/arrays";
     FormsModule,
     FontAwesomeModule,
     SecretInputComponent,
-    SecretsEditor
+    SecretsEditor,
+    MongoUriInputComponent
   ],
   styles: [`
     .thumbnail-heading
@@ -175,9 +178,25 @@ import { sortBy } from "../../../functions/arrays";
                        name="globalAwsRegion"
                        placeholder="e.g. eu-west-2">
               </div>
+              <div class="col-md-6 mb-2">
+                <label class="form-label">Access Key ID</label>
+                <app-secret-input
+                  [(ngModel)]="editableConfig.aws.accessKeyId"
+                  name="globalAwsAccessKeyId"
+                  [size]="InputSize.SM">
+                </app-secret-input>
+              </div>
+              <div class="col-md-6 mb-2">
+                <label class="form-label">Secret Access Key</label>
+                <app-secret-input
+                  [(ngModel)]="editableConfig.aws.secretAccessKey"
+                  name="globalAwsSecretAccessKey"
+                  [size]="InputSize.SM">
+                </app-secret-input>
+              </div>
             </div>
-            <small class="form-text text-muted">If set, all uploads/listing/deletes will use this bucket,
-              with per-environment bucket used only as a fallback.</small>
+            <small class="form-text text-muted">If set, all uploads/listing/deletes will use this bucket and credentials,
+              with per-environment settings used only as a fallback.</small>
           </div>
           <div class="row thumbnail-heading-frame mb-5">
             <div class="thumbnail-heading">Global Application Secrets</div>
@@ -328,6 +347,7 @@ import { sortBy } from "../../../functions/arrays";
                     </a>
                   }
                 </div>
+                <app-mongo-uri-input (parsedUri)="onMongoUriParsed($event)"/>
                 <div class="row">
                   <div class="col-md-6 mb-2">
                     <label class="form-label">Cluster</label>
@@ -482,7 +502,7 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
   private _currentEnvironmentIndex = 0;
   editableConfig: EnvironmentsConfig = {
     environments: [],
-    aws: { bucket: "", region: AWS_DEFAULTS.REGION },
+    aws: createEmptyAwsConfig(),
     secrets: {}
   };
 
@@ -544,28 +564,18 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
 
   private populateFormFromConfig(config: EnvironmentsConfig) {
     this.editableConfig = JSON.parse(JSON.stringify(config));
-    if (!this.editableConfig.environments) {
-      this.editableConfig.environments = [];
-    }
-
-    if (!this.editableConfig.aws) {
-      this.editableConfig.aws = { bucket: "", region: AWS_DEFAULTS.REGION } as any;
-    }
-
-    if (!this.editableConfig.secrets) {
-      this.editableConfig.secrets = {};
-    }
-
+    this.editableConfig.environments = this.editableConfig.environments || [];
+    this.editableConfig.aws = {...createEmptyAwsConfig(), ...this.editableConfig.aws};
+    this.editableConfig.secrets = this.editableConfig.secrets || {};
     this.editableConfig.environments = this.editableConfig.environments
       .map(env => ({
         environment: env.environment || "",
-        aws: env.aws || { bucket: "", region: AWS_DEFAULTS.REGION, accessKeyId: "", secretAccessKey: "" },
-        mongo: env.mongo || { cluster: "", db: "", username: "", password: "" },
-        flyio: env.flyio || { apiKey: "", appName: "", memory: FLYIO_DEFAULTS.MEMORY, scaleCount: FLYIO_DEFAULTS.SCALE_COUNT, organization: "" },
+        aws: {...createEmptyAwsConfig(), ...env.aws},
+        mongo: {...createEmptyMongoConfig(), ...env.mongo},
+        flyio: {...createDefaultFlyioConfig(), ...env.flyio},
         secrets: env.secrets || {}
       }))
       .sort(sortBy("environment"));
-
     if (this.currentEnvironmentIndex >= this.editableConfig.environments.length) {
       this.currentEnvironmentIndex = Math.max(0, this.editableConfig.environments.length - 1);
     }
@@ -687,6 +697,17 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
         }
       })
     );
+  }
+
+  onMongoUriParsed(result: MongoUriParseResult) {
+    if (this.currentEnvironment) {
+      this.currentEnvironment.mongo.cluster = result.cluster;
+      this.currentEnvironment.mongo.username = result.username;
+      this.currentEnvironment.mongo.password = result.password;
+      if (result.database) {
+        this.currentEnvironment.mongo.db = result.database;
+      }
+    }
   }
 
 }

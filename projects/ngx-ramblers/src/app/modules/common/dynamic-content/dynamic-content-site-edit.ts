@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnDestroy, OnInit, QueryList, ViewChildren } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from "@angular/core";
 import {
   faAdd,
   faArrowsUpDown,
@@ -40,7 +40,8 @@ import {
   PageContent,
   PageContentColumn,
   PageContentRow,
-  PageContentType
+  PageContentType,
+  USER_TEMPLATES_PATH_PREFIX
 } from "../../../models/content-text.model";
 import { TextMatchPattern } from "../../../models/page-transformation.model";
 import { LocationDetails } from "../../../models/ramblers-walks-manager";
@@ -86,6 +87,7 @@ import { DynamicContentSiteEditLocation } from "./dynamic-content-site-edit-loca
 import { DynamicContentViewComponent } from "./dynamic-content-view";
 import { FragmentService } from "../../../services/fragment.service";
 import { RowTypeSelectorComponent } from "./row-type-selector";
+import { TemplateSelectEvent, TemplateSelectorComponent } from "./template-selector";
 import { IndexService } from "../../../services/index.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
@@ -179,6 +181,13 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                         caption="Remove"
                         [tooltip]="'Remove template configuration'"
                         (click)="removeTemplate()"/>
+                      @if (!canEnableTemplateMode()) {
+                        <app-badge-button
+                          [icon]="faSave"
+                          caption="Save as template"
+                          [tooltip]="'Copy this page structure to template library'"
+                          (click)="createTemplateFromPage()"/>
+                      }
                       @if (isMigrationTemplateSelected()) {
                         <div class="form-check form-switch mb-0 ms-auto">
                           <input class="form-check-input" type="checkbox" id="migration-template-mapping-mode"
@@ -198,35 +207,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                 </div>
                 <div class="col-12">
                   <div class="p-3">
-                    <div class="d-flex gap-2 flex-wrap align-items-end">
-                      <div class="flex-grow-1">
-                        <label class="form-label-sm" for="template-library-select">Select template</label>
-                        <select class="form-select form-select-sm" id="template-library-select"
-                                [(ngModel)]="selectedTemplateFragmentId">
-                          <option value="">Select a template…</option>
-                          @for (fragment of templateFragments; track fragment.id) {
-                            <option [ngValue]="fragment.id">{{ templateFragmentLabel(fragment) }}</option>
-                          }
-                        </select>
-                      </div>
-                      <app-badge-button
-                        [icon]="faClone"
-                        caption="Replace"
-                        [tooltip]="'Replace page content with template'"
-                        [disabled]="!selectedTemplateFragmentId"
-                        (click)="applySelectedTemplate(true)"/>
-                      <app-badge-button
-                        [icon]="faAdd"
-                        caption="Append"
-                        [tooltip]="'Append template to page'"
-                        [disabled]="!selectedTemplateFragmentId"
-                        (click)="applySelectedTemplate(false)"/>
-                    </div>
-                    @if (templateFragmentsLoading) {
-                      <div class="small text-muted mt-2">Loading templates…</div>
-                    } @else if (!templateFragments?.length) {
-                      <div class="small text-muted mt-2">No templates published yet.</div>
-                    }
+                    <app-template-selector (templateSelected)="onTemplateSelected($event)"/>
                   </div>
                 </div>
               </div>
@@ -648,26 +629,17 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                                 [active]="showUnreferenced"
                                 caption="{{showUnreferenced? 'Hide':'Show'}} {{stringUtils.pluraliseWithCount(unreferencedPaths?.length, 'unreferenced page')}}"/>
             }
-            @if (!canEnableTemplateMode() && !templateModeActive()) {
-              <app-badge-button
-                [icon]="faSave"
-                caption="Save as template"
-                [tooltip]="'Copy this page structure to template library'"
-                (click)="createTemplateFromPage()"/>
-            }
-            @if (templateOptionsVisible) {
-              <app-badge-button
-                [icon]="faCopy"
-                caption="Copy current page content"
-                [tooltip]="'Copy page content JSON to clipboard'"
-                (click)="copyCurrentPageContent()"/>
-              <app-badge-button
-                [icon]="faPaste"
-                [active]="pastePageContentVisible"
-                caption="Paste page content"
-                [tooltip]="'Paste JSON from another page or template'"
-                (click)="togglePastePageContent()"/>
-            }
+            <app-badge-button
+              [icon]="faCopy"
+              caption="Copy current page content"
+              [tooltip]="'Copy page content JSON to clipboard'"
+              (click)="copyCurrentPageContent()"/>
+            <app-badge-button
+              [icon]="faPaste"
+              [active]="pastePageContentVisible"
+              caption="Paste page content"
+              [tooltip]="'Paste JSON from another page or template'"
+              (click)="togglePastePageContent()"/>
             @if (pageContent?.debugLogs?.length) {
               <app-badge-button
                 [icon]="faCopy"
@@ -733,16 +705,14 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
               </div>
             </div>
           }
-          @if (canEnableTemplateMode()) {
-            <div class="ms-auto">
-              <label class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox"
-                       [ngModel]="templateOptionsVisible"
-                       (ngModelChange)="onTemplateToggle($event)">
-                <span class="form-check-label">Template options</span>
-              </label>
-            </div>
-          }
+          <div class="ms-auto">
+            <label class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox"
+                     [ngModel]="templateOptionsVisible"
+                     (ngModelChange)="onTemplateToggle($event)">
+              <span class="form-check-label">Template options</span>
+            </label>
+          </div>
           <div class="row w-100 mt-3">
             <div class="col-12">
               @if (this.allReferringPageCount() > 0) {
@@ -761,7 +731,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, MarkdownEditorComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, MarkdownEditorComponent, TemplateSelectorComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
@@ -778,6 +748,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       this.clearAlert(pageContent);
     });
   }
+
+  @ViewChild(TemplateSelectorComponent) templateSelector: TemplateSelectorComponent;
 
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
@@ -809,7 +781,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   private defaultPageContent: PageContent;
   private destinationPageContent: PageContent;
   public pageTitle: string;
-  public templateOptionsVisible = true;
+  public templateOptionsVisible = false;
   public templateMappingMode = false;
   private preferredTemplateMappingMode = false;
   public templateFragments: PageContent[] = [];
@@ -1035,14 +1007,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   onTemplateToggle(enabled: boolean) {
-    if (!this.canEnableTemplateMode()) {
-      this.notify.warning({
-        title: "Template Options",
-        message: "Templates can only be created in fragment paths (fragments/...). Use 'Create template' button to copy this page to a template."
-      });
-      return;
-    }
-    if (enabled) {
+    if (enabled && this.canEnableTemplateMode()) {
       this.ensureTemplateStructures();
     }
     this.templateOptionsVisible = enabled;
@@ -1083,14 +1048,16 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     try {
       const saved = await this.pageContentService.createOrUpdate(fragmentPayload);
       await this.fragmentService.ensureLoadedById(saved.id);
-      this.notify.success({
-        title: "Template Created",
-        message: `Template created at ${saved.path}. Navigating to configure mappings...`
-      });
-
-      setTimeout(() => {
+      await this.templateSelector?.refresh();
+      const navigateToTemplate = confirm(`Template created at ${saved.path}.\n\nWould you like to navigate to the template to configure it?`);
+      if (navigateToTemplate) {
         this.urlService.navigateTo(["admin", "page-content", saved.path]);
-      }, 1000);
+      } else {
+        this.notify.success({
+          title: "Template Created",
+          message: `Template saved at ${saved.path}`
+        });
+      }
     } catch (error) {
       this.notify.error({title: "Create Template", message: error});
     }
@@ -1273,7 +1240,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     const base = this.pageContent?.path || "template";
     const slug = this.stringUtils.kebabCase(base);
     const normalised = slug?.startsWith("fragments/") ? slug.replace(/^fragments\//, "") : slug;
-    return `fragments/templates/${normalised}`;
+    return `${USER_TEMPLATES_PATH_PREFIX}${normalised}`;
   }
 
   templateFragmentLabel(fragment: PageContent): string {
@@ -1295,7 +1262,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       return ContentTemplateType.MIGRATION_TEMPLATE;
     }
     const normalised = this.urlService.reformatLocalHref(fragment?.path || "")?.replace(/^\/+/, "") || "";
-    if (normalised.startsWith("fragments/templates/")) {
+    if (normalised.startsWith(USER_TEMPLATES_PATH_PREFIX)) {
       return ContentTemplateType.USER_TEMPLATE;
     }
     return "";
@@ -1644,6 +1611,18 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     }
   }
 
+  async onTemplateSelected(event: TemplateSelectEvent) {
+    const template = event.template;
+    const replace = event.replace || !(this.pageContent?.rows?.length);
+    const rows = await this.actions.copyContentTextIdsInRows(template.rows || []);
+    if (!this.pageContent.rows || replace) {
+      this.pageContent.rows = rows;
+    } else {
+      this.pageContent.rows.push(...rows);
+    }
+    this.notify.success({title: "Template Library", message: `Applied template ${template.path}`});
+  }
+
   async applySelectedTemplate(replace: boolean) {
     const fragmentId = this.selectedTemplateFragmentId;
     if (!fragmentId) {
@@ -1801,7 +1780,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   private async runInitCode() {
     this.showUnreferenced = this.uiActionsService.initialBooleanValueFor(StoredValue.SHOW_UNREFERENCED_PAGES, false);
-    this.templateOptionsVisible = this.uiActionsService.initialBooleanValueFor(StoredValue.TEMPLATE_OPTIONS_VISIBLE, true);
+    this.templateOptionsVisible = this.uiActionsService.initialBooleanValueFor(StoredValue.TEMPLATE_OPTIONS_VISIBLE, false);
     this.templateMappingMode = this.uiActionsService.initialBooleanValueFor(StoredValue.MIGRATION_TEMPLATE_MAPPING_MODE, false);
     this.logger.debug("ngOnInit:templateMappingMode after loading:", this.templateMappingMode);
     this.preferredTemplateMappingMode = this.templateMappingMode;
@@ -2237,7 +2216,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       await this.collectPagesBelowPath(pageContent);
       await this.collectNestedAlbumIndexes();
       await this.unreferencedPagesStartingWith(pageContent);
-      await this.refreshTemplateFragments(false);
+      await this.templateSelector?.refresh(false);
     }
   }
 

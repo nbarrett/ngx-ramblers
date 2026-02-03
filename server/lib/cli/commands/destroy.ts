@@ -13,7 +13,8 @@ import {
   ListAttachedUserPoliciesCommand
 } from "@aws-sdk/client-iam";
 import { envConfig } from "../../env-config/env-config";
-import { findEnvironment, removeEnvironment } from "../../shared/configs-json";
+import { removeEnvironment } from "../../shared/configs-json";
+import { findEnvironmentFromDatabase } from "../../environments/environments-config";
 import { loadSecretsForEnvironment, secretsPath } from "../../shared/secrets";
 import { runCommand } from "../../../deploy/fly-commands";
 import { adminConfigFromEnvironment } from "../../environment-setup/aws-setup";
@@ -272,7 +273,7 @@ export function createDestroyCommand(): Command {
     .option("--yes", "Skip confirmation prompt")
     .action(async (name, options) => {
       try {
-        const envConfig = findEnvironment(name);
+        const envConfig = await findEnvironmentFromDatabase(name);
         if (!envConfig) {
           log(`Environment not found: ${name}`);
           process.exit(1);

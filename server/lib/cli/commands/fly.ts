@@ -5,13 +5,15 @@ import path from "path";
 import os from "os";
 import { flyTomlAbsolutePath, readConfigFile, runCommand } from "../../../deploy/fly-commands";
 import { loadSecretsForEnvironment, secretsPath, writeSecretsFile } from "../../shared/secrets";
-import { addOrUpdateEnvironment, configsJsonPath, findEnvironment } from "../../shared/configs-json";
+import { addOrUpdateEnvironment, configsJsonPath } from "../../shared/configs-json";
+import { findEnvironmentFromDatabase } from "../../environments/environments-config";
 import { normaliseMemory } from "../../shared/spelling";
 import { DeployResult, FlyDeployConfig, ProgressCallback } from "../types";
 import { EnvironmentConfig, FLYIO_DEFAULTS } from "../../../deploy/types";
 import { log } from "../cli-logger";
+import { envConfig } from "../../env-config/env-config";
 
-const debugLog = debug("ngx-ramblers:cli:fly");
+const debugLog = debug(envConfig.logNamespace("cli:fly"));
 
 function setFlyApiToken(apiKey?: string): void {
   if (apiKey) {
@@ -224,7 +226,7 @@ export function createFlyCommand(): Command {
           log("Environment name is required");
           process.exit(1);
         }
-        const envConfig = findEnvironment(name);
+        const envConfig = await findEnvironmentFromDatabase(name);
         const secrets = envConfig ? loadSecretsForEnvironment(envConfig.appName).secrets : {};
 
         const config: FlyDeployConfig = {

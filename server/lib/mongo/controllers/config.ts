@@ -32,7 +32,6 @@ const sensitiveKeys = new Set([
 ]);
 
 const adminOnlyConfigKeys = new Set([
-  ConfigKey.BACKUP,
   ConfigKey.ENVIRONMENTS,
   ConfigKey.BREVO,
   ConfigKey.MAILCHIMP,

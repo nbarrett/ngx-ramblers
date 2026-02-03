@@ -2,6 +2,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import type { EnvironmentConfig, MongoConfig } from "./types.js";
 import { FLYIO_DEFAULTS } from "./types.js";
+import type { AwsConfig } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import type { BackupConfig } from "../../projects/ngx-ramblers/src/app/models/backup-session.model";
 import { configuredBackup } from "../lib/backup/backup-config.js";
 
@@ -50,13 +51,11 @@ export async function loadConfigs(): Promise<EnvironmentConfig[]> {
   return await loadConfigsFromFiles();
 }
 
-export async function getAwsConfigForEnvironment(envName: string): Promise<{ bucket?: string; region?: string; accessKeyId?: string; secretAccessKey?: string } | undefined> {
+export async function getAwsConfigForEnvironment(envName: string): Promise<AwsConfig | undefined> {
   const dbConfig = await loadBackupConfigFromDB();
-
-  if (dbConfig && dbConfig.environments) {
-    const envConfig = dbConfig.environments.find(e => e.environment === envName);
-    return envConfig?.aws;
+  if (!dbConfig?.environments) {
+    return undefined;
   }
-
-  return undefined;
+  const envConfig = dbConfig.environments.find(e => e.environment === envName);
+  return envConfig?.aws;
 }
