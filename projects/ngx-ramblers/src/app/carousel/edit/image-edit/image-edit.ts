@@ -64,6 +64,7 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
               <div class="col-sm-12 mb-3">
                 @if (!item.youtubeId) {
                   <app-image-cropper-and-resizer nonDestructive
+                                                 [allowPermanentSave]="false"
                                                  [selectAspectRatio]="contentMetadata?.aspectRatio"
                                                  [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
                                                  [preloadImage]="imageSourceOrPreview()"
@@ -73,7 +74,7 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                                                  (error)="imageCroppingError($event)"
                                                  (cropError)="imageCroppingError($event)"
                                                  (quit)="imageEditQuit()"
-                                                 (apply)="imageEditQuit()"
+                                                 (apply)="imageEditApply()"
                                                  (save)="imagedSaved($event)"/>
                 }
               </div>
@@ -443,6 +444,15 @@ export class ImageEditComponent implements OnInit {
     this.notify.clearBusy();
   }
 
+  imageEditApply() {
+    this.editActive = false;
+    if (this.awsFileDataFromEdit) {
+      this.item.base64Content = this.awsFileDataFromEdit.image;
+    }
+    this.callImageChange();
+    this.imagedSavedOrReverted.next(this.item);
+  }
+
   imageEditQuit() {
     this.editActive = false;
     this.awsFileDataFromEdit = null;
@@ -474,9 +484,12 @@ export class ImageEditComponent implements OnInit {
   imageSourceOrPreview(): string {
     if (this.editActive && this.awsFileDataFromEdit?.image) {
       return this.awsFileDataFromEdit.image;
+    } else if (this.item?.base64Content) {
+      return this.item.base64Content;
+    } else {
+      const qualifiedFileNameWithRoot = this.urlService.qualifiedFileNameWithRoot(this.contentMetadata?.rootFolder, this.contentMetadata?.name, this.item);
+      return this.urlService.imageSource(qualifiedFileNameWithRoot);
     }
-    const qualifiedFileNameWithRoot = this.urlService.qualifiedFileNameWithRoot(this.contentMetadata?.rootFolder, this.contentMetadata?.name, this.item);
-    return this.urlService.imageSource(qualifiedFileNameWithRoot);
   }
 
 
@@ -564,7 +577,7 @@ export class ImageEditComponent implements OnInit {
   }
 
   imagedIsCropped() {
-    return !this.editActive && !!this?.awsFileDataFromEdit;
+    return !this.editActive && (!!this?.awsFileDataFromEdit || !!this.item?.base64Content);
   }
 
   croppedSize() {

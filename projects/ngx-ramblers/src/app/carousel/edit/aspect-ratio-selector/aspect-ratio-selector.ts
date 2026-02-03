@@ -58,9 +58,15 @@ export class AspectRatioSelectorComponent implements OnInit {
 
   ngOnInit(): void {
     this.id = this.numberUtils.generateUid();
-    this.dimension = this.dimensions.find(item => item.description === (this.dimensionsDescription || FREE_SELECTION));
+    const targetDescription = this.dimensionsDescription || FREE_SELECTION;
+    const matchedDimension = this.dimensions.find(item => item.description === targetDescription);
+    this.dimension = matchedDimension || this.freeSelectionDimension();
     this.initialised.emit({describedDimensions: this.dimension, preselected: !!this.dimensionsDescription});
-    this.logger.debug("constructed with dimensionsDescription", this.dimensionsDescription, "dimension:", this.dimension);
+    this.logger.debug("constructed with dimensionsDescription", this.dimensionsDescription, "targetDescription:", targetDescription, "matchedDimension:", matchedDimension, "dimension:", this.dimension);
+  }
+
+  private freeSelectionDimension(): DescribedDimensions {
+    return this.dimensions.find(item => item.description === FREE_SELECTION);
   }
 
   formatAspectRatio(dimensions: DescribedDimensions): string {

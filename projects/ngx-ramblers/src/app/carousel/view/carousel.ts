@@ -185,6 +185,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
             this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
             this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
             this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS);
+            this.configureShowIndicators(window.innerWidth);
             this.logger.info("internally initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
           });
         });
@@ -213,7 +214,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
       this.logger.info("Carousel resumed after slide change");
     }
     this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata, 1, "active slide change");
-    this.configureShowIndicators(window.innerWidth);
+    setTimeout(() => this.configureShowIndicators(window.innerWidth));
   }
 
   private configureShowIndicators(width: number) {
