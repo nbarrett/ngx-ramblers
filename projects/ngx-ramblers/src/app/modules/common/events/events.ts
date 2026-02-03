@@ -30,6 +30,7 @@ import { EventField, GroupEventField, ID } from "../../../models/walk.model";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { enumValues } from "../../../functions/enums";
+import { isMongoId } from "../../../services/mongo-utils";
 
 @Component({
     selector: "app-events",
@@ -188,9 +189,10 @@ export class Events implements OnInit, OnDestroy {
   }
 
   private eventIdsCriteria(eventIds: string[]) {
+    const validObjectIds = eventIds.filter(isMongoId);
     return {
       $or: [
-        {[ID]: {$in: eventIds}},
+        ...(validObjectIds.length > 0 ? [{[ID]: {$in: validObjectIds}}] : []),
         {[GroupEventField.ID]: {$in: eventIds}},
         {[EventField.MIGRATED_FROM_ID]: {$in: eventIds}}
       ]
