@@ -1,7 +1,8 @@
 import { Command } from "commander";
 import debug from "debug";
+import { keys } from "es-toolkit/compat";
 import { EnvironmentSetupRequest } from "../../environment-setup/types";
-import { loadSecretsForEnvironment, updateSecretsFile } from "../../shared/secrets";
+import { loadSecretsForEnvironment, loadSecretsWithFallback, updateSecretsFile } from "../../shared/secrets";
 import { parseMongoUri } from "../../shared/mongodb-uri";
 import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
 import { normaliseMemory } from "../../shared/spelling";
@@ -42,10 +43,11 @@ export async function resumeEnvironment(
     throw new Error(`Environment ${name} not found`);
   }
 
-  const secrets = loadSecretsForEnvironment(envConfig.appName);
-  if (Object.keys(secrets.secrets).length === 0) {
+  const secrets = await loadSecretsWithFallback(name, envConfig.appName);
+  if (keys(secrets.secrets).length === 0) {
     throw new Error(`No secrets found for ${envConfig.appName}`);
   }
+  debugLog("Loaded secrets from:", secrets.path);
 
   const mongoUri = secrets.secrets.MONGODB_URI;
   if (!mongoUri) {
