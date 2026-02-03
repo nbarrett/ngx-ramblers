@@ -22,7 +22,8 @@ export enum SystemSettingsTab {
 export enum ImageMigrationTab {
   SCAN = "Scan Configuration",
   RESULTS = "Scan Results",
-  ACTIVITY = "Activity"
+  ACTIVITY = "Activity",
+  EXTERNAL_IMPORT = "Import from External Sources"
 }
 
 export enum EventPopulation {
@@ -158,8 +159,14 @@ export interface Facebook extends ExternalSystem {
   appId?: string;
 }
 
+export interface Flickr extends ExternalSystem {
+  apiKey: string;
+  userId?: string;
+}
+
 export interface ExternalSystems {
   facebook?: Facebook;
+  flickr?: Flickr;
   instagram?: Instagram;
   meetup?: Meetup;
   linkedIn?: ExternalSystem;
@@ -485,4 +492,162 @@ export interface ImageMigrationActivityLog {
   status: string;
   time: number;
   message: string;
+}
+
+export enum ExternalAlbumSource {
+  FLICKR = "flickr",
+  GOOGLE_PHOTOS = "google-photos",
+  INSTAGRAM = "instagram"
+}
+
+export interface ExternalAlbumImportRequest {
+  source: ExternalAlbumSource;
+  albumUrl: string;
+  targetPath: string;
+  albumTitle?: string;
+  albumSubtitle?: string;
+  splitByPhotoTitle?: boolean;
+  splitAlbumPaths?: string[];
+  useTemplate?: boolean;
+  templatePath?: string;
+}
+
+export interface ExternalPhoto {
+  id: string;
+  title: string;
+  url: string;
+  thumbnailUrl: string;
+  dateTaken?: number;
+  description?: string;
+}
+
+export interface ExternalAlbumMetadata {
+  source: ExternalAlbumSource;
+  id: string;
+  title: string;
+  description: string;
+  photoCount: number;
+  photos: ExternalPhoto[];
+  coverPhotoUrl?: string;
+}
+
+export interface ExternalAlbumImportProgress {
+  stage: string;
+  percent: number;
+  message: string;
+}
+
+export interface ExternalAlbumImportResult {
+  success: boolean;
+  source: ExternalAlbumSource;
+  albumName: string;
+  pageContentPath: string;
+  contentMetadataId: string;
+  pageContentId: string;
+  photoCount: number;
+  errorMessage?: string;
+}
+
+export interface SplitAlbumPreviewEntry {
+  title: string;
+  path: string;
+  count: number;
+  included: boolean;
+  previewPhotos?: ExternalPhoto[];
+}
+
+export interface ExternalAlbumSummary {
+  id: string;
+  title: string;
+  description: string;
+  photoCount: number;
+  coverPhotoUrl?: string;
+  selected?: boolean;
+  expanded?: boolean;
+  targetPath?: string;
+  splitPreview?: SplitAlbumPreviewEntry[];
+  splitPreviewLoading?: boolean;
+  splitPreviewError?: string;
+  splitAlbumPaths?: string[];
+}
+
+export interface ExternalUserAlbumsMetadata {
+  source: ExternalAlbumSource;
+  userId: string;
+  username: string;
+  albums: ExternalAlbumSummary[];
+  totalAlbums: number;
+}
+
+export interface FlickrScrapedPhotoData {
+  id: string;
+  title: string;
+  sizes?: {
+    o?: { url: string };
+    l?: { url: string };
+    c?: { url: string };
+    z?: { url: string };
+    m?: { url: string };
+    s?: { url: string };
+    sq?: { url: string };
+  };
+  server?: string;
+  secret?: string;
+  dateTaken?: string;
+  description?: string;
+}
+
+export interface FlickrScrapedAlbumData {
+  title: string;
+  description?: string;
+  owner?: {
+    username?: string;
+    id?: string;
+  };
+  photos: FlickrScrapedPhotoData[];
+  totalPhotos: number;
+}
+
+export interface FlickrScrapedAlbumSummary {
+  id: string;
+  title: string;
+  description?: string;
+  photoCount: number;
+  primaryPhotoServer?: string;
+  primaryPhotoId?: string;
+  primaryPhotoSecret?: string;
+  coverPhotoUrl?: string;
+}
+
+export interface FlickrScrapedUserAlbumsData {
+  username: string;
+  userId: string;
+  albums: FlickrScrapedAlbumSummary[];
+}
+
+export interface ExternalBulkImportRequest {
+  source: ExternalAlbumSource;
+  userId: string;
+  basePath: string;
+  albums: ExternalAlbumSummary[];
+  useTemplate?: boolean;
+  templatePath?: string;
+  splitByPhotoTitle?: boolean;
+}
+
+export interface ExternalSourceOption {
+  value: ExternalAlbumSource;
+  label: string;
+  singleAlbumPlaceholder: string;
+  bulkAlbumsPlaceholder: string;
+}
+
+export enum ExternalAlbumImportMode {
+  SINGLE = "single",
+  BULK = "bulk"
+}
+
+export enum ExternalAlbumCreationMode {
+  DEFAULT = "default",
+  TEMPLATE = "template"
 }

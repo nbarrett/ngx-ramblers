@@ -16,6 +16,7 @@ import { DateUtilsService } from "../../../../services/date-utils.service";
 import { DisplayTimeWithSecondsPipe } from "../../../../pipes/display-time.pipe-with-seconds";
 import { StatusIconComponent } from "../../status-icon";
 import {
+  ExternalAlbumImportResult,
   ExternalImageReference,
   ImageMigrationActivityLog,
   ImageMigrationGroup,
@@ -27,6 +28,7 @@ import {
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { kebabCase, values } from "es-toolkit/compat";
 import { ImageMigrationGroupComponent } from "./image-migration-group";
+import { ExternalAlbumImportComponent } from "./external-album-import/external-album-import";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../../models/ui-actions";
 import { enumValueForKey } from "../../../../functions/enums";
@@ -241,6 +243,11 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
             </div>
           </div>
         </tab>
+        <tab [active]="tabActive(ImageMigrationTab.EXTERNAL_IMPORT)"
+             (selectTab)="selectTab(ImageMigrationTab.EXTERNAL_IMPORT)"
+             heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.EXTERNAL_IMPORT)}}">
+          <app-external-album-import (importComplete)="onImportComplete($event)"/>
+        </tab>
       </tabset>
     </app-page>
   `,
@@ -290,7 +297,8 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
     StatusIconComponent,
     NgSelectComponent,
     ImageMigrationGroupComponent,
-    FileSizeSelectorComponent
+    FileSizeSelectorComponent,
+    ExternalAlbumImportComponent
   ]
 })
 export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
@@ -527,6 +535,14 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
 
   onGroupChanged(group: ImageMigrationGroup): void {
     this.logger.debug("Group changed:", group.sourcePath);
+  }
+
+  onImportComplete(result: ExternalAlbumImportResult): void {
+    this.logger.debug("External album import complete:", result);
+    this.addLog(result.success ? "complete" : "error",
+      result.success
+        ? `Album "${result.albumName}" imported with ${result.photoCount} photos`
+        : `Import failed: ${result.errorMessage}`);
   }
 
   private addLog(status: string, message: string): void {

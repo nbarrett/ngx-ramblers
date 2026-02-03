@@ -46,6 +46,7 @@ import { InstagramSettings } from "./external/system-instagram-settings";
 import { RamblersSettings } from "./external/ramblers-settings";
 import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
 import { SystemGoogleMapsSettingsComponent } from "./external/system-google-maps-settings";
+import { FlickrSettings } from "./external/system-flickr-settings";
 
 @Component({
     selector: "app-system-settings",
@@ -353,6 +354,7 @@ import { SystemGoogleMapsSettingsComponent } from "./external/system-google-maps
                     <app-mail-provider-settings [config]="config"
                                                 (membersPendingSave)="membersPendingSave=$event"/>
                     <app-system-instagram-settings/>
+                    <app-system-flickr-settings/>
                     <app-system-meetup-settings/>
                     <app-system-os-maps-settings [config]="config"/>
                     <app-system-google-maps-settings [config]="config"/>
@@ -394,7 +396,7 @@ import { SystemGoogleMapsSettingsComponent } from "./external/system-google-maps
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -510,7 +512,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   }
 
   headerLogoChanged(logo: string) {
-    if (this.config?.header?.selectedLogo) {
+    if (this.config?.header) {
       this.config.header.selectedLogo = logo;
     }
   }
