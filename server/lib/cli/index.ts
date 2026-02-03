@@ -10,6 +10,7 @@ import { createDestroyCommand } from "./commands/destroy";
 import { createLocalCommand } from "./commands/local";
 import { createBackupCommand } from "./commands/backup";
 import { createLocksCommand } from "./commands/locks";
+import { createGitHubCommand } from "./commands/github";
 import { Environment } from "../env-config/environment-model";
 import { envConfig } from "../env-config/env-config";
 
@@ -30,6 +31,7 @@ export { createBucketAndUser, copyAssets } from "./commands/aws";
 export { validateMongodb, validateAwsAdmin, validateRamblersApi } from "./commands/validate";
 export { destroyEnvironment } from "./commands/destroy";
 export { createBackup, restoreBackup } from "./commands/backup";
+export { reconcileConfigs, syncDatabaseToGitHub, updateGitHubSecret } from "./commands/github";
 
 export * from "./types";
 
@@ -64,6 +66,7 @@ program.addCommand(configureHelp(createDestroyCommand()));
 program.addCommand(configureHelp(createLocalCommand()));
 program.addCommand(configureHelp(createBackupCommand()));
 program.addCommand(configureHelp(createLocksCommand()));
+program.addCommand(configureHelp(createGitHubCommand()));
 
 if (require.main === module) {
   logEnvironmentVariables();

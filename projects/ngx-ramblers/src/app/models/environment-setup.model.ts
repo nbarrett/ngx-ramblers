@@ -382,6 +382,34 @@ export interface EnvironmentResult {
 
 export type ProgressCallback = (progress: SetupProgress) => void;
 
+export interface ReconciliationResult {
+  environment: string;
+  inDatabase: boolean;
+  inConfigsJson: boolean;
+  differences: string[];
+  databaseConfig?: DeployEnvironmentConfig;
+  localConfig?: DeployEnvironmentConfig;
+}
+
+export interface ReconciliationReport {
+  localCount: number;
+  databaseCount: number;
+  results: ReconciliationResult[];
+  matching: number;
+  differing: number;
+  missingFromLocal: number;
+  missingFromDatabase: number;
+}
+
+export interface DeployEnvironmentConfig {
+  name: string;
+  apiKey: string;
+  appName: string;
+  memory: string;
+  scaleCount: number;
+  organisation: string;
+}
+
 export enum SetupStep {
   VALIDATE_INPUTS = "validate-inputs",
   QUERY_RAMBLERS_API = "query-ramblers-api",
