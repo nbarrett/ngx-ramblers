@@ -4,11 +4,12 @@ import debug from "debug";
 import { DeploymentConfig, EnvironmentConfig } from "../../deploy/types";
 import { EnvironmentSummary } from "../environment-setup/types";
 import { envConfig } from "../env-config/env-config";
+import { resolveClientPath } from "./path-utils";
 
 const debugLog = debug(envConfig.logNamespace("shared:configs-json"));
 
 export function configsJsonPath(): string {
-  return path.resolve(__dirname, "../../../non-vcs/fly-io/configs.json");
+  return resolveClientPath("non-vcs/fly-io/configs.json");
 }
 
 export function configsJsonExists(): boolean {
