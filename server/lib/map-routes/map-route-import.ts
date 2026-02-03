@@ -55,7 +55,7 @@ export async function importEsriRoute(req: Request, res: Response) {
     const esriFile = await uploadLocalFile(RootFolder.esriRoutes, upload.originalname, upload.path);
     debugLog("importEsriRoute: uploaded original ESRI file:", esriFile);
 
-    const gpxFiles: Array<{type: string; count: number; file: ServerFileNameData}> = [];
+    const gpxFiles: {type: string; count: number; file: ServerFileNameData}[] = [];
 
     for (const [statusDesc, features] of Object.entries(grouped)) {
       const groupCollection: FeatureCollection = {

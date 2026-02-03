@@ -3,7 +3,7 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { EnvironmentSetupRequest } from "./types";
-import { findEnvironment } from "../shared/configs-json";
+import { findEnvironmentFromDatabase } from "../environments/environments-config";
 import { loadSecretsForEnvironment } from "../shared/secrets";
 import { resumeEnvironment } from "../cli/commands/environment";
 import { createEnvironment, validateSetupRequest } from "./environment-setup-service";
@@ -45,9 +45,9 @@ export async function handleEnvironmentSetup(ws: WebSocket, data: any): Promise<
   try {
     sendProgress(ws, "Loading environment configuration...");
 
-    const envConfigData = findEnvironment(environmentName);
+    const envConfigData = await findEnvironmentFromDatabase(environmentName);
     if (!envConfigData) {
-      sendError(ws, `Environment ${environmentName} not found in configs.json`);
+      sendError(ws, `Environment ${environmentName} not found in database`);
       return;
     }
 

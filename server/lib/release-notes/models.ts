@@ -62,3 +62,18 @@ export interface CMSAuth {
   baseUrl: string;
   authToken: string;
 }
+
+export interface ConfigUpdateArguments {
+  action: string;
+  configKey?: string;
+  baseUrl: string;
+  sets: { path: string; value: string }[];
+  dryRun: boolean;
+}
+
+export interface PageToDelete {
+  path: string;
+  description: string;
+}
+
+export const DEFAULT_CMS_BASE_URL = "https://www.ngx-ramblers.org.uk";

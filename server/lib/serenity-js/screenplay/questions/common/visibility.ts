@@ -1,8 +1,9 @@
 import { Answerable, AnswersQuestions, Question, UsesAbilities } from "@serenity-js/core";
 import { PageElement } from "@serenity-js/web";
 import debug from "debug";
+import { envConfig } from "../../../../env-config/env-config";
 
-const debugLog = debug("Visibility");
+const debugLog = debug(envConfig.logNamespace("Visibility"));
 debugLog.enabled = false;
 
 export class Visibility extends Question<Promise<boolean>> {

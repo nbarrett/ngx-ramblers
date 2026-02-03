@@ -3,8 +3,9 @@ import path from "path";
 import debug from "debug";
 import { DeploymentConfig, EnvironmentConfig } from "../../deploy/types";
 import { EnvironmentSummary } from "../environment-setup/types";
+import { envConfig } from "../env-config/env-config";
 
-const debugLog = debug("ngx-ramblers:shared:configs-json");
+const debugLog = debug(envConfig.logNamespace("shared:configs-json"));
 
 export function configsJsonPath(): string {
   return path.resolve(__dirname, "../../../non-vcs/fly-io/configs.json");

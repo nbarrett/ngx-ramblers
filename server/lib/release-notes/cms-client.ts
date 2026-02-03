@@ -1,10 +1,11 @@
 import debug from "debug";
+import { envConfig } from "../env-config/env-config";
 import type { PageContent } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import type { AuthResponse } from "../../../projects/ngx-ramblers/src/app/models/auth-data.model";
 import type { CMSAuth } from "./models.js";
 import { pluraliseWithCount } from "../shared/string-utils";
 
-const debugLog = debug("release-notes:cms-client");
+const debugLog = debug(envConfig.logNamespace("release-notes:cms-client"));
 debugLog.enabled = true;
 
 function decodeToken(token: string): any {

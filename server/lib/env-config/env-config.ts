@@ -1,35 +1,32 @@
+import { config } from "dotenv";
+import { resolveServerPath } from "../shared/path-utils";
+
+config({ path: resolveServerPath(".env") });
+
 import debug from "debug";
 import { booleanOf } from "../shared/string-utils";
 import { Environment } from "./environment-model";
+import { env, environmentVariable, isProduction, logNamespace } from "./env-core";
 
-const debugLog = debug("env-config");
-
-const env = environmentVariable(Environment.NODE_ENV) || "development";
-
-function logNamespace(moduleName: string) {
-  return `ngx-ramblers:${env}:${moduleName || ""}`;
-}
-
-function environmentVariable(variableName: string) {
-  return process.env[variableName];
-}
+const debugLog = debug(logNamespace("env-config"));
+const validatedCache = new Map<string, string>();
 
 function booleanEnvironmentVariable(variableName: string) {
   return booleanOf(environmentVariable(variableName));
 }
 
 function validatedEnvironmentVariable(variableName: string): string {
+  if (validatedCache.has(variableName)) {
+    return validatedCache.get(variableName)!;
+  }
   const variableValue = environmentVariable(variableName);
   if (!variableValue) {
     throw new Error(`Environment variable '${variableName}' must be set`);
   } else {
-    debugLog(`Environment variable '${variableName}' is set to '${variableValue}'`);
+    debugLog(`using environment variable: ${variableName} with: ${variableValue}`);
+    validatedCache.set(variableName, variableValue);
     return variableValue;
   }
-}
-
-function isProduction(): boolean {
-  return env === "production";
 }
 
 function auth() {

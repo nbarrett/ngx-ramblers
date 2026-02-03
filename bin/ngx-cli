@@ -9,13 +9,24 @@ SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-MARKER_FILE="node_modules/.install-marker"
+HASH_FILE="node_modules/.install-hash"
+
+compute_hash() {
+  cat package-lock.json server/package-lock.json 2>/dev/null | shasum -a 256 | cut -d' ' -f1
+}
 
 needs_install() {
   [ ! -d "node_modules" ] && return 0
-  [ ! -f "$MARKER_FILE" ] && return 0
-  [ "package-lock.json" -nt "$MARKER_FILE" ] && return 0
-  [ "server/package-lock.json" -nt "$MARKER_FILE" ] && return 0
+  [ ! -f "$HASH_FILE" ] && return 0
+
+  current_hash=$(compute_hash)
+  stored_hash=$(cat "$HASH_FILE" 2>/dev/null)
+
+  [ "$current_hash" != "$stored_hash" ] && return 0
+
+  [ ! -x "node_modules/.bin/ts-node" ] && return 0
+  [ ! -x "node_modules/.bin/ng" ] && return 0
+
   return 1
 }
 
@@ -23,7 +34,7 @@ if needs_install; then
   echo "Installing dependencies..."
   npm install
   npm install --prefix server
-  touch "$MARKER_FILE"
+  compute_hash > "$HASH_FILE"
 fi
 
 ./node_modules/.bin/ts-node server/lib/cli/index.ts "$@"

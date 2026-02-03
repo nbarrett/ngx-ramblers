@@ -19,6 +19,7 @@ import {
   SecretsConfig
 } from "./types";
 import { Environment } from "../lib/env-config/environment-model";
+import { envConfig } from "../lib/env-config/env-config";
 
 const defaults = {
   environmentName: "staging",
@@ -37,7 +38,7 @@ const defaults = {
   nodeEnv: "production"
 };
 
-const debugLog = debug("manage-configs");
+const debugLog = debug(envConfig.logNamespace("manage-configs"));
 debugLog.enabled = true;
 
 async function generateAuthSecret(): Promise<string> {

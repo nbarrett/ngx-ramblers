@@ -1,6 +1,7 @@
 import { ApiResponse } from "./api-response.model";
 import { RamblersGroupsApiResponse } from "./ramblers-walks-manager";
 import { AWS_DEFAULTS, FLYIO_DEFAULTS } from "./environment-config.model";
+import { RootFolder } from "./system.model";
 
 export interface EnvironmentSetupRequest {
   ramblersInfo: RamblersInfo;
@@ -330,6 +331,40 @@ export interface IamUserResult {
   accessKeyId: string;
   secretAccessKey: string;
   policyArn: string;
+}
+
+export interface AssetCopyFailure {
+  file: string;
+  error: string;
+}
+
+export interface CopyAssetsCliResult {
+  icons: string[];
+  logos: string[];
+  backgrounds: string[];
+  failures: AssetCopyFailure[];
+}
+
+export type AssetFolder = RootFolder.icons | RootFolder.logos | RootFolder.backgrounds;
+
+export interface CopiedImage {
+  width: number;
+  originalFileName: string;
+  awsFileName: string;
+  padding?: number;
+}
+
+export interface AssetToCopy {
+  sourceKey: string;
+  folder: AssetFolder;
+  image: CopiedImage;
+}
+
+export interface CopyAssetsResult {
+  icons: CopiedImage[];
+  logos: CopiedImage[];
+  backgrounds: CopiedImage[];
+  failures: AssetCopyFailure[];
 }
 
 export interface ResumeOptions {

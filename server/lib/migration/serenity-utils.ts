@@ -6,6 +6,7 @@ import { envConfig } from "../env-config/env-config";
 import { Environment } from "../env-config/environment-model";
 
 const debugLog = debug(envConfig.logNamespace("serenity-utils"));
+debugLog.enabled = true;
 
 interface NotepadData {
   [key: string]: string | number | boolean | null | undefined;
@@ -48,6 +49,8 @@ interface RemoteOptions {
 export async function launchBrowser(): Promise<WebdriverIO.Browser> {
   const chromeBinary = envConfig.value(Environment.CHROME_BIN);
   const chromedriverPath = envConfig.value(Environment.CHROMEDRIVER_PATH);
+
+  debugLog("launchBrowser: CHROME_BIN=%s CHROMEDRIVER_PATH=%s", chromeBinary, chromedriverPath);
 
   const chromeOptions: ChromeOptions = {
     args: [

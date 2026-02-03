@@ -24,6 +24,7 @@ import { adminConfigFromEnvironment, validateAwsAdminCredentials } from "../lib/
 import { error as logError, log } from "../lib/cli/cli-logger";
 import { RamblersGroupsApiResponse } from "../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { AWS_DEFAULTS, FLYIO_DEFAULTS } from "./types";
+import { envConfig } from "../lib/env-config/env-config";
 
 const defaults = {
   memory: FLYIO_DEFAULTS.MEMORY,
@@ -32,7 +33,7 @@ const defaults = {
   awsRegion: AWS_DEFAULTS.REGION
 };
 
-const debugLog = debug("create-environment-cli");
+const debugLog = debug(envConfig.logNamespace("create-environment-cli"));
 debugLog.enabled = true;
 
 interface GroupSelection {

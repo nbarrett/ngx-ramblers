@@ -22,7 +22,6 @@ import {
   ValidationResult
 } from "../../../models/environment-setup.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { parseMongoUri } from "../../../functions/mongo";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { AvailableArea, AvailableAreaWithLabel, SystemConfig } from "../../../models/system.model";
 import { RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../models/ramblers-walks-manager";
@@ -61,6 +60,7 @@ import { EventType, MessageType } from "../../../models/websocket.model";
 import { SessionLogsComponent } from "../../../shared/components/session-logs";
 import { EnvironmentSettings } from "../../../modules/common/environment-settings/environment-settings";
 import { EnvironmentManagement } from "../../../modules/common/environment-management/environment-management";
+import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/common/mongo-uri-input/mongo-uri-input";
 
 @Component({
   selector: "app-environment-setup",
@@ -251,29 +251,7 @@ import { EnvironmentManagement } from "../../../modules/common/environment-manag
 
                               <div class="row thumbnail-heading-frame">
                                 <div class="thumbnail-heading">MongoDB Configuration</div>
-                                <div class="row mb-2">
-                                  <div class="col-md-8">
-                                    <label for="mongo-connection-string">Connection String (paste full URI to auto-populate)</label>
-                                    <input [(ngModel)]="mongoConnectionString"
-                                           type="text" class="form-control" id="mongo-connection-string"
-                                           placeholder="mongodb+srv://user:password@cluster.mongodb.net/database"
-                                           (paste)="onMongoConnectionStringPaste($event)"
-                                           (ngModelChange)="handleParseMongoConnectionString()">
-                                  </div>
-                                  <div class="col-md-4 d-flex align-items-end">
-                                    @if (mongoConnectionStringParsed) {
-                                      <span class="text-success mb-2">
-                                        <fa-icon [icon]="faCheck" class="me-1"></fa-icon>
-                                        Parsed successfully
-                                      </span>
-                                    } @else if (mongoConnectionString && !mongoConnectionStringParsed) {
-                                      <span class="text-warning mb-2">
-                                        <fa-icon [icon]="faExclamationTriangle" class="me-1"></fa-icon>
-                                        Could not parse URI
-                                      </span>
-                                    }
-                                  </div>
-                                </div>
+                                <app-mongo-uri-input (parsedUri)="onMongoUriParsed($event)"/>
                                 <div class="row">
                                   <div class="col-md-4">
                                     <label for="mongo-cluster">Cluster</label>
@@ -645,7 +623,7 @@ import { EnvironmentManagement } from "../../../modules/common/environment-manag
       </app-page>
     `,
   styleUrls: ["./environment-setup.sass"],
-  imports: [PageComponent, FormsModule, NgClass, FontAwesomeModule, StepperModule, NgSelectComponent, StatusIconComponent, SecretInputComponent, SessionLogsComponent, TabsetComponent, TabDirective, EnvironmentSettings, EnvironmentManagement]
+  imports: [PageComponent, FormsModule, NgClass, FontAwesomeModule, StepperModule, NgSelectComponent, StatusIconComponent, SecretInputComponent, SessionLogsComponent, TabsetComponent, TabDirective, EnvironmentSettings, EnvironmentManagement, MongoUriInputComponent]
 })
 export class EnvironmentSetupComponent implements OnInit, OnDestroy {
 
@@ -684,8 +662,6 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   mongoValid: boolean | null = null;
   mongoValidating = false;
   mongoErrorMessage: string | null = null;
-  mongoConnectionString = "";
-  mongoConnectionStringParsed = false;
   operationInProgress = OperationInProgress.NONE;
   destroyProgressMessages: string[] = [];
   destroyComplete = false;
@@ -1230,31 +1206,14 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     }
   }
 
-  onMongoConnectionStringPaste(event: ClipboardEvent) {
-    const pastedText = event.clipboardData?.getData("text");
-    if (pastedText) {
-      this.mongoConnectionString = pastedText;
-      this.handleParseMongoConnectionString();
+  onMongoUriParsed(result: MongoUriParseResult) {
+    this.request.serviceConfigs.mongodb.cluster = result.cluster;
+    this.request.serviceConfigs.mongodb.username = result.username;
+    this.request.serviceConfigs.mongodb.password = result.password;
+    if (result.database) {
+      this.request.serviceConfigs.mongodb.database = result.database;
     }
-  }
-
-  handleParseMongoConnectionString() {
-    this.mongoConnectionStringParsed = false;
-    if (!this.mongoConnectionString) {
-      return;
-    }
-
-    const parsed = parseMongoUri(this.mongoConnectionString);
-    if (parsed) {
-      this.request.serviceConfigs.mongodb.cluster = parsed.cluster;
-      this.request.serviceConfigs.mongodb.username = parsed.username;
-      this.request.serviceConfigs.mongodb.password = parsed.password;
-      if (parsed.database) {
-        this.request.serviceConfigs.mongodb.database = parsed.database;
-      }
-      this.mongoConnectionStringParsed = true;
-      this.mongoValid = null;
-    }
+    this.mongoValid = null;
   }
 
   async validateRequest() {

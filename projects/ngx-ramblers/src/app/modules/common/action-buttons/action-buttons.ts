@@ -1,7 +1,7 @@
 import { Component, HostListener, inject, Input, OnInit } from "@angular/core";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { faMeetup } from "@fortawesome/free-brands-svg-icons";
-import { isEqual, max, min } from "es-toolkit/compat";
+import { isEqual, isUndefined, max, min } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   PageContent,
@@ -81,7 +81,7 @@ export class ActionButtons implements OnInit {
   public urlService: UrlService = inject(UrlService);
   public actions: PageContentActionsService = inject(PageContentActionsService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  public logger = this.loggerFactory.createLogger("ActionButtonsComponent", NgxLoggerLevel.ERROR);
+  public logger = this.loggerFactory.createLogger("ActionButtons", NgxLoggerLevel.ERROR);
   public instance = this;
   public slideIndex = 0;
   public maxViewableSlideCount: number;
@@ -98,10 +98,36 @@ export class ActionButtons implements OnInit {
 
   @Input("pageContent") set pageContentValue(pageContent: PageContent) {
     this.pageContent = pageContent;
+    const columns = this.pageContent?.rows?.[this.rowIndex]?.columns || [];
+    const sample = columns.slice(0, 3).map(column => ({
+      title: column.title,
+      imageSource: column.imageSource,
+      href: column.href
+    }));
+    if (this.pageContent && !isUndefined(this.rowIndex)) {
+      this.logger.info("ActionButtons: pageContent set", this.pageContent?.path, "rowIndex", this.rowIndex, "presentationMode", this.presentationMode, "columns", columns.length, "sample", sample);
+    } else if (this.pageContent) {
+      this.logger.info("ActionButtons: pageContent set without rowIndex", this.pageContent?.path, "presentationMode", this.presentationMode);
+    } else {
+      this.logger.info("ActionButtons: pageContent set without content", "presentationMode", this.presentationMode);
+    }
   }
 
   @Input("rowIndex") set rowIndexValue(rowIndex: number) {
     this.rowIndex = rowIndex;
+    const columns = this.pageContent?.rows?.[this.rowIndex]?.columns || [];
+    const sample = columns.slice(0, 3).map(column => ({
+      title: column.title,
+      imageSource: column.imageSource,
+      href: column.href
+    }));
+    if (this.pageContent && !isUndefined(this.rowIndex)) {
+      this.logger.info("ActionButtons: rowIndex set", this.pageContent?.path, "rowIndex", this.rowIndex, "presentationMode", this.presentationMode, "columns", columns.length, "sample", sample);
+    } else if (this.pageContent) {
+      this.logger.info("ActionButtons: rowIndex set without rowIndex", this.pageContent?.path, "presentationMode", this.presentationMode);
+    } else {
+      this.logger.info("ActionButtons: rowIndex set without content", "presentationMode", this.presentationMode);
+    }
   }
 
   @Input() public cropperDebugOffsets: CropperDebugOffsets = null;

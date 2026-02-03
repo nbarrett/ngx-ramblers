@@ -9,13 +9,16 @@ export function toKebabCase(...strings: any[]) {
 }
 
 export function toSlug(input: string): string {
-  if (!input) return "";
-  return input
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim();
+  if (!input) {
+    return "";
+  } else {
+    return input
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim();
+  }
 }
 
 export function booleanOf(value: any, fallback: boolean = false): boolean {

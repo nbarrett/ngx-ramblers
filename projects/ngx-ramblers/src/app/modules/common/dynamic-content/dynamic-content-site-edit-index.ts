@@ -11,6 +11,8 @@ import { PageContentService } from "../../../services/page-content.service";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { UrlService } from "../../../services/url.service";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { isUndefined } from "es-toolkit/compat";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { FormsModule } from "@angular/forms";
 import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
@@ -21,11 +23,46 @@ import { MapOverlayControls } from "../../../shared/components/map-overlay-contr
 import { DynamicContentViewIndexMap } from "./dynamic-content-view-index-map";
 import { IndexService } from "../../../services/index.service";
 import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
+import { PageService } from "../../../services/page.service";
+import { ContentText } from "../../../models/content-text.model";
 
 @Component({
     selector: "app-album-index-site-edit",
     styleUrls: ["./dynamic-content.sass"],
     template: `
+      <div class="row mb-3">
+        <div class="col-12">
+          <app-markdown-editor
+            [data]="indexMarkdownForEditor()"
+            [rows]="6"
+            [standalone]="true"
+            [allowMaximise]="false"
+            [allowHide]="false"
+            [hideEditToggle]="row.albumIndex.autoTitle"
+            [deleteEnabled]="false"
+            [presentationMode]="row.albumIndex.autoTitle"
+            [actionCaptionSuffix]="'index markdown'"
+            [description]="row.albumIndex.autoTitle ? 'Auto title uses the page URL' : 'Markdown content shown above the index cards'"
+            (changed)="onIndexMarkdownChanged($event)">
+          </app-markdown-editor>
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-12">
+          <div class="form-check form-check-inline mb-0">
+            <input
+              [(ngModel)]="row.albumIndex.autoTitle"
+              [checked]="row.albumIndex.autoTitle"
+              (ngModelChange)="onAutoTitleChanged($event)"
+              type="checkbox"
+              class="form-check-input"
+              [id]="id + '-auto-title'">
+            <label class="form-check-label"
+                   [for]="id + '-auto-title'">Auto Title - uncheck to Manually enter Index and Intro text (Markdown)
+            </label>
+          </div>
+        </div>
+      </div>
       <div class="row mb-3">
         <div class="col-sm-6">
           <label for="content-types-{{id}}">
@@ -168,7 +205,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
         </div>
       }
       <app-action-buttons [pageContent]="indexPageContent" [rowIndex]="0" presentationMode/>`,
-    imports: [BadgeButtonComponent, FormsModule, TypeaheadDirective, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap]
+    imports: [BadgeButtonComponent, FormsModule, TypeaheadDirective, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap, MarkdownEditorComponent]
 })
 export class AlbumIndexSiteEditComponent implements OnInit {
   public pageContentService: PageContentService = inject(PageContentService);
@@ -199,6 +236,7 @@ export class AlbumIndexSiteEditComponent implements OnInit {
   showMapPreview = false;
   protected readonly MapProvider = MapProvider;
   protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
+  private pageService: PageService = inject(PageService);
 
   async ngOnInit() {
     this.logger.info("ngOnInit:albumIndex:", this.row.albumIndex);
@@ -208,6 +246,9 @@ export class AlbumIndexSiteEditComponent implements OnInit {
     }
     if (!this.row.albumIndex.renderModes) {
       this.row.albumIndex.renderModes = [IndexRenderMode.ACTION_BUTTONS];
+    }
+    if (this.row.albumIndex.autoTitle === null || isUndefined(this.row.albumIndex.autoTitle)) {
+      this.row.albumIndex.autoTitle = true;
     }
     this.ensureMapConfig();
     await this.refreshContentPreview();
@@ -221,6 +262,38 @@ export class AlbumIndexSiteEditComponent implements OnInit {
     if (this.showMapConfig() && this.indexPageContent?.rows?.[0]?.columns?.length > 0) {
       this.showMapPreview = true;
     }
+  }
+
+  indexMarkdownForEditor(): ContentText {
+    if (this.row.albumIndex.autoTitle) {
+      return {text: this.autoTitleMarkdown(), name: "index markdown"};
+    }
+    return {text: this.row.albumIndex.indexMarkdown, name: "index markdown"};
+  }
+
+  onIndexMarkdownChanged(contentText: ContentText) {
+    if (!this.row.albumIndex.autoTitle) {
+      this.row.albumIndex.indexMarkdown = contentText?.text;
+    }
+  }
+
+  onAutoTitleChanged(autoTitle: boolean) {
+    if (!autoTitle) {
+      const existingMarkdown = this.row.albumIndex.indexMarkdown;
+      if (this.isBlankMarkdown(existingMarkdown)) {
+        this.row.albumIndex.indexMarkdown = this.autoTitleMarkdown();
+      }
+    }
+  }
+
+  private isBlankMarkdown(text: string | null | undefined): boolean {
+    const normalised = this.stringUtils.stripLineBreaks(text || "", true);
+    return !normalised || normalised.trim().length === 0;
+  }
+
+  private autoTitleMarkdown(): string {
+    const title = this.pageService.pageSubtitle();
+    return title ? `# ${title}` : "";
   }
 
   trackByIndex(index: number, item: any): number {

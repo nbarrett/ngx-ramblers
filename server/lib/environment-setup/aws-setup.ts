@@ -2,7 +2,6 @@ import {
   CopyObjectCommand,
   CreateBucketCommand,
   HeadBucketCommand,
-  ListObjectsV2Command,
   PutBucketCorsCommand,
   PutPublicAccessBlockCommand,
   S3Client
@@ -23,8 +22,10 @@ import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../env-config/environment-model";
-import { AwsAdminConfig, AwsCustomerCredentials, ValidationResult } from "./types";
+import { AssetToCopy, AwsAdminConfig, AwsCustomerCredentials, CopyAssetsResult, ValidationResult } from "./types";
 import { AWS_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { systemConfig } from "../config/system-config";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:aws-setup"));
 debugLog.enabled = true;
@@ -115,32 +116,7 @@ async function userExists(iamClient: IAMClient, userName: string): Promise<boole
   }
 }
 
-export async function createS3Bucket(
-  s3Client: S3Client,
-  bucketName: string,
-  region: string
-): Promise<void> {
-  debugLog("Creating S3 bucket:", bucketName, "in region:", region);
-
-  const exists = await bucketExists(s3Client, bucketName);
-  if (exists) {
-    debugLog("Bucket already exists:", bucketName);
-    return;
-  }
-
-  const createBucketParams: { Bucket: string; CreateBucketConfiguration?: { LocationConstraint: string } } = {
-    Bucket: bucketName
-  };
-
-  if (region !== "us-east-1") {
-    createBucketParams.CreateBucketConfiguration = {
-      LocationConstraint: region as any
-    };
-  }
-
-  await s3Client.send(new CreateBucketCommand(createBucketParams));
-  debugLog("Created bucket:", bucketName);
-
+async function configureBucket(s3Client: S3Client, bucketName: string): Promise<void> {
   await s3Client.send(new PutPublicAccessBlockCommand({
     Bucket: bucketName,
     PublicAccessBlockConfiguration: {
@@ -167,6 +143,36 @@ export async function createS3Bucket(
     }
   }));
   debugLog("Configured CORS for bucket:", bucketName);
+}
+
+export async function createS3Bucket(
+  s3Client: S3Client,
+  bucketName: string,
+  region: string
+): Promise<void> {
+  debugLog("Creating S3 bucket:", bucketName, "in region:", region);
+
+  const exists = await bucketExists(s3Client, bucketName);
+  if (exists) {
+    debugLog("Bucket already exists:", bucketName, "- ensuring configuration is correct");
+    await configureBucket(s3Client, bucketName);
+    return;
+  }
+
+  const createBucketParams: { Bucket: string; CreateBucketConfiguration?: { LocationConstraint: string } } = {
+    Bucket: bucketName
+  };
+
+  if (region !== "us-east-1") {
+    createBucketParams.CreateBucketConfiguration = {
+      LocationConstraint: region as any
+    };
+  }
+
+  await s3Client.send(new CreateBucketCommand(createBucketParams));
+  debugLog("Created bucket:", bucketName);
+
+  await configureBucket(s3Client, bucketName);
 }
 
 async function getAwsAccountId(adminConfig: AwsAdminConfig): Promise<string> {
@@ -395,55 +401,106 @@ export function generateAwsCredentialsResult(
 }
 
 export const STANDARD_ASSETS = {
-  sourceBucket: "ngx-ramblers-demo-staging",
-  folders: ["icons", "logos", "backgrounds"],
-  defaultIcon: "ramblers-icon.png",
-  defaultLogo: "ramblers-logo.png",
-  defaultBackground: "ramblers-background.jpg"
+  sourceBucket: "ngx-ramblers-demo-staging"
 };
 
 export async function copyStandardAssets(
   adminConfig: AwsAdminConfig,
   targetBucket: string
-): Promise<{ icons: string[]; logos: string[]; backgrounds: string[] }> {
+): Promise<CopyAssetsResult> {
   const s3Client = createS3Client(adminConfig);
-  const copiedAssets = { icons: [] as string[], logos: [] as string[], backgrounds: [] as string[] };
+  const result: CopyAssetsResult = {
+    icons: [],
+    logos: [],
+    backgrounds: [],
+    failures: []
+  };
 
-  for (const folder of STANDARD_ASSETS.folders) {
-    try {
-      const listResponse = await s3Client.send(new ListObjectsV2Command({
-        Bucket: STANDARD_ASSETS.sourceBucket,
-        Prefix: `${folder}/`
-      }));
+  const config = await systemConfig();
+  if (!config) {
+    debugLog("No system config found - cannot determine which assets to copy");
+    result.failures.push({file: "system-config", error: "No system config found"});
+    return result;
+  }
 
-      const objects = listResponse.Contents || [];
-      for (const obj of objects) {
-        if (!obj.Key || obj.Key.endsWith("/")) continue;
+  debugLog("System config icons sample:", config.icons?.images?.[0]);
+  debugLog("System config logos sample:", config.logos?.images?.[0]);
+  debugLog("System config backgrounds sample:", config.backgrounds?.images?.[0]);
 
-        const fileName = obj.Key.split("/").pop();
-        const targetKey = obj.Key;
+  const assetsToCopy: AssetToCopy[] = [];
 
-        try {
-          await s3Client.send(new CopyObjectCommand({
-            Bucket: targetBucket,
-            CopySource: `${STANDARD_ASSETS.sourceBucket}/${obj.Key}`,
-            Key: targetKey,
-            ACL: "public-read"
-          }));
-
-          if (folder === "icons") copiedAssets.icons.push(fileName);
-          else if (folder === "logos") copiedAssets.logos.push(fileName);
-          else if (folder === "backgrounds") copiedAssets.backgrounds.push(fileName);
-
-          debugLog(`Copied ${obj.Key} to ${targetBucket}/${targetKey}`);
-        } catch (copyError) {
-          debugLog(`Failed to copy ${obj.Key}: ${copyError.message}`);
-        }
+  if (config.icons?.images) {
+    for (const img of config.icons.images) {
+      if (img.awsFileName) {
+        assetsToCopy.push({
+          sourceKey: img.awsFileName,
+          folder: RootFolder.icons,
+          image: {
+            width: img.width || 150,
+            originalFileName: img.originalFileName || img.awsFileName.split("/").pop(),
+            awsFileName: img.awsFileName,
+            padding: img.padding
+          }
+        });
       }
-    } catch (listError) {
-      debugLog(`Failed to list objects in ${folder}: ${listError.message}`);
     }
   }
 
-  return copiedAssets;
+  if (config.logos?.images) {
+    for (const img of config.logos.images) {
+      if (img.awsFileName) {
+        assetsToCopy.push({
+          sourceKey: img.awsFileName,
+          folder: RootFolder.logos,
+          image: {
+            width: img.width || 300,
+            originalFileName: img.originalFileName || img.awsFileName.split("/").pop(),
+            awsFileName: img.awsFileName,
+            padding: img.padding
+          }
+        });
+      }
+    }
+  }
+
+  if (config.backgrounds?.images) {
+    for (const img of config.backgrounds.images) {
+      if (img.awsFileName) {
+        assetsToCopy.push({
+          sourceKey: img.awsFileName,
+          folder: RootFolder.backgrounds,
+          image: {
+            width: img.width || 1920,
+            originalFileName: img.originalFileName || img.awsFileName.split("/").pop(),
+            awsFileName: img.awsFileName,
+            padding: img.padding
+          }
+        });
+      }
+    }
+  }
+
+  debugLog(`Found ${assetsToCopy.length} assets to copy from system config`);
+
+  for (const asset of assetsToCopy) {
+    try {
+      await s3Client.send(new CopyObjectCommand({
+        Bucket: targetBucket,
+        CopySource: `${STANDARD_ASSETS.sourceBucket}/${asset.sourceKey}`,
+        Key: asset.sourceKey
+      }));
+
+      if (asset.folder === RootFolder.icons) result.icons.push(asset.image);
+      else if (asset.folder === RootFolder.logos) result.logos.push(asset.image);
+      else if (asset.folder === RootFolder.backgrounds) result.backgrounds.push(asset.image);
+
+      debugLog(`Copied ${asset.sourceKey} to ${targetBucket}/${asset.sourceKey}`);
+    } catch (copyError) {
+      const errorMessage = copyError.message || String(copyError);
+      debugLog(`Failed to copy ${asset.sourceKey}: ${errorMessage}`);
+      result.failures.push({file: asset.sourceKey, error: errorMessage});
+    }
+  }
+
+  return result;
 }

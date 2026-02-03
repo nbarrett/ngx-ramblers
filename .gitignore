@@ -48,6 +48,7 @@ Thumbs.db
 /data/mongo-scripts/
 /server/chrome/
 /server/chromedriver/
+/server/.env
 /test-data/
 /.gemini-clipboard/
 .eslint-config/

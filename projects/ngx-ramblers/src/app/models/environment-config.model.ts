@@ -30,10 +30,7 @@ export interface EnvironmentConfig {
 
 export interface EnvironmentsConfig {
   environments?: EnvironmentConfig[];
-  aws?: {
-    bucket?: string;
-    region?: string;
-  };
+  aws?: AwsConfig;
   secrets?: Record<string, string>;
 }
 
@@ -46,6 +43,24 @@ export const FLYIO_DEFAULTS = {
 export const AWS_DEFAULTS = {
   REGION: "eu-west-2"
 } as const;
+
+export function createEmptyAwsConfig(): AwsConfig {
+  return {
+    bucket: "",
+    region: AWS_DEFAULTS.REGION,
+    accessKeyId: "",
+    secretAccessKey: ""
+  };
+}
+
+export function createEmptyMongoConfig(): MongoConfig {
+  return {
+    cluster: "",
+    db: "",
+    username: "",
+    password: ""
+  };
+}
 
 export function createDefaultFlyioConfig(): FlyioConfig {
   return {
@@ -60,18 +75,8 @@ export function createDefaultFlyioConfig(): FlyioConfig {
 export function createEmptyEnvironmentConfig(): EnvironmentConfig {
   return {
     environment: "",
-    aws: {
-      bucket: "",
-      region: AWS_DEFAULTS.REGION,
-      accessKeyId: "",
-      secretAccessKey: ""
-    },
-    mongo: {
-      cluster: "",
-      db: "",
-      username: "",
-      password: ""
-    },
+    aws: createEmptyAwsConfig(),
+    mongo: createEmptyMongoConfig(),
     flyio: createDefaultFlyioConfig(),
     secrets: {}
   };

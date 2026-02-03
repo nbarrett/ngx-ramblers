@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, OnInit, signal } from "@angular/core";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { PageComponent } from "../../../page/page.component";
-import { ContentTemplateType, PageContent, PageContentRow } from "../../../models/content-text.model";
+import { ContentTemplateType, PageContent, PageContentRow, USER_TEMPLATES_PATH_PREFIX } from "../../../models/content-text.model";
 import { DynamicContentViewComponent } from "../../../modules/common/dynamic-content/dynamic-content-view";
 import { PageContentService } from "../../../services/page-content.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -267,7 +267,7 @@ export class ContentTemplatesComponent implements OnInit {
       return ContentTemplateType.MIGRATION_TEMPLATE;
     }
     const normalised = this.normaliseFragmentPath(fragment?.path || "");
-    if (normalised.startsWith("fragments/templates/")) {
+    if (normalised.startsWith(USER_TEMPLATES_PATH_PREFIX)) {
       return ContentTemplateType.USER_TEMPLATE;
     }
     return "";

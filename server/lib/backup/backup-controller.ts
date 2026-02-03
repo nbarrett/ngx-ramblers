@@ -16,9 +16,6 @@ let loggedNotificationsStatus = false;
 
 async function service(): Promise<BackupAndRestoreService> {
   const backupConfig = await configuredBackup();
-  debugLog("Loaded backup config:", {
-    environmentCount: backupConfig.environments?.length || 0
-  });
 
   let notificationService: BackupNotificationService | undefined;
   let backupNotificationConfigId: string | undefined;
@@ -30,7 +27,7 @@ async function service(): Promise<BackupAndRestoreService> {
 
   if (backupNotificationConfigId) {
     if (!loggedNotificationsStatus) {
-      debugLog("Found backup notification config ID:", backupNotificationConfigId);
+      debugLog("Backup notifications enabled via config:", backupNotificationConfigId);
       loggedNotificationsStatus = true;
     }
     notificationService = new BackupNotificationService({
@@ -38,17 +35,11 @@ async function service(): Promise<BackupAndRestoreService> {
       recipients: []
     });
   } else if (!loggedNotificationsStatus) {
-    debugLog("No mail config or backup notification config found");
+    debugLog("Backup notifications not configured");
     loggedNotificationsStatus = true;
   }
 
-  const svc = new BackupAndRestoreService([], backupConfig, undefined, notificationService);
-  debugLog("Initialized BackupAndRestoreService with backup-config environments",
-    backupConfig.environments?.length || 0);
-  if (notificationService) {
-    debugLog("Email notifications enabled");
-  }
-  return svc;
+  return new BackupAndRestoreService([], backupConfig, undefined, notificationService);
 }
 
 export async function listEnvironments(req: Request, res: Response) {
@@ -80,7 +71,6 @@ export async function listSessions(req: Request, res: Response) {
     const svc = await service();
     const limit = asNumber(req.query.limit || 50);
     const sessions = await svc.sessions(limit);
-    debugLog("listSessions:response:", sessions.length, "sessions");
     res.status(200).json(sessions);
   } catch (error) {
     debugLog("listSessions:error:", error);

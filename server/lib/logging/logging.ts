@@ -1,5 +1,6 @@
 import debug from "debug";
 import { Express, Request, Response } from "express";
+import { envConfig } from "../env-config/env-config";
 import morgan, { TokenIndexer } from "morgan";
 
 morgan.token("id", req => req.headers["x-request-id"] as string || "-");
@@ -12,7 +13,7 @@ function colorStatus(status: number) {
   return status;
 }
 
-const debugLog = debug("configure-logging");
+const debugLog = debug(envConfig.logNamespace("configure-logging"));
 debugLog.enabled = false;
 
 export function configureLogging(app: Express): void {

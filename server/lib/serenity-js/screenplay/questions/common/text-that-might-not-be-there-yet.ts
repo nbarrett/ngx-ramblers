@@ -2,8 +2,9 @@ import { Answerable, Question } from "@serenity-js/core";
 import debug from "debug";
 import { AnswersQuestions, UsesAbilities } from "@serenity-js/core/lib/screenplay";
 import { PageElement } from "@serenity-js/web";
+import { envConfig } from "../../../../env-config/env-config";
 
-const debugLog = debug("TextThatMightNotYetBeThere");
+const debugLog = debug(envConfig.logNamespace("TextThatMightNotYetBeThere"));
 debugLog.enabled = false;
 
 export class TextThatMightNotYetBeThere extends Question<Promise<string>> {

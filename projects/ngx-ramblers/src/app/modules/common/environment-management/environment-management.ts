@@ -348,8 +348,20 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
         if (copyResponse.copiedAssets) {
           const { icons, logos, backgrounds } = copyResponse.copiedAssets;
           this.progressMessages.push(`Copied ${icons.length} icons, ${logos.length} logos, ${backgrounds.length} backgrounds`);
-        } else {
-          this.progressMessages.push(copyResponse.message);
+        }
+        if (copyResponse.failures && copyResponse.failures.length > 0) {
+          this.progressMessages.push(`Failed to copy ${copyResponse.failures.length} files:`);
+          copyResponse.failures.forEach(f => this.progressMessages.push(`  - ${f.file}: ${f.error}`));
+          if (!copyResponse.success) {
+            this.setupError = copyResponse.message;
+            this.operationInProgress = OperationInProgress.NONE;
+            return;
+          }
+        } else if (!copyResponse.success) {
+          this.setupError = copyResponse.message;
+          this.progressMessages.push(`Error: ${copyResponse.message}`);
+          this.operationInProgress = OperationInProgress.NONE;
+          return;
         }
       }
 
@@ -367,7 +379,6 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
         };
         this.progressMessages.push("Setup resumed successfully!");
       }
-      this.notify.success({ title: "Success", message: response.message || "Environment setup resumed successfully!" });
     } catch (error) {
       this.setupError = this.extractErrorDetail(error);
       this.progressMessages.push(`Error: ${this.setupError}`);

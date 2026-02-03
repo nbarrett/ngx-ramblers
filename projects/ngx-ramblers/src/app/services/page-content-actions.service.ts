@@ -178,6 +178,8 @@ export class PageContentActionsService {
   defaultIndex(): Index {
     return {
       contentPaths: [],
+      indexMarkdown: null,
+      autoTitle: true
     };
   };
 

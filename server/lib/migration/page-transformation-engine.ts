@@ -18,6 +18,7 @@ import {
   ColumnMappingConfig,
   ImagePattern,
   IndexContentType,
+  IndexMapConfig,
   IndexRenderMode,
   LocationRenderingMode,
   LocationRowData,
@@ -1852,7 +1853,7 @@ export class PageTransformationEngine {
         })) || [],
         minCols: config.minCols,
         maxCols: config.maxCols,
-        mapConfig: config.mapConfig
+        mapConfig: config.mapConfig as IndexMapConfig
       },
       columns: []
     });

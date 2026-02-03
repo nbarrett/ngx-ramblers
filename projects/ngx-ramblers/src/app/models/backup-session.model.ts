@@ -1,3 +1,5 @@
+import { AwsConfig, EnvironmentConfig, EnvironmentsConfig, FlyioConfig, MongoConfig } from "./environment-config.model";
+
 export enum BackupRestoreTab {
   BACKUP = "Backup",
   RESTORE = "Restore",
@@ -109,35 +111,6 @@ export interface SecretEntry {
   value: string;
 }
 
-export interface EnvironmentBackupConfig {
-  environment: string;
-  aws?: {
-    bucket?: string;
-    region?: string;
-    accessKeyId?: string;
-    secretAccessKey?: string;
-  };
-  mongo?: {
-    cluster?: string;
-    db?: string;
-    username?: string;
-    password?: string;
-  };
-  flyio?: {
-    apiKey?: string;
-    appName?: string;
-    memory?: string;
-    scaleCount?: number;
-    organisation?: string;
-  };
-  secrets?: Record<string, string>;
-}
+export type EnvironmentBackupConfig = EnvironmentConfig;
 
-export interface BackupConfig {
-  environments?: EnvironmentBackupConfig[];
-  aws?: {
-    bucket?: string;
-    region?: string;
-  };
-  secrets?: Record<string, string>;
-}
+export type BackupConfig = EnvironmentsConfig;

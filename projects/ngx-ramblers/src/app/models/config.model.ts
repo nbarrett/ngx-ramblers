@@ -1,7 +1,6 @@
 import { Identifiable } from "./api-response.model";
 
 export enum ConfigKey {
-  BACKUP = "backup",
   BREVO = "brevo",
   COMMITTEE = "committee",
   ENVIRONMENTS = "environments",

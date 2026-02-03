@@ -169,7 +169,7 @@ export async function cleanupDuplicatesByRamblersId(): Promise<CleanupStats> {
 
   debugLog(`Found ${duplicates.length} groupEvent.id values with duplicates`);
 
-  const deletePromises = duplicates.map(async (group: { _id: string; count: number; docs: Array<{ docId: string; syncedVersion: number; lastSyncedAt: Date }> }) => {
+  const deletePromises = duplicates.map(async (group: { _id: string; count: number; docs: { docId: string; syncedVersion: number; lastSyncedAt: Date }[] }) => {
     stats.ramblersIdsProcessed++;
     const sortedDocs = group.docs.sort((a, b) => {
       const versionDiff = (b.syncedVersion || 0) - (a.syncedVersion || 0);

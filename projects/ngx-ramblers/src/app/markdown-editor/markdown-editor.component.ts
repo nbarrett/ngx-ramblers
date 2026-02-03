@@ -826,6 +826,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         this.logger.info("content is empty for", this.description, "assumed to be new content so going into edit mode");
       }
       if (!this.content) { this.content = {}; }
+      this.autoLoadDefaultContentIfAvailable();
       this.calculateRows();
     } else {
       this.content = content;
@@ -839,6 +840,14 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.updateMarkdownPreviewForTooltip();
     this.logger.info("retrieved content:", this.content, "editor state:", this.editorState);
     return this.content;
+  }
+
+  private autoLoadDefaultContentIfAvailable(): void {
+    const defaultText = this.dataPopulationService.defaultContent(this.content?.category, this.content?.name);
+    if (defaultText && !this.content.text) {
+      this.logger.info("Auto-loading default content for", this.content?.name);
+      this.content.text = defaultText;
+    }
   }
 
   private calculateRows() {
@@ -1201,7 +1210,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   hasDefaultContent(): boolean {
-    return this.content?.category && this.content?.name && this.dataPopulationService.hasDefaultContent(this.content?.category, this.content?.name);
+    return this.content?.name && this.dataPopulationService.hasDefaultContent(this.content?.category, this.content?.name);
   }
 
   loadDefault(): void {

@@ -5,6 +5,7 @@ import { execSync } from "child_process";
 import * as cms from "./cms-client.js";
 import { findWorkflowRunByCommit } from "./github-client.js";
 import { Environment } from "../env-config/environment-model";
+import { envConfig } from "../env-config/env-config";
 import { GitHubTokenProvider } from "../shared/github-token-provider.js";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { commitsBetween, findCommitByHash, gitLog, gitLogSinceDate, latestTag } from "./commit-parser.js";
@@ -16,15 +17,16 @@ import {
   updateIndexPageContent
 } from "./content-generator.js";
 import type { CMSAuth, ConventionalCommit, GenerateOptions, ReleaseNotesConfig, ReleaseNotesData } from "./models.js";
+import { DEFAULT_CMS_BASE_URL } from "./models.js";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone, dateTimeNow } from "../shared/dates";
 import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
-const debugLog = debug("release-notes");
+const debugLog = debug(envConfig.logNamespace("release-notes"));
 debugLog.enabled = true;
 
 const DEFAULT_CONFIG: ReleaseNotesConfig = {
-  cmsUrl: process.env[Environment.CMS_URL] || "https://www.ngx-ramblers.org.uk",
+  cmsUrl: process.env[Environment.CMS_URL] || DEFAULT_CMS_BASE_URL,
   username: process.env[Environment.CMS_USERNAME] || "",
   password: process.env[Environment.CMS_PASSWORD] || "",
   githubRepo: "nbarrett/ngx-ramblers",

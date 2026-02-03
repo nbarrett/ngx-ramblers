@@ -7,6 +7,8 @@ export {
   MongoValidationConfig,
   BucketResult,
   IamUserResult,
+  AssetCopyFailure,
+  CopyAssetsCliResult,
   ValidationResult,
   ResumeOptions,
   EnvironmentResult

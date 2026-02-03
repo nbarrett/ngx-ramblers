@@ -288,9 +288,19 @@ export async function createEnvironment(
 
       if (request.options.copyStandardAssets) {
         reportProgress(SetupStep.COPY_STANDARD_ASSETS, "running", "Copying standard assets to S3 bucket");
-        copiedAssets = await copyStandardAssets(awsAdminConfig, awsCredentials.bucket);
-        const totalCopied = copiedAssets.icons.length + copiedAssets.logos.length + copiedAssets.backgrounds.length;
-        reportProgress(SetupStep.COPY_STANDARD_ASSETS, "completed", `Copied ${totalCopied} assets (${copiedAssets.icons.length} icons, ${copiedAssets.logos.length} logos, ${copiedAssets.backgrounds.length} backgrounds)`);
+        const copyResult = await copyStandardAssets(awsAdminConfig, awsCredentials.bucket);
+        copiedAssets = {
+          icons: copyResult.icons.map(img => img.originalFileName),
+          logos: copyResult.logos.map(img => img.originalFileName),
+          backgrounds: copyResult.backgrounds.map(img => img.originalFileName)
+        };
+        const totalCopied = copyResult.icons.length + copyResult.logos.length + copyResult.backgrounds.length;
+        if (copyResult.failures.length > 0) {
+          const failureMsg = copyResult.failures.map(f => `${f.file}: ${f.error}`).join("; ");
+          reportProgress(SetupStep.COPY_STANDARD_ASSETS, "failed", `Copied ${totalCopied} assets but ${copyResult.failures.length} failed: ${failureMsg}`);
+        } else {
+          reportProgress(SetupStep.COPY_STANDARD_ASSETS, "completed", `Copied ${totalCopied} assets (${copyResult.icons.length} icons, ${copyResult.logos.length} logos, ${copyResult.backgrounds.length} backgrounds)`);
+        }
       } else {
         reportProgress(SetupStep.COPY_STANDARD_ASSETS, "completed", "Skipped copying standard assets");
       }

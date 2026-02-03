@@ -1,14 +1,24 @@
 import { Command } from "commander";
 import debug from "debug";
-import { spawn, ChildProcess } from "child_process";
+import { spawn, ChildProcess, spawnSync } from "child_process";
 import net from "net";
 import path from "path";
-import { findEnvironment, listEnvironmentSummaries } from "../../shared/configs-json";
+import fs from "fs";
+import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
 import { loadSecretsForEnvironment, secretsExist } from "../../shared/secrets";
 import { log } from "../cli-logger";
 import { select, isBack, isQuit, handleQuit, clearScreen } from "../cli-prompt";
+import { dateTimeNow } from "../../shared/dates";
 
 const debugLog = debug("ngx-ramblers:cli:local");
+
+interface ChromeValidationResult {
+  valid: boolean;
+  chromeBinPath?: string;
+  chromedriverPath?: string;
+  chromeVersion?: string;
+  error?: string;
+}
 
 function checkPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -26,15 +36,88 @@ interface LocalRunConfig {
   environmentName: string;
   mode: "dev" | "prod";
   port: number;
+  logDir?: string;
+  logTimestamp?: boolean;
 }
 
 const PROJECT_ROOT = path.resolve(__dirname, "../../../../");
 
+function detectInstalledChromeVersion(): string | undefined {
+  const chromedriverDir = path.join(PROJECT_ROOT, "server/chromedriver");
+  if (!fs.existsSync(chromedriverDir)) {
+    return undefined;
+  }
+  const dirs = fs.readdirSync(chromedriverDir).filter(d => d.startsWith("mac_arm-"));
+  if (dirs.length === 0) {
+    return undefined;
+  }
+  const latest = dirs.sort().reverse()[0];
+  const match = latest.match(/^mac_arm-(.+)$/);
+  return match ? match[1] : undefined;
+}
+
+function validateChromeBinary(chromeBinPath: string): boolean {
+  if (!fs.existsSync(chromeBinPath)) {
+    return false;
+  }
+
+  const result = spawnSync(chromeBinPath, ["--version", "--no-sandbox"], {
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: 5000
+  });
+
+  return result.status === 0;
+}
+
+function validateChromeSetup(chromeVersionOverride?: string): ChromeValidationResult {
+  const chromeVersion = chromeVersionOverride || detectInstalledChromeVersion();
+
+  if (!chromeVersion) {
+    return {
+      valid: false,
+      error: "No Chrome version detected in server/chromedriver/"
+    };
+  }
+
+  const chromedriverPath = path.join(
+    PROJECT_ROOT,
+    `server/chromedriver/mac_arm-${chromeVersion}/chromedriver-mac-arm64/chromedriver`
+  );
+  const chromeBinPath = path.join(
+    PROJECT_ROOT,
+    `server/chrome/mac_arm-${chromeVersion}/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`
+  );
+
+  if (!fs.existsSync(chromedriverPath)) {
+    return {
+      valid: false,
+      chromeVersion,
+      error: `Chromedriver not found at ${chromedriverPath}`
+    };
+  }
+
+  if (!validateChromeBinary(chromeBinPath)) {
+    return {
+      valid: false,
+      chromeVersion,
+      chromedriverPath,
+      error: `Chrome binary not found or not executable at ${chromeBinPath}`
+    };
+  }
+
+  return {
+    valid: true,
+    chromeVersion,
+    chromedriverPath,
+    chromeBinPath
+  };
+}
+
 async function selectEnvironment(): Promise<string | null> {
-  const environments = listEnvironmentSummaries();
+  const environments = await listEnvironmentSummariesFromDatabase();
 
   if (environments.length === 0) {
-    throw new Error("No environments configured in configs.json");
+    throw new Error("No environments configured");
   }
 
   const result = await select({
@@ -57,33 +140,50 @@ async function selectEnvironment(): Promise<string | null> {
   return result;
 }
 
+function buildCleanEnvironment(): NodeJS.ProcessEnv {
+  const essentialVars = ["PATH", "HOME", "USER", "SHELL", "TERM", "LANG", "LC_ALL", "TMPDIR"];
+  const cleanEnv: NodeJS.ProcessEnv = {};
+
+  essentialVars.forEach(key => {
+    if (process.env[key]) {
+      cleanEnv[key] = process.env[key];
+    }
+  });
+
+  return cleanEnv;
+}
+
 function buildEnvironmentVariables(
   secrets: Record<string, string>,
   mode: "dev" | "prod",
   port: number
 ): NodeJS.ProcessEnv {
-  const chromeVersion = secrets.CHROME_VERSION || "131";
-  const chromedriverPath = path.join(
-    PROJECT_ROOT,
-    `server/chromedriver/mac_arm-${chromeVersion}/chromedriver-mac-arm64/chromedriver`
-  );
-  const chromeBinPath = path.join(
-    PROJECT_ROOT,
-    `server/chrome/mac_arm-${chromeVersion}/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`
-  );
+  const chromeValidation = validateChromeSetup(secrets.CHROME_VERSION);
 
-  return {
-    ...process.env,
+  if (!chromeValidation.valid) {
+    log("Warning: Chrome not available - %s", chromeValidation.error);
+    log("         Scraping features will be disabled");
+  }
+
+  const cleanEnv = buildCleanEnvironment();
+
+  const env: NodeJS.ProcessEnv = {
+    ...cleanEnv,
     ...secrets,
     NODE_ENV: mode === "dev" ? "development" : "production",
     PORT: String(port),
     DEBUG: secrets.DEBUG || "ngx-ramblers:*",
     DEBUG_COLORS: "true",
-    NODE_OPTIONS: "--max_old_space_size=2560",
-    CHROME_VERSION: chromeVersion,
-    CHROMEDRIVER_PATH: chromedriverPath,
-    CHROME_BIN: chromeBinPath
+    NODE_OPTIONS: "--max_old_space_size=2560"
   };
+
+  if (chromeValidation.valid) {
+    env.CHROME_VERSION = chromeValidation.chromeVersion;
+    env.CHROMEDRIVER_PATH = chromeValidation.chromedriverPath;
+    env.CHROME_BIN = chromeValidation.chromeBinPath;
+  }
+
+  return env;
 }
 
 interface RunningProcess {
@@ -101,6 +201,39 @@ function createProcessState(): ProcessState {
   return { hasError: false, isShuttingDown: false, stderrBuffer: "" };
 }
 
+function resolveLogDir(logDir?: string): string | undefined {
+  if (!logDir) {
+    return undefined;
+  }
+  const resolved = path.resolve(PROJECT_ROOT, logDir);
+  fs.mkdirSync(resolved, { recursive: true });
+  return resolved;
+}
+
+function buildLogFilePath(logDir: string | undefined, filename: string): string | undefined {
+  if (!logDir) {
+    return undefined;
+  }
+  return path.join(logDir, filename);
+}
+
+function buildLogTimestamp(logTimestamp?: boolean): string | undefined {
+  if (!logTimestamp) {
+    return undefined;
+  }
+  return dateTimeNow().toFormat("yyyyLLdd-HHmmss");
+}
+
+function applyLogTimestamp(filename: string, timestamp?: string): string {
+  if (!timestamp) {
+    return filename;
+  } else {
+    const extension = path.extname(filename);
+    const baseName = path.basename(filename, extension);
+    return `${baseName}-${timestamp}${extension || ""}`;
+  }
+}
+
 function runCommand(
   command: string,
   args: string[],
@@ -108,7 +241,8 @@ function runCommand(
   cwd: string,
   label: string,
   state: ProcessState,
-  onError: (label: string, message: string) => void
+  onError: (label: string, message: string) => void,
+  logFilePath?: string
 ): ChildProcess {
   log(`Starting ${label}...`);
   debugLog(`Running: ${command} ${args.join(" ")}`);
@@ -116,14 +250,27 @@ function runCommand(
   const child = spawn(command, args, {
     cwd,
     env,
-    stdio: ["inherit", "inherit", "pipe"],
+    stdio: ["inherit", "pipe", "pipe"],
     shell: true
+  });
+
+  const logStream = logFilePath ? fs.createWriteStream(logFilePath, { flags: "a" }) : undefined;
+
+  child.stdout?.on("data", (data: Buffer) => {
+    const text = data.toString();
+    process.stdout.write(text);
+    if (logStream) {
+      logStream.write(text);
+    }
   });
 
   child.stderr?.on("data", (data: Buffer) => {
     const text = data.toString();
     state.stderrBuffer += text;
     process.stderr.write(text);
+    if (logStream) {
+      logStream.write(text);
+    }
 
     if (text.includes("EADDRINUSE") || text.includes("address already in use")) {
       onError(label, "Port already in use");
@@ -142,15 +289,18 @@ function runCommand(
       const errorMessage = errorMatch ? errorMatch[1].trim() : `exited with code ${code}`;
       onError(label, errorMessage);
     }
+    if (logStream) {
+      logStream.end();
+    }
   });
 
   return child;
 }
 
 async function runDev(config: LocalRunConfig): Promise<void> {
-  const envConfig = findEnvironment(config.environmentName);
+  const envConfig = await findEnvironmentFromDatabase(config.environmentName);
   if (!envConfig) {
-    throw new Error(`Environment ${config.environmentName} not found in configs.json`);
+    throw new Error(`Environment ${config.environmentName} not found`);
   }
 
   if (!secretsExist(envConfig.appName)) {
@@ -169,6 +319,10 @@ async function runDev(config: LocalRunConfig): Promise<void> {
 
   const secretsFile = loadSecretsForEnvironment(envConfig.appName);
   const env = buildEnvironmentVariables(secretsFile.secrets, "dev", config.port);
+  const logDir = resolveLogDir(config.logDir);
+  const timestamp = buildLogTimestamp(config.logTimestamp);
+  const frontendLogPath = buildLogFilePath(logDir, applyLogTimestamp("frontend.log", timestamp));
+  const backendLogPath = buildLogFilePath(logDir, applyLogTimestamp("backend.log", timestamp));
 
   log("\n========================================");
   log("Starting in DEVELOPMENT mode");
@@ -184,6 +338,10 @@ async function runDev(config: LocalRunConfig): Promise<void> {
   const state = createProcessState();
 
   const cleanup = (reason?: string) => {
+    if (state.isShuttingDown) {
+      process.exit(reason ? 1 : 0);
+      return;
+    }
     state.isShuttingDown = true;
     if (reason) {
       log("\nError: %s", reason);
@@ -192,11 +350,14 @@ async function runDev(config: LocalRunConfig): Promise<void> {
     processes.forEach(p => {
       if (!p.child.killed) {
         p.child.kill("SIGTERM");
+        setTimeout(() => {
+          if (!p.child.killed) {
+            p.child.kill("SIGKILL");
+          }
+        }, 1000);
       }
     });
-    if (reason) {
-      process.exit(1);
-    }
+    setTimeout(() => process.exit(reason ? 1 : 0), 2000);
   };
 
   const onError = (label: string, message: string) => {
@@ -214,7 +375,8 @@ async function runDev(config: LocalRunConfig): Promise<void> {
     PROJECT_ROOT,
     "Backend (tsx watch)",
     backendState,
-    onError
+    onError,
+    backendLogPath
   );
   processes.push({ child: backendProcess, label: "Backend" });
 
@@ -226,7 +388,8 @@ async function runDev(config: LocalRunConfig): Promise<void> {
     PROJECT_ROOT,
     "Frontend (ng serve)",
     frontendState,
-    onError
+    onError,
+    frontendLogPath
   );
   processes.push({ child: frontendProcess, label: "Frontend" });
 
@@ -244,9 +407,9 @@ async function runDev(config: LocalRunConfig): Promise<void> {
 }
 
 async function runProd(config: LocalRunConfig): Promise<void> {
-  const envConfig = findEnvironment(config.environmentName);
+  const envConfig = await findEnvironmentFromDatabase(config.environmentName);
   if (!envConfig) {
-    throw new Error(`Environment ${config.environmentName} not found in configs.json`);
+    throw new Error(`Environment ${config.environmentName} not found`);
   }
 
   if (!secretsExist(envConfig.appName)) {
@@ -260,6 +423,10 @@ async function runProd(config: LocalRunConfig): Promise<void> {
 
   const secretsFile = loadSecretsForEnvironment(envConfig.appName);
   const env = buildEnvironmentVariables(secretsFile.secrets, "prod", config.port);
+  const logDir = resolveLogDir(config.logDir);
+  const timestamp = buildLogTimestamp(config.logTimestamp);
+  const frontendLogPath = buildLogFilePath(logDir, applyLogTimestamp("frontend.log", timestamp));
+  const backendLogPath = buildLogFilePath(logDir, applyLogTimestamp("backend.log", timestamp));
 
   log("\n========================================");
   log("Starting in PRODUCTION mode");
@@ -274,13 +441,35 @@ async function runProd(config: LocalRunConfig): Promise<void> {
   const buildProcess = spawn("npm", ["run", "build"], {
     cwd: PROJECT_ROOT,
     env,
-    stdio: "inherit",
+    stdio: ["inherit", "pipe", "pipe"],
     shell: true
+  });
+
+  const buildLogStream = frontendLogPath ? fs.createWriteStream(frontendLogPath, { flags: "a" }) : undefined;
+
+  buildProcess.stdout?.on("data", (data: Buffer) => {
+    const text = data.toString();
+    process.stdout.write(text);
+    if (buildLogStream) {
+      buildLogStream.write(text);
+    }
+  });
+
+  buildProcess.stderr?.on("data", (data: Buffer) => {
+    const text = data.toString();
+    process.stderr.write(text);
+    if (buildLogStream) {
+      buildLogStream.write(text);
+    }
   });
 
   const buildExitCode = await new Promise<number | null>(resolve => {
     buildProcess.on("exit", resolve);
   });
+
+  if (buildLogStream) {
+    buildLogStream.end();
+  }
 
   if (buildExitCode !== 0) {
     throw new Error(`Frontend build failed with exit code ${buildExitCode}`);
@@ -291,6 +480,10 @@ async function runProd(config: LocalRunConfig): Promise<void> {
   const state = createProcessState();
 
   const cleanup = (reason?: string) => {
+    if (state.isShuttingDown) {
+      process.exit(reason ? 1 : 0);
+      return;
+    }
     state.isShuttingDown = true;
     if (reason) {
       log("\nError: %s", reason);
@@ -298,10 +491,13 @@ async function runProd(config: LocalRunConfig): Promise<void> {
     log("Shutting down...");
     if (!serverProcess.killed) {
       serverProcess.kill("SIGTERM");
+      setTimeout(() => {
+        if (!serverProcess.killed) {
+          serverProcess.kill("SIGKILL");
+        }
+      }, 1000);
     }
-    if (reason) {
-      process.exit(1);
-    }
+    setTimeout(() => process.exit(reason ? 1 : 0), 2000);
   };
 
   const onError = (label: string, message: string) => {
@@ -319,7 +515,8 @@ async function runProd(config: LocalRunConfig): Promise<void> {
     PROJECT_ROOT,
     "Production server",
     serverState,
-    onError
+    onError,
+    backendLogPath
   );
 
   process.on("SIGINT", () => cleanup());
@@ -339,6 +536,8 @@ export function createLocalCommand(): Command {
     .command("dev [environment]")
     .description("Start in development mode with hot reload (ng serve + tsx watch)")
     .option("-p, --port <port>", "Backend port", "5001")
+    .option("--log-dir <dir>", "Directory to write frontend.log and backend.log")
+    .option("--log-timestamp", "Add timestamp to log filenames")
     .action(async (environment, options) => {
       try {
         const environmentName = environment || await (async () => {
@@ -353,7 +552,9 @@ export function createLocalCommand(): Command {
         await runDev({
           environmentName,
           mode: "dev",
-          port
+          port,
+          logDir: options.logDir,
+          logTimestamp: options.logTimestamp
         });
       } catch (error) {
         log("Error: %s", error.message);
@@ -365,6 +566,8 @@ export function createLocalCommand(): Command {
     .command("prod [environment]")
     .description("Build and start in production mode")
     .option("-p, --port <port>", "Server port", "5001")
+    .option("--log-dir <dir>", "Directory to write frontend.log and backend.log")
+    .option("--log-timestamp", "Add timestamp to log filenames")
     .action(async (environment, options) => {
       try {
         const environmentName = environment || await (async () => {
@@ -379,7 +582,9 @@ export function createLocalCommand(): Command {
         await runProd({
           environmentName,
           mode: "prod",
-          port
+          port,
+          logDir: options.logDir,
+          logTimestamp: options.logTimestamp
         });
       } catch (error) {
         log("Error: %s", error.message);
@@ -390,9 +595,9 @@ export function createLocalCommand(): Command {
   local
     .command("list")
     .description("List available environments")
-    .action(() => {
+    .action(async () => {
       try {
-        const environments = listEnvironmentSummaries();
+        const environments = await listEnvironmentSummariesFromDatabase();
 
         if (environments.length === 0) {
           log("No environments configured");
