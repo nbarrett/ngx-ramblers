@@ -3,11 +3,12 @@ import path from "path";
 import debug from "debug";
 import { SecretsFile } from "../environment-setup/types";
 import { envConfig } from "../env-config/env-config";
+import { resolveClientPath } from "./path-utils";
 
 const debugLog = debug(envConfig.logNamespace("shared:secrets"));
 
 export function secretsDirectory(): string {
-  return path.resolve(__dirname, "../../../non-vcs/secrets");
+  return resolveClientPath("non-vcs/secrets");
 }
 
 export function secretsPath(appName: string): string {
