@@ -37,6 +37,9 @@ WORKDIR /usr/src/app
 # Copy package.json and package-lock.json to the working directory
 COPY package*.json ./
 
+# Copy fly.toml for deployment configuration
+COPY fly.toml ./
+
 # Copy Angular configuration files
 COPY angular.json ./
 COPY ts*.json ./

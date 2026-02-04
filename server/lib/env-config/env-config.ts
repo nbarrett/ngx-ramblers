@@ -11,11 +11,11 @@ import { env, environmentVariable, isProduction, logNamespace } from "./env-core
 const debugLog = debug(logNamespace("env-config"));
 const validatedCache = new Map<string, string>();
 
-function booleanEnvironmentVariable(variableName: string) {
+function booleanEnvironmentVariable(variableName: Environment) {
   return booleanOf(environmentVariable(variableName));
 }
 
-function validatedEnvironmentVariable(variableName: string): string {
+function validatedEnvironmentVariable(variableName: Environment): string {
   if (validatedCache.has(variableName)) {
     return validatedCache.get(variableName)!;
   }

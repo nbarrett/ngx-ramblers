@@ -15,6 +15,15 @@ import { envConfig } from "../../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("cli:fly"));
 
+function getFlyTomlPath(): string {
+  const flyTomlPath = flyTomlAbsolutePath();
+  if (!fs.existsSync(flyTomlPath)) {
+    throw new Error(`fly.toml not found at: ${flyTomlPath}. Ensure fly.toml is included in the Docker image.`);
+  }
+  debugLog("Using fly.toml at:", flyTomlPath);
+  return flyTomlPath;
+}
+
 function setFlyApiToken(apiKey?: string): void {
   if (apiKey) {
     process.env.FLY_API_TOKEN = apiKey;
@@ -103,11 +112,7 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgress?: Progre
     report("fly.io authentication verified");
 
     report("Checking fly.io configuration");
-
-    const flyTomlPath = flyTomlAbsolutePath();
-    if (!fs.existsSync(flyTomlPath)) {
-      throw new Error(`fly.toml not found at: ${flyTomlPath}`);
-    }
+    const flyTomlPath = getFlyTomlPath();
 
     const deploymentConfig = readConfigFile(configsJsonPath());
     const dockerImage = deploymentConfig.dockerImage;
@@ -288,7 +293,7 @@ export function createFlyCommand(): Command {
   fly
     .command("token [appName]")
     .description("Generate a deploy token for an app")
-    .action(async (appName) => {
+    .action(async appName => {
       try {
         if (!appName) {
           log("App name is required");
