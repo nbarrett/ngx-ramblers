@@ -4,11 +4,9 @@ This directory contains git hooks that enforce project standards.
 
 ## Installation
 
-Hooks are **automatically installed** during `npm install` via the `postinstall` script.
-
-To manually install hooks:
+Hooks are centralised in `.githooks/` and activated by git via:
 ```bash
-npm run setup:hooks
+git config core.hooksPath .githooks
 ```
 
 ## Available Hooks
@@ -35,11 +33,18 @@ Co-Authored-By: Claude Sonnet <noreply@anthropic.com>
 ❌ COMMIT REJECTED: AI attribution detected in commit message
 ```
 
+### pre-push
+Runs the test suite when pushing to `main` or `pre-main`.
+
+**Behaviours:**
+- Blocks the push if tests fail.
+- Skips for other branches.
+
 ## How It Works
 
-1. Hooks are stored in `.githooks/` (tracked by git)
-2. During `npm install`, hooks are copied to `.git/hooks/` (not tracked)
-3. Git automatically runs these hooks at the appropriate time
+1. Hooks live in `.githooks/` (tracked by git).
+2. Git uses `core.hooksPath` to run them directly from this directory.
+3. Git automatically runs these hooks at the appropriate time.
 
 ## Bypassing Hooks (Not Recommended)
 
