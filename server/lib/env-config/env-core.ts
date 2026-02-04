@@ -1,7 +1,7 @@
 import { Environment } from "./environment-model";
 
-export function environmentVariable(variableName: string): string | undefined {
-  return process.env[variableName];
+export function environmentVariable(environmentVariable: Environment): string | undefined {
+  return process.env[environmentVariable];
 }
 
 export const env = environmentVariable(Environment.NODE_ENV) || "development";

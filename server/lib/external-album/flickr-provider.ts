@@ -23,10 +23,11 @@ import {
 import { launchBrowser } from "../migration/serenity-utils";
 import { entries } from "../../../projects/ngx-ramblers/src/app/functions/object-utils";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { Environment } from "../env-config/environment-model";
 
 const debugLog = debug(envConfig.logNamespace("flickr-provider"));
 debugLog.enabled = true;
-const flickrHtmlDumpDir = envConfig.value("FLICKR_SCRAPE_DUMP_DIR");
+const flickrHtmlDumpDir = envConfig.value(Environment.FLICKR_SCRAPE_DUMP_DIR);
 
 async function saveHtmlSnapshot(label: string, url: string, html: string): Promise<void> {
   if (!flickrHtmlDumpDir) {
