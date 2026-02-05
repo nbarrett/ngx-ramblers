@@ -126,9 +126,17 @@ export async function createOrUpdateKey(configKey: ConfigKey, value: any): Promi
 export function handleQuery(req: Request, res: Response): Promise<any> {
   try {
     const configKey = configKeyFromQuerystring(req);
-    const isAdmin = isAdminFromRequest(req);
+    const tokenPresent = hasAuthToken(req);
+    const { isAdmin, tokenValid } = resolveTokenStatus(req);
 
     if (adminOnlyConfigKeys.has(configKey) && !isAdmin) {
+      if (tokenPresent && !tokenValid) {
+        debugLog(`Rejected expired/invalid token for admin-only config: ${configKey}`);
+        return Promise.resolve(res.status(401).json({
+          message: "Token expired or invalid",
+          error: "Unauthorized"
+        }));
+      }
       debugLog(`Blocked unauthenticated access to admin-only config: ${configKey}`);
       return Promise.resolve(res.status(403).json({
         message: "Authentication required to access this configuration",
@@ -166,13 +174,39 @@ export function handleQuery(req: Request, res: Response): Promise<any> {
   }
 }
 
+function verifiedTokenPayload(req: Request): any {
+  const authHeader = req.headers?.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
+  if (!token) return null;
+  return jwt.verify(token, envConfig.auth().secret);
+}
+
+function hasAdminRole(payload: any): boolean {
+  return !!(payload?.memberAdmin || payload?.contentAdmin || payload?.fileAdmin || payload?.walkAdmin || payload?.socialAdmin || payload?.treasuryAdmin || payload?.financeAdmin);
+}
+
+function hasAuthToken(req: Request): boolean {
+  const authHeader = req.headers?.authorization || "";
+  return authHeader.startsWith("Bearer ");
+}
+
+function resolveTokenStatus(req: Request): { isAdmin: boolean; tokenValid: boolean } {
+  if (!hasAuthToken(req)) {
+    return { isAdmin: false, tokenValid: true };
+  }
+  try {
+    const payload = verifiedTokenPayload(req);
+    return { isAdmin: payload ? hasAdminRole(payload) : false, tokenValid: true };
+  } catch (error) {
+    debugLog("Token verification failed:", error);
+    return { isAdmin: false, tokenValid: false };
+  }
+}
+
 function isAdminFromRequest(req: Request): boolean {
   try {
-    const authHeader = req.headers?.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : undefined;
-    if (!token) return false;
-    const payload: any = jwt.verify(token, envConfig.auth().secret);
-    return !!(payload?.memberAdmin || payload?.contentAdmin || payload?.fileAdmin || payload?.walkAdmin || payload?.socialAdmin || payload?.treasuryAdmin || payload?.financeAdmin);
+    const payload = verifiedTokenPayload(req);
+    return hasAdminRole(payload);
   } catch {
     return false;
   }

@@ -170,7 +170,16 @@ export async function createOrUpdateTemplate(request: CreateTemplateRequest): Pr
     return existing.id;
   }
 
-  debugLog("createOrUpdateTemplate: creating new template");
-  const created = await createTemplate(request);
+  const defaultSender = await getDefaultSender();
+  if (!defaultSender || !defaultSender.email || !defaultSender.name) {
+    throw new Error("No active sender found in Brevo account. Please configure an active sender first.");
+  }
+
+  debugLog("createOrUpdateTemplate: creating new template with sender", defaultSender.name, defaultSender.email);
+  const created = await createTemplate({
+    ...request,
+    senderName: defaultSender.name,
+    senderEmail: defaultSender.email
+  });
   return created.id;
 }
