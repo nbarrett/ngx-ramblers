@@ -422,7 +422,8 @@ export enum SetupStep {
   UPDATE_ENVIRONMENTS_CONFIG = "update-environments-config",
   INITIALISE_DATABASE = "initialise-database",
   IMPORT_SECRETS = "import-secrets",
-  DEPLOY_APP = "deploy-app"
+  DEPLOY_APP = "deploy-app",
+  SETUP_SUBDOMAIN = "setup-subdomain"
 }
 
 export enum OperationInProgress {
@@ -443,7 +444,7 @@ export enum ManageAction {
 }
 
 export enum EnvironmentSetupTab {
-  CREATE = "Create New",
+  CREATE = "Create or Modify",
   SETTINGS = "Settings"
 }
 

@@ -20,6 +20,12 @@ export interface FlyioConfig {
   organisation?: string;
 }
 
+export interface CloudflareConfig {
+  apiToken?: string;
+  zoneId?: string;
+  baseDomain?: string;
+}
+
 export interface EnvironmentConfig {
   environment: string;
   aws?: AwsConfig;
@@ -31,6 +37,7 @@ export interface EnvironmentConfig {
 export interface EnvironmentsConfig {
   environments?: EnvironmentConfig[];
   aws?: AwsConfig;
+  cloudflare?: CloudflareConfig;
   secrets?: Record<string, string>;
 }
 
@@ -42,6 +49,10 @@ export const FLYIO_DEFAULTS = {
 
 export const AWS_DEFAULTS = {
   REGION: "eu-west-2"
+} as const;
+
+export const CLOUDFLARE_DEFAULTS = {
+  BASE_DOMAIN: "ngx-ramblers.org.uk"
 } as const;
 
 export function createEmptyAwsConfig(): AwsConfig {
@@ -59,6 +70,14 @@ export function createEmptyMongoConfig(): MongoConfig {
     db: "",
     username: "",
     password: ""
+  };
+}
+
+export function createEmptyCloudflareConfig(): CloudflareConfig {
+  return {
+    apiToken: "",
+    zoneId: "",
+    baseDomain: CLOUDFLARE_DEFAULTS.BASE_DOMAIN
   };
 }
 

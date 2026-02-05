@@ -16,7 +16,7 @@ import { envConfig } from "../../env-config/env-config";
 import { removeEnvironment } from "../../shared/configs-json";
 import { findEnvironmentFromDatabase } from "../../environments/environments-config";
 import { loadSecretsForEnvironment, secretsPath } from "../../shared/secrets";
-import { runCommand } from "../../../deploy/fly-commands";
+import { runCommand } from "../../fly/fly-commands";
 import { adminConfigFromEnvironment } from "../../environment-setup/aws-setup";
 import { ProgressCallback } from "../types";
 import { log } from "../cli-logger";

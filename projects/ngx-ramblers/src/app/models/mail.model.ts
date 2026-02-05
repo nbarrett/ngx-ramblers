@@ -170,6 +170,12 @@ export interface MergeFields {
   MEMBER_EXP: string;
 }
 
+export const BREVO_DEFAULTS = {
+  BASE_URL: "https://app.brevo.com",
+  MY_BASE_URL: "https://my.brevo.com",
+  EDITOR_URL: "https://editor-app.brevo.com"
+} as const;
+
 export interface MailConfig extends BuiltInProcessMappings {
   apiKey: string;
   baseUrl: string;

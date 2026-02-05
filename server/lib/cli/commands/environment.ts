@@ -7,10 +7,14 @@ import { parseMongoUri } from "../../shared/mongodb-uri";
 import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
 import { normaliseMemory } from "../../shared/spelling";
 import { reinitDatabase, seedDatabase } from "./database";
-import { deployToFlyio } from "./fly";
+import { DeployOutputCallback, deployToFlyio } from "./fly";
 import { EnvironmentResult, FlyDeployConfig, ProgressCallback, ResumeOptions } from "../types";
 import { log } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
+
+export interface ResumeEnvironmentOptions extends ResumeOptions {
+  onDeployOutput?: DeployOutputCallback;
+}
 
 const debugLog = debug(envConfig.logNamespace("cli:environment"));
 
@@ -33,19 +37,19 @@ export async function createEnvironment(
 
 export async function resumeEnvironment(
   name: string,
-  options: ResumeOptions,
+  options: ResumeEnvironmentOptions,
   onProgress?: ProgressCallback
 ): Promise<EnvironmentResult> {
   debugLog("Resuming environment:", name, "options:", options);
 
-  const envConfig = await findEnvironmentFromDatabase(name);
-  if (!envConfig) {
+  const envConfigData = await findEnvironmentFromDatabase(name);
+  if (!envConfigData) {
     throw new Error(`Environment ${name} not found`);
   }
 
-  const secrets = await loadSecretsWithFallback(name, envConfig.appName);
+  const secrets = await loadSecretsWithFallback(name, envConfigData.appName);
   if (keys(secrets.secrets).length === 0) {
-    throw new Error(`No secrets found for ${envConfig.appName}`);
+    throw new Error(`No secrets found for ${envConfigData.appName}`);
   }
   debugLog("Loaded secrets from:", secrets.path);
 
@@ -112,23 +116,26 @@ export async function resumeEnvironment(
 
   if (options.runFlyDeployment) {
     const deployConfig: FlyDeployConfig = {
-      name: envConfig.name,
-      appName: envConfig.appName,
-      memory: normaliseMemory(envConfig.memory),
-      scaleCount: envConfig.scaleCount,
-      organisation: envConfig.organisation,
+      name: envConfigData.name,
+      appName: envConfigData.appName,
+      memory: normaliseMemory(envConfigData.memory),
+      scaleCount: envConfigData.scaleCount,
+      organisation: envConfigData.organisation,
       secrets: secrets.secrets,
-      apiKey: envConfig.apiKey
+      apiKey: envConfigData.apiKey
     };
 
-    await deployToFlyio(deployConfig, onProgress);
+    await deployToFlyio(deployConfig, {
+      onProgress,
+      onDeployOutput: options.onDeployOutput
+    });
   }
 
   return {
     success: true,
-    environmentName: envConfig.name,
-    appName: envConfig.appName,
-    appUrl: `https://${envConfig.appName}.fly.dev`
+    environmentName: envConfigData.name,
+    appName: envConfigData.appName,
+    appUrl: `https://${envConfigData.appName}.fly.dev`
   };
 }
 

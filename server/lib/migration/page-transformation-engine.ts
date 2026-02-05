@@ -208,7 +208,8 @@ export class PageTransformationEngine {
     return {
       path: "",
       rows: ctx.rows,
-      debugLogs: this.debugLogs
+      debugLogs: this.debugLogs,
+      migrationTemplate: { mappings: [] }
     };
   }
 
@@ -2076,7 +2077,11 @@ export class PageTransformationEngine {
     this.log(`✅ Starting template-based transformation for page: ${scrapedPage.path}`);
     this.log(`   Template has ${template.rows?.length || 0} rows`);
 
-    const result: PageContent = {path: scrapedPage.path, rows: []};
+    const result: PageContent = {
+      path: scrapedPage.path,
+      rows: [],
+      migrationTemplate: { mappings: [] }
+    };
     if (!template.rows) {
       this.log("❌ Template has no rows");
       result.debugLogs = this.debugLogs;

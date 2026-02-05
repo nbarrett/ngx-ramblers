@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { ConfigService } from "../config.service";
 import { ConfigKey } from "../../models/config.model";
-import { MailConfig } from "../../models/mail.model";
+import { BREVO_DEFAULTS, MailConfig } from "../../models/mail.model";
 
 @Injectable({
   providedIn: "root"
@@ -22,9 +22,9 @@ export class MailConfigService {
       apiKey: null,
       allowSendCampaign: true,
       allowSendTransactional: true,
-      editorUrl: "https://editor-app.brevo.com",
-      baseUrl: "https://app.brevo.com",
-      myBaseUrl: "https://my.brevo.com",
+      editorUrl: BREVO_DEFAULTS.EDITOR_URL,
+      baseUrl: BREVO_DEFAULTS.BASE_URL,
+      myBaseUrl: BREVO_DEFAULTS.MY_BASE_URL,
       listSettings: []
     });
   }

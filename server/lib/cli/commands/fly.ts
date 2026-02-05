@@ -3,7 +3,7 @@ import debug from "debug";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { flyTomlAbsolutePath, readConfigFile, runCommand } from "../../../deploy/fly-commands";
+import { flyTomlAbsolutePath, OutputCallback, readConfigFile, runCommand, runCommandStreaming } from "../../fly/fly-commands";
 import { loadSecretsForEnvironment, secretsPath, writeSecretsFile } from "../../shared/secrets";
 import { addOrUpdateEnvironment, configsJsonPath } from "../../shared/configs-json";
 import { findEnvironmentFromDatabase } from "../../environments/environments-config";
@@ -12,6 +12,8 @@ import { DeployResult, FlyDeployConfig, ProgressCallback } from "../types";
 import { EnvironmentConfig, FLYIO_DEFAULTS } from "../../../deploy/types";
 import { log } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
+
+export type DeployOutputCallback = OutputCallback;
 
 const debugLog = debug(envConfig.logNamespace("cli:fly"));
 
@@ -98,11 +100,32 @@ async function appExists(appName: string): Promise<boolean> {
   }
 }
 
-export async function deployToFlyio(config: FlyDeployConfig, onProgress?: ProgressCallback): Promise<DeployResult> {
+export interface DeployToFlyioOptions {
+  onProgress?: ProgressCallback;
+  onDeployOutput?: DeployOutputCallback;
+}
+
+export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions?: ProgressCallback | DeployToFlyioOptions): Promise<DeployResult> {
+  const options: DeployToFlyioOptions = typeof onProgressOrOptions === "function"
+    ? { onProgress: onProgressOrOptions }
+    : onProgressOrOptions || {};
+
+  const { onProgress, onDeployOutput } = options;
+
   const report = (message: string, status: "running" | "completed" | "failed" = "running") => {
     debugLog(message);
     if (onProgress) {
       onProgress({ step: "deploy-flyio", status, message });
+    }
+  };
+
+  const runDeployCommand = async (command: string, description: string): Promise<void> => {
+    if (onDeployOutput) {
+      report(`${description} (streaming output)...`);
+      await runCommandStreaming(command, onDeployOutput);
+    } else {
+      report(description);
+      runCommand(command);
     }
   };
 
@@ -156,8 +179,10 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgress?: Progre
     }
 
     if (needsInitialDeploy) {
-      report(`Deploying ${config.appName} (initial deploy)`);
-      runCommand(`flyctl deploy --app ${config.appName} --config ${flyTomlPath} --image ${dockerImage} --strategy rolling --wait-timeout 600`);
+      await runDeployCommand(
+        `flyctl deploy --app ${config.appName} --config ${flyTomlPath} --image ${dockerImage} --strategy rolling --wait-timeout 600`,
+        `Deploying ${config.appName} (initial deploy)`
+      );
     }
 
     report("Scaling application");
@@ -165,8 +190,10 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgress?: Progre
     runCommand(`flyctl scale memory ${normaliseMemory(config.memory)} --app ${config.appName}`);
 
     if (!needsInitialDeploy) {
-      report(`Redeploying ${config.appName}`);
-      runCommand(`flyctl deploy --app ${config.appName} --config ${flyTomlPath} --image ${dockerImage} --strategy rolling --wait-timeout 600`);
+      await runDeployCommand(
+        `flyctl deploy --app ${config.appName} --config ${flyTomlPath} --image ${dockerImage} --strategy rolling --wait-timeout 600`,
+        `Redeploying ${config.appName}`
+      );
     }
 
     const envConfigToSave: EnvironmentConfig = {

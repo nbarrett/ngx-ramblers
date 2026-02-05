@@ -6,8 +6,18 @@ import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/webso
 import { EnvironmentSetupRequest } from "./types";
 import { findEnvironmentFromDatabase } from "../environments/environments-config";
 import { loadSecretsWithFallback } from "../shared/secrets";
-import { resumeEnvironment } from "../cli/commands/environment";
+import { ResumeEnvironmentOptions, resumeEnvironment } from "../cli/commands/environment";
 import { createEnvironment, validateSetupRequest } from "./environment-setup-service";
+
+export interface EnvironmentSetupWsData {
+  environmentName: string;
+  runFlyDeployment?: boolean;
+  runDbInit?: boolean;
+}
+
+export interface EnvironmentCreateWsData {
+  request: EnvironmentSetupRequest;
+}
 
 const debugLog = debug(envConfig.logNamespace("environment-setup-ws-handler"));
 debugLog.enabled = true;
@@ -33,7 +43,7 @@ function sendComplete(ws: WebSocket, message: string, data?: any): void {
   }));
 }
 
-export async function handleEnvironmentSetup(ws: WebSocket, data: any): Promise<void> {
+export async function handleEnvironmentSetup(ws: WebSocket, data: EnvironmentSetupWsData): Promise<void> {
   debugLog("handleEnvironmentSetup received:", data);
 
   const { environmentName, runFlyDeployment, runDbInit } = data;
@@ -64,12 +74,17 @@ export async function handleEnvironmentSetup(ws: WebSocket, data: any): Promise<
       return;
     }
 
+    const resumeOptions: ResumeEnvironmentOptions = {
+      runDbInit: runDbInit || false,
+      runFlyDeployment: runFlyDeployment || false,
+      onDeployOutput: (line: string) => {
+        sendProgress(ws, `[deploy] ${line}`);
+      }
+    };
+
     const result = await resumeEnvironment(
       environmentName,
-      {
-        runDbInit: runDbInit || false,
-        runFlyDeployment: runFlyDeployment || false
-      },
+      resumeOptions,
       (progress) => {
         sendProgress(ws, `[${progress.status}] ${progress.step}${progress.message ? `: ${progress.message}` : ""}`);
       }
@@ -90,10 +105,10 @@ export async function handleEnvironmentSetup(ws: WebSocket, data: any): Promise<
   }
 }
 
-export async function handleEnvironmentCreate(ws: WebSocket, data: any): Promise<void> {
+export async function handleEnvironmentCreate(ws: WebSocket, data: EnvironmentCreateWsData): Promise<void> {
   debugLog("handleEnvironmentCreate received:", data);
 
-  const request: EnvironmentSetupRequest = data.request;
+  const { request } = data;
 
   if (!request) {
     sendError(ws, "request is required");

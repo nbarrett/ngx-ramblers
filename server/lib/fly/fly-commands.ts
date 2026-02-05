@@ -1,11 +1,13 @@
 import path from "path";
 import fs from "fs";
 import debug from "debug";
-import { execSync } from "child_process";
-import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation } from "./types";
-import { Environment } from "../lib/env-config/environment-model";
-import { resolveClientPath } from "../lib/shared/path-utils";
-import { envConfig } from "../lib/env-config/env-config";
+import { execSync, spawn, ChildProcess } from "child_process";
+import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation } from "../../deploy/types";
+import { Environment } from "../env-config/environment-model";
+import { resolveClientPath } from "../shared/path-utils";
+import { envConfig } from "../env-config/env-config";
+
+export type OutputCallback = (line: string) => void;
 
 const debugLog = debug(envConfig.logNamespace("deploy-environments"));
 const debugNoLog = debug(envConfig.logNamespace("deploy-environments-nolog"));
@@ -37,6 +39,85 @@ export function runCommand(command: string, returnOutput: boolean = false, throw
     }
     process.exit(1);
   }
+}
+
+export interface StreamingCommandResult {
+  exitCode: number;
+  output: string;
+}
+
+export function runCommandStreaming(
+  command: string,
+  onOutput?: OutputCallback
+): Promise<StreamingCommandResult> {
+  return new Promise((resolve, reject) => {
+    debugLog(`Running streaming command: ${command}`);
+
+    const isWindows = process.platform === "win32";
+    const shell = isWindows ? "cmd.exe" : "/bin/sh";
+    const shellArgs = isWindows ? ["/c", command] : ["-c", command];
+
+    const child: ChildProcess = spawn(shell, shellArgs, {
+      stdio: ["inherit", "pipe", "pipe"],
+      env: process.env
+    });
+
+    let output = "";
+    let lineBuffer = "";
+
+    const processLine = (line: string): void => {
+      if (line.trim()) {
+        output += line + "\n";
+        if (onOutput) {
+          onOutput(line);
+        }
+        debugLog(`[stream] ${line}`);
+      }
+    };
+
+    const processChunk = (chunk: Buffer): void => {
+      const text = chunk.toString();
+      lineBuffer += text;
+
+      const lines = lineBuffer.split(/\r?\n/);
+      lineBuffer = lines.pop() || "";
+
+      for (const line of lines) {
+        processLine(line);
+      }
+    };
+
+    if (child.stdout) {
+      child.stdout.on("data", processChunk);
+    }
+
+    if (child.stderr) {
+      child.stderr.on("data", processChunk);
+    }
+
+    child.on("error", (error: Error) => {
+      debugLog(`Command error: ${error.message}`);
+      reject(error);
+    });
+
+    child.on("close", (code: number | null) => {
+      if (lineBuffer.trim()) {
+        processLine(lineBuffer);
+      }
+
+      const exitCode = code ?? 0;
+      debugLog(`Command exited with code: ${exitCode}`);
+
+      if (exitCode === 0) {
+        resolve({ exitCode, output });
+      } else {
+        const error = new Error(`Command failed with exit code ${exitCode}: ${command}`);
+        (error as any).exitCode = exitCode;
+        (error as any).output = output;
+        reject(error);
+      }
+    });
+  });
 }
 export function createRuntimeConfig(): RuntimeConfig {
   const filterEnvironments: string[] = process.argv.slice(2).reduce((acc: string[], arg, index, args) => {

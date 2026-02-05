@@ -118,7 +118,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                              (change)="setSetupMode(SetupMode.MANAGE)">
                                       <label class="form-check-label" for="modeResume">
                                         <fa-icon [icon]="faRedo" class="me-2"></fa-icon>
-                                        Resume Existing Setup
+                                        Modify Existing Environment
                                       </label>
                                     </div>
                                   </div>
