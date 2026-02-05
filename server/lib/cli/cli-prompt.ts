@@ -238,3 +238,82 @@ export function handleQuit(): never {
   console.log("\nQuitting...");
   process.exit(0);
 }
+
+interface CheckboxOptions<T> {
+  message: string;
+  choices: { name: string; value: T; checked?: boolean }[];
+  allowBack?: boolean;
+}
+
+export async function checkbox<T>(options: CheckboxOptions<T>): Promise<PromptResult<T[]>> {
+  const allowBack = options.allowBack !== false;
+  const hint = getHintText(allowBack);
+
+  return new Promise((resolve) => {
+    let resolved = false;
+    let rawModeWasEnabled = false;
+
+    const cleanup = () => {
+      process.stdin.removeListener("keypress", keyHandler);
+      if (rawModeWasEnabled && process.stdin.isTTY) {
+        try {
+          process.stdin.setRawMode(false);
+        } catch {}
+      }
+    };
+
+    const keyHandler = (ch: string, key: readline.Key) => {
+      if (resolved) return;
+      if (ch === "q") {
+        resolved = true;
+        cleanup();
+        handleQuit();
+      }
+      if (allowBack && key.name === "escape") {
+        resolved = true;
+        cleanup();
+        console.log();
+        resolve(BACK);
+      }
+    };
+
+    readline.emitKeypressEvents(process.stdin);
+    if (process.stdin.isTTY && !process.stdin.isRaw) {
+      rawModeWasEnabled = true;
+      process.stdin.setRawMode(true);
+    }
+    process.stdin.on("keypress", keyHandler);
+
+    const choicesWithHint = [
+      ...options.choices,
+      new inquirer.Separator(),
+      new inquirer.Separator(hint)
+    ];
+
+    inquirer
+      .prompt([
+        {
+          type: "checkbox",
+          name: "selections",
+          message: options.message,
+          choices: choicesWithHint,
+          pageSize: 20,
+          loop: false
+        }
+      ])
+      .then((answers) => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          resolve(answers.selections);
+        }
+      })
+      .catch(() => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          resolve(QUIT);
+        }
+      });
+  });
+}

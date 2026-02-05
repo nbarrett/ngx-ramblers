@@ -2,6 +2,7 @@ import { inject, Injectable } from "@angular/core";
 import { first, last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
+  ContentPathMatch,
   ContentPathMatchConfigs,
   FocalPointTarget,
   IndexContentType,
@@ -45,7 +46,7 @@ export class IndexService {
   public logger = this.loggerFactory.createLogger("IndexService", NgxLoggerLevel.ERROR);
   public instance = this;
 
-  public async albumIndexToPageContent(pageContentRow: PageContentRow, rowIndex: number, visitedPaths: string[] = []): Promise<PageContent> {
+  public async albumIndexToPageContent(pageContentRow: PageContentRow, rowIndex: number, visitedPaths: string[] = [], depth: number = 0, prefetchedPages?: PageContent[]): Promise<PageContent> {
     const albumIndex = pageContentRow.albumIndex;
     if (albumIndex?.contentPaths?.length > 0) {
       const contentTypes = albumIndex.contentTypes || [IndexContentType.ALBUMS];
@@ -54,20 +55,46 @@ export class IndexService {
         path: ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath)
       }));
 
-      this.logger.info("Query criteria:", {$or: pathRegex});
-      const pages: PageContent[] = await this.pageContentService.all({criteria: {$or: pathRegex}});
+      this.logger.info("Query criteria:", {$or: pathRegex}, "depth:", depth);
+
+      let allPagesForImageSearch: PageContent[] = prefetchedPages;
+      if (depth === 0 && !prefetchedPages) {
+        const broadPathRegex = albumIndex.contentPaths.map(contentPath => {
+          const basePath = contentPath.contentPath.replace(/\/$/, "");
+          return {path: {$regex: `^${basePath}`, $options: "i"}};
+        });
+        allPagesForImageSearch = await this.pageContentService.all({criteria: {$or: broadPathRegex}});
+        this.logger.info("Prefetched", allPagesForImageSearch.length, "pages for image searching");
+      }
+
+      let pages: PageContent[];
+      if (allPagesForImageSearch) {
+        pages = allPagesForImageSearch.filter(page =>
+          albumIndex.contentPaths.some(contentPath => {
+            const regex = ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath);
+            return new RegExp(regex.$regex, regex.$options).test(page.path);
+          })
+        );
+        this.logger.info("Using prefetched pages, filtered to", pages.length, "matches");
+        prefetchedPages = allPagesForImageSearch;
+      } else {
+        pages = await this.pageContentService.all({criteria: {$or: pathRegex}});
+      }
       this.logger.info("Found", pages.length, "pages matching criteria. Sample paths:", pages.slice(0, 5).map(p => p.path));
+
+      pages = this.filterByMaxPathSegments(pages, albumIndex.contentPaths);
+      this.logger.info("After maxPathSegments filter:", pages.length, "pages");
 
       let allColumns: PageContentColumn[] = [];
 
       if (contentTypes.includes(IndexContentType.ALBUMS)) {
-        const albumColumns = await this.extractAlbumColumns(pages, visitedPaths);
+        const albumColumns = await this.extractAlbumColumns(pages, visitedPaths, depth, prefetchedPages);
         allColumns = allColumns.concat(albumColumns);
       }
 
       if (contentTypes.includes(IndexContentType.PAGES)) {
         const locationColumns = this.locationExtractionService.extractLocationsFromPages(pages);
-        const enrichedColumns = await this.enrichIndexColumnsWithImages(locationColumns, pages, visitedPaths);
+        const enrichedColumns = await this.enrichIndexColumnsWithImages(locationColumns, pages, visitedPaths, depth, prefetchedPages);
         allColumns = allColumns.concat(enrichedColumns);
       }
 
@@ -82,7 +109,7 @@ export class IndexService {
     }
   }
 
-  private async extractAlbumColumns(pages: PageContent[], visitedPaths: string[]): Promise<PageContentColumn[]> {
+  private async extractAlbumColumns(pages: PageContent[], visitedPaths: string[], depth: number = 0, prefetchedPages?: PageContent[]): Promise<PageContentColumn[]> {
     const pageContentToRows: PageContentToRows[] = pages.map(pageContent => ({
       pageContent,
       rows: pageContent.rows.filter(row => this.actions.isCarouselOrAlbum(row))
@@ -154,11 +181,17 @@ export class IndexService {
           this.logger.info("Using YouTube thumbnail for:", firstFileYoutubeId);
         }
         if (!imageSource || imageSource === "null") {
-          const nextVisitedPaths = this.nextVisitedPaths(visitedPaths, pageContentToRowsItem.pageContent.path);
-          const indexPreviewImage = await this.findIndexPreviewImage(pageContentToRowsItem.pageContent, nextVisitedPaths);
-          if (indexPreviewImage) {
-            this.logger.info("No metadata image found, using index preview image:", indexPreviewImage);
-            imageSource = indexPreviewImage;
+          if (this.withinPreviewImageSearchDepth(depth)) {
+            const nextVisitedPaths = this.nextVisitedPaths(visitedPaths, pageContentToRowsItem.pageContent.path);
+            const indexPreviewImage = await this.findIndexPreviewImage(pageContentToRowsItem.pageContent, nextVisitedPaths, depth, prefetchedPages);
+            if (indexPreviewImage) {
+              this.logger.info("No metadata image found, using index preview image:", indexPreviewImage);
+              imageSource = indexPreviewImage;
+            } else {
+              const firstPageImage = this.findFirstImageInPage(pageContentToRowsItem.pageContent);
+              this.logger.info("No metadata image found, using first page image:", firstPageImage);
+              imageSource = firstPageImage;
+            }
           } else {
             const firstPageImage = this.findFirstImageInPage(pageContentToRowsItem.pageContent);
             this.logger.info("No metadata image found, using first page image:", firstPageImage);
@@ -230,7 +263,7 @@ export class IndexService {
     return result;
   }
 
-  private async findIndexPreviewImage(pageContent: PageContent, visitedPaths: string[]): Promise<string | undefined> {
+  private async findIndexPreviewImage(pageContent: PageContent, visitedPaths: string[], depth: number = 0, prefetchedPages?: PageContent[]): Promise<string | undefined> {
     const indexRow = (pageContent.rows || []).find(row =>
       row.type === PageContentType.ALBUM_INDEX && row.albumIndex?.contentPaths?.length > 0
     );
@@ -238,7 +271,7 @@ export class IndexService {
 
     if (indexRow && (!pagePath || !visitedPaths.includes(pagePath))) {
       const nextVisitedPaths = this.nextVisitedPaths(visitedPaths, pagePath);
-      const previewContent = await this.albumIndexToPageContent(indexRow, 0, nextVisitedPaths);
+      const previewContent = await this.albumIndexToPageContent(indexRow, 0, nextVisitedPaths, depth + 1, prefetchedPages);
       if (previewContent) {
         return this.findFirstImageInPage(previewContent);
       } else {
@@ -252,7 +285,9 @@ export class IndexService {
   private async enrichIndexColumnsWithImages(
     columns: PageContentColumn[],
     pages: PageContent[],
-    visitedPaths: string[]
+    visitedPaths: string[],
+    depth: number = 0,
+    prefetchedPages?: PageContent[]
   ): Promise<PageContentColumn[]> {
     const enriched = await Promise.all(columns.map(async column => {
       if (column.imageSource) {
@@ -260,12 +295,13 @@ export class IndexService {
       } else {
         const pageMatch = pages.find(page => page.path === column.href);
         if (pageMatch) {
-          const indexPreviewImage = await this.findIndexPreviewImage(pageMatch, visitedPaths);
-          if (indexPreviewImage) {
-            return { ...column, imageSource: this.optimiseIndexImageSource(indexPreviewImage) };
-          } else {
-            return column;
+          if (this.withinPreviewImageSearchDepth(depth)) {
+            const indexPreviewImage = await this.findIndexPreviewImage(pageMatch, visitedPaths, depth, prefetchedPages);
+            if (indexPreviewImage) {
+              return { ...column, imageSource: this.optimiseIndexImageSource(indexPreviewImage) };
+            }
           }
+          return column;
         } else {
           return column;
         }
@@ -273,6 +309,28 @@ export class IndexService {
     }));
 
     return enriched;
+  }
+
+  private withinPreviewImageSearchDepth(depth: number): boolean {
+    return depth < 2;
+  }
+
+  private filterByMaxPathSegments(pages: PageContent[], contentPaths: ContentPathMatch[]): PageContent[] {
+    return pages.filter(page => {
+      return contentPaths.some(contentPath => {
+        if (!contentPath.maxPathSegments) {
+          return true;
+        }
+        const basePath = contentPath.contentPath.replace(/\/$/, "");
+        const pagePath = page.path || "";
+        if (!pagePath.startsWith(basePath)) {
+          return false;
+        }
+        const remainingPath = pagePath.slice(basePath.length).replace(/^\//, "");
+        const segmentCount = remainingPath ? remainingPath.split("/").length : 0;
+        return segmentCount <= contentPath.maxPathSegments;
+      });
+    });
   }
 
   private nextVisitedPaths(visitedPaths: string[], pathValue: string | undefined): string[] {
@@ -315,6 +373,9 @@ export class IndexService {
         if (result) {
           break;
         }
+      } else if (row.type === PageContentType.ALBUM_INDEX && row.albumIndex?.indexMarkdown) {
+        result = row.albumIndex.indexMarkdown.trim();
+        break;
       }
     }
 

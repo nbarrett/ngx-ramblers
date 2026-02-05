@@ -54,10 +54,22 @@ export interface NgxPage {
   rows: any[];
 }
 
+export interface NgxWalkGroupEvent {
+  title?: string;
+  start_date_time?: string;
+  end_date_time?: string;
+  description?: string;
+  distance_miles?: number;
+  difficulty?: { code: string; description: string };
+  start_location?: { latitude: number; longitude: number; postcode?: string };
+}
+
 export interface NgxWalk {
   id: string;
   title: string;
   eventDate: string;
+  briefDescriptionAndStartPoint?: string;
+  groupEvent?: NgxWalkGroupEvent;
 }
 
 export type GapType = "page" | "content" | "album";

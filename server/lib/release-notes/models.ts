@@ -58,11 +58,6 @@ export interface GenerateOptions {
   includeUnassigned?: boolean;
 }
 
-export interface CMSAuth {
-  baseUrl: string;
-  authToken: string;
-}
-
 export interface ConfigUpdateArguments {
   action: string;
   configKey?: string;

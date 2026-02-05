@@ -9,6 +9,7 @@ const PageContentColumn = new mongoose.Schema({
   youtubeId: {type: String},
   alt: {type: String},
   imageBorderRadius: {type: Number},
+  imageHeight: {type: Number},
   icon: {type: String},
   columns: {type: Number},
   contentText: {type: String},

@@ -122,7 +122,7 @@ import { ContentText } from "../../../models/content-text.model";
               }
             </select>
           </div>
-          <div class="col-sm-10">
+          <div class="col-sm-8">
             <form>
               <label for="{{id}}-album-{{index}}">
                 Content Path {{ index + 1 }}</label>
@@ -139,6 +139,16 @@ import { ContentText } from "../../../models/content-text.model";
                                   (click)="remove(contentPath)"/>
               </div>
             </form>
+          </div>
+          <div class="col-sm-2">
+            <label for="{{id}}-max-segments-{{index}}">Max Depth</label>
+            <input type="number"
+                   id="{{id}}-max-segments-{{index}}"
+                   [(ngModel)]="row.albumIndex.contentPaths[index].maxPathSegments"
+                   (ngModelChange)="refreshContentPreview()"
+                   min="1"
+                   placeholder="∞"
+                   class="form-control">
           </div>
         </div>
       }

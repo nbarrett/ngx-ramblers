@@ -5,6 +5,7 @@ import { execSync, spawn, ChildProcess } from "child_process";
 import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation } from "../../deploy/types";
 import { Environment } from "../env-config/environment-model";
 import { resolveClientPath } from "../shared/path-utils";
+import { configsJsonPath } from "../shared/configs-json";
 import { envConfig } from "../env-config/env-config";
 
 export type OutputCallback = (line: string) => void;
@@ -128,7 +129,7 @@ export function createRuntimeConfig(): RuntimeConfig {
   }, []);
 
   const currentDir = path.resolve(__dirname);
-  const configFilePath = path.resolve(currentDir, "../../non-vcs/fly-io/configs.json");
+  const configFilePath = configsJsonPath();
   return {currentDir, configFilePath, targetEnvironments: filterEnvironments};
 }
 

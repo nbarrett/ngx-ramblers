@@ -16,8 +16,9 @@ import {
   generatePageContent,
   updateIndexPageContent
 } from "./content-generator.js";
-import type { CMSAuth, ConventionalCommit, GenerateOptions, ReleaseNotesConfig, ReleaseNotesData } from "./models.js";
+import type { ConventionalCommit, GenerateOptions, ReleaseNotesConfig, ReleaseNotesData } from "./models.js";
 import { DEFAULT_CMS_BASE_URL } from "./models.js";
+import type { CMSAuth } from "./cms-client.js";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone, dateTimeNow } from "../shared/dates";
 import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
