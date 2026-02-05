@@ -19,8 +19,10 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { EnvironmentSetupService } from "../../../services/environment-setup/environment-setup.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { ExistingEnvironment, ManageAction, OperationInProgress } from "../../../models/environment-setup.model";
+import { EventType, MessageType } from "../../../models/websocket.model";
 import { SessionLogsComponent } from "../../../shared/components/session-logs";
 
 @Component({
@@ -69,7 +71,7 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                            (change)="setManageAction(ManageAction.RESUME)">
                     <label class="form-check-label" for="actionResume">
                       <fa-icon [icon]="faRedo" class="me-1"></fa-icon>
-                      Resume Setup
+                      Modify Environment
                     </label>
                   </div>
                   <div class="form-check">
@@ -135,34 +137,53 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                          [(ngModel)]="resumeOptions.copyStandardAssets">
                   <label class="form-check-label" for="copyStandardAssets">Copy standard assets (icons, logos, backgrounds)</label>
                 </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="setupSubdomain"
+                         [(ngModel)]="resumeOptions.setupSubdomain">
+                  <label class="form-check-label" for="setupSubdomain">Setup subdomain (DNS + SSL certificate)</label>
+                </div>
               </div>
             </div>
             @if (progressMessages.length > 0) {
-              <app-session-logs [messages]="progressMessages" class="mt-3"></app-session-logs>
+              <div class="row mt-3">
+                <div class="col-md-12">
+                  <app-session-logs [messages]="progressMessages"></app-session-logs>
+                </div>
+              </div>
             }
             @if (setupResult) {
-              <div class="alert alert-success mt-3">
-                <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
-                <strong>Setup resumed successfully!</strong>
-                @if (setupResult.appUrl) {
-                  <br>App URL: <a [href]="setupResult.appUrl" target="_blank">{{ setupResult.appUrl }}</a>
-                }
+              <div class="row mt-3">
+                <div class="col-md-12">
+                  <div class="alert alert-success mb-0">
+                    <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                    <strong>Environment modified successfully!</strong>
+                    @if (setupResult.appUrl) {
+                      <br>App URL: <a [href]="setupResult.appUrl" target="_blank">{{ setupResult.appUrl }}</a>
+                    }
+                  </div>
+                </div>
               </div>
             }
             @if (setupError) {
-              <div class="alert alert-danger mt-3">
-                <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                {{ setupError }}
+              <div class="row mt-3">
+                <div class="col-md-12">
+                  <div class="alert alert-danger mb-0">
+                    <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                    {{ setupError }}
+                  </div>
+                </div>
               </div>
             }
-            <div class="mt-3">
-              <button class="btn btn-primary" (click)="resumeSetup()"
-                      [disabled]="operationBusy">
-                @if (resuming) {
-                  <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
-                }
-                Resume Setup
-              </button>
+            <div class="row mt-3">
+              <div class="col-md-12">
+                <button class="btn btn-primary" (click)="resumeSetup()"
+                        [disabled]="operationBusy">
+                  @if (resuming) {
+                    <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
+                  }
+                  Modify Environment
+                </button>
+              </div>
             </div>
           }
 
@@ -185,28 +206,42 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
               </div>
             </div>
             @if (destroyProgressMessages.length > 0) {
-              <app-session-logs [messages]="destroyProgressMessages" class="mt-3"></app-session-logs>
+              <div class="row mt-3">
+                <div class="col-md-12">
+                  <app-session-logs [messages]="destroyProgressMessages"></app-session-logs>
+                </div>
+              </div>
             }
             @if (destroyComplete) {
-              <div class="alert alert-success mt-3">
-                <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
-                <strong>Environment destroyed successfully.</strong>
+              <div class="row mt-3">
+                <div class="col-md-12">
+                  <div class="alert alert-success mb-0">
+                    <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                    <strong>Environment destroyed successfully.</strong>
+                  </div>
+                </div>
               </div>
             }
             @if (destroyError) {
-              <div class="alert alert-danger mt-3">
-                <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                {{ destroyError }}
+              <div class="row mt-3">
+                <div class="col-md-12">
+                  <div class="alert alert-danger mb-0">
+                    <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                    {{ destroyError }}
+                  </div>
+                </div>
               </div>
             }
-            <div class="mt-3">
-              <button class="btn btn-danger" (click)="destroyEnvironment()"
-                      [disabled]="operationBusy || destroyComplete">
-                @if (destroying) {
-                  <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
-                }
-                Destroy Environment
-              </button>
+            <div class="row mt-3">
+              <div class="col-md-12">
+                <button class="btn btn-danger" (click)="destroyEnvironment()"
+                        [disabled]="operationBusy || destroyComplete">
+                  @if (destroying) {
+                    <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
+                  }
+                  Destroy Environment
+                </button>
+              </div>
             </div>
           }
         </div>
@@ -230,10 +265,12 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   private notifierService = inject(NotifierService);
   private environmentSetupService = inject(EnvironmentSetupService);
   private stringUtils = inject(StringUtilsService);
+  private websocketService = inject(WebSocketClientService);
 
   private subscriptions: Subscription[] = [];
   private notify: AlertInstance;
   notifyTarget: AlertTarget = {};
+  private wsConnected = false;
 
   enabled = false;
   loading = false;
@@ -245,7 +282,8 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   resumeOptions = {
     runDbInit: false,
     runFlyDeployment: true,
-    copyStandardAssets: false
+    copyStandardAssets: false,
+    setupSubdomain: false
   };
 
   progressMessages: string[] = [];
@@ -285,10 +323,57 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
       this.enabled = status.enabled;
       if (this.enabled) {
         await this.loadExistingEnvironments();
+        await this.connectWebSocket();
       }
     } catch (error) {
       this.logger.error("Failed to check setup status:", error);
       this.enabled = false;
+    }
+  }
+
+  private async connectWebSocket(): Promise<void> {
+    try {
+      await this.websocketService.connect();
+      this.wsConnected = true;
+      this.logger.info("WebSocket connected");
+
+      this.subscriptions.push(
+        this.websocketService.receiveMessages<{ message: string }>(MessageType.PROGRESS).subscribe(data => {
+          this.logger.info("Progress:", data);
+          if (data?.message) {
+            this.progressMessages.push(data.message);
+          }
+        }),
+        this.websocketService.receiveMessages<{ message: string; result?: { environmentName: string; appName: string; appUrl: string } }>(MessageType.COMPLETE).subscribe(async data => {
+          this.logger.info("Complete:", data);
+          if (data?.result) {
+            this.setupResult = {
+              environmentName: data.result.environmentName,
+              appName: data.result.appName,
+              appUrl: data.result.appUrl
+            };
+          }
+          this.progressMessages.push(data?.message || "Completed");
+          if (this.resumeOptions.setupSubdomain && this.selectedExistingEnv) {
+            await this.runSubdomainSetup();
+          }
+          this.operationInProgress = OperationInProgress.NONE;
+        }),
+        this.websocketService.receiveMessages<{ message?: string; transient?: boolean }>(MessageType.ERROR).subscribe(data => {
+          this.logger.error("WebSocket error:", data);
+          const isTransient = data?.transient === true;
+          if (isTransient) {
+            this.progressMessages.push("Connection lost - server operation may still be running. Check Fly.io dashboard for deployment status.");
+          } else {
+            this.operationInProgress = OperationInProgress.NONE;
+            this.setupError = data?.message || "An error occurred";
+            this.progressMessages.push(`Error: ${this.setupError}`);
+          }
+        })
+      );
+    } catch (error) {
+      this.logger.error("Failed to connect WebSocket:", error);
+      this.wsConnected = false;
     }
   }
 
@@ -339,7 +424,7 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     this.setupError = null;
     this.setupResult = null;
 
-    this.progressMessages.push(`Starting resume for environment: ${this.selectedExistingEnv.name}`);
+    this.progressMessages.push(`Modifying environment: ${this.selectedExistingEnv.name}`);
 
     try {
       if (this.resumeOptions.copyStandardAssets) {
@@ -365,26 +450,53 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
         }
       }
 
-      const response = await this.environmentSetupService.resumeEnvironment(
-        this.selectedExistingEnv.name,
-        this.resumeOptions.runDbInit,
-        this.resumeOptions.runFlyDeployment
-      );
+      if (this.wsConnected && (this.resumeOptions.runDbInit || this.resumeOptions.runFlyDeployment)) {
+        this.websocketService.sendMessage(EventType.ENVIRONMENT_SETUP, {
+          environmentName: this.selectedExistingEnv.name,
+          runDbInit: this.resumeOptions.runDbInit,
+          runFlyDeployment: this.resumeOptions.runFlyDeployment
+        });
 
-      if (response.result) {
-        this.setupResult = {
-          environmentName: response.result.environmentName,
-          appName: response.result.appName,
-          appUrl: response.result.appUrl
-        };
-        this.progressMessages.push("Setup resumed successfully!");
+        if (this.resumeOptions.setupSubdomain) {
+          this.progressMessages.push("Subdomain setup will run after deployment completes...");
+        }
+      } else {
+        const response = await this.environmentSetupService.resumeEnvironment(
+          this.selectedExistingEnv.name,
+          this.resumeOptions.runDbInit,
+          this.resumeOptions.runFlyDeployment
+        );
+
+        if (response.result) {
+          this.setupResult = {
+            environmentName: response.result.environmentName,
+            appName: response.result.appName,
+            appUrl: response.result.appUrl
+          };
+          this.progressMessages.push("Environment modified successfully!");
+        }
+        this.operationInProgress = OperationInProgress.NONE;
+
+        if (this.resumeOptions.setupSubdomain) {
+          await this.runSubdomainSetup();
+        }
       }
     } catch (error) {
       this.setupError = this.extractErrorDetail(error);
       this.progressMessages.push(`Error: ${this.setupError}`);
       this.logger.error("Resume setup failed:", error);
-    } finally {
       this.operationInProgress = OperationInProgress.NONE;
+    }
+  }
+
+  private async runSubdomainSetup(): Promise<void> {
+    if (!this.selectedExistingEnv) return;
+    this.progressMessages.push("Setting up subdomain...");
+    const subdomainResponse = await this.environmentSetupService.setupSubdomain(this.selectedExistingEnv.name);
+    if (subdomainResponse.success) {
+      this.progressMessages.push(`Subdomain configured: ${subdomainResponse.hostname}`);
+    } else {
+      this.progressMessages.push(`Subdomain setup failed: ${subdomainResponse.message}`);
     }
   }
 

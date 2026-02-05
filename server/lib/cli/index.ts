@@ -11,6 +11,8 @@ import { createLocalCommand } from "./commands/local";
 import { createBackupCommand } from "./commands/backup";
 import { createLocksCommand } from "./commands/locks";
 import { createGitHubCommand } from "./commands/github";
+import { createMigrateCommand } from "./commands/migrate";
+import { createSubdomainCommand } from "./commands/subdomain";
 import { Environment } from "../env-config/environment-model";
 import { envConfig } from "../env-config/env-config";
 
@@ -67,6 +69,8 @@ program.addCommand(configureHelp(createLocalCommand()));
 program.addCommand(configureHelp(createBackupCommand()));
 program.addCommand(configureHelp(createLocksCommand()));
 program.addCommand(configureHelp(createGitHubCommand()));
+program.addCommand(configureHelp(createMigrateCommand()));
+program.addCommand(configureHelp(createSubdomainCommand()));
 
 if (require.main === module) {
   logEnvironmentVariables();

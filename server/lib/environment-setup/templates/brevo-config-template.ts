@@ -1,4 +1,4 @@
-import { MailConfig } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { BREVO_DEFAULTS, MailConfig } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 export interface BrevoConfigTemplateParams {
   apiKey: string;
@@ -7,9 +7,9 @@ export interface BrevoConfigTemplateParams {
 export function createBrevoConfig(params: BrevoConfigTemplateParams): MailConfig {
   return {
     apiKey: params.apiKey,
-    baseUrl: "https://api.brevo.com/v3",
-    myBaseUrl: "",
-    editorUrl: "https://app-smtp.brevo.com/templates",
+    baseUrl: BREVO_DEFAULTS.BASE_URL,
+    myBaseUrl: BREVO_DEFAULTS.MY_BASE_URL,
+    editorUrl: BREVO_DEFAULTS.EDITOR_URL,
     allowUpdateLists: true,
     allowSendCampaign: true,
     allowSendTransactional: true,

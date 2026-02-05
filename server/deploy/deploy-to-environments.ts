@@ -6,7 +6,7 @@ import {
   flyTomlAbsolutePath,
   readConfigFile,
   runCommand
-} from "./fly-commands";
+} from "../lib/fly/fly-commands";
 import fs from "fs";
 import { DeploymentConfig, EnvironmentConfig, RuntimeConfig } from "./types";
 import { pluraliseWithCount } from "../lib/shared/string-utils";

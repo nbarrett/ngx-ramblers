@@ -12,6 +12,7 @@ import { buildMongoUri, extractClusterFromUri, extractUsernameFromUri } from "..
 import { loadSecretsForEnvironment } from "../../shared/secrets";
 import { resumeEnvironment } from "../../cli/commands/environment";
 import { destroyEnvironment } from "../../cli/commands/destroy";
+import { setupSubdomainForEnvironment } from "../../cli/commands/subdomain";
 import { booleanOf } from "../../shared/string-utils";
 import * as systemConfig from "../../config/system-config";
 import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
@@ -488,6 +489,36 @@ router.post("/copy-assets/:environmentName", async (req: Request, res: Response)
   } catch (error) {
     errorDebugLog("Error copying assets:", error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/setup-subdomain/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Setup subdomain request received for:", environmentName);
+
+    const envConfigData = await findEnvironmentFromDatabase(environmentName);
+    if (!envConfigData) {
+      res.status(404).json({ error: `Environment ${environmentName} not found in database` });
+      return;
+    }
+
+    await setupSubdomainForEnvironment(environmentName);
+
+    const environmentsConfig = await configuredEnvironments();
+    const baseDomain = environmentsConfig.cloudflare?.baseDomain || "ngx-ramblers.org.uk";
+    const hostname = `${environmentName}.${baseDomain}`;
+
+    res.json({
+      success: true,
+      message: `Subdomain configured successfully`,
+      hostname
+    });
+  } catch (error) {
+    errorDebugLog("Error setting up subdomain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

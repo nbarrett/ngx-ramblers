@@ -9,7 +9,7 @@ import {
   flyTomlAbsolutePath,
   readConfigFile,
   runCommand
-} from "./fly-commands";
+} from "../lib/fly/fly-commands";
 import {
   AWS_DEFAULTS,
   DeploymentConfig,

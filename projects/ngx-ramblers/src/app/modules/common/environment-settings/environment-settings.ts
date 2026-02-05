@@ -23,6 +23,7 @@ import { UrlService } from "../../../services/url.service";
 import {
   createDefaultFlyioConfig,
   createEmptyAwsConfig,
+  createEmptyCloudflareConfig,
   createEmptyEnvironmentConfig,
   createEmptyMongoConfig,
   EnvironmentConfig,
@@ -86,6 +87,15 @@ import { sortBy } from "../../../functions/arrays";
       &:hover
         background-color: #9BC8AB
         border-color: #9BC8AB
+        color: white
+
+    .btn-outline-cloudflare
+      border: 1px solid #F6821F
+      color: #F6821F
+      background-color: transparent
+      &:hover
+        background-color: #F6821F
+        border-color: #F6821F
         color: white
   `],
   template: `
@@ -197,6 +207,46 @@ import { sortBy } from "../../../functions/arrays";
             </div>
             <small class="form-text text-muted">If set, all uploads/listing/deletes will use this bucket and credentials,
               with per-environment settings used only as a fallback.</small>
+          </div>
+          <div class="row thumbnail-heading-frame mb-5">
+            <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
+              <img src="assets/icons/cloudflare-logo.svg" alt="Cloudflare" style="height: 26px;">
+              <span>Global Cloudflare Configuration</span>
+              <a href="https://dash.cloudflare.com"
+                 target="_blank"
+                 class="btn btn-sm btn-outline-cloudflare ms-auto">
+                <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+                Cloudflare Dashboard
+              </a>
+            </div>
+            <div class="row">
+              <div class="col-md-12 mb-2">
+                <label class="form-label">API Token</label>
+                <app-secret-input
+                  [(ngModel)]="editableConfig.cloudflare.apiToken"
+                  name="cloudflareApiToken"
+                  [size]="InputSize.SM">
+                </app-secret-input>
+                <small class="form-text text-muted">Token with Zone → DNS → Edit permission</small>
+              </div>
+              <div class="col-md-6 mb-2">
+                <label class="form-label">Zone ID</label>
+                <app-secret-input
+                  [(ngModel)]="editableConfig.cloudflare.zoneId"
+                  name="cloudflareZoneId"
+                  [size]="InputSize.SM">
+                </app-secret-input>
+              </div>
+              <div class="col-md-6 mb-2">
+                <label class="form-label">Base Domain</label>
+                <input type="text"
+                       class="form-control"
+                       [(ngModel)]="editableConfig.cloudflare.baseDomain"
+                       name="cloudflareBaseDomain"
+                       placeholder="e.g. ngx-ramblers.org.uk">
+              </div>
+            </div>
+            <small class="form-text text-muted">Used for automatic subdomain DNS setup when creating new environments.</small>
           </div>
           <div class="row thumbnail-heading-frame mb-5">
             <div class="thumbnail-heading">Global Application Secrets</div>
@@ -503,6 +553,7 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
   editableConfig: EnvironmentsConfig = {
     environments: [],
     aws: createEmptyAwsConfig(),
+    cloudflare: createEmptyCloudflareConfig(),
     secrets: {}
   };
 
@@ -566,6 +617,7 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
     this.editableConfig = JSON.parse(JSON.stringify(config));
     this.editableConfig.environments = this.editableConfig.environments || [];
     this.editableConfig.aws = {...createEmptyAwsConfig(), ...this.editableConfig.aws};
+    this.editableConfig.cloudflare = {...createEmptyCloudflareConfig(), ...this.editableConfig.cloudflare};
     this.editableConfig.secrets = this.editableConfig.secrets || {};
     this.editableConfig.environments = this.editableConfig.environments
       .map(env => ({
@@ -603,6 +655,7 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
     const config: EnvironmentsConfig = {
       environments: this.editableConfig.environments,
       aws: this.editableConfig.aws,
+      cloudflare: this.editableConfig.cloudflare,
       secrets: this.editableConfig.secrets
     };
 

@@ -151,4 +151,13 @@ export class EnvironmentSetupService {
       failures?: { file: string; error: string }[];
     };
   }
+
+  async setupSubdomain(environmentName: string): Promise<{ success: boolean; message: string; hostname?: string }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/setup-subdomain/${environmentName}`, {}),
+      this.notifications
+    );
+    return response as unknown as { success: boolean; message: string; hostname?: string };
+  }
 }

@@ -122,3 +122,7 @@ export async function listEnvironmentSummariesFromDatabase(): Promise<Environmen
     hasApiKey: Boolean(env.flyio?.apiKey)
   }));
 }
+
+export async function getEnvironmentsConfig(): Promise<EnvironmentsConfig | null> {
+  return loadFromDatabase();
+}
