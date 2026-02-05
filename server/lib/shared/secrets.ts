@@ -7,6 +7,8 @@ import { envConfig } from "../env-config/env-config";
 import { resolveClientPath } from "./path-utils";
 import { EnvironmentConfig, EnvironmentsConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { entries } from "../../../projects/ngx-ramblers/src/app/functions/object-utils";
+import { pullMissingSecrets } from "../fly/fly-secrets";
+import { parseEnvContent } from "./env-parser";
 
 const debugLog = debug(envConfig.logNamespace("shared:secrets"));
 
@@ -29,28 +31,7 @@ export function parseSecretsFile(filePath: string): Record<string, string> {
 }
 
 export function parseSecretsContent(content: string): Record<string, string> {
-  const secrets: Record<string, string> = {};
-
-  content.split("\n").forEach((line: string) => {
-    const trimmedLine = line.trim();
-    if (!trimmedLine || trimmedLine.startsWith("#")) {
-      return;
-    }
-
-    const equalsIndex = trimmedLine.indexOf("=");
-    if (equalsIndex === -1) {
-      return;
-    }
-
-    const key = trimmedLine.slice(0, equalsIndex).trim();
-    const value = trimmedLine.slice(equalsIndex + 1).trim().replace(/^"|"$/g, "");
-
-    if (key) {
-      secrets[key] = value;
-    }
-  });
-
-  return secrets;
+  return parseEnvContent(content);
 }
 
 export function buildSecretsContent(secrets: Record<string, string>): string {
@@ -185,4 +166,64 @@ export function updateSecretsFile(appName: string, newSecrets: Record<string, st
   const mergedSecrets = { ...existingSecrets, ...newSecrets };
   writeSecretsFile(filePath, mergedSecrets);
   debugLog("Updated secrets file with new keys:", keys(newSecrets));
+}
+
+export const REQUIRED_SECRETS = ["AUTH_SECRET", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "AWS_BUCKET", "MONGODB_URI"];
+
+function fillFromLocalFile(appName: string, secrets: Record<string, string>): Record<string, string> {
+  const missing = REQUIRED_SECRETS.filter(key => !secrets[key]);
+  if (missing.length === 0) {
+    return secrets;
+  }
+
+  const filePath = secretsPath(appName);
+  const fileSecrets = parseSecretsFile(filePath);
+  const filledFromFile: Record<string, string> = {};
+
+  missing.forEach(key => {
+    if (fileSecrets[key]) {
+      filledFromFile[key] = fileSecrets[key];
+    }
+  });
+
+  if (keys(filledFromFile).length > 0) {
+    debugLog("Filled %d missing secrets from local file: %s", keys(filledFromFile).length, keys(filledFromFile).join(", "));
+  }
+
+  return { ...secrets, ...filledFromFile };
+}
+
+export function ensureRequiredSecrets(appName: string, secrets: Record<string, string>, flyApiToken: string): Record<string, string> {
+  const initialMissing = REQUIRED_SECRETS.filter(key => !secrets[key]);
+
+  if (initialMissing.length === 0) {
+    debugLog("All %d required secrets present for %s", REQUIRED_SECRETS.length, appName);
+    return secrets;
+  }
+
+  debugLog("Missing %d required secrets for %s: %s", initialMissing.length, appName, initialMissing.join(", "));
+
+  const afterFile = fillFromLocalFile(appName, secrets);
+  const stillMissingAfterFile = REQUIRED_SECRETS.filter(key => !afterFile[key]);
+
+  if (stillMissingAfterFile.length === 0) {
+    debugLog("All required secrets resolved from local file for %s", appName);
+    return afterFile;
+  }
+
+  debugLog("Still missing %d secrets after local file check: %s — trying Fly.io", stillMissingAfterFile.length, stillMissingAfterFile.join(", "));
+  const pulled = pullMissingSecrets(appName, REQUIRED_SECRETS, afterFile, flyApiToken);
+  const mergedSecrets = { ...afterFile, ...pulled };
+
+  if (keys(pulled).length > 0) {
+    updateSecretsFile(appName, pulled);
+    debugLog("Cached %d pulled secrets to local file for %s", keys(pulled).length, appName);
+  }
+
+  const stillMissing = REQUIRED_SECRETS.filter(key => !mergedSecrets[key]);
+  if (stillMissing.length > 0) {
+    debugLog("Warning: %d required secrets still missing after all fallbacks: %s", stillMissing.length, stillMissing.join(", "));
+  }
+
+  return mergedSecrets;
 }

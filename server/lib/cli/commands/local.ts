@@ -5,7 +5,8 @@ import net from "net";
 import path from "path";
 import fs from "fs";
 import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
-import { loadSecretsForEnvironment, secretsExist } from "../../shared/secrets";
+import { ensureRequiredSecrets, loadSecretsWithFallback, REQUIRED_SECRETS, secretsExist } from "../../shared/secrets";
+import { keys } from "es-toolkit/compat";
 import { log } from "../cli-logger";
 import { select, isBack, isQuit, handleQuit, clearScreen } from "../cli-prompt";
 import { dateTimeNow } from "../../shared/dates";
@@ -151,6 +152,24 @@ function buildCleanEnvironment(): NodeJS.ProcessEnv {
   });
 
   return cleanEnv;
+}
+
+async function loadAndEnsureSecrets(environmentName: string, appName: string, flyApiToken: string): Promise<Record<string, string>> {
+  const secretsFile = await loadSecretsWithFallback(environmentName, appName);
+  log("Loaded %d secrets from %s: %s", keys(secretsFile.secrets).length, secretsFile.path, keys(secretsFile.secrets).join(", "));
+  const missingBefore = REQUIRED_SECRETS.filter(key => !secretsFile.secrets[key]);
+  if (missingBefore.length > 0) {
+    log("Missing required secrets: %s — attempting fallbacks...", missingBefore.join(", "));
+  }
+  const completeSecrets = ensureRequiredSecrets(appName, secretsFile.secrets, flyApiToken);
+  const missingAfter = REQUIRED_SECRETS.filter(key => !completeSecrets[key]);
+  if (missingAfter.length > 0) {
+    log("Warning: still missing after fallbacks: %s", missingAfter.join(", "));
+    log("Tip: ensure flyctl is installed and authenticated, or add missing secrets to local file");
+  } else {
+    log("Secrets ready: %d keys", keys(completeSecrets).length);
+  }
+  return completeSecrets;
 }
 
 function buildEnvironmentVariables(
@@ -304,7 +323,7 @@ async function runDev(config: LocalRunConfig): Promise<void> {
   }
 
   if (!secretsExist(envConfig.appName)) {
-    throw new Error(`No secrets file found for ${envConfig.appName}. Expected at non-vcs/secrets/secrets.${envConfig.appName}.env`);
+    log("Note: No local secrets file for %s - will load from database", envConfig.appName);
   }
 
   const backendPortAvailable = await checkPortAvailable(config.port);
@@ -317,8 +336,8 @@ async function runDev(config: LocalRunConfig): Promise<void> {
     throw new Error(`Frontend port 4200 is already in use`);
   }
 
-  const secretsFile = loadSecretsForEnvironment(envConfig.appName);
-  const env = buildEnvironmentVariables(secretsFile.secrets, "dev", config.port);
+  const completeSecrets = await loadAndEnsureSecrets(config.environmentName, envConfig.appName, envConfig.apiKey);
+  const env = buildEnvironmentVariables(completeSecrets, "dev", config.port);
   const logDir = resolveLogDir(config.logDir);
   const timestamp = buildLogTimestamp(config.logTimestamp);
   const frontendLogPath = buildLogFilePath(logDir, applyLogTimestamp("frontend.log", timestamp));
@@ -413,7 +432,7 @@ async function runProd(config: LocalRunConfig): Promise<void> {
   }
 
   if (!secretsExist(envConfig.appName)) {
-    throw new Error(`No secrets file found for ${envConfig.appName}. Expected at non-vcs/secrets/secrets.${envConfig.appName}.env`);
+    log("Note: No local secrets file for %s - will load from database", envConfig.appName);
   }
 
   const portAvailable = await checkPortAvailable(config.port);
@@ -421,8 +440,8 @@ async function runProd(config: LocalRunConfig): Promise<void> {
     throw new Error(`Port ${config.port} is already in use`);
   }
 
-  const secretsFile = loadSecretsForEnvironment(envConfig.appName);
-  const env = buildEnvironmentVariables(secretsFile.secrets, "prod", config.port);
+  const completeSecrets = await loadAndEnsureSecrets(config.environmentName, envConfig.appName, envConfig.apiKey);
+  const env = buildEnvironmentVariables(completeSecrets, "prod", config.port);
   const logDir = resolveLogDir(config.logDir);
   const timestamp = buildLogTimestamp(config.logTimestamp);
   const frontendLogPath = buildLogFilePath(logDir, applyLogTimestamp("frontend.log", timestamp));

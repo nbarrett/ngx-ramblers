@@ -246,7 +246,19 @@ export async function geocodeFromText(params: {
       sourceText = best.value;
       sourceField = titleLocations.includes(best) ? GeocodeSourceField.TITLE : GeocodeSourceField.DESCRIPTION;
     }
-  } else if (best?.type === GeocodeMatchType.PLACE_NAME) {
+  } else if (titlePlaces.length >= 2) {
+    const combinedSearch = `${titlePlaces[0]}, ${titlePlaces[1]}`;
+    debugLog(`Trying combined place names from title: "${combinedSearch}"`);
+    lookup = await lookupPlaceName(combinedSearch, preferredCounty, debugLog);
+    if (lookup?.postcode) {
+      debugLog(`Successfully resolved "${combinedSearch}" to postcode ${lookup.postcode}`);
+      matchType = GeocodeMatchType.TITLE_EXTRACTION;
+      sourceText = combinedSearch;
+      sourceField = GeocodeSourceField.TITLE;
+    }
+  }
+
+  if (!lookup?.postcode && best?.type === GeocodeMatchType.PLACE_NAME) {
     debugLog(`Trying place name from extraction: "${best.value}"`);
     lookup = await lookupPlaceName(best.value, preferredCounty, debugLog);
     if (lookup?.postcode) {

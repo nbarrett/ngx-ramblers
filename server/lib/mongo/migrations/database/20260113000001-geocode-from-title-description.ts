@@ -36,6 +36,16 @@ export async function up(db: Db, client: MongoClient) {
     return;
   }
 
+  await collection.updateMany(
+    {
+      $or: [
+        { [GroupEventField.START_LOCATION]: null },
+        { [GroupEventField.START_LOCATION]: { $exists: false } }
+      ]
+    },
+    { $set: { [GroupEventField.START_LOCATION]: {} } }
+  );
+
   const cursor = collection.find(criteria, {
     projection: {
       [GroupEventField.TITLE]: 1,

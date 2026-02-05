@@ -312,13 +312,14 @@ export function DEFAULT_MAIL_MESSAGING_CONFIG(): MailMessagingConfig {
     banners: null
   };
 }
-
+export const APP_SHORT_NAME_PREFIX_PARAMETER = "systemMergeFields.APP_SHORTNAME";
+export const FULL_NAME_SUFFIX_PARAMETER = "memberMergeFields.FULL_NAME";
 export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
   {
     subject: {
-      prefixParameter: "systemMergeFields.APP_SHORTNAME",
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
       text: "Website Password Reset Instructions",
-      suffixParameter: "memberMergeFields.FULL_NAME"
+      suffixParameter: FULL_NAME_SUFFIX_PARAMETER
     },
     preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID],
     postSendActions: [],
@@ -333,9 +334,9 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
   },
   {
     subject: {
-      prefixParameter: "systemMergeFields.APP_SHORTNAME",
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
       text: "Forgotten Password Reset",
-      suffixParameter: "memberMergeFields.FULL_NAME"
+      suffixParameter: FULL_NAME_SUFFIX_PARAMETER
     },
     preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID],
     postSendActions: [],
@@ -349,9 +350,9 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
   },
   {
     subject: {
-      prefixParameter: "systemMergeFields.APP_SHORTNAME",
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
       text: "Welcome to The Group",
-      suffixParameter: "memberMergeFields.FULL_NAME"
+      suffixParameter: FULL_NAME_SUFFIX_PARAMETER
     },
     preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID],
     postSendActions: [],
@@ -365,9 +366,9 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
   },
   {
     subject: {
-      prefixParameter: "systemMergeFields.APP_SHORTNAME",
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
       text: "Expired Membership",
-      suffixParameter: "memberMergeFields.FULL_NAME"
+      suffixParameter: FULL_NAME_SUFFIX_PARAMETER
     },
     preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID],
     postSendActions: [],
@@ -381,9 +382,9 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
   },
   {
     subject: {
-      prefixParameter: "systemMergeFields.APP_SHORTNAME",
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
       text: "Expired Members Warning",
-      suffixParameter: "memberMergeFields.FULL_NAME"
+      suffixParameter: FULL_NAME_SUFFIX_PARAMETER
     },
     preSendActions: [],
     postSendActions: [],
@@ -408,6 +409,81 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     senderRole: "walks",
     replyToRole: "walks",
     signOffRoles: ["walks"],
+    bannerId: null
+  },
+  {
+    subject: {
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
+      text: "Contact Us",
+      suffixParameter: null
+    },
+    preSendActions: [],
+    postSendActions: [],
+    defaultMemberSelection: null,
+    templateId: null,
+    senderRole: "support",
+    replyToRole: "support",
+    signOffRoles: ["support"],
+    bannerId: null
+  },
+  {
+    subject: {
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
+      text: "Expense Notification",
+      suffixParameter: null
+    },
+    preSendActions: [],
+    postSendActions: [],
+    defaultMemberSelection: null,
+    templateId: null,
+    senderRole: "treasurer",
+    replyToRole: "treasurer",
+    signOffRoles: ["treasurer"],
+    bannerId: null
+  },
+  {
+    subject: {
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
+      text: "Newsletter",
+      suffixParameter: null
+    },
+    preSendActions: [],
+    postSendActions: [],
+    defaultMemberSelection: MemberSelection.MAILING_LIST,
+    templateId: null,
+    senderRole: "membership",
+    replyToRole: "membership",
+    signOffRoles: ["chairman", "secretary", "membership"],
+    bannerId: null
+  },
+  {
+    subject: {
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
+      text: "Social Event Notification",
+      suffixParameter: null
+    },
+    preSendActions: [],
+    postSendActions: [],
+    defaultMemberSelection: MemberSelection.MAILING_LIST,
+    templateId: null,
+    senderRole: "social",
+    replyToRole: "social",
+    signOffRoles: ["social"],
+    bannerId: null
+  },
+  {
+    subject: {
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
+      text: "Your NGX-Ramblers Login",
+      suffixParameter: FULL_NAME_SUFFIX_PARAMETER
+    },
+    preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID],
+    postSendActions: [],
+    defaultMemberSelection: null,
+    templateId: null,
+    senderRole: "membership",
+    replyToRole: "membership",
+    signOffRoles: ["membership"],
     bannerId: null
   }
 ];

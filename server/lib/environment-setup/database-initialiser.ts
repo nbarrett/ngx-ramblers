@@ -2,6 +2,7 @@ import debug from "debug";
 import { Db, MongoClient } from "mongodb";
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
+import { NOTIFICATION_CONFIG_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { EnvironmentSetupRequest, MongoDbConnectionParams, SetupProgress, ValidationResult } from "./types";
 import { createSystemConfig, SystemConfigTemplateParams } from "./templates/system-config-template";
 import { createBrevoConfig } from "./templates/brevo-config-template";
@@ -229,7 +230,11 @@ export async function initialiseDatabase(
       const notificationConfigsCollection = db.collection(COLLECTIONS.NOTIFICATION_CONFIGS);
       const existingCount = await notificationConfigsCollection.countDocuments({});
       if (existingCount === 0) {
-        debugLog("No existing notification configs, will be created on first use");
+        debugLog(`Seeding ${NOTIFICATION_CONFIG_DEFAULTS.length} notification configs`);
+        await notificationConfigsCollection.insertMany(NOTIFICATION_CONFIG_DEFAULTS);
+        debugLog("Notification configs seeded successfully");
+      } else {
+        debugLog(`${existingCount} notification configs already exist, skipping seed`);
       }
       reportProgress("Creating notification configs", "completed");
     }
