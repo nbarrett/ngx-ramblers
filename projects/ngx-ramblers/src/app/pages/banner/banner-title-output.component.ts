@@ -3,7 +3,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { ensureTitleLine, TitleLine } from "../../models/banner-configuration.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
-import { NgClass } from "@angular/common";
 
 @Component({
     selector: "app-banner-title-output",
@@ -20,8 +19,7 @@ import { NgClass } from "@angular/common";
           <span class="ms-2 {{titleLine.part3.class}}">{{titleLine.part3.value}}</span>
         </div>
       }
-      `,
-    imports: [NgClass]
+      `
 })
 
 export class BannerTitleOutputComponent implements OnInit {

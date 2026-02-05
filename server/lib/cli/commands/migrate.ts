@@ -3,8 +3,11 @@ import debug from "debug";
 import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { log, error as logError } from "../cli-logger";
-import { select, input, confirm, isQuit, isBack, handleQuit, PromptResult } from "../cli-prompt";
+import { select, input, confirm, isQuit, isBack, handleQuit, PromptResult, checkbox } from "../cli-prompt";
 import { envConfig } from "../../env-config/env-config";
+import * as cms from "../../shared/cms-client";
+import type { CMSAuth } from "../../shared/cms-client";
+import type { PageContent, PageContentRow, PageContentColumn } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import {
   ReconciliationConfig,
   ReconciliationPage,
@@ -19,23 +22,73 @@ const debugLog = debug(envConfig.logNamespace("cli:migrate"));
 
 const turndown = new TurndownService({ headingStyle: "atx" });
 
-async function login(baseUrl: string, username: string, password: string): Promise<string> {
-  const response = await fetch(`${baseUrl}/api/database/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userName: username, password })
-  });
+interface ApplyConfig extends ReconciliationConfig {
+  authToken?: string;
+}
 
-  if (!response.ok) {
-    throw new Error(`Login failed: ${response.status}`);
-  }
+interface WalkCategory {
+  name: string;
+  pattern: RegExp | ((walk: NgxWalk) => boolean);
+  walks: NgxWalk[];
+}
 
-  const data = await response.json();
-  if (!data.tokens?.auth) {
-    throw new Error("No auth token in response");
-  }
+function textRow(markdown: string): PageContentRow {
+  return {
+    type: "text" as any,
+    showSwiper: false,
+    maxColumns: 12,
+    columns: [{
+      columns: 12,
+      contentText: markdown,
+      accessLevel: "public" as any
+    }]
+  };
+}
 
-  return data.tokens.auth;
+function eventsRow(options: {
+  fromDate?: number;
+  toDate?: number;
+  eventIds?: string[];
+  sortOrder?: string;
+}): PageContentRow {
+  return {
+    type: "events" as any,
+    maxColumns: 2,
+    showSwiper: false,
+    columns: [{ columns: 12, accessLevel: "public" as any }],
+    events: {
+      fromDate: options.fromDate || null,
+      toDate: options.toDate || null,
+      filterCriteria: options.fromDate ? "DATE_RANGE" : "NONE",
+      sortOrder: options.sortOrder || "DATE_ASCENDING",
+      minColumns: 1,
+      maxColumns: 2,
+      eventTypes: ["group-walk"],
+      eventIds: options.eventIds || [],
+      allow: {
+        quickSearch: false,
+        pagination: false,
+        alert: false,
+        autoTitle: false,
+        addNew: false
+      }
+    }
+  } as any;
+}
+
+function actionButtonsRow(buttons: { title: string; href: string; description?: string }[]): PageContentRow {
+  return {
+    type: "action-buttons" as any,
+    showSwiper: false,
+    maxColumns: buttons.length,
+    columns: buttons.map(btn => ({
+      columns: Math.floor(12 / buttons.length),
+      title: btn.title,
+      href: btn.href,
+      contentText: btn.description || "",
+      accessLevel: "public" as any
+    }))
+  };
 }
 
 async function fetchOldSite(baseUrl: string): Promise<ReconciliationPage[]> {
@@ -54,58 +107,85 @@ async function fetchOldSite(baseUrl: string): Promise<ReconciliationPage[]> {
   const navLinks = new Set<string>();
   navLinks.add(baseUrl);
 
-  doc.querySelectorAll("nav a, .nav a, .menu a, header a").forEach((el: Element) => {
-    const href = (el as HTMLAnchorElement).href;
+  doc.querySelectorAll("nav a, .nav a, .menu a, header a, .navbar a, #navbarNav a").forEach((el: Element) => {
+    const href = (el as HTMLAnchorElement).getAttribute("href");
     if (href && href.startsWith(baseUrl)) {
       navLinks.add(href);
-    } else if (href && !href.startsWith("http") && !href.startsWith("#") && !href.startsWith("mailto:")) {
+    } else if (href && !href.startsWith("http") && !href.startsWith("#") && !href.startsWith("mailto:") && !href.startsWith("javascript:")) {
       navLinks.add(new URL(href, baseUrl).href);
     }
   });
 
-  log(`Found ${navLinks.size} navigation links`);
+  doc.querySelectorAll("a").forEach((el: Element) => {
+    const href = (el as HTMLAnchorElement).getAttribute("href");
+    if (href && (href.startsWith(baseUrl) || (!href.startsWith("http") && !href.startsWith("#") && !href.startsWith("mailto:") && !href.startsWith("javascript:")))) {
+      const fullUrl = href.startsWith("http") ? href : new URL(href, baseUrl).href;
+      if (fullUrl.startsWith(baseUrl)) {
+        navLinks.add(fullUrl);
+      }
+    }
+  });
 
-  for (const url of navLinks) {
+  log(`Found ${navLinks.size} links to scrape`);
+
+  const urlsArray = Array.from(navLinks);
+  await Promise.all(urlsArray.map(async (url, index) => {
+    await new Promise(resolve => setTimeout(resolve, index * 100));
+
     try {
-      log(`  Scraping: ${url}`);
-      const response = await fetch(url);
-      if (!response.ok) continue;
+      log(`  [${index + 1}/${urlsArray.length}] Scraping: ${url}`);
+      const response = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 NGX-Ramblers-Migration-Bot" }
+      });
+      if (!response.ok) {
+        log(`  ⚠ Skipped ${url}: ${response.status}`);
+        return;
+      }
 
       const html = await response.text();
       const pageDom = new JSDOM(html);
       const pageDoc = pageDom.window.document;
 
-      const mainContent = pageDoc.querySelector("main, article, .content, #content, body");
+      const mainContent = pageDoc.querySelector("main, article, .content, #content, .main-content, [role='main']") || pageDoc.body;
       const textContent = mainContent?.textContent?.trim() || "";
       const htmlContent = mainContent?.innerHTML || "";
 
       let markdown = "";
       try {
         markdown = turndown.turndown(htmlContent);
-      } catch (e) {
+      } catch {
         markdown = textContent;
       }
 
       const images: string[] = [];
       mainContent?.querySelectorAll("img").forEach(img => {
         const src = img.getAttribute("src");
-        if (src) images.push(src.startsWith("http") ? src : new URL(src, url).href);
+        if (src) {
+          const fullSrc = src.startsWith("http") ? src : new URL(src, url).href;
+          if (!images.includes(fullSrc)) {
+            images.push(fullSrc);
+          }
+        }
       });
 
       const links: string[] = [];
       mainContent?.querySelectorAll("a").forEach(a => {
         const href = a.getAttribute("href");
-        if (href && !href.startsWith("#")) links.push(href);
+        if (href && !href.startsWith("#") && !href.startsWith("javascript:")) {
+          links.push(href);
+        }
       });
 
-      const path = url.replace(baseUrl, "").replace(/^\//, "") || "home";
-      const title = pageDoc.querySelector("title")?.textContent?.trim() || path;
+      const path = url.replace(baseUrl, "").replace(/^\//, "").replace(/\.html?$/, "").replace(/\/$/, "") || "home";
+      const title = pageDoc.querySelector("title")?.textContent?.trim() ||
+                   pageDoc.querySelector("h1")?.textContent?.trim() ||
+                   path;
 
       pages.push({
         path,
         url,
         title,
-        type: detectPageType(path, title),
+        type: detectPageType(path, title, textContent),
         textContent,
         markdown,
         images,
@@ -114,20 +194,22 @@ async function fetchOldSite(baseUrl: string): Promise<ReconciliationPage[]> {
     } catch (err: any) {
       log(`  ⚠ Failed to scrape ${url}: ${err.message}`);
     }
-  }
+  }));
 
   return pages;
 }
 
-function detectPageType(path: string, title: string): string {
-  const combined = `${path} ${title}`.toLowerCase();
-  if (path === "home" || path === "" || path === "index.html") return "home";
-  if (combined.includes("about")) return "about";
-  if (combined.includes("news")) return "news";
-  if (combined.includes("walk") || combined.includes("ramble")) return "walks";
-  if (combined.includes("gallery") || combined.includes("photo") || combined.includes("album")) return "gallery";
+function detectPageType(path: string, title: string, content?: string): string {
+  const combined = `${path} ${title} ${content || ""}`.toLowerCase();
+  if (path === "home" || path === "" || path === "index" || path === "index.html") return "home";
+  if (combined.includes("about") && !combined.includes("walk")) return "about";
+  if (combined.includes("news") || combined.includes("whats-new")) return "news";
+  if (combined.includes("programme") || combined.includes("walk") || combined.includes("ramble")) return "walks";
+  if (combined.includes("gallery") || combined.includes("photo") || combined.includes("album") || combined.includes("picture")) return "gallery";
   if (combined.includes("contact")) return "contact";
-  if (combined.includes("footpath") || combined.includes("maintenance")) return "footpath";
+  if (combined.includes("footpath") || combined.includes("maintenance") || combined.includes("path")) return "footpath";
+  if (combined.includes("member") || combined.includes("join")) return "membership";
+  if (combined.includes("committee") || combined.includes("agm")) return "committee";
   return "other";
 }
 
@@ -172,8 +254,61 @@ async function fetchNewSiteWalks(baseUrl: string): Promise<NgxWalk[]> {
   return walks.map((w: any) => ({
     id: w.id || w._id,
     title: w.groupEvent?.title || w.title || "",
-    eventDate: w.groupEvent?.start_date_time || w.eventDate || ""
+    eventDate: w.groupEvent?.start_date_time || w.eventDate || "",
+    briefDescriptionAndStartPoint: w.briefDescriptionAndStartPoint,
+    groupEvent: w.groupEvent
   }));
+}
+
+function categorizeWalks(walks: NgxWalk[]): WalkCategory[] {
+  const categories: WalkCategory[] = [
+    {
+      name: "Longer Walks",
+      pattern: (w) => {
+        const title = (w.title || "").toLowerCase();
+        const distance = w.groupEvent?.distance_miles || 0;
+        return distance >= 8 || title.includes("longer") || title.includes("full day");
+      },
+      walks: []
+    },
+    {
+      name: "Shorter Walks",
+      pattern: (w) => {
+        const title = (w.title || "").toLowerCase();
+        const distance = w.groupEvent?.distance_miles || 0;
+        return distance > 0 && distance < 8 || title.includes("shorter") || title.includes("short");
+      },
+      walks: []
+    },
+    {
+      name: "Weekend Walks",
+      pattern: (w) => {
+        const date = new Date(w.eventDate);
+        const dayOfWeek = date.getDay();
+        return dayOfWeek === 0 || dayOfWeek === 6;
+      },
+      walks: []
+    },
+    {
+      name: "Midweek Walks",
+      pattern: (w) => {
+        const date = new Date(w.eventDate);
+        const dayOfWeek = date.getDay();
+        return dayOfWeek >= 1 && dayOfWeek <= 5;
+      },
+      walks: []
+    }
+  ];
+
+  walks.forEach(walk => {
+    categories.forEach(cat => {
+      if (typeof cat.pattern === "function" && cat.pattern(walk)) {
+        cat.walks.push(walk);
+      }
+    });
+  });
+
+  return categories.filter(c => c.walks.length > 0);
 }
 
 function reconcile(oldPages: ReconciliationPage[], newPages: NgxPage[], walks: NgxWalk[]): ReconciliationResult {
@@ -185,29 +320,35 @@ function reconcile(oldPages: ReconciliationPage[], newPages: NgxPage[], walks: N
     home: ["home", "#home-content"],
     about: ["about-us", "about"],
     news: ["news"],
-    walks: ["walks", "walks/information"],
+    walks: ["walks", "walks/information", "programme"],
     gallery: ["gallery"],
     contact: ["contact-us", "about-us/contact-us", "contact"],
-    footpath: ["footpath-maintenance", "about-us/footpath-maintenance"]
+    footpath: ["footpath-maintenance", "about-us/footpath-maintenance"],
+    membership: ["membership", "join", "about-us/membership"],
+    committee: ["committee", "about-us/committee"]
   };
 
   oldPages.forEach(oldPage => {
     const possiblePaths = pageTypeMapping[oldPage.type] || [oldPage.path.toLowerCase()];
     const found = possiblePaths.some(p => newPaths.has(p));
 
-    if (!found) {
+    if (!found && oldPage.type !== "other") {
       gaps.push({
         type: "page",
         oldPath: oldPage.path,
         description: `${oldPage.type} page "${oldPage.title}" not found on new site`,
-        priority: oldPage.type === "home" || oldPage.type === "about" ? "high" : "medium"
+        priority: oldPage.type === "home" || oldPage.type === "about" || oldPage.type === "walks" ? "high" : "medium"
       });
 
       const suggestedPath = possiblePaths[0] || oldPage.path.toLowerCase().replace(/\.html?$/, "");
       suggestions.push({
         action: "create",
         path: suggestedPath,
-        description: `Create ${oldPage.type} page from "${oldPage.title}"`
+        description: `Create ${oldPage.type} page from "${oldPage.title}"`,
+        content: {
+          path: suggestedPath,
+          oldPage
+        }
       });
     }
   });
@@ -222,8 +363,36 @@ function reconcile(oldPages: ReconciliationPage[], newPages: NgxPage[], walks: N
         description: `${page.images.length} images detected that could be an album`,
         priority: "low"
       });
+
+      suggestions.push({
+        action: "create",
+        path: `gallery/${page.path.replace(/[^a-z0-9]/gi, "-").toLowerCase()}`,
+        description: `Create album from ${page.images.length} images on "${page.title}"`
+      });
     }
   });
+
+  if (walks.length > 0) {
+    const hasWalksProgramme = newPages.some(p =>
+      p.path.startsWith("walks/") &&
+      p.rows.some(r => r.type === "events")
+    );
+
+    if (!hasWalksProgramme) {
+      gaps.push({
+        type: "page",
+        oldPath: "walks",
+        description: `${walks.length} walks found but no walk programme pages exist`,
+        priority: "high"
+      });
+
+      suggestions.push({
+        action: "create",
+        path: "walks/programme",
+        description: `Create walk programme page for ${walks.length} walks`
+      });
+    }
+  }
 
   return { oldPages, newPages, walks, gaps, suggestions };
 }
@@ -234,12 +403,27 @@ function printReport(result: ReconciliationResult): void {
   log("=".repeat(60));
 
   log(`\nOld site pages scraped: ${result.oldPages.length}`);
+  const byType: Record<string, ReconciliationPage[]> = {};
   result.oldPages.forEach(p => {
-    log(`  - ${p.path} (${p.type})`);
+    byType[p.type] = byType[p.type] || [];
+    byType[p.type].push(p);
+  });
+  Object.entries(byType).forEach(([type, pages]) => {
+    log(`  ${type}: ${pages.length} pages`);
+    pages.slice(0, 3).forEach(p => log(`    - ${p.path}`));
+    if (pages.length > 3) log(`    ... and ${pages.length - 3} more`);
   });
 
   log(`\nNew site pages: ${result.newPages.length}`);
   log(`New site walks: ${result.walks.length}`);
+
+  if (result.walks.length > 0) {
+    const categories = categorizeWalks(result.walks);
+    log("\nWalk categories:");
+    categories.forEach(cat => {
+      log(`  ${cat.name}: ${cat.walks.length} walks`);
+    });
+  }
 
   if (result.gaps.length === 0) {
     log("\n✓ No gaps found - sites appear to be in sync!");
@@ -261,7 +445,94 @@ function printReport(result: ReconciliationResult): void {
   log("\n" + "=".repeat(60));
 }
 
-async function runReconcile(config: ReconciliationConfig): Promise<void> {
+async function applyChanges(
+  auth: CMSAuth,
+  result: ReconciliationResult,
+  selectedSuggestions: ReconciliationSuggestion[]
+): Promise<void> {
+  log(`\nApplying ${selectedSuggestions.length} changes...`);
+
+  const appliedCount = { created: 0, updated: 0, failed: 0 };
+
+  for (const suggestion of selectedSuggestions) {
+    try {
+      log(`\n→ ${suggestion.action}: ${suggestion.path}`);
+
+      if (suggestion.path.includes("programme") || suggestion.path.includes("walks/")) {
+        const pageContent = await createWalkProgrammePage(suggestion.path, result.walks);
+        await cms.createOrUpdatePageContent(auth, pageContent);
+        appliedCount.created++;
+        log(`  ✓ Created walk programme page: ${suggestion.path}`);
+      } else if (suggestion.content?.oldPage) {
+        const oldPage = suggestion.content.oldPage as ReconciliationPage;
+        const pageContent = createPageFromScrapedContent(suggestion.path, oldPage);
+        await cms.createOrUpdatePageContent(auth, pageContent);
+        appliedCount.created++;
+        log(`  ✓ Created page: ${suggestion.path}`);
+      } else {
+        const pageContent: PageContent = {
+          path: suggestion.path,
+          rows: [textRow(`# ${suggestion.description}\n\nThis page was created during migration and needs content.`)]
+        };
+        await cms.createOrUpdatePageContent(auth, pageContent);
+        appliedCount.created++;
+        log(`  ✓ Created placeholder page: ${suggestion.path}`);
+      }
+    } catch (err: any) {
+      appliedCount.failed++;
+      log(`  ✗ Failed: ${err.message}`);
+    }
+  }
+
+  log(`\n✓ Applied changes: ${appliedCount.created} created, ${appliedCount.updated} updated, ${appliedCount.failed} failed`);
+}
+
+function createPageFromScrapedContent(path: string, oldPage: ReconciliationPage): PageContent {
+  const cleanMarkdown = oldPage.markdown
+    .replace(/\[.*?\]\(javascript:.*?\)/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  const rows: PageContentRow[] = [];
+
+  if (!cleanMarkdown.startsWith("#")) {
+    rows.push(textRow(`# ${oldPage.title}\n\n${cleanMarkdown}`));
+  } else {
+    rows.push(textRow(cleanMarkdown));
+  }
+
+  return {
+    path,
+    rows
+  };
+}
+
+async function createWalkProgrammePage(path: string, walks: NgxWalk[]): Promise<PageContent> {
+  const now = new Date();
+  const futureWalks = walks.filter(w => new Date(w.eventDate) >= now);
+  const sortedWalks = futureWalks.sort((a, b) =>
+    new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime()
+  );
+
+  const threeMonthsFromNow = new Date();
+  threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+
+  const rows: PageContentRow[] = [
+    textRow(`# Walk Programme\n\nUpcoming walks for our group. Click on any walk for more details.`),
+    eventsRow({
+      fromDate: now.getTime(),
+      toDate: threeMonthsFromNow.getTime(),
+      sortOrder: "DATE_ASCENDING"
+    })
+  ];
+
+  return {
+    path,
+    rows
+  };
+}
+
+async function runReconcile(config: ReconciliationConfig): Promise<ReconciliationResult | null> {
   try {
     const oldPages = await fetchOldSite(config.oldSiteUrl);
     const newPages = await fetchNewSitePages(config.newSiteUrl);
@@ -270,27 +541,74 @@ async function runReconcile(config: ReconciliationConfig): Promise<void> {
     const result = reconcile(oldPages, newPages, walks);
     printReport(result);
 
-    if (!config.dryRun && result.suggestions.length > 0 && config.username && config.password) {
-      const shouldApply = await confirm("Would you like to apply the suggested changes?");
-      if (isQuit(shouldApply) || isBack(shouldApply)) return;
-      if (shouldApply) {
-        log("\nApplying changes...");
-        const authToken = await login(config.newSiteUrl, config.username, config.password);
-        log("✓ Logged in successfully");
-        log("TODO: Implement apply logic");
-      }
-    }
+    return result;
   } catch (err: any) {
     logError(`Migration failed: ${err.message}`);
     throw err;
   }
 }
 
-function extractStringResult(result: PromptResult<string>): string | null {
-  if (isQuit(result) || isBack(result)) {
-    return null;
+async function runApply(config: ReconciliationConfig): Promise<void> {
+  try {
+    if (!config.username || !config.password) {
+      throw new Error("Username and password required for apply");
+    }
+
+    log("\nLogging in to CMS...");
+    const auth = await cms.login(config.newSiteUrl, config.username, config.password);
+    log("✓ Logged in successfully");
+
+    const result = await runReconcile({ ...config, dryRun: true });
+    if (!result) return;
+
+    if (result.suggestions.length === 0) {
+      log("\n✓ No changes to apply - sites are in sync!");
+      return;
+    }
+
+    if (config.dryRun) {
+      log("\n[DRY RUN] Would apply the following changes:");
+      result.suggestions.forEach((s, i) => {
+        log(`  ${i + 1}. ${s.action}: ${s.path}`);
+      });
+      return;
+    }
+
+    const selectedIndices = await checkbox({
+      message: "Select changes to apply:",
+      choices: result.suggestions.map((s, i) => ({
+        name: `${s.action}: ${s.path} - ${s.description}`,
+        value: i,
+        checked: s.action === "create" && (
+          s.path.includes("programme") ||
+          s.path.includes("walks")
+        )
+      }))
+    });
+
+    if (isQuit(selectedIndices) || isBack(selectedIndices)) {
+      return handleQuit();
+    }
+
+    if (selectedIndices.length === 0) {
+      log("\nNo changes selected. Exiting.");
+      return;
+    }
+
+    const selectedSuggestions = selectedIndices.map(i => result.suggestions[i]);
+
+    const shouldApply = await confirm(`Apply ${selectedSuggestions.length} changes?`);
+    if (isQuit(shouldApply) || isBack(shouldApply) || !shouldApply) {
+      log("\nCancelled.");
+      return;
+    }
+
+    await applyChanges(auth, result, selectedSuggestions);
+
+  } catch (err: any) {
+    logError(`Apply failed: ${err.message}`);
+    throw err;
   }
-  return result;
 }
 
 async function runInteractive(): Promise<void> {
@@ -328,10 +646,10 @@ async function runInteractive(): Promise<void> {
     if (isQuit(passwordResult) || isBack(passwordResult)) return handleQuit();
     config.password = passwordResult;
 
-    config.dryRun = false;
+    await runApply(config);
+  } else {
+    await runReconcile(config);
   }
-
-  await runReconcile(config);
 }
 
 export function createMigrateCommand(): Command {
@@ -360,7 +678,7 @@ export function createMigrateCommand(): Command {
     .requiredOption("--password <pass>", "CMS password")
     .option("--dry-run", "Preview changes without applying", false)
     .action(async (opts) => {
-      await runReconcile({
+      await runApply({
         oldSiteUrl: opts.old.replace(/\/$/, ""),
         newSiteUrl: opts.new.replace(/\/$/, ""),
         username: opts.username,

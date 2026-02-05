@@ -1,5 +1,6 @@
-import type { CMSAuth, PageToDelete } from "./models.js";
+import type { PageToDelete } from "./models.js";
 import { DEFAULT_CMS_BASE_URL } from "./models.js";
+import type { CMSAuth } from "./cms-client.js";
 import * as cms from "./cms-client.js";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";

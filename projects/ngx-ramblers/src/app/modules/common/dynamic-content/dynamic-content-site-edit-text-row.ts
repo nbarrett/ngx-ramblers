@@ -58,6 +58,7 @@ import { AlertComponent } from "ngx-bootstrap/alert";
 import { ALERT_WARNING } from "../../../models/alert-target.model";
 import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
 import { YoutubeInputComponent } from "../youtube-input/youtube-input";
+import { HeightResizerComponent } from "../height-resizer/height-resizer";
 
 @Component({
     selector: "app-dynamic-content-site-edit-text-row",
@@ -309,8 +310,17 @@ import { YoutubeInputComponent } from "../youtube-input/youtube-input";
                                           [borderRadius]="column.imageBorderRadius"
                                           [aspectRatio]="column.imageAspectRatio"
                                           [alt]="column.alt"
-                                          unconstrainedHeight
+                                          [unconstrainedHeight]="!column.imageHeight"
+                                          [height]="column.imageHeight"
                                           [imageSource]="imageDisplay(rowIndex, columnIndex, column).url"/>
+                          @if (controlsShown(column) && column.imageSource) {
+                            <app-height-resizer
+                              [height]="column.imageHeight || 200"
+                              [minHeight]="50"
+                              [maxHeight]="800"
+                              (heightChange)="column.imageHeight = $event"
+                              compact/>
+                          }
                         </div>
                       </ng-template>
                       <ng-template #youtubePreviewBlock>
@@ -761,7 +771,7 @@ import { YoutubeInputComponent } from "../youtube-input/youtube-input";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent]
+    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent, HeightResizerComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 

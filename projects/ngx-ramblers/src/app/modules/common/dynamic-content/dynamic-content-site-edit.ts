@@ -743,6 +743,11 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   @Input("pageContent") set acceptPageContentChanges(pageContent: PageContent) {
     this.logger.debug("acceptPageContentChanges:pageContent:", pageContent);
+    this.pendingPageContent = pageContent;
+    if (!this.siteEditService.active()) {
+      this.logger.debug("skipping initialisePageContent as site edit not active");
+      return;
+    }
     Promise.resolve().then(() => {
       this.initialisePageContent(pageContent);
       this.clearAlert(pageContent);
@@ -902,6 +907,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public referringPages: PageContent[] = [];
   public pagesBelow: PageContent[] = [];
   private error: any = null;
+  private pendingPageContent: PageContent;
   private pageHrefs: string[];
   private copyOrMoveActionComplete: boolean;
   private subscriptions: Subscription[] = [];
@@ -950,6 +956,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.siteEditService.events.subscribe(event => {
       if (event.data) {
         this.runInitCode();
+        if (this.pendingPageContent) {
+          this.initialisePageContent(this.pendingPageContent);
+        }
       }
     }));
   }

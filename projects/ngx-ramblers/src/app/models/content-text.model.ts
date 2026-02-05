@@ -227,6 +227,7 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   youtubeId?: string;
   alt?: string;
   imageBorderRadius?: number;
+  imageHeight?: number;
   imageVerticalPosition?: number;
   imageCropperPosition?: ImageCropperPosition | null;
   imageFocalPoint?: FocalPoint | null;
@@ -528,6 +529,7 @@ export interface EditorState {
 export interface ContentPathMatch {
   contentPath: string;
   stringMatch: StringMatch;
+  maxPathSegments?: number;
 }
 
 type MongoRegexFunction = (fieldValue: string) => MongoRegex;
