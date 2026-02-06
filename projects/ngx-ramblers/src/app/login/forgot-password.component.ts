@@ -16,7 +16,9 @@ export class ForgotPasswordComponent implements OnInit {
   ngOnInit() {
     this.authService.logout();
     this.modalService.show(ForgotPasswordModalComponent, {
-      animated: false
+      animated: false,
+      backdrop: "static",
+      keyboard: false
     });
   }
 

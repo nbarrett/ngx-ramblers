@@ -1,6 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
+import { firstValueFrom } from "rxjs";
 import { ApiResponse } from "../../models/api-response.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -25,6 +26,8 @@ import {
   SendCampaignRequest,
   Sender,
   SendersResponse,
+  ForgotPasswordEmailRequest,
+  ForgotPasswordEmailResponse,
   SendSmtpEmailRequest,
   StatusMappedResponseMultipleInputs,
   StatusMappedResponseSingleInput,
@@ -118,9 +121,9 @@ export class MailService {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/transactional/send`, emailRequest))).response;
   }
 
-  async sendForgotPasswordMessage(emailRequest: SendSmtpEmailRequest): Promise<void> {
-    this.logger.info("sendMessage emailRequest:", emailRequest);
-    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/transactional/forgot-password-send`, emailRequest))).response;
+  async sendForgotPasswordRequest(request: ForgotPasswordEmailRequest): Promise<ForgotPasswordEmailResponse> {
+    this.logger.info("sendForgotPasswordRequest:", request);
+    return firstValueFrom(this.http.post<ForgotPasswordEmailResponse>(`${this.BASE_URL}/transactional/forgot-password`, request));
   }
 
   async sendCampaign(createCampaignRequest: SendCampaignRequest): Promise<StatusMappedResponseSingleInput> {

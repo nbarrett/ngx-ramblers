@@ -720,3 +720,19 @@ export interface UpdateTemplateRequest {
 export interface CreateTemplateResponse {
   id: number;
 }
+
+export enum ForgotPasswordIdentificationMethod {
+  EMAIL_OR_USERNAME = "email-or-username",
+  MEMBERSHIP_DETAILS = "membership-details"
+}
+
+export interface ForgotPasswordEmailRequest {
+  identificationMethod: ForgotPasswordIdentificationMethod;
+  emailOrUsername?: string;
+  membershipNumber?: string;
+  postcode?: string;
+}
+
+export interface ForgotPasswordEmailResponse {
+  message: string;
+}

@@ -34,14 +34,6 @@ export class AuthService {
     return this.performAuthPost(url, body, "login", NamedEventType.MEMBER_LOGIN_COMPLETE);
   }
 
-  forgotPassword(credentialOne: string, credentialTwo: string, userDetails: string): Promise<LoginResponse> {
-    const url = `${this.BASE_URL}/forgot-password`;
-    const type = "forgot password";
-    this.logger.info(type + "credentialOne:", credentialOne, "credentialTwo:", credentialTwo, "via", url);
-    const body = {credentialOne, credentialTwo, userDetails};
-    return this.performAuthPost(url, body, type);
-  }
-
   resetPassword(userName: string, newPassword: string, newPasswordConfirm: string): Promise<LoginResponse> {
     const url = `${this.BASE_URL}/reset-password`;
     const type = "resetting password";

@@ -1,5 +1,6 @@
 import express from "express";
 import { sendTransactionalMail } from "./transactional-mail/send-transactional-mail";
+import { sendForgotPasswordEmail } from "./transactional-mail/send-forgot-password-email";
 import { queryAccount } from "./account/account";
 import { queryTemplates } from "./templates/query-templates";
 import { listCreate } from "./lists/list-create";
@@ -38,7 +39,7 @@ router.get("/contacts/attributes", authConfig.authenticate(), attributes);
 router.get("/senders", authConfig.authenticate(), senders);
 router.post("/senders/create", authConfig.authenticate(), createSender);
 router.post("/transactional/send", authConfig.authenticate(), sendTransactionalMail);
-router.post("/transactional/forgot-password-send", sendTransactionalMail);
+router.post("/transactional/forgot-password", sendForgotPasswordEmail);
 router.post("/campaign/create", authConfig.authenticate(), createCampaign);
 router.post("/campaign/send", authConfig.authenticate(), sendCampaign);
 router.get("/segments", authConfig.authenticate(), querySegments);

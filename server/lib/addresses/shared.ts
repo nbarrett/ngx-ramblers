@@ -14,9 +14,9 @@ export function normalisePostcode(raw: string): string {
   }
   const noBracket = raw.split("(")[0];
   const upper = noBracket.toUpperCase();
-  const compact = upper.replace(/\s+/g, " ").trim();
-  const match = compact.match(/([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})/);
-  return match ? match[1].replace(/\s+/, " ") : compact;
+  const stripped = upper.replace(/\s+/g, "").trim();
+  const match = stripped.match(/^([A-Z]{1,2}\d[A-Z\d]?)(\d[A-Z]{2})$/);
+  return match ? `${match[1]} ${match[2]}` : upper.replace(/\s+/g, " ").trim();
 }
 
 function toPostcodeLookupErrorResponse(result: PostcodeLookupServiceResponse): PostcodeLookupResponse {

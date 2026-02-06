@@ -18,8 +18,75 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 
 @Component({
     selector: "app-reset-password-modal-component",
-    templateUrl: "./reset-password-modal.component.html",
-    styleUrls: ["./reset-password-modal.component.sass"],
+    template: `
+    <div [ngClass]="{'busy': notifyTarget.busy}" id="reset-password-dialog" tabindex="-1" role="dialog"
+         data-backdrop="false" aria-labelledby="modal-label">
+      <div class="modal-header">
+        <h4 class="modal-title">Reset my <em>{{group?.shortName}}</em> password</h4>
+        <button (click)="bsModalRef.hide()" type="button" class="close" data-bs-dismiss="modal" aria-hidden="true">&times;</button>
+      </div>
+      <div class="modal-body">
+        @if (!invalidPasswordLink) {
+          <div>
+            <div class="row">
+              <div class="col col-sm-12">
+                <div class="form-group">
+                  <label for="reset-password-user-name">Email address or username</label>
+                  <input [disabled]="true" [(ngModel)]="userName" type="text" class="form-control input-sm"
+                         id="reset-password-user-name" placeholder="Enter username">
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col col-sm-6">
+                <div class="form-group">
+                  <label for="new-reset-password">New Password</label>
+                  <input [(ngModel)]="newPassword" type="password" class="form-control input-sm" id="new-reset-password"
+                         placeholder="Enter new password">
+                </div>
+              </div>
+              <div class="col col-sm-6">
+                <div class="form-group">
+                  <label for="new-reset-password-confirm">Confirm New Password</label>
+                  <input [(ngModel)]="newPasswordConfirm" type="password" class="form-control input-sm"
+                         id="new-reset-password-confirm"
+                         placeholder="Confirm new password">
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+        @if (notifyTarget.showAlert) {
+          <div class="row">
+            <div class="col col-sm-12">
+              <div class="alert {{notifyTarget.alertClass}}">
+                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                @if (notifyTarget.alertTitle) {
+                  <strong>
+                    {{ notifyTarget.alertTitle }}: </strong>
+                } {{ notifyTarget.alertMessage }}
+                @if (notifyTarget.showContactUs) {
+                  <span> contact our <app-contact-us class="alert-link" roles="membership"
+                                                     text="Membership Administrator"></app-contact-us>.
+                  </span>
+                }
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+      <div class="modal-footer flex-nowrap gap-1">
+          <input type="submit" [disabled]="!submittable()" value="Confirm Reset" (click)="resetPassword()"
+                 (keyup.enter)="resetPassword()"
+                 class="btn btn-primary btn-sm">
+          <input type="reset" value="Cancel" (click)="close()" title="Cancel reset password"
+                 [disabled]="notifyTarget.busy" class="btn btn-secondary btn-sm">
+          <input type="reset" value="Start Over" (click)="restartForgotPassword()"
+                 title="Restart the forgot password process"
+                 [disabled]="notifyTarget.busy" class="btn btn-secondary btn-sm">
+      </div>
+    </div>
+    `,
     imports: [NgClass, FormsModule, FontAwesomeModule, ContactUsComponent]
 })
 export class ResetPasswordModalComponent implements OnInit, OnDestroy {
