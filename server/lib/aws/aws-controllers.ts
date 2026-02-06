@@ -25,7 +25,7 @@ import { dateTimeFromJsDate, dateTimeNow } from "../shared/dates";
 
 const logObject = false;
 const debugLog = debug(envConfig.logNamespace("aws-controllers"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 const createLazyGetter = <T>(factory: () => T): (() => T) => {
   const cache: { value?: T } = {};

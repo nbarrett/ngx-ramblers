@@ -34,6 +34,8 @@ export class SetPasswordComponent implements OnInit, OnDestroy {
           this.logger.debug("for password-reset-id", passwordResetId, "member", member);
           this.modalService.show(ResetPasswordModalComponent, {
             animated: false,
+            backdrop: "static",
+            keyboard: false,
             initialState: {userName: member.userName, invalidPasswordLink: false}
           });
         })
@@ -41,6 +43,8 @@ export class SetPasswordComponent implements OnInit, OnDestroy {
           this.logger.debug("error", error);
           this.modalService.show(ResetPasswordModalComponent, {
             animated: false,
+            backdrop: "static",
+            keyboard: false,
             initialState: {invalidPasswordLink: true}
           });
         });

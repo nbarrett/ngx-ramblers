@@ -1,18 +1,15 @@
-import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { Member } from "../../../models/member.model";
+import { ForgotPasswordIdentificationMethod } from "../../../models/mail.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { RouterHistoryService } from "../../../services/router-history.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MailService } from "../../../services/mail/mail.service";
-import { MailMessagingConfig, NotificationConfig, SendSmtpEmailRequest } from "../../../models/mail.model";
-import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
-import { NotificationDirective } from "../../../notifications/common/notification.directive";
+import { SystemConfigService } from "../../../services/system/system-config.service";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
@@ -20,40 +17,62 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 @Component({
     selector: "app-forgot-password-modal-component",
     template: `
-    @if (mailMessagingConfig) {
+    @if (groupShortName) {
       <div class="modal-content">
         <div class="modal-header">
-          <h4 class="modal-title">I've forgotten my <em>{{ mailMessagingConfig?.group?.shortName }}</em> password!</h4>
+          <h4 class="modal-title">I've forgotten my <em>{{ groupShortName }}</em> password!</h4>
           <button type="button" (click)="close()" class="close" data-bs-dismiss="modal" aria-hidden="true">&times;</button>
         </div>
         <div class="modal-body">
           <form>
             <div class="row">
               <div class="col col-sm-12">
-                <p>If you are unable to login due to a forgotten or expired password, we can send you an
-                  email containing a secure link that will allow you to reset your
-                existing password yourself, and then choose another one.</p>
-                <p>In order to do this, please enter the following information so that we can identify you
-                as one of our members:</p>
+                <p>We can send you an email containing a secure link to reset your password.
+                  Please tell us how you'd like to verify your identity:</p>
               </div>
             </div>
             <div class="row">
               <div class="col col-sm-12">
-                <div class="form-group">
-                  <label for="credential-one">{{ credentialOneLabel }}</label>
-                  <input [disabled]="notifyTarget.busy" [(ngModel)]="credentialOne"
-                    type="text"
-                    class="form-control input-sm" id="credential-one" name="credentialOne"
-                    placeholder="Enter the username that was given to you in your original {{mailMessagingConfig?.group?.shortName}} welcome email or email address">
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="radio" name="identificationMethod" id="method-email"
+                    [value]="emailOrUsernameMethod"
+                    [(ngModel)]="identificationMethod"
+                    [disabled]="notifyTarget.busy || requestCompleted">
+                  <label class="form-check-label" for="method-email">I know my email address or username</label>
                 </div>
-                <div class="form-group">
-                  <label for="credential-two">{{ credentialTwoLabel }}</label>
-                  <input [disabled]="notifyTarget.busy" [(ngModel)]="credentialTwo"
-                    type="text"
-                    (keyup.enter)="submit()"
-                    class="form-control input-sm" id="credential-two" name="credentialTwo"
-                    placeholder="Enter your Ramblers membership number or home postcode">
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="radio" name="identificationMethod" id="method-membership"
+                    [value]="membershipDetailsMethod"
+                    [(ngModel)]="identificationMethod"
+                    [disabled]="notifyTarget.busy || requestCompleted">
+                  <label class="form-check-label" for="method-membership">I don't know my email or username</label>
                 </div>
+                @if (identificationMethod === emailOrUsernameMethod) {
+                  <div class="form-group">
+                    <label for="email">Email address or username</label>
+                    <input [disabled]="notifyTarget.busy || requestCompleted" [(ngModel)]="emailOrUsername"
+                      type="text"
+                      (keyup.enter)="submit()"
+                      class="form-control input-sm" id="email" name="email"
+                      placeholder="Enter your email address or username">
+                  </div>
+                } @else {
+                  <div class="form-group">
+                    <label for="membership-number">Ramblers membership number</label>
+                    <input [disabled]="notifyTarget.busy || requestCompleted" [(ngModel)]="membershipNumber"
+                      type="text"
+                      class="form-control input-sm" id="membership-number" name="membershipNumber"
+                      placeholder="Enter your Ramblers membership number">
+                  </div>
+                  <div class="form-group">
+                    <label for="postcode">Home postcode</label>
+                    <input [disabled]="notifyTarget.busy || requestCompleted" [(ngModel)]="postcode"
+                      type="text"
+                      (keyup.enter)="submit()"
+                      class="form-control input-sm" id="postcode" name="postcode"
+                      placeholder="Enter your home postcode">
+                  </div>
+                }
                 @if (notifyTarget.showAlert) {
                   <div class="row mb-2">
                     <div class="col col-sm-12">
@@ -77,73 +96,49 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
             </div>
           </form>
         </div>
-        <div class="modal-footer">
-          <div class="row col-sm-12 d-flex gap-2">
+        <div class="modal-footer flex-nowrap gap-1">
             <input type="submit"
               value="Submit"
               [disabled]="!submittable()"
               (keyup.enter)="submit()"
               (click)="submit()" title="Submit"
-              class="btn btn-primary">
+              class="btn btn-primary btn-sm">
             <input type="submit" [disabled]="notifyTarget.busy" value="Close"
               (click)="close()"
               title="Close forgotten password request"
-              class="btn btn-secondary">
-          </div>
+              class="btn btn-secondary btn-sm">
         </div>
       </div>
     }
-    <div class="d-none">
-      <ng-template app-notification-directive/>
-    </div>
     `,
-    imports: [FormsModule, FontAwesomeModule, ContactUsComponent, NotificationDirective]
+    imports: [FormsModule, FontAwesomeModule, ContactUsComponent]
 })
 export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("ForgotPasswordModalComponent", NgxLoggerLevel.ERROR);
-  private authService = inject(AuthService);
   private mailService = inject(MailService);
   private notifierService = inject(NotifierService);
-  private mailMessagingService = inject(MailMessagingService);
+  private systemConfigService = inject(SystemConfigService);
   private routerHistoryService = inject(RouterHistoryService);
   private stringUtils = inject(StringUtilsService);
   bsModalRef = inject(BsModalRef);
-  public mailMessagingConfig: MailMessagingConfig;
+  public groupShortName: string;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  public emailRequest: SendSmtpEmailRequest;
-  public credentialTwo;
-  public credentialOne;
+  public emailOrUsername: string;
+  public membershipNumber: string;
+  public postcode: string;
+  public identificationMethod: ForgotPasswordIdentificationMethod = ForgotPasswordIdentificationMethod.EMAIL_OR_USERNAME;
+  public emailOrUsernameMethod = ForgotPasswordIdentificationMethod.EMAIL_OR_USERNAME;
+  public membershipDetailsMethod = ForgotPasswordIdentificationMethod.MEMBERSHIP_DETAILS;
   private subscriptions: Subscription[] = [];
-  private mailSendInitiated = false;
-  public readonly credentialOneLabel = "User name or email address";
-  public readonly credentialTwoLabel = "Ramblers membership number or home postcode";
-  private forgottenPasswordMember: Member;
-  @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
-  public notificationConfig: NotificationConfig;
+  private submitInProgress = false;
+  public requestCompleted = false;
 
-  async ngOnInit() {
+  ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    this.mailMessagingService.events().subscribe(mailMessagingConfig => {
-      this.mailMessagingConfig = mailMessagingConfig;
-      this.notificationConfig = this.mailMessagingService.queryNotificationConfig(this.notify, mailMessagingConfig, "forgotPasswordNotificationConfigId");
-      this.logger.info("initialising with notificationConfig:", this.notificationConfig);
-    });
-    this.subscriptions.push(this.authService.authResponse().subscribe(async (loginResponse) => {
-      this.logger.debug("subscribe:forgot password", loginResponse);
-      if (loginResponse?.member) {
-        this.forgottenPasswordMember = loginResponse.member as Member;
-        this.sendForgottenPasswordEmailToMember();
-      } else {
-        this.logger.debug("loginResponse", loginResponse);
-        this.notify.showContactUs(true);
-        this.notify.error({
-          continue: true,
-          title: "Forgot password request failed",
-          message: loginResponse.alertMessage
-        });
-      }
+    this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
+      this.groupShortName = systemConfig?.group?.shortName;
     }));
   }
 
@@ -151,51 +146,47 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  submit() {
-    const userDetails = `${this.credentialOneLabel} as ${this.credentialOne} and ${this.credentialTwoLabel} as ${this.credentialTwo}`;
-    this.notify.progress({title: "Forgot password", message: `Checking our records for ${userDetails}`});
+  async submit() {
     if (!this.submittable()) {
+      const requiredFields = this.identificationMethod === ForgotPasswordIdentificationMethod.EMAIL_OR_USERNAME
+        ? "your email address or username"
+        : "your membership number and postcode";
       this.notify.error({
         continue: true,
         title: "Incorrect information entered",
-        message: `Please enter ${this.credentialOneLabel} and ${this.credentialTwoLabel}`
+        message: `Please enter ${requiredFields}`
       });
     } else {
       this.notify.setBusy();
       this.notify.showContactUs(false);
-      this.authService.forgotPassword(this.credentialOne, this.credentialTwo, userDetails);
+      this.notify.progress({title: "Forgot password", message: "Checking our records..."});
+      this.submitInProgress = true;
+      try {
+        const response = await this.mailService.sendForgotPasswordRequest({
+          identificationMethod: this.identificationMethod,
+          emailOrUsername: this.emailOrUsername,
+          membershipNumber: this.membershipNumber,
+          postcode: this.postcode
+        });
+        this.logger.info("sendForgotPasswordRequest response:", response);
+        this.requestCompleted = true;
+        this.notify.success({
+          title: "Request processed",
+          message: response?.message || "Thanks! If those details match one of our members, a password reset email will be on its way shortly"
+        });
+      } catch (errorResponse) {
+        this.logger.error("sendForgotPasswordRequest error:", errorResponse);
+        this.notify.showContactUs(true);
+        this.notify.error({
+          continue: true,
+          title: "Your request could not be processed",
+          message: (errorResponse.message || errorResponse) + (errorResponse.error ? (". Error was: " + this.stringUtils.stringify(errorResponse.error)) : "")
+        });
+      } finally {
+        this.submitInProgress = false;
+        this.notify.clearBusy();
+      }
     }
-  }
-
-  sendForgottenPasswordEmailToMember() {
-    this.mailSendInitiated = true;
-    this.emailRequest = this.mailMessagingService.createEmailRequest({
-      member: this.forgottenPasswordMember,
-      notificationConfig: this.notificationConfig,
-      notificationDirective: this.notificationDirective
-    });
-    this.logger.info("sendForgottenPasswordEmailToMember:emailRequest:", this.emailRequest);
-    return Promise.resolve(this.notify.success("Sending forgotten password email"))
-      .then(() => this.mailService.sendForgotPasswordMessage(this.emailRequest))
-      .then(() => this.finalMessage())
-      .then(() => this.notify.clearBusy())
-      .catch((error) => this.handleSendError(error));
-  }
-
-  handleSendError(errorResponse) {
-    this.mailSendInitiated = false;
-    this.notify.error({
-      continue: true,
-      title: "Your email could not be sent",
-      message: (errorResponse.message || errorResponse) + (errorResponse.error ? (". Error was: " + this.stringUtils.stringify(errorResponse.error)) : "")
-    });
-  }
-
-  finalMessage() {
-    return this.notify.success({
-      title: "Message sent",
-      message: "We've sent a message to the email address we have for you. Please check your inbox and follow the instructions in the message."
-    });
   }
 
   fieldPopulated(object: any) {
@@ -203,9 +194,14 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
   }
 
   submittable() {
-    const credentialOnePopulated = this.fieldPopulated(this.credentialOne);
-    const passwordPopulated = this.fieldPopulated(this.credentialTwo);
-    return passwordPopulated && credentialOnePopulated && !this.notifyTarget.busy && !this.mailSendInitiated;
+    if (this.notifyTarget.busy || this.submitInProgress || this.requestCompleted) {
+      return false;
+    }
+    if (this.identificationMethod === ForgotPasswordIdentificationMethod.EMAIL_OR_USERNAME) {
+      return this.fieldPopulated(this.emailOrUsername);
+    } else {
+      return this.fieldPopulated(this.membershipNumber) && this.fieldPopulated(this.postcode);
+    }
   }
 
   close() {

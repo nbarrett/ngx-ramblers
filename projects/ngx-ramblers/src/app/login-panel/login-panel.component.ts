@@ -30,6 +30,8 @@ export class LoginPanelComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   config: ModalOptions = {
     animated: false,
+    backdrop: "static",
+    keyboard: false,
     initialState: {}
   };
 

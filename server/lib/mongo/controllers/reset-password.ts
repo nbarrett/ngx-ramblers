@@ -20,7 +20,7 @@ export function resetPassword(req: Request, res: Response) {
   const newPasswordConfirm = req.body.newPasswordConfirm;
   debugLog("resetPassword.req.body:", req.body);
   const loginResponse: LoginResponse = {showResetPassword: true};
-  auth.findOne({userName})
+  auth.findOne({$or: [{userName}, {email: userName}]})
     .then((memberDocument: Document) => {
       const member: Member = transforms.toObjectWithId(memberDocument);
       debugLog("resetPassword.found:", member.userName);

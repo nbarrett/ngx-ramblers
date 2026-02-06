@@ -31,14 +31,14 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
           <div class="row">
             <div class="col col-sm-12">
               <div class="form-group">
-                <label for="user-name">User Name</label>
+                <label for="user-name">Email address or username</label>
                 <input #userNameInput [(ngModel)]="userName" type="text" (keyup.enter)="login()"
-                  class="form-control input-sm" id="user-name" autocomplete="user-name" name="user-name"
-                  placeholder="Enter username">
+                  class="form-control input-sm" id="user-name" autocomplete="username" name="user-name"
+                  placeholder="Enter your email address or username">
               </div>
               <div class="form-group">
                 <label for="password">Password</label>
-                <input [(ngModel)]="password" type="password" (keyup.enter)="login()"
+                <input #passwordInput [(ngModel)]="password" type="password" (keyup.enter)="login()"
                   class="form-control input-sm" id="password" autocomplete="current-password" name="password"
                   placeholder="Enter password">
               </div>
@@ -65,20 +65,18 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
           </div>
         </form>
       </div>
-      <div class="modal-footer">
-        <div class="col-sm-12 d-flex gap-2">
-          <input type="submit" #loginButton [disabled]="notifyTarget.busy || !submittable()" value="Login"
+      <div class="modal-footer flex-nowrap gap-1">
+          <input type="submit" #loginButton [disabled]="notifyTarget.busy" value="Login"
             (click)="login()"
             title="Login"
-            class="btn btn-primary">
+            class="btn btn-primary btn-sm">
           <input type="reset" value="Cancel" (click)="close()" title="Cancel and don't login"
             [disabled]="notifyTarget.busy"
-            class="btn btn-secondary">
+            class="btn btn-secondary btn-sm">
           <input type="reset" value="Forgot Password" (click)="forgotPassword()"
             title="I've forgotten my password"
             [disabled]="notifyTarget.busy"
-            class="btn btn-warning">
-        </div>
+            class="btn btn-warning btn-sm">
       </div>
     </div>`,
     styleUrls: ["./login-modal.component.sass"],
@@ -95,6 +93,7 @@ export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
   private notifierService = inject(NotifierService);
 
   @ViewChild("userNameInput") userNameInput: ElementRef;
+  @ViewChild("passwordInput") passwordInput: ElementRef;
   @ViewChild("loginButton") loginButton: ElementRef;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -131,6 +130,8 @@ export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
       } else if (loginResponse.showResetPassword) {
         this.modalService.show(ResetPasswordModalComponent, {
           animated: false,
+          backdrop: "static",
+          keyboard: false,
           initialState: {
             userName: this.userName,
             message: "Your password has expired, therefore you need to reset it to a new one before continuing."
@@ -159,20 +160,29 @@ export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  private syncFromAutofill() {
+    if (this.userNameInput?.nativeElement?.value) {
+      this.userName = this.userNameInput.nativeElement.value;
+    }
+    if (this.passwordInput?.nativeElement?.value) {
+      this.password = this.passwordInput.nativeElement.value;
+    }
+  }
+
   fieldPopulated(object) {
     return (object || "").length > 0;
   }
 
   submittable() {
-    const userNamePopulated = this.fieldPopulated(this.userName);
-    const passwordPopulated = this.fieldPopulated(this.password);
-    return passwordPopulated && userNamePopulated;
+    return this.fieldPopulated(this.userName) && this.fieldPopulated(this.password);
   }
 
   forgotPassword() {
     this.close();
     this.modalService.show(ForgotPasswordModalComponent, {
-      animated: false
+      animated: false,
+      backdrop: "static",
+      keyboard: false
     });
   }
 
@@ -182,12 +192,21 @@ export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   login() {
-    this.notify.showContactUs(false);
-    this.notify.setBusy();
-    this.notify.progress({
-      title: "Logging in",
-      message: "using credentials for " + this.userName + " - please wait"
-    });
-    this.authService.login(this.userName, this.password);
+    this.syncFromAutofill();
+    if (!this.submittable()) {
+      this.notify.error({
+        continue: true,
+        title: "Login failed",
+        message: "Please enter both a user name and password"
+      });
+    } else {
+      this.notify.showContactUs(false);
+      this.notify.setBusy();
+      this.notify.progress({
+        title: "Logging in",
+        message: "using credentials for " + this.userName + " - please wait"
+      });
+      this.authService.login(this.userName, this.password);
+    }
   }
 }

@@ -17,7 +17,7 @@ export function login(req: Request, res: Response) {
   try {
     const userName = req.body.userName;
     debugLog("attempting to login userName:", userName);
-    auth.findOne({userName})
+    auth.findOne({$or: [{userName}, {email: userName}]})
       .then((document: any) => {
         const member: Member = transforms.toObjectWithId(document);
         if (member) {
