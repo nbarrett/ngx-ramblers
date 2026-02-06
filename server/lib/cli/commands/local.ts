@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import debug from "debug";
-import { spawn, ChildProcess, spawnSync } from "child_process";
+import { ChildProcess, spawn, spawnSync } from "child_process";
 import net from "net";
 import path from "path";
 import fs from "fs";
@@ -10,16 +10,11 @@ import { keys } from "es-toolkit/compat";
 import { log } from "../cli-logger";
 import { select, isBack, isQuit, handleQuit, clearScreen } from "../cli-prompt";
 import { dateTimeNow } from "../../shared/dates";
+import { envConfig } from "../../env-config/env-config";
+import { ChromeValidationResult, LocalRunConfig, ProcessState, RunningProcess } from "../cli.model";
+import { openLogViewer } from "../log-viewer";
 
-const debugLog = debug("ngx-ramblers:cli:local");
-
-interface ChromeValidationResult {
-  valid: boolean;
-  chromeBinPath?: string;
-  chromedriverPath?: string;
-  chromeVersion?: string;
-  error?: string;
-}
+const debugLog = debug(envConfig.logNamespace("cli:local"));
 
 function checkPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -33,28 +28,21 @@ function checkPortAvailable(port: number): Promise<boolean> {
   });
 }
 
-interface LocalRunConfig {
-  environmentName: string;
-  mode: "dev" | "prod";
-  port: number;
-  logDir?: string;
-  logTimestamp?: boolean;
-}
-
 const PROJECT_ROOT = path.resolve(__dirname, "../../../../");
+const DEFAULT_LOG_DIR = "cli-output/logs";
 
-function detectInstalledChromeVersion(): string | undefined {
+function detectInstalledChromeVersion(): string | null {
   const chromedriverDir = path.join(PROJECT_ROOT, "server/chromedriver");
   if (!fs.existsSync(chromedriverDir)) {
-    return undefined;
+    return null;
   }
   const dirs = fs.readdirSync(chromedriverDir).filter(d => d.startsWith("mac_arm-"));
   if (dirs.length === 0) {
-    return undefined;
+    return null;
   }
   const latest = dirs.sort().reverse()[0];
   const match = latest.match(/^mac_arm-(.+)$/);
-  return match ? match[1] : undefined;
+  return match ? match[1] : null;
 }
 
 function validateChromeBinary(chromeBinPath: string): boolean {
@@ -76,7 +64,10 @@ function validateChromeSetup(chromeVersionOverride?: string): ChromeValidationRe
   if (!chromeVersion) {
     return {
       valid: false,
-      error: "No Chrome version detected in server/chromedriver/"
+      error: "No Chrome version detected in server/chromedriver/",
+      chromeBinPath: null,
+      chromedriverPath: null,
+      chromeVersion: null
     };
   }
 
@@ -93,7 +84,9 @@ function validateChromeSetup(chromeVersionOverride?: string): ChromeValidationRe
     return {
       valid: false,
       chromeVersion,
-      error: `Chromedriver not found at ${chromedriverPath}`
+      error: `Chromedriver not found at ${chromedriverPath}`,
+      chromeBinPath: null,
+      chromedriverPath: null
     };
   }
 
@@ -102,7 +95,8 @@ function validateChromeSetup(chromeVersionOverride?: string): ChromeValidationRe
       valid: false,
       chromeVersion,
       chromedriverPath,
-      error: `Chrome binary not found or not executable at ${chromeBinPath}`
+      error: `Chrome binary not found or not executable at ${chromeBinPath}`,
+      chromeBinPath: null
     };
   }
 
@@ -110,7 +104,8 @@ function validateChromeSetup(chromeVersionOverride?: string): ChromeValidationRe
     valid: true,
     chromeVersion,
     chromedriverPath,
-    chromeBinPath
+    chromeBinPath,
+    error: null
   };
 }
 
@@ -197,53 +192,42 @@ function buildEnvironmentVariables(
   };
 
   if (chromeValidation.valid) {
-    env.CHROME_VERSION = chromeValidation.chromeVersion;
-    env.CHROMEDRIVER_PATH = chromeValidation.chromedriverPath;
-    env.CHROME_BIN = chromeValidation.chromeBinPath;
+    env.CHROME_VERSION = chromeValidation.chromeVersion || "";
+    env.CHROMEDRIVER_PATH = chromeValidation.chromedriverPath || "";
+    env.CHROME_BIN = chromeValidation.chromeBinPath || "";
   }
 
   return env;
-}
-
-interface RunningProcess {
-  child: ChildProcess;
-  label: string;
-}
-
-interface ProcessState {
-  hasError: boolean;
-  isShuttingDown: boolean;
-  stderrBuffer: string;
 }
 
 function createProcessState(): ProcessState {
   return { hasError: false, isShuttingDown: false, stderrBuffer: "" };
 }
 
-function resolveLogDir(logDir?: string): string | undefined {
+function resolveLogDir(logDir: string | null): string | null {
   if (!logDir) {
-    return undefined;
+    return null;
   }
   const resolved = path.resolve(PROJECT_ROOT, logDir);
   fs.mkdirSync(resolved, { recursive: true });
   return resolved;
 }
 
-function buildLogFilePath(logDir: string | undefined, filename: string): string | undefined {
+function buildLogFilePath(logDir: string | null, filename: string): string | null {
   if (!logDir) {
-    return undefined;
+    return null;
   }
   return path.join(logDir, filename);
 }
 
-function buildLogTimestamp(logTimestamp?: boolean): string | undefined {
+function buildLogTimestamp(logTimestamp: boolean): string | null {
   if (!logTimestamp) {
-    return undefined;
+    return null;
   }
   return dateTimeNow().toFormat("yyyyLLdd-HHmmss");
 }
 
-function applyLogTimestamp(filename: string, timestamp?: string): string {
+function applyLogTimestamp(filename: string, timestamp: string | null): string {
   if (!timestamp) {
     return filename;
   } else {
@@ -261,7 +245,8 @@ function runCommand(
   label: string,
   state: ProcessState,
   onError: (label: string, message: string) => void,
-  logFilePath?: string
+  logFilePath: string | null,
+  showOutput: boolean
 ): ChildProcess {
   log(`Starting ${label}...`);
   debugLog(`Running: ${command} ${args.join(" ")}`);
@@ -277,7 +262,9 @@ function runCommand(
 
   child.stdout?.on("data", (data: Buffer) => {
     const text = data.toString();
-    process.stdout.write(text);
+    if (showOutput) {
+      process.stdout.write(text);
+    }
     if (logStream) {
       logStream.write(text);
     }
@@ -286,7 +273,9 @@ function runCommand(
   child.stderr?.on("data", (data: Buffer) => {
     const text = data.toString();
     state.stderrBuffer += text;
-    process.stderr.write(text);
+    if (showOutput) {
+      process.stderr.write(text);
+    }
     if (logStream) {
       logStream.write(text);
     }
@@ -314,6 +303,37 @@ function runCommand(
   });
 
   return child;
+}
+
+function ensureLogDir(config: LocalRunConfig, allowDefault: boolean): LocalRunConfig {
+  if (config.logDir || !allowDefault) {
+    return config;
+  }
+  return {
+    ...config,
+    logDir: DEFAULT_LOG_DIR
+  };
+}
+
+function resolveLatestLogPath(logDir: string, prefix: string): string | null {
+  if (!fs.existsSync(logDir)) {
+    return null;
+  }
+  const entries = fs.readdirSync(logDir);
+  const matches = entries
+    .filter(name => name.startsWith(prefix) && name.endsWith(".log"))
+    .map(name => ({
+      name,
+      stats: fs.statSync(path.join(logDir, name))
+    }))
+    .filter(entry => entry.stats.isFile());
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  const latest = matches.sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs)[0];
+  return path.join(logDir, latest.name);
 }
 
 async function runDev(config: LocalRunConfig): Promise<void> {
@@ -355,6 +375,7 @@ async function runDev(config: LocalRunConfig): Promise<void> {
 
   const processes: RunningProcess[] = [];
   const state = createProcessState();
+  const showOutput = !config.logViewer;
 
   const cleanup = (reason?: string) => {
     if (state.isShuttingDown) {
@@ -395,7 +416,8 @@ async function runDev(config: LocalRunConfig): Promise<void> {
     "Backend (tsx watch)",
     backendState,
     onError,
-    backendLogPath
+    backendLogPath,
+    showOutput
   );
   processes.push({ child: backendProcess, label: "Backend" });
 
@@ -408,12 +430,23 @@ async function runDev(config: LocalRunConfig): Promise<void> {
     "Frontend (ng serve)",
     frontendState,
     onError,
-    frontendLogPath
+    frontendLogPath,
+    showOutput
   );
   processes.push({ child: frontendProcess, label: "Frontend" });
 
   process.on("SIGINT", () => cleanup());
   process.on("SIGTERM", () => cleanup());
+
+  if (config.logViewer && frontendLogPath && backendLogPath) {
+    await openLogViewer({
+      frontendLogPath,
+      backendLogPath,
+      refreshIntervalMs: 500,
+      maxLines: 2000
+    });
+    cleanup();
+  }
 
   await Promise.all(
     processes.map(
@@ -465,10 +498,13 @@ async function runProd(config: LocalRunConfig): Promise<void> {
   });
 
   const buildLogStream = frontendLogPath ? fs.createWriteStream(frontendLogPath, { flags: "a" }) : undefined;
+  const showOutput = !config.logViewer;
 
   buildProcess.stdout?.on("data", (data: Buffer) => {
     const text = data.toString();
-    process.stdout.write(text);
+    if (showOutput) {
+      process.stdout.write(text);
+    }
     if (buildLogStream) {
       buildLogStream.write(text);
     }
@@ -476,7 +512,9 @@ async function runProd(config: LocalRunConfig): Promise<void> {
 
   buildProcess.stderr?.on("data", (data: Buffer) => {
     const text = data.toString();
-    process.stderr.write(text);
+    if (showOutput) {
+      process.stderr.write(text);
+    }
     if (buildLogStream) {
       buildLogStream.write(text);
     }
@@ -535,11 +573,22 @@ async function runProd(config: LocalRunConfig): Promise<void> {
     "Production server",
     serverState,
     onError,
-    backendLogPath
+    backendLogPath,
+    !config.logViewer
   );
 
   process.on("SIGINT", () => cleanup());
   process.on("SIGTERM", () => cleanup());
+
+  if (config.logViewer && frontendLogPath && backendLogPath) {
+    await openLogViewer({
+      frontendLogPath,
+      backendLogPath,
+      refreshIntervalMs: 500,
+      maxLines: 2000
+    });
+    cleanup();
+  }
 
   await new Promise<void>(resolve => {
     serverProcess.on("exit", () => resolve());
@@ -557,6 +606,7 @@ export function createLocalCommand(): Command {
     .option("-p, --port <port>", "Backend port", "5001")
     .option("--log-dir <dir>", "Directory to write frontend.log and backend.log")
     .option("--log-timestamp", "Add timestamp to log filenames")
+    .option("--no-log-viewer", "Disable built-in log viewer and stream to stdout")
     .action(async (environment, options) => {
       try {
         const environmentName = environment || await (async () => {
@@ -567,13 +617,27 @@ export function createLocalCommand(): Command {
           return;
         }
         const port = parseInt(options.port, 10);
+        const logViewer = options.logViewer !== false;
+
+        const config = ensureLogDir(
+          {
+            environmentName,
+            mode: "dev",
+            port,
+            logDir: options.logDir || null,
+            logTimestamp: options.logTimestamp || false,
+            logViewer
+          },
+          logViewer
+        );
 
         await runDev({
           environmentName,
           mode: "dev",
           port,
-          logDir: options.logDir,
-          logTimestamp: options.logTimestamp
+          logDir: config.logDir,
+          logTimestamp: config.logTimestamp,
+          logViewer: config.logViewer
         });
       } catch (error) {
         log("Error: %s", error.message);
@@ -587,6 +651,7 @@ export function createLocalCommand(): Command {
     .option("-p, --port <port>", "Server port", "5001")
     .option("--log-dir <dir>", "Directory to write frontend.log and backend.log")
     .option("--log-timestamp", "Add timestamp to log filenames")
+    .option("--no-log-viewer", "Disable built-in log viewer and stream to stdout")
     .action(async (environment, options) => {
       try {
         const environmentName = environment || await (async () => {
@@ -597,13 +662,27 @@ export function createLocalCommand(): Command {
           return;
         }
         const port = parseInt(options.port, 10);
+        const logViewer = options.logViewer !== false;
+
+        const config = ensureLogDir(
+          {
+            environmentName,
+            mode: "prod",
+            port,
+            logDir: options.logDir || null,
+            logTimestamp: options.logTimestamp || false,
+            logViewer
+          },
+          logViewer
+        );
 
         await runProd({
           environmentName,
           mode: "prod",
           port,
-          logDir: options.logDir,
-          logTimestamp: options.logTimestamp
+          logDir: config.logDir,
+          logTimestamp: config.logTimestamp,
+          logViewer: config.logViewer
         });
       } catch (error) {
         log("Error: %s", error.message);
@@ -630,6 +709,38 @@ export function createLocalCommand(): Command {
           log("  %s - %s (%s)", env.name, env.appName, status);
         });
         log("");
+      } catch (error) {
+        log("Error: %s", error.message);
+        process.exit(1);
+      }
+    });
+
+  local
+    .command("logs")
+    .description("Open the built-in log viewer")
+    .option("--log-dir <dir>", "Directory containing frontend/backend logs")
+    .action(async options => {
+      try {
+        const logDir = resolveLogDir(options.logDir || DEFAULT_LOG_DIR);
+        if (!logDir) {
+          log("Error: Log directory not available.");
+          process.exit(1);
+        }
+
+        const frontendLogPath = resolveLatestLogPath(logDir, "frontend");
+        const backendLogPath = resolveLatestLogPath(logDir, "backend");
+
+        if (!frontendLogPath || !backendLogPath) {
+          log("Error: Unable to find frontend and backend logs in %s", logDir);
+          process.exit(1);
+        }
+
+        await openLogViewer({
+          frontendLogPath,
+          backendLogPath,
+          refreshIntervalMs: 500,
+          maxLines: 2000
+        });
       } catch (error) {
         log("Error: %s", error.message);
         process.exit(1);
