@@ -246,6 +246,13 @@ import { SectionToggle, SectionToggleTab } from "../../../shared/components/sect
                       <div class="thumbnail-heading">Column 1: External Urls</div>
                       <div class="col-md-12">
                         <div class="form-check">
+                          <input [(ngModel)]="config.externalSystems.facebook.showFooterLink"
+                                 type="checkbox" class="form-check-input" id="facebook-show-footer-link">
+                          <label class="form-check-label"
+                                 for="facebook-show-footer-link">Show Facebook
+                          </label>
+                        </div>
+                        <div class="form-check">
                           <input [(ngModel)]="config.externalSystems.facebook.showFeed"
                                  type="checkbox" class="form-check-input" id="facebook-show-feed">
                           <label class="form-check-label"
@@ -289,17 +296,47 @@ import { SectionToggle, SectionToggleTab } from "../../../shared/components/sect
                             </div>
                           </div>
                         </div>
+                        <div class="form-check">
+                          <input [(ngModel)]="config.externalSystems.youtube.showFooterLink"
+                                 type="checkbox" class="form-check-input"
+                                 id="youtube-show-footer-link">
+                          <label class="form-check-label"
+                                 for="youtube-show-footer-link">Show Youtube
+                          </label>
+                        </div>
                         <div class="form-group">
-                          <label for="youtube-href">Youtube</label>
+                          <label for="youtube-href">Youtube Url</label>
                           <input [(ngModel)]="config.externalSystems.youtube.groupUrl"
                                  type="text" class="form-control input-sm" id="youtube-href"
                                  placeholder="Enter a group url for Youtube">
                         </div>
+                        <div class="form-check">
+                          <input [(ngModel)]="config.externalSystems.twitter.showFooterLink"
+                                 type="checkbox" class="form-check-input"
+                                 id="twitter-show-footer-link">
+                          <label class="form-check-label"
+                                 for="twitter-show-footer-link">Show Twitter
+                          </label>
+                        </div>
                         <div class="form-group">
-                          <label for="twitter-href">Twitter</label>
+                          <label for="twitter-href">Twitter Url</label>
                           <input [(ngModel)]="config.externalSystems.twitter.groupUrl"
                                  type="text" class="form-control input-sm" id="twitter-href"
                                  placeholder="Enter a group url for Twitter">
+                        </div>
+                        <div class="form-check">
+                          <input [(ngModel)]="config.externalSystems.linkedIn.showFooterLink"
+                                 type="checkbox" class="form-check-input"
+                                 id="linkedin-show-footer-link">
+                          <label class="form-check-label"
+                                 for="linkedin-show-footer-link">Show LinkedIn
+                          </label>
+                        </div>
+                        <div class="form-group">
+                          <label for="linkedin-href">LinkedIn Url</label>
+                          <input [(ngModel)]="config.externalSystems.linkedIn.groupUrl"
+                                 type="text" class="form-control input-sm" id="linkedin-href"
+                                 placeholder="Enter a group url for LinkedIn">
                         </div>
                         <div class="row">
                           <div class="col-md-6">
@@ -508,15 +545,15 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
 
   ensureExternalSystemsInitialised() {
     if (this.config?.externalSystems) {
-      const defaultExternalSystem = { groupUrl: "", showFooterLink: false, showFeed: false };
+      const defaultExternalSystem = {groupUrl: "", showFooterLink: false, showFeed: false};
       if (!this.config.externalSystems.youtube) {
-        this.config.externalSystems.youtube = { ...defaultExternalSystem };
+        this.config.externalSystems.youtube = {...defaultExternalSystem};
       }
       if (!this.config.externalSystems.twitter) {
-        this.config.externalSystems.twitter = { ...defaultExternalSystem };
+        this.config.externalSystems.twitter = {...defaultExternalSystem};
       }
       if (!this.config.externalSystems.linkedIn) {
-        this.config.externalSystems.linkedIn = { ...defaultExternalSystem };
+        this.config.externalSystems.linkedIn = {...defaultExternalSystem};
       }
     }
   }
