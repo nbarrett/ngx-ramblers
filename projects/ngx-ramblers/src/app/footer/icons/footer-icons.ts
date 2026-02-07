@@ -12,7 +12,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
     template: `
     <ul
       class="icon-container d-inline-flex justify-content-between align-items-center list-unstyled w-100 mt-3 mb-5 mb-lg-3">
-      @if (externalSystems?.facebook) {
+      @if (externalSystems?.facebook?.showFooterLink) {
         <li class="mb-0" placement="top"
           [tooltip]="'View our Facebook page (opens a new browser tab)'"><a [href]="externalSystems?.facebook?.groupUrl"
           target="_blank"
@@ -24,7 +24,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
         </a>
       </li>
     }
-    @if (externalSystems?.twitter) {
+    @if (externalSystems?.twitter?.showFooterLink) {
       <li class="mb-0" placement="top"
         [tooltip]="'View our Twitter page (opens a new browser tab)'"><a [href]="externalSystems?.twitter?.groupUrl"
         target="_blank"
@@ -35,7 +35,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
         </span>
       </a></li>
     }
-    @if (externalSystems?.linkedIn) {
+    @if (externalSystems?.linkedIn?.showFooterLink) {
       <li class="mb-0" placement="top"
         [tooltip]="'View our Linked in page (opens a new browser tab)'"><a [href]="externalSystems?.linkedIn?.groupUrl"
         target="_blank"
@@ -46,7 +46,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
         </span>
       </a></li>
     }
-    @if (externalSystems?.youtube) {
+    @if (externalSystems?.youtube?.showFooterLink) {
       <li class="mb-0" placement="top"
         [tooltip]="'View our Youtube page (opens a new browser tab)'"><a [href]="externalSystems?.youtube?.groupUrl"
         target="_blank" class="d-block p-1">
@@ -56,7 +56,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
         </span>
       </a></li>
     }
-    @if (externalSystems?.instagram) {
+    @if (externalSystems?.instagram?.showFooterLink) {
       <li class="mb-0" placement="top"
         [tooltip]="'View our Instagram page (opens a new browser tab)'"><a
         [href]="externalSystems?.instagram?.groupUrl" target="_blank"
@@ -67,7 +67,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
         </span>
       </a></li>
     }
-    @if (externalSystems?.meetup) {
+    @if (externalSystems?.meetup?.showFooterLink) {
       <li class="mb-0" placement="top"
         [tooltip]="'View the '+ externalSystems?.meetup?.groupName + ' Meetup page (opens a new browser tab)'"><a
         [href]="externalSystems.meetup.groupUrl+'/'+externalSystems.meetup.groupName" target="_blank"

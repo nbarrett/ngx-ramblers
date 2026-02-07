@@ -24,7 +24,7 @@ import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { StringUtilsService } from "../string-utils.service";
-import { cloneDeep, isEqual, isString } from "es-toolkit/compat";
+import { cloneDeep, isEqual, isNil, isString } from "es-toolkit/compat";
 import { WalkListView } from "../../models/walk.model";
 import { RAMBLERS_LANDING_PAGE } from "../../models/images.model";
 import { HasStyles, LinkStyle, ListStyle } from "../../models/content-text.model";
@@ -79,8 +79,11 @@ export class SystemConfigService {
       config.mailDefaults = this.mailDefaults();
     }
     if (!config.externalSystems.facebook) {
-      config.externalSystems.facebook = {appId: null, pagesUrl: null, groupUrl: null, showFeed: true};
+      config.externalSystems.facebook = {appId: null, pagesUrl: null, groupUrl: null, showFeed: true, showFooterLink: false};
       this.logger.info("migrated facebook to", config.externalSystems.facebook);
+    } else if (isNil(config.externalSystems.facebook.showFooterLink)) {
+      config.externalSystems.facebook.showFooterLink = !!config.externalSystems.facebook.groupUrl;
+      this.logger.info("migrated facebook showFooterLink to", config.externalSystems.facebook.showFooterLink);
     } else {
       this.logger.info("nothing to migrate for facebook", config.externalSystems.facebook);
     }
@@ -106,8 +109,12 @@ export class SystemConfigService {
         clientSecret: null,
         groupName: null,
         groupUrl: null,
-        refreshToken: null
+        refreshToken: null,
+        showFooterLink: false
       };
+    } else if (isNil(config.externalSystems.meetup.showFooterLink)) {
+      config.externalSystems.meetup.showFooterLink = !!config.externalSystems.meetup.groupUrl;
+      this.logger.info("migrated meetup showFooterLink to", config.externalSystems.meetup.showFooterLink);
     } else {
       this.logger.info("nothing to migrate for meetup", config.externalSystems.meetup);
     }
