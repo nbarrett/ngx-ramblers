@@ -188,7 +188,8 @@ function buildEnvironmentVariables(
     PORT: String(port),
     DEBUG: secrets.DEBUG || "ngx-ramblers:*",
     DEBUG_COLORS: "true",
-    NODE_OPTIONS: "--max_old_space_size=2560"
+    NODE_OPTIONS: "--max_old_space_size=2560",
+    PLATFORM_ADMIN_ENABLED: "true"
   };
 
   if (chromeValidation.valid) {
@@ -260,13 +261,15 @@ function runCommand(
 
   const logStream = logFilePath ? fs.createWriteStream(logFilePath, { flags: "a" }) : undefined;
 
+  const stripAnsi = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, "");
+
   child.stdout?.on("data", (data: Buffer) => {
     const text = data.toString();
     if (showOutput) {
       process.stdout.write(text);
     }
     if (logStream) {
-      logStream.write(text);
+      logStream.write(stripAnsi(text));
     }
   });
 
@@ -277,7 +280,7 @@ function runCommand(
       process.stderr.write(text);
     }
     if (logStream) {
-      logStream.write(text);
+      logStream.write(stripAnsi(text));
     }
 
     if (text.includes("EADDRINUSE") || text.includes("address already in use")) {

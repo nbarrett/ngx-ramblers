@@ -2,7 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import { ButtonWrapperComponent } from "./button-wrapper";
+import { ButtonWrapper } from "./button-wrapper";
 
 @Component({
     selector: "app-mailchimp-button",
@@ -16,12 +16,12 @@ import { ButtonWrapperComponent } from "./button-wrapper";
            src="/assets/images/local/mailchimp.jpeg"
            alt="{{title}}"/>
     </app-button-wrapper>`,
-    imports: [ButtonWrapperComponent]
+    imports: [ButtonWrapper]
 })
 
-export class MailchimpButtonComponent implements OnInit {
+export class MailchimpButton implements OnInit {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpButtonComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpButton", NgxLoggerLevel.ERROR);
   public disabled: boolean;
   public button: boolean;
   public showTooltip: boolean;

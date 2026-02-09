@@ -44,6 +44,7 @@ import { setupSerenityReports } from "./reports/serenity-reports";
 import { extendedGroupEventRoutes } from "./mongo/routes/extended-group-event";
 import { venueRoutes } from "./mongo/routes/venue";
 import { environmentSetupRoutes } from "./environment-setup/routes/environment-setup-routes";
+import { cloudflareEmailRoutingRoutes } from "./cloudflare/cloudflare-email-routing-routes";
 import { configureLogging } from "./logging/logging";
 import { downloadStatusRoutes } from "./ramblers/download-status-routes";
 import { geoJsonRoutes } from "./geojson/geojson-routes";
@@ -131,6 +132,7 @@ app.use("/api/database/walks", walksRoutes);
 app.use("/api/database/group-event", extendedGroupEventRoutes);
 app.use("/api/database/migrations", migrationsRoutes);
 app.use("/api/database/venues", venueRoutes);
+app.use("/api/cloudflare/email-routing", cloudflareEmailRoutingRoutes);
 app.use("/api/environment-setup", environmentSetupRoutes);
 setupSerenityReports(app);
 if (fs.existsSync(distFolder)) {

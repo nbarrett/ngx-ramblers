@@ -15,7 +15,7 @@ import { UrlService } from "../../../../services/url.service";
 import { cloneDeep } from "es-toolkit/compat";
 import { isEqual } from "es-toolkit/compat";
 import { FormsModule } from "@angular/forms";
-import { MeetupButtonComponent } from "../../../../modules/common/third-parties/meetup-button";
+import { MeetupButton } from "../../../../modules/common/third-parties/meetup-button";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
@@ -136,7 +136,7 @@ import { InputSize } from "../../../../models/ui-size.model";
         </div>
       }
     </div>`,
-    imports: [FormsModule, MeetupButtonComponent, AlertComponent, FontAwesomeModule, SecretInputComponent]
+    imports: [FormsModule, MeetupButton, AlertComponent, FontAwesomeModule, SecretInputComponent]
 })
 export class SystemMeetupSettingsComponent implements OnInit, OnDestroy {
 

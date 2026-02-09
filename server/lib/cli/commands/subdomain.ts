@@ -5,7 +5,6 @@ import { envConfig } from "../../env-config/env-config";
 import { createDnsRecord, listDnsRecords, deleteDnsRecord, verifyToken, CloudflareConfig } from "../../cloudflare/cloudflare-dns";
 import { appIpAddresses, addCertificate, getCertificates, FlyConfig } from "../../fly/fly-certificates";
 import { findEnvironmentFromDatabase, getEnvironmentsConfig } from "../../environments/environments-config";
-import { CLOUDFLARE_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 
 const debugLog = debug(envConfig.logNamespace("cli:subdomain"));
 
@@ -24,6 +23,9 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
   if (!environmentsConfig?.cloudflare?.zoneId) {
     throw new Error("Cloudflare Zone ID not configured. Add cloudflare.zoneId to environments config.");
   }
+  if (!environmentsConfig?.cloudflare?.baseDomain) {
+    throw new Error("Cloudflare baseDomain not configured. Add cloudflare.baseDomain to environments config.");
+  }
 
   const flyApiToken = envConfig.apiKey;
   if (!flyApiToken) {
@@ -32,7 +34,7 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
 
   const appName = envConfig.appName || `ngx-ramblers-${environmentName}`;
   const subdomain = environmentName;
-  const baseDomain = environmentsConfig.cloudflare.baseDomain || CLOUDFLARE_DEFAULTS.BASE_DOMAIN;
+  const baseDomain = environmentsConfig.cloudflare.baseDomain;
   const fullHostname = `${subdomain}.${baseDomain}`;
 
   log(`\nSubdomain: ${fullHostname}`);
@@ -108,8 +110,11 @@ export async function removeSubdomainForEnvironment(environmentName: string): Pr
   if (!environmentsConfig?.cloudflare?.apiToken || !environmentsConfig?.cloudflare?.zoneId) {
     throw new Error("Cloudflare not configured in environments config");
   }
+  if (!environmentsConfig?.cloudflare?.baseDomain) {
+    throw new Error("Cloudflare baseDomain not configured. Add cloudflare.baseDomain to environments config.");
+  }
 
-  const baseDomain = environmentsConfig.cloudflare.baseDomain || CLOUDFLARE_DEFAULTS.BASE_DOMAIN;
+  const baseDomain = environmentsConfig.cloudflare.baseDomain;
   const fullHostname = `${environmentName}.${baseDomain}`;
 
   const cloudflareConfig: CloudflareConfig = {
@@ -140,7 +145,10 @@ export async function checkSubdomainStatus(environmentName: string): Promise<voi
   }
 
   const environmentsConfig = await getEnvironmentsConfig();
-  const baseDomain = environmentsConfig?.cloudflare?.baseDomain || CLOUDFLARE_DEFAULTS.BASE_DOMAIN;
+  const baseDomain = environmentsConfig?.cloudflare?.baseDomain;
+  if (!baseDomain) {
+    throw new Error("Cloudflare baseDomain not configured. Add cloudflare.baseDomain to environments config.");
+  }
   const fullHostname = `${environmentName}.${baseDomain}`;
   const appName = envConfig.appName || `ngx-ramblers-${environmentName}`;
   const flyApiToken = envConfig.apiKey;

@@ -19,6 +19,23 @@ export enum SystemSettingsTab {
   EXTERNAL_SYSTEMS = "External Systems",
 }
 
+export enum ExternalSystemsSubTab {
+  ALL = "all",
+  RAMBLERS = "ramblers",
+  MAIL = "mail",
+  SOCIAL = "social",
+  MAPS = "maps",
+  CLOUDFLARE = "cloudflare",
+  SECURITY = "security"
+}
+
+export enum EnvironmentSettingsSubTab {
+  ALL = "all",
+  GLOBAL = "global",
+  ENVIRONMENTS = "environments",
+  TOOLS = "tools"
+}
+
 export enum ImageMigrationTab {
   SCAN = "Scan Configuration",
   RESULTS = "Scan Results",

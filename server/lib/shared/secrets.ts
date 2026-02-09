@@ -5,10 +5,11 @@ import { keys } from "es-toolkit/compat";
 import { SecretsFile } from "../environment-setup/types";
 import { envConfig } from "../env-config/env-config";
 import { resolveClientPath } from "./path-utils";
-import { EnvironmentConfig, EnvironmentsConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { CloudflareConfig, EnvironmentConfig, EnvironmentsConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { entries } from "../../../projects/ngx-ramblers/src/app/functions/object-utils";
 import { pullMissingSecrets } from "../fly/fly-secrets";
 import { parseEnvContent } from "./env-parser";
+import { encryptCloudflareConfig } from "../cloudflare/cloudflare-crypto";
 
 const debugLog = debug(envConfig.logNamespace("shared:secrets"));
 
@@ -96,6 +97,20 @@ export function buildSecretsFromDatabaseConfig(
     entries(envConfig.secrets).forEach(([key, value]) => {
       if (value) secrets[key] = value;
     });
+  }
+
+  if (globalConfig?.cloudflare) {
+    const encryptionKey = secrets.ENVIRONMENT_SETUP_API_KEY || globalConfig.secrets?.ENVIRONMENT_SETUP_API_KEY;
+    if (encryptionKey) {
+      const mergedCloudflare: CloudflareConfig = {
+        accountId: envConfig.cloudflare?.accountId || globalConfig.cloudflare.accountId,
+        apiToken: envConfig.cloudflare?.apiToken || globalConfig.cloudflare.apiToken,
+        zoneId: envConfig.cloudflare?.zoneId || globalConfig.cloudflare.zoneId,
+        baseDomain: globalConfig.cloudflare.baseDomain
+      };
+      secrets.CLOUDFLARE_CONFIG = encryptCloudflareConfig(mergedCloudflare, encryptionKey);
+      debugLog("Added encrypted CLOUDFLARE_CONFIG for environment:", envConfig.environment);
+    }
   }
 
   return secrets;

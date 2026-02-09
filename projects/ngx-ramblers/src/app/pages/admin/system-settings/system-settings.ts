@@ -6,6 +6,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import {
   colourSelectors,
   colourSelectorsDarkLight,
+  ExternalSystemsSubTab,
   NavBarJustification,
   NavBarLocation,
   RootFolder,
@@ -47,6 +48,8 @@ import { RamblersSettings } from "./external/ramblers-settings";
 import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
 import { SystemGoogleMapsSettingsComponent } from "./external/system-google-maps-settings";
 import { FlickrSettings } from "./external/system-flickr-settings";
+import { SystemCloudflareSettingsComponent } from "./external/system-cloudflare-settings";
+import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
 
 @Component({
     selector: "app-system-settings",
@@ -350,16 +353,34 @@ import { FlickrSettings } from "./external/system-flickr-settings";
                      [active]="tabActive(SystemSettingsTab.EXTERNAL_SYSTEMS)"
                      (selectTab)="selectTab(SystemSettingsTab.EXTERNAL_SYSTEMS)">
                   <div class="img-thumbnail thumbnail-admin-edit">
-                    <app-ramblers-settings [config]="config"/>
-                    <app-mail-provider-settings [config]="config"
-                                                (membersPendingSave)="membersPendingSave=$event"/>
-                    <app-system-instagram-settings/>
-                    <app-system-flickr-settings/>
-                    <app-system-meetup-settings/>
-                    <app-system-os-maps-settings [config]="config"/>
-                    <app-system-google-maps-settings [config]="config"/>
-                    <app-system-recaptcha-settings [config]="config"/>
-                    <app-system-google-analytics-settings [config]="config"/>
+                    <app-section-toggle
+                      [tabs]="externalSystemSubTabs"
+                      [(selectedTab)]="externalSystemSubTab"
+                      [queryParamKey]="'sub-tab'"
+                      [fullWidth]="true"/>
+                    @if (showSubTab(ExternalSystemsSubTab.RAMBLERS)) {
+                        <app-ramblers-settings [config]="config"/>
+                    }
+                    @if (showSubTab(ExternalSystemsSubTab.MAIL)) {
+                        <app-mail-provider-settings [config]="config"
+                                                    (membersPendingSave)="membersPendingSave=$event"/>
+                    }
+                    @if (showSubTab(ExternalSystemsSubTab.SOCIAL)) {
+                        <app-system-instagram-settings/>
+                        <app-system-flickr-settings/>
+                        <app-system-meetup-settings/>
+                    }
+                    @if (showSubTab(ExternalSystemsSubTab.MAPS)) {
+                        <app-system-os-maps-settings [config]="config"/>
+                        <app-system-google-maps-settings [config]="config"/>
+                    }
+                    @if (showSubTab(ExternalSystemsSubTab.CLOUDFLARE)) {
+                        <app-system-cloudflare-settings/>
+                    }
+                    @if (showSubTab(ExternalSystemsSubTab.SECURITY)) {
+                        <app-system-recaptcha-settings [config]="config"/>
+                        <app-system-google-analytics-settings [config]="config"/>
+                    }
                   </div>
                 </tab>
               </tabset>
@@ -396,7 +417,7 @@ import { FlickrSettings } from "./external/system-flickr-settings";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -426,9 +447,20 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   protected readonly colourSelectors = colourSelectors;
   private tab: SystemSettingsTab = SystemSettingsTab.AREA_AND_GROUP;
   protected readonly SystemSettingsTab = SystemSettingsTab;
+  protected readonly ExternalSystemsSubTab = ExternalSystemsSubTab;
   protected readonly enumValueForKey = enumValueForKey;
   protected readonly faAdd = faAdd;
   protected readonly faPencil = faPencil;
+  externalSystemSubTab = ExternalSystemsSubTab.ALL;
+  externalSystemSubTabs: SectionToggleTab[] = [
+    {value: ExternalSystemsSubTab.ALL, label: "All"},
+    {value: ExternalSystemsSubTab.RAMBLERS, label: "Ramblers"},
+    {value: ExternalSystemsSubTab.MAIL, label: "Mail"},
+    {value: ExternalSystemsSubTab.SOCIAL, label: "Social Media"},
+    {value: ExternalSystemsSubTab.MAPS, label: "Maps"},
+    {value: ExternalSystemsSubTab.CLOUDFLARE, label: "Cloudflare"},
+    {value: ExternalSystemsSubTab.SECURITY, label: "Security"}
+  ];
 
   ngOnInit() {
     this.logger.info("constructed");
@@ -528,5 +560,9 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
 
   tabActive(tab: SystemSettingsTab): boolean {
     return kebabCase(this.tab) === kebabCase(tab);
+  }
+
+  showSubTab(tab: ExternalSystemsSubTab): boolean {
+    return [ExternalSystemsSubTab.ALL, tab].includes(this.externalSystemSubTab as ExternalSystemsSubTab);
   }
 }

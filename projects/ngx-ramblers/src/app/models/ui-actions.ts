@@ -42,6 +42,7 @@ export enum StoredValue {
   DIFFICULTY = "difficulty",
   DISTANCE_MAX = "distance-max",
   DISTANCE_MIN = "distance-min",
+  EDIT = "edit",
   EDIT_SITE = "edit-site",
   FACILITIES = "facilities",
   FREE_ONLY = "free-only",

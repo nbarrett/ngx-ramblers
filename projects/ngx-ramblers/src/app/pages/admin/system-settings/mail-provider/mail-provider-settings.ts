@@ -18,7 +18,7 @@ import { MailchimpConfigService } from "../../../../services/mailchimp-config.se
 import { first } from "es-toolkit/compat";
 import { FormsModule } from "@angular/forms";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
-import { MailchimpButtonComponent } from "../../../../modules/common/third-parties/mailchimp-button";
+import { MailchimpButton } from "../../../../modules/common/third-parties/mailchimp-button";
 
 @Component({
     selector: "app-mail-provider-settings",
@@ -86,7 +86,7 @@ import { MailchimpButtonComponent } from "../../../../modules/common/third-parti
         </div>
       </div>
     }`,
-    imports: [FormsModule, BrevoButtonComponent, MailchimpButtonComponent]
+    imports: [FormsModule, BrevoButtonComponent, MailchimpButton]
 })
 export class MailProviderSettingsComponent implements OnInit, OnDestroy {
 

@@ -50,7 +50,7 @@ export class CommitteeConfigService {
       fileTypes: [],
       expenses: {costPerMile: DEFAULT_COST_PER_MILE}
     }).then((queriedConfig: CommitteeConfig) => {
-      const committeeConfig = this.migrateConfig(queriedConfig);
+      const committeeConfig = this.applyNameAndDescription(this.migrateConfig(queriedConfig));
       this.logger.info("notifying subscribers with committeeConfig:", committeeConfig);
       this.committeeReferenceDataSubject.next(CommitteeReferenceData.create(committeeConfig, this.memberLoginService));
       this.committeeCommitteeConfigSubject.next(committeeConfig);
@@ -85,12 +85,26 @@ export class CommitteeConfigService {
     })).filter(item => !item.vacant) || [];
   }
 
-  public nameAndDescriptionFrom(data: CommitteeMember) {
-    if (data.fullName) {
-      return `${data.description} (${data.fullName})`;
-    } else {
-      return data.description;
+  private applyNameAndDescription(config: CommitteeConfig): CommitteeConfig {
+    if (!config?.roles) {
+      return config;
     }
+    return {
+      ...config,
+      roles: config.roles.map(role => ({
+        ...role,
+        nameAndDescription: this.nameAndDescriptionFrom(role)
+      }))
+    };
+  }
+
+  public nameAndDescriptionFrom(data: CommitteeMember) {
+    const description = (data.description || "").trim();
+    const fullName = (data.fullName || "").trim();
+    if (description && fullName && description.toLowerCase() !== fullName.toLowerCase()) {
+      return `${description} (${fullName})`;
+    }
+    return description || fullName;
   }
 
   saveConfig(config: CommitteeConfig) {

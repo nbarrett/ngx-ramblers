@@ -25,8 +25,8 @@ errorDebugLog.enabled = true;
 const router = express.Router();
 
 const isSetupEnabled = (): boolean => {
-  const enabled = booleanOf(process.env[Environment.ENVIRONMENT_SETUP_ENABLED]);
-  debugLog("Setup enabled check:", {enabled, envVar: process.env[Environment.ENVIRONMENT_SETUP_ENABLED]});
+  const enabled = booleanOf(process.env[Environment.PLATFORM_ADMIN_ENABLED]);
+  debugLog("Setup enabled check:", {enabled, envVar: process.env[Environment.PLATFORM_ADMIN_ENABLED]});
   return enabled;
 };
 
@@ -205,8 +205,10 @@ router.get("/sessions", (req: Request, res: Response) => {
 });
 
 router.get("/status", (req: Request, res: Response) => {
+  const platformAdminEnabled = isSetupEnabled();
   res.json({
-    enabled: isSetupEnabled(),
+    enabled: platformAdminEnabled,
+    platformAdminEnabled,
     requiresApiKey: Boolean(process.env[Environment.ENVIRONMENT_SETUP_API_KEY]),
     awsAdminConfigured: Boolean(adminConfigFromEnvironment())
   });
