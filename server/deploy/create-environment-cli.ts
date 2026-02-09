@@ -7,6 +7,7 @@ import {
   validateRamblersApiKey
 } from "../lib/environment-setup/ramblers-api-client";
 import { createEnvironment, validateSetupRequest } from "../lib/environment-setup/environment-setup-service";
+import { validEmail } from "../../projects/ngx-ramblers/src/app/functions/strings";
 import {
   AdminUserConfig,
   AwsAdminConfig,
@@ -368,7 +369,7 @@ async function promptAdminUser(): Promise<AdminUserConfig> {
     type: "input",
     name: "email",
     message: "Admin user email:",
-    validate: (input: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input) || "Valid email is required"
+    validate: (input: string) => validEmail(input) || "Valid email is required"
   });
   answers.email = emailAnswer.email;
 

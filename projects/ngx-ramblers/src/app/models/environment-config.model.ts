@@ -21,9 +21,16 @@ export interface FlyioConfig {
 }
 
 export interface CloudflareConfig {
+  accountId?: string;
   apiToken?: string;
   zoneId?: string;
   baseDomain?: string;
+}
+
+export interface PerEnvironmentCloudflareConfig {
+  accountId?: string;
+  apiToken?: string;
+  zoneId?: string;
 }
 
 export interface EnvironmentConfig {
@@ -31,6 +38,7 @@ export interface EnvironmentConfig {
   aws?: AwsConfig;
   mongo?: MongoConfig;
   flyio?: FlyioConfig;
+  cloudflare?: PerEnvironmentCloudflareConfig;
   secrets?: Record<string, string>;
 }
 
@@ -49,10 +57,6 @@ export const FLYIO_DEFAULTS = {
 
 export const AWS_DEFAULTS = {
   REGION: "eu-west-2"
-} as const;
-
-export const CLOUDFLARE_DEFAULTS = {
-  BASE_DOMAIN: "ngx-ramblers.org.uk"
 } as const;
 
 export function createEmptyAwsConfig(): AwsConfig {
@@ -75,9 +79,10 @@ export function createEmptyMongoConfig(): MongoConfig {
 
 export function createEmptyCloudflareConfig(): CloudflareConfig {
   return {
+    accountId: "",
     apiToken: "",
     zoneId: "",
-    baseDomain: CLOUDFLARE_DEFAULTS.BASE_DOMAIN
+    baseDomain: ""
   };
 }
 
@@ -91,12 +96,21 @@ export function createDefaultFlyioConfig(): FlyioConfig {
   };
 }
 
+export function createEmptyPerEnvironmentCloudflareConfig(): PerEnvironmentCloudflareConfig {
+  return {
+    accountId: "",
+    apiToken: "",
+    zoneId: ""
+  };
+}
+
 export function createEmptyEnvironmentConfig(): EnvironmentConfig {
   return {
     environment: "",
     aws: createEmptyAwsConfig(),
     mongo: createEmptyMongoConfig(),
     flyio: createDefaultFlyioConfig(),
+    cloudflare: createEmptyPerEnvironmentCloudflareConfig(),
     secrets: {}
   };
 }

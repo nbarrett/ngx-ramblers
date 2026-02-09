@@ -11,7 +11,8 @@ export enum MailSettingsTab {
   EMAIL_CONFIGURATIONS = "Email Configurations",
   BUILT_IN_PROCESS_MAPPINGS = "Built-in Process Mappings",
   MAIL_API_SETTINGS = "Mail API Settings",
-  MAIL_LIST_SETTINGS = "Mail List Settings"
+  MAIL_LIST_SETTINGS = "Mail List Settings",
+  SENDERS = "Senders"
 }
 
 export interface NotificationSubject {
@@ -602,6 +603,13 @@ export interface Sender {
   email: string;
 }
 
+export enum SenderSortField {
+  NAME = "name",
+  EMAIL = "email",
+  MAPPED = "mapped",
+  ACTIVE = "active"
+}
+
 export interface CreateSenderResponse extends Identifiable {
   spfError: boolean;
   dkimError: boolean;
@@ -735,4 +743,30 @@ export interface ForgotPasswordEmailRequest {
 
 export interface ForgotPasswordEmailResponse {
   message: string;
+}
+
+export interface PushDefaultTemplateRequest {
+  templateId: number;
+  templateName: string;
+}
+
+export interface PushDefaultTemplateResponse {
+  templateId: number;
+  templateName: string;
+  pushed: boolean;
+  message: string;
+}
+
+export interface TemplateDiffRequest {
+  templateId: number;
+  templateName: string;
+}
+
+export interface TemplateDiffResponse {
+  templateId: number;
+  templateName: string;
+  hasLocalTemplate: boolean;
+  matchesLocal: boolean;
+  brevoContentLength: number;
+  localContentLength: number;
 }

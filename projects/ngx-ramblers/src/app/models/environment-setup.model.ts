@@ -161,6 +161,7 @@ export interface GroupDetailsResponse extends ApiResponse {
 
 export interface SetupStatusResponse extends ApiResponse {
   enabled: boolean;
+  platformAdminEnabled: boolean;
   requiresApiKey: boolean;
   awsAdminConfigured: boolean;
 }

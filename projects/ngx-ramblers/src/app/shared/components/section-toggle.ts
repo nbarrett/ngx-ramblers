@@ -29,6 +29,7 @@ export interface SectionToggleTab {
       display: inline-flex
     .section-toggle.full-width
       flex: 1
+      width: 100%
     .section-toggle.full-width .btn
       flex: 1
     .section-toggle .btn
@@ -91,9 +92,11 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
           const tabParam = params[this.queryParamKey];
           if (tabParam) {
             const matchedTab = this.normalizedTabs.find(tab => kebabCase(tab.value) === tabParam);
-            if (matchedTab) {
-              this.selectedTab = matchedTab.value as T;
-              this.selectedTabChange.emit(matchedTab.value as T);
+            if (matchedTab && this.selectedTab !== matchedTab.value) {
+              Promise.resolve().then(() => {
+                this.selectedTab = matchedTab.value as T;
+                this.selectedTabChange.emit(matchedTab.value as T);
+              });
             }
           }
         })

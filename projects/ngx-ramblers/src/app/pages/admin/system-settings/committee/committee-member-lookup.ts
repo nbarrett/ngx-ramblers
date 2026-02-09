@@ -20,7 +20,7 @@ import { FullNameWithAliasPipe } from "../../../../pipes/full-name-with-alias.pi
           [disabled]="disabled"
           (ngModelChange)="publishMember($event)"
           class="form-control" id="committee-member-lookup-{{committeeMember.type}}">
-          <option>{{ KEY_NULL_VALUE_NONE.value }}</option>
+          <option [ngValue]="null">{{ KEY_NULL_VALUE_NONE.value }}</option>
           @for (member of committeeQueryService?.committeeMembers; track member.id) {
             <option
             [ngValue]="member.id">{{member | fullNameWithAlias}}</option>
@@ -66,7 +66,7 @@ export class CommitteeMemberLookupComponent implements OnInit {
 
   publishMember(memberId: string) {
     this.logger.info("publishMember:", memberId);
-    if (memberId === KEY_NULL_VALUE_NONE.value) {
+    if (!memberId || memberId === KEY_NULL_VALUE_NONE.value) {
       this.committeeMember.memberId = null;
     } else if (memberId) {
       const member = this.committeeQueryService?.committeeMembers?.find(item => item.id === memberId);

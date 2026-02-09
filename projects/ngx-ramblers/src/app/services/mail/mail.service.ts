@@ -23,6 +23,8 @@ import {
   ListUpdateRequest,
   MailIdentifiers,
   MailTemplates,
+  PushDefaultTemplateRequest,
+  PushDefaultTemplateResponse,
   SendCampaignRequest,
   Sender,
   SendersResponse,
@@ -31,6 +33,8 @@ import {
   SendSmtpEmailRequest,
   StatusMappedResponseMultipleInputs,
   StatusMappedResponseSingleInput,
+  TemplateDiffRequest,
+  TemplateDiffResponse,
   TemplateOptions
 } from "../../models/mail.model";
 
@@ -151,6 +155,16 @@ export class MailService {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/senders/create`, sender))).response;
   }
 
+  async updateSender(senderId: number, sender: Sender): Promise<void> {
+    this.logger.info("updateSender:", senderId, sender);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.put<ApiResponse>(`${this.BASE_URL}/senders/${senderId}`, sender))).response;
+  }
+
+  async deleteSender(senderId: number): Promise<void> {
+    this.logger.info("deleteSender:", senderId);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/senders/${senderId}`))).response;
+  }
+
   async queryTemplates(templateOptions?: TemplateOptions): Promise<MailTemplates> {
     this.logger.info("template list templateOptions:", templateOptions);
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates`, templateOptions))).response;
@@ -159,6 +173,16 @@ export class MailService {
   async querySegments(): Promise<MailTemplates> {
     this.logger.info("querySegments");
     return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/templates`))).response;
+  }
+
+  async pushDefaultTemplate(request: PushDefaultTemplateRequest): Promise<PushDefaultTemplateResponse> {
+    this.logger.info("pushDefaultTemplate:", request);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/push-default`, request))).response;
+  }
+
+  async templateDiff(request: TemplateDiffRequest): Promise<TemplateDiffResponse> {
+    this.logger.info("templateDiff:", request);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/diff`, request))).response;
   }
 
 }

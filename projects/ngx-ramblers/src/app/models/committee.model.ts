@@ -95,6 +95,18 @@ export enum BuiltInRole {
   TREASURER = "TREASURER"
 }
 
+export enum ForwardEmailTarget {
+  MEMBER_EMAIL = "MEMBER_EMAIL",
+  CUSTOM = "CUSTOM",
+  MULTIPLE = "MULTIPLE",
+  NONE = "NONE"
+}
+
+export enum EmailDerivation {
+  ROLE = "ROLE",
+  FULL_NAME = "FULL_NAME"
+}
+
 export interface CommitteeMember {
   description: string;
   email: string;
@@ -105,6 +117,15 @@ export interface CommitteeMember {
   vacant?: boolean;
   roleType: RoleType;
   builtInRoleMapping?: BuiltInRole;
+  emailDerivation?: EmailDerivation;
+  forwardEmailTarget?: ForwardEmailTarget;
+  forwardEmailCustom?: string;
+  forwardEmailRecipients?: string[];
+}
+
+export interface CommitteeRecipientOption {
+  label: string;
+  email: string;
 }
 
 export interface CommitteeRolesChangeEvent {

@@ -5,9 +5,11 @@ import {
   MemberSelection,
   NotificationConfig,
   SendSmtpEmailParams,
+  TemplateDiffResponse,
   WorkflowAction
 } from "../../../../models/mail.model";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
+import { MailService } from "../../../../services/mail/mail.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { BannerConfig } from "../../../../models/banner-configuration.model";
@@ -18,15 +20,17 @@ import { extractParametersFrom } from "../../../../common/mail-parameters";
 import { enumKeyValues, KEY_NULL_VALUE_NONE, KeyValue } from "../../../../functions/enums";
 import { last } from "es-toolkit/compat";
 import { Subscription } from "rxjs";
-import { faAdd, faBackward, faCopy, faEraser, faForward } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faBackward, faCopy, faEraser, faForward, faUpload, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep } from "es-toolkit/compat";
 import { first } from "es-toolkit/compat";
 import { FormsModule } from "@angular/forms";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
-import { SenderRepliesAndSignoffComponent } from "../../send-emails/sender-replies-and-signoff";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
+import { BrevoDropdownItem } from "../../../../models/brevo-dropdown.model";
+import { SenderRepliesAndSignoffComponent } from "../../send-emails/sender-replies-and-signoff";
 import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifications/admin/templates/forgot-password-notification-details";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
     selector: "app-mail-notification-template-mapping-editor",
@@ -151,8 +155,9 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
               <div class="col-sm-12">
                 <div class="form-group">
                   <label for="template">Brevo Template</label>
-                  <div class="input-group">
+                  <div class="d-flex align-items-center gap-2">
                     <select [(ngModel)]="notificationConfig.templateId"
+                      (ngModelChange)="templateChanged()"
                       id="template"
                       class="form-control input-sm">
                       @for (template of mailMessagingConfig?.brevo?.mailTemplates?.templates; track template.id) {
@@ -161,8 +166,26 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                         </option>
                       }
                     </select>
-                    <app-brevo-button button [disabled]="notReady()" title="View or Edit Template"
-                      (click)="mailLinkService.editTemplateWithNotifications(notificationConfig.templateId, this.notReady(), mailMessagingConfig)"/>
+                    <app-brevo-button button title="Template"
+                      [disabled]="notReady()"
+                      [dropdownItems]="templateDropdownItems"
+                      (dropdownSelected)="handleTemplateDropdown($event)"/>
+                    <app-brevo-button button title="Push Default Template"
+                      [disabled]="notReady() || !localTemplateAvailable()"
+                      (click)="pushDefaultTemplate()"/>
+                  </div>
+                  <div class="mt-1">
+                    @if (templateDiffLoading) {
+                      <span class="badge bg-secondary">
+                        <fa-icon [icon]="faSpinner" [spin]="true"/>
+                        <span class="ms-1">Checking...</span>
+                      </span>
+                    }
+                    @if (!templateDiffLoading && templateDiffStatus) {
+                      <span class="badge" [class.bg-success]="templateDiffStatus.matchesLocal"
+                        [class.bg-warning]="!templateDiffStatus.matchesLocal && templateDiffStatus.hasLocalTemplate"
+                        [class.bg-secondary]="!templateDiffStatus.hasLocalTemplate">{{ templateDiffLabel() }}</span>
+                    }
                   </div>
                 </div>
               </div>
@@ -274,7 +297,8 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
       </div>
     }
     `,
-    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, SenderRepliesAndSignoffComponent, BrevoButtonComponent, ForgotPasswordNotificationDetailsComponent]
+    styles: [],
+    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, BrevoButtonComponent, SenderRepliesAndSignoffComponent, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule]
 })
 
 export class MailNotificationTemplateMappingComponent implements OnInit, OnDestroy {
@@ -295,13 +319,20 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   @Output() tabSelected: EventEmitter<MailSettingsTab> = new EventEmitter();
   private logger: Logger = this.loggerFactory.createLogger("MailNotificationTemplateMappingComponent", NgxLoggerLevel.ERROR);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
-  public  mailLinkService: MailLinkService = inject(MailLinkService);
+  public mailLinkService: MailLinkService = inject(MailLinkService);
+  public mailService: MailService = inject(MailService);
   public urlService: UrlService = inject(UrlService);
   public mailMessagingService: MailMessagingService = inject(MailMessagingService);
+  public templateDropdownItems: BrevoDropdownItem[] = [
+    {id: "edit-rich-text", label: "Edit Rich Text"},
+    {id: "view-template", label: "View Template"}
+  ];
   public mailMessagingConfig: MailMessagingConfig;
   public parametersFrom: KeyValue<any>[] = [];
   public params: SendSmtpEmailParams;
   public notificationConfig!: NotificationConfig;
+  public templateDiffStatus: TemplateDiffResponse;
+  public templateDiffLoading = false;
 
   protected readonly faAdd = faAdd;
   protected readonly faEraser = faEraser;
@@ -309,6 +340,8 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   protected readonly first = first;
   protected readonly faForward = faForward;
   protected readonly faBackward = faBackward;
+  protected readonly faUpload = faUpload;
+  protected readonly faSpinner = faSpinner;
 
   protected readonly MemberSelection = MemberSelection;
 
@@ -326,6 +359,7 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
         key: null,
         value: "(none)"
       }].concat(parameters.filter(item => !item.key.includes("subject")));
+      this.refreshTemplateDiff();
     }));
   }
 
@@ -427,6 +461,18 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
     this.notificationConfig = notificationConfig;
     this.mailMessagingService.initialiseSubject(this.notificationConfig);
     this.logger.info("selected notificationConfig:", this.notificationConfig);
+    this.refreshTemplateDiff();
+  }
+
+  handleTemplateDropdown(item: BrevoDropdownItem) {
+    if (!this.notificationConfig?.templateId) {
+      return;
+    }
+    if (item.id === "edit-rich-text") {
+      this.mailLinkService.editTemplateRichTextWithNotifications(this.notificationConfig.templateId, this.notReady(), this.mailMessagingConfig);
+    } else if (item.id === "view-template") {
+      this.mailLinkService.editTemplateWithNotifications(this.notificationConfig.templateId, this.notReady(), this.mailMessagingConfig);
+    }
   }
 
   nextConfigDisabled() {
@@ -435,6 +481,67 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
 
   previousConfigDisabled() {
     return this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) === 0;
+  }
+
+  selectedTemplateName(): string {
+    const template = this.mailMessagingConfig?.brevo?.mailTemplates?.templates?.find(t => t.id === this.notificationConfig?.templateId);
+    return template?.name || null;
+  }
+
+  templateChanged() {
+    this.templateDiffStatus = null;
+    this.refreshTemplateDiff();
+  }
+
+  refreshTemplateDiff() {
+    const templateName = this.selectedTemplateName();
+    const templateId = this.notificationConfig?.templateId;
+    if (!templateId || !templateName) {
+      this.templateDiffStatus = null;
+      return;
+    }
+    this.templateDiffLoading = true;
+    this.mailService.templateDiff({templateId, templateName}).then(response => {
+      this.templateDiffStatus = response;
+      this.templateDiffLoading = false;
+      this.logger.info("template diff result:", response);
+    }).catch(error => {
+      this.logger.error("template diff error:", error);
+      this.templateDiffLoading = false;
+    });
+  }
+
+  pushDefaultTemplate() {
+    const templateName = this.selectedTemplateName();
+    const templateId = this.notificationConfig?.templateId;
+    if (!templateId || !templateName) {
+      return;
+    }
+    this.templateDiffLoading = true;
+    this.mailService.pushDefaultTemplate({templateId, templateName}).then(response => {
+      this.logger.info("push default template result:", response);
+      this.refreshTemplateDiff();
+    }).catch(error => {
+      this.logger.error("push default template error:", error);
+      this.templateDiffLoading = false;
+    });
+  }
+
+  templateDiffLabel(): string {
+    if (!this.templateDiffStatus) {
+      return "";
+    }
+    if (!this.templateDiffStatus.hasLocalTemplate) {
+      return "No local default";
+    }
+    if (this.templateDiffStatus.matchesLocal) {
+      return "Matches local default";
+    }
+    return "Differs from local default";
+  }
+
+  localTemplateAvailable(): boolean {
+    return !!this.templateDiffStatus?.hasLocalTemplate;
   }
 
 }

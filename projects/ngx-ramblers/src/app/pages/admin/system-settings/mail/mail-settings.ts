@@ -34,6 +34,8 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
 import { NgClass, NgStyle } from "@angular/common";
 import { MailListEditorComponent } from "./list-editor";
 import { MailListSettingsComponent } from "./mail-list-settings";
+import { MailSendersListComponent } from "./mail-senders-list";
+import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 import { InputSize } from "../../../../models/ui-size.model";
@@ -44,27 +46,47 @@ import { InputSize } from "../../../../models/ui-size.model";
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
-          @if (mailMessagingConfig?.mailConfig) {
             <tabset class="custom-tabset">
               <tab [active]="tabActive(MailSettingsTab.EMAIL_CONFIGURATIONS)"
                 (selectTab)="selectTab(MailSettingsTab.EMAIL_CONFIGURATIONS)"
                 [heading]="MailSettingsTab.EMAIL_CONFIGURATIONS">
                 <div class="img-thumbnail thumbnail-admin-edit">
-                  <app-mail-notification-template-mapping-editor (tabSelected)="selectTab($event)"
-                  (configDeleted)="deletedConfigs.push($event)"></app-mail-notification-template-mapping-editor>
+                  @if (mailMessagingConfig?.mailConfig) {
+                    <app-mail-notification-template-mapping-editor (tabSelected)="selectTab($event)"
+                    (configDeleted)="deletedConfigs.push($event)"></app-mail-notification-template-mapping-editor>
+                    @if (notifyTarget.showAlert) {
+                      <div class="row mt-3">
+                        <div class="col-sm-12">
+                          <div class="alert {{notifyTarget.alert.class}}">
+                            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                            @if (notifyTarget.alertTitle) {
+                              <strong>{{ notifyTarget.alertTitle }}: </strong>
+                            } {{ notifyTarget.alertMessage }}
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  } @else {
+                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>Loading...</div>
+                  }
                 </div>
               </tab>
               <tab [active]="tabActive(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)"
                 (selectTab)="selectTab(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)"
                 [heading]="MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS">
                 <div class="img-thumbnail thumbnail-admin-edit">
-                  <app-notification-config-to-process-mapping></app-notification-config-to-process-mapping>
+                  @if (mailMessagingConfig?.mailConfig) {
+                    <app-notification-config-to-process-mapping></app-notification-config-to-process-mapping>
+                  } @else {
+                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>Loading...</div>
+                  }
                 </div>
               </tab>
               <tab [active]="tabActive(MailSettingsTab.MAIL_API_SETTINGS)"
                 (selectTab)="selectTab(MailSettingsTab.MAIL_API_SETTINGS)"
                 [heading]="MailSettingsTab.MAIL_API_SETTINGS">
                 <div class="img-thumbnail thumbnail-admin-edit">
+                @if (mailMessagingConfig?.mailConfig) {
                   <div class="thumbnail-heading-frame">
                     <div class="thumbnail-heading">Global Settings</div>
                     <div class="row">
@@ -240,60 +262,61 @@ import { InputSize } from "../../../../models/ui-size.model";
                       </div>
                     </div>
                   }
+                } @else {
+                  <div class="text-center py-4"><fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>Loading...</div>
+                }
                 </div>
               </tab>
               <tab [active]="tabActive(MailSettingsTab.MAIL_LIST_SETTINGS)"
                 (selectTab)="selectTab(MailSettingsTab.MAIL_LIST_SETTINGS)"
                 [heading]="MailSettingsTab.MAIL_LIST_SETTINGS">
                 <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="thumbnail-heading-frame">
-                    <div class="thumbnail-heading">List Settings</div>
-                    <div class="col-sm-12 mb-3">
-                      <app-markdown-editor standalone category="admin" name="mail-settings-list-settings"/>
-                    </div>
-                    <div class="px-3">
-                      <div class="row">
-                        <div class="col">
-                          <h5>{{ stringUtilsService.pluraliseWithCount(mailMessagingConfig?.brevo?.lists?.count, "list") }} {{ stringUtilsService.pluralise(mailMessagingConfig?.brevo?.lists?.count, "exists", "exist") }} in Brevo</h5>
+                  @if (mailMessagingConfig?.mailConfig) {
+                    <div class="thumbnail-heading-frame">
+                      <div class="thumbnail-heading">List Settings</div>
+                      <div class="col-sm-12 mb-3">
+                        <app-markdown-editor standalone category="admin" name="mail-settings-list-settings"/>
+                      </div>
+                      <div class="px-3">
+                        <div class="row">
+                          <div class="col">
+                            <h5>{{ stringUtilsService.pluraliseWithCount(mailMessagingConfig?.brevo?.lists?.count, "list") }} {{ stringUtilsService.pluralise(mailMessagingConfig?.brevo?.lists?.count, "exists", "exist") }} in Brevo</h5>
+                          </div>
+                          @if (!listCreateRequest) {
+                            <div class="col-auto">
+                              <div class="float-end">
+                                <app-brevo-button button title="Create New List" [disabled]="createNewListDisabled()" (click)="createNewList()"/>
+                              </div>
+                            </div>
+                          }
                         </div>
-                        @if (!listCreateRequest) {
-                          <div class="col-auto">
-                            <div class="float-end">
-                              <app-brevo-button button title="Create New List" [disabled]="createNewListDisabled()" (click)="createNewList()"/>
+                        @if (listCreateRequest) {
+                          <app-list-editor [listCreateRequest]="listCreateRequest"></app-list-editor>
+                          <div class="row">
+                            <div class="col-sm-12">
+                              <app-brevo-button button title="Confirm Create List" (click)="confirmCreateList()" [disabled]="listCreateDisabled()"/>
+                              <app-brevo-button button title="Cancel Create List" class="ms-2" (click)="listCreateRequest=null"/>
                             </div>
                           </div>
                         }
+                        @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list.id) {
+                          <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig" [notify]="notify" [list]="list"></app-mail-list-settings>
+                        }
                       </div>
-                      @if (listCreateRequest) {
-                        <app-list-editor [listCreateRequest]="listCreateRequest"></app-list-editor>
-                        <div class="row">
-                          <div class="col-sm-12">
-                            <app-brevo-button button title="Confirm Create List" (click)="confirmCreateList()" [disabled]="listCreateDisabled()"/>
-                            <app-brevo-button button title="Cancel Create List" class="ms-2" (click)="listCreateRequest=null"/>
-                          </div>
-                        </div>
-                      }
-                      @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list.id) {
-                        <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig" [notify]="notify" [list]="list"></app-mail-list-settings>
-                      }
                     </div>
-                  </div>
+                  } @else {
+                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>Loading...</div>
+                  }
+                </div>
+              </tab>
+              <tab [active]="tabActive(MailSettingsTab.SENDERS)"
+                (selectTab)="selectTab(MailSettingsTab.SENDERS)"
+                [heading]="MailSettingsTab.SENDERS">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <app-mail-senders-list/>
                 </div>
               </tab>
             </tabset>
-          }
-          @if (notifyTarget.showAlert) {
-            <div class="row">
-              <div class="col-sm-12 mb-10">
-                <div class="alert {{notifyTarget.alert.class}}">
-                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                  @if (notifyTarget.alertTitle) {
-                    <strong>{{ notifyTarget.alertTitle }}: </strong>
-                    } {{ notifyTarget.alertMessage }}
-                  </div>
-                </div>
-              </div>
-            }
           </div>
           <div class="col-sm-12">
             <input type="submit" value="Save settings and exit" (click)="saveAndExit()" [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
@@ -304,7 +327,7 @@ import { InputSize } from "../../../../models/ui-size.model";
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateMappingComponent, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, FontAwesomeModule, NgClass, SecretInputComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateMappingComponent, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, FontAwesomeModule, NgClass, SecretInputComponent]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];
@@ -333,6 +356,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   public listCreateResponse: ListCreateResponse;
   protected readonly MailSettingsTab = MailSettingsTab;
   protected readonly InputSize = InputSize;
+  protected readonly faSpinner = faSpinner;
 
   ngOnInit() {
     this.logger.debug("constructed");
