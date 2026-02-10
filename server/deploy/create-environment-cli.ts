@@ -397,7 +397,7 @@ async function promptAdminUser(): Promise<AdminUserConfig> {
   };
 }
 
-async function promptSetupOptions(): Promise<SetupOptions> {
+async function promptSetupOptions(brevoApiKey: string): Promise<SetupOptions> {
   return inquirer.prompt([
     {
       type: "confirm",
@@ -410,6 +410,12 @@ async function promptSetupOptions(): Promise<SetupOptions> {
       name: "includeNotificationConfigs",
       message: "Include notification configurations?",
       default: true
+    },
+    {
+      type: "confirm",
+      name: "populateBrevoTemplates",
+      message: "Populate Brevo templates?",
+      default: !!brevoApiKey
     },
     {
       type: "confirm",
@@ -459,6 +465,7 @@ function displaySummary(request: EnvironmentSetupRequest): void {
   log("\nOptions:");
   log(`  Sample Pages: ${request.options.includeSamplePages ? "Yes" : "No"}`);
   log(`  Notification Configs: ${request.options.includeNotificationConfigs ? "Yes" : "No"}`);
+  log(`  Populate Brevo Templates: ${request.options.populateBrevoTemplates ? "Yes" : "No"}`);
   log(`  Skip Fly.io: ${request.options.skipFlyDeployment ? "Yes" : "No"}`);
   log(`  Copy Standard Assets: ${request.options.copyStandardAssets ? "Yes" : "No"}`);
 
@@ -479,7 +486,7 @@ async function main(): Promise<void> {
   const googleMaps = await promptGoogleMapsConfig();
   const ramblers = await promptRamblersConfig(ramblersApiKey);
   const adminUser = await promptAdminUser();
-  const options = await promptSetupOptions();
+  const options = await promptSetupOptions(brevo.apiKey);
 
   const ramblersInfo: RamblersInfo = {
     areaCode: groupSelection.areaCode,

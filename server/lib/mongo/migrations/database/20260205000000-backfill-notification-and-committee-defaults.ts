@@ -22,6 +22,30 @@ async function backfillNotificationConfigs(db: Db) {
   }
 }
 
+async function backfillNotificationDefaults(db: Db) {
+  const collection = db.collection(NOTIFICATION_CONFIGS_COLLECTION);
+  const monthsResult = await collection.updateMany(
+    {
+      $or: [
+        { monthsInPast: { $exists: false } },
+        { monthsInPast: null }
+      ]
+    },
+    { $set: { monthsInPast: 1 } }
+  );
+  debugLog(`Updated ${monthsResult.modifiedCount} notification configs with missing monthsInPast`);
+  const memberSelectionResult = await collection.updateMany(
+    {
+      $or: [
+        { defaultMemberSelection: { $exists: false } },
+        { defaultMemberSelection: null }
+      ]
+    },
+    { $set: { defaultMemberSelection: "recently-added" } }
+  );
+  debugLog(`Updated ${memberSelectionResult.modifiedCount} notification configs with missing defaultMemberSelection`);
+}
+
 async function ensureEnquiriesRole(db: Db) {
   const configCollection = db.collection(CONFIG_COLLECTION);
   const committeeConfig = await configCollection.findOne({ key: "committee" });
@@ -60,6 +84,7 @@ async function ensureEnquiriesRole(db: Db) {
 
 export async function up(db: Db, client: MongoClient) {
   await backfillNotificationConfigs(db);
+  await backfillNotificationDefaults(db);
   await ensureEnquiriesRole(db);
 }
 

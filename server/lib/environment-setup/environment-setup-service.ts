@@ -28,6 +28,7 @@ import {
   EnvironmentConfig,
   EnvironmentsConfig
 } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { seedBrevoTemplatesFromLocal } from "../brevo/templates/template-seeding";
 import * as configController from "../mongo/controllers/config";
 import { connect as ensureMongoConnection } from "../mongo/mongoose-client";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
@@ -204,6 +205,12 @@ export async function validateSetupRequest(request: EnvironmentSetupRequest): Pr
       message: "Brevo API Key: Provided"
     });
   }
+  if (request.options.populateBrevoTemplates && !request.serviceConfigs.brevo.apiKey) {
+    results.push({
+      valid: false,
+      message: "Populate Brevo Templates: requires Brevo API Key"
+    });
+  }
 
   return results;
 }
@@ -337,6 +344,15 @@ export async function createEnvironment(
       debugLog(`[${sessionId}] Database: ${dbProgress.step} - ${dbProgress.status}`);
     }, copiedAssets);
     reportProgress(SetupStep.INITIALISE_DATABASE, "completed", "Database initialised successfully");
+
+    if (request.options.populateBrevoTemplates && request.serviceConfigs.brevo.apiKey) {
+      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, "running", "Populating Brevo templates");
+      const seedResult = await seedBrevoTemplatesFromLocal();
+      const message = `Created ${seedResult.createdCount}, updated ${seedResult.updatedCount}, skipped ${seedResult.skippedCount}`;
+      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, "completed", message);
+    } else {
+      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, "completed", "Skipped Brevo template population");
+    }
 
     if (!request.options.skipFlyDeployment) {
       reportProgress(SetupStep.UPDATE_CONFIGS_JSON, "running", "Updating configs.json");
