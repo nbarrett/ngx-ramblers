@@ -26,6 +26,7 @@ import { updateSender } from "./senders/update-sender";
 import { listUpdate } from "./lists/list-update";
 import { pushDefaultTemplate } from "./templates/push-default-template";
 import { templateDiff } from "./templates/template-diff";
+import { snapshotTemplates } from "./templates/snapshot-templates";
 import * as authConfig from "../auth/auth-config";
 
 const router = express.Router();
@@ -52,6 +53,7 @@ router.get("/segments", authConfig.authenticate(), querySegments);
 router.post("/templates", queryTemplates);
 router.post("/templates/push-default", authConfig.authenticate(), pushDefaultTemplate);
 router.post("/templates/diff", authConfig.authenticate(), templateDiff);
+router.post("/templates/snapshot", authConfig.authenticate(), snapshotTemplates);
 router.get("/lists", lists);
 router.delete("/lists/delete", authConfig.authenticate(), listDelete);
 router.post("/lists/create", authConfig.authenticate(), listCreate);

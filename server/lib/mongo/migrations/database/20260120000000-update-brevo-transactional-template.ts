@@ -3,14 +3,14 @@ import { readFileSync } from "fs";
 import createMigrationLogger from "../migrations-logger";
 import { createOrUpdateTemplate } from "../../../brevo/templates/template-management";
 import { configuredBrevo } from "../../../brevo/brevo-config";
-import { resolveClientPath } from "../../../shared/path-utils";
+import { localTemplatePath } from "../../../brevo/templates/local-template-reader";
 
 const debugLog = createMigrationLogger("update-brevo-transactional-template");
 const TEMPLATE_NAME = "fully-automated-text-body";
 const TEMPLATE_SUBJECT = "{{params.messageMergeFields.subject}}";
 
 function templateHtmlPath(): string {
-  return resolveClientPath(`projects/ngx-ramblers/src/brevo/templates/${TEMPLATE_NAME}.html`);
+  return localTemplatePath(TEMPLATE_NAME);
 }
 
 function readTemplateHtml(): string {

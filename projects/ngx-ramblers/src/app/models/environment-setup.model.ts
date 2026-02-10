@@ -99,6 +99,7 @@ export interface AdminUserConfig {
 export interface SetupOptions {
   includeSamplePages: boolean;
   includeNotificationConfigs: boolean;
+  populateBrevoTemplates: boolean;
   skipFlyDeployment: boolean;
   copyStandardAssets: boolean;
 }
@@ -422,6 +423,7 @@ export enum SetupStep {
   UPDATE_CONFIGS_JSON = "update-configs-json",
   UPDATE_ENVIRONMENTS_CONFIG = "update-environments-config",
   INITIALISE_DATABASE = "initialise-database",
+  POPULATE_BREVO_TEMPLATES = "populate-brevo-templates",
   IMPORT_SECRETS = "import-secrets",
   DEPLOY_APP = "deploy-app",
   SETUP_SUBDOMAIN = "setup-subdomain"
@@ -481,6 +483,7 @@ export function createEmptySetupRequest(): EnvironmentSetupRequest {
     options: {
       includeSamplePages: true,
       includeNotificationConfigs: true,
+      populateBrevoTemplates: false,
       skipFlyDeployment: false,
       copyStandardAssets: true
     }

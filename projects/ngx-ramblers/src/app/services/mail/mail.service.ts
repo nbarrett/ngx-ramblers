@@ -35,7 +35,9 @@ import {
   StatusMappedResponseSingleInput,
   TemplateDiffRequest,
   TemplateDiffResponse,
-  TemplateOptions
+  TemplateOptions,
+  SnapshotTemplatesRequest,
+  SnapshotTemplatesResponse
 } from "../../models/mail.model";
 
 @Injectable({
@@ -183,6 +185,11 @@ export class MailService {
   async templateDiff(request: TemplateDiffRequest): Promise<TemplateDiffResponse> {
     this.logger.info("templateDiff:", request);
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/diff`, request))).response;
+  }
+
+  async snapshotTemplates(request: SnapshotTemplatesRequest): Promise<SnapshotTemplatesResponse> {
+    this.logger.info("snapshotTemplates:", request);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/snapshot`, request))).response;
   }
 
 }

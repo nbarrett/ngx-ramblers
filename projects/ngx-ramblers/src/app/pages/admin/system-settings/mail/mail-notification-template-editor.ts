@@ -20,15 +20,19 @@ import { extractParametersFrom } from "../../../../common/mail-parameters";
 import { enumKeyValues, KEY_NULL_VALUE_NONE, KeyValue } from "../../../../functions/enums";
 import { last } from "es-toolkit/compat";
 import { Subscription } from "rxjs";
-import { faAdd, faBackward, faCopy, faEraser, faForward, faUpload, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faBackward, faCopy, faEraser, faForward, faSpinner, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep } from "es-toolkit/compat";
 import { first } from "es-toolkit/compat";
+import { BroadcastService } from "../../../../services/broadcast-service";
+import { AlertLevel } from "../../../../models/alert-target.model";
+import { NamedEvent, NamedEventType } from "../../../../models/broadcast.model";
+import { SiteMaintenanceService } from "../../../../services/site-maintenance.service";
 import { FormsModule } from "@angular/forms";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
 import { BrevoDropdownItem } from "../../../../models/brevo-dropdown.model";
-import { SenderRepliesAndSignoffComponent } from "../../send-emails/sender-replies-and-signoff";
+import { SenderRepliesAndSignoff } from "../../send-emails/sender-replies-and-signoff";
 import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifications/admin/templates/forgot-password-notification-details";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
@@ -49,7 +53,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               style="width: auto; max-width: 300px;">
               @for (mapping of mailMessagingConfig.notificationConfigs; track mapping.subject.text) {
                 <option
-                  [ngValue]="mapping">{{ mapping?.subject?.text || '(no subject)' }}
+                  [ngValue]="mapping">{{ configLabel(mapping) }}
                 </option>
               }
             </select>
@@ -81,6 +85,17 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
           </div>
         </div>
         @if (notificationConfig) {
+          @if (configIssues().length > 0) {
+            <div class="col-sm-12 mt-2">
+              <div class="alert alert-warning py-2 mb-2">
+                <fa-icon [icon]="faTriangleExclamation" class="me-1"/>
+                <strong>{{ configIssues().length }} issue{{ configIssues().length > 1 ? 's' : '' }} found:</strong>
+                @for (issue of configIssues(); track issue) {
+                  <div><small>{{ issue }}</small></div>
+                }
+              </div>
+            </div>
+          }
           <div>
             <div class="row thumbnail-heading-frame">
               <div class="thumbnail-heading">Notification Settings</div>
@@ -131,6 +146,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                   <div class="form-group">
                     <label for="banner-lookup">Banner Image</label>
                     <select class="form-control input-sm"
+                      [class.is-invalid]="!notificationConfig.bannerId"
                       id="banner-lookup"
                       [(ngModel)]="notificationConfig.bannerId" (ngModelChange)="bannerSelected($event)">
                       @for (banner of mailMessagingConfig.banners; track banner.id) {
@@ -157,6 +173,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                   <label for="template">Brevo Template</label>
                   <div class="d-flex align-items-center gap-2">
                     <select [(ngModel)]="notificationConfig.templateId"
+                      [class.is-invalid]="!notificationConfig.templateId"
                       (ngModelChange)="templateChanged()"
                       id="template"
                       class="form-control input-sm">
@@ -173,12 +190,22 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <app-brevo-button button title="Push Default Template"
                       [disabled]="notReady() || !localTemplateAvailable()"
                       (click)="pushDefaultTemplate()"/>
+                    <app-brevo-button button title="Snapshot Templates"
+                      [showTooltip]="true"
+                      [disabled]="snapshotTemplatesDisabled()"
+                      (click)="snapshotTemplates()"/>
                   </div>
                   <div class="mt-1">
                     @if (templateDiffLoading) {
                       <span class="badge bg-secondary">
                         <fa-icon [icon]="faSpinner" [spin]="true"/>
                         <span class="ms-1">Checking...</span>
+                      </span>
+                    }
+                    @if (snapshotLoading) {
+                      <span class="badge bg-secondary ms-2">
+                        <fa-icon [icon]="faSpinner" [spin]="true"/>
+                        <span class="ms-1">Snapshotting templates...</span>
                       </span>
                     }
                     @if (!templateDiffLoading && templateDiffStatus) {
@@ -297,8 +324,11 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
       </div>
     }
     `,
-    styles: [],
-    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, BrevoButtonComponent, SenderRepliesAndSignoffComponent, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule]
+    styles: [`
+    .brevo-icon
+      width: 17px
+  `],
+    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, SenderRepliesAndSignoff, BrevoButtonComponent, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule]
 })
 
 export class MailNotificationTemplateMappingComponent implements OnInit, OnDestroy {
@@ -323,6 +353,8 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   public mailService: MailService = inject(MailService);
   public urlService: UrlService = inject(UrlService);
   public mailMessagingService: MailMessagingService = inject(MailMessagingService);
+  private broadcastService: BroadcastService<any> = inject(BroadcastService);
+  private siteMaintenanceService: SiteMaintenanceService = inject(SiteMaintenanceService);
   public templateDropdownItems: BrevoDropdownItem[] = [
     {id: "edit-rich-text", label: "Edit Rich Text"},
     {id: "view-template", label: "View Template"}
@@ -333,6 +365,8 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   public notificationConfig!: NotificationConfig;
   public templateDiffStatus: TemplateDiffResponse;
   public templateDiffLoading = false;
+  public snapshotLoading = false;
+  public snapshotAllowed = false;
 
   protected readonly faAdd = faAdd;
   protected readonly faEraser = faEraser;
@@ -340,8 +374,8 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   protected readonly first = first;
   protected readonly faForward = faForward;
   protected readonly faBackward = faBackward;
-  protected readonly faUpload = faUpload;
   protected readonly faSpinner = faSpinner;
+  protected readonly faTriangleExclamation = faTriangleExclamation;
 
   protected readonly MemberSelection = MemberSelection;
 
@@ -361,6 +395,9 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
       }].concat(parameters.filter(item => !item.key.includes("subject")));
       this.refreshTemplateDiff();
     }));
+    const systemStatus = await this.siteMaintenanceService.getMigrationStatus();
+    const environmentName = systemStatus?.environment?.env || systemStatus?.environment?.nodeEnv;
+    this.snapshotAllowed = environmentName === "development";
   }
 
   ngOnDestroy(): void {
@@ -542,6 +579,77 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
 
   localTemplateAvailable(): boolean {
     return !!this.templateDiffStatus?.hasLocalTemplate;
+  }
+
+  snapshotTemplatesDisabled(): boolean {
+    return !this.snapshotAllowed || this.snapshotLoading || !this.mailMessagingConfig?.brevo?.mailTemplates?.templates?.length;
+  }
+
+  snapshotTemplates() {
+    this.snapshotLoading = true;
+    this.mailService.snapshotTemplates({sanitiseHtml: true}).then(response => {
+      const savedMessage = this.stringUtils.pluraliseWithCount(response.savedCount, "template");
+      const createdMessage = this.stringUtils.pluraliseWithCount(response.createdCount, "created template", "created templates");
+      const updatedMessage = this.stringUtils.pluraliseWithCount(response.updatedCount, "updated template", "updated templates");
+      const unchangedMessage = this.stringUtils.pluraliseWithCount(response.unchangedCount, "unchanged template", "unchanged templates");
+      const failedMessage = response.failedTemplates.length > 0 ? `, ${this.stringUtils.pluraliseWithCount(response.failedTemplates.length, "failed")}` : "";
+      const message = `Snapshot complete: ${savedMessage} saved (${createdMessage}, ${updatedMessage}, ${unchangedMessage})${failedMessage}`;
+      const type = response.failedTemplates.length > 0 ? AlertLevel.ALERT_WARNING : AlertLevel.ALERT_SUCCESS;
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
+        message: {title: "Brevo templates", message},
+        type
+      }));
+      this.snapshotLoading = false;
+      this.refreshTemplateDiff();
+    }).catch(error => {
+      const message = error?.message || error;
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
+        message: {title: "Brevo templates snapshot failed", message},
+        type: AlertLevel.ALERT_ERROR
+      }));
+      this.snapshotLoading = false;
+    });
+  }
+
+  configIssues(config?: NotificationConfig): string[] {
+    const target = config || this.notificationConfig;
+    if (!target) {
+      return [];
+    }
+    const issues: string[] = [];
+    if (!target.templateId) {
+      issues.push("No Brevo template selected - emails cannot be sent");
+    }
+    if (!target.bannerId) {
+      issues.push("No banner image selected");
+    }
+    if (!target.senderRole) {
+      issues.push("No sender role configured - emails cannot be sent");
+    }
+    if (!target.replyToRole) {
+      issues.push("No reply-to role configured");
+    }
+    if (!target.signOffRoles?.length) {
+      issues.push("No sign-off roles selected");
+    }
+    if (this.mailMessagingConfig?.committeeReferenceData) {
+      const committeeMembers = this.mailMessagingConfig.committeeReferenceData.committeeMembers();
+      if (target.senderRole && !committeeMembers.some(member => member.type === target.senderRole)) {
+        issues.push(`Sender role "${target.senderRole}" not found in committee roles`);
+      }
+      if (target.replyToRole && !committeeMembers.some(member => member.type === target.replyToRole)) {
+        issues.push(`Reply-to role "${target.replyToRole}" not found in committee roles`);
+      }
+      target.signOffRoles?.filter(role => !committeeMembers.some(member => member.type === role))
+        .forEach(role => issues.push(`Sign-off role "${role}" not found in committee roles`));
+    }
+    return issues;
+  }
+
+  configLabel(config: NotificationConfig): string {
+    const text = config?.subject?.text || "(no subject)";
+    const issueCount = this.configIssues(config).length;
+    return issueCount > 0 ? `${text} (${issueCount} issue${issueCount > 1 ? "s" : ""})` : text;
   }
 
 }

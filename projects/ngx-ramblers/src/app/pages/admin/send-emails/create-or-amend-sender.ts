@@ -103,7 +103,7 @@ export class CreateOrAmendSenderComponent implements OnInit, OnDestroy {
   private cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   private committeeConfigService: CommitteeConfigService = inject(CommitteeConfigService);
   public stringUtilsService: StringUtilsService = inject(StringUtilsService);
-  private logger = this.loggerFactory.createLogger("CreateOrAmendSenderComponent", NgxLoggerLevel.INFO);
+  private logger = this.loggerFactory.createLogger("CreateOrAmendSenderComponent", NgxLoggerLevel.ERROR);
   baseDomain = "";
   private subscriptions: Subscription[] = [];
 

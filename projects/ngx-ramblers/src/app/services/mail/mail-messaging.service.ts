@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { isString } from "es-toolkit/compat";
+import { isNumber, isString } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { Member } from "../../models/member.model";
@@ -15,6 +15,7 @@ import {
   MailConfig,
   MailMessagingConfig,
   MailSubscription,
+  MemberSelection,
   MemberMergeFields,
   NOTIFICATION_CONFIG_DEFAULTS,
   NotificationConfig,
@@ -102,7 +103,8 @@ export class MailMessagingService {
     const configType = "Notification Configs";
     this.notificationConfigService.all().then((notificationConfigs) => {
       this.logger.info("retrieved notificationConfigs:", notificationConfigs);
-      this.mailMessagingConfig.notificationConfigs = notificationConfigs.sort(sortBy("subject.text"));
+      const normalisedConfigs = this.normaliseNotificationConfigs(notificationConfigs);
+      this.mailMessagingConfig.notificationConfigs = normalisedConfigs.sort(sortBy("subject.text"));
       const message = `Found ${this.stringUtilsService.pluraliseWithCount(notificationConfigs.length, "Notification config")}`;
       return this.broadcastSuccess(configType, message);
     }).catch(error => this.broadcastError(error, configType));
@@ -231,12 +233,26 @@ export class MailMessagingService {
     const migratedNotificationConfigs: NotificationConfig[] = notificationMappings(processToTemplateMappings);
     this.logger.info("templateMappings:", processToTemplateMappings, "migratedNotificationConfigs:", migratedNotificationConfigs);
     if (this.mailMessagingConfig.notificationConfigs.length === 0 && processToTemplateMappings) {
-      this.mailMessagingConfig.notificationConfigs = migratedNotificationConfigs;
+      this.mailMessagingConfig.notificationConfigs = this.normaliseNotificationConfigs(migratedNotificationConfigs);
       this.mailMessagingConfig.mailConfig["templateMappings"] = null;
     }
     if (this.mailMessagingConfig.notificationConfigs.length === 0) {
-      this.mailMessagingConfig.notificationConfigs = NOTIFICATION_CONFIG_DEFAULTS;
+      this.mailMessagingConfig.notificationConfigs = this.normaliseNotificationConfigs(NOTIFICATION_CONFIG_DEFAULTS);
     }
+  }
+
+  private normaliseNotificationConfigs(notificationConfigs: NotificationConfig[]): NotificationConfig[] {
+    return notificationConfigs.map(notificationConfig => this.normaliseNotificationConfig(notificationConfig));
+  }
+
+  private normaliseNotificationConfig(notificationConfig: NotificationConfig): NotificationConfig {
+    const monthsInPast = isNumber(notificationConfig?.monthsInPast) ? notificationConfig.monthsInPast : 1;
+    const defaultMemberSelection = notificationConfig?.defaultMemberSelection || MemberSelection.RECENTLY_ADDED;
+    return {
+      ...notificationConfig,
+      monthsInPast,
+      defaultMemberSelection
+    };
   }
 
   public events(): Observable<MailMessagingConfig> {
@@ -349,7 +365,8 @@ export class MailMessagingService {
       this.logger.info("signoffNames ->", html);
       return html;
     } else {
-      this.logger.info("signoffNames -> null due to null notificationDirective");
+      this.logger.info("signoffNames -> empty due to null notificationDirective");
+      return "";
     }
   }
 

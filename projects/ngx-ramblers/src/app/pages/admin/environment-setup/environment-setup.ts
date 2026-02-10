@@ -331,6 +331,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                   <div class="col-md-8">
                                     <label for="brevo-api-key">Brevo API Key (optional)</label>
                                     <app-secret-input [(ngModel)]="request.serviceConfigs.brevo.apiKey"
+                                                      (ngModelChange)="brevoApiKeyChanged($event)"
                                                       id="brevo-api-key"
                                                       placeholder="Enter your Brevo API key">
                                     </app-secret-input>
@@ -428,6 +429,12 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     configs</label>
                                 </div>
                                 <div class="form-check">
+                                  <input [(ngModel)]="request.options.populateBrevoTemplates"
+                                         (ngModelChange)="brevoTemplatesOptionChanged()"
+                                         type="checkbox" class="form-check-input" id="populate-brevo-templates">
+                                  <label class="form-check-label" for="populate-brevo-templates">Populate Brevo templates</label>
+                                </div>
+                                <div class="form-check">
                                   <input [(ngModel)]="request.options.skipFlyDeployment"
                                          type="checkbox" class="form-check-input" id="skip-fly">
                                   <label class="form-check-label" for="skip-fly">Skip Fly.io deployment (database init
@@ -495,6 +502,10 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                   <dl class="row">
                                     <dt class="col-sm-6">Sample Pages</dt>
                                     <dd class="col-sm-6">{{ request.options.includeSamplePages ? 'Yes' : 'No' }}</dd>
+                                    <dt class="col-sm-6">Notification Configs</dt>
+                                    <dd class="col-sm-6">{{ request.options.includeNotificationConfigs ? 'Yes' : 'No' }}</dd>
+                                    <dt class="col-sm-6">Populate Brevo Templates</dt>
+                                    <dd class="col-sm-6">{{ request.options.populateBrevoTemplates ? 'Yes' : 'No' }}</dd>
                                     <dt class="col-sm-6">Skip Fly.io</dt>
                                     <dd class="col-sm-6">{{ request.options.skipFlyDeployment ? 'Yes' : 'No' }}</dd>
                                     <dt class="col-sm-6">Copy Standard Assets</dt>
@@ -654,6 +665,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   wsConnected = false;
   progressMessages: string[] = [];
   stepperActiveIndex = 0;
+  private brevoTemplatesOptionTouched = false;
   request: EnvironmentSetupRequest = createEmptySetupRequest();
   confirmPassword = "";
 
@@ -1003,6 +1015,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
         secretKey: this.environmentDefaults.recaptcha.secretKey || ""
       };
     }
+    this.brevoApiKeyChanged(this.request.serviceConfigs.brevo.apiKey);
   }
 
   ngOnDestroy(): void {
@@ -1062,6 +1075,17 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       !!this.request.adminUser.email &&
       !!this.request.adminUser.password &&
       this.request.adminUser.password === this.confirmPassword;
+  }
+
+  brevoTemplatesOptionChanged() {
+    this.brevoTemplatesOptionTouched = true;
+  }
+
+  brevoApiKeyChanged(value: string) {
+    if (this.brevoTemplatesOptionTouched) {
+      return;
+    }
+    this.request.options.populateBrevoTemplates = !!value;
   }
 
   async validateApiKey() {

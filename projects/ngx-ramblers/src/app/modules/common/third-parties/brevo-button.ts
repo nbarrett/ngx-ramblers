@@ -18,7 +18,7 @@ import { NgClass } from "@angular/common";
     .brevo-dropdown-menu
       left: 0
       right: auto
-    :host ::ng-deep .brevo-dropdown .btn::after
+    :host ::ng-deep .brevo-dropdown.dropdown-active .btn::after
       content: ""
       margin-left: 8px
       border-top: 5px solid currentColor
@@ -28,7 +28,7 @@ import { NgClass } from "@angular/common";
       vertical-align: middle
   `],
     template: `
-    <div class="brevo-dropdown" [ngClass]="{'d-inline-block': dropdownItems?.length}" dropdown [isDisabled]="disabled || loading">
+    <div class="brevo-dropdown" [ngClass]="{'d-inline-block': dropdownItems?.length, 'dropdown-active': dropdownItems?.length}" dropdown [isDisabled]="disabled || loading">
       @if (dropdownItems?.length) {
         <div dropdownToggle>
           <app-button-wrapper [disabled]="disabled" [loading]="loading" [button]="button" [showTooltip]="showTooltip" [title]="title">

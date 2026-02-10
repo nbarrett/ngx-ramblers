@@ -324,10 +324,10 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     },
     preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID],
     postSendActions: [],
-    defaultMemberSelection: null,
+    defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     contentPreset: null,
     templateId: null,
-    monthsInPast: 2,
+    monthsInPast: 1,
     bannerId: null,
     senderRole: "membership",
     replyToRole: "support",
@@ -341,9 +341,9 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     },
     preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID],
     postSendActions: [],
-    defaultMemberSelection: null,
+    defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     templateId: null,
-    monthsInPast: 2,
+    monthsInPast: 1,
     bannerId: null,
     signOffRoles: ["membership"],
     senderRole: "membership",
@@ -374,7 +374,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID],
     postSendActions: [],
     defaultMemberSelection: MemberSelection.EXPIRED_MEMBERS,
-    monthsInPast: 2,
+    monthsInPast: 1,
     templateId: 11,
     senderRole: "membership",
     replyToRole: "membership",
@@ -405,7 +405,8 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     },
     preSendActions: [],
     postSendActions: [],
-    defaultMemberSelection: null,
+    defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
+    monthsInPast: 1,
     templateId: null,
     senderRole: "walks",
     replyToRole: "walks",
@@ -420,7 +421,8 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     },
     preSendActions: [],
     postSendActions: [],
-    defaultMemberSelection: null,
+    defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
+    monthsInPast: 1,
     templateId: null,
     senderRole: "support",
     replyToRole: "support",
@@ -435,7 +437,8 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     },
     preSendActions: [],
     postSendActions: [],
-    defaultMemberSelection: null,
+    defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
+    monthsInPast: 1,
     templateId: null,
     senderRole: "treasurer",
     replyToRole: "treasurer",
@@ -451,6 +454,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     preSendActions: [],
     postSendActions: [],
     defaultMemberSelection: MemberSelection.MAILING_LIST,
+    monthsInPast: 1,
     templateId: null,
     senderRole: "membership",
     replyToRole: "membership",
@@ -466,6 +470,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     preSendActions: [],
     postSendActions: [],
     defaultMemberSelection: MemberSelection.MAILING_LIST,
+    monthsInPast: 2,
     templateId: null,
     senderRole: "social",
     replyToRole: "social",
@@ -480,7 +485,8 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     },
     preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID],
     postSendActions: [],
-    defaultMemberSelection: null,
+    defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
+    monthsInPast: 2,
     templateId: null,
     senderRole: "membership",
     replyToRole: "membership",
@@ -769,4 +775,36 @@ export interface TemplateDiffResponse {
   matchesLocal: boolean;
   brevoContentLength: number;
   localContentLength: number;
+}
+
+export interface SnapshotTemplatesRequest {
+  templateIds?: number[];
+  templateNames?: string[];
+  templateStatus?: boolean;
+  sanitiseHtml?: boolean;
+}
+
+export interface SnapshotTemplateSaved {
+  templateId: number;
+  templateName: string;
+  filePath: string;
+}
+
+export interface SnapshotTemplateFailure {
+  templateId: number;
+  templateName: string;
+  reason: string;
+}
+
+export interface SnapshotTemplatesResponse {
+  totalTemplates: number;
+  templatesRequested: number;
+  outputDirectory: string;
+  sanitisedHtml: boolean;
+  createdCount: number;
+  updatedCount: number;
+  unchangedCount: number;
+  savedCount: number;
+  savedTemplates: SnapshotTemplateSaved[];
+  failedTemplates: SnapshotTemplateFailure[];
 }

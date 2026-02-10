@@ -8,9 +8,11 @@ import {
   CreateTemplateRequest,
   CreateTemplateResponse,
   MailTemplate,
+  MailTemplates,
   Sender,
   UpdateTemplateRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { isBoolean } from "es-toolkit/compat";
 
 const messageType = "brevo:template-management";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -28,6 +30,34 @@ async function sendersApiInstance(): Promise<SibApiV3Sdk.SendersApi> {
   const api = new SibApiV3Sdk.SendersApi();
   api.setApiKey(SibApiV3Sdk.SendersApiApiKeys.apiKey, brevoConfig.apiKey);
   return api;
+}
+
+export async function listTemplates(templateStatus?: boolean | null): Promise<MailTemplates> {
+  const api = await apiInstance();
+  const statusValue = isBoolean(templateStatus) ? templateStatus : undefined;
+  const response: {
+    response: http.IncomingMessage;
+    body: GetSmtpTemplates;
+  } = await api.getSmtpTemplates(statusValue);
+  const templates: MailTemplate[] = response.body.templates?.map(template => ({
+    createdAt: template.createdAt,
+    sender: {name: template.sender.name, email: template.sender.email, id: +template.sender.id},
+    subject: template.subject,
+    doiTemplate: template.doiTemplate,
+    modifiedAt: template.modifiedAt,
+    toField: template.toField,
+    name: template.name,
+    replyTo: template.replyTo,
+    id: template.id,
+    tag: template.tag,
+    isActive: template.isActive,
+    testSent: template.testSent,
+    htmlContent: null
+  })) || [];
+  return {
+    count: response.body.count || 0,
+    templates
+  };
 }
 
 export async function getDefaultSender(): Promise<Sender | null> {

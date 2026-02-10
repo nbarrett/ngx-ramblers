@@ -8,6 +8,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { CreateOrAmendSenderComponent } from "./create-or-amend-sender";
 import { FormsModule } from "@angular/forms";
 import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi-select/committee-role-multi-select";
+import { MemberLoginService } from "../../../services/member/member-login.service";
 
 @Component({
     selector: "app-sender-replies-and-sign-off",
@@ -15,11 +16,21 @@ import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi
     <div class="row" app-create-or-amend-sender (senderExists)="senderExists.emit($event)"
     [committeeRoleSender]="committeeRoleSender"></div>
     @if (notificationConfig) {
+      @if (allowSelectAllAsMe) {
+        <div class="row mb-2">
+          <div class="col-sm-12">
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+              [disabled]="selectAllAsMeDisabled()"
+              (click)="selectAllAsMe()">Select All As Me</button>
+          </div>
+        </div>
+      }
       <div class="row">
         <div class="col-sm-6">
           <div class="form-group">
             <label for="sender">Sender</label>
             <select [(ngModel)]="notificationConfig.senderRole" (ngModelChange)="senderRoleChanged()"
+              [class.is-invalid]="!notificationConfig.senderRole || !roleExists(notificationConfig.senderRole)"
               id="sender"
               class="form-control input-sm">
               @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role.nameAndDescription) {
@@ -28,6 +39,9 @@ import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi
                 </option>
               }
             </select>
+            @if (notificationConfig.senderRole && !roleExists(notificationConfig.senderRole)) {
+              <div class="text-danger"><small>Role "{{ notificationConfig.senderRole }}" not found in committee</small></div>
+            }
           </div>
         </div>
         @if (!omitCC) {
@@ -43,6 +57,7 @@ import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi
             <label for="reply-to">Reply To</label>
             @if (notificationConfig) {
               <select [(ngModel)]="notificationConfig.replyToRole"
+                [class.is-invalid]="!notificationConfig.replyToRole || !roleExists(notificationConfig.replyToRole)"
                 id="reply-to"
                 class="form-control input-sm">
                 @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role.nameAndDescription) {
@@ -51,6 +66,9 @@ import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi
                   </option>
                 }
               </select>
+              @if (notificationConfig.replyToRole && !roleExists(notificationConfig.replyToRole)) {
+                <div class="text-danger"><small>Role "{{ notificationConfig.replyToRole }}" not found in committee</small></div>
+              }
             }
           </div>
         </div>
@@ -60,6 +78,13 @@ import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi
                 [label]="'Sign Off Email With Roles'"
                 [roles]="notificationConfig.signOffRoles"
                 (rolesChange)="this.notificationConfig.signOffRoles = $event.roles;"/>
+              @if (invalidSignOffRoles().length > 0) {
+                <div class="text-danger">
+                  @for (role of invalidSignOffRoles(); track role) {
+                    <small>Sign-off role "{{ role }}" not found in committee</small>
+                  }
+                </div>
+              }
           </div>
         }
       </div>
@@ -67,7 +92,7 @@ import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi
     imports: [CreateOrAmendSenderComponent, FormsModule, CommitteeRoleMultiSelectComponent]
 })
 
-export class SenderRepliesAndSignoffComponent implements OnInit {
+export class SenderRepliesAndSignoff implements OnInit {
 
   @Input("omitSignOff") set omitSignOffValue(omitSignOff: boolean) {
     this.omitSignOff = coerceBooleanProperty(omitSignOff);
@@ -77,14 +102,20 @@ export class SenderRepliesAndSignoffComponent implements OnInit {
     this.omitCC = coerceBooleanProperty(omitCC);
   }
 
+  @Input("allowSelectAllAsMe") set allowSelectAllAsMeValue(allowSelectAllAsMe: boolean) {
+    this.allowSelectAllAsMe = coerceBooleanProperty(allowSelectAllAsMe);
+  }
+
   public error: any;
   public committeeRoleSender: CommitteeMember;
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   public stringUtilsService: StringUtilsService = inject(StringUtilsService);
-  private logger = this.loggerFactory.createLogger("SenderRepliesAndSignoffComponent", NgxLoggerLevel.ERROR);
+  private logger = this.loggerFactory.createLogger("SenderRepliesAndSignoff", NgxLoggerLevel.INFO);
   public omitSignOff: boolean;
   public omitCC: boolean;
+  public allowSelectAllAsMe: boolean;
   @Output() senderExists: EventEmitter<boolean> = new EventEmitter();
+  private memberLoginService = inject(MemberLoginService);
 
   private notificationConfigInternal: NotificationConfig;
 
@@ -102,15 +133,92 @@ export class SenderRepliesAndSignoffComponent implements OnInit {
 
   async ngOnInit() {
     this.senderRoleChanged();
-    this.logger.info("constructed notificationConfig", this.notificationConfig, "mailMessagingConfig:", this.mailMessagingConfig, "sender:", this.committeeRoleSender);
   }
 
   senderRoleChanged() {
     this.committeeRoleSender = this.mailMessagingConfig.committeeReferenceData.committeeMemberForRole(this.notificationConfig.senderRole);
   }
 
+  roleExists(role: string): boolean {
+    if (!role || !this.mailMessagingConfig?.committeeReferenceData) return false;
+    return this.mailMessagingConfig.committeeReferenceData.committeeMembers().some(m => m.type === role);
+  }
+
+  invalidSignOffRoles(): string[] {
+    if (!this.notificationConfig?.signOffRoles || !this.mailMessagingConfig?.committeeReferenceData) return [];
+    return this.notificationConfig.signOffRoles.filter(role => !this.roleExists(role));
+  }
+
   private handleNotificationConfigChange() {
-    this.logger.info("notificationConfig changed:", this.notificationConfig);
     this.senderRoleChanged();
+  }
+
+  selectAllAsMeDisabled(): boolean {
+    const roles = this.rolesForLoggedInMember();
+    return roles.length === 0;
+  }
+
+  selectAllAsMe() {
+    const roles = this.rolesForLoggedInMember();
+    const primaryRole = roles[0];
+    this.logger.info("selectAllAsMe:roles:", roles, "primaryRole:", primaryRole);
+    if (!primaryRole || !this.notificationConfig) {
+      this.logger.info("selectAllAsMe:aborted due to missing primaryRole or notificationConfig");
+      return;
+    }
+    this.notificationConfig.senderRole = primaryRole;
+    this.notificationConfig.replyToRole = primaryRole;
+    if (!this.omitSignOff) {
+      this.notificationConfig.signOffRoles = roles;
+    }
+    this.senderRoleChanged();
+  }
+
+  private rolesForLoggedInMember(): string[] {
+    const loggedInMember = this.memberLoginService.loggedInMember();
+    const memberId = loggedInMember?.memberId;
+    const memberEmail = loggedInMember?.userName?.toLowerCase();
+    if (!this.mailMessagingConfig?.committeeReferenceData) {
+      return [];
+    }
+    const committeeMembers = this.mailMessagingConfig.committeeReferenceData.committeeMembers();
+    const memberRoles = committeeMembers
+      .filter(member => this.isAssignableRole(member))
+      .filter(member => {
+        if (memberId && member.memberId === memberId) {
+          return true;
+        }
+        const roleEmail = member.email?.toLowerCase();
+        return !!memberEmail && !!roleEmail && roleEmail === memberEmail;
+      })
+      .map(member => member.type);
+    if (memberRoles.length > 0) {
+      return memberRoles;
+    }
+    const senderCommitteeRole = this.notificationConfig?.senderRole
+      ? this.mailMessagingConfig.committeeReferenceData.committeeMemberForRole(this.notificationConfig.senderRole)
+      : null;
+    if (this.isAssignableRole(senderCommitteeRole)) {
+      return [senderCommitteeRole.type];
+    }
+    const replyToCommitteeRole = this.notificationConfig?.replyToRole
+      ? this.mailMessagingConfig.committeeReferenceData.committeeMemberForRole(this.notificationConfig.replyToRole)
+      : null;
+    if (this.isAssignableRole(replyToCommitteeRole)) {
+      return [replyToCommitteeRole.type];
+    }
+    const firstAssignableRole = committeeMembers
+      .find(member => this.isAssignableRole(member));
+    return firstAssignableRole ? [firstAssignableRole.type] : [];
+  }
+
+  private isAssignableRole(role: CommitteeMember | null): boolean {
+    if (!role?.type) {
+      return false;
+    }
+    const fullNameText = role.fullName?.toLowerCase() || "";
+    const nameAndDescriptionText = role.nameAndDescription?.toLowerCase() || "";
+    const isVacantByText = fullNameText.includes("vacant") || nameAndDescriptionText.includes("vacant");
+    return !role.vacant && !isVacantByText;
   }
 }

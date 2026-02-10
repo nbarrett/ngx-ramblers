@@ -14,6 +14,31 @@ import { KeyValue } from "../../../../projects/ngx-ramblers/src/app/functions/en
 import { extractParametersFrom } from "../../../../projects/ngx-ramblers/src/app/common/mail-parameters";
 import { replaceAll } from "../../shared/string-utils";
 
+export function normaliseMergeFieldPlaceholders(html: string): string {
+  return html.replace(/\{\{\s*(params\.\w+\.\w+)\s*\}\}/g, "{{$1}}");
+}
+
+export function stripFroalaArtefacts(html: string): string {
+  return html
+    .replace(/\s*fr-original-style="[^"]*"/g, "")
+    .replace(/\s*fr-original-class="[^"]*"/g, "")
+    .replace(/\s*contenteditable="[^"]*"/g, "")
+    .replace(/\s*data-placeholder="[^"]*"/g, "")
+    .replace(/\u200b/g, "");
+}
+
+export function collapseFroalaPlaceholderSpans(html: string): string {
+  return html.replace(/<span\s+class="placeholder rte-personalized-node fr-deletable"[^>]*>([^<]*)<\/span>\u200b?/g, "$1");
+}
+
+export function sanitiseBrevoTemplate(html: string): string {
+  return normaliseMergeFieldPlaceholders(
+    collapseFroalaPlaceholderSpans(
+      stripFroalaArtefacts(html)
+    )
+  );
+}
+
 export async function performTemplateSubstitution(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest,
                                                   sendSmtpEmail: SendSmtpEmail | CreateEmailCampaign,
                                                   debugLog: debug.Debugger): Promise<SendSmtpEmail | CreateEmailCampaign> {
@@ -23,6 +48,7 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
     if (emailRequest.templateId) {
       debugLog("performing template substitution in email content for templateId", emailRequest.templateId);
       const templateResponse: TemplateResponse = await queryTemplateContent(emailRequest.templateId);
+      const sanitisedHtml = sanitiseBrevoTemplate(templateResponse.htmlContent);
       const parametersAndValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, true);
       debugLog("parametersAndValues:", parametersAndValues);
       const htmlContent: string = parametersAndValues.reduce(
@@ -30,7 +56,7 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
           debugLog(`Replacing ${keyValue.key} with ${keyValue.value} in ${templateContent}`);
           return replaceAll(keyValue.key, keyValue.value, templateContent) as string;
         },
-        templateResponse.htmlContent,
+        sanitisedHtml,
       );
       debugLog(`Setting final htmlContent to ${htmlContent}`);
       sendSmtpEmail.htmlContent = htmlContent;

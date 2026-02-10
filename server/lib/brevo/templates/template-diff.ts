@@ -1,10 +1,9 @@
 import debug from "debug";
 import { NextFunction, Request, Response } from "express";
-import { readFileSync, existsSync } from "fs";
 import { envConfig } from "../../env-config/env-config";
 import { handleError, successfulResponse } from "../common/messages";
 import { queryTemplateContent } from "../transactional-mail/query-template-content";
-import { resolveClientPath } from "../../shared/path-utils";
+import { readLocalTemplate } from "./local-template-reader";
 import {
   TemplateDiffRequest,
   TemplateDiffResponse
@@ -13,20 +12,6 @@ import {
 const messageType = "brevo:template-diff";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = false;
-
-function localTemplatePath(templateName: string): string {
-  return resolveClientPath(`projects/ngx-ramblers/src/brevo/templates/${templateName}.html`);
-}
-
-function readLocalTemplate(templateName: string): string | null {
-  const templatePath = localTemplatePath(templateName);
-  debugLog("reading local template from", templatePath);
-  if (!existsSync(templatePath)) {
-    debugLog("local template not found at", templatePath);
-    return null;
-  }
-  return readFileSync(templatePath, "utf-8");
-}
 
 function normaliseHtml(html: string): string {
   return html.replace(/\s+/g, " ").trim();

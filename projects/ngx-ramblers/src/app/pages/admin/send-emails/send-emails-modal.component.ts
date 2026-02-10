@@ -1,6 +1,6 @@
 import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
-import { map } from "es-toolkit/compat";
+import { isNumber, map } from "es-toolkit/compat";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -35,7 +35,7 @@ import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NotificationConfigSelectorComponent } from "../system-settings/mail/notification-config-selector";
 import { FormsModule } from "@angular/forms";
 import { DatePicker } from "../../../date-and-time/date-picker";
-import { SenderRepliesAndSignoffComponent } from "./sender-replies-and-signoff";
+import { SenderRepliesAndSignoff } from "./sender-replies-and-signoff";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 
@@ -97,7 +97,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
                         <div class="row mb-3 mt-3">
                           <div class="col-sm-12 d-flex align-items-center">
                             <input type="radio" class="form-check-input me-2" [value]="MemberSelection.RECENTLY_ADDED"
-                              [ngModel]="notificationConfig.defaultMemberSelection"
+                              [checked]="currentMemberSelection === MemberSelection.RECENTLY_ADDED"
                               [disabled]="notifyTarget.busy" id="recently-added"
                               (click)="populateMembersBasedOn(MemberSelection.RECENTLY_ADDED)">
                             <label class="form-check-label text-nowrap me-2" for="recently-added">
@@ -116,7 +116,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
                           <div class="col-sm-12 d-flex align-items-center">
                             <input type="radio" class="form-check-input me-2"
                               [value]="MemberSelection.EXPIRED_MEMBERS"
-                              [ngModel]="notificationConfig.defaultMemberSelection"
+                              [checked]="currentMemberSelection === MemberSelection.EXPIRED_MEMBERS"
                               [disabled]="notifyTarget.busy"
                               id="expired-members"
                               (click)="populateMembersBasedOn(MemberSelection.EXPIRED_MEMBERS)">
@@ -134,7 +134,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
                           <div class="col-sm-12 d-flex align-items-center">
                             <input type="radio" class="form-check-input me-2"
                               [value]="MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS"
-                              [ngModel]="notificationConfig.defaultMemberSelection"
+                              [checked]="currentMemberSelection === MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS"
                               [disabled]="notifyTarget.busy"
                               id="missing-from-bulk-load-members"
                               (click)="populateMembersBasedOn(MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS)">
@@ -190,7 +190,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
                                 [(ngModel)]="selectedMemberIds">
                                 <ng-template ng-optgroup-tmp let-item="item">
                                   <span class="group-header">{{ item.name }} members </span>
-                                  <span class="ms-1 badge bg-secondary badge-group"> {{ item.total }} </span>
+                                  <span class="ms-1 badge bg-secondary badge-group">{{ groupedCount(item) }}</span>
                                 </ng-template>
                               </ng-select>
                             </div>
@@ -204,6 +204,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
               <tab heading="Sender, Replies & Sign-off">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <app-sender-replies-and-sign-off [mailMessagingConfig]="mailMessagingConfig"
+                    [allowSelectAllAsMe]="true"
                     [notificationConfig]="notificationConfig"/>
                 </div>
               </tab>
@@ -240,7 +241,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
       <div class="d-none">
         <ng-template app-notification-directive/>
       </div>`,
-    imports: [TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, DatePicker, NgSelectComponent, NgOptgroupTemplateDirective, SenderRepliesAndSignoffComponent, FontAwesomeModule, NotificationDirective]
+    imports: [TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, DatePicker, NgSelectComponent, NgOptgroupTemplateDirective, SenderRepliesAndSignoff, FontAwesomeModule, NotificationDirective]
 })
 
 export class SendEmailsModalComponent implements OnInit, OnDestroy {
@@ -288,6 +289,14 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     this.mailMessagingService.events().subscribe((mailMessagingConfig: MailMessagingConfig) => {
       this.logger.info("mailMessagingConfig:", mailMessagingConfig);
       this.mailMessagingConfig = mailMessagingConfig;
+      this.logger.info(
+        "senderTabContext:",
+        {
+          loggedInMemberId: this.memberLoginService.loggedInMember()?.memberId,
+          committeeRoles: this.mailMessagingConfig?.committeeReferenceData?.committeeMembers()?.length || 0,
+          firstCommitteeRole: this.mailMessagingConfig?.committeeReferenceData?.committeeMembers()?.[0]?.type || null
+        }
+      );
       this.notificationConfigListing = {
         includeWorkflowRelatedConfigs: false,
         excludeMemberSelections: [MemberSelection.MAILING_LIST],
@@ -295,6 +304,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
       };
       this.notificationConfigs = this.mailMessagingService.notificationConfigs(this.notificationConfigListing);
       this.notificationConfig = this.notificationConfigs[0];
+      this.ensureMonthsInPast(this.notificationConfig);
       this.logger.info("emailConfigs:", this.notificationConfigs, "selecting first one:", this.notificationConfig);
       this.populateMembersBasedOn(this.notificationConfig?.defaultMemberSelection);
     });
@@ -338,6 +348,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
       });
     }
     this.logger.info("populateMembers:memberSelectorName:", this.currentMemberSelection, "memberSelection:", memberSelection);
+    this.ensureMonthsInPast(this.notificationConfig);
     this.calculateMemberFilterDate();
     this.populateSelectedMembers();
     this.notify.clearBusy();
@@ -359,12 +370,33 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   }
 
   groupValue(_: string, children: any[]) {
-    return ({name: children[0].memberGrouping, total: children.length});
+    return ({name: children[0]?.memberGrouping || "members", total: children?.length || 0, children});
+  }
+
+  groupedCount(item: any): number {
+    return item?.total ?? item?.children?.length ?? item?.items?.length ?? 0;
   }
 
   emailConfigChanged(notificationConfig: NotificationConfig) {
     this.notificationConfig = notificationConfig;
+    this.ensureMonthsInPast(notificationConfig);
+    this.logger.info("emailConfigChanged:", {
+      subject: notificationConfig?.subject?.text,
+      senderRole: notificationConfig?.senderRole,
+      replyToRole: notificationConfig?.replyToRole,
+      signOffRoles: notificationConfig?.signOffRoles,
+      ccRoles: notificationConfig?.ccRoles
+    });
     this.populateMembersBasedOn(notificationConfig.defaultMemberSelection);
+  }
+
+  ensureMonthsInPast(notificationConfig: NotificationConfig) {
+    if (!notificationConfig) {
+      return;
+    }
+    if (!isNumber(notificationConfig.monthsInPast)) {
+      notificationConfig.monthsInPast = 1;
+    }
   }
 
   memberSelectorNamed(suppliedMemberSelection: MemberSelection): MemberSelector {
