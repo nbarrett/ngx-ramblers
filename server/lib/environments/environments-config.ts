@@ -123,6 +123,6 @@ export async function listEnvironmentSummariesFromDatabase(): Promise<Environmen
   }));
 }
 
-export async function getEnvironmentsConfig(): Promise<EnvironmentsConfig | null> {
+export async function environmentsConfigFromDatabase(): Promise<EnvironmentsConfig | null> {
   return loadFromDatabase();
 }

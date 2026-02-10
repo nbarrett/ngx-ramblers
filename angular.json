@@ -62,7 +62,8 @@
             ],
             "scripts": [
               "./node_modules/bootstrap/dist/js/bootstrap.bundle.min.js",
-              "./node_modules/marked/lib/marked.umd.js"
+              "./node_modules/marked/lib/marked.umd.js",
+              "./node_modules/mermaid/dist/mermaid.min.js"
             ],
             "main": "projects/ngx-ramblers/src/main.ts"
           },

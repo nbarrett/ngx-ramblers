@@ -28,7 +28,7 @@ import { TypeaheadModule } from "ngx-bootstrap/typeahead";
 import { ImageCropperModule } from "ngx-image-cropper";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { CustomNGXLoggerService, LoggerModule, NgxLoggerLevel } from "ngx-logger";
-import { MarkdownModule } from "ngx-markdown";
+import { MarkdownModule, MERMAID_OPTIONS } from "ngx-markdown";
 import { TagifyModule } from "ngx-tagify";
 import { UiSwitchModule } from "ngx-ui-switch";
 import { AuthInterceptor } from "../../auth/auth.interceptor";
@@ -72,6 +72,8 @@ import { EventNotePipe } from "../../pipes/event-note.pipe";
 import { TimepickerModule } from "ngx-bootstrap/timepicker";
 import { EventDatesAndTimesPipe } from "../../pipes/event-times-and-dates.pipe";
 
+declare let mermaid: { registerIconPacks?: (packs: { name: string; loader: () => Promise<unknown> }[]) => void };
+
 @NgModule({
   imports: [
     AppRoutingModule,
@@ -101,7 +103,14 @@ import { EventDatesAndTimesPipe } from "../../pipes/event-times-and-dates.pipe";
     ImageCropperModule,
     LeafletModule,
     LoggerModule.forRoot({serverLoggingUrl: "api/logs", level: NgxLoggerLevel.OFF, serverLogLevel: NgxLoggerLevel.OFF}),
-    MarkdownModule.forRoot(),
+    MarkdownModule.forRoot({
+      mermaidOptions: {
+        provide: MERMAID_OPTIONS,
+        useValue: {
+          startOnLoad: false
+        }
+      }
+    }),
     TagifyModule.forRoot(),
     UiSwitchModule,
     GalleryModule,
@@ -156,6 +165,12 @@ import { EventDatesAndTimesPipe } from "../../pipes/event-times-and-dates.pipe";
 export class AppModule implements DoBootstrap {
   constructor() {
     setTheme("bs5");
+    if (typeof mermaid !== "undefined" && mermaid.registerIconPacks) {
+      mermaid.registerIconPacks([
+        {name: "logos", loader: () => import("@iconify-json/logos").then(m => m.icons as unknown)},
+        {name: "devicon", loader: () => import("@iconify-json/devicon").then(m => m.icons as unknown)}
+      ]);
+    }
   }
 
   ngDoBootstrap(appRef: ApplicationRef) {

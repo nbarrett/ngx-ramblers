@@ -5,7 +5,11 @@ import { keys } from "es-toolkit/compat";
 import { SecretsFile } from "../environment-setup/types";
 import { envConfig } from "../env-config/env-config";
 import { resolveClientPath } from "./path-utils";
-import { CloudflareConfig, EnvironmentConfig, EnvironmentsConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import {
+  CloudflareConfig,
+  EnvironmentConfig,
+  EnvironmentsConfig
+} from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { entries } from "../../../projects/ngx-ramblers/src/app/functions/object-utils";
 import { pullMissingSecrets } from "../fly/fly-secrets";
 import { parseEnvContent } from "./env-parser";
@@ -126,12 +130,14 @@ export function loadSecretsForEnvironment(appName: string): SecretsFile {
   };
 }
 
-export async function loadSecretsForEnvironmentFromDatabase(
-  environmentName: string
-): Promise<SecretsFile | null> {
+export async function loadSecretsForEnvironmentFromDatabase(environmentName: string): Promise<SecretsFile> {
   try {
-    const { configuredEnvironments } = await import("../environments/environments-config");
-    const envConfigData = await configuredEnvironments();
+    const { environmentsConfigFromDatabase } = await import("../environments/environments-config");
+    const envConfigData = await environmentsConfigFromDatabase();
+    if (!envConfigData) {
+      debugLog("No environments config found in database");
+      return null;
+    }
 
     const envConfig = envConfigData.environments?.find(e => e.environment === environmentName);
     if (!envConfig) {
