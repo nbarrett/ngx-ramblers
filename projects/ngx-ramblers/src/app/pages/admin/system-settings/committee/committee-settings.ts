@@ -127,7 +127,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                     <div class="col-sm-12 mt-2 mb-2">
                       <alert type="warning">
                         <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
-                        <strong class="ms-2">Email Forwarding Not Available</strong>
+                        <strong class="ms-2">Email Forwarding Error</strong>
                         @if (platformAdminEnabled) {
                           <span class="ms-2">Cloudflare Email Routing could not be contacted. To enable
                             email forwarding for committee roles:
@@ -145,20 +145,20 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                               {{ cloudflareEmailRoutingService.configErrorNotifications() | async }}</div>
                           </span>
                         } @else {
-                          <span class="ms-2">Email forwarding is not configured for this group. Contact the platform administrator to enable Cloudflare Email Routing.</span>
+                          <span class="ms-2">Email forwarding encountered an error. Contact the platform administrator.</span>
                         }
                       </alert>
                     </div>
                   }
                   <div class="d-flex justify-content-between mb-3">
                     <div>
-                      @if (platformAdminEnabled && !cloudflareEmailRoutingService.hasConfigError() && cloudflareRoutingUrl()) {
+                      @if (platformAdminEnabled && cloudflareEmailRoutingService.emailForwardingAvailable() && cloudflareRoutingUrl()) {
                         <a [href]="cloudflareRoutingUrl()" target="_blank"
                            class="btn btn-sm btn-outline-cloudflare">
                           <fa-icon [icon]="faExternalLinkAlt" class="me-1"></fa-icon>View Routing Rules in Cloudflare
                         </a>
                       }
-                      @if (platformAdminEnabled && !cloudflareEmailRoutingService.hasConfigError() && !cloudflareRoutingUrl()) {
+                      @if (platformAdminEnabled && cloudflareEmailRoutingService.emailForwardingAvailable() && !cloudflareRoutingUrl()) {
                         <alert type="warning" class="mt-2 mb-0">
                           <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
                           <strong class="ms-2">Routing link unavailable</strong>
@@ -262,7 +262,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                               Vacant
                               <fa-icon [icon]="sortIcon('vacant')" class="sort-icon"></fa-icon>
                             </th>
-                            @if (!cloudflareEmailRoutingService.hasConfigError()) {
+                            @if (cloudflareEmailRoutingService.emailForwardingAvailable()) {
                               <th style="width: 130px" class="sortable" [class.sorted]="sortField === 'emailForward'"
                                   (click)="toggleSort('emailForward')">
                                 Email Forward
@@ -285,7 +285,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                   <span class="badge bg-warning">Yes</span>
                                 }
                               </td>
-                              @if (!cloudflareEmailRoutingService.hasConfigError()) {
+                              @if (cloudflareEmailRoutingService.emailForwardingAvailable()) {
                                 <td class="text-center">
                                   @switch (emailForwardStatus(role)) {
                                     @case (EmailForwardStatus.ACTIVE) {
@@ -322,7 +322,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                             </tr>
                             @if (pendingDeleteRole === role) {
                               <tr class="no-hover">
-                                <td [attr.colspan]="cloudflareEmailRoutingService.hasConfigError() ? 6 : 7" class="p-2">
+                                <td [attr.colspan]="cloudflareEmailRoutingService.emailForwardingAvailable() ? 7 : 6" class="p-2">
                                   <div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-0">
                                     <span>
                                       <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
@@ -502,10 +502,15 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   platformAdminEnabled = false;
 
   ngOnInit() {
-    this.cloudflareEmailRoutingService.queryCloudflareConfig().catch(err => this.logger.error("Cloudflare config not available:", err));
-    this.cloudflareEmailRoutingService.queryRules().catch(err => this.logger.error("Email routing rules not available:", err));
-    this.cloudflareEmailRoutingService.queryCatchAllRule().catch(err => this.logger.error("Catch-all rule not available:", err));
-    this.cloudflareEmailRoutingService.queryWorkers().catch(err => this.logger.error("Cloudflare workers not available:", err));
+    this.cloudflareEmailRoutingService.queryCloudflareConfig()
+      .then(config => {
+        if (config?.configured !== false) {
+          this.cloudflareEmailRoutingService.queryRules().catch(err => this.logger.error("Email routing rules not available:", err));
+          this.cloudflareEmailRoutingService.queryCatchAllRule().catch(err => this.logger.error("Catch-all rule not available:", err));
+          this.cloudflareEmailRoutingService.queryWorkers().catch(err => this.logger.error("Cloudflare workers not available:", err));
+        }
+      })
+      .catch(err => this.logger.error("Cloudflare config not available:", err));
     this.environmentSetupService.status()
       .then(status => this.platformAdminEnabled = status.platformAdminEnabled)
       .catch(err => this.logger.error("Platform admin status not available:", err));
@@ -766,7 +771,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   emailForwardStatus(role: CommitteeMember): EmailForwardStatus {
-    if (role.vacant || this.cloudflareEmailRoutingService.hasConfigError()) return EmailForwardStatus.NA;
+    if (role.vacant || !this.cloudflareEmailRoutingService.emailForwardingAvailable()) return EmailForwardStatus.NA;
     const forwardEmail = this.resolvedForwardEmailFor(role);
     if (!forwardEmail && role.forwardEmailTarget !== ForwardEmailTarget.MULTIPLE) return EmailForwardStatus.NA;
     if (role.forwardEmailTarget === ForwardEmailTarget.MULTIPLE && !role.forwardEmailRecipients?.length) return EmailForwardStatus.NA;

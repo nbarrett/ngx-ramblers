@@ -352,7 +352,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       CommitteeMemberTab.INBOUND_FORWARDING,
       CommitteeMemberTab.CONTACT_US
     ];
-    if (this.activeWorkerScriptName()) {
+    if (this.cloudflareEmailRoutingService.emailForwardingAvailable()) {
       return [...baseTabs, CommitteeMemberTab.EMAIL_LOGS];
     }
     return baseTabs;

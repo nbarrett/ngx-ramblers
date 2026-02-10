@@ -100,6 +100,7 @@ export enum DestinationVerificationStatus {
 }
 
 export interface NonSensitiveCloudflareConfig {
+  configured?: boolean;
   accountId?: string;
   zoneId?: string;
   baseDomain?: string;
