@@ -37,7 +37,11 @@ import {
   TemplateDiffResponse,
   TemplateOptions,
   SnapshotTemplatesRequest,
-  SnapshotTemplatesResponse
+  SnapshotTemplatesResponse,
+  BrevoDomainInfo,
+  BrevoDomainConfiguration,
+  DomainRegistrationResult,
+  DomainAuthenticationResult
 } from "../../models/mail.model";
 
 @Injectable({
@@ -190,6 +194,31 @@ export class MailService {
   async snapshotTemplates(request: SnapshotTemplatesRequest): Promise<SnapshotTemplatesResponse> {
     this.logger.info("snapshotTemplates:", request);
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/snapshot`, request))).response;
+  }
+
+  async listDomains(): Promise<BrevoDomainInfo[]> {
+    this.logger.info("listDomains");
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/domains`))).response;
+  }
+
+  async registerDomain(name: string): Promise<DomainRegistrationResult> {
+    this.logger.info("registerDomain:", name);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/domains/register`, {name}))).response;
+  }
+
+  async domainConfiguration(domainName: string): Promise<BrevoDomainConfiguration> {
+    this.logger.info("domainConfiguration:", domainName);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/domains/${domainName}/configuration`))).response;
+  }
+
+  async authenticateDomain(domainName: string): Promise<DomainAuthenticationResult> {
+    this.logger.info("authenticateDomain:", domainName);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/domains/${domainName}/authenticate`, {}))).response;
+  }
+
+  async deleteDomain(domainName: string): Promise<void> {
+    this.logger.info("deleteDomain:", domainName);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/domains/${domainName}`))).response;
   }
 
 }

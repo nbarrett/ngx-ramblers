@@ -9,7 +9,7 @@ export interface CloudflareConfig {
 }
 
 export interface DnsRecord {
-  type: "A" | "AAAA" | "CNAME";
+  type: "A" | "AAAA" | "CNAME" | "TXT" | "MX";
   name: string;
   content: string;
   ttl?: number;
@@ -64,11 +64,16 @@ export async function createDnsRecord(config: CloudflareConfig, record: DnsRecor
   return data.result;
 }
 
-export async function listDnsRecords(config: CloudflareConfig, name?: string): Promise<DnsRecordResult[]> {
-  let url = `https://api.cloudflare.com/client/v4/zones/${config.zoneId}/dns_records`;
+export async function listDnsRecords(config: CloudflareConfig, name?: string, type?: DnsRecord["type"]): Promise<DnsRecordResult[]> {
+  const params = new URLSearchParams();
   if (name) {
-    url += `?name=${encodeURIComponent(name)}`;
+    params.set("name", name);
   }
+  if (type) {
+    params.set("type", type);
+  }
+  const queryString = params.toString();
+  const url = `https://api.cloudflare.com/client/v4/zones/${config.zoneId}/dns_records${queryString ? `?${queryString}` : ""}`;
 
   const response = await fetch(url, {
     headers: {

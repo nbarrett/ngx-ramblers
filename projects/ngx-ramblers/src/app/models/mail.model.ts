@@ -808,3 +808,47 @@ export interface SnapshotTemplatesResponse {
   savedTemplates: SnapshotTemplateSaved[];
   failedTemplates: SnapshotTemplateFailure[];
 }
+
+export interface BrevoDnsRecord {
+  type: string;
+  hostName: string;
+  value: string;
+  status: boolean;
+}
+
+export interface BrevoDomainDnsRecords {
+  dkimRecord: BrevoDnsRecord;
+  brevoCode: BrevoDnsRecord;
+}
+
+export interface BrevoDomainInfo {
+  id: number;
+  domainName: string;
+  authenticated: boolean;
+  verified: boolean;
+}
+
+export interface BrevoDomainConfiguration {
+  domain: string;
+  verified: boolean;
+  authenticated: boolean;
+  dnsRecords: BrevoDomainDnsRecords;
+}
+
+export interface DomainRegistrationResult {
+  id: number;
+  domainName: string;
+  alreadyRegistered: boolean;
+  dnsRecords: BrevoDomainDnsRecords;
+}
+
+export interface DomainAuthenticationResult {
+  domainName: string;
+  registered: boolean;
+  dnsRecordsConfigured: boolean;
+  authenticationRequested: boolean;
+  authenticated: boolean;
+  verified: boolean;
+  dnsRecords: BrevoDomainDnsRecords;
+  message: string;
+}

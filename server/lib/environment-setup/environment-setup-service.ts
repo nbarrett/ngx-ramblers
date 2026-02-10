@@ -29,6 +29,7 @@ import {
   EnvironmentsConfig
 } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { seedBrevoTemplatesFromLocal } from "../brevo/templates/template-seeding";
+import { authenticateSendingDomain } from "../brevo/domains/domain-authentication";
 import * as configController from "../mongo/controllers/config";
 import { connect as ensureMongoConnection } from "../mongo/mongoose-client";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
@@ -352,6 +353,18 @@ export async function createEnvironment(
       reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, "completed", message);
     } else {
       reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, "completed", "Skipped Brevo template population");
+    }
+
+    if (request.options.authenticateBrevoDomain && request.serviceConfigs.brevo.apiKey && request.ramblersInfo.groupUrl) {
+      const hostname = new URL(request.ramblersInfo.groupUrl).hostname.replace(/^www\./, "");
+      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, "running", `Authenticating domain ${hostname}`);
+      const authResult = await authenticateSendingDomain(hostname);
+      const authMessage = authResult.authenticated
+        ? `Domain ${hostname} authenticated successfully`
+        : `Domain ${hostname}: ${authResult.message}`;
+      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, authResult.authenticated ? "completed" : "failed", authMessage);
+    } else {
+      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, "completed", "Skipped Brevo domain authentication");
     }
 
     if (!request.options.skipFlyDeployment) {
