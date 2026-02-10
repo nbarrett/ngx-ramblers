@@ -103,6 +103,7 @@ jobs:
       - name: Deploy to ${{ matrix.environment }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
         run: |
           ts-node server/deploy/deploy-to-environments.ts --environment "${{ matrix.environment }}" --image-tag "${{ github.event.inputs.image_tag }}"
 

@@ -130,8 +130,12 @@ export async function loadSecretsForEnvironmentFromDatabase(
   environmentName: string
 ): Promise<SecretsFile | null> {
   try {
-    const { configuredEnvironments } = await import("../environments/environments-config");
-    const envConfigData = await configuredEnvironments();
+    const { environmentsConfigFromDatabase } = await import("../environments/environments-config");
+    const envConfigData = await environmentsConfigFromDatabase();
+    if (!envConfigData) {
+      debugLog("No environments config found in database");
+      return null;
+    }
 
     const envConfig = envConfigData.environments?.find(e => e.environment === environmentName);
     if (!envConfig) {
