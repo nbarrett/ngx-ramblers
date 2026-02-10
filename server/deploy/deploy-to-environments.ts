@@ -8,10 +8,12 @@ import {
   runCommand
 } from "../lib/fly/fly-commands";
 import fs from "fs";
+import os from "os";
+import path from "path";
 import { DeploymentConfig, EnvironmentConfig, RuntimeConfig } from "./types";
 import { pluraliseWithCount } from "../lib/shared/string-utils";
-import path from "path";
 import { envConfig } from "../lib/env-config/env-config";
+import { buildSecretsContent, loadSecretsForEnvironmentFromDatabase } from "../lib/shared/secrets";
 
 const debugLog = debug(envConfig.logNamespace("deploy-environments"));
 debugLog.enabled = true;
@@ -22,7 +24,10 @@ if (config.targetEnvironments.length > 0) {
   debugLog("Deploying to all environments");
 }
 
-deployToEnvironments(config.configFilePath, config.targetEnvironments);
+deployToEnvironments(config.configFilePath, config.targetEnvironments).catch(error => {
+  debugLog("Deployment failed:", error);
+  process.exit(1);
+});
 
 function imageTagFromArg(): string {
   const tagArg = process.argv.find(arg => arg.startsWith("--image-tag="));
@@ -47,7 +52,57 @@ function environmentNamesFrom(environmentConfigs: EnvironmentConfig[]) {
   return environmentConfigs.map(env => env.name).join(", ");
 }
 
-function deployToEnvironments(configFilePath: string, environmentsFilter: string[]): void {
+async function importSecretsFromDatabase(environmentName: string, appName: string): Promise<boolean> {
+  process.env.MONGODB_URI = process.env.ADMIN_MONGODB_URI;
+  const secretsFile = await loadSecretsForEnvironmentFromDatabase(environmentName);
+  if (!secretsFile) {
+    debugLog("No secrets returned from database for environment:", environmentName);
+    return false;
+  }
+  const content = buildSecretsContent(secretsFile.secrets);
+  const tempFile = path.join(os.tmpdir(), `secrets-${appName}-${Date.now()}.env`);
+  try {
+    fs.writeFileSync(tempFile, content, { encoding: "utf-8" });
+    runCommand(`flyctl secrets import --app ${appName} < ${tempFile}`);
+    debugLog("Imported secrets from database for environment:", environmentName);
+    return true;
+  } finally {
+    if (fs.existsSync(tempFile)) {
+      fs.unlinkSync(tempFile);
+    }
+  }
+}
+
+function importSecretsFromFile(appName: string): boolean {
+  const secretsFilePath = path.resolve(__dirname, `../../non-vcs/secrets/secrets.${appName}.env`);
+  if (fs.existsSync(secretsFilePath)) {
+    runCommand(`flyctl secrets import --app ${appName} < ${secretsFilePath}`);
+    debugLog("Imported secrets from local file:", secretsFilePath);
+    return true;
+  } else {
+    debugLog("Secrets file not found:", secretsFilePath);
+    return false;
+  }
+}
+
+async function importSecrets(environmentName: string, appName: string): Promise<void> {
+  try {
+    if (process.env.ADMIN_MONGODB_URI) {
+      debugLog("ADMIN_MONGODB_URI is set - attempting database secrets import for:", environmentName);
+      const imported = await importSecretsFromDatabase(environmentName, appName);
+      if (!imported) {
+        debugLog("Database secrets import returned nothing - falling back to local file for:", appName);
+        importSecretsFromFile(appName);
+      }
+    } else {
+      importSecretsFromFile(appName);
+    }
+  } catch (error) {
+    debugLog("Secrets import failed for %s (continuing deployment):", appName, error);
+  }
+}
+
+async function deployToEnvironments(configFilePath: string, environmentsFilter: string[]): Promise<void> {
   const config: DeploymentConfig = readConfigFile(configFilePath);
   const imageTag = imageTagFromArg();
   if (imageTag) {
@@ -70,22 +125,14 @@ function deployToEnvironments(configFilePath: string, environmentsFilter: string
   } else {
     debugLog("Deploying to", pluraliseWithCount(environmentsToDeploy.length, "environment") + ":", environmentNamesFrom(environmentsToDeploy));
   }
-  environmentsToDeploy.forEach((environmentConfig: EnvironmentConfig) => {
+  for (const environmentConfig of environmentsToDeploy) {
     configureEnvironment(environmentConfig, config);
     debugLog(`Deploying ${config.dockerImage} to ${environmentConfig.appName}`);
     deleteVolumeIfExists(environmentConfig.appName, config.region);
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
-    if (!(process.env.GITHUB_ACTIONS === "true")) {
-      const secretsFilePath = path.resolve(__dirname, `../../non-vcs/secrets/secrets.${environmentConfig.appName}.env`);
-      if (fs.existsSync(secretsFilePath)) {
-        runCommand(`flyctl secrets import --app ${environmentConfig.appName} < ${secretsFilePath}`);
-      } else {
-        debugLog(`Secrets file not found: ${secretsFilePath}`);
-      }
-    }
+    await importSecrets(environmentConfig.name, environmentConfig.appName);
     runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling --wait-timeout 600`);
     runCommand(`flyctl scale count ${environmentConfig.scaleCount} --app ${environmentConfig.appName} --yes`);
     runCommand(`flyctl scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
-  });
+  }
 }
-

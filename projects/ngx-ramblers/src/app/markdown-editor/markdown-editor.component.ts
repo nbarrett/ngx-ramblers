@@ -255,13 +255,13 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
     }
     @if (showing() && editorState.view === 'view') {
       @if (renderInline()) {
-        <span markdown ngPreserveWhitespaces [data]="content.text" [class]="content?.styles?.class"
+        <span markdown mermaid ngPreserveWhitespaces [data]="content.text" [class]="content?.styles?.class"
               (click)="toggleEdit()">
               </span>
       }
       @if (!renderInline()) {
         <div [class]="contentStyleClasses()"
-             (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
+             (click)="toggleEdit()" markdown mermaid ngPreserveWhitespaces [data]="content.text">
         </div>
       }
     }

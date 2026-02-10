@@ -4,7 +4,7 @@ import { log, error as logError } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
 import { createDnsRecord, listDnsRecords, deleteDnsRecord, verifyToken, CloudflareConfig } from "../../cloudflare/cloudflare-dns";
 import { appIpAddresses, addCertificate, getCertificates, FlyConfig } from "../../fly/fly-certificates";
-import { findEnvironmentFromDatabase, getEnvironmentsConfig } from "../../environments/environments-config";
+import { findEnvironmentFromDatabase, environmentsConfigFromDatabase } from "../../environments/environments-config";
 
 const debugLog = debug(envConfig.logNamespace("cli:subdomain"));
 
@@ -16,7 +16,7 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
     throw new Error(`Environment '${environmentName}' not found in database`);
   }
 
-  const environmentsConfig = await getEnvironmentsConfig();
+  const environmentsConfig = await environmentsConfigFromDatabase();
   if (!environmentsConfig?.cloudflare?.apiToken) {
     throw new Error("Cloudflare API token not configured. Add cloudflare.apiToken to environments config.");
   }
@@ -106,7 +106,7 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
 export async function removeSubdomainForEnvironment(environmentName: string): Promise<void> {
   log(`Removing subdomain for environment: ${environmentName}`);
 
-  const environmentsConfig = await getEnvironmentsConfig();
+  const environmentsConfig = await environmentsConfigFromDatabase();
   if (!environmentsConfig?.cloudflare?.apiToken || !environmentsConfig?.cloudflare?.zoneId) {
     throw new Error("Cloudflare not configured in environments config");
   }
@@ -144,7 +144,7 @@ export async function checkSubdomainStatus(environmentName: string): Promise<voi
     throw new Error(`Environment '${environmentName}' not found`);
   }
 
-  const environmentsConfig = await getEnvironmentsConfig();
+  const environmentsConfig = await environmentsConfigFromDatabase();
   const baseDomain = environmentsConfig?.cloudflare?.baseDomain;
   if (!baseDomain) {
     throw new Error("Cloudflare baseDomain not configured. Add cloudflare.baseDomain to environments config.");

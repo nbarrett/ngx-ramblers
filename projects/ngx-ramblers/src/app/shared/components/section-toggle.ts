@@ -68,8 +68,18 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
   private router = inject(Router);
   private activatedRoute = inject(ActivatedRoute);
   private subscriptions: Subscription[] = [];
+  private latestQueryParams: Record<string, string> = {};
+  private _tabs: (T | SectionToggleTab)[] = [];
 
-  @Input() tabs: (T | SectionToggleTab)[] = [];
+  @Input() set tabs(value: (T | SectionToggleTab)[]) {
+    this._tabs = value;
+    this.syncTabFromQueryParams();
+  }
+
+  get tabs(): (T | SectionToggleTab)[] {
+    return this._tabs;
+  }
+
   @Input() selectedTab: T;
   @Input() queryParamKey: string | null = null;
   @Input() fullWidth = false;
@@ -77,7 +87,7 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
   @Output() selectedTabChange = new EventEmitter<T>();
 
   get normalizedTabs(): SectionToggleTab[] {
-    return this.tabs.map(tab => {
+    return this._tabs.map(tab => {
       if (typeof tab === "string") {
         return { value: tab, label: tab };
       }
@@ -89,18 +99,26 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
     if (this.queryParamKey) {
       this.subscriptions.push(
         this.activatedRoute.queryParams.subscribe(params => {
-          const tabParam = params[this.queryParamKey];
-          if (tabParam) {
-            const matchedTab = this.normalizedTabs.find(tab => kebabCase(tab.value) === tabParam);
-            if (matchedTab && this.selectedTab !== matchedTab.value) {
-              Promise.resolve().then(() => {
-                this.selectedTab = matchedTab.value as T;
-                this.selectedTabChange.emit(matchedTab.value as T);
-              });
-            }
-          }
+          this.latestQueryParams = params;
+          this.syncTabFromQueryParams();
         })
       );
+    }
+  }
+
+  private syncTabFromQueryParams() {
+    if (!this.queryParamKey) {
+      return;
+    }
+    const tabParam = this.latestQueryParams[this.queryParamKey];
+    if (tabParam) {
+      const matchedTab = this.normalizedTabs.find(tab => kebabCase(tab.value) === tabParam);
+      if (matchedTab && this.selectedTab !== matchedTab.value) {
+        Promise.resolve().then(() => {
+          this.selectedTab = matchedTab.value as T;
+          this.selectedTabChange.emit(matchedTab.value as T);
+        });
+      }
     }
   }
 
