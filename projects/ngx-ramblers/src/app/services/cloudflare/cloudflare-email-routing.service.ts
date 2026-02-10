@@ -33,6 +33,7 @@ export class CloudflareEmailRoutingService {
   private destinationAddressesSubject = new BehaviorSubject<DestinationAddress[]>([]);
   private cloudflareConfigSubject = new BehaviorSubject<NonSensitiveCloudflareConfig>(null);
   private configErrorSubject = new BehaviorSubject<string>(null);
+  private configuredSubject = new BehaviorSubject<boolean>(null);
   private workersSubject = new BehaviorSubject<EmailWorkerScript[]>([]);
   private rulesLoaded = false;
   private catchAllLoaded = false;
@@ -105,6 +106,12 @@ export class CloudflareEmailRoutingService {
     if (!this.configLoaded) {
       try {
         const config: NonSensitiveCloudflareConfig = (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/config`))).response;
+        if (config.configured === false) {
+          this.configuredSubject.next(false);
+          this.configLoaded = true;
+          return config;
+        }
+        this.configuredSubject.next(true);
         this.cloudflareConfigSubject.next(config);
         this.configLoaded = true;
       } catch (err) {
@@ -151,6 +158,10 @@ export class CloudflareEmailRoutingService {
 
   hasConfigError(): boolean {
     return !!this.configErrorSubject.value;
+  }
+
+  emailForwardingAvailable(): boolean {
+    return this.configuredSubject.value === true && !this.configErrorSubject.value;
   }
 
   async queryWorkers(): Promise<EmailWorkerScript[]> {

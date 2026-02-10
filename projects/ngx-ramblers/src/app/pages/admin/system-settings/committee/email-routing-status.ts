@@ -32,7 +32,7 @@ enum WorkerAction {
 @Component({
     selector: "[app-email-routing-status]",
     template: `
-    @if (status && !committeeMemberInternal?.vacant && !cloudflareEmailRoutingService.hasConfigError()) {
+    @if (status && !committeeMemberInternal?.vacant && cloudflareEmailRoutingService.emailForwardingAvailable()) {
       @if (!memberEmail && !isMultiRecipient() && status?.routeType !== EmailRouteType.WORKER) {
         <div class="d-flex align-items-center">
           <alert type="warning" class="flex-grow-1 mb-0">

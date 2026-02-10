@@ -17,8 +17,7 @@ import { CloudflareButton } from "../../../../modules/common/third-parties/cloud
       @if (configError) {
         <div class="col-sm-12">
           <div class="alert alert-warning">
-            Cloudflare Email Routing is not configured for this environment.
-            Contact the platform administrator to set up email routing.
+            Cloudflare Email Routing is not enabled for this group. Email forwarding is managed separately.
           </div>
         </div>
       } @else {
@@ -69,6 +68,11 @@ export class SystemCloudflareSettingsComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.cloudflareService.queryCloudflareConfig()
+      .then(config => {
+        if (!config || config.configured === false) {
+          this.configError = true;
+        }
+      })
       .catch(err => {
         this.logger.error("Cloudflare config not available:", err);
         this.configError = true;

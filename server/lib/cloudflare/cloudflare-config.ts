@@ -11,6 +11,7 @@ const debugLog = debug(envConfig.logNamespace("cloudflare-config"));
 debugLog.enabled = true;
 
 export interface NonSensitiveCloudflareConfig {
+  configured?: boolean;
   accountId?: string;
   zoneId?: string;
   baseDomain?: string;
@@ -62,11 +63,17 @@ async function baseDomainFromSystemConfig(): Promise<string> {
 }
 
 export async function nonSensitiveCloudflareConfig(): Promise<NonSensitiveCloudflareConfig> {
-  const cloudflareConfig = await configuredCloudflare();
-  const baseDomain = await baseDomainFromSystemConfig() || cloudflareConfig.baseDomain;
-  return {
-    accountId: cloudflareConfig.accountId,
-    zoneId: cloudflareConfig.zoneId,
-    baseDomain
-  };
+  try {
+    const cloudflareConfig = await configuredCloudflare();
+    const baseDomain = await baseDomainFromSystemConfig() || cloudflareConfig.baseDomain;
+    return {
+      configured: true,
+      accountId: cloudflareConfig.accountId,
+      zoneId: cloudflareConfig.zoneId,
+      baseDomain
+    };
+  } catch (err) {
+    debugLog("Cloudflare not configured:", err.message);
+    return {configured: false};
+  }
 }
