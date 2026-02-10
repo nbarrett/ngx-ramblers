@@ -419,6 +419,12 @@ async function promptSetupOptions(brevoApiKey: string): Promise<SetupOptions> {
     },
     {
       type: "confirm",
+      name: "authenticateBrevoDomain",
+      message: "Authenticate Brevo sending domain via Cloudflare DNS?",
+      default: !!brevoApiKey
+    },
+    {
+      type: "confirm",
       name: "skipFlyDeployment",
       message: "Skip Fly.io deployment (database init only)?",
       default: false

@@ -36,10 +36,11 @@ function filterTemplates(templates: MailTemplate[], request: SnapshotTemplatesRe
 export async function snapshotTemplates(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (envConfig.env !== "development") {
-      return res.status(403).json({
+      res.status(403).json({
         message: "Template snapshot is only available in development environments",
         error: "Forbidden"
       });
+      return;
     }
     const request: SnapshotTemplatesRequest = req.body || {};
     const templateStatus = isBoolean(request.templateStatus) ? request.templateStatus : null;
