@@ -64,6 +64,15 @@ export async function upsert<T>(model: Model<T>, filter: any, data: T, debugLog?
   return performUpsert();
 }
 
+export async function disconnect(debug?: debug.Debugger): Promise<void> {
+  const debugDisconnect = debug || debugLog;
+  if (mongoose.connection.readyState === 1) {
+    debugDisconnect("Closing database connection");
+    await mongoose.connection.close();
+    connected = false;
+  }
+}
+
 export async function connect(debug?: debug.Debugger): Promise<boolean> {
   const mongoUri = envConfig.mongo().uri.replace(/^"|"$/g, "");
   const debugConnect = debug || debugLog;

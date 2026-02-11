@@ -55,6 +55,8 @@ function environmentNamesFrom(environmentConfigs: EnvironmentConfig[]) {
 async function importSecretsFromDatabase(environmentName: string, appName: string): Promise<boolean> {
   process.env.MONGODB_URI = process.env.ADMIN_MONGODB_URI;
   const secretsFile = await loadSecretsForEnvironmentFromDatabase(environmentName);
+  const { disconnect } = await import("../lib/mongo/mongoose-client");
+  await disconnect(debugLog);
   if (!secretsFile) {
     debugLog("No secrets returned from database for environment:", environmentName);
     return false;
