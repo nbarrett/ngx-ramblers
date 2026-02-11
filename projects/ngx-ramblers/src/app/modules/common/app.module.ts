@@ -167,8 +167,8 @@ export class AppModule implements DoBootstrap {
     setTheme("bs5");
     if (typeof mermaid !== "undefined" && mermaid.registerIconPacks) {
       mermaid.registerIconPacks([
-        {name: "logos", loader: () => import("@iconify-json/logos").then(m => m.icons as unknown)},
-        {name: "devicon", loader: () => import("@iconify-json/devicon").then(m => m.icons as unknown)}
+        {name: "ngx", loader: () => import("../../icons/custom-icon-pack").then(m => m.ngxIconPack as unknown)},
+        {name: "logos", loader: () => import("@iconify-json/logos").then(m => m.icons as unknown)}
       ]);
     }
   }
