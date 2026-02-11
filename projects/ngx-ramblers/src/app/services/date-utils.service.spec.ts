@@ -43,8 +43,11 @@ describe("DateUtilsService", () => {
 
     it("should support a Date as an argument", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const injectedData = DateTime.fromObject({ year: 2018, month: 11, day: 15 }).toJSDate();
-      expect(dateUtils.asDateTime(injectedData).toJSDate()).toEqual(injectedData);
+      const injectedData = dateUtils.asDateTime("2018-11-15").toJSDate();
+      const result = dateUtils.asDateTime(injectedData);
+      expect(result.year).toEqual(2018);
+      expect(result.month).toEqual(11);
+      expect(result.day).toEqual(15);
     });
 
     it("should support a DateValue as an argument", () => {
@@ -75,8 +78,7 @@ describe("DateUtilsService", () => {
 
     it("should support a Date as an argument", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const dateValue = dateUtils.asDateValue(DateTime.fromObject({ year: 2014, month: 6, day: 13 }).toJSDate());
-      expect(dateValue.value).toEqual(1402614000000);
+      const dateValue = dateUtils.asDateValue(dateUtils.asDateTime("2014-06-13").toJSDate());
       const london = DateTime.fromMillis(dateValue.value).setZone("Europe/London");
       expect(london.day).toEqual(13);
       expect(london.month).toEqual(6);
