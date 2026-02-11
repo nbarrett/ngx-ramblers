@@ -75,6 +75,9 @@ export class SystemConfigService {
     const facebookMigrate = this.prepareMigration(config.externalSystems, "facebook");
     const instagramMigrate = this.prepareMigration(config.externalSystems, "instagram");
     const meetupMigrate = this.prepareMigration(config.externalSystems, "meetup");
+    const youtubeMigrate = this.prepareMigration(config.externalSystems, "youtube");
+    const twitterMigrate = this.prepareMigration(config.externalSystems, "twitter");
+    const linkedInMigrate = this.prepareMigration(config.externalSystems, "linkedIn");
     if (!config?.mailDefaults?.mailProvider) {
       config.mailDefaults = this.mailDefaults();
     }
@@ -118,6 +121,33 @@ export class SystemConfigService {
     } else {
       this.logger.info("nothing to migrate for meetup", config.externalSystems.meetup);
     }
+    if (!config.externalSystems.youtube) {
+      config.externalSystems.youtube = {groupUrl: null, showFooterLink: false};
+      this.logger.info("migrated youtube to", config.externalSystems.youtube);
+    } else if (isNil(config.externalSystems.youtube.showFooterLink)) {
+      config.externalSystems.youtube.showFooterLink = !!config.externalSystems.youtube.groupUrl;
+      this.logger.info("migrated youtube showFooterLink to", config.externalSystems.youtube.showFooterLink);
+    } else {
+      this.logger.info("nothing to migrate for youtube", config.externalSystems.youtube);
+    }
+    if (!config.externalSystems.twitter) {
+      config.externalSystems.twitter = {groupUrl: null, showFooterLink: false};
+      this.logger.info("migrated twitter to", config.externalSystems.twitter);
+    } else if (isNil(config.externalSystems.twitter.showFooterLink)) {
+      config.externalSystems.twitter.showFooterLink = !!config.externalSystems.twitter.groupUrl;
+      this.logger.info("migrated twitter showFooterLink to", config.externalSystems.twitter.showFooterLink);
+    } else {
+      this.logger.info("nothing to migrate for twitter", config.externalSystems.twitter);
+    }
+    if (!config.externalSystems.linkedIn) {
+      config.externalSystems.linkedIn = {groupUrl: null, showFooterLink: false};
+      this.logger.info("migrated linkedIn to", config.externalSystems.linkedIn);
+    } else if (isNil(config.externalSystems.linkedIn.showFooterLink)) {
+      config.externalSystems.linkedIn.showFooterLink = !!config.externalSystems.linkedIn.groupUrl;
+      this.logger.info("migrated linkedIn showFooterLink to", config.externalSystems.linkedIn.showFooterLink);
+    } else {
+      this.logger.info("nothing to migrate for linkedIn", config.externalSystems.linkedIn);
+    }
     if (!config.externalSystems.osMaps) {
       config.externalSystems.osMaps = {apiKey: null};
       this.logger.info("config.externalSystems.osMaps initialised as:", config.externalSystems.osMaps);
@@ -146,7 +176,7 @@ export class SystemConfigService {
       config.images = this.imagesDefaults();
       this.logger.info("config.images initialised as:", config.images);
     }
-    if (externalSystemsMigrate || facebookMigrate || instagramMigrate || meetupMigrate || !isEqual(preMigrationConfig, config)) {
+    if (externalSystemsMigrate || facebookMigrate || instagramMigrate || meetupMigrate || youtubeMigrate || twitterMigrate || linkedInMigrate || !isEqual(preMigrationConfig, config)) {
       this.logger.info("Applying in-memory migration only (no save during app bootstrap)", config);
       return Promise.resolve(config);
     } else {
@@ -248,7 +278,9 @@ export class SystemConfigService {
         osMaps: {apiKey: null},
         meetup: null,
         instagram: null,
-        linkedIn: null
+        linkedIn: null,
+        youtube: null,
+        twitter: null
       },
       area: this.emptyOrganisation(), group: this.emptyOrganisation(), national: defaultRamblersConfig,
       header: {selectedLogo: null, navigationButtons: []},
