@@ -23,7 +23,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { UrlService } from "../../../services/url.service";
 import { Member } from "../../../models/member.model";
 import { MemberService } from "../../../services/member/member.service";
-import { kebabCase } from "es-toolkit/compat";
+import { isString, kebabCase } from "es-toolkit/compat";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../models/ui-actions";
 import { PageComponent } from "../../../page/page.component";
@@ -38,6 +38,7 @@ import { SystemGoogleAnalyticsSettings } from "./google-analytics/system-google-
 import { SystemOsMapsSettings } from "./os-maps/system-os-maps-settings";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
+import { faFacebook, faInstagram, faLinkedin, faMeetup, faTwitter, faYoutube } from "@fortawesome/free-brands-svg-icons";
 import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { ImageCollectionSettingsComponent } from "./images/image-collection-settings";
 import { AreaAndGroupSettingsComponent } from "./group/area-and-group-settings";
@@ -50,6 +51,7 @@ import { SystemGoogleMapsSettingsComponent } from "./external/system-google-maps
 import { FlickrSettings } from "./external/system-flickr-settings";
 import { SystemCloudflareSettingsComponent } from "./external/system-cloudflare-settings";
 import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
+import { FooterLinkSetting } from "./footer-link-setting";
 
 @Component({
     selector: "app-system-settings",
@@ -245,118 +247,36 @@ import { SectionToggle, SectionToggleTab } from "../../../shared/components/sect
                     <div class="row thumbnail-heading-frame">
                       <div class="thumbnail-heading">Column 1: External Urls</div>
                       <div class="col-md-12">
-                        <div class="form-check">
-                          <input [(ngModel)]="config.externalSystems.facebook.showFooterLink"
-                                 type="checkbox" class="form-check-input" id="facebook-show-footer-link">
-                          <label class="form-check-label"
-                                 for="facebook-show-footer-link">Show Facebook
-                          </label>
-                        </div>
-                        <div class="form-check">
-                          <input [(ngModel)]="config.externalSystems.facebook.showFeed"
-                                 type="checkbox" class="form-check-input" id="facebook-show-feed">
-                          <label class="form-check-label"
-                                 for="facebook-show-feed">Show Facebook Feed
-                          </label>
-                        </div>
-                        <div class="form-group">
-                          <label for="facebook-group-url">Facebook Group Url</label>
-                          <input [(ngModel)]="config.externalSystems.facebook.groupUrl"
-                                 type="text" class="form-control input-sm" id="facebook-group-url"
-                                 placeholder="Enter a group url for Facebook">
-                        </div>
-                        <div class="form-group">
-                          <label for="facebook-pages-url">Facebook Pages Url (optional)</label>
-                          <input [(ngModel)]="config.externalSystems.facebook.pagesUrl"
-                                 type="text" class="form-control input-sm" id="facebook-pages-url"
-                                 placeholder="Enter a pages url for Facebook">
-                        </div>
-                        <div class="form-group">
-                          <label for="facebook-appId">Facebook App Id</label>
-                          <input [(ngModel)]="config.externalSystems.facebook.appId"
-                                 type="text" class="form-control input-sm" id="facebook-appId"
-                                 placeholder="Enter an app id for Facebook">
-                        </div>
-                        <div class="row">
-                          <div class="col-md-6">
-                            <div class="form-check">
-                              <input [(ngModel)]="config.externalSystems.meetup.showFooterLink"
-                                     type="checkbox" class="form-check-input"
-                                     id="meetup-show-footer-link">
-                              <label class="form-check-label"
-                                     for="meetup-show-footer-link">Show Meetup
-                              </label>
-                            </div>
-                          </div>
-                          <div class="col-md-6">
-                            <div class="d-inline-flex align-items-center flex-wrap">
-                              <label>Meetup Link Preview:</label>
-                              <a class="ms-2"
-                                 [href]="config.externalSystems.meetup.groupUrl+'/'+config.externalSystems.meetup.groupName">{{ config.externalSystems.meetup.groupName }}</a>
-                            </div>
-                          </div>
-                        </div>
-                        <div class="form-check">
-                          <input [(ngModel)]="config.externalSystems.youtube.showFooterLink"
-                                 type="checkbox" class="form-check-input"
-                                 id="youtube-show-footer-link">
-                          <label class="form-check-label"
-                                 for="youtube-show-footer-link">Show Youtube
-                          </label>
-                        </div>
-                        <div class="form-group">
-                          <label for="youtube-href">Youtube Url</label>
-                          <input [(ngModel)]="config.externalSystems.youtube.groupUrl"
-                                 type="text" class="form-control input-sm" id="youtube-href"
-                                 placeholder="Enter a group url for Youtube">
-                        </div>
-                        <div class="form-check">
-                          <input [(ngModel)]="config.externalSystems.twitter.showFooterLink"
-                                 type="checkbox" class="form-check-input"
-                                 id="twitter-show-footer-link">
-                          <label class="form-check-label"
-                                 for="twitter-show-footer-link">Show Twitter
-                          </label>
-                        </div>
-                        <div class="form-group">
-                          <label for="twitter-href">Twitter Url</label>
-                          <input [(ngModel)]="config.externalSystems.twitter.groupUrl"
-                                 type="text" class="form-control input-sm" id="twitter-href"
-                                 placeholder="Enter a group url for Twitter">
-                        </div>
-                        <div class="form-check">
-                          <input [(ngModel)]="config.externalSystems.linkedIn.showFooterLink"
-                                 type="checkbox" class="form-check-input"
-                                 id="linkedin-show-footer-link">
-                          <label class="form-check-label"
-                                 for="linkedin-show-footer-link">Show LinkedIn
-                          </label>
-                        </div>
-                        <div class="form-group">
-                          <label for="linkedin-href">LinkedIn Url</label>
-                          <input [(ngModel)]="config.externalSystems.linkedIn.groupUrl"
-                                 type="text" class="form-control input-sm" id="linkedin-href"
-                                 placeholder="Enter a group url for LinkedIn">
-                        </div>
-                        <div class="row">
-                          <div class="col-md-6">
-                            <div class="form-check">
-                              <input [(ngModel)]="config.externalSystems.instagram.showFooterLink"
-                                     type="checkbox" class="form-check-input"
-                                     id="instagram-show-footer-link">
-                              <label class="form-check-label"
-                                     for="instagram-show-footer-link">Show Instagram
-                              </label>
-                            </div>
-                          </div>
-                          <div class="col-md-6">
-                            <div class="d-inline-flex align-items-center flex-wrap">
-                              <label>Instagram Link Preview:</label>
-                              <a class="ms-2"
-                                 [href]="config.externalSystems.instagram.groupUrl+'/'+config.externalSystems.instagram.groupName">{{ config.externalSystems.instagram.groupName }}</a>
-                            </div>
-                          </div>
-                        </div>
+                        @for (link of footerLinks; track link.key; let last = $last) {
+                          <app-footer-link-setting [name]="link.name" [title]="link.title"
+                                                   [icon]="link.icon"
+                                                   [externalSystem]="config.externalSystems[link.key]">
+                            @if (link.key === "facebook") {
+                              <div class="form-check">
+                                <input [(ngModel)]="config.externalSystems.facebook.showFeed"
+                                       type="checkbox" class="form-check-input" id="facebook-show-feed">
+                                <label class="form-check-label"
+                                       for="facebook-show-feed">Show Facebook Feed
+                                </label>
+                              </div>
+                              <div class="form-group">
+                                <label for="facebook-pages-url">Facebook Pages Url (optional)</label>
+                                <input [(ngModel)]="config.externalSystems.facebook.pagesUrl"
+                                       type="text" class="form-control input-sm" id="facebook-pages-url"
+                                       placeholder="Enter a pages url for Facebook">
+                              </div>
+                              <div class="form-group">
+                                <label for="facebook-appId">Facebook App Id</label>
+                                <input [(ngModel)]="config.externalSystems.facebook.appId"
+                                       type="text" class="form-control input-sm" id="facebook-appId"
+                                       placeholder="Enter an app id for Facebook">
+                              </div>
+                            }
+                          </app-footer-link-setting>
+                          @if (!last) {
+                            <hr>
+                          }
+                        }
                       </div>
                     </div>
                     <app-links-edit [heading]='"Column 2: Quick Links"'
@@ -454,7 +374,7 @@ import { SectionToggle, SectionToggleTab } from "../../../shared/components/sect
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, FooterLinkSetting]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -488,6 +408,14 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   protected readonly enumValueForKey = enumValueForKey;
   protected readonly faAdd = faAdd;
   protected readonly faPencil = faPencil;
+  footerLinks = [
+    {key: "facebook", name: "facebook", title: "Facebook", icon: faFacebook},
+    {key: "meetup", name: "meetup", title: "Meetup", icon: faMeetup},
+    {key: "youtube", name: "youtube", title: "Youtube", icon: faYoutube},
+    {key: "twitter", name: "twitter", title: "Twitter", icon: faTwitter},
+    {key: "linkedIn", name: "linkedin", title: "LinkedIn", icon: faLinkedin},
+    {key: "instagram", name: "instagram", title: "Instagram", icon: faInstagram}
+  ];
   externalSystemSubTab = ExternalSystemsSubTab.ALL;
   externalSystemSubTabs: SectionToggleTab[] = [
     {value: ExternalSystemsSubTab.ALL, label: "All"},
@@ -546,13 +474,22 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   ensureExternalSystemsInitialised() {
     if (this.config?.externalSystems) {
       const defaultExternalSystem = {groupUrl: "", showFooterLink: false, showFeed: false};
-      if (!this.config.externalSystems.youtube) {
+      if (!this.config.externalSystems.facebook || isString(this.config.externalSystems.facebook)) {
+        this.config.externalSystems.facebook = {appId: null, pagesUrl: null, ...defaultExternalSystem};
+      }
+      if (!this.config.externalSystems.instagram || isString(this.config.externalSystems.instagram)) {
+        this.config.externalSystems.instagram = {accessToken: null, groupName: null, ...defaultExternalSystem};
+      }
+      if (!this.config.externalSystems.meetup || isString(this.config.externalSystems.meetup)) {
+        this.config.externalSystems.meetup = {groupName: null, ...defaultExternalSystem};
+      }
+      if (!this.config.externalSystems.youtube || isString(this.config.externalSystems.youtube)) {
         this.config.externalSystems.youtube = {...defaultExternalSystem};
       }
-      if (!this.config.externalSystems.twitter) {
+      if (!this.config.externalSystems.twitter || isString(this.config.externalSystems.twitter)) {
         this.config.externalSystems.twitter = {...defaultExternalSystem};
       }
-      if (!this.config.externalSystems.linkedIn) {
+      if (!this.config.externalSystems.linkedIn || isString(this.config.externalSystems.linkedIn)) {
         this.config.externalSystems.linkedIn = {...defaultExternalSystem};
       }
     }
