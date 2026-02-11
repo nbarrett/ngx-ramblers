@@ -453,6 +453,7 @@ export class WalkList implements OnInit, OnDestroy {
         criteriaParts.push({ "events.eventType": { $ne: "deleted" } });
       } else if (walkPopulation === EventPopulation.WALKS_MANAGER) {
         criteriaParts.push({ [EventField.INPUT_SOURCE]: { $ne: InputSource.MANUALLY_CREATED } });
+        criteriaParts.push({ [GroupEventField.ITEM_TYPE]: { $ne: RamblersEventType.GROUP_EVENT } });
       }
       const todayStart = this.dateUtils.dateTimeNow().startOf("day");
       const defaultFutureEnd = todayStart.plus({ years: 2 });
