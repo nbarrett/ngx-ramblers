@@ -1,5 +1,5 @@
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
-import { ApplicationRef, DoBootstrap, inject, NgModule, provideAppInitializer } from "@angular/core";
+import { ApplicationRef, DoBootstrap, ErrorHandler, inject, NgModule, provideAppInitializer } from "@angular/core";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
 import { setTheme } from "ngx-bootstrap/utils";
 import { AppRoutingModule } from "../../app-routing.module";
@@ -32,6 +32,7 @@ import { MarkdownModule, MERMAID_OPTIONS } from "ngx-markdown";
 import { TagifyModule } from "ngx-tagify";
 import { UiSwitchModule } from "ngx-ui-switch";
 import { AuthInterceptor } from "../../auth/auth.interceptor";
+import { ChunkErrorHandler } from "../../errors/chunk-error-handler";
 import { GALLERY_CONFIG, GalleryConfig, GalleryModule } from "ng-gallery";
 import { ImageFit } from "../../models/content-text.model";
 import { LIGHTBOX_CONFIG, LightboxConfig, LightboxModule } from "ng-gallery/lightbox";
@@ -151,6 +152,7 @@ declare let mermaid: { registerIconPacks?: (packs: { name: string; loader: () =>
     SnakeCasePipe,
     UpdatedAuditPipe,
     ValueOrDefaultPipe,
+    {provide: ErrorHandler, useClass: ChunkErrorHandler},
     {provide: RouteReuseStrategy, useClass: CustomReuseStrategy},
     {provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true},
     {provide: GALLERY_CONFIG, useValue: {imageSize: ImageFit.COVER} as GalleryConfig},
