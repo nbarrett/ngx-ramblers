@@ -40,7 +40,9 @@ async function markMigrationsAsApplied(migrationFiles: string[], config: Migrate
 const oldMigrationsUseJsExtensionAsThatIsWhatIsInProductionBuild = [
   "20240101000000-migrate-media-urls.js",
   "20240101000001-update-osmaps-urls.js",
-  "20251022220623-cleanup-duplicate-page-content.js"
+  "20251022220623-cleanup-duplicate-page-content.js",
+  "20260120000000-update-brevo-transactional-template.js",
+  "20260206000000-sync-all-brevo-templates.js"
 ];
 
 (async () => {
