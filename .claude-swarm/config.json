@@ -1,0 +1,19 @@
+{
+  "branchPrefix": "claude/",
+  "apps": [
+    {
+      "name": "frontend",
+      "start": "./run-frontend.sh",
+      "readyPattern": "Local:",
+      "port": 4200,
+      "logDir": "cli-output/logs"
+    },
+    {
+      "name": "server",
+      "start": "./run-server.sh",
+      "readyPattern": "listening on port",
+      "port": 5001,
+      "logDir": "cli-output/logs"
+    }
+  ]
+}
