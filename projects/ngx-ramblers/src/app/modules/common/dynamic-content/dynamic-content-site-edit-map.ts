@@ -503,8 +503,7 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
         route.gpxFileSizeBytes = firstGroup.fileSizeBytes;
         route.spatialRouteId = firstGroup.routeId;
 
-        for (let i = 1; i < response.gpxFiles.length; i++) {
-          const group = response.gpxFiles[i];
+        response.gpxFiles.slice(1).forEach(group => {
           const newRoute = this.addRoute();
           if (newRoute) {
             newRoute.gpxFile = group.file;
@@ -515,7 +514,7 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
             newRoute.gpxFileSizeBytes = group.fileSizeBytes;
             newRoute.spatialRouteId = group.routeId;
           }
-        }
+        });
         this.importProgressMessages.set(route.id, `✓ Created ${response.gpxFiles.length} routes - toggle visibility to view (large files!)`);
       } else {
         route.gpxFile = response.gpxFile;

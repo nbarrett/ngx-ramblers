@@ -238,7 +238,7 @@ export class MailchimpListService {
   findMemberAndMarkAsUpdated(listType: string, batchedMembers: Member[], mailchimpMember: MailchimpListMember): Member {
     const member = this.subscriberToMember(listType, batchedMembers, mailchimpMember);
     if (member) {
-      member.mailchimpLists[listType].updated = true; // updated == true means up to date e.g. nothing to send to mailchimp
+      this.markAsUpToDate(member, listType);
       member.mailchimpLists[listType].leid = null;
       member.mailchimpLists[listType].email = null;
       if (mailchimpMember.web_id) {
@@ -258,13 +258,17 @@ export class MailchimpListService {
   findMemberAndMarkAsUpdatedFromError(listType: string, batchedMembers: Member[], emailWithError: MailchimpEmailWithError): Member {
     const member = this.subscriberToMember(listType, batchedMembers, emailWithError);
     if (member) {
-      member.mailchimpLists[listType].updated = true; // updated == true means up to date e.g. nothing to send to mailchimp
+      this.markAsUpToDate(member, listType);
       member.mailchimpLists[listType].lastUpdated = this.dateUtils.nowAsValue();
       member.mailchimpLists[listType].email = member.email;
     } else {
       this.logger.info(`From ${batchedMembers.length} members, could not find any member related to subscriber ${JSON.stringify(emailWithError)}`);
     }
     return member;
+  }
+
+  private markAsUpToDate(member: Member, listType: string): void {
+    member.mailchimpLists[listType].updated = true;
   }
 
   includeMemberInEmailList(listType, member): boolean {

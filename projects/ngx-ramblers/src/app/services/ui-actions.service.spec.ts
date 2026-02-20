@@ -1,4 +1,5 @@
 import { TestBed } from "@angular/core/testing";
+import { keys } from "es-toolkit/compat";
 import { UiActionsService } from "./ui-actions.service";
 import { LoggerFactory } from "./logger-factory.service";
 import { StoredValue } from "../models/ui-actions";
@@ -16,7 +17,7 @@ describe("UiActionsService", () => {
   };
 
   beforeEach(() => {
-    Object.keys(storage).forEach(key => delete storage[key]);
+    keys(storage).forEach(key => delete storage[key]);
     spyOn(window.localStorage, "getItem").and.callFake((key: string) => storage[key] ?? null);
     spyOn(window.localStorage, "setItem").and.callFake((key: string, value: string) => {
       storage[key] = value;

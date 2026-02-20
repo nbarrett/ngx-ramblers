@@ -1,5 +1,6 @@
 import { Injectable, inject } from "@angular/core";
 import * as L from "leaflet";
+import { isArray } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 
@@ -99,19 +100,19 @@ export class MapZoomService {
       latLngs.push(layer.getLatLng());
     } else if (layer instanceof L.Polyline) {
       const lls = layer.getLatLngs();
-      if (Array.isArray(lls)) {
+      if (isArray(lls)) {
         this.flattenLatLngs(lls, latLngs);
       }
     } else if (layer instanceof L.Polygon) {
       const lls = layer.getLatLngs();
-      if (Array.isArray(lls)) {
+      if (isArray(lls)) {
         this.flattenLatLngs(lls, latLngs);
       }
     } else if (layer instanceof L.Circle) {
       latLngs.push(layer.getLatLng());
     } else if ((layer as any).getLayers) {
       const subLayers = (layer as any).getLayers();
-      if (Array.isArray(subLayers)) {
+      if (isArray(subLayers)) {
         subLayers.forEach(subLayer => {
           latLngs.push(...this.latLngsFromLayer(subLayer));
         });
@@ -125,7 +126,7 @@ export class MapZoomService {
     arr.forEach(item => {
       if (item instanceof L.LatLng) {
         output.push(item);
-      } else if (Array.isArray(item)) {
+      } else if (isArray(item)) {
         this.flattenLatLngs(item, output);
       }
     });

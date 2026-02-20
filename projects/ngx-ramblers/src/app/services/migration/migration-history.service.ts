@@ -1,5 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
+import { isArray } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { MigrationHistory, MigrationHistoryApiResponse } from "../../models/migration-history.model";
@@ -16,7 +17,7 @@ export class MigrationHistoryService {
   async all(options?: DataQueryOptions): Promise<MigrationHistory[]> {
     const params = this.common.toHttpParams(options);
     const res = await this.common.responseFrom(this.logger, this.http.get<MigrationHistoryApiResponse>(`${this.BASE_URL}/all`, { params }));
-    const items = (Array.isArray(res.response) ? res.response : [res.response]) as MigrationHistory[];
+    const items = (isArray(res.response) ? res.response : [res.response]) as MigrationHistory[];
     return items.sort((a, b) => (b.createdDate || 0) - (a.createdDate || 0));
   }
 }

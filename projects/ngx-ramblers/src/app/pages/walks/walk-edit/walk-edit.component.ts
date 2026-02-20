@@ -2,7 +2,7 @@ import { Component, inject, Input, OnDestroy, OnInit, Type, ViewChild } from "@a
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCopy, faPencil } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep, isEmpty, isUndefined } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isUndefined, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
@@ -952,7 +952,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   private findTabByKebabCase(kebabValue: string): WalkEditTab {
-    const found = Object.values(WalkEditTab).find(
+    const found = values(WalkEditTab).find(
       tab => this.stringUtils.kebabCase(tab) === kebabValue
     );
     return found || WalkEditTab.MAIN_DETAILS;

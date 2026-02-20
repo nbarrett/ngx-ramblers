@@ -4,7 +4,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { HtmlPastePreview } from "../models/html-paste.model";
 import { firstValueFrom } from "rxjs";
-import { isString } from "es-toolkit/compat";
+import { isArray, isString } from "es-toolkit/compat";
 
 @Injectable({
   providedIn: "root"
@@ -36,7 +36,7 @@ export class ContentConversionService {
     try {
       this.logger.info("Building HTML paste preview, length:", html.length, "baseUrl:", baseUrl);
       const response = await firstValueFrom(this.http.post<HtmlPastePreview>(`${this.BASE_URL}/html-paste-preview`, { html, baseUrl }));
-      if (!response || !Array.isArray(response.rows)) {
+      if (!response || !isArray(response.rows)) {
         const error = new Error("Invalid html-paste-preview response received");
         this.logger.error(error, "response:", response);
         throw error;
@@ -56,7 +56,7 @@ export class ContentConversionService {
     try {
       this.logger.info("Building markdown paste preview, length:", markdown.length);
       const response = await firstValueFrom(this.http.post<HtmlPastePreview>(`${this.BASE_URL}/markdown-paste-preview`, { markdown }));
-      if (!response || !Array.isArray(response.rows)) {
+      if (!response || !isArray(response.rows)) {
         const error = new Error("Invalid markdown-paste-preview response received");
         this.logger.error(error, "response:", response);
         throw error;

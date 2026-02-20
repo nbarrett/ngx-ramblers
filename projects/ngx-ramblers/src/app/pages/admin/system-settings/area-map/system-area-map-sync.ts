@@ -12,6 +12,7 @@ import { AreaGroup, AvailableArea, SharedDistrictStyle, SystemConfig } from "../
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { isString } from "es-toolkit/predicate";
+import { isArray } from "es-toolkit/compat";
 import { asNumber } from "../../../../functions/numbers";
 import { AreaMap } from "../../../area-map/area-map";
 import { faArrowDown, faArrowUp, faSearch } from "@fortawesome/free-solid-svg-icons";
@@ -438,7 +439,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
       groups = groups.filter(g =>
         g.groupCode?.toLowerCase().includes(filter) ||
         g.name?.toLowerCase().includes(filter) ||
-        (Array.isArray(g.onsDistricts) ? g.onsDistricts.join(" ").toLowerCase().includes(filter) : g.onsDistricts?.toLowerCase().includes(filter))
+        (isArray(g.onsDistricts) ? g.onsDistricts.join(" ").toLowerCase().includes(filter) : g.onsDistricts?.toLowerCase().includes(filter))
       );
     }
     return groups.slice().sort((a, b) => {
@@ -451,8 +452,8 @@ export class SystemAreaMapSyncComponent implements OnInit {
           comparison = (a.name || "").localeCompare(b.name || "");
           break;
         case "districts":
-          const aDistricts = Array.isArray(a.onsDistricts) ? a.onsDistricts.length : (a.onsDistricts ? 1 : 0);
-          const bDistricts = Array.isArray(b.onsDistricts) ? b.onsDistricts.length : (b.onsDistricts ? 1 : 0);
+          const aDistricts = isArray(a.onsDistricts) ? a.onsDistricts.length : (a.onsDistricts ? 1 : 0);
+          const bDistricts = isArray(b.onsDistricts) ? b.onsDistricts.length : (b.onsDistricts ? 1 : 0);
           comparison = aDistricts - bDistricts;
           break;
       }
@@ -663,7 +664,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
       this.updateRelevantDistricts();
       return;
     }
-    this.editingGroups = groups.map(group => ({ ...group, onsDistricts: Array.isArray(group.onsDistricts) ? [...group.onsDistricts] : group.onsDistricts }));
+    this.editingGroups = groups.map(group => ({ ...group, onsDistricts: isArray(group.onsDistricts) ? [...group.onsDistricts] : group.onsDistricts }));
     this.logger.info(`loadAreaGroups: editingGroups populated with ${this.editingGroups.length} groups`);
     this.inferredDistrictsByGroup.clear();
     this.updateRelevantDistricts();
@@ -742,7 +743,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
       const inferredDistricts = groupDistrictMap[group.group_code] || [];
       this.inferredDistrictsByGroup.set(group.group_code, inferredDistricts);
       let existingDistricts: string[] = [];
-      if (Array.isArray(existing?.onsDistricts)) {
+      if (isArray(existing?.onsDistricts)) {
         existingDistricts = [...existing.onsDistricts as string[]];
       } else if (isString(existing?.onsDistricts) && existing.onsDistricts.trim().length > 0) {
         existingDistricts = [existing.onsDistricts];
@@ -853,7 +854,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
   }
 
   onDistrictsChange(group: AreaGroup) {
-    const districts = Array.isArray(group.onsDistricts) ? group.onsDistricts : [];
+    const districts = isArray(group.onsDistricts) ? group.onsDistricts : [];
     if (districts.length > 0) {
       group.nonGeographic = false;
       if (this.exclusiveDistricts) {
@@ -864,10 +865,10 @@ export class SystemAreaMapSyncComponent implements OnInit {
   }
 
   private removeDistrictsFromOtherGroups(changedGroup: AreaGroup) {
-    const changedDistricts = Array.isArray(changedGroup.onsDistricts) ? changedGroup.onsDistricts : [];
+    const changedDistricts = isArray(changedGroup.onsDistricts) ? changedGroup.onsDistricts : [];
     this.editingGroups.forEach(group => {
       if (group.groupCode !== changedGroup.groupCode) {
-        const groupDistricts = Array.isArray(group.onsDistricts) ? group.onsDistricts : [];
+        const groupDistricts = isArray(group.onsDistricts) ? group.onsDistricts : [];
         group.onsDistricts = groupDistricts.filter(district => !changedDistricts.includes(district));
       }
     });
@@ -882,7 +883,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
 
     this.editingGroups.forEach(group => {
       if (!group.nonGeographic) {
-        const districts = Array.isArray(group.onsDistricts) ? group.onsDistricts : [];
+        const districts = isArray(group.onsDistricts) ? group.onsDistricts : [];
         districts.forEach(d => allocatedDistricts.add(d));
       }
     });
@@ -901,7 +902,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     const relevant = new Set<string>();
 
     this.editingGroups.forEach(group => {
-      const assigned = Array.isArray(group.onsDistricts) ? group.onsDistricts : [];
+      const assigned = isArray(group.onsDistricts) ? group.onsDistricts : [];
       assigned.forEach(d => relevant.add(d));
       const inferred = this.inferredDistrictsByGroup.get(group.groupCode) || [];
       inferred.forEach(d => relevant.add(d));

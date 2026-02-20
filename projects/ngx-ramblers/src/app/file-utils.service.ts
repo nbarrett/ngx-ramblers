@@ -83,14 +83,12 @@ export class FileUtilsService {
         const sampleW = Math.min(canvas.width, 64);
         const sampleH = Math.min(canvas.height, 64);
         const data = ctx.getImageData(0, 0, sampleW, sampleH).data;
-        for (let i = 3; i < data.length; i += 4) {
-          if (data[i] !== 255) return true;
-        }
-        return false;
+        return Array.from({length: Math.floor(data.length / 4)}, (_, i) => data[i * 4 + 3]).some(alpha => alpha !== 255);
       };
 
       const targetBytes = Math.max(1, maxBytes);
-      const targetChars = Math.floor(targetBytes * 0.98); // align with UI which counts base64 chars; add small safety margin
+      const base64BudgetFromBytes = (bytes: number) => Math.floor(bytes * 0.98);
+      const targetChars = base64BudgetFromBytes(targetBytes);
       const encodeAt = async (type: string, q: number): Promise<{data: string; size: number}> => {
         const data = await new Promise<string>((resolve) => canvas.toBlob(async blob => {
           const b = blob as Blob;
@@ -98,23 +96,23 @@ export class FileUtilsService {
           reader.onloadend = () => resolve(reader.result as string);
           reader.readAsDataURL(b);
         }, type, q));
-        const size = data.length; // compare using base64 length to match UI display
-        return { data, size };
+        return { data, size: data.length };
       };
 
       const growToTarget = async (type: string): Promise<{data: string; size: number}> => {
         let probe = await encodeAt(type, 1.0);
         if (probe.size < targetChars * 0.9) {
-          let width = canvas.width;
-          for (let i = 0; i < 8 && width < maxEnlargeWidth; i++) {
-            const grow = Math.max(1.1, Math.min(2.0, Math.sqrt(targetChars / Math.max(1, probe.size))));
-            const nextWidth = Math.min(Math.round(width * grow), maxEnlargeWidth);
-            if (nextWidth <= width) break;
-            width = nextWidth;
-            setCanvasSize(width);
-            probe = await encodeAt(type, 1.0);
-            if (probe.size >= targetChars * 0.9) break;
-          }
+          const result = await Array.from({length: 8}).reduce<Promise<{probe: {data: string; size: number}; width: number; done: boolean}>>(async (accPromise, _) => {
+            const acc = await accPromise;
+            if (acc.done || acc.width >= maxEnlargeWidth) return acc;
+            const grow = Math.max(1.1, Math.min(2.0, Math.sqrt(targetChars / Math.max(1, acc.probe.size))));
+            const nextWidth = Math.min(Math.round(acc.width * grow), maxEnlargeWidth);
+            if (nextWidth <= acc.width) return {...acc, done: true};
+            setCanvasSize(nextWidth);
+            const nextProbe = await encodeAt(type, 1.0);
+            return {probe: nextProbe, width: nextWidth, done: nextProbe.size >= targetChars * 0.9};
+          }, Promise.resolve({probe, width: canvas.width, done: false}));
+          probe = result.probe;
         }
         return probe;
       };
@@ -135,21 +133,19 @@ export class FileUtilsService {
       }
 
       const tuneQuality = async (type: string, hiProbe: {data: string; size: number}) => {
-        let lowQ = 0.05;
-        let highQ = 1.0;
-        let best: {data: string; size: number} | null = hiProbe.size <= targetChars ? hiProbe : null;
-        for (let i = 0; i < 12; i++) {
-          const mid = (lowQ + highQ) / 2;
+        const initial = {lowQ: 0.05, highQ: 1.0, best: hiProbe.size <= targetChars ? hiProbe : null as typeof hiProbe | null};
+        const result = await Array.from({length: 12}).reduce<Promise<typeof initial>>(async (accPromise, _) => {
+          const acc = await accPromise;
+          const mid = (acc.lowQ + acc.highQ) / 2;
           const cand = await encodeAt(type, mid);
           if (cand.size <= targetChars) {
-            best = cand;
-            lowQ = mid + 0.01;
+            return {lowQ: mid + 0.01, highQ: acc.highQ, best: cand};
           } else {
-            highQ = mid - 0.01;
+            return {lowQ: acc.lowQ, highQ: mid - 0.01, best: acc.best};
           }
-        }
-        if (best) return best;
-        return await encodeAt(type, lowQ);
+        }, Promise.resolve(initial));
+        if (result.best) return result.best;
+        return await encodeAt(type, result.lowQ);
       };
 
       const final = await tuneQuality(chosenType, chosenHi);
@@ -173,13 +169,7 @@ export class FileUtilsService {
     const arr = data.split(",");
     const mime = arr[0].match(/:(.*?);/)[1];
     const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-
+    const u8arr = new Uint8Array(Array.from({length: bstr.length}, (_, i) => bstr.charCodeAt(i)));
     const name = filename ? filename : this.defaultPastedFilename(mime);
 
     return new File([u8arr], name, {type: mime});

@@ -134,10 +134,6 @@ const sharedSyntaxRestrictions = [
     "message": "Use values() from es-toolkit/compat instead of Object.values() for better type safety."
   },
   {
-    "selector": "MemberExpression[object.name='Object'][property.name='entries']",
-    "message": "Use entries() from es-toolkit/compat instead of Object.entries() for better type safety."
-  },
-  {
     "selector": "CallExpression[callee.object.name='Array'][callee.property.name='isArray']",
     "message": "Use isArray() from es-toolkit/compat instead of Array.isArray() for consistency."
   },

@@ -19,7 +19,7 @@ import { MediaQueryService } from "../../services/committee/media-query.service"
 import { EditMode } from "../../models/ui-actions";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventDefaultsService } from "../../services/event-defaults.service";
-import { isNull, isObject, isUndefined } from "es-toolkit/compat";
+import { isArray, isNull, isObject, isUndefined, keys } from "es-toolkit/compat";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
@@ -134,11 +134,11 @@ export class EditGroupEventImagesComponent implements OnInit {
     if (!isObject(target) || !isObject(defaults)) {
       this.logger.info("setDefaults:target:", target, "defaults:", defaults, "(target is not an object)");
     } else {
-      Object.keys(defaults).forEach((key) => {
+      keys(defaults).forEach((key) => {
         if (isUndefined(target[key]) || isNull(target[key])) {
           this.logger.info("setDefaults:key:", key, "setting:", target[key], "to default", defaults[key]);
           target[key] = defaults[key];
-        } else if (isObject(defaults[key]) && !Array.isArray(defaults[key])) {
+        } else if (isObject(defaults[key]) && !isArray(defaults[key])) {
           this.setDefaults(target[key], defaults[key]);
         }
       });

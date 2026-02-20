@@ -1,10 +1,4 @@
-import { isArray } from "es-toolkit/compat";
-import { isBoolean } from "es-toolkit/compat";
-import { isNull } from "es-toolkit/compat";
-import { isNumber } from "es-toolkit/compat";
-import { isObject } from "es-toolkit/compat";
-import { isString } from "es-toolkit/compat";
-import { isUndefined } from "es-toolkit/compat";
+import { isArray, isBoolean, isNull, isNumber, isObject, isString, isUndefined, values } from "es-toolkit/compat";
 import { humanFileSize } from "./file-utils";
 
 export function asNumber(value?: any, decimalPlaces?: number): number {
@@ -54,7 +48,7 @@ export function estimateObjectSize(obj: any): number {
   } else if (isArray(obj)) {
     size = obj.reduce((acc, item) => acc + estimateObjectSize(item), 0);
   } else if (isObject(obj)) {
-    size = Object.values(obj).reduce((acc: number, value: any) => acc + estimateObjectSize(value), 0) as number;
+    size = values(obj).reduce((acc: number, value: any) => acc + estimateObjectSize(value), 0) as number;
   }
   return size;
 }

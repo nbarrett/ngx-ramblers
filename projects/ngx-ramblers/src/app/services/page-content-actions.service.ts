@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep, first, isEqual, isNull, isUndefined, kebabCase, remove } from "es-toolkit/compat";
+import { cloneDeep, first, isArray, isEqual, isNull, isUndefined, kebabCase, remove } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   ActionType,
@@ -561,9 +561,9 @@ export class PageContentActionsService {
   }
 
   public moveColumnBetweenRows(sourceRow: PageContentRow, sourceIndex: number, targetRow: PageContentRow, targetIndex: number) {
-    if (!Array.isArray(sourceRow?.columns)) { return; }
+    if (!isArray(sourceRow?.columns)) { return; }
     const [col] = sourceRow.columns.splice(sourceIndex, 1);
-    if (!Array.isArray(targetRow.columns)) { targetRow.columns = []; }
+    if (!isArray(targetRow.columns)) { targetRow.columns = []; }
     const safeIndex = Math.max(0, Math.min(targetIndex, targetRow.columns.length));
     targetRow.columns.splice(safeIndex, 0, col);
     const sourceIncrement = -1;

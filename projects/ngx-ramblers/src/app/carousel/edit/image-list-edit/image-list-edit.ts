@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
-import { min } from "es-toolkit/compat";
+import { isEmpty, keys, min } from "es-toolkit/compat";
 import { range } from "es-toolkit";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
@@ -60,8 +60,6 @@ import {
 } from "../../../models/aws-object.model";
 import { FileUtilsService } from "../../../file-utils.service";
 import { base64ToFile } from "ngx-image-cropper";
-import { keys } from "es-toolkit/compat";
-import { isEmpty } from "es-toolkit/compat";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 import { NgClass, NgStyle } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -1026,7 +1024,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   private duplicateMessage(): string {
     const imageFiles = this.contentMetadata?.files?.filter(file => !file.youtubeId) || [];
-    const imageDuplicates = Object.keys(this.duplicateImages).filter(key => key && key !== 'undefined');
+    const imageDuplicates = keys(this.duplicateImages).filter(key => key && key !== 'undefined');
     return imageDuplicates.length > 0 ? ` and ${this.stringUtils.pluralise(imageDuplicates.length, "a duplicate", "duplicates")} on ${this.stringUtils.pluraliseWithCount(imageDuplicates.length, "image")} will need to be resolved before you can save this album` : "";
   }
 

@@ -1,3 +1,4 @@
+import { isArray } from "es-toolkit/compat";
 import { quickSearchCriteria } from "./quick-search";
 import { GroupEventField } from "../../models/walk.model";
 
@@ -11,7 +12,7 @@ describe("quickSearchCriteria", () => {
     const criteria = quickSearchCriteria("Walmer");
     expect(criteria).toBeTruthy();
     const orConditions = criteria.$or;
-    expect(Array.isArray(orConditions)).toBe(true);
+    expect(isArray(orConditions)).toBe(true);
     expect(orConditions[0][GroupEventField.TITLE]).toEqual({ $regex: "Walmer", $options: "i" });
   });
 });

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { range } from "es-toolkit";
-import { isNull, isUndefined } from "es-toolkit/compat";
+import { isArray, isNull, isUndefined } from "es-toolkit/compat";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -556,7 +556,7 @@ export class WalkList implements OnInit, OnDestroy {
       this.logger.info("Server-side search results for search", thisSearchId, ":", response);
 
       if (thisSearchId === this.latestSearchId) {
-        const events = Array.isArray(response.response) ? response.response : [response.response].filter(Boolean);
+        const events = isArray(response.response) ? response.response : [response.response].filter(Boolean);
         this.serverSideTotalItems = response.pagination?.total || events.length || 0;
         const displayedWalks = events.map(event => this.display.toDisplayedWalk(event));
         this.filteredWalks = displayedWalks;

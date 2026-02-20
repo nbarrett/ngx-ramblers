@@ -20,7 +20,7 @@ describe("DateUtilsService", () => {
   describe("startTime for every day of 2024 (which is a leap year)", () => {
     it("should produce the correct start time for each day of 2024", () => {
       const expectedStartTime = {hours: 10, minutes: 0};
-      for (let day = 1; day <= 366; day++) {
+      Array.from({length: 366}, (_, i) => i + 1).forEach(day => {
         const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
         const date: string = dateUtils.asDateTime("2024-01-01").plus({ days: day - 1 }).set({ hour: expectedStartTime.hours, minute: expectedStartTime.minutes }).toISO();
         const walk: ExtendedGroupEvent = {
@@ -29,7 +29,7 @@ describe("DateUtilsService", () => {
         const calculatedValue: number = dateUtils.startTimeAsValue(walk);
         const expectedValue = dateUtils.asDateTime(date).toMillis();
         expect(calculatedValue).withContext(`Failed on date: ${dateTimeFor(date).toFormat(DateFormat.WALKS_MANAGER_API)}: calculatedValue:${dateUtils.isoDateTime(calculatedValue)}, expectedValue:${dateUtils.isoDateTime(expectedValue)}`).toEqual(expectedValue);
-      }
+      });
     });
   });
 

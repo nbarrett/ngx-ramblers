@@ -29,16 +29,12 @@ StringUtilsService {
   private logger: Logger = inject(LoggerFactory).createLogger("StringUtilsService", NgxLoggerLevel.ERROR);
 
   replaceAll(find: any, replace: any, str: any): string | number {
-    let replacedValue;
-    let initialValue = "" + str;
-    while (true) {
-      replacedValue = initialValue.replace(new RegExp(escapeRegExp("" + find), "g"), replace);
-      if (replacedValue !== initialValue) {
-        initialValue = replacedValue;
-      } else {
-        break;
-      }
-    }
+    const regex = new RegExp(escapeRegExp("" + find), "g");
+    const stabilize = (current: string): string => {
+      const next = current.replace(regex, replace);
+      return next === current ? current : stabilize(next);
+    };
+    const replacedValue = stabilize("" + str);
     return isNumber(str) ? +replacedValue : replacedValue;
   }
 
@@ -80,6 +76,7 @@ StringUtilsService {
   }
 
   censor(censor) {
+    const maxSerializationDepth = 30;
     let i = 0;
 
     return (key, value) => {
@@ -87,11 +84,11 @@ StringUtilsService {
         return "[Circular]";
       }
 
-      if (i >= 29) {// seems to be a hard maximum of 30 serialized objects?
+      if (i >= maxSerializationDepth - 1) {
         return "[Unknown]";
       }
 
-      ++i; // so we know we aren"t using the original object anymore
+      ++i;
 
       return value;
     };

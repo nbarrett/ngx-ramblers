@@ -311,7 +311,8 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
         if (!position) return false;
         const width = position.x2 - position.x1;
         const height = position.y2 - position.y1;
-        return width > 10 && height > 10; // Minimum 10px crop area
+        // Minimum 10px crop area
+        return width > 10 && height > 10;
     }
 
     error(errorEvent: ErrorEvent) {
