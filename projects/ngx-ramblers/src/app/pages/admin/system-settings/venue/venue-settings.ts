@@ -17,6 +17,7 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { VenueTypeSelect } from "../../../walks/walk-venue/venue-type-select";
+import { isNumber, isString } from "es-toolkit/compat";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { VenueEditorComponent } from "../../../walks/walk-venue/venue-editor";
 
@@ -302,9 +303,9 @@ export class VenueSettingsComponent implements OnInit, OnDestroy {
       if (aVal === null || aVal === undefined) return 1;
       if (bVal === null || bVal === undefined) return -1;
       let comparison = 0;
-      if (typeof aVal === "string" && typeof bVal === "string") {
+      if (isString(aVal) && isString(bVal)) {
         comparison = aVal.localeCompare(bVal);
-      } else if (typeof aVal === "number" && typeof bVal === "number") {
+      } else if (isNumber(aVal) && isNumber(bVal)) {
         comparison = aVal - bVal;
       }
       return this.sortDirection === "asc" ? comparison : -comparison;
@@ -409,8 +410,7 @@ export class VenueSettingsComponent implements OnInit, OnDestroy {
     this.statusMessage = "Re-detecting venue types...";
     const venuesToUpdate = this.venues.filter(v => v.name);
     let updated = 0;
-    for (let i = 0; i < venuesToUpdate.length; i++) {
-      const venue = venuesToUpdate[i];
+    for (const [i, venue] of venuesToUpdate.entries()) {
       const inferredType = inferVenueTypeFromName(venue.name);
       if (inferredType !== venue.type) {
         venue.type = inferredType;
@@ -434,8 +434,7 @@ export class VenueSettingsComponent implements OnInit, OnDestroy {
     this.processing = true;
     this.statusMessage = `Geocoding ${venuesMissingCoords.length} venues...`;
     let geocoded = 0;
-    for (let i = 0; i < venuesMissingCoords.length; i++) {
-      const venue = venuesMissingCoords[i];
+    for (const [i, venue] of venuesMissingCoords.entries()) {
       try {
         const gridReference = await this.addressQueryService.gridReferenceLookup(venue.postcode);
         if (gridReference?.latlng?.lat && gridReference?.latlng?.lng) {

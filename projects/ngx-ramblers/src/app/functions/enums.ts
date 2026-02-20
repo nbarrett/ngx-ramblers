@@ -1,5 +1,6 @@
+
 export function enumForKey<E>(enumValue: E, value: string): E[keyof E] {
-  const resolvedEnum = Object.entries(enumValue)?.find((entry: any) => {
+  const resolvedEnum = Object.entries(enumValue as object)?.find((entry: any) => {
     return value?.toUpperCase() === entry[0]?.toUpperCase();
   });
   return resolvedEnum && resolvedEnum[1];
@@ -26,7 +27,7 @@ export function enumValueForKey<E>(enumValue: E, value: any): string {
 }
 
 export function enumKeyValues<E>(enumValue: E): KeyValue<string>[] {
-  return Object.entries(enumValue)?.map((value) => ({key: value[0], value: value[1]})).filter(item => isNaN(+item.key));
+  return Object.entries(enumValue as object)?.map((value) => ({key: value[0], value: value[1]})).filter(item => isNaN(+item.key));
 }
 
   export interface KeyValue<T> {

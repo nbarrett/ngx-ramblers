@@ -13,7 +13,7 @@ import {
   faSpinner,
   faUndo
 } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep, first, isArray, isEmpty, isNull, isNumber, isObject, isString, isUndefined, last, uniq } from "es-toolkit/compat";
+import { cloneDeep, first, isArray, isEmpty, isNull, isNumber, isObject, isString, isUndefined, keys, last, uniq } from "es-toolkit/compat";
 import { BsDropdownConfig } from "ngx-bootstrap/dropdown";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -1461,7 +1461,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     } else {
       mapping.location[key] = value;
     }
-    if (mapping.location && Object.keys(mapping.location).length === 0) {
+    if (mapping.location && keys(mapping.location).length === 0) {
       delete mapping.location;
     } else {
       mapping.sourceType = MigrationTemplateSourceType.EXTRACT;
@@ -1479,7 +1479,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     } else if (isNumber(value) || !isUndefined(value)) {
       mapping.map[key] = value;
     }
-    if (mapping.map && Object.keys(mapping.map).length === 0) {
+    if (mapping.map && keys(mapping.map).length === 0) {
       delete mapping.map;
     } else {
       mapping.sourceType = MigrationTemplateSourceType.EXTRACT;
@@ -1664,7 +1664,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     if (!this.pageContent.migrationTemplate) {
       this.pageContent.migrationTemplate = {} as MigrationTemplateMetadata;
     }
-    if (!Array.isArray(this.pageContent.migrationTemplate.mappings)) {
+    if (!isArray(this.pageContent.migrationTemplate.mappings)) {
       this.pageContent.migrationTemplate.mappings = [];
     }
     this.syncTemplateMappingAvailability();
@@ -1729,9 +1729,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     }
     mappings.forEach(mapping => {
       if (!mapping.sourceType) {
-        if (mapping.location && Object.keys(mapping.location).length > 0) {
+        if (mapping.location && keys(mapping.location).length > 0) {
           mapping.sourceType = MigrationTemplateSourceType.EXTRACT;
-        } else if (mapping.map && Object.keys(mapping.map).length > 0) {
+        } else if (mapping.map && keys(mapping.map).length > 0) {
           mapping.sourceType = MigrationTemplateSourceType.EXTRACT;
         }
       }

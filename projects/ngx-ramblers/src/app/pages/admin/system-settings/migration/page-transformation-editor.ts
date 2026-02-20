@@ -33,7 +33,7 @@ import {
   TransformationAction,
   TransformationActionType
 } from "../../../../models/page-transformation.model";
-import { isObject, isUndefined } from "es-toolkit/compat";
+import { isObject, isUndefined, keys } from "es-toolkit/compat";
 import { DEFAULT_OS_STYLE, MapProvider } from "../../../../models/map.model";
 
 @Component({
@@ -1040,8 +1040,8 @@ export class PageTransformationEditor implements OnInit {
     const baseline = JSON.parse(JSON.stringify(this.baselineConfig));
     const paths: string[] = [];
     const walk = (a: any, b: any, p: string) => {
-      const keys = Array.from(new Set([...(Object.keys(a || {})), ...(Object.keys(b || {}))]));
-      for (const k of keys) {
+      const ks = Array.from(new Set([...(keys(a || {})), ...(keys(b || {}))]));
+      for (const k of ks) {
         const ap = a ? a[k] : undefined;
         const bp = b ? b[k] : undefined;
         const path = p ? `${p}.${k}` : k;

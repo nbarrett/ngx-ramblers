@@ -36,7 +36,7 @@ import { sortBy } from "../../../functions/arrays";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { DataQueryOptions, FilterCriteria } from "../../../models/api-request.model";
-import { isNumber } from "es-toolkit/compat";
+import { isArray, isNumber } from "es-toolkit/compat";
 import { DistanceRangeSlider } from "../../../components/distance-range-slider/distance-range-slider";
 import { ActivatedRoute } from "@angular/router";
 import { advancedSearchCriteriaFromParams } from "../../../functions/walks/advanced-search";
@@ -1317,7 +1317,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
 
     try {
       const walks = await this.localWalksAndEventsService.allWithPagination(dataQueryOptions);
-      const walkEvents = Array.isArray(walks.response) ? walks.response : [];
+      const walkEvents = isArray(walks.response) ? walks.response : [];
 
       walkEvents.forEach(walkEvent => {
         const lat = walkEvent.groupEvent?.start_location?.latitude;

@@ -1,7 +1,7 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCheckCircle, faEnvelope, faExclamationCircle, faRemove } from "@fortawesome/free-solid-svg-icons";
-import { isString, map } from "es-toolkit/compat";
+import { isString, map, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -528,7 +528,7 @@ export class WalkExport implements OnInit, OnDestroy {
 
     this.subscriptions.push(this.route.queryParams.subscribe(params => {
       const tabParam = params["tab"];
-      if (tabParam && Object.values(WalkExportTab).includes(tabParam)) {
+      if (tabParam && values(WalkExportTab).includes(tabParam)) {
         this.activeTabId = tabParam as WalkExportTab;
       }
       this.pendingSessionParam = params["session"];

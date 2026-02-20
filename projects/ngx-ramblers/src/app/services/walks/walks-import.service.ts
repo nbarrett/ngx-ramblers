@@ -734,8 +734,7 @@ export class WalksImportService {
     const resizedFiles: File[] = [];
     let resizedCount = 0;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    for (const [i, file] of files.entries()) {
       const fileUtilsService = this.injector.get(FileUtilsService);
 
       if (fileUtilsService.isResizableName(file.name) && file.size > maxBytes) {
@@ -794,11 +793,7 @@ export class WalksImportService {
     const arr = base64.split(",");
     const mime = arr[0].match(/:(.*?);/)[1];
     const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
+    const u8arr = new Uint8Array(Array.from(bstr, c => c.charCodeAt(0)));
     return new File([u8arr], fileName, { type: mime });
   }
 }

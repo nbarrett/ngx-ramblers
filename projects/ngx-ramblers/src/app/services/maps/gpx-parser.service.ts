@@ -481,51 +481,26 @@ export class GpxParserService {
       return;
     }
 
-    let totalDistance = 0;
-    let minElevation: number | undefined;
-    let maxElevation: number | undefined;
-    let totalAscent = 0;
-    let totalDescent = 0;
-    let previousElevation: number | undefined;
+    const stats = track.points.reduce(
+      (acc, point, i) => {
+        const hasElevation = !isUndefined(point.elevation);
+        const minElevation = hasElevation && (isUndefined(acc.minElevation) || point.elevation < acc.minElevation) ? point.elevation : acc.minElevation;
+        const maxElevation = hasElevation && (isUndefined(acc.maxElevation) || point.elevation > acc.maxElevation) ? point.elevation : acc.maxElevation;
+        const elevationChange = hasElevation && !isUndefined(acc.previousElevation) ? point.elevation - acc.previousElevation : 0;
+        const totalAscent = elevationChange > 0 ? acc.totalAscent + elevationChange : acc.totalAscent;
+        const totalDescent = elevationChange < 0 ? acc.totalDescent + Math.abs(elevationChange) : acc.totalDescent;
+        const previousElevation = hasElevation ? point.elevation : acc.previousElevation;
+        const distanceInc = i > 0 ? this.calculateDistance(track.points[i - 1].latitude, track.points[i - 1].longitude, point.latitude, point.longitude) : 0;
+        return {totalDistance: acc.totalDistance + distanceInc, minElevation, maxElevation, totalAscent, totalDescent, previousElevation};
+      },
+      {totalDistance: 0, minElevation: undefined as number | undefined, maxElevation: undefined as number | undefined, totalAscent: 0, totalDescent: 0, previousElevation: undefined as number | undefined}
+    );
 
-    for (let i = 0; i < track.points.length; i++) {
-      const point = track.points[i];
-
-      if (!isUndefined(point.elevation)) {
-        if (isUndefined(minElevation) || point.elevation < minElevation) {
-          minElevation = point.elevation;
-        }
-        if (isUndefined(maxElevation) || point.elevation > maxElevation) {
-          maxElevation = point.elevation;
-        }
-
-        if (!isUndefined(previousElevation)) {
-          const elevationChange = point.elevation - previousElevation;
-          if (elevationChange > 0) {
-            totalAscent += elevationChange;
-          } else {
-            totalDescent += Math.abs(elevationChange);
-          }
-        }
-        previousElevation = point.elevation;
-      }
-
-      if (i > 0) {
-        const previousPoint = track.points[i - 1];
-        totalDistance += this.calculateDistance(
-          previousPoint.latitude,
-          previousPoint.longitude,
-          point.latitude,
-          point.longitude
-        );
-      }
-    }
-
-    track.totalDistance = totalDistance;
-    track.minElevation = minElevation;
-    track.maxElevation = maxElevation;
-    track.totalAscent = totalAscent;
-    track.totalDescent = totalDescent;
+    track.totalDistance = stats.totalDistance;
+    track.minElevation = stats.minElevation;
+    track.maxElevation = stats.maxElevation;
+    track.totalAscent = stats.totalAscent;
+    track.totalDescent = stats.totalDescent;
   }
 
   private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {

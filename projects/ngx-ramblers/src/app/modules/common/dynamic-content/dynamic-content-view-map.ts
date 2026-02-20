@@ -33,7 +33,7 @@ import { FileNameData, ServerFileNameData } from "../../../models/aws-object.mod
 import { MapControls, MapControlsConfig, MapControlsState } from "../../../shared/components/map-controls";
 import { MapOverlay } from "../../../shared/components/map-overlay";
 import { DEFAULT_OS_STYLE, MapProvider, MapRouteViewModel, RouteGpxData, TrackWithBounds } from "../../../models/map.model";
-import { isUndefined } from "es-toolkit/compat";
+import { isArray, isUndefined, keys } from "es-toolkit/compat";
 import { MarkdownComponent } from "ngx-markdown";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -1434,7 +1434,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     }
     let changed = false;
     const currentMap = this.row.map as Record<string, any>;
-    (Object.keys(partial) as (keyof MapData)[]).forEach(key => {
+    (keys(partial) as (keyof MapData)[]).forEach(key => {
       const nextValue = partial[key];
       if (isUndefined(nextValue)) {
         return;
@@ -1451,7 +1451,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   private valuesEqual(current: any, next: any): boolean {
-    if (Array.isArray(current) && Array.isArray(next)) {
+    if (isArray(current) && isArray(next)) {
       if (current.length !== next.length) {
         return false;
       }
@@ -1509,25 +1509,26 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       return markers;
     }
 
-    let distanceSinceLast = 0;
-    for (let i = 1; i < latLngs.length; i++) {
-      const start = L.latLng(latLngs[i - 1]);
-      const end = L.latLng(latLngs[i]);
-      const segmentDistance = start.distanceTo(end);
-      if (segmentDistance === 0) {
-        continue;
-      }
-      distanceSinceLast += segmentDistance;
-      while (distanceSinceLast >= spacing) {
-        const overshoot = distanceSinceLast - spacing;
-        const ratio = (segmentDistance - overshoot) / segmentDistance;
+    const placeArrowsAlongSegment = (acc: {distanceSinceLast: number; markers: L.Marker[]}, segment: {start: L.LatLng; end: L.LatLng; segmentDistance: number}) => {
+      const {start, end, segmentDistance} = segment;
+      const bearing = this.bearingBetween(start, end);
+      const total = acc.distanceSinceLast + segmentDistance;
+      const count = Math.floor(total / spacing);
+      const newMarkers = Array.from({length: count}, (_, k) => {
+        const ratio = ((k + 1) * spacing - acc.distanceSinceLast) / segmentDistance;
         const lat = start.lat + (end.lat - start.lat) * ratio;
         const lng = start.lng + (end.lng - start.lng) * ratio;
-        const bearing = this.bearingBetween(start, end);
-        markers.push(this.createArrowMarker([lat, lng], bearing, weight));
-        distanceSinceLast -= spacing;
-      }
-    }
+        return this.createArrowMarker([lat, lng], bearing, weight);
+      });
+      return {distanceSinceLast: total - count * spacing, markers: [...acc.markers, ...newMarkers]};
+    };
+    const segments = latLngs.slice(1).map((_, idx) => {
+      const start = L.latLng(latLngs[idx]);
+      const end = L.latLng(latLngs[idx + 1]);
+      return {start, end, segmentDistance: start.distanceTo(end)};
+    }).filter(seg => seg.segmentDistance > 0);
+    const result = segments.reduce(placeArrowsAlongSegment, {distanceSinceLast: 0, markers: []});
+    result.markers.forEach(m => markers.push(m));
 
     if (markers.length === 0) {
       const midIndex = Math.floor(latLngs.length / 2);
@@ -1641,7 +1642,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   private flattenLatLngs(latLngs: L.LatLng[] | L.LatLng[][] | L.LatLng[][][]): L.LatLng[] {
     const flat: L.LatLng[] = [];
     latLngs.forEach(entry => {
-      if (Array.isArray(entry)) {
+      if (isArray(entry)) {
         flat.push(...this.flattenLatLngs(entry as any));
       } else {
         flat.push(entry as L.LatLng);

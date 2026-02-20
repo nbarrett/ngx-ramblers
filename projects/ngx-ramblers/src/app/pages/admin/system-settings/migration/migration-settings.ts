@@ -38,7 +38,7 @@ import { WebSocketClientService } from "../../../../services/websockets/websocke
 import { EventType, MessageType } from "../../../../models/websocket.model";
 import { DisplayTimeWithSecondsPipe } from "../../../../pipes/display-time.pipe-with-seconds";
 import { StatusIconComponent } from "../../status-icon";
-import { isNull } from "es-toolkit/compat";
+import { isNull, values } from "es-toolkit/compat";
 import { sortBy } from "../../../../functions/arrays";
 import { MarkdownComponent } from "ngx-markdown";
 import { PageTransformationEditor } from "./page-transformation-editor";
@@ -805,7 +805,7 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
     this.activityNotifier = this.notifierService.createAlertInstance(this.activityTarget);
     this.route.queryParams.subscribe(params => {
       const tab = params["tab"];
-      this.activeTabId = tab && Object.values(this.MigrationTab).includes(tab) ? tab : this.MigrationTab.SETTINGS;
+      this.activeTabId = tab && values(this.MigrationTab).includes(tab) ? tab : this.MigrationTab.SETTINGS;
       this.pendingSessionParam = params["session"];
     });
     this.webSocketClientService.connect().then(() => {

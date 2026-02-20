@@ -71,11 +71,8 @@ export class EventsMigrationService {
 
     for (const event of socialEvents) {
       const baseUrl = this.stringUtilsService.kebabCase(event.groupEvent.title);
-      let url = baseUrl;
-      let suffix = 2;
-      while (usedUrls.has(url)) {
-        url = `${baseUrl}-${suffix++}`;
-      }
+      const candidates = [baseUrl, ...Array.from({length: usedUrls.size + 1}, (_, i) => `${baseUrl}-${i + 2}`)];
+      const url = candidates.find(candidate => !usedUrls.has(candidate))!;
       usedUrls.add(url);
       if (event.groupEvent.url !== url) {
         this.logger.info("migrateSocialEventUrls:updated social event URL:", url, "for event:", event.groupEvent.title, event.groupEvent);

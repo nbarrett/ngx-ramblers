@@ -7,7 +7,7 @@ import { Member, MemberBulkLoadAudit, MemberBulkLoadAuditApiResponse, MemberBulk
 import { CommonDataService } from "../common-data-service";
 import { DbUtilsService } from "../db-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { first } from "es-toolkit/compat";
+import { first, keys } from "es-toolkit/compat";
 import { StringUtilsService } from "../string-utils.service";
 
 @Injectable({
@@ -64,7 +64,7 @@ export class MemberBulkLoadAuditService {
   public async createMemberBulkLoadDateMap(): Promise<MemberBulkLoadDateMap> {
     this.logger.info("createMemberBulkLoadDateMap: fetching from server");
     const dateMapObject = await firstValueFrom(this.http.get<MemberBulkLoadDateMap>(`${this.BASE_URL}/member-bulk-load-date-map`));
-    this.logger.info("createMemberBulkLoadDateMap: created map with", this.stringUtilsService.pluraliseWithCount(Object.keys(dateMapObject || {}).length, "entry", "entries"), "memberBulkLoadDateMap:", dateMapObject);
+    this.logger.info("createMemberBulkLoadDateMap: created map with", this.stringUtilsService.pluraliseWithCount(keys(dateMapObject || {}).length, "entry", "entries"), "memberBulkLoadDateMap:", dateMapObject);
     return dateMapObject;
   }
 }

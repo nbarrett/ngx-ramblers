@@ -40,15 +40,10 @@ export class MemberNamingService {
   }
 
   public createUniqueValueFrom(value: string, field: string, members: Member[]) {
-    let attempts = 0;
-    while (true) {
-      const createdName = `${value}${attempts === 0 ? "" : attempts}`;
-      if (!this.memberFieldExists(field, createdName, members)) {
-        return createdName;
-      } else {
-        attempts++;
-      }
-    }
+    const candidate = (attempt: number) => `${value}${attempt === 0 ? "" : attempt}`;
+    const maxAttempts = members.length + 1;
+    return Array.from({length: maxAttempts}, (_, i) => candidate(i))
+      .find(name => !this.memberFieldExists(field, name, members)) ?? candidate(maxAttempts);
   }
 
   public createUserName(member: RamblersMember | Member): string {

@@ -1,7 +1,7 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { Subscription } from "rxjs";
-import { kebabCase } from "es-toolkit/compat";
+import { isString, kebabCase } from "es-toolkit/compat";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 
@@ -88,7 +88,7 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
 
   get normalizedTabs(): SectionToggleTab[] {
     return this._tabs.map(tab => {
-      if (typeof tab === "string") {
+      if (isString(tab)) {
         return { value: tab, label: tab };
       }
       return tab;

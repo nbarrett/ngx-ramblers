@@ -152,13 +152,12 @@ describe("GroupEventService", () => {
       expect(venueChange).toBeUndefined();
     });
 
-    it("changedItemsBetween detects boolean false to true change", () => {
+    it("changedItemsBetween returns empty array for changes in non-audited fields", () => {
       const service = TestBed.inject(GroupEventService);
       const currentData = {isMeetingPlace: true, name: "Test"};
       const previousData = {isMeetingPlace: false, name: "Test"};
       const changedItems = service.changedItemsBetween(currentData, previousData);
-      // This tests the valuesEqual function directly with object comparison
-      expect(changedItems.length).toBe(0); // AUDITED_FIELDS won't match these keys, but we can test valuesEqual indirectly
+      expect(changedItems.length).toBe(0);
     });
 
     it("detects change when isMeetingPlace changes from undefined to false", () => {

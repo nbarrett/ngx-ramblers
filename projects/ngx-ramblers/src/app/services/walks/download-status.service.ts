@@ -104,7 +104,7 @@ export class ServerDownloadStatusService {
 
       if (response?.success) {
         this.currentDownloadSubject.next(null);
-        await this.getDownloadHistory(); // Refresh history
+        await this.getDownloadHistory();
       }
 
       return response || { success: false, message: "No response received" };

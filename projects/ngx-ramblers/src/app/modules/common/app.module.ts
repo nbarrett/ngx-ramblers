@@ -1,4 +1,5 @@
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
+import { isUndefined } from "es-toolkit/compat";
 import { ApplicationRef, DoBootstrap, ErrorHandler, inject, NgModule, provideAppInitializer } from "@angular/core";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
 import { setTheme } from "ngx-bootstrap/utils";
@@ -167,7 +168,7 @@ declare let mermaid: { registerIconPacks?: (packs: { name: string; loader: () =>
 export class AppModule implements DoBootstrap {
   constructor() {
     setTheme("bs5");
-    if (typeof mermaid !== "undefined" && mermaid.registerIconPacks) {
+    if (!isUndefined(mermaid) && mermaid.registerIconPacks) {
       mermaid.registerIconPacks([
         {name: "ngx", loader: () => import("../../icons/custom-icon-pack").then(m => m.ngxIconPack as unknown)},
         {name: "logos", loader: () => import("@iconify-json/logos").then(m => m.icons as unknown)}

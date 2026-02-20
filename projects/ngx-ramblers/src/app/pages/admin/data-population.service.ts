@@ -1,5 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
+import { values } from "es-toolkit/compat";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { ContentText, PageContent, PageContentPath, PageContentType } from "../../models/content-text.model";
 import { ContentTextService } from "../../services/content-text.service";
@@ -70,7 +71,7 @@ export class DataPopulationService {
 
   public clearLegacyLocalStorage(): void {
     try {
-      const keys = Object.values(LegacyStoredValue);
+      const keys = values(LegacyStoredValue);
       keys.forEach(key => {
         if (localStorage.getItem(key)) {
           localStorage.removeItem(key);

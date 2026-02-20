@@ -1,4 +1,5 @@
 import { CommonModule } from "@angular/common";
+import { keys } from "es-toolkit/compat";
 import { Component, Input, TemplateRef, OnChanges, SimpleChanges, ViewChild, inject, AfterViewInit } from "@angular/core";
 import { BaseChartDirective } from "ng2-charts";
 import { ChartConfiguration } from "chart.js";
@@ -189,7 +190,7 @@ export class AGMSocialsTabComponent implements AfterViewInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges) {
     this.logger.info("ngOnChanges - input changes detected:", {
-      changedProperties: Object.keys(changes),
+      changedProperties: keys(changes),
       aggregatedSocialEvents: this.aggregatedSocialEvents,
       organisers: this.organisers,
       fromDate: this.fromDate,

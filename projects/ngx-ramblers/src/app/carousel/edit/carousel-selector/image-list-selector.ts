@@ -1,4 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
+import { isArray } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -145,7 +146,8 @@ export class ImageListSelectorComponent implements OnInit {
     this.contentMetadataService.contentMetadataNotifications().subscribe(item => {
       const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.name, item);
       this.contentMetadataItems = allAndSelectedContentMetaData.contentMetadataItems;
-      this.selectedContentMetadata = allAndSelectedContentMetaData.contentMetadata ? [allAndSelectedContentMetaData.contentMetadata] : []; // Initialize as array
+      // Initialize as array
+      this.selectedContentMetadata = allAndSelectedContentMetaData.contentMetadata ? [allAndSelectedContentMetaData.contentMetadata] : [];
       this.notify.clearBusy();
     });
   }
@@ -264,7 +266,7 @@ export class ImageListSelectorComponent implements OnInit {
         return;
       }
       const parsed = JSON.parse(clipboardText);
-      const itemsToPaste: ContentMetadata[] = Array.isArray(parsed) ? parsed : [parsed];
+      const itemsToPaste: ContentMetadata[] = isArray(parsed) ? parsed : [parsed];
       if (itemsToPaste.some(item => !item.name || !item.files)) {
         this.notify.warning({title: "Paste Image List", message: "Invalid Image List format in clipboard"});
         return;
@@ -272,14 +274,14 @@ export class ImageListSelectorComponent implements OnInit {
       const existingNames = this.contentMetadataItems.map(item => item.name);
       const existingTagKeys = this.collectAllTagKeys();
       let nextTagKey = Math.max(...existingTagKeys, 0) + 1;
+      const uniqueNameFor = (baseName: string): string => {
+        const candidate = Array.from({length: existingNames.length + 1}, (_, i) => i === 0 ? baseName : `${baseName}-imported-${i}`)
+          .find(name => !existingNames.includes(name));
+        return candidate ?? `${baseName}-imported-${existingNames.length + 1}`;
+      };
       const createdItems: ContentMetadata[] = [];
       for (const item of itemsToPaste) {
-        let newName = item.name;
-        let suffix = 1;
-        while (existingNames.includes(newName)) {
-          newName = `${item.name}-imported-${suffix}`;
-          suffix++;
-        }
+        const newName = uniqueNameFor(item.name);
         existingNames.push(newName);
         const tagKeyMapping = new Map<number, number>();
         const remappedTags = item.imageTags?.map(tag => {

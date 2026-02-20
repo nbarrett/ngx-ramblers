@@ -7,6 +7,7 @@ import {
   isObject,
   isString,
   isUndefined,
+  keys,
   pick,
   take
 } from "es-toolkit/compat";
@@ -189,8 +190,8 @@ export class GroupEventService {
       return previousValue.every((item, index) => this.valuesEqual(item, currentValue[index]));
     }
     if (isObject(previousValue) && isObject(currentValue)) {
-      const currKeys = Object.keys(currentValue);
-      const prevKeys = Object.keys(previousValue);
+      const currKeys = keys(currentValue);
+      const prevKeys = keys(previousValue);
       const allKeys = new Set([...currKeys, ...prevKeys]);
       for (const key of allKeys) {
         const prevVal = previousValue[key];
