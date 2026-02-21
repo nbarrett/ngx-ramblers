@@ -11,7 +11,7 @@ import querystring from "querystring";
 import { ENDPOINT } from "./shared";
 import { gridReferenceLookupFromLatLng } from "./reverse-geocode";
 import proj4 from "proj4";
-import { isNumber, isString } from "es-toolkit/compat";
+import { isArray, isNumber, isString } from "es-toolkit/compat";
 
 interface PlacesLookupResult {
   name_1?: string;
@@ -124,7 +124,7 @@ interface NominatimPlaceResult {
 }
 
 function toNominatimPlace(response: any): NominatimPlaceResult[] {
-  return Array.isArray(response) ? response : [];
+  return isArray(response) ? response : [];
 }
 
 function getPlaceTypeScore(place: NominatimPlaceResult): number {
@@ -180,7 +180,7 @@ function toLatLng(place: NominatimPlaceResult): LatLngLiteral {
 
 function extractGridReference(response: GridReferenceLookupApiResponse): GridReferenceLookupResponse | undefined {
   const payload = response?.response;
-  if (Array.isArray(payload)) {
+  if (isArray(payload)) {
     return payload[0];
   }
   return payload as GridReferenceLookupResponse;

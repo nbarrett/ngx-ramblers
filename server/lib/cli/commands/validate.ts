@@ -6,7 +6,7 @@ import { validateMongoConnection } from "../../environment-setup/database-initia
 import { validateAwsAdminCredentials, adminConfigFromEnvironment } from "../../environment-setup/aws-setup";
 import { validateRamblersApiKey } from "../../environment-setup/ramblers-api-client";
 import { ValidationResult, MongoValidationConfig, ProgressCallback } from "../types";
-import { log } from "../cli-logger";
+import { cliLogger, log } from "../cli-logger";
 
 const debugLog = debug(envConfig.logNamespace("cli:validate"));
 
@@ -126,7 +126,7 @@ export function createValidateCommand(): Command {
     .action(async options => {
       try {
         const result = await validateRamblersApi(options.apiKey);
-        console.log(result.valid ? "✓" : "✗", result.message);
+        cliLogger.log(result.valid ? "✓" : "✗", result.message);
         process.exit(result.valid ? 0 : 1);
       } catch (error) {
         console.error("Error:", error.message);

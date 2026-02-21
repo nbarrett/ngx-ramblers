@@ -5,6 +5,7 @@ import { extendedGroupEvent } from "../models/extended-group-event";
 import { count, dateRange, nextWalkId, queryVenues, queryWalkLeaders, urlFromTitle } from "../controllers/extended-group-event";
 import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { DocumentField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { keys } from "es-toolkit/compat";
 
 const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent, true);
 const router = express.Router();
@@ -19,7 +20,7 @@ function mergeLocalFilter(criteria: any = {}) {
   if (criteria && criteria.$and) {
     return {...criteria, $and: [...criteria.$and, LOCAL_ACTIVE_FILTER]};
   }
-  if (!criteria || Object.keys(criteria).length === 0) {
+  if (!criteria || keys(criteria).length === 0) {
     return LOCAL_ACTIVE_FILTER;
   }
   return {$and: [criteria, LOCAL_ACTIVE_FILTER]};

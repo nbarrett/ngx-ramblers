@@ -53,17 +53,16 @@ export async function urlFromTitle(req: Request, res: Response) {
       debugLog("generateTitleFromUrl: title:", title, "slug:", slug, "id:", id, "-> slug owned by current event");
       return res.json({url: slug});
     } else {
-    let suffix = 0;
-    let url;
-    while (true) {
-      url = `${slug}-${suffix++}`;
+    const findUniqueUrl = async (suffix: number): Promise<string> => {
+      const url = `${slug}-${suffix}`;
       const {document} = await findBySlug(url);
-      if (!document || (document.id === id)) {
-        debugLog("generateTitleFromUrl: title:", title, "slug:", slug, "id:", id, "suffix:", suffix - 1, "-> using suffixed slug:", url);
-        break;
+      if (!document || document.id === id) {
+        debugLog("generateTitleFromUrl: title:", title, "slug:", slug, "id:", id, "suffix:", suffix, "-> using suffixed slug:", url);
+        return url;
       }
-    }
-    res.json({url});
+      return findUniqueUrl(suffix + 1);
+    };
+    res.json({url: await findUniqueUrl(0)});
     }
   } catch (error) {
     controller.errorDebugLog("urlFromTitle: error:", error);

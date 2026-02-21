@@ -1,6 +1,7 @@
 import { Task, Answerable } from "@serenity-js/core";
 import { ExecuteScript } from "@serenity-js/web";
 import { ScrapedImage } from "../../../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
+import { isArray } from "es-toolkit/compat";
 
 export interface ScrapeResult {
   html: string;
@@ -18,7 +19,7 @@ export class ScrapePageContent {
     return Task.where(`scrape page content`,
       ExecuteScript.sync((selector: string, excludes: string[]): ScrapeResult => {
         const node = document.querySelector(selector) || document.body;
-        const selectors = Array.isArray(excludes) ? excludes : [];
+        const selectors = isArray(excludes) ? excludes : [];
         const errors: SelectorError[] = [];
 
         selectors.forEach(sel => {

@@ -3,6 +3,7 @@ import debug from "debug";
 import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { log, error as logError } from "../cli-logger";
+import { dateTimeNow, dateTimeFromIso } from "../../shared/dates";
 import { select, input, confirm, isQuit, isBack, handleQuit, PromptResult, checkbox } from "../cli-prompt";
 import { envConfig } from "../../env-config/env-config";
 import * as cms from "../../shared/cms-client";
@@ -283,18 +284,16 @@ function categorizeWalks(walks: NgxWalk[]): WalkCategory[] {
     {
       name: "Weekend Walks",
       pattern: (w) => {
-        const date = new Date(w.eventDate);
-        const dayOfWeek = date.getDay();
-        return dayOfWeek === 0 || dayOfWeek === 6;
+        const weekday = dateTimeFromIso(w.eventDate).weekday;
+        return weekday === 6 || weekday === 7;
       },
       walks: []
     },
     {
       name: "Midweek Walks",
       pattern: (w) => {
-        const date = new Date(w.eventDate);
-        const dayOfWeek = date.getDay();
-        return dayOfWeek >= 1 && dayOfWeek <= 5;
+        const weekday = dateTimeFromIso(w.eventDate).weekday;
+        return weekday >= 1 && weekday <= 5;
       },
       walks: []
     }
@@ -508,20 +507,19 @@ function createPageFromScrapedContent(path: string, oldPage: ReconciliationPage)
 }
 
 async function createWalkProgrammePage(path: string, walks: NgxWalk[]): Promise<PageContent> {
-  const now = new Date();
-  const futureWalks = walks.filter(w => new Date(w.eventDate) >= now);
+  const now = dateTimeNow();
+  const futureWalks = walks.filter(w => dateTimeFromIso(w.eventDate) >= now);
   const sortedWalks = futureWalks.sort((a, b) =>
-    new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime()
+    dateTimeFromIso(a.eventDate).toMillis() - dateTimeFromIso(b.eventDate).toMillis()
   );
 
-  const threeMonthsFromNow = new Date();
-  threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+  const threeMonthsFromNow = now.plus({months: 3});
 
   const rows: PageContentRow[] = [
     textRow(`# Walk Programme\n\nUpcoming walks for our group. Click on any walk for more details.`),
     eventsRow({
-      fromDate: now.getTime(),
-      toDate: threeMonthsFromNow.getTime(),
+      fromDate: now.toMillis(),
+      toDate: threeMonthsFromNow.toMillis(),
       sortOrder: "DATE_ASCENDING"
     })
   ];

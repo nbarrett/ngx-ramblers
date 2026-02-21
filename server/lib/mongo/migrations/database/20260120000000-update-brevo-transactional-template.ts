@@ -4,6 +4,7 @@ import createMigrationLogger from "../migrations-logger";
 import { createOrUpdateTemplate } from "../../../brevo/templates/template-management";
 import { configuredBrevo } from "../../../brevo/brevo-config";
 import { localTemplatePath } from "../../../brevo/templates/local-template-reader";
+import { isObject } from "es-toolkit/compat";
 
 const debugLog = createMigrationLogger("update-brevo-transactional-template");
 const TEMPLATE_NAME = "fully-automated-text-body";
@@ -52,7 +53,7 @@ export async function up(db: Db, client: MongoClient) {
           debugLog(`Error message: ${error.message}`);
           debugLog(`Error stack: ${error.stack}`);
         }
-        if (typeof error === "object" && error !== null) {
+        if (isObject(error)) {
           debugLog(`Error details: ${JSON.stringify(error, null, 2)}`);
         }
         const apiErrorMessage = apiError?.body?.message || apiError?.response?.body?.message;

@@ -12,7 +12,7 @@ import { GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/w
 import { mapRamblersEventToExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/functions/walks/ramblers-event.mapper";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { envConfig } from "../env-config/env-config";
-import { dateTimeNow } from "../shared/dates";
+import { dateTimeNow, dateTimeFromJsDate } from "../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("walks-manager-cache"));
 debugLog.enabled = false;
@@ -176,8 +176,8 @@ export async function cleanupDuplicatesByRamblersId(): Promise<CleanupStats> {
       if (versionDiff !== 0) {
         return versionDiff;
       }
-      const aTime = a.lastSyncedAt ? new Date(a.lastSyncedAt).getTime() : 0;
-      const bTime = b.lastSyncedAt ? new Date(b.lastSyncedAt).getTime() : 0;
+      const aTime = a.lastSyncedAt ? dateTimeFromJsDate(a.lastSyncedAt).toMillis() : 0;
+      const bTime = b.lastSyncedAt ? dateTimeFromJsDate(b.lastSyncedAt).toMillis() : 0;
       return bTime - aTime;
     });
 

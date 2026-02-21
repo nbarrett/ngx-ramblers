@@ -12,7 +12,7 @@ import {
   Sender,
   UpdateTemplateRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
-import { isBoolean } from "es-toolkit/compat";
+import { isBoolean, isObject } from "es-toolkit/compat";
 
 const messageType = "brevo:template-management";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -115,7 +115,7 @@ export async function findTemplateByName(templateName: string): Promise<MailTemp
     };
   } catch (error) {
     debugLog("findTemplateByName: API error:", error);
-    if (typeof error === "object" && error !== null && "body" in error) {
+    if (isObject(error) && "body" in error) {
       debugLog("findTemplateByName: API error body:", JSON.stringify((error as any).body, null, 2));
     }
     throw error;

@@ -7,6 +7,7 @@ import { fileNameData } from "./banner";
 import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { WalkStatus } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { EventType, GroupEventField, DocumentField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { isArray, values } from "es-toolkit/compat";
 
 const groupEvent = new Schema({
   id: {type: String},
@@ -114,7 +115,7 @@ const extendedGroupEventSchema = new Schema({
   events: [walkEvent],
   source: {
     type: String,
-    enum: Object.values(EventSource),
+    enum: values(EventSource),
     default: EventSource.LOCAL
   },
   lastSyncedAt: {type: Date},
@@ -146,7 +147,7 @@ extendedGroupEventSchema.pre("findOneAndUpdate", function(next) {
 });
 
 function deriveStatusFromEvents(doc: any) {
-  if (!doc.events || !Array.isArray(doc.events) || doc.events.length === 0) {
+  if (!doc.events || !isArray(doc.events) || doc.events.length === 0) {
     return;
   }
 

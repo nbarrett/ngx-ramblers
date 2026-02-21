@@ -1,5 +1,6 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
+import { isArray } from "es-toolkit/compat";
 
 const debugLog = createMigrationLogger("fix-admin-action-buttons-layout");
 const TARGET_PATH = "admin#action-buttons";
@@ -17,7 +18,7 @@ export async function up(db: Db, client: MongoClient) {
     return;
   }
 
-  const rows: any[] = Array.isArray(target.rows) ? target.rows : [];
+  const rows: any[] = isArray(target.rows) ? target.rows : [];
   if (!rows.length) {
     debugLog(`Page content at "${TARGET_PATH}" has no rows`);
     return;
@@ -37,7 +38,7 @@ export async function up(db: Db, client: MongoClient) {
     if (row?.type !== "text") {
       return row;
     }
-    const columns: any[] = Array.isArray(row.columns) ? row.columns : [];
+    const columns: any[] = isArray(row.columns) ? row.columns : [];
     if (columns.length <= 1) {
       return row;
     }
@@ -53,29 +54,19 @@ export async function up(db: Db, client: MongoClient) {
   });
 
   const actionRow = updatedRows[actionButtonsIndex] || {};
-  const existingColumns: any[] = Array.isArray(actionRow.columns) ? actionRow.columns : [];
+  const existingColumns: any[] = isArray(actionRow.columns) ? actionRow.columns : [];
 
   const combinedColumns = [...existingColumns, ...extraColumns];
   const seen = new Set<string>();
-  const deDupedColumnsReversed: any[] = [];
   let removed = 0;
 
-  for (let index = combinedColumns.length - 1; index >= 0; index--) {
-    const column = combinedColumns[index];
+  const deDupedColumns = [...combinedColumns].reverse().filter(column => {
     const key = normaliseHref(column?.href);
-    if (!key) {
-      deDupedColumnsReversed.push(column);
-      continue;
-    }
-    if (seen.has(key)) {
-      removed++;
-      continue;
-    }
+    if (!key) return true;
+    if (seen.has(key)) { removed++; return false; }
     seen.add(key);
-    deDupedColumnsReversed.push(column);
-  }
-
-  const deDupedColumns = deDupedColumnsReversed.reverse();
+    return true;
+  }).reverse();
 
   updatedRows[actionButtonsIndex] = {
     ...actionRow,

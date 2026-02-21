@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync } from "fs";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { resolveClientPath } from "../../shared/path-utils";
@@ -24,7 +24,6 @@ export function readLocalTemplate(templateName: string): string | null {
 }
 
 export function localTemplateNames(): string[] {
-  const { readdirSync } = require("fs");
   const dirPath = resolveClientPath(BREVO_TEMPLATES_DIR);
   if (!existsSync(dirPath)) {
     debugLog(`Templates directory not found: ${dirPath}`);

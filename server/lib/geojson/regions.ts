@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import { queryKey } from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { isArray, isString } from "es-toolkit/compat";
+import { isArray, isString, keys } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("regions"));
 debugLog.enabled = false;
@@ -98,7 +98,7 @@ export async function regions(req: Request, res: Response) {
         color: group.color,
         nonGeographic: group.nonGeographic || false
       })),
-      sharedDistricts: Object.keys(sharedDistricts).length > 0 ? sharedDistricts : undefined,
+      sharedDistricts: keys(sharedDistricts).length > 0 ? sharedDistricts : undefined,
       sharedDistrictStyle: systemConfig.area.sharedDistrictStyle,
       mainAreaGroupCodes: selectedGroupCodes
     };

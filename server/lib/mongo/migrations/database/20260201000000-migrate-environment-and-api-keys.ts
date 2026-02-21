@@ -1,5 +1,6 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
+import { keys } from "es-toolkit/compat";
 
 const debugLog = createMigrationLogger("migrate-environment-and-api-keys");
 const CONFIG_COLLECTION = "configs";
@@ -71,7 +72,7 @@ async function migrateApiKeysToSystemConfig(collection: any) {
     debugLog("Will migrate RECAPTCHA_SECRET_KEY");
   }
 
-  if (Object.keys(updates).length === 0) {
+  if (keys(updates).length === 0) {
     debugLog("All API keys already exist in database, skipping");
     return;
   }

@@ -1,4 +1,4 @@
-import { each, includes, isArray, isEmpty, isObject, isString, isUndefined, omit, set } from "es-toolkit/compat";
+import { each, includes, isArray, isEmpty, isObject, isString, isUndefined, keys, omit, set } from "es-toolkit/compat";
 import debug from "debug";
 import mongoose from "mongoose";
 import { DataQueryOptions, MongoId } from "../../../../projects/ngx-ramblers/src/app/models/api-request.model";
@@ -103,7 +103,7 @@ export function convertIdStringsToObjectId(criteria: any): any {
   }
 
   const result: any = {};
-  for (const key of Object.keys(criteria)) {
+  for (const key of keys(criteria)) {
     const value = criteria[key];
     if (key === "_id" && isMongoIdString(value)) {
       result[key] = new mongoose.Types.ObjectId(value);

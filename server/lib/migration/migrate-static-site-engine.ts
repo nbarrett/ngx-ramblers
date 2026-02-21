@@ -12,7 +12,7 @@ import * as mongooseClient from "../mongo/mongoose-client";
 import { pageContent as pageContentModel } from "../mongo/models/page-content";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { first, isString } from "es-toolkit/compat";
+import { first, isArray, isString } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { generateUid, humaniseFileStemFromUrl, pluraliseWithCount, titleCase } from "../shared/string-utils";
 import { AWSConfig } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
@@ -210,7 +210,7 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
       images
     } = await page.evaluate(function scrapeContentEval(contentSelector: string, excludeSelectors: string[]) {
       const node = document.querySelector(contentSelector) || document.body;
-      const selectors = Array.isArray(excludeSelectors) ? excludeSelectors : [];
+      const selectors = isArray(excludeSelectors) ? excludeSelectors : [];
       selectors.forEach(sel => {
         try {
           node.querySelectorAll(sel).forEach(n => n.remove());

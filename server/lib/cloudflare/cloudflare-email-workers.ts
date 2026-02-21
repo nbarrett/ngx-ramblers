@@ -118,14 +118,7 @@ export async function deleteWorkerScript(cloudflareConfig: CloudflareConfig, scr
 
 export function parseRecipientsFromScript(scriptContent: string): string[] {
   const pattern = /"([^"]+@[^"]+)"/g;
-  const recipients: string[] = [];
-  let match: RegExpExecArray | null;
-  match = pattern.exec(scriptContent);
-  while (match !== null) {
-    recipients.push(match[1]);
-    match = pattern.exec(scriptContent);
-  }
-  return recipients;
+  return Array.from(scriptContent.matchAll(pattern)).map(m => m[1]);
 }
 
 export async function fetchWorkerScriptContent(cloudflareConfig: CloudflareConfig, scriptName: string): Promise<string> {

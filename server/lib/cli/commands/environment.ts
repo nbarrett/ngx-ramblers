@@ -278,7 +278,7 @@ export function createEnvironmentCommand(): Command {
 
         const secrets = loadSecretsForEnvironment(envConfig.appName);
         log("\nSecrets file: %s", secrets.path);
-        log("Secrets count: %d", Object.keys(secrets.secrets).length);
+        log("Secrets count: %d", keys(secrets.secrets).length);
 
         if (secrets.secrets.MONGODB_URI) {
           const mongoInfo = parseMongoUri(secrets.secrets.MONGODB_URI);

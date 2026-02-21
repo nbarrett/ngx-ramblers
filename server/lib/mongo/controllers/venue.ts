@@ -7,6 +7,7 @@ import { envConfig } from "../../env-config/env-config";
 import * as transforms from "./transforms";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { postcodeLookupFromPostcodesIo } from "../../addresses/postcode-lookup";
+import { isArray } from "es-toolkit/compat";
 
 const controller = crudController.create<StoredVenue>(venue);
 const debugLog = debug(envConfig.logNamespace("venue"));
@@ -19,7 +20,7 @@ async function geocodeFromPostcode(postcode: string): Promise<{ lat: number; lon
   }
   try {
     const result = await postcodeLookupFromPostcodesIo(trimmedPostcode);
-    const response = Array.isArray(result?.response) ? result.response[0] : result?.response;
+    const response = isArray(result?.response) ? result.response[0] : result?.response;
     if (response?.latlng?.lat && response?.latlng?.lng) {
       debugLog("geocodeFromPostcode: success for", trimmedPostcode, "->", response.latlng);
       return { lat: response.latlng.lat, lon: response.latlng.lng };

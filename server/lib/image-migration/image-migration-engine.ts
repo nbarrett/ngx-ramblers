@@ -21,7 +21,7 @@ import { pageContent } from "../mongo/models/page-content";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { isAwsUploadErrorResponse, generateAwsFileName } from "../aws/aws-utils";
 import * as mongooseClient from "../mongo/mongoose-client";
-import { isArray, keys } from "es-toolkit/compat";
+import { isArray, keys, values } from "es-toolkit/compat";
 import { humanFileSize } from "../../../projects/ngx-ramblers/src/app/functions/file-utils";
 import { createProcessTimer } from "../shared/process-timer";
 import { dateTimeNowAsValue } from "../shared/dates";
@@ -124,21 +124,18 @@ async function resizeImageIfNeeded(buffer: Buffer, imagePath: string, maxFileSiz
   const isPng = imagePath.toLowerCase().endsWith(".png");
   const outputFormat = isPng ? "webp" : "jpeg";
   const maxWidth = 1200;
-  let quality = 80;
-  let resizedBuffer: Buffer = buffer;
-  let resizeAttempt = 0;
 
-  do {
-    resizeAttempt++;
-    resizedBuffer = await sharp(buffer)
+  const resizeWithQuality = async (quality: number, attempt: number): Promise<Buffer> => {
+    const resizedBuffer = await sharp(buffer)
       .resize({ width: maxWidth })
       .toFormat(outputFormat, { quality })
       .toBuffer();
+    debugLog(`resizeImageIfNeeded:attempt ${attempt} for ${imagePath}: ${humanFileSize(buffer.length)} -> ${humanFileSize(resizedBuffer.length)} (quality: ${quality})`);
+    if (resizedBuffer.length > maxFileSize && quality > 10) return resizeWithQuality(quality - 5, attempt + 1);
+    return resizedBuffer;
+  };
 
-    debugLog(`resizeImageIfNeeded:attempt ${resizeAttempt} for ${imagePath}: ${humanFileSize(buffer.length)} -> ${humanFileSize(resizedBuffer.length)} (quality: ${quality})`);
-    quality -= 5;
-  } while (resizedBuffer.length > maxFileSize && quality > 10);
-
+  const resizedBuffer = await resizeWithQuality(80, 1);
   debugLog(`resizeImageIfNeeded:completed for ${imagePath}: ${humanFileSize(buffer.length)} -> ${humanFileSize(resizedBuffer.length)}`);
   return { buffer: resizedBuffer, wasResized: true };
 }
@@ -463,7 +460,7 @@ export async function migrateImages(
 
   timer.log(`updating ${keys(imagesByDocument).length} documents`);
 
-  for (const docGroup of Object.values(imagesByDocument)) {
+  for (const docGroup of values(imagesByDocument)) {
     const documentUrlMapping: UrlMapping = {};
     const documentImages = docGroup.images;
 

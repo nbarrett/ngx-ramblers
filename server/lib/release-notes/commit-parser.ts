@@ -14,26 +14,15 @@ export function parseCommit(raw: string): ConventionalCommit | null {
   const hash = lines[0].trim();
   const shortHash = lines[1].trim();
   const date = lines[2].trim();
-  const messageLines = lines.slice(3);
-  const subject = (messageLines.shift() || "").trim();
-  while (messageLines.length > 0 && !messageLines[0].trim()) {
-    messageLines.shift();
-  }
+  const rawMessageLines = lines.slice(3);
+  const subject = (rawMessageLines.shift() || "").trim();
+  const firstNonEmpty = rawMessageLines.findIndex(l => l.trim());
+  const trimmedMessageLines = firstNonEmpty >= 0 ? rawMessageLines.slice(firstNonEmpty) : [];
 
-  const bodyLines: string[] = [];
-  let footerStart = messageLines.length;
-
-  for (let i = 0; i < messageLines.length; i++) {
-    const line = messageLines[i];
-    if (line.match(/^[A-Z][a-z-]+:/)) {
-      footerStart = i;
-      break;
-    }
-    bodyLines.push(line);
-  }
-
-  const body = bodyLines.join("\n").trim();
-  const footer = messageLines.slice(footerStart).join("\n").trim();
+  const footerStartIdx = trimmedMessageLines.findIndex(line => /^[A-Z][a-z-]+:/.test(line));
+  const effectiveFooterStart = footerStartIdx >= 0 ? footerStartIdx : trimmedMessageLines.length;
+  const body = trimmedMessageLines.slice(0, effectiveFooterStart).join("\n").trim();
+  const footer = trimmedMessageLines.slice(effectiveFooterStart).join("\n").trim();
 
   const match = subject.match(CONVENTIONAL_COMMIT_REGEX);
   if (!match) {

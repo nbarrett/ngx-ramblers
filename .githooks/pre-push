@@ -10,7 +10,7 @@ echo "Running pre-push checks..."
 
 run_lint() {
   cd "$ROOT_DIR"
-  npm run lint
+  npm run lint:all
 }
 
 run_frontend_tests() {

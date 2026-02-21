@@ -21,7 +21,7 @@ import { putObjectDirect } from "../aws/aws-controllers";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
 import { SpatialFeatureModel } from "../mongo/models/spatial-feature";
 import { dateTimeNowAsValue } from "../shared/dates";
-import { isNumber, isString } from "es-toolkit/compat";
+import { isArray, isNumber, isString, keys } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("map-route-import-ws"));
 debugLog.enabled = true;
@@ -94,7 +94,7 @@ export async function handleEsriRouteImport(ws: WebSocket, data: any): Promise<v
     sendProgress("Original ESRI file uploaded", 45);
 
     const gpxFiles: MapRouteImportGroupedFile[] = [];
-    const groupKeys = Object.keys(grouped);
+    const groupKeys = keys(grouped);
     let processedGroups = 0;
 
     for (const [statusDesc, features] of Object.entries(grouped)) {
@@ -191,31 +191,30 @@ async function parseShapefileZip(zipPath: string, sendProgress: (message: string
       throw new Error("Unable to locate .shp/.dbf files in archive");
     }
 
-    const features: Feature[] = [];
     sendProgress("Opening shapefile...", 15);
     const source = await shapefile.open(shapefilePaths.shp, shapefilePaths.dbf);
 
-    let result = await source.read();
-    let count = 0;
-    while (!result.done) {
-      features.push({
+    const collectFeatures = async (acc: Feature[], count: number): Promise<Feature[]> => {
+      const result = await source.read();
+      if (result.done) return acc;
+      const newCount = count + 1;
+      if (newCount % 5000 === 0) {
+        sendProgress(`Reading features: ${newCount}...`, 15 + (newCount / 25000) * 5);
+      }
+      return collectFeatures([...acc, {
         type: "Feature",
         geometry: result.value.geometry as Geometry,
         properties: result.value.properties
-      });
-      count++;
-      if (count % 5000 === 0) {
-        sendProgress(`Reading features: ${count}...`, 15 + (count / 25000) * 5);
-      }
-      result = await source.read();
-    }
+      }], newCount);
+    };
+    const features: Feature[] = await collectFeatures([], 0);
 
     debugLog("parseShapefileZip: finished reading", features.length, "features");
     if (features.length > 0) {
       const allPropertyKeys = new Set<string>();
       features.forEach(f => {
         if (f.properties) {
-          Object.keys(f.properties).forEach(key => allPropertyKeys.add(key));
+          keys(f.properties).forEach(key => allPropertyKeys.add(key));
         }
       });
       debugLog("parseShapefileZip: all unique property keys found:", Array.from(allPropertyKeys));
@@ -435,7 +434,7 @@ function transformGeometryIfNeeded(geometry: Geometry, projection: ProjectionMet
 }
 
 function simplifyCoordinates(coordinates: any, tolerance: number): any {
-  if (!Array.isArray(coordinates) || coordinates.length === 0) {
+  if (!isArray(coordinates) || coordinates.length === 0) {
     return coordinates;
   }
   if (isNumber(coordinates[0])) {
@@ -445,12 +444,12 @@ function simplifyCoordinates(coordinates: any, tolerance: number): any {
     if (coordinates.length <= 10) {
       return coordinates;
     }
-    const simplified: any[] = [coordinates[0]];
     const step = Math.max(1, Math.floor(coordinates.length * tolerance));
-    for (let i = step; i < coordinates.length - 1; i += step) {
-      simplified.push(coordinates[i]);
-    }
-    simplified.push(coordinates[coordinates.length - 1]);
+    const stepIndices = Array.from(
+      {length: Math.floor((coordinates.length - 2) / step)},
+      (_, k) => step * (k + 1)
+    ).filter(i => i < coordinates.length - 1);
+    const simplified = [coordinates[0], ...stepIndices.map(i => coordinates[i]), coordinates[coordinates.length - 1]];
     return simplified;
   }
   return coordinates.map((segment: any) => simplifyCoordinates(segment, tolerance));

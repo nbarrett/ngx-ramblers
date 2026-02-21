@@ -4,13 +4,13 @@ import { LogViewerConfig } from "./cli.model";
 import { log } from "./cli-logger";
 
 async function waitForLogFiles(config: LogViewerConfig, timeoutMs: number = 30000): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    if (fs.existsSync(config.frontendLogPath) || fs.existsSync(config.backendLogPath)) {
-      return;
-    }
+  const pollForLogFiles = async (elapsed: number): Promise<void> => {
+    if (elapsed >= timeoutMs) return;
+    if (fs.existsSync(config.frontendLogPath) || fs.existsSync(config.backendLogPath)) return;
     await new Promise(resolve => setTimeout(resolve, 500));
-  }
+    return pollForLogFiles(elapsed + 500);
+  };
+  await pollForLogFiles(0);
 }
 
 function isTmuxAvailable(): boolean {

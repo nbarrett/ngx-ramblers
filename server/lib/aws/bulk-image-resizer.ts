@@ -277,30 +277,27 @@ async function resizeImage(initialImage: Buffer, imagePath: string, maxFileSize:
     }));
     return Promise.resolve(null);
   } else {
-    let resizeAttempt = 0;
-    let quality = 80;
-    let buffer: Buffer;
     const isPng = imagePath.endsWith(".png");
     const outputFormat = isPng ? "webp" : "jpeg";
     const imageName = lastItemFrom(imagePath);
-    do {
-      resizeAttempt++;
-      buffer = await sharp(initialImage)
+    const percent = Math.round((itemNumber / totalImages) * 100);
+    const resizeWithQuality = async (quality: number, attempt: number): Promise<Buffer> => {
+      const buffer = await sharp(initialImage)
         .resize({width: maxWidth})
         .toFormat(outputFormat, {quality})
         .toBuffer();
-      const percent = Math.round((itemNumber / totalImages) * 100);
       const resizeMessage: ProgressResponse = {
-        message: `Resize attempt ${resizeAttempt} for ${imageName} from ${humanFileSize(initialImage.length)} to ${humanFileSize(buffer.length)} with maxWidth ${maxWidth}px, ${outputFormat} format with quality ${quality}`,
+        message: `Resize attempt ${attempt} for ${imageName} from ${humanFileSize(initialImage.length)} to ${humanFileSize(buffer.length)} with maxWidth ${maxWidth}px, ${outputFormat} format with quality ${quality}`,
         percent
       };
       ws.send(JSON.stringify({
         type: MessageType.PROGRESS,
         data: resizeMessage
       }));
-      debugLog(`✅ Resize attempt ${resizeAttempt} for ${imageName} from ${humanFileSize(initialImage.length)} to ${humanFileSize(buffer.length)} with maxWidth ${maxWidth}px, ${outputFormat} format with quality ${quality}`);
-      quality -= 5;
-    } while (buffer.length > maxFileSize && quality > 10);
-    return buffer;
+      debugLog(`✅ Resize attempt ${attempt} for ${imageName} from ${humanFileSize(initialImage.length)} to ${humanFileSize(buffer.length)} with maxWidth ${maxWidth}px, ${outputFormat} format with quality ${quality}`);
+      if (buffer.length > maxFileSize && quality > 10) return resizeWithQuality(quality - 5, attempt + 1);
+      return buffer;
+    };
+    return resizeWithQuality(80, 1);
   }
 }

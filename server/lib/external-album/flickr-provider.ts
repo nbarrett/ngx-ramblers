@@ -454,10 +454,8 @@ async function fetchAlbumPageViaHttp(
   let albumOwner: { username?: string; id?: string } | undefined;
   let albumTotalPhotos: number | null = null;
   let pageOneChunkSize = 0;
-  let page = 1;
-  const hasMore = true;
 
-  while (hasMore) {
+  const fetchPage = async (page: number): Promise<FlickrScrapedAlbumData | null> => {
     const pageUrl = page === 1 ? baseUrl : `${baseUrl}/page${page}`;
     debugLog("fetchAlbumPageViaHttp: fetching page", page, pageUrl);
 
@@ -465,8 +463,6 @@ async function fetchAlbumPageViaHttp(
       onProgress(`Fetching page ${page}...`);
     }
 
-    let html = "";
-    let pageData: FlickrScrapedAlbumData | null = null;
     const response = await fetch(pageUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -479,16 +475,16 @@ async function fetchAlbumPageViaHttp(
       if (page === 1) {
         throw new Error(`Failed to fetch album page: ${response.status} ${response.statusText}`);
       }
-      break;
+      return null;
     }
 
-    html = await response.text();
+    const html = await response.text();
     await saveHtmlSnapshot(`page-${page}`, pageUrl, html);
-    pageData = extractModelExportFromHtml(html);
+    let pageData = extractModelExportFromHtml(html);
 
     if (!pageData || pageData.photos.length === 0) {
       debugLog("fetchAlbumPageViaHttp: no more photos on page", page);
-      break;
+      return null;
     }
 
     if (page === 1) {
@@ -554,15 +550,21 @@ async function fetchAlbumPageViaHttp(
 
     if (expectedPhotoCount && allPhotos.length >= expectedPhotoCount * 0.95) {
       debugLog("fetchAlbumPageViaHttp: reached expected count");
-      break;
+      return null;
     }
 
     if (newPhotos.length === 0) {
       debugLog("fetchAlbumPageViaHttp: no new photos on page", page);
-      break;
+      return null;
     }
 
-    page++;
+    return fetchPage(page + 1);
+  };
+
+  const chunkResult = await fetchPage(1);
+
+  if (chunkResult && chunkResult.title && chunkResult.photos) {
+    return chunkResult;
   }
 
   if (allPhotos.length === 0) {

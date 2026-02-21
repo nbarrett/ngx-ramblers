@@ -20,6 +20,7 @@ import {
 } from "./types";
 import { Environment } from "../lib/env-config/environment-model";
 import { envConfig } from "../lib/env-config/env-config";
+import { keys } from "es-toolkit/compat";
 
 const defaults = {
   environmentName: "staging",
@@ -80,7 +81,7 @@ async function queryAppConfig(appName: string): Promise<{ memory: string; count:
   try {
     const output = runCommand(`flyctl scale show --app ${appName} --json`, true, true);
     const config = JSON.parse(output);
-    const hasMachines = config.count > 0 || (config.processes && Object.keys(config.processes).length > 0);
+    const hasMachines = config.count > 0 || (config.processes && keys(config.processes).length > 0);
     return {
       memory: config.memory || FLYIO_DEFAULTS.MEMORY,
       count: config.count || 0,

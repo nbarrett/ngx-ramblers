@@ -1,18 +1,19 @@
 import { ExclusionsConfig } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
+import { isArray } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("text-exclusions"));
 
 export function coerceList(value: string[] | string | undefined): string[] {
   if (!value) return []
-  if (Array.isArray(value)) return value.filter(Boolean)
+  if (isArray(value)) return value.filter(Boolean)
   return String(value).split(/\r?\n|,|;/).map(s => s.trim()).filter(Boolean)
 }
 
 export function coerceBlocks(value: string | string[] | undefined): string[] {
   if (!value) return []
-  if (Array.isArray(value)) return value.filter(Boolean)
+  if (isArray(value)) return value.filter(Boolean)
   const normalized = String(value).replace(/\r\n/g, "\n")
   return normalized.split(/\n\s*-{3,}\s*\n/).map(s => s.trim()).filter(Boolean)
 }
@@ -177,14 +178,12 @@ export function removeHtmlAttributes(input: string, attributes: string[]): strin
 }
 
 export function removeInlineCssRules(input: string): string {
-  let out = input
   const cssRule = /(^|\s)(?:[.#][a-zA-Z0-9_-]+|body|h[1-6]|p|div|span)\s*\{[^}]*\}/gms
-  let prev
-  do {
-    prev = out
-    out = out.replace(cssRule, " ")
-  } while (out !== prev)
-  return out
+  const stabilize = (current: string): string => {
+    const next = current.replace(cssRule, " ")
+    return next === current ? current : stabilize(next)
+  }
+  return stabilize(input)
 }
 
 export function removeAttributeLists(input: string): string {

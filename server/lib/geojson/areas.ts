@@ -10,7 +10,7 @@ import { Readable } from "stream";
 import { systemConfig } from "../config/system-config";
 import { queryKey, createOrUpdateKey } from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { isFunction } from "es-toolkit/compat";
+import { isArray, isFunction, isNumber, isString, keys } from "es-toolkit/compat";
 import {
   EventPopulation,
   Organisation,
@@ -19,7 +19,6 @@ import {
 import { WalkListView } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { dateTimeNow } from "../shared/dates";
 import { DateFormat, RamblersGroupsApiResponse } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
-import { isArray, isNumber, isString } from "es-toolkit/compat";
 import { fetchAllRamblersAreas, fetchRamblersGroupsFromApi } from "../ramblers/list-groups";
 import { isBlob } from "es-toolkit";
 
@@ -143,16 +142,12 @@ async function bodyToString(body: any): Promise<string> {
 
   if (isFunction(body?.getReader)) {
     const reader = body.getReader();
-    const chunks: Uint8Array[] = [];
-    while (true) {
+    const collectChunks = async (acc: Uint8Array[]): Promise<Uint8Array[]> => {
       const { value, done } = await reader.read();
-      if (done) {
-        break;
-      }
-      if (value) {
-        chunks.push(value);
-      }
-    }
+      if (done) return acc;
+      return collectChunks(value ? [...acc, value] : acc);
+    };
+    const chunks = await collectChunks([]);
     return Buffer.concat(chunks).toString("utf-8");
   }
 
@@ -240,7 +235,7 @@ export async function areas(req: Request, res: Response) {
       }
 
       const lowerAreaName = normalizedAreaName.toLowerCase();
-      const matchedKey = Object.keys(mappings).find(key => key.toLowerCase() === lowerAreaName);
+      const matchedKey = keys(mappings).find(key => key.toLowerCase() === lowerAreaName);
       return matchedKey ? mappings[matchedKey] : undefined;
     };
 
@@ -354,7 +349,7 @@ async function batchAreas(req: Request, res: Response, areaNames: string[]) {
     for (const areaName of areaNames) {
       const normalizedAreaName = areaName.trim();
       const lowerAreaName = normalizedAreaName.toLowerCase();
-      const matchedKey = Object.keys(mappings).find(key => key.toLowerCase() === lowerAreaName) || normalizedAreaName;
+      const matchedKey = keys(mappings).find(key => key.toLowerCase() === lowerAreaName) || normalizedAreaName;
       const targetNames = mappings[matchedKey];
 
       if (!targetNames) {
@@ -672,7 +667,7 @@ export async function previewAreaDistricts(req: Request, res: Response) {
     const areaNameParam = isString(req.query.areaName) ? req.query.areaName.trim() : "";
     const areaCodeParam = isString(req.query.areaCode) ? req.query.areaCode.trim().toUpperCase() : "";
     const areaCodesParam = isString(req.query.areaCodes) ? req.query.areaCodes.trim().toUpperCase() : "";
-    const exclusiveParam = req.query.exclusive !== "false"; // default to exclusive
+    const exclusiveParam = req.query.exclusive !== "false";
 
     if (!areaNameParam && !areaCodeParam && !areaCodesParam) {
       return res.status(200).json({

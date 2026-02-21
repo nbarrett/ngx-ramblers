@@ -38,14 +38,11 @@ function headers(apiToken: string): Record<string, string> {
 }
 
 export async function listDestinationAddresses(cloudflareConfig: CloudflareConfig): Promise<DestinationAddress[]> {
-  const allAddresses: DestinationAddress[] = [];
-  let page = 1;
   const perPage = 50;
-  let hasMore = true;
 
   debugLog("Listing destination addresses for account:", cloudflareConfig.accountId);
 
-  do {
+  const collectPage = async (page: number, acc: DestinationAddress[]): Promise<DestinationAddress[]> => {
     const url = `${baseUrl(cloudflareConfig.accountId)}?page=${page}&per_page=${perPage}`;
     const response = await fetch(url, {
       headers: headers(cloudflareConfig.apiToken)
@@ -58,16 +55,13 @@ export async function listDestinationAddresses(cloudflareConfig: CloudflareConfi
       throw new Error(`Failed to list destination addresses: ${errorMsg}`);
     }
 
-    allAddresses.push(...data.result);
+    const newAcc = [...acc, ...data.result];
+    const hasMore = data.result_info ? page < data.result_info.total_pages : data.result.length === perPage;
+    if (hasMore) return collectPage(page + 1, newAcc);
+    return newAcc;
+  };
 
-    if (data.result_info) {
-      hasMore = page < data.result_info.total_pages;
-    } else {
-      hasMore = data.result.length === perPage;
-    }
-    page++;
-  } while (hasMore);
-
+  const allAddresses = await collectPage(1, []);
   debugLog("Found %d destination addresses", allAddresses.length);
   return allAddresses;
 }
