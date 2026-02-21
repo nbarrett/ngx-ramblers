@@ -28,7 +28,6 @@ const sensitiveKeys = new Set([
   "userName",
   "uri",
   "secretKey",
-  "siteKey",
 ]);
 
 const adminOnlyConfigKeys = new Set([

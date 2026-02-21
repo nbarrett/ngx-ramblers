@@ -719,7 +719,6 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   markdownLink(committeeMember: CommitteeMember) {
     const name = this.memberNamingService.firstAndLastNameFrom(committeeMember?.fullName);
     const path = this.urlService.pathSegments().join("/");
-    const editParam = committeeMember?.type ? "&edit=" + committeeMember.type : "";
-    return name ? "[Contact " + name?.firstName + "](?contact-us&role=" + committeeMember?.type + "&redirect=" + path + editParam + ")" : null;
+    return name ? "[Contact " + name?.firstName + "](?contact-us&role=" + committeeMember?.type + "&redirect=" + path + ")" : null;
   }
 }
