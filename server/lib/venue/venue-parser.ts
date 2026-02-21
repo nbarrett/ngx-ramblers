@@ -1,6 +1,6 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { isEmpty, isString } from "es-toolkit/compat";
+import { isArray, isEmpty, isString } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("venue-parser"));
 
@@ -646,11 +646,11 @@ function extractJsonLdVenue(html: string): ParsedVenue | null {
       const jsonContent = match.replace(/<script[^>]*>/gi, "").replace(/<\/script>/gi, "").trim();
       const data = JSON.parse(jsonContent);
 
-      const items = Array.isArray(data) ? data : [data];
+      const items = isArray(data) ? data : [data];
       for (const item of items) {
         const types = ["Restaurant", "BarOrPub", "CafeOrCoffeeShop", "LocalBusiness", "FoodEstablishment", "Place"];
         const itemType = item["@type"];
-        if (types.includes(itemType) || (Array.isArray(itemType) && itemType.some(t => types.includes(t)))) {
+        if (types.includes(itemType) || (isArray(itemType) && itemType.some(t => types.includes(t)))) {
           const venue: ParsedVenue = {};
 
           if (item.name) {
@@ -659,7 +659,7 @@ function extractJsonLdVenue(html: string): ParsedVenue | null {
 
           if (item.address) {
             const addr = item.address;
-            if (typeof addr === "string") {
+            if (isString(addr)) {
               venue.address1 = decodeHtmlEntities(addr);
             } else if (addr.streetAddress) {
               venue.address1 = decodeHtmlEntities(String(addr.streetAddress));
@@ -733,13 +733,12 @@ function cleanVenueName(name: string): string {
   if (!name) return "";
   let cleaned = name.trim();
 
-  // Split on common title separators - use multiple approaches for robustness
   const separatorPatterns = [
-    /\s+[|]\s+/,           // pipe with spaces
-    /\s+[-]\s+/,           // hyphen with spaces
-    /\s+[–]\s+/,           // en-dash with spaces (U+2013)
-    /\s+[—]\s+/,           // em-dash with spaces (U+2014)
-    /\s*:\s+/              // colon (typically title: subtitle)
+    /\s+[|]\s+/,
+    /\s+[-]\s+/,
+    /\s+[–]\s+/,
+    /\s+[—]\s+/,
+    /\s*:\s+/
   ];
 
   for (const pattern of separatorPatterns) {

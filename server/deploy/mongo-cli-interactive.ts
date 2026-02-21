@@ -14,6 +14,7 @@ import { isUndefined } from "es-toolkit/compat";
 import { dateTimeFromJsDate, dateTimeNow } from "../lib/shared/dates";
 import { buildMongoUri } from "../lib/shared/mongodb-uri";
 import { uploadDirectoryToS3 } from "../lib/aws/s3-utils";
+import { cliLogger } from "../lib/cli/cli-logger";
 
 interface BackupAnswers {
   environment: string;
@@ -36,9 +37,9 @@ async function main() {
   const configs: EnvironmentConfig[] = await loadConfigs();
   const dumpBaseDir = path.join(process.cwd(), "../non-vcs/dump");
 
-  console.log("\n🗄️  MongoDB Backup & Restore CLI\n");
+  cliLogger.log("\n🗄️  MongoDB Backup & Restore CLI\n");
 
-  while (true) {
+  const runLoop = async (): Promise<void> => {
     const action = await select({
       message: "What would you like to do?",
       choices: [
@@ -51,28 +52,25 @@ async function main() {
     });
 
     if (action === "exit") {
-      console.log("\n👋 Goodbye!\n");
+      cliLogger.log("\n👋 Goodbye!\n");
       process.exit(0);
     }
 
     if (action === "list") {
       await listBackups(dumpBaseDir);
-      continue;
-    }
-
-    if (action === "environments") {
+    } else if (action === "environments") {
       listEnvironments(configs);
-      continue;
-    }
-
-    if (action === "backup") {
+    } else if (action === "backup") {
       await runBackup(configs, dumpBaseDir);
     } else if (action === "restore") {
       await runRestore(configs, dumpBaseDir);
     }
 
-    console.log("\n");
-  }
+    cliLogger.log("\n");
+    return runLoop();
+  };
+
+  await runLoop();
 }
 
 async function runBackup(configs: EnvironmentConfig[], dumpBaseDir: string) {
@@ -84,7 +82,7 @@ async function runBackup(configs: EnvironmentConfig[], dumpBaseDir: string) {
     }));
 
   if (envChoices.length === 0) {
-    console.log("❌ No environments with MongoDB configuration found!");
+    cliLogger.log("❌ No environments with MongoDB configuration found!");
     process.exit(1);
   }
 
@@ -118,7 +116,7 @@ async function runBackup(configs: EnvironmentConfig[], dumpBaseDir: string) {
     default: false
   });
 
-  console.log("\n📦 Starting backup...\n");
+  cliLogger.log("\n📦 Starting backup...\n");
 
   const envs = environment === "all" ? configs.filter(c => c.mongo) : [config!];
 
@@ -154,14 +152,14 @@ async function runBackup(configs: EnvironmentConfig[], dumpBaseDir: string) {
     let originalScaleCount: number | undefined;
     if (scaleDown) {
       originalScaleCount = env.scaleCount;
-      console.log(`⏬ Scaling down ${env.name}...`);
+      cliLogger.log(`⏬ Scaling down ${env.name}...`);
       await execCommand("flyctl", ["scale", "count", "0", "--app", env.appName]);
     }
 
     try {
-      console.log(`💾 Running mongodump for ${env.name}...`);
+      cliLogger.log(`💾 Running mongodump for ${env.name}...`);
       await execCommand("mongodump", dumpArgs);
-      console.log(`✅ Backup completed: ${outDir}`);
+      cliLogger.log(`✅ Backup completed: ${outDir}`);
 
       if (upload) {
         const awsConfig = await getAwsConfigForEnvironment(env.name);
@@ -175,7 +173,7 @@ async function runBackup(configs: EnvironmentConfig[], dumpBaseDir: string) {
           continue;
         }
 
-        console.log(`☁️  Uploading to S3 (${s3Bucket})...`);
+        cliLogger.log(`☁️  Uploading to S3 (${s3Bucket})...`);
         const s3Config: any = { region: s3Region };
         if (s3AccessKeyId && s3SecretAccessKey) {
           s3Config.credentials = {
@@ -186,24 +184,24 @@ async function runBackup(configs: EnvironmentConfig[], dumpBaseDir: string) {
         const s3 = new S3Client(s3Config);
         const s3Key = path.join("backups", backupName).replace(/\\/g, "/");
         await uploadDirectoryToS3(s3, outDir, s3Bucket, s3Key, () => process.stdout.write("."));
-        console.log(`\n✅ Uploaded to s3://${s3Bucket}/${s3Key}`);
+        cliLogger.log(`\n✅ Uploaded to s3://${s3Bucket}/${s3Key}`);
       }
     } finally {
       if (scaleDown && !isUndefined(originalScaleCount)) {
-        console.log(`⏫ Restoring scale count for ${env.name}...`);
+        cliLogger.log(`⏫ Restoring scale count for ${env.name}...`);
         await execCommand("flyctl", ["scale", "count", originalScaleCount.toString(), "--app", env.appName]);
       }
     }
   }
 
-  console.log("\n✨ All backups completed!\n");
+  cliLogger.log("\n✨ All backups completed!\n");
 }
 
 async function runRestore(configs: EnvironmentConfig[], dumpBaseDir: string) {
   const backups = await listBackupsForSelection(dumpBaseDir);
 
   if (backups.length === 0) {
-    console.log("❌ No backups found!");
+    cliLogger.log("❌ No backups found!");
     process.exit(1);
   }
 
@@ -256,7 +254,7 @@ async function runRestore(configs: EnvironmentConfig[], dumpBaseDir: string) {
     });
 
     if (!confirmRestore) {
-      console.log("❌ Restore cancelled.");
+      cliLogger.log("❌ Restore cancelled.");
       return;
     }
   }
@@ -296,14 +294,14 @@ async function runRestore(configs: EnvironmentConfig[], dumpBaseDir: string) {
   }
 
   if (dryRun) {
-    console.log("\n🔍 DRY RUN - Would execute:");
-    console.log(`mongorestore ${restoreArgs.join(" ")}\n`);
+    cliLogger.log("\n🔍 DRY RUN - Would execute:");
+    cliLogger.log(`mongorestore ${restoreArgs.join(" ")}\n`);
     return;
   }
 
-  console.log("\n♻️  Starting restore...\n");
+  cliLogger.log("\n♻️  Starting restore...\n");
   await execCommand("mongorestore", restoreArgs);
-  console.log(`\n✅ Restore completed to ${environment}!\n`);
+  cliLogger.log(`\n✅ Restore completed to ${environment}!\n`);
 }
 
 async function listBackups(dumpBaseDir: string) {
@@ -325,19 +323,19 @@ async function listBackups(dumpBaseDir: string) {
     }
 
     if (backups.length === 0) {
-      console.log("📋 No backups found.\n");
+      cliLogger.log("📋 No backups found.\n");
       return;
     }
 
     backups.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-    console.log("\n📋 Available Backups:\n");
+    cliLogger.log("\n📋 Available Backups:\n");
     backups.forEach((backup, index) => {
-      console.log(`${index + 1}. ${backup.name}`);
-      console.log(`   Created: ${backup.timestamp.toLocaleString()}\n`);
+      cliLogger.log(`${index + 1}. ${backup.name}`);
+      cliLogger.log(`   Created: ${backup.timestamp.toLocaleString()}\n`);
     });
   } catch {
-    console.log("📋 No backups found.\n");
+    cliLogger.log("📋 No backups found.\n");
   }
 }
 
@@ -370,12 +368,12 @@ async function listBackupsForSelection(dumpBaseDir: string): Promise<{
 }
 
 function listEnvironments(configs: EnvironmentConfig[]) {
-  console.log("\n🌍 Configured Environments:\n");
+  cliLogger.log("\n🌍 Configured Environments:\n");
   configs.forEach((config, index) => {
     const hasMongoString = config.mongo ? `✅ ${config.mongo.db}` : "❌ No MongoDB";
-    console.log(`${index + 1}. ${config.name} - ${hasMongoString}`);
+    cliLogger.log(`${index + 1}. ${config.name} - ${hasMongoString}`);
   });
-  console.log();
+  cliLogger.log("");
 }
 
 async function execCommand(cmd: string, args: string[]): Promise<void> {

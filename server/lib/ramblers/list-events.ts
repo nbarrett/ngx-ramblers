@@ -1,5 +1,5 @@
 import debug from "debug";
-import { isEmpty } from "es-toolkit/compat";
+import { isArray, isEmpty } from "es-toolkit/compat";
 import {
   ALL_EVENT_TYPES,
   DateFormat,
@@ -142,24 +142,21 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
       };
 
       if (rawData && !ids) {
-        let offset = 0;
-        const allEvents: GroupEvent[] = [];
-        let totalEvents = 0;
-
-        while (true) {
+        const fetchAllPages = async (offset: number, acc: GroupEvent[]): Promise<{events: GroupEvent[]; total: number}> => {
           debugLog(`Fetching page at offset ${offset}, limit ${limit}`);
           const pageResponse = await fetchPage(buildParameters(offset));
           const {data, summary} = pageResponse.response;
-          allEvents.push(...data);
-          totalEvents = summary.total;
-          debugLog(`Fetched ${data.length} events, total so far: ${allEvents.length} of ${totalEvents}`);
-
-          offset += limit;
-          if (offset >= totalEvents) {
-            debugLog(`Finished pagination: fetched all ${allEvents.length} events`);
-            break;
+          const newAcc = [...acc, ...data];
+          const totalEvents = summary.total;
+          debugLog(`Fetched ${data.length} events, total so far: ${newAcc.length} of ${totalEvents}`);
+          const nextOffset = offset + limit;
+          if (nextOffset >= totalEvents) {
+            debugLog(`Finished pagination: fetched all ${newAcc.length} events`);
+            return {events: newAcc, total: totalEvents};
           }
-        }
+          return fetchAllPages(nextOffset, newAcc);
+        };
+        const {events: allEvents, total: totalEvents} = await fetchAllPages(0, []);
 
         await cacheEvents(allEvents);
 
@@ -269,7 +266,7 @@ async function queryBasedOnExistingEvent(existingEvent: ExtendedGroupEvent, body
 function transformEventsResponse(config: SystemConfig): (response: RamblersGroupEventsRawApiResponse) => RamblersEventSummaryResponse[] {
   return (response: RamblersGroupEventsRawApiResponse): RamblersEventSummaryResponse[] => {
     debugLog("transformEventsResponse:", response);
-    if (!response.data || !Array.isArray(response.data)) {
+    if (!response.data || !isArray(response.data)) {
       debugLog("Warning: response.data is undefined or not an array, returning empty array");
       return [];
     }

@@ -3,6 +3,7 @@ import { envConfig } from "../env-config/env-config";
 import type { PageContent } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import type { AuthResponse } from "../../../projects/ngx-ramblers/src/app/models/auth-data.model";
 import { pluraliseWithCount } from "./string-utils";
+import { isArray, keys } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("shared:cms-client"));
 debugLog.enabled = true;
@@ -52,7 +53,7 @@ export async function login(baseUrl: string, username: string, password: string)
   debugLog("Login response:", JSON.stringify(data, null, 2));
 
   if (!data.tokens || !data.tokens.auth) {
-    const receivedKeys = Object.keys(data || {}).join(", ");
+    const receivedKeys = keys(data || {}).join(", ");
     throw new Error(`Login response did not contain auth token. Received fields: ${receivedKeys}`);
   }
 
@@ -107,9 +108,9 @@ export async function pageContent(auth: CMSAuth, path: string): Promise<PageCont
       path: data.response.path,
       rows: data.response.rows || []
     };
-  } else if (Array.isArray(data) && data.length > 0) {
+  } else if (isArray(data) && data.length > 0) {
     result = data[0];
-  } else if (data && !Array.isArray(data)) {
+  } else if (data && !isArray(data)) {
     result = data;
   }
 

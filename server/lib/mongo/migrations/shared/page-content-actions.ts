@@ -1,4 +1,5 @@
 import { Db } from "mongodb";
+import { isArray } from "es-toolkit/compat";
 
 export interface ActionButtonColumn {
   accessLevel?: string;
@@ -53,7 +54,7 @@ function hasExistingColumn(columns: any[], href: string): boolean {
 }
 
 function actionButtonsRowIndex(rows: any[]): number {
-  if (!Array.isArray(rows)) {
+  if (!isArray(rows)) {
     return -1;
   }
   return rows.findIndex(row => row?.type === "action-buttons");
@@ -68,7 +69,7 @@ export async function ensureActionButton(db: Db, path: string, column: ActionBut
     return false;
   }
 
-  const rows: any[] = Array.isArray(target.rows) ? target.rows : [];
+  const rows: any[] = isArray(target.rows) ? target.rows : [];
   if (rows.length === 0) {
     log(`Page content at "${path}" has no rows to append the action button to`);
     return false;

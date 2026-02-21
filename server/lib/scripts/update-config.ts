@@ -4,6 +4,7 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { login, CMSAuth } from "../release-notes/cms-client";
 import { ConfigUpdateArguments, DEFAULT_CMS_BASE_URL } from "../release-notes/models";
+import { isObject } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("scripts:update-config"));
 debugLog.enabled = true;
@@ -57,7 +58,7 @@ function setValueAtPath(obj: any, path: string, value: any): void {
   let current = obj;
 
   parts.slice(0, -1).forEach(part => {
-    if (!(part in current) || typeof current[part] !== "object") {
+    if (!(part in current) || !isObject(current[part])) {
       current[part] = {};
     }
     current = current[part];
@@ -74,38 +75,33 @@ function valueAtPath(obj: any, path: string): any {
 }
 
 function parseCommandLineArguments(args: string[]): ConfigUpdateArguments {
-  const result: ConfigUpdateArguments = {
+  const initial: ConfigUpdateArguments & {skipNext: boolean} = {
     action: "",
     configKey: undefined,
     baseUrl: process.env.CMS_BASE_URL || DEFAULT_CMS_BASE_URL,
     sets: [],
-    dryRun: false
+    dryRun: false,
+    skipNext: false
   };
 
-  let i = 0;
-  while (i < args.length) {
-    const arg = args[i];
-
+  const {skipNext: _, ...result} = args.reduce((acc, arg, i) => {
+    if (acc.skipNext) return {...acc, skipNext: false};
     if (arg === "--base-url" && i + 1 < args.length) {
-      result.baseUrl = args[++i];
-    } else if (arg === "--set" && i + 1 < args.length) {
-      const setValue = args[++i];
-      const eqIndex = setValue.indexOf("=");
-      if (eqIndex > 0) {
-        result.sets.push({
-          path: setValue.substring(0, eqIndex),
-          value: setValue.substring(eqIndex + 1)
-        });
-      }
-    } else if (arg === "--dry-run") {
-      result.dryRun = true;
-    } else if (!result.action) {
-      result.action = arg;
-    } else if (!result.configKey) {
-      result.configKey = arg;
+      return {...acc, baseUrl: args[i + 1], skipNext: true};
     }
-    i++;
-  }
+    if (arg === "--set" && i + 1 < args.length) {
+      const setValue = args[i + 1];
+      const eqIndex = setValue.indexOf("=");
+      const newSets = eqIndex > 0
+        ? [...acc.sets, {path: setValue.substring(0, eqIndex), value: setValue.substring(eqIndex + 1)}]
+        : acc.sets;
+      return {...acc, sets: newSets, skipNext: true};
+    }
+    if (arg === "--dry-run") return {...acc, dryRun: true};
+    if (!acc.action) return {...acc, action: arg};
+    if (!acc.configKey) return {...acc, configKey: arg};
+    return acc;
+  }, initial);
 
   return result;
 }

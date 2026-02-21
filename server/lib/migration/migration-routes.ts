@@ -184,30 +184,27 @@ function looksLikeVenuePath(path: string): boolean {
 
 function extractTopLevelLinks(html: string, baseUrl: string): string[] {
   const linkRegex = /<a[^>]+href=["']([^"'#]+)["'][^>]*>/gi;
-  const links = new Set<string>();
-  let match;
-
-  while ((match = linkRegex.exec(html)) !== null) {
-    let href = match[1].trim();
-    if (!href || href.startsWith("javascript:") || href.startsWith("mailto:") || href.startsWith("tel:")) {
-      continue;
-    }
-
-    try {
-      const absoluteUrl = new URL(href, baseUrl);
-      if (absoluteUrl.origin !== new URL(baseUrl).origin) {
-        continue;
-      }
-      const path = absoluteUrl.pathname;
-      const pathParts = path.split("/").filter(p => p.length > 0);
-      if (pathParts.length <= 1 && path !== "/" && !looksLikeVenuePath(path)) {
-        links.add(`${absoluteUrl.origin}${path}`);
-      }
-    } catch {
-      continue;
-    }
-  }
-
+  const links = new Set<string>(
+    Array.from(html.matchAll(linkRegex))
+      .map(match => match[1].trim())
+      .filter(href => href && !href.startsWith("javascript:") && !href.startsWith("mailto:") && !href.startsWith("tel:"))
+      .flatMap(href => {
+        try {
+          const absoluteUrl = new URL(href, baseUrl);
+          if (absoluteUrl.origin !== new URL(baseUrl).origin) {
+            return [];
+          }
+          const urlPath = absoluteUrl.pathname;
+          const pathParts = urlPath.split("/").filter(p => p.length > 0);
+          if (pathParts.length <= 1 && urlPath !== "/" && !looksLikeVenuePath(urlPath)) {
+            return [`${absoluteUrl.origin}${urlPath}`];
+          }
+          return [];
+        } catch {
+          return [];
+        }
+      })
+  );
   return Array.from(links);
 }
 

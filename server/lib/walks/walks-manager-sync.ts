@@ -138,15 +138,66 @@ export async function syncWalksManagerData(
     const defaultOptions = requestDefaults.createApiRequestOptions(config);
     const totalMonths = Math.ceil(dateTo.diff(dateFrom, "months").months);
     const chunkSizeMonths = options.fullSync ? 1 : Math.ceil(totalMonths);
-    let processedMonths = 0;
-    let currentDate = dateFrom;
-    const processedEventIds = new Set<string>();
+    const limit = 100;
 
     debugLog(`Total sync span: ${totalMonths} months, processing in ${chunkSizeMonths}-month chunks`);
 
-    while (currentDate < dateTo) {
-      const chunkEnd = DateTime.min(currentDate.plus({ months: chunkSizeMonths }), dateTo);
+    const fetchChunkPage = async (
+      currentDate: DateTime,
+      chunkEnd: DateTime,
+      progressPercent: number,
+      progressMessage: string,
+      offset: number,
+      acc: GroupEvent[]
+    ): Promise<GroupEvent[]> => {
+      const buildParameters = () => [
+        optionalParameter("groups", groupCode),
+        optionalParameter("types", [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT]),
+        optionalParameter("limit", limit),
+        optionalParameter("offset", offset),
+        optionalParameter("sort", "date"),
+        optionalParameter("order", "asc"),
+        optionalParameter("date", currentDate.toFormat(DateFormat.WALKS_MANAGER_API)),
+        optionalParameter("date_end", chunkEnd.toFormat(DateFormat.WALKS_MANAGER_API))
+      ].filter(item => !isEmpty(item)).join("&");
 
+      const pageProgressMessage = acc.length > 0
+        ? `${progressMessage} - fetched ${acc.length} events...`
+        : progressMessage;
+
+      debugLog(`Fetching page at offset ${offset} with limit ${limit}`);
+      sendProgress(ws, progressPercent, pageProgressMessage);
+
+      const apiResponse: RamblersEventsApiResponse = await httpRequest({
+        apiRequest: {
+          hostname: defaultOptions.hostname,
+          protocol: defaultOptions.protocol,
+          headers: defaultOptions.headers,
+          method: "get",
+          path: `/api/volunteers/walksevents?api-key=${config?.national?.walksManager?.apiKey}&${buildParameters()}`
+        },
+        debug: debugLog
+      }) as RamblersEventsApiResponse;
+
+      const pageData = apiResponse.response?.data || [];
+      const totalInChunk = apiResponse.response?.summary?.total || 0;
+
+      debugLog(`Received ${pageData.length} events, ${totalInChunk} total in date range`);
+
+      const newAcc = pageData.length > 0 ? [...acc, ...pageData] : acc;
+      const nextOffset = offset + limit;
+      const hasMore = nextOffset < totalInChunk && pageData.length === limit;
+
+      if (hasMore) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        return fetchChunkPage(currentDate, chunkEnd, progressPercent, progressMessage, nextOffset, newAcc);
+      }
+      return newAcc;
+    };
+
+    const processChunk = async (currentDate: DateTime, processedMonths: number): Promise<void> => {
+      if (!(currentDate < dateTo)) return;
+      const chunkEnd = DateTime.min(currentDate.plus({ months: chunkSizeMonths }), dateTo);
       debugLog(`Processing chunk: ${currentDate.toFormat(DateFormat.DISPLAY_DATE_FULL)} to ${chunkEnd.toFormat(DateFormat.DISPLAY_DATE_FULL)}`);
 
       const progressPercent = 5 + Math.round((processedMonths / totalMonths) * 85);
@@ -154,57 +205,7 @@ export async function syncWalksManagerData(
       sendProgress(ws, progressPercent, progressMessage);
 
       try {
-        let offset = 0;
-        const limit = 100;
-        let hasMore = true;
-        const allEventsInChunk: GroupEvent[] = [];
-
-        while (hasMore) {
-          const buildParameters = () => [
-            optionalParameter("groups", groupCode),
-            optionalParameter("types", [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT]),
-            optionalParameter("limit", limit),
-            optionalParameter("offset", offset),
-            optionalParameter("sort", "date"),
-            optionalParameter("order", "asc"),
-            optionalParameter("date", currentDate.toFormat(DateFormat.WALKS_MANAGER_API)),
-            optionalParameter("date_end", chunkEnd.toFormat(DateFormat.WALKS_MANAGER_API))
-          ].filter(item => !isEmpty(item)).join("&");
-
-          const pageProgressMessage = allEventsInChunk.length > 0
-            ? `${progressMessage} - fetched ${allEventsInChunk.length} events...`
-            : progressMessage;
-
-          debugLog(`Fetching page at offset ${offset} with limit ${limit}`);
-          sendProgress(ws, progressPercent, pageProgressMessage);
-
-          const apiResponse: RamblersEventsApiResponse = await httpRequest({
-            apiRequest: {
-              hostname: defaultOptions.hostname,
-              protocol: defaultOptions.protocol,
-              headers: defaultOptions.headers,
-              method: "get",
-              path: `/api/volunteers/walksevents?api-key=${config?.national?.walksManager?.apiKey}&${buildParameters()}`
-            },
-            debug: debugLog
-          }) as RamblersEventsApiResponse;
-
-          const pageData = apiResponse.response?.data || [];
-          const totalInChunk = apiResponse.response?.summary?.total || 0;
-
-          debugLog(`Received ${pageData.length} events, ${totalInChunk} total in date range`);
-
-          if (pageData.length > 0) {
-            allEventsInChunk.push(...pageData);
-          }
-
-          offset += limit;
-          hasMore = offset < totalInChunk && pageData.length === limit;
-
-          if (hasMore) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-        }
+        const allEventsInChunk = await fetchChunkPage(currentDate, chunkEnd, progressPercent, progressMessage, 0, []);
 
         const uniqueEventsMap = new Map<string, GroupEvent>();
         allEventsInChunk.forEach(event => {
@@ -237,11 +238,11 @@ export async function syncWalksManagerData(
         result.errors.push(errorMsg);
       }
 
-      currentDate = chunkEnd;
-      processedMonths += chunkSizeMonths;
-
       await new Promise(resolve => setTimeout(resolve, 300));
-    }
+      return processChunk(chunkEnd, processedMonths + chunkSizeMonths);
+    };
+
+    await processChunk(dateFrom, 0);
 
     debugLog(`Sync completed: ${result.added} added, ${result.updated} updated from ${result.totalProcessed} total events`);
     sendProgress(ws, 100, "Sync complete");

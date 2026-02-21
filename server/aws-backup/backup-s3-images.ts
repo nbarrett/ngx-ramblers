@@ -74,17 +74,13 @@ async function copyFilesToBackup(sourceBucketName: string, sourceRegion: string)
   const s3 = new S3Client({region: sourceRegion});
 
   try {
-    let continuationToken: string | undefined;
-
-    do {
+    const processPage = async (token: string | undefined): Promise<void> => {
       const listResponse = await s3.send(
         new ListObjectsV2Command({
           Bucket: sourceBucketName,
-          ContinuationToken: continuationToken,
+          ContinuationToken: token,
         })
       );
-
-      continuationToken = listResponse.NextContinuationToken;
 
       if (listResponse.Contents) {
         for (const obj of listResponse.Contents) {
@@ -108,7 +104,9 @@ async function copyFilesToBackup(sourceBucketName: string, sourceRegion: string)
           }
         }
       }
-    } while (continuationToken);
+      if (listResponse.NextContinuationToken) return processPage(listResponse.NextContinuationToken);
+    };
+    await processPage(undefined);
   } catch (err) {
     logger.error(`Failed to process bucket ${sourceBucketName}:`, err);
   }

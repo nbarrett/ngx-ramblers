@@ -21,7 +21,7 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
-import { first } from "es-toolkit/compat";
+import { first, isArray } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { AWSConfig } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { queryAWSConfig } from "../aws/aws-controllers";
@@ -286,7 +286,7 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
           logs.push(`Matched ${links.length} gallery links`);
           return { links, logs };
         }, pageUrl, "PhotoGallery");
-        if (Array.isArray(evalResult.logs)) {
+        if (isArray(evalResult.logs)) {
           evalResult.logs.forEach(m => debugLog(m));
         }
         galleryLinks = evalResult.links as PageLink[];
@@ -327,7 +327,7 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
         })).filter(item => item.alt !== "logo");
         return { images, logs };
       });
-      if (Array.isArray(imageEval.logs)) {
+      if (isArray(imageEval.logs)) {
         imageEval.logs.forEach(m => debugLog(m));
       }
       const images = imageEval.images as { src: string; alt: string }[];

@@ -20,7 +20,7 @@ import {
 import { generateUid } from "../shared/string-utils";
 import { putObjectDirect } from "../aws/aws-controllers";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
-import { isString } from "es-toolkit/compat";
+import { isString, keys } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("map-route-import"));
 debugLog.enabled = true;
@@ -44,7 +44,7 @@ export async function importEsriRoute(req: Request, res: Response) {
     debugLog("importEsriRoute: successfully parsed upload, features found:", geoJson.features.length);
 
     const grouped = groupFeaturesByProperty(geoJson.features, "StatusDesc");
-    debugLog("importEsriRoute: grouped features by StatusDesc:", Object.keys(grouped).map(key => `${key}: ${grouped[key].length}`));
+    debugLog("importEsriRoute: grouped features by StatusDesc:", keys(grouped).map(key => `${key}: ${grouped[key].length}`));
 
     const projection = ensureWgs84(geoJson);
     debugLog("importEsriRoute: projection metadata:", {sourceCrs: projection.sourceCrs, transformApplied: projection.transformApplied});
@@ -133,19 +133,19 @@ async function parseShapefileZip(zipPath: string): Promise<FeatureCollection> {
       throw new Error("Unable to locate .shp/.dbf files in archive");
     }
     debugLog("parseShapefileZip: found shapefile parts:", shapefilePaths);
-    const features: Feature[] = [];
     debugLog("parseShapefileZip: opening shapefile with .open()");
     const source = await shapefile.open(shapefilePaths.shp, shapefilePaths.dbf);
     debugLog("parseShapefileZip: shapefile opened, reading features");
-    let result = await source.read();
-    while (!result.done) {
-      features.push({
+    const collectFeatures = async (acc: Feature[]): Promise<Feature[]> => {
+      const result = await source.read();
+      if (result.done) return acc;
+      return collectFeatures([...acc, {
         type: "Feature",
         geometry: result.value.geometry as Geometry,
         properties: result.value.properties
-      });
-      result = await source.read();
-    }
+      }]);
+    };
+    const features: Feature[] = await collectFeatures([]);
     debugLog("parseShapefileZip: finished reading", features.length, "features");
     if (features.length > 0) {
       const sampleProperties = features.slice(0, 3).map(f => f.properties);
@@ -153,7 +153,7 @@ async function parseShapefileZip(zipPath: string): Promise<FeatureCollection> {
       const allPropertyKeys = new Set<string>();
       features.forEach(f => {
         if (f.properties) {
-          Object.keys(f.properties).forEach(key => allPropertyKeys.add(key));
+          keys(f.properties).forEach(key => allPropertyKeys.add(key));
         }
       });
       debugLog("parseShapefileZip: all unique property keys found:", Array.from(allPropertyKeys));

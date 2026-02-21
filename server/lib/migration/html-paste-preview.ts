@@ -30,70 +30,63 @@ function splitMarkdownIntoRows(markdown: string): HtmlPasteRow[] {
     return [];
   }
 
-  const rows: HtmlPasteRow[] = [];
-  let lastIndex = 0;
-  let searchIndex = 0;
-
   const isShortCaption = (text: string): boolean => {
     const trimmed = text.trim();
     const paragraphs = trimmed.split(/\n\s*\n/);
     return paragraphs.length <= 1 && trimmed.length < 200;
   };
 
-  while (searchIndex < markdown.length) {
+  const scan = (searchIndex: number, lastIndex: number, rows: HtmlPasteRow[]): {rows: HtmlPasteRow[]; lastIndex: number} => {
     const imageStart = markdown.indexOf("![", searchIndex);
     if (imageStart === -1) {
-      break;
+      return {rows, lastIndex};
     }
 
     const imageMatch = parseMarkdownImageAt(markdown, imageStart);
     if (!imageMatch) {
-      searchIndex = imageStart + 2;
-      continue;
+      return scan(imageStart + 2, lastIndex, rows);
     }
 
     const textBefore = markdown.substring(lastIndex, imageMatch.start).trim();
     const trimmedLink = imageMatch.url ? imageMatch.url.trim() : "";
     const alt = imageMatch.alt;
 
+    let newRows: HtmlPasteRow[];
     if (trimmedLink.length > 0) {
       if (textBefore && textBefore.replace(/\s+/g, "").length > 0 && isShortCaption(textBefore)) {
-        rows.push({
-          text: textBefore,
-          imageSource: trimmedLink,
-          alt
-        });
+        newRows = [...rows, { text: textBefore, imageSource: trimmedLink, alt }];
       } else {
-        if (textBefore && textBefore.replace(/\s+/g, "").length > 0) {
-          rows.push({text: textBefore});
-        }
-        rows.push({
-          imageSource: trimmedLink,
-          alt
-        });
+        const withText = textBefore && textBefore.replace(/\s+/g, "").length > 0
+          ? [...rows, {text: textBefore}]
+          : rows;
+        newRows = [...withText, { imageSource: trimmedLink, alt }];
       }
     } else if (textBefore && textBefore.replace(/\s+/g, "").length > 0) {
-      rows.push({text: textBefore});
-    }
-
-    lastIndex = imageMatch.end;
-    searchIndex = imageMatch.end;
-  }
-
-  const remaining = markdown.substring(lastIndex).trim();
-  if (remaining && remaining.replace(/\s+/g, "").length > 0) {
-    if (rows.length > 0 && rows[rows.length - 1].imageSource && !rows[rows.length - 1].text && isShortCaption(remaining)) {
-      rows[rows.length - 1].text = remaining;
+      newRows = [...rows, {text: textBefore}];
     } else {
-      rows.push({text: remaining});
+      newRows = rows;
+    }
+
+    return scan(imageMatch.end, imageMatch.end, newRows);
+  };
+
+  const {rows, lastIndex} = scan(0, 0, []);
+
+  const remainingText = markdown.substring(lastIndex).trim();
+  let finalRows = rows;
+  if (remainingText && remainingText.replace(/\s+/g, "").length > 0) {
+    if (finalRows.length > 0 && finalRows[finalRows.length - 1].imageSource && !finalRows[finalRows.length - 1].text && isShortCaption(remainingText)) {
+      finalRows = [...finalRows.slice(0, -1), {...finalRows[finalRows.length - 1], text: remainingText}];
+    } else {
+      finalRows = [...finalRows, {text: remainingText}];
     }
   }
 
-  if (rows.length === 0 && markdown.trim().length > 0) {
-    rows.push({text: markdown});
+  if (finalRows.length === 0 && markdown.trim().length > 0) {
+    return [{text: markdown}];
   }
 
-  return rows;
+  return finalRows;
 }
 
 function parseMarkdownImageAt(markdown: string, startIndex: number): { start: number; end: number; alt: string | null; url: string | null } | null {
@@ -104,172 +97,136 @@ function parseMarkdownImageAt(markdown: string, startIndex: number): { start: nu
     return null;
   }
 
-  let cursor = startIndex + 2;
-  let alt = "";
-  while (cursor < markdown.length) {
+  const parseAlt = (cursor: number, alt: string): {cursor: number; alt: string} | null => {
+    if (cursor >= markdown.length) return null;
     const char = markdown[cursor];
-    if (char === "\\" && cursor + 1 < markdown.length) {
-      alt += markdown[cursor + 1];
-      cursor += 2;
-      continue;
-    }
-    if (char === "]") {
-      break;
-    }
-    alt += char;
-    cursor++;
-  }
+    if (char === "\\" && cursor + 1 < markdown.length) return parseAlt(cursor + 2, alt + markdown[cursor + 1]);
+    if (char === "]") return {cursor, alt};
+    return parseAlt(cursor + 1, alt + char);
+  };
 
-  if (cursor >= markdown.length || markdown[cursor] !== "]") {
+  const altResult = parseAlt(startIndex + 2, "");
+  if (!altResult || altResult.cursor >= markdown.length || markdown[altResult.cursor] !== "]") {
     return null;
   }
 
-  cursor++;
+  const skipWhitespace = (cursor: number): number => {
+    if (cursor >= markdown.length || !/\s/.test(markdown[cursor])) return cursor;
+    return skipWhitespace(cursor + 1);
+  };
 
-  while (cursor < markdown.length && /\s/.test(markdown[cursor])) {
-    cursor++;
-  }
+  const afterBracket = skipWhitespace(altResult.cursor + 1);
 
-  if (cursor >= markdown.length) {
+  if (afterBracket >= markdown.length) {
     return null;
   }
 
-  const nextChar = markdown[cursor];
+  const nextChar = markdown[afterBracket];
 
   if (nextChar === "(") {
-    return parseInlineImage(markdown, startIndex, cursor + 1, alt);
+    return parseInlineImage(markdown, startIndex, afterBracket + 1, altResult.alt);
   }
 
   if (nextChar === "[") {
-    return parseReferenceImage(markdown, startIndex, cursor, alt);
+    return parseReferenceImage(markdown, startIndex, afterBracket, altResult.alt);
   }
 
   return null;
 }
 
 function parseInlineImage(markdown: string, startIndex: number, cursor: number, alt: string): { start: number; end: number; alt: string | null; url: string | null } | null {
-  let index = cursor;
-  while (index < markdown.length && /\s/.test(markdown[index])) {
-    index++;
-  }
+  const skipWhitespace = (i: number): number => {
+    if (i >= markdown.length || !/\s/.test(markdown[i])) return i;
+    return skipWhitespace(i + 1);
+  };
 
-  if (index >= markdown.length) {
+  const parseAngleUrl = (i: number, url: string): {index: number; url: string} | null => {
+    if (i >= markdown.length) return null;
+    if (markdown[i] === ">") return {index: i + 1, url};
+    const char = markdown[i];
+    if (char === "\\" && i + 1 < markdown.length) return parseAngleUrl(i + 2, url + markdown[i + 1]);
+    return parseAngleUrl(i + 1, url + char);
+  };
+
+  const parsePlainUrl = (i: number, url: string, nested: number): {index: number; url: string} => {
+    if (i >= markdown.length) return {index: i, url};
+    const char = markdown[i];
+    if (char === "\\" && i + 1 < markdown.length) return parsePlainUrl(i + 2, url + markdown[i + 1], nested);
+    if (char === "(") return parsePlainUrl(i + 1, url + char, nested + 1);
+    if (char === ")") {
+      if (nested === 0) return {index: i, url};
+      return parsePlainUrl(i + 1, url + char, nested - 1);
+    }
+    if (char === " " || char === "\t" || char === "\n") return {index: i, url};
+    return parsePlainUrl(i + 1, url + char, nested);
+  };
+
+  const skipTitle = (i: number, delimiter: string): number => {
+    if (i >= markdown.length) return i;
+    const char = markdown[i];
+    if (char === "\\" && i + 1 < markdown.length) return skipTitle(i + 2, delimiter);
+    if ((delimiter === "(" && char === ")") || (delimiter !== "(" && char === delimiter)) return i + 1;
+    return skipTitle(i + 1, delimiter);
+  };
+
+  const start = skipWhitespace(cursor);
+
+  if (start >= markdown.length) {
     return null;
   }
 
-  let url = "";
+  let url: string;
+  let afterUrl: number;
 
-  if (markdown[index] === "<") {
-    index++;
-    while (index < markdown.length && markdown[index] !== ">") {
-      const char = markdown[index];
-      if (char === "\\" && index + 1 < markdown.length) {
-        url += markdown[index + 1];
-        index += 2;
-        continue;
-      }
-      url += char;
-      index++;
-    }
-    if (index >= markdown.length || markdown[index] !== ">") {
-      return null;
-    }
-    index++;
+  if (markdown[start] === "<") {
+    const angleResult = parseAngleUrl(start + 1, "");
+    if (!angleResult) return null;
+    url = angleResult.url;
+    afterUrl = angleResult.index;
   } else {
-    let nestedParentheses = 0;
-    while (index < markdown.length) {
-      const char = markdown[index];
-      if (char === "\\" && index + 1 < markdown.length) {
-        url += markdown[index + 1];
-        index += 2;
-        continue;
-      }
-      if (char === "(") {
-        nestedParentheses++;
-        url += char;
-        index++;
-        continue;
-      }
-      if (char === ")") {
-        if (nestedParentheses === 0) {
-          break;
-        }
-        nestedParentheses--;
-        url += char;
-        index++;
-        continue;
-      }
-      if (char === " " || char === "\t" || char === "\n") {
-        break;
-      }
-      url += char;
-      index++;
-    }
+    const plainResult = parsePlainUrl(start, "", 0);
+    url = plainResult.url;
+    afterUrl = plainResult.index;
   }
 
   url = url.trim();
 
-  while (index < markdown.length && /\s/.test(markdown[index])) {
-    index++;
+  const afterUrlWs = skipWhitespace(afterUrl);
+
+  let afterTitle = afterUrlWs;
+  if (afterUrlWs < markdown.length && (markdown[afterUrlWs] === "\"" || markdown[afterUrlWs] === "'" || markdown[afterUrlWs] === "(")) {
+    const delimiter = markdown[afterUrlWs];
+    afterTitle = skipWhitespace(skipTitle(afterUrlWs + 1, delimiter));
   }
 
-  if (index < markdown.length && (markdown[index] === "\"" || markdown[index] === "'" || markdown[index] === "(")) {
-    const delimiter = markdown[index];
-    index++;
-    while (index < markdown.length) {
-      const char = markdown[index];
-      if (char === "\\" && index + 1 < markdown.length) {
-        index += 2;
-        continue;
-      }
-      if ((delimiter === "(" && char === ")") || (delimiter !== "(" && char === delimiter)) {
-        index++;
-        break;
-      }
-      index++;
-    }
-    while (index < markdown.length && /\s/.test(markdown[index])) {
-      index++;
-    }
-  }
-
-  if (index >= markdown.length || markdown[index] !== ")") {
+  if (afterTitle >= markdown.length || markdown[afterTitle] !== ")") {
     return null;
   }
 
   return {
     start: startIndex,
-    end: index + 1,
+    end: afterTitle + 1,
     alt: alt.trim() || null,
     url: url || null
   };
 }
 
 function parseReferenceImage(markdown: string, startIndex: number, cursor: number, alt: string): { start: number; end: number; alt: string | null; url: string | null } | null {
-  let index = cursor + 1;
-  let reference = "";
+  const parseRef = (i: number, reference: string): {index: number; reference: string} | null => {
+    if (i >= markdown.length) return null;
+    const char = markdown[i];
+    if (char === "\\" && i + 1 < markdown.length) return parseRef(i + 2, reference + markdown[i + 1]);
+    if (char === "]") return {index: i, reference};
+    return parseRef(i + 1, reference + char);
+  };
 
-  while (index < markdown.length) {
-    const char = markdown[index];
-    if (char === "\\" && index + 1 < markdown.length) {
-      reference += markdown[index + 1];
-      index += 2;
-      continue;
-    }
-    if (char === "]") {
-      break;
-    }
-    reference += char;
-    index++;
-  }
+  const refResult = parseRef(cursor + 1, "");
 
-  if (index >= markdown.length || markdown[index] !== "]") {
+  if (!refResult || refResult.index >= markdown.length || markdown[refResult.index] !== "]") {
     return null;
   }
 
-  index++;
-
-  const label = (reference.trim().length > 0 ? reference.trim() : alt).trim();
+  const label = (refResult.reference.trim().length > 0 ? refResult.reference.trim() : alt).trim();
   const definitionRegex = label.length > 0
     ? new RegExp(`^\\s*\\[${escapeForRegExp(label)}\\]:\\s*(\\S+)`, "mi")
     : null;
@@ -285,7 +242,7 @@ function parseReferenceImage(markdown: string, startIndex: number, cursor: numbe
 
   return {
     start: startIndex,
-    end: index,
+    end: refResult.index + 1,
     alt: alt.trim() || null,
     url
   };

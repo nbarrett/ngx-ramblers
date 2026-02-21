@@ -9,6 +9,7 @@ import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.
 import type { MailMessagingConfig } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import * as config from "../mongo/controllers/config";
 import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
+import { isArray } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("backup"));
 debugLog.enabled = true;
@@ -184,7 +185,7 @@ export async function listS3Backups(req: Request, res: Response) {
 
 export async function deleteS3Backups(req: Request, res: Response) {
   try {
-    const names = Array.isArray(req.body?.names) ? req.body.names as string[] : [];
+    const names = isArray(req.body?.names) ? req.body.names as string[] : [];
     if (names.length === 0) {
       res.status(400).json({ error: "names array is required" });
       return;
@@ -201,7 +202,7 @@ export async function deleteS3Backups(req: Request, res: Response) {
 
 export async function deleteBackups(req: Request, res: Response) {
   try {
-    const names = Array.isArray(req.body?.names) ? req.body.names as string[] : [];
+    const names = isArray(req.body?.names) ? req.body.names as string[] : [];
     if (names.length === 0) {
       res.status(400).json({ error: "names array is required" });
       return;

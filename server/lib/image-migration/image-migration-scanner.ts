@@ -50,23 +50,12 @@ function extractImageUrlsFromMarkdown(text: string, hostPattern: string): string
   if (!text) {
     return [];
   }
-  const urls: string[] = [];
   const markdownImageRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
-  let match;
-  while ((match = markdownImageRegex.exec(text)) !== null) {
-    const url = match[1];
-    if (urlMatchesHost(url, hostPattern)) {
-      urls.push(url);
-    }
-  }
   const htmlImgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-  while ((match = htmlImgRegex.exec(text)) !== null) {
-    const url = match[1];
-    if (urlMatchesHost(url, hostPattern)) {
-      urls.push(url);
-    }
-  }
-  return urls;
+  return [
+    ...Array.from(text.matchAll(markdownImageRegex)).map(m => m[1]).filter(url => urlMatchesHost(url, hostPattern)),
+    ...Array.from(text.matchAll(htmlImgRegex)).map(m => m[1]).filter(url => urlMatchesHost(url, hostPattern))
+  ];
 }
 
 function extractHostsFromMarkdown(text: string, hosts: Set<string>): void {
@@ -74,14 +63,9 @@ function extractHostsFromMarkdown(text: string, hosts: Set<string>): void {
     return;
   }
   const markdownImageRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
-  let match;
-  while ((match = markdownImageRegex.exec(text)) !== null) {
-    extractHost(match[1], hosts);
-  }
   const htmlImgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-  while ((match = htmlImgRegex.exec(text)) !== null) {
-    extractHost(match[1], hosts);
-  }
+  Array.from(text.matchAll(markdownImageRegex)).forEach(m => extractHost(m[1], hosts));
+  Array.from(text.matchAll(htmlImgRegex)).forEach(m => extractHost(m[1], hosts));
 }
 
 async function scanContentMetadata(hostPattern: string): Promise<ImageMigrationGroup[]> {

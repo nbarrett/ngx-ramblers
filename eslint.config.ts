@@ -142,7 +142,12 @@ const sharedSyntaxRestrictions = [
 
 export default defineConfig([
   {
-    ignores: ["projects/ngx-ramblers/src/brevo/templates/**"],
+    ignores: [
+      "projects/ngx-ramblers/src/brevo/templates/**",
+      "server/ts-gen/**",
+      "server/lib/cli/cli-logger.ts",
+      "server/lib/cli/cli-prompt.ts",
+    ],
   },
   {
     files: ["server/**/*.js"],

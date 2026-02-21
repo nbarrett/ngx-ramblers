@@ -11,6 +11,7 @@ import { connect as connectToDatabase } from "../mongo/mongoose-client";
 import { initializeBackupConfig } from "../backup/config-initializer";
 import { confirm, handleQuit, isQuit } from "../cli/cli-prompt";
 import type { EnvironmentConfig as DeployEnvironmentConfig } from "../../deploy/types";
+import { cliLogger } from "../cli/cli-logger";
 
 const debugLog = debug(envConfig.logNamespace("environments-config"));
 debugLog.enabled = true;
@@ -57,16 +58,16 @@ export async function configuredEnvironments(): Promise<EnvironmentsConfig> {
   }
 
   debugLog("WARNING: No environments found in database - this is unusual and may indicate a problem");
-  console.log("\n⚠️  WARNING: Could not load environments from database.");
-  console.log("   This is unusual and may indicate a configuration or connection problem.");
+  cliLogger.log("\n⚠️  WARNING: Could not load environments from database.");
+  cliLogger.log("   This is unusual and may indicate a configuration or connection problem.");
 
   if (!process.stdin.isTTY) {
-    console.log("   Non-interactive mode detected. Exiting without fallback.");
-    console.log("   Please check your database connection and configuration.\n");
+    cliLogger.log("   Non-interactive mode detected. Exiting without fallback.");
+    cliLogger.log("   Please check your database connection and configuration.\n");
     process.exit(1);
   }
 
-  console.log("   Would you like to fall back to the file-based configs.json?\n");
+  cliLogger.log("   Would you like to fall back to the file-based configs.json?\n");
 
   const result = await confirm("Fall back to file-based configuration?", false);
 
@@ -79,7 +80,7 @@ export async function configuredEnvironments(): Promise<EnvironmentsConfig> {
     return loadFromFiles();
   }
 
-  console.log("\nExiting. Please check your database connection and configuration.");
+  cliLogger.log("\nExiting. Please check your database connection and configuration.");
   process.exit(1);
 }
 

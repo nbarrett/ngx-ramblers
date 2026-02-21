@@ -11,16 +11,12 @@ export function generateUid() {
 }
 
 export function replaceAll(find: string, replace: string, str: string): string | number {
-  let replacedValue;
-  let initialValue = "" + str;
-  while (true) {
-    replacedValue = initialValue.replace(new RegExp(escapeRegExp("" + find), "g"), replace);
-    if (replacedValue !== initialValue) {
-      initialValue = replacedValue;
-    } else {
-      break;
-    }
-  }
+  const regex = new RegExp(escapeRegExp("" + find), "g");
+  const stabilize = (current: string): string => {
+    const next = current.replace(regex, replace);
+    return next === current ? current : stabilize(next);
+  };
+  const replacedValue = stabilize("" + str);
   return isNumber(str) ? +replacedValue : replacedValue;
 }
 

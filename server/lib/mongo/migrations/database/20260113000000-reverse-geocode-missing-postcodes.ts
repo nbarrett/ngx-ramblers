@@ -202,8 +202,8 @@ export async function up(db: Db, client: MongoClient) {
   const preferredCounty = await preferredCountyFromSystemConfig(debugLog);
   const areaCenter = await preferredAreaCenterFromSystemConfig(debugLog);
   const areaCenterLatLng = areaCenter ? { lat: areaCenter[0], lng: areaCenter[1] } : null;
-  while (await cursor.hasNext()) {
-    const doc: any = await cursor.next();
+  const docs = await cursor.toArray();
+  for (const doc of docs) {
     processed++;
     const id = doc._id;
     const title = doc?.groupEvent?.title;

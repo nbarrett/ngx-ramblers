@@ -261,7 +261,8 @@ function runCommand(
 
   const logStream = logFilePath ? fs.createWriteStream(logFilePath, { flags: "a" }) : undefined;
 
-  const stripAnsi = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, "");
+  const ESC = String.fromCharCode(27);
+  const stripAnsi = (text: string) => text.replace(new RegExp(ESC + "\\[[0-9;]*m", "g"), "");
 
   child.stdout?.on("data", (data: Buffer) => {
     const text = data.toString();

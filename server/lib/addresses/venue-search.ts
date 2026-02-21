@@ -3,7 +3,7 @@ import { envConfig } from "../env-config/env-config";
 import * as messageHandlers from "../shared/message-handlers";
 import url from "url";
 import querystring from "querystring";
-import { isNumber, isString, isEmpty } from "es-toolkit/compat";
+import { isArray, isNumber, isString, isEmpty } from "es-toolkit/compat";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("venue-search"));
 const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org";
@@ -105,7 +105,7 @@ function parseNominatimResult(result: NominatimSearchResult): VenueSearchResult 
 }
 
 function toNominatimResults(response: unknown): NominatimSearchResult[] {
-  return Array.isArray(response) ? response : [];
+  return isArray(response) ? response : [];
 }
 
 export async function venueSearch(req, res) {

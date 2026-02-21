@@ -5,11 +5,17 @@ import morgan, { TokenIndexer } from "morgan";
 
 morgan.token("id", req => req.headers["x-request-id"] as string || "-");
 
+const RED = "\x1b[31m";
+const YELLOW = "\x1b[33m";
+const CYAN = "\x1b[36m";
+const GREEN = "\x1b[32m";
+const RESET = "\x1b[0m";
+
 function colorStatus(status: number) {
-  if (status >= 500) return `\x1b[31m${status}\x1b[0m`; // red
-  if (status >= 400) return `\x1b[33m${status}\x1b[0m`; // yellow
-  if (status >= 300) return `\x1b[36m${status}\x1b[0m`; // cyan
-  if (status >= 200) return `\x1b[32m${status}\x1b[0m`; // green
+  if (status >= 500) return `${RED}${status}${RESET}`;
+  if (status >= 400) return `${YELLOW}${status}${RESET}`;
+  if (status >= 300) return `${CYAN}${status}${RESET}`;
+  if (status >= 200) return `${GREEN}${status}${RESET}`;
   return status;
 }
 

@@ -11,7 +11,7 @@ import * as mongooseClient from "../mongo/mongoose-client";
 import { pageContent as pageContentModel } from "../mongo/models/page-content";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { first, isString } from "es-toolkit/compat";
+import { first, isArray, isString } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { generateUid, pluraliseWithCount, titleCase } from "../shared/string-utils";
 import { AWSConfig } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
@@ -147,7 +147,7 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
     const {html, images, selectorErrors}: ScrapeResult & {selectorErrors?: {selector: string; error: string}[]} = await ctx.browser.execute(
       (selector: string, excludes: string[]): ScrapeResult & {selectorErrors?: {selector: string; error: string}[]} => {
         const node = document.querySelector(selector) || document.body;
-        const selectors = Array.isArray(excludes) ? excludes : [];
+        const selectors = isArray(excludes) ? excludes : [];
         const selectorErrors: {selector: string; error: string}[] = [];
 
         selectors.forEach(sel => {

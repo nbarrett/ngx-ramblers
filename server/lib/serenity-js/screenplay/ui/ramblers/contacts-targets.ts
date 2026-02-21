@@ -1,10 +1,7 @@
 import { By, PageElement, PageElements } from "@serenity-js/web";
 
 function padStart(value: string, length: number, padChar: string): string {
-  while (value.length < length) {
-    value = padChar + value;
-  }
-  return value;
+  return value.padStart(length, padChar);
 }
 
 export class ContactsTargets {

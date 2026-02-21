@@ -12,6 +12,7 @@ import { DeployResult, FlyDeployConfig, ProgressCallback } from "../types";
 import { EnvironmentConfig, FLYIO_DEFAULTS } from "../../../deploy/types";
 import { log } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
+import { keys } from "es-toolkit/compat";
 
 export type DeployOutputCallback = OutputCallback;
 
@@ -79,7 +80,7 @@ async function queryAppConfig(appName: string): Promise<{ memory: string; count:
   try {
     const output = runCommand(`flyctl scale show --app ${appName} --json`, true, true);
     const config = JSON.parse(output);
-    const hasMachines = config.count > 0 || (config.processes && Object.keys(config.processes).length > 0);
+    const hasMachines = config.count > 0 || (config.processes && keys(config.processes).length > 0);
     return {
       memory: config.memory || FLYIO_DEFAULTS.MEMORY,
       count: config.count || 0,
@@ -162,7 +163,7 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
     }
 
     const secretsFilePath = secretsPath(config.appName);
-    if (Object.keys(config.secrets).length > 0) {
+    if (keys(config.secrets).length > 0) {
       writeSecretsFile(secretsFilePath, config.secrets);
       report("Wrote secrets file");
     }

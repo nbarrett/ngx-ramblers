@@ -79,17 +79,16 @@ export function parseGridReference(gridRef: string): {eastings: number; northing
   const eastingPart = digits.substring(0, halfLength);
   const northingPart = digits.substring(halfLength);
 
-  let rowIndex = -1;
-  let columnIndex = -1;
-
-  for (let row = 0; row < GRID_LETTERS.length; row++) {
-    const colIdx = GRID_LETTERS[row].indexOf(gridCode);
-    if (colIdx !== -1) {
-      rowIndex = row;
-      columnIndex = colIdx;
-      break;
-    }
-  }
+  const gridMatch = GRID_LETTERS.reduce<{rowIndex: number; columnIndex: number}>(
+    (acc, row, rowIdx) => {
+      if (acc.rowIndex !== -1) return acc;
+      const colIdx = row.indexOf(gridCode);
+      return colIdx !== -1 ? { rowIndex: rowIdx, columnIndex: colIdx } : acc;
+    },
+    { rowIndex: -1, columnIndex: -1 }
+  );
+  const rowIndex = gridMatch.rowIndex;
+  const columnIndex = gridMatch.columnIndex;
 
   if (rowIndex === -1 || columnIndex === -1) {
     return null;

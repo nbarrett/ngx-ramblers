@@ -1,5 +1,6 @@
 import { Interaction } from "@serenity-js/core";
 import { ExecuteScript } from "@serenity-js/web";
+import { isArray } from "es-toolkit/compat";
 
 export interface ScrapeResult {
   html: string;
@@ -20,7 +21,7 @@ export class ExecutePageScript {
   static scrapeContent(contentSelector: string, excludeSelectors: string[]): Interaction {
     return ExecuteScript.sync((selector: string, excludes: string[]): ScrapeResult => {
       const node = document.querySelector(selector) || document.body;
-      const selectors = Array.isArray(excludes) ? excludes : [];
+      const selectors = isArray(excludes) ? excludes : [];
       const selectorErrors: { selector: string; error: string }[] = [];
 
       selectors.forEach(sel => {

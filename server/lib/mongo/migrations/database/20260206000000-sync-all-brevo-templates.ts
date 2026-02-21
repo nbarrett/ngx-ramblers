@@ -2,6 +2,7 @@ import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { configuredBrevo } from "../../../brevo/brevo-config";
 import { seedBrevoTemplatesFromLocal } from "../../../brevo/templates/template-seeding";
+import { isObject, keys } from "es-toolkit/compat";
 
 const debugLog = createMigrationLogger("sync-all-brevo-templates");
 const NOTIFICATION_CONFIGS_COLLECTION = "notificationConfigs";
@@ -70,7 +71,7 @@ export async function up(db: Db, client: MongoClient) {
     try {
       const seedResult = await seedBrevoTemplatesFromLocal();
       debugLog(`Found ${seedResult.totalTemplates} local templates: ${seedResult.templateNames.join(", ")}`);
-      debugLog(`Template seeding completed: ${Object.keys(seedResult.templateIdMap).length} templates available (created ${seedResult.createdCount}, updated ${seedResult.updatedCount}, skipped ${seedResult.skippedCount})`);
+      debugLog(`Template seeding completed: ${keys(seedResult.templateIdMap).length} templates available (created ${seedResult.createdCount}, updated ${seedResult.updatedCount}, skipped ${seedResult.skippedCount})`);
 
       await autoMatchTemplatesToNotificationConfigs(db, seedResult.templateIdMap);
     } catch (error) {
@@ -84,7 +85,7 @@ export async function up(db: Db, client: MongoClient) {
           debugLog(`Error message: ${error.message}`);
           debugLog(`Error stack: ${error.stack}`);
         }
-        if (typeof error === "object" && error !== null) {
+        if (isObject(error)) {
           debugLog(`Error details: ${JSON.stringify(error, null, 2)}`);
         }
         const apiErrorMessage = apiError?.body?.message || apiError?.response?.body?.message;

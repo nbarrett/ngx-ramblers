@@ -8,6 +8,7 @@ import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date
 import { login, createOrUpdatePageContent, pageContent } from "./cms-client.js";
 import { DEFAULT_CMS_BASE_URL } from "./models.js";
 import { PageContent, PageContentType, PageContentColumn } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { cliLogger } from "../cli/cli-logger";
 
 const debugLog = debug(envConfig.logNamespace("release-notes:publish-article"));
 debugLog.enabled = true;
@@ -139,7 +140,7 @@ async function main() {
     }
   }
 
-  console.log(`Published: ${cmsUrl}/${articlePath}`);
+  cliLogger.log(`Published: ${cmsUrl}/${articlePath}`);
 }
 
 main().catch(error => {

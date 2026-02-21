@@ -16,15 +16,15 @@ const debugLog = debug(envConfig.logNamespace("ramblers:list-groups"));
 debugLog.enabled = false;
 
 function extractGroupsFromPayload(payload: any): RamblersGroupsApiResponse[] {
-  if (Array.isArray(payload)) {
+  if (isArray(payload)) {
     return payload as RamblersGroupsApiResponse[];
   }
 
-  if (Array.isArray(payload?.response)) {
+  if (isArray(payload?.response)) {
     return payload.response as RamblersGroupsApiResponse[];
   }
 
-  if (Array.isArray(payload?.data)) {
+  if (isArray(payload?.data)) {
     return payload.data as RamblersGroupsApiResponse[];
   }
 
@@ -69,10 +69,8 @@ export async function fetchRamblersGroupsFromApi(groups: string[]): Promise<Ramb
 export async function fetchAllRamblersAreas(): Promise<RamblersGroupsApiResponse[]> {
   const config: SystemConfig = await systemConfig();
   const defaultOptions = requestDefaults.createApiRequestOptions(config);
-  const allAreas: RamblersGroupsApiResponse[] = [];
-  let offset = 0;
 
-  while (true) {
+  const fetchPage = async (offset: number, acc: RamblersGroupsApiResponse[]): Promise<RamblersGroupsApiResponse[]> => {
     const response: any = await httpRequest({
       apiRequest: {
         hostname: defaultOptions.hostname,
@@ -86,16 +84,16 @@ export async function fetchAllRamblersAreas(): Promise<RamblersGroupsApiResponse
     });
 
     const data = extractGroupsFromPayload(response?.response);
-    allAreas.push(...data);
+    const newAcc = [...acc, ...data];
 
     const summary = response?.response?.summary;
     if (!summary || offset + data.length >= summary.total) {
-      break;
+      return newAcc;
     }
-    offset += MAXIMUM_PAGE_SIZE;
-  }
+    return fetchPage(offset + MAXIMUM_PAGE_SIZE, newAcc);
+  };
 
-  return allAreas;
+  return fetchPage(0, []);
 }
 
 export function listGroups(req, res): void {

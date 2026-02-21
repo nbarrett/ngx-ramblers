@@ -27,6 +27,9 @@ jobs:
         run: npm ci
         working-directory: ./server
 
+      - name: Run lint checks (frontend + server)
+        run: npm run lint:all
+
       - name: Setup Chrome for headless tests
         uses: browser-actions/setup-chrome@v1
 

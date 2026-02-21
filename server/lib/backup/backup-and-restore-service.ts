@@ -505,16 +505,7 @@ export class BackupAndRestoreService {
   }
 
   private async execCommand(cmd: string, args: string[], sessionId: string): Promise<void> {
-    const redactedArgs = (() => {
-      const copy = [...args];
-      for (let i = 0; i < copy.length; i++) {
-        if (copy[i] === "--uri" && i + 1 < copy.length) {
-          copy[i + 1] = "[REDACTED-URI]";
-          i++;
-        }
-      }
-      return copy;
-    })();
+    const redactedArgs = args.map((arg, i) => i > 0 && args[i - 1] === "--uri" ? "[REDACTED-URI]" : arg);
     await this.addLog(sessionId, `Executing: ${cmd} ${redactedArgs.join(" ")}`);
     return new Promise((resolve, reject) => {
       const proc: ChildProcess = spawn(cmd, args);
@@ -558,11 +549,10 @@ export class BackupAndRestoreService {
     sessionId: string
   ): Promise<number> {
     await fs.mkdir(destDir, { recursive: true });
-    let continuationToken: string | undefined = undefined;
-    let count = 0;
-    do {
-      const resp = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: continuationToken }));
+    const downloadPage = async (token: string | undefined, count: number): Promise<number> => {
+      const resp = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }));
       const contents = resp.Contents || [];
+      let pageCount = count;
       for (const obj of contents) {
         const key = obj.Key!;
         if (key.endsWith("/")) continue;
@@ -579,11 +569,12 @@ export class BackupAndRestoreService {
           ws.on("error", (e: any) => reject(e));
         });
         await this.addLog(sessionId, `Downloaded: s3://${bucket}/${key}`);
-        count++;
+        pageCount++;
       }
-      continuationToken = resp.IsTruncated ? resp.NextContinuationToken : undefined;
-    } while (continuationToken);
-    return count;
+      if (resp.IsTruncated) return downloadPage(resp.NextContinuationToken, pageCount);
+      return pageCount;
+    };
+    return downloadPage(undefined, 0);
   }
 
   private async scaleApp(config: EnvironmentConfig, count: number): Promise<void> {
@@ -708,7 +699,8 @@ export class BackupAndRestoreService {
 
           let environment: string | undefined = undefined;
           try {
-            const tsPrefixLen = 19; // yyyy-MM-dd-HH-mm-ss
+            const yyyyMmDdHhMmSsLength = 19;
+            const tsPrefixLen = yyyyMmDdHhMmSsLength;
             if (entry.length > tsPrefixLen + 1) {
               const remainder = entry.slice(tsPrefixLen + 1);
               if (database && remainder.endsWith(`-${database}`)) {
@@ -798,14 +790,13 @@ export class BackupAndRestoreService {
   }
 
   private async listPrefixes(s3: S3Client, bucket: string, prefix: string): Promise<string[]> {
-    const prefixes: string[] = [];
-    let continuationToken: string | undefined = undefined;
-    do {
-      const resp = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, Delimiter: "/", ContinuationToken: continuationToken }));
-      (resp.CommonPrefixes || []).forEach(p => prefixes.push(p.Prefix!));
-      continuationToken = resp.IsTruncated ? resp.NextContinuationToken : undefined;
-    } while (continuationToken);
-    return prefixes;
+    const collectPrefixes = async (acc: string[], token: string | undefined): Promise<string[]> => {
+      const resp = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, Delimiter: "/", ContinuationToken: token }));
+      const newAcc = [...acc, ...(resp.CommonPrefixes || []).map(p => p.Prefix!)];
+      if (resp.IsTruncated) return collectPrefixes(newAcc, resp.NextContinuationToken);
+      return newAcc;
+    };
+    return collectPrefixes([], undefined);
   }
 
   async deleteS3Backups(names: string[]): Promise<{ deleted: string[]; errors: NamedError[] }> {
@@ -830,15 +821,14 @@ export class BackupAndRestoreService {
         const region = globalBucket ? globalRegion : (env?.aws?.region || AWS_DEFAULTS.REGION);
         const s3 = new S3Client({ region, credentials });
         const prefix = name.endsWith("/") ? name : `${name}/`;
-        let continuationToken: string | undefined = undefined;
-        do {
-          const resp = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: continuationToken }));
-          const contents = resp.Contents || [];
-          for (const obj of contents) {
+        const deletePage = async (token: string | undefined): Promise<void> => {
+          const resp = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }));
+          for (const obj of (resp.Contents || [])) {
             await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: obj.Key! }));
           }
-          continuationToken = resp.IsTruncated ? resp.NextContinuationToken : undefined;
-        } while (continuationToken);
+          if (resp.IsTruncated) return deletePage(resp.NextContinuationToken);
+        };
+        await deletePage(undefined);
         deleted.push(name);
       } catch (e: any) {
         errors.push({ name, error: e.message });

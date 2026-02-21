@@ -16,6 +16,7 @@ import { setupSubdomainForEnvironment } from "../../cli/commands/subdomain";
 import { booleanOf } from "../../shared/string-utils";
 import * as systemConfig from "../../config/system-config";
 import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { keys } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:routes"));
 debugLog.enabled = true;
@@ -463,7 +464,7 @@ router.post("/copy-assets/:environmentName", async (req: Request, res: Response)
             updates["value.backgrounds.images"] = mergeImages(existingConfig.backgrounds?.images, copyResult.backgrounds);
           }
 
-          if (Object.keys(updates).length > 0) {
+          if (keys(updates).length > 0) {
             await configCollection.updateOne({ key: "system" }, { $set: updates });
             debugLog("Updated system config with merged assets");
           }

@@ -22,7 +22,7 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { PipelineStage } from "mongoose";
 import * as transforms from "./transforms";
-import { isNull, isNumber, isUndefined, kebabCase } from "es-toolkit/compat";
+import { isArray, isNull, isNumber, isUndefined, kebabCase, keys } from "es-toolkit/compat";
 import { sortBy } from "../../../../projects/ngx-ramblers/src/app/functions/arrays";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone, dateTimeNow, dateTimeNowAsValue } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
@@ -163,7 +163,7 @@ export async function bulkDeleteEvents(req: Request, res: Response) {
   try {
     const request = req.body as EventStatsRequest[];
     debugLog("bulkDeleteEvents: request:", request);
-    if (!Array.isArray(request)) {
+    if (!isArray(request)) {
       return res.status(400).json({ error: "Invalid event stats request" });
     }
 
@@ -186,7 +186,7 @@ export async function bulkUpdateEvents(req: Request, res: Response) {
   try {
     const updates = req.body as EditableEventStats[];
     debugLog("bulkUpdateEvents: updates:", updates);
-    if (!Array.isArray(updates)) {
+    if (!isArray(updates)) {
       return res.status(400).json({ error: "Invalid update data" });
     }
 
@@ -223,9 +223,9 @@ export async function recreateIndex(req: Request, res: Response) {
     const indexes = await extendedGroupEvent.collection.indexInformation();
     debugLog("recreateIndex: existing indexes:", JSON.stringify(indexes, null, 2));
 
-    const oldIndexName = Object.keys(indexes).find(name => {
+    const oldIndexName = keys(indexes).find(name => {
       const indexKeyObj = Object.fromEntries(indexes[name]);
-      const indexFields = Object.keys(indexKeyObj).sort();
+      const indexFields = keys(indexKeyObj).sort();
       const hasExactlyTheseFields = indexFields.length === oldIndexFields.length &&
         oldIndexFields.every(field => indexKeyObj[field] === 1);
       debugLog(`recreateIndex: checking index ${name}:`, indexKeyObj, "matches old:", hasExactlyTheseFields);
@@ -273,20 +273,20 @@ export async function agmStats(req: Request, res: Response) {
     const numPeriods = Math.max(1, Math.round(rangeInYears || 1));
 
     debugLog(`Range: ${rangeInYears.toFixed(4)} years, numPeriods: ${numPeriods}`);
-    const yearlyStats: YearComparison[] = [];
-
-    for (let i = 0; i < numPeriods; i++) {
-      const periodFromDateTime = i === 0 ? from : from.plus({years: i});
-      const periodToDateTime = i === numPeriods - 1 ? to : from.plus({years: i + 1});
-      const periodFrom = periodFromDateTime.toMillis();
-      const periodTo = periodToDateTime.toMillis();
-      const periodYear = dateTimeFromMillis(periodFrom).year;
-
-      debugLog(`Period ${i + 1}: from=${dateTimeFromMillis(periodFrom).toISO()}, to=${dateTimeFromMillis(periodTo).toISO()}, year=${periodYear}`);
-
-      const stats = await calculateYearStats(periodFrom, periodTo, periodYear);
-      yearlyStats.push(stats);
-    }
+    const yearlyStats: YearComparison[] = await Array.from({length: numPeriods}, (_, i) => i).reduce<Promise<YearComparison[]>>(
+      async (promise, i) => {
+        const acc = await promise;
+        const periodFromDateTime = i === 0 ? from : from.plus({years: i});
+        const periodToDateTime = i === numPeriods - 1 ? to : from.plus({years: i + 1});
+        const periodFrom = periodFromDateTime.toMillis();
+        const periodTo = periodToDateTime.toMillis();
+        const periodYear = dateTimeFromMillis(periodFrom).year;
+        debugLog(`Period ${i + 1}: from=${dateTimeFromMillis(periodFrom).toISO()}, to=${dateTimeFromMillis(periodTo).toISO()}, year=${periodYear}`);
+        const stats = await calculateYearStats(periodFrom, periodTo, periodYear);
+        return [...acc, stats];
+      },
+      Promise.resolve([])
+    );
 
     if (yearlyStats.length === 0) {
       throw new Error("No yearly stats generated");
@@ -858,7 +858,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
   const localUnfilledWalks: any[] = [];
 
   const classifyLocalWalk = (walk: any): LocalWalkStatus => {
-    const events: any[] = Array.isArray(walk.events) ? walk.events : [];
+    const events: any[] = isArray(walk.events) ? walk.events : [];
     const hasDeletedEvent = events.some(event => event?.eventType === EventType.DELETED);
     if (hasDeletedEvent) {
       return LocalWalkStatus.DELETED;

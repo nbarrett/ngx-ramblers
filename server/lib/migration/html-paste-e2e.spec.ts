@@ -14,17 +14,15 @@ function parseMarkdownToSegments(markdown: string): ScrapedSegment[] {
   const imageRegex = /!\[([^\]]*)]\(([^)]+)\)/g;
   let lastIndex = 0;
 
-  for (let match = imageRegex.exec(markdown); match; match = imageRegex.exec(markdown)) {
+  Array.from(markdown.matchAll(imageRegex)).forEach(match => {
     const before = markdown.substring(lastIndex, match.index).trim();
     if (before) segments.push({ text: before });
-
     const alt = match[1] || "";
     const src = match[2] || "";
     const image: ScrapedImage = { src, alt };
     segments.push({ text: alt || "Image", image });
-
     lastIndex = match.index + match[0].length;
-  }
+  });
 
   const remaining = markdown.substring(lastIndex).trim();
   if (remaining) segments.push({ text: remaining });

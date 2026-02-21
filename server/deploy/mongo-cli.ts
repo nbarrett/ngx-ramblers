@@ -11,6 +11,7 @@ import type { BackupOptions, EnvironmentConfig, RestoreOptions } from "./types.j
 import { buildMongoUri } from "../lib/shared/mongodb-uri";
 import { isUndefined } from "es-toolkit/compat";
 import { uploadDirectoryToS3 } from "../lib/aws/s3-utils";
+import { cliLogger } from "../lib/cli/cli-logger";
 
 async function main() {
   const program = new Command();
@@ -21,7 +22,7 @@ async function main() {
   const dumpBaseDir: string = path.join(process.cwd(), "../non-vcs/dump");
 
   function execCmd(cmd: string, args: string[], callback: (err?: string) => void): void {
-    console.log(`Running: ${cmd} ${args.join(" ")}`);
+    cliLogger.log(`Running: ${cmd} ${args.join(" ")}`);
     const proc = spawn(cmd, args, {stdio: "inherit"});
     proc.on("close", (code: number) => callback(code === 0 ? undefined : `Error: Exit ${code}`));
   }
@@ -73,7 +74,7 @@ async function main() {
 
       for (const config of envs) {
         if (!config.mongo) {
-          console.log(`Skipping ${config.name}: no mongo config`);
+          cliLogger.log(`Skipping ${config.name}: no mongo config`);
           continue;
         }
 
@@ -103,7 +104,7 @@ async function main() {
           await new Promise<void>((resolve, reject) => {
             scaleApp(config.name, 0, err => {
               if (err) return reject(new Error(err));
-              console.log(`Scaled down ${config.name}`);
+              cliLogger.log(`Scaled down ${config.name}`);
               resolve();
             });
           });
@@ -117,22 +118,22 @@ async function main() {
             });
           });
 
-          console.log(`Backup completed: ${outDir}`);
+          cliLogger.log(`Backup completed: ${outDir}`);
 
           if (rawOptions.upload) {
             const s3Bucket = process.env.AWS_BUCKET!;
             const s3Region = process.env.AWS_REGION!;
             const s3: S3Client = new S3Client({region: s3Region});
             const s3Key: string = path.join("backups", backupName).replace(/\\/g, "/");
-            await uploadDirectoryToS3(s3, outDir, s3Bucket, s3Key, (bucketName, key) => console.log(`Uploaded: s3://${bucketName}/${key}`));
-            console.log(`Uploaded to s3://${s3Bucket}/${s3Key}`);
+            await uploadDirectoryToS3(s3, outDir, s3Bucket, s3Key, (bucketName, key) => cliLogger.log(`Uploaded: s3://${bucketName}/${key}`));
+            cliLogger.log(`Uploaded to s3://${s3Bucket}/${s3Key}`);
           }
         } finally {
           if (rawOptions.scaleDown && !isUndefined(originalScaleCount)) {
             await new Promise<void>((resolve, reject) => {
               scaleApp(config.name, originalScaleCount, err => {
                 if (err) return reject(new Error(err));
-                console.log(`Restored scale count for ${config.name}`);
+                cliLogger.log(`Restored scale count for ${config.name}`);
                 resolve();
               });
             });
@@ -200,8 +201,8 @@ async function main() {
       }
 
       if (rawOptions.dryRun) {
-        console.log("DRY RUN - Would execute:");
-        console.log(`mongorestore ${restoreArgs.join(" ")}`);
+        cliLogger.log("DRY RUN - Would execute:");
+        cliLogger.log(`mongorestore ${restoreArgs.join(" ")}`);
         return;
       }
 
@@ -212,7 +213,7 @@ async function main() {
         });
       });
 
-      console.log(`Restore completed to ${rawOptions.env}`);
+      cliLogger.log(`Restore completed to ${rawOptions.env}`);
     });
 
   await program.parseAsync(process.argv);

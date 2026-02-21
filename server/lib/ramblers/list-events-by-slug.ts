@@ -45,10 +45,9 @@ export async function listEventsBySlug(req: Request, suppliedSlug?: string): Pro
   const defaultOptions = requestDefaults.createApiRequestOptions(config);
   noopDebugLog("listEventsBySlug:defaultOptions:", defaultOptions);
 
-  let offset = 0;
   const kebabCaseSlug = toSlug(slug);
 
-  while (true) {
+  const fetchPage = async (offset: number): Promise<RamblersEventsApiResponse> => {
     const parameters = [
       optionalParameter("groups", uniqueCommaDelimitedList(req.body.groupCode, groupCode)),
       optionalParameter("types", types),
@@ -97,15 +96,18 @@ export async function listEventsBySlug(req: Request, suppliedSlug?: string): Pro
     if (data.length > 0) {
       debugLog("listEventsBySlug: event found for slug:", slug, pluraliseWithCount(data.length, "response"));
       return response;
-    } else {
-      const {total, limit: responseLimit} = summary;
-      offset += responseLimit;
-      if (offset >= total) {
-        noopDebugLog("listEventsBySlug: No event found for slug:", slug, "in queried", pluraliseWithCount(total, "event"));
-        return response;
-      } else {
-        noopDebugLog("listEventsBySlug: No event found matching", slug, "on current page - increasing offset to", offset);
-      }
     }
-  }
+
+    const {total, limit: responseLimit} = summary;
+    const nextOffset = offset + responseLimit;
+    if (nextOffset >= total) {
+      noopDebugLog("listEventsBySlug: No event found for slug:", slug, "in queried", pluraliseWithCount(total, "event"));
+      return response;
+    }
+
+    noopDebugLog("listEventsBySlug: No event found matching", slug, "on current page - increasing offset to", nextOffset);
+    return fetchPage(nextOffset);
+  };
+
+  return fetchPage(0);
 }

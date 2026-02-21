@@ -49,7 +49,7 @@ import { dateTimeNow } from "../shared/dates";
 import { bestLocation, extractLocations } from "../../../projects/ngx-ramblers/src/app/common/locations/location-extractor";
 import { DEFAULT_OS_STYLE, ExtractedLocation } from "../../../projects/ngx-ramblers/src/app/models/map.model";
 import { GeocodeMatchType } from "../../../projects/ngx-ramblers/src/app/models/address-model";
-import { isNull, isObject, isUndefined, values } from "es-toolkit/compat";
+import { isArray, isNull, isObject, isUndefined, values } from "es-toolkit/compat";
 import { ExtractedContentKind } from "./migration-types";
 
 type TextSegmentInfo = { index: number; cleaned: string; segment: ScrapedSegment; isTextBeforeHeading?: boolean; mergedIndices?: number[] };
@@ -471,20 +471,13 @@ export class PageTransformationEngine {
   }
 
   private textSegments(ctx: TransformationContext): TextSegmentInfo[] {
-    const infos: TextSegmentInfo[] = [];
     const skip = new Set<number>();
-    for (let index = 0; index < ctx.segments.length; index++) {
-      if (skip.has(index)) {
-        continue;
-      }
-      const segment = ctx.segments[index];
-      if (!segment.text || segment.image) {
-        continue;
-      }
+    const infos: TextSegmentInfo[] = [];
+    ctx.segments.forEach((segment, index) => {
+      if (skip.has(index)) return;
+      if (!segment.text || segment.image) return;
       let cleaned = this.cleanAndExclude(ctx, segment.text);
-      if (!cleaned) {
-        continue;
-      }
+      if (!cleaned) return;
       let mergedIndices: number[] | undefined;
       if (this.shouldMergeFragment(cleaned)) {
         const merged = this.mergeFollowingFragments(ctx, index, cleaned);
@@ -496,7 +489,7 @@ export class PageTransformationEngine {
         }
       }
       infos.push({segment, index, cleaned, mergedIndices});
-    }
+    });
     return infos;
   }
 
@@ -520,29 +513,21 @@ export class PageTransformationEngine {
   }
 
   private mergeFollowingFragments(ctx: TransformationContext, startIndex: number, initialText: string): {text: string; indices: number[]} {
-    let text = initialText;
-    const indices: number[] = [];
-    for (let i = startIndex + 1; i < ctx.segments.length; i++) {
-      if (ctx.usedTextIndices.has(i)) {
-        break;
-      }
+    const merge = (i: number, text: string, indices: number[]): {text: string; indices: number[]} => {
+      if (i >= ctx.segments.length) return {text, indices};
+      if (ctx.usedTextIndices.has(i)) return {text, indices};
       const segment = ctx.segments[i];
-      if (!segment.text || segment.image) {
-        break;
-      }
+      if (!segment.text || segment.image) return {text, indices};
       const cleaned = this.cleanAndExclude(ctx, segment.text);
-      indices.push(i);
-      if (!cleaned) {
-        continue;
-      }
+      const newIndices = [...indices, i];
+      if (!cleaned) return merge(i + 1, text, newIndices);
       const joiner = text.length === 0 || text.endsWith("\n") ? "" : "\n";
-      text = `${text}${joiner}${cleaned}`.trim();
+      const newText = `${text}${joiner}${cleaned}`.trim();
       debugLog(`   Merged short text fragment ${startIndex} with ${i}`);
-      if (!this.shouldMergeFragment(cleaned)) {
-        break;
-      }
-    }
-    return {text, indices};
+      if (!this.shouldMergeFragment(cleaned)) return {text: newText, indices: newIndices};
+      return merge(i + 1, newText, newIndices);
+    };
+    return merge(startIndex + 1, initialText, []);
   }
 
   private storeMergedTextIndices(ctx: TransformationContext, index: number, mergedIndices: number[]): void {
@@ -969,7 +954,8 @@ export class PageTransformationEngine {
   }
 
   private captionFromPreviousText(ctx: TransformationContext, index: number): TextSegmentInfo {
-    for (let i = index - 1; i >= 0; i--) {
+    const scanBack = (i: number): TextSegmentInfo => {
+      if (i < 0) return undefined;
       const seg = ctx.segments[i];
       if (!ctx.usedTextIndices.has(i) && seg.text && !seg.image) {
         const cleaned = this.cleanAndExclude(ctx, seg.text);
@@ -988,8 +974,9 @@ export class PageTransformationEngine {
         }
         return {index: i, cleaned, segment: seg};
       }
-    }
-    return undefined;
+      return scanBack(i - 1);
+    };
+    return scanBack(index - 1);
   }
 
   private getCaptionForImage(
@@ -1282,7 +1269,7 @@ export class PageTransformationEngine {
     if (!apiResponse || !apiResponse.response) {
       return null;
     }
-    if (Array.isArray(apiResponse.response)) {
+    if (isArray(apiResponse.response)) {
       return apiResponse.response.length > 0 ? apiResponse.response[0] : null;
     }
     if (isObject(apiResponse.response)) {
@@ -2561,23 +2548,17 @@ export class PageTransformationEngine {
       return updated ? [rowClone] : [];
     }
 
-    const generated: PageContentRow[] = [];
-    while (true) {
+    const collectRows = async (acc: PageContentRow[]): Promise<PageContentRow[]> => {
       const item = await this.extractPrimaryContent(config, mapping, ctx, uploadImageFn, false);
-      if (!item) {
-        break;
-      }
+      if (!item) return acc;
       const rowClone = this.cloneRow(templateRow);
       const updated = await this.applyExtractedContentToRow(rowClone, item, mapping);
-      if (!updated) {
-        break;
-      }
-      generated.push(rowClone);
-      if (config.packingBehavior !== NestedRowPackingBehavior.ONE_PER_ITEM) {
-        break;
-      }
-    }
-    return generated;
+      if (!updated) return acc;
+      const newAcc = [...acc, rowClone];
+      if (config.packingBehavior !== NestedRowPackingBehavior.ONE_PER_ITEM) return newAcc;
+      return collectRows(newAcc);
+    };
+    return collectRows([]);
   }
 
   private async extractPrimaryContent(

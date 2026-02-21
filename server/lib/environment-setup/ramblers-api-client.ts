@@ -6,6 +6,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { envConfig } from "../env-config/env-config";
 import { RamblersAreaLookup, RamblersGroupLookup, ValidationResult } from "./types";
+import { isArray } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:ramblers-api"));
 debugLog.enabled = true;
@@ -19,17 +20,17 @@ interface RamblersApiRequestResult {
 }
 
 function extractGroupsFromPayload(payload: unknown): RamblersGroupsApiResponse[] {
-  if (Array.isArray(payload)) {
+  if (isArray(payload)) {
     return payload as RamblersGroupsApiResponse[];
   }
 
   const payloadWithResponse = payload as { response?: unknown };
-  if (Array.isArray(payloadWithResponse?.response)) {
+  if (isArray(payloadWithResponse?.response)) {
     return payloadWithResponse.response as RamblersGroupsApiResponse[];
   }
 
   const payloadWithData = payload as { data?: unknown };
-  if (Array.isArray(payloadWithData?.data)) {
+  if (isArray(payloadWithData?.data)) {
     return payloadWithData.data as RamblersGroupsApiResponse[];
   }
 

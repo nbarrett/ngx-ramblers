@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import debug from "debug";
+import { values } from "es-toolkit/compat";
 import { createEnvironmentCommand } from "./commands/environment";
 import { createFlyCommand } from "./commands/fly";
 import { createDatabaseCommand } from "./commands/database";
@@ -20,7 +21,7 @@ const debugLog = debug(envConfig.logNamespace("cli"));
 
 function logEnvironmentVariables() {
   debugLog("Environment variables loaded:");
-  Object.values(Environment).forEach(varName => {
+  values(Environment).forEach(varName => {
     const value = process.env[varName];
     debugLog("  %s: %s", varName, value || "(not set)");
   });

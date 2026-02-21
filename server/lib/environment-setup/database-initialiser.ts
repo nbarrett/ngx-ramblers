@@ -13,6 +13,7 @@ import { createAllSamplePageContent } from "./templates/sample-data/page-content
 import { dateTimeNowAsValue } from "../shared/dates";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
 import { closeMigrationConnection, MigrationRunner } from "../mongo/migrations/migrations-runner";
+import { values } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:database-initialiser"));
 debugLog.enabled = true;
@@ -133,7 +134,7 @@ export async function initialiseDatabase(
 
   try {
     reportProgress("Creating collections", "running");
-    const collectionNames = Object.values(COLLECTIONS);
+    const collectionNames = values(COLLECTIONS);
     for (const collectionName of collectionNames) {
       await ensureCollection(db, collectionName);
     }
@@ -386,7 +387,7 @@ export async function reinitialiseDatabase(
     const groupShortName = params.groupName.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "");
 
     reportProgress("Creating collections", "running");
-    const collectionNames = Object.values(COLLECTIONS);
+    const collectionNames = values(COLLECTIONS);
     for (const collectionName of collectionNames) {
       await ensureCollection(db, collectionName);
     }

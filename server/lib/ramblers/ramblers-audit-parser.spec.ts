@@ -45,7 +45,7 @@ describe("auditParser.parseStandardOut", () => {
     expect(auditParser.parseStandardOut(failureInput)).toEqual([{
       audit: true,
       data: {
-        auditTime: expect.any(Number), // Allow any timestamp
+        auditTime: expect.any(Number),
         message: "nick fails to do something",
         status: Status.ERROR,
         type: AuditType.STEP
