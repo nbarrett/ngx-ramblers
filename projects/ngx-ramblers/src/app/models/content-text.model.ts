@@ -11,6 +11,7 @@ import { FocalPoint } from "../modules/common/focal-point-picker/focal-point-pic
 import { HasNgSelectAttributes, LocationDetails } from "./ramblers-walks-manager";
 import { SharedDistrictStyle } from "./system.model";
 import { MapProvider } from "./map.model";
+import { SortDirection } from "./sort.model";
 
 export const EM_DASH = " — ";
 export const EM_DASH_WITH_SPACES = ` ${EM_DASH} `;
@@ -23,6 +24,17 @@ export enum StringMatch {
   EQUALS = "equals",
   STARTS_WITH = "starts-with",
   CONTAINS = "contains"
+}
+
+export enum AlbumIndexSortField {
+  TITLE = "title",
+  HREF = "href",
+  CREATED_AT = "createdAt"
+}
+
+export interface AlbumIndexSortConfig {
+  field: AlbumIndexSortField;
+  direction: SortDirection;
 }
 
 export enum IndexContentType {
@@ -238,6 +250,7 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   imageAspectRatio?: DescribedDimensions;
   styles?: ContentTextStyles;
   location?: LocationDetails;
+  createdAt?: number;
 }
 
 export enum MigrationTemplateSourceType {
@@ -433,6 +446,8 @@ export interface IndexMapConfig {
 
 export interface Index {
   contentPaths: ContentPathMatch[];
+  excludePaths?: ContentPathMatch[];
+  sortConfig?: AlbumIndexSortConfig;
   indexMarkdown?: string;
   autoTitle?: boolean;
   contentTypes?: IndexContentType[];

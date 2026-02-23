@@ -2,6 +2,8 @@ import { inject, Injectable } from "@angular/core";
 import { first, last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
+  AlbumIndexSortConfig,
+  AlbumIndexSortField,
   ContentPathMatch,
   ContentPathMatchConfigs,
   FocalPointTarget,
@@ -12,6 +14,8 @@ import {
   PageContentToRows,
   PageContentType
 } from "../models/content-text.model";
+import { SortDirection } from "../models/sort.model";
+import { sortBy } from "../functions/arrays";
 import { AccessLevel } from "../models/member-resource.model";
 import { LoggerFactory } from "./logger-factory.service";
 import { StringUtilsService } from "./string-utils.service";
@@ -85,6 +89,11 @@ export class IndexService {
       pages = this.filterByMaxPathSegments(pages, albumIndex.contentPaths);
       this.logger.info("After maxPathSegments filter:", pages.length, "pages");
 
+      if (albumIndex.excludePaths?.length > 0) {
+        pages = this.filterOutExcludedPaths(pages, albumIndex.excludePaths);
+        this.logger.info("After exclude filter:", pages.length, "pages");
+      }
+
       let allColumns: PageContentColumn[] = [];
 
       if (contentTypes.includes(IndexContentType.ALBUMS)) {
@@ -99,7 +108,7 @@ export class IndexService {
       }
 
       const deduplicatedColumns = this.deduplicateByHref(allColumns);
-      const orderedColumns = this.sortColumnsByTitle(deduplicatedColumns);
+      const orderedColumns = this.sortColumns(deduplicatedColumns, albumIndex.sortConfig);
 
       const albumIndexPageContent: PageContent = this.pageContentFrom(pageContentRow, orderedColumns, rowIndex);
       this.logger.info("Generated index with", orderedColumns.length, "items from content types:", contentTypes, "(", allColumns.length, "before deduplication) based on:", pathRegex);
@@ -228,7 +237,8 @@ export class IndexService {
           imageBorderRadius: row.carousel?.coverImageBorderRadius,
           imageFocalPoint: applyFocalPointToIndex ? row.carousel?.coverImageFocalPoint : null,
           accessLevel: AccessLevel.public,
-          location
+          location,
+          createdAt: row.carousel?.createdAt
         });
       }
     }
@@ -408,10 +418,20 @@ export class IndexService {
     return score1 > score2;
   }
 
-  private sortColumnsByTitle(columns: PageContentColumn[]): PageContentColumn[] {
-    return columns
-      .slice()
-      .sort((a, b) => (a?.title || "").localeCompare(b?.title || ""));
+  private sortColumns(columns: PageContentColumn[], sortConfig?: AlbumIndexSortConfig): PageContentColumn[] {
+    const field = sortConfig?.field || AlbumIndexSortField.TITLE;
+    const direction = sortConfig?.direction || SortDirection.ASC;
+    const sortProperty = direction === SortDirection.DESC ? `-${field}` : field;
+    return columns.slice().sort(sortBy(sortProperty));
+  }
+
+  private filterOutExcludedPaths(pages: PageContent[], excludePaths: ContentPathMatch[]): PageContent[] {
+    return pages.filter(page => {
+      return !excludePaths.some(excludePath => {
+        const regex = ContentPathMatchConfigs[excludePath.stringMatch].mongoRegex(excludePath.contentPath);
+        return new RegExp(regex.$regex, regex.$options).test(page.path);
+      });
+    });
   }
 
   private calculateDataCompletenessScore(column: PageContentColumn): number {

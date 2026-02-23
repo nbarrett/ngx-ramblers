@@ -4,6 +4,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import {
   ActionType,
   AlbumData,
+  AlbumIndexSortField,
   AlbumView,
   ColumnInsertData,
   ContentText,
@@ -18,6 +19,7 @@ import {
   PageContentType,
   View
 } from "../models/content-text.model";
+import { SortDirection } from "../models/sort.model";
 import { AccessLevel } from "../models/member-resource.model";
 import { move } from "../functions/arrays";
 import { Logger, LoggerFactory } from "./logger-factory.service";
@@ -178,6 +180,8 @@ export class PageContentActionsService {
   defaultIndex(): Index {
     return {
       contentPaths: [],
+      excludePaths: [],
+      sortConfig: {field: AlbumIndexSortField.TITLE, direction: SortDirection.ASC},
       indexMarkdown: null,
       autoTitle: true
     };
