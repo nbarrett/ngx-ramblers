@@ -22,6 +22,7 @@ import { Organisation, RootFolder } from "../models/system.model";
 import { SystemConfigService } from "./system/system-config.service";
 import { DateUtilsService } from "./date-utils.service";
 import { FALLBACK_MEDIA } from "../models/walk.model";
+import { isMeetupUrl as isMeetupUrlFn } from "../functions/walks/ramblers-event.mapper";
 
 @Injectable({
   providedIn: "root"
@@ -46,8 +47,8 @@ export class UrlService {
     this.cacheBuster = this.dateUtils.nowAsValue();
   }
 
-  public isMeetupUrl(externalUrl: string) {
-    return externalUrl?.includes("meetup.com");
+  public isMeetupUrl(externalUrl: string): boolean {
+    return isMeetupUrlFn(externalUrl);
   }
 
   pathContains(path: string): boolean {

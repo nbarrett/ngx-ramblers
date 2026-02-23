@@ -542,16 +542,20 @@ export class RamblersWalksAndEventsService {
       if (!isNaN(+walk?.fields?.publishing?.ramblers?.contactName)) {
         validationMessages.push(`Walk leader has an old Ramblers contact Id (${walk?.fields.publishing.ramblers.contactName}) setup on their member record. This needs to be updated to an Walks Manager Contact Name. ${contactIdMessage}`);
       }
-      if (!walk?.groupEvent?.end_date_time) {
-        validationMessages.push("Estimated Finish Time has not been entered");
-      } else if (!walk?.groupEvent?.end_date_time?.includes(":")) {
-        validationMessages.push(`Estimated Finish time must be entered using hh:mm format but it's been entered as ${walk?.groupEvent?.end_date_time}`);
-      } else if (isEmpty(walk?.groupEvent?.end_date_time?.trim())) {
-        validationMessages.push("Estimated Finish Time cannot be empty");
+      if (this.walksConfigService.walksConfig()?.requireFinishTime !== false) {
+        if (!walk?.groupEvent?.end_date_time) {
+          validationMessages.push("Estimated Finish Time has not been entered");
+        } else if (!walk?.groupEvent?.end_date_time?.includes(":")) {
+          validationMessages.push(`Estimated Finish time must be entered using hh:mm format but it's been entered as ${walk?.groupEvent?.end_date_time}`);
+        } else if (isEmpty(walk?.groupEvent?.end_date_time?.trim())) {
+          validationMessages.push("Estimated Finish Time cannot be empty");
+        }
       }
 
-      if (isEmpty(walk?.groupEvent?.shape)) {
-        validationMessages.push("Display Name for walk leader is missing. This can be entered manually on the Walk Leader tab");
+      if (this.walksConfigService.walksConfig()?.requireWalkLeaderDisplayName !== false) {
+        if (isEmpty(walk?.groupEvent?.shape)) {
+          validationMessages.push("Display Name for walk leader is missing. This can be entered manually on the Walk Leader tab");
+        }
       }
 
       if (enumValueForKey(WalkType, walk?.groupEvent?.shape) === WalkType.LINEAR && isEmpty(this.walkDisplayService.gridReferenceFrom(walk?.groupEvent?.end_location))) {
@@ -562,10 +566,12 @@ export class RamblersWalksAndEventsService {
         validationMessages.push(`Walk is ${WalkType.CIRCULAR} but the finish postcode ${walk?.groupEvent?.end_location?.postcode} does not match the Starting Postcode ${walk?.groupEvent?.start_location?.postcode} in the Walk Details tab`);
       }
 
-      if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk?.fields.riskAssessment)) {
-        const alertMessage: AlertMessage = this.riskAssessmentService.warningMessage(walk?.fields.riskAssessment);
-        this.logger.off("unconfirmedRiskAssessmentsExist:given walk", walk, "riskAssessment:", walk?.fields.riskAssessment, "alertMessage:", alertMessage);
-        validationMessages.push(`${alertMessage.title}. ${alertMessage.message}`);
+      if (this.walksConfigService.walksConfig()?.requireRiskAssessment !== false) {
+        if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk?.fields.riskAssessment)) {
+          const alertMessage: AlertMessage = this.riskAssessmentService.warningMessage(walk?.fields.riskAssessment);
+          this.logger.off("unconfirmedRiskAssessmentsExist:given walk", walk, "riskAssessment:", walk?.fields.riskAssessment, "alertMessage:", alertMessage);
+          validationMessages.push(`${alertMessage.title}. ${alertMessage.message}`);
+        }
       }
 
       if (walk?.groupEvent?.status === WalkStatus.CANCELLED && isEmpty(walk?.groupEvent?.cancellation_reason)) {

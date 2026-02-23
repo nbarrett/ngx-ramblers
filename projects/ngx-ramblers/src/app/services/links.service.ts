@@ -4,6 +4,7 @@ import { EventLinkConfig, LINK_CONFIG, Links, LinkSource, LinkWithSource } from 
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { ExtendedFields, ExtendedGroupEvent } from "../models/group-event.model";
 import { GoogleMapsService } from "./google-maps.service";
+import { UrlService } from "./url.service";
 
 @Injectable({
   providedIn: "root"
@@ -12,6 +13,7 @@ export class LinksService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("LinksService", NgxLoggerLevel.ERROR);
   public googleMapsService = inject(GoogleMapsService);
+  private urlService = inject(UrlService);
   public deleteLink(extendedFields: ExtendedFields, linkSource: LinkSource) {
     extendedFields.links = extendedFields.links.filter(item => item.source !== linkSource);
   }
@@ -51,14 +53,20 @@ export class LinksService {
           href: extendedGroupEvent.fields.venue.url || this.googleMapsService.urlForPostcode(extendedGroupEvent.fields.venue.postcode),
           title: extendedGroupEvent.fields.venue.name
         } : null;
-        if (!existingLinkWithSource && linkFromVenue) {
-          extendedGroupEvent.fields.links.push(linkFromVenue);
-        }
         links.venue = existingLinkWithSource || linkFromVenue;
         this.logger.info("assignLinkSourceUrl: links.venue:", links?.venue, "from extendedGroupEvent.fields.venue:", extendedGroupEvent?.fields?.venue);
         break;
       case LinkSource.MEETUP:
-        links.meetup = existingLinkWithSource;
+        if (existingLinkWithSource) {
+          links.meetup = existingLinkWithSource;
+        } else if (this.urlService.isMeetupUrl(extendedGroupEvent?.groupEvent?.external_url)) {
+          links.meetup = {
+            href: extendedGroupEvent.groupEvent.external_url,
+            title: extendedGroupEvent.groupEvent.title
+          };
+        } else {
+          links.meetup = null;
+        }
         break;
       case LinkSource.OS_MAPS:
         links.osMapsRoute = existingLinkWithSource;

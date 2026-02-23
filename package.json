@@ -107,7 +107,7 @@
     "@angular/cli": "20.3.13",
     "@angular/compiler-cli": "20.3.15",
     "@angular/language-service": "20.3.15",
-    "@annix/claude-swarm": "0.1.12",
+    "@annix/claude-swarm": "0.1.13",
     "@types/jasmine": "5.1.13",
     "@types/jasminewd2": "2.0.13",
     "@types/leaflet": "1.9.21",

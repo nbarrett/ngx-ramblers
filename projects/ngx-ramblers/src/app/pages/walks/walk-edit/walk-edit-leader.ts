@@ -13,16 +13,20 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import { JsonPipe } from "@angular/common";
+import { JsonPipe, NgClass } from "@angular/common";
 import { MemberSelector } from "../../../shared/components/member-selector";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
+import { InputSource } from "../../../models/group-event.model";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
+import { ALERT_WARNING } from "../../../models/alert-target.model";
 
 @Component({
   selector: "app-walk-edit-leader",
-    imports: [FormsModule, JsonPipe, MemberSelector],
+    imports: [FormsModule, JsonPipe, MemberSelector, NgClass, FontAwesomeModule],
   styles: `
     .button-bottom-aligned
-      margin: 34px 0px 0px -14px
+      margin: 34px 0px 0px 0px
   `,
   template: `
     @if (displayedWalk?.walk?.fields) {
@@ -57,7 +61,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
               <label for="walk-status">Walk Status</label>
               <select [disabled]="!display.allowAdminEdits() || inputDisabled"
                       [(ngModel)]="displayedWalk.status"
-                      (change)="statusChange.emit(displayedWalk.status)"
+                      (change)="onStatusChange()"
                       class="form-control input-sm" id="walk-status">
                 @for (status of walkStatuses; track status.eventType) {
                   <option
@@ -116,20 +120,45 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
               }
             </div>
           </div>
-          <div class="col-sm-1">
+          <div class="col-sm-2 pe-sm-0">
             <div class="form-group">
-              <input type="submit" [disabled]="inputDisabled || saveInProgress" value="Me" (click)="setWalkLeaderToMe()"
-                     class="btn btn-primary button-bottom-aligned w-100">
-            </div>
-          </div>
-          <div class="col-sm-1">
-            <div class="form-group">
-              <input type="submit" [disabled]="inputDisabled || saveInProgress || !display.hasWalkLeader(displayedWalk.walk)"
-                     value="Clear" (click)="clearWalkLeader()"
-                     class="btn btn-primary button-bottom-aligned w-100">
+              <div class="row g-2">
+                <div class="col-6">
+                  <input type="submit" [disabled]="inputDisabled || saveInProgress" value="Me" (click)="setWalkLeaderToMe()"
+                         class="btn btn-primary button-bottom-aligned w-100">
+                </div>
+                <div class="col-6">
+                  <input type="submit" [disabled]="inputDisabled || saveInProgress || !display.hasWalkLeader(displayedWalk.walk)"
+                         value="Clear" (click)="clearWalkLeader()"
+                         class="btn btn-primary button-bottom-aligned w-100">
+                </div>
+              </div>
             </div>
           </div>
         </div>
+        @if (hasWalkLeaderContactDetails || rematchPreviewMessage) {
+          <div class="row">
+            <div class="col-sm-10">
+              @if (rematchPreviewMessage) {
+                <div class="alert mb-3" [ngClass]="rematchPreviewClass">
+                  <fa-icon [icon]="faCircleInfo"></fa-icon>
+                  <strong> Leader match: </strong>
+                  {{ rematchPreviewMessage }}
+                </div>
+              }
+            </div>
+            @if (!isManuallyCreated) {
+              <div class="col-sm-2 pe-sm-0">
+                <div class="form-group mb-0">
+                  <input type="submit" [disabled]="inputDisabled || saveInProgress || !hasWalkLeaderContactDetails"
+                         value="Rematch"
+                         (click)="rematchWalkLeaderRequest.emit()"
+                         class="btn btn-primary w-100">
+                </div>
+              </div>
+            }
+          </div>
+        }
       }
       @if (display.allowAdminEdits()) {
         <div class="row">
@@ -137,6 +166,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
             <div class="form-group">
               <label for="display-name">Display Name (how it will be published on this walk)</label>
               <input [(ngModel)]="displayedWalk.walk.fields.contactDetails.displayName"
+                     (blur)="rematchPreviewRequest.emit()"
                      type="text"
                      [disabled]="inputDisabled"
                      class="form-control input-sm" id="display-name"
@@ -148,12 +178,13 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
               <label for="walk-leader-contact-id">Walks Manager Contact Name</label>
               <input [disabled]="inputDisabled"
                      [(ngModel)]="displayedWalk.walk.fields.publishing.ramblers.contactName"
+                     (blur)="rematchPreviewRequest.emit()"
                      type="text"
                      class="form-control input-sm flex-grow-1 me-2" id="walk-leader-contact-id"
                      placeholder="Name that matches the User Details in Walks Manager. This will be sent in Ramblers in CSV export file">
             </div>
           </div>
-          <div class="col-sm-2">
+          <div class="col-sm-2 pe-sm-0">
             <div class="form-group">
               <input type="submit" [value]="toggleRamblersWalkLeaderContactName"
                      (click)="toggleRamblersWalkLeader()"
@@ -168,6 +199,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
           <div class="form-group">
             <label for="contact-phone">Contact Phone</label>
             <input [disabled]="inputDisabled" [(ngModel)]="displayedWalk.walk.fields.contactDetails.phone"
+                   (blur)="rematchPreviewRequest.emit()"
                    type="text" class="form-control input-sm" id="contact-phone"
                    placeholder="Enter contact phone here">
           </div>
@@ -180,6 +212,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
             @if (allowDetailView) {
               <input [disabled]="inputDisabled"
                      [(ngModel)]="displayedWalk.walk.fields.contactDetails.email" type="text"
+                     (blur)="rematchPreviewRequest.emit()"
                      class="form-control input-sm" id="contact-email"
                      placeholder="Enter contact email here">
             }
@@ -213,9 +246,13 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   }
   @Input() saveInProgress = false;
   @Input() notify!: AlertInstance;
+  @Input() rematchPreviewMessage: string | null = null;
+  @Input() rematchPreviewClass = ALERT_WARNING.class;
   @Output() statusChange = new EventEmitter<EventType>();
   @Output() walkLeaderChange = new EventEmitter<void>();
   @Output() clearWalkLeaderRequest = new EventEmitter<void>();
+  @Output() rematchWalkLeaderRequest = new EventEmitter<void>();
+  @Output() rematchPreviewRequest = new EventEmitter<void>();
   showOnlyWalkLeaders = true;
   previousWalkLeadersWithAliasOrMe: DisplayMember[] = [];
   membersWithAliasOrMe: DisplayMember[] = [];
@@ -229,6 +266,7 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   private walksReferenceService = inject(WalksReferenceService);
   private fullNameWithAliasOrMePipe = inject(FullNameWithAliasOrMePipe);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditLeaderComponent", NgxLoggerLevel.ERROR);
+  protected readonly faCircleInfo = faCircleInfo;
 
   async ngOnInit() {
     this.logger.info("ngOnInit:displayedWalk:", this.displayedWalk);
@@ -275,7 +313,17 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
     return this.display.members.find(member => member.id === memberId) || null;
   }
 
+  get hasWalkLeaderContactDetails(): boolean {
+    const contactDetails = this.displayedWalk?.walk?.fields?.contactDetails;
+    return !!(contactDetails?.displayName || contactDetails?.email || contactDetails?.phone);
+  }
+
+  get isManuallyCreated(): boolean {
+    return this.displayedWalk?.walk?.fields?.inputSource === InputSource.MANUALLY_CREATED;
+  }
+
   onWalkLeaderChange(member: Member | null) {
+    this.logger.info("onWalkLeaderChange:selectedMember", member, "existingContactDetails", this.displayedWalk?.walk?.fields?.contactDetails);
     if (member) {
       this.displayedWalk.walk.fields.contactDetails.memberId = member.id;
       this.walkLeaderChange.emit();
@@ -288,18 +336,21 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
     if (!this.display.hasWalkLeader(this.displayedWalk.walk)) {
       return;
     }
+    this.logger.info("clearWalkLeader:requested", this.displayedWalk?.walk?.fields?.contactDetails);
     this.clearWalkLeaderRequest.emit();
   }
 
 
   setWalkLeaderToMe() {
     this.displayedWalk.walk.fields.contactDetails.memberId = this.memberLoginService.loggedInMember().memberId;
+    this.logger.info("setWalkLeaderToMe:memberId", this.displayedWalk.walk.fields.contactDetails.memberId);
     this.walkLeaderChange.emit();
   }
 
   toggleRamblersWalkLeader() {
     const contactId = this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? this.walkLeadContactId : this.myContactId;
     const targetOverride = this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? "walk leader" : "you";
+    this.logger.info("toggleRamblersWalkLeader:current", this.displayedWalk.walk.fields.publishing.ramblers.contactName, "target", contactId, "myContactId", this.myContactId, "walkLeadContactId", this.walkLeadContactId);
     if (contactId) {
       this.displayedWalk.walk.fields.publishing.ramblers.contactName = contactId;
       this.notify.success({
@@ -329,5 +380,10 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
       this.displayedWalk.walk.groupEvent.cancellation_reason = "";
       this.logger.info("onCancelledChange: walk marked as confirmed, cancellation reason cleared");
     }
+  }
+
+  onStatusChange() {
+    this.logger.info("onStatusChange:selectedStatus", this.displayedWalk?.status, "walkId", this.displayedWalk?.walk?.id);
+    this.statusChange.emit(this.displayedWalk.status);
   }
 }

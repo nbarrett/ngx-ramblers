@@ -2,6 +2,9 @@ import { WalksConfig } from "../../../../projects/ngx-ramblers/src/app/models/wa
 
 export function createWalksConfig(): WalksConfig {
   return {
-    milesPerHour: 2.5
+    milesPerHour: 2.5,
+    requireRiskAssessment: true,
+    requireFinishTime: true,
+    requireWalkLeaderDisplayName: true
   };
 }

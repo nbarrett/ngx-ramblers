@@ -2,18 +2,27 @@ import { Component, inject, Input, OnDestroy, OnInit, Type, ViewChild } from "@a
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCopy, faPencil } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep, isEmpty, isUndefined, values } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isEqual, isString, isUndefined, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
-import { AlertTarget } from "../../../models/alert-target.model";
+import { ALERT_SUCCESS, ALERT_WARNING, AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ConfigKey } from "../../../models/config.model";
 import { MEETUP_API_AVAILABLE, MeetupConfig } from "../../../models/meetup-config.model";
 import { Member } from "../../../models/member.model";
 import { ConfirmType, StoredValue, WalkEditTab } from "../../../models/ui-actions";
 import { WalkEventType } from "../../../models/walk-event-type.model";
-import { DisplayedWalk, EventType, INITIALISED_LOCATION, WalkExportData, WalkViewMode } from "../../../models/walk.model";
+import {
+  DisplayedWalk,
+  EventField,
+  EventType,
+  ImageSource,
+  INITIALISED_LOCATION,
+  LinkSource,
+  WalkExportData,
+  WalkViewMode
+} from "../../../models/walk.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { ConfigService } from "../../../services/config.service";
@@ -33,11 +42,13 @@ import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { StoredVenueService } from "../../../services/venue/stored-venue.service";
 import { UrlService } from "../../../services/url.service";
+import { LinksService } from "../../../services/links.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { MailMessagingConfig } from "../../../models/mail.model";
 import { MeetupService } from "../../../services/meetup.service";
 import { WalkNotification, WalksConfig } from "../../../models/walk-notification.model";
+import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { MeetupDescriptionComponent } from "../../../notifications/walks/templates/meetup/meetup-description.component";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
@@ -51,7 +62,6 @@ import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.mod
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { NotificationComponent } from "../../../notifications/common/notification.component";
 import { WalkDataAudit } from "../../../models/walk-data-audit.model";
-import { isEqual } from "es-toolkit/compat";
 import { WalkEditMainDetailsComponent } from "./walk-edit-main-details";
 import { WalkEditDetailsComponent } from "./walk-edit-details";
 import { WalkRiskAssessmentComponent } from "../walk-risk-assessment/walk-risk-assessment.component";
@@ -62,6 +72,17 @@ import { EditGroupEventImagesComponent } from "../../../common/walks-and-events/
 import { WalkEditHistoryComponent } from "./walk-edit-walk-history";
 import { WalkEditCopyFromComponent } from "./walk-edit-copy-from";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
+import {
+  leaderMatchResult,
+  priorMatchesFromWalks,
+  shouldAutoLinkLeaderMatch
+} from "../../../functions/walks/walk-leader-member-match";
+import {
+  PriorContactMemberMatch,
+  WalkLeaderMatchConfidence,
+  WalkLeaderMatchType
+} from "../../../models/walk-leader-match.model";
+import TurndownService from "turndown";
 
 @Component({
   selector: "app-walk-edit",
@@ -113,8 +134,12 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
             [displayedWalk]="displayedWalk"
             [inputDisabled]="inputDisabled()"
             [saveInProgress]="saveInProgress"
+            [rematchPreviewMessage]="rematchPreviewMessage"
+            [rematchPreviewClass]="rematchPreviewClass"
             (walkLeaderChange)="walkLeaderMemberIdChanged()"
             (clearWalkLeaderRequest)="requestClearWalkLeader()"
+            (rematchPreviewRequest)="refreshRematchPreview()"
+            (rematchWalkLeaderRequest)="rematchWalkLeader()"
             (statusChange)="onWalkStatusChange($event)"/>
         </tab>
         <tab app-walk-edit-features heading="{{WalkEditTab.FEATURES}}"
@@ -163,102 +188,102 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
     @if (displayedWalk?.walk) {
       @if (showChangedItems) {
         <pre>
-          changedItems: {{ walkEventService.walkDataAuditFor(this.displayedWalk?.walk, status(), true)?.changedItems | json }}
-        </pre>
+        changedItems: {{ walkEventService.walkDataAuditFor(this.displayedWalk?.walk, status(), true)?.changedItems | json }}
+      </pre>
       }
       <div class="d-flex flex-wrap align-items-center mb-4 gap-3">
         <div class="d-inline-flex align-items-center flex-wrap align-middle">
-        @if (allowClose()) {
-          <input [disabled]="saveInProgress" type="submit"
-                 value="Close"
-                 (click)="closeEditView()" title="Close and go back to walks list"
-                 class="btn btn-primary me-2">
-        }
-        @if (allowSave()) {
-          <input [disabled]="saveInProgress" type="submit" value="Save"
-                 (click)="saveWalkDetails()" title="Save these walk details"
-                 class="btn btn-primary me-2">
-        }
-        @if (allowCancel()) {
-          <input [disabled]="saveInProgress" type="submit"
-                 value="Cancel"
-                 (click)="cancelWalkDetails()" title="Cancel and don't save"
-                 class="btn btn-primary me-2">
-        }
-        @if (pendingCancel()) {
-          <input [disabled]="saveInProgress" type="submit"
-                 value="Confirm" (click)="confirmCancelWalkDetails()"
-                 title="Confirm losing my changes and closing this form"
-                 class="btn btn-primary me-2">
-        }
-        @if (allowDelete()) {
-          <input [disabled]="saveInProgress" type="submit"
-                 value="Delete"
-                 (click)="deleteWalkDetails()" title="Delete these walk details"
-                 class="btn btn-primary me-2">
-        }
-        @if (pendingDelete()) {
-          <input [disabled]="saveInProgress" type="submit"
-                 value="Confirm Deletion" (click)="confirmDeleteWalkDetails()"
-                 title="Confirm Delete of these walk details"
-                 class="btn btn-primary me-2">
-        }
-        @if (allowRequestApproval()) {
-          <input [disabled]="saveInProgress" type="submit"
-                 value="Request Approval" (click)="requestApproval()"
-                 title="Mark walk details complete and request approval"
-                 class="btn btn-primary me-2">
-        }
-        @if (allowApprove()) {
-          <input [disabled]="saveInProgress" type="submit"
-                 value="Approve" (click)="approveWalkDetails()"
-                 title="Approve walk and publish"
-                 class="btn btn-primary me-2">
-        }
-        @if (pendingRequestApproval()) {
-          <input [disabled]="saveInProgress"
-                 type="submit"
-                 value="Confirm Request Approval" (click)="confirmRequestApproval()"
-                 title="Confirm walk details complete and request approval"
-                 class="btn btn-primary me-2">
-        }
-        @if (allowContactOther()) {
-          <input [disabled]="saveInProgress" type="submit"
-                 value=""
-                 (click)="contactOther()" title="Contact {{personToNotify()}}"
-                 class="btn btn-primary me-2">
-        }
-        @if (pendingContactOther()) {
-          <input [disabled]="saveInProgress" type="submit"
-                 value="Contact {{personToNotify()}}" (click)="confirmContactOther()"
-                 title="Contact {{personToNotify()}} via email"
-                 class="btn btn-primary me-2">
-        }
-        @if (pendingClearWalkLeader()) {
-          <input [disabled]="saveInProgress" type="submit"
-                 value="Keep Walk Details" (click)="confirmClearWalkLeaderKeepDetails()"
-                 title="Clear walk leader but keep all walk details"
-                 class="btn btn-primary me-2">
-          <input [disabled]="saveInProgress" type="submit"
-                 value="Free Slot" (click)="confirmClearWalkLeaderFreeSlot()"
-                 title="Reset walk to empty slot and clear all details"
-                 class="btn btn-primary me-2">
-        }
-        @if (pendingConfirmation()) {
-          <input type="submit" value="Cancel" (click)="cancelConfirmableAction()"
-                 title="Cancel this action"
-                 class="btn btn-primary me-2">
-        }
-        @if (allowNotifyConfirmation() && !saveInProgress) {
-          <div class="form-check">
-            <input [disabled]="!display.allowAdminEdits() || saveInProgress"
-                   [(ngModel)]="sendNotifications"
-                   type="checkbox" class="form-check-input" id="send-notification">
-            <label class="form-check-label ms-2"
-                   for="send-notification">Notify {{ personToNotify() }} about this change
-            </label>
-          </div>
-        }
+          @if (allowClose()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Close"
+                   (click)="closeEditView()" title="Close and go back to walks list"
+                   class="btn btn-primary me-2">
+          }
+          @if (allowSave()) {
+            <input [disabled]="saveInProgress" type="submit" value="Save"
+                   (click)="saveWalkDetails()" title="Save these walk details"
+                   class="btn btn-primary me-2">
+          }
+          @if (allowCancel()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Cancel"
+                   (click)="cancelWalkDetails()" title="Cancel and don't save"
+                   class="btn btn-primary me-2">
+          }
+          @if (pendingCancel()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Confirm" (click)="confirmCancelWalkDetails()"
+                   title="Confirm losing my changes and closing this form"
+                   class="btn btn-primary me-2">
+          }
+          @if (allowDelete()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Delete"
+                   (click)="deleteWalkDetails()" title="Delete these walk details"
+                   class="btn btn-primary me-2">
+          }
+          @if (pendingDelete()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Confirm Deletion" (click)="confirmDeleteWalkDetails()"
+                   title="Confirm Delete of these walk details"
+                   class="btn btn-primary me-2">
+          }
+          @if (allowRequestApproval()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Request Approval" (click)="requestApproval()"
+                   title="Mark walk details complete and request approval"
+                   class="btn btn-primary me-2">
+          }
+          @if (allowApprove()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Approve" (click)="approveWalkDetails()"
+                   title="Approve walk and publish"
+                   class="btn btn-primary me-2">
+          }
+          @if (pendingRequestApproval()) {
+            <input [disabled]="saveInProgress"
+                   type="submit"
+                   value="Confirm Request Approval" (click)="confirmRequestApproval()"
+                   title="Confirm walk details complete and request approval"
+                   class="btn btn-primary me-2">
+          }
+          @if (allowContactOther()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value=""
+                   (click)="contactOther()" title="Contact {{personToNotify()}}"
+                   class="btn btn-primary me-2">
+          }
+          @if (pendingContactOther()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Contact {{personToNotify()}}" (click)="confirmContactOther()"
+                   title="Contact {{personToNotify()}} via email"
+                   class="btn btn-primary me-2">
+          }
+          @if (pendingClearWalkLeader()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Keep Walk Details" (click)="confirmClearWalkLeaderKeepDetails()"
+                   title="Clear walk leader but keep all walk details"
+                   class="btn btn-primary me-2">
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Free Slot" (click)="confirmClearWalkLeaderFreeSlot()"
+                   title="Reset walk to empty slot and clear all details"
+                   class="btn btn-primary me-2">
+          }
+          @if (pendingConfirmation()) {
+            <input type="submit" value="Cancel" (click)="cancelConfirmableAction()"
+                   title="Cancel this action"
+                   class="btn btn-primary me-2">
+          }
+          @if (allowNotifyConfirmation() && !saveInProgress) {
+            <div class="form-check">
+              <input [disabled]="!display.allowAdminEdits() || saveInProgress"
+                     [(ngModel)]="sendNotifications"
+                     type="checkbox" class="form-check-input" id="send-notification">
+              <label class="form-check-label ms-2"
+                     for="send-notification">Notify {{ personToNotify() }} about this change
+              </label>
+            </div>
+          }
         </div>
         @if (display.walkLink(displayedWalk.walk)) {
           <div class="d-inline-flex align-items-center gap-3 ms-auto">
@@ -286,6 +311,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
   imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, FormsModule, FontAwesomeModule, JsonPipe, TabDirective, WalkEditMainDetailsComponent, WalkEditDetailsComponent, WalkRiskAssessmentComponent, WalkEditRelatedLinksComponent, WalkEditLeaderComponent, WalkEditFeaturesComponent, EditGroupEventImagesComponent, WalkEditHistoryComponent, WalkEditCopyFromComponent, CopyIconComponent]
 })
 export class WalkEditComponent implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditComponent", NgxLoggerLevel.ERROR);
 
   @Input("displayedWalk")
   set initialiseWalk(displayedWalk: DisplayedWalk) {
@@ -301,6 +327,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }
     this.displayedWalk = cloneDeep(displayedWalk);
     this.initialiseMilesPerHour();
+    this.rematchPreviewMessage = null;
+    this.rematchPreviewClass = ALERT_WARNING.class;
     this.logger.info("initialiseWalk:cloning groupEvent for edit:", this.displayedWalk?.walk?.groupEvent, "original:", displayedWalk?.walk?.groupEvent);
     this.mapEditComponentDisplayedWalk = this.displayedWalk;
     if (this.displayedWalk?.walk?.fields?.gpxFile?.awsFileName) {
@@ -308,7 +336,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditComponent", NgxLoggerLevel.ERROR);
   public showChangedItems = false;
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private walksConfigService = inject(WalksConfigService);
@@ -332,8 +359,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   protected notifierService = inject(NotifierService);
   private configService = inject(ConfigService);
   private eventDefaultsService = inject(EventDefaultsService);
+  private linksService = inject(LinksService);
   private storedVenueService = inject(StoredVenueService);
   private broadcastService = inject<BroadcastService<ExtendedGroupEvent>>(BroadcastService);
+  private turndownService = new TurndownService();
   public config: SystemConfig;
   protected renderMapEdit: boolean;
   private mailMessagingConfig: MailMessagingConfig;
@@ -355,6 +384,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   private walksConfig: WalksConfig;
   public options: any;
   public showGoogleMapsView = false;
+  public rematchPreviewMessage: string | null = null;
+  public rematchPreviewClass = ALERT_WARNING.class;
   public walkDataAudit: WalkDataAudit;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   @ViewChild(WalkEditDetailsComponent) walkEditDetailsComponent: WalkEditDetailsComponent;
@@ -375,7 +406,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
       if (this.mailMessagingConfig?.mailConfig.allowSendTransactional) {
-        this.sendNotifications = true;
+        this.sendNotifications = !this.walkIsInPast();
       } else if (this.memberLoginService.memberLoggedIn() && this.personToNotify()) {
         this.notify.warning({
           title: "Email notifications",
@@ -475,6 +506,11 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       && this.displayedWalk.walkAccessMode && this.displayedWalk?.walkAccessMode?.walkWritable;
   }
 
+  walkIsInPast(): boolean {
+    const startDate = this.displayedWalk?.walk?.groupEvent?.start_date_time;
+    return !!startDate && this.dateUtils.asValue(startDate) < this.dateUtils.nowAsValue();
+  }
+
   allowNotifyConfirmation() {
     return this.mailMessagingConfig?.mailConfig.allowSendTransactional && (this.allowSave() || this.confirmAction === ConfirmType.DELETE) && this.displayedWalk.walk?.fields?.contactDetails?.memberId;
   }
@@ -525,9 +561,15 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) && this.status() === EventType.AWAITING_WALK_DETAILS;
   }
 
-  walkLeaderMemberIdChanged() {
+  walkLeaderMemberIdChanged(preserveContactDetails = false) {
     this.notify.hide();
     const memberId = this.displayedWalk.walk?.fields?.contactDetails?.memberId;
+    this.logger.info("walkLeaderMemberIdChanged:start", this.toLogJson({
+      preserveContactDetails,
+      memberId,
+      existingContactDetails: this.displayedWalk?.walk?.fields?.contactDetails,
+      existingPublishingContactName: this.displayedWalk?.walk?.fields?.publishing?.ramblers?.contactName
+    }));
     if (!memberId) {
       this.setStatus(EventType.AWAITING_LEADER);
       this.displayedWalk.walk.fields.contactDetails.memberId = null;
@@ -541,15 +583,125 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         return member.id === memberId;
       });
       if (selectedMember) {
-        this.logger.info("selectedMember", selectedMember);
-        this.setStatus(EventType.AWAITING_WALK_DETAILS);
+        this.logger.info("walkLeaderMemberIdChanged:selectedMember", this.toLogJson(selectedMember));
+        const isImportedWalk = [InputSource.WALKS_MANAGER_CACHE, InputSource.FILE_IMPORT].includes(this.displayedWalk.walk?.fields?.inputSource);
+        this.setStatus(isImportedWalk ? EventType.APPROVED : EventType.AWAITING_WALK_DETAILS);
         this.displayedWalk.walk.fields.contactDetails.memberId = selectedMember.id;
-        const selectedContactId = selectedMember.contactId ?? null;
-        this.displayedWalk.walk.fields.contactDetails.contactId = selectedContactId;
-        this.displayedWalk.walk.fields.publishing.ramblers.contactName = selectedContactId;
-        this.displayedWalk.walk.fields.contactDetails.displayName = selectedMember.displayName;
-        this.displayedWalk.walk.fields.contactDetails.phone = selectedMember.mobileNumber;
-        this.displayedWalk.walk.fields.contactDetails.email = selectedMember.email;
+        if (!preserveContactDetails) {
+          const selectedContactId = selectedMember.contactId ?? null;
+          this.displayedWalk.walk.fields.contactDetails.contactId = selectedContactId;
+          this.displayedWalk.walk.fields.publishing.ramblers.contactName = selectedContactId;
+          this.displayedWalk.walk.fields.contactDetails.displayName = selectedMember.displayName;
+          this.displayedWalk.walk.fields.contactDetails.phone = selectedMember.mobileNumber;
+          this.displayedWalk.walk.fields.contactDetails.email = selectedMember.email;
+        }
+      }
+    }
+    this.logger.info("walkLeaderMemberIdChanged:end", this.toLogJson({
+      updatedContactDetails: this.displayedWalk?.walk?.fields?.contactDetails,
+      updatedPublishingContactName: this.displayedWalk?.walk?.fields?.publishing?.ramblers?.contactName
+    }));
+    Promise.resolve().then(() => this.refreshRematchPreview());
+  }
+
+  async rematchWalkLeader() {
+    try {
+      const priorMatches = await this.priorMatchesForRematch();
+      const contactDetailsForMatch = this.contactDetailsForRematch();
+      const match = leaderMatchResult(this.display.members, contactDetailsForMatch, priorMatches);
+      let autoLinked = false;
+      this.logger.info("rematchWalkLeader:matchEvaluation", this.toLogJson({
+        contactDetailsForMatch,
+        priorMatchesCount: priorMatches.length,
+        match
+      }));
+      if (shouldAutoLinkLeaderMatch(match)) {
+        autoLinked = true;
+        this.displayedWalk.walk.fields.contactDetails.memberId = match.member.id;
+        this.walkLeaderMemberIdChanged(true);
+        this.displayedWalk.walk.fields.contactDetails.email = match.member.email ?? null;
+        this.displayedWalk.walk.fields.contactDetails.phone = match.member.mobileNumber ?? null;
+        this.notify.success({
+          title: "Walk leader rematched",
+          message: `Matched to ${match.member.displayName} (${match.confidence})`
+        });
+      } else if (match.member?.displayName) {
+        this.notify.warning({
+          title: "Walk leader rematch",
+          message: `Possible match found (${match.confidence}) for ${match.member.displayName}, but confidence is too low to auto-link`
+        });
+      } else {
+        this.notify.warning({
+          title: "Walk leader rematch",
+          message: "No confident member match found using prior matches and leader name, email, and phone"
+        });
+      }
+      if (!autoLinked) {
+        await this.refreshRematchPreview();
+      }
+    } catch (error) {
+      this.notify.warning({
+        title: "Walk leader rematch",
+        message: `Rematch failed: ${error}`
+      });
+    }
+  }
+
+  private async priorMatchesForRematch(): Promise<PriorContactMemberMatch[]> {
+    const matchedWalks = await this.walksAndEventsService.all({
+      inputSource: InputSource.WALKS_MANAGER_CACHE,
+      suppressEventLinking: true,
+      dataQueryOptions: {
+        criteria: {
+          [EventField.CONTACT_DETAILS_CONTACT_ID]: {$ne: null},
+          [EventField.CONTACT_DETAILS_MEMBER_ID]: {$ne: null}
+        },
+        select: {
+          [EventField.CONTACT_DETAILS]: 1
+        }
+      }
+    });
+    const priorMatches = priorMatchesFromWalks(matchedWalks);
+    this.logger.info("priorMatchesForRematch:matchedWalkCount", matchedWalks?.length, "priorMatchesCount", priorMatches?.length);
+    return priorMatches;
+  }
+
+  async refreshRematchPreview() {
+    if (this.displayedWalk?.walk?.fields?.inputSource === InputSource.MANUALLY_CREATED) {
+      this.rematchPreviewMessage = null;
+    } else {
+      if (!this.displayedWalk?.walk?.fields?.contactDetails) {
+        this.rematchPreviewMessage = null;
+        this.rematchPreviewClass = ALERT_WARNING.class;
+        return;
+      }
+      const priorMatches = await this.priorMatchesForRematch();
+      const contactDetailsForMatch = this.contactDetailsForRematch();
+      const match = leaderMatchResult(this.display.members, contactDetailsForMatch, priorMatches);
+      this.logger.info("refreshRematchPreview:matchEvaluation", this.toLogJson({
+        contactDetailsForMatch,
+        priorMatchesCount: priorMatches.length,
+        match
+      }));
+      const canAutoLink = shouldAutoLinkLeaderMatch(match);
+      const currentlyMatchedMemberId = this.displayedWalk?.walk?.fields?.contactDetails?.memberId || null;
+      const alreadyMatchedToSuggestedMember = canAutoLink && currentlyMatchedMemberId === match.member.id;
+      if (canAutoLink) {
+        this.rematchPreviewClass = ALERT_SUCCESS.class;
+        if (alreadyMatchedToSuggestedMember) {
+          this.rematchPreviewMessage = `Leader matched: ${match.member.displayName}${EM_DASH_WITH_SPACES}Confidence: ${match.confidence}${EM_DASH_WITH_SPACES}Match source: ${match.matchType}`;
+        } else {
+          this.rematchPreviewMessage = `Suggested leader: ${match.member.displayName}${EM_DASH_WITH_SPACES}Confidence: ${match.confidence}${EM_DASH_WITH_SPACES}Match source: ${match.matchType}${EM_DASH_WITH_SPACES}Click Rematch walk leader to apply`;
+        }
+      } else if (match.matchType === WalkLeaderMatchType.NONE) {
+        this.rematchPreviewClass = ALERT_WARNING.class;
+        this.rematchPreviewMessage = "Match confidence: low. No candidate found from prior mappings or name/email/phone.";
+      } else if (match.confidence === WalkLeaderMatchConfidence.LOW) {
+        this.rematchPreviewClass = ALERT_WARNING.class;
+        this.rematchPreviewMessage = `Match confidence: low. Match source: ${match.matchType}. Manual review required.`;
+      } else {
+        this.rematchPreviewClass = ALERT_WARNING.class;
+        this.rematchPreviewMessage = null;
       }
     }
   }
@@ -574,6 +726,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         }
       }
       this.confirmAction = ConfirmType.NONE;
+      this.normaliseWalkFieldsForEdit();
+      this.ensureImageConfig();
       this.updateGoogleMapsUrl();
       if (this.displayedWalk.walkAccessMode.initialiseWalkLeader) {
         this.setStatus(EventType.AWAITING_WALK_DETAILS);
@@ -607,6 +761,110 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   private updateGoogleMapsUrl() {
     this.googleMapsUrl = this.display.googleMapsUrl(false, this.displayedWalk?.walk?.groupEvent?.start_location?.postcode, this.displayedWalk?.walk?.groupEvent?.start_location?.postcode);
+  }
+
+  private toLogJson(value: unknown): string {
+    try {
+      return JSON.stringify(value);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown";
+      return `log-json-error:${message}`;
+    }
+  }
+
+  private validEmail(value: unknown): boolean {
+    const normalised = isString(value) ? value.trim().toLowerCase() : "";
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalised);
+  }
+
+  private contactDetailsForRematch() {
+    const contactDetails = this.displayedWalk?.walk?.fields?.contactDetails;
+    const ramblersContactName = this.displayedWalk?.walk?.fields?.publishing?.ramblers?.contactName || null;
+    const walkLeader = this.displayedWalk?.walk?.groupEvent?.walk_leader;
+    const sourcedDisplayName = walkLeader?.name || null;
+    const sourcedPhone = walkLeader?.telephone || null;
+    const sourcedEmailCandidate = walkLeader?.email_form || null;
+    const existingEmail = this.validEmail(contactDetails?.email) ? contactDetails?.email : null;
+    const sourcedEmail = this.validEmail(sourcedEmailCandidate) ? sourcedEmailCandidate : null;
+    return {
+      ...contactDetails,
+      contactId: contactDetails?.contactId || ramblersContactName,
+      displayName: sourcedDisplayName || contactDetails?.displayName || ramblersContactName,
+      phone: sourcedPhone || contactDetails?.phone || null,
+      email: sourcedEmail || existingEmail
+    };
+  }
+
+  private ensureImageConfig() {
+    const fields = this.displayedWalk?.walk?.fields;
+    if (!fields) {
+      return;
+    }
+    const defaultImageConfig = this.eventDefaultsService.defaultImageConfig(ImageSource.NONE);
+    const imageConfig = fields.imageConfig || defaultImageConfig;
+    imageConfig.source = imageConfig.source || defaultImageConfig.source;
+    imageConfig.importFrom = imageConfig.importFrom || defaultImageConfig.importFrom;
+    imageConfig.importFrom.areaCode = imageConfig.importFrom.areaCode || defaultImageConfig.importFrom.areaCode;
+    imageConfig.importFrom.groupCode = imageConfig.importFrom.groupCode || defaultImageConfig.importFrom.groupCode;
+    imageConfig.importFrom.filterParameters = imageConfig.importFrom.filterParameters || defaultImageConfig.importFrom.filterParameters;
+    fields.imageConfig = imageConfig;
+  }
+
+  private normaliseWalkFieldsForEdit() {
+    const walk = this.displayedWalk?.walk;
+    if (!walk?.fields || !walk?.groupEvent) {
+      return;
+    }
+    if (!walk.fields.links) {
+      walk.fields.links = [];
+    }
+    this.ensureVenueLink();
+    this.normaliseLeaderFields();
+    walk.groupEvent.description = this.normaliseMarkdownText(walk.groupEvent.description);
+    walk.groupEvent.additional_details = this.normaliseMarkdownText(walk.groupEvent.additional_details);
+  }
+
+  private normaliseLeaderFields() {
+    const walkLeader = this.displayedWalk?.walk?.groupEvent?.walk_leader;
+    if (!walkLeader) {
+      return;
+    }
+    if (isString(walkLeader.name)) {
+      walkLeader.name = walkLeader.name.trim();
+    }
+    if (isString(walkLeader.telephone)) {
+      const telephone = walkLeader.telephone.trim();
+      walkLeader.telephone = telephone.length > 0 ? telephone : null;
+    }
+  }
+
+  private ensureVenueLink() {
+    const walk = this.displayedWalk?.walk;
+    const venue = walk?.fields?.venue;
+    if (!walk?.fields || !venue || (!venue.url && !venue.postcode)) {
+      return;
+    }
+    const href = venue.url || this.googleMapsService.urlForPostcode(venue.postcode);
+    this.linksService.createOrUpdateLink(walk.fields, {
+      source: LinkSource.VENUE,
+      href,
+      title: venue.name
+    });
+  }
+
+  private normaliseMarkdownText(value: string | null): string | null {
+    if (!isString(value)) {
+      return value;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const hasHtmlTags = /<\s*[a-z][^>]*>/i.test(trimmed);
+    if (!hasHtmlTags) {
+      return trimmed;
+    }
+    return this.turndownService.turndown(trimmed).trim();
   }
 
   validateWalk(): WalkExportData {
@@ -685,6 +943,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   private async saveAndCloseIfNotSent(notificationSent: boolean): Promise<boolean> {
     this.logger.debug("saveAndCloseIfNotSent:saving walk:notificationSent", notificationSent);
+    this.normaliseWalkFieldsForEdit();
+    this.ensureImageConfig();
     const savedWalk: ExtendedGroupEvent = await this.walksAndEventsService.createOrUpdate(this.displayedWalk.walk);
     await this.persistVenueToCollection();
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_SAVED, savedWalk));
@@ -915,6 +1175,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       setTimeout(() => {
         this.walkEditDetailsComponent?.invalidateMaps();
       }, 100);
+    } else if (tab === WalkEditTab.LEADER) {
+      Promise.resolve().then(() => this.refreshRematchPreview());
     }
   }
 

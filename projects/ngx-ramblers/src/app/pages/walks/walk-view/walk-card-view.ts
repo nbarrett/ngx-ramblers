@@ -85,18 +85,22 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
             </dl>
           }
           @if (display.hasWalkLeader(displayedWalk.walk)) {
-            <dl class="d-flex mb-1">
+            <dl (click)="ignoreClicks($event)" class="d-flex mb-1">
               <dt class="font-weight-bold me-2">Leader:</dt>
               <dd>
                 <div class="row g-0">
                   @if (display.walkPopulationWalksManager()) {
                     <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-6 nowrap">
-                      <fa-icon title
-                               tooltip="contact walk leader {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
-                               [icon]="faEnvelope"
-                               class="fa-icon me-1 pointer"/>
-                      <a content
-                         [href]="displayedWalk?.walk?.fields?.contactDetails?.email">{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
+                      <app-copy-icon [icon]="faEnvelope" title
+                                     [value]="displayedWalk?.walk?.fields?.contactDetails?.email"
+                                     [elementName]="'email address for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
+                      <div content>
+                        @if (display.contactEmailHref(displayedWalk?.walk?.fields?.contactDetails?.email)) {
+                          <a [href]="display.contactEmailHref(displayedWalk?.walk?.fields?.contactDetails?.email)">{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
+                        } @else {
+                          <span>{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</span>
+                        }
+                      </div>
                     </div>
                   }
                   @if (!display.walkPopulationWalksManager()) {
@@ -108,7 +112,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
                                        [elementName]="'email address for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
                         <div content>
                           @if (loggedIn) {
-                            <a class="nowrap" [href]="'mailto:' + displayedWalk?.walk?.fields?.contactDetails?.email"
+                            <a class="nowrap" [href]="display.contactEmailHref(displayedWalk?.walk?.fields?.contactDetails?.email)"
                                tooltip="Click to email {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
                               {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
                             </a>

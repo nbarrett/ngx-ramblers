@@ -1,4 +1,4 @@
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ApiResponse } from "../models/api-response.model";
@@ -38,6 +38,10 @@ export class ConfigService {
           return result;
         }
       }).catch(error => {
+        if (error instanceof HttpErrorResponse && error.status === 403) {
+          this.logger.debug(`Query of ${key} config returned 403 - user not authenticated, returning default`);
+          return defaultOnEmpty;
+        }
         this.logger.error(`Query of ${key} config failed:`, error);
         return Promise.reject(`Query of ${key} config failed: ${error}`);
       });
