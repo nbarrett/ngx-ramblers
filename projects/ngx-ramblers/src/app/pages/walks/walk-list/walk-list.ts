@@ -119,7 +119,7 @@ import { advancedCriteriaQueryParams } from "../../../functions/walks/advanced-s
                       @if (showTableHeader(displayedWalk)) {
                         <thead class="styled-table">
                         <tr>
-                          @if (display.walkPopulationLocal() && memberLoginService.memberLoggedIn()) {
+                          @if ((display.walkPopulationLocal() || memberLoginService.allowWalkAdminEdits()) && memberLoginService.memberLoggedIn()) {
                             <th class="action"
                                 width="8%">Action
                             </th>
@@ -141,7 +141,7 @@ import { advancedCriteriaQueryParams } from "../../../functions/walks/advanced-s
                       }
                       <tbody>
                       <tr [ngClass]="tableRowEven(displayedWalk)? 'default': 'active'">
-                        @if (display.walkPopulationLocal() && memberLoginService.memberLoggedIn()) {
+                        @if ((display.walkPopulationLocal() || memberLoginService.allowWalkAdminEdits()) && memberLoginService.memberLoggedIn()) {
                           <td
                             id="walkAction-{{index}}"
                             class="nowrap action" width="7%">@if (displayedWalk?.walkAccessMode?.walkWritable) {

@@ -305,8 +305,9 @@ export class DataPopulationService {
           "* Add a non-standard walk slot - for example on a Saturday or a weekday evening",
         category: "walks-admin"
       }], [{
-        name: "meetup-settings-help",
-        text: "* Maintain content that automatically gets added to our walk description \n" +
+        name: "walk-config-help",
+        text: "* Configure walk validation rules and default walking pace\n" +
+          "* Maintain content that automatically gets added to our walk description\n" +
           "* Configure defaults for Meetup publishing",
         category: "walks-admin"
       }], [{

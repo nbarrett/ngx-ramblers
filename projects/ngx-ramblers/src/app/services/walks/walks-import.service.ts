@@ -3,7 +3,7 @@ import Papa from "papaparse";
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable, Injector } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EventType, ImageSource, ImportData, ImportStage, WalkImageRow } from "../../models/walk.model";
+import { EventField, EventType, ImageSource, ImportData, ImportStage, WalkImageRow } from "../../models/walk.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
 import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
@@ -37,6 +37,13 @@ import {
 } from "../../models/group-event.model";
 import { AwsFileUploadResponse, AwsFileUploadResponseData, ServerFileNameData } from "../../models/aws-object.model";
 import { enumValues, TypedKeyValue } from "../../functions/enums";
+import { mergeFieldsOnSync } from "../../functions/walks/ramblers-event.mapper";
+import {
+  leaderMatchResult,
+  priorMatchesFromWalks,
+  shouldAutoLinkLeaderMatch
+} from "../../functions/walks/walk-leader-member-match";
+import { PriorContactMemberMatch, WalkLeaderMatchConfidence } from "../../models/walk-leader-match.model";
 import { Feature } from "../../models/walk-feature.model";
 import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-group-event-query.service";
 import { EventDefaultsService } from "../event-defaults.service";
@@ -116,6 +123,9 @@ export class WalksImportService {
 
   public async prepareImportOfEvents(importData: ImportData, walksToImport: ExtendedGroupEvent[]): Promise<ImportData> {
     const members = await this.memberService.all();
+    const priorMatches: PriorContactMemberMatch[] = importData.inputSource === InputSource.WALKS_MANAGER_CACHE
+      ? await this.priorMatchesForWalksManager()
+      : [];
     if (this.enrichWalkLeaders) {
       const walkLeaders: Contact[] = await this.ramblersWalksAndEventsService.queryWalkLeaders();
       importData.messages.push(`Found ${this.stringUtils.pluraliseWithCount(walkLeaders.length, "walk leader")} to import`);
@@ -145,7 +155,7 @@ export class WalksImportService {
       this.logger.off("walk.groupEvent:", walk.groupEvent, "importData.groupCodeAndName:", importData.groupCodeAndName.group_code, "walk.groupEvent.group_code:", walk.groupEvent.group_code, "withinRange:", withinRange);
       return withinRange;
     });
-    importData.messages.push(`${this.stringUtils.pluraliseWithCount(importData.existingWalksWithinRange.length, "existing walk")} within range of import will be deleted before import`);
+    importData.messages.push(`${this.stringUtils.pluraliseWithCount(importData.existingWalksWithinRange.length, "existing walk")} within range of import will be updated; new walks will be added`);
     this.logger.info("existingWalks:", existingWalks, "walks to import within range");
     const bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalk[] = walksToImport.map(event => {
       const contact: Contact = this.eventDefaultsService.nameToContact(event.fields.contactDetails?.displayName);
@@ -164,15 +174,9 @@ export class WalksImportService {
         title: null,
         type: null,
       };
-      const ramblersMemberAndContact: RamblersMemberAndContact = {
-        contact,
-        ramblersMember
-      };
-      const bulkLoadMemberAndMatch: BulkLoadMemberAndMatch = this.memberBulkLoadService.bulkLoadMemberAndMatchFor(ramblersMemberAndContact, members, this.systemConfig);
-      if (!bulkLoadMemberAndMatch.member.id) {
-        bulkLoadMemberAndMatch.member = null;
-        bulkLoadMemberAndMatch.memberMatch = MemberAction.notFound;
-      }
+      const bulkLoadMemberAndMatch = importData.inputSource === InputSource.WALKS_MANAGER_CACHE
+        ? this.bulkLoadMemberAndMatchForWalksManager(event, members, contact, ramblersMember, priorMatches)
+        : this.bulkLoadMemberAndMatchForFileImport(members, contact, ramblersMember);
       return {
         include: this.includeWalk(event, duplicateKeys),
         bulkLoadMemberAndMatch,
@@ -249,16 +253,19 @@ export class WalksImportService {
         .filter(item => this.includeWalk(item.event, duplicates));
       importData.messages.push(`Skipped ${duplicates.length} duplicate walk(s): ${skippedTitles}`);
     }
-    const deletions = await Promise.all(importData.existingWalksWithinRange.map(walk => this.localWalksAndEventsService.delete(walk)));
-    const deletionMessage = `${deletions.length} existing walks deleted`;
-    notify.warning(deletionMessage, true);
+    const existingById = new Map<string, ExtendedGroupEvent>(
+      importData.existingWalksWithinRange
+        .filter(walk => walk.groupEvent?.id)
+        .map(walk => [walk.groupEvent.id, walk])
+    );
     await Promise.all(importData.bulkLoadMembersAndMatchesToWalks
       .filter(item => item.include)
       .map(async bulkLoadMemberAndMatchToWalks => {
       const member = bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.member;
+        const overwriteContactDetailsWithMember = importData.inputSource === InputSource.FILE_IMPORT;
         if (this.isAMatchFor(bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch)) {
           try {
-            bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event, member);
+            bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndMergeWalk(bulkLoadMemberAndMatchToWalks.event, existingById, member, overwriteContactDetailsWithMember);
             createdWalks++;
           } catch (error) {
             failedWalks++;
@@ -285,7 +292,7 @@ export class WalksImportService {
             });
           if (createdMember) {
             try {
-              bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event, createdMember);
+              bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndMergeWalk(bulkLoadMemberAndMatchToWalks.event, existingById, createdMember, overwriteContactDetailsWithMember);
               createdMembers++;
               createdWalks++;
             } catch (error) {
@@ -301,10 +308,10 @@ export class WalksImportService {
           this.logger.info("member:", member, "was not matched to any walks");
           return Promise.resolve();
         }
-      } else {
+        } else {
           try {
             this.logger.info("processing memberAction:", bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch, "with event", bulkLoadMemberAndMatchToWalks.event);
-            bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event);
+            bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndMergeWalk(bulkLoadMemberAndMatchToWalks.event, existingById, undefined, overwriteContactDetailsWithMember);
             createdWalks++;
           } catch (error) {
             failedWalks++;
@@ -330,18 +337,41 @@ export class WalksImportService {
     }
   }
 
-  private async applyWalkLeaderIfSuppliedAndSaveWalk(walk: ExtendedGroupEvent, member?: Member): Promise<ExtendedGroupEvent> {
-    const unsavedWalk: ExtendedGroupEvent = omit(walk, ["_id", "id"]) as ExtendedGroupEvent;
-    if (member) {
-      unsavedWalk.groupEvent.walk_leader = this.eventDefaultsService.memberToContact(member);
-      unsavedWalk.fields.contactDetails = this.eventDefaultsService.contactDetailsFrom(member);
+  private async applyWalkLeaderIfSuppliedAndMergeWalk(incomingWalk: ExtendedGroupEvent, existingById: Map<string, ExtendedGroupEvent>, member?: Member, overwriteContactDetailsWithMember = true): Promise<ExtendedGroupEvent> {
+    const existingWalk = existingById.get(incomingWalk.groupEvent?.id);
+    if (existingWalk) {
+      const mergedWalk: ExtendedGroupEvent = {
+        ...omit(incomingWalk, ["_id", "id"]) as ExtendedGroupEvent,
+        id: existingWalk.id,
+        fields: mergeFieldsOnSync(existingWalk.fields, incomingWalk.fields)
+      };
+      if (member) {
+        if (overwriteContactDetailsWithMember) {
+          mergedWalk.groupEvent.walk_leader = this.eventDefaultsService.memberToContact(member);
+          mergedWalk.fields.contactDetails = this.eventDefaultsService.contactDetailsFrom(member);
+        } else {
+          mergedWalk.fields.contactDetails.memberId = member.id;
+        }
+      }
+      mergedWalk.groupEvent.url = await this.localWalksAndEventsService.urlFromTitle(mergedWalk.groupEvent.title, mergedWalk.id);
+      const event = this.walkEventService.createEventIfRequired(mergedWalk, EventType.APPROVED, "Imported from Walks Manager");
+      this.walkEventService.writeEventIfRequired(mergedWalk, event);
+      return this.localWalksAndEventsService.update(mergedWalk);
+    } else {
+      const unsavedWalk: ExtendedGroupEvent = omit(incomingWalk, ["_id", "id"]) as ExtendedGroupEvent;
+      if (member) {
+        if (overwriteContactDetailsWithMember) {
+          unsavedWalk.groupEvent.walk_leader = this.eventDefaultsService.memberToContact(member);
+          unsavedWalk.fields.contactDetails = this.eventDefaultsService.contactDetailsFrom(member);
+        } else {
+          unsavedWalk.fields.contactDetails.memberId = member.id;
+        }
+      }
+      unsavedWalk.groupEvent.url = await this.localWalksAndEventsService.urlFromTitle(unsavedWalk.groupEvent.title, unsavedWalk.id);
+      const event = this.walkEventService.createEventIfRequired(unsavedWalk, EventType.APPROVED, "Imported from Walks Manager");
+      this.walkEventService.writeEventIfRequired(unsavedWalk, event);
+      return this.localWalksAndEventsService.create(unsavedWalk);
     }
-    const oldUrl = unsavedWalk.groupEvent.url;
-    unsavedWalk.groupEvent.url = await this.localWalksAndEventsService.urlFromTitle(unsavedWalk.groupEvent.title, unsavedWalk.id);
-    this.logger.off("applyWalkLeaderIfSuppliedAndSaveWalk: oldUrl:", oldUrl, "newUrl:", unsavedWalk.groupEvent.url, "for walk:", unsavedWalk.groupEvent.title);
-    const event = this.walkEventService.createEventIfRequired(unsavedWalk, EventType.APPROVED, "Imported from Walks Manager");
-    this.walkEventService.writeEventIfRequired(unsavedWalk, event);
-    return this.localWalksAndEventsService.createOrUpdate(unsavedWalk);
   }
 
   public importWalksFromFile(file: File, fileNameData: ServerFileNameData): Promise<Record<string, string>[]> {
@@ -472,6 +502,53 @@ export class WalksImportService {
 
   private isAMatchFor(memberMatch: MemberAction) {
     return [MemberAction.found, MemberAction.matched].includes(memberMatch);
+  }
+
+  private bulkLoadMemberAndMatchForWalksManager(event: ExtendedGroupEvent, members: Member[], contact: Contact, ramblersMember: RamblersMember, priorMatches: PriorContactMemberMatch[]): BulkLoadMemberAndMatch {
+    const contactDetailsForMatch = {
+      ...event?.fields?.contactDetails,
+      displayName: event?.fields?.contactDetails?.displayName || event?.fields?.publishing?.ramblers?.contactName || null
+    };
+    const match = leaderMatchResult(members, contactDetailsForMatch, priorMatches);
+    const matchedMember = shouldAutoLinkLeaderMatch(match) ? match.member : null;
+    return {
+      memberMatch: matchedMember ? MemberAction.found : MemberAction.notFound,
+      memberMatchType: matchedMember ? `walk-leader-contact-details:${match.matchType}:${match.confidence}` : `walk-leader-contact-details:${match.matchType}:${WalkLeaderMatchConfidence.LOW}`,
+      member: matchedMember,
+      ramblersMember,
+      contact
+    };
+  }
+
+  private bulkLoadMemberAndMatchForFileImport(members: Member[], contact: Contact, ramblersMember: RamblersMember): BulkLoadMemberAndMatch {
+    const ramblersMemberAndContact: RamblersMemberAndContact = {
+      contact,
+      ramblersMember
+    };
+    const bulkLoadMemberAndMatch: BulkLoadMemberAndMatch = this.memberBulkLoadService.bulkLoadMemberAndMatchFor(ramblersMemberAndContact, members, this.systemConfig);
+    if (!bulkLoadMemberAndMatch.member.id) {
+      bulkLoadMemberAndMatch.member = null;
+      bulkLoadMemberAndMatch.memberMatch = MemberAction.notFound;
+    }
+    return bulkLoadMemberAndMatch;
+  }
+
+  private async priorMatchesForWalksManager(): Promise<PriorContactMemberMatch[]> {
+    const priorMatchedWalks: ExtendedGroupEvent[] = await this.localWalksAndEventsService.all({
+      inputSource: InputSource.WALKS_MANAGER_CACHE,
+      suppressEventLinking: true,
+      dataQueryOptions: {
+        criteria: {
+          [EventField.CONTACT_DETAILS_CONTACT_ID]: {$ne: null},
+          [EventField.CONTACT_DETAILS_MEMBER_ID]: {$ne: null}
+        },
+        select: {
+          [EventField.CONTACT_DETAILS]: 1
+        }
+      },
+      types: [RamblersEventType.GROUP_WALK]
+    });
+    return priorMatchesFromWalks(priorMatchedWalks);
   }
 
   summary(bulkLoadMemberAndMatchToWalks: BulkLoadMemberAndMatchToWalk[]): string {

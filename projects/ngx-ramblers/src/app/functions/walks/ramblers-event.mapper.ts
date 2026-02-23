@@ -1,6 +1,10 @@
-import { ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
+import { ExtendedFields, ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
 import { LinkSource, LinkWithSource } from "../../models/walk.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
+
+export function isMeetupUrl(url: string): boolean {
+  return !!url?.includes("meetup.com");
+}
 
 export interface RamblersEventMapperOptions {
   inputSource: InputSource;
@@ -111,4 +115,23 @@ function createLinks(groupEvent: GroupEvent, options: RamblersEventMapperOptions
   }
 
   return links;
+}
+
+export function mergeLinksOnSync(existingLinks: LinkWithSource[], freshLinks: LinkWithSource[]): LinkWithSource[] {
+  const localLinks = (existingLinks || []).filter(link => link.source === LinkSource.LOCAL);
+  const wmLinks = (freshLinks || []).filter(link => link.source === LinkSource.RAMBLERS || link.source === LinkSource.MEETUP);
+  return [...localLinks, ...wmLinks];
+}
+
+export function mergeFieldsOnSync(existingFields: ExtendedFields, freshFields: ExtendedFields): ExtendedFields {
+  const contactIdChanged = freshFields?.contactDetails?.contactId !== existingFields?.contactDetails?.contactId;
+  const contactDetails = contactIdChanged
+    ? freshFields.contactDetails
+    : { ...freshFields.contactDetails, memberId: existingFields?.contactDetails?.memberId };
+  return {
+    ...existingFields,
+    inputSource: freshFields.inputSource,
+    contactDetails,
+    links: mergeLinksOnSync(existingFields?.links, freshFields?.links)
+  };
 }

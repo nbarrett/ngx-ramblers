@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faMeetup } from "@fortawesome/free-brands-svg-icons";
-import { faBook, faCalendarPlus, faFileExport, faFileImport } from "@fortawesome/free-solid-svg-icons";
+import { faBook, faCalendarPlus, faFileExport, faFileImport, faGear } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
@@ -51,12 +50,12 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
             </div>
             <div class="col-sm-6">
               <div class="item-panel">
-                <div (click)="meetupSettings()" class="item-icon">
-                  <fa-icon [icon]="faMeetup" class="fa-3x meetup"/>
-                  <h5>Meetup Settings</h5>
+                <div (click)="navigateToConfig()" class="item-icon">
+                  <fa-icon [icon]="faGear" class="fa-3x ramblers"/>
+                  <h5>Walk Configuration</h5>
                 </div>
-                <app-markdown-editor standalone class="item-text" name="meetup-settings-help"
-                                     description="Meetup settings help"/>
+                <app-markdown-editor standalone class="item-text" name="walk-config-help"
+                                     description="Walk configuration help"/>
               </div>
             </div>
             <div class="col-sm-6">
@@ -97,7 +96,7 @@ export class WalkAdminComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   faCalendarPlus = faCalendarPlus;
   faFileExport = faFileExport;
-  faMeetup = faMeetup;
+  faGear = faGear;
   protected readonly faFileImport = faFileImport;
   protected readonly faDatabase = faDatabase;
   protected readonly faBook = faBook;
@@ -137,7 +136,7 @@ export class WalkAdminComponent implements OnInit, OnDestroy {
     this.urlService.navigateTo(["walks", "admin", "add-walk-slots"]);
   }
 
-  meetupSettings() {
-    this.urlService.navigateTo(["walks", "admin", "meetup-settings"]);
+  navigateToConfig() {
+    this.urlService.navigateTo(["walks", "admin", "config"]);
   }
 }

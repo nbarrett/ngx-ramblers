@@ -2,6 +2,7 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import https from "https";
 import * as systemConfig from "../config/system-config";
+import { venueSearch as nominatimVenueSearch } from "./venue-search";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("google-venue-search"));
 debugLog.enabled = true;
@@ -197,10 +198,8 @@ export async function googleVenueSearch(req, res) {
   }
 
   if (!apiKey) {
-    debugLog("googleVenueSearch: No Google Maps API key configured");
-    return res.status(500).json({
-      error: "Google Maps API key not configured"
-    });
+    debugLog("googleVenueSearch: No Google Maps API key configured, falling back to Nominatim");
+    return nominatimVenueSearch(req, res);
   }
 
   const hasLocation = Number.isFinite(lat) && Number.isFinite(lon);
@@ -232,10 +231,8 @@ export async function googleVenueSearch(req, res) {
     const placesResponse = await callGooglePlacesApi(requestBody, apiKey);
 
     if (placesResponse.error) {
-      debugLog(`googleVenueSearch: Google API error: ${placesResponse.error.status} - ${placesResponse.error.message}`);
-      return res.status(500).json({
-        error: placesResponse.error.message || `Google Places API error: ${placesResponse.error.status}`
-      });
+      debugLog(`googleVenueSearch: Google API error: ${placesResponse.error.status} - ${placesResponse.error.message}, falling back to Nominatim`);
+      return nominatimVenueSearch(req, res);
     }
 
     const venues = (placesResponse.places || [])
@@ -249,10 +246,7 @@ export async function googleVenueSearch(req, res) {
       results: venues
     });
   } catch (error: unknown) {
-    debugLog("googleVenueSearch error:", error);
-    const message = error instanceof Error ? error.message : "Venue search failed";
-    return res.status(500).json({
-      error: message
-    });
+    debugLog("googleVenueSearch error, falling back to Nominatim:", error);
+    return nominatimVenueSearch(req, res);
   }
 }

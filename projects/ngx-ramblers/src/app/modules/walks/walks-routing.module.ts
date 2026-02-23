@@ -36,9 +36,9 @@ import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-g
       canActivate: [WalksAuthGuard]
     },
     {
-      path: "admin/meetup-settings",
-      loadComponent: () => import("../../pages/walks/walk-meetup-settings/walk-meetup-settings.component")
-        .then(m => m.WalkMeetupSettingsComponent),
+      path: "admin/config",
+      loadComponent: () => import("../../pages/walks/walk-config/walk-config")
+        .then(m => m.WalkConfigComponent),
       canActivate: [WalksAuthGuard]
     },
     {

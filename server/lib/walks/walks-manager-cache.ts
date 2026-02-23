@@ -8,9 +8,13 @@ import {
   InputSource
 } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { RamblersEventType } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
-import { GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { mapRamblersEventToExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/functions/walks/ramblers-event.mapper";
+import { EventField, GroupEventField, LinkSource } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { isMeetupUrl, mapRamblersEventToExtendedGroupEvent, mergeFieldsOnSync } from "../../../projects/ngx-ramblers/src/app/functions/walks/ramblers-event.mapper";
+import { leaderMatchResult, priorMatchesFromWalks, shouldAutoLinkLeaderMatch } from "../../../projects/ngx-ramblers/src/app/functions/walks/walk-leader-member-match";
+import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import { PriorContactMemberMatch } from "../../../projects/ngx-ramblers/src/app/models/walk-leader-match.model";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
+import { member } from "../mongo/models/member";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNow, dateTimeFromJsDate } from "../shared/dates";
 
@@ -45,71 +49,16 @@ export function toExtendedGroupEvent(config: SystemConfig, event: GroupEvent, in
     area_code: event.area_code || config?.area?.groupCode
   };
 
-  return mapRamblersEventToExtendedGroupEvent(groupEvent, {inputSource});
+  return mapRamblersEventToExtendedGroupEvent(groupEvent, {
+    inputSource,
+    additionalLinksBuilder: event => isMeetupUrl(event.external_url) ? [{source: LinkSource.MEETUP, href: event.external_url, title: event.title}] : []
+  });
 }
 
 async function upsertEvent(config: SystemConfig, event: GroupEvent, inputSource: InputSource): Promise<CacheAction> {
-  try {
-    let existingEvent = null;
-    if (event.id) {
-      existingEvent = await extendedGroupEvent.findOne({
-        [GroupEventField.ID]: event.id
-      }).exec();
-      debugLog("Searching by groupEvent.id:", event.id, "found:", !!existingEvent);
-    }
-    if (!existingEvent) {
-      existingEvent = await extendedGroupEvent.findOne({
-        [GroupEventField.START_DATE]: event.start_date_time,
-        [GroupEventField.TITLE]: event.title,
-        [GroupEventField.ITEM_TYPE]: event.item_type || RamblersEventType.GROUP_WALK,
-        [GroupEventField.GROUP_CODE]: event.group_code || config?.group?.groupCode,
-      }).exec();
-      debugLog("Fallback search by date/title/group found:", !!existingEvent);
-    }
-
-    const mappedEvent = toExtendedGroupEvent(config, event, inputSource);
-    const groupEvent = {
-      ...mappedEvent.groupEvent,
-      url: event.url,
-      id: event.id,
-      start_date_time: event.start_date_time,
-      title: event.title
-    };
-    const fields = {
-      ...mappedEvent.fields,
-      inputSource
-    };
-    const syncMetadata = {
-      source: sourceFromInputSource(inputSource),
-      ramblersId: event.id,
-      lastSyncedAt: dateTimeNow().toJSDate()
-    };
-
-    if (existingEvent) {
-      await extendedGroupEvent.updateOne(
-        {_id: existingEvent._id},
-        {
-          $set: {groupEvent, fields, ...syncMetadata},
-          $inc: {syncedVersion: 1}
-        }
-      ).exec();
-      debugLog("Updated existing event:", event.url);
-      return {document: existingEvent, action: "updated"};
-    } else {
-      const document = {
-        ...mappedEvent,
-        groupEvent,
-        fields,
-        ...syncMetadata
-      };
-      const created = await extendedGroupEvent.create(document);
-      debugLog("Cached new event:", event.url, "event id:", event.id, "group code:", document.groupEvent.group_code);
-      return {document: created, action: "added"};
-    }
-  } catch (error) {
-    debugLog("upsertEvent:error:", error);
-    throw error;
-  }
+  const members = await membersForLeaderMatching();
+  const priorMatches = await priorMatchesForLeaderMatching();
+  return upsertEventWithMembers(config, event, inputSource, members, priorMatches);
 }
 
 export async function cacheEventIfNotFound(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.WALKS_MANAGER_CACHE): Promise<mongoose.Document | null> {
@@ -204,9 +153,115 @@ export async function cleanupDuplicatesByRamblersId(): Promise<CleanupStats> {
 }
 
 export async function cacheEventsWithStats(config: SystemConfig, events: GroupEvent[], inputSource: InputSource): Promise<CacheStats> {
-  const results = await Promise.all(events.map(event => upsertEvent(config, event, inputSource)));
+  const members = await membersForLeaderMatching();
+  const priorMatches = await priorMatchesForLeaderMatching();
+  const results = await Promise.all(events.map(event => upsertEventWithMembers(config, event, inputSource, members, priorMatches)));
   return {
     added: results.filter(result => result.action === "added").length,
     updated: results.filter(result => result.action === "updated").length
   };
+}
+
+async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, inputSource: InputSource, members: Member[], priorMatches: PriorContactMemberMatch[]): Promise<CacheAction> {
+  try {
+    let existingEvent = null;
+    if (event.id) {
+      existingEvent = await extendedGroupEvent.findOne({
+        [GroupEventField.ID]: event.id
+      }).exec();
+      debugLog("Searching by groupEvent.id:", event.id, "found:", !!existingEvent);
+    }
+    if (!existingEvent) {
+      existingEvent = await extendedGroupEvent.findOne({
+        [GroupEventField.START_DATE]: event.start_date_time,
+        [GroupEventField.TITLE]: event.title,
+        [GroupEventField.ITEM_TYPE]: event.item_type || RamblersEventType.GROUP_WALK,
+        [GroupEventField.GROUP_CODE]: event.group_code || config?.group?.groupCode,
+      }).exec();
+      debugLog("Fallback search by date/title/group found:", !!existingEvent);
+    }
+
+    const mappedEvent = toExtendedGroupEvent(config, event, inputSource);
+    const groupEvent = {
+      ...mappedEvent.groupEvent,
+      url: event.url,
+      id: event.id,
+      start_date_time: event.start_date_time,
+      title: event.title
+    };
+    const freshFields = {
+      ...mappedEvent.fields,
+      inputSource
+    };
+    const contactDetailsForMatch = {
+      ...freshFields.contactDetails,
+      displayName: freshFields?.contactDetails?.displayName || freshFields?.publishing?.ramblers?.contactName || null
+    };
+    const match = leaderMatchResult(members, contactDetailsForMatch, priorMatches);
+    if (shouldAutoLinkLeaderMatch(match)) {
+      freshFields.contactDetails.memberId = match.member.id;
+    }
+    const syncMetadata = {
+      source: sourceFromInputSource(inputSource),
+      ramblersId: event.id,
+      lastSyncedAt: dateTimeNow().toJSDate()
+    };
+
+    if (existingEvent) {
+      const existingFields = (existingEvent.toObject() as ExtendedGroupEvent).fields || {} as ExtendedGroupEvent["fields"];
+      const fields = mergeFieldsOnSync(existingFields, freshFields);
+      await extendedGroupEvent.updateOne(
+        {_id: existingEvent._id},
+        {
+          $set: {groupEvent, fields, ...syncMetadata},
+          $inc: {syncedVersion: 1}
+        }
+      ).exec();
+      debugLog("Updated existing event:", event.url);
+      return {document: existingEvent, action: "updated"};
+    } else {
+      const document = {
+        ...mappedEvent,
+        groupEvent,
+        fields: freshFields,
+        ...syncMetadata
+      };
+      const created = await extendedGroupEvent.create(document);
+      debugLog("Cached new event:", event.url, "event id:", event.id, "group code:", document.groupEvent.group_code);
+      return {document: created, action: "added"};
+    }
+  } catch (error) {
+    debugLog("upsertEventWithMembers:error:", error);
+    throw error;
+  }
+}
+
+async function membersForLeaderMatching(): Promise<Member[]> {
+  const members = await member.find({}, {
+    displayName: 1,
+    email: 1,
+    mobileNumber: 1,
+    contactId: 1,
+    firstName: 1,
+    lastName: 1
+  }).lean().exec() as any[];
+  return members.map(existingMember => ({
+    id: existingMember.id || existingMember._id?.toString(),
+    displayName: existingMember.displayName,
+    email: existingMember.email,
+    mobileNumber: existingMember.mobileNumber,
+    contactId: existingMember.contactId,
+    firstName: existingMember.firstName || "",
+    lastName: existingMember.lastName || ""
+  }));
+}
+
+async function priorMatchesForLeaderMatching(): Promise<PriorContactMemberMatch[]> {
+  const matchedWalks = await extendedGroupEvent.find({
+    [EventField.CONTACT_DETAILS_CONTACT_ID]: {$ne: null},
+    [EventField.CONTACT_DETAILS_MEMBER_ID]: {$ne: null}
+  }, {
+    [EventField.CONTACT_DETAILS]: 1
+  }).lean().exec() as ExtendedGroupEvent[];
+  return priorMatchesFromWalks(matchedWalks);
 }

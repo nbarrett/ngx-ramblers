@@ -7,7 +7,7 @@ import { fileNameData } from "./banner";
 import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { WalkStatus } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { EventType, GroupEventField, DocumentField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { isArray, values } from "es-toolkit/compat";
+import { get, isArray, isEmpty, keys, set, values } from "es-toolkit/compat";
 
 const groupEvent = new Schema({
   id: {type: String},
@@ -136,8 +136,9 @@ extendedGroupEventSchema.pre("save", function(next) {
   next();
 });
 
-extendedGroupEventSchema.pre("findOneAndUpdate", function(next) {
+extendedGroupEventSchema.pre("findOneAndUpdate", async function(next) {
   const update = this.getUpdate() as any;
+  await normaliseNullParentSetUpdates(this, update);
   if (update?.events) {
     const doc = {events: update.events, groupEvent: update.groupEvent || {}};
     deriveStatusFromEvents(doc);
@@ -145,6 +146,79 @@ extendedGroupEventSchema.pre("findOneAndUpdate", function(next) {
   }
   next();
 });
+
+function nestedPath(path: string, ancestorPath: string) {
+  return path.startsWith(`${ancestorPath}.`);
+}
+
+function extractCandidateParentPaths(setUpdates: Record<string, unknown>): string[] {
+  return [...new Set(
+    keys(setUpdates)
+      .filter(path => path.includes("."))
+      .map(path => path.split("."))
+      .filter(pathSegments => pathSegments.length >= 2)
+      .map(pathSegments => `${pathSegments[0]}.${pathSegments[1]}`)
+  )];
+}
+
+function mergeNestedSetPathsIntoParent(update: any, parentPath: string) {
+  const setUpdates = update?.$set;
+  if (!setUpdates) {
+    return false;
+  }
+  if (setUpdates[parentPath]) {
+    return false;
+  }
+  const nestedSetPaths = keys(setUpdates).filter(path => nestedPath(path, parentPath));
+  if (nestedSetPaths.length === 0) {
+    return false;
+  }
+  const mergedParentValue: any = {};
+  nestedSetPaths.forEach(path => {
+    const value = setUpdates[path];
+    const relativePath = path.slice(parentPath.length + 1);
+    set(mergedParentValue, relativePath.split("."), value);
+    delete setUpdates[path];
+  });
+  if (!isEmpty(mergedParentValue)) {
+    setUpdates[parentPath] = mergedParentValue;
+    const unsetUpdates = update?.$unset;
+    if (unsetUpdates) {
+      keys(unsetUpdates)
+        .filter(path => nestedPath(path, parentPath))
+        .forEach(path => delete unsetUpdates[path]);
+    }
+    return true;
+  }
+  return false;
+}
+
+async function normaliseNullParentSetUpdates(context: any, update: any) {
+  const setUpdates = update?.$set;
+  if (!setUpdates) {
+    return;
+  }
+  const candidateParentPaths = extractCandidateParentPaths(setUpdates);
+  if (candidateParentPaths.length === 0) {
+    return;
+  }
+  const existingDocument = await context.model
+    .findOne(context.getQuery())
+    .select(candidateParentPaths.join(" "))
+    .lean()
+    .exec();
+  if (!existingDocument) {
+    return;
+  }
+  candidateParentPaths
+    .sort((first, second) => first.length - second.length)
+    .forEach(parentPath => {
+      const parentValue = get(existingDocument, parentPath);
+      if (parentValue === null) {
+        mergeNestedSetPathsIntoParent(update, parentPath);
+      }
+    });
+}
 
 function deriveStatusFromEvents(doc: any) {
   if (!doc.events || !isArray(doc.events) || doc.events.length === 0) {

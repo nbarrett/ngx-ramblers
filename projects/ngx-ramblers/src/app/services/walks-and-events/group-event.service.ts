@@ -131,18 +131,44 @@ export class GroupEventService {
 
   private currentPreviousData(eventsLatestFirst: WalkEvent[], extendedGroupEvent: ExtendedGroupEvent, basedOnUnsavedData: boolean): CurrentPreviousData {
     if (basedOnUnsavedData) {
-      const currentData = pick(extendedGroupEvent, AUDITED_FIELDS);
+      const currentData = this.normaliseDataSnapshot(pick(extendedGroupEvent, AUDITED_FIELDS));
       const latestEvent = eventsLatestFirst?.[0];
-      const previousData = latestEvent?.data;
+      const previousData = this.normaliseDataSnapshot(latestEvent?.data);
       this.logger.info("currentPreviousData: basedOnUnsavedData:", basedOnUnsavedData, "currentData:", currentData, "previousData:", previousData, "latestEvent:", latestEvent);
       return {currentData, previousData};
     } else {
       const latest2Events: WalkEvent[] = take(eventsLatestFirst, 2);
-      const currentData = latest2Events.length === 2 ? latest2Events[0]?.data || null : latest2Events[1]?.data || null;
-      const previousData = latest2Events.length === 2 ? latest2Events[1]?.data : null;
+      const currentData = this.normaliseDataSnapshot(latest2Events.length === 2 ? latest2Events[0]?.data || null : latest2Events[1]?.data || null);
+      const previousData = this.normaliseDataSnapshot(latest2Events.length === 2 ? latest2Events[1]?.data : null);
       this.logger.info("currentPreviousData: basedOnUnsavedData:", basedOnUnsavedData, "currentData:", currentData, "previousData:", previousData);
       return {currentData, previousData};
     }
+  }
+
+  private normaliseDataSnapshot(value: any): any {
+    if (isUndefined(value) || isNull(value)) {
+      return null;
+    }
+    if (isString(value)) {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    }
+    if (isArray(value)) {
+      return value
+        .map(item => this.normaliseDataSnapshot(item))
+        .filter(item => !isNull(item) && !isUndefined(item));
+    }
+    if (isObject(value)) {
+      const response = {};
+      keys(value).forEach(key => {
+        const normalisedValue = this.normaliseDataSnapshot(value[key]);
+        if (!isNull(normalisedValue) && !isUndefined(normalisedValue)) {
+          response[key] = normalisedValue;
+        }
+      });
+      return keys(response).length > 0 ? response : null;
+    }
+    return value;
   }
 
   private eventsLatestFirst(extendedGroupEvent: ExtendedGroupEvent): WalkEvent[] {

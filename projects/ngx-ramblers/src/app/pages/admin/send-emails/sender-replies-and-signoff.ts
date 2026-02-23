@@ -110,7 +110,7 @@ export class SenderRepliesAndSignoff implements OnInit {
   public committeeRoleSender: CommitteeMember;
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   public stringUtilsService: StringUtilsService = inject(StringUtilsService);
-  private logger = this.loggerFactory.createLogger("SenderRepliesAndSignoff", NgxLoggerLevel.INFO);
+  private logger = this.loggerFactory.createLogger("SenderRepliesAndSignoff", NgxLoggerLevel.ERROR);
   public omitSignOff: boolean;
   public omitCC: boolean;
   public allowSelectAllAsMe: boolean;

@@ -36,8 +36,9 @@ import { DateUtilsService } from "../../services/date-utils.service";
 import { Difficulty, LocationDetails, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { BuiltInRole } from "../../models/committee.model";
 import { MediaQueryService } from "../../services/committee/media-query.service";
-import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { FeaturesService } from "../../services/features.service";
+import { validEmail } from "../../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -178,8 +179,8 @@ export class WalkDisplayService {
     }
   }
 
-  edit(walkDisplay: DisplayedWalk): ExpandedWalk {
-    return this.toggleExpandedViewFor(walkDisplay.walk, WalkViewMode.EDIT);
+  edit(walkDisplay: DisplayedWalk): void {
+    void this.editFullScreen(walkDisplay.walk);
   }
 
   list(walk: ExtendedGroupEvent): ExpandedWalk {
@@ -197,7 +198,8 @@ export class WalkDisplayService {
 
   editFullScreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
     this.logger.debug("editing walk fullscreen:", walk);
-    return this.router.navigate(["walks/edit/" + this.walkSlug(walk)], {relativeTo: this.route}).then(() => {
+    this.viewReturnUrl = this.router.url;
+    return this.router.navigate(["/walks", "edit", this.walkSlug(walk)]).then(() => {
       this.logger.debug("area is now", this.urlService.area());
       return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
     });
@@ -229,7 +231,8 @@ export class WalkDisplayService {
     if (latestEventWithStatusChange) {
       lookupType = latestEventWithStatusChange.eventType;
     } else {
-      lookupType = EventType.AWAITING_WALK_DETAILS;
+      const isImportedWalk = [InputSource.WALKS_MANAGER_CACHE, InputSource.FILE_IMPORT].includes(walk?.fields?.inputSource);
+      lookupType = isImportedWalk ? EventType.APPROVED : EventType.AWAITING_WALK_DETAILS;
     }
     const eventType = this.walksReferenceService.toWalkEventType(lookupType) as WalkEventType;
     if (!eventType) {
@@ -247,7 +250,7 @@ export class WalkDisplayService {
     let returnValue = WalksReferenceService.walkAccessModes.view;
     if (this.memberLoginService.memberLoggedIn()) {
       if (this.loggedInMemberIsLeadingWalk(walk) || this.memberLoginService.allowWalkAdminEdits()) {
-        returnValue = {...WalksReferenceService.walkAccessModes.edit, walkWritable: this.walkPopulationLocal()};
+        returnValue = {...WalksReferenceService.walkAccessModes.edit, walkWritable: true};
       } else {
         const walkEvent = this.walkEventService.latestEventWithStatusChange(walk);
         if (walkEvent?.eventType === EventType.AWAITING_LEADER) {
@@ -312,6 +315,23 @@ export class WalkDisplayService {
 
   ramblersLink(walk: ExtendedGroupEvent): string {
     return walk?.groupEvent?.url;
+  }
+
+  contactEmailHref(email: string): string {
+    const normalised = (email || "").trim();
+    const lowerCase = normalised.toLowerCase();
+    if (!normalised) {
+      return null;
+    } else if (lowerCase.startsWith("mailto:")) {
+      const address = normalised.substring(7).trim();
+      return validEmail(address.toLowerCase()) ? `mailto:${address}` : null;
+    } else if (validEmail(lowerCase)) {
+      return `mailto:${normalised}`;
+    } else if (this.urlService.isRemoteUrl(normalised)) {
+      return normalised;
+    } else {
+      return null;
+    }
   }
 
   isNextWalk(walk: ExtendedGroupEvent): boolean {

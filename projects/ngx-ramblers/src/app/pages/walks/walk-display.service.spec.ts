@@ -203,4 +203,27 @@ describe("WalkDisplayService", () => {
     });
   });
 
+  describe("contactEmailHref", () => {
+    it("returns mailto for plain email addresses", () => {
+      const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
+      expect(service.contactEmailHref("oliver.parkes@hotmail.co.uk")).toEqual("mailto:oliver.parkes@hotmail.co.uk");
+    });
+
+    it("returns http links unchanged", () => {
+      const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
+      expect(service.contactEmailHref("https://www.ramblers.org.uk/go-walking/group-walks/example#contact"))
+        .toEqual("https://www.ramblers.org.uk/go-walking/group-walks/example#contact");
+    });
+
+    it("normalises existing mailto values", () => {
+      const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
+      expect(service.contactEmailHref("mailto:oliver.parkes@hotmail.co.uk")).toEqual("mailto:oliver.parkes@hotmail.co.uk");
+    });
+
+    it("returns null for non-email non-url values", () => {
+      const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
+      expect(service.contactEmailHref("contact-via-admin")).toBeNull();
+    });
+  });
+
 });

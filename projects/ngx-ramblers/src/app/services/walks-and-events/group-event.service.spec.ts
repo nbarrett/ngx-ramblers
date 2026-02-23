@@ -97,6 +97,61 @@ describe("GroupEventService", () => {
     expect(audit.changedItems.find(item => item.fieldName === GroupEventField.START_DATE)).toBeUndefined();
   });
 
+  it("treats trimmed description and additional details as unchanged", () => {
+    const service = TestBed.inject(GroupEventService);
+    const previousWalk = walkWithContact(null);
+    previousWalk.groupEvent.description = "Walk description";
+    previousWalk.groupEvent.additional_details = "Additional details";
+    const currentWalk = walkWithContact(null);
+    currentWalk.groupEvent.description = "  Walk description  ";
+    currentWalk.groupEvent.additional_details = "\nAdditional details\n";
+    currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
+    const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
+    expect(audit.changedItems.find(item => item.fieldName === "groupEvent.description")).toBeUndefined();
+    expect(audit.changedItems.find(item => item.fieldName === "groupEvent.additional_details")).toBeUndefined();
+  });
+
+  it("treats walk leader empty telephone and null as unchanged", () => {
+    const service = TestBed.inject(GroupEventService);
+    const previousWalk = walkWithContact(null);
+    previousWalk.groupEvent.walk_leader = {
+      name: "Oli P",
+      telephone: "",
+      has_email: true,
+      is_overridden: true,
+      email_form: "mailto:oliver.parkes@hotmail.co.uk"
+    };
+    const currentWalk = walkWithContact(null);
+    currentWalk.groupEvent.walk_leader = {
+      name: "Oli P",
+      telephone: null,
+      has_email: true,
+      is_overridden: true,
+      email_form: "mailto:oliver.parkes@hotmail.co.uk"
+    };
+    currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
+    const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
+    expect(audit.changedItems.find(item => item.fieldName === "groupEvent.walk_leader")).toBeUndefined();
+  });
+
+  it("treats links with omitted optional title and undefined title as unchanged", () => {
+    const service = TestBed.inject(GroupEventService);
+    const previousWalk = walkWithContact(null);
+    previousWalk.fields.links = [{
+      source: "venue",
+      href: "https://maps.google.co.uk/maps?q=HP23 6AR",
+      title: undefined
+    } as any];
+    const currentWalk = walkWithContact(null);
+    currentWalk.fields.links = [{
+      source: "venue",
+      href: "https://maps.google.co.uk/maps?q=HP23 6AR"
+    } as any];
+    currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
+    const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
+    expect(audit.changedItems.find(item => item.fieldName === "fields.links")).toBeUndefined();
+  });
+
   describe("venue isMeetingPlace change detection", () => {
     function walkWithVenue(isMeetingPlace: boolean): ExtendedGroupEvent {
       const dateUtils = TestBed.inject(DateUtilsService);

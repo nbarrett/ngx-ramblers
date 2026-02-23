@@ -65,14 +65,11 @@ describe("WalksEventService", () => {
       const actual: ChangedItem[] = service.walkDataAuditFor(walk, EventType.AWAITING_APPROVAL, true).changedItems;
       const expected: ChangedItem[] = [{
         fieldName: "groupEvent.start_location",
-        previousValue: null,
+        previousValue: undefined,
         currentValue: {
           grid_reference_10: "123", postcode: "TN26 3HF", description: "this",
           latitude: 0,
-          longitude: 0,
-          grid_reference_6: "",
-          grid_reference_8: "",
-          w3w: ""
+          longitude: 0
         }
       }];
       expect(actual).toEqual(expected);
