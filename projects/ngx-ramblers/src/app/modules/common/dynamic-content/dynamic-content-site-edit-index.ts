@@ -1,7 +1,8 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faAdd, faEraser, faPencil, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ContentPathMatch, IndexContentType, IndexRenderMode, PageContent, PageContentRow, StringMatch } from "../../../models/content-text.model";
+import { AlbumIndexSortField, ContentPathMatch, IndexContentType, IndexRenderMode, PageContent, PageContentRow, StringMatch } from "../../../models/content-text.model";
+import { SortDirection } from "../../../models/sort.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -101,6 +102,36 @@ import { ContentText } from "../../../models/content-text.model";
           <small class="text-muted">Selection order determines display order</small>
         </div>
       </div>
+      <div class="row mb-3">
+        <div class="col-sm-6">
+          <label for="sort-field-{{id}}">Sort Field</label>
+          <ng-select
+            [items]="sortFieldValues"
+            bindLabel="title"
+            bindValue="value"
+            [searchable]="false"
+            [clearable]="false"
+            id="sort-field-{{id}}"
+            [(ngModel)]="row.albumIndex.sortConfig.field"
+            (ngModelChange)="refreshContentPreview()"
+            appearance="outline">
+          </ng-select>
+        </div>
+        <div class="col-sm-6">
+          <label for="sort-direction-{{id}}">Sort Direction</label>
+          <ng-select
+            [items]="sortDirectionValues"
+            bindLabel="title"
+            bindValue="value"
+            [searchable]="false"
+            [clearable]="false"
+            id="sort-direction-{{id}}"
+            [(ngModel)]="row.albumIndex.sortConfig.direction"
+            (ngModelChange)="refreshContentPreview()"
+            appearance="outline">
+          </ng-select>
+        </div>
+      </div>
       <div class="d-flex justify-content-start mb-2">
         <app-badge-button [icon]="faAdd" [caption]="'Add new Content Path Match'"
                           (click)="addNewAlbum()"/>
@@ -149,6 +180,47 @@ import { ContentText } from "../../../models/content-text.model";
                    min="1"
                    placeholder="∞"
                    class="form-control">
+          </div>
+        </div>
+      }
+      <div class="d-flex justify-content-start mt-3 mb-2">
+        <app-badge-button [icon]="faAdd" [caption]="'Add new Exclude Path Match'"
+                          (click)="addNewExcludePath()"/>
+      </div>
+      @for (excludePath of row.albumIndex.excludePaths; track trackByIndex(index, excludePath); let index = $index) {
+        <div class="row align-items-end mb-2">
+          <div class="col-sm-2">
+            <label
+              [for]="actions.rowColumnIdentifierFor(index, 0, excludePath + '-exclude-path-item')">
+              Exclude {{ index + 1 }}</label>
+            <select class="form-control input-sm"
+                    [(ngModel)]="row.albumIndex.excludePaths[index].stringMatch"
+                    (ngModelChange)="refreshContentPreview()"
+                    [id]="actions.rowColumnIdentifierFor(index, 0, excludePath + '-exclude-path-item')">
+              @for (type of stringMatchingValues; track type) {
+                <option
+                  [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                </option>
+              }
+            </select>
+          </div>
+          <div class="col-sm-8">
+            <form>
+              <label for="{{id}}-exclude-{{index}}">
+                Exclude Path {{ index + 1 }}</label>
+              <div class="d-flex">
+                <input autocomplete="off" [typeahead]="pageContentService.siteLinks"
+                       [typeaheadMinLength]="0"
+                       id="{{id}}-exclude-{{index}}"
+                       [(ngModel)]="row.albumIndex.excludePaths[index].contentPath"
+                       (ngModelChange)="refreshContentPreview()"
+                       [value]="excludePath"
+                       name="new-password"
+                       type="text" class="form-control flex-grow-1 me-2">
+                <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Remove Exclude Path Match'"
+                                  (click)="removeExcludePath(excludePath)"/>
+              </div>
+            </form>
           </div>
         </div>
       }
@@ -243,6 +315,15 @@ export class AlbumIndexSiteEditComponent implements OnInit {
     .map(item => ({...item, title: this.stringUtils.asTitle(item.value)}));
   renderModeValues: (KeyValue<string> & {title: string})[] = enumKeyValues(IndexRenderMode)
     .map(item => ({...item, title: this.stringUtils.asTitle(item.value)}));
+  sortFieldValues: {value: AlbumIndexSortField; title: string}[] = [
+    {value: AlbumIndexSortField.TITLE, title: "Title"},
+    {value: AlbumIndexSortField.HREF, title: "Path"},
+    {value: AlbumIndexSortField.CREATED_AT, title: "Date Created"}
+  ];
+  sortDirectionValues: {value: SortDirection; title: string}[] = [
+    {value: SortDirection.ASC, title: "Ascending"},
+    {value: SortDirection.DESC, title: "Descending"}
+  ];
   showMapPreview = false;
   protected readonly MapProvider = MapProvider;
   protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
@@ -256,6 +337,12 @@ export class AlbumIndexSiteEditComponent implements OnInit {
     }
     if (!this.row.albumIndex.renderModes) {
       this.row.albumIndex.renderModes = [IndexRenderMode.ACTION_BUTTONS];
+    }
+    if (!this.row.albumIndex.sortConfig) {
+      this.row.albumIndex.sortConfig = {field: AlbumIndexSortField.TITLE, direction: SortDirection.ASC};
+    }
+    if (!this.row.albumIndex.excludePaths) {
+      this.row.albumIndex.excludePaths = [];
     }
     if (this.row.albumIndex.autoTitle === null || isUndefined(this.row.albumIndex.autoTitle)) {
       this.row.albumIndex.autoTitle = true;
@@ -323,6 +410,15 @@ export class AlbumIndexSiteEditComponent implements OnInit {
   remove(contentPath: ContentPathMatch) {
     this.logger.info("delete:", contentPath);
     this.row.albumIndex.contentPaths = this.row.albumIndex.contentPaths.filter(item => item !== contentPath);
+    this.refreshContentPreview();
+  }
+
+  addNewExcludePath() {
+    this.row.albumIndex.excludePaths.push({contentPath: "", stringMatch: StringMatch.CONTAINS});
+  }
+
+  removeExcludePath(excludePath: ContentPathMatch) {
+    this.row.albumIndex.excludePaths = this.row.albumIndex.excludePaths.filter(item => item !== excludePath);
     this.refreshContentPreview();
   }
 
