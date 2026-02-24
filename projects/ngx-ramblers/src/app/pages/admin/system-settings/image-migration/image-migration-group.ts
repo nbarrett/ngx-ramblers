@@ -271,7 +271,7 @@ export class ImageMigrationGroupComponent {
     }
     switch (group.sourceType) {
       case ImageMigrationSourceType.CONTENT_METADATA:
-        return `/admin/album-gallery?album=${encodeURIComponent(group.sourcePath)}`;
+        return `/${group.sourceTitle}`;
       case ImageMigrationSourceType.PAGE_CONTENT:
         return `/${group.sourcePath}`;
       case ImageMigrationSourceType.GROUP_EVENT:
