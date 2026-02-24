@@ -357,12 +357,18 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
       this.subscriptions.push(
         this.webSocketClientService.receiveMessages<any>(MessageType.PROGRESS).subscribe((data: any) => {
           const message = data?.message || JSON.stringify(data);
-          this.addLog("info", message);
 
           if (data?.progress) {
             this.migrationProgress = data.progress;
-            this.activityNotifier.warning({ title: "Migration Progress", message: `Currently migrating ${data.progress.currentImage}` });
+            if (data.progress.errorMessage) {
+              this.addLog("error", `Failed: ${data.progress.currentImage} — ${data.progress.errorMessage}`);
+              this.activityNotifier.error({ title: "Migration Failed", message: data.progress.errorMessage });
+            } else {
+              this.addLog("info", message);
+              this.activityNotifier.warning({ title: "Migration Progress", message: `Currently migrating ${data.progress.currentImage}` });
+            }
           } else {
+            this.addLog("info", message);
             this.activityNotifier.warning(message);
           }
         })

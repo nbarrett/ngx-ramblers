@@ -19,7 +19,7 @@ import * as aws from "../aws/aws-controllers";
 import { contentMetadata } from "../mongo/models/content-metadata";
 import { pageContent } from "../mongo/models/page-content";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
-import { isAwsUploadErrorResponse, generateAwsFileName } from "../aws/aws-utils";
+import { generateAwsFileName, isAwsUploadErrorResponse } from "../aws/aws-utils";
 import * as mongooseClient from "../mongo/mongoose-client";
 import { isArray, keys, values } from "es-toolkit/compat";
 import { humanFileSize } from "../../../projects/ngx-ramblers/src/app/functions/file-utils";
@@ -58,13 +58,14 @@ function targetPathForImage(imageRef: ExternalImageReference, fallbackFolder: Ro
 
 async function downloadExternalImage(url: string): Promise<{ buffer: Buffer; contentType: string }> {
   return new Promise((resolve, reject) => {
-    const protocol = url.startsWith("https") ? https : http;
+    const safeUrl = url.replace(/ /g, "%20");
+    const protocol = safeUrl.startsWith("https") ? https : http;
 
-    const request = protocol.get(url, (response) => {
+    const request = protocol.get(safeUrl, response => {
       if (response.statusCode === 301 || response.statusCode === 302) {
         const redirectUrl = response.headers.location;
         if (redirectUrl) {
-          downloadExternalImage(redirectUrl).then(resolve).catch(reject);
+          downloadExternalImage(redirectUrl.replace(/ /g, "%20")).then(resolve).catch(reject);
           return;
         }
       }
@@ -369,7 +370,7 @@ export async function migrateImages(
   const failedUrls = new Set<string>();
   let uploadedCount = 0;
 
-  const sendProgress = (currentImage: string, phase: "upload" | "update") => {
+  const sendProgress = (currentImage: string, phase: "upload" | "update", errorMessage?: string) => {
     if (progressCallback) {
       const uploadWeight = 0.8;
       const updateWeight = 0.2;
@@ -398,7 +399,8 @@ export async function migrateImages(
         successCount,
         failureCount,
         currentImage,
-        percent: Math.min(percent, 100)
+        percent: Math.min(percent, 100),
+        errorMessage
       });
     }
   };
@@ -438,7 +440,7 @@ export async function migrateImages(
       debugLog("migrateImages:failed to download/upload:", url, "error:", errorMessage);
       failedUrls.add(url);
       uploadedCount++;
-      sendProgress(url, "upload");
+      sendProgress(url, "upload", errorMessage);
     }
   }
 
