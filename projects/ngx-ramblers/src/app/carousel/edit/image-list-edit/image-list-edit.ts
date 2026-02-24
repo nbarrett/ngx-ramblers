@@ -71,6 +71,7 @@ import { ImageEditComponent } from "../image-edit/image-edit";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FileSizeSelectorComponent } from "../file-size-selector/file-size-selector";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { PageContentService } from "../../../services/page-content.service";
 import { isUndefined } from "es-toolkit/compat";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { ApiResponse } from "../../../models/api-response.model";
@@ -137,6 +138,18 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
           <app-file-size-selector label="Auto-resize New Images To Maximum Size"
                                   [fileSize]="contentMetadata.maxImageSize"
                                   (fileSizeChanged)="contentMetadata.maxImageSize=$event"/>
+        </div>
+      </div>
+      <div class="row mb-2 px-1">
+        <div class="col-sm-12 d-flex align-items-baseline flex-wrap gap-2">
+          <span>{{ stringUtils.pluraliseWithCount(pageUsages.length, "usage") }}:</span>
+          @if (pageUsages.length === 0) {
+            <span class="text-muted small">This image list is not used on any pages</span>
+          } @else {
+            @for (u of pageUsages; track u) {
+              <a class="rams-text-decoration-pink" [href]="'/' + u" target="_blank" rel="noopener noreferrer">{{ u }}</a>
+            }
+          }
         </div>
       </div>
       <input #fileElement class="d-none" type="file" ng2FileSelect multiple
@@ -389,6 +402,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
   public notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
+  private pageContentService: PageContentService = inject(PageContentService);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public imageTagDataService: ImageTagDataService = inject(ImageTagDataService);
   public numberUtils: NumberUtilsService = inject(NumberUtilsService);
@@ -401,6 +415,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   public dateUtils: DateUtilsService = inject(DateUtilsService);
   private urlService: UrlService = inject(UrlService);
   public name: string;
+  public pageUsages: string[] = [];
   private changeUrlOnChangeOfTag = false;
   private queuedFileCount = 0;
   public duplicateImages: DuplicateImages;
@@ -767,6 +782,11 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   private postMetadataRetrieveMapping() {
     this.syncTagWithStory();
+    this.pageContentService.albumNames()
+      .then(albumPaths => {
+        this.pageUsages = albumPaths.filter(ap => ap.albumName === this.name).map(ap => ap.contentPath);
+      })
+      .catch(err => this.logger.error("Failed to load page usages", err));
     this.logger.info("postMetadataRetrieveMapping for:", this.name, "this.contentMetadata.maxImageSize", this.contentMetadata.maxImageSize, "this.contentMetadata.aspectRatio", this.contentMetadata.aspectRatio);
     if (isUndefined(this.contentMetadata.maxImageSize)) {
       this.contentMetadata.maxImageSize = this.systemConfig.images?.imageLists?.defaultMaxImageSize;
