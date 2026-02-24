@@ -1,5 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faPlay, faSpinner, faCheck, faTimes, faBan } from "@fortawesome/free-solid-svg-icons";
+import { faPlay, faSpinner, faCheck, faTimes, faBan, faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -44,135 +44,143 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
              (selectTab)="selectTab(ImageMigrationTab.SCAN)"
              heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.SCAN)}}">
           <div class="img-thumbnail thumbnail-admin-edit">
-            <div class="row p-3">
-              <div class="col-sm-12">
-                <h5>Scan for External Images</h5>
-                <p class="text-muted">Select a host to find images hosted externally that need to be migrated to S3.</p>
-              </div>
-            </div>
-            <div class="row p-3 align-items-end">
-              <div class="col-sm-4">
-                <div class="form-group mb-0">
-                  <label for="host-pattern">External Host</label>
-                  <ng-select id="host-pattern"
-                             [items]="availableHosts"
-                             [(ngModel)]="hostPattern"
-                             [loading]="loadingHosts"
-                             [addTag]="true"
-                             [clearable]="true"
-                             dropdownPosition="bottom"
-                             placeholder="Select or type external host">
-                  </ng-select>
-                </div>
-              </div>
-              <div class="col-sm-4">
-                <div class="form-group mb-0">
-                  <label for="target-folder">Target S3 Folder</label>
-                  <ng-select id="target-folder"
-                             [items]="rootFolders"
-                             [(ngModel)]="targetRootFolder"
-                             [clearable]="false"
-                             dropdownPosition="bottom"
-                             placeholder="Select target folder">
-                  </ng-select>
-                </div>
-              </div>
-              <div class="col-sm-4">
-                <div class="form-group mb-0">
-                  <app-file-size-selector label="Auto Resize Images"
-                                          [fileSize]="maxImageSize"
-                                          (fileSizeChanged)="maxImageSize=$event"/>
-                </div>
-              </div>
-            </div>
-            <div class="row p-3">
-              <div class="col-sm-3">
-                <div class="form-check">
-                  <input type="checkbox" class="form-check-input" id="scan-albums"
-                         [(ngModel)]="scanAlbums">
-                  <label class="form-check-label" for="scan-albums">Scan Albums</label>
-                </div>
-              </div>
-              <div class="col-sm-3">
-                <div class="form-check">
-                  <input type="checkbox" class="form-check-input" id="scan-page-content"
-                         [(ngModel)]="scanPageContent">
-                  <label class="form-check-label" for="scan-page-content">Scan Page Content</label>
-                </div>
-              </div>
-              <div class="col-sm-3">
-                <div class="form-check">
-                  <input type="checkbox" class="form-check-input" id="scan-group-events"
-                         [(ngModel)]="scanGroupEvents">
-                  <label class="form-check-label" for="scan-group-events">Scan Walks</label>
-                </div>
-              </div>
-              <div class="col-sm-3">
-                <div class="form-check">
-                  <input type="checkbox" class="form-check-input" id="scan-social-events"
-                         [(ngModel)]="scanSocialEvents">
-                  <label class="form-check-label" for="scan-social-events">Scan Social Events</label>
-                </div>
-              </div>
-            </div>
-            <div class="row p-3">
-              <div class="col-sm-12">
-                <app-badge-button [icon]="scanning ? faSpinner : faPlay"
-                                  [disabled]="!hostPattern || scanning"
-                                  (click)="runScan()"
-                                  caption="Scan for External Images"/>
-              </div>
-            </div>
-          </div>
-        </tab>
-        <tab [active]="tabActive(ImageMigrationTab.RESULTS)"
-             (selectTab)="selectTab(ImageMigrationTab.RESULTS)"
-             heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.RESULTS)}}">
-          <div class="img-thumbnail thumbnail-admin-edit">
-            @if (scanResult) {
+            @if (!loadingHosts) {
+            @if (availableHosts.length === 0) {
               <div class="row p-3">
                 <div class="col-sm-12">
-                  <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div>
-                      <strong>Found {{ stringUtils.pluraliseWithCount(scanResult.totalImages, "image") }}</strong> across
-                      {{ stringUtils.pluraliseWithCount(scanResult.totalPages, "source") }}
-                      <span class="text-muted">(scanned in {{ scanResult.scanDurationMs }}ms)</span>
-                    </div>
-                    <div>
-                      <app-badge-button [icon]="faCheck" (click)="selectAll()" caption="Select All"/>
-                      <app-badge-button [icon]="faTimes" (click)="deselectAll()" caption="Deselect All"/>
-                      <app-badge-button [icon]="migrating ? faSpinner : faPlay"
-                                        [disabled]="!hasSelectedImages() || migrating"
-                                        (click)="runMigration()"
-                                        [caption]="'Migrate ' + stringUtils.pluraliseWithCount(selectedImageCount(), 'Selected Image')"/>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="row p-3">
-                <div class="col-sm-12">
-                  <div class="migration-accordion">
-                    @for (group of scanResult.groups; track group.sourcePath) {
-                      <app-image-migration-group
-                        [group]="group"
-                        (groupChanged)="onGroupChanged($event)"/>
-                    }
+                  <div class="alert alert-success d-flex align-items-center gap-2">
+                    <fa-icon [icon]="faCircleCheck" size="lg"/>
+                    <span><strong>All Images Hosted Locally</strong> — No external image hosts found.</span>
                   </div>
                 </div>
               </div>
             } @else {
               <div class="row p-3">
-                <div class="col-sm-12 text-center text-muted">
-                  <p>No scan results yet. Use the Scan Configuration tab to scan for external images.</p>
+                <div class="col-sm-12">
+                  <h5>Scan for External Images</h5>
+                  <p class="text-muted">Select a host to find images hosted externally that need to be migrated to S3.</p>
+                </div>
+              </div>
+              <div class="row p-3 align-items-end">
+                <div class="col-sm-4">
+                  <div class="form-group mb-0">
+                    <label for="host-pattern">External Host</label>
+                    <ng-select id="host-pattern"
+                               [items]="availableHosts"
+                               [(ngModel)]="hostPattern"
+                               [loading]="loadingHosts"
+                               [addTag]="true"
+                               [clearable]="true"
+                               dropdownPosition="bottom"
+                               placeholder="Select or type external host">
+                    </ng-select>
+                  </div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="form-group mb-0">
+                    <label for="target-folder">Target S3 Folder</label>
+                    <ng-select id="target-folder"
+                               [items]="rootFolders"
+                               [(ngModel)]="targetRootFolder"
+                               [clearable]="false"
+                               dropdownPosition="bottom"
+                               placeholder="Select target folder">
+                    </ng-select>
+                  </div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="form-group mb-0">
+                    <app-file-size-selector label="Auto Resize Images"
+                                            [fileSize]="maxImageSize"
+                                            (fileSizeChanged)="maxImageSize=$event"/>
+                  </div>
+                </div>
+              </div>
+              <div class="row p-3">
+                <div class="col-sm-3">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="scan-albums"
+                           [(ngModel)]="scanAlbums">
+                    <label class="form-check-label" for="scan-albums">Scan Albums</label>
+                  </div>
+                </div>
+                <div class="col-sm-3">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="scan-page-content"
+                           [(ngModel)]="scanPageContent">
+                    <label class="form-check-label" for="scan-page-content">Scan Page Content</label>
+                  </div>
+                </div>
+                <div class="col-sm-3">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="scan-group-events"
+                           [(ngModel)]="scanGroupEvents">
+                    <label class="form-check-label" for="scan-group-events">Scan Walks</label>
+                  </div>
+                </div>
+                <div class="col-sm-3">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="scan-social-events"
+                           [(ngModel)]="scanSocialEvents">
+                    <label class="form-check-label" for="scan-social-events">Scan Social Events</label>
+                  </div>
+                </div>
+              </div>
+              <div class="row p-3">
+                <div class="col-sm-12">
+                  <app-badge-button [icon]="scanning ? faSpinner : faPlay"
+                                    [disabled]="!hostPattern || scanning"
+                                    (click)="runScan()"
+                                    caption="Scan for External Images"/>
                 </div>
               </div>
             }
+            }
           </div>
         </tab>
-        <tab [active]="tabActive(ImageMigrationTab.ACTIVITY)"
-             (selectTab)="selectTab(ImageMigrationTab.ACTIVITY)"
-             heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.ACTIVITY)}}">
-          <div class="img-thumbnail thumbnail-admin-edit">
+        @if (!loadingHosts && availableHosts.length > 0) {
+          <tab [active]="tabActive(ImageMigrationTab.RESULTS)"
+               (selectTab)="selectTab(ImageMigrationTab.RESULTS)"
+               heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.RESULTS)}}">
+            <div class="img-thumbnail thumbnail-admin-edit">
+              @if (scanResult) {
+                <div class="row p-3">
+                  <div class="col-sm-12">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                        <strong>Found {{ stringUtils.pluraliseWithCount(scanResult.totalImages, "image") }}</strong> across
+                        {{ stringUtils.pluraliseWithCount(scanResult.totalPages, "source") }}
+                        <span class="text-muted">(scanned in {{ scanResult.scanDurationMs }}ms)</span>
+                      </div>
+                      <div>
+                        <app-badge-button [icon]="faCheck" (click)="selectAll()" caption="Select All"/>
+                        <app-badge-button [icon]="faTimes" (click)="deselectAll()" caption="Deselect All"/>
+                        <app-badge-button [icon]="migrating ? faSpinner : faPlay"
+                                          [disabled]="!hasSelectedImages() || migrating"
+                                          (click)="runMigration()"
+                                          [caption]="'Migrate ' + stringUtils.pluraliseWithCount(selectedImageCount(), 'Selected Image')"/>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="row p-3">
+                  <div class="col-sm-12">
+                    <div class="migration-accordion">
+                      @for (group of scanResult.groups; track group.sourcePath) {
+                        <app-image-migration-group
+                          [group]="group"
+                          (groupChanged)="onGroupChanged($event)"/>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          </tab>
+          <tab [active]="tabActive(ImageMigrationTab.ACTIVITY)"
+               (selectTab)="selectTab(ImageMigrationTab.ACTIVITY)"
+               heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.ACTIVITY)}}">
+            <div class="img-thumbnail thumbnail-admin-edit">
             @if (activityTarget.showAlert) {
               <div class="row px-3 pt-3">
                 <div class="col-sm-12">
@@ -242,7 +250,8 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
               </div>
             </div>
           </div>
-        </tab>
+          </tab>
+        }
         <tab [active]="tabActive(ImageMigrationTab.EXTERNAL_IMPORT)"
              (selectTab)="selectTab(ImageMigrationTab.EXTERNAL_IMPORT)"
              heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.EXTERNAL_IMPORT)}}">
@@ -316,6 +325,7 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
   protected readonly faCheck = faCheck;
   protected readonly faTimes = faTimes;
   protected readonly faBan = faBan;
+  protected readonly faCircleCheck = faCircleCheck;
   protected readonly ImageMigrationTab = ImageMigrationTab;
   protected readonly enumValueForKey = enumValueForKey;
 
@@ -405,7 +415,11 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
             this.loadingHosts = false;
             this.logger.debug("Loaded", this.availableHosts.length, "available hosts, pre-selected:", this.hostPattern);
             this.activityNotifier.showContactUs(false);
-            this.activityNotifier.warning("Select a migration action on the Scan Configuration tab");
+            if (this.availableHosts.length === 0) {
+              this.activityNotifier.success("No external image hosts found — all images are already hosted locally");
+            } else {
+              this.activityNotifier.warning("Select a migration action on the Scan Configuration tab");
+            }
           } else {
             this.addLog("complete", message);
             this.activityNotifier.success({ title: "Complete", message });
