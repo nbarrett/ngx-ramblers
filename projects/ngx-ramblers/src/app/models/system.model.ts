@@ -493,6 +493,7 @@ export interface ImageMigrationProgress {
   failureCount: number;
   currentImage: string;
   percent: number;
+  errorMessage?: string;
 }
 
 export interface ImageMigrationResult {
