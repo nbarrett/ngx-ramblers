@@ -8,7 +8,8 @@ import { switchMap } from "rxjs/operators";
 import { isNumber, isString, kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faSpinner, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faExclamationTriangle, faSpinner, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { EnvironmentSetupService } from "../../../services/environment-setup/environment-setup.service";
 import { PageComponent } from "../../../page/page.component";
 import { EnvironmentSettings } from "../../../modules/common/environment-settings/environment-settings";
 import { EnvironmentConfigService } from "../../../services/environment-config.service";
@@ -78,6 +79,12 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
     <app-page autoTitle pageTitle="Backup & Restore">
       <div class="row">
         <div class="col-sm-12">
+          @if (!enabled) {
+            <div class="alert alert-warning d-flex align-items-center gap-2">
+              <fa-icon [icon]="faExclamationTriangle" size="lg"/>
+              <span><strong>Not Available</strong> — Backup & Restore is not available on this environment. Please use the CLI or staging environment.</span>
+            </div>
+          } @else {
           <tabset class="custom-tabset">
             <tab [active]="tabActive(BackupRestoreTab.BACKUP)"
                  (selectTab)="selectTab(BackupRestoreTab.BACKUP)"
@@ -360,6 +367,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
               }
             </tab>
           </tabset>
+          }
         </div>
       </div>
     </app-page>
@@ -370,6 +378,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("BackupAndRestore", NgxLoggerLevel.ERROR);
   private backupRestoreService = inject(BackupAndRestoreService);
   private environmentConfigService = inject(EnvironmentConfigService);
+  private environmentSetupService = inject(EnvironmentSetupService);
   private notifierService = inject(NotifierService);
   private websocketService = inject(WebSocketClientService);
   stringUtils = inject(StringUtilsService);
@@ -383,8 +392,11 @@ export class BackupAndRestore implements OnInit, OnDestroy {
 
   protected readonly BackupRestoreTab = BackupRestoreTab;
   protected readonly BackupLocation = BackupLocation;
+  protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly faTrash = faTrash;
   protected readonly faSpinner = faSpinner;
+
+  enabled = false;
 
   notifyTarget: AlertTarget = {};
   notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -435,6 +447,12 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   async ngOnInit() {
+    try {
+      const status = await this.environmentSetupService.status();
+      this.enabled = status.enabled;
+    } catch {
+      this.enabled = false;
+    }
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
       const defaultValue = kebabCase(BackupRestoreTab.BACKUP);
       const tabParameter = params[StoredValue.TAB];
@@ -442,11 +460,13 @@ export class BackupAndRestore implements OnInit, OnDestroy {
       this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue);
       this.handleTabChange(this.tab);
     }));
-    this.loadEnvironments();
-    this.loadBackups();
-    this.loadSessions();
-    this.loadConfig();
-    await this.connectWebSocket();
+    if (this.enabled) {
+      this.loadEnvironments();
+      this.loadBackups();
+      this.loadSessions();
+      this.loadConfig();
+      await this.connectWebSocket();
+    }
   }
 
   ngOnDestroy() {
