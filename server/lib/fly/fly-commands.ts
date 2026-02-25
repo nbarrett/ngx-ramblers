@@ -7,6 +7,7 @@ import { Environment } from "../env-config/environment-model";
 import { resolveClientPath } from "../shared/path-utils";
 import { configsJsonPath } from "../shared/configs-json";
 import { envConfig } from "../env-config/env-config";
+import { StreamingCommandResult } from "./fly.model";
 
 export type OutputCallback = (line: string) => void;
 
@@ -40,11 +41,6 @@ export function runCommand(command: string, returnOutput: boolean = false, throw
     }
     process.exit(1);
   }
-}
-
-export interface StreamingCommandResult {
-  exitCode: number;
-  output: string;
 }
 
 export function runCommandStreaming(

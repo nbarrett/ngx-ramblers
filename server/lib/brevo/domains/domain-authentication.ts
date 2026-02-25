@@ -1,7 +1,8 @@
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { configuredCloudflare } from "../../cloudflare/cloudflare-config";
-import { createDnsRecord, listDnsRecords, CloudflareConfig as CfDnsConfig } from "../../cloudflare/cloudflare-dns";
+import { CloudflareDnsConfig } from "../../cloudflare/cloudflare.model";
+import { createDnsRecord, listDnsRecords } from "../../cloudflare/cloudflare-dns";
 import {
   authenticateDomain,
   domainConfiguration,
@@ -23,7 +24,7 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function ensureTxtRecord(cfConfig: CfDnsConfig, record: BrevoDnsRecord): Promise<boolean> {
+async function ensureTxtRecord(cfConfig: CloudflareDnsConfig, record: BrevoDnsRecord): Promise<boolean> {
   if (!record.hostName || !record.value) {
     debugLog("Skipping DNS record with missing hostName or value:", record);
     return false;
@@ -88,7 +89,7 @@ export async function authenticateSendingDomain(domainName: string): Promise<Dom
   let dnsRecordsConfigured = false;
   try {
     const cfConfig = await configuredCloudflare();
-    const cfDnsConfig: CfDnsConfig = {
+    const cfDnsConfig: CloudflareDnsConfig = {
       apiToken: cfConfig.apiToken,
       zoneId: cfConfig.zoneId
     };

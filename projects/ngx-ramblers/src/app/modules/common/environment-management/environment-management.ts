@@ -346,16 +346,20 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
         }),
         this.websocketService.receiveMessages<{ message: string; result?: { environmentName: string; appName: string; appUrl: string } }>(MessageType.COMPLETE).subscribe(async data => {
           this.logger.info("Complete:", data);
-          if (data?.result) {
-            this.setupResult = {
-              environmentName: data.result.environmentName,
-              appName: data.result.appName,
-              appUrl: data.result.appUrl
-            };
-          }
+          const pendingResult = data?.result ? {
+            environmentName: data.result.environmentName,
+            appName: data.result.appName,
+            appUrl: data.result.appUrl
+          } : null;
           this.progressMessages.push(data?.message || "Completed");
           if (this.resumeOptions.setupSubdomain && this.selectedExistingEnv) {
-            await this.runSubdomainSetup();
+            const subdomainHostname = await this.runSubdomainSetup();
+            if (subdomainHostname && pendingResult) {
+              pendingResult.appUrl = `https://${subdomainHostname}`;
+              this.setupResult = pendingResult;
+            }
+          } else if (pendingResult) {
+            this.setupResult = pendingResult;
           }
           this.operationInProgress = OperationInProgress.NONE;
         }),
@@ -467,19 +471,24 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
           this.resumeOptions.runFlyDeployment
         );
 
-        if (response.result) {
-          this.setupResult = {
-            environmentName: response.result.environmentName,
-            appName: response.result.appName,
-            appUrl: response.result.appUrl
-          };
+        const pendingResult = response.result ? {
+          environmentName: response.result.environmentName,
+          appName: response.result.appName,
+          appUrl: response.result.appUrl
+        } : null;
+
+        if (this.resumeOptions.setupSubdomain) {
+          const subdomainHostname = await this.runSubdomainSetup();
+          if (subdomainHostname && pendingResult) {
+            pendingResult.appUrl = `https://${subdomainHostname}`;
+            this.setupResult = pendingResult;
+            this.progressMessages.push("Environment modified successfully!");
+          }
+        } else if (pendingResult) {
+          this.setupResult = pendingResult;
           this.progressMessages.push("Environment modified successfully!");
         }
         this.operationInProgress = OperationInProgress.NONE;
-
-        if (this.resumeOptions.setupSubdomain) {
-          await this.runSubdomainSetup();
-        }
       }
     } catch (error) {
       this.setupError = this.extractErrorDetail(error);
@@ -489,14 +498,24 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     }
   }
 
-  private async runSubdomainSetup(): Promise<void> {
-    if (!this.selectedExistingEnv) return;
+  private async runSubdomainSetup(): Promise<string | null> {
+    if (!this.selectedExistingEnv) return null;
     this.progressMessages.push("Setting up subdomain...");
-    const subdomainResponse = await this.environmentSetupService.setupSubdomain(this.selectedExistingEnv.name);
-    if (subdomainResponse.success) {
-      this.progressMessages.push(`Subdomain configured: ${subdomainResponse.hostname}`);
-    } else {
-      this.progressMessages.push(`Subdomain setup failed: ${subdomainResponse.message}`);
+    try {
+      const subdomainResponse = await this.environmentSetupService.setupSubdomain(this.selectedExistingEnv.name);
+      if (subdomainResponse.success) {
+        this.progressMessages.push(`Subdomain configured: ${subdomainResponse.hostname}`);
+        return subdomainResponse.hostname;
+      } else {
+        this.setupError = subdomainResponse.message || "Subdomain setup failed";
+        this.progressMessages.push(`Subdomain setup failed: ${this.setupError}`);
+        return null;
+      }
+    } catch (error) {
+      this.setupError = this.extractErrorDetail(error);
+      this.progressMessages.push(`Subdomain setup failed: ${this.setupError}`);
+      this.logger.error("Subdomain setup failed:", error);
+      return null;
     }
   }
 

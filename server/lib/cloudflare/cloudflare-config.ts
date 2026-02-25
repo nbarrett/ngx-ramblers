@@ -3,6 +3,7 @@ import { ConfigDocument, ConfigKey } from "../../../projects/ngx-ramblers/src/ap
 import { CloudflareConfig, EnvironmentsConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../env-config/environment-model";
+import { NonSensitiveCloudflareConfig } from "./cloudflare.model";
 import { decryptCloudflareConfig } from "./cloudflare-crypto";
 import { systemConfig } from "../config/system-config";
 import * as config from "../mongo/controllers/config";
@@ -10,12 +11,6 @@ import * as config from "../mongo/controllers/config";
 const debugLog = debug(envConfig.logNamespace("cloudflare-config"));
 debugLog.enabled = true;
 
-export interface NonSensitiveCloudflareConfig {
-  configured?: boolean;
-  accountId?: string;
-  zoneId?: string;
-  baseDomain?: string;
-}
 
 function fromEncryptedEnvVar(): CloudflareConfig | null {
   const encrypted = envConfig.value(Environment.CLOUDFLARE_CONFIG);

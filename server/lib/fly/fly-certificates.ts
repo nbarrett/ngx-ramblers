@@ -1,23 +1,8 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
+import { AppIpAddresses, CertificateInfo, FlyConfig } from "./fly.model";
 
 const debugLog = debug(envConfig.logNamespace("fly:certificates"));
-
-export interface FlyConfig {
-  apiToken: string;
-  appName: string;
-}
-
-export interface CertificateInfo {
-  hostname: string;
-  clientStatus: string;
-  issued: { type: string; expiresAt: string }[];
-}
-
-export interface AppIpAddresses {
-  ipv4: string | null;
-  ipv6: string | null;
-}
 
 interface GraphQLCertNode {
   hostname: string;
@@ -31,6 +16,15 @@ interface GraphQLCertsResponse {
 
 interface GraphQLAddCertResponse {
   addCertificate: { certificate: { hostname: string; createdAt: string } };
+}
+
+interface GraphQLIpAddressNode {
+  type: string;
+  address: string;
+}
+
+interface GraphQLIpAddressesResponse {
+  app: { ipAddresses: { nodes: GraphQLIpAddressNode[] } };
 }
 
 async function graphqlRequest<T>(apiToken: string, query: string, variables: Record<string, unknown>): Promise<T> {
@@ -53,25 +47,31 @@ async function graphqlRequest<T>(apiToken: string, query: string, variables: Rec
   return data.data;
 }
 
-export async function appIpAddresses(appName: string): Promise<AppIpAddresses> {
-  const { execSync } = await import("child_process");
+export async function appIpAddresses(config: FlyConfig): Promise<AppIpAddresses> {
+  debugLog("Looking up IP addresses for app %s via Fly.io API", config.appName);
 
-  debugLog("Looking up IP addresses for %s.fly.dev", appName);
+  const query = `
+    query($appName: String!) {
+      app(name: $appName) {
+        ipAddresses {
+          nodes {
+            type
+            address
+          }
+        }
+      }
+    }
+  `;
 
-  let ipv4: string | null = null;
-  let ipv6: string | null = null;
+  const data = await graphqlRequest<GraphQLIpAddressesResponse>(
+    config.apiToken,
+    query,
+    { appName: config.appName }
+  );
 
-  try {
-    ipv4 = execSync(`dig +short ${appName}.fly.dev A`, { encoding: "utf-8" }).trim().split("\n")[0] || null;
-  } catch {
-    debugLog("Failed to get IPv4 address");
-  }
-
-  try {
-    ipv6 = execSync(`dig +short ${appName}.fly.dev AAAA`, { encoding: "utf-8" }).trim().split("\n")[0] || null;
-  } catch {
-    debugLog("Failed to get IPv6 address");
-  }
+  const nodes = data.app.ipAddresses.nodes;
+  const ipv4 = nodes.find(n => n.type === "v4")?.address || null;
+  const ipv6 = nodes.find(n => n.type === "v6")?.address || null;
 
   debugLog("IP addresses: IPv4=%s, IPv6=%s", ipv4, ipv6);
   return { ipv4, ipv6 };
@@ -107,7 +107,7 @@ export async function addCertificate(config: FlyConfig, hostname: string): Promi
   }
 }
 
-export async function getCertificates(config: FlyConfig): Promise<CertificateInfo[]> {
+export async function queryCertificates(config: FlyConfig): Promise<CertificateInfo[]> {
   debugLog("Getting certificates for app %s", config.appName);
 
   const query = `
