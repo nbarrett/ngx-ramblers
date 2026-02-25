@@ -2,7 +2,7 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Subscription } from "rxjs";
+import { firstValueFrom, Subscription } from "rxjs";
 import { kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -69,10 +69,9 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
       <div class="row">
         <div class="col-sm-12">
           @if (!enabled) {
-            <div class="alert alert-warning">
-              <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-              Environment setup is not available on this environment.
-              Please use the CLI or staging environment.
+            <div class="alert alert-warning d-flex align-items-center gap-2">
+              <fa-icon [icon]="faExclamationTriangle" size="lg"/>
+              <span><strong>Not Available</strong> — Environment setup is not available on this environment. Please use the CLI or staging environment.</span>
             </div>
           } @else {
             <tabset class="custom-tabset">
@@ -662,6 +661,9 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   protected readonly SetupMode = SetupMode;
 
   enabled = false;
+  requiresApiKey = false;
+  setupApiKeyValue = "";
+  setupApiKeyEntered = false;
   wsConnected = false;
   progressMessages: string[] = [];
   stepperActiveIndex = 0;
@@ -778,6 +780,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     try {
       const status = await this.environmentSetupService.status();
       this.enabled = status.enabled;
+      this.requiresApiKey = status.requiresApiKey;
       if (this.enabled) {
         await this.loadDefaults();
         await this.connectWebSocket();
@@ -786,6 +789,13 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       this.logger.error("Failed to check setup status:", error);
       this.enabled = false;
     }
+  }
+
+  async submitSetupApiKey(): Promise<void> {
+    this.environmentSetupService.setSetupApiKey(this.setupApiKeyValue);
+    this.setupApiKeyEntered = true;
+    await this.loadDefaults();
+    await this.connectWebSocket();
   }
 
   selectTab(tab: EnvironmentSetupTab) {
@@ -972,22 +982,20 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   }
 
   private async loadDefaults(): Promise<void> {
+    // Load system config first — uses normal session auth, never fails with 401
+    this.systemConfig = this.systemConfigService.systemConfig()
+      ?? await firstValueFrom(this.systemConfigService.events());
+
+    // Load env defaults separately — may fail (401) if setup auth is unavailable
     try {
-      this.systemConfig = this.systemConfigService.systemConfig();
-      if (!this.systemConfig) {
-        this.subscriptions.push(
-          this.systemConfigService.events().subscribe(config => {
-            this.systemConfig = config;
-            this.applyDefaults();
-          })
-        );
-      }
       this.environmentDefaults = await this.environmentSetupService.defaults();
-      this.applyDefaults();
-      this.logger.info("Loaded defaults from current environment");
     } catch (error) {
-      this.logger.error("Failed to load defaults:", error);
+      this.logger.error("Failed to load environment defaults:", error);
     }
+
+    // Apply regardless — API key comes from systemConfig, not defaults
+    this.applyDefaults();
+    this.logger.info("Loaded defaults from current environment");
   }
 
   private applyDefaults(): void {

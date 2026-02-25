@@ -346,6 +346,9 @@ export async function createEnvironment(
     }, copiedAssets);
     reportProgress(SetupStep.INITIALISE_DATABASE, "completed", "Database initialised successfully");
 
+    // Migrations disconnect mongoose — reconnect to the main database before proceeding
+    await ensureMongoConnection();
+
     if (request.options.populateBrevoTemplates && request.serviceConfigs.brevo.apiKey) {
       reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, "running", "Populating Brevo templates");
       const seedResult = await seedBrevoTemplatesFromLocal();

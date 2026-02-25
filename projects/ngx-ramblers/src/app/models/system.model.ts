@@ -33,7 +33,8 @@ export enum EnvironmentSettingsSubTab {
   ALL = "all",
   GLOBAL = "global",
   ENVIRONMENTS = "environments",
-  TOOLS = "tools"
+  TOOLS = "tools",
+  GITHUB = "github"
 }
 
 export enum ImageMigrationTab {

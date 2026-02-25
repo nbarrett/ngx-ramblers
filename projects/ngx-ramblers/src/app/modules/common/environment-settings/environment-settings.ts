@@ -20,6 +20,7 @@ import { SectionToggle, SectionToggleTab } from "../../../shared/components/sect
 import { EnvironmentGlobalSettings } from "./environment-global-settings";
 import { EnvironmentPerEnvSettings } from "./environment-per-env-settings";
 import { EnvironmentConfigTools } from "./environment-config-tools";
+import { EnvironmentGitHubSecrets } from "./environment-github-secrets";
 
 @Component({
   selector: "app-environment-settings",
@@ -29,7 +30,8 @@ import { EnvironmentConfigTools } from "./environment-config-tools";
     SectionToggle,
     EnvironmentGlobalSettings,
     EnvironmentPerEnvSettings,
-    EnvironmentConfigTools
+    EnvironmentConfigTools,
+    EnvironmentGitHubSecrets
   ],
   template: `
     <div class="row thumbnail-heading-frame">
@@ -51,6 +53,9 @@ import { EnvironmentConfigTools } from "./environment-config-tools";
           [configJson]="configJson"
           (configJsonChange)="configJson = $event"
           (configLoaded)="populateFormFromConfig($event)"/>
+      }
+      @if (showSubTab(EnvironmentSettingsSubTab.GITHUB)) {
+        <app-environment-github-secrets/>
       }
       <form (ngSubmit)="saveConfigFromForm()" autocomplete="off">
         @if (showSubTab(EnvironmentSettingsSubTab.GLOBAL)) {
@@ -97,6 +102,7 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
     {value: EnvironmentSettingsSubTab.ENVIRONMENTS, label: "Environments"},
     {value: EnvironmentSettingsSubTab.GLOBAL, label: "Global Settings"},
     {value: EnvironmentSettingsSubTab.TOOLS, label: "View or Initialise"},
+    {value: EnvironmentSettingsSubTab.GITHUB, label: "GitHub Secrets"},
     {value: EnvironmentSettingsSubTab.ALL, label: "All"}
   ];
 

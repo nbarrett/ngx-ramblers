@@ -118,7 +118,8 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
                     [borderRadius]="column.imageBorderRadius"
                     [aspectRatio]="column.imageAspectRatio"
                     [alt]="column.alt"
-                    unconstrainedHeight
+                    [unconstrainedHeight]="!column.imageHeight"
+                    [height]="column.imageHeight"
                     [cropperPosition]="column.imageCropperPosition"
                     [imageSource]="imageSourceFor(column)">
                   </app-card-image>
@@ -141,7 +142,8 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
                     [borderRadius]="column.imageBorderRadius"
                     [aspectRatio]="column.imageAspectRatio"
                     [alt]="column.alt"
-                    unconstrainedHeight
+                    [unconstrainedHeight]="!column.imageHeight"
+                    [height]="column.imageHeight"
                     [cropperPosition]="column.imageCropperPosition"
                     [imageSource]="imageSourceFor(column)">
                   </app-card-image>

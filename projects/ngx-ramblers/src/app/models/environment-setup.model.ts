@@ -182,6 +182,9 @@ export interface EnvironmentDefaults {
   osMaps: {
     apiKey: string;
   };
+  ramblers: {
+    apiKey: string;
+  };
   recaptcha: {
     siteKey: string;
     secretKey: string;
@@ -219,6 +222,25 @@ export interface ResumeEnvironmentResponse extends ApiResponse {
     appUrl: string;
   };
   message?: string;
+}
+
+export interface GitHubEnvironmentDiff {
+  name: string;
+  inConfigsJson: boolean;
+  inDatabase: boolean;
+  differences: string[];
+}
+
+export interface GitHubSecretStatus {
+  secretUpdatedAt: string;
+  environmentCount: number;
+  isUpToDate: boolean;
+  reconciliation: GitHubEnvironmentDiff[];
+  error?: string;
+}
+
+export interface GitHubPushResponse {
+  environmentCount: number;
 }
 
 export enum EnvironmentSetupStepperKey {
