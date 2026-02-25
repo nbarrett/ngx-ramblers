@@ -3,7 +3,7 @@ import debug from "debug";
 import { execSync } from "child_process";
 import { configuredEnvironments } from "../../environments/environments-config";
 import { loadConfigsJson, saveConfigsJson } from "../../shared/configs-json";
-import { DeploymentConfig, EnvironmentConfig, FLYIO_DEFAULTS } from "../../../deploy/types";
+import { DeploymentConfig, FLYIO_DEFAULTS } from "../../../deploy/types";
 import { EnvironmentsConfig } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { ReconciliationResult, ReconciliationReport, DeployEnvironmentConfig } from "../../environment-setup/types";
 import { log } from "../cli-logger";
@@ -11,15 +11,18 @@ import { envConfig } from "../../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("cli:github"));
 
-function transformDatabaseToDeployConfig(dbConfig: EnvironmentsConfig): DeploymentConfig {
-  const environments: DeployEnvironmentConfig[] = (dbConfig.environments || []).map(env => ({
-    name: env.environment,
-    apiKey: env.flyio?.apiKey || "",
-    appName: env.flyio?.appName || `ngx-ramblers-${env.environment}`,
-    memory: env.flyio?.memory || FLYIO_DEFAULTS.MEMORY,
-    scaleCount: env.flyio?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT,
-    organisation: env.flyio?.organisation || FLYIO_DEFAULTS.ORGANISATION
-  }));
+export function transformDatabaseToDeployConfig(dbConfig: EnvironmentsConfig): DeploymentConfig {
+  const environments = (dbConfig.environments || [])
+    .filter(env => env.flyio?.appName || env.flyio?.memory || env.flyio?.scaleCount)
+    .map(env => ({
+      name: env.environment,
+      apiKey: env.flyio?.apiKey || "",
+      appName: env.flyio?.appName || `ngx-ramblers-${env.environment}`,
+      memory: env.flyio?.memory || FLYIO_DEFAULTS.MEMORY,
+      scaleCount: env.flyio?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT,
+      organisation: env.flyio?.organisation || FLYIO_DEFAULTS.ORGANISATION
+    }))
+    .filter((env, index, arr) => arr.findIndex(e => e.appName === env.appName) === index);
 
   return {
     environments,
@@ -137,13 +140,25 @@ export function updateGitHubSecret(): void {
   }
 }
 
-export async function syncDatabaseToGitHub(): Promise<{ environmentCount: number }> {
+export async function syncDatabaseToGitHub(): Promise<{ environmentCount: number; configJson: string }> {
   debugLog("Syncing database to GitHub...");
 
-  const deployConfig = await syncDatabaseToLocal();
-  updateGitHubSecret();
+  const dbConfig = await configuredEnvironments();
+  const deployConfig = transformDatabaseToDeployConfig(dbConfig);
+  const configJson = JSON.stringify(deployConfig);
 
-  return { environmentCount: deployConfig.environments.length };
+  try {
+    execSync(`gh secret set CONFIGS_JSON --repo nbarrett/ngx-ramblers`, {
+      input: configJson,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    debugLog("Successfully updated GitHub CONFIGS_JSON secret with %d environments", deployConfig.environments.length);
+  } catch (error) {
+    throw new Error(`Failed to update GitHub secret: ${error.message}`);
+  }
+
+  return { environmentCount: deployConfig.environments.length, configJson };
 }
 
 export function createGitHubCommand(): Command {

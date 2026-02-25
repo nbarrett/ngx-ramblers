@@ -1,5 +1,6 @@
 import debug from "debug";
 import express, { Request, Response } from "express";
+import * as jwt from "jsonwebtoken";
 import { envConfig } from "../../env-config/env-config";
 import { Environment } from "../../env-config/environment-model";
 import { groupDetails, listGroupsByAreaCode, validateRamblersApiKey } from "../ramblers-api-client";
@@ -13,6 +14,9 @@ import { loadSecretsForEnvironment } from "../../shared/secrets";
 import { resumeEnvironment } from "../../cli/commands/environment";
 import { destroyEnvironment } from "../../cli/commands/destroy";
 import { setupSubdomainForEnvironment } from "../../cli/commands/subdomain";
+import { syncDatabaseToGitHub, transformDatabaseToDeployConfig } from "../../cli/commands/github";
+import { execSync } from "child_process";
+import { DeploymentConfig } from "../../../deploy/types";
 import { booleanOf } from "../../shared/string-utils";
 import * as systemConfig from "../../config/system-config";
 import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
@@ -31,6 +35,19 @@ const isSetupEnabled = (): boolean => {
   return enabled;
 };
 
+const isAdminRequest = (req: Request): boolean => {
+  try {
+    const authHeader = req.headers?.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
+    if (!token) return false;
+    const payload = jwt.verify(token, envConfig.auth().secret) as any;
+    return !!(payload?.memberAdmin || payload?.contentAdmin || payload?.fileAdmin ||
+      payload?.walkAdmin || payload?.socialAdmin || payload?.treasuryAdmin || payload?.financeAdmin);
+  } catch {
+    return false;
+  }
+};
+
 const validateSetupAccess = (req: Request, res: Response): boolean => {
   if (!isSetupEnabled()) {
     res.status(403).json({ error: "Environment setup is not enabled on this environment" });
@@ -38,15 +55,17 @@ const validateSetupAccess = (req: Request, res: Response): boolean => {
   }
 
   const setupApiKey = process.env[Environment.ENVIRONMENT_SETUP_API_KEY];
-  if (setupApiKey) {
-    const providedKey = req.headers["x-setup-api-key"] as string;
-    if (providedKey !== setupApiKey) {
-      res.status(401).json({ error: "Invalid or missing setup API key" });
-      return false;
-    }
+  if (!setupApiKey) {
+    return true;
   }
 
-  return true;
+  const providedKey = req.headers["x-setup-api-key"] as string;
+  if (providedKey === setupApiKey || isAdminRequest(req)) {
+    return true;
+  }
+
+  res.status(401).json({ error: "Invalid or missing setup API key" });
+  return false;
 };
 
 router.post("/ramblers/groups-by-area", async (req: Request, res: Response) => {
@@ -238,6 +257,9 @@ router.get("/defaults", async (req: Request, res: Response) => {
       },
       osMaps: {
         apiKey: config?.externalSystems?.osMaps?.apiKey || ""
+      },
+      ramblers: {
+        apiKey: config?.national?.walksManager?.apiKey || ""
       },
       recaptcha: {
         siteKey: config?.recaptcha?.siteKey || "",
@@ -522,6 +544,94 @@ router.post("/setup-subdomain/:environmentName", async (req: Request, res: Respo
   } catch (error) {
     errorDebugLog("Error setting up subdomain:", error.message);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get("/github/status", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    if (!process.env.CONFIGS_JSON) {
+      const dbConfig = await configuredEnvironments();
+      process.env.CONFIGS_JSON = JSON.stringify(transformDatabaseToDeployConfig(dbConfig));
+      debugLog("Initialised CONFIGS_JSON from database (assuming in sync with GitHub)");
+    }
+    const secretConfig: DeploymentConfig = JSON.parse(process.env.CONFIGS_JSON);
+
+    const dbConfig = await configuredEnvironments();
+    const dbEnvironments = dbConfig.environments || [];
+    const environmentCount = dbEnvironments.length;
+
+    const secretByName = new Map(secretConfig.environments.map(e => [e.name, e]));
+    const secretByAppName = new Map(secretConfig.environments.map(e => [e.appName, e]));
+    const matchedSecretAppNames = new Set<string>();
+
+    const reconciliation: { name: string; inConfigsJson: boolean; inDatabase: boolean; differences: string[] }[] = [];
+
+    dbEnvironments.forEach(dbEnv => {
+      let secretEnv = secretByName.get(dbEnv.environment) || null;
+      if (!secretEnv) {
+        const candidateAppNames = dbEnv.flyio?.appName
+          ? [dbEnv.flyio.appName]
+          : [dbEnv.environment, `ngx-ramblers-${dbEnv.environment}`];
+        const matchedAppName = candidateAppNames.find(n => secretByAppName.has(n));
+        secretEnv = matchedAppName ? secretByAppName.get(matchedAppName) : null;
+      }
+
+      if (secretEnv && !matchedSecretAppNames.has(secretEnv.appName)) {
+        matchedSecretAppNames.add(secretEnv.appName);
+        const differences: string[] = [];
+        const dbMemory = dbEnv.flyio?.memory || FLYIO_DEFAULTS.MEMORY;
+        const dbScaleCount = dbEnv.flyio?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT;
+        const dbOrganisation = dbEnv.flyio?.organisation || FLYIO_DEFAULTS.ORGANISATION;
+        if (dbMemory !== secretEnv.memory) differences.push(`memory: ${secretEnv.memory} → ${dbMemory}`);
+        if (dbScaleCount !== secretEnv.scaleCount) differences.push(`scaleCount: ${secretEnv.scaleCount} → ${dbScaleCount}`);
+        if (dbOrganisation !== secretEnv.organisation) differences.push(`organisation: ${secretEnv.organisation} → ${dbOrganisation}`);
+        reconciliation.push({ name: secretEnv.name, inConfigsJson: true, inDatabase: true, differences });
+      } else if (!secretEnv) {
+        reconciliation.push({ name: dbEnv.environment, inConfigsJson: false, inDatabase: true, differences: [] });
+      }
+    });
+
+    secretConfig.environments.forEach(secretEnv => {
+      if (!matchedSecretAppNames.has(secretEnv.appName)) {
+        reconciliation.push({ name: secretEnv.name, inConfigsJson: true, inDatabase: false, differences: [] });
+      }
+    });
+
+    reconciliation.sort((a, b) => a.name.localeCompare(b.name));
+    const isUpToDate = reconciliation.every(e => e.inDatabase && e.inConfigsJson && e.differences.length === 0);
+
+    let secretUpdatedAt: string;
+    try {
+      const output = execSync("gh api repos/nbarrett/ngx-ramblers/actions/secrets/CONFIGS_JSON", {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+      secretUpdatedAt = JSON.parse(output).updated_at;
+    } catch (ghError) {
+      res.json({ secretUpdatedAt: null, environmentCount, isUpToDate, reconciliation,
+        error: `Unable to fetch GitHub secret status: ${ghError.message}` });
+      return;
+    }
+
+    res.json({ secretUpdatedAt, environmentCount, isUpToDate, reconciliation });
+  } catch (error) {
+    errorDebugLog("Error fetching GitHub secret status:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/github/push", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const result = await syncDatabaseToGitHub();
+    process.env.CONFIGS_JSON = result.configJson;
+    res.json({ environmentCount: result.environmentCount });
+  } catch (error) {
+    errorDebugLog("Error pushing to GitHub:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 

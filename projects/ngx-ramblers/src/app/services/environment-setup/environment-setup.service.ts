@@ -1,4 +1,4 @@
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
@@ -8,6 +8,8 @@ import {
   EnvironmentDefaults,
   EnvironmentSetupRequest,
   ExistingEnvironmentsResponse,
+  GitHubPushResponse,
+  GitHubSecretStatus,
   GroupsByAreaResponse,
   MongoDbConfig,
   RamblersAreaLookup,
@@ -29,6 +31,17 @@ export class EnvironmentSetupService {
   private http = inject(HttpClient);
   private BASE_URL = "/api/environment-setup";
   private notifications = new Subject<ApiResponse>();
+  private setupApiKey: string | null = null;
+
+  setSetupApiKey(key: string): void {
+    this.setupApiKey = key;
+  }
+
+  private get opts(): { headers?: HttpHeaders } {
+    return this.setupApiKey
+      ? { headers: new HttpHeaders({"x-setup-api-key": this.setupApiKey}) }
+      : {};
+  }
 
   setupNotifications(): Observable<ApiResponse> {
     return this.notifications.asObservable();
@@ -46,7 +59,7 @@ export class EnvironmentSetupService {
   async groupsByArea(lookup: RamblersAreaLookup): Promise<GroupsByAreaResponse> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/ramblers/groups-by-area`, lookup),
+      this.http.post<ApiResponse>(`${this.BASE_URL}/ramblers/groups-by-area`, lookup, this.opts),
       this.notifications
     );
     return response as unknown as GroupsByAreaResponse;
@@ -55,7 +68,7 @@ export class EnvironmentSetupService {
   async validateRamblersApiKey(apiKey: string): Promise<ValidationResult> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/ramblers/validate-api-key`, {apiKey}),
+      this.http.post<ApiResponse>(`${this.BASE_URL}/ramblers/validate-api-key`, {apiKey}, this.opts),
       this.notifications
     );
     return response as unknown as ValidationResult;
@@ -64,7 +77,7 @@ export class EnvironmentSetupService {
   async validateMongodb(config: MongoDbConfig): Promise<ValidationResult> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/validate/mongodb`, config),
+      this.http.post<ApiResponse>(`${this.BASE_URL}/validate/mongodb`, config, this.opts),
       this.notifications
     );
     return response as unknown as ValidationResult;
@@ -73,7 +86,7 @@ export class EnvironmentSetupService {
   async validateAwsAdmin(): Promise<ValidationResult> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/validate/aws-admin`, {}),
+      this.http.post<ApiResponse>(`${this.BASE_URL}/validate/aws-admin`, {}, this.opts),
       this.notifications
     );
     return response as unknown as ValidationResult;
@@ -82,7 +95,7 @@ export class EnvironmentSetupService {
   async validateRequest(request: EnvironmentSetupRequest): Promise<ValidateRequestResponse> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/validate/request`, request),
+      this.http.post<ApiResponse>(`${this.BASE_URL}/validate/request`, request, this.opts),
       this.notifications
     );
     return response as unknown as ValidateRequestResponse;
@@ -91,7 +104,7 @@ export class EnvironmentSetupService {
   async createEnvironment(request: EnvironmentSetupRequest): Promise<CreateEnvironmentResponse> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/create`, request),
+      this.http.post<ApiResponse>(`${this.BASE_URL}/create`, request, this.opts),
       this.notifications
     );
     return response as unknown as CreateEnvironmentResponse;
@@ -100,7 +113,7 @@ export class EnvironmentSetupService {
   async defaults(): Promise<EnvironmentDefaults> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.get<ApiResponse>(`${this.BASE_URL}/defaults`),
+      this.http.get<ApiResponse>(`${this.BASE_URL}/defaults`, this.opts),
       this.notifications
     );
     return response as unknown as EnvironmentDefaults;
@@ -109,7 +122,7 @@ export class EnvironmentSetupService {
   async existingEnvironments(): Promise<ExistingEnvironmentsResponse> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.get<ApiResponse>(`${this.BASE_URL}/existing-environments`),
+      this.http.get<ApiResponse>(`${this.BASE_URL}/existing-environments`, this.opts),
       this.notifications
     );
     return response as unknown as ExistingEnvironmentsResponse;
@@ -118,7 +131,7 @@ export class EnvironmentSetupService {
   async resumeEnvironment(environmentName: string, runDbInit: boolean, runFlyDeployment: boolean): Promise<ResumeEnvironmentResponse> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/resume`, { environmentName, runDbInit, runFlyDeployment }),
+      this.http.post<ApiResponse>(`${this.BASE_URL}/resume`, {environmentName, runDbInit, runFlyDeployment}, this.opts),
       this.notifications
     );
     return response as unknown as ResumeEnvironmentResponse;
@@ -127,7 +140,7 @@ export class EnvironmentSetupService {
   async destroyEnvironment(environmentName: string): Promise<{ success: boolean; message: string; steps?: { step: string; success: boolean; message: string }[] }> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.delete<ApiResponse>(`${this.BASE_URL}/destroy/${environmentName}`),
+      this.http.delete<ApiResponse>(`${this.BASE_URL}/destroy/${environmentName}`, this.opts),
       this.notifications
     );
     return response as unknown as { success: boolean; message: string };
@@ -141,7 +154,7 @@ export class EnvironmentSetupService {
   }> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/copy-assets/${environmentName}`, {}),
+      this.http.post<ApiResponse>(`${this.BASE_URL}/copy-assets/${environmentName}`, {}, this.opts),
       this.notifications
     );
     return response as unknown as {
@@ -155,9 +168,27 @@ export class EnvironmentSetupService {
   async setupSubdomain(environmentName: string): Promise<{ success: boolean; message: string; hostname?: string }> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/setup-subdomain/${environmentName}`, {}),
+      this.http.post<ApiResponse>(`${this.BASE_URL}/setup-subdomain/${environmentName}`, {}, this.opts),
       this.notifications
     );
     return response as unknown as { success: boolean; message: string; hostname?: string };
+  }
+
+  async githubStatus(): Promise<GitHubSecretStatus> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.get<ApiResponse>(`${this.BASE_URL}/github/status`, this.opts),
+      this.notifications
+    );
+    return response as unknown as GitHubSecretStatus;
+  }
+
+  async pushToGitHub(): Promise<GitHubPushResponse> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/github/push`, {}, this.opts),
+      this.notifications
+    );
+    return response as unknown as GitHubPushResponse;
   }
 }

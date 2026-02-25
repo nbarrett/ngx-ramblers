@@ -62,7 +62,7 @@ import { first } from "es-toolkit/compat";
       border: 1px solid #ced4da
       border-radius: 4px
       overflow-y: auto
-      max-height: calc(100vh - 250px)
+      max-height: calc(100vh - 420px)
       background: white
 
     .image-list-select-item
