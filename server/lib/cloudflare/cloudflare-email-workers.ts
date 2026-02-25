@@ -1,7 +1,7 @@
 import debug from "debug";
 import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { EmailWorkerScript } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
-import { CloudflareResponse } from "./cloudflare-dns";
+import { CloudflareResponse } from "./cloudflare.model";
 import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:email-workers"));

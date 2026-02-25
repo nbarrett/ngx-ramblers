@@ -1,39 +1,10 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
+import { CloudflareDnsConfig, CloudflareResponse, DnsRecord, DnsRecordResult } from "./cloudflare.model";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:dns"));
 
-export interface CloudflareConfig {
-  apiToken: string;
-  zoneId: string;
-}
-
-export interface DnsRecord {
-  type: "A" | "AAAA" | "CNAME" | "TXT" | "MX";
-  name: string;
-  content: string;
-  ttl?: number;
-  proxied?: boolean;
-}
-
-export interface CloudflareResponse<T> {
-  success: boolean;
-  errors: { code: number; message: string }[];
-  result: T;
-}
-
-export interface DnsRecordResult {
-  id: string;
-  name: string;
-  type: string;
-  content: string;
-  ttl: number;
-  proxied: boolean;
-  created_on: string;
-  modified_on: string;
-}
-
-export async function createDnsRecord(config: CloudflareConfig, record: DnsRecord): Promise<DnsRecordResult> {
+export async function createDnsRecord(config: CloudflareDnsConfig, record: DnsRecord): Promise<DnsRecordResult> {
   const url = `https://api.cloudflare.com/client/v4/zones/${config.zoneId}/dns_records`;
 
   debugLog("Creating DNS record: %s %s -> %s", record.type, record.name, record.content);
@@ -64,7 +35,7 @@ export async function createDnsRecord(config: CloudflareConfig, record: DnsRecor
   return data.result;
 }
 
-export async function listDnsRecords(config: CloudflareConfig, name?: string, type?: DnsRecord["type"]): Promise<DnsRecordResult[]> {
+export async function listDnsRecords(config: CloudflareDnsConfig, name?: string, type?: DnsRecord["type"]): Promise<DnsRecordResult[]> {
   const params = new URLSearchParams();
   if (name) {
     params.set("name", name);
@@ -92,7 +63,7 @@ export async function listDnsRecords(config: CloudflareConfig, name?: string, ty
   return data.result;
 }
 
-export async function deleteDnsRecord(config: CloudflareConfig, recordId: string): Promise<void> {
+export async function deleteDnsRecord(config: CloudflareDnsConfig, recordId: string): Promise<void> {
   const url = `https://api.cloudflare.com/client/v4/zones/${config.zoneId}/dns_records/${recordId}`;
 
   debugLog("Deleting DNS record: %s", recordId);

@@ -2,9 +2,13 @@ import { Command } from "commander";
 import debug from "debug";
 import { log, error as logError } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
-import { createDnsRecord, listDnsRecords, deleteDnsRecord, verifyToken, CloudflareConfig } from "../../cloudflare/cloudflare-dns";
-import { appIpAddresses, addCertificate, getCertificates, FlyConfig } from "../../fly/fly-certificates";
+import { CloudflareDnsConfig } from "../../cloudflare/cloudflare.model";
+import { createDnsRecord, listDnsRecords, deleteDnsRecord, verifyToken } from "../../cloudflare/cloudflare-dns";
+import { FlyConfig } from "../../fly/fly.model";
+import { appIpAddresses, addCertificate, deleteCertificate, queryCertificates } from "../../fly/fly-certificates";
 import { findEnvironmentFromDatabase, environmentsConfigFromDatabase } from "../../environments/environments-config";
+import { connectToDatabase } from "../../environment-setup/database-initialiser";
+import { buildMongoUri } from "../../shared/mongodb-uri";
 
 const debugLog = debug(envConfig.logNamespace("cli:subdomain"));
 
@@ -48,14 +52,15 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
   log("   ✓ Token valid");
 
   log("\n2. Getting Fly.io IP addresses...");
-  const ips = await appIpAddresses(appName);
+  const flyConfig: FlyConfig = { apiToken: flyApiToken, appName };
+  const ips = await appIpAddresses(flyConfig);
   if (!ips.ipv4 && !ips.ipv6) {
-    throw new Error(`Could not resolve IP addresses for ${appName}.fly.dev`);
+    throw new Error(`No IP addresses allocated for app ${appName}. Ensure the app is deployed first.`);
   }
   if (ips.ipv4) log(`   ✓ IPv4: ${ips.ipv4}`);
   if (ips.ipv6) log(`   ✓ IPv6: ${ips.ipv6}`);
 
-  const cloudflareConfig: CloudflareConfig = {
+  const cloudflareConfig: CloudflareDnsConfig = {
     apiToken: environmentsConfig.cloudflare.apiToken,
     zoneId: environmentsConfig.cloudflare.zoneId
   };
@@ -84,7 +89,6 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
   }
 
   log("\n5. Adding Fly.io certificate...");
-  const flyConfig: FlyConfig = { apiToken: flyApiToken, appName };
   const certResult = await addCertificate(flyConfig, fullHostname);
   if (certResult) {
     log(`   ✓ Certificate added for ${fullHostname}`);
@@ -93,11 +97,38 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
   }
 
   log("\n6. Verifying certificate status...");
-  const certs = await getCertificates(flyConfig);
+  const certs = await queryCertificates(flyConfig);
   const cert = certs.find(c => c.hostname === fullHostname);
   if (cert) {
     log(`   ✓ Status: ${cert.clientStatus}`);
     cert.issued.forEach(i => log(`   ✓ ${i.type} cert expires: ${i.expiresAt}`));
+  }
+
+  log("\n7. Updating Web URL in target environment...");
+  if (envConfig.mongo?.cluster && envConfig.mongo?.db) {
+    const mongoUri = buildMongoUri({
+      cluster: envConfig.mongo.cluster,
+      username: envConfig.mongo.username || "",
+      password: envConfig.mongo.password || "",
+      database: envConfig.mongo.db
+    });
+    const { client, db } = await connectToDatabase({ uri: mongoUri, database: envConfig.mongo.db });
+    try {
+      const newHref = `https://${fullHostname}`;
+      const result = await db.collection("config").updateOne(
+        { key: "system" },
+        { $set: { "value.group.href": newHref } }
+      );
+      if (result.modifiedCount > 0) {
+        log(`   ✓ Updated group.href to ${newHref}`);
+      } else {
+        log(`   - group.href already set or system config not found`);
+      }
+    } finally {
+      await client.close();
+    }
+  } else {
+    log("   - Skipping (no MongoDB config for target environment)");
   }
 
   log(`\n✓ Subdomain setup complete: https://${fullHostname}`);
@@ -117,7 +148,7 @@ export async function removeSubdomainForEnvironment(environmentName: string): Pr
   const baseDomain = environmentsConfig.cloudflare.baseDomain;
   const fullHostname = `${environmentName}.${baseDomain}`;
 
-  const cloudflareConfig: CloudflareConfig = {
+  const cloudflareConfig: CloudflareDnsConfig = {
     apiToken: environmentsConfig.cloudflare.apiToken,
     zoneId: environmentsConfig.cloudflare.zoneId
   };
@@ -133,6 +164,22 @@ export async function removeSubdomainForEnvironment(environmentName: string): Pr
       await deleteDnsRecord(cloudflareConfig, record.id);
       log(`   ✓ Deleted ${record.type} record`);
     }
+  }
+
+  const envConfig = await findEnvironmentFromDatabase(environmentName);
+  const flyApiToken = envConfig?.apiKey;
+  if (flyApiToken) {
+    const appName = envConfig.appName || `ngx-ramblers-${environmentName}`;
+    const flyConfig: FlyConfig = { apiToken: flyApiToken, appName };
+    log("\n3. Deleting Fly.io certificate...");
+    try {
+      await deleteCertificate(flyConfig, fullHostname);
+      log(`   ✓ Certificate deleted for ${fullHostname}`);
+    } catch (error) {
+      log(`   - No certificate found for ${fullHostname}`);
+    }
+  } else {
+    log("\n3. Skipping certificate deletion (no Fly.io API token)");
   }
 
   log(`\n✓ Subdomain removed: ${fullHostname}`);
@@ -157,7 +204,7 @@ export async function checkSubdomainStatus(environmentName: string): Promise<voi
 
   if (flyApiToken) {
     const flyConfig: FlyConfig = { apiToken: flyApiToken, appName };
-    const certs = await getCertificates(flyConfig);
+    const certs = await queryCertificates(flyConfig);
     const cert = certs.find(c => c.hostname === fullHostname);
 
     if (cert) {
