@@ -102,7 +102,8 @@ export class CommitteeConfigService {
     const description = (data.description || "").trim();
     const fullName = (data.fullName || "").trim();
     if (description && fullName && description.toLowerCase() !== fullName.toLowerCase()) {
-      return `${description} (${fullName})`;
+      const fullNameAlreadyBracketed = fullName.startsWith("(") && fullName.endsWith(")");
+      return fullNameAlreadyBracketed ? `${description} ${fullName}` : `${description} (${fullName})`;
     }
     return description || fullName;
   }

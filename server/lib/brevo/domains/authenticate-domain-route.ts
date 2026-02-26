@@ -11,7 +11,7 @@ debugLog.enabled = false;
 export async function authenticateDomainRoute(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const domainName = req.params.domainName;
-    const result = await authenticateSendingDomain(domainName);
+    const result = await authenticateSendingDomain(domainName, { cleanupIncorrectParentDomain: true });
     successfulResponse({req, res, response: result, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);

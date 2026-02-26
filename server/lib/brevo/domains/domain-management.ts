@@ -13,7 +13,7 @@ import {
 
 const messageType = "brevo:domain-management";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = false;
+debugLog.enabled = true;
 
 async function apiInstance(): Promise<SibApiV3Sdk.DomainsApi> {
   const brevoConfig = await configuredBrevo();
@@ -58,6 +58,7 @@ export async function registerDomain(name: string): Promise<DomainRegistrationRe
   debugLog("registerDomain:", name);
   const response: { response: http.IncomingMessage; body: any } = await api.createDomain(createDomain);
   const body = response.body;
+  debugLog("registerDomain raw response:", JSON.stringify(body));
   return {
     id: body.id,
     domainName: name,
@@ -71,6 +72,7 @@ export async function domainConfiguration(domainName: string): Promise<BrevoDoma
   debugLog("domainConfiguration:", domainName);
   const response: { response: http.IncomingMessage; body: any } = await api.getDomainConfiguration(domainName);
   const body = response.body;
+  debugLog("domainConfiguration raw dnsRecords:", JSON.stringify(body.dnsRecords));
   return {
     domain: body.domain,
     verified: body.verified,
@@ -82,11 +84,19 @@ export async function domainConfiguration(domainName: string): Promise<BrevoDoma
 export async function authenticateDomain(domainName: string): Promise<{ domainName: string; message: string }> {
   const api = await apiInstance();
   debugLog("authenticateDomain:", domainName);
-  const response: { response: http.IncomingMessage; body: any } = await api.authenticateDomain(domainName);
-  return {
-    domainName: response.body.domainName || domainName,
-    message: response.body.message || "Authentication requested"
-  };
+  try {
+    const response: { response: http.IncomingMessage; body: any } = await api.authenticateDomain(domainName);
+    debugLog("authenticateDomain response:", response.response.statusCode, JSON.stringify(response.body));
+    return {
+      domainName: response.body.domainName || domainName,
+      message: response.body.message || "Authentication requested"
+    };
+  } catch (error) {
+    const statusCode = error?.response?.statusCode || error?.status || "unknown";
+    const responseBody = error?.response?.body || error?.body || null;
+    debugLog("authenticateDomain error:", statusCode, JSON.stringify(responseBody), error.message);
+    throw new Error(`Authentication failed (HTTP ${statusCode}): ${responseBody?.message || error.message}`);
+  }
 }
 
 export async function deleteDomain(domainName: string): Promise<void> {

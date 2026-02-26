@@ -434,6 +434,11 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                   <label class="form-check-label" for="populate-brevo-templates">Populate Brevo templates</label>
                                 </div>
                                 <div class="form-check">
+                                  <input [(ngModel)]="request.options.authenticateBrevoDomain"
+                                         type="checkbox" class="form-check-input" id="authenticate-brevo-domain">
+                                  <label class="form-check-label" for="authenticate-brevo-domain">Authenticate Brevo sending domain</label>
+                                </div>
+                                <div class="form-check">
                                   <input [(ngModel)]="request.options.skipFlyDeployment"
                                          type="checkbox" class="form-check-input" id="skip-fly">
                                   <label class="form-check-label" for="skip-fly">Skip Fly.io deployment (database init
@@ -505,6 +510,8 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     <dd class="col-sm-6">{{ request.options.includeNotificationConfigs ? 'Yes' : 'No' }}</dd>
                                     <dt class="col-sm-6">Populate Brevo Templates</dt>
                                     <dd class="col-sm-6">{{ request.options.populateBrevoTemplates ? 'Yes' : 'No' }}</dd>
+                                    <dt class="col-sm-6">Authenticate Brevo Domain</dt>
+                                    <dd class="col-sm-6">{{ request.options.authenticateBrevoDomain ? 'Yes' : 'No' }}</dd>
                                     <dt class="col-sm-6">Skip Fly.io</dt>
                                     <dd class="col-sm-6">{{ request.options.skipFlyDeployment ? 'Yes' : 'No' }}</dd>
                                     <dt class="col-sm-6">Copy Standard Assets</dt>

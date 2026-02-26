@@ -13,6 +13,7 @@ import { FormsModule } from "@angular/forms";
 import { NgStyle } from "@angular/common";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 import { first } from "es-toolkit/compat";
+import { isArray } from "es-toolkit/compat";
 
 @Component({
   selector: "app-image-list-select",
@@ -120,7 +121,7 @@ export class ImageListSelect implements OnInit {
   @Output() nameEditToggle: EventEmitter<boolean> = new EventEmitter();
 
   protected readonly faPlus = faPlus;
-  public selectedContentMetadata: ContentMetadata | ContentMetadata[];
+  public selectedContentMetadata: ContentMetadata | ContentMetadata[] | null;
   public allContentMetadata: ContentMetadata[];
   private usageCounts: Map<string, number> = new Map();
 
@@ -130,7 +131,11 @@ export class ImageListSelect implements OnInit {
     this.contentMetadataService.contentMetadataNotifications().subscribe(item => {
       const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.name, item);
       this.allContentMetadata = allAndSelectedContentMetaData.contentMetadataItems;
-      this.selectedContentMetadata = allAndSelectedContentMetaData.contentMetadata ? [allAndSelectedContentMetaData.contentMetadata] : [];
+      if (this.multiple) {
+        this.selectedContentMetadata = allAndSelectedContentMetaData.contentMetadata ? [allAndSelectedContentMetaData.contentMetadata] : [];
+      } else {
+        this.selectedContentMetadata = allAndSelectedContentMetaData.contentMetadata || null;
+      }
       this.logger.info("contentMetadataNotifications().subscribe.allContentMetadata", this.allContentMetadata, "selectedContentMetadata:", this.selectedContentMetadata);
     });
     if (this.multiple) {
@@ -169,8 +174,9 @@ export class ImageListSelect implements OnInit {
     }
   }
 
-  emitAndPublishMetadata(contentMetadata: ContentMetadata[]) {
-    const emittedData = !this.multiple ? first(contentMetadata) : contentMetadata;
+  emitAndPublishMetadata(contentMetadata: ContentMetadata | ContentMetadata[] | null) {
+    const selection = isArray(contentMetadata) ? contentMetadata : contentMetadata ? [contentMetadata] : [];
+    const emittedData = this.multiple ? selection : first(selection) || null;
     this.logger.info("emitAndPublishMetadata:", contentMetadata, "multiple:", this.multiple, "emittedData:", emittedData);
     this.metadataChange.emit(emittedData);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.CONTENT_METADATA_CHANGED, emittedData));
