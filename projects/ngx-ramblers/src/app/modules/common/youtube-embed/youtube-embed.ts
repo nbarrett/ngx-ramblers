@@ -50,19 +50,21 @@ function loadYouTubeApiScript(): void {
     `,
     styles: [`
       :host
-        position: absolute
-        top: 0
-        right: 0
-        bottom: 0
-        left: 0
+        display: block
         width: 100%
         height: 100%
-        display: block
 
       .video-container
         width: 100%
         height: 100%
-        position: relative
+
+      :host ::ng-deep iframe
+        position: absolute
+        top: 0
+        left: 0
+        width: 100%
+        height: 100%
+        border: 0
     `]
 })
 export class YoutubeEmbed implements AfterViewInit, OnDestroy {
