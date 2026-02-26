@@ -12,7 +12,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
     template: `
     <div [tooltip]="showTooltip? (disabled ? 'Not available to ' : 'Click to ') + title : null" placement="auto"
          (click)="blockClick($event)"
-         [ngClass]="{'btn btn-primary d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap': button, 'not-allowed disabled pe-none': disabled || loading, 'pointer': !disabled && !loading}">
+         [ngClass]="{'btn btn-primary d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap': button, 'not-allowed disabled': disabled || loading, 'pointer': !disabled && !loading}">
       @if (loading) {
         <fa-icon [icon]="faSpinner" [spin]="true"></fa-icon>
       } @else {
@@ -60,6 +60,7 @@ export class ButtonWrapper implements OnInit {
 
   blockClick(event: Event) {
     if (this.disabled || this.loading) {
+      event.preventDefault();
       event.stopPropagation();
     }
   }

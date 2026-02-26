@@ -152,6 +152,14 @@ export class DataPopulationService {
         category: "admin"
       },
       {
+        name: "mail-settings-senders-help",
+        text: "* Use this tab to manage Brevo sender identities used for outbound email.\n" +
+          "* Sender addresses should use your website domain and should map to committee roles where possible.\n" +
+          "* The **Authenticate Domain** action checks domain authentication status and attempts to complete Brevo domain authentication.\n" +
+          "* If Brevo cannot complete authentication automatically, follow the provided link to complete the final step in Brevo.",
+        category: "admin"
+      },
+      {
         name: "page-content-navigator",
         text: "This page allows the content administrator to navigate and manage all page content items. It provides two viewing modes: **Duplicates** to identify and resolve page content items where more than one item has the same content path, and **All Content** to browse and manage all page content. You can filter by path and perform bulk operations on page content items.",
         category: "admin"

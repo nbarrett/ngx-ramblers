@@ -19,7 +19,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
       @if (allowSelectAllAsMe) {
         <div class="row mb-2">
           <div class="col-sm-12">
-            <button type="button" class="btn btn-outline-secondary btn-sm"
+            <button type="button" class="btn btn-primary btn-sm"
               [disabled]="selectAllAsMeDisabled()"
               (click)="selectAllAsMe()">Select All As Me</button>
           </div>
@@ -110,7 +110,7 @@ export class SenderRepliesAndSignoff implements OnInit {
   public committeeRoleSender: CommitteeMember;
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   public stringUtilsService: StringUtilsService = inject(StringUtilsService);
-  private logger = this.loggerFactory.createLogger("SenderRepliesAndSignoff", NgxLoggerLevel.ERROR);
+  private logger = this.loggerFactory.createLogger("SenderRepliesAndSignoff", NgxLoggerLevel.ERROR );
   public omitSignOff: boolean;
   public omitCC: boolean;
   public allowSelectAllAsMe: boolean;
@@ -178,38 +178,61 @@ export class SenderRepliesAndSignoff implements OnInit {
     const loggedInMember = this.memberLoginService.loggedInMember();
     const memberId = loggedInMember?.memberId;
     const memberEmail = loggedInMember?.userName?.toLowerCase();
+    const loggedInFullName = `${loggedInMember?.firstName || ""} ${loggedInMember?.lastName || ""}`.trim().toLowerCase();
     if (!this.mailMessagingConfig?.committeeReferenceData) {
       return [];
     }
     const committeeMembers = this.mailMessagingConfig.committeeReferenceData.committeeMembers();
     const memberRoles = committeeMembers
-      .filter(member => this.isAssignableRole(member))
       .filter(member => {
         if (memberId && member.memberId === memberId) {
           return true;
         }
         const roleEmail = member.email?.toLowerCase();
-        return !!memberEmail && !!roleEmail && roleEmail === memberEmail;
+        if (!!memberEmail && !!roleEmail && roleEmail === memberEmail) {
+          return true;
+        }
+        const roleFullName = member.fullName?.toLowerCase()?.trim() || "";
+        return !!loggedInFullName && !!roleFullName && roleFullName === loggedInFullName;
       })
       .map(member => member.type);
     if (memberRoles.length > 0) {
-      return memberRoles;
+      return this.uniqueRoles(memberRoles);
+    }
+    const configuredRoles = [this.notificationConfig?.senderRole, this.notificationConfig?.replyToRole]
+      .filter(role => !!role)
+      .map(role => this.resolvedRoleType(role))
+      .filter(role => !!role);
+    if (configuredRoles.length > 0) {
+      return this.uniqueRoles(configuredRoles);
     }
     const senderCommitteeRole = this.notificationConfig?.senderRole
       ? this.mailMessagingConfig.committeeReferenceData.committeeMemberForRole(this.notificationConfig.senderRole)
       : null;
-    if (this.isAssignableRole(senderCommitteeRole)) {
+    if (senderCommitteeRole?.type) {
       return [senderCommitteeRole.type];
     }
     const replyToCommitteeRole = this.notificationConfig?.replyToRole
       ? this.mailMessagingConfig.committeeReferenceData.committeeMemberForRole(this.notificationConfig.replyToRole)
       : null;
-    if (this.isAssignableRole(replyToCommitteeRole)) {
+    if (replyToCommitteeRole?.type) {
       return [replyToCommitteeRole.type];
     }
     const firstAssignableRole = committeeMembers
       .find(member => this.isAssignableRole(member));
     return firstAssignableRole ? [firstAssignableRole.type] : [];
+  }
+
+  private resolvedRoleType(role: string): string | null {
+    if (!role || !this.mailMessagingConfig?.committeeReferenceData) {
+      return null;
+    }
+    const committeeRole = this.mailMessagingConfig.committeeReferenceData.committeeMemberForRole(role);
+    return committeeRole?.type || null;
+  }
+
+  private uniqueRoles(roles: string[]): string[] {
+    return roles.filter((role, index, allRoles) => allRoles.indexOf(role) === index);
   }
 
   private isAssignableRole(role: CommitteeMember | null): boolean {

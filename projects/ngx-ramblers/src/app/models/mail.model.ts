@@ -851,4 +851,5 @@ export interface DomainAuthenticationResult {
   verified: boolean;
   dnsRecords: BrevoDomainDnsRecords;
   message: string;
+  brevoDomainsUrl?: string;
 }

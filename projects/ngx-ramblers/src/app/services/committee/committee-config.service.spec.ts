@@ -50,6 +50,11 @@ describe("CommitteeConfigService", () => {
     expect(result).toBe("Info (Bob Smith)");
   });
 
+  it("nameAndDescriptionFrom should avoid double brackets when full name is already bracketed", () => {
+    const result = service.nameAndDescriptionFrom({ description: "Support", fullName: "(Vacant)" } as any);
+    expect(result).toBe("Support (Vacant)");
+  });
+
   it("nameAndDescriptionFrom should return full name when description missing", () => {
     const result = service.nameAndDescriptionFrom({ description: "", fullName: "Bob" } as any);
     expect(result).toBe("Bob");

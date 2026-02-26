@@ -91,9 +91,11 @@ export class RowSettingsCarouselComponent implements OnInit {
     }
   }
 
-  metadataChange(row: PageContentRow, contentMetadata: ContentMetadata) {
-    this.logger.info("metadataChange:carousel name:", row.carousel.name, "->", contentMetadata.name, "contentMetadata:", contentMetadata);
-    row.carousel.name = contentMetadata.name;
+  metadataChange(row: PageContentRow, contentMetadata: ContentMetadata | null) {
+    this.logger.info("metadataChange:carousel name:", row.carousel.name, "->", contentMetadata?.name, "contentMetadata:", contentMetadata);
+    if (contentMetadata?.name) {
+      row.carousel.name = contentMetadata.name;
+    }
   }
 
   toggleNameEdit(nameInput: boolean) {

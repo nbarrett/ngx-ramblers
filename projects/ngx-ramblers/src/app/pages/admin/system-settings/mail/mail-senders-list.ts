@@ -1,6 +1,17 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
-import { faCheck, faClose, faSearch, faSort, faSortDown, faSortUp, faSpinner, faTrash } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCheck,
+  faClose,
+  faExclamationTriangle,
+  faSearch,
+  faShieldAlt,
+  faSort,
+  faSortDown,
+  faSortUp,
+  faSpinner,
+  faTrash
+} from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -8,7 +19,7 @@ import { MailService } from "../../../../services/mail/mail.service";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { CommitteeMember } from "../../../../models/committee.model";
-import { Sender, SenderSortField, SendersResponse } from "../../../../models/mail.model";
+import { BrevoDomainConfiguration, DomainAuthenticationResult, Sender, SenderSortField, SendersResponse } from "../../../../models/mail.model";
 import { ALERT_ERROR } from "../../../../models/alert-target.model";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { SortDirection } from "../../../../models/sort.model";
@@ -17,6 +28,7 @@ import { FormsModule } from "@angular/forms";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 
 @Component({
   selector: "app-mail-senders-list",
@@ -71,6 +83,12 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
           {{ errorMessage }}
         </div>
       }
+      <div class="row">
+        <div class="col-sm-12 mb-3 mx-2">
+          <app-markdown-editor standalone category="admin" name="mail-settings-senders-help"
+                               description="Mail settings senders help"/>
+        </div>
+      </div>
       <div class="d-flex justify-content-between mb-3">
         <div class="row flex-grow-1 me-3">
           <div class="col-sm-6">
@@ -100,6 +118,43 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
           </div>
         }
       </div>
+      @if (baseDomain) {
+        <div class="row mb-3">
+          <div class="col-md-12">
+            <div class="d-flex align-items-center gap-3 p-2 border rounded bg-light">
+              <fa-icon [icon]="faShieldAlt" class="fa-icon"></fa-icon>
+              <div class="flex-grow-1">
+                <strong>Domain:</strong> {{ baseDomain }}
+                @if (domainStatus) {
+                  @if (domainStatus.authenticated && domainStatus.verified) {
+                    <span class="badge bg-success ms-2">Authenticated</span>
+                  } @else if (domainStatus.authenticated) {
+                    <span class="badge bg-warning ms-2">Authenticated (not verified)</span>
+                  } @else {
+                    <span class="badge bg-danger ms-2">Not authenticated</span>
+                  }
+                } @else if (!domainAuthenticating) {
+                  <span class="badge bg-secondary ms-2">Not registered</span>
+                }
+              </div>
+              <app-brevo-button button title="Authenticate Domain"
+                                [loading]="domainAuthenticating"
+                                [disabled]="domainAuthenticating || (domainStatus?.authenticated && domainStatus?.verified)"
+                                (click)="authenticateDomain()"/>
+            </div>
+            @if (domainAuthResult) {
+              <div class="alert mt-2 mb-0" [class.alert-success]="domainAuthResult.authenticated" [class.alert-warning]="!domainAuthResult.authenticated">
+                <fa-icon [icon]="domainAuthResult.authenticated ? faCheck : faExclamationTriangle" class="me-2"></fa-icon>
+                <strong>{{ domainAuthResult.authenticated ? 'Domain Authenticated' : 'Authentication Pending' }}:</strong>
+                {{ domainAuthResult.message }}
+                @if (domainAuthResult.brevoDomainsUrl) {
+                  <a [href]="domainAuthResult.brevoDomainsUrl" target="_blank" class="ms-1">Open Brevo Domains</a>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
       @if (showAddForm) {
         <div class="row mb-3 align-items-end">
           <div class="col-sm-4">
@@ -176,7 +231,13 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
               @for (sender of filteredSenders(); track sender.id) {
                 <tr>
                   <td class="truncate">{{ sender.name }}</td>
-                  <td class="small">{{ sender.email }}</td>
+                  <td class="small">
+                    {{ sender.email }}
+                    @if (senderDomainMismatch(sender)) {
+                      <fa-icon [icon]="faExclamationTriangle" class="text-warning ms-1"
+                               [tooltip]="'Email domain does not match ' + baseDomain"></fa-icon>
+                    }
+                  </td>
                   <td class="text-center">
                     @if (committeeRoleFor(sender); as role) {
                       <fa-icon [icon]="faCheck" class="text-success" [tooltip]="role.description"></fa-icon>
@@ -224,7 +285,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
         </table>
       </div>
     </div>`,
-  imports: [FormsModule, BrevoButtonComponent, FontAwesomeModule, TooltipDirective]
+  imports: [FormsModule, BrevoButtonComponent, FontAwesomeModule, TooltipDirective, MarkdownEditorComponent]
 })
 export class MailSendersListComponent implements OnInit, OnDestroy {
 
@@ -253,10 +314,15 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
   protected readonly SenderSortField = SenderSortField;
   protected readonly faCheck = faCheck;
   protected readonly faClose = faClose;
+  protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly faSearch = faSearch;
+  protected readonly faShieldAlt = faShieldAlt;
   protected readonly faSpinner = faSpinner;
   protected readonly faTrash = faTrash;
-  private baseDomain: string;
+  public baseDomain: string;
+  public domainStatus: BrevoDomainConfiguration | null = null;
+  public domainAuthenticating = false;
+  public domainAuthResult: DomainAuthenticationResult | null = null;
 
   async ngOnInit() {
     this.subscriptions.push(
@@ -282,6 +348,9 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
     try {
       const config = await this.cloudflareEmailRoutingService.queryCloudflareConfig();
       this.baseDomain = config?.baseDomain;
+      if (this.baseDomain) {
+        await this.loadDomainStatus();
+      }
     } catch (err) {
       this.logger.warn("Could not load cloudflare config for domain validation:", err);
     }
@@ -421,6 +490,33 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
 
   cancelDelete() {
     this.deletingSenderId = null;
+  }
+
+  senderDomainMismatch(sender: Sender): boolean {
+    return this.baseDomain && sender.email && !sender.email.endsWith(`@${this.baseDomain}`);
+  }
+
+  async authenticateDomain(): Promise<void> {
+    this.domainAuthenticating = true;
+    this.domainAuthResult = null;
+    try {
+      this.domainAuthResult = await this.mailService.authenticateDomain(this.baseDomain);
+      await this.loadDomainStatus();
+    } catch (error) {
+      this.logger.error("Failed to authenticate domain:", error);
+      this.errorMessage = this.stringUtilsService.stringify(error);
+    } finally {
+      this.domainAuthenticating = false;
+    }
+  }
+
+  private async loadDomainStatus(): Promise<void> {
+    try {
+      this.domainStatus = await this.mailService.domainConfiguration(this.baseDomain);
+    } catch (err) {
+      this.logger.warn("Could not load domain status:", err);
+      this.domainStatus = null;
+    }
   }
 
   private async loadSenders() {

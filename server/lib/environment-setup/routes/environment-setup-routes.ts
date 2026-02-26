@@ -14,6 +14,7 @@ import { loadSecretsForEnvironment } from "../../shared/secrets";
 import { resumeEnvironment } from "../../cli/commands/environment";
 import { destroyEnvironment } from "../../cli/commands/destroy";
 import { setupSubdomainForEnvironment } from "../../cli/commands/subdomain";
+import { authenticateSendingDomain } from "../../brevo/domains/domain-authentication";
 import { syncDatabaseToGitHub, transformDatabaseToDeployConfig } from "../../cli/commands/github";
 import { execSync } from "child_process";
 import { DeploymentConfig } from "../../../deploy/types";
@@ -543,6 +544,37 @@ router.post("/setup-subdomain/:environmentName", async (req: Request, res: Respo
     });
   } catch (error) {
     errorDebugLog("Error setting up subdomain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/authenticate-brevo-domain/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Authenticate Brevo domain request received for:", environmentName);
+
+    const envConfigData = await findEnvironmentFromDatabase(environmentName);
+    if (!envConfigData) {
+      res.status(404).json({ error: `Environment ${environmentName} not found in database` });
+      return;
+    }
+
+    const environmentsConfig = await configuredEnvironments();
+    const baseDomain = environmentsConfig.cloudflare?.baseDomain || "ngx-ramblers.org.uk";
+    const hostname = `${environmentName}.${baseDomain}`;
+
+    debugLog("Authenticating Brevo sending domain:", hostname);
+    const result = await authenticateSendingDomain(hostname);
+
+    res.json({
+      success: result.authenticated,
+      message: result.message,
+      hostname: result.domainName || hostname
+    });
+  } catch (error) {
+    errorDebugLog("Error authenticating Brevo domain:", error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });

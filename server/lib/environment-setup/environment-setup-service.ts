@@ -37,6 +37,7 @@ import { secretsPath, writeSecretsFile } from "../shared/secrets";
 import { addOrUpdateEnvironment } from "../shared/configs-json";
 import { normaliseMemory } from "../shared/spelling";
 import { deployToFlyio as deployToFlyioCommand } from "../cli/commands/fly";
+import { configuredEnvironments } from "../environments/environments-config";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:service"));
 debugLog.enabled = true;
@@ -358,13 +359,20 @@ export async function createEnvironment(
       reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, "completed", "Skipped Brevo template population");
     }
 
-    if (request.options.authenticateBrevoDomain && request.serviceConfigs.brevo.apiKey && request.ramblersInfo.groupUrl) {
-      const hostname = new URL(request.ramblersInfo.groupUrl).hostname.replace(/^www\./, "");
-      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, "running", `Authenticating domain ${hostname}`);
-      const authResult = await authenticateSendingDomain(hostname);
+    const environmentsConfig = await configuredEnvironments();
+    const baseDomain = environmentsConfig.cloudflare?.baseDomain || null;
+
+    if (request.options.authenticateBrevoDomain && request.serviceConfigs.brevo.apiKey && (request.ramblersInfo.groupUrl || baseDomain)) {
+      const hostnameFromGroupUrl = request.ramblersInfo.groupUrl
+        ? new URL(request.ramblersInfo.groupUrl).hostname.replace(/^www\./, "")
+        : "";
+      const domainName = baseDomain || hostnameFromGroupUrl;
+      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, "running", `Authenticating domain ${domainName}`);
+      const authResult = await authenticateSendingDomain(domainName);
+      const authenticatedDomainName = authResult.domainName;
       const authMessage = authResult.authenticated
-        ? `Domain ${hostname} authenticated successfully`
-        : `Domain ${hostname}: ${authResult.message}`;
+        ? `Domain ${authenticatedDomainName} authenticated successfully`
+        : `Domain ${authenticatedDomainName}: ${authResult.message}`;
       reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, authResult.authenticated ? "completed" : "failed", authMessage);
     } else {
       reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, "completed", "Skipped Brevo domain authentication");
