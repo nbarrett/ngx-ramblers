@@ -71,7 +71,7 @@ export function uploadWalkGpx(req: Request, res: Response) {
   debugLog("Uploading GPX file:", file.originalname, "as", awsFileName, "with start point:", startLat, startLng);
 
   aws.putObjectDirect(RootFolder.gpxRoutes, awsFileName, file.path)
-    .then((response) => {
+    .then(response => {
       if (isAwsUploadErrorResponse(response)) {
         debugLog("Upload failed:", response);
         return res.status(500).json({ error: "Upload failed", details: response });
@@ -80,7 +80,7 @@ export function uploadWalkGpx(req: Request, res: Response) {
         return res.status(200).json({ gpxFile: fileNameData });
       }
     })
-    .catch((error) => {
+    .catch(error => {
       debugLog("Upload error:", error);
       return res.status(500).json({ error: "Upload failed", message: error.message });
     });

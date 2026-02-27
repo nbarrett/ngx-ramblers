@@ -210,7 +210,7 @@ export function createGitHubCommand(): Command {
     .description("Sync database environments to local configs.json and GitHub secret")
     .option("--local-only", "Only update local configs.json, do not push to GitHub")
     .option("--dry-run", "Show what would be synced without making changes")
-    .action(async (options) => {
+    .action(async options => {
       try {
         if (options.dryRun) {
           log("DRY RUN - showing what would be synced\n");

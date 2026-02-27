@@ -85,7 +85,7 @@ export async function handleEnvironmentSetup(ws: WebSocket, data: EnvironmentSet
     const result = await resumeEnvironment(
       environmentName,
       resumeOptions,
-      (progress) => {
+      progress => {
         sendProgress(ws, `[${progress.status}] ${progress.step}${progress.message ? `: ${progress.message}` : ""}`);
       }
     );
@@ -128,7 +128,7 @@ export async function handleEnvironmentCreate(ws: WebSocket, data: EnvironmentCr
 
     sendProgress(ws, "Validation passed, starting environment creation...");
 
-    const result = await createEnvironment(request, (progress) => {
+    const result = await createEnvironment(request, progress => {
       sendProgress(ws, `[${progress.status}] ${progress.step}${progress.message ? `: ${progress.message}` : ""}`);
     });
 
@@ -137,7 +137,8 @@ export async function handleEnvironmentCreate(ws: WebSocket, data: EnvironmentCr
         environmentName: result.environmentName,
         appName: result.appName,
         appUrl: result.appUrl,
-        configsJsonUpdated: result.configsJsonUpdated
+        configsJsonUpdated: result.configsJsonUpdated,
+        passwordResetId: result.passwordResetId
       }
     });
 

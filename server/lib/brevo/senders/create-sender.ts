@@ -12,19 +12,23 @@ const messageType = "brevo:senders:create";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = false;
 
+export async function registerBrevoSender(apiKey: string, name: string, email: string): Promise<CreateSenderResponse> {
+  const apiInstance = new SibApiV3Sdk.SendersApi();
+  apiInstance.setApiKey(SibApiV3Sdk.SendersApiApiKeys.apiKey, apiKey);
+
+  const opts: CreateSender = new SibApiV3Sdk.CreateSender();
+  opts.email = email;
+  opts.name = name;
+  debugLog("registerBrevoSender: opts:", opts);
+  const response: { response: http.IncomingMessage; body: any } = await apiInstance.createSender(opts);
+  return response.body;
+}
+
 export async function createSender(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const brevoConfig = await configuredBrevo();
-    const apiInstance = new SibApiV3Sdk.SendersApi();
-    apiInstance.setApiKey(SibApiV3Sdk.SendersApiApiKeys.apiKey, brevoConfig.apiKey);
     const request: Sender = req.body;
-
-    const opts: CreateSender = new SibApiV3Sdk.CreateSender();
-    opts.email = request.email;
-    opts.name = request.name;
-    debugLog("createSender: opts:", opts);
-    const response: { response: http.IncomingMessage, body: any } = await apiInstance.createSender(opts);
-    const senderResponse: CreateSenderResponse = response.body;
+    const senderResponse = await registerBrevoSender(brevoConfig.apiKey, request.name, request.email);
     successfulResponse({req, res, response: senderResponse, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);

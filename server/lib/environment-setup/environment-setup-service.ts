@@ -37,7 +37,10 @@ import { secretsPath, writeSecretsFile } from "../shared/secrets";
 import { addOrUpdateEnvironment } from "../shared/configs-json";
 import { normaliseMemory } from "../shared/spelling";
 import { deployToFlyio as deployToFlyioCommand } from "../cli/commands/fly";
+import { setupSubdomainForEnvironment } from "../cli/commands/subdomain";
 import { configuredEnvironments } from "../environments/environments-config";
+import { baseDomainFrom } from "./environment-context";
+import { registerBrevoSender } from "../brevo/senders/create-sender";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:service"));
 debugLog.enabled = true;
@@ -84,6 +87,7 @@ async function updateEnvironmentsConfig(
     },
     flyio: {
       appName: request.environmentBasics.appName,
+      apiKey: request.serviceConfigs.flyio?.personalAccessToken || "",
       memory: request.environmentBasics.memory,
       scaleCount: request.environmentBasics.scaleCount,
       organisation: request.environmentBasics.organisation || "personal"
@@ -342,10 +346,20 @@ export async function createEnvironment(
     }
 
     reportProgress(SetupStep.INITIALISE_DATABASE, "running", "Initialising MongoDB database");
-    await initialiseDatabase(request, dbProgress => {
+    const dbResult = await initialiseDatabase(request, dbProgress => {
       debugLog(`[${sessionId}] Database: ${dbProgress.step} - ${dbProgress.status}`);
     }, copiedAssets);
     reportProgress(SetupStep.INITIALISE_DATABASE, "completed", "Database initialised successfully");
+
+    if (request.serviceConfigs.brevo.apiKey) {
+      const adminFullName = `${request.adminUser.firstName} ${request.adminUser.lastName}`;
+      try {
+        await registerBrevoSender(request.serviceConfigs.brevo.apiKey, adminFullName, request.adminUser.email);
+        debugLog(`[${sessionId}] Registered admin ${request.adminUser.email} as Brevo sender`);
+      } catch (error) {
+        debugLog(`[${sessionId}] Brevo sender registration skipped: ${error.message}`);
+      }
+    }
 
     // Migrations disconnect mongoose — reconnect to the main database before proceeding
     await ensureMongoConnection();
@@ -383,7 +397,7 @@ export async function createEnvironment(
 
       const envConfigToSave = {
         name: request.environmentBasics.environmentName,
-        apiKey: "",
+        apiKey: request.serviceConfigs.flyio?.personalAccessToken || "",
         appName: request.environmentBasics.appName,
         memory: normaliseMemory(request.environmentBasics.memory),
         scaleCount: request.environmentBasics.scaleCount,
@@ -415,17 +429,31 @@ export async function createEnvironment(
     await updateEnvironmentsConfig(request, awsCredentials);
     reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "completed", "Environments configuration updated");
 
+    let appUrl = `https://${request.environmentBasics.appName}.fly.dev`;
+
+    if (request.options.setupSubdomain && !request.options.skipFlyDeployment) {
+      reportProgress(SetupStep.SETUP_SUBDOMAIN, "running", "Setting up subdomain (DNS + SSL certificate)");
+      await setupSubdomainForEnvironment(request.environmentBasics.environmentName);
+      const envConfigData = await configuredEnvironments();
+      const baseDomain = baseDomainFrom(envConfigData);
+      appUrl = `https://${request.environmentBasics.environmentName}.${baseDomain}`;
+      reportProgress(SetupStep.SETUP_SUBDOMAIN, "completed", `Subdomain configured: ${appUrl}`);
+    } else {
+      reportProgress(SetupStep.SETUP_SUBDOMAIN, "completed", "Skipped subdomain setup");
+    }
+
     session.status = "completed";
     session.completedAt = dateTimeNowAsValue();
 
     const result: EnvironmentSetupResult = {
       environmentName: request.environmentBasics.environmentName,
       appName: request.environmentBasics.appName,
-      appUrl: `https://${request.environmentBasics.appName}.fly.dev`,
+      appUrl,
       mongoDbUri: buildMongoUri(request),
       awsCredentials,
       adminUserCreated: true,
-      configsJsonUpdated: !request.options.skipFlyDeployment
+      configsJsonUpdated: !request.options.skipFlyDeployment,
+      passwordResetId: dbResult.passwordResetId
     };
 
     session.result = result;

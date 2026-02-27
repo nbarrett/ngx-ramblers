@@ -7,6 +7,7 @@ import { kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
+  CloneType,
   createEmptySetupRequest,
   EnvironmentDefaults,
   EnvironmentSetupRequest,
@@ -15,7 +16,7 @@ import {
   EnvironmentSetupStepperStep,
   EnvironmentSetupTab,
   ExistingEnvironment,
-  ManageAction,
+
   OperationInProgress,
   SetupMode,
   SetupProgress,
@@ -29,6 +30,8 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { EnvironmentSetupService } from "../../../services/environment-setup/environment-setup.service";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
+import { MemberLoginService } from "../../../services/member/member-login.service";
+import { MemberService } from "../../../services/member/member.service";
 import { UrlService } from "../../../services/url.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { PageComponent } from "../../../page/page.component";
@@ -40,6 +43,7 @@ import {
   faCheck,
   faCheckCircle,
   faCog,
+  faCopy,
   faExclamationCircle,
   faExclamationTriangle,
   faPlus,
@@ -112,6 +116,15 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                       </label>
                                     </div>
                                     <div class="form-check">
+                                      <input class="form-check-input" type="radio" name="setupMode" id="modeClone"
+                                             [checked]="setupMode === SetupMode.CLONE"
+                                             (change)="setSetupMode(SetupMode.CLONE)">
+                                      <label class="form-check-label" for="modeClone">
+                                        <fa-icon [icon]="faCopy" class="me-2"></fa-icon>
+                                        Create from Existing
+                                      </label>
+                                    </div>
+                                    <div class="form-check">
                                       <input class="form-check-input" type="radio" name="setupMode" id="modeResume"
                                              [checked]="setupMode === SetupMode.MANAGE"
                                              (change)="setSetupMode(SetupMode.MANAGE)">
@@ -121,6 +134,135 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                       </label>
                                     </div>
                                   </div>
+                                  @if (setupMode === SetupMode.CLONE) {
+                                    <div class="row mb-3 mt-3">
+                                      <div class="col-md-6">
+                                        <label for="clone-env">Source Environment</label>
+                                        <ng-select id="clone-env"
+                                                   [items]="existingEnvironments"
+                                                   bindLabel="name"
+                                                   [(ngModel)]="cloneSourceEnv"
+                                                   (ngModelChange)="onCloneSourceSelected($event)"
+                                                   [loading]="loadingCloneDetails"
+                                                   placeholder="Select an environment to clone from">
+                                        </ng-select>
+                                      </div>
+                                      @if (cloneSourceEnv) {
+                                        <div class="col-md-6">
+                                          <label>Create Type</label>
+                                          <div class="d-flex flex-column gap-1 mt-1">
+                                            <div class="form-check">
+                                              <input class="form-check-input" type="radio" name="cloneType" id="cloneSameGroup"
+                                                     [checked]="cloneType === CloneType.SAME_GROUP"
+                                                     (change)="setCloneType(CloneType.SAME_GROUP)">
+                                              <label class="form-check-label" for="cloneSameGroup">Same group, fresh site</label>
+                                            </div>
+                                            <div class="form-check">
+                                              <input class="form-check-input" type="radio" name="cloneType" id="cloneDifferentGroup"
+                                                     [checked]="cloneType === CloneType.DIFFERENT_GROUP"
+                                                     (change)="setCloneType(CloneType.DIFFERENT_GROUP)">
+                                              <label class="form-check-label" for="cloneDifferentGroup">Different group</label>
+                                            </div>
+                                            <div class="form-check">
+                                              <input class="form-check-input" type="radio" name="cloneType" id="cloneFullDuplicate"
+                                                     [checked]="cloneType === CloneType.FULL_DUPLICATE"
+                                                     (change)="setCloneType(CloneType.FULL_DUPLICATE)">
+                                              <label class="form-check-label" for="cloneFullDuplicate">Full duplicate (staging copy)</label>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      }
+                                    </div>
+                                    @if (loadingCloneDetails) {
+                                      <div class="d-flex align-items-center">
+                                        <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>
+                                        Loading environment configuration...
+                                      </div>
+                                    }
+                                    @if (cloneSourceEnv && !loadingCloneDetails) {
+                                      @if (cloneType === CloneType.SAME_GROUP) {
+                                        <div class="alert alert-success mb-3">
+                                          <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                                          Configuration loaded from <strong>{{ cloneSourceEnv.name }}</strong>.
+                                          Service configs and Ramblers group have been pre-filled.
+                                          Set a new environment name, database and admin user in the following steps.
+                                        </div>
+                                      }
+                                      @if (cloneType === CloneType.DIFFERENT_GROUP) {
+                                        <div class="alert alert-warning mb-3">
+                                          <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                                          Service configs pre-filled from <strong>{{ cloneSourceEnv.name }}</strong>.
+                                          Select a new Ramblers group below, then set environment name, database and admin user in the following steps.
+                                        </div>
+                                        <div class="row mb-3">
+                                          <div class="col-md-6">
+                                            <div class="form-group">
+                                              <label for="clone-area-select">Ramblers Area
+                                                ({{ loadingAreas ? 'retrieving areas...' : availableAreas.length + ' areas available' }})
+                                              </label>
+                                              <div class="position-relative">
+                                                <ng-select id="clone-area-select"
+                                                           [items]="availableAreas"
+                                                           bindLabel="ngSelectLabel"
+                                                           bindValue="areaCode"
+                                                           [searchable]="true"
+                                                           [clearable]="false"
+                                                           [loading]="loadingAreas"
+                                                           dropdownPosition="bottom"
+                                                           placeholder="Select an area..."
+                                                           [(ngModel)]="selectedAreaCode"
+                                                           (ngModelChange)="onAreaCodeChange($event)">
+                                                </ng-select>
+                                                <app-status-icon noLabel [status]="areaQueryStatus" class="area-status-icon"/>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div class="col-md-6">
+                                            <div class="form-group">
+                                              <label for="clone-group-select">Select Group
+                                                ({{ loadingGroups ? 'retrieving groups...' : availableGroups.length + ' groups available' }})
+                                              </label>
+                                              <div class="position-relative">
+                                                <ng-select id="clone-group-select"
+                                                           [items]="availableGroups"
+                                                           bindLabel="ngSelectAttributes.label"
+                                                           [searchable]="true"
+                                                           [clearable]="false"
+                                                           [loading]="loadingGroups"
+                                                           dropdownPosition="bottom"
+                                                           placeholder="Select a group..."
+                                                           [(ngModel)]="selectedGroup"
+                                                           (ngModelChange)="onGroupSelected()">
+                                                </ng-select>
+                                                <app-status-icon noLabel [status]="groupQueryStatus" class="group-status-icon"/>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        @if (selectedGroup) {
+                                          <div class="alert alert-success mb-3">
+                                            <fa-icon [icon]="faUsers" class="me-2"></fa-icon>
+                                            <strong>Selected Group:</strong> {{ selectedGroup.name }}
+                                            ({{ selectedGroup.group_code }})
+                                          </div>
+                                        }
+                                      }
+                                      @if (cloneType === CloneType.FULL_DUPLICATE) {
+                                        <div class="alert alert-success mb-3">
+                                          <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                                          Full duplicate of <strong>{{ cloneSourceEnv.name }}</strong>.
+                                          All configuration, database content and assets will be copied to the new environment.
+                                          Set a new environment name, database and admin user in the following steps.
+                                        </div>
+                                      }
+                                    }
+                                    <div class="stepper-nav">
+                                      <button type="button" class="btn btn-secondary" (click)="cancel()">Cancel</button>
+                                      <button type="button" class="btn btn-primary" (click)="goToStep(1)"
+                                              [disabled]="!canAccessStep(EnvironmentSetupStepperKey.SERVICES_CONFIG)">Next
+                                      </button>
+                                    </div>
+                                  }
                                   @if (setupMode === SetupMode.CREATE) {
                                   <div class="row mb-3">
                                   <div class="col-md-6">
@@ -215,7 +357,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                           [disabled]="!canAccessStep(EnvironmentSetupStepperKey.SERVICES_CONFIG)">Next
                                   </button>
                                 </div>
-                                  } @else {
+                                  } @else if (setupMode === SetupMode.MANAGE) {
                                     <app-environment-management/>
                                   }
                               </div>
@@ -376,6 +518,12 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                             </div>
                           } @else if (step.key === EnvironmentSetupStepperKey.ADMIN_USER) {
                             <div>
+                              <div class="mb-3">
+                                <button type="button" class="btn btn-warning btn-sm" (click)="useMyCredentials()">
+                                  <fa-icon [icon]="faUsers" class="me-1"></fa-icon>
+                                  Use my credentials
+                                </button>
+                              </div>
                               <div class="row">
                                 <div class="col-md-4">
                                   <label for="admin-firstname">First Name</label>
@@ -393,26 +541,10 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                          type="email" class="form-control" id="admin-email">
                                 </div>
                               </div>
-                              <div class="row mt-2">
-                                <div class="col-md-4">
-                                  <label for="admin-password">Password</label>
-                                  <app-secret-input [(ngModel)]="request.adminUser.password"
-                                                    id="admin-password">
-                                  </app-secret-input>
-                                </div>
-                                <div class="col-md-4">
-                                  <label for="admin-password-confirm">Confirm Password</label>
-                                  <app-secret-input [(ngModel)]="confirmPassword"
-                                                    id="admin-password-confirm">
-                                  </app-secret-input>
-                                </div>
+                              <div class="text-muted mt-2">
+                                <fa-icon [icon]="faExclamationCircle" class="me-1"></fa-icon>
+                                A password reset link will be provided after environment creation.
                               </div>
-                              @if (request.adminUser.password && confirmPassword && request.adminUser.password !== confirmPassword) {
-                                <div class="alert alert-danger mt-2">
-                                  <fa-icon [icon]="faExclamationCircle" class="me-2"></fa-icon>
-                                  Passwords do not match
-                                </div>
-                              }
 
                               <div class="row thumbnail-heading-frame mt-3">
                                 <div class="thumbnail-heading">Options</div>
@@ -448,6 +580,11 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                   <input [(ngModel)]="request.options.copyStandardAssets"
                                          type="checkbox" class="form-check-input" id="copy-assets">
                                   <label class="form-check-label" for="copy-assets">Copy standard assets (logos, icons, backgrounds)</label>
+                                </div>
+                                <div class="form-check">
+                                  <input [(ngModel)]="request.options.setupSubdomain"
+                                         type="checkbox" class="form-check-input" id="setup-subdomain">
+                                  <label class="form-check-label" for="setup-subdomain">Setup subdomain (DNS + SSL certificate)</label>
                                 </div>
                               </div>
                               <div class="stepper-nav">
@@ -516,6 +653,8 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     <dd class="col-sm-6">{{ request.options.skipFlyDeployment ? 'Yes' : 'No' }}</dd>
                                     <dt class="col-sm-6">Copy Standard Assets</dt>
                                     <dd class="col-sm-6">{{ request.options.copyStandardAssets ? 'Yes' : 'No' }}</dd>
+                                    <dt class="col-sm-6">Setup Subdomain</dt>
+                                    <dd class="col-sm-6">{{ request.options.setupSubdomain ? 'Yes' : 'No' }}</dd>
                                   </dl>
                                 </div>
                               </div>
@@ -575,6 +714,14 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     </dd>
                                     <dt class="col-sm-3">Admin Email</dt>
                                     <dd class="col-sm-9">{{ request.adminUser.email }}</dd>
+                                    @if (setupResult.passwordResetId) {
+                                      <dt class="col-sm-3">Set Password</dt>
+                                      <dd class="col-sm-9">
+                                        <a [href]="setupResult.appUrl + '/admin/set-password/' + setupResult.passwordResetId" target="_blank">
+                                          {{ setupResult.appUrl }}/admin/set-password/{{ setupResult.passwordResetId }}
+                                        </a>
+                                      </dd>
+                                    }
                                   </dl>
                                 </div>
                               }
@@ -655,6 +802,8 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   private systemConfigService = inject(SystemConfigService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private http = inject(HttpClient);
+  private memberLoginService = inject(MemberLoginService);
+  private memberService = inject(MemberService);
   private urlService = inject(UrlService);
   private stringUtils = inject(StringUtilsService);
   private websocketService = inject(WebSocketClientService);
@@ -664,6 +813,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   private environmentDefaults: EnvironmentDefaults;
   private tab: EnvironmentSetupTab = EnvironmentSetupTab.CREATE;
 
+  protected readonly CloneType = CloneType;
   protected readonly EnvironmentSetupTab = EnvironmentSetupTab;
   protected readonly SetupMode = SetupMode;
 
@@ -676,7 +826,6 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   stepperActiveIndex = 0;
   private brevoTemplatesOptionTouched = false;
   request: EnvironmentSetupRequest = createEmptySetupRequest();
-  confirmPassword = "";
 
   apiKeyValid: boolean | null = null;
   apiKeyValidating = false;
@@ -706,9 +855,11 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   setupError: string | null = null;
 
   setupMode = SetupMode.CREATE;
-  manageAction = ManageAction.RESUME;
   existingEnvironments: ExistingEnvironment[] = [];
   selectedExistingEnv: ExistingEnvironment | null = null;
+  cloneSourceEnv: ExistingEnvironment | null = null;
+  cloneType = CloneType.SAME_GROUP;
+  loadingCloneDetails = false;
   resumeOptions = {
     runValidation: false,
     runAwsCreation: false,
@@ -755,16 +906,17 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
 
   stepperSteps: EnvironmentSetupStepperStep[] = [
     {key: EnvironmentSetupStepperKey.RAMBLERS_SELECTION, label: "Group Selection"},
-    {key: EnvironmentSetupStepperKey.SERVICES_CONFIG, label: "Services"},
-    {key: EnvironmentSetupStepperKey.ADMIN_USER, label: "Admin User"},
-    {key: EnvironmentSetupStepperKey.REVIEW, label: "Review"},
-    {key: EnvironmentSetupStepperKey.PROGRESS, label: "Progress"}
+    {key: EnvironmentSetupStepperKey.SERVICES_CONFIG, label: "Environment & Services"},
+    {key: EnvironmentSetupStepperKey.ADMIN_USER, label: "Admin & Options"},
+    {key: EnvironmentSetupStepperKey.REVIEW, label: "Review & Validate"},
+    {key: EnvironmentSetupStepperKey.PROGRESS, label: "Deploy"}
   ];
 
   protected readonly EnvironmentSetupStepperKey = EnvironmentSetupStepperKey;
   protected readonly faCheck = faCheck;
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faCog = faCog;
+  protected readonly faCopy = faCopy;
   protected readonly faExclamationCircle = faExclamationCircle;
   protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly faPlus = faPlus;
@@ -840,7 +992,8 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
               mongoDbUri: "",
               awsCredentials: null,
               adminUserCreated: false,
-              configsJsonUpdated: true
+              configsJsonUpdated: true,
+              passwordResetId: data.result.passwordResetId
             };
           }
           this.progressMessages.push(data?.message || "Completed");
@@ -877,12 +1030,73 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     this.setupMode = mode;
     if (mode === SetupMode.CREATE) {
       this.selectedExistingEnv = null;
-      this.manageAction = ManageAction.RESUME;
+      this.cloneSourceEnv = null;
+    } else if (mode === SetupMode.CLONE) {
+      this.selectedExistingEnv = null;
+      this.cloneSourceEnv = null;
+      this.loadExistingEnvironments();
     }
   }
 
-  setManageAction(action: ManageAction): void {
-    this.manageAction = action;
+  setCloneType(type: CloneType): void {
+    this.cloneType = type;
+    if (type === CloneType.DIFFERENT_GROUP) {
+      this.request.ramblersInfo = { areaCode: "", areaName: "", groupCode: "", groupName: "" };
+      this.selectedGroup = null;
+      this.selectedAreaCode = null;
+      this.loadAvailableAreas();
+    } else if (this.cloneSourceEnv) {
+      this.onCloneSourceSelected(this.cloneSourceEnv);
+    }
+  }
+
+  async onCloneSourceSelected(env: ExistingEnvironment): Promise<void> {
+    if (!env) return;
+    this.loadingCloneDetails = true;
+    try {
+      const details = await this.environmentSetupService.environmentDetails(env.name);
+      this.request = createEmptySetupRequest();
+      this.request.ramblersInfo.areaCode = details.ramblersInfo.areaCode;
+      this.request.ramblersInfo.areaName = details.ramblersInfo.areaName;
+      this.request.ramblersInfo.groupCode = details.ramblersInfo.groupCode;
+      this.request.ramblersInfo.groupName = details.ramblersInfo.groupName;
+      this.request.serviceConfigs.mongodb.cluster = details.serviceConfigs.mongodb.cluster;
+      this.request.serviceConfigs.mongodb.username = details.serviceConfigs.mongodb.username;
+      this.request.serviceConfigs.mongodb.password = details.serviceConfigs.mongodb.password;
+      this.request.serviceConfigs.aws.region = details.serviceConfigs.aws.region;
+      this.request.serviceConfigs.brevo.apiKey = details.serviceConfigs.brevo.apiKey;
+      this.request.serviceConfigs.googleMaps.apiKey = details.serviceConfigs.googleMaps.apiKey;
+      this.request.serviceConfigs.ramblers.apiKey = details.serviceConfigs.ramblers.apiKey;
+      this.request.serviceConfigs.flyio.personalAccessToken = details.serviceConfigs.flyio.personalAccessToken;
+      this.request.environmentBasics.memory = details.environmentBasics.memory;
+      this.request.environmentBasics.scaleCount = details.environmentBasics.scaleCount;
+      this.request.environmentBasics.organisation = details.environmentBasics.organisation;
+      if (details.serviceConfigs.osMaps?.apiKey) {
+        this.request.serviceConfigs.osMaps = { apiKey: details.serviceConfigs.osMaps.apiKey };
+      }
+      if (details.serviceConfigs.recaptcha?.siteKey) {
+        this.request.serviceConfigs.recaptcha = {
+          siteKey: details.serviceConfigs.recaptcha.siteKey,
+          secretKey: details.serviceConfigs.recaptcha.secretKey
+        };
+      }
+      if (details.serviceConfigs.brevo?.apiKey && !this.brevoTemplatesOptionTouched) {
+        this.request.options.populateBrevoTemplates = true;
+        this.request.options.authenticateBrevoDomain = true;
+      }
+      this.request.environmentBasics.environmentName = `${env.name}-copy`;
+      this.updateAppName();
+      this.apiKeyValid = !!details.serviceConfigs.ramblers.apiKey;
+      this.logger.info("Pre-filled request from environment:", env.name);
+    } catch (error) {
+      this.logger.error("Failed to load environment details:", error);
+      this.notify.error({title: "Error", message: "Failed to load environment configuration"});
+    } finally {
+      this.loadingCloneDetails = false;
+    }
+  }
+
+  resetDestroyState(): void {
     this.destroyProgressMessages = [];
     this.destroyComplete = false;
   }
@@ -974,7 +1188,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
         this.destroyComplete = true;
         this.selectedExistingEnv = null;
         await this.loadExistingEnvironments();
-        this.manageAction = ManageAction.RESUME;
+        this.resetDestroyState();
       } else {
         this.setupError = "Some steps failed - check details above";
       }
@@ -1055,11 +1269,13 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   }
 
   canAccessStep(stepKey: EnvironmentSetupStepperKey): boolean {
+    const cloneReady = this.setupMode === SetupMode.CLONE && !!this.cloneSourceEnv && !this.loadingCloneDetails
+      && (this.cloneType !== CloneType.DIFFERENT_GROUP || !!this.selectedGroup);
     switch (stepKey) {
       case EnvironmentSetupStepperKey.RAMBLERS_SELECTION:
         return true;
       case EnvironmentSetupStepperKey.SERVICES_CONFIG:
-        return this.apiKeyValid === true && !!this.selectedGroup;
+        return cloneReady || (this.apiKeyValid === true && !!this.selectedGroup);
       case EnvironmentSetupStepperKey.ADMIN_USER:
         return this.canAccessStep(EnvironmentSetupStepperKey.SERVICES_CONFIG) && this.hasServicesConfigured();
       case EnvironmentSetupStepperKey.REVIEW:
@@ -1087,9 +1303,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   private hasAdminConfigured(): boolean {
     return !!this.request.adminUser.firstName &&
       !!this.request.adminUser.lastName &&
-      !!this.request.adminUser.email &&
-      !!this.request.adminUser.password &&
-      this.request.adminUser.password === this.confirmPassword;
+      !!this.request.adminUser.email;
   }
 
   brevoTemplatesOptionChanged() {
@@ -1220,12 +1434,32 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     this.request.adminUser.firstName = firstName;
     this.request.adminUser.lastName = "Admin";
     this.request.adminUser.email = `${envName}@ngx-ramblers.org.uk`;
-    this.request.adminUser.password = "password";
-    this.confirmPassword = "password";
+  }
+
+  async useMyCredentials(): Promise<void> {
+    const cookie = this.memberLoginService.loggedInMember();
+    const member = await this.memberService.getById(cookie.memberId);
+    this.request.adminUser.firstName = member.firstName;
+    this.request.adminUser.lastName = member.lastName;
+    this.request.adminUser.email = member.email;
   }
 
   updateAppName() {
-    this.request.environmentBasics.appName = `ngx-ramblers-${this.request.environmentBasics.environmentName}`;
+    const envName = this.request.environmentBasics.environmentName;
+    this.request.environmentBasics.appName = this.prefixedName(envName, 30);
+    this.request.serviceConfigs.aws.bucket = this.prefixedName(envName, 63);
+    this.request.serviceConfigs.mongodb.database = this.prefixedName(envName, 38);
+  }
+
+  private prefixedName(envName: string, maxLength: number): string {
+    const prefixed = `ngx-ramblers-${envName}`;
+    if (prefixed.length <= maxLength) {
+      return prefixed;
+    }
+    if (envName.length <= maxLength) {
+      return envName;
+    }
+    return envName.substring(0, maxLength);
   }
 
   async validateMongodb() {

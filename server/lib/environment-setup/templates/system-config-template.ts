@@ -12,6 +12,7 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { WalkListView } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { RamblersApiConfig } from "../types";
+import { toGroupShortName } from "../database-initialiser";
 
 export interface CopiedAssets {
   icons: string[];
@@ -51,7 +52,7 @@ function createImageEntries(fileNames: string[], defaultWidth: number = 150) {
 export function createSystemConfig(params: SystemConfigTemplateParams): SystemConfig {
   const { groupData, areaCode, areaName, ramblersApiConfig, googleMapsApiKey, osMapsApiKey, recaptchaSiteKey, recaptchaSecretKey, copiedAssets } = params;
 
-  const groupShortName = groupData.name.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "");
+  const groupShortName = toGroupShortName(groupData.name);
 
   return {
     globalStyles: {
@@ -195,7 +196,7 @@ export function updateSystemConfigWithGroupData(
       ...existingConfig.group,
       longName: groupData.name,
       groupCode: groupData.group_code,
-      shortName: groupData.name.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, ""),
+      shortName: toGroupShortName(groupData.name),
       href: groupData.url || groupData.external_url,
       center: groupData.latitude && groupData.longitude ? [groupData.latitude, groupData.longitude] : existingConfig.group?.center
     },

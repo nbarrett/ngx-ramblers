@@ -1,3 +1,5 @@
+@import "../../../assets/styles/colours"
+
 :host ::ng-deep
   .area-status-icon,
   .group-status-icon
@@ -17,3 +19,18 @@
 
   .alert-warning
     padding: 1.5rem
+
+  .p-steppanel:not(.p-steppanel-active)
+    border: none
+    padding: 0
+    min-height: 0
+
+  .p-steppanel.p-steppanel-active .p-steppanel-content
+    padding-top: 1rem
+
+  .p-steppanel-content[style*="visibility: hidden"],
+  .p-steppanel-content:empty
+    display: none
+
+  .form-check-label fa-icon
+    color: $ramblers-colour-mintcake

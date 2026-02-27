@@ -5,7 +5,7 @@ import { envConfig } from "../../env-config/env-config";
 import { CloudflareDnsConfig } from "../../cloudflare/cloudflare.model";
 import { createDnsRecord, listDnsRecords, deleteDnsRecord, verifyToken } from "../../cloudflare/cloudflare-dns";
 import { FlyConfig } from "../../fly/fly.model";
-import { appIpAddresses, addCertificate, deleteCertificate, queryCertificates } from "../../fly/fly-certificates";
+import { appIpAddresses, allocateIpAddress, addCertificate, deleteCertificate, queryCertificates } from "../../fly/fly-certificates";
 import { findEnvironmentFromDatabase, environmentsConfigFromDatabase } from "../../environments/environments-config";
 import { connectToDatabase } from "../../environment-setup/database-initialiser";
 import { buildMongoUri } from "../../shared/mongodb-uri";
@@ -57,7 +57,14 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
   if (!ips.ipv4 && !ips.ipv6) {
     throw new Error(`No IP addresses allocated for app ${appName}. Ensure the app is deployed first.`);
   }
-  if (ips.ipv4) log(`   ✓ IPv4: ${ips.ipv4}`);
+  if (!ips.ipv4) {
+    log("   ⚠ No IPv4 address found — allocating shared IPv4...");
+    const allocated = await allocateIpAddress(flyConfig, "shared_v4");
+    ips.ipv4 = allocated.address;
+    log(`   ✓ Allocated shared IPv4: ${ips.ipv4}`);
+  } else {
+    log(`   ✓ IPv4: ${ips.ipv4}`);
+  }
   if (ips.ipv6) log(`   ✓ IPv6: ${ips.ipv6}`);
 
   const cloudflareConfig: CloudflareDnsConfig = {
@@ -225,7 +232,7 @@ export function createSubdomainCommand(): Command {
   subdomain
     .command("setup <environment>")
     .description("Setup DNS and certificate for an environment's subdomain")
-    .action(async (environment) => {
+    .action(async environment => {
       try {
         await setupSubdomainForEnvironment(environment);
       } catch (err: unknown) {
@@ -237,7 +244,7 @@ export function createSubdomainCommand(): Command {
   subdomain
     .command("remove <environment>")
     .description("Remove DNS records for an environment's subdomain")
-    .action(async (environment) => {
+    .action(async environment => {
       try {
         await removeSubdomainForEnvironment(environment);
       } catch (err: unknown) {
@@ -249,7 +256,7 @@ export function createSubdomainCommand(): Command {
   subdomain
     .command("status <environment>")
     .description("Check subdomain and certificate status")
-    .action(async (environment) => {
+    .action(async environment => {
       try {
         await checkSubdomainStatus(environment);
       } catch (err: unknown) {

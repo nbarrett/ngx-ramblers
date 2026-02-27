@@ -81,14 +81,14 @@ async function ensureAwsAdminCredentials(): Promise<void> {
       name: "accessKeyId",
       message: "AWS Access Key ID:",
       default: process.env.SETUP_AWS_ACCESS_KEY_ID || "",
-      validate: (input) => input.trim() ? true : "Access Key ID is required"
+      validate: input => input.trim() ? true : "Access Key ID is required"
     },
     {
       type: "password",
       name: "secretAccessKey",
       message: "AWS Secret Access Key:",
       default: process.env.SETUP_AWS_SECRET_ACCESS_KEY || "",
-      validate: (input) => input.trim() ? true : "Secret Access Key is required"
+      validate: input => input.trim() ? true : "Secret Access Key is required"
     },
     {
       type: "input",
@@ -124,7 +124,7 @@ async function promptRamblersApiKey(): Promise<string> {
     type: "input",
     name: "apiKey",
     message: "Enter your Ramblers API key:",
-    validate: async (input) => {
+    validate: async input => {
       if (!input.trim()) return "API key is required";
       const validation = await validateRamblersApiKey(input.trim());
       return validation.valid || validation.message;
@@ -149,7 +149,7 @@ async function promptGroupSelection(apiKey: string): Promise<GroupSelection> {
       type: "input",
       name: "groupCode",
       message: "Enter the Ramblers group code:",
-      validate: (input) => input.trim() ? true : "Group code is required"
+      validate: input => input.trim() ? true : "Group code is required"
     });
 
     const group = await groupDetails({ groupCode: groupCode.trim(), apiKey });
@@ -170,7 +170,7 @@ async function promptGroupSelection(apiKey: string): Promise<GroupSelection> {
     type: "input",
     name: "areaCode",
     message: "Enter the 2-digit area code (e.g., 01, 02):",
-    validate: (input) => /^\d{2}$/.test(input.trim()) || "Area code must be 2 digits"
+    validate: input => /^\d{2}$/.test(input.trim()) || "Area code must be 2 digits"
   });
 
   log("Fetching groups in area...");
@@ -214,7 +214,7 @@ async function promptEnvironmentBasics(groupName: string): Promise<EnvironmentBa
       name: "environmentName",
       message: "Environment name:",
       default: defaultEnvName,
-      validate: (input) => /^[a-z0-9-]+$/.test(input) || "Must be lowercase alphanumeric with hyphens"
+      validate: input => /^[a-z0-9-]+$/.test(input) || "Must be lowercase alphanumeric with hyphens"
     },
     {
       type: "input",
@@ -269,7 +269,7 @@ async function promptMongoDbConfig(environmentName: string): Promise<MongoDbConf
       type: "password",
       name: "password",
       message: "MongoDB password:",
-      validate: (input) => input.trim() ? true : "Password is required"
+      validate: input => input.trim() ? true : "Password is required"
     },
     {
       type: "input",
@@ -306,7 +306,7 @@ async function promptBrevoConfig(): Promise<BrevoConfig> {
     type: "input",
     name: "apiKey",
     message: "Brevo API key:",
-    validate: (input) => input.trim() ? true : "Brevo API key is required"
+    validate: input => input.trim() ? true : "Brevo API key is required"
   });
 
   return { apiKey };
@@ -373,27 +373,10 @@ async function promptAdminUser(): Promise<AdminUserConfig> {
   });
   answers.email = emailAnswer.email;
 
-  const passwordAnswer = await inquirer.prompt({
-    type: "password",
-    name: "password",
-    message: "Admin user password:",
-    validate: (input: string) => input.length >= 8 || "Password must be at least 8 characters"
-  });
-  answers.password = passwordAnswer.password;
-
-  const confirmPasswordAnswer = await inquirer.prompt({
-    type: "password",
-    name: "confirmPassword",
-    message: "Confirm password:",
-    validate: (input: string) => input === answers.password || "Passwords do not match"
-  });
-  answers.confirmPassword = confirmPasswordAnswer.confirmPassword;
-
   return {
     firstName: answers.firstName,
     lastName: answers.lastName,
-    email: answers.email,
-    password: answers.password
+    email: answers.email
   };
 }
 
@@ -434,6 +417,12 @@ async function promptSetupOptions(brevoApiKey: string): Promise<SetupOptions> {
       name: "copyStandardAssets",
       message: "Copy standard assets (logos, icons, backgrounds) to S3?",
       default: true
+    },
+    {
+      type: "confirm",
+      name: "setupSubdomain",
+      message: "Setup subdomain (DNS + SSL certificate)?",
+      default: false
     }
   ]);
 }
@@ -545,7 +534,7 @@ async function main(): Promise<void> {
   log("⏳ Creating environment...\n");
 
   try {
-    const result = await createEnvironment(request, (progress) => {
+    const result = await createEnvironment(request, progress => {
       const statusIcon = progress.status === "completed" ? "✅" :
         progress.status === "failed" ? "❌" :
           progress.status === "running" ? "⏳" : "⏸️";

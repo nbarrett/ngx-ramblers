@@ -24,7 +24,7 @@ interface GraphQLIpAddressNode {
 }
 
 interface GraphQLIpAddressesResponse {
-  app: { ipAddresses: { nodes: GraphQLIpAddressNode[] } };
+  app: { sharedIpAddress: string | null; ipAddresses: { nodes: GraphQLIpAddressNode[] } };
 }
 
 async function graphqlRequest<T>(apiToken: string, query: string, variables: Record<string, unknown>): Promise<T> {
@@ -53,6 +53,7 @@ export async function appIpAddresses(config: FlyConfig): Promise<AppIpAddresses>
   const query = `
     query($appName: String!) {
       app(name: $appName) {
+        sharedIpAddress
         ipAddresses {
           nodes {
             type
@@ -70,11 +71,75 @@ export async function appIpAddresses(config: FlyConfig): Promise<AppIpAddresses>
   );
 
   const nodes = data.app.ipAddresses.nodes;
-  const ipv4 = nodes.find(n => n.type === "v4")?.address || null;
+  const ipv4 = nodes.find(n => n.type === "v4")?.address || data.app.sharedIpAddress || null;
   const ipv6 = nodes.find(n => n.type === "v6")?.address || null;
 
   debugLog("IP addresses: IPv4=%s, IPv6=%s", ipv4, ipv6);
   return { ipv4, ipv6 };
+}
+
+async function resolveAppId(config: FlyConfig): Promise<string> {
+  const query = `
+    query($appName: String!) {
+      app(name: $appName) {
+        id
+      }
+    }
+  `;
+  const data = await graphqlRequest<{ app: { id: string } }>(
+    config.apiToken,
+    query,
+    { appName: config.appName }
+  );
+  return data.app.id;
+}
+
+export async function allocateIpAddress(config: FlyConfig, type: "v4" | "v6" | "shared_v4" | "private_v6"): Promise<{ address: string; type: string }> {
+  debugLog("Allocating %s IP address for app %s", type, config.appName);
+
+  const internalAppId = await resolveAppId(config);
+  debugLog("Resolved internal app ID: %s", internalAppId);
+
+  const query = `
+    mutation($input: AllocateIPAddressInput!) {
+      allocateIpAddress(input: $input) {
+        app {
+          sharedIpAddress
+        }
+        ipAddress {
+          address
+          type
+        }
+      }
+    }
+  `;
+
+  interface AllocateResponse {
+    allocateIpAddress: {
+      app: { sharedIpAddress: string | null };
+      ipAddress: { address: string; type: string } | null;
+    };
+  }
+
+  const data = await graphqlRequest<AllocateResponse>(
+    config.apiToken,
+    query,
+    { input: { appId: internalAppId, type } }
+  );
+
+  const ipAddress = data.allocateIpAddress?.ipAddress;
+  if (ipAddress) {
+    debugLog("Allocated IP: %s (%s)", ipAddress.address, ipAddress.type);
+    return ipAddress;
+  }
+
+  const sharedIp = data.allocateIpAddress?.app?.sharedIpAddress;
+  if (sharedIp) {
+    debugLog("Allocated shared IP: %s", sharedIp);
+    return { address: sharedIp, type: "shared_v4" };
+  }
+
+  throw new Error(`Failed to allocate ${type} IP address for app ${config.appName}. Response: ${JSON.stringify(data)}`);
 }
 
 export async function addCertificate(config: FlyConfig, hostname: string): Promise<{ hostname: string; createdAt: string } | null> {

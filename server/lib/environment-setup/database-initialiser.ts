@@ -1,8 +1,10 @@
 import debug from "debug";
+import { keys } from "es-toolkit/compat";
 import { Db, MongoClient } from "mongodb";
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { NOTIFICATION_CONFIG_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS, NOTIFICATION_CONFIG_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { AdminUserConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { EnvironmentSetupRequest, MongoDbConnectionParams, SetupProgress, ValidationResult } from "./types";
 import { createSystemConfig, SystemConfigTemplateParams } from "./templates/system-config-template";
 import { createBrevoConfig } from "./templates/brevo-config-template";
@@ -19,6 +21,10 @@ const debugLog = debug(envConfig.logNamespace("environment-setup:database-initia
 debugLog.enabled = true;
 
 export type ProgressCallback = (progress: SetupProgress) => void;
+
+export function toGroupShortName(groupName: string): string {
+  return groupName.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "");
+}
 
 const COLLECTIONS = {
   CONFIG: "config",
@@ -115,11 +121,15 @@ export interface CopiedAssets {
   backgrounds: string[];
 }
 
+export interface InitialiseDatabaseResult {
+  passwordResetId: string;
+}
+
 export async function initialiseDatabase(
   request: EnvironmentSetupRequest,
   progressCallback?: ProgressCallback,
   copiedAssets?: CopiedAssets
-): Promise<void> {
+): Promise<InitialiseDatabaseResult> {
   const uri = buildMongoUri(request);
   const database = request.serviceConfigs.mongodb.database;
 
@@ -162,7 +172,7 @@ export async function initialiseDatabase(
     reportProgress("Creating Brevo config", "completed");
 
     reportProgress("Creating Committee config", "running");
-    const groupShortName = request.ramblersInfo.groupName.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "");
+    const groupShortName = toGroupShortName(request.ramblersInfo.groupName);
     const committeeConfig = createCommitteeConfig({ groupShortName });
     await upsertConfigDocument(db, ConfigKey.COMMITTEE, committeeConfig);
     reportProgress("Creating Committee config", "completed");
@@ -173,7 +183,7 @@ export async function initialiseDatabase(
     reportProgress("Creating Walks config", "completed");
 
     reportProgress("Creating admin user", "running");
-    const adminMember = await createAdminMember({
+    const { member: adminMember, passwordResetId } = createAdminMember({
       adminUser: request.adminUser,
       groupCode: request.ramblersInfo.groupCode
     });
@@ -198,86 +208,174 @@ export async function initialiseDatabase(
     }
 
     reportProgress("Cleaning up incorrect page content", "running");
-    const pageContentCollection = db.collection(COLLECTIONS.PAGE_CONTENT);
-    const incorrectPaths = ["walks", "admin", "home", "committee"];
-    for (const pathToClean of incorrectPaths) {
-      const result = await pageContentCollection.deleteMany({
-        path: pathToClean
-      });
-      if (result.deletedCount > 0) {
-        debugLog(`Cleaned up ${result.deletedCount} incorrect page content with path: ${pathToClean}`);
-      }
-    }
+    await cleanIncorrectPageContent(db);
     reportProgress("Cleaning up incorrect page content", "completed");
 
     reportProgress("Creating sample pages", "running");
-    const pageContents = createAllSamplePageContent({
-      groupName: request.ramblersInfo.groupName,
-      groupShortName
-    });
-
-    for (const pageContent of pageContents) {
-      await pageContentCollection.updateOne(
-        { path: pageContent.path },
-        { $set: pageContent },
-        { upsert: true }
-      );
-      debugLog("Upserted page content:", pageContent.path);
-    }
+    await seedSamplePages(db, request.ramblersInfo.groupName, groupShortName);
     reportProgress("Creating sample pages", "completed");
 
     if (request.options.includeNotificationConfigs) {
       reportProgress("Creating notification configs", "running");
-      const notificationConfigsCollection = db.collection(COLLECTIONS.NOTIFICATION_CONFIGS);
-      const existingCount = await notificationConfigsCollection.countDocuments({});
-      if (existingCount === 0) {
-        debugLog(`Seeding ${NOTIFICATION_CONFIG_DEFAULTS.length} notification configs`);
-        await notificationConfigsCollection.insertMany(NOTIFICATION_CONFIG_DEFAULTS);
-        debugLog("Notification configs seeded successfully");
-      } else {
-        debugLog(`${existingCount} notification configs already exist, skipping seed`);
-      }
+      await seedNotificationConfigs(db);
+      await wireNotificationConfigsToProcesses(db);
       reportProgress("Creating notification configs", "completed");
     }
 
-    reportProgress("Running database migrations", "running");
-    const originalMongoUri = process.env.MONGODB_URI;
-    try {
-      process.env.MONGODB_URI = uri;
-      const runner = new MigrationRunner();
-      const result = await runner.runPendingMigrations();
-      if (result.success) {
-        reportProgress("Running database migrations", "completed", `Applied ${result.appliedFiles.length} migration(s)`);
-      } else {
-        reportProgress("Running database migrations", "failed", result.error);
-        throw new Error(`Migration failed: ${result.error}`);
-      }
-    } finally {
-      await closeMigrationConnection();
-      if (originalMongoUri !== undefined) {
-        process.env.MONGODB_URI = originalMongoUri;
-      } else {
-        delete process.env.MONGODB_URI;
-      }
-    }
+    reportProgress("Assigning admin to committee roles", "running");
+    await assignAdminToCommitteeRoles(db, request.adminUser);
+    reportProgress("Assigning admin to committee roles", "completed");
+
+    await runMigrations(uri, reportProgress);
 
     reportProgress("Database initialisation complete", "completed");
+    return { passwordResetId };
   } finally {
     await client.close();
     debugLog("Closed database connection");
   }
 }
 
-export async function databaseAlreadyInitialised(params: MongoDbConnectionParams): Promise<boolean> {
-  try {
-    const { client, db } = await connectToDatabase(params);
-    const configCollection = db.collection(COLLECTIONS.CONFIG);
-    const systemConfig = await configCollection.findOne({ key: ConfigKey.SYSTEM });
-    await client.close();
-    return systemConfig !== null;
-  } catch {
-    return false;
+const INCORRECT_PAGE_PATHS = ["walks", "admin", "home", "committee"];
+
+export async function cleanIncorrectPageContent(db: Db): Promise<void> {
+  const pageContentCollection = db.collection(COLLECTIONS.PAGE_CONTENT);
+  for (const pathToClean of INCORRECT_PAGE_PATHS) {
+    const result = await pageContentCollection.deleteMany({ path: pathToClean });
+    if (result.deletedCount > 0) {
+      debugLog(`Cleaned up ${result.deletedCount} incorrect page content with path: ${pathToClean}`);
+    }
   }
+}
+
+export async function runMigrations(mongoUri: string, reportProgress: (step: string, status: "running" | "completed" | "failed", message?: string) => void): Promise<void> {
+  reportProgress("Running database migrations", "running");
+  const originalMongoUri = process.env.MONGODB_URI;
+  try {
+    process.env.MONGODB_URI = mongoUri;
+    const runner = new MigrationRunner();
+    const result = await runner.runPendingMigrations();
+    if (result.success) {
+      reportProgress("Running database migrations", "completed", `Applied ${result.appliedFiles.length} migration(s)`);
+    } else {
+      reportProgress("Running database migrations", "failed", result.error);
+      throw new Error(`Migration failed: ${result.error}`);
+    }
+  } finally {
+    await closeMigrationConnection();
+    if (originalMongoUri !== undefined) {
+      process.env.MONGODB_URI = originalMongoUri;
+    } else {
+      delete process.env.MONGODB_URI;
+    }
+  }
+}
+
+export async function seedSamplePages(db: Db, groupName: string, groupShortName: string): Promise<{ upsertedCount: number; totalCount: number }> {
+  const pageContents = createAllSamplePageContent({ groupName, groupShortName });
+  const pageContentCollection = db.collection(COLLECTIONS.PAGE_CONTENT);
+  let upsertedCount = 0;
+  for (const pageContent of pageContents) {
+    const result = await pageContentCollection.updateOne(
+      { path: pageContent.path },
+      { $set: pageContent },
+      { upsert: true }
+    );
+    if (result.upsertedCount > 0) {
+      upsertedCount++;
+    }
+    debugLog("Upserted page content:", pageContent.path);
+  }
+  return { upsertedCount, totalCount: pageContents.length };
+}
+
+export async function seedNotificationConfigs(db: Db): Promise<{ seededCount: number; skippedCount: number }> {
+  const notificationConfigsCollection = db.collection(COLLECTIONS.NOTIFICATION_CONFIGS);
+  let seededCount = 0;
+  let skippedCount = 0;
+  for (const config of NOTIFICATION_CONFIG_DEFAULTS) {
+    const result = await notificationConfigsCollection.updateOne(
+      {"subject.text": config.subject.text},
+      {$setOnInsert: config},
+      {upsert: true}
+    );
+    if (result.upsertedCount > 0) {
+      seededCount++;
+    } else {
+      skippedCount++;
+    }
+  }
+  debugLog(`Notification configs: seeded ${seededCount}, skipped ${skippedCount}`);
+  return { seededCount, skippedCount };
+}
+
+export async function wireNotificationConfigsToProcesses(db: Db): Promise<{ wiredCount: number }> {
+  const notificationConfigsCollection = db.collection(COLLECTIONS.NOTIFICATION_CONFIGS);
+  const configCollection = db.collection(COLLECTIONS.CONFIG);
+
+  const updates: Record<string, string> = {};
+
+  for (const [processKey, subjectText] of Object.entries(BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS)) {
+    const config = await notificationConfigsCollection.findOne({"subject.text": subjectText});
+    if (config?._id) {
+      updates[`value.${processKey}`] = config._id.toString();
+    }
+  }
+
+  const wiredCount = keys(updates).length;
+  if (wiredCount > 0) {
+    await configCollection.updateOne(
+      { key: ConfigKey.BREVO },
+      { $set: updates }
+    );
+  }
+
+  debugLog(`Wired ${wiredCount} notification configs to built-in processes`);
+  return { wiredCount };
+}
+
+export async function assignAdminToCommitteeRoles(
+  db: Db,
+  adminUser: AdminUserConfig,
+  rolesToAssign: string[] = ["membership", "support"]
+): Promise<{ assignedCount: number }> {
+  const configCollection = db.collection(COLLECTIONS.CONFIG);
+  const committeeDoc = await configCollection.findOne({ key: ConfigKey.COMMITTEE });
+  if (!committeeDoc?.value?.roles) return { assignedCount: 0 };
+
+  const fullName = `${adminUser.firstName} ${adminUser.lastName}`;
+  const roles = committeeDoc.value.roles;
+  let assignedCount = 0;
+
+  for (const role of roles) {
+    if (rolesToAssign.includes(role.type) && role.vacant) {
+      role.email = adminUser.email.toLowerCase();
+      role.fullName = fullName;
+      role.nameAndDescription = `${fullName} - ${role.description}`;
+      role.vacant = false;
+      assignedCount++;
+    }
+  }
+
+  const contactUs = committeeDoc.value.contactUs || {};
+  for (const roleType of rolesToAssign) {
+    if (contactUs[roleType]) {
+      const matchingRole = roles.find((r: { type: string }) => r.type === roleType);
+      if (matchingRole) {
+        contactUs[roleType] = { ...matchingRole };
+      }
+    }
+  }
+
+  if (assignedCount > 0) {
+    await configCollection.updateOne(
+      { key: ConfigKey.COMMITTEE },
+      { $set: { "value.roles": roles, "value.contactUs": contactUs } }
+    );
+  }
+
+  debugLog(`Assigned admin to ${assignedCount} committee roles`);
+  return { assignedCount };
 }
 
 export interface SeedDatabaseParams {
@@ -301,55 +399,17 @@ export async function seedSampleData(
   const { client, db } = await connectToDatabase({ uri: params.mongoUri, database: params.database });
 
   try {
-    const groupShortName = params.groupShortName || params.groupName.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "");
+    const groupShortName = params.groupShortName || toGroupShortName(params.groupName);
 
     reportProgress("Cleaning up incorrect page content", "running");
-    const pageContentCollection = db.collection(COLLECTIONS.PAGE_CONTENT);
-    const incorrectPaths = ["walks", "admin", "home", "committee"];
-    for (const pathToClean of incorrectPaths) {
-      const result = await pageContentCollection.deleteMany({ path: pathToClean });
-      if (result.deletedCount > 0) {
-        debugLog(`Cleaned up ${result.deletedCount} incorrect page content with path: ${pathToClean}`);
-      }
-    }
+    await cleanIncorrectPageContent(db);
     reportProgress("Cleaning up incorrect page content", "completed");
 
     reportProgress("Seeding sample pages", "running");
-    const pageContents = createAllSamplePageContent({
-      groupName: params.groupName,
-      groupShortName
-    });
-
-    for (const pageContent of pageContents) {
-      await pageContentCollection.updateOne(
-        { path: pageContent.path },
-        { $set: pageContent },
-        { upsert: true }
-      );
-      debugLog("Upserted page content:", pageContent.path);
-    }
+    await seedSamplePages(db, params.groupName, groupShortName);
     reportProgress("Seeding sample pages", "completed");
 
-    reportProgress("Running database migrations", "running");
-    const originalMongoUri = process.env.MONGODB_URI;
-    try {
-      process.env.MONGODB_URI = params.mongoUri;
-      const runner = new MigrationRunner();
-      const result = await runner.runPendingMigrations();
-      if (result.success) {
-        reportProgress("Running database migrations", "completed", `Applied ${result.appliedFiles.length} migration(s)`);
-      } else {
-        reportProgress("Running database migrations", "failed", result.error);
-        throw new Error(`Migration failed: ${result.error}`);
-      }
-    } finally {
-      await closeMigrationConnection();
-      if (originalMongoUri !== undefined) {
-        process.env.MONGODB_URI = originalMongoUri;
-      } else {
-        delete process.env.MONGODB_URI;
-      }
-    }
+    await runMigrations(params.mongoUri, reportProgress);
 
     reportProgress("Database seeding complete", "completed");
   } finally {
@@ -384,7 +444,7 @@ export async function reinitialiseDatabase(
   const { client, db } = await connectToDatabase({ uri: params.mongoUri, database: params.database });
 
   try {
-    const groupShortName = params.groupName.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "");
+    const groupShortName = toGroupShortName(params.groupName);
 
     reportProgress("Creating collections", "running");
     const collectionNames = values(COLLECTIONS);
@@ -428,52 +488,14 @@ export async function reinitialiseDatabase(
     reportProgress("Updating Walks config", "completed");
 
     reportProgress("Cleaning up incorrect page content", "running");
-    const pageContentCollection = db.collection(COLLECTIONS.PAGE_CONTENT);
-    const incorrectPaths = ["walks", "admin", "home", "committee"];
-    for (const pathToClean of incorrectPaths) {
-      const result = await pageContentCollection.deleteMany({ path: pathToClean });
-      if (result.deletedCount > 0) {
-        debugLog(`Cleaned up ${result.deletedCount} incorrect page content with path: ${pathToClean}`);
-      }
-    }
+    await cleanIncorrectPageContent(db);
     reportProgress("Cleaning up incorrect page content", "completed");
 
     reportProgress("Updating sample pages", "running");
-    const pageContents = createAllSamplePageContent({
-      groupName: params.groupName,
-      groupShortName
-    });
-
-    for (const pageContent of pageContents) {
-      await pageContentCollection.updateOne(
-        { path: pageContent.path },
-        { $set: pageContent },
-        { upsert: true }
-      );
-      debugLog("Upserted page content:", pageContent.path);
-    }
+    await seedSamplePages(db, params.groupName, groupShortName);
     reportProgress("Updating sample pages", "completed");
 
-    reportProgress("Running database migrations", "running");
-    const originalMongoUri = process.env.MONGODB_URI;
-    try {
-      process.env.MONGODB_URI = params.mongoUri;
-      const runner = new MigrationRunner();
-      const result = await runner.runPendingMigrations();
-      if (result.success) {
-        reportProgress("Running database migrations", "completed", `Applied ${result.appliedFiles.length} migration(s)`);
-      } else {
-        reportProgress("Running database migrations", "failed", result.error);
-        throw new Error(`Migration failed: ${result.error}`);
-      }
-    } finally {
-      await closeMigrationConnection();
-      if (originalMongoUri !== undefined) {
-        process.env.MONGODB_URI = originalMongoUri;
-      } else {
-        delete process.env.MONGODB_URI;
-      }
-    }
+    await runMigrations(params.mongoUri, reportProgress);
 
     reportProgress("Database reinitialisation complete", "completed");
   } finally {

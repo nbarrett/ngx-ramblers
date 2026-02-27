@@ -161,7 +161,7 @@ export async function handleExternalAlbumSplitPreview(ws: WebSocket, data: any):
             expectedPhotoCount: undefined
           };
 
-          const albumMetadata = await provider.fetchAlbumMetadata(providerConfig, parsedUrl, (progressMessage) => {
+          const albumMetadata = await provider.fetchAlbumMetadata(providerConfig, parsedUrl, progressMessage => {
             sendProgress(ws, progressMessage, { context: "split-preview", albumId });
           });
 
@@ -215,7 +215,7 @@ export async function handleExternalAlbumImport(ws: WebSocket, data: any): Promi
 
     sendProgress(ws, `Starting import of "${albumMetadata.title}" to "${request.targetPath}"...`);
 
-    const result = await importExternalAlbum(request, albumMetadata, createdBy, (progress) => {
+    const result = await importExternalAlbum(request, albumMetadata, createdBy, progress => {
       sendProgress(ws, progress.message, { progress });
     });
 
@@ -350,7 +350,7 @@ export async function handleExternalBulkAlbumImport(ws: WebSocket, data: any): P
         expectedPhotoCount: albumSummary.photoCount
       };
 
-      const albumMetadata = await provider.fetchAlbumMetadata(providerConfig, parsedUrl, (progressMessage) => {
+      const albumMetadata = await provider.fetchAlbumMetadata(providerConfig, parsedUrl, progressMessage => {
         sendProgress(ws, `[${albumSummary.title}] ${progressMessage}`, {
           currentAlbum: index + 1,
           totalAlbums
@@ -368,7 +368,7 @@ export async function handleExternalBulkAlbumImport(ws: WebSocket, data: any): P
         splitAlbumPaths: albumSummary.splitAlbumPaths
       };
 
-      const importResult = await importExternalAlbum(importRequest, albumMetadata, createdBy, (progress) => {
+      const importResult = await importExternalAlbum(importRequest, albumMetadata, createdBy, progress => {
         sendProgress(ws, `[${albumSummary.title}] ${progress.message}`, {
           currentAlbum: index + 1,
           totalAlbums,
