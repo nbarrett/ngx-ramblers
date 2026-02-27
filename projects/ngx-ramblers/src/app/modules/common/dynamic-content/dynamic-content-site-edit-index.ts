@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { faAdd, faEraser, faPencil, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faArrowDown, faArrowUp, faEraser, faPencil, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlbumIndexSortField, ContentPathMatch, IndexContentType, IndexRenderMode, PageContent, PageContentRow, StringMatch } from "../../../models/content-text.model";
 import { SortDirection } from "../../../models/sort.model";
@@ -168,6 +168,8 @@ import { ContentText } from "../../../models/content-text.model";
                        type="text" class="form-control flex-grow-1 me-2">
                 <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Remove Content Path Match'"
                                   (click)="remove(contentPath)"/>
+                <app-badge-button class="mt-1 ms-1" [icon]="faArrowDown" [caption]="'Move to Exclude'"
+                                  (click)="moveToExclude(contentPath)"/>
               </div>
             </form>
           </div>
@@ -219,6 +221,8 @@ import { ContentText } from "../../../models/content-text.model";
                        type="text" class="form-control flex-grow-1 me-2">
                 <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Remove Exclude Path Match'"
                                   (click)="removeExcludePath(excludePath)"/>
+                <app-badge-button class="mt-1 ms-1" [icon]="faArrowUp" [caption]="'Move to Include'"
+                                  (click)="moveToInclude(excludePath)"/>
               </div>
             </form>
           </div>
@@ -308,6 +312,8 @@ export class AlbumIndexSiteEditComponent implements OnInit {
   faPencil = faPencil;
   faAdd = faAdd;
   faEraser = faEraser;
+  faArrowDown = faArrowDown;
+  faArrowUp = faArrowUp;
   id: string;
   protected readonly faSearch = faSearch;
   stringMatchingValues: KeyValue<string>[] = enumKeyValues(StringMatch);
@@ -419,6 +425,18 @@ export class AlbumIndexSiteEditComponent implements OnInit {
 
   removeExcludePath(excludePath: ContentPathMatch) {
     this.row.albumIndex.excludePaths = this.row.albumIndex.excludePaths.filter(item => item !== excludePath);
+    this.refreshContentPreview();
+  }
+
+  moveToExclude(contentPath: ContentPathMatch) {
+    this.row.albumIndex.contentPaths = this.row.albumIndex.contentPaths.filter(item => item !== contentPath);
+    this.row.albumIndex.excludePaths.push(contentPath);
+    this.refreshContentPreview();
+  }
+
+  moveToInclude(excludePath: ContentPathMatch) {
+    this.row.albumIndex.excludePaths = this.row.albumIndex.excludePaths.filter(item => item !== excludePath);
+    this.row.albumIndex.contentPaths.push(excludePath);
     this.refreshContentPreview();
   }
 
