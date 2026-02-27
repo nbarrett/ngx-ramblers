@@ -84,10 +84,10 @@ import { HeightResizerComponent } from "../../modules/common/height-resizer/heig
                     }
                   }
                   <div class="carousel-caption">
-                    @if (album.showImageTitles) {
+                    @if (album.gridViewOptions?.showTitles) {
                       <h4>{{ slide.text || album.subtitle }}</h4>
                     }
-                    @if (album.showImageDates && (slide.eventId || album.eventId)) {
+                    @if (album.gridViewOptions?.showDates && (slide.eventId || album.eventId)) {
                       <div>
                         <a [delay]="500" class="badge event-date"
                            [tooltip]="eventTooltip(slide.eventId? slide.dateSource : album.eventType)"

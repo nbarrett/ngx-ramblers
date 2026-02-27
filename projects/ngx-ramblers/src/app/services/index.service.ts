@@ -12,7 +12,8 @@ import {
   PageContentColumn,
   PageContentRow,
   PageContentToRows,
-  PageContentType
+  PageContentType,
+  StringMatch
 } from "../models/content-text.model";
 import { SortDirection } from "../models/sort.model";
 import { sortBy } from "../functions/arrays";
@@ -65,7 +66,11 @@ export class IndexService {
       if (depth === 0 && !prefetchedPages) {
         const broadPathRegex = albumIndex.contentPaths.map(contentPath => {
           const basePath = contentPath.contentPath.replace(/\/$/, "");
-          return {path: {$regex: `^${basePath}`, $options: "i"}};
+          if (contentPath.stringMatch === StringMatch.CONTAINS) {
+            return {path: ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(basePath)};
+          } else {
+            return {path: {$regex: `^${basePath}`, $options: "i"}};
+          }
         });
         allPagesForImageSearch = await this.pageContentService.all({criteria: {$or: broadPathRegex}});
         this.logger.info("Prefetched", allPagesForImageSearch.length, "pages for image searching");
@@ -333,12 +338,20 @@ export class IndexService {
         }
         const basePath = contentPath.contentPath.replace(/\/$/, "");
         const pagePath = page.path || "";
-        if (!pagePath.startsWith(basePath)) {
+        const regex = ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(basePath);
+        if (!new RegExp(regex.$regex, regex.$options).test(pagePath)) {
           return false;
         }
-        const remainingPath = pagePath.slice(basePath.length).replace(/^\//, "");
-        const segmentCount = remainingPath ? remainingPath.split("/").length : 0;
-        return segmentCount <= contentPath.maxPathSegments;
+        if (contentPath.stringMatch === StringMatch.CONTAINS) {
+          const matchIndex = pagePath.toLowerCase().indexOf(basePath.toLowerCase());
+          const remainingPath = pagePath.slice(matchIndex + basePath.length).replace(/^\//, "");
+          const segmentCount = remainingPath ? remainingPath.split("/").length : 0;
+          return segmentCount <= contentPath.maxPathSegments;
+        } else {
+          const remainingPath = pagePath.slice(basePath.length).replace(/^\//, "");
+          const segmentCount = remainingPath ? remainingPath.split("/").length : 0;
+          return segmentCount <= contentPath.maxPathSegments;
+        }
       });
     });
   }
