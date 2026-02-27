@@ -1,48 +1,53 @@
-import { hash } from "bcryptjs";
 import { Member } from "../../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { AdminUserConfig } from "../../types";
 import { dateTimeNowAsValue } from "../../../shared/dates";
+import { generateUid } from "../../../shared/string-utils";
 
 export interface AdminMemberParams {
   adminUser: AdminUserConfig;
   groupCode: string;
 }
 
-export async function hashPassword(password: string): Promise<string> {
-  return hash(password, 10);
+export interface AdminMemberResult {
+  member: Member;
+  passwordResetId: string;
 }
 
-export async function createAdminMember(params: AdminMemberParams): Promise<Member> {
-  const { adminUser, groupCode } = params;
-  const hashedPassword = await hashPassword(adminUser.password);
+export function createAdminMember(params: AdminMemberParams): AdminMemberResult {
+  const { adminUser } = params;
   const createdAt = dateTimeNowAsValue();
+  const passwordResetId = generateUid();
 
   return {
-    userName: adminUser.email.toLowerCase(),
-    password: hashedPassword,
-    firstName: adminUser.firstName,
-    lastName: adminUser.lastName,
-    email: adminUser.email.toLowerCase(),
-    displayName: `${adminUser.firstName} ${adminUser.lastName}`,
-    groupMember: true,
-    memberAdmin: true,
-    socialAdmin: true,
-    socialMember: true,
-    userAdmin: true,
-    walkAdmin: true,
-    contentAdmin: true,
-    financeAdmin: true,
-    treasuryAdmin: true,
-    fileAdmin: true,
-    committee: true,
-    walkChangeNotifications: true,
-    revoked: false,
-    profileSettingsConfirmed: true,
-    profileSettingsConfirmedAt: createdAt,
-    createdDate: createdAt,
-    createdBy: "system-setup",
-    updatedDate: createdAt,
-    updatedBy: "system-setup"
+    passwordResetId,
+    member: {
+      userName: adminUser.email.toLowerCase(),
+      passwordResetId,
+      expiredPassword: true,
+      firstName: adminUser.firstName,
+      lastName: adminUser.lastName,
+      email: adminUser.email.toLowerCase(),
+      displayName: `${adminUser.firstName} ${adminUser.lastName}`,
+      groupMember: true,
+      memberAdmin: true,
+      socialAdmin: true,
+      socialMember: true,
+      userAdmin: true,
+      walkAdmin: true,
+      contentAdmin: true,
+      financeAdmin: true,
+      treasuryAdmin: true,
+      fileAdmin: true,
+      committee: true,
+      walkChangeNotifications: true,
+      revoked: false,
+      profileSettingsConfirmed: true,
+      profileSettingsConfirmedAt: createdAt,
+      createdDate: createdAt,
+      createdBy: "system-setup",
+      updatedDate: createdAt,
+      updatedBy: "system-setup"
+    }
   };
 }
 

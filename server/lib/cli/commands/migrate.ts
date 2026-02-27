@@ -265,7 +265,7 @@ function categorizeWalks(walks: NgxWalk[]): WalkCategory[] {
   const categories: WalkCategory[] = [
     {
       name: "Longer Walks",
-      pattern: (w) => {
+      pattern: w => {
         const title = (w.title || "").toLowerCase();
         const distance = w.groupEvent?.distance_miles || 0;
         return distance >= 8 || title.includes("longer") || title.includes("full day");
@@ -274,7 +274,7 @@ function categorizeWalks(walks: NgxWalk[]): WalkCategory[] {
     },
     {
       name: "Shorter Walks",
-      pattern: (w) => {
+      pattern: w => {
         const title = (w.title || "").toLowerCase();
         const distance = w.groupEvent?.distance_miles || 0;
         return distance > 0 && distance < 8 || title.includes("shorter") || title.includes("short");
@@ -283,7 +283,7 @@ function categorizeWalks(walks: NgxWalk[]): WalkCategory[] {
     },
     {
       name: "Weekend Walks",
-      pattern: (w) => {
+      pattern: w => {
         const weekday = dateTimeFromIso(w.eventDate).weekday;
         return weekday === 6 || weekday === 7;
       },
@@ -291,7 +291,7 @@ function categorizeWalks(walks: NgxWalk[]): WalkCategory[] {
     },
     {
       name: "Midweek Walks",
-      pattern: (w) => {
+      pattern: w => {
         const weekday = dateTimeFromIso(w.eventDate).weekday;
         return weekday >= 1 && weekday <= 5;
       },
@@ -659,7 +659,7 @@ export function createMigrateCommand(): Command {
     .description("Compare old and new sites, report gaps")
     .requiredOption("--old <url>", "Old site URL")
     .requiredOption("--new <url>", "New NGX Ramblers site URL")
-    .action(async (opts) => {
+    .action(async opts => {
       await runReconcile({
         oldSiteUrl: opts.old.replace(/\/$/, ""),
         newSiteUrl: opts.new.replace(/\/$/, ""),
@@ -675,7 +675,7 @@ export function createMigrateCommand(): Command {
     .requiredOption("--username <user>", "CMS username")
     .requiredOption("--password <pass>", "CMS password")
     .option("--dry-run", "Preview changes without applying", false)
-    .action(async (opts) => {
+    .action(async opts => {
       await runApply({
         oldSiteUrl: opts.old.replace(/\/$/, ""),
         newSiteUrl: opts.new.replace(/\/$/, ""),

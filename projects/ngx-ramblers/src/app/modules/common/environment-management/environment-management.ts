@@ -9,6 +9,7 @@ import {
   faCog,
   faExclamationCircle,
   faExclamationTriangle,
+  faKey,
   faPlus,
   faRedo,
   faSpinner,
@@ -18,10 +19,9 @@ import { NgSelectComponent } from "@ng-select/ng-select";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { EnvironmentSetupService } from "../../../services/environment-setup/environment-setup.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { ExistingEnvironment, ManageAction, OperationInProgress } from "../../../models/environment-setup.model";
+import { EnvironmentStatus, ExistingEnvironment, OperationInProgress } from "../../../models/environment-setup.model";
 import { EventType, MessageType } from "../../../models/websocket.model";
 import { SessionLogsComponent } from "../../../shared/components/session-logs";
 
@@ -32,6 +32,9 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
   styles: [`
     :host
       display: block
+
+    :host ::ng-deep .alert
+      padding: 1rem
   `],
   template: `
     @if (!enabled) {
@@ -61,31 +64,6 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                          placeholder="Select an environment">
               </ng-select>
             </div>
-            @if (selectedExistingEnv) {
-              <div class="col-md-6 mb-3">
-                <label>Action</label>
-                <div class="d-flex gap-3">
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="manageAction" id="actionResume"
-                           [checked]="manageAction === ManageAction.RESUME"
-                           (change)="setManageAction(ManageAction.RESUME)">
-                    <label class="form-check-label" for="actionResume">
-                      <fa-icon [icon]="faRedo" class="me-1"></fa-icon>
-                      Modify Environment
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="manageAction" id="actionDestroy"
-                           [checked]="manageAction === ManageAction.DESTROY"
-                           (change)="setManageAction(ManageAction.DESTROY)">
-                    <label class="form-check-label text-danger" for="actionDestroy">
-                      <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
-                      Destroy
-                    </label>
-                  </div>
-                </div>
-              </div>
-            }
           </div>
 
           @if (selectedExistingEnv) {
@@ -105,144 +83,265 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                   <strong>Scale:</strong> {{ selectedExistingEnv.scaleCount }}
                 </div>
                 <div class="col-md-2 mb-2">
-                  <strong>API Key:</strong>
+                  <strong>Fly.io Token:</strong>
                   @if (selectedExistingEnv.hasApiKey) {
-                    <span class="text-success">Configured</span>
+                    <span class="text-success ms-1">Configured</span>
                   } @else {
-                    <span class="text-warning">Missing</span>
+                    <span class="text-warning ms-1">Missing</span>
                   }
                 </div>
               </div>
             </div>
-          }
 
-          @if (selectedExistingEnv && manageAction === ManageAction.RESUME) {
-            <div class="row mt-3">
-              <div class="col-md-12">
-                <strong>Steps to run:</strong>
-                <div class="form-check mt-2">
-                  <input class="form-check-input" type="checkbox" id="runDbInit"
-                         [(ngModel)]="resumeOptions.runDbInit">
-                  <label class="form-check-label" for="runDbInit">
-                    Initialise database
-                  </label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="runFlyDeployment"
-                         [(ngModel)]="resumeOptions.runFlyDeployment">
-                  <label class="form-check-label" for="runFlyDeployment">Deploy to Fly.io</label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="copyStandardAssets"
-                         [(ngModel)]="resumeOptions.copyStandardAssets">
-                  <label class="form-check-label" for="copyStandardAssets">Copy standard assets (icons, logos, backgrounds)</label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="setupSubdomain"
-                         [(ngModel)]="resumeOptions.setupSubdomain">
-                  <label class="form-check-label" for="setupSubdomain">Setup subdomain (DNS + SSL certificate)</label>
-                </div>
+            @if (loadingStatus) {
+              <div class="d-flex align-items-center mt-3">
+                <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>
+                Detecting environment state...
               </div>
-            </div>
-            @if (progressMessages.length > 0) {
+            } @else {
               <div class="row mt-3">
                 <div class="col-md-12">
-                  <app-session-logs [messages]="progressMessages"></app-session-logs>
+                  <strong>Steps to run:</strong>
+                  <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="runDbInit"
+                           [(ngModel)]="resumeOptions.runDbInit">
+                    <label class="form-check-label" for="runDbInit">
+                      Initialise database
+                      @if (envStatus) {
+                        <span class="ms-1 badge" [class]="envStatus.databaseInitialised ? 'bg-success' : 'bg-warning'">
+                          {{ envStatus.databaseInitialised ? 'done' : 'needed' }}
+                        </span>
+                      }
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="runFlyDeployment"
+                           [(ngModel)]="resumeOptions.runFlyDeployment">
+                    <label class="form-check-label" for="runFlyDeployment">
+                      Deploy to Fly.io
+                      @if (envStatus) {
+                        <span class="ms-1 badge" [class]="envStatus.flyAppDeployed ? 'bg-success' : 'bg-warning'">
+                          {{ envStatus.flyAppDeployed ? 'done' : 'needed' }}
+                        </span>
+                      }
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="copyStandardAssets"
+                           [(ngModel)]="resumeOptions.copyStandardAssets">
+                    <label class="form-check-label" for="copyStandardAssets">
+                      Copy standard assets (icons, logos, backgrounds)
+                      @if (envStatus) {
+                        <span class="ms-1 badge" [class]="envStatus.standardAssetsPresent ? 'bg-success' : 'bg-warning'">
+                          {{ envStatus.standardAssetsPresent ? 'done' : 'needed' }}
+                        </span>
+                      }
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="setupSubdomain"
+                           [(ngModel)]="resumeOptions.setupSubdomain">
+                    <label class="form-check-label" for="setupSubdomain">
+                      Setup subdomain (DNS + SSL certificate)
+                      @if (envStatus) {
+                        <span class="ms-1 badge" [class]="envStatus.subdomainConfigured ? 'bg-success' : 'bg-warning'">
+                          {{ envStatus.subdomainConfigured ? 'done' : 'needed' }}
+                        </span>
+                      }
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="includeSamplePages"
+                           [(ngModel)]="resumeOptions.includeSamplePages">
+                    <label class="form-check-label" for="includeSamplePages">
+                      Include sample page content
+                      @if (envStatus) {
+                        <span class="ms-1 badge" [class]="envStatus.samplePagesPresent ? 'bg-success' : 'bg-warning'">
+                          {{ envStatus.samplePagesPresent ? 'done' : 'needed' }}
+                        </span>
+                      }
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="includeNotificationConfigs"
+                           [(ngModel)]="resumeOptions.includeNotificationConfigs">
+                    <label class="form-check-label" for="includeNotificationConfigs">
+                      Include notification configs
+                      @if (envStatus) {
+                        <span class="ms-1 badge" [class]="envStatus.notificationConfigsPresent ? 'bg-success' : 'bg-warning'">
+                          {{ envStatus.notificationConfigsPresent ? 'done' : 'needed' }}
+                        </span>
+                      }
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="populateBrevoTemplates"
+                           [(ngModel)]="resumeOptions.populateBrevoTemplates">
+                    <label class="form-check-label" for="populateBrevoTemplates">
+                      Populate Brevo templates
+                      @if (envStatus) {
+                        <span class="ms-1 badge" [class]="envStatus.brevoTemplatesPresent ? 'bg-success' : 'bg-warning'">
+                          {{ envStatus.brevoTemplatesPresent ? 'done' : 'needed' }}
+                        </span>
+                      }
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="authenticateBrevoDomain"
+                           [(ngModel)]="resumeOptions.authenticateBrevoDomain">
+                    <label class="form-check-label" for="authenticateBrevoDomain">
+                      Authenticate Brevo sending domain
+                      @if (envStatus) {
+                        <span class="ms-1 badge" [class]="envStatus.brevoDomainAuthenticated ? 'bg-success' : 'bg-warning'">
+                          {{ envStatus.brevoDomainAuthenticated ? 'done' : 'needed' }}
+                        </span>
+                      }
+                    </label>
+                  </div>
                 </div>
               </div>
-            }
-            @if (setupResult) {
+              @if (progressMessages.length > 0) {
+                <div class="row mt-3">
+                  <div class="col-md-12">
+                    <app-session-logs [messages]="progressMessages"></app-session-logs>
+                  </div>
+                </div>
+              }
+              @if (setupResult) {
+                <div class="row mt-3">
+                  <div class="col-md-12">
+                    <div class="alert alert-success mb-0">
+                      <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                      <strong>Environment modified successfully!</strong>
+                      @if (setupResult.appUrl) {
+                        <br>App URL: <a [href]="setupResult.appUrl" target="_blank">{{ setupResult.appUrl }}</a>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+              @if (setupError) {
+                <div class="row mt-3">
+                  <div class="col-md-12">
+                    <div class="alert alert-danger mb-0">
+                      <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                      <strong>Error:</strong> {{ setupError }}
+                    </div>
+                  </div>
+                </div>
+              }
+              @if (!selectedExistingEnv.hasApiKey && (resumeOptions.runFlyDeployment || resumeOptions.setupSubdomain)) {
+                <div class="row mt-3">
+                  <div class="col-md-12">
+                    <div class="alert alert-warning mb-0">
+                      <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                      <strong>Fly.io token not configured</strong> for this environment. Deploy and subdomain operations will fail without it.
+                      Configure it in the <strong>Settings</strong> tab under environment configuration.
+                    </div>
+                  </div>
+                </div>
+              }
               <div class="row mt-3">
                 <div class="col-md-12">
-                  <div class="alert alert-success mb-0">
-                    <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
-                    <strong>Environment modified successfully!</strong>
-                    @if (setupResult.appUrl) {
-                      <br>App URL: <a [href]="setupResult.appUrl" target="_blank">{{ setupResult.appUrl }}</a>
+                  <strong>Action:</strong>
+                  <div class="form-check mt-2">
+                    <input class="form-check-input" type="radio" name="manageAction" id="actionModify"
+                           value="modify" [(ngModel)]="manageAction">
+                    <label class="form-check-label" for="actionModify">
+                      <fa-icon [icon]="faCog" class="me-1"></fa-icon> Modify Environment
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="manageAction" id="actionDestroy"
+                           value="destroy" [(ngModel)]="manageAction">
+                    <label class="form-check-label text-danger" for="actionDestroy">
+                      <fa-icon [icon]="faTrash" class="me-1"></fa-icon> Destroy Environment
+                    </label>
+                  </div>
+                </div>
+              </div>
+              @if (manageAction === 'modify') {
+                <div class="row mt-3">
+                  <div class="col-md-12 d-flex gap-2 align-items-start">
+                    <button class="btn btn-primary" (click)="resumeSetup()"
+                            [disabled]="operationBusy">
+                      @if (resuming) {
+                        <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
+                      }
+                      Modify Environment
+                    </button>
+                    <button class="btn btn-outline-secondary" (click)="generateAdminPasswordReset()"
+                            [disabled]="operationBusy || generatingPasswordReset">
+                      @if (generatingPasswordReset) {
+                        <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
+                      } @else {
+                        <fa-icon [icon]="faKey" class="me-1"></fa-icon>
+                      }
+                      Reset Admin Password
+                    </button>
+                  </div>
+                </div>
+                @if (passwordResetResult) {
+                  <div class="row mt-3">
+                    <div class="col-md-12">
+                      <div class="alert alert-success mb-0">
+                        <fa-icon [icon]="faKey" class="me-2"></fa-icon>
+                        <strong>Admin password reset generated</strong> for {{ passwordResetResult.userName || passwordResetResult.email }}
+                        <div class="mt-2">
+                          <strong>Subdomain URL:</strong>
+                          <a [href]="passwordResetResult.resetUrl" target="_blank">{{ passwordResetResult.resetUrl }}</a>
+                        </div>
+                        <div class="mt-1">
+                          <strong>Fly.io URL:</strong>
+                          <a [href]="passwordResetResult.flyResetUrl" target="_blank">{{ passwordResetResult.flyResetUrl }}</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
+              }
+              @if (manageAction === 'destroy') {
+                <div class="row mt-3">
+                  <div class="col-md-12">
+                    <div class="alert alert-danger">
+                      <fa-icon [icon]="faExclamationCircle" class="me-2"></fa-icon>
+                      <strong>Warning:</strong> This will permanently destroy the environment <strong>{{ selectedExistingEnv.name }}</strong>.
+                      <ul class="mb-0 mt-2">
+                        <li>Delete the Fly.io app: <strong>{{ selectedExistingEnv.appName }}</strong></li>
+                        <li>Delete the S3 bucket: <strong>ngx-ramblers-{{ selectedExistingEnv.name.toLowerCase() }}</strong></li>
+                        <li>Delete the IAM user: <strong>ngx-ramblers-{{ selectedExistingEnv.name.toLowerCase() }}-user</strong></li>
+                        <li>Clear all collections in database: <strong>ngx-ramblers-{{ selectedExistingEnv.name.toLowerCase() }}</strong></li>
+                        <li>Remove environment configuration from database</li>
+                        <li>Delete the local secrets file</li>
+                      </ul>
+                      <p class="mt-3 mb-0"><strong>This action is irreversible.</strong></p>
+                    </div>
+                    @if (destroyProgressMessages.length > 0) {
+                      <app-session-logs [messages]="destroyProgressMessages"></app-session-logs>
                     }
+                    @if (destroyComplete) {
+                      <div class="alert alert-success mt-3 mb-0">
+                        <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                        <strong>Environment destroyed successfully.</strong>
+                      </div>
+                    }
+                    @if (destroyError) {
+                      <div class="alert alert-danger mt-3 mb-0">
+                        <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                        {{ destroyError }}
+                      </div>
+                    }
+                    <button class="btn btn-danger mt-3" (click)="destroyEnvironment()"
+                            [disabled]="operationBusy || destroyComplete">
+                      @if (destroying) {
+                        <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
+                      }
+                      Destroy Environment
+                    </button>
                   </div>
                 </div>
-              </div>
+              }
             }
-            @if (setupError) {
-              <div class="row mt-3">
-                <div class="col-md-12">
-                  <div class="alert alert-danger mb-0">
-                    <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                    {{ setupError }}
-                  </div>
-                </div>
-              </div>
-            }
-            <div class="row mt-3">
-              <div class="col-md-12">
-                <button class="btn btn-primary" (click)="resumeSetup()"
-                        [disabled]="operationBusy">
-                  @if (resuming) {
-                    <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
-                  }
-                  Modify Environment
-                </button>
-              </div>
-            </div>
-          }
-
-          @if (selectedExistingEnv && manageAction === ManageAction.DESTROY) {
-            <div class="row mt-3">
-              <div class="col-md-12">
-                <div class="alert alert-danger">
-                  <fa-icon [icon]="faExclamationCircle" class="me-2"></fa-icon>
-                  <strong>Warning:</strong> This will permanently destroy the environment <strong>{{ selectedExistingEnv.name }}</strong>.
-                  <ul class="mb-0 mt-2">
-                    <li>Delete the Fly.io app: <strong>{{ selectedExistingEnv.appName }}</strong></li>
-                    <li>Delete the S3 bucket: <strong>ngx-ramblers-{{ selectedExistingEnv.name.toLowerCase() }}</strong></li>
-                    <li>Delete the IAM user: <strong>ngx-ramblers-{{ selectedExistingEnv.name.toLowerCase() }}-user</strong></li>
-                    <li>Clear all collections in database: <strong>ngx-ramblers-{{ selectedExistingEnv.name.toLowerCase() }}</strong></li>
-                    <li>Remove from configs.json</li>
-                    <li>Delete the secrets file</li>
-                  </ul>
-                  <p class="mt-3 mb-0"><strong>This action is irreversible.</strong></p>
-                </div>
-              </div>
-            </div>
-            @if (destroyProgressMessages.length > 0) {
-              <div class="row mt-3">
-                <div class="col-md-12">
-                  <app-session-logs [messages]="destroyProgressMessages"></app-session-logs>
-                </div>
-              </div>
-            }
-            @if (destroyComplete) {
-              <div class="row mt-3">
-                <div class="col-md-12">
-                  <div class="alert alert-success mb-0">
-                    <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
-                    <strong>Environment destroyed successfully.</strong>
-                  </div>
-                </div>
-              </div>
-            }
-            @if (destroyError) {
-              <div class="row mt-3">
-                <div class="col-md-12">
-                  <div class="alert alert-danger mb-0">
-                    <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
-                    {{ destroyError }}
-                  </div>
-                </div>
-              </div>
-            }
-            <div class="row mt-3">
-              <div class="col-md-12">
-                <button class="btn btn-danger" (click)="destroyEnvironment()"
-                        [disabled]="operationBusy || destroyComplete">
-                  @if (destroying) {
-                    <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
-                  }
-                  Destroy Environment
-                </button>
-              </div>
-            </div>
           }
         </div>
       }
@@ -264,7 +363,6 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   private logger = this.loggerFactory.createLogger("EnvironmentManagement", NgxLoggerLevel.ERROR);
   private notifierService = inject(NotifierService);
   private environmentSetupService = inject(EnvironmentSetupService);
-  private stringUtils = inject(StringUtilsService);
   private websocketService = inject(WebSocketClientService);
 
   private subscriptions: Subscription[] = [];
@@ -274,16 +372,22 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
 
   enabled = false;
   loading = false;
+  loadingStatus = false;
   existingEnvironments: ExistingEnvironment[] = [];
   selectedExistingEnv: ExistingEnvironment | null = null;
-  manageAction = ManageAction.RESUME;
   operationInProgress = OperationInProgress.NONE;
+  manageAction: "modify" | "destroy" = "modify";
+  envStatus: EnvironmentStatus | null = null;
 
   resumeOptions = {
     runDbInit: false,
-    runFlyDeployment: true,
+    runFlyDeployment: false,
     copyStandardAssets: false,
-    setupSubdomain: false
+    setupSubdomain: false,
+    includeSamplePages: false,
+    includeNotificationConfigs: false,
+    populateBrevoTemplates: false,
+    authenticateBrevoDomain: false
   };
 
   progressMessages: string[] = [];
@@ -294,11 +398,14 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   destroyComplete = false;
   destroyError: string | null = null;
 
-  protected readonly ManageAction = ManageAction;
+  passwordResetResult: { resetUrl?: string; flyResetUrl?: string; userName?: string; email?: string } | null = null;
+  generatingPasswordReset = false;
+
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faCog = faCog;
   protected readonly faExclamationCircle = faExclamationCircle;
   protected readonly faExclamationTriangle = faExclamationTriangle;
+  protected readonly faKey = faKey;
   protected readonly faPlus = faPlus;
   protected readonly faRedo = faRedo;
   protected readonly faSpinner = faSpinner;
@@ -399,13 +506,44 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     }
   }
 
-  onExistingEnvironmentSelected(env: ExistingEnvironment): void {
+  async onExistingEnvironmentSelected(env: ExistingEnvironment): Promise<void> {
     this.clearState();
+    if (env) {
+      await this.probeEnvironmentStatus(env.name);
+    }
   }
 
-  setManageAction(action: ManageAction): void {
-    this.manageAction = action;
-    this.clearState();
+  private async probeEnvironmentStatus(environmentName: string): Promise<void> {
+    this.loadingStatus = true;
+    this.envStatus = null;
+    try {
+      this.envStatus = await this.environmentSetupService.environmentStatus(environmentName);
+      this.resumeOptions = {
+        runDbInit: !this.envStatus.databaseInitialised,
+        runFlyDeployment: !this.envStatus.flyAppDeployed,
+        copyStandardAssets: !this.envStatus.standardAssetsPresent,
+        setupSubdomain: !this.envStatus.subdomainConfigured,
+        includeSamplePages: !this.envStatus.samplePagesPresent,
+        includeNotificationConfigs: !this.envStatus.notificationConfigsPresent,
+        populateBrevoTemplates: !this.envStatus.brevoTemplatesPresent,
+        authenticateBrevoDomain: !this.envStatus.brevoDomainAuthenticated
+      };
+      this.logger.info("Environment status:", this.envStatus, "Resume options:", this.resumeOptions);
+    } catch (error) {
+      this.logger.error("Failed to probe environment status:", error);
+      this.resumeOptions = {
+        runDbInit: false,
+        runFlyDeployment: true,
+        copyStandardAssets: false,
+        setupSubdomain: false,
+        includeSamplePages: false,
+        includeNotificationConfigs: false,
+        populateBrevoTemplates: false,
+        authenticateBrevoDomain: false
+      };
+    } finally {
+      this.loadingStatus = false;
+    }
   }
 
   private clearState(): void {
@@ -415,6 +553,9 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     this.destroyProgressMessages = [];
     this.destroyComplete = false;
     this.destroyError = null;
+    this.passwordResetResult = null;
+    this.manageAction = "modify";
+    this.envStatus = null;
   }
 
   async resumeSetup(): Promise<void> {
@@ -449,6 +590,58 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
         } else if (!copyResponse.success) {
           this.setupError = copyResponse.message;
           this.progressMessages.push(`Error: ${copyResponse.message}`);
+          this.operationInProgress = OperationInProgress.NONE;
+          return;
+        }
+      }
+
+      if (this.resumeOptions.includeSamplePages) {
+        this.progressMessages.push("Seeding sample page content...");
+        const samplePagesResponse = await this.environmentSetupService.seedSamplePages(this.selectedExistingEnv.name);
+        if (samplePagesResponse.success) {
+          this.progressMessages.push(samplePagesResponse.message);
+        } else {
+          this.setupError = samplePagesResponse.message;
+          this.progressMessages.push(`Error: ${samplePagesResponse.message}`);
+          this.operationInProgress = OperationInProgress.NONE;
+          return;
+        }
+      }
+
+      if (this.resumeOptions.includeNotificationConfigs) {
+        this.progressMessages.push("Seeding notification configs...");
+        const notifResponse = await this.environmentSetupService.seedNotificationConfigs(this.selectedExistingEnv.name);
+        if (notifResponse.success) {
+          this.progressMessages.push(notifResponse.message);
+        } else {
+          this.setupError = notifResponse.message;
+          this.progressMessages.push(`Error: ${notifResponse.message}`);
+          this.operationInProgress = OperationInProgress.NONE;
+          return;
+        }
+      }
+
+      if (this.resumeOptions.populateBrevoTemplates) {
+        this.progressMessages.push("Populating Brevo templates...");
+        const brevoResponse = await this.environmentSetupService.populateBrevoTemplates(this.selectedExistingEnv.name);
+        if (brevoResponse.success) {
+          this.progressMessages.push(brevoResponse.message);
+        } else {
+          this.setupError = brevoResponse.message;
+          this.progressMessages.push(`Error: ${brevoResponse.message}`);
+          this.operationInProgress = OperationInProgress.NONE;
+          return;
+        }
+      }
+
+      if (this.resumeOptions.authenticateBrevoDomain) {
+        this.progressMessages.push("Authenticating Brevo sending domain...");
+        const authResponse = await this.environmentSetupService.authenticateBrevoDomain(this.selectedExistingEnv.name);
+        if (authResponse.success) {
+          this.progressMessages.push(authResponse.message);
+        } else {
+          this.setupError = authResponse.message;
+          this.progressMessages.push(`Error: ${authResponse.message}`);
           this.operationInProgress = OperationInProgress.NONE;
           return;
         }
@@ -538,7 +731,7 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
 
       if (response.steps) {
         response.steps.forEach(step => {
-          this.destroyProgressMessages.push(`${step.success ? "✓" : "✗"} ${step.step}: ${step.message}`);
+          this.destroyProgressMessages.push(`${step.success ? "\u2713" : "\u2717"} ${step.step}: ${step.message}`);
         });
       }
 
@@ -548,7 +741,6 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
         this.destroyComplete = true;
         this.selectedExistingEnv = null;
         await this.loadExistingEnvironments();
-        this.manageAction = ManageAction.RESUME;
       } else {
         this.destroyError = "Some steps failed - check details above";
       }
@@ -559,6 +751,24 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
       this.notify.error({ title: "Error", message: this.destroyError });
     } finally {
       this.operationInProgress = OperationInProgress.NONE;
+    }
+  }
+
+  async generateAdminPasswordReset(): Promise<void> {
+    if (!this.selectedExistingEnv) return;
+    this.generatingPasswordReset = true;
+    this.passwordResetResult = null;
+    try {
+      const response = await this.environmentSetupService.adminPasswordReset(this.selectedExistingEnv.name);
+      if (response.success) {
+        this.passwordResetResult = response;
+      } else {
+        this.notify.error({ title: "Password Reset Failed", message: response.message });
+      }
+    } catch (error) {
+      this.notify.error({ title: "Password Reset Failed", message: this.extractErrorDetail(error) });
+    } finally {
+      this.generatingPasswordReset = false;
     }
   }
 

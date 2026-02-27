@@ -7,6 +7,7 @@ import {
   CreateEnvironmentResponse,
   EnvironmentDefaults,
   EnvironmentSetupRequest,
+  EnvironmentStatus,
   ExistingEnvironmentsResponse,
   GitHubPushResponse,
   GitHubSecretStatus,
@@ -119,6 +120,28 @@ export class EnvironmentSetupService {
     return response as unknown as EnvironmentDefaults;
   }
 
+  async environmentDetails(environmentName: string): Promise<{
+    environmentBasics: { memory: string; scaleCount: number; organisation: string };
+    serviceConfigs: {
+      mongodb: { cluster: string; username: string; password: string };
+      aws: { region: string };
+      brevo: { apiKey: string };
+      googleMaps: { apiKey: string };
+      osMaps: { apiKey: string };
+      recaptcha: { siteKey: string; secretKey: string };
+      ramblers: { apiKey: string };
+      flyio: { personalAccessToken: string };
+    };
+    ramblersInfo: { areaCode: string; areaName: string; groupCode: string; groupName: string };
+  }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.get<ApiResponse>(`${this.BASE_URL}/environment-details/${environmentName}`, this.opts),
+      this.notifications
+    );
+    return response as any;
+  }
+
   async existingEnvironments(): Promise<ExistingEnvironmentsResponse> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
@@ -172,6 +195,58 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as { success: boolean; message: string; hostname?: string };
+  }
+
+  async seedSamplePages(environmentName: string): Promise<{ success: boolean; message: string; upsertedCount?: number }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/seed-sample-pages/${environmentName}`, {}, this.opts),
+      this.notifications
+    );
+    return response as unknown as { success: boolean; message: string; upsertedCount?: number };
+  }
+
+  async seedNotificationConfigs(environmentName: string): Promise<{ success: boolean; message: string; seededCount?: number; skippedCount?: number }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/seed-notification-configs/${environmentName}`, {}, this.opts),
+      this.notifications
+    );
+    return response as unknown as { success: boolean; message: string; seededCount?: number; skippedCount?: number };
+  }
+
+  async populateBrevoTemplates(environmentName: string): Promise<{ success: boolean; message: string; createdCount?: number; updatedCount?: number; skippedCount?: number }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/populate-brevo-templates/${environmentName}`, {}, this.opts),
+      this.notifications
+    );
+    return response as unknown as { success: boolean; message: string; createdCount?: number; updatedCount?: number; skippedCount?: number };
+  }
+
+  async adminPasswordReset(environmentName: string): Promise<{
+    success: boolean;
+    message: string;
+    resetUrl?: string;
+    flyResetUrl?: string;
+    userName?: string;
+    email?: string;
+  }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/admin-password-reset/${environmentName}`, {}, this.opts),
+      this.notifications
+    );
+    return response as any;
+  }
+
+  async environmentStatus(environmentName: string): Promise<EnvironmentStatus> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.get<ApiResponse>(`${this.BASE_URL}/environment-status/${environmentName}`, this.opts),
+      this.notifications
+    );
+    return response as unknown as EnvironmentStatus;
   }
 
   async setupSubdomain(environmentName: string): Promise<{ success: boolean; message: string; hostname?: string }> {

@@ -88,8 +88,7 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
     },
     {
       path: "set-password/:password-reset-id", loadComponent: () => import("../../login/set-password.component")
-        .then(m => m.SetPasswordComponent),
-      canActivate: [SystemHealthyGuard]
+        .then(m => m.SetPasswordComponent)
     },
     {
       path: "mailchimp-settings",

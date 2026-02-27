@@ -26,7 +26,7 @@ export async function select<T>(options: SelectOptions<T>): Promise<PromptResult
   const allowBack = options.allowBack !== false;
   const hint = getHintText(allowBack);
 
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     let resolved = false;
     let rawModeWasEnabled = false;
 
@@ -78,7 +78,7 @@ export async function select<T>(options: SelectOptions<T>): Promise<PromptResult
           loop: false
         }
       ])
-      .then((answers) => {
+      .then(answers => {
         if (!resolved) {
           resolved = true;
           cleanup();
@@ -98,7 +98,7 @@ export async function select<T>(options: SelectOptions<T>): Promise<PromptResult
 export async function confirm(message: string, allowBack = true): Promise<PromptResult<boolean>> {
   const hint = getHintText(allowBack);
 
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     let resolved = false;
     let rawModeWasEnabled = false;
 
@@ -144,7 +144,7 @@ export async function confirm(message: string, allowBack = true): Promise<Prompt
           default: false
         }
       ])
-      .then((answers) => {
+      .then(answers => {
         if (!resolved) {
           resolved = true;
           cleanup();
@@ -164,7 +164,7 @@ export async function confirm(message: string, allowBack = true): Promise<Prompt
 export async function input(message: string, allowBack = true): Promise<PromptResult<string>> {
   const hint = getHintText(allowBack);
 
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     let resolved = false;
     let rawModeWasEnabled = false;
 
@@ -209,7 +209,7 @@ export async function input(message: string, allowBack = true): Promise<PromptRe
           message
         }
       ])
-      .then((answers) => {
+      .then(answers => {
         if (!resolved) {
           resolved = true;
           cleanup();
@@ -249,7 +249,7 @@ export async function checkbox<T>(options: CheckboxOptions<T>): Promise<PromptRe
   const allowBack = options.allowBack !== false;
   const hint = getHintText(allowBack);
 
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     let resolved = false;
     let rawModeWasEnabled = false;
 
@@ -301,7 +301,7 @@ export async function checkbox<T>(options: CheckboxOptions<T>): Promise<PromptRe
           loop: false
         }
       ])
-      .then((answers) => {
+      .then(answers => {
         if (!resolved) {
           resolved = true;
           cleanup();

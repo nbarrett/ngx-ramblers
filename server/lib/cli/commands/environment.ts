@@ -256,7 +256,7 @@ export function createEnvironmentCommand(): Command {
   environment
     .command("show [name]")
     .description("Show details for an environment")
-    .action(async (name) => {
+    .action(async name => {
       try {
         if (!name) {
           log("Environment name is required");

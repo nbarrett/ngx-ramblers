@@ -93,7 +93,6 @@ export interface AdminUserConfig {
   firstName: string;
   lastName: string;
   email: string;
-  password: string;
 }
 
 export interface SetupOptions {
@@ -103,6 +102,7 @@ export interface SetupOptions {
   authenticateBrevoDomain: boolean;
   skipFlyDeployment: boolean;
   copyStandardAssets: boolean;
+  setupSubdomain: boolean;
 }
 
 export type SetupStepStatus = "pending" | "running" | "completed" | "failed";
@@ -133,6 +133,7 @@ export interface EnvironmentSetupResult {
   awsCredentials: AwsCustomerCredentials;
   adminUserCreated: boolean;
   configsJsonUpdated: boolean;
+  passwordResetId?: string;
 }
 
 export interface ValidationResult {
@@ -462,12 +463,30 @@ export enum OperationInProgress {
 
 export enum SetupMode {
   CREATE = "create",
+  CLONE = "clone",
   MANAGE = "manage"
+}
+
+export enum CloneType {
+  SAME_GROUP = "same-group",
+  DIFFERENT_GROUP = "different-group",
+  FULL_DUPLICATE = "full-duplicate"
 }
 
 export enum ManageAction {
   RESUME = "resume",
   DESTROY = "destroy"
+}
+
+export interface EnvironmentStatus {
+  databaseInitialised: boolean;
+  samplePagesPresent: boolean;
+  notificationConfigsPresent: boolean;
+  flyAppDeployed: boolean;
+  standardAssetsPresent: boolean;
+  subdomainConfigured: boolean;
+  brevoTemplatesPresent: boolean;
+  brevoDomainAuthenticated: boolean;
 }
 
 export enum EnvironmentSetupTab {
@@ -501,8 +520,7 @@ export function createEmptySetupRequest(): EnvironmentSetupRequest {
     adminUser: {
       firstName: "",
       lastName: "",
-      email: "",
-      password: ""
+      email: ""
     },
     options: {
       includeSamplePages: true,
@@ -510,7 +528,8 @@ export function createEmptySetupRequest(): EnvironmentSetupRequest {
       populateBrevoTemplates: false,
       authenticateBrevoDomain: false,
       skipFlyDeployment: false,
-      copyStandardAssets: true
+      copyStandardAssets: true,
+      setupSubdomain: false
     }
   };
 }

@@ -196,6 +196,13 @@ export interface BuiltInProcessMappings {
   backupNotificationConfigId: string;
 }
 
+export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltInProcessMappings, string>> = {
+  forgotPasswordNotificationConfigId: "Forgotten Password Reset",
+  walkNotificationConfigId: "Walk Change Notification",
+  expenseNotificationConfigId: "Expense Notification",
+  contactUsNotificationConfigId: "Contact Us"
+};
+
 export interface NotificationConfigurationApiResponse extends ApiResponse {
   request: any;
   response: NotificationConfig | NotificationConfig[];

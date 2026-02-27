@@ -38,7 +38,7 @@ function extractGroupsFromPayload(payload: unknown): RamblersGroupsApiResponse[]
 }
 
 async function makeRamblersApiRequest(path: string): Promise<RamblersApiRequestResult> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const options = {
       hostname: WALKS_MANAGER_HOST,
       protocol: WALKS_MANAGER_PROTOCOL,
@@ -51,7 +51,7 @@ async function makeRamblersApiRequest(path: string): Promise<RamblersApiRequestR
 
     debugLog("Making Ramblers API request:", options.path);
 
-    const request = https.request(options, (response) => {
+    const request = https.request(options, response => {
       const chunks: Uint8Array[] = [];
 
       response.on("data", (chunk: Uint8Array) => {
@@ -78,7 +78,7 @@ async function makeRamblersApiRequest(path: string): Promise<RamblersApiRequestR
       });
     });
 
-    request.on("error", (error) => {
+    request.on("error", error => {
       debugLog("Request error:", error.message);
       resolve({ error: `Request failed: ${error.message}` });
     });

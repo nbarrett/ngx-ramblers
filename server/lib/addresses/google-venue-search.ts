@@ -165,9 +165,9 @@ async function callGooglePlacesApi(requestBody: object, apiKey: string): Promise
       }
     };
 
-    const req = https.request(options, (res) => {
+    const req = https.request(options, res => {
       let data = "";
-      res.on("data", (chunk) => data += chunk);
+      res.on("data", chunk => data += chunk);
       res.on("end", () => {
         try {
           resolve(JSON.parse(data));

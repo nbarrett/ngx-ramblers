@@ -4,17 +4,21 @@ import * as jwt from "jsonwebtoken";
 import { envConfig } from "../../env-config/env-config";
 import { Environment } from "../../env-config/environment-model";
 import { groupDetails, listGroupsByAreaCode, validateRamblersApiKey } from "../ramblers-api-client";
-import { connectToDatabase, validateMongoConnection } from "../database-initialiser";
+import { assignAdminToCommitteeRoles, seedNotificationConfigs, seedSamplePages, toGroupShortName, validateMongoConnection, wireNotificationConfigsToProcesses } from "../database-initialiser";
 import { adminConfigFromEnvironment, copyStandardAssets, validateAwsAdminCredentials } from "../aws-setup";
 import { createEnvironment, listSessions, sessionStatus, validateSetupRequest } from "../environment-setup-service";
 import { EnvironmentSetupRequest, RamblersAreaLookup, RamblersGroupLookup } from "../types";
 import { configuredEnvironments, findEnvironmentFromDatabase } from "../../environments/environments-config";
 import { buildMongoUri, extractClusterFromUri, extractUsernameFromUri } from "../../shared/mongodb-uri";
-import { loadSecretsForEnvironment } from "../../shared/secrets";
 import { resumeEnvironment } from "../../cli/commands/environment";
 import { destroyEnvironment } from "../../cli/commands/destroy";
 import { setupSubdomainForEnvironment } from "../../cli/commands/subdomain";
 import { authenticateSendingDomain } from "../../brevo/domains/domain-authentication";
+import { findDomainByName } from "../../brevo/domains/domain-management";
+import { listTemplates } from "../../brevo/templates/template-management";
+import { seedBrevoTemplatesFromLocal } from "../../brevo/templates/template-seeding";
+import { listDnsRecords } from "../../cloudflare/cloudflare-dns";
+import { appIpAddresses } from "../../fly/fly-certificates";
 import { syncDatabaseToGitHub, transformDatabaseToDeployConfig } from "../../cli/commands/github";
 import { execSync } from "child_process";
 import { DeploymentConfig } from "../../../deploy/types";
@@ -22,6 +26,8 @@ import { booleanOf } from "../../shared/string-utils";
 import * as systemConfig from "../../config/system-config";
 import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { keys } from "es-toolkit/compat";
+import { baseDomainFrom, connectToEnvironmentMongo, EnvironmentNotFoundError, loadEnvironmentContext, withBrevoApiKey } from "../environment-context";
+import { loadSecretsForEnvironment } from "../../shared/secrets";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:routes"));
 debugLog.enabled = true;
@@ -279,6 +285,166 @@ router.get("/defaults", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/environment-details/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Environment details request received for:", environmentName);
+
+    const { envConfigData, secrets } = await loadEnvironmentContext(environmentName);
+
+    const details = {
+      environmentBasics: {
+        memory: envConfigData.flyio?.memory || FLYIO_DEFAULTS.MEMORY,
+        scaleCount: envConfigData.flyio?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT,
+        organisation: envConfigData.flyio?.organisation || FLYIO_DEFAULTS.ORGANISATION
+      },
+      serviceConfigs: {
+        mongodb: {
+          cluster: envConfigData.mongo?.cluster || "",
+          username: envConfigData.mongo?.username || "",
+          password: envConfigData.mongo?.password || ""
+        },
+        aws: {
+          region: secrets.secrets.AWS_REGION || envConfigData.aws?.region || "eu-west-2"
+        },
+        brevo: {
+          apiKey: secrets.secrets.BREVO_API_KEY || ""
+        },
+        googleMaps: {
+          apiKey: secrets.secrets.GOOGLE_MAPS_APIKEY || ""
+        },
+        osMaps: {
+          apiKey: secrets.secrets.OS_MAPS_API_KEY || ""
+        },
+        recaptcha: {
+          siteKey: secrets.secrets.RECAPTCHA_SITE_KEY || "",
+          secretKey: secrets.secrets.RECAPTCHA_SECRET_KEY || ""
+        },
+        ramblers: {
+          apiKey: secrets.secrets.RAMBLERS_API_KEY || ""
+        },
+        flyio: {
+          personalAccessToken: envConfigData.flyio?.apiKey || ""
+        }
+      },
+      ramblersInfo: {
+        areaCode: secrets.secrets.RAMBLERS_AREA_CODE || "",
+        areaName: secrets.secrets.RAMBLERS_AREA_NAME || "",
+        groupCode: secrets.secrets.RAMBLERS_GROUP_CODE || "",
+        groupName: secrets.secrets.RAMBLERS_GROUP_NAME || ""
+      }
+    };
+
+    debugLog("Returning environment details for:", environmentName);
+    res.json(details);
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    errorDebugLog("Error fetching environment details:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/environment-status/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Environment status request for:", environmentName);
+
+    const { environmentsConfig, envConfigData, appName, secrets } = await loadEnvironmentContext(environmentName);
+
+    const checks = await Promise.allSettled([
+      (async () => {
+        const { client, db } = await connectToEnvironmentMongo(envConfigData);
+        try {
+          const configCollection = db.collection("config");
+          const systemConfigDoc = await configCollection.findOne({ key: "system" });
+          const pageCount = await db.collection("pageContent").countDocuments();
+          const notifCount = await db.collection("notificationConfigs").countDocuments();
+          return { databaseInitialised: systemConfigDoc !== null, samplePagesPresent: pageCount > 0, notificationConfigsPresent: notifCount > 0 };
+        } finally {
+          await client.close();
+        }
+      })(),
+      (async () => {
+        const flyToken = envConfigData.flyio?.apiKey || "";
+        if (!flyToken) return { flyAppDeployed: false };
+        const ips = await appIpAddresses({ apiToken: flyToken, appName });
+        return { flyAppDeployed: !!(ips.ipv4 || ips.ipv6) };
+      })(),
+      (async () => {
+        const baseDomain = environmentsConfig.cloudflare?.baseDomain;
+        const apiToken = environmentsConfig.cloudflare?.apiToken;
+        const zoneId = environmentsConfig.cloudflare?.zoneId;
+        if (!baseDomain || !apiToken || !zoneId) return { subdomainConfigured: false };
+        const fullHostname = `${environmentName}.${baseDomain}`;
+        const records = await listDnsRecords({ apiToken, zoneId }, fullHostname);
+        const hasARecord = records.some(r => r.type === "A");
+        return { subdomainConfigured: hasARecord };
+      })(),
+      (async () => {
+        const brevoKey = secrets.secrets.BREVO_API_KEY || "";
+        if (!brevoKey) return { brevoTemplatesPresent: false, brevoDomainAuthenticated: false };
+        return withBrevoApiKey(brevoKey, async () => {
+          const templates = await listTemplates();
+          const baseDomain = baseDomainFrom(environmentsConfig);
+          const domain = await findDomainByName(baseDomain);
+          return {
+            brevoTemplatesPresent: templates.count > 0,
+            brevoDomainAuthenticated: domain?.authenticated === true
+          };
+        });
+      })(),
+      (async () => {
+        const awsBucket = envConfigData.aws?.bucket || secrets.secrets.AWS_BUCKET || "";
+        if (!awsBucket) return { standardAssetsPresent: false };
+        const { S3Client, ListObjectsV2Command } = await import("@aws-sdk/client-s3");
+        const s3 = new S3Client({
+          region: envConfigData.aws?.region || secrets.secrets.AWS_REGION || "eu-west-2",
+          credentials: {
+            accessKeyId: envConfigData.aws?.accessKeyId || secrets.secrets.AWS_ACCESS_KEY_ID || "",
+            secretAccessKey: envConfigData.aws?.secretAccessKey || secrets.secrets.AWS_SECRET_ACCESS_KEY || ""
+          }
+        });
+        const result = await s3.send(new ListObjectsV2Command({ Bucket: awsBucket, Prefix: "icons/", MaxKeys: 1 }));
+        return { standardAssetsPresent: (result.KeyCount || 0) > 0 };
+      })()
+    ]);
+
+    const status = {
+      databaseInitialised: false,
+      samplePagesPresent: false,
+      notificationConfigsPresent: false,
+      flyAppDeployed: false,
+      standardAssetsPresent: false,
+      subdomainConfigured: false,
+      brevoTemplatesPresent: false,
+      brevoDomainAuthenticated: false
+    };
+
+    checks.forEach(result => {
+      if (result.status === "fulfilled") {
+        Object.assign(status, result.value);
+      }
+    });
+
+    debugLog("Environment status for %s:", environmentName, status);
+    res.json(status);
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    errorDebugLog("Error checking environment status:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/existing-environments", async (req: Request, res: Response) => {
   if (!validateSetupAccess(req, res)) return;
 
@@ -420,32 +586,13 @@ router.post("/copy-assets/:environmentName", async (req: Request, res: Response)
     const { environmentName } = req.params;
     debugLog("Copy assets request received for:", environmentName);
 
-    const environmentsConfig = await configuredEnvironments();
-    const envConfigData = environmentsConfig.environments?.find(e => e.environment === environmentName);
-
-    if (!envConfigData) {
-      res.status(404).json({ error: `Environment ${environmentName} not found in environments config` });
-      return;
-    }
+    const { envConfigData } = await loadEnvironmentContext(environmentName);
 
     const bucket = envConfigData.aws?.bucket;
     if (!bucket) {
       res.status(400).json({ error: `No S3 bucket configured for environment ${environmentName}` });
       return;
     }
-
-    const mongoConfig = envConfigData.mongo;
-    if (!mongoConfig?.cluster || !mongoConfig?.db) {
-      res.status(400).json({ error: `No MongoDB configured for environment ${environmentName}` });
-      return;
-    }
-    const database = mongoConfig.db;
-    const mongoUri = buildMongoUri({
-      cluster: mongoConfig.cluster,
-      username: mongoConfig.username || "",
-      password: mongoConfig.password || "",
-      database
-    });
 
     const awsAdminConfig = adminConfigFromEnvironment();
     if (!awsAdminConfig) {
@@ -461,8 +608,7 @@ router.post("/copy-assets/:environmentName", async (req: Request, res: Response)
     debugLog("Copied assets:", { totalCopied, totalFailed, failures: copyResult.failures });
 
     if (totalCopied > 0) {
-      debugLog("Updating system config in database:", database);
-      const { client, db } = await connectToDatabase({ uri: mongoUri, database });
+      const { client, db } = await connectToEnvironmentMongo(envConfigData);
       try {
         const configCollection = db.collection("config");
         const systemConfigDoc = await configCollection.findOne({ key: "system" });
@@ -513,6 +659,10 @@ router.post("/copy-assets/:environmentName", async (req: Request, res: Response)
       failures: copyResult.failures
     });
   } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
     errorDebugLog("Error copying assets:", error.message);
     res.status(500).json({ error: error.message });
   }
@@ -525,16 +675,11 @@ router.post("/setup-subdomain/:environmentName", async (req: Request, res: Respo
     const { environmentName } = req.params;
     debugLog("Setup subdomain request received for:", environmentName);
 
-    const envConfigData = await findEnvironmentFromDatabase(environmentName);
-    if (!envConfigData) {
-      res.status(404).json({ error: `Environment ${environmentName} not found in database` });
-      return;
-    }
+    const { environmentsConfig } = await loadEnvironmentContext(environmentName);
 
     await setupSubdomainForEnvironment(environmentName);
 
-    const environmentsConfig = await configuredEnvironments();
-    const baseDomain = environmentsConfig.cloudflare?.baseDomain || "ngx-ramblers.org.uk";
+    const baseDomain = baseDomainFrom(environmentsConfig);
     const hostname = `${environmentName}.${baseDomain}`;
 
     res.json({
@@ -555,14 +700,8 @@ router.post("/authenticate-brevo-domain/:environmentName", async (req: Request, 
     const { environmentName } = req.params;
     debugLog("Authenticate Brevo domain request received for:", environmentName);
 
-    const envConfigData = await findEnvironmentFromDatabase(environmentName);
-    if (!envConfigData) {
-      res.status(404).json({ error: `Environment ${environmentName} not found in database` });
-      return;
-    }
-
-    const environmentsConfig = await configuredEnvironments();
-    const baseDomain = environmentsConfig.cloudflare?.baseDomain || "ngx-ramblers.org.uk";
+    const { environmentsConfig } = await loadEnvironmentContext(environmentName);
+    const baseDomain = baseDomainFrom(environmentsConfig);
     const hostname = `${environmentName}.${baseDomain}`;
 
     debugLog("Authenticating Brevo sending domain:", hostname);
@@ -574,7 +713,178 @@ router.post("/authenticate-brevo-domain/:environmentName", async (req: Request, 
       hostname: result.domainName || hostname
     });
   } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
     errorDebugLog("Error authenticating Brevo domain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/seed-sample-pages/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Seed sample pages request received for:", environmentName);
+
+    const { envConfigData } = await loadEnvironmentContext(environmentName);
+    const { client, db } = await connectToEnvironmentMongo(envConfigData);
+    try {
+      const configCollection = db.collection("config");
+      const systemConfigDoc = await configCollection.findOne({ key: "system" });
+      const groupName = systemConfigDoc?.value?.group?.longName || environmentName;
+      const groupShortName = toGroupShortName(groupName);
+
+      const { upsertedCount, totalCount } = await seedSamplePages(db, groupName, groupShortName);
+
+      debugLog(`Seeded ${upsertedCount} new sample pages, updated ${totalCount - upsertedCount} existing`);
+      res.json({
+        success: true,
+        message: `Upserted ${totalCount} sample pages (${upsertedCount} new)`,
+        upsertedCount
+      });
+    } finally {
+      await client.close();
+    }
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    errorDebugLog("Error seeding sample pages:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/seed-notification-configs/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Seed notification configs request received for:", environmentName);
+
+    const { envConfigData } = await loadEnvironmentContext(environmentName);
+    const { client, db } = await connectToEnvironmentMongo(envConfigData);
+    try {
+      const { seededCount, skippedCount } = await seedNotificationConfigs(db);
+      const { wiredCount } = await wireNotificationConfigsToProcesses(db);
+
+      const membersCollection = db.collection("members");
+      const adminMember = await membersCollection.findOne({ memberAdmin: true });
+      let rolesAssigned = 0;
+      if (adminMember?.firstName && adminMember?.lastName && adminMember?.email) {
+        const result = await assignAdminToCommitteeRoles(db, {
+          firstName: adminMember.firstName,
+          lastName: adminMember.lastName,
+          email: adminMember.email
+        });
+        rolesAssigned = result.assignedCount;
+      }
+
+      debugLog(`Notification configs: seeded ${seededCount}, skipped ${skippedCount}, wired ${wiredCount}, roles assigned ${rolesAssigned}`);
+      res.json({
+        success: true,
+        message: `Seeded ${seededCount} notification configs, skipped ${skippedCount} existing, wired ${wiredCount} to built-in processes, assigned admin to ${rolesAssigned} committee roles`,
+        seededCount,
+        skippedCount,
+        wiredCount,
+        rolesAssigned
+      });
+    } finally {
+      await client.close();
+    }
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    errorDebugLog("Error seeding notification configs:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/populate-brevo-templates/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Populate Brevo templates request received for:", environmentName);
+
+    const { secrets } = await loadEnvironmentContext(environmentName);
+    const brevoApiKey = secrets.secrets.BREVO_API_KEY;
+
+    if (!brevoApiKey) {
+      res.status(400).json({ error: `No Brevo API key configured for environment ${environmentName}` });
+      return;
+    }
+
+    const seedResult = await withBrevoApiKey(brevoApiKey, () => seedBrevoTemplatesFromLocal());
+    res.json({
+      success: true,
+      message: `Created ${seedResult.createdCount}, updated ${seedResult.updatedCount}, skipped ${seedResult.skippedCount}`,
+      createdCount: seedResult.createdCount,
+      updatedCount: seedResult.updatedCount,
+      skippedCount: seedResult.skippedCount
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    errorDebugLog("Error populating Brevo templates:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/admin-password-reset/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Admin password reset request received for:", environmentName);
+
+    const { environmentsConfig, envConfigData } = await loadEnvironmentContext(environmentName);
+    const { client, db } = await connectToEnvironmentMongo(envConfigData);
+    try {
+      const membersCollection = db.collection("members");
+      const adminMember = await membersCollection.findOne({ memberAdmin: true });
+      if (!adminMember) {
+        res.status(404).json({ success: false, message: "No admin member found in target environment" });
+        return;
+      }
+
+      const { generateUid } = await import("../../shared/string-utils");
+      const passwordResetId = generateUid();
+      await membersCollection.updateOne(
+        { _id: adminMember._id },
+        { $set: { passwordResetId, expiredPassword: true } }
+      );
+
+      const baseDomain = baseDomainFrom(environmentsConfig);
+      const appName = envConfigData.flyio?.appName || `ngx-ramblers-${environmentName}`;
+      const appUrl = `https://${environmentName}.${baseDomain}`;
+      const flyUrl = `https://${appName}.fly.dev`;
+      const resetPath = `/admin/set-password/${passwordResetId}`;
+
+      res.json({
+        success: true,
+        message: `Password reset generated for ${adminMember.userName || adminMember.email}`,
+        resetUrl: appUrl + resetPath,
+        flyResetUrl: flyUrl + resetPath,
+        userName: adminMember.userName,
+        email: adminMember.email
+      });
+    } finally {
+      await client.close();
+    }
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    errorDebugLog("Error generating admin password reset:", error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
