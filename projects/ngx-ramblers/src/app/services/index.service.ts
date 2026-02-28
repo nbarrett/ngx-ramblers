@@ -58,21 +58,18 @@ export class IndexService {
       const contentTypes = albumIndex.contentTypes || [IndexContentType.ALBUMS];
 
       const pathRegex = albumIndex.contentPaths.map(contentPath => ({
-        path: ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath)
+        path: this.depthLimitedRegex(contentPath)
       }));
 
       this.logger.info("Query criteria:", {$or: pathRegex});
 
-      let allPages = await this.pageContentService.all({criteria: {$or: pathRegex}});
-      this.logger.info("Found", allPages.length, "pages matching criteria. Sample paths:", allPages.slice(0, 5).map(p => p.path));
+      let pages = await this.pageContentService.all({criteria: {$or: pathRegex}});
+      this.logger.info("Found", pages.length, "pages matching criteria. Sample paths:", pages.slice(0, 5).map(p => p.path));
 
       if (albumIndex.excludePaths?.length > 0) {
-        allPages = this.filterOutExcludedPaths(allPages, albumIndex.excludePaths);
-        this.logger.info("After exclude filter:", allPages.length, "pages");
+        pages = this.filterOutExcludedPaths(pages, albumIndex.excludePaths);
+        this.logger.info("After exclude filter:", pages.length, "pages");
       }
-
-      const pages = this.filterByMaxPathSegments(allPages, albumIndex.contentPaths);
-      this.logger.info("Filtered to", pages.length, "direct children from", allPages.length, "total pages");
 
       let allColumns: PageContentColumn[] = [];
 
@@ -83,7 +80,7 @@ export class IndexService {
 
       if (contentTypes.includes(IndexContentType.PAGES)) {
         const locationColumns = this.locationExtractionService.extractLocationsFromPages(pages);
-        const enrichedColumns = await this.enrichIndexColumnsWithImages(locationColumns, pages, allPages);
+        const enrichedColumns = await this.enrichIndexColumnsWithImages(locationColumns, pages);
         allColumns = allColumns.concat(enrichedColumns);
       }
 
@@ -308,7 +305,6 @@ export class IndexService {
   private async enrichIndexColumnsWithImages(
     columns: PageContentColumn[],
     pages: PageContent[],
-    allPrefetchedPages: PageContent[],
     depth: number = 0
   ): Promise<PageContentColumn[]> {
     if (!this.withinPreviewImageSearchDepth(depth)) {
@@ -332,7 +328,16 @@ export class IndexService {
       return columns;
     }
 
-    const allCarouselNames: string[] = allPrefetchedPages
+    const allContentPathRegex = childIndexes.flatMap(item =>
+      item.indexRow.albumIndex.contentPaths.map(contentPath => ({
+        path: ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath)
+      }))
+    );
+
+    const allMatchedPages = await this.pageContentService.all({criteria: {$or: allContentPathRegex}});
+    this.logger.info("Batch enrichment: fetched", allMatchedPages.length, "pages for", childIndexes.length, "child indexes");
+
+    const allCarouselNames: string[] = allMatchedPages
       .flatMap(page => (page.rows || []).filter(row => this.actions.isCarouselOrAlbum(row)))
       .map(row => row.carousel?.name)
       .filter(name => !!name);
@@ -341,7 +346,7 @@ export class IndexService {
     let allMetadata: ContentMetadata[] = [];
     if (uniqueNames.length > 0) {
       allMetadata = await this.contentMetadataService.all({criteria: {name: {$in: uniqueNames}}});
-      this.logger.info("Batch enrichment: fetched", allMetadata.length, "metadata records for", uniqueNames.length, "album names from", allPrefetchedPages.length, "pre-fetched pages");
+      this.logger.info("Batch enrichment: fetched", allMetadata.length, "metadata records for", uniqueNames.length, "album names");
     }
 
     return columns.map(column => {
@@ -351,7 +356,7 @@ export class IndexService {
       }
 
       const contentPaths = childIndex.indexRow.albumIndex.contentPaths;
-      const allChildPages = allPrefetchedPages.filter(page =>
+      const allChildPages = allMatchedPages.filter(page =>
         contentPaths.some(cp => {
           const regex = ContentPathMatchConfigs[cp.stringMatch].mongoRegex(cp.contentPath);
           return new RegExp(regex.$regex, regex.$options).test(page.path);
