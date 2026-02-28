@@ -16,6 +16,7 @@ import {
   StringMatch
 } from "../models/content-text.model";
 import { SortDirection } from "../models/sort.model";
+import { MongoRegex } from "../functions/mongo";
 import { sortBy } from "../functions/arrays";
 import { AccessLevel } from "../models/member-resource.model";
 import { LoggerFactory } from "./logger-factory.service";
@@ -51,7 +52,7 @@ export class IndexService {
   public logger = this.loggerFactory.createLogger("IndexService", NgxLoggerLevel.ERROR);
   public instance = this;
 
-  public async albumIndexToPageContent(pageContentRow: PageContentRow, rowIndex: number, visitedPaths: string[] = [], depth: number = 0, prefetchedPages?: PageContent[]): Promise<PageContent> {
+  public async albumIndexToPageContent(pageContentRow: PageContentRow, rowIndex: number): Promise<PageContent> {
     const albumIndex = pageContentRow.albumIndex;
     if (albumIndex?.contentPaths?.length > 0) {
       const contentTypes = albumIndex.contentTypes || [IndexContentType.ALBUMS];
@@ -60,55 +61,29 @@ export class IndexService {
         path: ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath)
       }));
 
-      this.logger.info("Query criteria:", {$or: pathRegex}, "depth:", depth);
+      this.logger.info("Query criteria:", {$or: pathRegex});
 
-      let allPagesForImageSearch: PageContent[] = prefetchedPages;
-      if (depth === 0 && !prefetchedPages) {
-        const broadPathRegex = albumIndex.contentPaths.map(contentPath => {
-          const basePath = contentPath.contentPath.replace(/\/$/, "");
-          if (contentPath.stringMatch === StringMatch.CONTAINS) {
-            return {path: ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(basePath)};
-          } else {
-            return {path: {$regex: `^${basePath}`, $options: "i"}};
-          }
-        });
-        allPagesForImageSearch = await this.pageContentService.all({criteria: {$or: broadPathRegex}});
-        this.logger.info("Prefetched", allPagesForImageSearch.length, "pages for image searching");
-      }
-
-      let pages: PageContent[];
-      if (allPagesForImageSearch) {
-        pages = allPagesForImageSearch.filter(page =>
-          albumIndex.contentPaths.some(contentPath => {
-            const regex = ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath);
-            return new RegExp(regex.$regex, regex.$options).test(page.path);
-          })
-        );
-        this.logger.info("Using prefetched pages, filtered to", pages.length, "matches");
-        prefetchedPages = allPagesForImageSearch;
-      } else {
-        pages = await this.pageContentService.all({criteria: {$or: pathRegex}});
-      }
-      this.logger.info("Found", pages.length, "pages matching criteria. Sample paths:", pages.slice(0, 5).map(p => p.path));
-
-      pages = this.filterByMaxPathSegments(pages, albumIndex.contentPaths);
-      this.logger.info("After maxPathSegments filter:", pages.length, "pages");
+      let allPages = await this.pageContentService.all({criteria: {$or: pathRegex}});
+      this.logger.info("Found", allPages.length, "pages matching criteria. Sample paths:", allPages.slice(0, 5).map(p => p.path));
 
       if (albumIndex.excludePaths?.length > 0) {
-        pages = this.filterOutExcludedPaths(pages, albumIndex.excludePaths);
-        this.logger.info("After exclude filter:", pages.length, "pages");
+        allPages = this.filterOutExcludedPaths(allPages, albumIndex.excludePaths);
+        this.logger.info("After exclude filter:", allPages.length, "pages");
       }
+
+      const pages = this.filterByMaxPathSegments(allPages, albumIndex.contentPaths);
+      this.logger.info("Filtered to", pages.length, "direct children from", allPages.length, "total pages");
 
       let allColumns: PageContentColumn[] = [];
 
       if (contentTypes.includes(IndexContentType.ALBUMS)) {
-        const albumColumns = await this.extractAlbumColumns(pages, visitedPaths, depth, prefetchedPages);
+        const albumColumns = await this.extractAlbumColumns(pages);
         allColumns = allColumns.concat(albumColumns);
       }
 
       if (contentTypes.includes(IndexContentType.PAGES)) {
         const locationColumns = this.locationExtractionService.extractLocationsFromPages(pages);
-        const enrichedColumns = await this.enrichIndexColumnsWithImages(locationColumns, pages, visitedPaths, depth, prefetchedPages);
+        const enrichedColumns = await this.enrichIndexColumnsWithImages(locationColumns, pages, allPages);
         allColumns = allColumns.concat(enrichedColumns);
       }
 
@@ -123,7 +98,7 @@ export class IndexService {
     }
   }
 
-  private async extractAlbumColumns(pages: PageContent[], visitedPaths: string[], depth: number = 0, prefetchedPages?: PageContent[]): Promise<PageContentColumn[]> {
+  private async extractAlbumColumns(pages: PageContent[], depth: number = 0): Promise<PageContentColumn[]> {
     const pageContentToRows: PageContentToRows[] = pages.map(pageContent => ({
       pageContent,
       rows: pageContent.rows.filter(row => this.actions.isCarouselOrAlbum(row))
@@ -174,6 +149,7 @@ export class IndexService {
     }
 
     const columns: PageContentColumn[] = [];
+    const pendingImageResolution: { columnIndex: number; pageContent: PageContent; indexRow: PageContentRow }[] = [];
 
     for (const pageContentToRowsItem of pageContentToRows) {
       for (const row of pageContentToRowsItem.rows) {
@@ -194,22 +170,15 @@ export class IndexService {
           imageSource = this.youtubeService.thumbnailUrl(firstFileYoutubeId);
           this.logger.info("Using YouTube thumbnail for:", firstFileYoutubeId);
         }
+        const childIndexRow = (pageContentToRowsItem.pageContent.rows || []).find(r =>
+          r.type === PageContentType.ALBUM_INDEX && r.albumIndex?.contentPaths?.length > 0
+        );
         if (!imageSource || imageSource === "null") {
-          if (this.withinPreviewImageSearchDepth(depth)) {
-            const nextVisitedPaths = this.nextVisitedPaths(visitedPaths, pageContentToRowsItem.pageContent.path);
-            const indexPreviewImage = await this.findIndexPreviewImage(pageContentToRowsItem.pageContent, nextVisitedPaths, depth, prefetchedPages);
-            if (indexPreviewImage) {
-              this.logger.info("No metadata image found, using index preview image:", indexPreviewImage);
-              imageSource = indexPreviewImage;
-            } else {
-              const firstPageImage = this.findFirstImageInPage(pageContentToRowsItem.pageContent);
-              this.logger.info("No metadata image found, using first page image:", firstPageImage);
-              imageSource = firstPageImage;
-            }
+          if (childIndexRow && this.withinPreviewImageSearchDepth(depth)) {
+            this.logger.info("No metadata image found, deferring to batch resolution for:", href);
           } else {
-            const firstPageImage = this.findFirstImageInPage(pageContentToRowsItem.pageContent);
-            this.logger.info("No metadata image found, using first page image:", firstPageImage);
-            imageSource = firstPageImage;
+            imageSource = this.findFirstImageInPage(pageContentToRowsItem.pageContent);
+            this.logger.info("No metadata image found, using first page image:", imageSource);
           }
         }
         imageSource = this.optimiseIndexImageSource(imageSource);
@@ -234,6 +203,7 @@ export class IndexService {
         const focalPointTarget = row.carousel?.coverImageFocalPointTarget || FocalPointTarget.BOTH;
         const applyFocalPointToIndex = [FocalPointTarget.INDEX_PREVIEW, FocalPointTarget.BOTH].includes(focalPointTarget);
 
+        const columnIndex = columns.length;
         columns.push({
           title: row.carousel?.title || title,
           contentText,
@@ -245,7 +215,61 @@ export class IndexService {
           location,
           createdAt: row.carousel?.createdAt
         });
+        if (childIndexRow && this.withinPreviewImageSearchDepth(depth) && (!imageSource || imageSource === "null")) {
+          pendingImageResolution.push({columnIndex, pageContent: pageContentToRowsItem.pageContent, indexRow: childIndexRow});
+        }
       }
+    }
+
+    if (pendingImageResolution.length > 0) {
+      const allContentPathRegex = pendingImageResolution.flatMap(item =>
+        item.indexRow.albumIndex.contentPaths.map(contentPath => ({
+          path: ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath)
+        }))
+      );
+      const allChildPages = await this.pageContentService.all({criteria: {$or: allContentPathRegex}});
+      const allCarouselNames = allChildPages
+        .flatMap(page => (page.rows || []).filter(row => this.actions.isCarouselOrAlbum(row)))
+        .map(row => row.carousel?.name)
+        .filter(name => !!name);
+      const uniqueNames = [...new Set(allCarouselNames)];
+      let childMetadata: ContentMetadata[] = [];
+      if (uniqueNames.length > 0) {
+        childMetadata = await this.contentMetadataService.all({criteria: {name: {$in: uniqueNames}}});
+      }
+      this.logger.info("Batch fallback: fetched", allChildPages.length, "child pages and", childMetadata.length, "metadata for", pendingImageResolution.length, "items");
+      pendingImageResolution.forEach(item => {
+        const contentPaths = item.indexRow.albumIndex.contentPaths;
+        const matchingPages = allChildPages.filter(page =>
+          contentPaths.some(cp => {
+            const regex = ContentPathMatchConfigs[cp.stringMatch].mongoRegex(cp.contentPath);
+            return new RegExp(regex.$regex, regex.$options).test(page.path);
+          })
+        );
+        const carouselRows = matchingPages.flatMap(page =>
+          (page.rows || []).filter(row => this.actions.isCarouselOrAlbum(row))
+        );
+        let resolvedImage: string | undefined = null;
+        for (const carouselRow of carouselRows) {
+          const metadata = childMetadata.find(m => m.name === carouselRow.carousel?.name);
+          if (metadata) {
+            const selectedImage = metadata.coverImage || first(metadata.files)?.image;
+            if (selectedImage) {
+              const resolved = this.urlService.imageSourceFor({image: selectedImage}, metadata);
+              if (resolved && resolved !== "null") {
+                resolvedImage = this.optimiseIndexImageSource(resolved);
+                break;
+              }
+            }
+          }
+        }
+        if (!resolvedImage) {
+          resolvedImage = this.optimiseIndexImageSource(this.findFirstImageInPage(item.pageContent));
+        }
+        if (resolvedImage) {
+          columns[item.columnIndex] = {...columns[item.columnIndex], imageSource: resolvedImage};
+        }
+      });
     }
 
     return columns;
@@ -255,6 +279,9 @@ export class IndexService {
     let result: string | undefined = null;
 
     for (const row of pageContent.rows || []) {
+      if (row.type === PageContentType.ALBUM_INDEX) {
+        continue;
+      }
       for (const column of row.columns || []) {
         if (column.imageSource) {
           result = column.imageSource;
@@ -278,52 +305,113 @@ export class IndexService {
     return result;
   }
 
-  private async findIndexPreviewImage(pageContent: PageContent, visitedPaths: string[], depth: number = 0, prefetchedPages?: PageContent[]): Promise<string | undefined> {
-    const indexRow = (pageContent.rows || []).find(row =>
-      row.type === PageContentType.ALBUM_INDEX && row.albumIndex?.contentPaths?.length > 0
-    );
-    const pagePath = pageContent.path || "";
-
-    if (indexRow && (!pagePath || !visitedPaths.includes(pagePath))) {
-      const nextVisitedPaths = this.nextVisitedPaths(visitedPaths, pagePath);
-      const previewContent = await this.albumIndexToPageContent(indexRow, 0, nextVisitedPaths, depth + 1, prefetchedPages);
-      if (previewContent) {
-        return this.findFirstImageInPage(previewContent);
-      } else {
-        return undefined;
-      }
-    } else {
-      return undefined;
-    }
-  }
-
   private async enrichIndexColumnsWithImages(
     columns: PageContentColumn[],
     pages: PageContent[],
-    visitedPaths: string[],
-    depth: number = 0,
-    prefetchedPages?: PageContent[]
+    allPrefetchedPages: PageContent[],
+    depth: number = 0
   ): Promise<PageContentColumn[]> {
-    const enriched = await Promise.all(columns.map(async column => {
-      if (column.imageSource) {
-        return column;
-      } else {
+    if (!this.withinPreviewImageSearchDepth(depth)) {
+      return columns;
+    }
+
+    const childIndexes: { column: PageContentColumn; indexRow: PageContentRow }[] = columns
+      .map(column => {
         const pageMatch = pages.find(page => page.path === column.href);
-        if (pageMatch) {
-          if (this.withinPreviewImageSearchDepth(depth)) {
-            const indexPreviewImage = await this.findIndexPreviewImage(pageMatch, visitedPaths, depth, prefetchedPages);
-            if (indexPreviewImage) {
-              return { ...column, imageSource: this.optimiseIndexImageSource(indexPreviewImage) };
+        if (!pageMatch) {
+          return null;
+        }
+        const indexRow = (pageMatch.rows || []).find(row =>
+          row.type === PageContentType.ALBUM_INDEX && row.albumIndex?.contentPaths?.length > 0
+        );
+        return indexRow ? {column, indexRow} : null;
+      })
+      .filter(item => !!item);
+
+    if (childIndexes.length === 0) {
+      return columns;
+    }
+
+    const allCarouselNames: string[] = allPrefetchedPages
+      .flatMap(page => (page.rows || []).filter(row => this.actions.isCarouselOrAlbum(row)))
+      .map(row => row.carousel?.name)
+      .filter(name => !!name);
+
+    const uniqueNames = [...new Set(allCarouselNames)];
+    let allMetadata: ContentMetadata[] = [];
+    if (uniqueNames.length > 0) {
+      allMetadata = await this.contentMetadataService.all({criteria: {name: {$in: uniqueNames}}});
+      this.logger.info("Batch enrichment: fetched", allMetadata.length, "metadata records for", uniqueNames.length, "album names from", allPrefetchedPages.length, "pre-fetched pages");
+    }
+
+    return columns.map(column => {
+      const childIndex = childIndexes.find(item => item.column === column);
+      if (!childIndex) {
+        return column;
+      }
+
+      const contentPaths = childIndex.indexRow.albumIndex.contentPaths;
+      const allChildPages = allPrefetchedPages.filter(page =>
+        contentPaths.some(cp => {
+          const regex = ContentPathMatchConfigs[cp.stringMatch].mongoRegex(cp.contentPath);
+          return new RegExp(regex.$regex, regex.$options).test(page.path);
+        })
+      );
+
+      const sortConfig = childIndex.indexRow.albumIndex.sortConfig;
+      const childCarouselRows = allChildPages.flatMap(page =>
+        (page.rows || []).filter(row => this.actions.isCarouselOrAlbum(row))
+          .map(row => ({carousel: row.carousel, pagePath: page.path}))
+      );
+
+      let imageSource = column.imageSource;
+      if (!imageSource) {
+        for (const carouselRow of childCarouselRows) {
+          const metadata = allMetadata.find(m => m.name === carouselRow.carousel?.name);
+          if (metadata) {
+            const selectedImage = metadata.coverImage || first(metadata.files)?.image;
+            if (selectedImage) {
+              const resolved = this.urlService.imageSourceFor({image: selectedImage}, metadata);
+              if (resolved && resolved !== "null") {
+                imageSource = this.optimiseIndexImageSource(resolved);
+                break;
+              }
             }
           }
-          return column;
-        } else {
-          return column;
         }
       }
-    }));
 
-    return enriched;
+      if (!imageSource) {
+        for (const childPage of allChildPages) {
+          const pageImage = this.findFirstImageInPage(childPage);
+          if (pageImage && pageImage !== "null") {
+            imageSource = this.optimiseIndexImageSource(pageImage);
+            break;
+          }
+        }
+      }
+
+      const titles = childCarouselRows.map(cr =>
+        cr.carousel?.title || this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(cr.pagePath)))
+      );
+      const sortedTitles = this.sortColumns(titles.map(t => ({title: t}) as PageContentColumn), sortConfig).map(c => c.title);
+      const contentText = this.summarizeTitles(sortedTitles) || column.contentText;
+
+      return {...column, imageSource, contentText};
+    });
+  }
+
+  private summarizeTitles(titles: string[]): string | undefined {
+    if (titles.length === 0) {
+      return undefined;
+    }
+    const firstTitle = titles[0];
+    const otherCount = titles.length - 1;
+    if (otherCount === 0) {
+      return firstTitle;
+    } else {
+      return `${firstTitle} and ${this.stringUtils.pluraliseWithCount(otherCount, "other")}`;
+    }
   }
 
   private withinPreviewImageSearchDepth(depth: number): boolean {
@@ -356,13 +444,19 @@ export class IndexService {
     });
   }
 
-  private nextVisitedPaths(visitedPaths: string[], pathValue: string | undefined): string[] {
-    if (!pathValue) {
-      return visitedPaths;
-    } else if (visitedPaths.includes(pathValue)) {
-      return visitedPaths;
+  private depthLimitedRegex(contentPath: ContentPathMatch): MongoRegex {
+    const baseRegex = ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath);
+    if (!contentPath.maxPathSegments) {
+      return baseRegex;
+    }
+    const basePath = contentPath.contentPath.replace(/\/$/, "");
+    const depthSuffix = `(/[^/]+){1,${contentPath.maxPathSegments}}$`;
+    if (contentPath.stringMatch === StringMatch.STARTS_WITH) {
+      return {$regex: "^" + basePath + depthSuffix, $options: "i"};
+    } else if (contentPath.stringMatch === StringMatch.EQUALS) {
+      return baseRegex;
     } else {
-      return visitedPaths.concat(pathValue);
+      return baseRegex;
     }
   }
 
