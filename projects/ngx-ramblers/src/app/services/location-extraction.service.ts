@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { PageContent, PageContentColumn } from "../models/content-text.model";
+import { PageContent, PageContentColumn, PageContentType } from "../models/content-text.model";
 import { AccessLevel } from "../models/member-resource.model";
 import { LocationDetails } from "../models/ramblers-walks-manager";
 import { LoggerFactory } from "./logger-factory.service";
@@ -74,6 +74,17 @@ export class LocationExtractionService {
     let result = { title: null, description: null };
 
     for (const row of pageContent.rows || []) {
+      if (row.type === PageContentType.ALBUM_INDEX) {
+        if (row.albumIndex?.indexMarkdown) {
+          const text = row.albumIndex.indexMarkdown.trim();
+          const strippedText = this.stringUtils.stripMarkdown(text);
+          if (strippedText.length > 0) {
+            const truncated = strippedText.length > 200 ? strippedText.substring(0, 197) + "..." : strippedText;
+            result = { title: null, description: truncated };
+          }
+        }
+        continue;
+      }
       for (const column of row.columns || []) {
         if (column.contentText) {
           const text = column.contentText.trim();
@@ -137,6 +148,9 @@ export class LocationExtractionService {
     let result: string | undefined = undefined;
 
     for (const row of pageContent.rows || []) {
+      if (row.type === PageContentType.ALBUM_INDEX) {
+        continue;
+      }
       for (const column of row.columns || []) {
         if (column.imageSource) {
           result = column.imageSource;
