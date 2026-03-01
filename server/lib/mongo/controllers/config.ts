@@ -240,7 +240,7 @@ function restoreSensitiveFields(existingValue: any, incomingValue: any): any {
       const merged = {...incoming};
       for (const [k, v] of Object.entries(existing)) {
         if (sensitiveKeys.has(k)) {
-          if (!(k in incoming)) {
+          if (!(k in incoming) || !incoming[k]) {
             merged[k] = v;
           }
         } else if (isObject(v) && k in incoming && !isNull(incoming[k])) {

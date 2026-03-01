@@ -5,6 +5,7 @@ import { HealthStatus } from "../models/health.model";
 import { MemberLoginService } from "./member/member-login.service";
 import { LoggerFactory } from "./logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
+import { ADMIN_MAINTENANCE_PATH, ADMIN_SET_PASSWORD_PATH } from "../models/system.model";
 
 export function checkMigrationStatus() {
   const siteMaintenanceService = inject(SiteMaintenanceService);
@@ -14,6 +15,12 @@ export function checkMigrationStatus() {
 
   return (async () => {
     try {
+      const currentPath = window.location.pathname;
+      if (currentPath.includes(ADMIN_SET_PASSWORD_PATH)) {
+        logger.info("Password reset URL detected, skipping migration check");
+        return;
+      }
+
       const status = await siteMaintenanceService.getMigrationStatus();
       logger.info("Migration status on startup:", status);
 
@@ -25,7 +32,7 @@ export function checkMigrationStatus() {
         if (failed || pending > 0) {
           if (!isAdmin) {
             logger.warn("Migrations pending/failed, redirecting to maintenance page");
-            router.navigate(["/admin/maintenance"]);
+            router.navigate(["/" + ADMIN_MAINTENANCE_PATH]);
           } else {
             logger.info("Admin user detected, allowing access despite migration issues");
           }

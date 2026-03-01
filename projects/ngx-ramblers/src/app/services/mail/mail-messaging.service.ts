@@ -1,4 +1,5 @@
 import { inject, Injectable } from "@angular/core";
+import { ADMIN_SET_PASSWORD_PATH } from "../../models/system.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { isNumber, isString } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -378,7 +379,7 @@ export class MailMessagingService {
       APP_SHORTNAME: this.mailMessagingConfig.group?.shortName,
       APP_LONGNAME: this.mailMessagingConfig.group?.longName,
       APP_URL: this.mailMessagingConfig.group?.href,
-      PW_RESET_LINK: member?.passwordResetId ? `${this.mailMessagingConfig.group?.href}/admin/set-password/${member?.passwordResetId}` : null
+      PW_RESET_LINK: member?.passwordResetId ? `${this.mailMessagingConfig.group?.href}/${ADMIN_SET_PASSWORD_PATH}/${member?.passwordResetId}` : null
     };
   }
 

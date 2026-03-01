@@ -21,7 +21,7 @@ import {
   NotificationConfig,
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
+import { ADMIN_SET_PASSWORD_PATH, SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { banner } from "../../mongo/models/banner";
 import { notificationConfig } from "../../mongo/models/notification-config";
@@ -184,7 +184,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
   const to: EmailAddress[] = [{ email: updatedMember.email, name: `${updatedMember.firstName} ${updatedMember.lastName}` }];
   debugLog("sender:", JSON.stringify(sender), "replyTo:", JSON.stringify(replyTo), "to:", JSON.stringify(to));
 
-  const passwordResetLink = `${groupHref}/admin/set-password/${updatedMember.passwordResetId}`;
+  const passwordResetLink = `${groupHref}/${ADMIN_SET_PASSWORD_PATH}/${updatedMember.passwordResetId}`;
   debugLog("passwordResetLink:", passwordResetLink);
   const bannerImage = bannerImageSource(allBanners, notifConfig.bannerId, groupHref);
 
