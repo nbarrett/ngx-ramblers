@@ -17,7 +17,7 @@ import {
   SystemConfig
 } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { WalkListView } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { dateTimeNow } from "../shared/dates";
+import { dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
 import { DateFormat, RamblersGroupsApiResponse } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { fetchAllRamblersAreas, fetchRamblersGroupsFromApi } from "../ramblers/list-groups";
 import { isBlob } from "es-toolkit";
@@ -924,17 +924,14 @@ interface CachedAreasData {
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
-async function getCachedAreas(): Promise<CachedAreasData | null> {
+async function cachedAreas(): Promise<CachedAreasData | null> {
   try {
     const configDoc = await queryKey(ConfigKey.RAMBLERS_AREAS_CACHE);
     if (configDoc?.value) {
       const cached = configDoc.value as CachedAreasData;
-      const age = Date.now() - cached.cachedAt;
-      if (age < TWENTY_FOUR_HOURS_MS) {
-        debugLog(`Using cached areas (age: ${Math.round(age / 1000 / 60)} minutes)`);
-        return cached;
-      }
-      debugLog(`Cache expired (age: ${Math.round(age / 1000 / 60)} minutes)`);
+      const age = dateTimeNowAsValue() - cached.cachedAt;
+      debugLog(`Found cached areas (age: ${Math.round(age / 1000 / 60)} minutes)`);
+      return cached;
     }
   } catch (error) {
     debugLog(`Error reading areas cache: ${error.message}`);
@@ -942,11 +939,40 @@ async function getCachedAreas(): Promise<CachedAreasData | null> {
   return null;
 }
 
+function isCacheExpired(cached: CachedAreasData): boolean {
+  return dateTimeNowAsValue() - cached.cachedAt >= TWENTY_FOUR_HOURS_MS;
+}
+
+let backgroundRefreshInProgress = false;
+
+function refreshAreasInBackground(): void {
+  if (backgroundRefreshInProgress) {
+    debugLog("Background refresh already in progress, skipping");
+    return;
+  }
+  backgroundRefreshInProgress = true;
+  debugLog("Starting background refresh of areas cache");
+  fetchAndCacheAreas()
+    .then(() => debugLog("Background refresh completed"))
+    .catch(error => debugLog(`Background refresh failed: ${error.message}`))
+    .finally(() => { backgroundRefreshInProgress = false; });
+}
+
+async function fetchAndCacheAreas(): Promise<{ areaCode: string; areaName: string }[]> {
+  const allAreas = await fetchAllRamblersAreas();
+  const areas = allAreas
+    .filter(area => area.scope === "A" && /^[A-Z]{2}$/.test(area.group_code))
+    .map(area => ({ areaCode: area.group_code, areaName: area.name }))
+    .sort((a, b) => a.areaName.localeCompare(b.areaName));
+  await setCachedAreas(areas);
+  return areas;
+}
+
 async function setCachedAreas(areas: { areaCode: string; areaName: string }[]): Promise<void> {
   try {
     const cacheData: CachedAreasData = {
       areas,
-      cachedAt: Date.now()
+      cachedAt: dateTimeNowAsValue()
     };
     await createOrUpdateKey(ConfigKey.RAMBLERS_AREAS_CACHE, cacheData);
     debugLog(`Cached ${areas.length} areas`);
@@ -958,24 +984,18 @@ async function setCachedAreas(areas: { areaCode: string; areaName: string }[]): 
 export async function listAvailableAreas(req: Request, res: Response) {
   try {
     const forceRefresh = req.query.refresh === "true";
+    const cached = forceRefresh ? null : await cachedAreas();
 
-    if (!forceRefresh) {
-      const cached = await getCachedAreas();
-      if (cached) {
-        return res.status(200).json({ areas: cached.areas, cached: true });
+    if (cached) {
+      if (isCacheExpired(cached)) {
+        refreshAreasInBackground();
       }
+      res.status(200).json({ areas: cached.areas, cached: true });
+    } else {
+      debugLog("No cached areas available, fetching from Ramblers API...");
+      const areas = await fetchAndCacheAreas();
+      res.status(200).json({ areas, cached: false });
     }
-
-    debugLog("Fetching areas from Ramblers API...");
-    const allAreas = await fetchAllRamblersAreas();
-    const areas = allAreas
-      .filter(area => area.scope === "A" && /^[A-Z]{2}$/.test(area.group_code))
-      .map(area => ({ areaCode: area.group_code, areaName: area.name }))
-      .sort((a, b) => a.areaName.localeCompare(b.areaName));
-
-    await setCachedAreas(areas);
-
-    res.status(200).json({ areas, cached: false });
   } catch (error) {
     debugLog(`Failed to list available areas: ${error.message}`);
     res.status(500).json({ error: "Failed to list available areas" });

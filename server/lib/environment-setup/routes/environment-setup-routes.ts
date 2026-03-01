@@ -25,6 +25,7 @@ import { DeploymentConfig } from "../../../deploy/types";
 import { booleanOf } from "../../shared/string-utils";
 import * as systemConfig from "../../config/system-config";
 import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { ADMIN_SET_PASSWORD_PATH } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { keys } from "es-toolkit/compat";
 import { baseDomainFrom, connectToEnvironmentMongo, EnvironmentNotFoundError, loadEnvironmentContext, withBrevoApiKey } from "../environment-context";
 import { loadSecretsForEnvironment } from "../../shared/secrets";
@@ -866,7 +867,7 @@ router.post("/admin-password-reset/:environmentName", async (req: Request, res: 
       const appName = envConfigData.flyio?.appName || `ngx-ramblers-${environmentName}`;
       const appUrl = `https://${environmentName}.${baseDomain}`;
       const flyUrl = `https://${appName}.fly.dev`;
-      const resetPath = `/admin/set-password/${passwordResetId}`;
+      const resetPath = `/${ADMIN_SET_PASSWORD_PATH}/${passwordResetId}`;
 
       res.json({
         success: true,

@@ -305,6 +305,9 @@ export interface ColourSelector {
 }
 
 
+export const ADMIN_SET_PASSWORD_PATH = "admin/set-password";
+export const ADMIN_MAINTENANCE_PATH = "admin/maintenance";
+
 export const rgbColourCloudy = "rgb(255, 255, 255)";
 export const rgbColourGranite = "rgb(64, 65, 65)";
 export const rgbColourMintcake = "rgb(155, 200, 171)";
