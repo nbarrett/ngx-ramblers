@@ -7,6 +7,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { take } from "es-toolkit/compat";
 import {
   faArrowsLeftRightToLine,
+  faBorderAll,
   faCircleInfo,
   faGripVertical,
   faImage,
@@ -35,7 +36,6 @@ import { BroadcastService } from "../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-button";
 import { BadgeStepperComponent } from "../../modules/common/badge-button/badge-stepper";
-import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { AlbumGalleryComponent } from "./album-gallery";
 import { AlbumGridComponent } from "./album-grid";
 import { CarouselComponent } from "../../carousel/view/carousel";
@@ -43,11 +43,12 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
     selector: "app-album",
+    styleUrls: ["./album.sass"],
     template: `
       <div class="row h-100">
         @if (album.allowSwitchView || preview) {
           <div class="col-sm-12">
-            <div class="d-flex flex-wrap gap-1 justify-content-end mb-1">
+            <div class="album-toolbar d-flex flex-wrap gap-1 mb-1">
               <ng-content/>
               @if (album.allowSwitchView || preview) {
                 <app-badge-button [tooltip]="'view as carousel'" [active]="albumView===AlbumView.CAROUSEL"
@@ -65,13 +66,13 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                                     noRightMargin
                                     (click)="toggleShowTitles()"
                                     [caption]="gridViewOptions?.showTitles? 'hide titles':'show titles'"/>
-                  <app-badge-button [tooltip]="isMasonryLayout() ? 'switch to fixed aspect' : 'switch to masonry'"
-                                    [active]="isMasonryLayout()"
-                                    [icon]="isMasonryLayout() ? faGripVertical : faTableCellsLarge"
+                  <app-badge-button [tooltip]="layoutModeTooltip()"
+                                    [active]="isMasonryLayout() || isJustifiedLayout()"
+                                    [icon]="layoutModeIcon()"
                                     noRightMargin
                                     (click)="toggleLayoutMode()"
-                                    [caption]="isMasonryLayout() ? 'masonry' : 'fixed'"/>
-                  <app-badge-stepper [tooltip]="'adjust columns'"
+                                    [caption]="layoutModeCaption()"/>
+                  <app-badge-stepper [tooltip]="isJustifiedLayout() ? 'target columns (varies by image shape)' : 'adjust columns'"
                                      [icon]="faTableColumns"
                                      [value]="effectiveColumns()"
                                      [min]="1"
@@ -126,7 +127,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         </div>
       </div>
     `,
-  imports: [BadgeButtonComponent, BadgeStepperComponent, TooltipDirective, AlbumGalleryComponent, AlbumGridComponent, CarouselComponent, FontAwesomeModule]
+  imports: [BadgeButtonComponent, BadgeStepperComponent, AlbumGalleryComponent, AlbumGridComponent, CarouselComponent, FontAwesomeModule]
 })
 export class AlbumComponent implements OnInit {
 
@@ -174,12 +175,16 @@ export class AlbumComponent implements OnInit {
   protected readonly faRectangleAd = faRectangleAd;
   protected readonly faTableCells = faTableCells;
   protected readonly faSearch = faSearch;
-  public gridViewOptions: GridViewOptions;
+  get gridViewOptions(): GridViewOptions {
+    return this.album?.gridViewOptions;
+  }
+
   public runtimeColumns: number | null = null;
   public runtimeGap: number | null = null;
   protected readonly AlbumView = AlbumView;
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly faGripVertical = faGripVertical;
+  protected readonly faBorderAll = faBorderAll;
   protected readonly faTableCellsLarge = faTableCellsLarge;
   protected readonly faTableColumns = faTableColumns;
   protected readonly faArrowsLeftRightToLine = faArrowsLeftRightToLine;
@@ -197,10 +202,7 @@ export class AlbumComponent implements OnInit {
 
   ngOnInit() {
     this.logger.info("ngOnInit:album:", this.album);
-    if (!this.album.gridViewOptions) {
-      this.album.gridViewOptions = {...DEFAULT_GRID_OPTIONS};
-    }
-    this.gridViewOptions = {...DEFAULT_GRID_OPTIONS, ...this.album.gridViewOptions};
+    this.album.gridViewOptions = {...DEFAULT_GRID_OPTIONS, ...this.album.gridViewOptions};
     this.initFromUrlParams();
     this.initialised = true;
     this.logger.info("ngOnInit:querying metadata service with root folder", RootFolder.carousels, "album name:", this.album?.name);
@@ -256,16 +258,49 @@ export class AlbumComponent implements OnInit {
     return this.gridViewOptions?.layoutMode === GridLayoutMode.MASONRY;
   }
 
+  isJustifiedLayout(): boolean {
+    return this.gridViewOptions?.layoutMode === GridLayoutMode.JUSTIFIED;
+  }
+
+  private static readonly layoutCycle: GridLayoutMode[] = [
+    GridLayoutMode.MASONRY,
+    GridLayoutMode.JUSTIFIED,
+    GridLayoutMode.FIXED_ASPECT
+  ];
+
   toggleLayoutMode() {
     if (this.gridViewOptions) {
-      this.gridViewOptions.layoutMode = this.isMasonryLayout()
-        ? GridLayoutMode.FIXED_ASPECT
-        : GridLayoutMode.MASONRY;
+      const current = this.gridViewOptions.layoutMode;
+      const idx = AlbumComponent.layoutCycle.indexOf(current);
+      this.gridViewOptions.layoutMode = AlbumComponent.layoutCycle[(idx + 1) % AlbumComponent.layoutCycle.length];
       if (this.preview) {
         this.album.gridViewOptions.layoutMode = this.gridViewOptions.layoutMode;
       }
       this.updateUrlParams();
     }
+  }
+
+  layoutModeTooltip(): string {
+    const next = this.nextLayoutMode();
+    return `switch to ${next}`;
+  }
+
+  layoutModeCaption(): string {
+    return this.gridViewOptions?.layoutMode || "masonry";
+  }
+
+  layoutModeIcon() {
+    switch (this.gridViewOptions?.layoutMode) {
+      case GridLayoutMode.MASONRY: return this.faGripVertical;
+      case GridLayoutMode.JUSTIFIED: return this.faBorderAll;
+      default: return this.faTableCellsLarge;
+    }
+  }
+
+  private nextLayoutMode(): string {
+    const current = this.gridViewOptions?.layoutMode;
+    const idx = AlbumComponent.layoutCycle.indexOf(current);
+    return AlbumComponent.layoutCycle[(idx + 1) % AlbumComponent.layoutCycle.length];
   }
 
   effectiveColumns(): number {

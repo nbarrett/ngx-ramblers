@@ -39,6 +39,24 @@
   @extend .badge-button
   background-color: $ramblers-colour-sunrise
 
+.album-toolbar
+  > app-badge-button, > app-badge-stepper
+    flex: 1 1 auto
+    display: flex
+    min-width: 0
+
+  .badge-button, .badge-button-active
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    width: 100%
+    margin: 0
+
+  .badge-stepper
+    width: 100%
+    justify-content: center
+    margin: 0
+
 .dotted-content
   border: dotted 3px lightgray
   border-radius: 6px
