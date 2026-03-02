@@ -43,6 +43,7 @@ export async function systemStatus(req: Request, res: Response<Partial<HealthRes
     const automaticMigrations = migrationStatus.files.filter(f => !f.manual);
     const pending = automaticMigrations.filter(f => f.status === MigrationFileStatus.PENDING).length;
     const applied = automaticMigrations.filter(f => f.status === MigrationFileStatus.APPLIED).length;
+    const skipped = automaticMigrations.filter(f => f.status === MigrationFileStatus.SKIPPED).length;
     const failed = automaticMigrations.some(f => f.status === MigrationFileStatus.FAILED);
 
     const isHealthy = !failed && pending === 0;
@@ -55,6 +56,7 @@ export async function systemStatus(req: Request, res: Response<Partial<HealthRes
       migrations: {
         pending,
         applied,
+        skipped,
         failed
       }
     };

@@ -3,6 +3,7 @@ import { MigrationFile } from "./mongo-migration-model";
 export interface HealthMigrations {
   pending: number;
   applied: number;
+  skipped: number;
   failed: boolean;
   files?: MigrationFile[];
 }

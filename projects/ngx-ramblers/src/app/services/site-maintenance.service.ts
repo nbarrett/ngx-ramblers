@@ -34,6 +34,7 @@ export class SiteMaintenanceService {
         migrations: {
           pending: 0,
           applied: 0,
+          skipped: 0,
           failed: true,
           files: []
         }

@@ -2,6 +2,7 @@ export enum MigrationFileStatus {
   PENDING = "pending",
   RUNNING = "running",
   APPLIED = "applied",
+  SKIPPED = "skipped",
   FAILED = "failed"
 }
 
@@ -17,6 +18,7 @@ export interface MigrationFile {
   startedAt?: string;
   timestamp?: string;
   error?: string;
+  skippedReason?: string;
   manual?: boolean;
 }
 
@@ -26,7 +28,13 @@ export interface MaintenanceMigrationFile {
   startedAt?: string;
   timestamp: string;
   error?: string;
+  skippedReason?: string;
   manual?: boolean;
+}
+
+export interface MigrationUpResult {
+  skipped?: boolean;
+  reason?: string;
 }
 
 export interface MigrationStatus {
