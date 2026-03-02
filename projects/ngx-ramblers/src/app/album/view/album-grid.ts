@@ -25,18 +25,18 @@ import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
     template: `
       <div [class]="containerClasses()" [style]="containerStyles()">
         @for (image of lazyLoadingMetadata?.selectedSlides; track image._id) {
-          <div [class]="cardColumnClasses()">
-            <div [class]="cardClasses()">
+          <div [class]="cardColumnClasses()" [style]="itemStyle(image)">
+            <div [class]="cardClasses()" [style.border-radius.px]="effectiveBorderRadius()">
               @if (hasYoutubeVideo(image)) {
-                <div class="album-media card-img-top">
+                <div class="album-media card-img-top" [style.border-radius.px]="effectiveBorderRadius()">
                   <app-youtube-embed
                     [youtubeId]="image.youtubeId"
                     [title]="image.text || 'YouTube video'"/>
                 </div>
               } @else {
-                <div class="album-media card-img-top">
+                <div class="album-media card-img-top" [style.border-radius.px]="effectiveBorderRadius()">
                   <img
-                    (load)="loaded(image)"
+                    (load)="loaded($event, image)"
                     lazyLoad="{{ urlService.imageSourceFor(image, lazyLoadingMetadata?.contentMetadata) }}"
                     [alt]="image.text">
                 </div>
@@ -103,8 +103,26 @@ export class AlbumGridComponent {
     return `${this.lazyLoadingMetadata?.selectedSlides.indexOf(image) + 1} of ${this.lazyLoadingMetadata?.selectedSlides.length}`;
   }
 
-  loaded(item: ContentMetadataItem) {
+  aspectRatios = new Map<string, number>();
+
+  loaded(event: Event, item: ContentMetadataItem) {
+    const img = event.target as HTMLImageElement;
+    if (img.naturalWidth && img.naturalHeight) {
+      this.aspectRatios.set(item._id, img.naturalWidth / img.naturalHeight);
+    }
     this.logger.info("loadedevent:", imageTracker(item), "index position:", this.lazyLoadingMetadata?.selectedSlides.indexOf(item));
+  }
+
+  itemStyle(image: ContentMetadataItem): string {
+    if (!this.isJustifiedLayout()) {
+      return "";
+    }
+    const ar = this.aspectRatios.get(image._id) || 1.5;
+    const targetCols = this.effectiveColumns();
+    const normalAr = 1.5;
+    const gap = this.effectiveGap();
+    const basePct = (ar / normalAr) * (100 / targetCols);
+    return `flex-grow: ${ar}; flex-basis: calc(${basePct}% - ${gap}rem);`;
   }
 
   hasYoutubeVideo(item: ContentMetadataItem): boolean {
@@ -115,6 +133,10 @@ export class AlbumGridComponent {
     return this.gridViewOptions?.layoutMode === GridLayoutMode.MASONRY;
   }
 
+  isJustifiedLayout(): boolean {
+    return this.gridViewOptions?.layoutMode === GridLayoutMode.JUSTIFIED;
+  }
+
   effectiveColumns(): number {
     if (this.runtimeColumns !== null) {
       return this.runtimeColumns;
@@ -123,24 +145,29 @@ export class AlbumGridComponent {
   }
 
   containerClasses(): string {
-    const layoutClass = this.isMasonryLayout() ? "masonry-layout" : "fixed-aspect-layout";
-    const colsClass = `cols-${this.effectiveColumns()}`;
-    if (this.isMasonryLayout()) {
+    const mode = this.gridViewOptions?.layoutMode;
+    if (mode === GridLayoutMode.JUSTIFIED) {
+      const colsClass = `cols-${this.effectiveColumns()}`;
       const zeroGapClass = this.effectiveGap() === 0 ? "zero-gap" : "";
-      return `album-grid-container ${layoutClass} ${colsClass} ${zeroGapClass}`.trim();
+      return `album-grid-container justified-layout ${colsClass} ${zeroGapClass}`.trim();
     }
-    return `album-grid-container ${layoutClass} row g-3`;
+    if (mode === GridLayoutMode.MASONRY) {
+      const colsClass = `cols-${this.effectiveColumns()}`;
+      const zeroGapClass = this.effectiveGap() === 0 ? "zero-gap" : "";
+      return `album-grid-container masonry-layout ${colsClass} ${zeroGapClass}`.trim();
+    }
+    return `album-grid-container fixed-aspect-layout row g-3`;
   }
 
   cardColumnClasses(): string {
-    if (this.isMasonryLayout()) {
+    if (this.isMasonryLayout() || this.isJustifiedLayout()) {
       return "";
     }
     return cardClasses(this.effectiveColumns());
   }
 
   cardClasses(): string {
-    if (this.isMasonryLayout() && this.effectiveGap() === 0) {
+    if ((this.isMasonryLayout() || this.isJustifiedLayout()) && this.effectiveGap() === 0) {
       return "card";
     }
     return "card h-100";
@@ -153,12 +180,21 @@ export class AlbumGridComponent {
     return this.gridViewOptions?.gap ?? DEFAULT_GRID_OPTIONS.gap;
   }
 
+  effectiveBorderRadius(): number {
+    return this.gridViewOptions?.borderRadius ?? DEFAULT_GRID_OPTIONS.borderRadius;
+  }
+
   containerStyles(): string {
     const gapRem = this.effectiveGap();
+    const radius = this.effectiveBorderRadius();
+    const radiusVar = `--grid-border-radius: ${radius}px;`;
     if (this.isMasonryLayout()) {
-      return `column-gap: ${gapRem}rem; --masonry-gap: ${gapRem}rem;`;
+      return `column-gap: ${gapRem}rem; --masonry-gap: ${gapRem}rem; ${radiusVar}`;
     }
-    return `--bs-gutter-x: ${gapRem}rem; --bs-gutter-y: ${gapRem}rem;`;
+    if (this.isJustifiedLayout()) {
+      return `gap: ${gapRem}rem; --justified-gap: ${gapRem}rem; ${radiusVar}`;
+    }
+    return `--bs-gutter-x: ${gapRem}rem; --bs-gutter-y: ${gapRem}rem; ${radiusVar}`;
   }
 
 }

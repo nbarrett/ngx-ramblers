@@ -117,60 +117,55 @@ import { rangeSliderStyles } from "../../../components/range-slider.styles";
                         </div>
                       }
                     </div>
-                    <div class="row mt-3">
-                      <div class="col-sm-12">
-                        <div class="alert alert-warning mb-0">
-                          <strong>Grid settings</strong> (layout, columns, gap, titles) are configured using the toolbar
-                          controls below. Changes made there will be saved with the album.
-                        </div>
-                      </div>
-                    </div>
-                    <div class="row mt-3">
+                    <div class="d-flex flex-wrap gap-3 mt-3">
                       @if ((row.carousel.galleryViewOptions || row.carousel.allowSwitchView) && actions.isAlbum(row)) {
-                        <div
-                          class="col-auto">
-                          <div class="form-group">
-                            <label
-                              [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-thumb-position')">
-                              Thumb Position</label>
-                            <select class="form-control input-sm"
-                                    [disabled]="row.carousel.galleryViewOptions.thumb"
-                                    [(ngModel)]="row.carousel.galleryViewOptions.thumbPosition"
-                                    [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-thumb-position')">
-                              @for (thumbPosition of thumbPositions; track thumbPosition) {
-                                <option
-                                  [ngValue]="thumbPosition">{{ stringUtils.asTitle(thumbPosition) }}
-                                </option>
-                              }
-                            </select>
-                          </div>
+                        <div class="form-group flex-fill">
+                          <label
+                            [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-thumb-position')">
+                            Thumb Position</label>
+                          <select class="form-control input-sm"
+                                  [disabled]="row.carousel.galleryViewOptions.thumb"
+                                  [(ngModel)]="row.carousel.galleryViewOptions.thumbPosition"
+                                  [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-thumb-position')">
+                            @for (thumbPosition of thumbPositions; track thumbPosition) {
+                              <option
+                                [ngValue]="thumbPosition">{{ stringUtils.asTitle(thumbPosition) }}
+                              </option>
+                            }
+                          </select>
                         </div>
                       }
-                      <div class="col-auto">
-                        <div class="form-group">
-                          <label
-                            [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-slide-interval')">
-                            Slide interval in seconds</label>
-                          <input
-                            [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-slide-interval')"
-                            #input
-                            (input)="row.carousel.slideInterval=actions.constrainInput(input, 0,30) * 1000"
-                            [value]="row.carousel.slideInterval/1000"
-                            autocomplete="columns"
-                            class="form-control interval-input"
-                            type="number">
-                        </div>
+                      <div class="form-group flex-fill">
+                        <label
+                          [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-slide-interval')">
+                          Slide interval in seconds</label>
+                        <input
+                          [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-slide-interval')"
+                          #input
+                          (input)="row.carousel.slideInterval=actions.constrainInput(input, 0,30) * 1000"
+                          [value]="row.carousel.slideInterval/1000"
+                          autocomplete="columns"
+                          class="form-control"
+                          type="number">
                       </div>
-                      <div class="col-auto">
-                        <div class="form-group">
-                          <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-height')">
-                            Carousel Height</label>
-                          <input [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-height')"
-                                 name="coverImageHeight"
-                                 class="form-control"
-                                 type="number"
-                                 [(ngModel)]="row.carousel.height"/>
-                        </div>
+                      <div class="form-group flex-fill">
+                        <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-height')">
+                          Carousel Height</label>
+                        <input [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-height')"
+                               name="coverImageHeight"
+                               class="form-control"
+                               type="number"
+                               [(ngModel)]="row.carousel.height"/>
+                      </div>
+                      <div class="form-group flex-fill">
+                        <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-border-radius')">
+                          Border Radius</label>
+                        <input [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-border-radius')"
+                               class="form-control"
+                               type="number"
+                               min="0"
+                               max="20"
+                               [(ngModel)]="row.carousel.gridViewOptions.borderRadius"/>
                       </div>
                     </div>
                   </div>

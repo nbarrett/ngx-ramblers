@@ -622,7 +622,8 @@ export enum ImageFit {
 
 export enum GridLayoutMode {
   FIXED_ASPECT = "fixed-aspect",
-  MASONRY = "masonry"
+  MASONRY = "masonry",
+  JUSTIFIED = "justified"
 }
 
 export enum VerticalPosition {
@@ -664,6 +665,7 @@ export interface GridViewOptions extends HasColumnRange {
   layoutMode?: GridLayoutMode;
   imageFit?: ImageFit;
   gap?: number;
+  borderRadius?: number;
 }
 
 export interface GalleryViewOptions {
@@ -728,7 +730,8 @@ export const DEFAULT_GRID_OPTIONS: GridViewOptions = {
   maxColumns: 2,
   layoutMode: GridLayoutMode.MASONRY,
   imageFit: ImageFit.CONTAIN,
-  gap: 1
+  gap: 1,
+  borderRadius: 6
 };
 
 
