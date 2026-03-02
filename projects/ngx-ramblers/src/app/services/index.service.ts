@@ -8,6 +8,7 @@ import {
   ContentPathMatchConfigs,
   FocalPointTarget,
   IndexContentType,
+  IndexEntryOverride,
   PageContent,
   PageContentColumn,
   PageContentRow,
@@ -74,18 +75,19 @@ export class IndexService {
       let allColumns: PageContentColumn[] = [];
 
       if (contentTypes.includes(IndexContentType.ALBUMS)) {
-        const albumColumns = await this.extractAlbumColumns(pages);
+        const albumColumns = await this.extractAlbumColumns(pages, 0, albumIndex.entryOverrides);
         allColumns = allColumns.concat(albumColumns);
       }
 
       if (contentTypes.includes(IndexContentType.PAGES)) {
         const locationColumns = this.locationExtractionService.extractLocationsFromPages(pages);
-        const enrichedColumns = await this.enrichIndexColumnsWithImages(locationColumns, pages);
+        const enrichedColumns = await this.enrichIndexColumnsWithImages(locationColumns, pages, 0, albumIndex.entryOverrides);
         allColumns = allColumns.concat(enrichedColumns);
       }
 
       const deduplicatedColumns = this.deduplicateByHref(allColumns);
-      const orderedColumns = this.sortColumns(deduplicatedColumns, albumIndex.sortConfig);
+      const columnsWithAlbumNames = this.ensureAlbumNames(deduplicatedColumns, pages);
+      const orderedColumns = this.sortColumns(columnsWithAlbumNames, albumIndex.sortConfig);
 
       const albumIndexPageContent: PageContent = this.pageContentFrom(pageContentRow, orderedColumns, rowIndex);
       this.logger.info("Generated index with", orderedColumns.length, "items from content types:", contentTypes, "(", allColumns.length, "before deduplication) based on:", pathRegex);
@@ -95,7 +97,7 @@ export class IndexService {
     }
   }
 
-  private async extractAlbumColumns(pages: PageContent[], depth: number = 0): Promise<PageContentColumn[]> {
+  private async extractAlbumColumns(pages: PageContent[], depth: number = 0, entryOverrides?: Record<string, IndexEntryOverride>): Promise<PageContentColumn[]> {
     const pageContentToRows: PageContentToRows[] = pages.map(pageContent => ({
       pageContent,
       rows: pageContent.rows.filter(row => this.actions.isCarouselOrAlbum(row))
@@ -197,8 +199,19 @@ export class IndexService {
         }
         contentText = this.stringUtils.stripMarkdown(contentText);
 
+        const override = entryOverrides?.[href];
+        if (override?.coverImage && contentMetadata) {
+          const overriddenSource = this.urlService.imageSourceFor({image: override.coverImage}, contentMetadata);
+          if (overriddenSource && overriddenSource !== "null") {
+            imageSource = this.optimiseIndexImageSource(overriddenSource);
+          }
+        }
+
         const focalPointTarget = row.carousel?.coverImageFocalPointTarget || FocalPointTarget.BOTH;
         const applyFocalPointToIndex = [FocalPointTarget.INDEX_PREVIEW, FocalPointTarget.BOTH].includes(focalPointTarget);
+        const effectiveFocalPoint = override?.coverImageFocalPoint !== undefined
+          ? override.coverImageFocalPoint
+          : (applyFocalPointToIndex ? row.carousel?.coverImageFocalPoint : null);
 
         const columnIndex = columns.length;
         columns.push({
@@ -207,10 +220,11 @@ export class IndexService {
           href,
           imageSource,
           imageBorderRadius: row.carousel?.coverImageBorderRadius,
-          imageFocalPoint: applyFocalPointToIndex ? row.carousel?.coverImageFocalPoint : null,
+          imageFocalPoint: effectiveFocalPoint,
           accessLevel: AccessLevel.public,
           location,
-          createdAt: row.carousel?.createdAt
+          createdAt: row.carousel?.createdAt,
+          albumName: row.carousel?.name
         });
         if (childIndexRow && this.withinPreviewImageSearchDepth(depth) && (!imageSource || imageSource === "null")) {
           pendingImageResolution.push({columnIndex, pageContent: pageContentToRowsItem.pageContent, indexRow: childIndexRow});
@@ -305,7 +319,8 @@ export class IndexService {
   private async enrichIndexColumnsWithImages(
     columns: PageContentColumn[],
     pages: PageContent[],
-    depth: number = 0
+    depth: number = 0,
+    entryOverrides?: Record<string, IndexEntryOverride>
   ): Promise<PageContentColumn[]> {
     if (!this.withinPreviewImageSearchDepth(depth)) {
       return columns;
@@ -364,12 +379,15 @@ export class IndexService {
       );
 
       const sortConfig = childIndex.indexRow.albumIndex.sortConfig;
-      const childCarouselRows = allChildPages.flatMap(page =>
+      const sortedChildPages = this.sortPagesBySortConfig(allChildPages, sortConfig);
+      const childCarouselRows = sortedChildPages.flatMap(page =>
         (page.rows || []).filter(row => this.actions.isCarouselOrAlbum(row))
           .map(row => ({carousel: row.carousel, pagePath: page.path}))
       );
 
       let imageSource = column.imageSource;
+      let imageFocalPoint = column.imageFocalPoint;
+      let albumName = column.albumName;
       if (!imageSource) {
         for (const carouselRow of childCarouselRows) {
           const metadata = allMetadata.find(m => m.name === carouselRow.carousel?.name);
@@ -379,6 +397,12 @@ export class IndexService {
               const resolved = this.urlService.imageSourceFor({image: selectedImage}, metadata);
               if (resolved && resolved !== "null") {
                 imageSource = this.optimiseIndexImageSource(resolved);
+                const focalPointTarget = carouselRow.carousel?.coverImageFocalPointTarget || FocalPointTarget.BOTH;
+                const applyToIndex = [FocalPointTarget.INDEX_PREVIEW, FocalPointTarget.BOTH].includes(focalPointTarget);
+                if (applyToIndex && carouselRow.carousel?.coverImageFocalPoint) {
+                  imageFocalPoint = carouselRow.carousel.coverImageFocalPoint;
+                }
+                albumName = albumName || carouselRow.carousel?.name;
                 break;
               }
             }
@@ -387,7 +411,7 @@ export class IndexService {
       }
 
       if (!imageSource) {
-        for (const childPage of allChildPages) {
+        for (const childPage of sortedChildPages) {
           const pageImage = this.findFirstImageInPage(childPage);
           if (pageImage && pageImage !== "null") {
             imageSource = this.optimiseIndexImageSource(pageImage);
@@ -396,13 +420,27 @@ export class IndexService {
         }
       }
 
+      const override = entryOverrides?.[column.href];
+      if (override?.coverImage && albumName) {
+        const overrideMetadata = allMetadata.find(m => m.name === albumName);
+        if (overrideMetadata) {
+          const overriddenSource = this.urlService.imageSourceFor({image: override.coverImage}, overrideMetadata);
+          if (overriddenSource && overriddenSource !== "null") {
+            imageSource = this.optimiseIndexImageSource(overriddenSource);
+          }
+        }
+      }
+      if (override?.coverImageFocalPoint !== undefined) {
+        imageFocalPoint = override.coverImageFocalPoint;
+      }
+
       const titles = childCarouselRows.map(cr =>
         cr.carousel?.title || this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(cr.pagePath)))
       );
       const sortedTitles = this.sortColumns(titles.map(t => ({title: t}) as PageContentColumn), sortConfig).map(c => c.title);
       const contentText = this.summarizeTitles(sortedTitles) || column.contentText;
 
-      return {...column, imageSource, contentText};
+      return {...column, imageSource, imageFocalPoint, albumName, contentText};
     });
   }
 
@@ -510,10 +548,12 @@ export class IndexService {
     for (const column of columns) {
       const existingColumn = hrefMap.get(column.href);
       if (existingColumn) {
+        const albumName = existingColumn.albumName || column.albumName;
         if (this.hasMoreCompleteData(column, existingColumn)) {
-          hrefMap.set(column.href, column);
+          hrefMap.set(column.href, {...column, albumName: column.albumName || albumName});
           this.logger.info("Replacing duplicate entry for", column.href, "with more complete data");
         } else {
+          hrefMap.set(column.href, {...existingColumn, albumName: existingColumn.albumName || albumName});
           this.logger.info("Keeping existing entry for", column.href);
         }
       } else {
@@ -528,6 +568,19 @@ export class IndexService {
     const score1 = this.calculateDataCompletenessScore(column1);
     const score2 = this.calculateDataCompletenessScore(column2);
     return score1 > score2;
+  }
+
+  private sortPagesBySortConfig(pages: PageContent[], sortConfig?: AlbumIndexSortConfig): PageContent[] {
+    const pageByPath = new Map(pages.map(p => [p.path, p]));
+    const sortable = pages.map(page => {
+      const carouselRow = (page.rows || []).find(r => this.actions.isCarouselOrAlbum(r));
+      return {
+        title: carouselRow?.carousel?.title || this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(page.path))),
+        href: page.path,
+        createdAt: carouselRow?.carousel?.createdAt
+      } as PageContentColumn;
+    });
+    return this.sortColumns(sortable, sortConfig).map(c => pageByPath.get(c.href)).filter(p => !!p);
   }
 
   private sortColumns(columns: PageContentColumn[], sortConfig?: AlbumIndexSortConfig): PageContentColumn[] {
@@ -561,6 +614,24 @@ export class IndexService {
       score += 1;
     }
     return score;
+  }
+
+  private ensureAlbumNames(columns: PageContentColumn[], pages: PageContent[]): PageContentColumn[] {
+    return columns.map(column => {
+      if (column.albumName) {
+        return column;
+      }
+      const page = pages.find(p => p.path === column.href);
+      if (page) {
+        const rowWithCarousel = (page.rows || []).find(row => !!row.carousel?.name);
+        if (rowWithCarousel?.carousel?.name) {
+          this.logger.info("ensureAlbumNames: set albumName", rowWithCarousel.carousel.name, "for", column.href, "from row type:", rowWithCarousel.type);
+          return {...column, albumName: rowWithCarousel.carousel.name};
+        }
+        this.logger.info("ensureAlbumNames: no carousel name found for", column.href, "row types:", (page.rows || []).map(r => r.type));
+      }
+      return column;
+    });
   }
 
   public pageContentFrom(pageContentRow: PageContentRow, albumIndexes: PageContentColumn[], rowIndex: number): PageContent {

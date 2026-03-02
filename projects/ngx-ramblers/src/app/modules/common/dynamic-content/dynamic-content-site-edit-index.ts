@@ -23,6 +23,7 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
 import { MapOverlayControls } from "../../../shared/components/map-overlay-controls";
 import { DynamicContentViewIndexMap } from "./dynamic-content-view-index-map";
 import { IndexService } from "../../../services/index.service";
+import { IndexEntryOverrideEditor } from "./index-entry-override-editor";
 import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 import { PageService } from "../../../services/page.service";
 import { ContentText } from "../../../models/content-text.model";
@@ -236,6 +237,12 @@ import { ContentText } from "../../../models/content-text.model";
           </div>
         </div>
       }
+      @if (indexPageContent?.rows?.[0]?.columns?.length > 0) {
+        <app-index-entry-override-editor
+          [row]="row"
+          [indexPageContent]="indexPageContent"
+          (overridesChanged)="refreshContentPreview()"/>
+      }
       @if (showMapConfig()) {
         <app-map-overlay-controls
           [config]="row.albumIndex.mapConfig"
@@ -291,7 +298,7 @@ import { ContentText } from "../../../models/content-text.model";
         </div>
       }
       <app-action-buttons [pageContent]="indexPageContent" [rowIndex]="0" presentationMode/>`,
-    imports: [BadgeButtonComponent, FormsModule, TypeaheadDirective, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap, MarkdownEditorComponent]
+    imports: [BadgeButtonComponent, FormsModule, TypeaheadDirective, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap, MarkdownEditorComponent, IndexEntryOverrideEditor]
 })
 export class AlbumIndexSiteEditComponent implements OnInit {
   public pageContentService: PageContentService = inject(PageContentService);
@@ -349,6 +356,9 @@ export class AlbumIndexSiteEditComponent implements OnInit {
     }
     if (!this.row.albumIndex.excludePaths) {
       this.row.albumIndex.excludePaths = [];
+    }
+    if (!this.row.albumIndex.entryOverrides) {
+      this.row.albumIndex.entryOverrides = {};
     }
     if (this.row.albumIndex.autoTitle === null || isUndefined(this.row.albumIndex.autoTitle)) {
       this.row.albumIndex.autoTitle = true;
