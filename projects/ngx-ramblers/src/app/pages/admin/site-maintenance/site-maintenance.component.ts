@@ -31,16 +31,19 @@ import { isNull } from "es-toolkit/compat";
                     @if (migrationStatus.migrations) {
                       <div class="migration-details">
                         <div class="row text-start">
-                          <div class="col-md-3">
+                          <div class="col">
                             <strong>Status:</strong> {{ migrationStatus.status }}
                           </div>
-                          <div class="col-md-3">
+                          <div class="col">
                             <strong>Applied:</strong> {{ migrationStatus.migrations.applied }}
                           </div>
-                          <div class="col-md-3">
+                          <div class="col">
                             <strong>Pending:</strong> {{ migrationStatus.migrations.pending }}
                           </div>
-                          <div class="col-md-3">
+                          <div class="col">
+                            <strong>Skipped:</strong> {{ migrationStatus.migrations.skipped }}
+                          </div>
+                          <div class="col">
                             <strong>Failed:</strong> {{ migrationStatus.migrations.failed ? "Yes" : "No" }}
                           </div>
                         </div>
@@ -88,7 +91,7 @@ import { isNull } from "es-toolkit/compat";
                             </thead>
                             <tbody>
                               @for (migration of sortedMigrations(); track migration.file) {
-                                <tr [ngClass]="{'migration-applied': isApplied(migration.status), 'migration-failed': isFailed(migration.status), 'migration-pending': isPending(migration.status), 'migration-running': isRunning(migration.file)}">
+                                <tr [ngClass]="{'migration-applied': isApplied(migration.status), 'migration-skipped': isSkipped(migration.status), 'migration-failed': isFailed(migration.status), 'migration-pending': isPending(migration.status), 'migration-running': isRunning(migration.file)}">
                                   <td>
                                     @if (isRunning(migration.file)) {
                                       <span class="badge bg-primary">
@@ -96,8 +99,8 @@ import { isNull } from "es-toolkit/compat";
                                       </span>
                                     } @else {
                                       <span class="badge"
-                                            [ngClass]="isApplied(migration.status) ? 'bg-success' : isFailed(migration.status) ? 'bg-danger' : 'bg-warning'">
-                                        {{ isApplied(migration.status) ? 'Applied' : isFailed(migration.status) ? 'Failed' : 'Pending' }}
+                                            [ngClass]="isApplied(migration.status) ? 'bg-success' : isSkipped(migration.status) ? 'bg-warning text-dark' : isFailed(migration.status) ? 'bg-danger' : 'bg-warning'">
+                                        {{ isApplied(migration.status) ? 'Applied' : isSkipped(migration.status) ? 'Skipped' : isFailed(migration.status) ? 'Failed' : 'Pending' }}
                                       </span>
                                     }
                                   </td>
@@ -110,6 +113,13 @@ import { isNull } from "es-toolkit/compat";
                                       <div class="alert alert-danger mt-2 mb-0 p-2">
                                         <small>
                                           <strong>Error:</strong> {{ migration.error }}
+                                        </small>
+                                      </div>
+                                    }
+                                    @if (isSkipped(migration.status) && migration.skippedReason) {
+                                      <div class="alert alert-warning mt-2 mb-0 p-2">
+                                        <small>
+                                          <strong>Reason:</strong> {{ migration.skippedReason }}
                                         </small>
                                       </div>
                                     }
@@ -251,6 +261,9 @@ import { isNull } from "es-toolkit/compat";
 
       tbody tr.migration-pending td:first-child
         border-left-color: #ffc107
+
+      tbody tr.migration-skipped td:first-child
+        border-left-color: #fd7e14
 
       tbody tr.migration-failed td:first-child
         border-left-color: #dc3545
@@ -470,6 +483,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
         startedAt: migrationFile.startedAt,
         timestamp,
         error: migrationFile.error,
+        skippedReason: migrationFile.skippedReason,
         manual: migrationFile.manual
       };
     });
@@ -502,6 +516,10 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
     return status === MigrationFileStatus.PENDING;
   }
 
+  isSkipped(status: MigrationFileStatus): boolean {
+    return status === MigrationFileStatus.SKIPPED;
+  }
+
   isRunning(fileName: string): boolean {
     return this.retryingFile === fileName;
   }
@@ -510,7 +528,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
     if (this.isFailed(migration.status)) {
       return "Retry";
     }
-    if (this.isApplied(migration.status)) {
+    if (this.isApplied(migration.status) || this.isSkipped(migration.status)) {
       return "Re-run";
     }
     return migration.manual ? "Run manually" : "Run";

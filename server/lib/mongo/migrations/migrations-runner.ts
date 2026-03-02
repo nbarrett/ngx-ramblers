@@ -10,7 +10,8 @@ import {
   MigrationFile,
   MigrationFileStatus,
   MigrationRetryResult,
-  MigrationStatus
+  MigrationStatus,
+  MigrationUpResult
 } from "../../../../projects/ngx-ramblers/src/app/models/mongo-migration-model";
 import { migrateMongoConfig } from "./migrations-config";
 import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
@@ -272,13 +273,14 @@ export class MigrationRunner {
       const changelogCollection = db.collection(collectionName);
       const appliedMigrations = await changelogCollection.find({}).toArray();
       debugLog("Found", appliedMigrations.length, "entries in", collectionName);
-      const appliedMap = new Map<string, { startedAt?: string; timestamp?: string; error?: string }>();
+      const appliedMap = new Map<string, { startedAt?: string; timestamp?: string; error?: string; skippedReason?: string }>();
 
       appliedMigrations.forEach((m: any) => {
         appliedMap.set(m.fileName, {
           startedAt: appliedAtTimestamp(m.startedAt),
           timestamp: appliedAtTimestamp(m.appliedAt),
-          error: m.error || undefined
+          error: m.error || undefined,
+          skippedReason: m.skippedReason || undefined
         });
       });
 
@@ -319,6 +321,15 @@ export class MigrationRunner {
               error: applied.error,
               manual
             });
+        } else if (applied?.skippedReason) {
+          files.push({
+            fileName,
+            status: MigrationFileStatus.SKIPPED,
+            startedAt: applied.startedAt,
+            timestamp: applied.timestamp,
+            skippedReason: applied.skippedReason,
+            manual
+          });
         } else if (applied) {
           files.push({
             fileName,
@@ -378,9 +389,10 @@ export class MigrationRunner {
 
       const pendingFiles = status.files.filter(f => f.status === MigrationFileStatus.PENDING);
       const appliedCount = status.files.filter(f => f.status === MigrationFileStatus.APPLIED).length;
+      const skippedCount = status.files.filter(f => f.status === MigrationFileStatus.SKIPPED).length;
       const failedCount = status.files.filter(f => f.status === MigrationFileStatus.FAILED).length;
 
-      debugLog(`Migration status: ${appliedCount} applied, ${pendingFiles.length} pending, ${failedCount} failed`);
+      debugLog(`Migration status: ${appliedCount} applied, ${skippedCount} skipped, ${pendingFiles.length} pending, ${failedCount} failed`);
 
       if (failedCount > 0) {
         const failedFileNames = status.files.filter(f => f.status === MigrationFileStatus.FAILED).map(f => f.fileName);
@@ -423,16 +435,23 @@ export class MigrationRunner {
             throw new Error(`Migration ${fileName} does not export an "up" function`);
           }
 
-          await migration.up(db, client);
+          const upResult: MigrationUpResult = await migration.up(db, client) || {};
 
-          await changelogCollection.insertOne({
+          const changelogEntry: Record<string, any> = {
             fileName,
             startedAt,
             appliedAt: dateTimeNow().toJSDate()
-          });
+          };
 
+          if (upResult.skipped) {
+            changelogEntry.skippedReason = upResult.reason || "Migration skipped";
+            debugLog(`Migration skipped: ${fileName} — ${changelogEntry.skippedReason}`);
+          } else {
+            debugLog(`Successfully applied migration: ${fileName}`);
+          }
+
+          await changelogCollection.insertOne(changelogEntry);
           appliedFiles.push(fileName);
-          debugLog(`Successfully applied migration: ${fileName}`);
         } catch (error) {
           debugLog(`Failed to apply migration ${fileName}:`, error);
           await changelogCollection.insertOne({
@@ -476,9 +495,18 @@ export class MigrationRunner {
         return { success: false, error: `Migration ${fileName} does not export an "up" function`, appliedFiles: [] };
       }
 
-      await migration.up(db, client);
-      await changelogCollection.insertOne({ fileName, startedAt, appliedAt: dateTimeNow().toJSDate() });
-      debugLog(`Successfully applied migration: ${fileName}`);
+      const upResult: MigrationUpResult = await migration.up(db, client) || {};
+
+      const changelogEntry: Record<string, any> = { fileName, startedAt, appliedAt: dateTimeNow().toJSDate() };
+
+      if (upResult.skipped) {
+        changelogEntry.skippedReason = upResult.reason || "Migration skipped";
+        debugLog(`Migration skipped: ${fileName} — ${changelogEntry.skippedReason}`);
+      } else {
+        debugLog(`Successfully applied migration: ${fileName}`);
+      }
+
+      await changelogCollection.insertOne(changelogEntry);
       return { success: true, appliedFiles: [fileName] };
     } catch (error) {
       const client = await mongoClient();

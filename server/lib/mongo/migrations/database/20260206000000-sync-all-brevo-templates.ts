@@ -3,6 +3,7 @@ import createMigrationLogger from "../migrations-logger";
 import { configuredBrevo } from "../../../brevo/brevo-config";
 import { seedBrevoTemplatesFromLocal } from "../../../brevo/templates/template-seeding";
 import { isObject, keys } from "es-toolkit/compat";
+import { MigrationUpResult } from "../../../../../projects/ngx-ramblers/src/app/models/mongo-migration-model";
 
 const debugLog = createMigrationLogger("sync-all-brevo-templates");
 const NOTIFICATION_CONFIGS_COLLECTION = "notificationConfigs";
@@ -59,7 +60,7 @@ async function autoMatchTemplatesToNotificationConfigs(db: Db, templateIdMap: Re
   debugLog(`Auto-matched ${matchedCount} of ${unmatchedConfigs.length} notification configs`);
 }
 
-export async function up(db: Db, client: MongoClient) {
+export async function up(db: Db, client: MongoClient): Promise<MigrationUpResult | void> {
   let brevoConfig = null;
   try {
     brevoConfig = await configuredBrevo();
@@ -77,8 +78,10 @@ export async function up(db: Db, client: MongoClient) {
     } catch (error) {
       const apiError = error as any;
       const statusCode = apiError?.statusCode || apiError?.response?.statusCode;
-      if (statusCode === 401) {
-        debugLog("Brevo API key is invalid (401 unauthorised) — skipping migration");
+      if (statusCode === 401 || statusCode === 403) {
+        const reason = `Brevo API returned ${statusCode} — skipping template sync (API key may be invalid or sender not verified)`;
+        debugLog(reason);
+        return {skipped: true, reason};
       } else {
         debugLog(`Migration failed with error: ${error}`);
         if (error instanceof Error) {
@@ -97,7 +100,9 @@ export async function up(db: Db, client: MongoClient) {
       }
     }
   } else {
-    debugLog("No Brevo API key configured, skipping migration");
+    const reason = "No Brevo API key configured — skipping template sync";
+    debugLog(reason);
+    return {skipped: true, reason};
   }
 }
 
