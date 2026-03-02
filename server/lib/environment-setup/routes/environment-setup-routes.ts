@@ -4,7 +4,14 @@ import * as jwt from "jsonwebtoken";
 import { envConfig } from "../../env-config/env-config";
 import { Environment } from "../../env-config/environment-model";
 import { groupDetails, listGroupsByAreaCode, validateRamblersApiKey } from "../ramblers-api-client";
-import { assignAdminToCommitteeRoles, seedNotificationConfigs, seedSamplePages, toGroupShortName, validateMongoConnection, wireNotificationConfigsToProcesses } from "../database-initialiser";
+import {
+  assignAdminToCommitteeRoles,
+  seedNotificationConfigs,
+  seedSamplePages,
+  toGroupShortName,
+  validateMongoConnection,
+  wireNotificationConfigsToProcesses
+} from "../database-initialiser";
 import { adminConfigFromEnvironment, copyStandardAssets, validateAwsAdminCredentials } from "../aws-setup";
 import { createEnvironment, listSessions, sessionStatus, validateSetupRequest } from "../environment-setup-service";
 import { EnvironmentSetupRequest, RamblersAreaLookup, RamblersGroupLookup } from "../types";
@@ -13,6 +20,7 @@ import { buildMongoUri, extractClusterFromUri, extractUsernameFromUri } from "..
 import { resumeEnvironment } from "../../cli/commands/environment";
 import { destroyEnvironment } from "../../cli/commands/destroy";
 import { setupSubdomainForEnvironment } from "../../cli/commands/subdomain";
+import { configuredBrevo } from "../../brevo/brevo-config";
 import { authenticateSendingDomain } from "../../brevo/domains/domain-authentication";
 import { findDomainByName } from "../../brevo/domains/domain-management";
 import { listTemplates } from "../../brevo/templates/template-management";
@@ -27,8 +35,15 @@ import * as systemConfig from "../../config/system-config";
 import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { ADMIN_SET_PASSWORD_PATH } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { keys } from "es-toolkit/compat";
-import { baseDomainFrom, connectToEnvironmentMongo, EnvironmentNotFoundError, loadEnvironmentContext, withBrevoApiKey } from "../environment-context";
-import { loadSecretsForEnvironment } from "../../shared/secrets";
+import { sortBy } from "../../../../projects/ngx-ramblers/src/app/functions/arrays";
+import {
+  baseDomainFrom,
+  connectToEnvironmentMongo,
+  EnvironmentNotFoundError,
+  loadEnvironmentContext,
+  withBrevoApiKey
+} from "../environment-context";
+
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:routes"));
 debugLog.enabled = true;
@@ -294,6 +309,7 @@ router.get("/environment-details/:environmentName", async (req: Request, res: Re
     debugLog("Environment details request received for:", environmentName);
 
     const { envConfigData, secrets } = await loadEnvironmentContext(environmentName);
+    const brevoConfig = await configuredBrevo();
 
     const details = {
       environmentBasics: {
@@ -311,7 +327,7 @@ router.get("/environment-details/:environmentName", async (req: Request, res: Re
           region: secrets.secrets.AWS_REGION || envConfigData.aws?.region || "eu-west-2"
         },
         brevo: {
-          apiKey: secrets.secrets.BREVO_API_KEY || ""
+          apiKey: brevoConfig?.apiKey || ""
         },
         googleMaps: {
           apiKey: secrets.secrets.GOOGLE_MAPS_APIKEY || ""
@@ -358,6 +374,7 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
     debugLog("Environment status request for:", environmentName);
 
     const { environmentsConfig, envConfigData, appName, secrets } = await loadEnvironmentContext(environmentName);
+    const brevoConfig = await configuredBrevo();
 
     const checks = await Promise.allSettled([
       (async () => {
@@ -389,7 +406,7 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
         return { subdomainConfigured: hasARecord };
       })(),
       (async () => {
-        const brevoKey = secrets.secrets.BREVO_API_KEY || "";
+        const brevoKey = brevoConfig?.apiKey || "";
         if (!brevoKey) return { brevoTemplatesPresent: false, brevoDomainAuthenticated: false };
         return withBrevoApiKey(brevoKey, async () => {
           const templates = await listTemplates();
@@ -531,14 +548,13 @@ router.delete("/destroy/:environmentName", async (req: Request, res: Response) =
 
     debugLog("Found environment config:", { name: envConfigData.name, appName: envConfigData.appName });
 
-    const secrets = loadSecretsForEnvironment(envConfigData.appName);
-    const mongoUri = secrets.secrets.MONGODB_URI;
-    let database: string | undefined;
-
-    if (mongoUri) {
-      const match = mongoUri.match(/\/([^/?]+)(\?|$)/);
-      database = match ? match[1] : undefined;
-    }
+    const database = envConfigData.mongo?.db;
+    const mongoUri = envConfigData.mongo ? buildMongoUri({
+      cluster: envConfigData.mongo.cluster,
+      username: envConfigData.mongo.username,
+      password: envConfigData.mongo.password,
+      database
+    }) : undefined;
 
     const result = await destroyEnvironment(
       {
@@ -813,8 +829,8 @@ router.post("/populate-brevo-templates/:environmentName", async (req: Request, r
     const { environmentName } = req.params;
     debugLog("Populate Brevo templates request received for:", environmentName);
 
-    const { secrets } = await loadEnvironmentContext(environmentName);
-    const brevoApiKey = secrets.secrets.BREVO_API_KEY;
+    const brevoConfig = await configuredBrevo();
+    const brevoApiKey = brevoConfig?.apiKey;
 
     if (!brevoApiKey) {
       res.status(400).json({ error: `No Brevo API key configured for environment ${environmentName}` });
@@ -894,16 +910,14 @@ router.get("/github/status", async (req: Request, res: Response) => {
   if (!validateSetupAccess(req, res)) return;
 
   try {
-    if (!process.env.CONFIGS_JSON) {
-      const dbConfig = await configuredEnvironments();
-      process.env.CONFIGS_JSON = JSON.stringify(transformDatabaseToDeployConfig(dbConfig));
-      debugLog("Initialised CONFIGS_JSON from database (assuming in sync with GitHub)");
-    }
-    const secretConfig: DeploymentConfig = JSON.parse(process.env.CONFIGS_JSON);
-
     const dbConfig = await configuredEnvironments();
     const dbEnvironments = dbConfig.environments || [];
     const environmentCount = dbEnvironments.length;
+    const expectedConfig = transformDatabaseToDeployConfig(dbConfig);
+    const hasLastPushedConfig = !!process.env.CONFIGS_JSON;
+    const secretConfig: DeploymentConfig = hasLastPushedConfig
+      ? JSON.parse(process.env.CONFIGS_JSON)
+      : expectedConfig;
 
     const secretByName = new Map(secretConfig.environments.map(e => [e.name, e]));
     const secretByAppName = new Map(secretConfig.environments.map(e => [e.appName, e]));
@@ -942,23 +956,22 @@ router.get("/github/status", async (req: Request, res: Response) => {
       }
     });
 
-    reconciliation.sort((a, b) => a.name.localeCompare(b.name));
-    const isUpToDate = reconciliation.every(e => e.inDatabase && e.inConfigsJson && e.differences.length === 0);
+    reconciliation.sort(sortBy("name"));
+    const isUpToDate = hasLastPushedConfig
+      ? reconciliation.every(e => e.inDatabase && e.inConfigsJson && e.differences.length === 0)
+      : false;
 
-    let secretUpdatedAt: string;
     try {
       const output = execSync("gh api repos/nbarrett/ngx-ramblers/actions/secrets/CONFIGS_JSON", {
         encoding: "utf-8",
         stdio: ["pipe", "pipe", "pipe"]
       });
-      secretUpdatedAt = JSON.parse(output).updated_at;
+      const secretUpdatedAt = JSON.parse(output).updated_at;
+      res.json({secretUpdatedAt, environmentCount, isUpToDate, reconciliation});
     } catch (ghError) {
       res.json({ secretUpdatedAt: null, environmentCount, isUpToDate, reconciliation,
-        error: `Unable to fetch GitHub secret status: ${ghError.message}` });
-      return;
+                 error: `Unable to fetch GitHub secret status: ${ghError.message}` });
     }
-
-    res.json({ secretUpdatedAt, environmentCount, isUpToDate, reconciliation });
   } catch (error) {
     errorDebugLog("Error fetching GitHub secret status:", error);
     res.status(500).json({ error: error.message });

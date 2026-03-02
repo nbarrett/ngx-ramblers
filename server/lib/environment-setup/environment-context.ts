@@ -3,7 +3,7 @@ import { Db, MongoClient } from "mongodb";
 import { envConfig } from "../env-config/env-config";
 import { EnvironmentConfig, EnvironmentsConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { configuredEnvironments } from "../environments/environments-config";
-import { loadSecretsForEnvironment } from "../shared/secrets";
+import { loadSecretsForEnvironmentFromDatabase } from "../shared/secrets";
 import { buildMongoUri } from "../shared/mongodb-uri";
 import { connectToDatabase } from "./database-initialiser";
 import { SecretsFile } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
@@ -31,7 +31,10 @@ export async function loadEnvironmentContext(environmentName: string): Promise<E
     throw new EnvironmentNotFoundError(environmentName);
   }
   const appName = envConfigData.flyio?.appName || `ngx-ramblers-${environmentName}`;
-  const secrets = loadSecretsForEnvironment(appName);
+  const secrets = await loadSecretsForEnvironmentFromDatabase(environmentName);
+  if (!secrets) {
+    throw new Error(`No secrets found in database for environment ${environmentName}`);
+  }
   return { environmentsConfig, envConfigData, appName, secrets };
 }
 
