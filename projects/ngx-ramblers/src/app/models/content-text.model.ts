@@ -53,6 +53,12 @@ export enum FocalPointTarget {
   BOTH = "both"
 }
 
+export interface IndexEntryOverride {
+  coverImage?: string;
+  coverImageFocalPoint?: FocalPoint | null;
+  albumName?: string;
+}
+
 export enum LocationRenderingMode {
   HIDDEN = "hidden",
   VISIBLE = "visible"
@@ -251,6 +257,7 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   styles?: ContentTextStyles;
   location?: LocationDetails;
   createdAt?: number;
+  albumName?: string;
 }
 
 export enum MigrationTemplateSourceType {
@@ -455,6 +462,7 @@ export interface Index {
   mapConfig?: IndexMapConfig;
   minCols?: number;
   maxCols?: number;
+  entryOverrides?: Record<string, IndexEntryOverride>;
 }
 
 export enum BuiltInAnchor {

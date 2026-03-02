@@ -21,6 +21,7 @@ import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventQueryParameters } from "../../models/ramblers-walks-manager";
 import { UrlService } from "../url.service";
 import { isNumericRamblersId } from "../path-matchers";
+import { isMongoId } from "../mongo-utils";
 import { toSlug } from "../../functions/strings";
 
 @Injectable({
@@ -51,13 +52,15 @@ export class ExtendedGroupEventQueryService {
       andCriteria.push({[GroupEventField.GROUP_CODE]: eventQueryParameters.groupCode});
     }
     if (eventQueryParameters?.ids && eventQueryParameters?.ids?.length > 0) {
-      andCriteria.push({
-        $or: [
-          {[ID]: {$in: eventQueryParameters.ids}},
-          {[GroupEventField.ID]: {$in: eventQueryParameters.ids}},
-          {[EventField.MIGRATED_FROM_ID]: {$in: eventQueryParameters.ids}}
-        ]
-      });
+      const validObjectIds = eventQueryParameters.ids.filter(isMongoId);
+      const orClauses: any[] = [
+        {[GroupEventField.ID]: {$in: eventQueryParameters.ids}},
+        {[EventField.MIGRATED_FROM_ID]: {$in: eventQueryParameters.ids}}
+      ];
+      if (validObjectIds.length > 0) {
+        orClauses.unshift({[ID]: {$in: validObjectIds}});
+      }
+      andCriteria.push({$or: orClauses});
     }
     if (eventQueryParameters?.types && eventQueryParameters.types.length > 0) {
       andCriteria.push({[GroupEventField.ITEM_TYPE]: {$in: eventQueryParameters.types}});
