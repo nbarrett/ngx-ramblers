@@ -360,6 +360,9 @@ export class AlbumIndexSiteEditComponent implements OnInit {
     if (!this.row.albumIndex.entryOverrides) {
       this.row.albumIndex.entryOverrides = {};
     }
+    if (!this.row.albumIndex.columnOverrides) {
+      this.row.albumIndex.columnOverrides = [];
+    }
     if (this.row.albumIndex.autoTitle === null || isUndefined(this.row.albumIndex.autoTitle)) {
       this.row.albumIndex.autoTitle = true;
     }

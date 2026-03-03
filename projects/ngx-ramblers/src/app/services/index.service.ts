@@ -7,6 +7,7 @@ import {
   ContentPathMatch,
   ContentPathMatchConfigs,
   FocalPointTarget,
+  IndexColumnOverride,
   IndexContentType,
   IndexEntryOverride,
   PageContent,
@@ -88,9 +89,10 @@ export class IndexService {
       const deduplicatedColumns = this.deduplicateByHref(allColumns);
       const columnsWithAlbumNames = this.ensureAlbumNames(deduplicatedColumns, pages);
       const orderedColumns = this.sortColumns(columnsWithAlbumNames, albumIndex.sortConfig);
+      const finalColumns = this.applyColumnOverrides(orderedColumns, albumIndex.columnOverrides);
 
-      const albumIndexPageContent: PageContent = this.pageContentFrom(pageContentRow, orderedColumns, rowIndex);
-      this.logger.info("Generated index with", orderedColumns.length, "items from content types:", contentTypes, "(", allColumns.length, "before deduplication) based on:", pathRegex);
+      const albumIndexPageContent: PageContent = this.pageContentFrom(pageContentRow, finalColumns, rowIndex);
+      this.logger.info("Generated index with", finalColumns.length, "items from content types:", contentTypes, "(", allColumns.length, "before deduplication) based on:", pathRegex);
       return albumIndexPageContent;
     } else {
       this.logger.info("no pages to query as no contentPaths defined in:", albumIndex);
@@ -631,6 +633,23 @@ export class IndexService {
         this.logger.info("ensureAlbumNames: no carousel name found for", column.href, "row types:", (page.rows || []).map(r => r.type));
       }
       return column;
+    });
+  }
+
+  private applyColumnOverrides(columns: PageContentColumn[], overrides?: IndexColumnOverride[]): PageContentColumn[] {
+    if (!overrides?.length) {
+      return columns;
+    }
+    return columns.map(column => {
+      const override = overrides.find(o => o.href === column.href);
+      if (!override) {
+        return column;
+      }
+      return {
+        ...column,
+        title: override.title || column.title,
+        contentText: override.contentText || column.contentText
+      };
     });
   }
 

@@ -5,6 +5,7 @@ import { keys } from "es-toolkit/compat";
 import {
   ContentPathMatchConfigs,
   FocalPointTarget,
+  IndexColumnOverride,
   PageContent,
   PageContentColumn,
   PageContentRow,
@@ -39,7 +40,7 @@ interface ExpandedEntry {
                     (click)="accordionOpen = !accordionOpen"
                     [class.collapsed]="!accordionOpen"
                     [attr.aria-expanded]="accordionOpen">
-              <span class="flex-grow-1">Cover Image Overrides</span>
+              <span class="flex-grow-1">Overrides</span>
               <small class="text-muted me-3">{{ overrideCount() }} customised</small>
             </button>
           </h2>
@@ -61,12 +62,28 @@ interface ExpandedEntry {
                     caption="Reset to default"
                     (click)="$event.stopPropagation(); resetOverride(column)"/>
                 } @else {
-                  <span class="badge border text-muted me-2">Album Default</span>
+                  <span class="badge border text-muted me-2">Default</span>
                 }
                 <app-badge-button
                   [icon]="expandedHref === column.href ? faChevronDown : faChevronRight"
-                  [caption]="expandedHref === column.href ? 'Collapse' : 'Edit cover image'"
+                  [caption]="expandedHref === column.href ? 'Collapse' : 'Edit image'"
                   (click)="$event.stopPropagation(); toggleExpand(column)"/>
+              </div>
+              <div class="d-flex gap-2 px-2 pb-2">
+                <div class="flex-grow-1">
+                  <small class="text-muted">Title</small>
+                  <input type="text" class="form-control form-control-sm"
+                         [placeholder]="column.title || ''"
+                         [value]="columnOverrideTitleFor(column)"
+                         (input)="onColumnTitleChanged(column, $event)">
+                </div>
+                <div class="flex-grow-1">
+                  <small class="text-muted">Subtitle</small>
+                  <input type="text" class="form-control form-control-sm"
+                         [placeholder]="column.contentText || ''"
+                         [value]="columnOverrideContentTextFor(column)"
+                         (input)="onColumnContentTextChanged(column, $event)">
+                </div>
               </div>
               @if (expandedHref === column.href) {
                 <div class="p-3 bg-light">
@@ -137,7 +154,7 @@ interface ExpandedEntry {
                       <div class="d-flex justify-content-end">
                         <app-badge-button
                           [icon]="faUndo"
-                          caption="Reset to album default"
+                          caption="Reset to default"
                           (click)="resetOverride(column)"/>
                       </div>
                     }
@@ -255,12 +272,19 @@ export class IndexEntryOverrideEditor {
 
 
   overrideCount(): number {
-    const overrides = this.row?.albumIndex?.entryOverrides;
-    return overrides ? keys(overrides).length : 0;
+    const hrefs = new Set<string>();
+    const entryOverrides = this.row?.albumIndex?.entryOverrides;
+    if (entryOverrides) {
+      keys(entryOverrides).forEach(href => hrefs.add(href));
+    }
+    (this.row?.albumIndex?.columnOverrides || []).forEach(o => hrefs.add(o.href));
+    return hrefs.size;
   }
 
   hasOverride(column: PageContentColumn): boolean {
-    return !!this.row?.albumIndex?.entryOverrides?.[column.href];
+    const hasEntryOverride = !!this.row?.albumIndex?.entryOverrides?.[column.href];
+    const hasColumnOverride = (this.row?.albumIndex?.columnOverrides || []).some(o => o.href === column.href);
+    return hasEntryOverride || hasColumnOverride;
   }
 
   thumbnailStyle(column: PageContentColumn): Record<string, string> {
@@ -409,9 +433,34 @@ export class IndexEntryOverrideEditor {
   resetOverride(column: PageContentColumn) {
     if (this.row?.albumIndex?.entryOverrides?.[column.href]) {
       delete this.row.albumIndex.entryOverrides[column.href];
-      this.logger.info("Reset override for:", column.href);
-      this.overridesChanged.emit();
     }
+    if (this.row?.albumIndex?.columnOverrides) {
+      this.row.albumIndex.columnOverrides = this.row.albumIndex.columnOverrides.filter(o => o.href !== column.href);
+    }
+    this.logger.info("Reset override for:", column.href);
+    this.overridesChanged.emit();
+  }
+
+  columnOverrideTitleFor(column: PageContentColumn): string {
+    return (this.row?.albumIndex?.columnOverrides || []).find(o => o.href === column.href)?.title || "";
+  }
+
+  columnOverrideContentTextFor(column: PageContentColumn): string {
+    return (this.row?.albumIndex?.columnOverrides || []).find(o => o.href === column.href)?.contentText || "";
+  }
+
+  onColumnTitleChanged(column: PageContentColumn, event: Event) {
+    const value = (event.target as HTMLInputElement).value?.trim() || null;
+    const override = this.ensureColumnOverride(column);
+    override.title = value;
+    this.cleanupEmptyColumnOverrides();
+  }
+
+  onColumnContentTextChanged(column: PageContentColumn, event: Event) {
+    const value = (event.target as HTMLInputElement).value?.trim() || null;
+    const override = this.ensureColumnOverride(column);
+    override.contentText = value;
+    this.cleanupEmptyColumnOverrides();
   }
 
   private albumDefaultFocalPoint(column: PageContentColumn): FocalPoint {
@@ -494,6 +543,23 @@ export class IndexEntryOverrideEditor {
         previewColumn.imageSource = updates.imageSource;
       }
     }
+  }
+
+  private ensureColumnOverride(column: PageContentColumn): IndexColumnOverride {
+    if (!this.row.albumIndex.columnOverrides) {
+      this.row.albumIndex.columnOverrides = [];
+    }
+    let override = this.row.albumIndex.columnOverrides.find(o => o.href === column.href);
+    if (!override) {
+      override = {href: column.href};
+      this.row.albumIndex.columnOverrides.push(override);
+    }
+    return override;
+  }
+
+  private cleanupEmptyColumnOverrides() {
+    this.row.albumIndex.columnOverrides = (this.row.albumIndex.columnOverrides || [])
+      .filter(o => o.title || o.contentText);
   }
 
   private ensureOverrides() {
