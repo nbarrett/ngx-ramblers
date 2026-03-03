@@ -1,4 +1,5 @@
 import { inject, Injectable } from "@angular/core";
+import { HttpClient } from "@angular/common/http";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpCampaign, MailchimpCampaignVersion2 } from "../../models/mailchimp.model";
 import { isUndefined } from "es-toolkit/compat";
@@ -25,6 +26,25 @@ export class MemberResourcesReferenceDataService {
   private siteEditService = inject(SiteEditService);
   protected dateUtils = inject(DateUtilsService);
   private memberLoginService = inject(MemberLoginService);
+  private http = inject(HttpClient);
+  private platformAdminEnabled = false;
+
+  constructor() {
+    this.loadPlatformAdminStatus();
+  }
+
+  private loadPlatformAdminStatus() {
+    this.http.get<{ platformAdminEnabled: boolean }>("/api/environment-setup/status")
+      .subscribe({
+        next: response => {
+          this.platformAdminEnabled = response?.platformAdminEnabled || false;
+          this.logger.info("platformAdminEnabled:", this.platformAdminEnabled);
+        },
+        error: () => {
+          this.platformAdminEnabled = false;
+        }
+      });
+  }
 
   static isMailchimpCampaign(campaign: MailchimpCampaignVersion2 | MailchimpCampaign): campaign is MailchimpCampaign {
     return !isUndefined((campaign as MailchimpCampaign)?.long_archive_url);
@@ -106,6 +126,12 @@ export class MemberResourcesReferenceDataService {
         description: "Hidden",
         filter: () => this.siteEditService.active() || false,
         includeAccessLevelIds: []
+      },
+      {
+        id: "environmentAdmin",
+        description: "Environment Admin",
+        filter: () => this.siteEditService.active() || (this.platformAdminEnabled && this.memberLoginService.allowCommittee()),
+        includeAccessLevelIds: [AccessLevel.environmentAdmin, AccessLevel.committee, AccessLevel.loggedInMember, AccessLevel.public, AccessLevel.hidden]
       },
       {
         id: "committee",

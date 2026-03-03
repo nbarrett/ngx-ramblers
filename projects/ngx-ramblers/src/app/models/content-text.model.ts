@@ -484,6 +484,7 @@ export enum BuiltInAnchor {
 export enum BuiltInPath {
   ADMIN = "admin",
   COMMITTEE = "committee",
+  ENVIRONMENT_MANAGEMENT = "admin/environment-management",
   HOME = "home",
   WALKS = "walks",
 }
@@ -506,6 +507,10 @@ export const BuiltInContentConfigs: { [key in BuiltInPath]: BuiltInPageContentCo
     contentPath: BuiltInPath.COMMITTEE,
     anchors: [BuiltInAnchor.ACTION_BUTTONS, BuiltInAnchor.COMMITTEE_YEARS]
   },
+  [BuiltInPath.ENVIRONMENT_MANAGEMENT]: {
+    contentPath: BuiltInPath.ENVIRONMENT_MANAGEMENT,
+    anchors: [BuiltInAnchor.ACTION_BUTTONS]
+  },
   [BuiltInPath.WALKS]: {
     contentPath: BuiltInPath.WALKS,
     anchors: [BuiltInAnchor.PAGE_HEADER, BuiltInAnchor.ACTION_BUTTONS]
@@ -515,6 +520,7 @@ export const BuiltInContentConfigs: { [key in BuiltInPath]: BuiltInPageContentCo
 export enum PageContentPath {
   ADMIN_ACTION_BUTTONS = `${BuiltInPath.ADMIN}#${BuiltInAnchor.ACTION_BUTTONS}`,
   COMMITTEE_ACTION_BUTTONS_YEARS = `${BuiltInPath.COMMITTEE}#${BuiltInAnchor.COMMITTEE_YEARS}`,
+  ENVIRONMENT_MANAGEMENT_ACTION_BUTTONS = `${BuiltInPath.ENVIRONMENT_MANAGEMENT}#${BuiltInAnchor.ACTION_BUTTONS}`,
 }
 
 export enum PageContentType {

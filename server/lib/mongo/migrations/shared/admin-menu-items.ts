@@ -93,11 +93,11 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
     contentText: "View system maintenance status, retry migrations, and access admin controls when required"
   },
   {
-    accessLevel: "committee",
-    title: "Backup & Restore",
-    icon: "faDatabase",
-    href: "admin/backup-and-restore",
-    contentText: "Backup and restore MongoDB databases across environments"
+    accessLevel: "environmentAdmin",
+    title: "Environment Management",
+    icon: "faServer",
+    href: "admin/environment-management",
+    contentText: "Manage environment setup, backups, environments monitoring, and maintenance"
   },
   {
     accessLevel: "committee",
@@ -140,13 +140,37 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
     icon: "faMapMarkerAlt",
     href: "admin/venue-settings",
     contentText: "Manage stored venues used for walk meeting points and post-walk pubs"
-  },
+  }
+];
+
+export const ENVIRONMENT_MANAGEMENT_MENU_ITEMS: ActionButtonColumn[] = [
   {
     accessLevel: "committee",
     title: "Environment Setup",
     icon: "faServer",
-    href: "admin/environment-setup",
+    href: "admin/environment-management/setup",
     contentText: "Provision new NGX-Ramblers environments for Ramblers groups"
+  },
+  {
+    accessLevel: "committee",
+    title: "Backup & Restore",
+    icon: "faDatabase",
+    href: "admin/environment-management/backup",
+    contentText: "Backup and restore MongoDB databases across environments"
+  },
+  {
+    accessLevel: "committee",
+    title: "Environments Monitoring",
+    icon: "faHeartbeat",
+    href: "admin/environment-management/health",
+    contentText: "Monitor migration status and health across all environments"
+  },
+  {
+    accessLevel: "committee",
+    title: "Maintenance",
+    icon: "faTools",
+    href: "admin/environment-management/maintenance",
+    contentText: "View system maintenance status, retry migrations, and access admin controls when required"
   }
 ];
 

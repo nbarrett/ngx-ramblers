@@ -21,6 +21,7 @@ export interface HealthAws {
 export interface HealthGroup {
   shortName?: string;
   groupCode?: string;
+  href?: string;
 }
 
 export enum HealthStatus {
@@ -35,4 +36,46 @@ export interface HealthResponse {
   group: HealthGroup;
   timestamp: string;
   migrations: HealthMigrations;
+}
+
+export enum EnvironmentHealthCheckStatus {
+  HEALTHY = "HEALTHY",
+  DEGRADED = "DEGRADED",
+  PENDING = "PENDING",
+  UNREACHABLE = "UNREACHABLE"
+}
+
+export interface EnvironmentHealthCheck {
+  environment: string;
+  appName: string;
+  url: string;
+  adminUrl: string;
+  checkStatus: EnvironmentHealthCheckStatus;
+  healthResponse?: Partial<HealthResponse>;
+  error?: string;
+  responseTimeMs: number;
+}
+
+export enum HealthSortColumn {
+  STATUS = "checkStatus",
+  ENVIRONMENT = "environment",
+  GROUP = "healthResponse.group.shortName",
+  APPLIED = "healthResponse.migrations.applied",
+  PENDING = "healthResponse.migrations.pending",
+  FAILED = "healthResponse.migrations.failed",
+  RESPONSE = "responseTimeMs"
+}
+
+export interface CrossEnvironmentHealthSummary {
+  total: number;
+  healthy: number;
+  degraded: number;
+  unreachable: number;
+  pending: number;
+}
+
+export interface CrossEnvironmentHealthResponse {
+  timestamp: string;
+  environments: EnvironmentHealthCheck[];
+  summary: CrossEnvironmentHealthSummary;
 }
