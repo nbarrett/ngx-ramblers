@@ -451,9 +451,16 @@ export interface IndexMapConfig {
   allowControlsToggle?: boolean;
 }
 
+export interface IndexColumnOverride {
+  href: string;
+  title?: string;
+  contentText?: string;
+}
+
 export interface Index {
   contentPaths: ContentPathMatch[];
   excludePaths?: ContentPathMatch[];
+  columnOverrides?: IndexColumnOverride[];
   sortConfig?: AlbumIndexSortConfig;
   indexMarkdown?: string;
   autoTitle?: boolean;

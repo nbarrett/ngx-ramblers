@@ -181,6 +181,7 @@ export class PageContentActionsService {
     return {
       contentPaths: [],
       excludePaths: [],
+      columnOverrides: [],
       sortConfig: {field: AlbumIndexSortField.TITLE, direction: SortDirection.ASC},
       indexMarkdown: null,
       autoTitle: true
