@@ -4,6 +4,7 @@ import { LoggedInGuard } from "../../guards/admin-login-guard";
 import { hasDynamicPath } from "../../services/path-matchers";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
 import { AdminAuthGuard, MemberAdminAuthGuard } from "../../guards/admin-auth-guard";
+import { EnvironmentAdminGuard } from "../../guards/environment-admin-guard";
 import { MaintenanceGuard } from "../../guards/maintenance-guard";
 import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
 
@@ -125,16 +126,43 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
-      path: "backup-and-restore",
-      loadComponent: () => import("../../pages/admin/backup-and-restore/backup-and-restore")
-        .then(m => m.BackupAndRestore),
-      canActivate: [SystemHealthyGuard, AdminAuthGuard]
+      path: "environment-management",
+      loadComponent: () => import("../../pages/admin/environment-management/environment-management-landing.component")
+        .then(m => m.EnvironmentManagementLandingComponent),
+      canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
     },
     {
-      path: "environment-setup",
+      path: "environment-management/setup",
       loadComponent: () => import("../../pages/admin/environment-setup/environment-setup")
         .then(m => m.EnvironmentSetupComponent),
-      canActivate: [SystemHealthyGuard, AdminAuthGuard]
+      canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
+    },
+    {
+      path: "environment-management/backup",
+      loadComponent: () => import("../../pages/admin/backup-and-restore/backup-and-restore")
+        .then(m => m.BackupAndRestore),
+      canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
+    },
+    {
+      path: "environment-management/health",
+      loadComponent: () => import("../../pages/admin/migration-health/migration-health.component")
+        .then(m => m.MigrationHealthComponent),
+      canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
+    },
+    {
+      path: "environment-management/maintenance",
+      loadComponent: () => import("../../pages/admin/site-maintenance/site-maintenance.component")
+        .then(m => m.SiteMaintenanceComponent),
+      canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
+    },
+    {
+      path: "environment-setup", redirectTo: "environment-management/setup", pathMatch: "full"
+    },
+    {
+      path: "backup-and-restore", redirectTo: "environment-management/backup", pathMatch: "full"
+    },
+    {
+      path: "migration-health", redirectTo: "environment-management/health", pathMatch: "full"
     },
     {
       path: "banners", loadComponent: () => import("../../pages/banner/banner.component")

@@ -73,7 +73,8 @@ export async function systemStatus(req: Request, res: Response<Partial<HealthRes
       },
       group: {
         shortName: config?.group?.shortName,
-        groupCode: config?.group?.groupCode
+        groupCode: config?.group?.groupCode,
+        href: config?.group?.href
       },
       migrations: {
         ...base.migrations,
