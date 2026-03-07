@@ -2,6 +2,7 @@
 
 # claude-swarm runtime files
 /.claude-swarm/registry.json
+/.claude/worktrees/
 /pnpm-lock.yaml
 
 # compiled output
@@ -57,3 +58,4 @@ Thumbs.db
 /.gemini-clipboard/
 .eslint-config/
 /cli-output
+/.claude/

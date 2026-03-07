@@ -1,6 +1,7 @@
 import { ParamMap } from "@angular/router";
 import { isArray, isBoolean, isNull, isNumber, isUndefined, values } from "es-toolkit/compat";
 import { AdvancedSearchCriteria, AdvancedSearchFieldType, ADVANCED_SEARCH_CRITERIA_FIELDS, WalkLeaderOption } from "../../models/search.model";
+import { UIDateFormat } from "../../models/date-format.model";
 import { StoredValue } from "../../models/ui-actions";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { DateUtilsService } from "../../services/date-utils.service";
@@ -147,4 +148,52 @@ export function hasAdvancedCriteria(criteria: AdvancedSearchCriteria | null | un
     }
     return value;
   });
+}
+
+export function advancedSearchSummary(criteria: AdvancedSearchCriteria | null | undefined, stringUtils: StringUtilsService, dateUtils: DateUtilsService): string {
+  if (!criteria || !hasAdvancedCriteria(criteria)) {
+    return "";
+  }
+  const parts: string[] = [];
+  if (criteria.dateFrom || criteria.dateTo) {
+    const from = criteria.dateFrom ? dateUtils.asString(criteria.dateFrom, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "start";
+    const to = criteria.dateTo ? dateUtils.asString(criteria.dateTo, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "end";
+    parts.push(`${from} to ${to}`);
+  }
+  if (criteria.groupCodes?.length > 0) {
+    parts.push(`${stringUtils.pluraliseWithCount(criteria.groupCodes.length, "group")}`);
+  }
+  if (criteria.leaderIds?.length > 0) {
+    parts.push(`${stringUtils.pluraliseWithCount(criteria.leaderIds.length, "leader")}`);
+  }
+  if (criteria.daysOfWeek?.length > 0) {
+    parts.push(criteria.daysOfWeek.map(day => stringUtils.asTitle(day)).join(", "));
+  }
+  if (criteria.difficulty?.length > 0) {
+    parts.push(criteria.difficulty.map(level => stringUtils.asTitle(level)).join(", "));
+  }
+  if (criteria.distanceMin || criteria.distanceMax) {
+    const min = criteria.distanceMin || 0;
+    const max = criteria.distanceMax ? `${criteria.distanceMax}` : "+";
+    parts.push(`${min}-${max} miles`);
+  }
+  if (criteria.proximityRadiusMiles) {
+    parts.push(`within ${criteria.proximityRadiusMiles} miles`);
+  }
+  if (criteria.accessibility?.length > 0) {
+    parts.push(criteria.accessibility.map(item => stringUtils.asTitle(item)).join(", "));
+  }
+  if (criteria.facilities?.length > 0) {
+    parts.push(criteria.facilities.map(item => stringUtils.asTitle(item)).join(", "));
+  }
+  if (criteria.freeOnly) {
+    parts.push("free only");
+  }
+  if (criteria.cancelled) {
+    parts.push("cancelled");
+  }
+  if (criteria.noLocation) {
+    parts.push("no location");
+  }
+  return parts.join(", ");
 }

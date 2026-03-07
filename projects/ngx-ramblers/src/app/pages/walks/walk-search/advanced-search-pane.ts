@@ -548,7 +548,6 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
   private proximityMarker?: L.Marker;
   private walkMarkers: L.Marker[] = [];
   private suppressCriteriaChanges = false;
-  private lastFlushTime = 0;
   private criteriaValue: AdvancedSearchCriteria = null;
   private isInitializing = true;
   @Output() searchCriteriaChange = new EventEmitter<{ criteria: AdvancedSearchCriteria; leaderOptions: WalkLeaderOption[] }>();
@@ -558,7 +557,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     this.selectedFilterCriteria = value || null;
     this.updateDateScale();
     this.updatePresetRanges();
-    this.applyFilterRangePreset();
+    this.applyFilterRangePreset(false);
   }
   @Input() expanded = false;
   @Input()
@@ -630,6 +629,17 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     this.logger.info("ngOnInit: starting initialization");
     this.updateDateScale();
     this.updatePresetRanges();
+
+    this.criteriaChangeSubject.pipe(
+      debounceTime(500)
+    ).subscribe(() => {
+      if (this.isInitializing) {
+        this.logger.info("Skipping search during initialization");
+        return;
+      }
+      this.applySearch();
+    });
+
     this.loadMembers();
     await this.loadGroups();
     await this.loadDateRange();
@@ -645,16 +655,6 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     this.buildLeaderOptions();
     this.logger.info("ngOnInit: initialization complete");
 
-    this.criteriaChangeSubject.pipe(
-      debounceTime(500)
-    ).subscribe(() => {
-      const timeSinceLastFlush = this.dateUtils.dateTimeNowAsValue() - this.lastFlushTime;
-      if (timeSinceLastFlush < 600) {
-        return;
-      }
-      this.applySearch();
-    });
-
     this.isInitializing = false;
 
     const params = this.route.snapshot.queryParamMap;
@@ -665,9 +665,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       this.populateFromCriteria();
     }
 
-    if (this.criteriaValue) {
-      this.applySearch();
-    }
+    this.applySearch();
   }
 
   ngOnDestroy() {
@@ -869,15 +867,18 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       if (hasChanges) {
         this.logger.info("convertKebabLabelsToIds: updating selectedLeaderIds from", this.selectedLeaderIds, "to", uniqueIds);
         this.suppressCriteriaChanges = true;
-        this.selectedLeaderIds = uniqueIds;
-        if (this.criteriaValue) {
-          this.criteriaValue = {
-            ...this.criteriaValue,
-            leaderIds: uniqueIds
-          };
-          this.logger.info("convertKebabLabelsToIds: updated criteriaValue.leaderIds to", uniqueIds);
+        try {
+          this.selectedLeaderIds = uniqueIds;
+          if (this.criteriaValue) {
+            this.criteriaValue = {
+              ...this.criteriaValue,
+              leaderIds: uniqueIds
+            };
+            this.logger.info("convertKebabLabelsToIds: updated criteriaValue.leaderIds to", uniqueIds);
+          }
+        } finally {
+          this.suppressCriteriaChanges = false;
         }
-        this.suppressCriteriaChanges = false;
       } else {
         this.logger.info("convertKebabLabelsToIds: no changes needed");
       }
@@ -922,7 +923,6 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       return;
     }
     if (flush) {
-      this.lastFlushTime = this.dateUtils.dateTimeNowAsValue();
       this.applySearch();
       return;
     }
@@ -969,54 +969,53 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
 
   applySearch() {
     if (this.isInitializing) {
-      this.logger.info("Skipping applySearch during initialization");
-    } else {
-      const range = this.resolvedDateRange();
-      const expandedLeaderIds = this.expandLeaderIds(this.selectedLeaderIds);
+      return;
+    }
+    const range = this.resolvedDateRange();
+    const expandedLeaderIds = this.expandLeaderIds(this.selectedLeaderIds);
 
-      this.logger.info("Proximity search raw values:", {
-        locationMethod: this.locationMethod,
-        proximityLat: this.proximityLat,
-        proximityLng: this.proximityLng,
-        proximityRadiusMiles: this.proximityRadiusMiles,
-        proximityLatType: typeof this.proximityLat,
-        proximityLngType: typeof this.proximityLng,
-        proximityRadiusMilesType: typeof this.proximityRadiusMiles
-      });
+    this.logger.info("Proximity search raw values:", {
+      locationMethod: this.locationMethod,
+      proximityLat: this.proximityLat,
+      proximityLng: this.proximityLng,
+      proximityRadiusMiles: this.proximityRadiusMiles,
+      proximityLatType: typeof this.proximityLat,
+      proximityLngType: typeof this.proximityLng,
+      proximityRadiusMilesType: typeof this.proximityRadiusMiles
+    });
 
-      const hasProximitySearch = this.locationMethod !== LocationMethod.NONE &&
-                                 isNumber(this.proximityLat) &&
-                                 isNumber(this.proximityLng) &&
-                                 isNumber(this.proximityRadiusMiles);
+    const hasProximitySearch = this.locationMethod !== LocationMethod.NONE &&
+                               isNumber(this.proximityLat) &&
+                               isNumber(this.proximityLng) &&
+                               isNumber(this.proximityRadiusMiles);
 
-      this.logger.info("hasProximitySearch:", hasProximitySearch);
+    this.logger.info("hasProximitySearch:", hasProximitySearch);
 
-      const criteria: AdvancedSearchCriteria = {
-        dateFrom: range?.from,
-        dateTo: range?.to,
-        leaderIds: expandedLeaderIds.length > 0 ? expandedLeaderIds : undefined,
-        groupCodes: this.selectedGroupCodes.length > 0 ? this.selectedGroupCodes : undefined,
-        locationMethod: this.locationMethod !== LocationMethod.NONE ? this.locationMethod : undefined,
-        proximityLat: hasProximitySearch ? this.proximityLat : undefined,
-        proximityLng: hasProximitySearch ? this.proximityLng : undefined,
-        proximityRadiusMiles: hasProximitySearch ? this.proximityRadiusMiles : undefined,
-        daysOfWeek: this.selectedDaysOfWeek.length > 0 ? this.selectedDaysOfWeek : undefined,
-        difficulty: this.selectedDifficulty.length > 0 ? this.selectedDifficulty : undefined,
-        distanceMin: this.distanceMin,
-        distanceMax: this.distanceMax,
-        accessibility: this.selectedAccessibility.length > 0 ? this.selectedAccessibility : undefined,
-        facilities: this.selectedFacilities.length > 0 ? this.selectedFacilities : undefined,
-        freeOnly: this.freeOnly,
-        cancelled: this.cancelled,
-        noLocation: this.noLocation
-      };
+    const criteria: AdvancedSearchCriteria = {
+      dateFrom: range?.from,
+      dateTo: range?.to,
+      leaderIds: expandedLeaderIds.length > 0 ? expandedLeaderIds : undefined,
+      groupCodes: this.selectedGroupCodes.length > 0 ? this.selectedGroupCodes : undefined,
+      locationMethod: this.locationMethod !== LocationMethod.NONE ? this.locationMethod : undefined,
+      proximityLat: hasProximitySearch ? this.proximityLat : undefined,
+      proximityLng: hasProximitySearch ? this.proximityLng : undefined,
+      proximityRadiusMiles: hasProximitySearch ? this.proximityRadiusMiles : undefined,
+      daysOfWeek: this.selectedDaysOfWeek.length > 0 ? this.selectedDaysOfWeek : undefined,
+      difficulty: this.selectedDifficulty.length > 0 ? this.selectedDifficulty : undefined,
+      distanceMin: this.distanceMin,
+      distanceMax: this.distanceMax,
+      accessibility: this.selectedAccessibility.length > 0 ? this.selectedAccessibility : undefined,
+      facilities: this.selectedFacilities.length > 0 ? this.selectedFacilities : undefined,
+      freeOnly: this.freeOnly,
+      cancelled: this.cancelled,
+      noLocation: this.noLocation
+    };
 
-      this.logger.info("Final search criteria being emitted:", criteria);
-      this.searchCriteriaChange.emit({ criteria, leaderOptions: this.leaderOptions });
-      void this.loadLeaderIds(range);
-      if (this.proximityMap && this.proximityLat && this.proximityLng) {
-        void this.updateWalkMarkers();
-      }
+    this.logger.info("Final search criteria being emitted:", criteria);
+    this.searchCriteriaChange.emit({ criteria, leaderOptions: this.leaderOptions });
+    void this.loadLeaderIds(range);
+    if (this.proximityMap && this.proximityLat && this.proximityLng) {
+      void this.updateWalkMarkers();
     }
   }
 
@@ -1480,47 +1479,50 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
   private populateFromCriteria() {
     const criteria = this.criteriaValue;
     this.suppressCriteriaChanges = true;
-    this.selectedLeaderIds = criteria?.leaderIds ? [...criteria.leaderIds] : [];
-    this.selectedGroupCodes = criteria?.groupCodes ? [...criteria.groupCodes] : [];
-    this.locationMethod = criteria?.locationMethod ?? LocationMethod.NONE;
-    this.proximityLat = criteria?.proximityLat;
-    this.proximityLng = criteria?.proximityLng;
-    this.proximityRadiusMiles = criteria?.proximityRadiusMiles;
+    try {
+      this.selectedLeaderIds = criteria?.leaderIds ? [...criteria.leaderIds] : [];
+      this.selectedGroupCodes = criteria?.groupCodes ? [...criteria.groupCodes] : [];
+      this.locationMethod = criteria?.locationMethod ?? LocationMethod.NONE;
+      this.proximityLat = criteria?.proximityLat;
+      this.proximityLng = criteria?.proximityLng;
+      this.proximityRadiusMiles = criteria?.proximityRadiusMiles;
 
-    if (this.proximityRadiusMiles) {
-      this.radiusRange = { min: 1, max: this.proximityRadiusMiles, unit: DistanceUnit.MILES };
-    }
-
-    if (this.locationMethod !== LocationMethod.NONE && this.proximityLat && this.proximityLng) {
-      this.initializeProximityMapOptions();
-      setTimeout(() => this.updateProximityMap(), 0);
-    }
-
-    this.selectedDaysOfWeek = criteria?.daysOfWeek ? [...criteria.daysOfWeek] : [];
-    this.selectedDifficulty = criteria?.difficulty ? [...criteria.difficulty] : [];
-    this.selectedAccessibility = criteria?.accessibility ? [...criteria.accessibility] : [];
-    this.selectedFacilities = criteria?.facilities ? [...criteria.facilities] : [];
-    this.freeOnly = criteria?.freeOnly ?? false;
-    this.cancelled = criteria?.cancelled ?? false;
-    this.noLocation = criteria?.noLocation ?? false;
-    const hasFrom = isNumber(criteria?.dateFrom);
-    const hasTo = isNumber(criteria?.dateTo);
-    this.dateRange = hasFrom && hasTo ? { from: criteria.dateFrom as number, to: criteria.dateTo as number } : undefined;
-    this.updateSliderRange();
-    if (this.dateRange) {
-      if (!this.updatePresetSelectionForRange(this.dateRange)) {
-        this.markCustomPresetActive();
-        this.syncCustomInputsWithRange(this.dateRange);
+      if (this.proximityRadiusMiles) {
+        this.radiusRange = { min: 1, max: this.proximityRadiusMiles, unit: DistanceUnit.MILES };
       }
+
+      if (this.locationMethod !== LocationMethod.NONE && this.proximityLat && this.proximityLng) {
+        this.initializeProximityMapOptions();
+        setTimeout(() => this.updateProximityMap(), 0);
+      }
+
+      this.selectedDaysOfWeek = criteria?.daysOfWeek ? [...criteria.daysOfWeek] : [];
+      this.selectedDifficulty = criteria?.difficulty ? [...criteria.difficulty] : [];
+      this.selectedAccessibility = criteria?.accessibility ? [...criteria.accessibility] : [];
+      this.selectedFacilities = criteria?.facilities ? [...criteria.facilities] : [];
+      this.freeOnly = criteria?.freeOnly ?? false;
+      this.cancelled = criteria?.cancelled ?? false;
+      this.noLocation = criteria?.noLocation ?? false;
+      const hasFrom = isNumber(criteria?.dateFrom);
+      const hasTo = isNumber(criteria?.dateTo);
+      this.dateRange = hasFrom && hasTo ? { from: criteria.dateFrom as number, to: criteria.dateTo as number } : undefined;
+      this.updateSliderRange();
+      if (this.dateRange) {
+        if (!this.updatePresetSelectionForRange(this.dateRange)) {
+          this.markCustomPresetActive();
+          this.syncCustomInputsWithRange(this.dateRange);
+        }
+      }
+      this.distanceMin = criteria?.distanceMin;
+      this.distanceMax = criteria?.distanceMax;
+      this.updateDistanceRange();
+      if (this.leaderOptions.length > 0) {
+        this.convertKebabLabelsToIds();
+      }
+      this.updateFilteredLeaderOptions();
+    } finally {
+      this.suppressCriteriaChanges = false;
     }
-    this.distanceMin = criteria?.distanceMin;
-    this.distanceMax = criteria?.distanceMax;
-    this.updateDistanceRange();
-    if (this.leaderOptions.length > 0) {
-      this.convertKebabLabelsToIds();
-    }
-    this.updateFilteredLeaderOptions();
-    this.suppressCriteriaChanges = false;
   }
 
   private updateDateScale() {
@@ -1564,12 +1566,12 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     }
   }
 
-  private applyFilterRangePreset() {
+  private applyFilterRangePreset(emit: boolean) {
     const allTimePreset = this.presetRanges.find(p => p.label === "All Time");
     if (allTimePreset) {
-      this.setRangeFromPreset(allTimePreset, true);
+      this.setRangeFromPreset(allTimePreset, emit);
     } else if (this.presetRanges.length > 0) {
-      this.setRangeFromPreset(this.presetRanges[0], true);
+      this.setRangeFromPreset(this.presetRanges[0], emit);
     } else {
       this.ensurePresetSelection();
     }

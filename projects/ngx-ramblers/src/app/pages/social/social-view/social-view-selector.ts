@@ -11,7 +11,6 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { StatusIconComponent } from "../../admin/status-icon";
 import { Status } from "../../../models/ramblers-upload-audit.model";
 import { HumanisePipe } from "../../../pipes/humanise.pipe";
-import { SocialHomeComponent } from "../home/social-home.component";
 import { EventDispatchService } from "./event-dispatch-service";
 import { SocialViewPageComponent } from "../social-view-page/social-view-page";
 
@@ -21,16 +20,13 @@ import { SocialViewPageComponent } from "../social-view-page/social-view-page";
     DynamicContentPageComponent,
     StatusIconComponent,
     HumanisePipe,
-    SocialHomeComponent,
     SocialViewPageComponent,
   ],
   template: `
-    @if (eventView?.eventView === EventViewDispatch.DYNAMIC_CONTENT) {
+    @if (eventView?.eventView === EventViewDispatch.DYNAMIC_CONTENT || eventView?.eventView === EventViewDispatch.LIST) {
       <app-dynamic-content-page/>
     } @else if (eventView?.eventView === EventViewDispatch.VIEW) {
       <app-social-view-page [socialEvent]="socialEvent"/>
-    } @else if (eventView?.eventView === EventViewDispatch.LIST) {
-      <app-social-home/>
     } @else if (eventView?.eventView === EventViewDispatch.PENDING) {
       <div class="event-thumbnail card shadow tabset-container">
         <div class="row">

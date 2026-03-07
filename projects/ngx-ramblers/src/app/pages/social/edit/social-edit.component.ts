@@ -436,7 +436,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events().subscribe((config: SystemConfig) => this.config = config));
     if (this.urlService.pathContainsEventIdOrSlug()) {
       this.notify.setBusy();
-      const socialEventId = this.urlService.segmentWithMongoId();
+      const socialEventId = this.urlService.eventIdentifier();
       this.logger.info("finding socialEvent from socialEventId:", socialEventId);
       this.walksAndEventsService.queryById(socialEventId).then(async data => {
         this.socialEvent = data;
@@ -664,10 +664,11 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   close() {
     this.display.confirm.clear();
     this.logger.info("close:display.confirm", this.display.confirm);
-    if (this.socialEvent.id) {
-      this.urlService.navigateTo([this.pageService.socialPage()?.href, this.socialEvent.id]);
+    if (this.socialEvent?.id) {
+      const viewLink = this.display.groupEventLink(this.socialEvent, true);
+      this.urlService.navigateTo([viewLink]);
     } else {
-      this.urlService.navigateTo([this.pageService.socialPage()?.href]);
+      this.urlService.navigateTo([this.display.socialArea()]);
     }
   }
 

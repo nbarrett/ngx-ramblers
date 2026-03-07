@@ -36,7 +36,9 @@ export class DateUtilsService {
     displayDate: UIDateFormat.DISPLAY_DATE,
     displayDateNoDay: UIDateFormat.DISPLAY_DATE_NO_DAY,
     displayDay: UIDateFormat.DISPLAY_DAY,
+    dayName: UIDateFormat.DAY_NAME,
     dayMonthYearWithSlashes: UIDateFormat.DAY_MONTH_YEAR_WITH_SLASHES,
+    yearMonthDayTHhmm: UIDateFormat.YEAR_MONTH_DAY_T_HHMM,
     yearMonthDayWithDashes: UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES,
     yearMonthDay: UIDateFormat.YEAR_MONTH_DAY,
     dayMonthYearAbbreviatedTime: UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED_TIME
@@ -56,6 +58,9 @@ export class DateUtilsService {
   }
 
   asDateTime(dateValue?: DateInput, inputFormat?: string): DateTime {
+    if (DateTime.isDateTime(dateValue)) {
+      return dateValue.setZone("Europe/London");
+    }
     if (isDateValue(dateValue)) {
       return DateTime.fromMillis(dateValue.value).setZone("Europe/London");
     }
@@ -321,14 +326,14 @@ export class DateUtilsService {
 
   daysOfWeek(): string[] {
     const startOfWeek = this.dateTimeNow().startOf("week");
-    return range(0, 7).map(offset => startOfWeek.plus({days: offset}).toFormat("cccc"));
+    return range(0, 7).map(offset => this.asString(startOfWeek.plus({days: offset}), undefined, this.formats.dayName));
   }
 
   mongoDayOfWeekFromName(dayName: string): number | null {
     if (!dayName) {
       return null;
     }
-    const parsed = DateTime.fromFormat(dayName.trim(), "cccc");
+    const parsed = DateTime.fromFormat(dayName.trim(), this.formats.dayName);
     if (!parsed?.isValid) {
       return null;
     }

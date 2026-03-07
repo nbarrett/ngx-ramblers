@@ -181,6 +181,15 @@ export class UrlService {
     return !!this.segmentWithMongoId();
   }
 
+  eventIdentifier(): string {
+    const segments = this.pathSegments();
+    const lastSegment = last(segments);
+    if (segments.length >= 3 && (lastSegment === "view" || lastSegment === "edit")) {
+      return segments[segments.length - 2];
+    }
+    return this.segmentWithMongoId() || lastSegment;
+  }
+
   looksLikeASlug(value: string) {
     return /^[a-z0-9-]+$/i.test((value || "").trim());
   }
@@ -210,6 +219,11 @@ export class UrlService {
     const segments = this.pathSegments();
     if (segments.length === 2) {
       return this.looksLikeASlug(identifier) || this.identifierCanBeConvertedToSlug(identifier);
+    }
+
+    if (segments.length >= 3 && (segments[segments.length - 1] === "view" || segments[segments.length - 1] === "edit")) {
+      const slugSegment = segments[segments.length - 2];
+      return this.looksLikeASlug(slugSegment) || this.identifierCanBeConvertedToSlug(slugSegment) || this.isMongoId(slugSegment);
     }
 
     if (segments.length >= 3 && segments[segments.length - 2] === "view") {

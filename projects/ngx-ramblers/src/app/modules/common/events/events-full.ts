@@ -44,8 +44,9 @@ import { JsonPipe } from "@angular/common";
 import { DataQueryOptions, FilterCriteria } from "../../../models/api-request.model";
 import { MAP_VIEW_SELECT } from "../../../models/map.model";
 import { buildAdvancedSearchCriteria } from "../../../functions/walks/advanced-search-criteria-builder";
-import { advancedCriteriaQueryParams } from "../../../functions/walks/advanced-search";
+import { advancedCriteriaQueryParams, advancedSearchCriteriaFromParams, advancedSearchSummary, hasAdvancedCriteria } from "../../../functions/walks/advanced-search";
 import { AuthService } from "../../../auth/auth.service";
+import { environment } from "../../../../environments/environment";
 
 @Component({
   selector: "app-events-full",
@@ -53,43 +54,39 @@ import { AuthService } from "../../../auth/auth.service";
   template: `
     <div class="row mb-n3">
       <div class="mb-3 col-sm-12">
-        <div class="d-flex justify-content-end">
-          <span (click)="showDiagnostics = !showDiagnostics"
-                class="badge"
-                [class.bg-success]="showDiagnostics"
-                [class.bg-secondary]="!showDiagnostics"
-                style="font-size: 0.65rem; cursor: pointer;">
-            <fa-icon [icon]="faBug"/>
-          </span>
-        </div>
-        @if (showDiagnostics) {
-          <pre class="bg-dark text-light p-3 rounded mb-2" style="font-size: 0.8rem; max-height: 300px; overflow: auto;">{{ debugCriteria() | json }}</pre>
-        }
         <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget"
-                          [showAlerts]="walkListView !== WalkListView.MAP"
                           [showAdvancedSearch]="advancedSearchAllowed()"
-                          [advancedCriteria]="advancedSearchCriteria">
+                          [advancedCriteria]="advancedSearchCriteria"
+                          (advancedSearchChange)="onAdvancedSearch($event)">
           <div view-selector>
-            <div class="btn-group mb-0 btn-group-custom w-100 w-md-auto" dropdown>
-              <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn me-0"
-                      dropdownToggle type="button">
-                <fa-icon
-                  [icon]="walkListView === WalkListView.CARDS ? faImages : (walkListView === WalkListView.TABLE ? faTableCells : faWalking)"/>
-                <span class="ms-2">{{ stringUtils.asTitle(walkListView) }} View</span>
-                <span class="caret"></span>
-              </button>
-              <ul *dropdownMenu class="dropdown-menu" id="dropdown-animated" role="menu">
-                <li role="menuitem"><a (click)="switchToView(WalkListView.CARDS)" class="dropdown-item">
-                  <div><fa-icon [icon]="faImages" class="me-2"/>{{ stringUtils.asTitle(WalkListView.CARDS) }} View</div>
-                </a></li>
-                <li role="menuitem"><a (click)="switchToView(WalkListView.TABLE)" class="dropdown-item">
-                  <div><fa-icon [icon]="faTableCells" class="me-2"/>{{ stringUtils.asTitle(WalkListView.TABLE) }} View
-                  </div>
-                </a></li>
-                <li role="menuitem"><a (click)="switchToView(WalkListView.MAP)" class="dropdown-item">
-                  <div><fa-icon [icon]="faWalking" class="me-2"/>{{ stringUtils.asTitle(WalkListView.MAP) }} View</div>
-                </a></li>
-              </ul>
+            <div class="d-flex gap-2">
+              <div class="btn-group mb-0 btn-group-custom w-100 w-md-auto" dropdown>
+                <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn me-0"
+                        dropdownToggle type="button">
+                  <fa-icon
+                    [icon]="walkListView === WalkListView.CARDS ? faImages : (walkListView === WalkListView.TABLE ? faTableCells : faWalking)"/>
+                  <span class="ms-2">{{ stringUtils.asTitle(walkListView) }} View</span>
+                  <span class="caret"></span>
+                </button>
+                <ul *dropdownMenu class="dropdown-menu" id="dropdown-animated" role="menu">
+                  <li role="menuitem"><a (click)="switchToView(WalkListView.CARDS)" class="dropdown-item">
+                    <div><fa-icon [icon]="faImages" class="me-2"/>{{ stringUtils.asTitle(WalkListView.CARDS) }} View</div>
+                  </a></li>
+                  <li role="menuitem"><a (click)="switchToView(WalkListView.TABLE)" class="dropdown-item">
+                    <div><fa-icon [icon]="faTableCells" class="me-2"/>{{ stringUtils.asTitle(WalkListView.TABLE) }} View
+                    </div>
+                  </a></li>
+                  <li role="menuitem"><a (click)="switchToView(WalkListView.MAP)" class="dropdown-item">
+                    <div><fa-icon [icon]="faWalking" class="me-2"/>{{ stringUtils.asTitle(WalkListView.MAP) }} View</div>
+                  </a></li>
+                </ul>
+              </div>
+              @if (!production && memberLoginService.allowWalkAdminEdits()) {
+                <button type="button" class="btn pager-btn" (click)="showDiagnostics = !showDiagnostics"
+                        [class.active]="showDiagnostics">
+                  <fa-icon [icon]="faBug"/>
+                </button>
+              }
             </div>
           </div>
           @if (walkListView !== WalkListView.MAP && pageCount > 1) {
@@ -102,11 +99,15 @@ import { AuthService } from "../../../auth/auth.service";
             </div>
           }
         </app-walks-search>
+        @if (showDiagnostics) {
+          <pre class="bg-dark text-light p-3 rounded mb-2 mt-2" style="font-size: 0.8rem; max-height: 300px; overflow: auto;">{{ debugCriteria() | json }}</pre>
+        }
         @if (walkListView === WalkListView.CARDS) {
           <app-walk-card-list [currentPageWalks]="currentPageWalks"/>
         }
         @if (walkListView === WalkListView.MAP) {
-          <app-walks-map-view [filteredWalks]="filteredWalks" [loading]="notifyTarget.busy"
+          <app-walks-map-view class="d-block" [filteredWalks]="filteredWalks" [loading]="notifyTarget.busy"
+                              [class.mt-2]="notifyTarget.showAlert"
                               (selected)="onMapSelect($event)"/>
           @if (mapSelected) {
             <div class="map-selected-walk" id="map-selected-walk">
@@ -146,6 +147,7 @@ export class EventsFull implements OnInit, OnDestroy {
   protected readonly faImages = faImages;
   protected readonly faBug = faBug;
   protected readonly WalkListView = WalkListView;
+  protected readonly production = environment.production;
 
   @Input() eventsData: EventsData;
 
@@ -170,6 +172,7 @@ export class EventsFull implements OnInit, OnDestroy {
   protected walkListView: WalkListView;
   public storedAdvancedSearchCriteria: AdvancedSearchCriteria | null = null;
   public showDiagnostics = false;
+  private defaultWalkListView: WalkListView = WalkListView.CARDS;
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -181,6 +184,13 @@ export class EventsFull implements OnInit, OnDestroy {
       const sort = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC));
       const view = params.get(this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW));
       const page = params.get(this.stringUtils.kebabCase(StoredValue.PAGE));
+      const advancedSearch = params.get("advanced-search");
+      const advancedCriteria = advancedSearchCriteriaFromParams(params, this.stringUtils);
+      const hasQueryState = [q, type, sort, view, page, advancedSearch].some(value => !isNull(value)) || !!advancedCriteria;
+      if (!hasQueryState) {
+        this.resetQueryDrivenState();
+        return;
+      }
       if (!isNull(q)) {
         this.filterParameters.quickSearch = q;
       }
@@ -200,15 +210,17 @@ export class EventsFull implements OnInit, OnDestroy {
           this.pageNumber = pageNum;
         }
       }
+      this.storedAdvancedSearchCriteria = advancedCriteria;
+      this.advancedSearchCriteria = this.advancedSearchAllowed() ? this.storedAdvancedSearchCriteria : null;
     });
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
+      this.defaultWalkListView = systemConfig.group.defaultWalkListView;
       this.updateViewAndPagination(this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, systemConfig.group.defaultWalkListView) as WalkListView);
     }));
     this.broadcastService.on(NamedEventType.SYSTEM_CONFIG_LOADED, () => this.refreshEvents(NamedEventType.SYSTEM_CONFIG_LOADED));
     this.broadcastService.on(NamedEventType.WALK_SLOTS_CREATED, () => this.refreshEvents(NamedEventType.WALK_SLOTS_CREATED));
     this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshEvents(NamedEventType.REFRESH));
     this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilter(searchTerm));
-    this.broadcastService.on(NamedEventType.ADVANCED_SEARCH, (event: NamedEvent<AdvancedSearchCriteria>) => this.onAdvancedSearch(event.data));
     this.broadcastService.on(NamedEventType.WALK_SAVED, () => this.refreshEvents(NamedEventType.WALK_SAVED));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       this.logger.debug("route paramMap:", paramMap);
@@ -241,13 +253,14 @@ export class EventsFull implements OnInit, OnDestroy {
   }
 
   onAdvancedSearch(criteria: AdvancedSearchCriteria) {
-    const criteriaChanged = JSON.stringify(this.advancedSearchCriteria) !== JSON.stringify(criteria);
+    const nextCriteria = hasAdvancedCriteria(criteria) ? criteria : null;
+    const criteriaChanged = JSON.stringify(this.advancedSearchCriteria) !== JSON.stringify(nextCriteria);
     const shouldResetPage = !this.isInitializing && criteriaChanged;
-    this.storedAdvancedSearchCriteria = criteria;
-    this.advancedSearchCriteria = this.advancedSearchAllowed() ? criteria : null;
+    this.storedAdvancedSearchCriteria = nextCriteria;
+    this.advancedSearchCriteria = this.advancedSearchAllowed() ? nextCriteria : null;
     if (shouldResetPage) {
       this.pageNumber = 1;
-      const criteriaParams = advancedCriteriaQueryParams(criteria, this.stringUtils, this.dateUtils);
+      const criteriaParams = advancedCriteriaQueryParams(nextCriteria, this.stringUtils, this.dateUtils);
       this.replaceQueryParams({
         [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1,
         ...criteriaParams
@@ -400,9 +413,10 @@ export class EventsFull implements OnInit, OnDestroy {
     const toNumber = hasEvents ? Math.min(this.pageNumber * this.pageSize, totalItems || 0) : 0;
     const totalOnly = `${this.stringUtils.pluraliseWithCount(totalItems || 0, "event")}`;
     const hasSearchTerm = this.filterParameters?.quickSearch && this.filterParameters.quickSearch.trim().length > 0;
-    const noResultsMessage = hasSearchTerm ? `No results match "${this.filterParameters.quickSearch}"` : "No events found";
-    const filterSummary = this.advancedSearchSummary();
+    const noResultsBase = hasSearchTerm ? `No results match "${this.filterParameters.quickSearch}"` : "No events found";
+    const filterSummary = advancedSearchSummary(this.advancedSearchCriteria, this.stringUtils, this.dateUtils);
     const filterSuffix = filterSummary ? `${EM_DASH_WITH_SPACES}${filterSummary}` : "";
+    const noResultsMessage = `${noResultsBase}${filterSuffix}`;
     const alertMessage = this.walkListView === WalkListView.MAP
       ? (this.filteredWalks?.length ? `Showing ${totalOnly}${filterSuffix}` : noResultsMessage)
       : (hasEvents ? (this.pageCount <= 1 ? `${totalOnly}${filterSuffix}` : `${offset} to ${toNumber} of ${totalOnly}${pageIndicator ? EM_DASH_WITH_SPACES + pageIndicator : ""}${filterSuffix}`) : noResultsMessage);
@@ -478,43 +492,6 @@ export class EventsFull implements OnInit, OnDestroy {
     };
   }
 
-  private advancedSearchSummary(): string {
-    if (!this.advancedSearchCriteria) {
-      return "";
-    }
-    const parts: string[] = [];
-    const c = this.advancedSearchCriteria;
-    if (c.dateFrom || c.dateTo) {
-      const from = c.dateFrom ? this.dateUtils.asDateTime(c.dateFrom).toFormat("dd MMM yyyy") : "start";
-      const to = c.dateTo ? this.dateUtils.asDateTime(c.dateTo).toFormat("dd MMM yyyy") : "end";
-      parts.push(`${from} to ${to}`);
-    }
-    if (c.daysOfWeek?.length > 0) {
-      parts.push(c.daysOfWeek.map(d => this.stringUtils.asTitle(d)).join(", "));
-    }
-    if (c.difficulty?.length > 0) {
-      parts.push(c.difficulty.map(d => this.stringUtils.asTitle(d)).join(", "));
-    }
-    if (c.distanceMin || c.distanceMax) {
-      const min = c.distanceMin || 0;
-      const max = c.distanceMax ? `${c.distanceMax}` : "+";
-      parts.push(`${min}-${max} miles`);
-    }
-    if (c.proximityRadiusMiles) {
-      parts.push(`within ${c.proximityRadiusMiles} miles`);
-    }
-    if (c.accessibility?.length > 0) {
-      parts.push(c.accessibility.map(a => this.stringUtils.asTitle(a)).join(", "));
-    }
-    if (c.freeOnly) {
-      parts.push("free only");
-    }
-    if (c.cancelled) {
-      parts.push("cancelled");
-    }
-    return parts.join(", ");
-  }
-
   private replaceQueryParams(params: Record<string, string | number | null>) {
     const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => !isUndefined(v)));
     const urlTree = this.router.createUrlTree([], {
@@ -524,5 +501,13 @@ export class EventsFull implements OnInit, OnDestroy {
       fragment: this.route.snapshot.fragment
     });
     this.location.replaceState(this.router.serializeUrl(urlTree));
+  }
+
+  private resetQueryDrivenState() {
+    this.filterParameters = DEFAULT_FILTER_PARAMETERS();
+    this.pageNumber = 1;
+    this.storedAdvancedSearchCriteria = null;
+    this.advancedSearchCriteria = null;
+    this.updateViewAndPagination(this.defaultWalkListView);
   }
 }

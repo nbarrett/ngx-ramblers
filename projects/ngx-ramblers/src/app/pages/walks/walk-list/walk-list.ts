@@ -53,7 +53,7 @@ import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { DataQueryOptions, FilterCriteria } from "../../../models/api-request.model";
 import { MAP_VIEW_SELECT } from "../../../models/map.model";
 import { buildAdvancedSearchCriteria } from "../../../functions/walks/advanced-search-criteria-builder";
-import { advancedCriteriaQueryParams } from "../../../functions/walks/advanced-search";
+import { advancedCriteriaQueryParams, advancedSearchCriteriaFromParams, advancedSearchSummary, hasAdvancedCriteria } from "../../../functions/walks/advanced-search";
 
 @Component({
     selector: "app-walk-list",
@@ -62,7 +62,7 @@ import { advancedCriteriaQueryParams } from "../../../functions/walks/advanced-s
         <app-dynamic-content [anchor]="BuiltInAnchor.PAGE_HEADER" contentPathReadOnly/>
         <div class="row mb-n3">
           <div class="mb-3 col-sm-12">
-            <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget" [showAlerts]="walkListView !== WalkListView.MAP" [advancedCriteria]="advancedSearchCriteria">
+            <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget" [advancedCriteria]="advancedSearchCriteria" (advancedSearchChange)="onAdvancedSearch($event)">
               <div view-selector>
                 <div class="btn-group mb-0 btn-group-custom w-100 w-md-auto" dropdown>
                   <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn me-0"
@@ -92,7 +92,7 @@ import { advancedCriteriaQueryParams } from "../../../functions/walks/advanced-s
               <app-walk-card-list [currentPageWalks]="currentPageWalks"/>
             }
             @if (walkListView === WalkListView.MAP) {
-              <app-walks-map-view [filteredWalks]="filteredWalks" [loading]="notifyTarget.busy" (selected)="onMapSelect($event)"/>
+              <app-walks-map-view class="d-block" [class.mt-2]="notifyTarget.showAlert" [filteredWalks]="filteredWalks" [loading]="notifyTarget.busy" (selected)="onMapSelect($event)"/>
               @if (mapSelected) {
                 <div class="map-selected-walk" id="map-selected-walk">
                   <app-walk-view [displayedWalk]="mapSelected" [showPanelExpander]="false"/>
@@ -300,6 +300,13 @@ export class WalkList implements OnInit, OnDestroy {
       const sort = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC));
       const view = params.get(this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW));
       const page = params.get(this.stringUtils.kebabCase(StoredValue.PAGE));
+      const advancedSearch = params.get("advanced-search");
+      const advancedCriteria = advancedSearchCriteriaFromParams(params, this.stringUtils);
+      const hasQueryState = [q, type, sort, view, page, advancedSearch].some(value => !isNull(value)) || !!advancedCriteria;
+      if (!hasQueryState) {
+        this.resetQueryDrivenState();
+        return;
+      }
       if (!isNull(q)) {
         this.filterParameters.quickSearch = q;
       }
@@ -319,6 +326,7 @@ export class WalkList implements OnInit, OnDestroy {
           this.pageNumber = pageNum;
         }
       }
+      this.advancedSearchCriteria = advancedCriteria;
     });
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.systemConfig = systemConfig;
@@ -328,7 +336,6 @@ export class WalkList implements OnInit, OnDestroy {
     this.broadcastService.on(NamedEventType.WALK_SLOTS_CREATED, () => this.refreshWalks(NamedEventType.WALK_SLOTS_CREATED));
     this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshWalks(NamedEventType.REFRESH));
     this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilterToWalks(searchTerm));
-    this.broadcastService.on(NamedEventType.ADVANCED_SEARCH, (event: NamedEvent<AdvancedSearchCriteria>) => this.onAdvancedSearch(event.data));
     this.broadcastService.on(NamedEventType.WALK_SAVED, () => this.refreshWalks(NamedEventType.WALK_SAVED));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       this.currentWalkId = paramMap.get("walk-id");
@@ -393,10 +400,13 @@ export class WalkList implements OnInit, OnDestroy {
     const toWalkNumber = hasWalks ? Math.min(this.pageNumber * this.pageSize, totalItems || 0) : 0;
     const totalOnly = `${this.stringUtils.pluraliseWithCount(totalItems || 0, "walk")}`;
     const hasSearchTerm = this.filterParameters?.quickSearch && this.filterParameters.quickSearch.trim().length > 0;
-    const noResultsMessage = hasSearchTerm ? `No results match "${this.filterParameters.quickSearch}"` : "No walks found";
+    const noResultsBase = hasSearchTerm ? `No results match "${this.filterParameters.quickSearch}"` : "No walks found";
+    const filterSummary = advancedSearchSummary(this.advancedSearchCriteria, this.stringUtils, this.dateUtils);
+    const filterSuffix = filterSummary ? `${EM_DASH_WITH_SPACES}${filterSummary}` : "";
+    const noResultsMessage = `${noResultsBase}${filterSuffix}`;
     const alertMessage = this.walkListView === WalkListView.MAP
-      ? (this.filteredWalks?.length ? `Showing ${totalOnly}` : noResultsMessage)
-      : (hasWalks ? (this.pageCount <= 1 ? totalOnly : `${offset} to ${toWalkNumber} of ${totalOnly}${pageIndicator ? EM_DASH_WITH_SPACES + pageIndicator : ""}`) : noResultsMessage);
+      ? (this.filteredWalks?.length ? `Showing ${totalOnly}${filterSuffix}` : noResultsMessage)
+      : (hasWalks ? (this.pageCount <= 1 ? `${totalOnly}${filterSuffix}` : `${offset} to ${toWalkNumber} of ${totalOnly}${pageIndicator ? EM_DASH_WITH_SPACES + pageIndicator : ""}${filterSuffix}`) : noResultsMessage);
     this.logger.info("ALERT DEBUG - updatePaginationStatus:", {
       walkListView: this.walkListView,
       pageCount: this.pageCount,
@@ -422,12 +432,13 @@ export class WalkList implements OnInit, OnDestroy {
 
   onAdvancedSearch(criteria: AdvancedSearchCriteria) {
     this.logger.info("Advanced search triggered:", criteria, "isInitializing:", this.isInitializing);
-    const criteriaChanged = JSON.stringify(this.advancedSearchCriteria) !== JSON.stringify(criteria);
+    const nextCriteria = hasAdvancedCriteria(criteria) ? criteria : null;
+    const criteriaChanged = JSON.stringify(this.advancedSearchCriteria) !== JSON.stringify(nextCriteria);
     const shouldResetPage = !this.isInitializing && criteriaChanged;
-    this.advancedSearchCriteria = criteria;
+    this.advancedSearchCriteria = nextCriteria;
     if (shouldResetPage) {
       this.pageNumber = 1;
-      const criteriaParams = advancedCriteriaQueryParams(criteria, this.stringUtils, this.dateUtils);
+      const criteriaParams = advancedCriteriaQueryParams(nextCriteria, this.stringUtils, this.dateUtils);
       this.replaceQueryParams({
         [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1,
         ...criteriaParams
@@ -665,5 +676,12 @@ export class WalkList implements OnInit, OnDestroy {
     const extras:any = { relativeTo: this.route, queryParams, queryParamsHandling: "merge" };
     this.logger.info("replaceQueryParams:navigate to", extras);
     this.router.navigate([], extras);
+  }
+
+  private resetQueryDrivenState() {
+    this.filterParameters = DEFAULT_FILTER_PARAMETERS();
+    this.pageNumber = 1;
+    this.advancedSearchCriteria = null;
+    this.updateViewAndPagination(this.systemConfig?.group?.defaultWalkListView || WalkListView.CARDS);
   }
 }

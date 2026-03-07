@@ -1,6 +1,5 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
-import { hasMongoId } from "../../services/path-matchers";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
 import { SocialPopulationLocalGuard } from "../../guards/social-population-local-guard";
 

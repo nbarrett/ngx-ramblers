@@ -1,3 +1,4 @@
+import { Location } from "@angular/common";
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faGear } from "@fortawesome/free-solid-svg-icons";
 import { first, kebabCase } from "es-toolkit/compat";
@@ -172,6 +173,7 @@ import {
 export class WalkConfigComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkConfigComponent", NgxLoggerLevel.ERROR);
+  private location = inject(Location);
   private urlService = inject(UrlService);
   private contentTextService = inject(ContentTextService);
   private meetupService = inject(MeetupService);
@@ -228,7 +230,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   }
 
   backToWalksAdmin() {
-    this.urlService.navigateTo(["walks", "admin"]);
+    this.location.back();
   }
 
   private replaceContent(contentText: ContentText) {
