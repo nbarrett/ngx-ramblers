@@ -2,7 +2,7 @@ import { inject, NgModule } from "@angular/core";
 import { NoPreloading, RouterModule, Routes } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
-import { hasDynamicPath } from "./services/path-matchers";
+import { hasDynamicPath, hasEditSubPath, hasViewSubPath } from "./services/path-matchers";
 import { contactUsGuard } from "./pages/contact-us/contact-us.guard";
 import { AreaExistsGuard } from "./guards/area-exists-guard";
 import { SocialPopulationLocalGuard } from "./guards/social-population-local-guard";
@@ -90,9 +90,21 @@ const routes: Routes = [
     pathMatch: "full"
   },
   {
+    matcher: hasEditSubPath,
+    loadComponent: () => import("./pages/walks/walk-edit-fullpage/walk-edit-full-page.component")
+      .then(m => m.WalkEditFullPageComponent),
+    canActivate: [SystemHealthyGuard]
+  },
+  {
+    matcher: hasViewSubPath,
+    loadComponent: () => import("./pages/walks/walk-edit-fullpage/walk-edit-full-page.component")
+      .then(m => m.WalkEditFullPageComponent),
+    canActivate: [SystemHealthyGuard]
+  },
+  {
     matcher: hasDynamicPath,
-    loadComponent: () => import("./modules/common/dynamic-content-page/dynamic-content-page")
-      .then(m => m.DynamicContentPageComponent),
+    loadComponent: () => import("./pages/walks/walk-list/walk-view-selector")
+      .then(m => m.WalksViewSelector),
     canActivate: [SystemHealthyGuard]
   },
   {path: "**", redirectTo: "/"},

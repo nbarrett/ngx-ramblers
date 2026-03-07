@@ -1,5 +1,8 @@
 import { PageContent, PageContentRow, PageContentType } from "../../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { AccessLevel } from "../../../../../projects/ngx-ramblers/src/app/models/member-resource.model";
+import { FilterCriteria, SortOrder } from "../../../../../projects/ngx-ramblers/src/app/models/api-request.model";
+import { RamblersEventType } from "../../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { dateTimeNow } from "../../../shared/dates";
 
 export interface PageContentTemplateParams {
   groupName: string;
@@ -30,11 +33,71 @@ export function createHomeContent(params: PageContentTemplateParams): PageConten
   };
 }
 
+function createEventsRow(): PageContentRow {
+  return {
+    type: PageContentType.EVENTS,
+    showSwiper: false,
+    maxColumns: 2,
+    columns: [],
+    events: {
+      minColumns: 2,
+      maxColumns: 2,
+      allow: {
+        addNew: true,
+        pagination: true,
+        quickSearch: true,
+        alert: true,
+        autoTitle: true,
+        advancedSearch: true,
+        viewSelector: true
+      },
+      eventTypes: [RamblersEventType.GROUP_WALK],
+      fromDate: dateTimeNow().toMillis(),
+      toDate: dateTimeNow().plus({years: 1}).toMillis(),
+      filterCriteria: FilterCriteria.FUTURE_EVENTS,
+      sortOrder: SortOrder.DATE_ASCENDING
+    }
+  };
+}
+
 export function createWalksPageHeader(params: PageContentTemplateParams): PageContent {
   return {
     path: "walks#page-header",
     rows: [
       createTextRow("# Walks Programme")
+    ]
+  };
+}
+
+export function createWalksPage(params: PageContentTemplateParams): PageContent {
+  return {
+    path: "walks",
+    rows: [
+      createTextRow("# Walks Programme"),
+      createEventsRow(),
+      {
+        type: PageContentType.ACTION_BUTTONS,
+        showSwiper: false,
+        maxColumns: 2,
+        columns: [
+          {
+            columns: 6,
+            title: "Walks Information",
+            href: "walks/information",
+            accessLevel: AccessLevel.public,
+            contentText: "More information about our walks",
+            showPlaceholderImage: true
+          },
+          {
+            columns: 6,
+            title: "Admin",
+            href: "walks/admin",
+            accessLevel: AccessLevel.committee,
+            contentText: "Walk administration and settings",
+            showPlaceholderImage: true
+          }
+        ]
+      }
     ]
   };
 }
@@ -114,6 +177,7 @@ export function createAdminActionButtons(params: PageContentTemplateParams): Pag
 export function createAllSamplePageContent(params: PageContentTemplateParams): PageContent[] {
   return [
     createHomeContent(params),
+    createWalksPage(params),
     createWalksPageHeader(params),
     createWalksActionButtons(params),
     createWalksInformation(params),

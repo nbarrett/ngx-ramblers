@@ -2,7 +2,6 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageComponent } from "../../../page/page.component";
-import { SocialCarouselComponent } from "../social-carousel/social-carousel";
 import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 import { Subscription } from "rxjs";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -15,7 +14,6 @@ import { BuiltInAnchor } from "../../../models/content-text.model";
     selector: "app-social-home",
     template: `
       <app-page>
-        <app-social-carousel/>
         @if (displayService.allow.admin && systemConfig?.enableMigration?.events) {
           <div class="mb-3 col-sm-12">
             <button (click)="performMigration()" class="btn btn-primary me-2"
@@ -27,7 +25,7 @@ import { BuiltInAnchor } from "../../../models/content-text.model";
       </app-page>
     `,
     styleUrls: ["./social-home.component.sass"],
-  imports: [PageComponent, SocialCarouselComponent, DynamicContentComponent]
+  imports: [PageComponent, DynamicContentComponent]
 })
 export class SocialHomeComponent implements OnInit, OnDestroy {
   loggerFactory: LoggerFactory = inject(LoggerFactory);

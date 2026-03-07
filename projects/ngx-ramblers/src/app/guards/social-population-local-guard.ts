@@ -4,12 +4,14 @@ import { LoggerFactory } from "../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { SystemConfigService } from "../services/system/system-config.service";
 import { SocialDisplayService } from "../pages/social/social-display.service";
+import { PageService } from "../services/page.service";
 
 export function SocialPopulationLocalGuard(): boolean {
   let configLoaded = false;
   const router: Router = inject(Router);
   const displayService: SocialDisplayService = inject(SocialDisplayService);
   const systemConfigService: SystemConfigService = inject(SystemConfigService);
+  const pageService: PageService = inject(PageService);
   const loggerFactory: LoggerFactory = inject(LoggerFactory);
   const logger = loggerFactory.createLogger("SocialPopulationLocalGuard", NgxLoggerLevel.OFF);
   systemConfigService.events().subscribe(item => {
@@ -18,9 +20,9 @@ export function SocialPopulationLocalGuard(): boolean {
   });
 
   const allowed = !configLoaded || displayService.socialPopulationLocal();
-  logger.info("walkPopulationLocal allowed:", allowed);
+  logger.info("socialPopulationLocal allowed:", allowed);
   if (!allowed) {
-    router.navigate(["/walks"]);
+    router.navigate(["/" + (pageService.socialPage()?.href || "social")]);
   }
   return allowed;
 }

@@ -102,138 +102,80 @@ interface GroupedFilterOption {
     `],
     template: `
     @if (!currentWalkId) {
-      @if (showPagination) {
-        {{ logAlertDebug('paginated view') }}
-        <div class="d-lg-flex pb-0 pb-lg-2 align-items-lg-center gap-lg-3">
-          <div class="mb-2 mb-lg-0 flex-lg-fill">
-            <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
-              (ngModelChange)="onSearchChange($event)"
-              name="quickSearch"
-              class="form-control rounded w-100"
-              type="text" placeholder="Quick Search">
-          </div>
-          <div class="mb-2 mb-lg-0 flex-lg-fill">
-            <ng-select
-              [items]="groupedFilterOptions"
-              [(ngModel)]="selectedFilterOption"
-              bindLabel="label"
-              groupBy="groupLabel"
-              [clearable]="false"
-              [searchable]="false"
-              dropdownPosition="bottom"
-              (change)="onFilterSelectionChange($event)"
-              class="rounded w-100">
-              <ng-template ng-label-tmp let-item="item">
-                <span [title]="(item.groupLabel ? item.groupLabel + ' - ' : '') + item.label">
-                  {{ item.label }}
-                </span>
-              </ng-template>
-            </ng-select>
-          </div>
-          <div class="mb-2 mb-lg-0 flex-lg-fill">
-            <ng-select
-              [items]="sortOptions"
-              [(ngModel)]="filterParameters.ascending"
-              bindLabel="label"
-              bindValue="value"
-              [clearable]="false"
-              [searchable]="false"
-              dropdownPosition="bottom"
-              (ngModelChange)="refreshWalks('change filterParameters.ascending')"
-              class="rounded w-100">
-            </ng-select>
-          </div>
-          <div class="mb-2 mb-lg-0 flex-lg-shrink-0">
-            <ng-content select="[view-selector]"/>
-          </div>
+      <div class="d-lg-flex pb-0 pb-lg-2 align-items-lg-center gap-lg-3">
+        <div class="mb-2 mb-lg-0 flex-lg-fill">
+          <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
+            (ngModelChange)="onSearchChange($event)"
+            name="quickSearch"
+            class="form-control rounded w-100"
+            type="text" placeholder="Quick Search">
+        </div>
+        <div class="mb-2 mb-lg-0 flex-lg-fill">
+          <ng-select
+            [items]="groupedFilterOptions"
+            [(ngModel)]="selectedFilterOption"
+            bindLabel="label"
+            groupBy="groupLabel"
+            [clearable]="false"
+            [searchable]="false"
+            dropdownPosition="bottom"
+            (change)="onFilterSelectionChange($event)"
+            class="rounded w-100">
+            <ng-template ng-label-tmp let-item="item">
+              <span [title]="(item.groupLabel ? item.groupLabel + ' - ' : '') + item.label">
+                {{ item.label }}
+              </span>
+            </ng-template>
+          </ng-select>
+        </div>
+        <div class="mb-2 mb-lg-0 flex-lg-fill">
+          <ng-select
+            [items]="sortOptions"
+            [(ngModel)]="filterParameters.ascending"
+            bindLabel="label"
+            bindValue="value"
+            [clearable]="false"
+            [searchable]="false"
+            dropdownPosition="bottom"
+            (ngModelChange)="refreshWalks('change filterParameters.ascending')"
+            class="rounded w-100">
+          </ng-select>
+        </div>
+        <div class="mb-2 mb-lg-0 flex-lg-shrink-0">
+          <ng-content select="[view-selector]"/>
+        </div>
+        @if (showAdvancedSearch) {
           <div class="mb-1 mb-lg-0 flex-lg-shrink-0">
             <button type="button" class="btn pager-btn rounded w-100" (click)="toggleAdvancedSearch()">
               <fa-icon [icon]="faSliders" class="me-2 advanced-search-icon" [class.rotated]="advancedSearchExpanded"/>
               Advanced Search
             </button>
           </div>
-        </div>
-        <div class="d-flex full-width-pagination align-items-center gap-2 flex-wrap mt-1">
+        }
+      </div>
+      <div class="d-flex full-width-pagination align-items-center gap-2 flex-wrap mt-1">
+        @if (showPagination) {
           <ng-content/>
-          @if (showAlerts && notifyTarget.showAlert) {
-            <div class="alert-wrapper">
-              {{ logAlertDebug('inline alert check') }}
-              <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center">
-                <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
-                <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
-                <span class="ms-1 text-truncate">{{ notifyTarget.alertMessage }}</span>
-              </div>
+        }
+        @if (showAlerts && notifyTarget.showAlert) {
+          <div class="alert-wrapper flex-grow-1">
+            <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center">
+              <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
+              <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
+              <span class="ms-1 text-truncate">{{ notifyTarget.alertMessage }}</span>
             </div>
-          }
-        </div>
-      } @else {
-        {{ logAlertDebug('non-paginated view') }}
-        <div class="d-lg-flex pb-0 align-items-center gap-3">
-          <div class="form-group mb-lg-0 flex-fill">
-            <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
-              (ngModelChange)="onSearchChange($event)"
-              name="quickSearch"
-              class="form-control rounded"
-              type="text" placeholder="Quick Search">
           </div>
-          <div class="form-group mb-lg-0 flex-fill">
-            <ng-select
-              [items]="groupedFilterOptions"
-              [(ngModel)]="selectedFilterOption"
-              bindLabel="label"
-              groupBy="groupLabel"
-              [clearable]="false"
-              [searchable]="false"
-              dropdownPosition="bottom"
-              (change)="onFilterSelectionChange($event)"
-              class="rounded">
-              <ng-template ng-label-tmp let-item="item">
-                <span [title]="(item.groupLabel ? item.groupLabel + ' - ' : '') + item.label">
-                  {{ item.label }}
-                </span>
-              </ng-template>
-            </ng-select>
-          </div>
-          <div class="form-group mb-lg-0 flex-fill">
-            <ng-select
-              [items]="sortOptions"
-              [(ngModel)]="filterParameters.ascending"
-              bindLabel="label"
-              bindValue="value"
-              [clearable]="false"
-              [searchable]="false"
-              dropdownPosition="bottom"
-              (ngModelChange)="refreshWalks('change filterParameters.ascending')"
-              class="rounded">
-            </ng-select>
-          </div>
-          <div class="form-group mb-lg-0 flex-shrink-0">
-            <ng-content select="[view-selector]"/>
-          </div>
-          <div class="form-group mb-lg-0 flex-shrink-0">
-            <button type="button" class="btn pager-btn rounded" (click)="toggleAdvancedSearch()">
-              <fa-icon [icon]="faSliders" class="me-2 advanced-search-icon" [class.rotated]="advancedSearchExpanded"/>
-              Advanced Search
-            </button>
-          </div>
-          @if (showAlerts && notifyTarget.showAlert) {
-            <div class="form-group mb-0 flex-fill">
-              <div class="alert {{notifyTarget.alertClass}} mb-0 d-flex align-items-center">
-                <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
-                <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
-                <span class="ms-1 text-truncate">{{ notifyTarget.alertMessage }}</span>
-              </div>
-            </div>
-          }
-        </div>
+        }
+      </div>
+      @if (showAdvancedSearch) {
+        <app-advanced-search-panel
+          [class.show]="advancedSearchExpanded"
+          [criteria]="advancedCriteria"
+          [filterSelectType]="filterParameters?.selectType"
+          [expanded]="advancedSearchExpanded"
+          (toggleAdvancedSearch)="toggleAdvancedSearch()"
+          (searchCriteriaChange)="onAdvancedSearchChange($event)"/>
       }
-      <app-advanced-search-panel
-        [class.show]="advancedSearchExpanded"
-        [criteria]="advancedCriteria"
-        [filterSelectType]="filterParameters?.selectType"
-        [expanded]="advancedSearchExpanded"
-        (toggleAdvancedSearch)="toggleAdvancedSearch()"
-        (searchCriteriaChange)="onAdvancedSearchChange($event)"/>
     }`,
   imports: [FormsModule, FontAwesomeModule, AdvancedSearchPane, NgSelectModule],
     standalone: true
@@ -264,6 +206,8 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   filterParameters: FilterParameters;
   @Input()
   showAlerts = true;
+  @Input()
+  showAdvancedSearch = true;
   @Input()
   advancedCriteria: AdvancedSearchCriteria | null = null;
 

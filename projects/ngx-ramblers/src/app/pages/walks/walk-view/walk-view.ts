@@ -120,9 +120,12 @@ import { PageService } from "../../../services/page.service";
               @if (notifyTarget.showAlert) {
                 <div class="col-12 alert {{notifyTarget.alertClass}} mt-3">
                   <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                  <strong class="ms-2">{{ notifyTarget.alertTitle }}</strong>
-                  {{ notifyTarget.alertMessage }} <a [routerLink]="'/walks'" type="button"
-                                                     class="rams-text-decoration-pink">Switch to Walks Programme</a>
+                  @if (notifyTarget.alertTitle) {
+                    <strong class="ms-2">{{ notifyTarget.alertTitle }}</strong>
+                  }
+                  {{ notifyTarget.alertMessage }}{{ EM_DASH_WITH_SPACES }}
+                  <a [routerLink]="'/' + display.walksArea()" type="button"
+                     class="rams-text-decoration-pink">Back to {{ pageService.areaTitle() }}</a>
                 </div>
               }
             }
@@ -266,7 +269,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   public notifyTarget: AlertTarget = {};
   protected readonly ALERT_WARNING = ALERT_WARNING;
-  private pageService = inject(PageService);
+  protected pageService = inject(PageService);
   public extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private walksAndEventsService = inject(WalksAndEventsService);
   public googleMapsService = inject(GoogleMapsService);
@@ -402,7 +405,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     }
     this.notify.success({
       title: `Single ${this.display.eventTypeTitle(this.displayedWalk?.walk)} showing`,
-      message: " - "
+      message: " "
     });
   }
 

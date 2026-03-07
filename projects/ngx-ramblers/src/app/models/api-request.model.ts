@@ -24,7 +24,6 @@ export interface MongoId {
 export enum SortOrder {
   DATE_ASCENDING = "DATE_ASCENDING",
   DATE_DESCENDING = "DATE_DESCENDING",
-  CHOOSE = "CHOOSE",
 }
 
 export enum FilterCriteria {
@@ -36,8 +35,7 @@ export enum FilterCriteria {
   NO_EVENT_TITLE = "NO_EVENT_TITLE",
   MISSING_LOCATION = "MISSING_LOCATION",
   DELETED_EVENTS = "DELETED_EVENTS",
-  CHOOSE = "CHOOSE",
 }
 
 export const BASIC_FILTER_OPTIONS: FilterCriteria[] = [FilterCriteria.FUTURE_EVENTS, FilterCriteria.PAST_EVENTS, FilterCriteria.ALL_EVENTS];
-export const DYNAMIC_CONTENT_FILTER_OPTIONS: FilterCriteria[] = [FilterCriteria.DATE_RANGE].concat(BASIC_FILTER_OPTIONS).concat(FilterCriteria.CHOOSE);
+export const DYNAMIC_CONTENT_FILTER_OPTIONS: FilterCriteria[] = [FilterCriteria.DATE_RANGE].concat(BASIC_FILTER_OPTIONS);

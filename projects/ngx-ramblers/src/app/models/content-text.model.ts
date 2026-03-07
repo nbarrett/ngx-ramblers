@@ -437,6 +437,23 @@ export interface AlbumData {
   showIndicators: boolean;
   showStoryNavigator: boolean;
   height: number;
+  backgroundImageNames?: string[];
+  backgroundsOverlay?: BackgroundsOverlay;
+}
+
+
+
+export interface BackgroundsOverlay {
+  titleColourClass?: string;
+  titleScale?: number;
+  textColourClass?: string;
+  paddingTop?: number;
+  paddingLeft?: number;
+  markdownContent?: string;
+  photoOffsetPercent?: number;
+  showEventLink?: boolean;
+  showEventDate?: boolean;
+  eventLinkScale?: number;
 }
 
 export interface IndexMapConfig {
@@ -624,6 +641,7 @@ export interface FragmentWithLabel extends Fragment, HasNgSelectAttributes {
 }
 
 export enum AlbumView {
+  BACKGROUNDS = "backgrounds",
   CAROUSEL = "carousel",
   GALLERY = "gallery",
   GRID = "grid",

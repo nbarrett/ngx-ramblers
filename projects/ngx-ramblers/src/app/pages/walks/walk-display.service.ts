@@ -39,6 +39,7 @@ import { MediaQueryService } from "../../services/committee/media-query.service"
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { FeaturesService } from "../../services/features.service";
 import { validEmail } from "../../functions/strings";
+import { PageService } from "../../services/page.service";
 
 @Injectable({
   providedIn: "root"
@@ -64,6 +65,7 @@ export class WalkDisplayService {
   private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private committeeConfig = inject(CommitteeConfigService);
   private dateUtils = inject(DateUtilsService);
+  private pageService = inject(PageService);
   private subject = new ReplaySubject<Member[]>();
   public relatedLinksMediaWidth = 22;
   public expandedWalks: ExpandedWalk [] = [];
@@ -80,7 +82,10 @@ export class WalkDisplayService {
     this.applyConfig();
     this.refreshCachedData();
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
+  }
 
+  walksArea(): string {
+    return this.urlService.area() || this.pageService.walksPage()?.href || "walks";
   }
 
   public notAwaitingLeader(walk: ExtendedGroupEvent): boolean {
@@ -199,7 +204,7 @@ export class WalkDisplayService {
   editFullScreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
     this.logger.debug("editing walk fullscreen:", walk);
     this.viewReturnUrl = this.router.url;
-    return this.router.navigate(["/walks", "edit", this.walkSlug(walk)]).then(() => {
+    return this.router.navigate(["/" + this.walksArea(), "edit", this.walkSlug(walk)]).then(() => {
       this.logger.debug("area is now", this.urlService.area());
       return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
     });
@@ -303,14 +308,14 @@ export class WalkDisplayService {
   walkLink(extendedGroupEvent: ExtendedGroupEvent): string {
     this.logger.info("walkLink:groupEvent:url:", extendedGroupEvent?.groupEvent.url, "title:", extendedGroupEvent?.groupEvent?.title);
     return this.urlService.linkUrl({
-      area: "walks",
+      area: this.walksArea(),
       id: this.walkSlug(extendedGroupEvent)
     });
   }
 
   walkViewLink(extendedGroupEvent: ExtendedGroupEvent): string[] {
     this.viewReturnUrl = this.router.url;
-    return ["/walks", "view", this.walkSlug(extendedGroupEvent)];
+    return ["/" + this.walksArea(), "view", this.walkSlug(extendedGroupEvent)];
   }
 
   ramblersLink(walk: ExtendedGroupEvent): string {
@@ -363,13 +368,19 @@ export class WalkDisplayService {
   }
 
   closeEditView(walk: ExtendedGroupEvent) {
-    if (this.urlService.pathContains("edit")) {
-      this.urlService.navigateTo(["walks"]);
-    } else if (this.urlService.pathContains("view")) {
-      const returnUrl = this.viewReturnUrl || "/walks";
-      this.viewReturnUrl = null;
-      this.router.navigateByUrl(returnUrl);
+    const rawReturnUrl = this.viewReturnUrl || "/" + this.walksArea();
+    this.viewReturnUrl = null;
+    const [pathWithQuery, fragment] = rawReturnUrl.split("#");
+    const [path, queryString] = pathWithQuery.split("?");
+    const queryParams: Record<string, string> = {};
+    if (queryString) {
+      queryString.split("&").forEach(pair => {
+        const [key, value] = pair.split("=");
+        queryParams[decodeURIComponent(key)] = decodeURIComponent(value || "");
+      });
     }
+    this.logger.info("closeEditView:rawReturnUrl:", rawReturnUrl, "path:", path, "queryParams:", queryParams, "fragment:", fragment);
+    this.router.navigate([path], {queryParams, fragment, queryParamsHandling: "merge"});
     this.toggleExpandedViewFor(walk, WalkViewMode.VIEW);
   }
 

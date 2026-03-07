@@ -65,14 +65,20 @@ export class WalksViewSelector implements OnInit, OnDestroy {
   protected displayedWalk: DisplayedWalk;
   private router = inject(Router);
   private navigationSubscription?: Subscription;
+  private currentPath: string;
 
   async ngOnInit(): Promise<void> {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.currentPath = this.router.url.split("?")[0].split("#")[0];
     await this.loadEventView();
     this.navigationSubscription = this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
-      .subscribe(() => {
-        void this.loadEventView();
+      .subscribe((event: NavigationEnd) => {
+        const newPath = event.urlAfterRedirects.split("?")[0].split("#")[0];
+        if (newPath !== this.currentPath) {
+          this.currentPath = newPath;
+          void this.loadEventView();
+        }
       });
   }
 

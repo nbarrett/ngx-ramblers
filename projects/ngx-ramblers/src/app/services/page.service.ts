@@ -35,8 +35,8 @@ export class PageService {
     this.logger.info("subscribing to systemConfigService events");
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
-      this.socialLink = item.group.pages.find(item => item.title.toLowerCase().includes("social"));
-      this.walkLink = item.group.pages.find(item => item.title.toLowerCase().includes("walks"));
+      this.socialLink = this.findPageByHref(item.group.pages, "social") || this.findPageByTitle(item.group.pages, "social");
+      this.walkLink = this.findPageByHref(item.group.pages, "walks") || this.findPageByTitle(item.group.pages, "walks");
       this.logger.info("social page found as:", this.socialLink, "walks page found as:", this.walkLink, "group:", this.group);
       this.subject.next(this.socialLink);
       this.subject.next(this.walkLink);
@@ -134,6 +134,14 @@ export class PageService {
     } else {
       this.logger.info("setTitle:supplied pageTitles", pageTitles, "group longName not configured yet");
     }
+  }
+
+  private findPageByHref(pages: Link[], href: string): Link {
+    return pages.find(page => page.href?.toLowerCase() === href || page.href?.toLowerCase().includes(href));
+  }
+
+  private findPageByTitle(pages: Link[], title: string): Link {
+    return pages.find(page => page.title?.toLowerCase().includes(title));
   }
 
   areaExistsFor(url: string): boolean {
