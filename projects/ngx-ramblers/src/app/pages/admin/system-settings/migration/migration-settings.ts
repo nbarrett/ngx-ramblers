@@ -11,6 +11,7 @@ import {
 import { faAdd, faArrowUpRightFromSquare, faClose, faCompress, faCopy, faExpand, faPaste, faPlay, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
+import { UIDateFormat } from "../../../../models/date-format.model";
 import { MigrationConfig, ParentPageConfig, ParentPageMode, SiteMigrationConfig } from "../../../../models/migration-config.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
@@ -1277,7 +1278,7 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
 
   private sessionToUrlParam(createdDate: number): string {
     if (!createdDate) return "";
-    return this.dateUtils.asDateTime(createdDate).toFormat("yyyy-MM-dd'T'HHmm");
+    return this.dateUtils.asString(createdDate, undefined, UIDateFormat.YEAR_MONTH_DAY_T_HHMM);
   }
 
 }

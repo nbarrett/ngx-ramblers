@@ -129,7 +129,7 @@ export class WalkAdminComponent implements OnInit, OnDestroy {
   }
 
   adminHowTo() {
-    this.urlService.navigateToAbsoluteUrl("https://www.ngx-ramblers.org.uk/how-to/committee/walks/import");
+    this.urlService.navigateToAbsoluteUrl("https://www.ngx-ramblers.org.uk/how-to/committee/walks");
   }
 
   addWalkSlots() {

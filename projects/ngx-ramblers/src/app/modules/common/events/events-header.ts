@@ -154,7 +154,7 @@ export class EventsHeader implements OnInit, OnDestroy {
   }
 
   addNewEvent() {
-    this.urlService.navigateTo([this.pageService.socialPage()?.href, "new"]);
+    this.urlService.navigateTo([this.display.socialArea(), "new"]);
   }
 
   configureFilterCriteria(): boolean {

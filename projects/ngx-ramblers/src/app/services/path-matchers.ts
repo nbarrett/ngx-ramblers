@@ -52,6 +52,32 @@ export function hasEditSubPath(urlSegments: UrlSegment[]): UrlMatchResult {
   }
 }
 
+export function hasTrailingNewPath(urlSegments: UrlSegment[]): UrlMatchResult {
+  if (urlSegments.length === 2 && last(urlSegments).path === "new") {
+    return {
+      consumed: urlSegments,
+      posParams: {
+        "area": urlSegments[0]
+      }
+    };
+  } else {
+    return null;
+  }
+}
+
+export function hasTrailingEditPath(urlSegments: UrlSegment[]): UrlMatchResult {
+  if (urlSegments.length >= 3 && last(urlSegments).path === "edit") {
+    return {
+      consumed: urlSegments,
+      posParams: {
+        "id": urlSegments[urlSegments.length - 2]
+      }
+    };
+  } else {
+    return null;
+  }
+}
+
 export function hasViewSubPath(urlSegments: UrlSegment[]): UrlMatchResult {
   if (urlSegments.length >= 3 && urlSegments[urlSegments.length - 2].path === "view") {
     return {

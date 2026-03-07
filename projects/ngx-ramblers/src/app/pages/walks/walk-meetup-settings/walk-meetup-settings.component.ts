@@ -1,3 +1,4 @@
+import { Location } from "@angular/common";
 import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild } from "@angular/core";
 import { faMeetup } from "@fortawesome/free-brands-svg-icons";
 import { first } from "es-toolkit/compat";
@@ -33,6 +34,7 @@ import {
 export class WalkMeetupSettingsComponent implements OnInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkMeetupSettingsComponent", NgxLoggerLevel.ERROR);
+  private location = inject(Location);
   private urlService = inject(UrlService);
   private contentTextService = inject(ContentTextService);
   private meetupService = inject(MeetupService);
@@ -72,7 +74,7 @@ export class WalkMeetupSettingsComponent implements OnInit {
   }
 
   backToWalksAdmin() {
-    this.urlService.navigateTo(["walks", "admin"]);
+    this.location.back();
   }
 
   private replaceContent(contentText: ContentText) {

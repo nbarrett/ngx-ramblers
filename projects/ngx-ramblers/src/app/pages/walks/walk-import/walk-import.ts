@@ -16,7 +16,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FileUploadModule } from "ng2-file-upload";
 import { Subscription } from "rxjs";
 import { FormsModule } from "@angular/forms";
-import { NgClass, NgStyle, NgTemplateOutlet, TitleCasePipe } from "@angular/common";
+import { Location, NgClass, NgStyle, NgTemplateOutlet, TitleCasePipe } from "@angular/common";
 import { SystemConfig } from "../../../models/system.model";
 import { WalkImportFromFile } from "./walk-import-from-file";
 import { GroupEventField, ImportData, ImportStage, WalkImportField } from "../../../models/walk.model";
@@ -413,6 +413,7 @@ export class WalkImport implements OnInit, OnDestroy {
   display = inject(WalkDisplayService);
   memberService = inject(MemberService);
   protected walksImportService = inject(WalksImportService);
+  private location = inject(Location);
   private urlService = inject(UrlService);
   protected stringUtilsService = inject(StringUtilsService);
   private fullNamePipe = inject(FullNamePipe);
@@ -534,7 +535,7 @@ export class WalkImport implements OnInit, OnDestroy {
   }
 
   navigateBackToAdmin() {
-    this.urlService.navigateTo(["walks", "admin"]);
+    this.location.back();
   }
 
   reset() {

@@ -60,52 +60,12 @@ function createEventsRow(): PageContentRow {
   };
 }
 
-export function createWalksPageHeader(params: PageContentTemplateParams): PageContent {
-  return {
-    path: "walks#page-header",
-    rows: [
-      createTextRow("# Walks Programme")
-    ]
-  };
-}
-
 export function createWalksPage(params: PageContentTemplateParams): PageContent {
   return {
     path: "walks",
     rows: [
       createTextRow("# Walks Programme"),
       createEventsRow(),
-      {
-        type: PageContentType.ACTION_BUTTONS,
-        showSwiper: false,
-        maxColumns: 2,
-        columns: [
-          {
-            columns: 6,
-            title: "Walks Information",
-            href: "walks/information",
-            accessLevel: AccessLevel.public,
-            contentText: "More information about our walks",
-            showPlaceholderImage: true
-          },
-          {
-            columns: 6,
-            title: "Admin",
-            href: "walks/admin",
-            accessLevel: AccessLevel.committee,
-            contentText: "Walk administration and settings",
-            showPlaceholderImage: true
-          }
-        ]
-      }
-    ]
-  };
-}
-
-export function createWalksActionButtons(params: PageContentTemplateParams): PageContent {
-  return {
-    path: "walks#action-buttons",
-    rows: [
       {
         type: PageContentType.ACTION_BUTTONS,
         showSwiper: false,
@@ -178,8 +138,6 @@ export function createAllSamplePageContent(params: PageContentTemplateParams): P
   return [
     createHomeContent(params),
     createWalksPage(params),
-    createWalksPageHeader(params),
-    createWalksActionButtons(params),
     createWalksInformation(params),
     createContactUsPageContent(params),
     createAboutUsPageContent(params),

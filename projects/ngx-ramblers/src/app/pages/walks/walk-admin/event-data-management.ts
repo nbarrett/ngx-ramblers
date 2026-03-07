@@ -21,7 +21,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { HumanisePipe } from "../../../pipes/humanise.pipe";
-import { TitleCasePipe } from "@angular/common";
+import { Location, TitleCasePipe } from "@angular/common";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { sortBy } from "../../../functions/arrays";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
@@ -226,6 +226,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
   private notifierService = inject(NotifierService);
   protected icons = inject(IconService);
   private systemConfigService = inject(SystemConfigService);
+  private location = inject(Location);
   private urlService = inject(UrlService);
   protected stringUtilsService = inject(StringUtilsService);
   private walkGroupAdminService = inject(WalkGroupAdminService);
@@ -356,7 +357,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
   }
 
   navigateBackToAdmin() {
-    this.urlService.navigateTo(["walks", "admin"]);
+    this.location.back();
   }
 
   recreateGroupEventsIndex() {

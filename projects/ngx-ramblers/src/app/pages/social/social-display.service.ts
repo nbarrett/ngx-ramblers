@@ -65,6 +65,10 @@ export class SocialDisplayService {
     this.configureEventSubscriptions();
   }
 
+  socialArea(): string {
+    return this.urlService.area() || this.pageService.socialPage()?.href || "social";
+  }
+
   public fromAndToFrom(eventsData: EventsData): HasStartAndEndTime {
     const hasStartAndEnd = {
       start_date_time: this.dateUtilsService.isoDateTime(eventsData?.fromDate),
@@ -169,8 +173,11 @@ export class SocialDisplayService {
 
   groupEventLink(extendedGroupEvent: ExtendedGroupEvent, relative: boolean): string {
     const eventId: string = this.stringUtils.lastItemFrom(extendedGroupEvent?.groupEvent?.url) || this.stringUtils.kebabCase(extendedGroupEvent?.groupEvent?.title) || extendedGroupEvent?.groupEvent?.id || extendedGroupEvent?.id;
+    const area = extendedGroupEvent.groupEvent.item_type === RamblersEventType.GROUP_EVENT
+      ? this.socialArea()
+      : this.urlService.area() || this.pageService.walksPage()?.href || "walks";
     const url = eventId ? this.urlService.linkUrl({
-      area: extendedGroupEvent.groupEvent.item_type === RamblersEventType.GROUP_EVENT ? this.pageService.socialPage()?.href : this.pageService.walksPage()?.href,
+      area,
       id: eventId,
       relative
     }) : null;

@@ -1,3 +1,4 @@
+import { Location } from "@angular/common";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCheckCircle, faEnvelope, faExclamationCircle, faRemove } from "@fortawesome/free-solid-svg-icons";
@@ -5,6 +6,7 @@ import { isString, map, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
+import { UIDateFormat } from "../../../models/date-format.model";
 import {
   AuditType,
   FileUploadSummary,
@@ -484,6 +486,7 @@ export class WalkExport implements OnInit, OnDestroy {
   public display: WalkDisplayService = inject(WalkDisplayService);
   public dateUtils: DateUtilsService = inject(DateUtilsService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);
+  private location = inject(Location);
   private urlService: UrlService = inject(UrlService);
   public distanceValidationService = inject(DistanceValidationService);
   private downloadStatusService = inject(ServerDownloadStatusService);
@@ -833,7 +836,7 @@ export class WalkExport implements OnInit, OnDestroy {
   }
 
   navigateBackToWalksAdmin() {
-    this.urlService.navigateTo(["walks", "admin"]);
+    this.location.back();
   }
 
   navigateToLastReport(event) {
@@ -1165,7 +1168,7 @@ export class WalkExport implements OnInit, OnDestroy {
 
     const sessionTime = this.extractSessionTime(fileName);
     if (sessionTime) {
-      return this.dateUtils.asDateTime(sessionTime).toFormat("yyyy-MM-dd'T'HHmm");
+      return this.dateUtils.asString(sessionTime, undefined, UIDateFormat.YEAR_MONTH_DAY_T_HHMM);
     }
 
     return fileName.replace(/^walks-export-/, "").replace(/\.csv$/, "").replace(/[^a-z0-9]/gi, "-").toLowerCase();

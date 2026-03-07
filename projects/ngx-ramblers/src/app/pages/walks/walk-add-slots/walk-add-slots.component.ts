@@ -1,3 +1,4 @@
+import { Location } from "@angular/common";
 import { Component, inject, OnInit } from "@angular/core";
 import { difference } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -174,6 +175,7 @@ export class WalkAddSlotsComponent implements OnInit {
   protected display = inject(WalkDisplayService);
   private systemConfigService = inject(SystemConfigService);
   private broadcastService = inject<BroadcastService<ExtendedGroupEvent[]>>(BroadcastService);
+  private location = inject(Location);
   private urlService = inject(UrlService);
   private walkEventService = inject(GroupEventService);
   private walksReferenceService = inject(WalksReferenceService);
@@ -346,7 +348,7 @@ export class WalkAddSlotsComponent implements OnInit {
   }
 
   backToWalksAdmin() {
-    this.urlService.navigateTo(["walks", "admin"]);
+    this.location.back();
   }
 
   fixWalkDates() {

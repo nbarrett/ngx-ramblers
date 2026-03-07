@@ -30,6 +30,7 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
 import { CardImageOrMap } from "../../../modules/common/card/image/card-image-or-map";
 import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalking";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
+import { RouterLink } from "@angular/router";
 
 @Component({
   selector: "app-walk-card-view",
@@ -38,8 +39,9 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
       <app-card-image-or-map [displayedWalk]="displayedWalk" [notify]="notify" [maxColumns]="maxColumns"/>
       <div class="card-body">
         <h3 class="card-title">
-          <a [href]="displayedWalk.walkLink" class="rams-text-decoration-pink active"
-             target="_self">{{ displayedWalk.walk?.groupEvent?.title || displayedWalk.latestEventType.description }}</a>
+          <a [routerLink]="display.walkRouterLink(displayedWalk?.walk)" class="rams-text-decoration-pink active">
+            {{ displayedWalk.walk?.groupEvent?.title || displayedWalk.latestEventType.description }}
+          </a>
         </h3>
         @if (displayedWalk.walk?.groupEvent?.status === WalkStatus.CANCELLED) {
           <div class="alert alert-warning mb-2">
@@ -169,7 +171,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
       position: relative
       padding-bottom: 50px
   `],
-  imports: [WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe, DisplayTimePipe, CardImageOrMap]
+  imports: [WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe, DisplayTimePipe, CardImageOrMap, RouterLink]
 })
 
 export class WalkCardViewComponent implements OnInit, OnDestroy {

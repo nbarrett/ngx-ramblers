@@ -1,5 +1,6 @@
-import { AfterViewChecked, Component, ElementRef, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { AfterViewChecked, Component, ElementRef, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewChild } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
+import { Location } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
@@ -19,6 +20,7 @@ import { faSliders } from "@fortawesome/free-solid-svg-icons";
 import {
   AdvancedSearchCriteria,
   AdvancedSearchPreset,
+  PRESET_MATCH_THRESHOLD_MS,
   createAllWalksPresetRanges,
   createFuturePresetRanges,
   createPastPresetRanges,
@@ -41,6 +43,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 
 const ADVANCED_SEARCH_PARAM = "advanced-search";
+const ALERT_SEPARATE_ROW_MESSAGE_LENGTH = 60;
 
 interface GroupedFilterOption {
   id: string;
@@ -99,6 +102,7 @@ interface GroupedFilterOption {
               color: #212529
               background-color: #e9ecef
               border-top: 1px solid #dee2e6
+
     `],
     template: `
     @if (!currentWalkId) {
@@ -153,20 +157,31 @@ interface GroupedFilterOption {
           </div>
         }
       </div>
-      <div class="d-flex full-width-pagination align-items-center gap-2 flex-wrap mt-1">
-        @if (showPagination) {
-          <ng-content/>
-        }
-        @if (showAlerts && notifyTarget.showAlert) {
-          <div class="alert-wrapper flex-grow-1">
-            <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center">
-              <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
-              <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
-              <span class="ms-1 text-truncate">{{ notifyTarget.alertMessage }}</span>
+      @if (showResultsHeaderRow()) {
+        <div class="d-flex full-width-pagination align-items-center gap-2 flex-wrap mt-1">
+          @if (showPagination) {
+            <ng-content/>
+          }
+          @if (showAlerts && notifyTarget.showAlert && !alertUsesFullRow()) {
+            <div class="alert-wrapper flex-grow-1">
+              <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center">
+                <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
+                <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
+                <span class="ms-1">{{ notifyTarget.alertMessage }}</span>
+              </div>
             </div>
+          }
+        </div>
+      }
+      @if (showAlerts && notifyTarget.showAlert && alertUsesFullRow()) {
+        <div class="mt-2">
+          <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center">
+            <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
+            <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
+            <span class="ms-1">{{ notifyTarget.alertMessage }}</span>
           </div>
-        }
-      </div>
+        </div>
+      }
       @if (showAdvancedSearch) {
         <app-advanced-search-panel
           [class.show]="advancedSearchExpanded"
@@ -185,6 +200,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   private logger: Logger = inject(LoggerFactory).createLogger("WalkSearch", NgxLoggerLevel.ERROR);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private location = inject(Location);
   private walksReferenceService = inject(WalksReferenceService);
   private displayService = inject(WalkDisplayService);
   private memberLoginService = inject(MemberLoginService);
@@ -210,6 +226,8 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   showAdvancedSearch = true;
   @Input()
   advancedCriteria: AdvancedSearchCriteria | null = null;
+  @Output()
+  advancedSearchChange = new EventEmitter<AdvancedSearchCriteria>();
 
   advancedSearchExpanded = false;
   faSliders = faSliders;
@@ -234,6 +252,16 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
       busy: this.notifyTarget.busy
     });
     return "";
+  }
+
+  alertUsesFullRow(): boolean {
+    const alertTitleLength = this.notifyTarget?.alertTitle?.length || 0;
+    const alertMessageLength = this.notifyTarget?.alertMessage?.length || 0;
+    return alertTitleLength + alertMessageLength > ALERT_SEPARATE_ROW_MESSAGE_LENGTH;
+  }
+
+  showResultsHeaderRow(): boolean {
+    return this.showPagination || !!(this.showAlerts && this.notifyTarget?.showAlert && !this.alertUsesFullRow());
   }
 
   ngOnInit(): void {
@@ -327,12 +355,49 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
     this.advancedCriteria = hasAdvancedCriteria(event.criteria) ? event.criteria : null;
     const queryParams = advancedCriteriaQueryParams(this.advancedCriteria, this.stringUtils, this.dateUtils, event.leaderOptions);
     this.replaceQueryParams(queryParams);
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ADVANCED_SEARCH, event.criteria));
+    this.syncFilterOptionWithCriteria(event.criteria);
+    this.advancedSearchChange.emit(event.criteria);
+  }
+
+  private syncFilterOptionWithCriteria(criteria: AdvancedSearchCriteria) {
+    if (!criteria?.dateFrom || !criteria?.dateTo || !this.groupedFilterOptions.length) {
+      return;
+    }
+    let bestOption: GroupedFilterOption | null = null;
+    let bestDiff = Number.POSITIVE_INFINITY;
+    for (const option of this.groupedFilterOptions) {
+      if (option.preset) {
+        const range = option.preset.range();
+        const diff = Math.abs(range.from - criteria.dateFrom) + Math.abs(range.to - criteria.dateTo);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestOption = option;
+        }
+      }
+    }
+    if (bestOption && this.rangesAreClose(criteria, bestOption.preset.range())) {
+      this.selectedFilterOption = bestOption;
+      if (bestOption.filterType) {
+        this.filterParameters.selectType = bestOption.filterType;
+      }
+    }
+  }
+
+  private rangesAreClose(criteria: AdvancedSearchCriteria, range: { from: number; to: number }): boolean {
+    const fromDiff = Math.abs(range.from - criteria.dateFrom);
+    const toDiff = Math.abs(range.to - criteria.dateTo);
+    return fromDiff <= PRESET_MATCH_THRESHOLD_MS && toDiff <= PRESET_MATCH_THRESHOLD_MS;
   }
 
   private replaceQueryParams(params: Record<string, string | number | null>) {
     const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => !isUndefined(v)));
-    this.router.navigate([], {relativeTo: this.route, queryParams, queryParamsHandling: "merge"});
+    const urlTree = this.router.createUrlTree([], {
+      relativeTo: this.route,
+      queryParams,
+      queryParamsHandling: "merge",
+      fragment: this.route.snapshot.fragment
+    });
+    this.location.replaceState(this.router.serializeUrl(urlTree));
   }
 
   showAlertInline(): boolean {
@@ -417,7 +482,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
       this.advancedCriteria = criteria;
       const queryParams = advancedCriteriaQueryParams(criteria, this.stringUtils, this.dateUtils, []);
       this.replaceQueryParams(queryParams);
-      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ADVANCED_SEARCH, criteria));
+      this.advancedSearchChange.emit(criteria);
     }
 
     if (option.filterType) {
@@ -440,6 +505,9 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
       this.logger.info("loadDateRange: bounds", this.dataMinDate.toISO(), this.dataMaxDate.toISO());
       this.initializeGroupedFilterOptions();
       this.initializeSelectedFilterOption();
+      if (this.advancedCriteria) {
+        this.syncFilterOptionWithCriteria(this.advancedCriteria);
+      }
     } catch (error) {
       this.logger.error("Failed to load date range:", error);
     }

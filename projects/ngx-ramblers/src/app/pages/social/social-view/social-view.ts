@@ -182,8 +182,9 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
               <div class="col-12 alert {{notifyTarget.alertClass}} mt-3 mb-0">
                 <fa-icon [icon]="notifyTarget.alert.icon"/>
                 <strong class="ms-2">{{ notifyTarget.alertTitle }}</strong>
-                {{ notifyTarget.alertMessage }} <a [routerLink]="'/'+pageService.socialPage()?.href" type="button"
-                                                   class="rams-text-decoration-pink">Back to all social events</a>
+                {{ notifyTarget.alertMessage }}
+                <a [routerLink]="'/' + display.socialArea()" type="button"
+                   class="rams-text-decoration-pink">Back to {{ pageService.areaTitle() }}</a>
               </div>
             }
           </div>
@@ -268,9 +269,10 @@ export class SocialView implements OnInit {
     this.display.allow.copy = existingRecordEditEnabled;
     this.display.allow.delete = existingRecordEditEnabled;
     if (this?.socialEvent?.id) {
-      this.urlService.navigateTo([this.pageService.socialPage()?.href, this.socialEvent.id, "edit"]);
+      const viewLink = this.display.groupEventLink(this.socialEvent, true);
+      this.urlService.navigateTo([viewLink, "edit"]);
     } else {
-      this.urlService.navigateTo([this.pageService.socialPage()?.href, "new"]);
+      this.urlService.navigateTo([this.display.socialArea(), "new"]);
     }
   }
 

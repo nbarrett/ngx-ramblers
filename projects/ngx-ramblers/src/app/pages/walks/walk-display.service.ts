@@ -88,6 +88,10 @@ export class WalkDisplayService {
     return this.urlService.area() || this.pageService.walksPage()?.href || "walks";
   }
 
+  socialArea(): string {
+    return this.urlService.area() || this.pageService.socialPage()?.href || "social";
+  }
+
   public notAwaitingLeader(walk: ExtendedGroupEvent): boolean {
     return !this.awaitingLeader(walk);
   }
@@ -185,7 +189,12 @@ export class WalkDisplayService {
   }
 
   edit(walkDisplay: DisplayedWalk): void {
-    void this.editFullScreen(walkDisplay.walk);
+    if (walkDisplay?.walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
+      const socialEventSlug = this.stringUtils.lastItemFrom(walkDisplay?.walk?.groupEvent?.url) || this.stringUtils.kebabCase(walkDisplay?.walk?.groupEvent?.title) || walkDisplay?.walk?.groupEvent?.id || walkDisplay?.walk?.id;
+      void this.urlService.navigateTo([this.socialArea(), socialEventSlug, "edit"]);
+    } else {
+      void this.editFullScreen(walkDisplay.walk);
+    }
   }
 
   list(walk: ExtendedGroupEvent): ExpandedWalk {
@@ -203,7 +212,7 @@ export class WalkDisplayService {
 
   editFullScreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
     this.logger.debug("editing walk fullscreen:", walk);
-    this.viewReturnUrl = this.router.url;
+    this.viewReturnUrl = this.location.path();
     return this.router.navigate(["/" + this.walksArea(), "edit", this.walkSlug(walk)]).then(() => {
       this.logger.debug("area is now", this.urlService.area());
       return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
@@ -313,8 +322,12 @@ export class WalkDisplayService {
     });
   }
 
+  walkRouterLink(extendedGroupEvent: ExtendedGroupEvent): string {
+    return this.urlService.routerLinkUrl(this.walkLink(extendedGroupEvent));
+  }
+
   walkViewLink(extendedGroupEvent: ExtendedGroupEvent): string[] {
-    this.viewReturnUrl = this.router.url;
+    this.viewReturnUrl = this.location.path();
     return ["/" + this.walksArea(), "view", this.walkSlug(extendedGroupEvent)];
   }
 

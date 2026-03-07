@@ -19,6 +19,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { DateTime } from "luxon";
 import { Subject } from "rxjs";
 import { debounceTime } from "rxjs/operators";
+import { UIDateFormat } from "../../models/date-format.model";
 
 export interface DateRange {
   from: number;
@@ -238,21 +239,21 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   }
 
   get minDateLabel(): string {
-    return this.minDate?.toFormat("dd MMM yyyy") || "";
+    return this.minDate ? this.dateUtils.asString(this.minDate, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "";
   }
 
   get maxDateLabel(): string {
-    return this.maxDate?.toFormat("dd MMM yyyy") || "";
+    return this.maxDate ? this.dateUtils.asString(this.maxDate, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "";
   }
 
   get fromDateDisplay(): string {
     const date = this.minDate?.plus({ days: this.fromValue });
-    return date?.toFormat("dd MMM yyyy") || "";
+    return date ? this.dateUtils.asString(date, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "";
   }
 
   get toDateDisplay(): string {
     const date = this.minDate?.plus({ days: this.toValue });
-    return date?.toFormat("dd MMM yyyy") || "";
+    return date ? this.dateUtils.asString(date, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "";
   }
 
   get fillLeft(): number {

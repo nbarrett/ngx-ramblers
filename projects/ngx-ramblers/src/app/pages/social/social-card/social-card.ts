@@ -3,9 +3,7 @@ import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance } from "../../../services/notifier.service";
-import { UrlService } from "../../../services/url.service";
 import { SocialDisplayService } from "../social-display.service";
-import { RouterLink } from "@angular/router";
 import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pipe";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { BasicMedia } from "../../../models/ramblers-walks-manager";
@@ -19,24 +17,24 @@ import { DisplayedWalk } from "../../../models/walk.model";
     selector: "app-social-card",
     template: `
       <div class="card shadow clickable h-100">
-        <app-card-image-or-map imageNavigationEnabled [displayedWalk]="displayedWalk" [notify]="notify" [maxColumns]="maxColumns"/>
+        <app-card-image-or-map imageNavigationEnabled [displayedWalk]="displayedWalk" [notify]="notify" [maxColumns]="maxColumns"
+                               [navigationHref]="display.groupEventLink(socialEvent, true)"/>
         <div class="card-body">
           <h4 class="card-title">
             <a class="rams-text-decoration-pink"
-               [routerLink]="urlService.routerLinkUrl(display.groupEventLink(socialEvent, true))"
+               [href]="display.groupEventLink(socialEvent, true)"
                target="_self">{{ socialEvent?.groupEvent?.title }}</a>
           </h4>
           <div>{{ socialEvent?.groupEvent | eventDatesAndTimes }}</div>
         </div>
       </div>`,
   providers: [DateUtilsService],
-  imports: [RouterLink, EventDatesAndTimesPipe, CardImageOrMap]
+  imports: [EventDatesAndTimesPipe, CardImageOrMap]
 })
 export class SocialCardComponent implements OnInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("SocialCardComponent", NgxLoggerLevel.ERROR);
   display = inject(SocialDisplayService);
-  urlService = inject(UrlService);
   mediaQueryService = inject(MediaQueryService);
   public walksDisplay = inject(WalkDisplayService);
   public notify: AlertInstance;

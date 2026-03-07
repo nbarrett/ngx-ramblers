@@ -2,7 +2,7 @@ import { inject, NgModule } from "@angular/core";
 import { NoPreloading, RouterModule, Routes } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
-import { hasDynamicPath, hasEditSubPath, hasViewSubPath } from "./services/path-matchers";
+import { hasDynamicPath, hasEditSubPath, hasTrailingEditPath, hasTrailingNewPath, hasViewSubPath } from "./services/path-matchers";
 import { contactUsGuard } from "./pages/contact-us/contact-us.guard";
 import { AreaExistsGuard } from "./guards/area-exists-guard";
 import { SocialPopulationLocalGuard } from "./guards/social-population-local-guard";
@@ -23,11 +23,6 @@ const routes: Routes = [
   {
     path: "committee", loadChildren: () => import("./modules/committee/committee-routing.module")
       .then(module => module.CommitteeRoutingModule),
-    canActivate: [SystemHealthyGuard]
-  },
-  {
-    path: "social", loadChildren: () => import("./modules/social/social-routing.module")
-      .then(module => module.SocialRoutingModule),
     canActivate: [SystemHealthyGuard]
   },
   {
@@ -69,22 +64,6 @@ const routes: Routes = [
     canActivate: [SystemHealthyGuard]
   },
   {
-    path: "social-events/new",
-    loadComponent: () => import("./pages/social/edit/social-edit.component")
-      .then(m => m.SocialEditComponent),
-    canActivate: [SystemHealthyGuard, AreaExistsGuard, SocialPopulationLocalGuard, SocialAuthGuard]
-  },
-  {
-    path: "social-events/:id",
-    loadComponent: () => import("./pages/social/social-view/social-view").then(m => m.SocialView),
-    canActivate: [SystemHealthyGuard]
-  },
-  {
-    path: "social-events/:id/edit",
-    loadComponent: () => import("./pages/social/edit/social-edit.component").then(m => m.SocialEditComponent),
-    canActivate: [SystemHealthyGuard, AreaExistsGuard, SocialPopulationLocalGuard, SocialAuthGuard]
-  },
-  {
     path: "fragments",
     redirectTo: "/admin/content-templates",
     pathMatch: "full"
@@ -100,6 +79,18 @@ const routes: Routes = [
     loadComponent: () => import("./pages/walks/walk-edit-fullpage/walk-edit-full-page.component")
       .then(m => m.WalkEditFullPageComponent),
     canActivate: [SystemHealthyGuard]
+  },
+  {
+    matcher: hasTrailingNewPath,
+    loadComponent: () => import("./pages/social/edit/social-edit.component")
+      .then(m => m.SocialEditComponent),
+    canActivate: [SystemHealthyGuard, AreaExistsGuard, SocialPopulationLocalGuard, SocialAuthGuard]
+  },
+  {
+    matcher: hasTrailingEditPath,
+    loadComponent: () => import("./pages/social/edit/social-edit.component")
+      .then(m => m.SocialEditComponent),
+    canActivate: [SystemHealthyGuard, AreaExistsGuard, SocialPopulationLocalGuard, SocialAuthGuard]
   },
   {
     matcher: hasDynamicPath,
