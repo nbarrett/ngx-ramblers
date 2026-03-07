@@ -38,3 +38,29 @@ export function hasNumericLastPathSegment(urlSegments: UrlSegment[]): UrlMatchRe
 export function isNumericRamblersId(value: string) {
   return +value > 100000000;
 }
+
+export function hasEditSubPath(urlSegments: UrlSegment[]): UrlMatchResult {
+  if (urlSegments.length >= 3 && urlSegments[urlSegments.length - 2].path === "edit") {
+    return {
+      consumed: urlSegments,
+      posParams: {
+        "walk-id": urlSegments[urlSegments.length - 1]
+      }
+    };
+  } else {
+    return null;
+  }
+}
+
+export function hasViewSubPath(urlSegments: UrlSegment[]): UrlMatchResult {
+  if (urlSegments.length >= 3 && urlSegments[urlSegments.length - 2].path === "view") {
+    return {
+      consumed: urlSegments,
+      posParams: {
+        "walk-id": urlSegments[urlSegments.length - 1]
+      }
+    };
+  } else {
+    return null;
+  }
+}

@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { FocalPointTarget, PageContentRow } from "../../../models/content-text.model";
+import { AlbumView, FocalPointTarget, PageContentRow } from "../../../models/content-text.model";
 import { FocalPoint } from "../focal-point-picker/focal-point-picker";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -17,7 +17,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
     template: `
     @if (actions.isAlbum(row)) {
       <div [class]="actions.rowClasses(row)">
-        @if (row.carousel.showTitle) {
+        @if (row.carousel.showTitle && row.carousel.albumView !== AlbumView.BACKGROUNDS) {
           <div class="col-sm-12">
             <h1>{{ row.carousel.title }}</h1>
             <h3>{{ row.carousel.eventDate | displayDay }}
@@ -59,6 +59,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
     imports: [MarkdownComponent, CardImageComponent, AlbumComponent, DisplayDayPipe]
 })
 export class DynamicContentViewAlbum implements OnInit {
+  protected readonly AlbumView = AlbumView;
   public lazyLoadingMetadata: LazyLoadingMetadata;
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   public actions: PageContentActionsService = inject(PageContentActionsService);

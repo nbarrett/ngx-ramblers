@@ -21,6 +21,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { EventsHeader } from "./events-header";
 import { FormsModule } from "@angular/forms";
 import { EventCardsList } from "./event-cards-list";
+import { EventsFull } from "./events-full";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { EventQueryParameters, RamblersEventType } from "../../../models/ramblers-walks-manager";
@@ -35,15 +36,19 @@ import { isMongoId } from "../../../services/mongo-utils";
 @Component({
     selector: "app-events",
     template: `
-      <app-events-header [totalItems]="extendedGroupEvents?.length" [filterParameters]="filterParameters" [currentPageFilteredEvents]="currentPageFilteredEvents"
-                         [notifyTarget]="notifyTarget" [eventsData]="eventsData" [pageNumber]="pageNumber"
-                         (pageChanged)="pageChanged($event)"/>
-      <app-event-cards-list [eventsData]="eventsData"
-                            [notifyTarget]="notifyTarget"
-                            [currentPageFilteredEvents]="currentPageFilteredEvents"/>
+      @if (eventsData?.allow?.viewSelector) {
+        <app-events-full [eventsData]="eventsData"/>
+      } @else {
+        <app-events-header [totalItems]="extendedGroupEvents?.length" [filterParameters]="filterParameters" [currentPageFilteredEvents]="currentPageFilteredEvents"
+                           [notifyTarget]="notifyTarget" [eventsData]="eventsData" [pageNumber]="pageNumber"
+                           (pageChanged)="pageChanged($event)"/>
+        <app-event-cards-list [eventsData]="eventsData"
+                              [notifyTarget]="notifyTarget"
+                              [currentPageFilteredEvents]="currentPageFilteredEvents"/>
+      }
     `,
   styleUrls: ["../../../pages/social/home/social-home.component.sass"],
-  imports: [EventsHeader, FormsModule, EventCardsList]
+  imports: [EventsHeader, FormsModule, EventCardsList, EventsFull]
 })
 export class Events implements OnInit, OnDestroy {
 
@@ -157,11 +162,6 @@ export class Events implements OnInit, OnDestroy {
     const today = this.dateUtils.isoDateTimeStartOfDay();
     const hasEventIds = eventIds?.length > 0;
     switch (filterCriteria) {
-      case FilterCriteria.CHOOSE:
-        if (hasEventIds) {
-          return this.eventIdsCriteria(eventIds);
-        }
-        return this.dateRangeCriteria(fromDate, toDate);
       case FilterCriteria.DATE_RANGE:
         if (hasEventIds) {
           return {$and: [this.dateRangeCriteria(fromDate, toDate), this.eventIdsCriteria(eventIds)]};
@@ -209,8 +209,10 @@ export class Events implements OnInit, OnDestroy {
 
   private resolvedSortOrder(): SortOrder {
     const configuredSortOrder = this.normalizedSortOrder(this.eventsData?.sortOrder);
-    if (configuredSortOrder && configuredSortOrder !== SortOrder.CHOOSE) {
-      return configuredSortOrder;
+    if (configuredSortOrder) {
+      if (!this.eventsData?.allow?.allowSortChange) {
+        return configuredSortOrder;
+      }
     }
     if (this.filterParameters.fieldSort === MongoSort.DESCENDING) {
       return SortOrder.DATE_DESCENDING;

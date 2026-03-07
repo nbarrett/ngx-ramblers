@@ -12,7 +12,7 @@ import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { DateFilterParameters } from "../../../models/search.model";
-import { BASIC_FILTER_OPTIONS, FilterCriteria, SortOrder } from "../../../models/api-request.model";
+import { BASIC_FILTER_OPTIONS, FilterCriteria } from "../../../models/api-request.model";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { EventsData } from "../../../models/social-events.model";
 import { ExtendedGroupEvent, HasStartAndEndTime } from "../../../models/group-event.model";
@@ -21,10 +21,11 @@ import { PageService } from "../../../services/page.service";
 
 @Component({
   selector: "app-events-header",
-  template: `@if (showPagination) {
-    @if (display.allow.admin) {
-      <ng-container *ngTemplateOutlet="searchAndFilterActions"/>
-    }
+  template: `
+  @if (showSearchAndFilter()) {
+    <ng-container *ngTemplateOutlet="searchAndFilterActions"/>
+  }
+  @if (showPagination) {
     <div class="d-flex flex-column flex-md-row events-header-full-width">
       @if (!eventsData || eventsData?.allow?.pagination) {
         <pagination class="rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
@@ -35,9 +36,6 @@ import { PageService } from "../../../services/page.service";
         <ng-container *ngTemplateOutlet="alert"/>
       </div>
     </div>
-  }
-  @if (!showPagination && display.allow.admin) {
-    <ng-container *ngTemplateOutlet="searchAndFilterActions"/>
   }
 
   <div class="row">
@@ -135,6 +133,10 @@ export class EventsHeader implements OnInit, OnDestroy {
   @Input() public pageNumber!: number;
   @Input() totalItems!: number;
 
+  showSearchAndFilter(): boolean {
+    return !this.eventsData || this.eventsData?.allow?.advancedSearch;
+  }
+
   ngOnInit(): void {
     this.subscriptions.push(
       this.broadcastService.on(NamedEventType.SHOW_PAGINATION, (show: NamedEvent<boolean>) => {
@@ -156,11 +158,11 @@ export class EventsHeader implements OnInit, OnDestroy {
   }
 
   configureFilterCriteria(): boolean {
-    return !this.eventsData || this.eventsData?.filterCriteria === FilterCriteria.CHOOSE;
+    return !this.eventsData || this.eventsData?.allow?.allowFilterChange;
   }
 
   configureSortOrder(): boolean {
-    return !this.eventsData || this.eventsData?.sortOrder === SortOrder.CHOOSE;
+    return !this.eventsData || this.eventsData?.allow?.allowSortChange;
   }
 
   ngOnDestroy(): void {

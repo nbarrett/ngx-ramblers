@@ -98,8 +98,16 @@ export class SocialDisplayService {
     return filterCriteria.map(item => ({key: item, value: this.socialEventsTitle(item, hasStartAndEndTime)}));
   }
 
-  sortOrderOptions(): KeyValue<string>[] {
-    return enumKeyValues(SortOrder).map(item => ({key: item.key, value: this.stringUtils.asTitle(item.value)}));
+  sortOrderOptions(selectedSortOrder?: SortOrder): KeyValue<string>[] {
+    const options = enumKeyValues(SortOrder).map(item => ({key: item.key, value: this.stringUtils.asTitle(item.value)}));
+    if (selectedSortOrder) {
+      const selectedIndex = options.findIndex(item => item.key === selectedSortOrder);
+      if (selectedIndex > 0) {
+        const [selected] = options.splice(selectedIndex, 1);
+        options.unshift(selected);
+      }
+    }
+    return options;
   }
 
   inNewEventMode(): boolean {

@@ -36,10 +36,15 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
 import { DecimalPipe, Location, NgClass } from "@angular/common";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { ImageListEditComponent } from "../../../carousel/edit/image-list-edit/image-list-edit";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { Image } from "../../../models/system.model";
+import { NgSelectComponent } from "@ng-select/ng-select";
+import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 import { ActionButtons } from "../action-buttons/action-buttons";
 import { FocalPoint, FocalPointPickerComponent } from "../focal-point-picker/focal-point-picker";
 import { rangeSliderStyles } from "../../../components/range-slider.styles";
+import { RangeSliderComponent } from "../../../components/range-slider";
 
 @Component({
     selector: "app-dynamic-content-site-edit-album",
@@ -169,6 +174,92 @@ import { rangeSliderStyles } from "../../../components/range-slider.styles";
                       </div>
                     </div>
                   </div>
+                  @if (row?.carousel?.albumView === AlbumView.BACKGROUNDS) {
+                    <div class="col-sm-12 mt-3">
+                      <div class="row">
+                        <div class="col-md-3">
+                          <app-colour-selector label="Title Colour"
+                                               [itemWithClassOrColour]="titleColourWrapper"/>
+                        </div>
+                        <div class="col-md-3">
+                          <label>Title Scale</label>
+                          <ng-select [items]="titleScaleOptions"
+                                     bindLabel="label"
+                                     bindValue="value"
+                                     [clearable]="false"
+                                     [(ngModel)]="row.carousel.backgroundsOverlay.titleScale">
+                          </ng-select>
+                        </div>
+                        <div class="col-md-3">
+                          <app-colour-selector label="Text Colour"
+                                               [itemWithClassOrColour]="textColourWrapper"/>
+                        </div>
+                      </div>
+                      <div class="row mt-2">
+                        <div class="col-md-4">
+                          <app-range-slider label="Padding Top" [min]="0" [max]="300" [step]="5"
+                                            [(value)]="row.carousel.backgroundsOverlay.paddingTop"/>
+                        </div>
+                        <div class="col-md-4">
+                          <app-range-slider label="Padding Left" [min]="0" [max]="300" [step]="5"
+                                            [(value)]="row.carousel.backgroundsOverlay.paddingLeft"/>
+                        </div>
+                        <div class="col-md-4">
+                          <app-range-slider label="Photo Offset" [min]="0" [max]="400" [step]="10"
+                                            [(value)]="row.carousel.backgroundsOverlay.photoOffsetPercent"/>
+                        </div>
+                      </div>
+                      <div class="row mt-2 align-items-end">
+                        <div class="col-md-2">
+                          <div class="form-check mb-2">
+                            <input [(ngModel)]="row.carousel.backgroundsOverlay.showEventLink"
+                                   type="checkbox" class="form-check-input"
+                                   [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-event-link')">
+                            <label class="form-check-label"
+                                   [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-event-link')">
+                              Show Event Link</label>
+                          </div>
+                        </div>
+                        <div class="col-md-2">
+                          <div class="form-check mb-2">
+                            <input [(ngModel)]="row.carousel.backgroundsOverlay.showEventDate"
+                                   type="checkbox" class="form-check-input"
+                                   [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-event-date')">
+                            <label class="form-check-label"
+                                   [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-event-date')">
+                              Show Event Date</label>
+                          </div>
+                        </div>
+                        @if (row.carousel.backgroundsOverlay.showEventLink || row.carousel.backgroundsOverlay.showEventDate) {
+                          <div class="col-md-2">
+                            <label>Event Scale</label>
+                            <ng-select [items]="eventLinkScaleOptions"
+                                       bindLabel="label"
+                                       bindValue="value"
+                                       [clearable]="false"
+                                       [(ngModel)]="row.carousel.backgroundsOverlay.eventLinkScale">
+                            </ng-select>
+                          </div>
+                        }
+                      </div>
+                      <div class="row mt-3">
+                        <div class="col-md-12">
+                          <div class="form-group">
+                            <label>Background Images ({{ row.carousel.backgroundImageNames?.length || 0 }} of {{ availableBackgrounds.length }} selected)</label>
+                            <ng-select [items]="availableBackgrounds"
+                                       bindLabel="originalFileName"
+                                       bindValue="originalFileName"
+                                       [multiple]="true"
+                                       [searchable]="true"
+                                       [clearable]="true"
+                                       placeholder="Select background images..."
+                                       [(ngModel)]="row.carousel.backgroundImageNames">
+                            </ng-select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  }
                   <div class="col-sm-12">
                     @if (actions.isCarouselOrAlbum(row)) {
                       <app-album preview
@@ -465,7 +556,7 @@ import { rangeSliderStyles } from "../../../components/range-slider.styles";
 
     ${rangeSliderStyles}
   `],
-  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, MarkdownEditorComponent, ImageListEditComponent, DisplayDayPipe, DecimalPipe, ActionButtons, FocalPointPickerComponent]
+  imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, MarkdownEditorComponent, ImageListEditComponent, DisplayDayPipe, DecimalPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent]
 })
 export class DynamicContentSiteEditAlbumComponent implements OnInit {
 
@@ -505,6 +596,29 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   public actionButtonPreviewOptions = [1, 2, 3, 4];
   public focalPointTargetValues: KeyValue<string>[] = enumKeyValues(FocalPointTarget);
   public previewPageContent: PageContent | null = null;
+  protected readonly AlbumView = AlbumView;
+  public titleColourWrapper: { class: string } = {class: "colour-cloudy"};
+  public textColourWrapper: { class: string } = {class: "colour-cloudy"};
+  private systemConfigService = inject(SystemConfigService);
+  public availableBackgrounds: Image[] = [];
+  public titleScaleOptions = [
+    {value: 1, label: "Small (1x)"},
+    {value: 1.5, label: "Medium (1.5x)"},
+    {value: 2, label: "Large (2x)"},
+    {value: 3, label: "Extra Large (3x)"},
+    {value: 4, label: "Huge (4x)"},
+    {value: 5, label: "Massive (5x)"},
+    {value: 6, label: "Giant (6x)"},
+    {value: 8, label: "Colossal (8x)"},
+    {value: 10, label: "Logo (10x)"}
+  ];
+  public eventLinkScaleOptions = [
+    {value: 0.75, label: "Small (0.75x)"},
+    {value: 1, label: "Normal (1x)"},
+    {value: 1.25, label: "Medium (1.25x)"},
+    {value: 1.5, label: "Large (1.5x)"},
+    {value: 2, label: "Extra Large (2x)"}
+  ];
 
   ngOnInit() {
     const defaultValue = kebabCase(AlbumEditTab.ALBUM_SETTINGS);
@@ -522,7 +636,32 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     if (!this.row?.carousel?.coverImageFocalPointTarget) {
       this.row.carousel.coverImageFocalPointTarget = FocalPointTarget.BOTH;
     }
+    if (!this.row?.carousel?.backgroundsOverlay) {
+      this.row.carousel.backgroundsOverlay = {
+        titleColourClass: "colour-cloudy",
+        titleScale: 3,
+        textColourClass: "colour-cloudy",
+        paddingTop: 40,
+        paddingLeft: 40
+      };
+    } else {
+      const overlay: any = this.row.carousel.backgroundsOverlay;
+      if (!overlay.titleColourClass) {
+        overlay.titleColourClass = overlay.titleColour?.class || "colour-cloudy";
+      }
+      if (!overlay.textColourClass) {
+        overlay.textColourClass = overlay.textColour?.class || "colour-cloudy";
+      }
+      delete overlay.titleColour;
+      delete overlay.textColour;
+    }
+    this.initColourWrappers();
     this.updateActionButtonPreview();
+    this.systemConfigService.events().subscribe(systemConfig => {
+      if (systemConfig?.backgrounds?.images) {
+        this.availableBackgrounds = systemConfig.backgrounds.images.filter(img => img.awsFileName);
+      }
+    });
   }
 
   selectTab(tab: AlbumEditTab) {
@@ -610,6 +749,21 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
       this.updateActionButtonPreview();
     }
   }
+
+  private initColourWrappers() {
+    const overlay = this.row.carousel.backgroundsOverlay;
+    this.titleColourWrapper = Object.defineProperty({}, "class", {
+      get: () => overlay.titleColourClass,
+      set: (v: string) => overlay.titleColourClass = v,
+      enumerable: true
+    }) as { class: string };
+    this.textColourWrapper = Object.defineProperty({}, "class", {
+      get: () => overlay.textColourClass,
+      set: (v: string) => overlay.textColourClass = v,
+      enumerable: true
+    }) as { class: string };
+  }
+
 
   updateActionButtonPreview() {
     if (!this.row?.carousel) {

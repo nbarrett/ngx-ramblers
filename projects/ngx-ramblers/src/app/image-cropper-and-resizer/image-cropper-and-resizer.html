@@ -66,6 +66,16 @@
         (cropperReady)="cropperReady($event)"
         (loadImageFailed)="loadImageFailed($event)"
         (error)="error($event)"/>
+    } @else if (croppedFile?.image) {
+      <div class="mt-2">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <fa-icon [icon]="faFile"/>
+          <strong>{{ originalFile?.name }}</strong>
+          <span class="text-muted">({{ originalSize() }})</span>
+        </div>
+        <img [src]="croppedFile.image" [alt]="originalFile?.name"
+             style="max-width: 100%; max-height: 400px; background: repeating-conic-gradient(#e0e0e0 0% 25%, white 0% 50%) 50% / 16px 16px;"/>
+      </div>
     }
   </div>
 </div>

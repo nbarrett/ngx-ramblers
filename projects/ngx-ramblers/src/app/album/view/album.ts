@@ -12,6 +12,7 @@ import {
   faGripVertical,
   faImage,
   faImages,
+  faMountainSun,
   faPhotoFilm,
   faRectangleAd,
   faSearch,
@@ -39,6 +40,7 @@ import { BadgeStepperComponent } from "../../modules/common/badge-button/badge-s
 import { AlbumGalleryComponent } from "./album-gallery";
 import { AlbumGridComponent } from "./album-grid";
 import { CarouselComponent } from "../../carousel/view/carousel";
+import { AlbumBackgroundsComponent } from "./album-backgrounds";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
@@ -51,6 +53,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
             <div class="album-toolbar d-flex flex-wrap gap-1 mb-1">
               <ng-content/>
               @if (album.allowSwitchView || preview) {
+                <app-badge-button [tooltip]="'view as backgrounds slideshow'" [active]="albumView===AlbumView.BACKGROUNDS"
+                                  [icon]="faMountainSun" noRightMargin
+                                  (click)="switchToView(AlbumView.BACKGROUNDS)" caption="backgrounds"/>
                 <app-badge-button [tooltip]="'view as carousel'" [active]="albumView===AlbumView.CAROUSEL"
                                   [icon]="faImage" noRightMargin
                                   (click)="switchToView(AlbumView.CAROUSEL)" caption="carousel"/>
@@ -94,8 +99,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
             </div>
           </div>
         }
-        <div class="col-sm-12 my-auto">
-          @if (noImages) {
+        <div class="col-sm-12">
+          @if (noImages && albumView !== AlbumView.BACKGROUNDS) {
             <div class="alert alert-warning">
               <fa-icon [icon]="faCircleInfo"/>
               <strong class="ms-1">No content exists in this album</strong>
@@ -103,6 +108,11 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                 the {{ album.name }} album
               </div>
             </div>
+          }
+          @if (albumView === AlbumView.BACKGROUNDS) {
+            <app-album-backgrounds [album]="album"
+                                   [lazyLoadingMetadata]="lazyLoadingMetadata"
+                                   [preview]="preview"/>
           }
           @if (albumView === AlbumView.GALLERY) {
             <app-album-gallery [lazyLoadingMetadata]="lazyLoadingMetadata"
@@ -127,7 +137,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         </div>
       </div>
     `,
-  imports: [BadgeButtonComponent, BadgeStepperComponent, AlbumGalleryComponent, AlbumGridComponent, CarouselComponent, FontAwesomeModule]
+  imports: [BadgeButtonComponent, BadgeStepperComponent, AlbumBackgroundsComponent, AlbumGalleryComponent, AlbumGridComponent, CarouselComponent, FontAwesomeModule]
 })
 export class AlbumComponent implements OnInit {
 
@@ -175,6 +185,7 @@ export class AlbumComponent implements OnInit {
   protected readonly faRectangleAd = faRectangleAd;
   protected readonly faTableCells = faTableCells;
   protected readonly faSearch = faSearch;
+  protected readonly faMountainSun = faMountainSun;
   get gridViewOptions(): GridViewOptions {
     return this.album?.gridViewOptions;
   }
@@ -344,13 +355,16 @@ export class AlbumComponent implements OnInit {
   }
 
   private initFromUrlParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const albumViewParam = urlParams.get(StoredValue.ALBUM_VIEW);
+    if (albumViewParam) {
+      this.albumView = albumViewParam as AlbumView;
+    }
     if (!this.preview) {
-      const urlParams = new URLSearchParams(window.location.search);
       const columns = urlParams.get(StoredValue.GRID_COLUMNS);
       const gap = urlParams.get(StoredValue.GRID_GAP);
       const layoutMode = urlParams.get(StoredValue.GRID_LAYOUT_MODE);
       const showTitles = urlParams.get(StoredValue.GRID_SHOW_TITLES);
-      const albumViewParam = urlParams.get(StoredValue.ALBUM_VIEW);
 
       if (columns) {
         this.runtimeColumns = parseInt(columns, 10);
@@ -363,9 +377,6 @@ export class AlbumComponent implements OnInit {
       }
       if (showTitles !== null) {
         this.gridViewOptions.showTitles = showTitles === "true";
-      }
-      if (albumViewParam) {
-        this.albumView = albumViewParam as AlbumView;
       }
     }
   }
