@@ -34,7 +34,6 @@ import * as configController from "../mongo/controllers/config";
 import { connect as ensureMongoConnection } from "../mongo/mongoose-client";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
 import { secretsPath, writeSecretsFile } from "../shared/secrets";
-import { addOrUpdateEnvironment } from "../shared/configs-json";
 import { normaliseMemory } from "../shared/spelling";
 import { deployToFlyio as deployToFlyioCommand } from "../cli/commands/fly";
 import { setupSubdomainForEnvironment } from "../cli/commands/subdomain";
@@ -345,10 +344,21 @@ export async function createEnvironment(
       reportProgress(SetupStep.WRITE_SECRETS_FILE, "completed", "Skipped writing secrets file");
     }
 
+    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "running", "Saving environment configuration");
+    await ensureMongoConnection();
+    await updateEnvironmentsConfig(request, awsCredentials);
+    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "completed", "Environment configuration saved");
+
     reportProgress(SetupStep.INITIALISE_DATABASE, "running", "Initialising MongoDB database");
-    const dbResult = await initialiseDatabase(request, dbProgress => {
-      debugLog(`[${sessionId}] Database: ${dbProgress.step} - ${dbProgress.status}`);
-    }, copiedAssets);
+    const dbInitTimeout = 120000;
+    const dbResult = await Promise.race([
+      initialiseDatabase(request, dbProgress => {
+        reportProgress(SetupStep.INITIALISE_DATABASE, "running", dbProgress.message || dbProgress.step);
+      }, copiedAssets),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Database initialisation timed out after ${dbInitTimeout / 1000} seconds`)), dbInitTimeout)
+      )
+    ]);
     reportProgress(SetupStep.INITIALISE_DATABASE, "completed", "Database initialised successfully");
 
     if (request.serviceConfigs.brevo.apiKey) {
@@ -361,7 +371,6 @@ export async function createEnvironment(
       }
     }
 
-    // Migrations disconnect mongoose — reconnect to the main database before proceeding
     await ensureMongoConnection();
 
     if (request.options.populateBrevoTemplates && request.serviceConfigs.brevo.apiKey) {
@@ -393,20 +402,6 @@ export async function createEnvironment(
     }
 
     if (!request.options.skipFlyDeployment) {
-      reportProgress(SetupStep.UPDATE_CONFIGS_JSON, "running", "Updating configs.json");
-
-      const envConfigToSave = {
-        name: request.environmentBasics.environmentName,
-        apiKey: request.serviceConfigs.flyio?.personalAccessToken || "",
-        appName: request.environmentBasics.appName,
-        memory: normaliseMemory(request.environmentBasics.memory),
-        scaleCount: request.environmentBasics.scaleCount,
-        organisation: request.environmentBasics.organisation || "personal"
-      };
-
-      addOrUpdateEnvironment(envConfigToSave);
-      reportProgress(SetupStep.UPDATE_CONFIGS_JSON, "completed", "Updated configs.json");
-
       reportProgress(SetupStep.DEPLOY_APP, "running", "Deploying to Fly.io");
       await deployToFlyioCommand(
         {
@@ -421,13 +416,8 @@ export async function createEnvironment(
       );
       reportProgress(SetupStep.DEPLOY_APP, "completed", `Deployed ${request.environmentBasics.appName} to Fly.io`);
     } else {
-      reportProgress(SetupStep.UPDATE_CONFIGS_JSON, "completed", "Skipped updating configs.json");
       reportProgress(SetupStep.DEPLOY_APP, "completed", "Skipped Fly.io deployment");
     }
-
-    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "running", "Adding environment to environments configuration");
-    await updateEnvironmentsConfig(request, awsCredentials);
-    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "completed", "Environments configuration updated");
 
     let appUrl = `https://${request.environmentBasics.appName}.fly.dev`;
 

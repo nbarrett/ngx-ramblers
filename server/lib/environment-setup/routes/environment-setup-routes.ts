@@ -484,6 +484,42 @@ router.get("/existing-environments", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/mongo-clusters", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const environmentsConfig = await configuredEnvironments();
+    const environments = environmentsConfig.environments || [];
+    const clusterMap = new Map<string, { cluster: string; username: string; password: string; databases: string[] }>();
+
+    environments.forEach(env => {
+      const cluster = env.mongo?.cluster;
+      if (cluster) {
+        const existing = clusterMap.get(cluster);
+        if (existing) {
+          if (env.mongo?.db && !existing.databases.includes(env.mongo.db)) {
+            existing.databases.push(env.mongo.db);
+          }
+        } else {
+          clusterMap.set(cluster, {
+            cluster,
+            username: env.mongo?.username || "",
+            password: env.mongo?.password || "",
+            databases: env.mongo?.db ? [env.mongo.db] : []
+          });
+        }
+      }
+    });
+
+    const clusters = Array.from(clusterMap.values());
+    debugLog("Returning MongoDB clusters:", clusters.length);
+    res.json({ clusters });
+  } catch (error) {
+    errorDebugLog("Error listing MongoDB clusters:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post("/resume", async (req: Request, res: Response) => {
   if (!validateSetupAccess(req, res)) return;
 

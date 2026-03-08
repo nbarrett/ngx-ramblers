@@ -1,6 +1,7 @@
 import { Media, RamblersEventType } from "./ramblers-walks-manager";
 import { HasColumnRange } from "./content-text.model";
 import { FilterCriteria, SortOrder } from "./api-request.model";
+import { SavedSearchCriteria } from "./search.model";
 
 export enum DateRangeMode {
   DATE_PICKERS = "DATE_PICKERS",
@@ -34,12 +35,13 @@ export interface EventsDataAllows {
 }
 
 export interface EventsData extends HasColumnRange {
-  fromDate: number;
-  toDate: number;
   filterCriteria: FilterCriteria;
   sortOrder: SortOrder;
-  dateRangeMode?: DateRangeMode;
   allow: EventsDataAllows;
   eventTypes: RamblersEventType[];
+  savedCriteria?: SavedSearchCriteria;
+  fromDate?: number;
+  toDate?: number;
+  dateRangeMode?: DateRangeMode;
   eventIds?: string[];
 }

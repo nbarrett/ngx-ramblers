@@ -45,7 +45,7 @@ import { WalkGradingComponent } from "../walk-view/walk-grading";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
-import { AdvancedSearchCriteria, DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
+import { AdvancedSearchCriteria, DEFAULT_FILTER_PARAMETERS, FilterParameters, FilterStateEvent, resolvePresetByLabel } from "../../../models/search.model";
 import { BuiltInAnchor, EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { InputSource } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
@@ -62,7 +62,7 @@ import { advancedCriteriaQueryParams, advancedSearchCriteriaFromParams, advanced
         <app-dynamic-content [anchor]="BuiltInAnchor.PAGE_HEADER" contentPathReadOnly/>
         <div class="row mb-n3">
           <div class="mb-3 col-sm-12">
-            <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget" [advancedCriteria]="advancedSearchCriteria" (advancedSearchChange)="onAdvancedSearch($event)">
+            <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget" [advancedCriteria]="advancedSearchCriteria" (advancedSearchChange)="onAdvancedSearch($event)" (filterStateChange)="onFilterStateChange($event)">
               <div view-selector>
                 <div class="btn-group mb-0 btn-group-custom w-100 w-md-auto" dropdown>
                   <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn me-0"
@@ -277,6 +277,7 @@ export class WalkList implements OnInit, OnDestroy {
   public mapSelected: DisplayedWalk | null = null;
   public paginationTotalItems = 0;
   private isInitializing = true;
+  private queryParamsActive = false;
   config: ModalOptions = {
     animated: false,
     initialState: {}
@@ -288,6 +289,7 @@ export class WalkList implements OnInit, OnDestroy {
   protected readonly faImages = faImages;
   protected readonly BuiltInAnchor = BuiltInAnchor;
   protected systemConfig: SystemConfig;
+  private selectedPresetLabel: string | undefined;
 
   async ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -300,10 +302,14 @@ export class WalkList implements OnInit, OnDestroy {
       const sort = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC));
       const view = params.get(this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW));
       const page = params.get(this.stringUtils.kebabCase(StoredValue.PAGE));
-      const advancedSearch = params.get("advanced-search");
+      const advancedSearch = params.get(this.stringUtils.kebabCase(StoredValue.ADVANCED_SEARCH));
+      const dateRangePreset = params.get(this.stringUtils.kebabCase(StoredValue.DATE_RANGE_PRESET));
       const advancedCriteria = advancedSearchCriteriaFromParams(params, this.stringUtils);
-      const hasQueryState = [q, type, sort, view, page, advancedSearch].some(value => !isNull(value)) || !!advancedCriteria;
+      const hasQueryState = [q, type, sort, view, page, advancedSearch, dateRangePreset].some(value => !isNull(value)) || !!advancedCriteria;
+      this.logger.info("queryParamMap subscription: q:", q, "type:", type, "sort:", sort, "view:", view, "page:", page, "advancedSearch:", advancedSearch, "dateRangePreset:", dateRangePreset, "advancedCriteria:", advancedCriteria, "hasQueryState:", hasQueryState);
+      this.queryParamsActive = hasQueryState;
       if (!hasQueryState) {
+        this.logger.info("queryParamMap: no query state, calling resetQueryDrivenState, queryParamsActive:", this.queryParamsActive);
         this.resetQueryDrivenState();
         return;
       }
@@ -326,7 +332,22 @@ export class WalkList implements OnInit, OnDestroy {
           this.pageNumber = pageNum;
         }
       }
-      this.advancedSearchCriteria = advancedCriteria;
+      if (dateRangePreset) {
+        this.selectedPresetLabel = this.stringUtils.asTitle(dateRangePreset);
+        const resolvedPreset = resolvePresetByLabel(dateRangePreset, this.stringUtils);
+        if (resolvedPreset) {
+          const range = resolvedPreset.range();
+          this.advancedSearchCriteria = {
+            ...(advancedCriteria || {}),
+            dateFrom: range.from,
+            dateTo: range.to
+          };
+        } else {
+          this.advancedSearchCriteria = advancedCriteria;
+        }
+      } else {
+        this.advancedSearchCriteria = advancedCriteria;
+      }
     });
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.systemConfig = systemConfig;
@@ -369,10 +390,12 @@ export class WalkList implements OnInit, OnDestroy {
     const searchTriggered = Boolean(searchTerm);
     if (searchTriggered) {
       this.pageNumber = 1;
-      this.replaceQueryParams({
-        [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1,
-        [this.stringUtils.kebabCase(StoredValue.SEARCH)]: this.filterParameters.quickSearch || null
-      });
+      if (this.queryParamsActive) {
+        this.replaceQueryParams({
+          [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1,
+          [this.stringUtils.kebabCase(StoredValue.SEARCH)]: this.filterParameters.quickSearch || null
+        });
+      }
     }
     this.performServerSideSearch();
   }
@@ -389,7 +412,10 @@ export class WalkList implements OnInit, OnDestroy {
       this.pageCount = Math.ceil(totalItems / this.pageSize);
       if (this.pageNumber > this.pageCount && this.pageCount > 0) {
         this.pageNumber = 1;
-        this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1 });
+        this.logger.info("updatePaginationStatus: page overflow reset, queryParamsActive:", this.queryParamsActive);
+        if (this.queryParamsActive) {
+          this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1 });
+        }
       }
       this.pages = range(1, this.pageCount + 1);
     }
@@ -401,7 +427,7 @@ export class WalkList implements OnInit, OnDestroy {
     const totalOnly = `${this.stringUtils.pluraliseWithCount(totalItems || 0, "walk")}`;
     const hasSearchTerm = this.filterParameters?.quickSearch && this.filterParameters.quickSearch.trim().length > 0;
     const noResultsBase = hasSearchTerm ? `No results match "${this.filterParameters.quickSearch}"` : "No walks found";
-    const filterSummary = advancedSearchSummary(this.advancedSearchCriteria, this.stringUtils, this.dateUtils);
+    const filterSummary = advancedSearchSummary(this.advancedSearchCriteria, this.stringUtils, this.dateUtils, this.selectedPresetLabel, this.filterParameters.ascending);
     const filterSuffix = filterSummary ? `${EM_DASH_WITH_SPACES}${filterSummary}` : "";
     const noResultsMessage = `${noResultsBase}${filterSuffix}`;
     const alertMessage = this.walkListView === WalkListView.MAP
@@ -436,15 +462,25 @@ export class WalkList implements OnInit, OnDestroy {
     const criteriaChanged = JSON.stringify(this.advancedSearchCriteria) !== JSON.stringify(nextCriteria);
     const shouldResetPage = !this.isInitializing && criteriaChanged;
     this.advancedSearchCriteria = nextCriteria;
+    this.logger.info("onAdvancedSearch: shouldResetPage:", shouldResetPage, "criteriaChanged:", criteriaChanged, "queryParamsActive:", this.queryParamsActive);
     if (shouldResetPage) {
       this.pageNumber = 1;
-      const criteriaParams = advancedCriteriaQueryParams(nextCriteria, this.stringUtils, this.dateUtils);
-      this.replaceQueryParams({
-        [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1,
-        ...criteriaParams
-      });
+      if (this.queryParamsActive) {
+        const criteriaParams = advancedCriteriaQueryParams(nextCriteria, this.stringUtils, this.dateUtils);
+        this.logger.info("onAdvancedSearch: replacing query params");
+        this.replaceQueryParams({
+          [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1,
+          ...criteriaParams
+        });
+      } else {
+        this.logger.info("onAdvancedSearch: skipping query params (queryParamsActive=false)");
+      }
     }
     setTimeout(() => this.performServerSideSearch(), 0);
+  }
+
+  onFilterStateChange(event: FilterStateEvent) {
+    this.selectedPresetLabel = event.presetLabel;
   }
 
   private async performServerSideSearch() {
@@ -628,7 +664,9 @@ export class WalkList implements OnInit, OnDestroy {
   goToPage(pageNumber) {
     this.pageNumber = pageNumber;
     this.performServerSideSearch();
-    this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.PAGE)]: pageNumber });
+    if (this.queryParamsActive) {
+      this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.PAGE)]: pageNumber });
+    }
   }
 
   onMapSelect(displayedWalk: DisplayedWalk) {
@@ -656,7 +694,9 @@ export class WalkList implements OnInit, OnDestroy {
     this.updateViewAndPagination(walkListView);
     this.logger.info("switching to", walkListView, "view");
     this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, walkListView);
-    this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW)]: this.stringUtils.kebabCase(walkListView) });
+    if (this.queryParamsActive) {
+      this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW)]: this.stringUtils.kebabCase(walkListView) });
+    }
     this.performServerSideSearch();
   }
 
@@ -674,7 +714,7 @@ export class WalkList implements OnInit, OnDestroy {
   private replaceQueryParams(params: Record<string, string | number | null>) {
     const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => !isUndefined(v)));
     const extras:any = { relativeTo: this.route, queryParams, queryParamsHandling: "merge" };
-    this.logger.info("replaceQueryParams:navigate to", extras);
+    this.logger.info("replaceQueryParams called with:", params, "queryParamsActive:", this.queryParamsActive, "extras:", extras);
     this.router.navigate([], extras);
   }
 

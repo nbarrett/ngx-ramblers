@@ -34,7 +34,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
             </h3>
           </div>
         }
-        @if (row.carousel?.showCoverImageAndText) {
+        @if (row.carousel?.showCoverImageAndText && row.carousel?.albumView !== AlbumView.BACKGROUNDS) {
           <div class="col-sm-12 mb-2">
             <div markdown [data]="row.carousel?.introductoryText"></div>
             @if (lazyLoadingMetadata?.contentMetadata?.coverImage) {

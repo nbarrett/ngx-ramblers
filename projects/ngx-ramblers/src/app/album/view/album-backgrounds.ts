@@ -3,7 +3,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
 import { ContentMetadata, ContentMetadataItem, LazyLoadingMetadata } from "../../models/content-metadata.model";
-import { AlbumData, BackgroundsOverlay } from "../../models/content-text.model";
+import { AlbumData, BackgroundsOverlay, ListStyleMappings } from "../../models/content-text.model";
 import { Image } from "../../models/system.model";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { Subscription } from "rxjs";
@@ -51,14 +51,11 @@ import { MarkdownEditorComponent } from "../../markdown-editor/markdown-editor.c
             <h1 class="font-weight-bold" [ngClass]="overlay?.titleColourClass || 'colour-cloudy'"
                 [style.font-size.rem]="overlay?.titleScale || 3">{{ album.title }}</h1>
           }
-          @if (preview && overlay) {
-            <app-markdown-editor [data]="{text: overlay.markdownContent || ''}"
-                                 [name]="'overlay markdown content'"
-                                 [initialView]="'editor'"
-                                 (changed)="overlay.markdownContent=$event.text"/>
-          } @else if (overlay?.markdownContent) {
-            <markdown class="body-text" [ngClass]="overlay?.textColourClass || 'colour-cloudy'"
-                      [data]="overlay.markdownContent"/>
+          @if (album?.introductoryText) {
+            <div class="intro-text body-text" [ngClass]="introductoryTextClasses()"
+                 [style.font-size.rem]="overlay?.textScale || 1"
+                 markdown [data]="album.introductoryText">
+            </div>
           }
           @if ((overlay?.showEventLink || overlay?.showEventDate) && currentAlbumSlide) {
             <div class="body-text mt-3"
@@ -98,6 +95,9 @@ import { MarkdownEditorComponent } from "../../markdown-editor/markdown-editor.c
 
     img
       pointer-events: none
+
+    .intro-text ::ng-deep *
+      font-size: inherit
   `]
 })
 export class AlbumBackgroundsComponent implements OnInit, OnChanges, OnDestroy {
@@ -129,6 +129,18 @@ export class AlbumBackgroundsComponent implements OnInit, OnChanges, OnDestroy {
 
   get overlay(): BackgroundsOverlay {
     return this.album?.backgroundsOverlay;
+  }
+
+  introductoryTextClasses(): string[] {
+    const classes: string[] = [this.overlay?.textColourClass || "colour-cloudy"];
+    const styles = this.album?.introductoryTextStyles;
+    if (styles?.list) {
+      classes.push(ListStyleMappings[styles.list]);
+    }
+    if (styles?.link) {
+      classes.push(styles.link);
+    }
+    return classes;
   }
 
   get currentAlbumSlide(): ContentMetadataItem {

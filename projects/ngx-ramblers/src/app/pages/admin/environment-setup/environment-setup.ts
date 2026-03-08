@@ -16,7 +16,7 @@ import {
   EnvironmentSetupStepperStep,
   EnvironmentSetupTab,
   ExistingEnvironment,
-
+  MongoClusterInfo,
   OperationInProgress,
   SetupMode,
   SetupProgress,
@@ -392,6 +392,30 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
 
                               <div class="row thumbnail-heading-frame">
                                 <div class="thumbnail-heading">MongoDB Configuration</div>
+                                @if (mongoClusters.length > 0) {
+                                  <div class="row mb-2">
+                                    <div class="col-md-8">
+                                      <label for="existing-cluster">Use existing cluster</label>
+                                      <ng-select id="existing-cluster"
+                                                 [items]="mongoClusters"
+                                                 bindLabel="cluster"
+                                                 [clearable]="true"
+                                                 placeholder="Select an existing cluster or enter details manually"
+                                                 (change)="onClusterSelected($event)">
+                                        <ng-template ng-option-tmp let-item="item">
+                                          {{ item.cluster }} ({{ item.databases.length }} databases)
+                                        </ng-template>
+                                      </ng-select>
+                                    </div>
+                                  </div>
+                                  @if (selectedCluster) {
+                                    <div class="row mb-2">
+                                      <div class="col-md-8">
+                                        <small class="text-muted">Existing databases on this cluster: {{ selectedCluster.databases.join(', ') }}</small>
+                                      </div>
+                                    </div>
+                                  }
+                                }
                                 <app-mongo-uri-input (parsedUri)="onMongoUriParsed($event)"/>
                                 <div class="row">
                                   <div class="col-md-4">
@@ -832,6 +856,8 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   mongoValid: boolean | null = null;
   mongoValidating = false;
   mongoErrorMessage: string | null = null;
+  mongoClusters: MongoClusterInfo[] = [];
+  selectedCluster: MongoClusterInfo | null = null;
   operationInProgress = OperationInProgress.NONE;
   destroyProgressMessages: string[] = [];
   destroyComplete = false;
@@ -1026,6 +1052,27 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     }
   }
 
+  private async loadMongoClusters(): Promise<void> {
+    try {
+      const response = await this.environmentSetupService.mongoClusters();
+      this.mongoClusters = response.clusters || [];
+      this.logger.info("Loaded MongoDB clusters:", this.mongoClusters.length);
+    } catch (error) {
+      this.logger.error("Failed to load MongoDB clusters:", error);
+    }
+  }
+
+  onClusterSelected(cluster: MongoClusterInfo | null): void {
+    this.selectedCluster = cluster;
+    this.mongoValid = null;
+    this.mongoErrorMessage = null;
+    if (cluster) {
+      this.request.serviceConfigs.mongodb.cluster = cluster.cluster;
+      this.request.serviceConfigs.mongodb.username = cluster.username;
+      this.request.serviceConfigs.mongodb.password = cluster.password;
+    }
+  }
+
   setSetupMode(mode: SetupMode): void {
     this.setupMode = mode;
     if (mode === SetupMode.CREATE) {
@@ -1216,6 +1263,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
 
     // Apply regardless — API key comes from systemConfig, not defaults
     this.applyDefaults();
+    await this.loadMongoClusters();
     this.logger.info("Loaded defaults from current environment");
   }
 

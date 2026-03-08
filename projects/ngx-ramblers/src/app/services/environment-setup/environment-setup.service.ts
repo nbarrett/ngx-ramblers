@@ -12,6 +12,7 @@ import {
   GitHubPushResponse,
   GitHubSecretStatus,
   GroupsByAreaResponse,
+  MongoClusterInfo,
   MongoDbConfig,
   RamblersAreaLookup,
   ResumeEnvironmentResponse,
@@ -140,6 +141,15 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as any;
+  }
+
+  async mongoClusters(): Promise<{ clusters: MongoClusterInfo[] }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.get<ApiResponse>(`${this.BASE_URL}/mongo-clusters`, this.opts),
+      this.notifications
+    );
+    return response as unknown as { clusters: MongoClusterInfo[] };
   }
 
   async existingEnvironments(): Promise<ExistingEnvironmentsResponse> {

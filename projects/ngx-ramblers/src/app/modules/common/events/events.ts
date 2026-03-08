@@ -8,6 +8,7 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import { DataQueryOptions, FilterCriteria, SortOrder } from "../../../models/api-request.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { EventsData } from "../../../models/social-events.model";
+import { DateDirection } from "../../../models/search.model";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -158,15 +159,21 @@ export class Events implements OnInit, OnDestroy {
   }
 
   criteria() {
-    const {filterCriteria, fromDate, toDate, eventIds} = this?.eventsData || {};
+    const {filterCriteria, fromDate, toDate, eventIds, savedCriteria} = this?.eventsData || {};
     const today = this.dateUtils.isoDateTimeStartOfDay();
     const hasEventIds = eventIds?.length > 0;
     switch (filterCriteria) {
-      case FilterCriteria.DATE_RANGE:
-        if (hasEventIds) {
-          return {$and: [this.dateRangeCriteria(fromDate, toDate), this.eventIdsCriteria(eventIds)]};
+      case FilterCriteria.DATE_RANGE: {
+        const resolvedFrom = fromDate ?? this.resolveRelativeDate(savedCriteria?.dateRange);
+        const resolvedTo = toDate ?? this.resolveRelativeEndDate(savedCriteria?.dateRange);
+        if (resolvedFrom && resolvedTo) {
+          if (hasEventIds) {
+            return {$and: [this.dateRangeCriteria(resolvedFrom, resolvedTo), this.eventIdsCriteria(eventIds)]};
+          }
+          return this.dateRangeCriteria(resolvedFrom, resolvedTo);
         }
-        return this.dateRangeCriteria(fromDate, toDate);
+        return {};
+      }
       case FilterCriteria.FUTURE_EVENTS:
         return {[GroupEventField.START_DATE]: {$gte: today}};
       case FilterCriteria.PAST_EVENTS:
@@ -175,6 +182,18 @@ export class Events implements OnInit, OnDestroy {
       default:
         return {};
     }
+  }
+
+  private resolveRelativeDate(dateRange?: { direction: DateDirection; duration: { days?: number; months?: number; years?: number } }): number | undefined {
+    if (!dateRange) { return undefined; }
+    const now = this.dateUtils.dateTimeNow().startOf("day");
+    return dateRange.direction === DateDirection.FUTURE ? now.toMillis() : now.minus(dateRange.duration).toMillis();
+  }
+
+  private resolveRelativeEndDate(dateRange?: { direction: DateDirection; duration: { days?: number; months?: number; years?: number } }): number | undefined {
+    if (!dateRange) { return undefined; }
+    const now = this.dateUtils.dateTimeNow().startOf("day");
+    return dateRange.direction === DateDirection.FUTURE ? now.plus(dateRange.duration).toMillis() : now.toMillis();
   }
 
   private dateRangeCriteria(fromDate: number, toDate: number) {
@@ -278,7 +297,8 @@ export class Events implements OnInit, OnDestroy {
       const pageIndicator = this.pageCount > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : `page ${this.pageNumber}`;
       const toEventNumber = Math.min(this.currentPageFilteredEvents?.length + offset - 1, this.filteredExtendedGroupEvents?.length || 0);
       this.logger.info("applyPagination: filtered event count", this.filteredExtendedGroupEvents.length, "current page event count", this.currentPageFilteredEvents.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages, "currentPageFilteredEvents:", this.currentPageFilteredEvents, "toEventNumber:", toEventNumber, "offset:", offset);
-      this.notify.progress(`${offset} to ${toEventNumber} of ${this.stringUtils.pluraliseWithCount(this.filteredExtendedGroupEvents.length, "event")}${EM_DASH_WITH_SPACES}${pageIndicator}`);
+      const sortIndicator = this.stringUtils.asTitle(this.resolvedSortOrder());
+      this.notify.progress(`${offset} to ${toEventNumber} of ${this.stringUtils.pluraliseWithCount(this.filteredExtendedGroupEvents.length, "event")}${EM_DASH_WITH_SPACES}${sortIndicator}${EM_DASH_WITH_SPACES}${pageIndicator}`);
     }
   }
 }
