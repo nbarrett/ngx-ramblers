@@ -25,18 +25,16 @@ import { PageService } from "../../../services/page.service";
   @if (showSearchAndFilter()) {
     <ng-container *ngTemplateOutlet="searchAndFilterActions"/>
   }
-  @if (showPagination) {
-    <div class="d-flex flex-column flex-md-row events-header-full-width">
-      @if (!eventsData || eventsData?.allow?.pagination) {
-        <pagination class="rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
-                    [totalItems]="totalItems" [(ngModel)]="pageNumber"
-                    (pageChanged)="pageChanged.emit($event)"/>
-      }
-      <div class="form-group mb-0 flex-grow-1 mt-md-0">
-        <ng-container *ngTemplateOutlet="alert"/>
-      </div>
+  <div class="d-flex flex-column flex-md-row events-header-full-width">
+    @if (showPagination && (!eventsData || eventsData?.allow?.pagination)) {
+      <pagination class="rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
+                  [totalItems]="totalItems" [(ngModel)]="pageNumber"
+                  (pageChanged)="pageChanged.emit($event)"/>
+    }
+    <div class="form-group mb-0 flex-grow-1 mt-md-0">
+      <ng-container *ngTemplateOutlet="alert"/>
     </div>
-  }
+  </div>
 
   <div class="row">
     <div class="col-sm-10">

@@ -80,6 +80,43 @@ export interface AdvancedSearchCriteria {
   noLocation?: boolean;
 }
 
+export enum DateDirection {
+  FUTURE = "future",
+  PAST = "past"
+}
+
+export interface RelativeDateRange {
+  direction: DateDirection;
+  duration: { days?: number; months?: number; years?: number };
+}
+
+export interface SavedSearchCriteria {
+  presetLabel?: string;
+  dateRange?: RelativeDateRange;
+  leaderIds?: string[];
+  groupCodes?: string[];
+  locationMethod?: LocationMethod;
+  proximityLat?: number;
+  proximityLng?: number;
+  proximityRadiusMiles?: number;
+  daysOfWeek?: string[];
+  difficulty?: string[];
+  distanceMin?: number;
+  distanceMax?: number;
+  accessibility?: string[];
+  facilities?: string[];
+  freeOnly?: boolean;
+  cancelled?: boolean;
+  noLocation?: boolean;
+}
+
+export interface FilterStateEvent {
+  filterCriteria: FilterCriteria;
+  ascending: boolean;
+  presetLabel?: string;
+  savedCriteria: SavedSearchCriteria | null;
+}
+
 export enum AdvancedSearchFieldType {
   NUMBER = "number",
   ARRAY = "array",
@@ -154,6 +191,7 @@ export interface DistanceRange {
 export interface AdvancedSearchPreset {
   label: string;
   range: () => SearchDateRange;
+  relativeDateRange?: RelativeDateRange;
 }
 
 export interface WalkLeaderOption {
@@ -180,6 +218,7 @@ export interface SyncStatusResponse {
 export function createFuturePreset(label: string, duration: { days?: number; months?: number; years?: number }): AdvancedSearchPreset {
   return {
     label,
+    relativeDateRange: { direction: DateDirection.FUTURE, duration },
     range: () => {
       const start = DateTime.now().startOf("day");
       return {
@@ -193,6 +232,7 @@ export function createFuturePreset(label: string, duration: { days?: number; mon
 export function createPastPreset(label: string, duration: { days?: number; months?: number; years?: number }): AdvancedSearchPreset {
   return {
     label,
+    relativeDateRange: { direction: DateDirection.PAST, duration },
     range: () => {
       const now = DateTime.now().startOf("day");
       return {
@@ -211,6 +251,25 @@ export function createAllTimePreset(label: string, minDate: DateTime, maxDate: D
       to: maxDate.toMillis()
     })
   };
+}
+
+export function allRelativePresets(): AdvancedSearchPreset[] {
+  return [
+    createFuturePreset("Next 7 Days", { days: 7 }),
+    createFuturePreset("Next 30 Days", { days: 30 }),
+    createFuturePreset("Next 3 Months", { months: 3 }),
+    createFuturePreset("Next 6 Months", { months: 6 }),
+    createPastPreset("Past 7 Days", { days: 7 }),
+    createPastPreset("Past 30 Days", { days: 30 }),
+    createPastPreset("Past 3 Months", { months: 3 }),
+    createPastPreset("Past 6 Months", { months: 6 }),
+    createPastPreset("Past Year", { years: 1 }),
+    createPastPreset("Past 2 Years", { years: 2 })
+  ];
+}
+
+export function resolvePresetByLabel(kebabLabel: string, stringUtils: { kebabCase: (value: string) => string }): AdvancedSearchPreset | null {
+  return allRelativePresets().find(p => stringUtils.kebabCase(p.label) === kebabLabel) || null;
 }
 
 export function createFuturePresetRanges(minDate: DateTime, maxDate: DateTime): AdvancedSearchPreset[] {

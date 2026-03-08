@@ -1,11 +1,12 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { isEqual, kebabCase } from "es-toolkit/compat";
-import { faChevronRight, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   AlbumData,
   AlbumEditTab,
   AlbumView,
+  ContentText,
   DEFAULT_GALLERY_OPTIONS,
   DEFAULT_GRID_OPTIONS,
   FocalPointTarget,
@@ -45,6 +46,10 @@ import { ActionButtons } from "../action-buttons/action-buttons";
 import { FocalPoint, FocalPointPickerComponent } from "../focal-point-picker/focal-point-picker";
 import { rangeSliderStyles } from "../../../components/range-slider.styles";
 import { RangeSliderComponent } from "../../../components/range-slider";
+
+function scaleOptions(...entries: [number, string][]): { value: number; label: string }[] {
+  return entries.map(([value, name]) => ({value, label: `${name} (${value}x)`}));
+}
 
 @Component({
     selector: "app-dynamic-content-site-edit-album",
@@ -177,11 +182,11 @@ import { RangeSliderComponent } from "../../../components/range-slider";
                   @if (row?.carousel?.albumView === AlbumView.BACKGROUNDS) {
                     <div class="col-sm-12 mt-3">
                       <div class="row">
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                           <app-colour-selector label="Title Colour"
                                                [itemWithClassOrColour]="titleColourWrapper"/>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                           <label>Title Scale</label>
                           <ng-select [items]="titleScaleOptions"
                                      bindLabel="label"
@@ -190,9 +195,20 @@ import { RangeSliderComponent } from "../../../components/range-slider";
                                      [(ngModel)]="row.carousel.backgroundsOverlay.titleScale">
                           </ng-select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                           <app-colour-selector label="Text Colour"
                                                [itemWithClassOrColour]="textColourWrapper"/>
+                        </div>
+                      </div>
+                      <div class="row mt-2">
+                        <div class="col-md-4">
+                          <label>Text Scale</label>
+                          <ng-select [items]="textScaleOptions"
+                                     bindLabel="label"
+                                     bindValue="value"
+                                     [clearable]="false"
+                                     [(ngModel)]="row.carousel.backgroundsOverlay.textScale">
+                          </ng-select>
                         </div>
                       </div>
                       <div class="row mt-2">
@@ -210,7 +226,7 @@ import { RangeSliderComponent } from "../../../components/range-slider";
                         </div>
                       </div>
                       <div class="row mt-2 align-items-end">
-                        <div class="col-md-2">
+                        <div class="col-md-3">
                           <div class="form-check mb-2">
                             <input [(ngModel)]="row.carousel.backgroundsOverlay.showEventLink"
                                    type="checkbox" class="form-check-input"
@@ -220,7 +236,7 @@ import { RangeSliderComponent } from "../../../components/range-slider";
                               Show Event Link</label>
                           </div>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-3">
                           <div class="form-check mb-2">
                             <input [(ngModel)]="row.carousel.backgroundsOverlay.showEventDate"
                                    type="checkbox" class="form-check-input"
@@ -231,7 +247,7 @@ import { RangeSliderComponent } from "../../../components/range-slider";
                           </div>
                         </div>
                         @if (row.carousel.backgroundsOverlay.showEventLink || row.carousel.backgroundsOverlay.showEventDate) {
-                          <div class="col-md-2">
+                          <div class="col-md-3">
                             <label>Event Scale</label>
                             <ng-select [items]="eventLinkScaleOptions"
                                        bindLabel="label"
@@ -260,20 +276,6 @@ import { RangeSliderComponent } from "../../../components/range-slider";
                       </div>
                     </div>
                   }
-                  <div class="col-sm-12">
-                    @if (actions.isCarouselOrAlbum(row)) {
-                      <app-album preview
-                                 (lazyLoadingMetadataChange)="lazyLoadingMetadataUpdated($event)"
-                                 [album]="row?.carousel"
-                                 [albumView]="row?.carousel?.albumView"
-                                 [index]="actions.carouselOrAlbumIndex(row, pageContent)">
-                        <app-badge-button [icon]="faChevronRight"
-                                          (click)="actions.toggleEditMode(rowIndex)"
-                                          [caption]="'Edit images in album'" iconPositionRight noRightMargin>
-                        </app-badge-button>
-                      </app-album>
-                    }
-                  </div>
                 </div>
               </div>
             </tab>
@@ -369,9 +371,10 @@ import { RangeSliderComponent } from "../../../components/range-slider";
                           [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-pre-cover-text')">
                           Introductory Text</label>
                         <app-markdown-editor [data]="{text: row.carousel.introductoryText}"
+                                             [styles]="row.carousel.introductoryTextStyles"
                                              [name]="'pre cover text'"
                                              [initialView]="initialViewFor(row.carousel.introductoryText)"
-                                             (changed)="row.carousel.introductoryText=$event.text"/>
+                                             (changed)="introductoryTextChanged($event)"/>
                       </div>
                     </div>
                     @if (lazyLoadingMetadata?.contentMetadata?.coverImage) {
@@ -542,6 +545,20 @@ import { RangeSliderComponent } from "../../../components/range-slider";
               </div>
             </tab>
           </tabset>
+          @if (actions.isCarouselOrAlbum(row)) {
+            <div class="mt-3">
+              <app-album preview
+                         (lazyLoadingMetadataChange)="lazyLoadingMetadataUpdated($event)"
+                         [album]="row?.carousel"
+                         [albumView]="row?.carousel?.albumView"
+                         [index]="actions.carouselOrAlbumIndex(row, pageContent)">
+                <app-badge-button [icon]="faPencil"
+                                  (click)="actions.toggleEditMode(rowIndex)"
+                                  [caption]="'Edit images in album'" noRightMargin>
+                </app-badge-button>
+              </app-album>
+            </div>
+          }
         }
       }
       @if (actions.editActive(rowIndex)) {
@@ -585,7 +602,7 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   protected readonly GridLayoutMode = GridLayoutMode;
   faRemove = faRemove;
   groupEventType: GroupEventType;
-  protected readonly faChevronRight = faChevronRight;
+  protected readonly faPencil = faPencil;
 
   protected readonly View = View;
   protected readonly AlbumEditTab = AlbumEditTab;
@@ -601,24 +618,9 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   public textColourWrapper: { class: string } = {class: "colour-cloudy"};
   private systemConfigService = inject(SystemConfigService);
   public availableBackgrounds: Image[] = [];
-  public titleScaleOptions = [
-    {value: 1, label: "Small (1x)"},
-    {value: 1.5, label: "Medium (1.5x)"},
-    {value: 2, label: "Large (2x)"},
-    {value: 3, label: "Extra Large (3x)"},
-    {value: 4, label: "Huge (4x)"},
-    {value: 5, label: "Massive (5x)"},
-    {value: 6, label: "Giant (6x)"},
-    {value: 8, label: "Colossal (8x)"},
-    {value: 10, label: "Logo (10x)"}
-  ];
-  public eventLinkScaleOptions = [
-    {value: 0.75, label: "Small (0.75x)"},
-    {value: 1, label: "Normal (1x)"},
-    {value: 1.25, label: "Medium (1.25x)"},
-    {value: 1.5, label: "Large (1.5x)"},
-    {value: 2, label: "Extra Large (2x)"}
-  ];
+  public titleScaleOptions = scaleOptions([1, "Small"], [1.5, "Medium"], [2, "Large"], [3, "Extra Large"], [4, "Huge"], [5, "Massive"], [6, "Giant"], [8, "Colossal"], [10, "Logo"]);
+  public textScaleOptions = scaleOptions([0.75, "Small"], [1, "Normal"], [1.25, "Medium"], [1.5, "Large"], [2, "Extra Large"], [2.5, "Huge"]);
+  public eventLinkScaleOptions = scaleOptions([0.75, "Small"], [1, "Normal"], [1.25, "Medium"], [1.5, "Large"], [2, "Extra Large"]);
 
   ngOnInit() {
     const defaultValue = kebabCase(AlbumEditTab.ALBUM_SETTINGS);
@@ -696,6 +698,11 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   eventCleared() {
     this.row.carousel.eventId = null;
     this.row.carousel.eventDate = null;
+  }
+
+  introductoryTextChanged(event: ContentText) {
+    this.row.carousel.introductoryText = event.text;
+    this.row.carousel.introductoryTextStyles = event.styles;
   }
 
   initialViewFor(text: string): View {

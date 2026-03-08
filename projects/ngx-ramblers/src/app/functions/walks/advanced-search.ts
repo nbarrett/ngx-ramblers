@@ -1,6 +1,8 @@
 import { ParamMap } from "@angular/router";
-import { isArray, isBoolean, isNull, isNumber, isUndefined, values } from "es-toolkit/compat";
+import { isArray, isBoolean, isNull, isNumber, isUndefined, keys, values } from "es-toolkit/compat";
+import { DateTime } from "luxon";
 import { AdvancedSearchCriteria, AdvancedSearchFieldType, ADVANCED_SEARCH_CRITERIA_FIELDS, WalkLeaderOption } from "../../models/search.model";
+import { DateDirection, SavedSearchCriteria } from "../../models/search.model";
 import { UIDateFormat } from "../../models/date-format.model";
 import { StoredValue } from "../../models/ui-actions";
 import { StringUtilsService } from "../../services/string-utils.service";
@@ -150,15 +152,22 @@ export function hasAdvancedCriteria(criteria: AdvancedSearchCriteria | null | un
   });
 }
 
-export function advancedSearchSummary(criteria: AdvancedSearchCriteria | null | undefined, stringUtils: StringUtilsService, dateUtils: DateUtilsService): string {
+export function advancedSearchSummary(criteria: AdvancedSearchCriteria | null | undefined, stringUtils: StringUtilsService, dateUtils: DateUtilsService, presetLabel?: string, ascending?: boolean): string {
   if (!criteria || !hasAdvancedCriteria(criteria)) {
+    if (ascending === false) {
+      return "date descending";
+    }
     return "";
   }
   const parts: string[] = [];
   if (criteria.dateFrom || criteria.dateTo) {
-    const from = criteria.dateFrom ? dateUtils.asString(criteria.dateFrom, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "start";
-    const to = criteria.dateTo ? dateUtils.asString(criteria.dateTo, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "end";
-    parts.push(`${from} to ${to}`);
+    if (presetLabel && !presetLabel.startsWith("All ")) {
+      parts.push(presetLabel);
+    } else if (!presetLabel) {
+      const from = criteria.dateFrom ? dateUtils.asString(criteria.dateFrom, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "start";
+      const to = criteria.dateTo ? dateUtils.asString(criteria.dateTo, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "end";
+      parts.push(`${from} to ${to}`);
+    }
   }
   if (criteria.groupCodes?.length > 0) {
     parts.push(`${stringUtils.pluraliseWithCount(criteria.groupCodes.length, "group")}`);
@@ -195,5 +204,66 @@ export function advancedSearchSummary(criteria: AdvancedSearchCriteria | null | 
   if (criteria.noLocation) {
     parts.push("no location");
   }
+  if (ascending === false) {
+    parts.push("date descending");
+  }
   return parts.join(", ");
+}
+
+export function savedCriteriaToAdvancedCriteria(saved: SavedSearchCriteria | undefined | null): AdvancedSearchCriteria | null {
+  if (!saved) {
+    return null;
+  }
+  const criteria: AdvancedSearchCriteria = {};
+  if (saved.dateRange) {
+    const now = DateTime.now().startOf("day");
+    if (saved.dateRange.direction === DateDirection.FUTURE) {
+      criteria.dateFrom = now.toMillis();
+      criteria.dateTo = now.plus(saved.dateRange.duration).toMillis();
+    } else {
+      criteria.dateFrom = now.minus(saved.dateRange.duration).toMillis();
+      criteria.dateTo = now.toMillis();
+    }
+  }
+  if (saved.leaderIds?.length) { criteria.leaderIds = saved.leaderIds; }
+  if (saved.groupCodes?.length) { criteria.groupCodes = saved.groupCodes; }
+  if (saved.locationMethod) { criteria.locationMethod = saved.locationMethod; }
+  if (isNumber(saved.proximityLat)) { criteria.proximityLat = saved.proximityLat; }
+  if (isNumber(saved.proximityLng)) { criteria.proximityLng = saved.proximityLng; }
+  if (isNumber(saved.proximityRadiusMiles)) { criteria.proximityRadiusMiles = saved.proximityRadiusMiles; }
+  if (saved.daysOfWeek?.length) { criteria.daysOfWeek = saved.daysOfWeek; }
+  if (saved.difficulty?.length) { criteria.difficulty = saved.difficulty; }
+  if (isNumber(saved.distanceMin)) { criteria.distanceMin = saved.distanceMin; }
+  if (isNumber(saved.distanceMax)) { criteria.distanceMax = saved.distanceMax; }
+  if (saved.accessibility?.length) { criteria.accessibility = saved.accessibility; }
+  if (saved.facilities?.length) { criteria.facilities = saved.facilities; }
+  if (saved.freeOnly) { criteria.freeOnly = saved.freeOnly; }
+  if (saved.cancelled) { criteria.cancelled = saved.cancelled; }
+  if (saved.noLocation) { criteria.noLocation = saved.noLocation; }
+  return hasAdvancedCriteria(criteria) ? criteria : null;
+}
+
+export function advancedCriteriaToSavedCriteria(criteria: AdvancedSearchCriteria | null, dateRange?: { direction: DateDirection; duration: { days?: number; months?: number; years?: number } }, presetLabel?: string): SavedSearchCriteria | null {
+  if (!criteria || !hasAdvancedCriteria(criteria)) {
+    return dateRange ? { presetLabel, dateRange } : null;
+  }
+  const saved: SavedSearchCriteria = {};
+  if (presetLabel) { saved.presetLabel = presetLabel; }
+  if (dateRange) { saved.dateRange = dateRange; }
+  if (criteria.leaderIds?.length) { saved.leaderIds = criteria.leaderIds; }
+  if (criteria.groupCodes?.length) { saved.groupCodes = criteria.groupCodes; }
+  if (criteria.locationMethod) { saved.locationMethod = criteria.locationMethod; }
+  if (isNumber(criteria.proximityLat)) { saved.proximityLat = criteria.proximityLat; }
+  if (isNumber(criteria.proximityLng)) { saved.proximityLng = criteria.proximityLng; }
+  if (isNumber(criteria.proximityRadiusMiles)) { saved.proximityRadiusMiles = criteria.proximityRadiusMiles; }
+  if (criteria.daysOfWeek?.length) { saved.daysOfWeek = criteria.daysOfWeek; }
+  if (criteria.difficulty?.length) { saved.difficulty = criteria.difficulty; }
+  if (isNumber(criteria.distanceMin)) { saved.distanceMin = criteria.distanceMin; }
+  if (isNumber(criteria.distanceMax)) { saved.distanceMax = criteria.distanceMax; }
+  if (criteria.accessibility?.length) { saved.accessibility = criteria.accessibility; }
+  if (criteria.facilities?.length) { saved.facilities = criteria.facilities; }
+  if (criteria.freeOnly) { saved.freeOnly = criteria.freeOnly; }
+  if (criteria.cancelled) { saved.cancelled = criteria.cancelled; }
+  if (criteria.noLocation) { saved.noLocation = criteria.noLocation; }
+  return keys(saved).length > 0 ? saved : null;
 }

@@ -23,10 +23,8 @@ export enum EditMode {
 
 export enum StoredValue {
   ACCESSIBILITY = "accessibility",
+  ADVANCED_SEARCH = "advanced-search",
   ALBUM_TAB = "album-tab",
-  AREA_GROUPS_FILTER = "area-groups-filter",
-  AREA_GROUPS_SORT_ASC = "area-groups-sort-asc",
-  AREA_GROUPS_SORT_FIELD = "area-groups-sort-field",
   AREA_MAP_CENTER = "area-map-center",
   AREA_MAP_CLICK_ACTION = "area-map-click-action",
   AREA_MAP_ZOOM = "area-map-zoom",
@@ -37,6 +35,7 @@ export enum StoredValue {
   CONTENT_TEMPLATE_VIEW = "content-template-view",
   CONTENT_VIEW_MODE = "view-mode",
   DATE_FROM = "date-from",
+  DATE_RANGE_PRESET = "date-range-preset",
   DATE_TO = "date-to",
   DAYS_OF_WEEK = "days-of-week",
   DIFFICULTY = "difficulty",

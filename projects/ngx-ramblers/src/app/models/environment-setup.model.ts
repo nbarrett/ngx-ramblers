@@ -66,6 +66,13 @@ export interface MongoDbConfig {
   database: string;
 }
 
+export interface MongoClusterInfo {
+  cluster: string;
+  username: string;
+  password: string;
+  databases: string[];
+}
+
 export interface BrevoConfig {
   apiKey: string;
 }

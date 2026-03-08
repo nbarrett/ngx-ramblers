@@ -663,9 +663,10 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       this.logger.info("ngOnInit: parsed criteria from URL:", urlCriteria);
       this.criteriaValue = urlCriteria;
       this.populateFromCriteria();
+      this.applySearch();
+    } else {
+      this.logger.info("ngOnInit: no URL criteria, skipping initial applySearch");
     }
-
-    this.applySearch();
   }
 
   ngOnDestroy() {

@@ -416,6 +416,7 @@ export interface AlbumData {
   showTitle: boolean;
   showCoverImageAndText: boolean;
   introductoryText: string;
+  introductoryTextStyles?: ContentTextStyles;
   coverImageHeight: number;
   coverImageVerticalPosition: number;
   coverImageCropperPosition?: ImageCropperPosition | null;
@@ -447,6 +448,7 @@ export interface BackgroundsOverlay {
   titleColourClass?: string;
   titleScale?: number;
   textColourClass?: string;
+  textScale?: number;
   paddingTop?: number;
   paddingLeft?: number;
   markdownContent?: string;

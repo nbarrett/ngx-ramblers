@@ -25,6 +25,8 @@ import {
   createFuturePresetRanges,
   createPastPresetRanges,
   FilterParameters,
+  FilterStateEvent,
+  RelativeDateRange,
   WalkLeaderOption
 } from "../../../models/search.model";
 import { UiActionsService } from "../../../services/ui-actions.service";
@@ -33,6 +35,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { AdvancedSearchPane } from "./advanced-search-pane";
 import {
   advancedCriteriaQueryParams,
+  advancedCriteriaToSavedCriteria,
   advancedSearchCriteriaFromParams,
   hasAdvancedCriteria
 } from "../../../functions/walks/advanced-search";
@@ -42,14 +45,12 @@ import { DateTime } from "luxon";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 
-const ADVANCED_SEARCH_PARAM = "advanced-search";
-const ALERT_SEPARATE_ROW_MESSAGE_LENGTH = 60;
-
-interface GroupedFilterOption {
+interface DateRangePreset {
   id: string;
   label: string;
   filterType?: FilterCriteria;
   preset?: AdvancedSearchPreset;
+  dateRange?: RelativeDateRange;
   groupLabel?: string;
   adminOnly?: boolean;
   localWalkPopulationOnly?: boolean;
@@ -116,14 +117,14 @@ interface GroupedFilterOption {
         </div>
         <div class="mb-2 mb-lg-0 flex-lg-fill">
           <ng-select
-            [items]="groupedFilterOptions"
-            [(ngModel)]="selectedFilterOption"
+            [items]="dateRangePresets"
+            [(ngModel)]="selectedDateRangePreset"
             bindLabel="label"
             groupBy="groupLabel"
             [clearable]="false"
             [searchable]="false"
             dropdownPosition="bottom"
-            (change)="onFilterSelectionChange($event)"
+            (change)="onDateRangePresetChange($event)"
             class="rounded w-100">
             <ng-template ng-label-tmp let-item="item">
               <span [title]="(item.groupLabel ? item.groupLabel + ' - ' : '') + item.label">
@@ -173,15 +174,6 @@ interface GroupedFilterOption {
           }
         </div>
       }
-      @if (showAlerts && notifyTarget.showAlert && alertUsesFullRow()) {
-        <div class="mt-2">
-          <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center">
-            <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
-            <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
-            <span class="ms-1">{{ notifyTarget.alertMessage }}</span>
-          </div>
-        </div>
-      }
       @if (showAdvancedSearch) {
         <app-advanced-search-panel
           [class.show]="advancedSearchExpanded"
@@ -228,11 +220,14 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   advancedCriteria: AdvancedSearchCriteria | null = null;
   @Output()
   advancedSearchChange = new EventEmitter<AdvancedSearchCriteria>();
+  @Output()
+  filterStateChange = new EventEmitter<FilterStateEvent>();
 
   advancedSearchExpanded = false;
+  private queryParamsActive = false;
   faSliders = faSliders;
-  groupedFilterOptions: GroupedFilterOption[] = [];
-  selectedFilterOption: GroupedFilterOption | null = null;
+  dateRangePresets: DateRangePreset[] = [];
+  selectedDateRangePreset: DateRangePreset | null = null;
   private dataMinDate: DateTime = this.dateUtils.dateTimeNowNoTime().minus({years: 5});
   private dataMaxDate: DateTime = this.dateUtils.dateTimeNowNoTime().plus({years: 2}).endOf("day");
   minDate = this.dataMinDate;
@@ -255,9 +250,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   alertUsesFullRow(): boolean {
-    const alertTitleLength = this.notifyTarget?.alertTitle?.length || 0;
-    const alertMessageLength = this.notifyTarget?.alertMessage?.length || 0;
-    return alertTitleLength + alertMessageLength > ALERT_SEPARATE_ROW_MESSAGE_LENGTH;
+    return false;
   }
 
   showResultsHeaderRow(): boolean {
@@ -267,8 +260,11 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   ngOnInit(): void {
     void this.loadDateRange();
     const initialCriteria = advancedSearchCriteriaFromParams(this.route.snapshot.queryParamMap, this.stringUtils);
+    this.logger.info("ngOnInit: initialCriteria:", initialCriteria, "queryParamsActive:", this.queryParamsActive);
     if (initialCriteria) {
       this.advancedCriteria = initialCriteria;
+      this.queryParamsActive = true;
+      this.logger.info("ngOnInit: set queryParamsActive=true from URL criteria");
     }
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       this.currentWalkId = paramMap.get("walk-id");
@@ -323,62 +319,70 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   refreshWalks(selectType: string) {
-    this.logger.info("filterParameters:", this.filterParameters);
+    this.logger.info("refreshWalks: selectType:", selectType, "queryParamsActive:", this.queryParamsActive, "filterParameters:", this.filterParameters);
     this.ui.saveValueFor(StoredValue.WALK_SELECT_TYPE, this.filterParameters.selectType);
     this.ui.saveValueFor(StoredValue.WALK_SORT_ASC, this.filterParameters.ascending);
-    const typeKebab = this.stringUtils.kebabCase(this.filterParameters.selectType);
-    const ascending = this.stringUtils.asBoolean(this.filterParameters.ascending);
-    const sortValue = ascending ? "true" : "false";
-    this.replaceQueryParams({
-      [this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE)]: typeKebab,
-      [this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC)]: sortValue
-    });
+    if (this.queryParamsActive) {
+      const ascending = this.stringUtils.asBoolean(this.filterParameters.ascending);
+      this.replaceQueryParams({
+        [this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE)]: this.stringUtils.kebabCase(this.filterParameters.selectType),
+        [this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC)]: ascending ? null : "false"
+      });
+    }
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.REFRESH, selectType));
+    this.emitFilterState();
   }
 
   toggleAdvancedSearch() {
     this.advancedSearchExpanded = !this.advancedSearchExpanded;
+    this.queryParamsActive = true;
     const paramValue = this.advancedSearchExpanded ? "true" : "false";
     this.replaceQueryParams({
-      [ADVANCED_SEARCH_PARAM]: paramValue
+      [this.stringUtils.kebabCase(StoredValue.ADVANCED_SEARCH)]: paramValue
     });
     this.logger.info("Advanced search expanded:", this.advancedSearchExpanded);
   }
 
   private applyAdvancedSearchQueryParam(params: ParamMap) {
-    const value = params.get(ADVANCED_SEARCH_PARAM);
+    const value = params.get(this.stringUtils.kebabCase(StoredValue.ADVANCED_SEARCH));
     this.advancedSearchExpanded = value === "true";
   }
 
   onAdvancedSearchChange(event: { criteria: AdvancedSearchCriteria; leaderOptions: WalkLeaderOption[] }) {
-    this.logger.info("Advanced search criteria:", event.criteria);
+    this.logger.info("onAdvancedSearchChange: queryParamsActive:", this.queryParamsActive, "criteria:", event.criteria);
     this.advancedCriteria = hasAdvancedCriteria(event.criteria) ? event.criteria : null;
-    const queryParams = advancedCriteriaQueryParams(this.advancedCriteria, this.stringUtils, this.dateUtils, event.leaderOptions);
-    this.replaceQueryParams(queryParams);
-    this.syncFilterOptionWithCriteria(event.criteria);
+    if (this.queryParamsActive) {
+      const queryParams = advancedCriteriaQueryParams(this.advancedCriteria, this.stringUtils, this.dateUtils, event.leaderOptions);
+      this.logger.info("onAdvancedSearchChange: writing query params:", queryParams);
+      this.replaceQueryParams(queryParams);
+    } else {
+      this.logger.info("onAdvancedSearchChange: skipping query params (queryParamsActive=false)");
+    }
+    this.syncDateRangePresetWithCriteria(event.criteria);
     this.advancedSearchChange.emit(event.criteria);
+    this.emitFilterState();
   }
 
-  private syncFilterOptionWithCriteria(criteria: AdvancedSearchCriteria) {
-    if (!criteria?.dateFrom || !criteria?.dateTo || !this.groupedFilterOptions.length) {
+  private syncDateRangePresetWithCriteria(criteria: AdvancedSearchCriteria) {
+    if (!criteria?.dateFrom || !criteria?.dateTo || !this.dateRangePresets.length) {
       return;
     }
-    let bestOption: GroupedFilterOption | null = null;
+    let bestPreset: DateRangePreset | null = null;
     let bestDiff = Number.POSITIVE_INFINITY;
-    for (const option of this.groupedFilterOptions) {
-      if (option.preset) {
-        const range = option.preset.range();
+    for (const preset of this.dateRangePresets) {
+      if (preset.preset) {
+        const range = preset.preset.range();
         const diff = Math.abs(range.from - criteria.dateFrom) + Math.abs(range.to - criteria.dateTo);
         if (diff < bestDiff) {
           bestDiff = diff;
-          bestOption = option;
+          bestPreset = preset;
         }
       }
     }
-    if (bestOption && this.rangesAreClose(criteria, bestOption.preset.range())) {
-      this.selectedFilterOption = bestOption;
-      if (bestOption.filterType) {
-        this.filterParameters.selectType = bestOption.filterType;
+    if (bestPreset && this.rangesAreClose(criteria, bestPreset.preset.range())) {
+      this.selectedDateRangePreset = bestPreset;
+      if (bestPreset.filterType) {
+        this.filterParameters.selectType = bestPreset.filterType;
       }
     }
   }
@@ -389,7 +393,22 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
     return fromDiff <= PRESET_MATCH_THRESHOLD_MS && toDiff <= PRESET_MATCH_THRESHOLD_MS;
   }
 
+  private emitFilterState() {
+    const savedCriteria = advancedCriteriaToSavedCriteria(
+      this.advancedCriteria,
+      this.selectedDateRangePreset?.preset?.relativeDateRange,
+      this.selectedDateRangePreset?.label
+    );
+    this.filterStateChange.emit({
+      filterCriteria: this.filterParameters.selectType,
+      ascending: this.filterParameters.ascending,
+      presetLabel: this.selectedDateRangePreset?.label,
+      savedCriteria
+    });
+  }
+
   private replaceQueryParams(params: Record<string, string | number | null>) {
+    this.logger.info("replaceQueryParams called with:", params, "queryParamsActive:", this.queryParamsActive);
     const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => !isUndefined(v)));
     const urlTree = this.router.createUrlTree([], {
       relativeTo: this.route,
@@ -406,7 +425,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
     return inline;
   }
 
-  private initializeGroupedFilterOptions() {
+  private initialiseDateRangePresets() {
     const futurePresets = createFuturePresetRanges(this.minDate, this.maxDate).map((preset, idx) => ({
       id: `future-${idx}`,
       label: preset.label,
@@ -446,7 +465,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
         localWalkPopulationOnly: f.localWalkPopulationOnly
       }));
 
-    this.groupedFilterOptions = [
+    this.dateRangePresets = [
       ...futurePresets,
       ...pastPresets,
       ...allPresets,
@@ -454,41 +473,65 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
     ];
   }
 
-  private initializeSelectedFilterOption() {
+  private initialiseSelectedDateRangePreset() {
+    const presetParam = this.route.snapshot.queryParamMap.get(this.stringUtils.kebabCase(StoredValue.DATE_RANGE_PRESET));
+    if (presetParam) {
+      const match = this.dateRangePresets.find(p => this.stringUtils.kebabCase(p.label) === presetParam);
+      if (match) {
+        this.selectedDateRangePreset = match;
+        if (match.filterType) {
+          this.filterParameters.selectType = match.filterType;
+        }
+        return;
+      }
+    }
     const currentFilter = this.filterParameters?.selectType || FilterCriteria.FUTURE_EVENTS;
-    const matchingOptions = this.groupedFilterOptions.filter(opt => opt.filterType === currentFilter);
-    if (matchingOptions.length > 0) {
-      const allTimeOption = matchingOptions.find(opt => opt.label.startsWith("All "));
-      this.selectedFilterOption = allTimeOption || matchingOptions[0];
+    const matchingPresets = this.dateRangePresets.filter(opt => opt.filterType === currentFilter);
+    if (matchingPresets.length > 0) {
+      const allTimePreset = matchingPresets.find(opt => opt.label.startsWith("All "));
+      this.selectedDateRangePreset = allTimePreset || matchingPresets[0];
     } else {
-      this.selectedFilterOption = this.groupedFilterOptions[0];
+      this.selectedDateRangePreset = this.dateRangePresets[0];
     }
   }
 
-  onFilterSelectionChange(option: GroupedFilterOption | null) {
-    if (!option) {
+  onDateRangePresetChange(preset: DateRangePreset | null) {
+    if (!preset) {
       return;
     }
 
-    this.logger.info("Filter selection changed:", option);
+    this.logger.info("Date range preset changed:", preset);
+    this.queryParamsActive = true;
 
-    if (option.preset) {
-      const range = option.preset.range();
+    const allParams: Record<string, string | number | null> = {
+      [this.stringUtils.kebabCase(StoredValue.DATE_RANGE_PRESET)]: this.stringUtils.kebabCase(preset.label)
+    };
+
+    if (preset.preset) {
+      const range = preset.preset.range();
       const criteria: AdvancedSearchCriteria = {
         ...(this.advancedCriteria || {}),
         dateFrom: range.from,
         dateTo: range.to
       };
       this.advancedCriteria = criteria;
-      const queryParams = advancedCriteriaQueryParams(criteria, this.stringUtils, this.dateUtils, []);
-      this.replaceQueryParams(queryParams);
       this.advancedSearchChange.emit(criteria);
+      const nonDateParams = advancedCriteriaQueryParams({...criteria, dateFrom: undefined, dateTo: undefined}, this.stringUtils, this.dateUtils, []);
+      Object.assign(allParams, nonDateParams);
     }
 
-    if (option.filterType) {
-      this.filterParameters.selectType = option.filterType;
-      this.refreshWalks("filter-selection-change");
+    if (preset.filterType) {
+      this.filterParameters.selectType = preset.filterType;
+      this.ui.saveValueFor(StoredValue.WALK_SELECT_TYPE, this.filterParameters.selectType);
+      this.ui.saveValueFor(StoredValue.WALK_SORT_ASC, this.filterParameters.ascending);
+      const ascending = this.stringUtils.asBoolean(this.filterParameters.ascending);
+      allParams[this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE)] = this.stringUtils.kebabCase(this.filterParameters.selectType);
+      allParams[this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC)] = ascending ? null : "false";
     }
+
+    this.replaceQueryParams(allParams);
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.REFRESH, "date-range-preset-change"));
+    this.emitFilterState();
   }
 
   private async loadDateRange() {
@@ -503,10 +546,10 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
       this.minDate = this.dataMinDate;
       this.maxDate = this.dataMaxDate;
       this.logger.info("loadDateRange: bounds", this.dataMinDate.toISO(), this.dataMaxDate.toISO());
-      this.initializeGroupedFilterOptions();
-      this.initializeSelectedFilterOption();
+      this.initialiseDateRangePresets();
+      this.initialiseSelectedDateRangePreset();
       if (this.advancedCriteria) {
-        this.syncFilterOptionWithCriteria(this.advancedCriteria);
+        this.syncDateRangePresetWithCriteria(this.advancedCriteria);
       }
     } catch (error) {
       this.logger.error("Failed to load date range:", error);
