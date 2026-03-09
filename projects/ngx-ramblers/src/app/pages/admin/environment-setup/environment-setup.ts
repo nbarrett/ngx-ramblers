@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, Subscription } from "rxjs";
 import { kebabCase } from "es-toolkit/compat";
+import { sortBy } from "../../../functions/arrays";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
@@ -398,13 +399,10 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                       <label for="existing-cluster">Use existing cluster</label>
                                       <ng-select id="existing-cluster"
                                                  [items]="mongoClusters"
-                                                 bindLabel="cluster"
+                                                 bindLabel="label"
                                                  [clearable]="true"
                                                  placeholder="Select an existing cluster or enter details manually"
                                                  (change)="onClusterSelected($event)">
-                                        <ng-template ng-option-tmp let-item="item">
-                                          {{ item.cluster }} ({{ item.databases.length }} databases)
-                                        </ng-template>
                                       </ng-select>
                                     </div>
                                   </div>
@@ -422,12 +420,14 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     <label for="mongo-cluster">Cluster</label>
                                     <input [(ngModel)]="request.serviceConfigs.mongodb.cluster"
                                            type="text" class="form-control" id="mongo-cluster"
+                                           autocomplete="off"
                                            placeholder="e.g. cluster0.xxxxx">
                                   </div>
                                   <div class="col-md-4">
                                     <label for="mongo-database">Database</label>
                                     <input [(ngModel)]="request.serviceConfigs.mongodb.database"
-                                           type="text" class="form-control" id="mongo-database">
+                                           type="text" class="form-control" id="mongo-database"
+                                           autocomplete="off">
                                   </div>
                                 </div>
                                 <div class="row mt-2">
@@ -1045,7 +1045,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   private async loadExistingEnvironments(): Promise<void> {
     try {
       const response = await this.environmentSetupService.existingEnvironments();
-      this.existingEnvironments = response.environments || [];
+      this.existingEnvironments = (response.environments || []).sort(sortBy("name"));
       this.logger.info("Loaded existing environments:", this.existingEnvironments.length);
     } catch (error) {
       this.logger.error("Failed to load existing environments:", error);
@@ -1055,7 +1055,11 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   private async loadMongoClusters(): Promise<void> {
     try {
       const response = await this.environmentSetupService.mongoClusters();
-      this.mongoClusters = response.clusters || [];
+      this.mongoClusters = (response.clusters || []).map(cluster => ({
+        ...cluster,
+        databases: cluster.databases.sort(),
+        label: `${cluster.cluster} (${cluster.databases.sort().join(", ")})`
+      })).sort(sortBy("label"));
       this.logger.info("Loaded MongoDB clusters:", this.mongoClusters.length);
     } catch (error) {
       this.logger.error("Failed to load MongoDB clusters:", error);

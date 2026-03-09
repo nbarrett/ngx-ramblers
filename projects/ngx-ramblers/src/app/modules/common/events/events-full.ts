@@ -494,10 +494,9 @@ export class EventsFull implements OnInit, OnDestroy {
 
   goToPage(pageNumber: number) {
     this.pageNumber = pageNumber;
+    this.queryParamsActive = true;
     this.performServerSideSearch();
-    if (this.queryParamsActive) {
-      this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: pageNumber});
-    }
+    this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: pageNumber});
   }
 
   onMapSelect(displayedWalk: DisplayedWalk) {

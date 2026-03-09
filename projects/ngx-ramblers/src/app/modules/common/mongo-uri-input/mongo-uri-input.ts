@@ -21,6 +21,7 @@ export interface MongoUriParseResult extends MongoDbConnectionConfig {
                type="text"
                class="form-control"
                id="mongo-connection-string"
+               autocomplete="off"
                placeholder="mongodb+srv://user:password@cluster.mongodb.net/database"
                (paste)="onPaste($event)"
                (ngModelChange)="handleParse()">

@@ -2,6 +2,7 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { Subscription } from "rxjs";
+import { sortBy } from "../../../functions/arrays";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
@@ -496,7 +497,7 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     this.loading = true;
     try {
       const response = await this.environmentSetupService.existingEnvironments();
-      this.existingEnvironments = response.environments || [];
+      this.existingEnvironments = (response.environments || []).sort(sortBy("name"));
       this.logger.info("Loaded existing environments:", this.existingEnvironments.length);
     } catch (error) {
       this.logger.error("Failed to load existing environments:", error);
