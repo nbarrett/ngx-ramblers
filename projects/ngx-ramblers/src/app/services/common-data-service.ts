@@ -2,8 +2,7 @@ import { HttpErrorResponse, HttpParams } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { forEach as each, isObject } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Observable, Subject } from "rxjs";
-import { share } from "rxjs/operators";
+import { firstValueFrom, Observable, Subject } from "rxjs";
 import { ApiResponse } from "../models/api-response.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { StringUtilsService } from "./string-utils.service";
@@ -19,16 +18,19 @@ export class CommonDataService {
 
   public async responseFrom<T extends ApiResponse>(logger: Logger, observable: Observable<T>, notifications?: Subject<T>, rejectOnError?: boolean): Promise<T> {
     const notificationSubject = notifications || new Subject<T>();
-    const shared = observable.pipe(share());
-    shared.subscribe((apiResponse: T) => {
+    try {
+      const apiResponse = await firstValueFrom(observable);
       logger.debug("api response:", apiResponse);
       notificationSubject.next(apiResponse);
-    }, (httpErrorResponse: HttpErrorResponse) => {
+      if (rejectOnError && apiResponse.error) {
+        return Promise.reject("Update failed due to error: " + this.stringUtils.stringifyObject(apiResponse.error));
+      }
+      return apiResponse;
+    } catch (httpErrorResponse) {
       logger.error("http error response", httpErrorResponse);
-      notificationSubject.next(httpErrorResponse.error);
-    });
-    const apiResponse = await shared.toPromise();
-    return rejectOnError && apiResponse.error ? Promise.reject("Update failed due to error: " + this.stringUtils.stringifyObject(apiResponse.error)) : apiResponse;
+      notificationSubject.next((httpErrorResponse as HttpErrorResponse).error);
+      throw httpErrorResponse;
+    }
   }
 
   public toHttpParams(criteria: object): HttpParams {

@@ -10,7 +10,7 @@ debugLog.enabled = false;
 
 export async function deleteDomainRoute(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const domainName = req.params.domainName;
+    const domainName = req.query.domainName as string;
     await deleteDomainApi(domainName);
     successfulResponse({req, res, response: {deleted: true, domainName}, messageType, debugLog});
   } catch (error) {

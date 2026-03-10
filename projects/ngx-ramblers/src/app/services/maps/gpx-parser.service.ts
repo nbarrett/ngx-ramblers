@@ -376,6 +376,14 @@ export class GpxParserService {
       }
     });
 
+    const routeElements = xmlDoc.querySelectorAll("rte");
+    routeElements.forEach(rteEl => {
+      const track = this.parseRoute(rteEl);
+      if (track.points.length > 0) {
+        tracks.push(track);
+      }
+    });
+
     return tracks;
   }
 
@@ -395,6 +403,55 @@ export class GpxParserService {
     }
 
     return track;
+  }
+
+  private parseRoute(rteEl: Element): GpxTrack {
+    const name = this.getTextContent(rteEl, "name") || "Untitled Route";
+    const description = this.getTextContent(rteEl, "desc");
+    const points = this.parseRoutePoints(rteEl);
+
+    const track: GpxTrack = {
+      name,
+      description,
+      points
+    };
+
+    if (points.length > 0) {
+      this.calculateTrackStatistics(track);
+    }
+
+    return track;
+  }
+
+  private parseRoutePoints(rteEl: Element): GpxTrackPoint[] {
+    const rteptElements = rteEl.querySelectorAll("rtept");
+    const points: GpxTrackPoint[] = [];
+
+    rteptElements.forEach(rteptEl => {
+      const lat = parseFloat(rteptEl.getAttribute("lat") || "0");
+      const lon = parseFloat(rteptEl.getAttribute("lon") || "0");
+
+      if (!isNaN(lat) && !isNaN(lon)) {
+        const point: GpxTrackPoint = {
+          latitude: lat,
+          longitude: lon
+        };
+
+        const eleText = this.getTextContent(rteptEl, "ele");
+        if (eleText) {
+          point.elevation = parseFloat(eleText);
+        }
+
+        const name = this.getTextContent(rteptEl, "name");
+        if (name) {
+          point.name = name;
+        }
+
+        points.push(point);
+      }
+    });
+
+    return points;
   }
 
   private parseTrackPoints(trackEl: Element): GpxTrackPoint[] {
@@ -434,7 +491,7 @@ export class GpxParserService {
   }
 
   private parseWaypoints(xmlDoc: Document): GpxWaypoint[] {
-    const waypointElements = xmlDoc.querySelectorAll("wpt, rtept");
+    const waypointElements = xmlDoc.querySelectorAll("wpt");
     const waypoints: GpxWaypoint[] = [];
 
     waypointElements.forEach(element => {

@@ -16,6 +16,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { MailService } from "../../../../services/mail/mail.service";
+import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { CommitteeMember } from "../../../../models/committee.model";
@@ -296,6 +297,7 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
   private stringUtilsService = inject(StringUtilsService);
   private activatedRoute = inject(ActivatedRoute);
   private router = inject(Router);
+  private mailMessagingService = inject(MailMessagingService);
   private subscriptions: Subscription[] = [];
   public senders: Sender[] = [];
   public committeeRoles: CommitteeMember[] = [];
@@ -345,16 +347,25 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
         this.logger.info("loaded committee roles:", this.committeeRoles);
       })
     );
-    try {
-      const config = await this.cloudflareEmailRoutingService.queryCloudflareConfig();
-      this.baseDomain = config?.baseDomain;
-      if (this.baseDomain) {
-        await this.loadDomainStatus();
-      }
-    } catch (err) {
-      this.logger.warn("Could not load cloudflare config for domain validation:", err);
-    }
-    await this.loadSenders();
+    this.subscriptions.push(
+      this.mailMessagingService.events().subscribe(async mailMessagingConfig => {
+        if (mailMessagingConfig.brevo.accountError) {
+          this.logger.info("Brevo account not configured — skipping senders and domain status");
+          this.loading = false;
+          return;
+        }
+        try {
+          const config = await this.cloudflareEmailRoutingService.queryCloudflareConfig();
+          this.baseDomain = config?.baseDomain;
+          if (this.baseDomain) {
+            await this.loadDomainStatus();
+          }
+        } catch (err) {
+          this.logger.warn("Could not load cloudflare config for domain validation:", err);
+        }
+        await this.loadSenders();
+      })
+    );
   }
 
   ngOnDestroy(): void {

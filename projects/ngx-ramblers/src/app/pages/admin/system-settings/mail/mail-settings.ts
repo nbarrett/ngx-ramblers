@@ -35,7 +35,7 @@ import { NgClass, NgStyle } from "@angular/common";
 import { MailListEditorComponent } from "./list-editor";
 import { MailListSettingsComponent } from "./mail-list-settings";
 import { MailSendersListComponent } from "./mail-senders-list";
-import { faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faExclamationTriangle, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 import { InputSize } from "../../../../models/ui-size.model";
@@ -163,7 +163,7 @@ import { InputSize } from "../../../../models/ui-size.model";
                       <div class="row">
                         <div class="col-sm-12 mb-2">
                           <div class="alert alert-danger mb-0 p-4">
-                            <h5><fa-icon [icon]="'exclamation-triangle'" class="me-2"></fa-icon>Failed to load Brevo account</h5>
+                            <h5><fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>Failed to load Brevo account</h5>
                             <p class="mb-2"><strong>Error:</strong> {{ mailMessagingConfig.brevo.accountError }}</p>
                             <p class="mb-2">This usually means the API key is invalid or has expired. To resolve this:</p>
                             <ol class="mb-3">
@@ -331,6 +331,7 @@ import { InputSize } from "../../../../models/ui-size.model";
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];
+  private acceptNextConfigEmission = false;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public mailMessagingConfig: MailMessagingConfig;
@@ -370,7 +371,10 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
       this.selectTab(this.tab);
     }));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
-      this.mailMessagingConfig = mailMessagingConfig;
+      if (!this.mailMessagingConfig || this.acceptNextConfigEmission) {
+        this.mailMessagingConfig = mailMessagingConfig;
+        this.acceptNextConfigEmission = false;
+      }
     }));
     this.broadcastService.on(NamedEventType.MAIL_LISTS_CHANGED, () => {
       this.logger.info("event received:", NamedEventType.MAIL_LISTS_CHANGED);
@@ -439,6 +443,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
 
   save() {
     this.logger.info("saving config", this.mailMessagingConfig?.mailConfig);
+    this.acceptNextConfigEmission = true;
     return this.mailMessagingService.saveConfig(this.mailMessagingConfig, this.deletedConfigs)
       .catch((error) => this.notify.error(error));
   }
@@ -457,6 +462,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   }
 
   undoChanges() {
+    this.acceptNextConfigEmission = true;
     this.mailMessagingService.refresh();
   }
 
@@ -482,4 +488,6 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   editAccountProfileInformation() {
     this.mailLinkService.openUrl(this.mailLinkService.profileInformation());
   }
+
+  protected readonly faExclamationTriangle = faExclamationTriangle;
 }

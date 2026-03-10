@@ -10,7 +10,7 @@ debugLog.enabled = false;
 
 export async function domainConfigRoute(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const domainName = req.params.domainName;
+    const domainName = req.query.domainName as string;
     const config = await domainConfiguration(domainName);
     successfulResponse({req, res, response: config, messageType, debugLog});
   } catch (error) {

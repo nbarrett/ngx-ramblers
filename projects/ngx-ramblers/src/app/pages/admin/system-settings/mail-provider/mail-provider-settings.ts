@@ -153,8 +153,12 @@ export class MailProviderSettingsComponent implements OnInit, OnDestroy {
     }
     switch (this.config?.mailDefaults?.mailProvider) {
       case MailProvider.BREVO:
-        const mailProviderStats = this.mailListUpdaterService.mailProviderStats(this.groupMembers, this.list.value);
-        this.updateMailProviderStatsWith(mailProviderStats);
+        if (this.list?.value) {
+          const mailProviderStats = this.mailListUpdaterService.mailProviderStats(this.groupMembers, this.list.value);
+          this.updateMailProviderStatsWith(mailProviderStats);
+        } else {
+          this.mailProviderStats = "No Brevo lists available — check API key configuration";
+        }
         break;
       case MailProvider.MAILCHIMP:
         const mailchimpProviderStats = this.mailchimpListService.mailProviderStats(this.groupMembers, "general");
@@ -169,10 +173,10 @@ export class MailProviderSettingsComponent implements OnInit, OnDestroy {
   calculateListKeyValues() {
     switch (this.config?.mailDefaults?.mailProvider) {
       case MailProvider.BREVO:
-        this.listKeyValues = this.mailMessagingConfig?.brevo?.lists?.lists.map(item => ({
+        this.listKeyValues = this.mailMessagingConfig?.brevo?.lists?.lists?.map(item => ({
           key: item.name,
           value: item.id
-        }));
+        })) || [];
         break;
       case MailProvider.MAILCHIMP:
         this.listKeyValues = this.mailchimpConfigService.configuredListTypes(this.mailchimpConfig);

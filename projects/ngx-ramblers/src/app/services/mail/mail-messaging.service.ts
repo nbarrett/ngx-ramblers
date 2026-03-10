@@ -71,7 +71,20 @@ export class MailMessagingService {
   private logger: Logger = inject(LoggerFactory).createLogger("MailMessagingService", NgxLoggerLevel.ERROR);
 
   constructor() {
+    this.committeeConfig.committeeReferenceDataEvents().subscribe(data => {
+      this.mailMessagingConfig.committeeReferenceData = data;
+      this.broadcastSuccess("Committee Config");
+    });
+    this.systemConfigService.events().subscribe(item => {
+      this.mailMessagingConfig.group = item.group;
+      this.mailMessagingConfig.externalSystems = item.externalSystems;
+      this.broadcastSuccess("Group Information");
+    });
     this.initialise();
+  }
+
+  brevoAccountConfigured(): boolean {
+    return !this.mailMessagingConfig.brevo.accountError;
   }
 
   async initialise(): Promise<void> {
@@ -82,20 +95,29 @@ export class MailMessagingService {
       }, type: AlertLevel.ALERT_SUCCESS
     }));
     this.logger.info("initialising data:");
-    this.committeeConfig.committeeReferenceDataEvents().subscribe(data => {
-      this.mailMessagingConfig.committeeReferenceData = data;
-      this.broadcastSuccess("Committee Config");
-    });
-    this.systemConfigService.events().subscribe(item => {
-      this.mailMessagingConfig.group = item.group;
-      this.mailMessagingConfig.externalSystems = item.externalSystems;
-      this.broadcastSuccess("Group Information");
-    });
     await this.refreshMailConfig();
-    await this.refreshAccount();
-    await this.configureBrevoLists();
-    await this.refreshFolders();
-    await this.refreshTemplates();
+    if (!this.mailMessagingConfig.mailConfig?.apiKey) {
+      this.logger.info("No Brevo API key configured — skipping all Brevo API calls");
+      this.mailMessagingConfig.brevo.account = {};
+      this.mailMessagingConfig.brevo.accountError = "No API key configured";
+      this.mailMessagingConfig.brevo.lists = {count: 0, lists: []};
+      this.mailMessagingConfig.brevo.folders = {count: 0, folders: []};
+      this.mailMessagingConfig.brevo.mailTemplates = {templates: [], count: 0};
+      this.emitConfigWhenReadyGiven("No Brevo API key");
+    } else {
+      await this.refreshAccount();
+      if (this.mailMessagingConfig.brevo.accountError) {
+        this.logger.info("Brevo account error detected — skipping lists, folders, and templates");
+        this.mailMessagingConfig.brevo.lists = {count: 0, lists: []};
+        this.mailMessagingConfig.brevo.folders = {count: 0, folders: []};
+        this.mailMessagingConfig.brevo.mailTemplates = {templates: [], count: 0};
+        this.emitConfigWhenReadyGiven("Brevo account error defaults");
+      } else {
+        await this.configureBrevoLists();
+        await this.refreshFolders();
+        await this.refreshTemplates();
+      }
+    }
     await this.refreshBanners();
     await this.refreshNotificationConfigs();
   }
