@@ -447,7 +447,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   public selectedPath: AutocompleteSuggestion | null = null;
   public numberUtils = inject(NumberUtilsService);
   private dateUtils = inject(DateUtilsService);
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.INFO);
   private mapTiles = inject(MapTilesService);
   private mapMarkerStyle = inject(MapMarkerStyleService);
   private gpxParser = inject(GpxParserService);
@@ -501,6 +501,9 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   private componentReady = false;
   private mapViewChangeHandler = () => this.captureMapView();
   public roseColor = PaletteColor.ROSE;
+  private viewportFilterTimer: ReturnType<typeof setTimeout> | null = null;
+  private loadRoutesInProgress = false;
+  private suppressViewportHandler = false;
 
   async ngOnInit() {
     this.mapTiles.initializeProjections();
@@ -660,6 +663,9 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
 
   ngOnDestroy() {
     this.detachMapListeners();
+    if (this.viewportFilterTimer) {
+      clearTimeout(this.viewportFilterTimer);
+    }
   }
 
   private async refreshFromInput() {
@@ -785,12 +791,18 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     }
   }
 
-  private async loadRoutes() {
+  private async loadRoutes(skipFitBounds = false) {
+    if (this.loadRoutesInProgress) {
+      this.logger.info("loadRoutes: Skipping — already in progress");
+      return;
+    }
+    this.loadRoutesInProgress = true;
     this.logger.info("loadRoutes: Start - hasVisibleRoutes:", this.hasVisibleRoutes);
     if (!this.hasVisibleRoutes) {
       this.showMap = false;
       this.leafletLayers = [];
       this.loadingRoutes = false;
+      this.loadRoutesInProgress = false;
       this.logger.info("loadRoutes: No visible routes, setting loadingRoutes=false");
       return;
     }
@@ -848,23 +860,31 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     const hasContent = allLayers.length > 0;
 
     if (hasContent) {
+      this.suppressViewportHandler = true;
       this.leafletLayers = allLayers;
-      const hasSavedPosition = this.row.map?.mapCenter && this.row.map?.mapZoom;
-      const shouldAutoFit = this.row.map?.autoFitBounds !== false;
-      const hasActiveSearch = this.searchTerm && this.searchTerm.trim().length > 0;
-      this.logger.info("loadRoutes: Auto-fit check - shouldAutoFit:", shouldAutoFit, "hasSavedPosition:", hasSavedPosition, "hasActiveSearch:", hasActiveSearch, "autoFitBounds setting:", this.row.map?.autoFitBounds);
-      if (!hasActiveSearch && (shouldAutoFit || !hasSavedPosition)) {
-        this.calculateFitBounds();
-      this.logger.info("loadRoutes: Calculated fitBounds:", this.fitBounds ? `${this.fitBounds.getSouthWest()} to ${this.fitBounds.getNorthEast()}` : "none");
+      if (!skipFitBounds) {
+        const hasSavedPosition = this.row.map?.mapCenter && this.row.map?.mapZoom;
+        const shouldAutoFit = this.row.map?.autoFitBounds !== false;
+        const hasActiveSearch = this.searchTerm && this.searchTerm.trim().length > 0;
+        this.logger.info("loadRoutes: Auto-fit check - shouldAutoFit:", shouldAutoFit, "hasSavedPosition:", hasSavedPosition, "hasActiveSearch:", hasActiveSearch, "autoFitBounds setting:", this.row.map?.autoFitBounds);
+        if (!hasActiveSearch && (shouldAutoFit || !hasSavedPosition)) {
+          this.calculateFitBounds();
+          this.logger.info("loadRoutes: Calculated fitBounds:", this.fitBounds ? `${this.fitBounds.getSouthWest()} to ${this.fitBounds.getNorthEast()}` : "none");
+        }
+      } else {
+        this.logger.info("loadRoutes: Skipping fitBounds (viewport-triggered reload)");
       }
       this.showMap = true;
       this.logger.info("loadRoutes: Map ready to display (routes:", routeLayers.length, "markers:", markerLayers.length, ") - showMap=true");
       this.updateMapSize();
       this.loadingRoutes = false;
+      this.loadRoutesInProgress = false;
+      setTimeout(() => this.suppressViewportHandler = false, 200);
     } else {
       this.showMap = false;
       this.logger.info("loadRoutes: No layers or markers, hiding map");
       this.loadingRoutes = false;
+      this.loadRoutesInProgress = false;
     }
   }
 
@@ -1177,14 +1197,19 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     });
 
     map.on("moveend zoomend", () => {
+      if (this.suppressViewportHandler) {
+        this.logger.info("Map viewport changed — suppressed (programmatic change)");
+        return;
+      }
       if (this.useViewportFiltering) {
-        this.logger.info("Map viewport changed, refreshing visible tracks");
-        this.visibleRoutes.forEach(route => {
-          if (route.spatialRouteId) {
-            this.routeData.delete(route.id);
-          }
-        });
-        void this.loadRoutes();
+        this.logger.info("Map viewport changed — scheduling debounced viewport filter");
+        if (this.viewportFilterTimer) {
+          clearTimeout(this.viewportFilterTimer);
+        }
+        this.viewportFilterTimer = setTimeout(() => {
+          this.logger.info("Debounced viewport filter firing");
+          void this.loadRoutes(true);
+        }, 300);
       }
     });
 
@@ -1410,8 +1435,9 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       return;
     }
 
-      const center = this.mapRef.getCenter();
-      const zoom = this.mapRef.getZoom();
+    const center = this.mapRef.getCenter();
+    const zoom = this.mapRef.getZoom();
+    this.logger.info("captureMapView: center:", center.lat, center.lng, "zoom:", zoom, "editing:", this.editing);
 
     if (this.editing) {
       this.updateRowMap({

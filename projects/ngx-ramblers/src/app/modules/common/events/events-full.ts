@@ -82,7 +82,7 @@ import { environment } from "../../../../environments/environment";
                   </a></li>
                 </ul>
               </div>
-              @if (!production && memberLoginService.allowWalkAdminEdits()) {
+              @if (showDiagnostics && !production && memberLoginService.allowWalkAdminEdits()) {
                 <button type="button" class="btn pager-btn" (click)="showDiagnostics = !showDiagnostics"
                         [class.active]="showDiagnostics">
                   <fa-icon [icon]="faBug"/>

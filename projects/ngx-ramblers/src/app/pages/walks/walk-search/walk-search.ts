@@ -157,13 +157,22 @@ interface DateRangePreset {
             </button>
           </div>
         }
+        @if (alertInline() && showAlerts && notifyTarget.showAlert) {
+          <div class="mb-2 mb-lg-0 flex-lg-fill d-flex justify-content-end">
+            <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center">
+              <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
+              <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
+              <span class="ms-1">{{ notifyTarget.alertMessage }}</span>
+            </div>
+          </div>
+        }
       </div>
-      @if (showResultsHeaderRow()) {
+      @if (showPagination || !alertInline()) {
         <div class="d-flex full-width-pagination align-items-center gap-2 flex-wrap mt-1">
           @if (showPagination) {
             <ng-content/>
           }
-          @if (showAlerts && notifyTarget.showAlert && !alertUsesFullRow()) {
+          @if (showAlerts && notifyTarget.showAlert) {
             <div class="alert-wrapper flex-grow-1">
               <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center">
                 <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
@@ -238,6 +247,10 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
     {value: false, label: "Sort (date descending)"}
   ];
 
+  alertInline(): boolean {
+    return !this.showPagination && !hasAdvancedCriteria(this.advancedCriteria);
+  }
+
   logAlertDebug(location: string) {
     this.logger.off(`logAlertDebug walk-search ${location}:`, {
       showAlerts: this.showAlerts,
@@ -249,13 +262,6 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
     return "";
   }
 
-  alertUsesFullRow(): boolean {
-    return false;
-  }
-
-  showResultsHeaderRow(): boolean {
-    return this.showPagination || !!(this.showAlerts && this.notifyTarget?.showAlert && !this.alertUsesFullRow());
-  }
 
   ngOnInit(): void {
     void this.loadDateRange();
@@ -351,6 +357,11 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   onAdvancedSearchChange(event: { criteria: AdvancedSearchCriteria; leaderOptions: WalkLeaderOption[] }) {
     this.logger.info("onAdvancedSearchChange: queryParamsActive:", this.queryParamsActive, "criteria:", event.criteria);
     this.advancedCriteria = hasAdvancedCriteria(event.criteria) ? event.criteria : null;
+    if (this.advancedCriteria) {
+      this.syncDateRangePresetWithCriteria(event.criteria);
+    } else {
+      this.resetToDefaultPreset();
+    }
     if (this.queryParamsActive) {
       const queryParams = advancedCriteriaQueryParams(this.advancedCriteria, this.stringUtils, this.dateUtils, event.leaderOptions);
       this.logger.info("onAdvancedSearchChange: writing query params:", queryParams);
@@ -358,7 +369,6 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
     } else {
       this.logger.info("onAdvancedSearchChange: skipping query params (queryParamsActive=false)");
     }
-    this.syncDateRangePresetWithCriteria(event.criteria);
     this.advancedSearchChange.emit(event.criteria);
     this.emitFilterState();
   }
@@ -471,6 +481,16 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
       ...allPresets,
       ...otherFilters
     ];
+  }
+
+  private resetToDefaultPreset() {
+    this.filterParameters.selectType = FilterCriteria.FUTURE_EVENTS;
+    const futurePresets = this.dateRangePresets.filter(opt => opt.filterType === FilterCriteria.FUTURE_EVENTS);
+    const allTimePreset = futurePresets.find(opt => opt.label.startsWith("All "));
+    this.selectedDateRangePreset = allTimePreset || futurePresets[0] || this.dateRangePresets[0];
+    this.filterParameters.ascending = true;
+    this.ui.saveValueFor(StoredValue.WALK_SELECT_TYPE, this.filterParameters.selectType);
+    this.ui.saveValueFor(StoredValue.WALK_SORT_ASC, this.filterParameters.ascending);
   }
 
   private initialiseSelectedDateRangePreset() {

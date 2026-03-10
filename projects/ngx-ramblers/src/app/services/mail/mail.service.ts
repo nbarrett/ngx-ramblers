@@ -208,17 +208,17 @@ export class MailService {
 
   async domainConfiguration(domainName: string): Promise<BrevoDomainConfiguration> {
     this.logger.info("domainConfiguration:", domainName);
-    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/domains/${domainName}/configuration`))).response;
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/domains/configuration`, {params: {domainName}}))).response;
   }
 
   async authenticateDomain(domainName: string): Promise<DomainAuthenticationResult> {
     this.logger.info("authenticateDomain:", domainName);
-    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/domains/${domainName}/authenticate`, {}))).response;
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/domains/authenticate`, {}, {params: {domainName}}))).response;
   }
 
   async deleteDomain(domainName: string): Promise<void> {
     this.logger.info("deleteDomain:", domainName);
-    return (await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/domains/${domainName}`))).response;
+    return (await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/domains/delete`, {params: {domainName}}))).response;
   }
 
 }

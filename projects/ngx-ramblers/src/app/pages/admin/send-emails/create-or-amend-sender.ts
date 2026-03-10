@@ -5,6 +5,7 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
 import { CreateSenderResponse, Sender, SendersResponse } from "../../../models/mail.model";
 import { NonSensitiveCloudflareConfig } from "../../../models/cloudflare-email-routing.model";
 import { MailService } from "../../../services/mail/mail.service";
+import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { CommitteeMember } from "../../../models/committee.model";
 import { ALERT_ERROR, ALERT_SUCCESS } from "../../../models/alert-target.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -103,6 +104,7 @@ export class CreateOrAmendSenderComponent implements OnInit, OnDestroy {
   private cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   private committeeConfigService: CommitteeConfigService = inject(CommitteeConfigService);
   public stringUtilsService: StringUtilsService = inject(StringUtilsService);
+  private mailMessagingService = inject(MailMessagingService);
   private logger = this.loggerFactory.createLogger("CreateOrAmendSenderComponent", NgxLoggerLevel.ERROR);
   baseDomain = "";
   private subscriptions: Subscription[] = [];
@@ -139,9 +141,11 @@ export class CreateOrAmendSenderComponent implements OnInit, OnDestroy {
         this.baseDomain = config?.baseDomain || "";
       })
     );
-    await this.refreshSenders();
-    this.logger.info("constructed with sendersResponse:", this.sendersResponse);
-    this.notifySenderExists();
+    if (this.mailMessagingService.brevoAccountConfigured()) {
+      await this.refreshSenders();
+      this.logger.info("constructed with sendersResponse:", this.sendersResponse);
+      this.notifySenderExists();
+    }
   }
 
   ngOnDestroy(): void {
