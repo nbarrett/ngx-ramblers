@@ -1,4 +1,5 @@
 import { Db } from "mongodb";
+import { isArray } from "es-toolkit/compat";
 import createMigrationLogger from "../migrations-logger";
 import { ensureActionButton, removeActionButtonByHref } from "../shared/page-content-actions";
 
@@ -53,8 +54,8 @@ async function migrateCcRolesToBccRoles(db: Db) {
   }).toArray();
 
   for (const config of configsWithCcRoles) {
-    const existingBccRoles = Array.isArray(config.bccRoles) ? config.bccRoles : [];
-    const ccRoles = Array.isArray(config.ccRoles) ? config.ccRoles : [];
+    const existingBccRoles = isArray(config.bccRoles) ? config.bccRoles : [];
+    const ccRoles = isArray(config.ccRoles) ? config.ccRoles : [];
     const bccRoles = existingBccRoles.length > 0 ? existingBccRoles : ccRoles;
     await notificationConfigsCollection.updateOne(
       {_id: config._id},
@@ -74,8 +75,8 @@ async function migrateBccRolesToCcRoles(db: Db) {
   }).toArray();
 
   for (const config of configsWithBccRoles) {
-    const existingCcRoles = Array.isArray(config.ccRoles) ? config.ccRoles : [];
-    const bccRoles = Array.isArray(config.bccRoles) ? config.bccRoles : [];
+    const existingCcRoles = isArray(config.ccRoles) ? config.ccRoles : [];
+    const bccRoles = isArray(config.bccRoles) ? config.bccRoles : [];
     const ccRoles = existingCcRoles.length > 0 ? existingCcRoles : bccRoles;
     await notificationConfigsCollection.updateOne(
       {_id: config._id},
@@ -94,7 +95,7 @@ export async function up(db: Db) {
   const bookingConfig = await configCollection.findOne({key: BOOKING_CONFIG_KEY});
 
   if (bookingConfig?.value) {
-    const enabledForEventTypes = Array.isArray(bookingConfig.value?.enabledForEventTypes) && bookingConfig.value.enabledForEventTypes.length > 0
+    const enabledForEventTypes = isArray(bookingConfig.value?.enabledForEventTypes) && bookingConfig.value.enabledForEventTypes.length > 0
       ? bookingConfig.value.enabledForEventTypes
       : DEFAULT_BOOKING.enabledForEventTypes;
     await configCollection.updateOne(
