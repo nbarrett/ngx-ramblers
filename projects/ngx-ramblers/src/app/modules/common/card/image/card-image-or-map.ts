@@ -9,7 +9,7 @@ import { MapEditComponent } from "../../../../pages/walks/walk-edit/map-edit";
 import { MemberLoginService } from "../../../../services/member/member-login.service";
 import { AlertInstance } from "../../../../services/notifier.service";
 import { BasicMedia, RamblersEventType } from "../../../../models/ramblers-walks-manager";
-import { SocialDisplayService } from "../../../../pages/social/social-display.service";
+import { GroupEventDisplayService } from "../../../../pages/group-events/group-event-display.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { isEqual } from "es-toolkit/compat";
 
@@ -69,7 +69,7 @@ import { isEqual } from "es-toolkit/compat";
 export class CardImageOrMap implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CardImageOrMap", NgxLoggerLevel.ERROR);
   public display = inject(WalkDisplayService);
-  public socialDisplay = inject(SocialDisplayService);
+  public groupEventDisplay = inject(GroupEventDisplayService);
   public mediaQueryService = inject(MediaQueryService);
   protected memberLoginService = inject(MemberLoginService);
   protected basicMedia: BasicMedia;
@@ -158,7 +158,7 @@ export class CardImageOrMap implements OnInit {
     if (this.navigationHref) {
       return this.navigationHref;
     } else if (itemType === RamblersEventType.GROUP_EVENT) {
-      return this.socialDisplay.groupEventLink(this.displayedWalk?.walk, true);
+      return this.groupEventDisplay.groupEventLink(this.displayedWalk?.walk, true);
     } else {
       return this.display.walkLink(this.displayedWalk?.walk);
     }

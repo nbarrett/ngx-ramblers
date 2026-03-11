@@ -106,7 +106,10 @@ const fields = new Schema({
   riskAssessment: [riskAssessmentRecord],
   venue: walkVenue,
   inputSource: {type: String},
-  gpxFile: fileNameData
+  gpxFile: fileNameData,
+  maxCapacity: {type: Number},
+  maxGroupSize: {type: Number},
+  memberPriorityDays: {type: Number}
 }, {_id: false});
 
 const extendedGroupEventSchema = new Schema({

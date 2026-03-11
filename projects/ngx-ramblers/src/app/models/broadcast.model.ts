@@ -3,6 +3,7 @@ import { StoredValue } from "./ui-actions";
 export enum NamedEventType {
     ADVANCED_SEARCH = "advanced-search",
     APPLY_FILTER = "apply-filter",
+    BOOKING_CONFIG_LOADED = "booking-config-loaded",
     CONTENT_METADATA_CHANGED = "content-metadata-changed",
     DEFAULT_LOGO_CHANGED = "default-logo-changed",
     ERROR = "error",

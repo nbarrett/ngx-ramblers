@@ -40,6 +40,7 @@ import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 import { PageService } from "../../../services/page.service";
+import { BookingFormComponent } from "../../admin/bookings/booking-form.component";
 
 @Component({
   selector: "app-walk-view",
@@ -116,6 +117,9 @@ import { PageService } from "../../../services/page.service";
                 </div>
               </div>
             }
+            <div class="walk-booking-form">
+              <app-booking-form [extendedGroupEvent]="displayedWalk?.walk" [eventLink]="displayedWalk?.walkLink"></app-booking-form>
+            </div>
             @if (urlService.pathContainsEventIdOrSlug()) {
               @if (notifyTarget.showAlert) {
                 <div class="col-12 alert {{notifyTarget.alertClass}} mt-3">
@@ -252,7 +256,7 @@ import { PageService } from "../../../services/page.service";
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],
-  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, WalkLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksComponent, DisplayTimePipe]
+  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, WalkLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksComponent, DisplayTimePipe, BookingFormComponent]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {

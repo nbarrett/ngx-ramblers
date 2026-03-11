@@ -23,9 +23,10 @@ import { WalksConfig } from "../../models/walk-notification.model";
 import { groupBy } from "es-toolkit/compat";
 import { firstPopulated, sortBy } from "../../functions/arrays";
 import { last } from "es-toolkit/compat";
-import { SocialEventsLocalLegacyService } from "../social-events/social-events-local-legacy.service";
+import { GroupEventsLocalLegacyService } from "../group-events/group-events-local-legacy.service";
 import { MediaQueryService } from "../committee/media-query.service";
 import { EventDefaultsService } from "../event-defaults.service";
+import { PageService } from "../page.service";
 
 @Injectable({
   providedIn: "root"
@@ -37,7 +38,7 @@ export class EventsMigrationService {
   private dateUtils: DateUtilsService = inject(DateUtilsService);
   private stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private walksLocalLegacyService: WalksLocalLegacyService = inject(WalksLocalLegacyService);
-  private socialEventsLocalLegacyService = inject(SocialEventsLocalLegacyService);
+  private socialEventsLocalLegacyService = inject(GroupEventsLocalLegacyService);
   private legacyDistanceValidationService: LegacyDistanceValidationService = inject(LegacyDistanceValidationService);
   private legacyAscentValidationService: LegacyAscentValidationService = inject(LegacyAscentValidationService);
   private walkDisplayService: WalkDisplayService = inject(WalkDisplayService);
@@ -47,6 +48,7 @@ export class EventsMigrationService {
   private localWalksAndEventsService: LocalWalksAndEventsService = inject(LocalWalksAndEventsService);
   private urlService: UrlService = inject(UrlService);
   private mediaQueryService: MediaQueryService = inject(MediaQueryService);
+  private pageService: PageService = inject(PageService);
   private walksConfig: WalksConfig;
   private dryRun = false;
 
@@ -229,7 +231,7 @@ export class EventsMigrationService {
         area: "walks", id: walkOrSocialEvent?.id || walkOrSocialEvent.ramblersWalkId
       }) :
       this.urlService.linkUrl({
-        area: "social", id: walkOrSocialEvent?.id
+        area: this.pageService.groupEventPage()?.href || "events", id: walkOrSocialEvent?.id
       });
   }
 

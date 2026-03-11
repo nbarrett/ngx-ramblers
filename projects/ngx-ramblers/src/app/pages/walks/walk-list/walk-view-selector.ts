@@ -2,7 +2,6 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DynamicContentPageComponent } from "../../../modules/common/dynamic-content-page/dynamic-content-page";
 import { WalkViewComponent } from "../walk-view/walk-view";
-import { WalkList } from "./walk-list";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
 import { EventViewDispatch, EventViewDispatchWithEvent, ExtendedGroupEvent } from "../../../models/group-event.model";
@@ -13,35 +12,34 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { StatusIconComponent } from "../../admin/status-icon";
 import { Status } from "../../../models/ramblers-upload-audit.model";
 import { HumanisePipe } from "../../../pipes/humanise.pipe";
-import { EventDispatchService } from "../../social/social-view/event-dispatch-service";
+import { EventDispatchService } from "../../group-events/group-event-view/event-dispatch-service";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { NavigationEnd, Router } from "@angular/router";
 import { Subscription } from "rxjs";
 import { filter } from "rxjs/operators";
-import { SocialViewPageComponent } from "../../social/social-view-page/social-view-page";
+import { GroupEventViewPage } from "../../group-events/group-event-view-page/group-event-view-page";
 
 @Component({
   selector: "app-walks-selector",
     imports: [
     DynamicContentPageComponent,
     WalkViewComponent,
-    WalkList,
     StatusIconComponent,
     HumanisePipe,
-    SocialViewPageComponent,
+    GroupEventViewPage,
   ],
   template: `
     @if (eventView?.eventView === EventViewDispatch.DYNAMIC_CONTENT) {
       <app-dynamic-content-page/>
     } @else if (eventView?.eventView === EventViewDispatch.VIEW) {
-      @if (socialEvent?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
-        <app-social-view-page [socialEvent]="socialEvent"/>
+      @if (groupEvent?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
+        <app-group-event-view-page [groupEvent]="groupEvent"/>
       } @else {
         <app-walk-view [displayedWalk]="displayedWalk"/>
       }
     } @else if (eventView?.eventView === EventViewDispatch.LIST) {
-      <app-walk-list/>
+      <app-dynamic-content-page/>
     } @else if (eventView?.eventView === EventViewDispatch.PENDING) {
       <div class="event-thumbnail card shadow tabset-container">
         <div class="row">
@@ -57,13 +55,13 @@ import { SocialViewPageComponent } from "../../social/social-view-page/social-vi
   `
 })
 export class WalksViewSelector implements OnInit, OnDestroy {
-  private logger: Logger = inject(LoggerFactory).createLogger("SocialViewSelector", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalksViewSelector", NgxLoggerLevel.ERROR);
   private eventDispatchService: EventDispatchService = inject(EventDispatchService);
   protected urlService: UrlService = inject(UrlService);
   protected eventView: EventViewDispatchWithEvent = null;
   public display = inject(WalkDisplayService);
   protected stringUtils = inject(StringUtilsService);
-  protected socialEvent: ExtendedGroupEvent;
+  protected groupEvent: ExtendedGroupEvent;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private notifierService = inject(NotifierService);
@@ -96,15 +94,13 @@ export class WalksViewSelector implements OnInit, OnDestroy {
 
   private async loadEventView(): Promise<void> {
     this.eventView = await this.eventDispatchService.eventView(this.notify, "Walk");
-    if (this.eventView.eventView === EventViewDispatch.PENDING) {
-      this.logger.info(`${this.eventView.eventView} until event returned`);
+    if (this.eventView.eventView === EventViewDispatch.VIEW && this.eventView.event) {
       const event = await this.eventView.event;
-      this.socialEvent = event;
+      this.groupEvent = event;
       if (event?.groupEvent?.item_type !== RamblersEventType.GROUP_EVENT) {
         this.displayedWalk = this.display.toDisplayedWalk(event);
       }
-      this.eventView.eventView = event ? EventViewDispatch.VIEW : EventViewDispatch.DYNAMIC_CONTENT;
-      this.logger.info(`${this.eventView.eventView} now event returned:`, this.socialEvent);
+      this.logger.info(`Event resolved:`, this.groupEvent);
     }
   }
 }

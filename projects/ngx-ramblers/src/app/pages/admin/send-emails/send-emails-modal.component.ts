@@ -385,7 +385,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
       senderRole: notificationConfig?.senderRole,
       replyToRole: notificationConfig?.replyToRole,
       signOffRoles: notificationConfig?.signOffRoles,
-      ccRoles: notificationConfig?.ccRoles
+      bccRoles: notificationConfig?.bccRoles
     });
     this.populateMembersBasedOn(notificationConfig.defaultMemberSelection);
   }

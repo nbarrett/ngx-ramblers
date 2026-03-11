@@ -110,8 +110,10 @@ export class ExtendedGroupEventQueryService {
 
   eventIdCriteriaFor(identifier: string): MongoCriteria {
     if (!(this.urlService.isMongoId(identifier) || isNumericRamblersId(identifier)) && this.urlService.looksLikeASlug(identifier)) {
+      this.logger.info("eventIdCriteriaFor:identifier:", identifier, "using slug criteria");
       return this.slugCriteria(identifier);
     } else {
+      this.logger.info("eventIdCriteriaFor:identifier:", identifier, "using identifier criteria");
       return this.identifierCriteria(identifier);
     }
   }

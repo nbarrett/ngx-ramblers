@@ -37,6 +37,7 @@ export interface NotificationConfig extends Auditable, Identifiable {
   postSendActions: WorkflowAction[];
   monthsInPast?: number;
   defaultListId?: number;
+  bccRoles?: string[];
   ccRoles?: string[];
   signOffRoles?: string[];
   senderRole?: string;
@@ -101,6 +102,7 @@ export interface EmailRequest {
 
 export interface SendSmtpEmailRequest extends EmailRequest {
   to?: EmailAddress[];
+  bcc?: EmailAddress[];
   cc?: EmailAddress[];
   replyTo?: EmailAddress;
 }
@@ -194,13 +196,15 @@ export interface BuiltInProcessMappings {
   walkNotificationConfigId: string;
   contactUsNotificationConfigId: string;
   backupNotificationConfigId: string;
+  bookingNotificationConfigId: string;
 }
 
 export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltInProcessMappings, string>> = {
   forgotPasswordNotificationConfigId: "Forgotten Password Reset",
   walkNotificationConfigId: "Walk Change Notification",
   expenseNotificationConfigId: "Expense Notification",
-  contactUsNotificationConfigId: "Contact Us"
+  contactUsNotificationConfigId: "Contact Us",
+  bookingNotificationConfigId: "Booking Notification"
 };
 
 export interface NotificationConfigurationApiResponse extends ApiResponse {
@@ -498,6 +502,22 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["membership"],
+    bannerId: null
+  },
+  {
+    subject: {
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
+      text: "Booking Notification",
+      suffixParameter: null
+    },
+    preSendActions: [],
+    postSendActions: [],
+    defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
+    monthsInPast: 1,
+    templateId: null,
+    senderRole: "walks",
+    replyToRole: "walks",
+    signOffRoles: ["walks"],
     bannerId: null
   }
 ];

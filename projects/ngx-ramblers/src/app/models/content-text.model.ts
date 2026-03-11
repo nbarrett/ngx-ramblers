@@ -4,7 +4,7 @@ import { Link } from "./page.model";
 import { BezierEasingOptions } from "ng-gallery/lib/smooth-scroll";
 import { fieldContainsValue, fieldEqualsValue, fieldStartsWithValue, MongoRegex } from "../functions/mongo";
 import { HasClass } from "./banner-configuration.model";
-import { EventsData } from "./social-events.model";
+import { EventsData } from "./group-events.model";
 import { DescribedDimensions, FileNameData } from "./aws-object.model";
 import { ImageCropperPosition } from "./image-cropper.model";
 import { FocalPoint } from "../modules/common/focal-point-picker/focal-point-picker";
@@ -496,8 +496,6 @@ export enum BuiltInAnchor {
   COMMITTEE_YEARS = "committee-years",
   HOME_CONTENT = "home-content",
   INSTAGRAM_CONTENT = "instagram-content",
-  PAGE_HEADER = "page-header",
-  SOCIAL_CONTENT = "social-content",
 }
 
 export enum BuiltInPath {
@@ -505,7 +503,6 @@ export enum BuiltInPath {
   COMMITTEE = "committee",
   ENVIRONMENT_MANAGEMENT = "admin/environment-management",
   HOME = "home",
-  WALKS = "walks",
 }
 
 export interface BuiltInPageContentConfig {
@@ -530,10 +527,6 @@ export const BuiltInContentConfigs: { [key in BuiltInPath]: BuiltInPageContentCo
     contentPath: BuiltInPath.ENVIRONMENT_MANAGEMENT,
     anchors: [BuiltInAnchor.ACTION_BUTTONS]
   },
-  [BuiltInPath.WALKS]: {
-    contentPath: BuiltInPath.WALKS,
-    anchors: [BuiltInAnchor.PAGE_HEADER, BuiltInAnchor.ACTION_BUTTONS]
-  }
 };
 
 export enum PageContentPath {

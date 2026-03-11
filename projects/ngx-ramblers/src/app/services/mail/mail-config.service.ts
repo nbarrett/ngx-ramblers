@@ -18,6 +18,7 @@ export class MailConfigService {
       forgotPasswordNotificationConfigId: null,
       walkNotificationConfigId: null,
       backupNotificationConfigId: null,
+      bookingNotificationConfigId: null,
       allowUpdateLists: false,
       apiKey: null,
       allowSendCampaign: true,

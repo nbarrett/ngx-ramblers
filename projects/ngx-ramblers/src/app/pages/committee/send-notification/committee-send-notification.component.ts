@@ -389,9 +389,9 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                     </div>
                   </div>
                 </tab>
-                <tab heading="Sender, Reply To, CCs & Sign Off">
+                <tab heading="Sender, Reply To, BCCs & Sign Off">
                   <div class="img-thumbnail thumbnail-admin-edit">
-                    <app-sender-replies-and-sign-off omitSignOff omitCC [mailMessagingConfig]="mailMessagingConfig"
+                    <app-sender-replies-and-sign-off omitSignOff omitBcc [mailMessagingConfig]="mailMessagingConfig"
                                                      (senderExists)="senderExists=$event"
                                                      [notificationConfig]="notification?.content?.notificationConfig"/>
                     <div class="row">

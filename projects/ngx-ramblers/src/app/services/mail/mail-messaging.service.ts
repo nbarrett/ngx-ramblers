@@ -228,7 +228,14 @@ export class MailMessagingService {
   }
 
   public workflowIdsFor(mailConfig: MailConfig) {
-    return [mailConfig.forgotPasswordNotificationConfigId, mailConfig.walkNotificationConfigId, mailConfig.expenseNotificationConfigId, mailConfig.contactUsNotificationConfigId];
+    return [
+      mailConfig.forgotPasswordNotificationConfigId,
+      mailConfig.walkNotificationConfigId,
+      mailConfig.expenseNotificationConfigId,
+      mailConfig.contactUsNotificationConfigId,
+      mailConfig.backupNotificationConfigId,
+      mailConfig.bookingNotificationConfigId
+    ];
   }
 
   private emitConfigWhenReadyGiven(reason: string) {
@@ -271,8 +278,10 @@ export class MailMessagingService {
   private normaliseNotificationConfig(notificationConfig: NotificationConfig): NotificationConfig {
     const monthsInPast = isNumber(notificationConfig?.monthsInPast) ? notificationConfig.monthsInPast : 1;
     const defaultMemberSelection = notificationConfig?.defaultMemberSelection || MemberSelection.RECENTLY_ADDED;
+    const bccRoles = notificationConfig?.bccRoles?.length > 0 ? notificationConfig.bccRoles : notificationConfig?.ccRoles || [];
     return {
       ...notificationConfig,
+      bccRoles,
       monthsInPast,
       defaultMemberSelection
     };
@@ -346,8 +355,8 @@ export class MailMessagingService {
       params: this.createSendSmtpEmailParams(createSendSmtpEmailRequest.notificationConfig.signOffRoles, createSendSmtpEmailRequest.notificationDirective, createSendSmtpEmailRequest.member, createSendSmtpEmailRequest.notificationConfig, createSendSmtpEmailRequest.bodyContent, true, "Hi {{params.messageMergeFields.FNAME}},"),
       templateId: createSendSmtpEmailRequest.notificationConfig.templateId,
     };
-    if (createSendSmtpEmailRequest.notificationConfig?.ccRoles.length > 0) {
-      emailRequest.cc = createSendSmtpEmailRequest.notificationConfig?.ccRoles?.map(role => this.createBrevoAddress(role));
+    if (createSendSmtpEmailRequest.notificationConfig?.bccRoles.length > 0) {
+      emailRequest.bcc = createSendSmtpEmailRequest.notificationConfig?.bccRoles?.map(role => this.createBrevoAddress(role));
     }
     const subject = createSendSmtpEmailRequest.emailSubject || this.toSubject(createSendSmtpEmailRequest.notificationConfig.subject, emailRequest);
     emailRequest.subject = subject;

@@ -13,26 +13,34 @@ const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 
 debugLog.enabled = false;
 
+export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailRequest,
+                                                    transactionalDebugLog: debug.Debugger): Promise<{
+  response: http.IncomingMessage;
+  body: CreateSmtpEmail
+}> {
+  const brevoConfig = await configuredBrevo();
+  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+  apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
+  const sendSmtpEmail: SendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+  sendSmtpEmail.subject = emailRequest.subject;
+  sendSmtpEmail.sender = emailRequest.sender;
+  sendSmtpEmail.to = emailRequest.to;
+  const bcc = emailRequest.bcc?.length > 0 ? emailRequest.bcc : emailRequest.cc;
+  if (bcc) {
+    sendSmtpEmail.bcc = bcc;
+  }
+  sendSmtpEmail.replyTo = emailRequest.replyTo;
+  sendSmtpEmail.headers = emailRequest.headers;
+  sendSmtpEmail.params = emailRequest.params;
+  await performTemplateSubstitution(emailRequest, sendSmtpEmail, transactionalDebugLog);
+  transactionalDebugLog("About to send mail with supplied sendSmtpEmail:", sendSmtpEmail);
+  return apiInstance.sendTransacEmail(sendSmtpEmail);
+}
 
 export async function sendTransactionalMail(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const brevoConfig = await configuredBrevo();
-    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
     const emailRequest: SendSmtpEmailRequest = req.body;
-    const sendSmtpEmail: SendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.subject = emailRequest.subject;
-    sendSmtpEmail.sender = emailRequest.sender;
-    sendSmtpEmail.to = emailRequest.to;
-    if (emailRequest.cc) {
-      sendSmtpEmail.cc = emailRequest.cc;
-    }
-    sendSmtpEmail.replyTo = emailRequest.replyTo;
-    sendSmtpEmail.headers = emailRequest.headers;
-    sendSmtpEmail.params = emailRequest.params;
-    await performTemplateSubstitution(emailRequest, sendSmtpEmail, debugLog);
-    debugLog("About to send mail with supplied sendSmtpEmail:", sendSmtpEmail);
-    apiInstance.sendTransacEmail(sendSmtpEmail).then((data: {
+    sendTransactionalEmailRequest(emailRequest, debugLog).then((data: {
       response: http.IncomingMessage;
       body: CreateSmtpEmail
     }) => {
@@ -45,4 +53,3 @@ export async function sendTransactionalMail(req: Request, res: Response, next: N
     handleError(req, res, messageType, debugLog, error);
   }
 }
-

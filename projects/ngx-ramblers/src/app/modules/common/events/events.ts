@@ -7,7 +7,7 @@ import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DataQueryOptions, FilterCriteria, SortOrder } from "../../../models/api-request.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { EventsData } from "../../../models/social-events.model";
+import { EventsData } from "../../../models/group-events.model";
 import { DateDirection } from "../../../models/search.model";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -17,7 +17,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageService } from "../../../services/page.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { SocialDisplayService } from "../../../pages/social/social-display.service";
+import { GroupEventDisplayService } from "../../../pages/group-events/group-event-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { EventsHeader } from "./events-header";
 import { FormsModule } from "@angular/forms";
@@ -48,7 +48,7 @@ import { isMongoId } from "../../../services/mongo-utils";
                               [currentPageFilteredEvents]="currentPageFilteredEvents"/>
       }
     `,
-  styleUrls: ["../../../pages/social/home/social-home.component.sass"],
+  styleUrls: ["../../../pages/group-events/home/group-event-home.sass"],
   imports: [EventsHeader, FormsModule, EventCardsList, EventsFull]
 })
 export class Events implements OnInit, OnDestroy {
@@ -59,7 +59,7 @@ export class Events implements OnInit, OnDestroy {
   private stringUtils = inject(StringUtilsService);
   private searchFilterPipe = inject(SearchFilterPipe);
   private notifierService = inject(NotifierService);
-  display = inject(SocialDisplayService);
+  display = inject(GroupEventDisplayService);
   walkDisplayService = inject(WalkDisplayService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   private route = inject(ActivatedRoute);
@@ -69,7 +69,7 @@ export class Events implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  public socialEventId: string;
+  public groupEventId: string;
   public filterParameters: DateFilterParameters = {
     fieldSort: 1,
     selectType: FilterCriteria.FUTURE_EVENTS,
@@ -90,18 +90,18 @@ export class Events implements OnInit, OnDestroy {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.systemConfigService.events().subscribe(item => {
       this.notify.success({
-        title: "Social Events",
+        title: "Events",
         message: "Querying for data"
       });
       this.refreshEvents();
     });
     this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshEvents());
-    this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilterToSocialEvents(searchTerm));
+    this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilterToGroupEvents(searchTerm));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
-      const socialEventId = paramMap.get("relativePath");
-      this.logger.info("socialEventId from route params:", paramMap, socialEventId);
-      if (socialEventId) {
-        this.socialEventId = socialEventId;
+      const groupEventId = paramMap.get("relativePath");
+      this.logger.info("groupEventId from route params:", paramMap, groupEventId);
+      if (groupEventId) {
+        this.groupEventId = groupEventId;
       }
       this.pageService.setTitle("Home");
     }));
@@ -114,18 +114,18 @@ export class Events implements OnInit, OnDestroy {
   public refreshEvents() {
     this.notify.setBusy();
     const dataQueryOptions: DataQueryOptions = {criteria: this.criteria(), sort: this.sort()};
-    this.logger.info("refreshSocialEvents:dataQueryOptions", dataQueryOptions, "eventIds:", this?.eventsData?.eventIds);
+    this.logger.info("refreshEvents:dataQueryOptions", dataQueryOptions, "eventIds:", this?.eventsData?.eventIds);
     this.queryAndReturnEvents(dataQueryOptions)
       .then((extendedGroupEvents: ExtendedGroupEvent[]) => {
         this.display.confirm.clear();
         this.extendedGroupEvents = this.filterByEventIds(extendedGroupEvents);
         this.logger.info("received extendedGroupEvents:", extendedGroupEvents.length, "after filtering by eventIds:", this.extendedGroupEvents.length);
-        this.applyFilterToSocialEvents();
+        this.applyFilterToGroupEvents();
       })
       .catch(error => {
         this.logger.error("received error:", error);
         this.notify.error({
-          title: "Problem viewing Social Events",
+          title: "Problem viewing events",
           message: error
         });
       });
@@ -252,8 +252,8 @@ export class Events implements OnInit, OnDestroy {
     return (titledMatch as SortOrder) || null;
   }
 
-  applyFilterToSocialEvents(searchTerm?: NamedEvent<string>) {
-    this.logger.info("applyFilterToSocialEvents:searchTerm:", searchTerm, "filterParameters.quickSearch:", this.filterParameters.quickSearch);
+  applyFilterToGroupEvents(searchTerm?: NamedEvent<string>) {
+    this.logger.info("applyFilterToGroupEvents:searchTerm:", searchTerm, "filterParameters.quickSearch:", this.filterParameters.quickSearch);
     this.notify.setBusy();
     this.filteredExtendedGroupEvents = this.searchFilterPipe.transform(this.extendedGroupEvents, this.filterParameters.quickSearch);
     const filteredCount = (this.filteredExtendedGroupEvents?.length) || 0;
@@ -291,7 +291,7 @@ export class Events implements OnInit, OnDestroy {
     this.pages = range(1, this.pageCount + 1);
     this.logger.info("applyPagination: current page events:", this.currentPageFilteredEvents);
     if (this.currentPageFilteredEvents.length === 0) {
-      this.notify.progress("No social events found");
+      this.notify.progress("No events found");
     } else {
       const offset = (this.pageNumber - 1) * this.pageSize + 1;
       const pageIndicator = this.pageCount > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : `page ${this.pageNumber}`;

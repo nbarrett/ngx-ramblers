@@ -20,9 +20,9 @@ import { NgSelectComponent } from "@ng-select/ng-select";
 import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-columns-editor";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { DateRangeMode, EventsData, EventsDataAllows } from "../../../models/social-events.model";
+import { DateRangeMode, EventsData, EventsDataAllows } from "../../../models/group-events.model";
 import { DYNAMIC_CONTENT_FILTER_OPTIONS, FilterCriteria, SortOrder } from "../../../models/api-request.model";
-import { SocialDisplayService } from "../../../pages/social/social-display.service";
+import { GroupEventDisplayService } from "../../../pages/group-events/group-event-display.service";
 import { HasStartAndEndTime } from "../../../models/group-event.model";
 import { GroupEventSummary, GroupEventTypes } from "../../../models/committee.model";
 import { GroupEventSelectorComponent } from "../../../group-events-selector/group-event-selector";
@@ -266,7 +266,7 @@ import { DateTime } from "luxon";
   imports: [FormsModule, EventsRow, DatePicker, NgSelectComponent, DynamicContentMaxColumnsEditorComponent, GroupEventSelectorComponent, DateRangeSlider]
 })
 export class DynamicContentSiteEditEvents implements OnInit {
-  public display: SocialDisplayService = inject(SocialDisplayService);
+  public display: GroupEventDisplayService = inject(GroupEventDisplayService);
   public pageContentService: PageContentService = inject(PageContentService);
   public memberResourcesReferenceData: MemberResourcesReferenceDataService = inject(MemberResourcesReferenceDataService);
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);

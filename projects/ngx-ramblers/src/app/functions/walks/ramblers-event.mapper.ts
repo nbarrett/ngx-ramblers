@@ -94,7 +94,7 @@ function createLinks(groupEvent: GroupEvent, options: RamblersEventMapperOptions
     const localLink = options.localLinkBuilder(groupEvent);
     if (localLink) {
       links.push({
-        title: `this ${isWalk ? "walk" : "social event"}`,
+        title: `this ${isWalk ? "walk" : "event"}`,
         href: localLink,
         source: LinkSource.LOCAL
       });

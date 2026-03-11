@@ -138,6 +138,32 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
         </div>
 
 
+        <div class="row mt-2">
+          <div class="col-auto">
+            <div class="form-group">
+              <label for="max-capacity">Max Capacity (leave blank to disable bookings)</label>
+              <input [(ngModel)]="displayedWalk.walk.fields.maxCapacity"
+                     (ngModelChange)="walkChanged($event)" name="maxCapacity"
+                     type="number" min="1"
+                     [disabled]="inputDisabled"
+                     class="form-control input-sm"
+                     id="max-capacity"
+                     placeholder="e.g. 20">
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="form-group">
+              <label for="max-group-size">Max Per Booking</label>
+              <input [(ngModel)]="displayedWalk.walk.fields.maxGroupSize"
+                     (ngModelChange)="walkChanged($event)" name="maxGroupSize"
+                     type="number" min="1" max="20"
+                     [disabled]="inputDisabled"
+                     class="form-control input-sm"
+                     id="max-group-size"
+                     placeholder="default 3">
+            </div>
+          </div>
+        </div>
       </form>
     </div>
     }

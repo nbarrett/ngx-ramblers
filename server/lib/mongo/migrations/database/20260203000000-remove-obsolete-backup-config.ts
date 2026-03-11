@@ -2,7 +2,7 @@ import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 
 const debugLog = createMigrationLogger("remove-obsolete-backup-config");
-const CONFIG_COLLECTION = "configs";
+const CONFIG_COLLECTION = "config";
 const OBSOLETE_BACKUP_KEY = "backup";
 
 export async function up(db: Db, client: MongoClient) {

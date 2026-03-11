@@ -60,7 +60,7 @@ import { InputSize } from "../../../../models/ui-size.model";
                           <div class="alert {{notifyTarget.alert.class}}">
                             <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
                             @if (notifyTarget.alertTitle) {
-                              <strong>{{ notifyTarget.alertTitle }}: </strong>
+                              <strong class="ms-2">{{ notifyTarget.alertTitle }}: </strong>
                             } {{ notifyTarget.alertMessage }}
                           </div>
                         </div>

@@ -200,7 +200,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
     this.logger.debug("ngOnInit");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.meetupService.queryConfig().then(config => this.meetupConfig = config);
-    this.walksConfig = {...this.walksConfigService.default(), ...this.walksConfigService.walksConfig()};
+    this.walksConfig = this.walksConfigService.default();
     this.subscriptions.push(this.walksConfigService.events().subscribe(config => this.walksConfig = config));
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
       this.tab = params[StoredValue.TAB] || kebabCase(WalkConfigTab.GENERAL);

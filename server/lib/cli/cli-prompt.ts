@@ -14,7 +14,7 @@ interface SelectOptions<T> {
 
 function getHintText(allowBack: boolean): string {
   return allowBack
-    ? "[ESC: back] [q/Ctrl+C: quit]"
+    ? "[ESC/Backspace: back] [q/Ctrl+C: quit]"
     : "[q/Ctrl+C: quit]";
 }
 
@@ -46,7 +46,7 @@ export async function select<T>(options: SelectOptions<T>): Promise<PromptResult
         cleanup();
         handleQuit();
       }
-      if (allowBack && key.name === "escape") {
+      if (allowBack && (key.name === "escape" || key.name === "backspace")) {
         resolved = true;
         cleanup();
         console.log();
@@ -74,7 +74,7 @@ export async function select<T>(options: SelectOptions<T>): Promise<PromptResult
           name: "selection",
           message: options.message,
           choices: choicesWithHint,
-          pageSize: 15,
+          pageSize: choicesWithHint.length,
           loop: false
         }
       ])
@@ -118,7 +118,7 @@ export async function confirm(message: string, allowBack = true): Promise<Prompt
         cleanup();
         handleQuit();
       }
-      if (allowBack && key.name === "escape") {
+      if (allowBack && (key.name === "escape" || key.name === "backspace")) {
         resolved = true;
         cleanup();
         console.log();
@@ -184,7 +184,7 @@ export async function input(message: string, allowBack = true): Promise<PromptRe
         cleanup();
         handleQuit();
       }
-      if (allowBack && key.name === "escape") {
+      if (allowBack && (key.name === "escape" || key.name === "backspace")) {
         resolved = true;
         cleanup();
         console.log();
@@ -269,7 +269,7 @@ export async function checkbox<T>(options: CheckboxOptions<T>): Promise<PromptRe
         cleanup();
         handleQuit();
       }
-      if (allowBack && key.name === "escape") {
+      if (allowBack && (key.name === "escape" || key.name === "backspace")) {
         resolved = true;
         cleanup();
         console.log();
@@ -297,7 +297,7 @@ export async function checkbox<T>(options: CheckboxOptions<T>): Promise<PromptRe
           name: "selections",
           message: options.message,
           choices: choicesWithHint,
-          pageSize: 20,
+          pageSize: choicesWithHint.length,
           loop: false
         }
       ])
