@@ -15,7 +15,7 @@ import { PageContentService } from "../../../services/page-content.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { SocialDisplayService } from "../../social/social-display.service";
+import { GroupEventDisplayService } from "../../group-events/group-event-display.service";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
@@ -192,7 +192,7 @@ export class AGMStatsComponent implements OnInit {
   private uiActions = inject(UiActionsService);
   private stringUtils = inject(StringUtilsService);
   private dateUtils = inject(DateUtilsService);
-  protected socialDisplayService = inject(SocialDisplayService);
+  protected groupEventDisplayService = inject(GroupEventDisplayService);
   faChevronUp = faChevronUp;
   faChevronDown = faChevronDown;
 
@@ -959,7 +959,7 @@ export class AGMStatsComponent implements OnInit {
     }
     const source = this.stats.currentYear ? [this.stats.currentYear] : [];
     const events = source.flatMap(year => year.socials.socialsList).map(event => {
-      const link = event.link || (event.description ? `/social/${this.stringUtils.kebabCase(event.description)}` : null);
+      const link = event.link || (event.description ? `/${this.groupEventDisplayService.groupEventArea()}/${this.stringUtils.kebabCase(event.description)}` : null);
       const id = (event as any).id || this.stringUtils.kebabCase(event.description);
       return {
         ...event,
@@ -973,7 +973,7 @@ export class AGMStatsComponent implements OnInit {
 
   socialLink(event: SocialRow): string {
     const extended = this.toExtendedSocialEvent(event);
-    const url = this.socialDisplayService.groupEventLink(extended, true);
+    const url = this.groupEventDisplayService.groupEventLink(extended, true);
     this.logger.off("socialLink:event:", event, "extended:", extended, "url:", url);
     return url;
   }

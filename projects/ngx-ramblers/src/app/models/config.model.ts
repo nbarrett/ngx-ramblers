@@ -1,6 +1,7 @@
 import { Identifiable } from "./api-response.model";
 
 export enum ConfigKey {
+  BOOKING = "booking",
   BREVO = "brevo",
   COMMITTEE = "committee",
   ENVIRONMENTS = "environments",

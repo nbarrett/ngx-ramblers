@@ -61,9 +61,23 @@ import { FormsModule } from "@angular/forms";
         </div>
         <div class="col-sm-12">
           <div class="form-group">
-            <label for="process-mapping-walk-notification">Expense Notifications Use Email Configuration</label>
+            <label for="process-mapping-expense-notification">Expense Notifications Use Email Configuration</label>
             <select [(ngModel)]="mailMessagingConfig.mailConfig.expenseNotificationConfigId"
-              id="process-mapping-walk-notification"
+              id="process-mapping-expense-notification"
+              class="form-control input-sm">
+              @for (mapping of notificationConfigsPlusNone; track mapping.id) {
+                <option
+                  [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="col-sm-12">
+          <div class="form-group">
+            <label for="process-mapping-booking-notification">Booking Notifications Use Email Configuration</label>
+            <select [(ngModel)]="mailMessagingConfig.mailConfig.bookingNotificationConfigId"
+              id="process-mapping-booking-notification"
               class="form-control input-sm">
               @for (mapping of notificationConfigsPlusNone; track mapping.id) {
                 <option

@@ -16,7 +16,7 @@ import { LoginResponse } from "../../../models/member.model";
 import { DeviceSize } from "../../../models/page.model";
 import { EventPopulation } from "../../../models/system.model";
 import { DisplayedWalk, EventField, GroupEventField, WalkListView } from "../../../models/walk.model";
-import { EventsData } from "../../../models/social-events.model";
+import { EventsData } from "../../../models/group-events.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";

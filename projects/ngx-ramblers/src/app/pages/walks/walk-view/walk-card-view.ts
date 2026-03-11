@@ -39,7 +39,7 @@ import { RouterLink } from "@angular/router";
       <app-card-image-or-map [displayedWalk]="displayedWalk" [notify]="notify" [maxColumns]="maxColumns"/>
       <div class="card-body">
         <h3 class="card-title">
-          <a [routerLink]="display.walkRouterLink(displayedWalk?.walk)" class="rams-text-decoration-pink active">
+          <a (click)="ignoreClicks($event)" [routerLink]="display.walkRouterLink(displayedWalk?.walk)" class="rams-text-decoration-pink active">
             {{ displayedWalk.walk?.groupEvent?.title || displayedWalk.latestEventType.description }}
           </a>
         </h3>

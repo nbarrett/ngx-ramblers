@@ -18,6 +18,7 @@ export function createBrevoConfig(params: BrevoConfigTemplateParams): MailConfig
     forgotPasswordNotificationConfigId: "",
     walkNotificationConfigId: "",
     contactUsNotificationConfigId: "",
-    backupNotificationConfigId: ""
+    backupNotificationConfigId: "",
+    bookingNotificationConfigId: ""
   };
 }

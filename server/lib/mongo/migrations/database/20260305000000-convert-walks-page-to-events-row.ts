@@ -4,7 +4,7 @@ import { dateTimeNow } from "../../../shared/dates";
 
 const debugLog = createMigrationLogger("convert-walks-page-to-events-row");
 const PAGE_CONTENT_COLLECTION = "pageContent";
-const CONFIG_COLLECTION = "configs";
+const CONFIG_COLLECTION = "config";
 const SYSTEM_CONFIG_KEY = "system";
 const WALKS_ROOT_PATH = "walks";
 const WALKS_PAGE_HEADER_PATH = "walks#page-header";

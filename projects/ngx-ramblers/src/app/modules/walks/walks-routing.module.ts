@@ -1,7 +1,10 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
+import { AreaExistsGuard } from "../../guards/area-exists-guard";
+import { GroupEventAuthGuard } from "../../guards/group-event-auth-guard";
 import { WalksAuthGuard } from "../../guards/walks-auth-guard";
 import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard";
+import { hasTrailingEditPath, hasTrailingNewPath } from "../../services/path-matchers";
 
 @NgModule({
   imports: [RouterModule.forChild([
@@ -58,6 +61,30 @@ import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-g
       loadComponent: () => import("../../pages/walks/walk-edit-fullpage/walk-edit-full-page.component")
         .then(m => m.WalkEditFullPageComponent),
       canActivate: [WalksAuthGuard]
+    },
+    {
+      path: "new",
+      loadComponent: () => import("../../pages/group-events/edit/group-event-edit")
+        .then(m => m.GroupEventEdit),
+      canActivate: [AreaExistsGuard, GroupEventAuthGuard]
+    },
+    {
+      path: ":id/edit",
+      loadComponent: () => import("../../pages/group-events/edit/group-event-edit")
+        .then(m => m.GroupEventEdit),
+      canActivate: [AreaExistsGuard, GroupEventAuthGuard]
+    },
+    {
+      matcher: hasTrailingNewPath,
+      loadComponent: () => import("../../pages/group-events/edit/group-event-edit")
+        .then(m => m.GroupEventEdit),
+      canActivate: [AreaExistsGuard, GroupEventAuthGuard]
+    },
+    {
+      matcher: hasTrailingEditPath,
+      loadComponent: () => import("../../pages/group-events/edit/group-event-edit")
+        .then(m => m.GroupEventEdit),
+      canActivate: [AreaExistsGuard, GroupEventAuthGuard]
     },
     {
       path: ":path",

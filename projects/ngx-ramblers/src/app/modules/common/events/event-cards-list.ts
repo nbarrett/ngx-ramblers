@@ -1,11 +1,11 @@
 import { Component, inject, Input } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { EventsData } from "../../../models/social-events.model";
+import { EventsData } from "../../../models/group-events.model";
 import { CARD_MARGIN_BOTTOM, cardClasses } from "../../../services/card-utils";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { AlertInstance } from "../../../services/notifier.service";
-import { SocialCardComponent } from "../../../pages/social/social-card/social-card";
+import { GroupEventCard } from "../../../pages/group-events/group-event-card/group-event-card";
 import { NgClass } from "@angular/common";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
@@ -20,7 +20,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       @for (extendedGroupEvent of currentPageFilteredEvents; track eventKey(extendedGroupEvent); let index = $index) {
         <div [ngClass]="slideClasses()">
           @if (extendedGroupEvent.groupEvent.item_type === RamblersEventType.GROUP_EVENT) {
-            <app-social-card [socialEvent]="extendedGroupEvent" [maxColumns]="eventsData?.maxColumns"/>
+            <app-group-event-card [groupEvent]="extendedGroupEvent" [maxColumns]="eventsData?.maxColumns"/>
           } @else {
             <app-walk-card-view mapClass="map-card-image-events" cardImageClass="card-img-fixed-height" [index]="index"
                                 class="card shadow clickable h-100" [maxColumns]="eventsData?.maxColumns"
@@ -29,7 +29,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
         </div>
       }
     </div>`,
-  imports: [SocialCardComponent, WalkCardViewComponent, NgClass]
+  imports: [GroupEventCard, WalkCardViewComponent, NgClass]
 })
 export class EventCardsList {
 

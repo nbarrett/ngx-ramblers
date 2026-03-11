@@ -85,11 +85,11 @@ export class WalkDisplayService {
   }
 
   walksArea(): string {
-    return this.urlService.area() || this.pageService.walksPage()?.href || "walks";
+    return this.urlService.area();
   }
 
-  socialArea(): string {
-    return this.urlService.area() || this.pageService.socialPage()?.href || "social";
+  groupEventArea(): string {
+    return this.pageService.groupEventPage()?.href;
   }
 
   public notAwaitingLeader(walk: ExtendedGroupEvent): boolean {
@@ -190,8 +190,8 @@ export class WalkDisplayService {
 
   edit(walkDisplay: DisplayedWalk): void {
     if (walkDisplay?.walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
-      const socialEventSlug = this.stringUtils.lastItemFrom(walkDisplay?.walk?.groupEvent?.url) || this.stringUtils.kebabCase(walkDisplay?.walk?.groupEvent?.title) || walkDisplay?.walk?.groupEvent?.id || walkDisplay?.walk?.id;
-      void this.urlService.navigateTo([this.socialArea(), socialEventSlug, "edit"]);
+      const groupEventSlug = this.stringUtils.lastItemFrom(walkDisplay?.walk?.groupEvent?.url) || this.stringUtils.kebabCase(walkDisplay?.walk?.groupEvent?.title) || walkDisplay?.walk?.groupEvent?.id || walkDisplay?.walk?.id;
+      void this.urlService.navigateTo([this.groupEventArea(), groupEventSlug, "edit"]);
     } else {
       void this.editFullScreen(walkDisplay.walk);
     }
@@ -323,7 +323,12 @@ export class WalkDisplayService {
   }
 
   walkRouterLink(extendedGroupEvent: ExtendedGroupEvent): string {
-    return this.urlService.routerLinkUrl(this.walkLink(extendedGroupEvent));
+    const relativeUrl = this.urlService.linkUrl({
+      area: this.walksArea(),
+      id: this.walkSlug(extendedGroupEvent),
+      relative: true
+    });
+    return this.urlService.routerLinkUrl(relativeUrl);
   }
 
   walkViewLink(extendedGroupEvent: ExtendedGroupEvent): string[] {

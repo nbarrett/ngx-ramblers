@@ -4,7 +4,7 @@ import { CommitteeFile } from "../../models/committee.model";
 import { Member } from "../../models/member.model";
 import { CommitteeDisplayService } from "../../pages/committee/committee-display.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { HasMedia } from "../../models/social-events.model";
+import { HasMedia } from "../../models/group-events.model";
 import { BasicMedia, Media } from "../../models/ramblers-walks-manager";
 import { UrlService } from "../url.service";
 import { FALLBACK_MEDIA } from "../../models/walk.model";

@@ -23,6 +23,10 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
         .then(m => m.ContentTemplatesComponent), canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
+      path: "bookings", loadComponent: () => import("../../pages/admin/bookings/bookings.component")
+        .then(m => m.BookingsComponent), canActivate: [SystemHealthyGuard, AdminAuthGuard]
+    },
+    {
       path: "expenses", loadComponent: () => import("../../pages/admin/expenses/expenses.component")
         .then(m => m.ExpensesComponent), canActivate: [SystemHealthyGuard, LoggedInGuard]
     },

@@ -8,6 +8,7 @@ import { AdminUserConfig } from "../../../projects/ngx-ramblers/src/app/models/e
 import { EnvironmentSetupRequest, MongoDbConnectionParams, SetupProgress, ValidationResult } from "./types";
 import { createSystemConfig, SystemConfigTemplateParams } from "./templates/system-config-template";
 import { createBrevoConfig } from "./templates/brevo-config-template";
+import { createBookingConfig } from "./templates/booking-config-template";
 import { createCommitteeConfig } from "./templates/committee-config-template";
 import { createWalksConfig } from "./templates/walks-config-template";
 import { createAdminMember, createSystemMember } from "./templates/sample-data/admin-member-template";
@@ -170,6 +171,11 @@ export async function initialiseDatabase(
     const brevoConfig = createBrevoConfig({ apiKey: request.serviceConfigs.brevo.apiKey });
     await upsertConfigDocument(db, ConfigKey.BREVO, brevoConfig);
     reportProgress("Creating Brevo config", "completed");
+
+    reportProgress("Creating Booking config", "running");
+    const bookingConfig = createBookingConfig();
+    await upsertConfigDocument(db, ConfigKey.BOOKING, bookingConfig);
+    reportProgress("Creating Booking config", "completed");
 
     reportProgress("Creating Committee config", "running");
     const groupShortName = toGroupShortName(request.ramblersInfo.groupName);
@@ -481,6 +487,11 @@ export async function reinitialiseDatabase(
     const committeeConfig = createCommitteeConfig({ groupShortName });
     await upsertConfigDocument(db, ConfigKey.COMMITTEE, committeeConfig);
     reportProgress("Updating Committee config", "completed");
+
+    reportProgress("Updating Booking config", "running");
+    const bookingConfig = createBookingConfig();
+    await upsertConfigDocument(db, ConfigKey.BOOKING, bookingConfig);
+    reportProgress("Updating Booking config", "completed");
 
     reportProgress("Updating Walks config", "running");
     const walksConfig = createWalksConfig();

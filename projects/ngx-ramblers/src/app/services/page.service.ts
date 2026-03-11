@@ -11,9 +11,6 @@ import { UrlService } from "./url.service";
 import { isEmpty } from "es-toolkit/compat";
 import { first } from "es-toolkit/compat";
 import { uniq } from "es-toolkit/compat";
-import { Observable, ReplaySubject } from "rxjs";
-import { shareReplay } from "rxjs/operators";
-
 @Injectable({
   providedIn: "root"
 })
@@ -27,19 +24,11 @@ export class PageService {
   private urlService = inject(UrlService);
   public group: Organisation;
   private previouslySetTitles: string[] = [];
-  private socialLink: Link;
-  private walkLink: Link;
-  private subject = new ReplaySubject<Link>();
 
   constructor() {
     this.logger.info("subscribing to systemConfigService events");
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
-      this.socialLink = this.findPageByHref(item.group.pages, "social") || this.findPageByTitle(item.group.pages, "social");
-      this.walkLink = this.findPageByHref(item.group.pages, "walks") || this.findPageByTitle(item.group.pages, "walks");
-      this.logger.info("social page found as:", this.socialLink, "walks page found as:", this.walkLink, "group:", this.group);
-      this.subject.next(this.socialLink);
-      this.subject.next(this.walkLink);
       this.setTitle(...this.previouslySetTitles);
     });
   }
@@ -48,16 +37,16 @@ export class PageService {
     return this.stringUtils.asTitle(this.urlService.area() || "home");
   }
 
-  public socialPageEvents(): Observable<Link> {
-    return this.subject.pipe(shareReplay());
-  }
-
-  public socialPage(): Link {
-    return this.socialLink;
+  public groupEventPage(): Link {
+    return this.findPageForArea(this.urlService.area());
   }
 
   walksPage(): Link {
-    return this.walkLink;
+    return this.findPageForArea(this.urlService.area());
+  }
+
+  private findPageForArea(area: string): Link {
+    return this.group?.pages?.find(page => page.href === area);
   }
 
   pageSubtitle(): string {
@@ -134,14 +123,6 @@ export class PageService {
     } else {
       this.logger.info("setTitle:supplied pageTitles", pageTitles, "group longName not configured yet");
     }
-  }
-
-  private findPageByHref(pages: Link[], href: string): Link {
-    return pages.find(page => page.href?.toLowerCase() === href || page.href?.toLowerCase().includes(href));
-  }
-
-  private findPageByTitle(pages: Link[], title: string): Link {
-    return pages.find(page => page.title?.toLowerCase().includes(title));
   }
 
   areaExistsFor(url: string): boolean {

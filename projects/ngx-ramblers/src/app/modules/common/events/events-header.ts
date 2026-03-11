@@ -7,14 +7,14 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { SocialDisplayService } from "../../../pages/social/social-display.service";
+import { GroupEventDisplayService } from "../../../pages/group-events/group-event-display.service";
 import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { DateFilterParameters } from "../../../models/search.model";
 import { BASIC_FILTER_OPTIONS, FilterCriteria } from "../../../models/api-request.model";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
-import { EventsData } from "../../../models/social-events.model";
+import { EventsData } from "../../../models/group-events.model";
 import { ExtendedGroupEvent, HasStartAndEndTime } from "../../../models/group-event.model";
 import { UrlService } from "../../../services/url.service";
 import { PageService } from "../../../services/page.service";
@@ -39,7 +39,7 @@ import { PageService } from "../../../services/page.service";
   <div class="row">
     <div class="col-sm-10">
       @if (!eventsData || eventsData?.allow?.autoTitle) {
-        <h2>{{ display.socialEventsTitle(eventsData?.filterCriteria, fromAndTo()) }}</h2>
+        <h2>{{ display.groupEventsTitle(eventsData?.filterCriteria, fromAndTo()) }}</h2>
       }
     </div>
     @if (display.allow.edits && (!eventsData || eventsData?.allow?.addNew)) {
@@ -114,8 +114,8 @@ export class EventsHeader implements OnInit, OnDestroy {
 
   protected readonly FilterCriteria = FilterCriteria;
   protected readonly BASIC_FILTER_OPTIONS = BASIC_FILTER_OPTIONS;
-  private logger: Logger = inject(LoggerFactory).createLogger("SocialSearchComponent", NgxLoggerLevel.ERROR);
-  display = inject(SocialDisplayService);
+  private logger: Logger = inject(LoggerFactory).createLogger("EventsHeader", NgxLoggerLevel.ERROR);
+  display = inject(GroupEventDisplayService);
   private urlService: UrlService = inject(UrlService);
   private pageService: PageService = inject(PageService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
@@ -152,7 +152,7 @@ export class EventsHeader implements OnInit, OnDestroy {
   }
 
   addNewEvent() {
-    this.urlService.navigateTo([this.display.socialArea(), "new"]);
+    this.urlService.navigateUnconditionallyTo([this.urlService.area(), "new"]);
   }
 
   configureFilterCriteria(): boolean {

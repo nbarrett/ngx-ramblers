@@ -91,6 +91,9 @@ export interface ExtendedFields {
   venue?: Venue;
   inputSource: InputSource;
   gpxFile?: FileNameData;
+  maxCapacity?: number;
+  maxGroupSize?: number;
+  memberPriorityDays?: number;
 }
 
 export enum EventSource {

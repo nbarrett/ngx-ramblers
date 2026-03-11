@@ -143,7 +143,7 @@ export class DataPopulationService {
       },
       {
         name: "mail-settings-email-configurations-help",
-        text: "* This page allows Email Configurations to be created, edited or deleted.\n* An Email configuration allows various settings  such as the subject, banner image, Brevo Template, sender, CC, signoff and member selection to be defined and saved. \n* An email configuration is selected at the point of sending an email, which enables default values to be set which speeds up the sending of emails, given that users don't need to think of suitable values for all of the email sending parameters.",
+        text: "* This page allows Email Configurations to be created, edited or deleted.\n* An Email configuration allows various settings  such as the subject, banner image, Brevo Template, sender, BCC, signoff and member selection to be defined and saved. \n* An email configuration is selected at the point of sending an email, which enables default values to be set which speeds up the sending of emails, given that users don't need to think of suitable values for all of the email sending parameters.",
         category: "admin"
       },
       {
@@ -327,6 +327,19 @@ export class DataPopulationService {
         name: "how-to-documentation-help",
         text: "* All documentation related to administering all walk-related activities",
         category: "walks-admin"
+      }], [{
+        name: "bookings-summary-help",
+        text: "* View a summary of all events that have bookings enabled\n" +
+          "* Click on an event row to jump to the per-event detail view\n" +
+          "* Download a CSV report of the summary data",
+        category: "admin"
+      }], [{
+        name: "bookings-detail-help",
+        text: "* Select an event to view individual bookings and attendee details\n" +
+          "* Waitlisted bookings are highlighted and shown with a status badge\n" +
+          "* Download a CSV of attendees for the selected event\n" +
+          "* Delete individual bookings if needed",
+        category: "admin"
       }],
     );
   }

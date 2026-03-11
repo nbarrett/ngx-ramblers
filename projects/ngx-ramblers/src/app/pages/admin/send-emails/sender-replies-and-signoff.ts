@@ -44,12 +44,12 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
             }
           </div>
         </div>
-        @if (!omitCC) {
+        @if (!omitBcc) {
           <div class="col-sm-6">
               <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
-                [label]="'CC Roles'"
-                [roles]="notificationConfig.ccRoles"
-                (rolesChange)="this.notificationConfig.ccRoles = $event.roles;"/>
+                [label]="'BCC Roles'"
+                [roles]="notificationConfig.bccRoles"
+                (rolesChange)="this.notificationConfig.bccRoles = $event.roles;"/>
           </div>
         }
         <div class="col-sm-6">
@@ -98,8 +98,8 @@ export class SenderRepliesAndSignoff implements OnInit {
     this.omitSignOff = coerceBooleanProperty(omitSignOff);
   }
 
-  @Input("omitCC") set omitCCValue(omitCC: boolean) {
-    this.omitCC = coerceBooleanProperty(omitCC);
+  @Input("omitBcc") set omitBccValue(omitBcc: boolean) {
+    this.omitBcc = coerceBooleanProperty(omitBcc);
   }
 
   @Input("allowSelectAllAsMe") set allowSelectAllAsMeValue(allowSelectAllAsMe: boolean) {
@@ -112,7 +112,7 @@ export class SenderRepliesAndSignoff implements OnInit {
   public stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private logger = this.loggerFactory.createLogger("SenderRepliesAndSignoff", NgxLoggerLevel.ERROR );
   public omitSignOff: boolean;
-  public omitCC: boolean;
+  public omitBcc: boolean;
   public allowSelectAllAsMe: boolean;
   @Output() senderExists: EventEmitter<boolean> = new EventEmitter();
   private memberLoginService = inject(MemberLoginService);

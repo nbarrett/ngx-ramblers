@@ -7,7 +7,6 @@ import { ConfigKey } from "../../models/config.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { StringUtilsService } from "../string-utils.service";
 import { WalksConfig } from "../../models/walk-notification.model";
 
 @Injectable({
@@ -18,7 +17,6 @@ export class WalksConfigService {
   private logger: Logger = inject(LoggerFactory).createLogger("WalksConfigService", NgxLoggerLevel.ERROR);
   private config = inject(ConfigService);
   private broadcastService = inject<BroadcastService<WalksConfig>>(BroadcastService);
-  stringUtils = inject(StringUtilsService);
   private subject = new ReplaySubject<WalksConfig>();
   private cachedWalksConfig: WalksConfig;
 
@@ -33,7 +31,7 @@ export class WalksConfigService {
   }
 
   private cacheAndNotify(walksConfig: WalksConfig) {
-    this.cachedWalksConfig = walksConfig;
+    this.cachedWalksConfig = this.normalise(walksConfig);
     this.logger.info("notifying walksConfig subscribers with:", this.cachedWalksConfig);
     this.subject.next(this.cachedWalksConfig);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALKS_CONFIG_LOADED, this.cachedWalksConfig));
@@ -44,7 +42,7 @@ export class WalksConfigService {
   }
 
   saveConfig(config: WalksConfig) {
-    return this.config.saveConfig<WalksConfig>(ConfigKey.WALKS, config).then((savedConfig: any) => this.cacheAndNotify(savedConfig.value));
+    return this.config.saveConfig<WalksConfig>(ConfigKey.WALKS, this.normalise(config)).then((savedConfig: any) => this.cacheAndNotify(savedConfig.value));
   }
 
   public walksConfig(): WalksConfig {
@@ -53,6 +51,14 @@ export class WalksConfigService {
 
   public events(): Observable<WalksConfig> {
     return this.subject.pipe(shareReplay());
+  }
+
+  private normalise(config: WalksConfig): WalksConfig {
+    const defaults = this.default();
+    return {
+      ...defaults,
+      ...config
+    };
   }
 
   default(): WalksConfig {

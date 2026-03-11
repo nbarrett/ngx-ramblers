@@ -65,3 +65,15 @@ export function authenticate() {
   initialisePassport();
   return passport.authenticate("jwt");
 }
+
+export function optionalAuthenticate() {
+  initialisePassport();
+  return (req, res, next) => {
+    passport.authenticate("jwt", {session: false}, (err, user) => {
+      if (user) {
+        req.user = user;
+      }
+      next();
+    })(req, res, next);
+  };
+}

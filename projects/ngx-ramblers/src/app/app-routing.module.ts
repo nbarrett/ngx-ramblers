@@ -5,8 +5,7 @@ import { Logger, LoggerFactory } from "./services/logger-factory.service";
 import { hasDynamicPath, hasEditSubPath, hasTrailingEditPath, hasTrailingNewPath, hasViewSubPath } from "./services/path-matchers";
 import { contactUsGuard } from "./pages/contact-us/contact-us.guard";
 import { AreaExistsGuard } from "./guards/area-exists-guard";
-import { SocialPopulationLocalGuard } from "./guards/social-population-local-guard";
-import { SocialAuthGuard } from "./guards/social-auth-guard";
+import { GroupEventAuthGuard } from "./guards/group-event-auth-guard";
 import { SystemHealthyGuard } from "./guards/system-healthy-guard";
 
 const routes: Routes = [
@@ -82,15 +81,15 @@ const routes: Routes = [
   },
   {
     matcher: hasTrailingNewPath,
-    loadComponent: () => import("./pages/social/edit/social-edit.component")
-      .then(m => m.SocialEditComponent),
-    canActivate: [SystemHealthyGuard, AreaExistsGuard, SocialPopulationLocalGuard, SocialAuthGuard]
+    loadComponent: () => import("./pages/group-events/edit/group-event-edit")
+      .then(m => m.GroupEventEdit),
+    canActivate: [SystemHealthyGuard, AreaExistsGuard, GroupEventAuthGuard]
   },
   {
     matcher: hasTrailingEditPath,
-    loadComponent: () => import("./pages/social/edit/social-edit.component")
-      .then(m => m.SocialEditComponent),
-    canActivate: [SystemHealthyGuard, AreaExistsGuard, SocialPopulationLocalGuard, SocialAuthGuard]
+    loadComponent: () => import("./pages/group-events/edit/group-event-edit")
+      .then(m => m.GroupEventEdit),
+    canActivate: [SystemHealthyGuard, AreaExistsGuard, GroupEventAuthGuard]
   },
   {
     matcher: hasDynamicPath,

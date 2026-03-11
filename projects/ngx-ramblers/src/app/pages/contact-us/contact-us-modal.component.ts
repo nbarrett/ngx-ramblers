@@ -26,6 +26,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MarkdownComponent } from "ngx-markdown";
 import { DisplayDateAndTimePipe } from "../../pipes/display-date-and-time.pipe";
 import { UrlService } from "../../services/url.service";
+import { ContactInteractionService } from "../../services/contact-interaction.service";
+import { ContactInteractionStatus } from "../../models/booking.model";
 
 @Component({
     selector: "app-contact-modal",
@@ -208,6 +210,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
   protected mailMessagingService: MailMessagingService = inject(MailMessagingService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);
   private urlService: UrlService = inject(UrlService);
+  private contactInteractionService: ContactInteractionService = inject(ContactInteractionService);
   public notifyTarget: AlertTarget = {};
   private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   protected config: SystemConfig;
@@ -218,7 +221,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
   protected committeeMember: CommitteeMember;
   protected validateTokenRequest: ValidateTokenRequest = {captchaToken: null};
   protected contactFormDetails: ContactFormDetails = {
-    timestamp: this.dateUtils.dateTimeNow().toMillis(),
+    timestamp: this.dateUtils.dateTimeNowAsValue(),
     name: null,
     email: null,
     subject: null,
@@ -315,6 +318,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     this.contactUsService.validateToken(this.validateTokenRequest)
       .then(() => this.sendInboundEmailRequest())
       .then(() => this.sendCopyEmailRequest())
+      .then(() => this.persistContactInteraction())
       .then(() => {
         this.notify.success({
           title: "Email sent",
@@ -367,6 +371,24 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     } else {
       this.logger.info("sendCopyEmailRequest:copy request not requested");
       return Promise.resolve();
+    }
+  }
+
+  async persistContactInteraction(): Promise<void> {
+    try {
+      await this.contactInteractionService.create({
+        name: this.contactFormDetails.name,
+        email: this.contactFormDetails.email || "",
+        subject: this.contactFormDetails.subject,
+        message: this.contactFormDetails.message,
+        anonymous: this.contactFormDetails.anonymous || false,
+        recipientRole: this.committeeMember?.type || "",
+        createdAt: this.dateUtils.dateTimeNowAsValue(),
+        status: ContactInteractionStatus.NEW
+      });
+      this.logger.info("Contact interaction persisted");
+    } catch (error) {
+      this.logger.error("Failed to persist contact interaction:", error);
     }
   }
 

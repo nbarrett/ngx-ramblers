@@ -140,6 +140,13 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
     icon: "faMapMarkerAlt",
     href: "admin/venue-settings",
     contentText: "Manage stored venues used for walk meeting points and post-walk pubs"
+  },
+  {
+    accessLevel: "committee",
+    title: "Bookings",
+    icon: "faTicket",
+    href: "admin/bookings",
+    contentText: "View and manage event bookings, attendee lists, and download CSV reports"
   }
 ];
 
