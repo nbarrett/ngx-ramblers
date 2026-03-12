@@ -52,6 +52,22 @@ These cause build failures - use the listed replacements:
 - **No literal `\n`** in commit messages - use real newlines or multiple `-m` flags
 - **Hook setup**: `npm run setup:hooks`
 
+## Deployment Dialect
+
+When the user asks to commit and push, use this domain language to determine deployment scope:
+
+| User says | What to do |
+|-----------|------------|
+| "commit and push" / "push to staging" / nothing about deployment | Normal commit — staging only (default CI behaviour) |
+| "deploy to all environments" / "deploy everywhere" / "deploy to all" / "full deploy" | Append `[deploy-all]` to the commit message — CI triggers all-environments deploy after build |
+
+**How `[deploy-all]` works:**
+- Append it to the end of any conventional commit message: `fix(walks): correct display [deploy-all]`
+- The CI build workflow detects it, waits for the Docker image to be built and pushed, then automatically triggers the "Deploy to Selected Environments" workflow with `environments=all` and the exact build image tag
+- Staging always deploys first (existing behaviour); all-environments deploy follows after the same build
+
+**Never guess** — if the user's intent is ambiguous, ask: "Deploy to staging only, or all environments?"
+
 ## Error Handling
 
 - No empty catch blocks - always log or return a safe default
@@ -91,6 +107,7 @@ npm run lint / lintfix     # Linting
 npm run test               # Frontend tests
 npm run test:server        # Backend tests
 ./bin/ngx-cli local dev <env>  # Full stack (staging, ashford, ekwg, etc.)
+npm run push               # git push with optional all-environments deploy prompt (terminal use)
 npm run deploy             # Deploy (from server/)
 npm run release-notes:interactive  # Release notes (from server/)
 ```
