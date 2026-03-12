@@ -30,7 +30,8 @@
     "test:watch": "ng test --project ngx-ramblers",
     "test:server": "sh -c 'cd server && npm run unit-test:once'",
     "release-notes": "npm --prefix server run release-notes --",
-    "cli": "npx ts-node server/lib/cli/index.ts"
+    "cli": "npx ts-node server/lib/cli/index.ts",
+    "push": "bash tools/git-push.sh"
   },
   "cacheDirectories": [
     "node_modules",

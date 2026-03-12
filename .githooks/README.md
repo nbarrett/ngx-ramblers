@@ -40,6 +40,16 @@ Runs the test suite when pushing to `main` or `pre-main`.
 - Blocks the push if tests fail.
 - Skips for other branches.
 
+## Optional Post-Push Deployment
+
+Git has no native `post-push` hook. Use `npm run push` instead of `git push` when on `main` to get an interactive prompt after the push succeeds:
+
+```
+Deploy to all environments? [y/N]
+```
+
+If you answer `y`, it triggers the "Deploy to Selected Environments" GitHub Actions workflow with `environments=all image_tag=latest`. The build workflow must complete before the deploy actually deploys.
+
 ## How It Works
 
 1. Hooks live in `.githooks/` (tracked by git).
