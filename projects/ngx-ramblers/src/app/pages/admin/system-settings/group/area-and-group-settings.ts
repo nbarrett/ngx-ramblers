@@ -350,7 +350,7 @@ export class AreaAndGroupSettingsComponent implements OnInit {
   }
 
   public splitDelimitedList(groupCode: string): string[] {
-    return groupCode.split(",").map(item => item.trim()).filter(Boolean);
+    return groupCode ? groupCode.split(",").map(item => item.trim()).filter(Boolean) : [];
   }
 
   public groupCodesJoined(): string {
