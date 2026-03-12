@@ -118,29 +118,36 @@ export class MailMessagingService {
         await this.refreshTemplates();
       }
     }
-    await this.refreshBanners();
-    await this.refreshNotificationConfigs();
+    await Promise.all([this.refreshBanners(), this.refreshNotificationConfigs()]);
   }
 
-  private refreshNotificationConfigs() {
+  private async refreshNotificationConfigs() {
     const configType = "Notification Configs";
-    this.notificationConfigService.all().then((notificationConfigs) => {
+    try {
+      const notificationConfigs = await this.notificationConfigService.all();
       this.logger.info("retrieved notificationConfigs:", notificationConfigs);
       const normalisedConfigs = this.normaliseNotificationConfigs(notificationConfigs);
       this.mailMessagingConfig.notificationConfigs = normalisedConfigs.sort(sortBy("subject.text"));
       const message = `Found ${this.stringUtilsService.pluraliseWithCount(notificationConfigs.length, "Notification config")}`;
       return this.broadcastSuccess(configType, message);
-    }).catch(error => this.broadcastError(error, configType));
+    } catch (error) {
+      this.mailMessagingConfig.notificationConfigs = [];
+      return this.broadcastError(error, configType);
+    }
   }
 
-  private refreshBanners() {
+  private async refreshBanners() {
     const configType = "Banners";
-    this.bannerConfigService.all().then((banners) => {
+    try {
+      const banners = await this.bannerConfigService.all();
       this.logger.info("retrieved banners:", banners);
       this.mailMessagingConfig.banners = banners.filter(item => item.fileNameData).sort(sortBy("name"));
       const message = `Found ${this.stringUtilsService.pluraliseWithCount(this.mailMessagingConfig.banners.length, "banner")}`;
-      this.broadcastSuccess(configType, message);
-    }).catch(error => this.broadcastError(error, configType));
+      return this.broadcastSuccess(configType, message);
+    } catch (error) {
+      this.mailMessagingConfig.banners = [];
+      return this.broadcastError(error, configType);
+    }
   }
 
   private async refreshMailConfig() {
