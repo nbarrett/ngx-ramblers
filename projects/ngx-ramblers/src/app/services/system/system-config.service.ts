@@ -11,7 +11,9 @@ import {
   defaultRightPanel,
   EventPopulation,
   ExternalSystems,
+  Footer,
   GoogleAnalyticsConfig,
+  Header,
   GoogleMapsConfig,
   ImageConfig,
   Images,
@@ -176,6 +178,13 @@ export class SystemConfigService {
       config.images = this.imagesDefaults();
       this.logger.info("config.images initialised as:", config.images);
     }
+    if (!config?.footer) {
+      config.footer = this.footerDefaults();
+      this.logger.info("config.footer initialised as:", config.footer);
+    } else if (!config.footer.appDownloads) {
+      config.footer.appDownloads = this.appDownloadsDefaults();
+      this.logger.info("config.footer.appDownloads initialised as:", config.footer.appDownloads);
+    }
     if (externalSystemsMigrate || facebookMigrate || instagramMigrate || meetupMigrate || youtubeMigrate || twitterMigrate || linkedInMigrate || !isEqual(preMigrationConfig, config)) {
       this.logger.info("Applying in-memory migration only (no save during app bootstrap)", config);
       return Promise.resolve(config);
@@ -257,6 +266,30 @@ export class SystemConfigService {
     };
   }
 
+  public headerDefaults(): Header {
+    return {selectedLogo: null, navigationButtons: []};
+  }
+
+  public externalSystemsDefaults(): ExternalSystems {
+    return {
+      facebook: {appId: null, pagesUrl: null, groupUrl: null},
+      osMaps: {apiKey: null},
+      meetup: null,
+      instagram: null,
+      linkedIn: null,
+      youtube: null,
+      twitter: null
+    };
+  }
+
+  public appDownloadsDefaults(): Footer["appDownloads"] {
+    return {apple: null, google: null};
+  }
+
+  public footerDefaults(): Footer {
+    return {appDownloads: this.appDownloadsDefaults(), legals: [], pages: [], quickLinks: []};
+  }
+
   defaultHasStyles(): HasStyles {
     return {list: ListStyle.ARROW, link: LinkStyle.NORMAL};
   }
@@ -273,18 +306,10 @@ export class SystemConfigService {
       icons: this.defaultImages(RootFolder.icons),
       logos: this.defaultImages(RootFolder.logos),
       images: this.imagesDefaults(),
-      externalSystems: {
-        facebook: {appId: null, pagesUrl: null, groupUrl: null},
-        osMaps: {apiKey: null},
-        meetup: null,
-        instagram: null,
-        linkedIn: null,
-        youtube: null,
-        twitter: null
-      },
+      externalSystems: this.externalSystemsDefaults(),
       area: this.emptyOrganisation(), group: this.emptyOrganisation(), national: defaultRamblersConfig,
-      header: {selectedLogo: null, navigationButtons: []},
-      footer: {appDownloads: {apple: undefined, google: undefined}, legals: [], pages: [], quickLinks: []}
+      header: this.headerDefaults(),
+      footer: this.footerDefaults()
     };
   };
 
