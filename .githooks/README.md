@@ -11,6 +11,14 @@ git config core.hooksPath .githooks
 
 ## Available Hooks
 
+### pre-commit
+Lints only the staged `.ts` and `.html` files before the commit is recorded. Fast — surfaces lint errors in seconds without waiting for the full test suite.
+
+**Behaviour:**
+- Skips silently if no `.ts`/`.html` files are staged
+- Fails immediately if any staged file has a lint error
+- Does not run tests — that is pre-push's job
+
 ### commit-msg
 Prevents AI attribution in commit messages to enforce the "NO AI ATTRIBUTION" rule from AGENTS.md.
 

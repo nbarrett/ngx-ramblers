@@ -68,6 +68,16 @@ When the user asks to commit and push, use this domain language to determine dep
 
 **Never guess** — if the user's intent is ambiguous, ask: "Deploy to staging only, or all environments?"
 
+## Amend vs New Commit
+
+When fixing a problem discovered after committing:
+
+| Situation | Action |
+|-----------|--------|
+| Pre-commit hook blocked the commit (lint on staged files failed) | Fix, re-stage, `git commit --amend` |
+| Pre-push hook blocked the push (full lint or tests failed) | Fix, re-stage, `git commit --amend` — commit never reached remote |
+| Push succeeded but CI or staging deploy failed | New commit — the original is already on remote; amending would rewrite public history |
+
 ## Error Handling
 
 - No empty catch blocks - always log or return a safe default
