@@ -16,7 +16,7 @@ import { VenueService } from "../../../services/venue/venue.service";
 @Component({
   selector: "app-related-links",
   template: `
-    @if (displayedWalk?.walk?.groupEvent?.id) {
+    @if (displayedWalk?.walk?.groupEvent?.id && display.showWalkOnRamblersLink()) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
            class="col-sm-12">
         <img title class="related-links-ramblers-image"

@@ -5,7 +5,7 @@ import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/webso
 import { backupSession } from "../mongo/models/backup-session";
 
 const debugLog = debug(envConfig.logNamespace("backup-ws-handler"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function handleBackupRestoreWebSocket(ws: WebSocket, data: any): Promise<void> {
   debugLog("handleBackupRestoreWebSocket received:", data);

@@ -12,7 +12,7 @@ import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbe
 import { isArray } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("backup"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 let loggedNotificationsStatus = false;
 
 async function service(): Promise<BackupAndRestoreService> {

@@ -109,8 +109,10 @@ export interface Organisation extends Group {
   walkPopulation: EventPopulation;
   socialEventPopulation: EventPopulation;
   walkContactDetailsPublic: boolean;
+  showWalkOnRamblersLink: boolean;
   allowSwitchWalkView: boolean;
   socialDetailsPublic: boolean;
+  showSocialOnRamblersLink: boolean;
   shortName?: string;
   href?: string;
   pages: Link[];

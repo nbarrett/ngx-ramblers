@@ -154,6 +154,19 @@ import { HttpClient } from "@angular/common/http";
               }
             </select>
           </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="social-event-population">Social Event Population</label>
+            <select [(ngModel)]="config.group.socialEventPopulation"
+                    class="form-control" id="social-event-population">
+              @for (walkPopulation of populationMethods; track walkPopulation.key) {
+                <option [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="col-md-6">
           <div class="form-group">
             <div class="form-check">
               <input [(ngModel)]="config.group.walkContactDetailsPublic"
@@ -165,19 +178,20 @@ import { HttpClient } from "@angular/common/http";
           </div>
           <div class="form-group">
             <div class="form-check">
+              <input [(ngModel)]="config.group.showWalkOnRamblersLink"
+                     type="checkbox" class="form-check-input"
+                     id="show-walk-on-ramblers-link">
+              <label class="form-check-label"
+                     for="show-walk-on-ramblers-link">Show "On Ramblers" Link for Group Walks</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="form-check">
               <input [(ngModel)]="config.group.allowSwitchWalkView"
                      type="checkbox" class="form-check-input" id="allow-walk-listing-to-be-switched">
               <label class="form-check-label"
                      for="allow-walk-listing-to-be-switched">Allow Walk Listing to be switched
                 between {{ walkListViewsJoined }}</label>
-            </div>
-          </div>
-          <div class="form-group">
-            <div class="form-check">
-              <input [(ngModel)]="config.enableMigration.events"
-                     type="checkbox" class="form-check-input" id="enable-event-migration">
-              <label class="form-check-label"
-                     for="enable-event-migration">Enable Migration of Events</label>
             </div>
           </div>
           <div class="form-group">
@@ -193,20 +207,28 @@ import { HttpClient } from "@angular/common/http";
         </div>
         <div class="col-md-6">
           <div class="form-group">
-            <label for="social-event-population">Social Event Population</label>
-            <select [(ngModel)]="config.group.socialEventPopulation"
-                    class="form-control" id="social-event-population">
-              @for (walkPopulation of populationMethods; track walkPopulation.key) {
-                <option [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}</option>
-              }
-            </select>
-          </div>
-          <div class="form-group">
             <div class="form-check">
               <input [(ngModel)]="config.group.socialDetailsPublic"
                      type="checkbox" class="form-check-input" id="social-details-public-viewable">
               <label class="form-check-label"
                      for="social-details-public-viewable">Social Details Public Viewable</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="form-check">
+              <input [(ngModel)]="config.group.showSocialOnRamblersLink"
+                     type="checkbox" class="form-check-input"
+                     id="show-social-on-ramblers-link">
+              <label class="form-check-label"
+                     for="show-social-on-ramblers-link">Show "On Ramblers" Link for Group Events</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="form-check">
+              <input [(ngModel)]="config.enableMigration.events"
+                     type="checkbox" class="form-check-input" id="enable-event-migration">
+              <label class="form-check-label"
+                     for="enable-event-migration">Enable Migration of Events</label>
             </div>
           </div>
         </div>
@@ -255,6 +277,7 @@ export class AreaAndGroupSettingsComponent implements OnInit {
     if (!this.config.enableMigration) {
       this.config.enableMigration = { events: false };
     }
+    this.applyDefaultOnRamblersLinkVisibility();
     if (!this.config.area.groupCode && this.config.group.groupCode) {
       this.config.area.groupCode = this.stringUtils.left(this.config.group.groupCode, 2);
     }
@@ -264,6 +287,15 @@ export class AreaAndGroupSettingsComponent implements OnInit {
     if (initialAreaCode) {
       await this.queryGroups(initialAreaCode);
       this.updateSelectedGroupCodes();
+    }
+  }
+
+  private applyDefaultOnRamblersLinkVisibility() {
+    if (this.config?.group?.showWalkOnRamblersLink === null || this.config?.group?.showWalkOnRamblersLink === undefined) {
+      this.config.group.showWalkOnRamblersLink = true;
+    }
+    if (this.config?.group?.showSocialOnRamblersLink === null || this.config?.group?.showSocialOnRamblersLink === undefined) {
+      this.config.group.showSocialOnRamblersLink = true;
     }
   }
 

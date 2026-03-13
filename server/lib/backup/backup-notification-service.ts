@@ -7,7 +7,7 @@ import { dateTimeFromJsDate } from "../shared/dates";
 import { DateTime } from "luxon";
 
 const debugLog = debug(envConfig.logNamespace("backup-notification"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export interface NotificationRecipient {
   email: string;

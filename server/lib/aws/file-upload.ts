@@ -20,7 +20,7 @@ import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("s3-file-upload"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 export { uploadFile };
 
 function uploadFile(req: Request, res: Response) {

@@ -450,6 +450,10 @@ export class WalkDisplayService {
     return this.group?.walkContactDetailsPublic;
   }
 
+  showWalkOnRamblersLink(): boolean {
+    return this.group?.showWalkOnRamblersLink !== false;
+  }
+
   displayMapAsImageFallback(walk: ExtendedGroupEvent): boolean {
     return !!(!this.mediaQueryService.imageSource(walk) && walk?.groupEvent?.start_location?.postcode);
   }

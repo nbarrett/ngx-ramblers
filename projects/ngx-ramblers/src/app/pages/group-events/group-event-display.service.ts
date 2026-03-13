@@ -240,4 +240,8 @@ export class GroupEventDisplayService {
     return result;
   }
 
+  public showSocialOnRamblersLink(): boolean {
+    return this.group?.showSocialOnRamblersLink !== false;
+  }
+
 }
