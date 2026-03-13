@@ -22,7 +22,7 @@ import * as requestDefaults from "../ramblers/request-defaults";
 import { isEmpty, isNumber, isString } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("walks-manager-sync"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 function sendProgress(ws: WebSocket | null, percent: number, message: string): void {
   if (ws && ws.readyState === WebSocket.OPEN) {

@@ -25,7 +25,7 @@ import { handleEnvironmentSetup, handleEnvironmentCreate, EnvironmentSetupWsData
 import { handleExternalAlbumFetch, handleExternalAlbumImport, handleExternalUserAlbumsFetch, handleExternalBulkAlbumImport, handleExternalAlbumSplitPreview } from "../external-album/external-album-ws-handler";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const clientWebSocketInstance: WebSocketInstance = {instance: null};
 const messageHandlers: MessageHandlers = {
   [EventType.RAMBLERS_WALKS_UPLOAD]: (ws: WebSocket, data: RamblersWalksUploadRequest) => uploadWalks(ws, data),

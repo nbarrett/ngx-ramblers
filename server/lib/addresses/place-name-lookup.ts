@@ -37,7 +37,7 @@ interface PlacesServiceResponse {
 }
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("place-name-lookup"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const baseUrl = url.parse(ENDPOINT, false);
 const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org";
 const nominatimUrl = url.parse(NOMINATIM_ENDPOINT, false);

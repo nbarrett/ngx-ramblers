@@ -5,7 +5,7 @@ import * as systemConfig from "../config/system-config";
 import { venueSearch as nominatimVenueSearch } from "./venue-search";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("google-venue-search"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 interface GooglePlaceNew {
   id: string;

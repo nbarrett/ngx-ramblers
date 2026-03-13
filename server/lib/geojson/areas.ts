@@ -826,8 +826,10 @@ export async function configureAreaGroups(req: Request, res: Response) {
         walkPopulation: EventPopulation.LOCAL,
         socialEventPopulation: EventPopulation.LOCAL,
         walkContactDetailsPublic: false,
+        showWalkOnRamblersLink: true,
         allowSwitchWalkView: false,
         socialDetailsPublic: false,
+        showSocialOnRamblersLink: true,
         pages: [],
         groups: processedGroups
       };

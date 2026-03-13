@@ -103,8 +103,10 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
       walkPopulation: EventPopulation.WALKS_MANAGER,
       socialEventPopulation: EventPopulation.LOCAL,
       walkContactDetailsPublic: true,
+      showWalkOnRamblersLink: true,
       allowSwitchWalkView: true,
       socialDetailsPublic: true,
+      showSocialOnRamblersLink: true,
       href: groupData.url || groupData.external_url,
       pages: [
         { title: "Home", href: "" },
@@ -129,8 +131,10 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
       walkPopulation: EventPopulation.LOCAL,
       socialEventPopulation: EventPopulation.LOCAL,
       walkContactDetailsPublic: true,
+      showWalkOnRamblersLink: true,
       allowSwitchWalkView: true,
       socialDetailsPublic: true,
+      showSocialOnRamblersLink: true,
       pages: []
     },
     national: {

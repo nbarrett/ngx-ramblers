@@ -11,7 +11,7 @@ import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.
 import * as config from "../mongo/controllers/config";
 
 const debugLog = debug(envConfig.logNamespace("config-initializer"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 interface ParsedSecrets {
   AWS_ACCESS_KEY_ID?: string;

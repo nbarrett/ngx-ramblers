@@ -111,7 +111,7 @@ import { BookingFormComponent } from "../../admin/bookings/booking-form.componen
                     <a [href]="display.groupEventLink(groupEvent, true)" target="_blank">This Event</a>
                   </div>
                 </div>
-                @if (!display.groupEventPopulationLocal() && groupEvent?.groupEvent?.url) {
+                @if (!display.groupEventPopulationLocal() && groupEvent?.groupEvent?.url && display.showSocialOnRamblersLink()) {
                   <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
                        class="col-sm-12">
                     <img title class="related-links-ramblers-image"

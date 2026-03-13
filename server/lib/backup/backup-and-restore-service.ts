@@ -31,7 +31,7 @@ import { isUndefined } from "es-toolkit/compat";
 import { buildS3KeyForBackup, buildS3LocationUrl, parseS3BackupPrefix, parseTimestampToDate } from "./backup-paths";
 
 const debugLog = debug(envConfig.logNamespace("backup-and-restore-service"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export interface BackupOptions {
   environment: string;
