@@ -147,7 +147,7 @@ import TurndownService from "turndown";
              (selectTab)="onTabSelect(WalkEditTab.FEATURES)"
              [displayedWalk]="displayedWalk"
              [config]="config"
-             [inputDisabled]="inputDisabled()"/>
+             [inputDisabled]="inputDisabled() || display.walkPopulationWalksManager()"/>
         <tab app-edit-group-event-images heading="{{WalkEditTab.IMAGES}}"
              [active]="tabActive(WalkEditTab.IMAGES)"
              (selectTab)="onTabSelect(WalkEditTab.IMAGES)"
@@ -155,7 +155,7 @@ import TurndownService from "turndown";
              [notify]="notify"
              [extendedGroupEvent]="displayedWalk?.walk"
              [config]="config"
-             [inputDisabled]="inputDisabled()"/>
+             [inputDisabled]="inputDisabled() || display.walkPopulationWalksManager()"/>
         @if (display.walkLeaderOrAdmin(displayedWalk?.walk)) {
           <tab heading="{{WalkEditTab.HISTORY}}"
                [active]="tabActive(WalkEditTab.HISTORY)"

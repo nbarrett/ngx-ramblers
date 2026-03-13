@@ -122,6 +122,12 @@ export async function syncWalksManagerData(
     });
 
     const groupCode = determineGroupCode(config);
+    if (!groupCode) {
+      const errorMessage = "Sync cannot run — group code is not configured. Go to System Settings → External Systems to add it.";
+      debugLog(errorMessage);
+      sendError(ws, errorMessage);
+      return result;
+    }
     debugLog("Syncing for group code:", groupCode);
 
     sendProgress(ws, 2, "Cleaning up duplicates...");

@@ -316,7 +316,7 @@ import { FooterLinkSetting } from "./footer-link-setting";
                       [queryParamKey]="'sub-tab'"
                       [fullWidth]="true"/>
                     @if (showSubTab(ExternalSystemsSubTab.RAMBLERS)) {
-                        <app-ramblers-settings [config]="config"/>
+                        <app-ramblers-settings [config]="config" (syncingChange)="walksManagerSyncBusy=$event"/>
                     }
                     @if (showSubTab(ExternalSystemsSubTab.MAIL)) {
                         <app-mail-provider-settings [config]="config"
@@ -359,17 +359,17 @@ import { FooterLinkSetting } from "./footer-link-setting";
           <div class="col-sm-12">
             <div class="col-sm-12">
               <input type="submit" value="Save settings and exit" (click)="saveAndExit()"
-                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'"
-                     [disabled]="notReady() || areaMapSyncBusy">
+                     [ngClass]="notReady() || areaMapSyncBusy || walksManagerSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'"
+                     [disabled]="notReady() || areaMapSyncBusy || walksManagerSyncBusy">
               <input type="submit" value="Save" (click)="save()"
-                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'"
-                     [disabled]="notReady() || areaMapSyncBusy">
+                     [ngClass]="notReady() || areaMapSyncBusy || walksManagerSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'"
+                     [disabled]="notReady() || areaMapSyncBusy || walksManagerSyncBusy">
               <input type="submit" value="Undo Changes" (click)="undoChanges()"
-                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'"
-                     [disabled]="notReady() || areaMapSyncBusy">
+                     [ngClass]="notReady() || areaMapSyncBusy || walksManagerSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'"
+                     [disabled]="notReady() || areaMapSyncBusy || walksManagerSyncBusy">
               <input type="submit" value="Exit Without Saving" (click)="cancel()"
-                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'"
-                     [disabled]="notReady() || areaMapSyncBusy">
+                     [ngClass]="notReady() || areaMapSyncBusy || walksManagerSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'"
+                     [disabled]="notReady() || areaMapSyncBusy || walksManagerSyncBusy">
             </div>
           </div>
         </div>
@@ -387,6 +387,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   public membersPendingSave: Member[] = [];
   public areaMapSyncBusy = false;
+  public walksManagerSyncBusy = false;
   private memberService: MemberService = inject(MemberService);
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private notifierService: NotifierService = inject(NotifierService);
@@ -524,6 +525,9 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   }
 
   public selectTab(tab: SystemSettingsTab) {
+    if (this.walksManagerSyncBusy) {
+      return;
+    }
     this.tab = tab;
     this.router.navigate([], {
       queryParams: {[StoredValue.TAB]: kebabCase(tab)},

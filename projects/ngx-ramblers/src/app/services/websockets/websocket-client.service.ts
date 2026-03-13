@@ -53,6 +53,8 @@ export class WebSocketClientService {
         this.stopPingInterval();
         if (mappedCloseMessage.success) {
           this.logger.info(`onclose event occurred with allowable status code:`, mappedCloseMessage);
+        } else if (mappedCloseMessage.transient) {
+          this.logger.info(`onclose transient event, will reconnect:`, mappedCloseMessage);
         } else {
           this.logger.error(`onclose event occurred with error:`, closeEvent);
           this.subjects[MessageType.ERROR].next(mappedCloseMessage);

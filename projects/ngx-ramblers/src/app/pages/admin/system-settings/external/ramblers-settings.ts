@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnDestroy, OnInit, signal } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, signal } from "@angular/core";
 import { faAdd, faSync, faClock, faCheckCircle, faTimesCircle, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { EventPopulation, RamblersSyncMode, SystemConfig, WalksManagerSyncStats, WalksManagerSyncStatusResponse } from "../../../../models/system.model";
@@ -132,19 +132,30 @@ import { InputSize } from "../../../../models/ui-size.model";
             <div class="col-md-12 mb-3">
               <button type="button"
                       class="btn btn-primary me-2"
-                      [disabled]="!!syncingMode"
+                      [disabled]="!!syncingMode || !config?.group?.groupCode"
                       (click)="triggerSync(false)">
                 <fa-icon [icon]="faSync" [spin]="syncingMode === RamblersSyncMode.INCREMENTAL" class="me-2"/>
                 {{ syncingMode === RamblersSyncMode.INCREMENTAL ? "Syncing..." : "Sync Now (Incremental)" }}
               </button>
               <button type="button"
                       class="btn btn-warning"
-                      [disabled]="!!syncingMode"
+                      [disabled]="!!syncingMode || !config?.group?.groupCode"
                       (click)="triggerSync(true)">
                 <fa-icon [icon]="faSync" [spin]="syncingMode === RamblersSyncMode.FULL" class="me-2"/>
                 {{ syncingMode === RamblersSyncMode.FULL ? "Syncing..." : "Full Sync (All Time)" }}
               </button>
             </div>
+
+            @if (!config?.group?.groupCode) {
+              <div class="col-md-12 mb-3">
+                <div class="alert alert-warning">
+                  <fa-icon [icon]="faInfoCircle" class="me-2"/>
+                  Sync is disabled — group code is not configured. Go to
+                  <a routerLink="/admin/system-settings" [queryParams]="{tab: 'area-group'}">Area &amp; Group settings</a>
+                  to add it.
+                </div>
+              </div>
+            }
 
             @if (syncProgress() > 0 && syncProgress() < 100) {
               <div class="col-md-12 mb-3">
@@ -250,6 +261,7 @@ export class RamblersSettings implements OnInit, OnDestroy {
   faInfoCircle = faInfoCircle;
 
   @Input() config: SystemConfig;
+  @Output() syncingChange = new EventEmitter<boolean>();
 
   protected readonly JSON = JSON;
 
@@ -305,6 +317,7 @@ export class RamblersSettings implements OnInit, OnDestroy {
       };
       this.lastSyncedAt = data.lastSyncedAt;
       this.syncingMode = null;
+      this.syncingChange.emit(false);
       setTimeout(() => {
         this.syncProgress.set(0);
         this.syncMessage.set("");
@@ -315,6 +328,7 @@ export class RamblersSettings implements OnInit, OnDestroy {
       this.logger.error("Sync error:", data);
       this.syncError = data.message || "Unknown error occurred";
       this.syncingMode = null;
+      this.syncingChange.emit(false);
       this.syncProgress.set(0);
       this.syncMessage.set("");
     });
@@ -332,6 +346,7 @@ export class RamblersSettings implements OnInit, OnDestroy {
 
   triggerSync(fullSync: boolean) {
     this.syncingMode = fullSync ? RamblersSyncMode.FULL : RamblersSyncMode.INCREMENTAL;
+    this.syncingChange.emit(true);
     this.syncStats = null;
     this.syncError = null;
     this.syncProgress.set(0);

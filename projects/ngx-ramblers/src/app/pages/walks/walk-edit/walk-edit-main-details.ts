@@ -40,14 +40,14 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
             <div class="form-group">
               <app-date-picker id="walk-date" size="md"
                                placeholder="enter date of walk"
-                               [disabled]="!display.allowAdminEdits() || inputDisabled"
+                               [disabled]="!display.allowAdminEdits() || syncDisabled"
                                class="w-100"
                                (change)="onDateChange($event)"
                                [value]="displayedWalk?.walk?.groupEvent.start_date_time"/>
             </div>
           </div>
           <div class="col-auto">
-            <div class="form-group" app-time-picker id="start-time" label="Start Time" [disabled]="inputDisabled"
+            <div class="form-group" app-time-picker id="start-time" label="Start Time" [disabled]="syncDisabled"
                  [value]="displayedWalk?.walk?.groupEvent.start_date_time"
                  (change)="onStartDateTimeChange($event)">
             </div>
@@ -55,7 +55,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
           <div class="col-auto">
             <div class="form-group" app-event-distance-edit label="Distance"
                  [groupEvent]="displayedWalk?.walk?.groupEvent"
-                 (change)="calculateAndSetFinishTime()" [disabled]="inputDisabled"></div>
+                 (change)="calculateAndSetFinishTime()" [disabled]="syncDisabled"></div>
           </div>
           <div class="col">
             <div class="form-group">
@@ -64,7 +64,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
                      (change)="calculateAndSetFinishTime()"
                      (ngModelChange)="walkChanged($event)" name="milesPerHour"
                      type="number" step="0.25"
-                     [disabled]="inputDisabled"
+                     [disabled]="syncDisabled"
                      class="form-control input-sm"
                      id="miles-per-hour"
                      placeholder="Enter Estimated MPH of walk">
@@ -72,7 +72,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
           </div>
           <div class="col-auto">
             <div class="form-group" app-time-picker id="end-time" label="Estimated Finish Time"
-                 [disabled]="inputDisabled"
+                 [disabled]="syncDisabled"
                  [value]="displayedWalk?.walk?.groupEvent.end_date_time"
                  (change)="onEndDateTimeChange($event)"></div>
           </div>
@@ -93,7 +93,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
               <label for="brief-description-and-start-point">Walk Title ({{100 - (displayedWalk.walk.groupEvent.title?.length || 0)}} characters left)</label>
               <textarea [(ngModel)]="displayedWalk.walk.groupEvent.title" type="text"
                         (ngModelChange)="walkChanged($event)" name="title"
-                        [disabled]="inputDisabled"
+                        [disabled]="syncDisabled"
                         class="form-control input-sm" rows="3"
                         id="brief-description-and-start-point"
                         maxlength="100"
@@ -127,7 +127,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
               }
               @if (!longerDescriptionPreview) {
                 <textarea
-                  [disabled]="inputDisabled"
+                  [disabled]="syncDisabled"
                   [(ngModel)]="displayedWalk.walk.groupEvent.description" type="text"
                   (ngModelChange)="walkChanged($event)" name="description"
                   class="form-control input-sm" rows="5" id="longer-description"
@@ -189,6 +189,10 @@ export class WalkEditMainDetailsComponent implements OnInit {
   protected walksAndEventsService = inject(WalksAndEventsService);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditMainDetailsComponent", NgxLoggerLevel.ERROR);
   protected longerDescriptionPreview = false;
+
+  get syncDisabled(): boolean {
+    return this.inputDisabled || this.display.walkPopulationWalksManager();
+  }
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   protected fb: FormBuilder = inject(FormBuilder);
   protected walkDate: Date;
