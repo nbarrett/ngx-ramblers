@@ -23,7 +23,7 @@ This automation:
 
 ## Requirements
 
-- Node.js 22.19.0+
+- Node.js 24.14.0+
 - CMS credentials with `contentAdmin` permission
 - Git repository with conventional commit messages
 

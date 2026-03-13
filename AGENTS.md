@@ -13,7 +13,7 @@
 
 - **Architecture**: Angular 20 + Node/Express + MongoDB Atlas, hosted on Fly.io
 - **Repository**: https://github.com/nbarrett/ngx-ramblers
-- **Node.js**: v22.19.0, npm 10.9.3
+- **Node.js**: v24.14.0, npm 11.9.0
 - **Frontend**: `projects/ngx-ramblers/src/app/`
 - **Backend**: `server/` (TypeScript only, never `.js`)
 - **Styles**: `assets/styles/` (tokens, buttons, focus, legacy)

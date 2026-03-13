@@ -700,7 +700,7 @@ export class RamblersWalksAndEventsService {
     csvRecord[WalkUploadColumnHeading.TITLE] = this.walkTitle(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.DESCRIPTION] = walkDescription;
     csvRecord[WalkUploadColumnHeading.ADDITIONAL_DETAILS] = "";
-    csvRecord[WalkUploadColumnHeading.WEBSITE_LINK] = this.walkDisplayService.walkLink(extendedGroupEvent);
+    csvRecord[WalkUploadColumnHeading.WEBSITE_LINK] = this.walkDisplayService.walkPublicLink(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.WALK_LEADERS] = this.walkLeader(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.LINEAR_OR_CIRCULAR] = this.walkType(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.START_TIME] = this.walkStartTime(extendedGroupEvent);

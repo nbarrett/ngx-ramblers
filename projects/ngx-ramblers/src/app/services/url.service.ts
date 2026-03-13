@@ -113,6 +113,10 @@ export class UrlService {
     }
   }
 
+  publicBaseUrl(): string {
+    return this.group?.href || this.baseUrl();
+  }
+
   private isLocal(url: URL) {
     return url.hostname === "localhost" || url.hostname === "127.0.0.1";
   }
@@ -246,6 +250,10 @@ export class UrlService {
     return [relative ? null : this.baseUrl(), area, subArea, id].filter(item => !!item).join("/");
   }
 
+  publicResourceUrl(area: string, subArea: string, id: string, relative?: boolean): string {
+    return [relative ? null : this.publicBaseUrl(), area, subArea, id].filter(item => !!item).join("/");
+  }
+
   refresh(): void {
     location.reload();
   }
@@ -259,6 +267,14 @@ export class UrlService {
       return this.resourceUrl(linkConfig.area, linkConfig.subArea, linkConfig.id, linkConfig.relative);
     } else {
       return this.absolutePathForAWSFileName(linkConfig.name);
+    }
+  }
+
+  publicLinkUrl(linkConfig: LinkConfig | AWSLinkConfig): string {
+    if (this.isUrlWithId(linkConfig)) {
+      return this.publicResourceUrl(linkConfig.area, linkConfig.subArea, linkConfig.id, linkConfig.relative);
+    } else {
+      return `${this.publicBaseUrl()}/${this.resourceRelativePathForAWSFileName(linkConfig.name)}`;
     }
   }
 

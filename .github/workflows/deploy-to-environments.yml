@@ -15,7 +15,8 @@ on:
         type: string
 
 env:
-  NODE_VERSION: '22.19.0'
+  NODE_VERSION: '24.14.0'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   set-environments:
@@ -53,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: 6
       matrix:
         environment: ${{ fromJson(needs.set-environments.outputs.matrix) }}
     name: Deploy to ${{ matrix.environment }}
@@ -67,10 +68,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
       - name: Install server dependencies
-        run: npm ci
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
         working-directory: ./server
 
       - name: Create configs directory

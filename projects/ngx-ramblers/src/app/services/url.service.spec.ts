@@ -7,6 +7,8 @@ import { UrlService } from "./url.service";
 import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { StringUtilsService } from "./string-utils.service";
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
+import { SystemConfigService } from "./system/system-config.service";
+import { Subject } from "rxjs";
 
 describe("UrlService", () => {
 
@@ -19,7 +21,10 @@ describe("UrlService", () => {
         },
         querySelectorAll: () => []
     };
+    let systemConfigEvents: Subject<any>;
     beforeEach(() => {
+        systemConfigEvents = new Subject<any>();
+        LOCATION_VALUE.location.href = URL_PATH;
         const path = "/path-part-1/path-part-2/path-part-3";
         return TestBed.configureTestingModule({
             imports: [LoggerTestingModule],
@@ -34,6 +39,7 @@ describe("UrlService", () => {
                 },
                 {provide: ActivatedRoute, useValue: {snapshot: {url: ["admin", "member-bulk-load"]}}},
                 {provide: DOCUMENT, useValue: LOCATION_VALUE},
+                {provide: SystemConfigService, useValue: {events: () => systemConfigEvents.asObservable()}},
                 StringUtilsService,
                 provideHttpClient(withInterceptorsFromDi()),
                 provideHttpClientTesting()
@@ -44,6 +50,13 @@ describe("UrlService", () => {
     it("should return baseUrl as the path segment before /", () => {
         const service: UrlService = TestBed.inject(UrlService);
         expect(service.baseUrl()).toBe("https://www.example.co.uk");
+    });
+
+    it("should return publicBaseUrl from configured group href when current host is local", () => {
+        LOCATION_VALUE.location.href = "http://localhost:4200/walks/example";
+        const service: UrlService = TestBed.inject(UrlService);
+        systemConfigEvents.next({group: {href: "https://www.bishopsbourne-ramblers.org.uk"}});
+        expect(service.publicBaseUrl()).toBe("https://www.bishopsbourne-ramblers.org.uk");
     });
 
     describe("area", () => {
@@ -107,6 +120,18 @@ describe("UrlService", () => {
 
             const service: UrlService = TestBed.inject(UrlService);
             expect(service.linkUrl(object)).toBe("https://www.example.co.uk/api/aws/s3/expenses/file.12346.pdf");
+        });
+
+        it("should return the configured public url for a walk when current host is local", () => {
+            LOCATION_VALUE.location.href = "http://localhost:4200/walks/example";
+            const object: LinkConfig = {
+                area: "walks",
+                id: "1234-567"
+            };
+
+            const service: UrlService = TestBed.inject(UrlService);
+            systemConfigEvents.next({group: {href: "https://www.bishopsbourne-ramblers.org.uk"}});
+            expect(service.publicLinkUrl(object)).toBe("https://www.bishopsbourne-ramblers.org.uk/walks/1234-567");
         });
 
     });
