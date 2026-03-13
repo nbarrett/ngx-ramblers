@@ -4,7 +4,7 @@ set -e
 
 CURRENT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || echo "")"
 
-git push "$@"
+PUSH_CONFIRMED=1 git push "$@"
 
 if [[ "$CURRENT_BRANCH" != "main" ]]; then
   exit 0
