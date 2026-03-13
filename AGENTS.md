@@ -58,12 +58,15 @@ When the user asks to commit and push, use this domain language to determine dep
 | User says | What to do |
 |-----------|------------|
 | "commit and push" / "push to staging" / nothing about deployment | Normal commit — staging only (default CI behaviour) |
-| "deploy to all environments" / "deploy everywhere" / "deploy to all" / "full deploy" | Append `[deploy-all]` to the commit message — CI triggers all-environments deploy after build |
+| "deploy to all environments" / "deploy everywhere" / "deploy to all" / "full deploy" | Push normally, then wait for the main build workflow to succeed and trigger `deploy-to-environments.yml` for `all` environments using the successful build run number as `image_tag` |
 
-**How `[deploy-all]` works:**
-- Append it to the end of any conventional commit message: `fix(walks): correct display [deploy-all]`
-- The CI build workflow detects it, waits for the Docker image to be built and pushed, then automatically triggers the "Deploy to Selected Environments" workflow with `environments=all` and the exact build image tag
-- Staging always deploys first (existing behaviour); all-environments deploy follows after the same build
+**How full deploy works:**
+- Never encode deployment scope in the commit message
+- Push the commit to `main`
+- Wait for `build-push-and-deploy-ngx-ramblers-docker-image.yml` to complete successfully for that pushed commit
+- Trigger `deploy-to-environments.yml` with `environments=all` and `image_tag=<successful build run number>`
+- For terminal-driven flows, `npm run push` prompts for this on `main`
+- For agent-driven flows, use `npm run push -- --deploy-all-after-build` or the equivalent `gh` workflow dispatch sequence
 
 **Never guess** — if the user's intent is ambiguous, ask: "Deploy to staging only, or all environments?"
 
