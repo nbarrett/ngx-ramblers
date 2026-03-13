@@ -115,22 +115,6 @@ jobs:
         run: |
           ts-node server/deploy/deploy-to-environments.ts --environment "${{ secrets.APP_NAME }}" --image-tag "${{ github.run_number }}"
 
-      - name: Deploy to all environments
-        if: github.ref_name == 'main' && github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-all]')
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'deploy-to-environments.yml',
-              ref: 'main',
-              inputs: {
-                environments: 'all',
-                image_tag: '${{ github.run_number }}'
-              }
-            })
-
       - name: Generate Release Notes
         if: github.ref_name == 'main' && github.event_name == 'push'
         env:
