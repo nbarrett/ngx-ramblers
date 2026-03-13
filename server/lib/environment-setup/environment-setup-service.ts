@@ -40,6 +40,7 @@ import { setupSubdomainForEnvironment } from "../cli/commands/subdomain";
 import { configuredEnvironments } from "../environments/environments-config";
 import { baseDomainFrom } from "./environment-context";
 import { registerBrevoSender } from "../brevo/senders/create-sender";
+import { configuredChromeVersion } from "../shared/chrome-version";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:service"));
 debugLog.enabled = true;
@@ -135,7 +136,7 @@ function buildSecretsConfig(
     AWS_SECRET_ACCESS_KEY: awsCredentials.secretAccessKey,
     AWS_BUCKET: awsCredentials.bucket,
     AWS_REGION: awsCredentials.region,
-    CHROME_VERSION: "131",
+    CHROME_VERSION: configuredChromeVersion(),
     DEBUG: "ngx-ramblers:*",
     DEBUG_COLORS: "true",
     MONGODB_URI: mongoUri,

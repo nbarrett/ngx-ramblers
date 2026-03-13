@@ -21,6 +21,7 @@ import {
 import { Environment } from "../lib/env-config/environment-model";
 import { envConfig } from "../lib/env-config/env-config";
 import { keys } from "es-toolkit/compat";
+import { configuredChromeVersion } from "../lib/shared/chrome-version";
 
 const defaults = {
   environmentName: "staging",
@@ -29,7 +30,7 @@ const defaults = {
   awsRegion: AWS_DEFAULTS.REGION,
   awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
   awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-  chromeVersion: "131",
+  chromeVersion: configuredChromeVersion(),
   debug: "ngx-ramblers:*",
   debugColors: "true",
   mongodbUsername: "",
