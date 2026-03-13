@@ -322,6 +322,13 @@ export class WalkDisplayService {
     });
   }
 
+  walkPublicLink(extendedGroupEvent: ExtendedGroupEvent): string {
+    return this.urlService.publicLinkUrl({
+      area: this.walksArea(),
+      id: this.walkSlug(extendedGroupEvent)
+    });
+  }
+
   walkRouterLink(extendedGroupEvent: ExtendedGroupEvent): string {
     const relativeUrl = this.urlService.linkUrl({
       area: this.walksArea(),

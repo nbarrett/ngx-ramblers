@@ -11,11 +11,11 @@
 [NGX-Ramblers](https://ngx-ramblers.org.uk/) is a [completely free and open-source framework](https://github.com/nbarrett/ngx-ramblers) for building Local Ramblers Group websites using the latest Ramblers Branding, without the webmaster needing technical or programming skills. It's the culmination of over 10 years voluntary work by members of [Kent Ramblers](https://ngx-ramblers.org.uk/how-to/committee/editing-content/example-pages/site-migrations/kent-ramblers), but is free to use by any other group.
 
 - You can see some examples of existing websites that have been built using NGX-Ramblers see [here](https://www.ekwg.co.uk/) and [here](https://www.canterburyramblers.org.uk/).
-  - An example of an area website is [here](https://www.kent.ngx-ramblers.org.uk).
-
+- An example of an area website is [here](https://www.kent.ngx-ramblers.org.uk).
 - Visit the [Project website](https://ngx-ramblers.org.uk/) and have a look around to find out more. The site acts as the documentation centre for the project as well as showing many example pages that show the kind of content you can create.
 - You may be interested to note that all the content you see on this site was created using [NGX-Ramblers](https://ngx-ramblers.org.uk/)!
 - Explore the [Codebase Evolution snapshot](https://rawcdn.githack.com/nbarrett/ngx-ramblers/main/codebase-evolution-stats.html) (or open `codebase-evolution-stats.html` locally) for interactive charts covering the 13-year development journey.
+- Development and CI now target Node.js `24.14.0` LTS.
 
 ## What does NGX-Ramblers do?
 

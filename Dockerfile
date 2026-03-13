@@ -1,6 +1,6 @@
 # Use the official Node.js image as the base image
-# Sync with frontend/server engines (Node 22)
-FROM node:22.19.0
+# Sync with frontend/server engines (Node 24)
+FROM node:24.14.0
 
 # Define build arguments
 ARG CHROME_VERSION
