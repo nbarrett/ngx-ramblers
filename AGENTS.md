@@ -2,12 +2,12 @@
 
 ## Critical Rules
 
-1. **No code comments** - no `//` or `/* */`. Use self-documenting names. Remove comments during refactoring
-2. **No AI attribution in commits** - no `Co-Authored-By`, no `Generated with`, nothing. A `commit-msg` hook enforces this
-3. **No `console.log()`** - Frontend: use `Logger` via `LoggerFactory`. Backend: use `debug` module
-4. **Interfaces in model files only** - never define inline in components/services
-5. **DRY** - always search for existing implementations before writing new code. Reuse and enhance, never duplicate
-6. **File ops free, git ops require permission** - never commit or push without explicit user request
+1. **NEVER commit or push without explicit instruction** - make file changes freely, but `git commit` and `git push` each require the user to explicitly ask for that specific action. Do not anticipate, chain, or assume the next step. Pattern-matching on previous flows is not permission.
+2. **No code comments** - no `//` or `/* */`. Use self-documenting names. Remove comments during refactoring
+3. **No AI attribution in commits** - no `Co-Authored-By`, no `Generated with`, nothing. A `commit-msg` hook enforces this
+4. **No `console.log()`** - Frontend: use `Logger` via `LoggerFactory`. Backend: use `debug` module
+5. **Interfaces in model files only** - never define inline in components/services
+6. **DRY** - always search for existing implementations before writing new code. Reuse and enhance, never duplicate
 
 ## Project Overview
 
@@ -47,8 +47,7 @@ These cause build failures - use the listed replacements:
 ## Git Workflow
 
 - **Conventional commits**: `<type>(<scope>): <description>` (feat, fix, refactor, test, docs, style, build, ci)
-- **Cherry-pick over merge** - never use `git merge`. Use `git cherry-pick` or `git rebase`
-- **Worktrees** at `../ngx-ramblers-worktrees/<issue-name>/`
+- **Trunk-based development** - all work directly on main. Never create branches or worktrees unilaterally. The only exception is Claude Swarm, which creates worktrees as part of a multi-ticket session.
 - **No literal `\n`** in commit messages - use real newlines or multiple `-m` flags
 - **Hook setup**: `npm run setup:hooks`
 
