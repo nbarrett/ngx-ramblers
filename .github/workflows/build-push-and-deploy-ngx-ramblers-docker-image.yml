@@ -8,16 +8,17 @@ on:
 
 env:
   NODE_VERSION: '24.14.0'
+  CHROME_VERSION: ${{ vars.CHROME_VERSION || secrets.CHROME_VERSION }}
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -32,7 +33,9 @@ jobs:
         run: npm run lint:all
 
       - name: Setup Chrome for headless tests
-        uses: browser-actions/setup-chrome@v1
+        uses: browser-actions/setup-chrome@v2
+        with:
+          chrome-version: ${{ env.CHROME_VERSION }}
 
       - name: Export CHROME_BIN for Karma
         run: echo "CHROME_BIN=$CHROME_PATH" >> $GITHUB_ENV
@@ -54,12 +57,12 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -83,13 +86,13 @@ jobs:
         run: npm install -g ts-node
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
 
       - name: Build the Docker image
-        run: docker build . --build-arg CHROME_VERSION=${{ secrets.CHROME_VERSION }} --file Dockerfile --tag ngx-ramblers:${{ github.run_number }}
+        run: docker build . --build-arg CHROME_VERSION=${{ env.CHROME_VERSION }} --file Dockerfile --tag ngx-ramblers:${{ github.run_number }}
 
       - name: Tag the Docker image (latest)
         if: github.ref_name == 'main'
@@ -106,7 +109,12 @@ jobs:
         run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
 
       - name: Install Flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@master
+        run: |
+          curl -fsSL https://fly.io/install.sh | FLYCTL_INSTALL="$HOME/.fly" sh
+          echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Flyctl installation
+        run: flyctl version
 
       - name: Deploy image ngx-ramblers:${{ github.run_number }} to fly.io
         timeout-minutes: 15
