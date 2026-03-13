@@ -65,7 +65,7 @@ import { LocationType } from "../../../models/map.model";
                   <div class="form-group">
                     <label for="grade">Grade</label>
                     @if (allowDetailView) {
-                      <select [compareWith]="difficultyComparer" [disabled]="inputDisabled"
+                      <select [compareWith]="difficultyComparer" [disabled]="syncDisabled"
                               [(ngModel)]="displayedWalk.walk.groupEvent.difficulty"
                               class="form-control input-sm" id="grade">
                         @for (difficulty of difficulties; track difficulty.code) {
@@ -81,7 +81,7 @@ import { LocationType } from "../../../models/map.model";
                   <div class="form-group">
                     <label for="walkType">Walk Type</label>
                     @if (allowDetailView) {
-                      <select [disabled]="inputDisabled"
+                      <select [disabled]="syncDisabled"
                               [(ngModel)]="displayedWalk.walk.groupEvent.shape"
                               (ngModelChange)="walkTypeChange()"
                               class="form-control input-sm" id="walkType">
@@ -96,7 +96,7 @@ import { LocationType } from "../../../models/map.model";
                   <div class="form-group">
                     <label for="ascent">Ascent</label>
                     <div app-event-ascent-edit [groupEvent]="displayedWalk?.walk?.groupEvent"
-                         id="ascent" [disabled]="inputDisabled">
+                         id="ascent" [disabled]="syncDisabled">
                     </div>
                   </div>
                 </div>
@@ -158,18 +158,18 @@ import { LocationType } from "../../../models/map.model";
                   <div class="col d-flex justify-content-center gap-2">
                     <div class="btn-group" role="group">
                       <button type="button" class="btn btn-primary" [class.active]="!showCombinedMap"
-                              [disabled]="inputDisabled"
+                              [disabled]="syncDisabled"
                               (click)="showCombinedMap = false">
                         Separate Maps
                       </button>
                       <button type="button" class="btn btn-primary" [class.active]="showCombinedMap"
-                              [disabled]="inputDisabled"
+                              [disabled]="syncDisabled"
                               (click)="showCombinedMap = true">
                         Combined Map
                       </button>
                     </div>
                     <button type="button" class="btn btn-secondary"
-                            [disabled]="inputDisabled"
+                            [disabled]="syncDisabled"
                             (click)="swapStartAndEndLocations()">
                       Swap Start & End Locations
                     </button>
@@ -183,7 +183,7 @@ import { LocationType } from "../../../models/map.model";
                                           [endLocationDetails]="showCombinedMap ? displayedWalk?.walk?.groupEvent.end_location : null"
                                           [showCombinedMap]="showCombinedMap"
                                           [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
-                                          [disabled]="inputDisabled"
+                                          [disabled]="syncDisabled"
                                           [notify]="notify"/>
                 </div>
                 @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR && !showCombinedMap) {
@@ -201,7 +201,7 @@ import { LocationType } from "../../../models/map.model";
               <div class="col-sm-12">
                 <div class="form-check">
                   <input [(ngModel)]="hasSeparateMeetingPoint"
-                         [disabled]="inputDisabled"
+                         [disabled]="syncDisabled"
                          (ngModelChange)="onMeetingPointToggle($event)"
                          name="hasSeparateMeetingPoint" class="form-check-input" type="checkbox"
                          id="has-separate-meeting-point">
@@ -218,7 +218,7 @@ import { LocationType } from "../../../models/map.model";
                   <div class="row align-items-center">
                     <div class="col-auto">
                       <div class="form-group mb-0" app-time-picker id="meeting-time" label="Meeting Time"
-                           [disabled]="inputDisabled"
+                           [disabled]="syncDisabled"
                            [value]="displayedWalk?.walk?.groupEvent?.meeting_date_time"
                            (change)="onMeetingTimeChange($event)">
                       </div>
@@ -269,6 +269,11 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
 
   @Input() displayedWalk!: DisplayedWalk;
   public inputDisabled = false;
+
+  get syncDisabled(): boolean {
+    return this.inputDisabled || this.display.walkPopulationWalksManager();
+  }
+
   @Input() renderMapEdit = false;
   @Input() allowDetailView = false;
   @Input() notify!: AlertInstance;
@@ -284,7 +289,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
   protected display = inject(WalkDisplayService);
   difficulties = this.display.difficulties();
   tabs: DetailsTab[] = enumValues(DetailsTab);
-  selectedTab: DetailsTab = DetailsTab.ROUTE_AND_VENUE;
+  selectedTab: DetailsTab = DetailsTab.ROUTE;
   protected readonly enumValueForKey = enumValueForKey;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
 

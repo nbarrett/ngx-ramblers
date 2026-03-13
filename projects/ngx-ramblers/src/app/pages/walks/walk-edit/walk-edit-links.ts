@@ -16,7 +16,7 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { BroadcastService } from "../../../services/broadcast-service";
-import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
+import { NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -116,7 +116,7 @@ import { SectionToggle } from "../../../shared/components/section-toggle";
                 <div class="col-sm-12">
                   <div class="form-check">
                     <input id="walk-cancelled-related" type="checkbox" class="form-check-input"
-                           [disabled]="inputDisabled || saveInProgress"
+                           [disabled]="syncDisabled"
                            [(ngModel)]="walkCancelled"
                            (change)="onCancelledChange()">
                     <label class="form-check-label" for="walk-cancelled-related">Mark this walk as cancelled</label>
@@ -129,7 +129,7 @@ import { SectionToggle } from "../../../shared/components/section-toggle";
                 <div class="col-sm-12">
                   <div class="form-group">
                     <label for="cancellation-reason-related">Cancellation Reason</label>
-                    <textarea [disabled]="inputDisabled || saveInProgress"
+                    <textarea [disabled]="syncDisabled"
                               [(ngModel)]="displayedWalk.walk.groupEvent.cancellation_reason"
                               class="form-control input-sm"
                               id="cancellation-reason-related"
@@ -260,6 +260,10 @@ export class WalkEditRelatedLinksComponent implements OnInit {
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
     this.inputDisabled = coerceBooleanProperty(inputDisabled);
   }
+
+  get syncDisabled(): boolean {
+    return this.inputDisabled || this.saveInProgress || this.display.walkPopulationWalksManager();
+  }
   @Input() saveInProgress = false;
   @Input() notify!: AlertInstance;
   public showDiagnosticData = false;
@@ -365,7 +369,7 @@ export class WalkEditRelatedLinksComponent implements OnInit {
   }
 
   canUnlinkRamblers() {
-    return this.memberLoginService.allowWalkAdminEdits() && this.ramblersWalkExistsSignal();
+    return this.memberLoginService.allowWalkAdminEdits() && this.ramblersWalkExistsSignal() && !this.display.walkPopulationWalksManager();
   }
 
   canUnlinkOSMaps() {

@@ -332,7 +332,7 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   private checkStartingPointPrompt(venuePostcode: string) {
-    if (!this.allowEdits()) {
+    if (!this.allowEdits() || this.display.walkPopulationWalksManager()) {
       return;
     }
 
@@ -363,7 +363,7 @@ export class Venue implements OnInit, OnDestroy {
   private dismissedMeetingPointForPostcode: string | null = null;
 
   showMeetingPointButton(): boolean {
-    if (!this.allowEdits()) {
+    if (!this.allowEdits() || this.display.walkPopulationWalksManager()) {
       return false;
     }
     const normalizedVenuePostcode = this.venueService.normalizePostcode(this.displayedWalk?.walk?.fields?.venue?.postcode);
@@ -382,7 +382,7 @@ export class Venue implements OnInit, OnDestroy {
   }
 
   private checkVenueFromStartingPointPrompt() {
-    if (!this.allowEdits()) {
+    if (!this.allowEdits() || this.display.walkPopulationWalksManager()) {
       return;
     }
 
