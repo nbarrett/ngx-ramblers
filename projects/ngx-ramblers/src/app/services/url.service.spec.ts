@@ -2,6 +2,7 @@ import { DOCUMENT, Location } from "@angular/common";
 import { TestBed } from "@angular/core/testing";
 import { ActivatedRoute, Router } from "@angular/router";
 import { LoggerTestingModule } from "ngx-logger/testing";
+import { vi } from "vitest";
 import { AWSLinkConfig, LinkConfig } from "../models/link.model";
 import { UrlService } from "./url.service";
 import { provideHttpClientTesting } from "@angular/common/http/testing";
@@ -29,17 +30,17 @@ describe("UrlService", () => {
         return TestBed.configureTestingModule({
             imports: [LoggerTestingModule],
             providers: [
-                {provide: Location, useValue: {path: () => path}},
+                { provide: Location, useValue: { path: () => path } },
                 {
                     provide: Router, useValue: {
                         parseUrl: (url) => {
-                            return {root: {children: {primary: {segments: path.split("/").filter(item => item).map(item => ({path: item}))}}}};
+                            return { root: { children: { primary: { segments: path.split("/").filter(item => item).map(item => ({ path: item })) } } } };
                         }, url: "/admin/member-bulk-load/12398719823"
                     }
                 },
-                {provide: ActivatedRoute, useValue: {snapshot: {url: ["admin", "member-bulk-load"]}}},
-                {provide: DOCUMENT, useValue: LOCATION_VALUE},
-                {provide: SystemConfigService, useValue: {events: () => systemConfigEvents.asObservable()}},
+                { provide: ActivatedRoute, useValue: { snapshot: { url: ["admin", "member-bulk-load"] } } },
+                { provide: DOCUMENT, useValue: LOCATION_VALUE },
+                { provide: SystemConfigService, useValue: { events: () => systemConfigEvents.asObservable() } },
                 StringUtilsService,
                 provideHttpClient(withInterceptorsFromDi()),
                 provideHttpClientTesting()
@@ -55,7 +56,7 @@ describe("UrlService", () => {
     it("should return publicBaseUrl from configured group href when current host is local", () => {
         LOCATION_VALUE.location.href = "http://localhost:4200/walks/example";
         const service: UrlService = TestBed.inject(UrlService);
-        systemConfigEvents.next({group: {href: "https://www.bishopsbourne-ramblers.org.uk"}});
+        systemConfigEvents.next({ group: { href: "https://www.bishopsbourne-ramblers.org.uk" } });
         expect(service.publicBaseUrl()).toBe("https://www.bishopsbourne-ramblers.org.uk");
     });
 
@@ -130,7 +131,7 @@ describe("UrlService", () => {
             };
 
             const service: UrlService = TestBed.inject(UrlService);
-            systemConfigEvents.next({group: {href: "https://www.bishopsbourne-ramblers.org.uk"}});
+            systemConfigEvents.next({ group: { href: "https://www.bishopsbourne-ramblers.org.uk" } });
             expect(service.publicLinkUrl(object)).toBe("https://www.bishopsbourne-ramblers.org.uk/walks/1234-567");
         });
 
@@ -182,10 +183,10 @@ describe("UrlService", () => {
 
     });
 
-        it("absoluteUrl should return full current url ", () => {
-            const service: UrlService = TestBed.inject(UrlService);
-            expect(service.absoluteUrl()).toBe(URL_PATH);
-        });
+    it("absoluteUrl should return full current url ", () => {
+        const service: UrlService = TestBed.inject(UrlService);
+        expect(service.absoluteUrl()).toBe(URL_PATH);
+    });
 
     describe("looksLikeASlug", () => {
         let service: UrlService;
@@ -195,20 +196,20 @@ describe("UrlService", () => {
         });
 
         it("should detect lowercase kebab-case as slug", () => {
-            expect(service.looksLikeASlug("sandwich-dover")).toBeTrue();
+            expect(service.looksLikeASlug("sandwich-dover")).toBe(true);
         });
 
         it("should treat uppercase and numbers as valid slug characters", () => {
-            expect(service.looksLikeASlug("Sandwich123-Route")).toBeTrue();
+            expect(service.looksLikeASlug("Sandwich123-Route")).toBe(true);
         });
 
         it("should reject strings with spaces", () => {
-            expect(service.looksLikeASlug("Sandwich to Dover")).toBeFalse();
+            expect(service.looksLikeASlug("Sandwich to Dover")).toBe(false);
         });
 
         it("should return false for empty or null values", () => {
-            expect(service.looksLikeASlug("")).toBeFalse();
-            expect(service.looksLikeASlug(null)).toBeFalse();
+            expect(service.looksLikeASlug("")).toBe(false);
+            expect(service.looksLikeASlug(null)).toBe(false);
         });
     });
 
@@ -220,12 +221,12 @@ describe("UrlService", () => {
         });
 
         it("should return true for 24-character hex strings", () => {
-            expect(service.isMongoId("689667240ac482029442c7bd")).toBeTrue();
+            expect(service.isMongoId("689667240ac482029442c7bd")).toBe(true);
         });
 
         it("should return false for non-hex or wrong length", () => {
-            expect(service.isMongoId("invalid-id")).toBeFalse();
-            expect(service.isMongoId("123")).toBeFalse();
+            expect(service.isMongoId("invalid-id")).toBe(false);
+            expect(service.isMongoId("123")).toBe(false);
         });
     });
 
@@ -264,14 +265,14 @@ describe("UrlService", () => {
         });
 
         it("should apply kebabCase to path segments with spaces", () => {
-            spyOn(stringUtils, "kebabCase").and.callThrough();
+            vi.spyOn(stringUtils, "kebabCase");
             const url = "path/with spaces";
             expect(service.reformatLocalHref(url)).toBe("path/with-spaces");
             expect(stringUtils.kebabCase).toHaveBeenCalledWith("with spaces");
         });
 
         it("should apply kebabCase to path segments with uppercase characters", () => {
-            spyOn(stringUtils, "kebabCase").and.callThrough();
+            vi.spyOn(stringUtils, "kebabCase");
             expect(service.reformatLocalHref("path/WithUpperCase")).toBe("path/with-upper-case");
             expect(stringUtils.kebabCase).toHaveBeenCalledWith("WithUpperCase");
         });
@@ -281,7 +282,7 @@ describe("UrlService", () => {
         });
 
         it("should handle mixed cases and spaces correctly", () => {
-            spyOn(stringUtils, "kebabCase").and.callThrough();
+            vi.spyOn(stringUtils, "kebabCase");
             expect(service.reformatLocalHref("path/With Mixed CASES")).toBe("path/with-mixed-cases");
             expect(stringUtils.kebabCase).toHaveBeenCalledWith("With Mixed CASES");
         });
@@ -292,10 +293,10 @@ describe("UrlService", () => {
         let originalRouter: Router;
 
         const setRouterPath = (path: string) => {
-            const segments = path.split("/").filter(item => item).map(item => ({path: item}));
+            const segments = path.split("/").filter(item => item).map(item => ({ path: item }));
             (service as any).router = {
                 url: path,
-                parseUrl: () => ({root: {children: {primary: {segments}}}})
+                parseUrl: () => ({ root: { children: { primary: { segments } } } })
             };
         };
 
@@ -310,79 +311,79 @@ describe("UrlService", () => {
 
         it("should return true for kebab-case slug segments", () => {
             setRouterPath("/walks/sandwich-dover-along-saxon-shore-way");
-            expect(service.pathContainsEventIdOrSlug()).toBeTrue();
+            expect(service.pathContainsEventIdOrSlug()).toBe(true);
         });
 
         it("should return true for identifiers that can be converted to a slug", () => {
             setRouterPath("/walks/Sandwich to Dover along the Saxon Shore Way");
-            expect(service.pathContainsEventIdOrSlug()).toBeTrue();
+            expect(service.pathContainsEventIdOrSlug()).toBe(true);
         });
 
         it("should return false for numeric identifiers outside walk routes", () => {
             setRouterPath("/admin/1234567890");
-            expect(service.pathContainsEventIdOrSlug()).toBeTrue();
+            expect(service.pathContainsEventIdOrSlug()).toBe(true);
         });
 
         it("should return true for mongo identifiers in walks path", () => {
             setRouterPath("/walks/689667240ac482029442c7bd");
-            expect(service.pathContainsEventIdOrSlug()).toBeTrue();
+            expect(service.pathContainsEventIdOrSlug()).toBe(true);
         });
 
         it("should return true for mongo identifiers in social path", () => {
             setRouterPath("/social/689667240ac482029442c7bd");
-            expect(service.pathContainsEventIdOrSlug()).toBeTrue();
+            expect(service.pathContainsEventIdOrSlug()).toBe(true);
         });
 
         it("should return false when there are insufficient path segments", () => {
             setRouterPath("/walks");
-            expect(service.pathContainsEventIdOrSlug()).toBeFalse();
+            expect(service.pathContainsEventIdOrSlug()).toBe(false);
         });
     });
 
     describe("baseDomain", () => {
         it("should extract base domain from standard two-part TLD (example.com)", () => {
             const service: UrlService = TestBed.inject(UrlService);
-            service["group"] = {href: "https://www.example.com"} as any;
+            service["group"] = { href: "https://www.example.com" } as any;
             expect(service.baseDomain()).toBe("example.com");
         });
 
         it("should extract base domain from multi-level TLD with 2-char country code (.co.uk)", () => {
             const service: UrlService = TestBed.inject(UrlService);
-            service["group"] = {href: "https://www.ekwg.co.uk"} as any;
+            service["group"] = { href: "https://www.ekwg.co.uk" } as any;
             expect(service.baseDomain()).toBe("ekwg.co.uk");
         });
 
         it("should extract base domain from multi-level TLD with 3-char extension (.org.uk)", () => {
             const service: UrlService = TestBed.inject(UrlService);
-            service["group"] = {href: "https://www.example.org.uk"} as any;
+            service["group"] = { href: "https://www.example.org.uk" } as any;
             expect(service.baseDomain()).toBe("example.org.uk");
         });
 
         it("should handle multiple subdomains correctly", () => {
             const service: UrlService = TestBed.inject(UrlService);
-            service["group"] = {href: "https://api.staging.example.com"} as any;
+            service["group"] = { href: "https://api.staging.example.com" } as any;
             expect(service.baseDomain()).toBe("example.com");
         });
 
         it("should handle domain without subdomain", () => {
             const service: UrlService = TestBed.inject(UrlService);
-            service["group"] = {href: "https://example.com"} as any;
+            service["group"] = { href: "https://example.com" } as any;
             expect(service.baseDomain()).toBe("example.com");
         });
 
         it("should handle multi-level subdomains with .co.uk TLD", () => {
             const service: UrlService = TestBed.inject(UrlService);
-            service["group"] = {href: "https://dev.staging.ekwg.co.uk"} as any;
+            service["group"] = { href: "https://dev.staging.ekwg.co.uk" } as any;
             expect(service.baseDomain()).toBe("ekwg.co.uk");
         });
 
         it("should handle .ac.uk domains", () => {
             const service: UrlService = TestBed.inject(UrlService);
-            service["group"] = {href: "https://www.university.ac.uk"} as any;
+            service["group"] = { href: "https://www.university.ac.uk" } as any;
             expect(service.baseDomain()).toBe("university.ac.uk");
         });
 
-it("should fallback to window.location.hostname when no group config", () => {
+        it("should fallback to window.location.hostname when no group config", () => {
             const service: UrlService = TestBed.inject(UrlService);
             service["group"] = null;
             const baseDomain = service.baseDomain();

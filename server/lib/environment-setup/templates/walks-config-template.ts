@@ -1,4 +1,4 @@
-import { WalksConfig } from "../../../../projects/ngx-ramblers/src/app/models/walk-notification.model";
+import { WalksConfig } from "../../../../projects/ngx-ramblers/src/app/models/walks-config.model";
 
 export function createWalksConfig(): WalksConfig {
   return {

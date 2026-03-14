@@ -7,7 +7,7 @@ import { ConfigKey } from "../../models/config.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { WalksConfig } from "../../models/walk-notification.model";
+import { WalksConfig } from "../../models/walks-config.model";
 
 @Injectable({
   providedIn: "root"

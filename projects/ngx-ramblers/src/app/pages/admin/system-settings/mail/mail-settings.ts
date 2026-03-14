@@ -67,7 +67,7 @@ import { InputSize } from "../../../../models/ui-size.model";
                       </div>
                     }
                   } @else {
-                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>Loading...</div>
+                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
                   }
                 </div>
               </tab>
@@ -78,7 +78,7 @@ import { InputSize } from "../../../../models/ui-size.model";
                   @if (mailMessagingConfig?.mailConfig) {
                     <app-notification-config-to-process-mapping></app-notification-config-to-process-mapping>
                   } @else {
-                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>Loading...</div>
+                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
                   }
                 </div>
               </tab>
@@ -263,7 +263,7 @@ import { InputSize } from "../../../../models/ui-size.model";
                     </div>
                   }
                 } @else {
-                  <div class="text-center py-4"><fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>Loading...</div>
+                  <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
                 }
                 </div>
               </tab>
@@ -305,7 +305,7 @@ import { InputSize } from "../../../../models/ui-size.model";
                       </div>
                     </div>
                   } @else {
-                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>Loading...</div>
+                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
                   }
                 </div>
               </tab>

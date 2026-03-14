@@ -15,4 +15,8 @@ describe("EventsMigrationService", () => {
     providers: [ValueOrDefaultPipe, SearchFilterPipe, AuditDeltaChangedItemsPipePipe, DisplayDatePipe]
   }).compileComponents());
 
+  it("should configure the test module", () => {
+    expect(true).toBe(true);
+  });
+
 });

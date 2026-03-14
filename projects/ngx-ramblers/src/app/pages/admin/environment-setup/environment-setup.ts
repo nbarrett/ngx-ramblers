@@ -176,7 +176,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     </div>
                                     @if (loadingCloneDetails) {
                                       <div class="d-flex align-items-center">
-                                        <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>
+                                        <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>
                                         Loading environment configuration...
                                       </div>
                                     }
@@ -279,7 +279,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     <button class="btn btn-primary mb-3" (click)="validateApiKey()"
                                             [disabled]="!request.serviceConfigs.ramblers.apiKey || apiKeyValidating">
                                       @if (apiKeyValidating) {
-                                        <fa-icon [icon]="faSpinner" [spin]="true"></fa-icon>
+                                        <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
                                       }
                                       Validate API Key
                                     </button>
@@ -447,7 +447,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     <button class="btn btn-secondary" (click)="validateMongodb()"
                                             [disabled]="mongoValidating">
                                       @if (mongoValidating) {
-                                        <fa-icon [icon]="faSpinner" [spin]="true"></fa-icon>
+                                        <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
                                       }
                                       Test Connection
                                     </button>
@@ -702,14 +702,14 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                 <button class="btn btn-warning" (click)="validateRequest()"
                                         [disabled]="validating">
                                   @if (validating) {
-                                    <fa-icon [icon]="faSpinner" [spin]="true"></fa-icon>
+                                    <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
                                   }
                                   Validate
                                 </button>
                                 <button class="btn btn-success" (click)="createEnvironment()"
                                         [disabled]="!allValid || creating">
                                   @if (creating) {
-                                    <fa-icon [icon]="faSpinner" [spin]="true"></fa-icon>
+                                    <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
                                   }
                                   Create Environment
                                 </button>
@@ -719,7 +719,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                             <div>
                               @if (creating) {
                                 <div class="d-flex align-items-center mb-3">
-                                  <fa-icon [icon]="faSpinner" [spin]="true" class="text-primary me-2"></fa-icon>
+                                  <fa-icon [icon]="faSpinner" animation="spin" class="text-primary me-2"></fa-icon>
                                   <span>Deployment in progress...</span>
                                 </div>
                               }

@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronUp, faLocationDot, faTimes } from "@fortawesome/free-solid-svg-icons";
@@ -54,7 +54,6 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
   selector: "app-advanced-search-panel",
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     FontAwesomeModule,
     NgSelectModule,
@@ -62,7 +61,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
     DistanceRangeSlider,
     LeafletModule,
     LocationAutocompleteComponent
-  ],
+],
   template: `
     <div class="advanced-search-panel card mt-3 mb-2">
       <div class="card-body py-2 px-3 pb-3">

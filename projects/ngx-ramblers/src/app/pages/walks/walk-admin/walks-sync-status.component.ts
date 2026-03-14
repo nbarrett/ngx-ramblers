@@ -32,7 +32,7 @@ import { NotifierService } from "../../../services/notifier.service";
         <div class="card-body">
           @if (loading) {
             <div class="text-center py-3">
-              <fa-icon [icon]="faSpinner" [spin]="true" size="2x"/>
+              <fa-icon [icon]="faSpinner" animation="spin" size="2x"/>
               <p class="mt-2 mb-0 text-muted">Loading sync status...</p>
             </div>
           } @else if (syncStatus) {
@@ -42,7 +42,7 @@ import { NotifierService } from "../../../services/notifier.service";
                   @if (syncStatus.status === 'never') {
                     <fa-icon [icon]="faCircle" class="text-secondary me-2"/>
                   } @else if (syncStatus.status === 'syncing') {
-                    <fa-icon [icon]="faSpinner" [spin]="true" class="text-primary me-2"/>
+                    <fa-icon [icon]="faSpinner" animation="spin" class="text-primary me-2"/>
                   } @else if (syncStatus.status === 'success') {
                     <fa-icon [icon]="faCheckCircle" class="text-success me-2"/>
                   } @else if (syncStatus.status === 'error') {
@@ -94,7 +94,7 @@ import { NotifierService } from "../../../services/notifier.service";
                     (click)="triggerSync(false)"
                     [disabled]="syncing || syncStatus.status === 'syncing'">
                     @if (syncing) {
-                      <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"/>
+                      <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>
                     } @else {
                       <fa-icon [icon]="faSync" class="me-2"/>
                     }
@@ -106,7 +106,7 @@ import { NotifierService } from "../../../services/notifier.service";
                     (click)="triggerSync(true)"
                     [disabled]="syncing || syncStatus.status === 'syncing'">
                     @if (syncing) {
-                      <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"/>
+                      <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>
                     } @else {
                       <fa-icon [icon]="faSync" class="me-2"/>
                     }

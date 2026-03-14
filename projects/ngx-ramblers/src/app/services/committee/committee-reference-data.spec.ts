@@ -78,7 +78,7 @@ describe("CommitteeReferenceData", () => {
 
   it("should return committee members", () => {
     const service: CommitteeReferenceData = CommitteeReferenceData.create(mockData, null);
-    expect(service.committeeMembers()).toContain(EXPECTED_NIC);
+    expect(service.committeeMembers()).toContainEqual(EXPECTED_NIC);
   });
 
   it("contactUsField should data based on supplied role and field", () => {

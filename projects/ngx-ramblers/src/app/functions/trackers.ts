@@ -1,5 +1,5 @@
 import { ContentMetadataItem } from "../models/content-metadata.model";
-import { ExpenseEvent, ExpenseItem, ExpenseType } from "../notifications/expenses/expense.model";
+import { ExpenseEvent, ExpenseItem, ExpenseType } from "../models/expense-claim.model";
 
 export function imageTracker(image: ContentMetadataItem) {
   return image?._id || image?.image || image?.base64Content;
@@ -16,5 +16,4 @@ export function eventTracker(index: number, event: ExpenseEvent) {
 export function expenseTypeTracker(expenseType: ExpenseType) {
   return expenseType.value;
 }
-
 

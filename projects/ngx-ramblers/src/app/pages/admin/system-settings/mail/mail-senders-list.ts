@@ -105,7 +105,7 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
             <label class="form-label">Stats</label>
             <div class="form-control-plaintext">
               @if (loading) {
-                <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>Loading senders...
+                <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading senders...
               } @else {
                 {{ filteredSenders().length }} of {{ senders.length }} senders
                 ({{ activeSenderCount() }} active)
@@ -215,7 +215,7 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
             @if (loading) {
               <tr class="no-hover">
                 <td colspan="5" class="text-center py-4">
-                  <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>Loading senders...
+                  <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading senders...
                 </td>
               </tr>
             } @else if (filteredSenders().length === 0) {

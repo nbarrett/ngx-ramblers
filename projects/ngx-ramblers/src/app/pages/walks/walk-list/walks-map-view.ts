@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import * as L from "leaflet";
 import { isFunction, isNumber } from "es-toolkit/compat";
@@ -188,7 +188,7 @@ import { HeightResizerComponent } from "../../../modules/common/height-resizer/h
             <div class="map-walks-list-view card shadow d-flex align-items-center justify-content-center rounded"
                  [style.height.px]="mapHeight">
               <div class="map-loading">
-                <fa-icon class="map-loading-icon" [icon]="faSpinner" [spin]="true" [pulse]="true"></fa-icon>
+                <fa-icon class="map-loading-icon" [icon]="faSpinner" animation="spin-pulse"></fa-icon>
                 <div class="map-loading-text">Fetching your map data…back in a moment</div>
                 <div class="map-loading-range">{{ mapDateRange }}</div>
               </div>
@@ -235,7 +235,7 @@ import { HeightResizerComponent } from "../../../modules/common/height-resizer/h
   `,
   imports: [LeafletModule, FormsModule, FontAwesomeModule, MapControls, MapOverlay, HeightResizerComponent]
 })
-export class WalksMapView implements OnInit, OnChanges {
+export class WalksMapView implements OnInit, OnChanges, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("WalksMapView", NgxLoggerLevel.ERROR);
   @Input() filteredWalks: DisplayedWalk[] = [];
   @Input() loading = false;
@@ -272,6 +272,8 @@ export class WalksMapView implements OnInit, OnChanges {
   public autoShowAll = false;
   private clusterGroupRef: any;
   private allMarkers: L.Marker[] = [];
+  private popupOpenTimers: ReturnType<typeof setTimeout>[] = [];
+  private showAllVisiblePopupsTimer: ReturnType<typeof setTimeout> | null = null;
   public openPopupCount = 0;
   private lastValidCoords = 0;
   protected readonly faEye = faEye;
@@ -357,7 +359,12 @@ export class WalksMapView implements OnInit, OnChanges {
     }
   }
 
+  ngOnDestroy() {
+    this.cancelScheduledPopupOpens();
+  }
+
   rebuildMap() {
+    this.cancelScheduledPopupOpens();
     this.logger.info("rebuildMap START:provider:", this.provider, "osStyle:", this.osStyle, "savedZoom:", this.savedZoom);
     this.setupDefaultIcon();
     const base = this.mapTiles.createBaseLayer(this.provider, this.osStyle);
@@ -603,13 +610,13 @@ export class WalksMapView implements OnInit, OnChanges {
 
       clusterGroup.on("animationend", () => {
         if (this.autoShowAll) {
-          setTimeout(() => this.showAllVisiblePopups(), 300);
+          this.scheduleShowAllVisiblePopups(300);
         }
       });
 
       clusterGroup.on("spiderfied", () => {
         if (this.autoShowAll) {
-          setTimeout(() => this.showAllVisiblePopups(), 100);
+          this.scheduleShowAllVisiblePopups(100);
         }
       });
 
@@ -660,7 +667,7 @@ export class WalksMapView implements OnInit, OnChanges {
 
     map.on("moveend zoomend", () => {
       if (this.autoShowAll) {
-        setTimeout(() => this.showAllVisiblePopups(), 300);
+        this.scheduleShowAllVisiblePopups(300);
       }
       try { this.mapControlsStateService.saveZoom(map.getZoom()); } catch (error) { this.logger.debug("saveZoom failed", error); }
     });
@@ -676,7 +683,7 @@ export class WalksMapView implements OnInit, OnChanges {
         this.preserveNextView = false;
       }
       if (this.autoShowAll) {
-        setTimeout(() => this.showAllVisiblePopups(), 500);
+        this.scheduleShowAllVisiblePopups(500);
       }
     }, 0);
   }
@@ -790,7 +797,9 @@ export class WalksMapView implements OnInit, OnChanges {
     this.mapControlsStateService.saveAutoShowAll(value);
     this.autoShowAllChange.emit(value);
     if (value && this.mapRef) {
-      setTimeout(() => this.showAllVisiblePopups(), 100);
+      this.scheduleShowAllVisiblePopups(100);
+    } else {
+      this.cancelScheduledPopupOpens();
     }
   }
 
@@ -805,14 +814,38 @@ export class WalksMapView implements OnInit, OnChanges {
 
   private showAllVisiblePopups() {
     if (!this.mapRef || !this.autoShowAll || !this.allMarkers.length) return;
+    this.popupOpenTimers = [];
 
     this.allMarkers.forEach((marker, index) => {
       if (this.isMarkerInViewport(marker)) {
-        setTimeout(() => {
+        const timer = setTimeout(() => {
+          const markerElement = marker.getElement();
+          const popup = marker.getPopup();
+          if (!this.mapRef || !this.autoShowAll || !markerElement || !popup) {
+            return;
+          }
           try { marker.openPopup(); } catch (error) { this.logger.debug("marker.openPopup failed", error); }
         }, index * 50);
+        this.popupOpenTimers.push(timer);
       }
     });
+  }
+
+  private scheduleShowAllVisiblePopups(delay: number) {
+    this.cancelScheduledPopupOpens();
+    this.showAllVisiblePopupsTimer = setTimeout(() => {
+      this.showAllVisiblePopupsTimer = null;
+      this.showAllVisiblePopups();
+    }, delay);
+  }
+
+  private cancelScheduledPopupOpens() {
+    if (this.showAllVisiblePopupsTimer) {
+      clearTimeout(this.showAllVisiblePopupsTimer);
+      this.showAllVisiblePopupsTimer = null;
+    }
+    this.popupOpenTimers.forEach(timer => clearTimeout(timer));
+    this.popupOpenTimers = [];
   }
 
   closeAllPopups() {

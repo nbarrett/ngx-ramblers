@@ -1,4 +1,4 @@
-import { CommonModule, DatePipe } from "@angular/common";
+import { DatePipe } from "@angular/common";
 import { Component, inject, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -37,7 +37,7 @@ Chart.register(...registerables);
 @Component({
   selector: "app-agm-stats",
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePicker, FontAwesomeModule, TabsetComponent, TabDirective, AGMWalksTabComponent, AGMSocialsTabComponent, AGMExpensesTabComponent, AGMMembershipTabComponent, PageComponent],
+  imports: [FormsModule, DatePicker, FontAwesomeModule, TabsetComponent, TabDirective, AGMWalksTabComponent, AGMSocialsTabComponent, AGMExpensesTabComponent, AGMMembershipTabComponent, PageComponent],
   styleUrls: ["./agm-stats.sass"],
   template: `
     <app-page autoTitle pageTitle="AGM Statistics Report">

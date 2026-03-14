@@ -41,6 +41,7 @@ WORKDIR /usr/src/app
 
 # Copy package.json and package-lock.json to the working directory
 COPY package*.json ./
+COPY .npmrc ./
 
 # Copy fly.toml for deployment configuration
 COPY fly.toml ./

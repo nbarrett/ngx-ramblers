@@ -132,7 +132,7 @@ export class ActionButtons implements OnInit {
 
   @Input() public cropperDebugOffsets: CropperDebugOffsets = null;
 
-  @HostListener("window:resize", ["event"])
+  @HostListener("window:resize")
   onResize() {
     this.applyMaxViewableSlideCount();
   }

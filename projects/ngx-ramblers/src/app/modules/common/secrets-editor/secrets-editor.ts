@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
@@ -11,7 +11,7 @@ import { SecretEntry } from "../../../models/backup-session.model";
 @Component({
   selector: "app-secrets-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, FontAwesomeModule, SecretInputComponent],
+  imports: [FormsModule, FontAwesomeModule, SecretInputComponent],
   styles: [`
     :host
       display: block

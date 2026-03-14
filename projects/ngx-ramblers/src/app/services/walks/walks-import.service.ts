@@ -1,5 +1,5 @@
 import TurndownService from "turndown";
-import Papa from "papaparse";
+import { parse } from "csv-parse/browser/esm/sync";
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable, Injector } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -80,6 +80,14 @@ export class WalksImportService {
   private performMatches = false;
   constructor() {
     this.applyConfig();
+  }
+
+  private csvRows(csvText: string): Record<string, string>[] {
+    return parse(csvText, {
+      columns: true,
+      skip_empty_lines: true,
+      relax_column_count: true
+    }) as Record<string, string>[];
   }
 
   private applyConfig() {
@@ -380,17 +388,15 @@ export class WalksImportService {
       const reader = new FileReader();
       reader.onload = async (event: any) => {
         const csvText = event.target.result;
-        const parsed = Papa.parse(csvText, {header: true, skipEmptyLines: true});
-        const nonCriticalErrors = parsed.errors.filter(error => error.code !== "TooFewFields");
-        this.logger.info("importWalksFromFile:parsed:", parsed, "nonCriticalErrors:", nonCriticalErrors);
-        if (nonCriticalErrors?.errors?.length > 0) {
-          this.logger.error(this.stringUtilsService.pluraliseWithCount(nonCriticalErrors.errors, "CSV parse error"), "were found:", nonCriticalErrors.errors);
-          reject(parsed.errors);
+        try {
+          const rows = this.csvRows(csvText);
+          this.logger.info("importWalksFromFile:file:", file, "rows:", rows);
+          resolve(rows);
+        } catch (error) {
+          this.logger.error("CSV parse errors were found:", error);
+          reject(error);
           return;
         }
-        const rows = parsed.data as Record<string, string>[];
-        this.logger.info("importWalksFromFile:file:", file, "rows:", rows);
-        resolve(rows);
       };
       reader.onerror = (err) => reject(err);
       reader.readAsText(file);
@@ -403,17 +409,15 @@ export class WalksImportService {
       const reader = new FileReader();
       reader.onload = async (event: any) => {
         const csvText = event.target.result;
-        const parsed = Papa.parse(csvText, {header: true, skipEmptyLines: true});
-        const nonCriticalErrors = parsed.errors.filter(error => error.code !== "TooFewFields");
-        this.logger.info("importImagesFromFile:parsed:", parsed, "nonCriticalErrors:", nonCriticalErrors);
-        if (nonCriticalErrors?.errors?.length > 0) {
-          this.logger.error(this.stringUtilsService.pluraliseWithCount(nonCriticalErrors.errors, "CSV parse error"), "were found:", nonCriticalErrors.errors);
-          reject(parsed.errors);
+        try {
+          const rows = this.csvRows(csvText);
+          this.logger.info("importImagesFromFile:file:", file, "rows:", rows);
+          resolve(rows);
+        } catch (error) {
+          this.logger.error("CSV parse errors were found:", error);
+          reject(error);
           return;
         }
-        const rows = parsed.data as Record<string, string>[];
-        this.logger.info("importImagesFromFile:file:", file, "rows:", rows);
-        resolve(rows);
       };
       reader.onerror = (err) => reject(err);
       reader.readAsText(file);

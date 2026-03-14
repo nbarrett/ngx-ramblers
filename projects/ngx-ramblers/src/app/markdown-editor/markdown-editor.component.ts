@@ -278,7 +278,7 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
           <div class="toolbar-item">
             <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="revert()"
                     [tooltip]="'Revert content for ' + description" container="body">
-              <fa-icon [icon]="reverting() ? faSpinner : faRotateLeft" [spin]="reverting()"/>
+              <fa-icon [icon]="reverting() ? faSpinner : faRotateLeft" [animation]="reverting() ? 'spin' : undefined"/>
             </button>
           </div>
         }
@@ -389,7 +389,7 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
       @if (pasteProcessing && !pastePromptVisible) {
         <div class="paste-processing-backdrop"></div>
         <div class="paste-processing-indicator">
-          <fa-icon [icon]="faSpinner" [spin]="true"/>
+          <fa-icon [icon]="faSpinner" animation="spin"/>
           <span>Processing paste...</span>
         </div>
       }

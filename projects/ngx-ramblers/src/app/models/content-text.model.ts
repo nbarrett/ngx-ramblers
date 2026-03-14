@@ -1,13 +1,11 @@
 import { ApiResponse } from "./api-response.model";
 import { AccessLevel } from "./member-resource.model";
 import { Link } from "./page.model";
-import { BezierEasingOptions } from "ng-gallery/lib/smooth-scroll";
 import { fieldContainsValue, fieldEqualsValue, fieldStartsWithValue, MongoRegex } from "../functions/mongo";
 import { HasClass } from "./banner-configuration.model";
 import { EventsData } from "./group-events.model";
 import { DescribedDimensions, FileNameData } from "./aws-object.model";
-import { ImageCropperPosition } from "./image-cropper.model";
-import { FocalPoint } from "../modules/common/focal-point-picker/focal-point-picker";
+import { FocalPoint, ImageCropperPosition } from "./image-cropper.model";
 import { HasNgSelectAttributes, LocationDetails } from "./ramblers-walks-manager";
 import { SharedDistrictStyle } from "./system.model";
 import { MapProvider } from "./map.model";
@@ -51,6 +49,13 @@ export enum FocalPointTarget {
   INDEX_PREVIEW = "index-preview",
   COVER_IMAGE = "cover-image",
   BOTH = "both"
+}
+
+export interface BezierEasingOptions {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
 }
 
 export interface IndexEntryOverride {

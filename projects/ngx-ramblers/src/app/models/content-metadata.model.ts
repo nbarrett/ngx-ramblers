@@ -1,7 +1,7 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { RootFolder } from "./system.model";
 import { WithMongoId } from "./mongo-models";
-import { OutputFormat } from "ngx-image-cropper/lib/interfaces/cropper-options.interface";
+import { OutputFormat } from "ngx-image-cropper";
 import { ImageCropperPosition } from "./image-cropper.model";
 
 export const RECENT_PHOTOS: ImageTag = {key: 0, sortIndex: 0, subject: "Recent Photos"};

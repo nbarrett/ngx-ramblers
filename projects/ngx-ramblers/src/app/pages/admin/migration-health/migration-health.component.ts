@@ -60,7 +60,7 @@ import { MigrationFileStatus } from "../../../models/mongo-migration-model";
             }
           </div>
           <button class="refresh-btn" [disabled]="loading" (click)="refresh()">
-            <fa-icon [icon]="loading ? faSpinner : faRedo" [spin]="loading" class="me-1"/>
+            <fa-icon [icon]="loading ? faSpinner : faRedo" [animation]="loading ? 'spin' : undefined" class="me-1"/>
             {{ loading ? "Checking..." : "Refresh" }}
           </button>
         </div>

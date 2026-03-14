@@ -198,13 +198,13 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                   <div class="mt-1">
                     @if (templateDiffLoading) {
                       <span class="badge bg-secondary">
-                        <fa-icon [icon]="faSpinner" [spin]="true"/>
+                        <fa-icon [icon]="faSpinner" animation="spin"/>
                         <span class="ms-1">Checking...</span>
                       </span>
                     }
                     @if (snapshotLoading) {
                       <span class="badge bg-secondary ms-2">
-                        <fa-icon [icon]="faSpinner" [spin]="true"/>
+                        <fa-icon [icon]="faSpinner" animation="spin"/>
                         <span class="ms-1">Snapshotting templates...</span>
                       </span>
                     }

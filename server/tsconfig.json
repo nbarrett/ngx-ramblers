@@ -13,8 +13,7 @@
     ],
     "module": "commonjs",
     "types": [
-      "node",
-      "@wdio/globals/types"
+      "node"
     ],
     "moduleResolution": "node",
     "outDir": "ts-gen",
@@ -29,8 +28,6 @@
   ],
   "include": [
     "lib/**/*.ts",
-    "deploy/**/*.ts",
-    "../projects/ngx-ramblers/src/app/models/**/*.ts",
-    "../projects/ngx-ramblers/src/app/common/**/*.ts"
+    "deploy/**/*.ts"
   ]
 }

@@ -68,7 +68,7 @@ import { AlertMessage } from "../../models/alert-target.model";
 import { sortBy } from "../../functions/arrays";
 import { HasMedia } from "../../models/group-events.model";
 import { WalksConfigService } from "../system/walks-config.service";
-import { WalksConfig } from "../../models/walk-notification.model";
+import { WalksConfig } from "../../models/walks-config.model";
 import { BuiltInRole } from "../../models/committee.model";
 import { AlertInstance } from "../notifier.service";
 import { GroupEventService } from "./group-event.service";

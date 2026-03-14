@@ -1,6 +1,6 @@
 import { Component, Input, forwardRef, inject } from "@angular/core";
 import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from "@angular/forms";
-import { CommonModule } from "@angular/common";
+
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faEye, faEyeSlash, faCopy, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { ClipboardService } from "../../../services/clipboard.service";
@@ -9,7 +9,7 @@ import { InputSize } from "../../../models/ui-size.model";
 
 @Component({
   selector: "app-secret-input",
-    imports: [CommonModule, FormsModule, FontAwesomeModule, TooltipModule],
+    imports: [FormsModule, FontAwesomeModule, TooltipModule],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,

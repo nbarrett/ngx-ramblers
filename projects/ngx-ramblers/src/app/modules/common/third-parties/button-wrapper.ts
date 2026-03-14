@@ -14,7 +14,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
          (click)="blockClick($event)"
          [ngClass]="{'btn btn-primary d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap': button, 'not-allowed disabled': disabled || loading, 'pointer': !disabled && !loading}">
       @if (loading) {
-        <fa-icon [icon]="faSpinner" [spin]="true"></fa-icon>
+        <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
       } @else {
         <ng-content/>
       }

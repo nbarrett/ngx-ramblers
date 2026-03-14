@@ -9,7 +9,7 @@ import {
   Output,
   SimpleChanges
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCalendar } from "@fortawesome/free-solid-svg-icons";
@@ -29,7 +29,7 @@ export interface DateRange {
 @Component({
   selector: "app-date-range-slider",
   standalone: true,
-  imports: [CommonModule, FormsModule, FontAwesomeModule],
+  imports: [FormsModule, FontAwesomeModule],
   template: `
     <div class="date-range-slider">
       <div class="mb-1">

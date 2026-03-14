@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Output } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCheck, faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
@@ -12,7 +12,7 @@ export interface MongoUriParseResult extends MongoDbConnectionConfig {
 @Component({
   selector: "app-mongo-uri-input",
   standalone: true,
-  imports: [CommonModule, FormsModule, FontAwesomeModule],
+  imports: [FormsModule, FontAwesomeModule],
   template: `
     <div class="row mb-2">
       <div class="col-md-8">

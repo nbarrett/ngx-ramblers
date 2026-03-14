@@ -69,7 +69,7 @@ export enum VenueLookupMode {
                       [disabled]="disabled || scraping || !isValidUrl()"
                       (click)="scrapeVenue()">
                 @if (scraping) {
-                  <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
+                  <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
                   Scraping...
                 } @else {
                   <fa-icon [icon]="faGlobe" class="ms-2 me-2"></fa-icon>

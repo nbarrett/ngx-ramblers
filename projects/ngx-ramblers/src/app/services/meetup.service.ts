@@ -29,7 +29,7 @@ import {
   MeetupRequestAuthorisationResponse
 } from "../models/meetup-authorisation.model";
 import { WalksConfigService } from "./system/walks-config.service";
-import { WalksConfig } from "../models/walk-notification.model";
+import { WalksConfig } from "../models/walks-config.model";
 import { ExtendedGroupEvent } from "../models/group-event.model";
 import { LinksService } from "./links.service";
 

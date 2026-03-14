@@ -1,7 +1,8 @@
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
-import { isUndefined } from "es-toolkit/compat";
 import { ApplicationRef, DoBootstrap, ErrorHandler, inject, NgModule, provideAppInitializer } from "@angular/core";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
+import * as logos from "@iconify-json/logos";
+import mermaid from "mermaid";
 import { setTheme } from "ngx-bootstrap/utils";
 import { AppRoutingModule } from "../../app-routing.module";
 import { ContainerComponent } from "../../container/container";
@@ -73,8 +74,7 @@ import { DisplayDayPipe } from "../../pipes/display-day.pipe";
 import { EventNotePipe } from "../../pipes/event-note.pipe";
 import { TimepickerModule } from "ngx-bootstrap/timepicker";
 import { EventDatesAndTimesPipe } from "../../pipes/event-times-and-dates.pipe";
-
-declare let mermaid: { registerIconPacks?: (packs: { name: string; loader: () => Promise<unknown> }[]) => void };
+import { ngxIconPack } from "../../icons/custom-icon-pack";
 
 @NgModule({
   imports: [
@@ -168,10 +168,11 @@ declare let mermaid: { registerIconPacks?: (packs: { name: string; loader: () =>
 export class AppModule implements DoBootstrap {
   constructor() {
     setTheme("bs5");
-    if (!isUndefined(mermaid) && mermaid.registerIconPacks) {
+    globalThis.mermaid = mermaid;
+    if (mermaid.registerIconPacks) {
       mermaid.registerIconPacks([
-        {name: "ngx", loader: () => import("../../icons/custom-icon-pack").then(m => m.ngxIconPack as unknown)},
-        {name: "logos", loader: () => import("@iconify-json/logos").then(m => m.icons as unknown)}
+        {name: "ngx", icons: ngxIconPack},
+        {name: "logos", icons: logos.icons}
       ]);
     }
   }

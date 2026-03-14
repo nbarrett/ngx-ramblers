@@ -95,7 +95,7 @@ import { isNull } from "es-toolkit/compat";
                                   <td>
                                     @if (isRunning(migration.file)) {
                                       <span class="badge bg-primary">
-                                        <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"/>Running
+                                        <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>Running
                                       </span>
                                     } @else {
                                       <span class="badge"
@@ -143,7 +143,7 @@ import { isNull } from "es-toolkit/compat";
                                             [ngClass]="isFailed(migration.status) ? 'btn-danger' : 'btn-primary'"
                                             [disabled]="retrying || !isNull(retryingFile)"
                                             (click)="retryMigrationFile(migration.file)">
-                                      <fa-icon [icon]="retryingFile === migration.file ? faSpinner : faRedo" [spin]="retryingFile === migration.file" class="me-1"/>
+                                      <fa-icon [icon]="retryingFile === migration.file ? faSpinner : faRedo" [animation]="retryingFile === migration.file ? 'spin' : undefined" class="me-1"/>
                                       {{ runButtonLabel(migration) }}
                                     </button>
                                   </td>
@@ -158,7 +158,7 @@ import { isNull } from "es-toolkit/compat";
                       <button (click)="retryMigrations()"
                               [disabled]="retrying || migrationStatus?.status === 'OK'"
                               class="btn btn-primary text-nowrap">
-                        <fa-icon [icon]="retrying ? faSpinner : faRedo" [spin]="retrying" class="me-2"/>
+                        <fa-icon [icon]="retrying ? faSpinner : faRedo" [animation]="retrying ? 'spin' : undefined" class="me-2"/>
                         {{ retrying ? "Retrying..." : "Retry Migrations" }}
                       </button>
                       <button (click)="clearFailedMigrations()"

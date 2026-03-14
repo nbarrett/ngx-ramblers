@@ -2,7 +2,7 @@ import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import * as crudController from "../controllers/crud-controller";
 import { expenseClaim } from "../models/expense-claim";
-import { ExpenseClaim } from "../../../../projects/ngx-ramblers/src/app/notifications/expenses/expense.model";
+import { ExpenseClaim } from "../../../../projects/ngx-ramblers/src/app/models/expense-claim.model";
 
 const controller = crudController.create<ExpenseClaim>(expenseClaim);
 const router = express.Router();

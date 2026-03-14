@@ -22,7 +22,7 @@ import { RootFolder } from "../../../models/system.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { MapOverlayConfig, MapOverlayControls } from "../../../shared/components/map-overlay-controls";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
@@ -254,7 +254,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
       </div>
     }
   `,
-  imports: [CommonModule, FormsModule, MapOverlayControls, BadgeButtonComponent, AlertComponent, FontAwesomeModule, DynamicContentViewMap, MapRouteStylePaletteComponent]
+  imports: [FormsModule, MapOverlayControls, BadgeButtonComponent, AlertComponent, FontAwesomeModule, DynamicContentViewMap, MapRouteStylePaletteComponent]
 })
 export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditMap", NgxLoggerLevel.ERROR);

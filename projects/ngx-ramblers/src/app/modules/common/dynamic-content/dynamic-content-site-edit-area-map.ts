@@ -4,7 +4,7 @@ import { LegendPosition, PageContent, PageContentRow } from "../../../models/con
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { KeyValue } from "../../../functions/enums";
@@ -104,7 +104,7 @@ interface RegionOption extends KeyValue<string> {}
       </div>
     }
   `,
-  imports: [CommonModule, FormsModule, NgSelectComponent, AreaMap, MapOverlayControls, SharedDistrictStyleSelectorComponent, LegendPositionSelectorComponent]
+  imports: [FormsModule, NgSelectComponent, AreaMap, MapOverlayControls, SharedDistrictStyleSelectorComponent, LegendPositionSelectorComponent]
 })
 export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditAreaMapComponent", NgxLoggerLevel.OFF);

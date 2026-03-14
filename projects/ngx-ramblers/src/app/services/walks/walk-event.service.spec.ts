@@ -13,11 +13,11 @@ import { GroupEventService } from "../walks-and-events/group-event.service";
 import { LocationDetails } from "../../models/ramblers-walks-manager";
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
-import { createExtendedGroupEvent } from "../../pages/walks/walk-display.service.spec";
 import { DateUtilsService } from "../date-utils.service";
 import { ChangedItem } from "../../models/changed-item.model";
 import { pick } from "es-toolkit/compat";
 import { AUDITED_FIELDS } from "../../models/walk-event.model";
+import { createExtendedGroupEvent } from "../../testing/create-extended-group-event";
 
 describe("WalksEventService", () => {
   const MemberLoginService = {
