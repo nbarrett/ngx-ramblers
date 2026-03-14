@@ -8,7 +8,7 @@ import { ImageConfig, ImageSource, MODERATE, WalkType } from "../models/walk.mod
 import { DateUtilsService } from "./date-utils.service";
 import { SystemConfigService } from "./system/system-config.service";
 import { WalksConfigService } from "./system/walks-config.service";
-import { WalksConfig } from "../models/walk-notification.model";
+import { WalksConfig } from "../models/walks-config.model";
 import { Member } from "../models/member.model";
 import { DEFAULT_BASIC_EVENT_SELECTION } from "../models/search.model";
 import { Observable, ReplaySubject } from "rxjs";

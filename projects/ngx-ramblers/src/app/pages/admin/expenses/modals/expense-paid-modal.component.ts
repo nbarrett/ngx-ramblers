@@ -2,7 +2,7 @@ import { Component, inject, OnInit } from "@angular/core";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
-import { ExpenseClaim } from "../../../../notifications/expenses/expense.model";
+import { ExpenseClaim } from "../../../../models/expense-claim.model";
 import { Member } from "../../../../models/member.model";
 import { NotificationDirective } from "../../../../notifications/common/notification.directive";
 import { ExpenseDisplayService } from "../../../../services/expenses/expense-display.service";

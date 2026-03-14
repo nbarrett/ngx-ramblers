@@ -1,5 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { Subscription } from "rxjs";
 import { sortBy } from "../../../functions/arrays";
@@ -29,7 +29,7 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
 @Component({
   selector: "app-environment-management",
   standalone: true,
-  imports: [CommonModule, FormsModule, FontAwesomeModule, NgSelectComponent, SessionLogsComponent],
+  imports: [FormsModule, FontAwesomeModule, NgSelectComponent, SessionLogsComponent],
   styles: [`
     :host
       display: block
@@ -96,7 +96,7 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
 
             @if (loadingStatus) {
               <div class="d-flex align-items-center mt-3">
-                <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"></fa-icon>
+                <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>
                 Detecting environment state...
               </div>
             } @else {
@@ -267,14 +267,14 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                     <button class="btn btn-primary" (click)="resumeSetup()"
                             [disabled]="operationBusy">
                       @if (resuming) {
-                        <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
+                        <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
                       }
                       Modify Environment
                     </button>
                     <button class="btn btn-outline-secondary" (click)="generateAdminPasswordReset()"
                             [disabled]="operationBusy || generatingPasswordReset">
                       @if (generatingPasswordReset) {
-                        <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
+                        <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
                       } @else {
                         <fa-icon [icon]="faKey" class="me-1"></fa-icon>
                       }
@@ -335,7 +335,7 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                     <button class="btn btn-danger mt-3" (click)="destroyEnvironment()"
                             [disabled]="operationBusy || destroyComplete">
                       @if (destroying) {
-                        <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
+                        <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
                       }
                       Destroy Environment
                     </button>

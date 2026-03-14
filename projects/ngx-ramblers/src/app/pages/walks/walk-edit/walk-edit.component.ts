@@ -47,7 +47,8 @@ import { NotificationDirective } from "../../../notifications/common/notificatio
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { MailMessagingConfig } from "../../../models/mail.model";
 import { MeetupService } from "../../../services/meetup.service";
-import { WalkNotification, WalksConfig } from "../../../models/walk-notification.model";
+import { WalkNotification } from "../../../models/walk-notification.model";
+import { WalksConfig } from "../../../models/walks-config.model";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { MeetupDescriptionComponent } from "../../../notifications/walks/templates/meetup/meetup-description.component";
 import { WalksConfigService } from "../../../services/system/walks-config.service";

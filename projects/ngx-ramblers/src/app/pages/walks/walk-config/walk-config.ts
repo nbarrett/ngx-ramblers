@@ -12,7 +12,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ContentText, ContentTextCategory, View } from "../../../models/content-text.model";
 import { MeetupConfig } from "../../../models/meetup-config.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { WalkConfigTab, WalksConfig } from "../../../models/walk-notification.model";
+import { WalksConfig, WalkConfigTab } from "../../../models/walks-config.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { ContentTextService } from "../../../services/content-text.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";

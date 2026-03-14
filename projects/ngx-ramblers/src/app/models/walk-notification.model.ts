@@ -1,12 +1,13 @@
 import { WalkDataAudit } from "./walk-data-audit.model";
 import { WalkEvent } from "./walk-event.model";
 import { EventType } from "./walk.model";
-import { NotificationDirective } from "../notifications/common/notification.directive";
-import { AlertInstance } from "../services/notifier.service";
 import { WalkEventType } from "./walk-event-type.model";
 import { NotificationConfig } from "./mail.model";
 import { ExtendedGroupEvent } from "./group-event.model";
 import { Walk } from "./deprecated";
+import { WalkConfigTab, WalksConfig } from "./walks-config.model";
+import { NotificationHost } from "./notification-host.model";
+import { AlertLike } from "./alert.model";
 
 export interface WalkNotification {
   walk: ExtendedGroupEvent;
@@ -23,25 +24,12 @@ export interface CurrentPreviousData {
 }
 
 export interface WalkMailMessageConfiguration {
-  notificationDirective: NotificationDirective;
-  notify: AlertInstance;
+  notificationDirective: NotificationHost;
+  notify: AlertLike;
   walkEventType: WalkEventType;
   memberIds: string[];
   notificationText: string;
   notificationConfig: NotificationConfig;
   emailSubject: string;
   destination: string;
-}
-
-export interface WalksConfig {
-  milesPerHour: number;
-  requireRiskAssessment: boolean;
-  requireFinishTime: boolean;
-  requireWalkLeaderDisplayName: boolean;
-}
-
-export enum WalkConfigTab {
-  GENERAL = "General",
-  MEETUP = "Meetup",
-  PUBLISHING_DEFAULTS = "Publishing Defaults",
 }

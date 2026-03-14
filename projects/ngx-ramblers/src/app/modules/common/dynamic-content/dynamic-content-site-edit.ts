@@ -607,7 +607,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
           <div class="d-flex align-items-center flex-wrap gap-2">
             <app-badge-button [disabled]="actions.rowsInEdit.length>0 || savingPage" (click)="onSaveClicked()"
                               [tooltip]="actions.rowsInEdit.length>0?'Finish current row edit before saving':'Save page changes'"
-                              [icon]="savingPage?faSpinner:faSave" [spin]="savingPage"
+                              [icon]="savingPage?faSpinner:faSave" [animation]="savingPage ? 'spin' : undefined"
                               caption="Save page changes"/>
             <app-badge-button [disabled]="savingPage" (click)="revertPageContent()"
                               [tooltip]="'Revert page changes'"
@@ -694,7 +694,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
               <div class="d-flex flex-wrap gap-2 mt-2">
                 <app-badge-button
                   [icon]="pastingPageContent ? faSpinner : faSave"
-                  [spin]="pastingPageContent"
+                  [animation]="pastingPageContent ? 'spin' : undefined"
                   [caption]="pastePathMismatch ? 'Apply with selected path' : 'Apply pasted content'"
                   [disabled]="pastingPageContent || (pastePathMismatch && !selectedPastePath)"
                   (click)="applyPastedPageContent()"/>

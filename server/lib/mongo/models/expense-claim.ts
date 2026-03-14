@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
-import { ExpenseClaim } from "../../../../projects/ngx-ramblers/src/app/notifications/expenses/expense.model";
+import { ExpenseClaim } from "../../../../projects/ngx-ramblers/src/app/models/expense-claim.model";
 
 const expenseType = {
   value: {type: String},

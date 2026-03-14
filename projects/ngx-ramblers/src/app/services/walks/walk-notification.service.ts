@@ -1,8 +1,11 @@
 import { inject, Injectable, Type } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../../models/member.model";
-import { WalkEventNotificationMapping, WalkEventType } from "../../models/walk-event-type.model";
+import { WalkEventType } from "../../models/walk-event-type.model";
+import { WalkEventNotificationMapping } from "../../models/walk-event-notification-mapping.model";
 import { WalkMailMessageConfiguration, WalkNotification } from "../../models/walk-notification.model";
+import { NotificationHost } from "../../models/notification-host.model";
+import { AlertLike } from "../../models/alert.model";
 import { DisplayedWalk, EventType } from "../../models/walk.model";
 import { MarkdownService } from "ngx-markdown";
 import {
@@ -241,7 +244,7 @@ export class WalkNotificationService {
     }
   }
 
-  private sendEmailMessage(notificationDirective: NotificationDirective, notify: AlertInstance, member: Member, qualifiedSubject: string, walkMailMessageConfiguration: WalkMailMessageConfiguration): Promise<void> {
+  private sendEmailMessage(notificationDirective: NotificationHost, notify: AlertLike, member: Member, qualifiedSubject: string, walkMailMessageConfiguration: WalkMailMessageConfiguration): Promise<void> {
     notify.progress({title: "Sending Notifications", message: `Sending ${qualifiedSubject}`});
     return this.mailService.sendTransactionalMessage(this.mailMessagingService.createEmailRequest({
       member,
@@ -256,7 +259,7 @@ export class WalkNotificationService {
       });
   }
 
-  private notifyEmailSendComplete(notify: AlertInstance, qualifiedSubject: string) {
+  private notifyEmailSendComplete(notify: AlertLike, qualifiedSubject: string) {
     notify.success({
       title: "Sending Notifications",
       message: `Sending of ${qualifiedSubject} was successful. Check your inbox for details.`

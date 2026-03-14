@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, Output } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { NgSelectComponent, NgLabelTemplateDirective, NgOptionTemplateDirective } from "@ng-select/ng-select";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
@@ -9,7 +9,7 @@ import { enumKeyValues, KeyValue } from "../../functions/enums";
 @Component({
   selector: "app-shared-district-style-selector",
   standalone: true,
-  imports: [CommonModule, FormsModule, NgSelectComponent, NgLabelTemplateDirective, NgOptionTemplateDirective],
+  imports: [FormsModule, NgSelectComponent, NgLabelTemplateDirective, NgOptionTemplateDirective],
   styles: [`
     .style-icon
       display: inline-flex

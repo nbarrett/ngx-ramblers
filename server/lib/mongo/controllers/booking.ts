@@ -13,7 +13,7 @@ import {
   sendBookingWaitlistedEmail,
   sendBookingRestoredEmail
 } from "../../brevo/transactional-mail/send-booking-email";
-import { WalksConfig } from "../../../../projects/ngx-ramblers/src/app/models/walk-notification.model";
+import { WalksConfig } from "../../../../projects/ngx-ramblers/src/app/models/walks-config.model";
 import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 import { bookingEnabledForEventType, BookingConfig } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
 import { queryKey } from "./config";

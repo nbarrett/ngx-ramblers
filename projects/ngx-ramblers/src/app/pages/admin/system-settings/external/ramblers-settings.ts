@@ -134,14 +134,14 @@ import { InputSize } from "../../../../models/ui-size.model";
                       class="btn btn-primary me-2"
                       [disabled]="!!syncingMode || !config?.group?.groupCode"
                       (click)="triggerSync(false)">
-                <fa-icon [icon]="faSync" [spin]="syncingMode === RamblersSyncMode.INCREMENTAL" class="me-2"/>
+                <fa-icon [icon]="faSync" [animation]="syncingMode === RamblersSyncMode.INCREMENTAL ? 'spin' : undefined" class="me-2"/>
                 {{ syncingMode === RamblersSyncMode.INCREMENTAL ? "Syncing..." : "Sync Now (Incremental)" }}
               </button>
               <button type="button"
                       class="btn btn-warning"
                       [disabled]="!!syncingMode || !config?.group?.groupCode"
                       (click)="triggerSync(true)">
-                <fa-icon [icon]="faSync" [spin]="syncingMode === RamblersSyncMode.FULL" class="me-2"/>
+                <fa-icon [icon]="faSync" [animation]="syncingMode === RamblersSyncMode.FULL ? 'spin' : undefined" class="me-2"/>
                 {{ syncingMode === RamblersSyncMode.FULL ? "Syncing..." : "Full Sync (All Time)" }}
               </button>
             </div>
@@ -160,7 +160,7 @@ import { InputSize } from "../../../../models/ui-size.model";
             @if (syncProgress() > 0 && syncProgress() < 100) {
               <div class="col-md-12 mb-3">
                 <div class="alert alert-warning mb-2">
-                  <fa-icon [icon]="faSync" [spin]="true" class="me-2"/>
+                  <fa-icon [icon]="faSync" animation="spin" class="me-2"/>
                   <strong>Sync in progress:</strong> {{ syncMessage() }}
                 </div>
                 <div class="progress mt-3" style="height: 25px;">

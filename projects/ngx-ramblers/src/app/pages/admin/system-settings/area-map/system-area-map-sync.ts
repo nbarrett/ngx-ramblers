@@ -4,7 +4,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AuthService } from "../../../../auth/auth.service";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
-import { CommonModule } from "@angular/common";
+
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCheckCircle, faEdit, faInfoCircle, faRefresh, faSave, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FormsModule } from "@angular/forms";
@@ -320,7 +320,7 @@ import { SharedDistrictStyleSelectorComponent } from "../../../../shared/compone
           </div>
       </div>
   `,
-  imports: [CommonModule, BadgeButtonComponent, FontAwesomeModule, FormsModule, MarkdownEditorComponent, NgSelectComponent, AreaMap, SharedDistrictStyleSelectorComponent]
+  imports: [BadgeButtonComponent, FontAwesomeModule, FormsModule, MarkdownEditorComponent, NgSelectComponent, AreaMap, SharedDistrictStyleSelectorComponent]
 })
 export class SystemAreaMapSyncComponent implements OnInit {
   private http = inject(HttpClient);

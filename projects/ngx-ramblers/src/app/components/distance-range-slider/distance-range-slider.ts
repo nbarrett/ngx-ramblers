@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -10,7 +10,7 @@ import { debounceTime } from "rxjs/operators";
 @Component({
   selector: "app-distance-range-slider",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="distance-range-slider">
       <div class="d-flex justify-content-between align-items-center mb-2">

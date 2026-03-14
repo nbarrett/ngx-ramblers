@@ -46,7 +46,7 @@ enum WorkerAction {
       @if (loadingStatus) {
         <div class="d-flex align-items-center mb-2">
           <alert type="warning" class="flex-grow-1 mb-0">
-            <fa-icon [icon]="ALERT_WARNING.icon" [spin]="true"></fa-icon>
+            <fa-icon [icon]="ALERT_WARNING.icon" animation="spin"></fa-icon>
             <strong class="ms-2">Checking routing status</strong>
             <span class="ms-2">Loading Cloudflare configuration</span>
           </alert>

@@ -1,11 +1,11 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { ExternalSystems, Organisation } from "./system.model";
-import { CommitteeReferenceData } from "../services/committee/committee-reference-data";
 import { BannerConfig } from "./banner-configuration.model";
 import { Auditable, HasEmailFirstAndLastName, Member, MemberFilterSelection } from "./member.model";
-import { NotificationDirective } from "../notifications/common/notification.directive";
 import { AuditStatus } from "./audit";
 import { SortDirection } from "./sort.model";
+import { CommitteeReferenceDataLike } from "./committee-reference-data.model";
+import { NotificationHost } from "./notification-host.model";
 
 export enum MailSettingsTab {
   EMAIL_CONFIGURATIONS = "Email Configurations",
@@ -83,7 +83,7 @@ export interface EmailAddress {
 export interface CreateSendSmtpEmailRequest {
   member?: HasEmailFirstAndLastName;
   notificationConfig: NotificationConfig;
-  notificationDirective: NotificationDirective;
+  notificationDirective: NotificationHost;
   bodyContent?: string;
   emailSubject?: string;
   sender?: EmailAddress;
@@ -286,7 +286,7 @@ export interface MailMessagingConfig {
   group: Organisation;
   mailConfig: MailConfig;
   banners: BannerConfig[];
-  committeeReferenceData: CommitteeReferenceData;
+  committeeReferenceData: CommitteeReferenceDataLike;
   notificationConfigs: NotificationConfig[];
 }
 

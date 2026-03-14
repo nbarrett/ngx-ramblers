@@ -27,6 +27,7 @@ import {
   SendSmtpEmailRequest,
   SystemMergeFields
 } from "../../models/mail.model";
+import { NotificationHost } from "../../models/notification-host.model";
 import { DateUtilsService } from "../date-utils.service";
 import { CommitteeConfigService } from "../committee/commitee-config.service";
 import { SystemConfigService } from "../system/system-config.service";
@@ -37,7 +38,6 @@ import { UrlService } from "../url.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { NotificationComponent } from "../../notifications/common/notification.component";
 import { ContactUsComponent } from "../../committee/contact-us/contact-us";
-import { NotificationDirective } from "../../notifications/common/notification.directive";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
 import { extractParametersFrom, notificationMappings } from "../../common/mail-parameters";
 import { KeyValue } from "../../functions/enums";
@@ -372,7 +372,7 @@ export class MailMessagingService {
     return emailRequest;
   }
 
-  public createSendSmtpEmailParams(signoffRoles: string[], notificationDirective: NotificationDirective, member: Member, notificationConfig: NotificationConfig, bodyContent: string, includeSignOffNames: boolean, subject?: string, addresseeType?: string) {
+  public createSendSmtpEmailParams(signoffRoles: string[], notificationDirective: NotificationHost, member: Member, notificationConfig: NotificationConfig, bodyContent: string, includeSignOffNames: boolean, subject?: string, addresseeType?: string) {
     this.logger.info("createSendSmtpEmailParams:notificationConfig:", notificationConfig, "member:", member);
     const params = {
       messageMergeFields: {
@@ -390,15 +390,16 @@ export class MailMessagingService {
     return params;
   }
 
-  private signoffNames(roles: string[], notificationDirective: NotificationDirective): string {
+  private signoffNames(roles: string[], notificationDirective: NotificationHost): string {
     this.logger.info("signoffNames for roles:", roles);
     const componentAndData = new NotificationComponent<ContactUsComponent>(ContactUsComponent);
     if (notificationDirective?.viewContainerRef) {
       notificationDirective.viewContainerRef.clear();
-      const componentRef = notificationDirective.viewContainerRef.createComponent(componentAndData.component);
-      componentRef.instance.roles = roles;
-      componentRef.instance.emailStyle = true;
-      componentRef.instance.format = "list";
+      const componentRef = notificationDirective.viewContainerRef.createComponent<ContactUsComponent>(componentAndData.component);
+      const componentInstance = componentRef.instance as ContactUsComponent;
+      componentInstance.roles = roles;
+      componentInstance.emailStyle = true;
+      componentInstance.format = "list";
       componentRef.changeDetectorRef.detectChanges();
       const html = componentRef.location.nativeElement.innerHTML;
       this.logger.info("signoffNames ->", html);

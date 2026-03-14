@@ -12,3 +12,9 @@ export interface CropperDebugOffsets {
   originXOffset: number;
   originYOffset: number;
 }
+
+export interface FocalPoint {
+  x: number;
+  y: number;
+  zoom?: number;
+}

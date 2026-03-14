@@ -314,7 +314,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                             <td>
                               <span class="session-status" [ngClass]="statusStyle(session.status)">
                                 @if (session.status === 'in_progress') {
-                                  <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
+                                  <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
                                 }
                                 {{ humaniseStatus(session.status) }}
                               </span>

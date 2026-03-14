@@ -19,7 +19,7 @@ import { FilterCriteria } from "../../models/api-request.model";
 import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-group-event-query.service";
 import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
 import { WalksConfigService } from "../system/walks-config.service";
-import { WalksConfig } from "../../models/walk-notification.model";
+import { WalksConfig } from "../../models/walks-config.model";
 import { groupBy } from "es-toolkit/compat";
 import { firstPopulated, sortBy } from "../../functions/arrays";
 import { last } from "es-toolkit/compat";

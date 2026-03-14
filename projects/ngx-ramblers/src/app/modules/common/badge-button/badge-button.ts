@@ -14,14 +14,14 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               'me-0': noRightMargin, 'badge-button-active': active, 'w-100': fullWidth, 'float-end': alignRight}"
         delay=500 tooltip="{{tooltip? null: caption}}" [ngStyle]="{'height.px': height}">
         @if (!iconPositionRight && icon) {
-          <fa-icon [icon]="icon" [spin]="spin"></fa-icon>
+          <fa-icon [icon]="icon" [animation]="spin ? 'spin' : undefined"></fa-icon>
         }
         @if (caption) {
           <span>{{caption}}</span>
         }
         <ng-content/>
         @if (iconPositionRight && icon) {
-          <fa-icon class="ms-2" [icon]="icon" [spin]="spin"></fa-icon>
+          <fa-icon class="ms-2" [icon]="icon" [animation]="spin ? 'spin' : undefined"></fa-icon>
         }
       </div>`,
     imports: [NgClass, TooltipDirective, NgStyle, FontAwesomeModule]

@@ -5,7 +5,7 @@ import { shareReplay } from "rxjs/operators";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { BookingConfig, BOOKING_EVENT_TYPES } from "../../models/booking-config.model";
 import { ConfigKey } from "../../models/config.model";
-import { WalksConfig } from "../../models/walk-notification.model";
+import { WalksConfig } from "../../models/walks-config.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";

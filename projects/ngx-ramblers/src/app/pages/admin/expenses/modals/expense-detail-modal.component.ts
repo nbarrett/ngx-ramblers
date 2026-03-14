@@ -7,7 +7,7 @@ import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { DateValue } from "../../../../models/date.model";
 import { Confirm, EditMode } from "../../../../models/ui-actions";
-import { ExpenseClaim, ExpenseItem, ExpenseType } from "../../../../notifications/expenses/expense.model";
+import { ExpenseClaim, ExpenseItem, ExpenseType } from "../../../../models/expense-claim.model";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { ExpenseDisplayService } from "../../../../services/expenses/expense-display.service";
 import { FileUploadService } from "../../../../services/file-upload.service";

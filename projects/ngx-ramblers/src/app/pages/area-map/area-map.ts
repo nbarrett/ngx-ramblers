@@ -310,7 +310,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
         <div class="map-container card shadow d-flex align-items-center justify-content-center rounded"
              [style.height.px]="mapHeight">
           <div class="map-loading">
-            <fa-icon class="map-loading-icon" [icon]="faSpinner" [spin]="true" [pulse]="true"></fa-icon>
+            <fa-icon class="map-loading-icon" [icon]="faSpinner" animation="spin-pulse"></fa-icon>
             <div class="map-loading-text">Loading area map data…</div>
           </div>
         </div>

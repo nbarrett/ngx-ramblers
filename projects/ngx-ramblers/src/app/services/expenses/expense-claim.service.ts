@@ -3,7 +3,7 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { ExpenseClaim, ExpenseClaimApiResponse } from "../../notifications/expenses/expense.model";
+import { ExpenseClaim, ExpenseClaimApiResponse } from "../../models/expense-claim.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 

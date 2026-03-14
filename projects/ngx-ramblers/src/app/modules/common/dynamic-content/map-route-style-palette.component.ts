@@ -1,5 +1,5 @@
 import { Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { MapRoute, PaletteColor } from "../../../models/content-text.model";
 import { isUndefined } from "es-toolkit/compat";
@@ -8,7 +8,7 @@ import { enumValues } from "../../../functions/enums";
 @Component({
   selector: "app-map-route-style-palette",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   styles: [`
     :host
       display: inline-block

@@ -6,8 +6,8 @@ import { GroupEventDisplayService } from "../../../pages/group-events/group-even
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
-import { CommitteeReferenceData } from "../../../services/committee/committee-reference-data";
 import { MailMessagingConfig } from "../../../models/mail.model";
+import { CommitteeReferenceDataLike } from "../../../models/committee-reference-data.model";
 import { PageService } from "../../../services/page.service";
 import { LinkComponent } from "../../../link/link";
 import { MarkdownComponent } from "ngx-markdown";
@@ -156,7 +156,7 @@ export class GroupEventNotificationDetails implements OnInit {
     this.latestNotification = last(this.groupEvent?.fields.notifications);
   }
 
-  committeeReferenceDataSource(): CommitteeReferenceData {
+  committeeReferenceDataSource(): CommitteeReferenceDataLike {
     return this.mailMessagingConfig.committeeReferenceData.createFrom(this.display?.committeeMembersPlusOrganiser(this.groupEvent, this.members));
   }
 

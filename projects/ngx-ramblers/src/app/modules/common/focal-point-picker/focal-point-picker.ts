@@ -2,12 +2,9 @@ import { Component, ElementRef, EventEmitter, inject, Input, NgZone, Output, Vie
 import { DecimalPipe, NgStyle } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { rangeSliderStyles } from "../../../components/range-slider.styles";
+import { FocalPoint } from "../../../models/image-cropper.model";
 
-export interface FocalPoint {
-  x: number;
-  y: number;
-  zoom?: number;
-}
+export type { FocalPoint } from "../../../models/image-cropper.model";
 
 @Component({
   selector: "app-focal-point-picker",

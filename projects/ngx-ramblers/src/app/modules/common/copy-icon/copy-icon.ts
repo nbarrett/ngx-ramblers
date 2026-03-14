@@ -40,7 +40,7 @@ export class CopyIconComponent implements OnInit {
   @Input()
   value: string;
   @Input()
-  icon: IconDefinition;
+  icon: IconDefinition = faCopy;
   @Input()
   iconClass: string;
   elementName: string;
@@ -52,7 +52,6 @@ export class CopyIconComponent implements OnInit {
   ngOnInit() {
     this.logger.debug("initialised with elementName", this.elementName, "value:", this.value);
     this.initialiseTooltips();
-    this.icon = this.icon || faCopy;
   }
 
   private initialiseTooltips() {

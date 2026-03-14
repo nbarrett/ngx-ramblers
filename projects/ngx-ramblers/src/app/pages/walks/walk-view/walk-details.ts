@@ -32,8 +32,6 @@ import { enumValueForKey } from "../../../functions/enums";
           <fa-icon class="{{display.eventType(displayedWalk.walk)}}"
                    tooltip="{{stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type)}}" adaptivePosition
                    [icon]="display.isWalk(displayedWalk.walk)? displayedWalk.showEndpoint? faPersonWalkingDashedLineArrowRight: faPersonWalkingArrowLoopLeft: faPeopleGroup"/>
-          <fa-icon [icon]=""
-                   class="fa-icon me-2"/>
           {{ display.isWalk(displayedWalk.walk) ? enumValueForKey(WalkType, displayedWalk.walk?.groupEvent?.shape) : null }}
           {{ display.eventTypeTitle(displayedWalk.walk) }}
           {{ display.isWalk(displayedWalk.walk) ? 'Starting Point &' : '' }} Details

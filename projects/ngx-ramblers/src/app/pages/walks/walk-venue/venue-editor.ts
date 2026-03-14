@@ -101,7 +101,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                         (click)="searchForWebsite()"
                         tooltip="Search for venue website">
                   @if (searchingWebsite) {
-                    <fa-icon [icon]="faSpinner" [spin]="true"></fa-icon>
+                    <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
                   } @else {
                     <fa-icon [icon]="faSearch"></fa-icon>
                   }
