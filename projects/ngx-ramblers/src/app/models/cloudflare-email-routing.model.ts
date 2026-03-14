@@ -121,6 +121,22 @@ export interface CreateOrUpdateWorkerRequest {
   enabled: boolean;
 }
 
+export enum EmailRoutingLogStatus {
+  FORWARDED = "Forwarded",
+  REJECTED = "Rejected",
+  DROPPED = "Dropped",
+  DELIVERY_FAILED = "Delivery Failed",
+  DELIVERED = "Delivered"
+}
+
+export enum EmailAuthResult {
+  PASS = "pass",
+  FAIL = "fail",
+  SOFTFAIL = "softfail",
+  HARDFAIL = "hardfail",
+  NONE = "none"
+}
+
 export interface EmailRoutingLogEntry {
   datetime: string;
   sessionId: string;

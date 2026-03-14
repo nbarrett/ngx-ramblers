@@ -13,45 +13,12 @@ import {
   sendBookingWaitlistedEmail,
   sendBookingRestoredEmail
 } from "../../brevo/transactional-mail/send-booking-email";
-import { WalksConfig } from "../../../../projects/ngx-ramblers/src/app/models/walks-config.model";
-import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
-import { bookingEnabledForEventType, BookingConfig } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
-import { queryKey } from "./config";
+import { BookingConfig, bookingEnabledForEventType } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
+import { loadBookingConfig } from "../../config/booking-config";
 
 const controller = crudController.create<Booking>(booking);
 const debugLog = debug(envConfig.logNamespace("booking"));
 debugLog.enabled = true;
-
-async function loadBookingConfig(): Promise<BookingConfig | null> {
-  try {
-    const [configDoc, legacyWalksConfigDoc] = await Promise.all([
-      queryKey(ConfigKey.BOOKING),
-      queryKey(ConfigKey.WALKS)
-    ]);
-    return mergeWithLegacyBookingConfig(configDoc?.value as BookingConfig || null, legacyWalksConfigDoc?.value as WalksConfig || null);
-  } catch (error) {
-    debugLog("failed to load booking config:", error);
-    return null;
-  }
-}
-
-function mergeWithLegacyBookingConfig(config: BookingConfig | null, walksConfig: WalksConfig | null): BookingConfig | null {
-  const legacyConfig = (walksConfig as WalksConfig & { booking?: BookingConfig })?.booking || null;
-  if (!config && !legacyConfig) {
-    return null;
-  }
-  return {
-    enabled: config?.enabled ?? legacyConfig?.enabled ?? false,
-    enabledForEventTypes: config?.enabledForEventTypes?.length > 0
-      ? config.enabledForEventTypes
-      : legacyConfig?.enabledForEventTypes?.length > 0
-        ? legacyConfig.enabledForEventTypes
-        : null,
-    defaultMaxCapacity: config?.defaultMaxCapacity || legacyConfig?.defaultMaxCapacity || 0,
-    defaultMaxGroupSize: config?.defaultMaxGroupSize || legacyConfig?.defaultMaxGroupSize || 3,
-    defaultMemberPriorityDays: config?.defaultMemberPriorityDays || legacyConfig?.defaultMemberPriorityDays || 0
-  };
-}
 
 function normalisedAttendeeEmails(bookingData: Booking): string[] {
   return (bookingData.attendees || [])

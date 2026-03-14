@@ -3,34 +3,46 @@ import { NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-sele
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { bookingEnabledForEventType, BookingConfig, enabledBookingEventTypes } from "../../../models/booking-config.model";
-import { Booking, BookingApiResponse, BookingStatus, BookingSummaryRow } from "../../../models/booking.model";
+import {
+  bookingEnabledForEventType,
+  BookingConfig,
+  BookingEmailTemplates,
+  BookingEmailType,
+  BookingPlaceholder,
+  enabledBookingEventTypes
+} from "../../../models/booking-config.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { ContentText, InsertableField, View } from "../../../models/content-text.model";
+import { Booking, BookingApiResponse, BookingStatus, BookingSummaryRow } from "../../../models/booking.model";
 import { BookingService } from "../../../services/booking.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faDownload, faTicket, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faDownload, faEye, faPencil, faTicket, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FormsModule } from "@angular/forms";
 import { CsvExportComponent, CsvOptions } from "../../../csv-export/csv-export";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { MarkdownComponent } from "ngx-markdown";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { StoredValue } from "../../../models/ui-actions";
 import { ActivatedRoute, Router } from "@angular/router";
 import { kebabCase } from "es-toolkit/compat";
+import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { BookingConfigService } from "../../../services/system/booking-config.service";
 import { GroupEventField } from "../../../models/walk.model";
 import { EventQueryParameters, RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { SectionToggle } from "../../../shared/components/section-toggle";
 
 export enum BookingTab {
   SUMMARY = "Summary",
   PER_EVENT_DETAIL = "Per-Event Detail",
-  CONFIGURATION = "Configuration"
+  CONFIGURATION = "Configuration",
+  EMAIL_TEMPLATES = "Default Email Templates"
 }
 
 @Component({
@@ -125,17 +137,40 @@ export enum BookingTab {
                       <div class="col-sm-6 col-lg-4">
                         <label class="form-label" for="selected-event-max-capacity">Max capacity for this event</label>
                         <input [(ngModel)]="selectedEventMaxCapacity"
+                               (ngModelChange)="markSelectedEventDirty()"
                                type="number"
                                min="0"
                                class="form-control"
                                id="selected-event-max-capacity"
                                placeholder="0 = no bookings">
                       </div>
-                      <div class="col-sm-6 col-lg-3 mt-2 mt-sm-0">
-                        <button type="button" class="btn btn-success w-100" (click)="saveSelectedEventCapacity()">
-                          Save capacity
+                    </div>
+                    <hr class="my-3"/>
+                    <h6>Per-event email overrides (optional)</h6>
+                    <p class="text-muted mb-2">Override the default email templates for this event only. Leave blank to use the global templates. Use the <strong>#</strong> button on the toolbar to insert placeholders.</p>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <app-section-toggle
+                        [tabs]="emailTemplateTabs"
+                        [(selectedTab)]="selectedEventEmailOverrideType"/>
+                      @if (!selectedEventEmailOverrideValue()) {
+                        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="loadDefaultForOverride(selectedEventEmailOverrideType)">
+                          Load default
                         </button>
-                      </div>
+                      }
+                    </div>
+                    <app-markdown-editor [data]="{text: selectedEventEmailOverrideValue()}"
+                                         [name]="'event-' + selectedEventEmailOverrideType + '-override'"
+                                         [initialView]="View.EDIT"
+                                         [rows]="10"
+                                         [insertableFields]="placeholderFields"
+                                         (changed)="eventEmailOverrideChanged(selectedEventEmailOverrideType, $event)"/>
+                    <div class="d-flex justify-content-start gap-2 mt-3 mb-3">
+                      <button type="button" class="btn btn-success" (click)="saveSelectedEventChanges()">
+                        Save all changes
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary" (click)="revertSelectedEventChanges()">
+                        Revert changes
+                      </button>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-3">
                       <p class="mb-0 text-muted">{{ eventBookings.length }} bookings for this event</p>
@@ -194,6 +229,10 @@ export enum BookingTab {
                    (selectTab)="selectTab(BookingTab.CONFIGURATION)"
                    [heading]="BookingTab.CONFIGURATION">
                 <div class="img-thumbnail thumbnail-admin-edit">
+                  <div class="col-sm-12 mb-3">
+                    <app-markdown-editor standalone category="admin" name="bookings-configuration-help"
+                                        description="Bookings Configuration Help"/>
+                  </div>
                   @if (bookingConfig) {
                     <div>
                       <div class="form-check mb-3">
@@ -244,12 +283,63 @@ export enum BookingTab {
                                  min="0" max="365"
                                  placeholder="0">
                         </div>
+                        <div class="form-group mb-3">
+                          <label for="reminder-days-before">Reminder days before event (0 = no reminders)</label>
+                          <input [(ngModel)]="bookingConfig.reminderDaysBefore"
+                                 type="number"
+                                 class="form-control input-sm"
+                                 id="reminder-days-before"
+                                 min="0" max="30"
+                                 placeholder="0">
+                        </div>
                       }
                       <div class="d-flex justify-content-start">
                         <button type="button" class="btn btn-success" (click)="saveBookingConfig()">
                           Save booking configuration
                         </button>
                       </div>
+                    </div>
+                  }
+                </div>
+              </tab>
+              <tab [active]="tabActive(BookingTab.EMAIL_TEMPLATES)"
+                   (selectTab)="selectTab(BookingTab.EMAIL_TEMPLATES)"
+                   [heading]="BookingTab.EMAIL_TEMPLATES">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <div class="col-sm-12 mb-3">
+                    <app-markdown-editor standalone category="admin" name="bookings-email-templates-help"
+                                        description="Email Templates Help"/>
+                  </div>
+                  @if (bookingConfig) {
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <app-section-toggle
+                        [tabs]="emailTemplateTabs"
+                        [(selectedTab)]="selectedEmailTemplateType"/>
+                      <button type="button" class="btn btn-sm"
+                              [class.btn-secondary]="emailTemplateView === View.EDIT"
+                              [class.btn-outline-secondary]="emailTemplateView !== View.EDIT"
+                              (click)="toggleEmailTemplateView()">
+                        <fa-icon [icon]="emailTemplateView === View.EDIT ? faEye : faPencil" class="me-1"/>
+                        {{ emailTemplateView === View.EDIT ? 'Preview' : 'Edit' }}
+                      </button>
+                    </div>
+                    @if (emailTemplateView === View.EDIT) {
+                      <app-markdown-editor [data]="{text: emailTemplateValue(selectedEmailTemplateType)}"
+                                           [name]="selectedEmailTemplateType + '-template'"
+                                           [initialView]="View.EDIT"
+                                           [rows]="15"
+                                           [insertableFields]="placeholderFields"
+                                           (changed)="emailTemplateChanged(selectedEmailTemplateType, $event)"/>
+                    } @else {
+                      <div class="border rounded p-3" markdown ngPreserveWhitespaces [data]="emailTemplateValue(selectedEmailTemplateType) || '*No template configured*'"></div>
+                    }
+                    <div class="d-flex justify-content-start gap-2 mt-3">
+                      <button type="button" class="btn btn-success" (click)="saveBookingConfig()">
+                        Save email templates
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary" (click)="revertEmailTemplates()">
+                        Revert changes
+                      </button>
                     </div>
                   }
                 </div>
@@ -266,7 +356,7 @@ export enum BookingTab {
       .cursor-pointer
         cursor: pointer
     `],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, CsvExportComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, NgSelectComponent, NgOptionTemplateDirective]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, CsvExportComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, MarkdownComponent, NgSelectComponent, NgOptionTemplateDirective, SectionToggle]
 })
 export class BookingsComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("BookingsComponent", NgxLoggerLevel.ERROR);
@@ -275,13 +365,15 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private notifierService = inject(NotifierService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private bookingConfigService = inject(BookingConfigService);
-  private stringUtils = inject(StringUtilsService);
+  protected stringUtils = inject(StringUtilsService);
   private activatedRoute = inject(ActivatedRoute);
   private router = inject(Router);
 
   faTicket = faTicket;
   faDownload = faDownload;
   faTrash = faTrash;
+  faEye = faEye;
+  faPencil = faPencil;
 
   notifyTarget: AlertTarget = {};
   notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -305,6 +397,17 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   protected readonly BookingTab = BookingTab;
   protected readonly BookingStatus = BookingStatus;
+  protected readonly View = View;
+  emailTemplateTypes: BookingEmailType[] = enumKeyValues(BookingEmailType).map(p => p.value as BookingEmailType);
+  selectedEmailTemplateType: BookingEmailType = BookingEmailType.CONFIRMATION;
+  selectedEventEmailOverrideType: BookingEmailType = BookingEmailType.CONFIRMATION;
+  emailTemplateTabs = this.emailTemplateTypes.map(type => ({value: type, label: this.stringUtils.asTitle(type)}));
+  emailTemplateView: View = View.EDIT;
+  private dirtyEventIds: Set<string> = new Set();
+  placeholderFields: InsertableField[] = enumKeyValues(BookingPlaceholder).map(p => ({
+    label: this.stringUtils.asTitle(p.value),
+    value: `{{${p.value}}}`
+  }));
 
   @ViewChild("csvComponent") csvComponent: CsvExportComponent;
 
@@ -474,31 +577,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.loadEventBookings();
   }
 
-  async saveSelectedEventCapacity() {
-    const selectedEvent = this.eventsMap.get(this.selectedEventId);
-    if (!selectedEvent) {
-      this.notify.error({title: "Save failed", message: "Please select an event first"});
-      return;
-    }
-    try {
-      const updatedEvent: ExtendedGroupEvent = {
-        ...selectedEvent,
-        fields: {
-          ...selectedEvent.fields,
-          maxCapacity: this.selectedEventMaxCapacity > 0 ? this.selectedEventMaxCapacity : null
-        }
-      };
-      const savedEvent = await this.walksAndEventsService.update(updatedEvent);
-      this.eventsMap.set(savedEvent.id, savedEvent);
-      this.buildSummaryRows();
-      await this.loadFutureEvents();
-      this.onSelectedEventChange();
-      this.notify.success({title: "Saved", message: "Event booking capacity updated"});
-    } catch (error) {
-      this.notify.error({title: "Save failed", message: "Could not update event booking capacity"});
-      this.logger.error("saveSelectedEventCapacity failed:", error);
-    }
-  }
+
 
   async saveBookingConfig() {
     try {
@@ -510,6 +589,15 @@ export class BookingsComponent implements OnInit, OnDestroy {
       this.notify.error({title: "Save failed", message: "Could not update booking configuration"});
       this.logger.error("saveBookingConfig failed:", error);
     }
+  }
+
+  toggleEmailTemplateView() {
+    this.emailTemplateView = this.emailTemplateView === View.EDIT ? View.VIEW : View.EDIT;
+  }
+
+  async revertEmailTemplates() {
+    await this.bookingConfigService.refresh();
+    this.notify.success({title: "Reverted", message: "Email templates restored to last saved state"});
   }
 
   async deleteBooking(booking: Booking) {
@@ -593,5 +681,86 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private eventSelectorLabel(title: string, eventType: RamblersEventType, startDateTime: string): string {
     const eventDate = startDateTime ? this.dateUtils.displayDate(this.dateUtils.asValueNoTime(startDateTime)) : "";
     return `${this.eventTypeLabel(eventType)}: ${title} (${eventDate})`;
+  }
+
+  placeholderList(): string {
+    return enumKeyValues(BookingPlaceholder).map(p => `{{${p.value}}}`).join(", ");
+  }
+
+  emailTemplateValue(emailType: BookingEmailType): string {
+    return this.bookingConfig?.emailTemplates?.[emailType] || "";
+  }
+
+  emailTemplateChanged(emailType: BookingEmailType, event: ContentText) {
+    if (!this.bookingConfig.emailTemplates) {
+      this.bookingConfig.emailTemplates = {} as BookingEmailTemplates;
+    }
+    this.bookingConfig.emailTemplates[emailType] = event.text || "";
+  }
+
+  selectedEventEmailOverrideValue(): string {
+    const overrides = this.eventsMap.get(this.selectedEventId)?.fields?.bookingEmailOverrides;
+    return overrides?.[this.selectedEventEmailOverrideType] || "";
+  }
+
+  loadDefaultForOverride(emailType: BookingEmailType) {
+    const defaultText = this.bookingConfig?.emailTemplates?.[emailType] || "";
+    if (!defaultText) {
+      this.notify.warning({title: "No default", message: "No default template configured for " + this.stringUtils.asTitle(emailType)});
+      return;
+    }
+    this.eventEmailOverrideChanged(emailType, {text: defaultText});
+  }
+
+  eventEmailOverrideChanged(emailType: BookingEmailType, event: ContentText) {
+    const selectedEvent = this.eventsMap.get(this.selectedEventId);
+    if (!selectedEvent) {
+      return;
+    }
+    if (!selectedEvent.fields.bookingEmailOverrides) {
+      selectedEvent.fields.bookingEmailOverrides = {};
+    }
+    selectedEvent.fields.bookingEmailOverrides[emailType] = event.text || "";
+    this.markSelectedEventDirty();
+  }
+
+  markSelectedEventDirty() {
+    if (this.selectedEventId) {
+      this.dirtyEventIds.add(this.selectedEventId);
+    }
+  }
+
+  async saveSelectedEventChanges() {
+    const selectedEvent = this.eventsMap.get(this.selectedEventId);
+    if (!selectedEvent) {
+      this.notify.error({title: "Save failed", message: "Please select an event first"});
+      return;
+    }
+    try {
+      const updatedEvent: ExtendedGroupEvent = {
+        ...selectedEvent,
+        fields: {
+          ...selectedEvent.fields,
+          maxCapacity: this.selectedEventMaxCapacity > 0 ? this.selectedEventMaxCapacity : null,
+          bookingEmailOverrides: selectedEvent.fields.bookingEmailOverrides || null
+        }
+      };
+      const savedEvent = await this.walksAndEventsService.update(updatedEvent);
+      this.eventsMap.set(savedEvent.id, savedEvent);
+      this.dirtyEventIds.delete(this.selectedEventId);
+      this.buildSummaryRows();
+      await this.loadFutureEvents();
+      this.notify.success({title: "Saved", message: "Event changes saved"});
+    } catch (error) {
+      this.notify.error({title: "Save failed", message: "Could not save event changes"});
+      this.logger.error("saveSelectedEventChanges failed:", error);
+    }
+  }
+
+  async revertSelectedEventChanges() {
+    await this.loadFutureEvents();
+    this.dirtyEventIds.delete(this.selectedEventId);
+    this.onSelectedEventChange();
+    this.notify.success({title: "Reverted", message: "Event changes reverted"});
   }
 }

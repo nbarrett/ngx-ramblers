@@ -4,7 +4,9 @@ import { DateTime } from "luxon";
 import { sortBy } from "es-toolkit/compat";
 import { ASCENDING, DESCENDING } from "../../../../models/table-filtering.model";
 import {
+  EmailAuthResult,
   EmailRoutingLogEntry,
+  EmailRoutingLogStatus,
   WorkerInvocationSummary
 } from "../../../../models/cloudflare-email-routing.model";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
@@ -43,7 +45,7 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
     <h6 class="section-heading">Email Routing Log</h6>
     @if (emailRoutingLogs?.length) {
       <div class="table-responsive" style="max-height: 400px; overflow-y: auto">
-        <table class="table table-sm table-striped">
+        <table class="table table-sm email-log-table">
           <thead class="sticky-top bg-white">
             <tr>
               <th class="sortable-header" (click)="sortEmailLogsBy('datetime')">
@@ -74,6 +76,27 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
                   }
                 </span>
               </th>
+              <th class="sortable-header" (click)="sortEmailLogsBy('spf')">
+                <span class="nowrap">SPF
+                  @if (emailLogSortField === 'spf') {
+                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
+                  }
+                </span>
+              </th>
+              <th class="sortable-header" (click)="sortEmailLogsBy('dkim')">
+                <span class="nowrap">DKIM
+                  @if (emailLogSortField === 'dkim') {
+                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
+                  }
+                </span>
+              </th>
+              <th class="sortable-header" (click)="sortEmailLogsBy('dmarc')">
+                <span class="nowrap">DMARC
+                  @if (emailLogSortField === 'dmarc') {
+                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
+                  }
+                </span>
+              </th>
               <th class="sortable-header" (click)="sortEmailLogsBy('errorDetail')">
                 <span class="nowrap">Error
                   @if (emailLogSortField === 'errorDetail') {
@@ -83,35 +106,25 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
               </th>
             </tr>
           </thead>
-          <tbody>
-            @for (log of emailRoutingLogs; track log.sessionId) {
+          @for (log of emailRoutingLogs; track log.sessionId; let even = $even) {
+            <tbody [class.striped-group]="even">
               <tr>
                 <td class="small text-nowrap">{{ log.datetime | displayDateAbbreviatedTime }}</td>
                 <td class="small">{{ log.from }}</td>
                 <td class="small">{{ log.to }}</td>
-                <td>
-                  @switch (log.status) {
-                    @case ("Forwarded") {
-                      <span class="badge text-style-sunset">{{ log.status }}</span>
-                    }
-                    @case ("Rejected") {
-                      <span class="badge bg-danger">{{ log.status }}</span>
-                    }
-                    @case ("Dropped") {
-                      <span class="badge bg-warning">{{ log.status }}</span>
-                    }
-                    @case ("Delivery Failed") {
-                      <span class="badge bg-danger">{{ log.status }}</span>
-                    }
-                    @default {
-                      <span class="badge text-style-sunset">{{ log.status }}</span>
-                    }
-                  }
-                </td>
+                <td><span [class]="statusBadgeClass(log.status)">{{ log.status }}</span></td>
+                <td>@if (log.spf) {<span [class]="authBadgeClass(log.spf)">{{ log.spf }}</span>}</td>
+                <td>@if (log.dkim) {<span [class]="authBadgeClass(log.dkim)">{{ log.dkim }}</span>}</td>
+                <td>@if (log.dmarc) {<span [class]="authBadgeClass(log.dmarc)">{{ log.dmarc }}</span>}</td>
                 <td class="small">{{ log.errorDetail }}</td>
               </tr>
-            }
-          </tbody>
+              @if (authSummary(log)) {
+                <tr>
+                  <td colspan="8" class="small text-muted border-0 pt-0 pb-2">{{ authSummary(log) }}</td>
+                </tr>
+              }
+            </tbody>
+          }
         </table>
       </div>
     }
@@ -170,7 +183,7 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
                     @if (log.errors > 0) {
                       <span class="badge bg-danger">{{ log.status }}</span>
                     } @else {
-                      <span class="badge text-style-sunset">{{ log.status }}</span>
+                      <span class="badge bg-success">{{ log.status }}</span>
                     }
                   </td>
                   <td>{{ log.requests }}</td>
@@ -198,6 +211,17 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
       border-top: 1px solid #dee2e6
       padding-top: 0.75rem
       margin: 0.75rem 0
+    .auth-badge-neutral
+      background-color: #adb5bd !important
+      color: #fff !important
+    .email-log-table tbody tr
+      --bs-table-bg: #fff
+    .email-log-table tbody.striped-group tr
+      --bs-table-bg: #f2f2f2
+    .email-log-table tbody tr td
+      border-bottom: none
+    .email-log-table tbody
+      border-bottom: 1px solid #dee2e6
   `],
   imports: [AlertComponent, FontAwesomeModule, CloudflareButton, DateRangeSlider, DisplayDateAbbreviatedTimePipe]
 })
@@ -211,8 +235,20 @@ export class EmailRoutingLogComponent implements OnInit {
   protected readonly ALERT_ERROR = ALERT_ERROR;
 
   @Input() roleEmail: string;
-  @Input() workerScriptName: string;
   @Input() routeType: string;
+  private _workerScriptName: string;
+
+  @Input() set workerScriptName(value: string) {
+    const changed = this._workerScriptName !== value;
+    this._workerScriptName = value;
+    if (changed && value && this.logDateRange) {
+      this.refreshWorkerLogs();
+    }
+  }
+
+  get workerScriptName(): string {
+    return this._workerScriptName;
+  }
 
   emailRoutingLogs: EmailRoutingLogEntry[];
   workerLogs: WorkerInvocationSummary[];
@@ -242,10 +278,17 @@ export class EmailRoutingLogComponent implements OnInit {
     this.refreshAll();
   }
 
-  refreshAll() {
-    this.refreshEmailRoutingLogs();
-    if (this.workerScriptName) {
-      this.refreshWorkerLogs();
+  async refreshAll() {
+    this.loading = true;
+    this.error = null;
+    try {
+      const promises: Promise<void>[] = [this.refreshEmailRoutingLogs()];
+      if (this.workerScriptName) {
+        promises.push(this.refreshWorkerLogs());
+      }
+      await Promise.all(promises);
+    } finally {
+      this.loading = false;
     }
   }
 
@@ -291,45 +334,113 @@ export class EmailRoutingLogComponent implements OnInit {
   }
 
   private async refreshEmailRoutingLogs() {
-    this.loading = true;
-    this.error = null;
+    const fromDate = DateTime.fromMillis(this.logDateRange.from);
+    const toDate = DateTime.fromMillis(this.logDateRange.to);
     try {
-      const fromDate = DateTime.fromMillis(this.logDateRange.from);
-      const toDate = DateTime.fromMillis(this.logDateRange.to);
-      const rawLogs = await this.cloudflareEmailRoutingService.queryEmailRoutingLogs({
+      this.emailRoutingLogs = await this.cloudflareEmailRoutingService.queryEmailRoutingLogs({
         startDate: fromDate.toISO(),
         endDate: toDate.toISO(),
         recipientEmail: this.roleEmail,
         limit: 100
       });
-      this.emailRoutingLogs = rawLogs;
       this.applySortToEmailLogs();
     } catch (err) {
       this.error = this.friendlyError(err);
-    } finally {
-      this.loading = false;
     }
   }
 
   private async refreshWorkerLogs() {
-    this.loading = true;
-    this.error = null;
+    const fromDate = DateTime.fromMillis(this.logDateRange.from);
+    const toDate = DateTime.fromMillis(this.logDateRange.to);
     try {
-      const fromDate = DateTime.fromMillis(this.logDateRange.from);
-      const toDate = DateTime.fromMillis(this.logDateRange.to);
-      const rawLogs = await this.cloudflareEmailRoutingService.queryWorkerLogs({
+      this.workerLogs = await this.cloudflareEmailRoutingService.queryWorkerLogs({
         startDate: fromDate.toISO(),
         endDate: toDate.toISO(),
         scriptName: this.workerScriptName,
         limit: 100
       });
-      this.workerLogs = rawLogs;
       this.applySortToWorkerLogs();
     } catch (err) {
       this.error = this.friendlyError(err);
-    } finally {
-      this.loading = false;
     }
+  }
+
+  statusBadgeClass(status: string): string {
+    if (status === EmailRoutingLogStatus.FORWARDED || status === EmailRoutingLogStatus.DELIVERED) {
+      return "badge bg-success";
+    } else if (status === EmailRoutingLogStatus.DROPPED && this.routeType === "worker") {
+      return "badge bg-success";
+    } else if (status === EmailRoutingLogStatus.REJECTED || status === EmailRoutingLogStatus.DELIVERY_FAILED) {
+      return "badge bg-danger";
+    } else if (status === EmailRoutingLogStatus.DROPPED) {
+      return "badge bg-warning";
+    } else {
+      return "badge text-style-sunset";
+    }
+  }
+
+  authBadgeClass(value: string): string {
+    const lower = (value || "").toLowerCase();
+    if (lower === EmailAuthResult.PASS) {
+      return "badge bg-success";
+    } else if (lower === EmailAuthResult.FAIL || lower === EmailAuthResult.HARDFAIL) {
+      return "badge bg-danger";
+    } else if (lower === EmailAuthResult.SOFTFAIL) {
+      return "badge bg-warning text-dark";
+    } else {
+      return "badge auth-badge-neutral";
+    }
+  }
+
+  authSummary(log: EmailRoutingLogEntry): string {
+    const spf = (log.spf || "").toLowerCase();
+    const dkim = (log.dkim || "").toLowerCase();
+    const dmarc = (log.dmarc || "").toLowerCase();
+    const status = log.status;
+    const isWorkerRoute = this.routeType === "worker";
+
+    if (status === EmailRoutingLogStatus.DROPPED && isWorkerRoute) {
+      if (spf === EmailAuthResult.PASS && dkim === EmailAuthResult.PASS) {
+        return "Handed off to worker for forwarding — authentication passed";
+      } else {
+        return "Handed off to worker for forwarding";
+      }
+    }
+
+    if (status === EmailRoutingLogStatus.FORWARDED || status === EmailRoutingLogStatus.DELIVERED) {
+      if (spf === EmailAuthResult.PASS && dkim === EmailAuthResult.PASS && dmarc === EmailAuthResult.PASS) {
+        return "Fully authenticated and delivered";
+      } else if (spf === EmailAuthResult.PASS && dkim === EmailAuthResult.PASS) {
+        return "Delivered — SPF and DKIM passed but no DMARC policy on sender domain";
+      } else {
+        return "Delivered despite incomplete authentication";
+      }
+    }
+
+    const failures: string[] = [];
+    if (spf === EmailAuthResult.FAIL || spf === EmailAuthResult.HARDFAIL) {
+      failures.push("SPF failed — sender IP not authorised for this domain");
+    } else if (spf === EmailAuthResult.SOFTFAIL) {
+      failures.push("SPF soft-failed — sender IP not explicitly authorised");
+    }
+    if (dkim === EmailAuthResult.FAIL) {
+      failures.push("DKIM failed — email signature could not be verified");
+    }
+    if (dmarc === EmailAuthResult.FAIL) {
+      failures.push("DMARC failed — sender domain policy rejected this email");
+    }
+    if (failures.length > 0) {
+      return failures.join(". ");
+    }
+
+    if (status === EmailRoutingLogStatus.DROPPED) {
+      return log.errorDetail || "Email was dropped — check worker logs for details";
+    }
+    if (status === EmailRoutingLogStatus.REJECTED) {
+      return "Email was rejected by the routing rule";
+    }
+
+    return "";
   }
 
   private friendlyError(err: any): string {

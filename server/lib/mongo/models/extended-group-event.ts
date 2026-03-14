@@ -109,7 +109,14 @@ const fields = new Schema({
   gpxFile: fileNameData,
   maxCapacity: {type: Number},
   maxGroupSize: {type: Number},
-  memberPriorityDays: {type: Number}
+  memberPriorityDays: {type: Number},
+  bookingEmailOverrides: new Schema({
+    confirmation: {type: String},
+    cancellation: {type: String},
+    waitlisted: {type: String},
+    restored: {type: String},
+    reminder: {type: String}
+  }, {_id: false})
 }, {_id: false});
 
 const extendedGroupEventSchema = new Schema({

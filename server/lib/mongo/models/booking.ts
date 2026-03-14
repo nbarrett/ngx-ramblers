@@ -20,7 +20,8 @@ const bookingSchema = new mongoose.Schema({
   waitlistedAt: {type: Number},
   waitlistedReason: {type: String},
   restoredAt: {type: Number},
-  memberBooking: {type: Boolean, default: false}
+  memberBooking: {type: Boolean, default: false},
+  reminderSentAt: {type: Number}
 }, {collection: "bookings"});
 
 bookingSchema.plugin(uniqueValidator);
