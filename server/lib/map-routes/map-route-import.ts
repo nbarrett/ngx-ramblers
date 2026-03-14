@@ -10,7 +10,7 @@ import * as shapefile from "shapefile";
 import os from "os";
 import { envConfig } from "../env-config/env-config";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { EPSG_27700_PROJ4 } from "../../../projects/ngx-ramblers/src/app/common/maps/map-projection.constants";
+import { EPSG_27700_PROJ4, MapProjectionCode } from "../../../projects/ngx-ramblers/src/app/common/maps/map-projection.constants";
 import { MapRouteImportResponse } from "../../../projects/ngx-ramblers/src/app/models/map-route-import.model";
 import {
   AwsInfo,
@@ -25,7 +25,7 @@ import { isString, keys } from "es-toolkit/compat";
 const debugLog = debug(envConfig.logNamespace("map-route-import"));
 debugLog.enabled = true;
 const BNG_DEF = `${EPSG_27700_PROJ4} +type=crs`;
-proj4.defs("EPSG:27700", BNG_DEF);
+proj4.defs(MapProjectionCode.BRITISH_NATIONAL_GRID, BNG_DEF);
 
 interface GroupedFeatures {
   [key: string]: Feature[];
@@ -270,7 +270,7 @@ function transformGeometryIfNeeded(geometry: Geometry, projection: ProjectionMet
   }
   const transformer: TransformerDescriptor = {
     source: projection.sourceCrs || "unknown",
-    transform: coordinate => proj4("EPSG:27700", "WGS84", coordinate as Coordinate)
+    transform: coordinate => proj4(MapProjectionCode.BRITISH_NATIONAL_GRID, MapProjectionCode.WGS84, coordinate as Coordinate)
   };
   return transformGeometry(geometry, transformer);
 }
@@ -310,7 +310,7 @@ function ensureWgs84(collection: FeatureCollection): ProjectionMetadata {
   return {
     collection: transformed,
     sourceCrs: transformer.source,
-    transformApplied: `${transformer.source}->WGS84`
+    transformApplied: `${transformer.source}->${MapProjectionCode.WGS84}`
   };
 }
 
@@ -325,17 +325,17 @@ function transformerFor(collection: FeatureCollection): TransformerDescriptor | 
   if (crsName.includes("27700") || crsName.includes("BRITISH") || crsName.includes("OSGB")) {
     debugLog("transformerFor: found CRS name indicating OSGB, will transform");
     return {
-      source: crsName || "EPSG:27700",
-      transform: coordinate => proj4("EPSG:27700", "WGS84", coordinate as Coordinate)
+      source: crsName || MapProjectionCode.BRITISH_NATIONAL_GRID,
+      transform: coordinate => proj4(MapProjectionCode.BRITISH_NATIONAL_GRID, MapProjectionCode.WGS84, coordinate as Coordinate)
     };
   }
   const sample = sampleCoordinate(collection);
   debugLog("transformerFor: checking sample coordinate:", sample);
   if (sample && (Math.abs(sample[0]) > 180 || Math.abs(sample[1]) > 90)) {
-    debugLog("transformerFor: sample coordinate is outside WGS84 bounds, assuming OSGB and will transform");
+    debugLog(`transformerFor: sample coordinate is outside ${MapProjectionCode.WGS84} bounds, assuming OSGB and will transform`);
     return {
       source: "detected-27700",
-      transform: coordinate => proj4("EPSG:27700", "WGS84", coordinate as Coordinate)
+      transform: coordinate => proj4(MapProjectionCode.BRITISH_NATIONAL_GRID, MapProjectionCode.WGS84, coordinate as Coordinate)
     };
   }
   debugLog("transformerFor: no transformation needed based on CRS name or sample coordinate");
