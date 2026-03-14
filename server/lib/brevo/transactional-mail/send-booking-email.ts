@@ -15,9 +15,11 @@ import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/s
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { banner } from "../../mongo/models/banner";
 import { notificationConfig } from "../../mongo/models/notification-config";
-import { Booking, BookingAttendee } from "../../../../projects/ngx-ramblers/src/app/models/booking.model";
-import { dateTimeFromIso } from "../../shared/dates";
+import { Booking } from "../../../../projects/ngx-ramblers/src/app/models/booking.model";
 import { sendTransactionalEmailRequest } from "./send-transactional-mail";
+import { BookingEmailType } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
+import { resolveBookingTemplate, subjectForType } from "./booking-template-resolver";
+import { loadBookingConfig } from "../../config/booking-config";
 
 const messageType = "brevo:send-booking-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -68,14 +70,6 @@ function resolveParameter(paramPath: string, params: any): string {
   return paramPath.split(".").reduce((obj, key) => obj?.[key], params) as string;
 }
 
-function formatEventDateTime(startDateTime: string): string {
-  if (!startDateTime) {
-    return "Date to be confirmed";
-  }
-  const dt = dateTimeFromIso(startDateTime);
-  return dt.toFormat("EEEE, d MMMM yyyy 'at' h:mm a");
-}
-
 function publicEventLink(event: any, suppliedEventLink: string | null): string {
   if (suppliedEventLink?.trim()) {
     return suppliedEventLink.trim();
@@ -84,90 +78,24 @@ function publicEventLink(event: any, suppliedEventLink: string | null): string {
   return storedUrl.startsWith("http://") || storedUrl.startsWith("https://") ? storedUrl : "";
 }
 
-function attendeeListHtml(attendees: BookingAttendee[]): string {
-  if (!attendees?.length) {
-    return "";
-  }
-  const items = attendees.map(a => `<li>${a.displayName} (${a.email})</li>`);
-  return `<ul>${items.join("")}</ul>`;
-}
-
-type BookingEmailType = "confirmation" | "cancellation" | "waitlisted" | "restored";
-
-function greetingLine(primaryAttendee: BookingAttendee): string {
-  const firstName = primaryAttendee?.displayName?.split(" ")?.[0] || primaryAttendee?.displayName || "there";
-  return `<p>Hi ${firstName},</p>`;
-}
-
-function buildBodyContent(emailType: BookingEmailType, eventTitle: string, eventDateTime: string, bookingRecord: Booking, eventLink: string): string {
-  const placesCount = bookingRecord.attendees?.length || 0;
-  const attendeeHtml = attendeeListHtml(bookingRecord.attendees);
-  const greeting = greetingLine(bookingRecord.attendees?.[0]);
-  const eventPageText = eventLink ? `<a href="${eventLink}">event page</a>` : "event page";
-
-  if (emailType === "confirmation") {
-    return `${greeting}
-<p>Your booking has been confirmed for <strong>${eventTitle}</strong>.</p>
-<p><strong>Date:</strong> ${eventDateTime}</p>
-<p><strong>Places booked:</strong> ${placesCount}</p>
-<p><strong>Attendees:</strong></p>
-${attendeeHtml}
-<p>If you need to cancel your booking, you can do so from the ${eventPageText} using the email address you booked with.</p>`;
-  } else if (emailType === "cancellation") {
-    return `${greeting}
-<p>Your booking for <strong>${eventTitle}</strong> has been cancelled.</p>
-<p><strong>Date:</strong> ${eventDateTime}</p>
-<p><strong>Places released:</strong> ${placesCount}</p>
-<p><strong>Attendees removed:</strong></p>
-${attendeeHtml}
-<p>If this was done in error, you can rebook from the ${eventPageText}.</p>`;
-  } else if (emailType === "waitlisted") {
-    return `${greeting}
-<p>Your booking for <strong>${eventTitle}</strong> has been moved to the waiting list.</p>
-<p><strong>Date:</strong> ${eventDateTime}</p>
-<p><strong>Places affected:</strong> ${placesCount}</p>
-<p><strong>Attendees:</strong></p>
-${attendeeHtml}
-<p>This happened because a member has booked during the member priority period and the event was full.
-If a place becomes available, your booking will be automatically restored and you will be notified by email.</p>
-<p>We apologise for any inconvenience. You can still view the event details on the ${eventPageText}.</p>`;
-  } else {
-    return `${greeting}
-<p>Great news! Your booking for <strong>${eventTitle}</strong> has been restored.</p>
-<p><strong>Date:</strong> ${eventDateTime}</p>
-<p><strong>Places restored:</strong> ${placesCount}</p>
-<p><strong>Attendees:</strong></p>
-${attendeeHtml}
-<p>A place became available and your booking has been automatically confirmed. No further action is needed. Event details are on the ${eventPageText}.</p>`;
-  }
-}
-
-function subjectForType(emailType: BookingEmailType, eventTitle: string): string {
-  if (emailType === "confirmation") {
-    return `Booking Confirmed — ${eventTitle}`;
-  } else if (emailType === "cancellation") {
-    return `Booking Cancelled — ${eventTitle}`;
-  } else if (emailType === "waitlisted") {
-    return `Booking Waitlisted — ${eventTitle}`;
-  } else {
-    return `Booking Restored — ${eventTitle}`;
-  }
-}
-
 export async function sendBookingConfirmationEmail(savedBooking: Booking, event: any, eventLink: string | null): Promise<void> {
-  await sendBookingNotification("confirmation", savedBooking, event, eventLink);
+  await sendBookingNotification(BookingEmailType.CONFIRMATION, savedBooking, event, eventLink);
 }
 
 export async function sendBookingCancellationEmail(cancelledBooking: Booking, event: any, eventLink: string | null): Promise<void> {
-  await sendBookingNotification("cancellation", cancelledBooking, event, eventLink);
+  await sendBookingNotification(BookingEmailType.CANCELLATION, cancelledBooking, event, eventLink);
 }
 
 export async function sendBookingWaitlistedEmail(waitlistedBooking: Booking, event: any, eventLink: string | null): Promise<void> {
-  await sendBookingNotification("waitlisted", waitlistedBooking, event, eventLink);
+  await sendBookingNotification(BookingEmailType.WAITLISTED, waitlistedBooking, event, eventLink);
 }
 
 export async function sendBookingRestoredEmail(restoredBooking: Booking, event: any, eventLink: string | null): Promise<void> {
-  await sendBookingNotification("restored", restoredBooking, event, eventLink);
+  await sendBookingNotification(BookingEmailType.RESTORED, restoredBooking, event, eventLink);
+}
+
+export async function sendBookingReminderEmail(bookingRecord: Booking, event: any, eventLink: string | null): Promise<void> {
+  await sendBookingNotification(BookingEmailType.REMINDER, bookingRecord, event, eventLink);
 }
 
 async function sendBookingNotification(emailType: BookingEmailType, bookingRecord: Booking, event: any, suppliedEventLink: string | null): Promise<void> {
@@ -196,11 +124,11 @@ async function sendBookingNotification(emailType: BookingEmailType, bookingRecor
     }
 
     const eventTitle = event?.groupEvent?.title || "Event";
-    const eventDateTime = formatEventDateTime(event?.groupEvent?.start_date_time);
     const systemConfigDoc = await config.queryKey(ConfigKey.SYSTEM);
     const systemCfg: SystemConfig = systemConfigDoc?.value;
     const eventLink = publicEventLink(event, suppliedEventLink);
-    const bodyContent = buildBodyContent(emailType, eventTitle, eventDateTime, bookingRecord, eventLink);
+    const bookingConfig = await loadBookingConfig();
+    const bodyContent = resolveBookingTemplate(emailType, event, bookingRecord, eventLink, bookingConfig);
 
     debugLog("sending", emailType, "email - templateId:", notifConfig.templateId, "senderRole:", notifConfig.senderRole);
 

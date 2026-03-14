@@ -1,4 +1,5 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
+import { BookingEmailType } from "./booking-config.model";
 import {
   Contact,
   Difficulty,
@@ -76,6 +77,8 @@ export interface Publishing {
   ramblers: Publish;
 }
 
+export type BookingEmailOverrides = Partial<Record<BookingEmailType, string>>;
+
 export interface ExtendedFields {
   migratedFromId: string;
   attachment?: FileNameData;
@@ -94,6 +97,7 @@ export interface ExtendedFields {
   maxCapacity?: number;
   maxGroupSize?: number;
   memberPriorityDays?: number;
+  bookingEmailOverrides?: BookingEmailOverrides;
 }
 
 export enum EventSource {

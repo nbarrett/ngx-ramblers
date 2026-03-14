@@ -18,6 +18,7 @@ import {
   faCircleCheck,
   faCode,
   faEraser,
+  faHashtag,
   faHeading,
   faImage,
   faItalic,
@@ -44,6 +45,7 @@ import {
   EditorInstanceState,
   EditorState,
   HasStyles,
+  InsertableField,
   ListStyle,
   ListStyleMappings,
   SplitEvent,
@@ -179,7 +181,7 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
         transform: rotate(360deg)
 
     .editor-toolbar
-      display: inline-flex
+      display: flex
       align-items: center
       flex-wrap: wrap
       gap: 6px
@@ -187,7 +189,7 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
       background-color: #e9ecef
       border: 1px solid #dee2e6
       border-radius: .5rem
-      width: auto
+      width: fit-content
       max-width: 100%
 
     .toolbar-item
@@ -365,8 +367,22 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
             (textStyleChange)="assignTextStyleTo($event)">
           </app-content-formatting-selector>
         </div>
+        @if (insertableFields.length > 0) {
+          <div class="toolbar-item" dropdown [container]="'body'">
+            <button class="btn btn-outline-secondary btn-sm w-100 dropdown-toggle" dropdownToggle type="button"
+                    tooltip="Insert placeholder field" container="body">
+              <fa-icon [icon]="faHashtag"/>
+            </button>
+            <ul *dropdownMenu class="dropdown-menu">
+              @for (field of insertableFields; track field.value) {
+                <li><a class="dropdown-item" (click)="insertField(field)">{{ field.label }}</a></li>
+              }
+            </ul>
+          </div>
+        }
       </div>
       <textarea #textArea [wrap]="'hard'"
+                [rows]="rows"
                 [(ngModel)]="content.text"
                 (ngModelChange)="changeText($event)"
                 (contextmenu)="onContextMenu($event)"
@@ -620,6 +636,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   @Input() initialView: View;
   @Input() description: string;
   @Input() parentRowColumnCount: number;
+  @Input() insertableFields: InsertableField[] = [];
   @Output() changed: EventEmitter<ContentText> = new EventEmitter();
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
   @Output() focusChange: EventEmitter<EditorInstanceState> = new EventEmitter();
@@ -636,6 +653,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   faScissors = faScissors;
   faImage = faImage;
   faPaintBrush = faPaintBrush;
+  faHashtag = faHashtag;
   private presentationMode: boolean;
   public minimumRows = 10;
   public data: ContentText;
@@ -892,7 +910,8 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   calculateRowsFrom(data: ContentText): number {
     const text = data?.text;
     const rows = text ? text?.split(/\r*\n/).length + 1 : 1;
-    const calculatedRows = Math.max(rows, this.minimumRows);
+    const effectiveMinimum = Math.max(this.rows || this.minimumRows, this.minimumRows);
+    const calculatedRows = Math.max(rows, effectiveMinimum);
     this.logger.info("number of rows in text ", text, "->", rows, "calculatedRows:", calculatedRows);
     return calculatedRows;
   }
@@ -1052,6 +1071,10 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   formatCode() {
     this.replaceSelection("`", "`", s => s || "code");
+  }
+
+  insertField(field: InsertableField) {
+    this.replaceSelection("", "", () => field.value);
   }
 
   formatQuote() {

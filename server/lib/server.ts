@@ -58,6 +58,7 @@ import { Environment } from "./env-config/environment-model";
 import { mapRouteRoutes } from "./map-routes/map-route-routes";
 import { spatialFeaturesController } from "./map-routes/spatial-features-controller";
 import { scheduleWalksManagerSync } from "./cron/walks-manager-sync-job";
+import { scheduleBookingReminders } from "./cron/booking-reminder-job";
 import bodyParser from "body-parser";
 import compression from "compression";
 import errorHandler from "errorhandler";
@@ -204,6 +205,10 @@ async function startServer() {
 
       scheduleWalksManagerSync().catch(error => {
         debugLog("❌ Failed to schedule WALKS_MANAGER sync:", error);
+      });
+
+      scheduleBookingReminders().catch(error => {
+        debugLog("❌ Failed to schedule booking reminders:", error);
       });
     }).catch(error => {
       debugLog("❌ MongoDB connection failed:", error);

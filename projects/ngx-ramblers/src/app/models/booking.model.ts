@@ -20,6 +20,7 @@ export interface Booking extends Identifiable {
   waitlistedReason?: string;
   restoredAt?: number;
   memberBooking?: boolean;
+  reminderSentAt?: number;
 }
 
 export interface BookingApiResponse extends ApiResponse {

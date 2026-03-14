@@ -116,6 +116,11 @@ export interface ContentText {
   styles?: ContentTextStyles;
 }
 
+export interface InsertableField {
+  label: string;
+  value: string;
+}
+
 export interface HasStyles {
   list?: ListStyle;
   link?: LinkStyle;
