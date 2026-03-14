@@ -10,7 +10,7 @@ import proj4 from "proj4";
 import * as shapefile from "shapefile";
 import os from "os";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { EPSG_27700_PROJ4 } from "../../../projects/ngx-ramblers/src/app/common/maps/map-projection.constants";
+import { EPSG_27700_PROJ4, MapProjectionCode } from "../../../projects/ngx-ramblers/src/app/common/maps/map-projection.constants";
 import {
   MapRouteImportGroupedFile,
   MapRouteImportResponse
@@ -28,7 +28,7 @@ debugLog.enabled = true;
 const errorDebugLog = debug("❌ERROR:" + envConfig.logNamespace("map-route-import-ws"));
 errorDebugLog.enabled = true;
 const BNG_DEF = `${EPSG_27700_PROJ4} +type=crs`;
-proj4.defs("EPSG:27700", BNG_DEF);
+proj4.defs(MapProjectionCode.BRITISH_NATIONAL_GRID, BNG_DEF);
 
 interface GroupedFeatures {
   [key: string]: Feature[];
@@ -263,7 +263,7 @@ function ensureWgs84(collection: FeatureCollection, sendProgress: (message: stri
     return {collection};
   }
   debugLog("ensureWgs84: transformation is required from", transformer.source);
-  sendProgress(`Transforming coordinates from ${transformer.source} to WGS84...`, 25);
+  sendProgress(`Transforming coordinates from ${transformer.source} to ${MapProjectionCode.WGS84}...`, 25);
 
   const transformed: FeatureCollection = {
     ...collection,
@@ -280,7 +280,7 @@ function ensureWgs84(collection: FeatureCollection, sendProgress: (message: stri
   return {
     collection: transformed,
     sourceCrs: transformer.source,
-    transformApplied: `${transformer.source}->WGS84`
+    transformApplied: `${transformer.source}->${MapProjectionCode.WGS84}`
   };
 }
 
@@ -288,15 +288,15 @@ function transformerFor(collection: FeatureCollection): TransformerDescriptor | 
   const crsName = ((collection as any).crs?.properties?.name || "").toString().toUpperCase();
   if (crsName.includes("27700") || crsName.includes("BRITISH") || crsName.includes("OSGB")) {
     return {
-      source: crsName || "EPSG:27700",
-      transform: coordinate => proj4("EPSG:27700", "WGS84", coordinate as Coordinate)
+      source: crsName || MapProjectionCode.BRITISH_NATIONAL_GRID,
+      transform: coordinate => proj4(MapProjectionCode.BRITISH_NATIONAL_GRID, MapProjectionCode.WGS84, coordinate as Coordinate)
     };
   }
   const sample = sampleCoordinate(collection);
   if (sample && (Math.abs(sample[0]) > 180 || Math.abs(sample[1]) > 90)) {
     return {
       source: "detected-27700",
-      transform: coordinate => proj4("EPSG:27700", "WGS84", coordinate as Coordinate)
+      transform: coordinate => proj4(MapProjectionCode.BRITISH_NATIONAL_GRID, MapProjectionCode.WGS84, coordinate as Coordinate)
     };
   }
 }
@@ -428,7 +428,7 @@ function transformGeometryIfNeeded(geometry: Geometry, projection: ProjectionMet
   }
   const transformer: TransformerDescriptor = {
     source: projection.sourceCrs || "unknown",
-    transform: coordinate => proj4("EPSG:27700", "WGS84", coordinate as Coordinate)
+    transform: coordinate => proj4(MapProjectionCode.BRITISH_NATIONAL_GRID, MapProjectionCode.WGS84, coordinate as Coordinate)
   };
   return transformGeometry(geometry, transformer);
 }

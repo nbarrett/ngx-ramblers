@@ -2,24 +2,27 @@ import { inject, Injectable } from "@angular/core";
 import * as L from "leaflet";
 import "proj4leaflet";
 import proj4 from "proj4";
+import * as proj4leaflet from "proj4leaflet";
 import { SystemConfigService } from "../system/system-config.service";
 import { MapMarker, PageContent, PageContentRow, PageContentType } from "../../models/content-text.model";
 import { MapProvider, osStyleForKey } from "../../models/map.model";
 import { LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EPSG_27700_PROJ4 } from "../../common/maps/map-projection.constants";
+import { EPSG_27700_PROJ4, MapProjectionCode } from "../../common/maps/map-projection.constants";
+import { Proj4LeafletApi } from "../../models/proj4leaflet.model";
 
 @Injectable({ providedIn: "root" })
 export class MapTilesService {
   private static readonly EPSG_27700_CRS_OPTIONS = {
     resolutions: [896, 448, 224, 112, 56, 28, 14, 7, 3.5, 1.75],
-    origin: [-238375.0, 1376256.0],
+    origin: [-238375.0, 1376256.0] as [number, number],
     bounds: L.bounds([-238375.0, 0.0], [900000.0, 1376256.0])
   };
 
   private systemConfig = inject(SystemConfigService);
   private projInitialized = false;
   private logger = inject(LoggerFactory).createLogger("MapTilesService", NgxLoggerLevel.ERROR);
+  private leafletProj: Proj4LeafletApi = proj4leaflet as Proj4LeafletApi;
 
   hasOsApiKey(): boolean {
     return this.osApiKeyConfigured();
@@ -28,12 +31,12 @@ export class MapTilesService {
   initializeProjections(): void {
     if (this.projInitialized) return;
 
-    const projNS: any = (L as any).Proj;
+    const projNS = this.leafletProj;
     if (projNS?.setProj4) {
       projNS.setProj4(proj4);
     }
-    if ((proj4 as any).defs && !(proj4 as any).defs["EPSG:27700"]) {
-      (proj4 as any).defs("EPSG:27700", EPSG_27700_PROJ4);
+    if ((proj4 as any).defs && !(proj4 as any).defs[MapProjectionCode.BRITISH_NATIONAL_GRID]) {
+      (proj4 as any).defs(MapProjectionCode.BRITISH_NATIONAL_GRID, EPSG_27700_PROJ4);
     }
 
     this.projInitialized = true;
@@ -48,11 +51,6 @@ export class MapTilesService {
       }
 
       const url = this.osProxyUrl(style);
-      const styleInfo = osStyleForKey(style);
-
-      if (styleInfo?.is27700 && (L as any).Proj?.TileLayer) {
-        return new (L as any).Proj.TileLayer(url, { attribution: "© Ordnance Survey", continuousWorld: true, noWrap: true, maxZoom: 9 });
-      }
       return L.tileLayer(url, { attribution: "© Ordnance Survey", maxZoom: 19, noWrap: true });
     }
     return L.tileLayer(this.osmUrl(), { attribution: "© OpenStreetMap", maxZoom: 19, noWrap: true });
@@ -62,9 +60,9 @@ export class MapTilesService {
     this.initializeProjections();
     const styleInfo = osStyleForKey(style);
     if (provider === MapProvider.OS && styleInfo?.is27700) {
-      const crsCtor = (L as any).Proj?.CRS;
+      const crsCtor = this.leafletProj?.CRS;
       if (crsCtor) {
-        return new crsCtor("EPSG:27700", EPSG_27700_PROJ4, MapTilesService.EPSG_27700_CRS_OPTIONS);
+        return new crsCtor(MapProjectionCode.BRITISH_NATIONAL_GRID, EPSG_27700_PROJ4, MapTilesService.EPSG_27700_CRS_OPTIONS);
       }
     }
     return L.CRS.EPSG3857;
