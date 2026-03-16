@@ -36,12 +36,13 @@ function detectInstalledChromeVersion(): string | null {
   if (!fs.existsSync(chromedriverDir)) {
     return null;
   }
-  const dirs = fs.readdirSync(chromedriverDir).filter(d => d.startsWith("mac_arm-"));
+  const platformPrefixes = ["mac_arm-", "mac-", "linux-", "win32-", "win64-"];
+  const dirs = fs.readdirSync(chromedriverDir).filter(d => platformPrefixes.some(prefix => d.startsWith(prefix)));
   if (dirs.length === 0) {
     return null;
   }
   const latest = dirs.sort().reverse()[0];
-  const match = latest.match(/^mac_arm-(.+)$/);
+  const match = latest.match(/^[a-z0-9_]+-(.+)$/);
   return match ? match[1] : null;
 }
 
@@ -58,8 +59,34 @@ function validateChromeBinary(chromeBinPath: string): boolean {
   return result.status === 0;
 }
 
+function findBinaryInVersionDir(baseDir: string, version: string): string | null {
+  const versionDir = fs.readdirSync(baseDir).find(d => d.endsWith(`-${version}`));
+  if (!versionDir) {
+    return null;
+  }
+  const fullPath = path.join(baseDir, versionDir);
+  const subDirs = fs.readdirSync(fullPath);
+  const chromedriverBin = subDirs.find(d => d.startsWith("chromedriver-"));
+  if (chromedriverBin) {
+    return path.join(fullPath, chromedriverBin, "chromedriver");
+  }
+  const chromeBinDir = subDirs.find(d => d.startsWith("chrome-"));
+  if (chromeBinDir) {
+    const chromeContents = path.join(fullPath, chromeBinDir);
+    const appBundle = fs.readdirSync(chromeContents).find(f => f.endsWith(".app"));
+    if (appBundle) {
+      return path.join(chromeContents, appBundle, "Contents/MacOS/Google Chrome for Testing");
+    }
+    const chromeBin = fs.readdirSync(chromeContents).find(f => f === "chrome");
+    if (chromeBin) {
+      return path.join(chromeContents, chromeBin);
+    }
+  }
+  return null;
+}
+
 function validateChromeSetup(chromeVersionOverride?: string): ChromeValidationResult {
-  const chromeVersion = chromeVersionOverride || detectInstalledChromeVersion();
+  const chromeVersion = detectInstalledChromeVersion() || chromeVersionOverride;
 
   if (!chromeVersion) {
     return {
@@ -71,31 +98,27 @@ function validateChromeSetup(chromeVersionOverride?: string): ChromeValidationRe
     };
   }
 
-  const chromedriverPath = path.join(
-    PROJECT_ROOT,
-    `server/chromedriver/mac_arm-${chromeVersion}/chromedriver-mac-arm64/chromedriver`
-  );
-  const chromeBinPath = path.join(
-    PROJECT_ROOT,
-    `server/chrome/mac_arm-${chromeVersion}/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`
-  );
+  const chromedriverDir = path.join(PROJECT_ROOT, "server/chromedriver");
+  const chromeDir = path.join(PROJECT_ROOT, "server/chrome");
+  const chromedriverPath = findBinaryInVersionDir(chromedriverDir, chromeVersion);
+  const chromeBinPath = fs.existsSync(chromeDir) ? findBinaryInVersionDir(chromeDir, chromeVersion) : null;
 
-  if (!fs.existsSync(chromedriverPath)) {
+  if (!chromedriverPath || !fs.existsSync(chromedriverPath)) {
     return {
       valid: false,
       chromeVersion,
-      error: `Chromedriver not found at ${chromedriverPath}`,
+      error: `Chromedriver not found for version ${chromeVersion}`,
       chromeBinPath: null,
       chromedriverPath: null
     };
   }
 
-  if (!validateChromeBinary(chromeBinPath)) {
+  if (!chromeBinPath || !validateChromeBinary(chromeBinPath)) {
     return {
       valid: false,
       chromeVersion,
       chromedriverPath,
-      error: `Chrome binary not found or not executable at ${chromeBinPath}`,
+      error: `Chrome binary not found or not executable for version ${chromeVersion}`,
       chromeBinPath: null
     };
   }

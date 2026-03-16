@@ -34,6 +34,7 @@ export const config: WebdriverIOConfig = {
     browserVersion: process.env[Environment.CHROME_VERSION],
     acceptInsecureCerts: true,
     "goog:chromeOptions": {
+      ...(process.env[Environment.CHROME_BIN] ? {binary: process.env[Environment.CHROME_BIN]} : {}),
       args: [
         "--disable-dev-shm-usage",
         "--disable-gpu",

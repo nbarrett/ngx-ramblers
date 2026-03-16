@@ -250,7 +250,7 @@ export function uploadRamblersData(req, res) {
     bulkUploadResponse.files.data = `${uploadSessionFolder}/${userFileName}`;
     const content = fs.readFileSync(localFileName);
     try {
-      parse.parse(content, {columns: true, delimiter: ",", escape: "\""}).map(data => {
+      parse.parse(content, {columns: true, delimiter: ",", escape: "\""}).map((data: any[]) => {
         extractMemberDataFromArray(data, userFileName);
         returnResponse();
       });
