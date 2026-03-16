@@ -9,7 +9,7 @@ import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/webso
 import * as auditNotifier from "./ramblers-upload-audit-notifier";
 import fs from "fs";
 import * as stringDecoder from "string_decoder";
-import json2csv from "json2csv";
+import { stringify } from "csv-stringify/sync";
 import { downloadStatusManager } from "./download-status-manager";
 import { ServerDownloadStatusType } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { Environment } from "../env-config/environment-model";
@@ -17,16 +17,13 @@ import { WalkUploadMetadata } from "../models/walk-upload-metadata";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = true;
-const debugNoLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload-no-log"));
-debugNoLog.enabled = false;
 const path = "/tmp/ramblers/";
 const StringDecoder = stringDecoder.StringDecoder;
 const decoder = new StringDecoder("utf8");
 
 export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWalksUploadRequest): Promise<void> {
-  debugLog("request made with walksUploadRequest:", walksUploadRequest);
-
   const fileName = walksUploadRequest.fileName;
+  debugLog("upload requested for:", fileName, "with", walksUploadRequest.rows.length, "walk(s)");
   const canStart = downloadStatusManager.canStartNewDownload();
 
   if (!canStart.allowed) {
@@ -35,10 +32,10 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
     return;
   }
 
-  const csvData = json2csv({data: walksUploadRequest.rows, fields: walksUploadRequest.headings});
+  const csvData = stringify(walksUploadRequest.rows, {header: true, columns: walksUploadRequest.headings});
   const filePath = path + fileName;
   const metadataPath = path + fileName.replace(".csv", "-metadata.json");
-  debugLog("csv data:", csvData, "filePath:", filePath);
+  debugLog("saving CSV to:", filePath);
   if (!fs.existsSync(path)) {
     fs.mkdirSync(path);
   }
@@ -61,28 +58,17 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
     return;
   }
 
-  const fileStats = fs.statSync(filePath);
-  const csvLines = csvData.split("\n");
-  const preview = csvLines.slice(0, 3).join("\n");
-
-  debugLog("=".repeat(80));
-  debugLog("CSV FILE SAVED FOR UPLOAD:");
-  debugLog("File path:", filePath);
-  debugLog("File size:", fileStats.size, "bytes");
-  debugLog("Number of walks:", walksUploadRequest.rows.length);
-  debugLog("Number of CSV lines:", csvLines.length);
-  debugLog("CSV Preview (first 3 lines):");
-  debugLog(preview);
-  debugLog("=".repeat(80));
-  debugLog("metadata", metadataPath, "saved");
   downloadStatusManager.startDownload(fileName);
   process.env[Environment.RAMBLERS_METADATA_FILE] = metadataPath;
   process.env[Environment.RAMBLERS_FEATURE] = "walks-upload.ts";
   auditNotifier.registerUploadStart(fileName, ws);
-  debugLog("Running RAMBLERS_FEATURE:", process.env[Environment.RAMBLERS_FEATURE],
-    "CHROMEDRIVER_PATH:", process.env[Environment.CHROMEDRIVER_PATH],
-    "CHROME_BIN:", process.env[Environment.CHROME_BIN],
-    "CHROME_VERSION:", process.env[Environment.CHROME_VERSION]);
+  auditNotifier.sendAudit(ws, {
+    messageType: MessageType.PROGRESS,
+    status: Status.INFO,
+    auditMessage: `CHROME_BIN=${process.env[Environment.CHROME_BIN] || "not set"} CHROMEDRIVER_PATH=${process.env[Environment.CHROMEDRIVER_PATH] || "not set"} CHROME_VERSION=${process.env[Environment.CHROME_VERSION] || "not set"}`,
+    parserFunction: auditParser.parseStandardOut
+  });
+  debugLog("spawning serenity process with ChromeDriver:", process.env[Environment.CHROMEDRIVER_PATH], "Chrome:", process.env[Environment.CHROME_VERSION]);
   const subprocess = spawn("npm", ["run", "serenity"], {
     detached: true,
     stdio: ["pipe", "pipe", "pipe", "ipc"]
@@ -103,8 +89,8 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
   });
 
   subprocess.stderr.on("data", (data: any) => {
-    const auditMessage = decoder.write(data);
-    debugNoLog("Not persisting Subprocess stderr:", auditMessage);
+    const message = decoder.write(data);
+    debugLog("stderr:", message);
   });
 
   subprocess.on("error", (error: any) => {
@@ -113,12 +99,11 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
     auditNotifier.reportErrorAndClose(error, ws);
   });
 
-  subprocess.on("exit", (code: number, signal) => {
+  subprocess.on("exit", (code: number) => {
     const status: Status = code === 0 ? Status.SUCCESS : Status.ERROR;
     const codeSuffix = code === 0 ? "" : ` with code ${code}`;
     const auditMessage = `Upload completed with ${status} for ${fileName}${codeSuffix}`;
-    const signalMessage = signal ? `Subprocess exit: Process terminated by signal: ${signal}` : `Process exited with code: ${code}`;
-    debugLog(signalMessage);
+    debugLog(auditMessage);
     downloadStatusManager.completeDownload(status === Status.SUCCESS ? ServerDownloadStatusType.COMPLETED : ServerDownloadStatusType.ERROR);
     auditNotifier.sendAudit(ws, {
       messageType: MessageType.COMPLETE,
@@ -129,11 +114,9 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
   });
 
   subprocess.on("close", (code, signal) => {
-    debugLog(`NEW Process fully closed with code ${code} and signal ${signal}`);
-  });
-
-  subprocess.on("message", (msg: any) => {
-    debugLog(`NEW IPC message from subprocess: ${JSON.stringify(msg)}`);
+    if (code !== 0) {
+      debugLog(`process closed with code ${code}${signal ? ` signal ${signal}` : ""}`);
+    }
   });
 
 }

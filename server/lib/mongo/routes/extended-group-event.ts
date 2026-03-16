@@ -7,7 +7,7 @@ import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramble
 import { DocumentField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { keys } from "es-toolkit/compat";
 
-const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent, true);
+const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent);
 const router = express.Router();
 const LOCAL_ACTIVE_FILTER = {
   $or: [

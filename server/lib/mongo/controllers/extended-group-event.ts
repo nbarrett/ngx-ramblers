@@ -15,9 +15,8 @@ import {
 import { isMongoIdString, parseError } from "./transforms";
 import { dateTimeFromIso, dateTimeNow } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
-import { VenueWithUsageStats } from "../../../../projects/ngx-ramblers/src/app/models/event-venue.model";
 
-const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent, true);
+const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent);
 const debugLog = debug(envConfig.logNamespace("extended-group-event"));
 debugLog.enabled = false;
 const LOCAL_ACTIVE_FILTER = {
