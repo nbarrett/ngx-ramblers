@@ -51,16 +51,21 @@ class DownloadStatusManager {
   getCurrentStatus(): ServerDownloadStatus | null {
     this.loadStatus();
 
-    if (this.currentStatus && this.currentStatus.status === ServerDownloadStatusType.ACTIVE) {
+    if (this.currentStatus && (this.currentStatus.status === ServerDownloadStatusType.ACTIVE || this.currentStatus.status === ServerDownloadStatusType.HUNG)) {
       const startTime = DateTime.fromMillis(this.currentStatus.startTime);
       const lastActivity = this.currentStatus.lastActivity
         ? DateTime.fromMillis(this.currentStatus.lastActivity)
         : startTime;
 
       const timeSinceActivity = dateTimeNow().diff(lastActivity);
+      const staleThreshold = Duration.fromObject({ minutes: 15 });
       const hangThreshold = Duration.fromObject({ minutes: 10 });
 
-      if (timeSinceActivity > hangThreshold) {
+      if (timeSinceActivity > staleThreshold) {
+        debugLog("Auto-clearing stale download session after 15 minutes of inactivity:", this.currentStatus.fileName);
+        this.currentStatus = null;
+        this.saveStatus();
+      } else if (timeSinceActivity > hangThreshold && this.currentStatus.status === ServerDownloadStatusType.ACTIVE) {
         this.currentStatus.status = ServerDownloadStatusType.HUNG;
         this.currentStatus.canOverride = true;
         this.saveStatus();
@@ -131,6 +136,29 @@ class DownloadStatusManager {
         debugLog("Cleared download status after completion");
       }, cleanupDelay.toMillis());
     }
+  }
+
+  forceCancel(): OperationResult {
+    this.loadStatus();
+    if (!this.currentStatus) {
+      return { success: true, message: "No active download to cancel" };
+    }
+
+    const fileName = this.currentStatus.fileName;
+    if (this.currentStatus.processId) {
+      try {
+        process.kill(this.currentStatus.processId, "SIGTERM");
+        debugLog("Terminated process during force cancel:", this.currentStatus.processId);
+      } catch (error) {
+        debugLog("Failed to terminate process during force cancel:", error);
+      }
+    }
+
+    this.currentStatus = null;
+    this.saveStatus();
+    debugLog("Force cancelled download:", fileName);
+
+    return { success: true, message: `Successfully cancelled download: ${fileName}` };
   }
 
   overrideDownload(fileName: string): OperationResult {
