@@ -71,7 +71,8 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
   debugLog("spawning serenity process with ChromeDriver:", process.env[Environment.CHROMEDRIVER_PATH], "Chrome:", process.env[Environment.CHROME_VERSION]);
   const subprocess = spawn("npm", ["run", "serenity"], {
     detached: true,
-    stdio: ["pipe", "pipe", "pipe", "ipc"]
+    stdio: ["pipe", "pipe", "pipe", "ipc"],
+    env: {...process.env, NODE_OPTIONS: "--max_old_space_size=128"}
   });
 
   subprocess.unref();
