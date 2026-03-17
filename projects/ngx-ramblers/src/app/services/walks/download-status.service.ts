@@ -94,6 +94,26 @@ export class ServerDownloadStatusService {
     return { allowed: true };
   }
 
+  async forceCancelDownload(): Promise<OperationResult> {
+    try {
+      this.logger.info("Attempting to force cancel active download");
+      const response = await this.http.post<OperationResult>(
+        "/api/download-status/force-cancel",
+        {}
+      ).toPromise();
+
+      if (response?.success) {
+        this.currentDownloadSubject.next(null);
+        await this.getDownloadHistory();
+      }
+
+      return response || { success: false, message: "No response received" };
+    } catch (error) {
+      this.logger.error("Failed to force cancel download:", error);
+      return { success: false, message: `Failed to force cancel download: ${error}` };
+    }
+  }
+
   async overrideDownload(fileName: string): Promise<OperationResult> {
     try {
       this.logger.info("Attempting to override download:", fileName);

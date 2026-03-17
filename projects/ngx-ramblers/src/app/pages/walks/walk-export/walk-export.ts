@@ -81,7 +81,7 @@ import { ServerDownloadStatusService } from "../../../services/walks/download-st
                   @if (!downloadConflict.allowed && downloadConflict.activeDownload) {
                     <div class="mt-3">
                       <div class="d-flex align-items-center justify-content-between">
-                        <div>
+                        <div class="d-inline-flex gap-2">
                           @if (downloadConflict.activeDownload.canOverride) {
                             @if (!confirmOverrideRequested) {
                               <button type="button" class="btn btn-sm btn-warning"
@@ -90,15 +90,27 @@ import { ServerDownloadStatusService } from "../../../services/walks/download-st
                                 Override Download
                               </button>
                             } @else {
-                              <div class="d-inline-flex gap-2">
-                                <button type="button" class="btn btn-sm btn-danger" (click)="overrideDownload()">Confirm
-                                  Override
-                                </button>
-                                <button type="button" class="btn btn-sm btn-secondary"
-                                        (click)="cancelOverrideRequest()">Cancel
-                                </button>
-                              </div>
+                              <button type="button" class="btn btn-sm btn-danger" (click)="overrideDownload()">Confirm
+                                Override
+                              </button>
+                              <button type="button" class="btn btn-sm btn-secondary"
+                                      (click)="cancelOverrideRequest()">Cancel
+                              </button>
                             }
+                          }
+                          @if (!confirmCancelRequested) {
+                            <button type="button" class="btn btn-sm btn-danger"
+                                    (click)="requestCancel()"
+                                    title="Cancel the active download and clear the lock">
+                              Cancel Active Download
+                            </button>
+                          } @else {
+                            <button type="button" class="btn btn-sm btn-danger" (click)="forceCancelDownload()">Confirm
+                              Cancel
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary"
+                                    (click)="dismissCancelRequest()">Dismiss
+                            </button>
                           }
                         </div>
                       </div>
@@ -519,6 +531,7 @@ export class WalkExport implements OnInit, OnDestroy {
   public auditSortDirection = DESCENDING;
   private auditReverseSort = true;
   public confirmOverrideRequested = false;
+  public confirmCancelRequested = false;
   private sessionDurations: { [fileName: string]: string } = {};
   private deletionsCleared = false;
   private actionableMap: { [id: string]: boolean } = {};
@@ -585,6 +598,7 @@ export class WalkExport implements OnInit, OnDestroy {
           } catch {}
           return;
         }
+        await this.downloadStatusService.forceCancelDownload();
         const messageText = isString(error) ? error : ((error as any)?.message || "WebSocket error");
         this.auditNotifier.error({title: "Error", message: messageText});
         if (this.fileName) {
@@ -744,6 +758,32 @@ export class WalkExport implements OnInit, OnDestroy {
     } else {
       this.walkExportNotifier.error({
         title: "Download Override Failed",
+        message: result.message
+      });
+    }
+  }
+
+  requestCancel(): void {
+    this.confirmCancelRequested = true;
+  }
+
+  dismissCancelRequest(): void {
+    this.confirmCancelRequested = false;
+  }
+
+  async forceCancelDownload(): Promise<void> {
+    this.confirmCancelRequested = false;
+    const result = await this.downloadStatusService.forceCancelDownload();
+
+    if (result.success) {
+      this.walkExportNotifier.success({
+        title: "Download Cancelled",
+        message: result.message
+      });
+      await this.checkDownloadStatus();
+    } else {
+      this.walkExportNotifier.error({
+        title: "Cancel Failed",
         message: result.message
       });
     }

@@ -21,3 +21,8 @@ downloadStatusRoutes.post("/override", (req, res) => {
   res.json(result);
 });
 
+downloadStatusRoutes.post("/force-cancel", (_req, res) => {
+  const result = downloadStatusManager.forceCancel();
+  res.json(result);
+});
+
