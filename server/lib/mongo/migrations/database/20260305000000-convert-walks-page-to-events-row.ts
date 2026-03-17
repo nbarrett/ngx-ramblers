@@ -1,6 +1,7 @@
 import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { dateTimeNow } from "../../../shared/dates";
+import { PageContentType } from "../../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
 const debugLog = createMigrationLogger("convert-walks-page-to-events-row");
 const PAGE_CONTENT_COLLECTION = "pageContent";
@@ -17,7 +18,7 @@ const EVENT_TYPE_GROUP_EVENT = "group-event";
 function createEventsRow(eventTypes: string[]) {
   const now = dateTimeNow();
   return {
-    type: "events",
+    type: PageContentType.EVENTS,
     showSwiper: false,
     maxColumns: 2,
     columns: [],
@@ -54,7 +55,7 @@ async function migrateWalksPage(collection: any) {
   const fragmentPaths = [WALKS_PAGE_HEADER_PATH, WALKS_ACTION_BUTTONS_PATH];
   const existingRoot = await collection.findOne({path: WALKS_ROOT_PATH});
   if (existingRoot) {
-    const hasEventsRow = (existingRoot.rows || []).some((row: any) => row?.type === "events");
+    const hasEventsRow = (existingRoot.rows || []).some((row: any) => row?.type === PageContentType.EVENTS);
     if (hasEventsRow) {
       const deletedCount = await deleteFragmentPages(collection, fragmentPaths);
       debugLog("Walks page at %s already has an events row — cleaned up %d fragment(s)", WALKS_ROOT_PATH, deletedCount);
@@ -107,7 +108,7 @@ async function migrateSocialPage(db: Db, collection: any) {
   const existingRoot = await collection.findOne({path: socialPath});
 
   if (existingRoot) {
-    const hasEventsRow = (existingRoot.rows || []).some((row: any) => row?.type === "events");
+    const hasEventsRow = (existingRoot.rows || []).some((row: any) => row?.type === PageContentType.EVENTS);
     if (hasEventsRow) {
       const deletedCount = await deleteFragmentPages(collection, [socialContentPath]);
       debugLog("Social page at %s already has an events row — cleaned up %d fragment(s)", socialPath, deletedCount);

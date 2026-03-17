@@ -75,7 +75,7 @@ import { RowSettingsActionButtonsComponent } from "./dynamic-content-row-setting
 import { MarginSelectComponent } from "./dynamic-content-margin-select";
 import { ActionsDropdownComponent } from "../actions-dropdown/actions-dropdown";
 import { BulkActionSelectorComponent } from "./bulk-action-selector";
-import { AlbumIndexSiteEditComponent } from "./dynamic-content-site-edit-index";
+import { IndexSiteEdit } from "./dynamic-content-site-edit-index";
 import { ActionButtons } from "../action-buttons/action-buttons";
 import { DynamicContentSiteEditAlbumComponent } from "./dynamic-content-site-edit-album";
 import { DynamicContentSiteEditTextRowComponent } from "./dynamic-content-site-edit-text-row";
@@ -731,7 +731,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, MarkdownEditorComponent, TemplateSelectorComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, MarkdownEditorComponent, TemplateSelectorComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
@@ -776,7 +776,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   @Input() public notify: AlertInstance;
   @Input() public contentDescription: string;
   @Input() public contentPath: string;
-  @ViewChildren(AlbumIndexSiteEditComponent) albumIndexComponents: QueryList<AlbumIndexSiteEditComponent>;
+  @ViewChildren(IndexSiteEdit) albumIndexComponents: QueryList<IndexSiteEdit>;
   private queriedContentPath: string;
   private albumIndexDataRows: PageContent[] = [];
   public showUnreferenced: boolean;

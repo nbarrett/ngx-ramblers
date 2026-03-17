@@ -4,7 +4,7 @@ import { ChildProcess, spawn, spawnSync } from "child_process";
 import net from "net";
 import path from "path";
 import fs from "fs";
-import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
+import { configuredEnvironments, findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
 import { ensureRequiredSecrets, loadSecretsWithFallback, REQUIRED_SECRETS, secretsExist } from "../../shared/secrets";
 import { keys } from "es-toolkit/compat";
 import { log } from "../cli-logger";
@@ -159,6 +159,44 @@ async function selectEnvironment(): Promise<string | null> {
   return result;
 }
 
+async function selectS3BucketOverride(currentEnvironmentName: string, currentBucket: string): Promise<string | null> {
+  const environmentsConfig = await configuredEnvironments();
+  const environments = environmentsConfig.environments || [];
+
+  const bucketChoices: { name: string; value: string | null }[] = [
+    {name: `No override (${currentBucket})`, value: null}
+  ];
+
+  environments
+    .filter(env => env.environment !== currentEnvironmentName && env.aws?.bucket)
+    .forEach(env => {
+      bucketChoices.push({
+        name: `${env.environment} (${env.aws.bucket})`,
+        value: env.aws.bucket
+      });
+    });
+
+  if (bucketChoices.length === 1) {
+    return null;
+  }
+
+  const result = await select({
+    message: "Override S3 bucket?",
+    choices: bucketChoices,
+    allowBack: false
+  });
+
+  if (isQuit(result)) {
+    handleQuit();
+  }
+
+  if (isBack(result)) {
+    return null;
+  }
+
+  return result;
+}
+
 function buildCleanEnvironment(): NodeJS.ProcessEnv {
   const essentialVars = ["PATH", "HOME", "USER", "SHELL", "TERM", "LANG", "LC_ALL", "TMPDIR"];
   const cleanEnv: NodeJS.ProcessEnv = {};
@@ -193,7 +231,8 @@ async function loadAndEnsureSecrets(environmentName: string, appName: string, fl
 function buildEnvironmentVariables(
   secrets: Record<string, string>,
   mode: "dev" | "prod",
-  port: number
+  port: number,
+  s3BucketOverride?: string
 ): NodeJS.ProcessEnv {
   const chromeValidation = validateChromeSetup(secrets.CHROME_VERSION);
 
@@ -219,6 +258,11 @@ function buildEnvironmentVariables(
     env.CHROME_VERSION = chromeValidation.chromeVersion || "";
     env.CHROMEDRIVER_PATH = chromeValidation.chromedriverPath || "";
     env.CHROME_BIN = chromeValidation.chromeBinPath || "";
+  }
+
+  if (s3BucketOverride) {
+    log("S3 bucket override: %s → %s", env.AWS_BUCKET, s3BucketOverride);
+    env.AWS_BUCKET = s3BucketOverride;
   }
 
   return env;
@@ -384,7 +428,8 @@ async function runDev(config: LocalRunConfig): Promise<void> {
   }
 
   const completeSecrets = await loadAndEnsureSecrets(config.environmentName, envConfig.appName, envConfig.apiKey);
-  const env = buildEnvironmentVariables(completeSecrets, "dev", config.port);
+  const s3BucketOverride = config.s3BucketOverride ?? await selectS3BucketOverride(config.environmentName, completeSecrets.AWS_BUCKET || "unknown");
+  const env = buildEnvironmentVariables(completeSecrets, "dev", config.port, s3BucketOverride);
   const logDir = resolveLogDir(config.logDir);
   const timestamp = buildLogTimestamp(config.logTimestamp);
   const frontendLogPath = buildLogFilePath(logDir, applyLogTimestamp("frontend.log", timestamp));
@@ -396,6 +441,9 @@ async function runDev(config: LocalRunConfig): Promise<void> {
   log("Environment: %s", config.environmentName);
   log("App Name: %s", envConfig.appName);
   log("Port: %d", config.port);
+  if (config.s3BucketOverride) {
+    log("S3 Bucket: %s (overridden)", config.s3BucketOverride);
+  }
   log("Frontend: http://localhost:4200");
   log("Backend: http://localhost:%d", config.port);
   log("========================================\n");
@@ -501,7 +549,8 @@ async function runProd(config: LocalRunConfig): Promise<void> {
   }
 
   const completeSecrets = await loadAndEnsureSecrets(config.environmentName, envConfig.appName, envConfig.apiKey);
-  const env = buildEnvironmentVariables(completeSecrets, "prod", config.port);
+  const s3BucketOverride = config.s3BucketOverride ?? await selectS3BucketOverride(config.environmentName, completeSecrets.AWS_BUCKET || "unknown");
+  const env = buildEnvironmentVariables(completeSecrets, "prod", config.port, s3BucketOverride);
   const logDir = resolveLogDir(config.logDir);
   const timestamp = buildLogTimestamp(config.logTimestamp);
   const frontendLogPath = buildLogFilePath(logDir, applyLogTimestamp("frontend.log", timestamp));
@@ -631,6 +680,7 @@ export function createLocalCommand(): Command {
     .command("dev [environment]")
     .description("Start in development mode with hot reload (ng serve + tsx watch)")
     .option("-p, --port <port>", "Backend port", "5001")
+    .option("--s3-bucket <bucket>", "Override S3 bucket name (e.g. ngx-ramblers-north-west-kent)")
     .option("--log-dir <dir>", "Directory to write frontend.log and backend.log")
     .option("--log-timestamp", "Add timestamp to log filenames")
     .option("--no-log-viewer", "Disable built-in log viewer and stream to stdout")
@@ -653,7 +703,8 @@ export function createLocalCommand(): Command {
             port,
             logDir: options.logDir || null,
             logTimestamp: options.logTimestamp || false,
-            logViewer
+            logViewer,
+            s3BucketOverride: options.s3Bucket || null
           },
           logViewer
         );
@@ -664,7 +715,8 @@ export function createLocalCommand(): Command {
           port,
           logDir: config.logDir,
           logTimestamp: config.logTimestamp,
-          logViewer: config.logViewer
+          logViewer: config.logViewer,
+          s3BucketOverride: config.s3BucketOverride
         });
       } catch (error) {
         log("Error: %s", error.message);
@@ -676,6 +728,7 @@ export function createLocalCommand(): Command {
     .command("prod [environment]")
     .description("Build and start in production mode")
     .option("-p, --port <port>", "Server port", "5001")
+    .option("--s3-bucket <bucket>", "Override S3 bucket name (e.g. ngx-ramblers-north-west-kent)")
     .option("--log-dir <dir>", "Directory to write frontend.log and backend.log")
     .option("--log-timestamp", "Add timestamp to log filenames")
     .option("--no-log-viewer", "Disable built-in log viewer and stream to stdout")
@@ -698,7 +751,8 @@ export function createLocalCommand(): Command {
             port,
             logDir: options.logDir || null,
             logTimestamp: options.logTimestamp || false,
-            logViewer
+            logViewer,
+            s3BucketOverride: options.s3Bucket || null
           },
           logViewer
         );
@@ -709,7 +763,8 @@ export function createLocalCommand(): Command {
           port,
           logDir: config.logDir,
           logTimestamp: config.logTimestamp,
-          logViewer: config.logViewer
+          logViewer: config.logViewer,
+          s3BucketOverride: config.s3BucketOverride
         });
       } catch (error) {
         log("Error: %s", error.message);

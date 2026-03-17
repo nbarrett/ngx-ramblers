@@ -14,9 +14,9 @@ import { UrlService } from "../../../services/url.service";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { isUndefined } from "es-toolkit/compat";
+import { booleanOf } from "../../../functions/strings";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { FormsModule } from "@angular/forms";
-import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
 import { ActionButtons } from "../action-buttons/action-buttons";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { MarginSelectComponent } from "./dynamic-content-margin-select";
@@ -61,6 +61,17 @@ import { ContentText } from "../../../models/content-text.model";
               [id]="id + '-auto-title'">
             <label class="form-check-label"
                    [for]="id + '-auto-title'">Auto Title - uncheck to Manually enter Index and Intro text (Markdown)
+            </label>
+          </div>
+          <div class="form-check form-check-inline mb-0 ms-3">
+            <input
+              [ngModel]="booleanOf(row.albumIndex.showInParentIndex, true)"
+              (ngModelChange)="row.albumIndex.showInParentIndex = $event"
+              type="checkbox"
+              class="form-check-input"
+              [id]="id + '-show-in-parent'">
+            <label class="form-check-label"
+                   [for]="id + '-show-in-parent'">Show in Parent Index
             </label>
           </div>
         </div>
@@ -155,24 +166,26 @@ import { ContentText } from "../../../models/content-text.model";
             </select>
           </div>
           <div class="col-sm-8">
-            <form>
-              <label for="{{id}}-album-{{index}}">
-                Content Path {{ index + 1 }}</label>
-              <div class="d-flex">
-                <input autocomplete="off" [typeahead]="pageContentService.siteLinks"
-                       [typeaheadMinLength]="0"
-                       id="{{id}}-album-{{index}}"
-                       [(ngModel)]="row.albumIndex.contentPaths[index].contentPath"
-                       (ngModelChange)="refreshContentPreview()"
-                       [value]="contentPath"
-                       name="new-password"
-                       type="text" class="form-control flex-grow-1 me-2">
-                <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Remove Content Path Match'"
-                                  (click)="remove(contentPath)"/>
-                <app-badge-button class="mt-1 ms-1" [icon]="faArrowDown" [caption]="'Move to Exclude'"
-                                  (click)="moveToExclude(contentPath)"/>
-              </div>
-            </form>
+            <label for="{{id}}-album-{{index}}">
+              Content Path {{ index + 1 }}</label>
+            <div class="d-flex">
+              <input autocomplete="off"
+                     list="{{id}}-album-{{index}}-options"
+                     id="{{id}}-album-{{index}}"
+                     [(ngModel)]="row.albumIndex.contentPaths[index].contentPath"
+                     (ngModelChange)="refreshContentPreview()"
+                     placeholder="Select or type a content path"
+                     type="text" class="form-control flex-grow-1 me-2">
+              <datalist id="{{id}}-album-{{index}}-options">
+                @for (link of pageContentService.siteLinks; track link) {
+                  <option [value]="link"></option>
+                }
+              </datalist>
+              <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Remove Content Path Match'"
+                                (click)="remove(contentPath)"/>
+              <app-badge-button class="mt-1 ms-1" [icon]="faArrowDown" [caption]="'Move to Exclude'"
+                                (click)="moveToExclude(contentPath)"/>
+            </div>
           </div>
           <div class="col-sm-2">
             <label for="{{id}}-max-segments-{{index}}">Max Depth</label>
@@ -208,24 +221,26 @@ import { ContentText } from "../../../models/content-text.model";
             </select>
           </div>
           <div class="col-sm-8">
-            <form>
-              <label for="{{id}}-exclude-{{index}}">
-                Exclude Path {{ index + 1 }}</label>
-              <div class="d-flex">
-                <input autocomplete="off" [typeahead]="pageContentService.siteLinks"
-                       [typeaheadMinLength]="0"
-                       id="{{id}}-exclude-{{index}}"
-                       [(ngModel)]="row.albumIndex.excludePaths[index].contentPath"
-                       (ngModelChange)="refreshContentPreview()"
-                       [value]="excludePath"
-                       name="new-password"
-                       type="text" class="form-control flex-grow-1 me-2">
-                <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Remove Exclude Path Match'"
-                                  (click)="removeExcludePath(excludePath)"/>
-                <app-badge-button class="mt-1 ms-1" [icon]="faArrowUp" [caption]="'Move to Include'"
-                                  (click)="moveToInclude(excludePath)"/>
-              </div>
-            </form>
+            <label for="{{id}}-exclude-{{index}}">
+              Exclude Path {{ index + 1 }}</label>
+            <div class="d-flex">
+              <input autocomplete="off"
+                     list="{{id}}-exclude-{{index}}-options"
+                     id="{{id}}-exclude-{{index}}"
+                     [(ngModel)]="row.albumIndex.excludePaths[index].contentPath"
+                     (ngModelChange)="refreshContentPreview()"
+                     placeholder="Select or type an exclude path"
+                     type="text" class="form-control flex-grow-1 me-2">
+              <datalist id="{{id}}-exclude-{{index}}-options">
+                @for (link of pageContentService.siteLinks; track link) {
+                  <option [value]="link"></option>
+                }
+              </datalist>
+              <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Remove Exclude Path Match'"
+                                (click)="removeExcludePath(excludePath)"/>
+              <app-badge-button class="mt-1 ms-1" [icon]="faArrowUp" [caption]="'Move to Include'"
+                                (click)="moveToInclude(excludePath)"/>
+            </div>
           </div>
         </div>
       }
@@ -298,9 +313,10 @@ import { ContentText } from "../../../models/content-text.model";
         </div>
       }
       <app-action-buttons [pageContent]="indexPageContent" [rowIndex]="0" presentationMode/>`,
-    imports: [BadgeButtonComponent, FormsModule, TypeaheadDirective, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap, MarkdownEditorComponent, IndexEntryOverrideEditor]
+    imports: [BadgeButtonComponent, FormsModule, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap, MarkdownEditorComponent, IndexEntryOverrideEditor]
 })
-export class AlbumIndexSiteEditComponent implements OnInit {
+export class IndexSiteEdit implements OnInit {
+  public booleanOf = booleanOf;
   public pageContentService: PageContentService = inject(PageContentService);
   public memberResourcesReferenceData: MemberResourcesReferenceDataService = inject(MemberResourcesReferenceDataService);
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
@@ -311,7 +327,7 @@ export class AlbumIndexSiteEditComponent implements OnInit {
   public indexService: IndexService = inject(IndexService);
   public indexPageContent: PageContent;
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  public logger = this.loggerFactory.createLogger("AlbumIndexSiteEditComponent", NgxLoggerLevel.ERROR);
+  public logger = this.loggerFactory.createLogger("IndexSiteEdit", NgxLoggerLevel.ERROR);
   public instance = this;
   @Input()
   public row: PageContentRow;

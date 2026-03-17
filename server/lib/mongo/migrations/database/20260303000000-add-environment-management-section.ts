@@ -2,6 +2,7 @@ import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { ensureActionButton, ensureActionButtons, removeActionButtonByHref } from "../shared/page-content-actions";
 import { ENVIRONMENT_MANAGEMENT_MENU_ITEMS } from "../shared/admin-menu-items";
+import { PageContentType } from "../../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
 const debugLog = createMigrationLogger("add-environment-management-section");
 const ADMIN_PATH = "admin#action-buttons";
@@ -29,7 +30,7 @@ async function createEnvironmentManagementPage(db: Db) {
     rows: [{
       maxColumns: 3,
       showSwiper: false,
-      type: "action-buttons",
+      type: PageContentType.ACTION_BUTTONS,
       columns: []
     }]
   });
