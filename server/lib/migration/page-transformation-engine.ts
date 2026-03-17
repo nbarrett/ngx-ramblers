@@ -1833,8 +1833,8 @@ export class PageTransformationEngine {
       minColumns: config.minCols || 2,
       showSwiper: false,
       albumIndex: {
-        contentTypes: (config.contentTypes || ["albums"]) as IndexContentType[],
-        renderModes: (config.renderModes || ["action-buttons"]) as IndexRenderMode[],
+        contentTypes: (config.contentTypes || [IndexContentType.ALBUMS]) as IndexContentType[],
+        renderModes: (config.renderModes || [IndexRenderMode.ACTION_BUTTONS]) as IndexRenderMode[],
         contentPaths: config.contentPaths?.map(cp => ({
           contentPath: cp.contentPath,
           stringMatch: cp.stringMatch as StringMatch || StringMatch.CONTAINS

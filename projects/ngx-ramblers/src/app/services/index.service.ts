@@ -18,6 +18,7 @@ import {
   StringMatch
 } from "../models/content-text.model";
 import { SortDirection } from "../models/sort.model";
+import { booleanOf } from "../functions/strings";
 import { MongoRegex } from "../functions/mongo";
 import { sortBy } from "../functions/arrays";
 import { AccessLevel } from "../models/member-resource.model";
@@ -68,6 +69,12 @@ export class IndexService {
       let pages = await this.pageContentService.all({criteria: {$or: pathRegex}});
       this.logger.info("Found", pages.length, "pages matching criteria. Sample paths:", pages.slice(0, 5).map(p => p.path));
 
+      const hasDepthLimits = albumIndex.contentPaths.some(cp => cp.maxPathSegments > 0);
+      if (hasDepthLimits) {
+        pages = this.filterByMaxPathSegments(pages, albumIndex.contentPaths);
+        this.logger.info("After depth filter:", pages.length, "pages");
+      }
+
       if (albumIndex.excludePaths?.length > 0) {
         pages = this.filterOutExcludedPaths(pages, albumIndex.excludePaths);
         this.logger.info("After exclude filter:", pages.length, "pages");
@@ -78,6 +85,16 @@ export class IndexService {
       if (contentTypes.includes(IndexContentType.ALBUMS)) {
         const albumColumns = await this.extractAlbumColumns(pages, 0, albumIndex.entryOverrides);
         allColumns = allColumns.concat(albumColumns);
+      }
+
+      if (contentTypes.includes(IndexContentType.INDEX_PAGES)) {
+        const indexPages = pages.filter(page => (page.rows || []).some(row =>
+          row.type === PageContentType.ALBUM_INDEX && booleanOf(row.albumIndex?.showInParentIndex, true)
+        ));
+        this.logger.info("Index pages filter:", pages.length, "→", indexPages.length, "pages with visible ALBUM_INDEX rows");
+        const locationColumns = this.locationExtractionService.extractLocationsFromPages(indexPages);
+        const enrichedColumns = await this.enrichIndexColumnsWithImages(locationColumns, indexPages, 0, albumIndex.entryOverrides);
+        allColumns = allColumns.concat(enrichedColumns);
       }
 
       if (contentTypes.includes(IndexContentType.PAGES)) {

@@ -37,6 +37,7 @@ export interface AlbumIndexSortConfig {
 
 export enum IndexContentType {
   ALBUMS = "albums",
+  INDEX_PAGES = "index-pages",
   PAGES = "pages"
 }
 
@@ -493,6 +494,7 @@ export interface Index {
   sortConfig?: AlbumIndexSortConfig;
   indexMarkdown?: string;
   autoTitle?: boolean;
+  showInParentIndex?: boolean;
   contentTypes?: IndexContentType[];
   renderModes?: IndexRenderMode[];
   mapConfig?: IndexMapConfig;

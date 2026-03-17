@@ -1,5 +1,6 @@
 import { Db } from "mongodb";
 import { isArray } from "es-toolkit/compat";
+import { PageContentType } from "../../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
 export interface ActionButtonColumn {
   accessLevel?: string;
@@ -57,7 +58,7 @@ function actionButtonsRowIndex(rows: any[]): number {
   if (!isArray(rows)) {
     return -1;
   }
-  return rows.findIndex(row => row?.type === "action-buttons");
+  return rows.findIndex(row => row?.type === PageContentType.ACTION_BUTTONS);
 }
 
 export async function ensureActionButton(db: Db, path: string, column: ActionButtonColumn, log: (message: string) => void = () => {}): Promise<boolean> {

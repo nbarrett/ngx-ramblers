@@ -27,6 +27,7 @@ import { ContentMetadata } from "../../../projects/ngx-ramblers/src/app/models/c
 import {
   PageLink,
   ParentPageConfig,
+  ParentPageMode,
   SiteMigrationConfig
 } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 import {
@@ -823,10 +824,10 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
   const pageContents: PageContent[] = [];
   for (const parentPageConfig of ctx.config.parentPages) {
     debugLog(`✅ Processing parent page: ${parentPageConfig.url}`);
-    const mode = parentPageConfig.parentPageMode || (parentPageConfig.migrateParent ? "as-is" : undefined);
+    const mode = parentPageConfig.parentPageMode || (parentPageConfig.migrateParent ? ParentPageMode.AS_IS : undefined);
     const transformationConfig = parentPageConfig.pageTransformation || ctx.config.defaultPageTransformation;
     const parentTemplate = await templateForParent(ctx, parentPageConfig);
-    if (mode === "as-is") {
+    if (mode === ParentPageMode.AS_IS) {
       const parentLink: PageLink = {
         path: parentPageConfig.url.startsWith("http") ? parentPageConfig.url : `${ctx.config.baseUrl}/${parentPageConfig.url}`,
         title: parentPageConfig.pathPrefix
@@ -837,7 +838,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
         contentPath: parentContentPath
       }, transformationConfig, parentTemplate);
       if (parentPageContent) pageContents.push(parentPageContent);
-    } else if (mode === "action-buttons") {
+    } else if (mode === ParentPageMode.ACTION_BUTTONS) {
       const parentContentPath = (parentPageConfig.pathPrefix || "").replace(/^\/+|\/+$/g, "");
       const allChildLinks = await scrapeParentPageLinks(ctx, parentPageConfig);
       const childLinks = parentPageConfig.maxChildren && parentPageConfig.maxChildren > 0

@@ -9,6 +9,7 @@ import { envConfig } from "../../env-config/env-config";
 import * as cms from "../../shared/cms-client";
 import type { CMSAuth } from "../../shared/cms-client";
 import type { PageContent, PageContentRow, PageContentColumn } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { PageContentType } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import {
   ReconciliationConfig,
   ReconciliationPage,
@@ -53,7 +54,7 @@ function eventsRow(options: {
   sortOrder?: string;
 }): PageContentRow {
   return {
-    type: "events" as any,
+    type: PageContentType.EVENTS as any,
     maxColumns: 2,
     showSwiper: false,
     columns: [{ columns: 12, accessLevel: "public" as any }],
@@ -79,7 +80,7 @@ function eventsRow(options: {
 
 function actionButtonsRow(buttons: { title: string; href: string; description?: string }[]): PageContentRow {
   return {
-    type: "action-buttons" as any,
+    type: PageContentType.ACTION_BUTTONS as any,
     showSwiper: false,
     maxColumns: buttons.length,
     columns: buttons.map(btn => ({

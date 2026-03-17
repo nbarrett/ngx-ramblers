@@ -15,6 +15,7 @@ export interface LocalRunConfig {
   logDir: string | null;
   logTimestamp: boolean;
   logViewer: boolean;
+  s3BucketOverride: string | null;
 }
 
 export interface RunningProcess {

@@ -1,6 +1,7 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { isArray } from "es-toolkit/compat";
+import { PageContentType } from "../../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
 const debugLog = createMigrationLogger("fix-admin-action-buttons-layout");
 const TARGET_PATH = "admin#action-buttons";
@@ -24,7 +25,7 @@ export async function up(db: Db, client: MongoClient) {
     return;
   }
 
-  const actionButtonsIndex = rows.findIndex(row => row?.type === "action-buttons");
+  const actionButtonsIndex = rows.findIndex(row => row?.type === PageContentType.ACTION_BUTTONS);
   if (actionButtonsIndex < 0) {
     debugLog(`No action-buttons row found for path "${TARGET_PATH}"`);
     return;
@@ -35,7 +36,7 @@ export async function up(db: Db, client: MongoClient) {
     if (index === actionButtonsIndex) {
       return row;
     }
-    if (row?.type !== "text") {
+    if (row?.type !== PageContentType.TEXT) {
       return row;
     }
     const columns: any[] = isArray(row.columns) ? row.columns : [];
