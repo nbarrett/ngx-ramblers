@@ -61,6 +61,7 @@ export interface BookingSummaryRow {
   maxCapacity: number;
   eventType?: RamblersEventType;
   eventSelectorLabel?: string;
+  orphaned?: boolean;
 }
 
 export enum ContactInteractionStatus {

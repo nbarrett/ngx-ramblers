@@ -20,7 +20,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faDownload, faEye, faPencil, faTicket, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faDownload, faExclamationTriangle, faEye, faPencil, faTicket, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FormsModule } from "@angular/forms";
 import { CsvExportComponent, CsvOptions } from "../../../csv-export/csv-export";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
@@ -88,8 +88,8 @@ export enum BookingTab {
                       </thead>
                       <tbody>
                       @for (row of summaryRows; track row.eventIds[0]) {
-                        <tr class="cursor-pointer" (click)="selectEvent(row.eventIds[0])">
-                          <td>{{ row.eventTitle }}</td>
+                        <tr class="cursor-pointer" [class.table-warning]="row.orphaned" (click)="selectEvent(row.eventIds[0])">
+                          <td>{{ row.eventTitle }}@if (row.orphaned) { <span class="badge bg-warning text-dark ms-1">Orphaned</span>}</td>
                           <td>{{ row.eventDate }}</td>
                           <td>{{ row.eventTime }}</td>
                           <td class="text-end">{{ row.totalBooked }}</td>
@@ -132,7 +132,81 @@ export enum BookingTab {
                       </ng-template>
                     </ng-select>
                   </div>
-                  @if (selectedEventId) {
+                  @if (selectedEventId && selectedEventOrphaned) {
+                    <div class="alert alert-warning mb-3">
+                      <strong><fa-icon [icon]="faExclamationTriangle" class="me-1"></fa-icon>Orphaned bookings detected</strong>
+                      <p class="mb-2">The event linked to these bookings no longer exists. This typically happens when the Walks Manager sync replaces an event with a new one. You can reassign these bookings to a valid event below, or delete them individually.</p>
+                      <div class="d-flex align-items-end gap-2">
+                        <div class="flex-grow-1">
+                          <label class="form-label">Reassign bookings to</label>
+                          <ng-select [items]="reassignTargetRows"
+                                     bindLabel="eventSelectorLabel"
+                                     bindValue="eventId"
+                                     [searchable]="true"
+                                     [clearable]="true"
+                                     [editableSearchTerm]="true"
+                                     [dropdownPosition]="'bottom'"
+                                     [closeOnSelect]="true"
+                                     [placeholder]="'Select a valid event'"
+                                     [(ngModel)]="reassignTargetEventId">
+                            <ng-template ng-option-tmp let-item="item">
+                              {{ item.eventSelectorLabel }}
+                            </ng-template>
+                          </ng-select>
+                        </div>
+                        <div class="flex-shrink-0">
+                          <button type="button" class="btn btn-warning"
+                                  [disabled]="!reassignTargetEventId"
+                                  (click)="reassignBookings()">
+                            Reassign {{ eventBookings.length }} booking(s)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
+                      <p class="mb-0 text-muted">{{ eventBookings.length }} orphaned booking(s)</p>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-striped table-hover">
+                        <thead>
+                        <tr>
+                          <th>Attendee(s)</th>
+                          <th>Email(s)</th>
+                          <th>Phone</th>
+                          <th>Booked</th>
+                          <th>Status</th>
+                          <th class="text-end">Places</th>
+                          <th></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @for (booking of eventBookings; track booking.id) {
+                          <tr>
+                            <td>{{ attendeeDisplayNames(booking) }}</td>
+                            <td>{{ attendeeEmailList(booking) }}</td>
+                            <td>{{ attendeePhone(booking) }}</td>
+                            <td>{{ booking.createdAt | displayDate }}</td>
+                            <td>
+                              @if (booking.status === BookingStatus.WAITLISTED) {
+                                <span class="badge bg-warning text-dark">Waitlisted</span>
+                              } @else {
+                                <span class="badge bg-success">Active</span>
+                              }
+                            </td>
+                            <td class="text-end">{{ booking.attendees.length }}</td>
+                            <td>
+                              <button type="button" class="btn btn-outline-danger btn-sm"
+                                      (click)="deleteBooking(booking)">
+                                <fa-icon [icon]="faTrash"></fa-icon>
+                              </button>
+                            </td>
+                          </tr>
+                        }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                  @if (selectedEventId && !selectedEventOrphaned) {
                     <div class="row align-items-end mb-3">
                       <div class="col-sm-6 col-lg-4">
                         <label class="form-label" for="selected-event-max-capacity">Max capacity for this event</label>
@@ -374,6 +448,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   faTrash = faTrash;
   faEye = faEye;
   faPencil = faPencil;
+  faExclamationTriangle = faExclamationTriangle;
 
   notifyTarget: AlertTarget = {};
   notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -408,6 +483,9 @@ export class BookingsComponent implements OnInit, OnDestroy {
     label: this.stringUtils.asTitle(p.value),
     value: `{{${p.value}}}`
   }));
+  reassignTargetEventId: string = null;
+  reassignTargetRows: BookingSummaryRow[] = [];
+  selectedEventOrphaned = false;
 
   @ViewChild("csvComponent") csvComponent: CsvExportComponent;
 
@@ -495,17 +573,23 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
     this.summaryRows = Array.from(grouped).map(([eventId, bookings]) => {
       const event = this.eventsMap.get(eventId);
+      const orphaned = !event;
       const totalBooked = bookings.reduce((sum, b) => sum + b.attendees.length, 0);
+      const title = event?.groupEvent?.title || "Unknown event";
+      const label = orphaned
+        ? `Orphaned: ${title} (${totalBooked} booking${totalBooked === 1 ? "" : "s"})`
+        : this.eventSelectorLabel(title, event?.groupEvent?.item_type, event?.groupEvent?.start_date_time);
       return {
         eventId,
         eventIds: [eventId],
-        eventTitle: event?.groupEvent?.title || "Unknown event",
+        eventTitle: title,
         eventDate: event?.groupEvent?.start_date_time ? this.dateUtils.displayDate(this.dateUtils.asValueNoTime(event.groupEvent.start_date_time)) : "",
         eventTime: event?.groupEvent?.start_date_time ? this.dateUtils.displayTime(event.groupEvent.start_date_time) : "",
         eventType: event?.groupEvent?.item_type,
-        eventSelectorLabel: this.eventSelectorLabel(event?.groupEvent?.title || "Unknown event", event?.groupEvent?.item_type, event?.groupEvent?.start_date_time),
+        eventSelectorLabel: label,
         totalBooked,
-        maxCapacity: this.maxCapacityFor(event)
+        maxCapacity: this.maxCapacityFor(event),
+        orphaned
       };
     });
     this.refreshAvailableEventRows();
@@ -573,8 +657,42 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   onSelectedEventChange() {
     const event = this.eventsMap.get(this.selectedEventId);
+    this.selectedEventOrphaned = !event && !!this.selectedEventId;
+    this.reassignTargetEventId = null;
+    this.reassignTargetRows = this.availableEventRows.filter(row => !row.orphaned && row.eventIds[0] !== this.selectedEventId);
     this.selectedEventMaxCapacity = event?.fields?.maxCapacity ?? this.bookingConfigService.bookingConfig()?.defaultMaxCapacity ?? 0;
     this.loadEventBookings();
+  }
+
+  async reassignBookings() {
+    if (!this.reassignTargetEventId || !this.selectedEventId) {
+      return;
+    }
+    const orphanedEventId = this.selectedEventId;
+    const bookingsToReassign = this.allBookings.filter(b => b.eventIds.includes(orphanedEventId));
+    if (bookingsToReassign.length === 0) {
+      this.notify.warning({title: "No bookings", message: "No bookings found to reassign"});
+      return;
+    }
+    this.notify.progress({title: "Reassigning", message: `Moving ${bookingsToReassign.length} booking(s) to new event...`});
+    try {
+      const updatePromises = bookingsToReassign.map(async b => {
+        const updatedBooking: Booking = {
+          ...b,
+          eventIds: b.eventIds.map(id => id === orphanedEventId ? this.reassignTargetEventId : id)
+        };
+        return this.bookingService.update(updatedBooking);
+      });
+      await Promise.all(updatePromises);
+      this.selectedEventId = this.reassignTargetEventId;
+      this.reassignTargetEventId = null;
+      await this.loadBookingAdminData();
+      this.onSelectedEventChange();
+      this.notify.success({title: "Reassigned", message: `${bookingsToReassign.length} booking(s) moved to the selected event`});
+    } catch (error) {
+      this.notify.error({title: "Reassign failed", message: "Could not reassign bookings"});
+      this.logger.error("reassignBookings failed:", error);
+    }
   }
 
 
