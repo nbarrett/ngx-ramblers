@@ -25,7 +25,7 @@ import { SystemConfigService } from "../../services/system/system-config.service
 import { ExtendedGroupEvent, HasStartAndEndTime } from "../../models/group-event.model";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { EventDatesAndTimesPipe } from "../../pipes/event-times-and-dates.pipe";
-import { EM_DASH_WITH_SPACES } from "../../models/content-text.model";
+import { EM_DASH_WITH_SPACES, PathSegment } from "../../models/content-text.model";
 import { DateUtilsService } from "../../services/date-utils.service";
 
 const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
@@ -112,7 +112,7 @@ export class GroupEventDisplayService {
   }
 
   inNewEventMode(): boolean {
-    return this.allow.edits && this.urlService.lastPathSegment() === "new";
+    return this.allow.edits && this.urlService.lastPathSegment() === PathSegment.NEW;
   }
 
   applyAllows() {
@@ -172,7 +172,7 @@ export class GroupEventDisplayService {
     const eventId: string = this.stringUtils.lastItemFrom(extendedGroupEvent?.groupEvent?.url) || this.stringUtils.kebabCase(extendedGroupEvent?.groupEvent?.title) || extendedGroupEvent?.groupEvent?.id || extendedGroupEvent?.id;
     const segments = this.urlService.pathSegments();
     const last = segments[segments.length - 1];
-    const areaSegments = last === "edit" ? segments.slice(0, -2) : (last === "new" || last === eventId ? segments.slice(0, -1) : segments);
+    const areaSegments = last === PathSegment.EDIT ? segments.slice(0, -2) : (last === PathSegment.NEW || last === eventId ? segments.slice(0, -1) : segments);
     const area = areaSegments.join("/");
     const url = eventId ? this.urlService.linkUrl({
       area,

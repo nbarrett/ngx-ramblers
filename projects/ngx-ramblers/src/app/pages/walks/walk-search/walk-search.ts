@@ -6,6 +6,7 @@ import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { isNumber, isUndefined } from "es-toolkit/compat";
 import { AlertTarget } from "../../../models/alert-target.model";
+import { RouteParam } from "../../../models/content-text.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { DeviceSize } from "../../../models/page.model";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -273,7 +274,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
       this.logger.info("ngOnInit: set queryParamsActive=true from URL criteria");
     }
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
-      this.currentWalkId = paramMap.get("walk-id");
+      this.currentWalkId = paramMap.get(RouteParam.WALK_ID);
       this.logger.debug("walk-id from route params:", this.currentWalkId);
     }));
     this.subscriptions.push(this.route.queryParamMap.subscribe(paramMap => this.applyAdvancedSearchQueryParam(paramMap)));

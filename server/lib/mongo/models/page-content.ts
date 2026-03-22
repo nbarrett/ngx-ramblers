@@ -30,6 +30,7 @@ const PageContentRow = new mongoose.Schema({
   marginBottom: {type: Number},
   album: {type: Object},
   carousel: {type: Object},
+  committeeDocuments: {type: Object},
   events: {type: Object},
   albumIndex: {type: Object},
   areaMap: {type: Object},

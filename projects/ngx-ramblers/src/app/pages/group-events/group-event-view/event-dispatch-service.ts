@@ -32,34 +32,18 @@ export class EventDispatchService {
         return {eventView: EventViewDispatch.LIST};
       }
       const eventId = this.urlService.lastPathSegment();
-      if (pathSegments.length === 2) {
-        this.logger.info("shallow path - trying event lookup first for slug:", eventId);
-        const event = await this.walksAndEventsService.queryById(eventId);
-        if (event) {
-          this.logger.info("event found for slug:", eventId, "matched event title:", event?.groupEvent?.title, "url:", event?.groupEvent?.url, "id:", event?.id);
-          this.groupEvent = event;
-          return {eventView: EventViewDispatch.VIEW, event: Promise.resolve(event)};
-        }
-        this.logger.info("no event found for slug:", eventId, "trying page content lookup");
-      } else {
-        this.logger.info("deep path - trying page content first for path:", path);
-        const pageContent = await this.pageContentService.findByPath(path);
-        if (pageContent) {
-          this.logger.info("Dynamic content found for path:", path);
-          return {eventView: EventViewDispatch.DYNAMIC_CONTENT};
-        }
-        this.logger.info("no page content for path:", path, "trying event lookup for slug:", eventId);
-        const event = await this.walksAndEventsService.queryById(eventId);
-        if (event) {
-          this.logger.info("event found for slug:", eventId, "matched event title:", event?.groupEvent?.title, "url:", event?.groupEvent?.url, "id:", event?.id);
-          this.groupEvent = event;
-          return {eventView: EventViewDispatch.VIEW, event: Promise.resolve(event)};
-        }
-      }
+      this.logger.info("trying page content first for path:", path);
       const pageContent = await this.pageContentService.findByPath(path);
       if (pageContent) {
         this.logger.info("Dynamic content found for path:", path);
         return {eventView: EventViewDispatch.DYNAMIC_CONTENT};
+      }
+      this.logger.info("no page content for path:", path, "trying event lookup for slug:", eventId);
+      const event = await this.walksAndEventsService.queryById(eventId);
+      if (event) {
+        this.logger.info("event found for slug:", eventId, "matched event title:", event?.groupEvent?.title, "url:", event?.groupEvent?.url, "id:", event?.id);
+        this.groupEvent = event;
+        return {eventView: EventViewDispatch.VIEW, event: Promise.resolve(event)};
       }
       this.logger.info("No event or page content found for path:", path);
       return {eventView: EventViewDispatch.DYNAMIC_CONTENT};

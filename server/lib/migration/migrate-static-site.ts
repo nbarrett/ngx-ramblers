@@ -361,7 +361,7 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
             columns: [
               {
                 columns: 12,
-                accessLevel: AccessLevel.public,
+                accessLevel: AccessLevel.PUBLIC,
               }
             ],
             carousel: {

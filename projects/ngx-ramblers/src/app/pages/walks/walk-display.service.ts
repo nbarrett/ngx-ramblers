@@ -3,6 +3,7 @@ import { inject, Injectable } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
 import { find, isEmpty, isNumber, isUndefined } from "es-toolkit/compat";
+import { PathSegment } from "../../models/content-text.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../../models/member.model";
 import { EventPopulation, Organisation } from "../../models/system.model";
@@ -119,7 +120,7 @@ export class WalkDisplayService {
 
   walkMode(walk: ExtendedGroupEvent): WalkViewMode {
     const expandedWalk = find(this.expandedWalks, {walkId: this.walkIdFrom(walk)}) as ExpandedWalk;
-    const walkViewMode = expandedWalk ? expandedWalk.mode : this.urlService.pathContainsEventIdOrSlug() ? WalkViewMode.VIEW_SINGLE : this.urlService.pathContains("edit") ? WalkViewMode.EDIT_FULL_SCREEN : WalkViewMode.LIST;
+    const walkViewMode = expandedWalk ? expandedWalk.mode : this.urlService.pathContainsEventIdOrSlug() ? WalkViewMode.VIEW_SINGLE : this.urlService.pathContains(PathSegment.EDIT) ? WalkViewMode.EDIT_FULL_SCREEN : WalkViewMode.LIST;
     this.logger.off("walkMode:", walkViewMode, "expandedWalk:", expandedWalk);
     return walkViewMode;
   }
@@ -191,7 +192,7 @@ export class WalkDisplayService {
   edit(walkDisplay: DisplayedWalk): void {
     if (walkDisplay?.walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
       const groupEventSlug = this.stringUtils.lastItemFrom(walkDisplay?.walk?.groupEvent?.url) || this.stringUtils.kebabCase(walkDisplay?.walk?.groupEvent?.title) || walkDisplay?.walk?.groupEvent?.id || walkDisplay?.walk?.id;
-      void this.urlService.navigateTo([this.groupEventArea(), groupEventSlug, "edit"]);
+      void this.urlService.navigateTo([this.groupEventArea(), groupEventSlug, PathSegment.EDIT]);
     } else {
       void this.editFullScreen(walkDisplay.walk);
     }
@@ -213,7 +214,7 @@ export class WalkDisplayService {
   editFullScreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
     this.logger.debug("editing walk fullscreen:", walk);
     this.viewReturnUrl = this.location.path();
-    return this.router.navigate(["/" + this.walksArea(), "edit", this.walkSlug(walk)]).then(() => {
+    return this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, this.walkSlug(walk)]).then(() => {
       this.logger.debug("area is now", this.urlService.area());
       return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
     });
@@ -340,7 +341,7 @@ export class WalkDisplayService {
 
   walkViewLink(extendedGroupEvent: ExtendedGroupEvent): string[] {
     this.viewReturnUrl = this.location.path();
-    return ["/" + this.walksArea(), "view", this.walkSlug(extendedGroupEvent)];
+    return ["/" + this.walksArea(), PathSegment.VIEW, this.walkSlug(extendedGroupEvent)];
   }
 
   ramblersLink(walk: ExtendedGroupEvent): string {

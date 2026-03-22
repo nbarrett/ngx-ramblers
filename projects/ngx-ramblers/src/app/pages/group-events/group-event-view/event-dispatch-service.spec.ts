@@ -160,7 +160,7 @@ describe("EventDispatchService", () => {
         expect(result.eventView).toBe(EventViewDispatch.DYNAMIC_CONTENT);
     });
 
-    it("falls through to dynamic content when event lookup returns null for two-segment path", async () => {
+    it("falls through to dynamic content when page content exists for two-segment path", async () => {
         const path = "/walks/nonexistent-event-slug";
         urlService.setPath(path);
         pageService.value = path.substring(1);
@@ -169,6 +169,7 @@ describe("EventDispatchService", () => {
 
         const result = await service.eventView(notify, "Walk");
         expect(result.eventView).toBe(EventViewDispatch.DYNAMIC_CONTENT);
-        expect(walksAndEventsService.queryById).toHaveBeenCalledWith("nonexistent-event-slug");
+        expect(pageContentService.findByPath).toHaveBeenCalledWith("walks/nonexistent-event-slug");
+        expect(walksAndEventsService.queryById).not.toHaveBeenCalled();
     });
 });

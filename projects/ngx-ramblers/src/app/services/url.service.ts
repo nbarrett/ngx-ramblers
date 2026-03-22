@@ -3,6 +3,7 @@ import { inject, Injectable } from "@angular/core";
 import { ActivatedRoute, Params, QueryParamsHandling, Router } from "@angular/router";
 import { first, isEmpty, isUndefined, last, tail } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
+import { PathSegment } from "../models/content-text.model";
 import {
   BASE64_PREFIX_HEIC,
   BASE64_PREFIX_JPEG,
@@ -188,7 +189,7 @@ export class UrlService {
   eventIdentifier(): string {
     const segments = this.pathSegments();
     const lastSegment = last(segments);
-    if (segments.length >= 3 && (lastSegment === "view" || lastSegment === "edit")) {
+    if (segments.length >= 3 && (lastSegment === PathSegment.VIEW || lastSegment === PathSegment.EDIT)) {
       return segments[segments.length - 2];
     }
     return this.segmentWithMongoId() || lastSegment;
@@ -214,7 +215,7 @@ export class UrlService {
 
   pathContainsEventIdOrSlug(): boolean {
     const identifier = this.lastPathSegment();
-    if (identifier === "new") {
+    if (identifier === PathSegment.NEW) {
       return false;
     } else if (this.pathContainsMongoId() || this.pathContainsNumericRamblersId()) {
       return true;
@@ -225,12 +226,12 @@ export class UrlService {
       return this.looksLikeASlug(identifier) || this.identifierCanBeConvertedToSlug(identifier);
     }
 
-    if (segments.length >= 3 && (segments[segments.length - 1] === "view" || segments[segments.length - 1] === "edit")) {
+    if (segments.length >= 3 && (segments[segments.length - 1] === PathSegment.VIEW || segments[segments.length - 1] === PathSegment.EDIT)) {
       const slugSegment = segments[segments.length - 2];
       return this.looksLikeASlug(slugSegment) || this.identifierCanBeConvertedToSlug(slugSegment) || this.isMongoId(slugSegment);
     }
 
-    if (segments.length >= 3 && segments[segments.length - 2] === "view") {
+    if (segments.length >= 3 && segments[segments.length - 2] === PathSegment.VIEW) {
       const identifier = this.lastPathSegment();
       return this.looksLikeASlug(identifier) || this.identifierCanBeConvertedToSlug(identifier) || this.pathContainsMongoId() || this.pathContainsNumericRamblersId();
     }

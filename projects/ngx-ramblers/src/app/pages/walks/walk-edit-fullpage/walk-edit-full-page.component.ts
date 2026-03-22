@@ -3,6 +3,7 @@ import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
+import { RouteParam } from "../../../models/content-text.model";
 import { DisplayedWalk, EventType } from "../../../models/walk.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -54,7 +55,7 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
         };
         this.setPageTitle();
       } else {
-        const walkId = paramMap.get("walk-id");
+        const walkId = paramMap.get(RouteParam.WALK_ID);
         this.logger.debug("querying walk-id", walkId);
         this.walksAndEventsService.queryById(walkId)
           .then((walk: ExtendedGroupEvent) => {

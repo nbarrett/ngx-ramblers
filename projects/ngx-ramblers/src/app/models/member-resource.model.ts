@@ -3,18 +3,18 @@ import { FileNameData } from "./aws-object.model";
 import { MailchimpCampaign, MailchimpCampaignVersion2 } from "./mailchimp.model";
 
 export enum AccessLevel {
-  hidden = "hidden",
-  environmentAdmin = "environmentAdmin",
-  committee = "committee",
-  loggedInMember = "loggedInMember",
-  public = "public"
+  HIDDEN = "hidden",
+  ENVIRONMENT_ADMIN = "environmentAdmin",
+  COMMITTEE = "committee",
+  LOGGED_IN_MEMBER = "loggedInMember",
+  PUBLIC = "public"
 }
 
 export enum ResourceType {
-  email = "email",
-  file = "file",
-  url = "url",
-  public = "public"
+  EMAIL = "email",
+  FILE = "file",
+  URL = "url",
+  PUBLIC = "public"
 }
 
 export interface ResourceSubject extends Identifiable {

@@ -331,7 +331,7 @@ export class PageTransformationEngine {
     uploadImageFn: (img: ScrapedImage) => Promise<string>): Promise<PageContentColumn> {
     const column: PageContentColumn = {
       columns: colConfig.columns || 12,
-      accessLevel: AccessLevel.public
+      accessLevel: AccessLevel.PUBLIC
     };
 
     if (colConfig.content) {
@@ -1050,7 +1050,7 @@ export class PageTransformationEngine {
       columns: [{
         columns: 12,
         contentText: transformation.contentText,
-        accessLevel: AccessLevel.public
+        accessLevel: AccessLevel.PUBLIC
       }]
     };
   }
@@ -1072,7 +1072,7 @@ export class PageTransformationEngine {
         imageBorderRadius: 6,
         contentText: caption,
         showTextAfterImage: caption ? true : undefined,
-        accessLevel: AccessLevel.public
+        accessLevel: AccessLevel.PUBLIC
       }]
     };
   }

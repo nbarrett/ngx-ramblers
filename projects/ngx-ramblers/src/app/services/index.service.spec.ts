@@ -47,7 +47,7 @@ function column(overrides: Partial<PageContentColumn> = {}): PageContentColumn {
     return {
         title: "Default Title",
         href: "/default",
-        accessLevel: AccessLevel.public,
+        accessLevel: AccessLevel.PUBLIC,
         ...overrides
     } as PageContentColumn;
 }

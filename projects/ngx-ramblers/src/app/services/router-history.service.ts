@@ -33,7 +33,7 @@ export class RouterHistoryService {
 
   navigateBackToLastMainPage(unconditionally?: boolean) {
     const validPages: string[] = this.pageService.group.pages.map(page => page.href);
-    const lastPage = this.pageHistory.reverse()
+    const lastPage = [...this.pageHistory].reverse()
       .find(page => {
         const pagePortion = first(page.substring(1).split("/"));
         const match = validPages.includes(pagePortion);

@@ -2,6 +2,7 @@ import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faCopy, faEye, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep, first, isNull, isString } from "es-toolkit/compat";
+import { PathSegment } from "../../../models/content-text.model";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -539,7 +540,7 @@ export class GroupEventEdit implements OnInit, OnDestroy {
 
   pageTitle(): string {
     const eventType = this.stringUtils.asTitle(this.groupEvent?.groupEvent?.item_type || RamblersEventType.GROUP_EVENT);
-    return this.urlService.lastPathSegment() === "new" ? `Create New ${eventType}` : `${eventType} Edit`;
+    return this.urlService.lastPathSegment() === PathSegment.NEW ? `Create New ${eventType}` : `${eventType} Edit`;
   }
 
   onChange() {
@@ -703,7 +704,7 @@ export class GroupEventEdit implements OnInit, OnDestroy {
     this.display.confirm.clear();
     const segments = this.urlService.pathSegments();
     const lastSegment = segments[segments.length - 1];
-    const viewPath = lastSegment === "edit" ? segments.slice(0, -1).join("/") : this.urlService.area();
+    const viewPath = lastSegment === PathSegment.EDIT ? segments.slice(0, -1).join("/") : this.urlService.area();
     this.logger.info("close:viewPath:", viewPath);
     this.urlService.navigateTo([viewPath]);
   }

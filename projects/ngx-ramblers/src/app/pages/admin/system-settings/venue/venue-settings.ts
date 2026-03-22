@@ -18,6 +18,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { VenueTypeSelect } from "../../../walks/walk-venue/venue-type-select";
 import { isNumber, isString } from "es-toolkit/compat";
+import { SortDirection } from "../../../../models/sort.model";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { VenueEditorComponent } from "../../../walks/walk-venue/venue-editor";
 
@@ -261,7 +262,7 @@ export class VenueSettingsComponent implements OnInit, OnDestroy {
   faSort = faSort;
 
   sortField: keyof StoredVenue | null = "name";
-  sortDirection: "asc" | "desc" = "asc";
+  sortDirection: SortDirection = SortDirection.ASC;
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -308,22 +309,22 @@ export class VenueSettingsComponent implements OnInit, OnDestroy {
       } else if (isNumber(aVal) && isNumber(bVal)) {
         comparison = aVal - bVal;
       }
-      return this.sortDirection === "asc" ? comparison : -comparison;
+      return this.sortDirection === SortDirection.ASC ? comparison : -comparison;
     });
   }
 
   toggleSort(field: keyof StoredVenue) {
     if (this.sortField === field) {
-      this.sortDirection = this.sortDirection === "asc" ? "desc" : "asc";
+      this.sortDirection = this.sortDirection === SortDirection.ASC ? SortDirection.DESC : SortDirection.ASC;
     } else {
       this.sortField = field;
-      this.sortDirection = "asc";
+      this.sortDirection = SortDirection.ASC;
     }
   }
 
   getSortIcon(field: keyof StoredVenue) {
     if (this.sortField !== field) return this.faSort;
-    return this.sortDirection === "asc" ? this.faSortUp : this.faSortDown;
+    return this.sortDirection === SortDirection.ASC ? this.faSortUp : this.faSortDown;
   }
 
   get venuesWithCoordinates(): number {

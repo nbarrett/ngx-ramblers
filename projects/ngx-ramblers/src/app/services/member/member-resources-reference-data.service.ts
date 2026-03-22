@@ -131,37 +131,37 @@ export class MemberResourcesReferenceDataService {
         id: "environmentAdmin",
         description: "Environment Admin",
         filter: () => this.siteEditService.active() || (this.platformAdminEnabled && this.memberLoginService.allowCommittee()),
-        includeAccessLevelIds: [AccessLevel.environmentAdmin, AccessLevel.committee, AccessLevel.loggedInMember, AccessLevel.public, AccessLevel.hidden]
+        includeAccessLevelIds: [AccessLevel.ENVIRONMENT_ADMIN, AccessLevel.COMMITTEE, AccessLevel.LOGGED_IN_MEMBER, AccessLevel.PUBLIC, AccessLevel.HIDDEN]
       },
       {
         id: "committee",
         description: "Committee",
         filter: () => this.siteEditService.active() || this.memberLoginService.allowCommittee(),
-        includeAccessLevelIds: [AccessLevel.committee, AccessLevel.loggedInMember, AccessLevel.public, AccessLevel.hidden]
+        includeAccessLevelIds: [AccessLevel.COMMITTEE, AccessLevel.LOGGED_IN_MEMBER, AccessLevel.PUBLIC, AccessLevel.HIDDEN]
       },
       {
         id: "loggedInMember",
         description: "Logged-in member",
         filter: () => this.siteEditService.active() || this.memberLoginService.memberLoggedIn(),
-        includeAccessLevelIds: [AccessLevel.loggedInMember]
+        includeAccessLevelIds: [AccessLevel.LOGGED_IN_MEMBER]
       },
       {
         id: "public",
         description: "Public",
         filter: () => true,
-        includeAccessLevelIds: [AccessLevel.public]
+        includeAccessLevelIds: [AccessLevel.PUBLIC]
       }];
   }
 
   accessLevelViewTypes(): AccessLevelData[] {
-    return this.accessLevels().filter(item => item.id !== AccessLevel.hidden);
+    return this.accessLevels().filter(item => item.id !== AccessLevel.HIDDEN);
   }
 
   defaultMemberResource(): MemberResource {
     return {
       data: {},
-      resourceType: ResourceType.email,
-      accessLevel: AccessLevel.hidden,
+      resourceType: ResourceType.EMAIL,
+      accessLevel: AccessLevel.HIDDEN,
       createdDate: this.dateUtils.nowAsValue(),
       createdBy: this.memberLoginService.loggedInMember().memberId
     };

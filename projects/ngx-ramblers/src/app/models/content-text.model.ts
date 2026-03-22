@@ -232,6 +232,14 @@ export interface MapData {
   markers?: MapMarker[];
 }
 
+export interface CommitteeDocumentsData {
+  fileIds: string[];
+  autoFromFirstActionButton: boolean;
+  showFileActions: boolean;
+  sortDirection: SortDirection;
+  imageSource?: string;
+}
+
 export interface PageContentRow extends HasColumnRange {
   type: PageContentType;
   showSwiper: boolean;
@@ -239,6 +247,7 @@ export interface PageContentRow extends HasColumnRange {
   marginTop?: number;
   marginBottom?: number;
   carousel?: AlbumData;
+  committeeDocuments?: CommitteeDocumentsData;
   events?: EventsData;
   albumIndex?: Index;
   areaMap?: AreaMapData;
@@ -505,14 +514,26 @@ export interface Index {
 
 export enum BuiltInAnchor {
   ACTION_BUTTONS = "action-buttons",
-  COMMITTEE_YEARS = "committee-years",
   HOME_CONTENT = "home-content",
   INSTAGRAM_CONTENT = "instagram-content",
 }
 
+export enum PathSegment {
+  EDIT = "edit",
+  NEW = "new",
+  SEND_NOTIFICATION = "send-notification",
+  VIEW = "view",
+}
+
+export enum RouteParam {
+  AREA = "area",
+  COMMITTEE_EVENT_ID = "committee-event-id",
+  ID = "id",
+  WALK_ID = "walk-id",
+}
+
 export enum BuiltInPath {
   ADMIN = "admin",
-  COMMITTEE = "committee",
   ENVIRONMENT_MANAGEMENT = "admin/environment-management",
   HOME = "home",
 }
@@ -531,10 +552,6 @@ export const BuiltInContentConfigs: { [key in BuiltInPath]: BuiltInPageContentCo
     contentPath: BuiltInPath.ADMIN,
     anchors: [BuiltInAnchor.ACTION_BUTTONS]
   },
-  [BuiltInPath.COMMITTEE]: {
-    contentPath: BuiltInPath.COMMITTEE,
-    anchors: [BuiltInAnchor.ACTION_BUTTONS, BuiltInAnchor.COMMITTEE_YEARS]
-  },
   [BuiltInPath.ENVIRONMENT_MANAGEMENT]: {
     contentPath: BuiltInPath.ENVIRONMENT_MANAGEMENT,
     anchors: [BuiltInAnchor.ACTION_BUTTONS]
@@ -543,7 +560,6 @@ export const BuiltInContentConfigs: { [key in BuiltInPath]: BuiltInPageContentCo
 
 export enum PageContentPath {
   ADMIN_ACTION_BUTTONS = `${BuiltInPath.ADMIN}#${BuiltInAnchor.ACTION_BUTTONS}`,
-  COMMITTEE_ACTION_BUTTONS_YEARS = `${BuiltInPath.COMMITTEE}#${BuiltInAnchor.COMMITTEE_YEARS}`,
   ENVIRONMENT_MANAGEMENT_ACTION_BUTTONS = `${BuiltInPath.ENVIRONMENT_MANAGEMENT}#${BuiltInAnchor.ACTION_BUTTONS}`,
 }
 
@@ -552,6 +568,7 @@ export enum PageContentType {
   ALBUM = "album",
   ALBUM_INDEX = "album-index",
   CAROUSEL = "carousel",
+  COMMITTEE_DOCUMENTS = "committee-documents",
   EVENTS = "events",
   AREA_MAP = "area-map",
   MAP = "map",

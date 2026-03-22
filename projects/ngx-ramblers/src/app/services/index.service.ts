@@ -240,7 +240,7 @@ export class IndexService {
           imageSource,
           imageBorderRadius: row.carousel?.coverImageBorderRadius,
           imageFocalPoint: effectiveFocalPoint,
-          accessLevel: AccessLevel.public,
+          accessLevel: AccessLevel.PUBLIC,
           location,
           createdAt: row.carousel?.createdAt,
           albumName: row.carousel?.name
@@ -311,6 +311,10 @@ export class IndexService {
     for (const row of pageContent.rows || []) {
       if (row.type === PageContentType.ALBUM_INDEX) {
         continue;
+      }
+      if (row.committeeDocuments?.imageSource) {
+        result = row.committeeDocuments.imageSource;
+        break;
       }
       for (const column of row.columns || []) {
         if (column.imageSource) {

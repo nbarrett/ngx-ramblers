@@ -450,7 +450,7 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
         maxColumns: 1,
         showSwiper: false,
         type: PageContentType.ALBUM,
-        columns: [{columns: 12, accessLevel: AccessLevel.public}],
+        columns: [{columns: 12, accessLevel: AccessLevel.PUBLIC}],
         carousel: {
           name,
           createdAt: null,
