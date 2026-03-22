@@ -5,6 +5,7 @@ import {
   faCheck,
   faCircleCheck,
   faCopy,
+  faExternalLinkAlt,
   faEye,
   faPaste,
   faPencil,
@@ -43,6 +44,7 @@ import {
   PageContentType,
   USER_TEMPLATES_PATH_PREFIX
 } from "../../../models/content-text.model";
+import { SortDirection } from "../../../models/sort.model";
 import { TextMatchPattern } from "../../../models/page-transformation.model";
 import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -80,6 +82,7 @@ import { ActionButtons } from "../action-buttons/action-buttons";
 import { DynamicContentSiteEditAlbumComponent } from "./dynamic-content-site-edit-album";
 import { DynamicContentSiteEditTextRowComponent } from "./dynamic-content-site-edit-text-row";
 import { move } from "../../../functions/arrays";
+import { DynamicContentSiteEditCommitteeDocuments } from "./dynamic-content-site-edit-committee-documents";
 import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events";
 import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-edit-area-map";
 import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
@@ -548,7 +551,15 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                   </div>
                   @if (row?.fragment?.pageContentId) {
                     <div class="mt-2 panel-border">
+                      <div class="mb-2">
+                        <app-badge-button
+                          [icon]="faExternalLinkAlt"
+                          [tooltip]="'Edit fragment in new tab'"
+                          caption="Edit fragment"
+                          (click)="openFragmentInNewTab(row)"/>
+                      </div>
                       <app-dynamic-content-view [pageContent]="fragmentContent(row)" [contentPath]="fragmentPath(row)"
+                                                [hideEditToggle]="true"
                                                 [forceView]="true"/>
                     </div>
                     @if (!fragmentContent(row) && fragmentService.failedToLoad(row.fragment.pageContentId)) {
@@ -582,6 +593,9 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                                                         [templateSourceOptions]="templateSourceOptions"
                                                         [templateExtractOptions]="templateExtractOptions"
                                                         [allowColumnMappings]="columnMappingEnabled(rowIndex)"/>
+                @if (actions.isCommitteeDocuments(row)) {
+                  <app-dynamic-content-site-edit-committee-documents [row]="row" [rowIndex]="rowIndex"/>
+                }
                 @if (actions.isEvents(row)) {
                   <app-dynamic-content-site-edit-events [row]="row" [rowIndex]="rowIndex"/>
                 }
@@ -731,7 +745,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, MarkdownEditorComponent, TemplateSelectorComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, MarkdownEditorComponent, TemplateSelectorComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
@@ -918,6 +932,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   private rowDragTargetIndex: number = null;
 
   protected readonly faClone = faClone;
+  protected readonly faExternalLinkAlt = faExternalLinkAlt;
 
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
 
@@ -1873,6 +1888,16 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       }
     } else if (this.actions.isMap(row)) {
       this.actions.ensureMapData(row);
+    } else if (this.actions.isCommitteeDocuments(row)) {
+      if (!row?.committeeDocuments) {
+        row.committeeDocuments = {
+          fileIds: [],
+          autoFromFirstActionButton: false,
+          showFileActions: true,
+          sortDirection: SortDirection.DESC
+        };
+        this.logger.debug("initialising committeeDocuments to:", row.committeeDocuments);
+      }
     } else {
       this.logger.debug("not initialising data for ", row.type);
     }
@@ -1911,6 +1936,13 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   fragmentPath(row: PageContentRow): string {
     return this.fragmentService.contentById(row?.fragment?.pageContentId)?.path;
+  }
+
+  openFragmentInNewTab(row: PageContentRow): void {
+    const path = this.fragmentPath(row);
+    if (path) {
+      window.open(`/${path}`, "_blank");
+    }
   }
 
   onRowDragStart(event: DragEvent, index: number) {

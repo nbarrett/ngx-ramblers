@@ -12,6 +12,7 @@ import { ActionButtons } from "../action-buttons/action-buttons";
 import { DynamicContentViewTextRow } from "./dynamic-content-view-text-row";
 import { DynamicContentViewCarousel } from "./dynamic-content-view-carousel";
 import { DynamicContentViewAlbum } from "./dynamic-content-view-album";
+import { CommitteeDocumentsRow } from "../committee-documents/committee-documents-row";
 import { EventsRow } from "../events/events-row";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { AreaMap } from "../../../pages/area-map/area-map";
@@ -40,6 +41,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
               [pageContent]="viewablePageContent"
               [rowIndex]="rowIndex"
               [contentPath]="contentPath"
+              [hideEditToggle]="hideEditToggle"
               [contentDescription]="contentDescription"/>
           }
           @if (actions.isCarousel(row)) {
@@ -55,6 +57,9 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
               [row]="row"
               [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
           }
+          @if (actions.isCommitteeDocuments(row)) {
+            <app-committee-documents-row [row]="row" [rowIndex]="rowIndex"/>
+          }
           @if (actions.isEvents(row)) {
             <app-events-row [row]="row" [rowIndex]="rowIndex"/>
           }
@@ -68,7 +73,13 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
             <app-dynamic-content-view-location [row]="row"/>
           }
           @if (actions.isSharedFragment(row) && row?.fragment?.pageContentId) {
-            <app-dynamic-content-view [pageContent]="fragmentContentFor(row)" [contentPath]="fragmentPathFor(row)"/>
+            <div [class]="actions.rowClasses(row)">
+              <div class="col-12">
+                <app-dynamic-content-view [pageContent]="fragmentContentFor(row)" [contentPath]="fragmentPathFor(row)"
+                                          [hideEditToggle]="hideEditToggle"
+                                          [contentDescription]="contentDescription || fragmentPathFor(row)"/>
+              </div>
+            </div>
           }
         }
         @if (!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)) {
@@ -85,7 +96,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
         }
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [ActionButtons, DynamicContentViewTextRow, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, FontAwesomeModule, AreaMap, DynamicContentViewMap, DynamicContentViewLocation]
+  imports: [ActionButtons, CommitteeDocumentsRow, DynamicContentViewTextRow, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, FontAwesomeModule, AreaMap, DynamicContentViewMap, DynamicContentViewLocation]
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);
@@ -106,6 +117,8 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   public forceView: boolean;
   @Input()
   public contentDescription: string;
+  @Input()
+  public hideEditToggle: boolean;
   @Input()
   public notify: AlertInstance;
   public area: string;

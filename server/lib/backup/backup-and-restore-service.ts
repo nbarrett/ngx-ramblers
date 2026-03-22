@@ -114,7 +114,8 @@ export class BackupAndRestoreService {
   }
 
   private buildMongoUriForConfig(cluster: string, username: string, password: string, database: string): string {
-    return buildMongoUri({ cluster, username, password, database });
+    const baseUri = buildMongoUri({ cluster, username, password, database });
+    return `${baseUri}&socketTimeoutMS=300000&connectTimeoutMS=30000&serverSelectionTimeoutMS=30000`;
   }
 
   async startBackup(options: BackupOptions): Promise<BackupSession> {
@@ -487,7 +488,7 @@ export class BackupAndRestoreService {
       restoreArgs.push("--dir", restoreDir);
 
       await this.addLog(sessionId, `Starting mongorestore from ${restoreDir}`);
-      await this.execCommand("mongorestore", restoreArgs, sessionId);
+      await this.execCommandWithRetry("mongorestore", restoreArgs, sessionId, 3);
       await this.addLog(sessionId, `Restore completed to ${options.environment}`);
       await this.updateSession(sessionId, { status: "completed", endTime: dateTimeNow().toJSDate() });
 
@@ -539,6 +540,26 @@ export class BackupAndRestoreService {
         reject(error);
       });
     });
+  }
+
+  private async execCommandWithRetry(cmd: string, args: string[], sessionId: string, maxAttempts: number): Promise<void> {
+    const attempt = async (remaining: number, lastError?: Error): Promise<void> => {
+      if (remaining <= 0) {
+        throw lastError || new Error(`${cmd} failed after ${maxAttempts} attempts`);
+      }
+      try {
+        await this.execCommand(cmd, args, sessionId);
+      } catch (error: any) {
+        if (remaining > 1) {
+          const attemptNumber = maxAttempts - remaining + 1;
+          await this.addLog(sessionId, `Attempt ${attemptNumber} failed: ${error.message}. Retrying in 5 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          return attempt(remaining - 1, error);
+        }
+        throw error;
+      }
+    };
+    return attempt(maxAttempts);
   }
 
   private async downloadS3Prefix(

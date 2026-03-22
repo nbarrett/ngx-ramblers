@@ -1,8 +1,10 @@
+import { Location } from "@angular/common";
 import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
+import { RouteParam } from "../../../models/content-text.model";
 import {
   CommitteeFile,
   CommitteeMember,
@@ -467,7 +469,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                               title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
             <app-brevo-button class="ms-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
                               title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
-            <input type="submit" value="Back" (click)="backToCommittee()"
+            <input type="submit" value="Back" (click)="back()"
                    class="ms-2 btn btn-primary px-2 py-2">
           </div>
         </div>
@@ -477,9 +479,9 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
       </app-page>`,
   imports: [PageComponent, TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, MarkdownComponent, DatePicker, LinkComponent, SenderRepliesAndSignoff, CommitteeRoleMultiSelectComponent, CommitteeNotificationDetailsComponent, FontAwesomeModule, BrevoButtonComponent, NotificationDirective, TitleCasePipe, DisplayDatePipe]
 })
-export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
+export class CommitteeSendNotification implements OnInit, OnDestroy {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeSendNotificationComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeSendNotification", NgxLoggerLevel.ERROR);
   private route = inject(ActivatedRoute);
   private pageService = inject(PageService);
   private memberLoginService = inject(MemberLoginService);
@@ -495,6 +497,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   mailLinkService = inject(MailLinkService);
   private mailListUpdaterService = inject(MailListUpdaterService);
   private systemConfigService = inject(SystemConfigService);
+  private location = inject(Location);
   private urlService = inject(UrlService);
   protected dateUtils = inject(DateUtilsService);
   @ViewChild("notificationContent") notificationContent: ElementRef;
@@ -543,7 +546,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
       this.logger.info("initialised on open: committeeFile", this.committeeFile, ", roles", this.roles);
       this.logger.info("initialised on open: notification ->", this.notification);
       this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
-        this.committeeEventId = paramMap.get("committee-event-id");
+        this.committeeEventId = paramMap.get(RouteParam.COMMITTEE_EVENT_ID);
         this.logger.info("initialised with committee-event-id:", this.committeeEventId);
         if (this.committeeEventId) {
           this.committeeQueryService.queryFiles(this.committeeEventId)
@@ -795,7 +798,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     this.runCampaignCreationAndSendWorkflow(true);
   }
 
-  backToCommittee() {
+  back() {
     if (this.notifyTarget.busy) {
       this.notification.cancelled = true;
       this.notify.error({
@@ -805,7 +808,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     } else {
       this.logger.info("calling cancelSendNotification");
       this.display.confirm.clear();
-      this.urlService.navigateTo(["committee"]);
+      this.location.back();
     }
   }
 

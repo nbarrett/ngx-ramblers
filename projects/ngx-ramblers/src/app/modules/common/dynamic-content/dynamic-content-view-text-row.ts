@@ -42,6 +42,7 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
                     [parentRowIndex]="rowIndex"
                     [rowIndex]="innerRowIndex"
                     [contentPath]="contentPath"
+                    [hideEditToggle]="hideEditToggle"
                     [contentDescription]="contentDescription">
                   </app-dynamic-content-view-text-row>
                 }
@@ -80,6 +81,7 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
                         [row]="fragmentRow"
                         [rowIndex]="fragmentRowIndex"
                         [contentPath]="fragmentPathFor(nestedRow)"
+                        [hideEditToggle]="hideEditToggle"
                         [contentDescription]="contentDescription">
                       </app-dynamic-content-view-text-row>
                     }
@@ -127,6 +129,7 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
                 @if (column.contentText) {
                   <app-markdown-editor [text]="column.contentText"
                                        [styles]="column.styles"
+                                       [hideEditToggle]="hideEditToggle"
                                        [name]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentPath)"
                                        [category]="contentPath"/>
                 }
@@ -169,6 +172,7 @@ export class DynamicContentViewTextRow implements OnInit {
   @Input() public contentPath: string;
   @Input() public contentDescription: string;
   @Input() public bordered: boolean;
+  @Input() public hideEditToggle: boolean;
   @Input() pageContent!: PageContent;
 
   ngOnInit() {

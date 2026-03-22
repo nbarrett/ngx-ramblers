@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, Input, OnInit } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, HostListener, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { faMeetup } from "@fortawesome/free-brands-svg-icons";
 import { isEqual, isUndefined, max, min } from "es-toolkit/compat";
@@ -53,27 +53,79 @@ import { CardEditorComponent } from "../card-editor/card-editor";
             </div>
           }
         </div>
-        <div class="row">
-          @for (column of viewableColumns(); track column; let columnIndex = $index) {
-            <div [class]="slideClasses(column)"
-                 [id]="actions.columnIdentifierFor(columnIndex,pageContent.path + '-card')">
-              <app-card-editor [presentationMode]="presentationMode"
-                               [smallIconContainer]="smallIconContainer()"
-                               [rowIndex]="rowIndex"
-                               [columnIndex]="columnIndex"
-                               [column]="column"
-                               [pageContent]="pageContent"
-                               [cropperDebugOffsets]="cropperDebugOffsets"
-                               (pageContentEditEvents)="pageContentEditEvents = pageContentEditService.handleEvent($event, pageContentEditEvents)">
-              </app-card-editor>
+        @if (row.showSwiper && viewableColumnCount() < pageContentColumns().length) {
+          <div class="swiper-viewport"
+               (dragstart)="$event.preventDefault()"
+               (touchstart)="onDragStart($event)"
+               (touchmove)="onDragMove($event)"
+               (touchend)="onDragEnd($event)"
+               (mousedown)="onDragStart($event)"
+               (mousemove)="onDragMove($event)"
+               (mouseup)="onDragEnd($event)"
+               (mouseleave)="onDragEnd($event)">
+            <div class="swiper-strip"
+                 [class.dragging]="dragging"
+                 [style.transform]="stripTransform"
+                 [style.transition]="dragTransition">
+              @for (column of pageContentColumns(); track column; let columnIndex = $index) {
+                <div [style.flex]="slideFlexBasis"
+                     [id]="actions.columnIdentifierFor(columnIndex,pageContent.path + '-card')">
+                  <app-card-editor [presentationMode]="presentationMode"
+                                   [smallIconContainer]="smallIconContainer()"
+                                   [rowIndex]="rowIndex"
+                                   [columnIndex]="columnIndex"
+                                   [column]="column"
+                                   [pageContent]="pageContent"
+                                   [cropperDebugOffsets]="cropperDebugOffsets"
+                                   (pageContentEditEvents)="pageContentEditEvents = pageContentEditService.handleEvent($event, pageContentEditEvents)">
+                  </app-card-editor>
+                </div>
+              }
             </div>
-          }
-        </div>
+          </div>
+        } @else {
+          <div class="row">
+            @for (column of viewableColumns(); track column; let columnIndex = $index) {
+              <div [class]="slideClasses(column)"
+                   [id]="actions.columnIdentifierFor(columnIndex,pageContent.path + '-card')">
+                <app-card-editor [presentationMode]="presentationMode"
+                                 [smallIconContainer]="smallIconContainer()"
+                                 [rowIndex]="rowIndex"
+                                 [columnIndex]="columnIndex"
+                                 [column]="column"
+                                 [pageContent]="pageContent"
+                                 [cropperDebugOffsets]="cropperDebugOffsets"
+                                 (pageContentEditEvents)="pageContentEditEvents = pageContentEditService.handleEvent($event, pageContentEditEvents)">
+                </app-card-editor>
+              </div>
+            }
+          </div>
+        }
       }`,
+    styles: [`
+.swiper-viewport
+  overflow: hidden
+  padding: 12px
+  margin: -12px
+  -webkit-user-select: none
+  user-select: none
+
+  img
+    pointer-events: none
+    -webkit-user-drag: none
+
+.swiper-strip
+  display: flex
+  gap: 24px
+  cursor: grab
+  &.dragging
+    cursor: grabbing
+`],
     imports: [SvgComponent, CardEditorComponent]
 })
-export class ActionButtons implements OnInit {
+export class ActionButtons implements OnInit, AfterViewInit, OnDestroy {
 
+  private elementRef = inject(ElementRef);
   public pageContentService: PageContentService = inject(PageContentService);
   public pageContentEditService: PageContentEditService = inject(PageContentEditService);
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
@@ -137,8 +189,24 @@ export class ActionButtons implements OnInit {
     this.applyMaxViewableSlideCount();
   }
 
+  private captureClickHandler = (event: Event) => {
+    if (this.dragOccurred) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.dragOccurred = false;
+    }
+  };
+
   ngOnInit() {
     this.applyMaxViewableSlideCount();
+  }
+
+  ngAfterViewInit() {
+    this.elementRef.nativeElement.addEventListener("click", this.captureClickHandler, true);
+  }
+
+  ngOnDestroy() {
+    this.elementRef.nativeElement.removeEventListener("click", this.captureClickHandler, true);
   }
 
   pageContentColumns(): PageContentColumn[] {
@@ -179,7 +247,8 @@ export class ActionButtons implements OnInit {
     if (!this.row?.showSwiper) {
       return columns;
     }
-    const maxSlides = this.maxViewableSlideCount || columns.length;
+    const configuredMax = this.row?.maxColumns || columns.length;
+    const maxSlides = min([this.maxViewableSlideCount || columns.length, configuredMax]);
     const total = columns.length;
     const clampedMaxSlides = min([maxSlides, total]);
     const maxStart = Math.max(0, total - clampedMaxSlides);
@@ -205,7 +274,8 @@ export class ActionButtons implements OnInit {
 
   private forwardPossible() {
     const columns = this.pageContentColumns().length;
-    const maxSlides = min([this.maxViewableSlideCount || columns, columns]);
+    const configuredMax = this.row?.maxColumns || columns;
+    const maxSlides = min([this.maxViewableSlideCount || columns, configuredMax, columns]);
     return this.slideIndex + maxSlides < columns;
   }
 
@@ -227,7 +297,8 @@ export class ActionButtons implements OnInit {
 
   viewableColumnCount(): number {
     const columns = this.pageContentColumns().length;
-    return min([columns, this.maxViewableSlideCount || columns]);
+    const configuredMax = this.row?.maxColumns || columns;
+    return min([columns, this.maxViewableSlideCount || columns, configuredMax]);
   }
 
   smallIconContainer(): boolean {
@@ -235,5 +306,92 @@ export class ActionButtons implements OnInit {
     const smallIcons = columns.filter(item => item.imageSource).length === 0;
     this.logger.debug("smallIconContainer:", columns, "->", smallIcons);
     return smallIcons;
+  }
+
+  private dragStartX: number = null;
+  dragging = false;
+  dragOffsetX = 0;
+  private dragOccurred = false;
+  private readonly SWIPE_THRESHOLD = 30;
+
+  private readonly GAP_PX = 24;
+  private readonly VIEWPORT_PAD = 12;
+
+  get slideFlexBasis(): string {
+    const n = this.viewableColumnCount();
+    return `0 0 calc((100% - ${this.GAP_PX * (n - 1)}px) / ${n})`;
+  }
+
+  private get slideWidthPx(): number {
+    const viewport = this.elementRef.nativeElement.querySelector(".swiper-viewport");
+    if (!viewport) {
+      return 300;
+    }
+    const n = this.viewableColumnCount();
+    const availableWidth = viewport.clientWidth - 2 * this.VIEWPORT_PAD;
+    return (availableWidth - this.GAP_PX * (n - 1)) / n;
+  }
+
+  get stripTransform(): string {
+    const slideAndGap = this.slideWidthPx + this.GAP_PX;
+    const baseOffset = -(this.slideIndex * slideAndGap);
+    return `translateX(${baseOffset + this.dragOffsetX}px)`;
+  }
+
+  get dragTransition(): string {
+    return this.dragging ? "none" : "transform 0.3s ease-out";
+  }
+
+  onDragStart(event: TouchEvent | MouseEvent): void {
+    if (!this.row?.showSwiper) {
+      return;
+    }
+    this.dragging = true;
+    this.dragOccurred = false;
+    this.dragStartX = event instanceof TouchEvent ? event.touches[0].clientX : event.clientX;
+    this.dragOffsetX = 0;
+  }
+
+  onDragMove(event: TouchEvent | MouseEvent): void {
+    if (!this.dragging || this.dragStartX === null) {
+      return;
+    }
+    const currentX = event instanceof TouchEvent ? event.touches[0].clientX : event.clientX;
+    this.dragOffsetX = currentX - this.dragStartX;
+    if (Math.abs(this.dragOffsetX) > 5) {
+      this.dragOccurred = true;
+    }
+    if (event instanceof TouchEvent && Math.abs(this.dragOffsetX) > 10) {
+      event.preventDefault();
+    }
+  }
+
+  onDragEnd(event?: TouchEvent | MouseEvent): void {
+    if (!this.dragging || this.dragStartX === null) {
+      this.dragging = false;
+      this.dragOffsetX = 0;
+      return;
+    }
+    let endX = this.dragStartX;
+    if (event instanceof TouchEvent) {
+      endX = event.changedTouches?.[0]?.clientX ?? this.dragStartX;
+    } else if (event instanceof MouseEvent) {
+      endX = event.clientX;
+    }
+    const deltaX = endX - this.dragStartX;
+    const absDelta = Math.abs(deltaX);
+    if (absDelta >= this.SWIPE_THRESHOLD) {
+      const slidesToMove = max([1, Math.round(absDelta / this.slideWidthPx)]);
+      const totalColumns = this.pageContentColumns().length;
+      const maxSlideIndex = totalColumns - this.viewableColumnCount();
+      if (deltaX < 0) {
+        this.slideIndex = min([this.slideIndex + slidesToMove, maxSlideIndex]);
+      } else {
+        this.slideIndex = max([0, this.slideIndex - slidesToMove]);
+      }
+    }
+    this.dragging = false;
+    this.dragStartX = null;
+    this.dragOffsetX = 0;
   }
 }

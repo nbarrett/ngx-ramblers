@@ -4,7 +4,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
-  bookingEnabledForEventType,
   BookingConfig,
   BookingEmailTemplates,
   BookingEmailType,
@@ -20,7 +19,14 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faDownload, faExclamationTriangle, faEye, faPencil, faTicket, faTrash } from "@fortawesome/free-solid-svg-icons";
+import {
+  faDownload,
+  faExclamationTriangle,
+  faEye,
+  faPencil,
+  faTicket,
+  faTrash
+} from "@fortawesome/free-solid-svg-icons";
 import { FormsModule } from "@angular/forms";
 import { CsvExportComponent, CsvOptions } from "../../../csv-export/csv-export";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
@@ -31,12 +37,12 @@ import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { StoredValue } from "../../../models/ui-actions";
 import { ActivatedRoute, Router } from "@angular/router";
 import { kebabCase } from "es-toolkit/compat";
-import { enumKeyValues, KeyValue } from "../../../functions/enums";
+import { enumKeyValues } from "../../../functions/enums";
 import { BookingConfigService } from "../../../services/system/booking-config.service";
 import { GroupEventField } from "../../../models/walk.model";
 import { EventQueryParameters, RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { SectionToggle } from "../../../shared/components/section-toggle";
+import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
 
 export enum BookingTab {
   SUMMARY = "Summary",
@@ -158,13 +164,14 @@ export enum BookingTab {
                           <button type="button" class="btn btn-warning"
                                   [disabled]="!reassignTargetEventId"
                                   (click)="reassignBookings()">
-                            Reassign {{ eventBookings.length }} booking(s)
+                            Reassign {{ stringUtils.pluraliseWithCount(eventBookings.length, "booking") }}
                           </button>
                         </div>
                       </div>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
-                      <p class="mb-0 text-muted">{{ eventBookings.length }} orphaned booking(s)</p>
+                      <p
+                        class="mb-0 text-muted">{{ stringUtils.pluraliseWithCount(eventBookings.length, "orphaned booking") }}</p>
                     </div>
                     <div class="table-responsive">
                       <table class="table table-striped table-hover">
@@ -474,9 +481,9 @@ export class BookingsComponent implements OnInit, OnDestroy {
   protected readonly BookingStatus = BookingStatus;
   protected readonly View = View;
   emailTemplateTypes: BookingEmailType[] = enumKeyValues(BookingEmailType).map(p => p.value as BookingEmailType);
-  selectedEmailTemplateType: BookingEmailType = BookingEmailType.CONFIRMATION;
-  selectedEventEmailOverrideType: BookingEmailType = BookingEmailType.CONFIRMATION;
-  emailTemplateTabs = this.emailTemplateTypes.map(type => ({value: type, label: this.stringUtils.asTitle(type)}));
+  selectedEmailTemplateType: string = BookingEmailType.CONFIRMATION;
+  selectedEventEmailOverrideType: string = BookingEmailType.CONFIRMATION;
+  emailTemplateTabs: SectionToggleTab[] = this.emailTemplateTypes.map(type => ({value: type, label: this.stringUtils.asTitle(type)}));
   emailTemplateView: View = View.EDIT;
   private dirtyEventIds: Set<string> = new Set();
   placeholderFields: InsertableField[] = enumKeyValues(BookingPlaceholder).map(p => ({
@@ -577,7 +584,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
       const totalBooked = bookings.reduce((sum, b) => sum + b.attendees.length, 0);
       const title = event?.groupEvent?.title || "Unknown event";
       const label = orphaned
-        ? `Orphaned: ${title} (${totalBooked} booking${totalBooked === 1 ? "" : "s"})`
+        ? `Orphaned: ${title} (${this.stringUtils.pluraliseWithCount(totalBooked, "booking")})`
         : this.eventSelectorLabel(title, event?.groupEvent?.item_type, event?.groupEvent?.start_date_time);
       return {
         eventId,
@@ -674,7 +681,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
       this.notify.warning({title: "No bookings", message: "No bookings found to reassign"});
       return;
     }
-    this.notify.progress({title: "Reassigning", message: `Moving ${bookingsToReassign.length} booking(s) to new event...`});
+    this.notify.progress({
+      title: "Reassigning",
+      message: `Moving ${this.stringUtils.pluraliseWithCount(bookingsToReassign.length, "booking")} to new event...`
+    });
     try {
       const updatePromises = bookingsToReassign.map(async b => {
         const updatedBooking: Booking = {
@@ -688,7 +698,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
       this.reassignTargetEventId = null;
       await this.loadBookingAdminData();
       this.onSelectedEventChange();
-      this.notify.success({title: "Reassigned", message: `${bookingsToReassign.length} booking(s) moved to the selected event`});
+      this.notify.success({
+        title: "Reassigned",
+        message: `${this.stringUtils.pluraliseWithCount(bookingsToReassign.length, "booking")} moved to the selected event`
+      });
     } catch (error) {
       this.notify.error({title: "Reassign failed", message: "Could not reassign bookings"});
       this.logger.error("reassignBookings failed:", error);
@@ -805,11 +818,11 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return enumKeyValues(BookingPlaceholder).map(p => `{{${p.value}}}`).join(", ");
   }
 
-  emailTemplateValue(emailType: BookingEmailType): string {
+  emailTemplateValue(emailType: string): string {
     return this.bookingConfig?.emailTemplates?.[emailType] || "";
   }
 
-  emailTemplateChanged(emailType: BookingEmailType, event: ContentText) {
+  emailTemplateChanged(emailType: string, event: ContentText) {
     if (!this.bookingConfig.emailTemplates) {
       this.bookingConfig.emailTemplates = {} as BookingEmailTemplates;
     }
@@ -821,7 +834,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return overrides?.[this.selectedEventEmailOverrideType] || "";
   }
 
-  loadDefaultForOverride(emailType: BookingEmailType) {
+  loadDefaultForOverride(emailType: string) {
     const defaultText = this.bookingConfig?.emailTemplates?.[emailType] || "";
     if (!defaultText) {
       this.notify.warning({title: "No default", message: "No default template configured for " + this.stringUtils.asTitle(emailType)});
@@ -830,7 +843,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.eventEmailOverrideChanged(emailType, {text: defaultText});
   }
 
-  eventEmailOverrideChanged(emailType: BookingEmailType, event: ContentText) {
+  eventEmailOverrideChanged(emailType: string, event: ContentText) {
     const selectedEvent = this.eventsMap.get(this.selectedEventId);
     if (!selectedEvent) {
       return;

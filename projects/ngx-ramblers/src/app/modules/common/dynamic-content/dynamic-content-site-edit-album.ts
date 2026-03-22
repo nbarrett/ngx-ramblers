@@ -786,7 +786,7 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
       const focalPointTarget = this.row.carousel.coverImageFocalPointTarget || FocalPointTarget.BOTH;
       const applyFocalPointToIndex = [FocalPointTarget.INDEX_PREVIEW, FocalPointTarget.BOTH].includes(focalPointTarget);
       const columns = [{
-        accessLevel: AccessLevel.public,
+        accessLevel: AccessLevel.PUBLIC,
         title: this.row.carousel.title,
         contentText,
         imageSource,

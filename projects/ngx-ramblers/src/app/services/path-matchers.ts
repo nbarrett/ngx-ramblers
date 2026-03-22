@@ -1,6 +1,7 @@
 import { UrlMatchResult, UrlSegment } from "@angular/router";
 import { isMongoId } from "./mongo-utils";
 import { last } from "es-toolkit/compat";
+import { PathSegment, RouteParam } from "../models/content-text.model";
 
 function relativePathFrom(urlSegments: UrlSegment[]) {
   return new UrlSegment(urlSegments.map(urlSegment => urlSegment.path).join("/"), {});
@@ -40,11 +41,11 @@ export function isNumericRamblersId(value: string) {
 }
 
 export function hasEditSubPath(urlSegments: UrlSegment[]): UrlMatchResult {
-  if (urlSegments.length >= 3 && urlSegments[urlSegments.length - 2].path === "edit") {
+  if (urlSegments.length >= 3 && urlSegments[urlSegments.length - 2].path === PathSegment.EDIT) {
     return {
       consumed: urlSegments,
       posParams: {
-        "walk-id": urlSegments[urlSegments.length - 1]
+        [RouteParam.WALK_ID]: urlSegments[urlSegments.length - 1]
       }
     };
   } else {
@@ -53,11 +54,11 @@ export function hasEditSubPath(urlSegments: UrlSegment[]): UrlMatchResult {
 }
 
 export function hasTrailingNewPath(urlSegments: UrlSegment[]): UrlMatchResult {
-  if (urlSegments.length === 2 && last(urlSegments).path === "new") {
+  if (urlSegments.length === 2 && last(urlSegments).path === PathSegment.NEW) {
     return {
       consumed: urlSegments,
       posParams: {
-        "area": urlSegments[0]
+        [RouteParam.AREA]: urlSegments[0]
       }
     };
   } else {
@@ -66,11 +67,11 @@ export function hasTrailingNewPath(urlSegments: UrlSegment[]): UrlMatchResult {
 }
 
 export function hasTrailingEditPath(urlSegments: UrlSegment[]): UrlMatchResult {
-  if (urlSegments.length >= 3 && last(urlSegments).path === "edit") {
+  if (urlSegments.length >= 3 && last(urlSegments).path === PathSegment.EDIT) {
     return {
       consumed: urlSegments,
       posParams: {
-        "id": urlSegments[urlSegments.length - 2]
+        [RouteParam.ID]: urlSegments[urlSegments.length - 2]
       }
     };
   } else {
@@ -78,12 +79,30 @@ export function hasTrailingEditPath(urlSegments: UrlSegment[]): UrlMatchResult {
   }
 }
 
-export function hasViewSubPath(urlSegments: UrlSegment[]): UrlMatchResult {
-  if (urlSegments.length >= 3 && urlSegments[urlSegments.length - 2].path === "view") {
+export function hasSendNotificationPath(urlSegments: UrlSegment[]): UrlMatchResult {
+  if (urlSegments.length >= 3 && urlSegments[urlSegments.length - 2].path === PathSegment.SEND_NOTIFICATION) {
     return {
       consumed: urlSegments,
       posParams: {
-        "walk-id": urlSegments[urlSegments.length - 1]
+        [RouteParam.COMMITTEE_EVENT_ID]: urlSegments[urlSegments.length - 1]
+      }
+    };
+  } else if (urlSegments.length >= 2 && last(urlSegments).path === PathSegment.SEND_NOTIFICATION) {
+    return {
+      consumed: urlSegments,
+      posParams: {}
+    };
+  } else {
+    return null;
+  }
+}
+
+export function hasViewSubPath(urlSegments: UrlSegment[]): UrlMatchResult {
+  if (urlSegments.length >= 3 && urlSegments[urlSegments.length - 2].path === PathSegment.VIEW) {
+    return {
+      consumed: urlSegments,
+      posParams: {
+        [RouteParam.WALK_ID]: urlSegments[urlSegments.length - 1]
       }
     };
   } else {

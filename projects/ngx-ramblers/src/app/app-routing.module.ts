@@ -2,9 +2,10 @@ import { inject, NgModule } from "@angular/core";
 import { NoPreloading, RouterModule, Routes } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
-import { hasDynamicPath, hasEditSubPath, hasTrailingEditPath, hasTrailingNewPath, hasViewSubPath } from "./services/path-matchers";
+import { hasDynamicPath, hasEditSubPath, hasSendNotificationPath, hasTrailingEditPath, hasTrailingNewPath, hasViewSubPath } from "./services/path-matchers";
 import { contactUsGuard } from "./pages/contact-us/contact-us.guard";
 import { AreaExistsGuard } from "./guards/area-exists-guard";
+import { CommitteeAuthGuard } from "./guards/committee-auth-guard";
 import { GroupEventAuthGuard } from "./guards/group-event-auth-guard";
 import { SystemHealthyGuard } from "./guards/system-healthy-guard";
 
@@ -18,11 +19,6 @@ const routes: Routes = [
   {
     path: "admin", loadChildren: () => import("./modules/admin/admin-routing.module")
       .then(module => module.AdminRoutingModule)
-  },
-  {
-    path: "committee", loadChildren: () => import("./modules/committee/committee-routing.module")
-      .then(module => module.CommitteeRoutingModule),
-    canActivate: [SystemHealthyGuard]
   },
   {
     path: "walks", loadChildren: () => import("./modules/walks/walks-routing.module")
@@ -66,6 +62,12 @@ const routes: Routes = [
     path: "fragments",
     redirectTo: "/admin/content-templates",
     pathMatch: "full"
+  },
+  {
+    matcher: hasSendNotificationPath,
+    loadComponent: () => import("./pages/committee/send-notification/committee-send-notification")
+      .then(m => m.CommitteeSendNotification),
+    canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
   },
   {
     matcher: hasEditSubPath,

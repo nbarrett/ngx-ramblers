@@ -17,7 +17,7 @@ function createTextRow(contentText: string, columns: number = 12): PageContentRo
     columns: [
       {
         columns,
-        accessLevel: AccessLevel.public,
+        accessLevel: AccessLevel.PUBLIC,
         contentText
       }
     ]
@@ -75,7 +75,7 @@ export function createWalksPage(params: PageContentTemplateParams): PageContent 
             columns: 6,
             title: "Walks Information",
             href: "walks/information",
-            accessLevel: AccessLevel.public,
+            accessLevel: AccessLevel.PUBLIC,
             contentText: "More information about our walks",
             showPlaceholderImage: true
           },
@@ -83,7 +83,7 @@ export function createWalksPage(params: PageContentTemplateParams): PageContent 
             columns: 6,
             title: "Admin",
             href: "walks/admin",
-            accessLevel: AccessLevel.committee,
+            accessLevel: AccessLevel.COMMITTEE,
             contentText: "Walk administration and settings",
             showPlaceholderImage: true
           }

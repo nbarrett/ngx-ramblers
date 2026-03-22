@@ -59,7 +59,7 @@ export class LocationExtractionService {
         title,
         contentText: description || "No description available",
         href,
-        accessLevel: AccessLevel.public,
+        accessLevel: AccessLevel.PUBLIC,
         imageSource,
         location
       });
@@ -150,6 +150,10 @@ export class LocationExtractionService {
     for (const row of pageContent.rows || []) {
       if (row.type === PageContentType.ALBUM_INDEX) {
         continue;
+      }
+      if (row.committeeDocuments?.imageSource) {
+        result = row.committeeDocuments.imageSource;
+        break;
       }
       for (const column of row.columns || []) {
         if (column.imageSource) {

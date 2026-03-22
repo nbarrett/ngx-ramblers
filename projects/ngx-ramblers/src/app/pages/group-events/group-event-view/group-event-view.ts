@@ -2,6 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { faEnvelope, faFile, faHouse, faMapMarkerAlt, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
+import { PathSegment } from "../../../models/content-text.model";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -270,10 +271,10 @@ export class GroupEventView implements OnInit {
     if (this?.groupEvent?.id) {
       const eventPath = this.display.groupEventLink(this.groupEvent, true);
       this.logger.info("editing existing event:", this.groupEvent.id, "eventPath:", eventPath);
-      this.urlService.navigateUnconditionallyTo([eventPath, "edit"]);
+      this.urlService.navigateUnconditionallyTo([eventPath, PathSegment.EDIT]);
     } else {
       this.logger.info("creating new event");
-      this.urlService.navigateUnconditionallyTo([this.urlService.area(), "new"]);
+      this.urlService.navigateUnconditionallyTo([this.urlService.area(), PathSegment.NEW]);
     }
   }
 

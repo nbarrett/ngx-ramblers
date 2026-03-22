@@ -18,6 +18,7 @@ import {
   SELECT_ALL,
   TableFilterItem
 } from "../../../models/table-filtering.model";
+import { SortDirection } from "../../../models/sort.model";
 import { Confirm, ConfirmType, EditMode, StoredValue } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { ApiResponseProcessor } from "../../../services/api-response-processor.service";
@@ -476,7 +477,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       return;
     }
     this.storedSortField = field;
-    this.storedSortDescending = order === "desc";
+    this.storedSortDescending = order === SortDirection.DESC;
   }
 
   private applyStoredSort() {
@@ -501,7 +502,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       return;
     }
     const sortField = this.memberFilter.sortField;
-    const sortOrder = this.memberFilter.reverseSort ? "desc" : "asc";
+    const sortOrder = this.memberFilter.reverseSort ? SortDirection.DESC : SortDirection.ASC;
     this.uiActionsService.saveValueFor(StoredValue.SEARCH, this.quickSearch || "");
     this.uiActionsService.saveValueFor(StoredValue.SORT, sortField);
     this.uiActionsService.saveValueFor(StoredValue.SORT_ORDER, sortOrder);

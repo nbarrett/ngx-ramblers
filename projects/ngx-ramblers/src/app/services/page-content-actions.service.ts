@@ -221,8 +221,8 @@ export class PageContentActionsService {
   private columnFor(type: PageContentType | string): PageContentColumn {
     return type === PageContentType.TEXT ? {
       columns: 12,
-      accessLevel: AccessLevel.public
-    } : {accessLevel: AccessLevel.public};
+      accessLevel: AccessLevel.PUBLIC
+    } : {accessLevel: AccessLevel.PUBLIC};
   }
 
   public rowHeading(rowIndex: number, columnCount: number): string {
@@ -306,8 +306,8 @@ export class PageContentActionsService {
 
   addColumn(row: PageContentRow, columnIndex: number, pageContent: PageContent) {
     const columnData: PageContentColumn = row?.type === PageContentType.TEXT ?
-      {columns: this.calculateColumnsFor(row, 1), accessLevel: AccessLevel.public} :
-      {href: null, imageSource: null, title: null, accessLevel: AccessLevel.hidden};
+      {columns: this.calculateColumnsFor(row, 1), accessLevel: AccessLevel.PUBLIC} :
+      {href: null, imageSource: null, title: null, accessLevel: AccessLevel.HIDDEN};
     row.columns.splice(columnIndex, 0, columnData);
     this.logger.debug("pageContent:", pageContent);
   }
@@ -430,6 +430,10 @@ export class PageContentActionsService {
 
   public isIndex(row: PageContentRow) {
     return row?.type === PageContentType.ALBUM_INDEX;
+  }
+
+  public isCommitteeDocuments(row: PageContentRow): boolean {
+    return row?.type === PageContentType.COMMITTEE_DOCUMENTS;
   }
 
   public isEvents(row: PageContentRow) {

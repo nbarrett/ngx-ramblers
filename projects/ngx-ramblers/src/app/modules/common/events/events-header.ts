@@ -4,6 +4,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AlertTarget } from "../../../models/alert-target.model";
+import { PathSegment } from "../../../models/content-text.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -152,7 +153,7 @@ export class EventsHeader implements OnInit, OnDestroy {
   }
 
   addNewEvent() {
-    this.urlService.navigateUnconditionallyTo([this.urlService.area(), "new"]);
+    this.urlService.navigateUnconditionallyTo([this.urlService.area(), PathSegment.NEW]);
   }
 
   configureFilterCriteria(): boolean {
