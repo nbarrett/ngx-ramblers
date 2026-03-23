@@ -24,8 +24,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       @if (groupEvent?.groupEvent?.media?.length > 0) {
         <img
           src="{{mediaQueryService.imageSourceWithFallback(groupEvent, true)?.url}}"
-          alt="{{mediaQueryService.imageSourceWithFallback(groupEvent, true)?.alt}}" height="150"
-          class="card-img-top"/>
+          alt="{{mediaQueryService.imageSourceWithFallback(groupEvent, true)?.alt}}"
+          style="width:100%;height:auto;display:block"/>
       }
       @if (latestNotification?.content?.title?.include) {
         <h3><strong
