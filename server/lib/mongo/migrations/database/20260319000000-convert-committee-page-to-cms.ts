@@ -1,4 +1,5 @@
 import { Db } from "mongodb";
+import { keys } from "es-toolkit/compat";
 import createMigrationLogger from "../migrations-logger";
 import { dateTimeFromMillis } from "../../../shared/dates";
 import {
@@ -122,7 +123,7 @@ async function migrateCommitteePage(db: Db) {
     }
   });
 
-  const years = Object.keys(filesByYear).map(Number).sort((a, b) => b - a);
+  const years = keys(filesByYear).map(Number).sort((a, b) => b - a);
   debugLog("Committee files grouped into %d years: %o", years.length, years);
 
   let yearsFragment = await pageContentCollection.findOne({path: COMMITTEE_YEARS_FRAGMENT_PATH});
