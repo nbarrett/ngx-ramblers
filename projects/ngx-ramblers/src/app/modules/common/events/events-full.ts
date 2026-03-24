@@ -428,7 +428,7 @@ export class EventsFull implements OnInit, OnDestroy {
         this.filteredWalks = displayedWalks;
         this.currentPageWalks = displayedWalks;
         this.updatePaginationStatus();
-        if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0) {
+        if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0 && this.walkListView !== WalkListView.TABLE) {
           this.display.view(this.currentPageWalks[0].walk);
         }
       }

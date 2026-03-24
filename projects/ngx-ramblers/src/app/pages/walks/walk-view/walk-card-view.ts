@@ -10,14 +10,10 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-import { Organisation, SystemConfig } from "../../../models/system.model";
+import { SystemConfig } from "../../../models/system.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
 import { faEnvelope, faEye, faPencil, faPhone } from "@fortawesome/free-solid-svg-icons";
-import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
-import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
-import { LoginResponse } from "../../../models/member.model";
-import { AuthService } from "../../../auth/auth.service";
 import { WalkGradingComponent } from "./walk-grading";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
@@ -29,6 +25,8 @@ import { AscentValidationService } from "../../../services/walks/ascent-validati
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { CardImageOrMap } from "../../../modules/common/card/image/card-image-or-map";
 import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalking";
+import { EventLeaderContactLinkComponent } from "./event-leader-contact-link";
+import { EventLeaderPhoneLinkComponent } from "./event-leader-phone-link";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
 import { RouterLink } from "@angular/router";
 
@@ -91,66 +89,39 @@ import { RouterLink } from "@angular/router";
               <dt class="font-weight-bold me-2">Leader:</dt>
               <dd>
                 <div class="row g-0">
-                  @if (display.walkPopulationWalksManager()) {
+                  @if (displayedWalk?.walk?.fields?.contactDetails?.email) {
                     <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-6 nowrap">
                       <app-copy-icon [icon]="faEnvelope" title
+                                     [disabled]="display.isContactUsContact()"
                                      [value]="displayedWalk?.walk?.fields?.contactDetails?.email"
                                      [elementName]="'email address for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
                       <div content>
-                        @if (display.contactEmailHref(displayedWalk?.walk?.fields?.contactDetails?.email)) {
-                          <a [href]="display.contactEmailHref(displayedWalk?.walk?.fields?.contactDetails?.email)">{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
-                        } @else {
-                          <span>{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</span>
-                        }
+                        <app-event-leader-contact-link [walk]="displayedWalk.walk" fallbackLabel="Contact Via Ramblers"/>
                       </div>
                     </div>
                   }
-                  @if (!display.walkPopulationWalksManager()) {
-                    @if (displayedWalk?.walk?.fields?.contactDetails?.email) {
+                  @if (display.walkContactDetailsPublic()) {
+                    @if (displayedWalk?.walk?.fields?.contactDetails?.phone) {
                       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
                            class="col-sm-6 col-md-12">
-                        <app-copy-icon [disabled]="!loggedIn" [icon]="faEnvelope" title
-                                       [value]="displayedWalk?.walk?.fields?.contactDetails?.email"
-                                       [elementName]="'email address for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
+                        <app-copy-icon [icon]="faPhone" title
+                                       [value]="displayedWalk?.walk?.fields?.contactDetails?.phone"
+                                       [elementName]="'mobile number for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName "/>
                         <div content>
-                          @if (loggedIn) {
-                            <a class="nowrap" [href]="display.contactEmailHref(displayedWalk?.walk?.fields?.contactDetails?.email)"
-                               tooltip="Click to email {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
-                              {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
-                            </a>
-                          }
-                          @if (!loggedIn) {
-                            <div (click)="login()" class="tooltip-link span-margin"
-                                 tooltip="Login as an {{group?.shortName}} member and send an email to {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
-                              {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
-                            </div>
-                          }
+                          <app-event-leader-phone-link
+                            [phone]="displayedWalk?.walk?.fields?.contactDetails?.phone"
+                            [displayName]="displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
                         </div>
                       </div>
-                    }
-                    @if (loggedIn) {
-                      @if (displayedWalk?.walk?.fields?.contactDetails?.phone) {
-                        <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-                             class="col-sm-6  col-md-12">
-                          <app-copy-icon [icon]="faPhone" title
-                                         [value]="displayedWalk?.walk?.fields?.contactDetails?.phone"
-                                         [elementName]="'mobile number for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName "/>
-                          <a content [href]="'tel:' + displayedWalk?.walk?.fields?.contactDetails?.phone"
-                             class="nowrap"
-                             tooltip="Click to ring {{displayedWalk?.walk?.fields?.contactDetails?.displayName}} on {{displayedWalk?.walk?.fields?.contactDetails?.phone}} (mobile devices only)">
-                            {{ displayedWalk?.walk?.fields?.contactDetails?.phone }}
-                          </a>
+                    } @else if (!displayedWalk?.walk?.fields?.contactDetails?.email) {
+                      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+                        <app-copy-icon [icon]="faPersonWalking" title
+                                       [value]="displayedWalk?.walk?.fields?.contactDetails?.displayName"
+                                       [elementName]="'walk leader '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
+                        <div content>
+                          {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
                         </div>
-                      } @else if (display.hasWalkLeader(displayedWalk.walk)) {
-                        <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                          <app-copy-icon [icon]="faPersonWalking" title
-                                         [value]="displayedWalk?.walk?.fields?.contactDetails?.displayName"
-                                         [elementName]="'walk leader '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
-                          <div content>
-                            {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
-                          </div>
-                        </div>
-                      }
+                      </div>
                     }
                   }
                 </div>
@@ -171,21 +142,14 @@ import { RouterLink } from "@angular/router";
       position: relative
       padding-bottom: 50px
   `],
-  imports: [WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe, DisplayTimePipe, CardImageOrMap, RouterLink]
+  imports: [WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe, DisplayTimePipe, CardImageOrMap, RouterLink, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent]
 })
 
 export class WalkCardViewComponent implements OnInit, OnDestroy {
 
-  public config: ModalOptions = {
-    animated: false,
-    initialState: {}
-  };
-  public group: Organisation;
-  public loggedIn: boolean;
-  private subscriptions: Subscription[] = [];
   public notifyTarget: AlertTarget = {};
+  private subscriptions: Subscription[] = [];
   public mediaQueryService: MediaQueryService = inject(MediaQueryService);
-  private modalService: BsModalService = inject(BsModalService);
   public googleMapsService = inject(GoogleMapsService);
   protected memberLoginService = inject(MemberLoginService);
   public display = inject(WalkDisplayService);
@@ -193,7 +157,6 @@ export class WalkCardViewComponent implements OnInit, OnDestroy {
   protected stringUtils = inject(StringUtilsService);
   private systemConfigService = inject(SystemConfigService);
   private notifierService = inject(NotifierService);
-  private authService = inject(AuthService);
   public ascentValidationService = inject(AscentValidationService);
   public distanceValidationService = inject(DistanceValidationService);
   private logger = inject(LoggerFactory).createLogger("WalkCardViewComponent", NgxLoggerLevel.ERROR);
@@ -213,24 +176,14 @@ export class WalkCardViewComponent implements OnInit, OnDestroy {
   protected readonly faPersonWalking = faPersonWalking;
 
   ngOnInit() {
-    this.loggedIn = this.memberLoginService.memberLoggedIn();
     this.logger.info("initialised with displayedWalk", this.displayedWalk, "cardImageClass:", this.cardImageClass);
     this.subscriptions.push(this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => {
       this.logger.debug("systemConfigService returned systemConfig:", systemConfig);
-      this.group = systemConfig.group;
-    }));
-    this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => {
-      this.logger.debug("loginResponseObservable:", loginResponse);
-      this.loggedIn = loginResponse?.memberLoggedIn;
     }));
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
-  }
-
-  login() {
-    this.modalService.show(LoginModalComponent, this.config);
   }
 
   toggleView() {

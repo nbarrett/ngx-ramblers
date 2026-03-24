@@ -41,7 +41,7 @@ import { ContactInteractionStatus } from "../../models/booking.model";
           @if (committeeMember) {
             <form #contactForm="ngForm" (ngSubmit)="sendEmail()" class="p-2" novalidate>
               <h6 class="my-3">Please complete the following details and we'll send your message to
-                {{ committeeMember?.fullName }}, our {{ committeeMember?.description }}.</h6>
+                {{ contactIntro() }}.</h6>
               <div class="form-group">
                 <label for="contact-name">Your Name</label>
                 <input #contactNameInput [(ngModel)]="contactFormDetails.name" name="name" type="text" id="contact-name"
@@ -201,6 +201,7 @@ import { ContactInteractionStatus } from "../../models/booking.model";
 })
 export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit {
   queryParams: Params;
+  committeeMemberOverride: CommitteeMember;
   protected dateUtils: DateUtilsService = inject(DateUtilsService);
   private committeeConfig: CommitteeConfigService = inject(CommitteeConfigService);
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
@@ -253,7 +254,11 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
         }
       }));
     this.subscriptions.push(this.committeeConfig.committeeReferenceDataEvents().subscribe((data: CommitteeReferenceData) => {
-      this.committeeMember = data.committeeMemberForRole(this.queryParams["role"]);
+      if (this.committeeMemberOverride) {
+        this.committeeMember = this.committeeMemberOverride;
+      } else {
+        this.committeeMember = data.committeeMemberForRole(this.queryParams["role"]);
+      }
       if (!this.committeeMember) {
         this.notify.error({
           title: "Failed to initialise Contact Us form",
@@ -338,6 +343,9 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     this.logger.info("sendInboundEmailRequest:name:", name, "given:", this.committeeMember);
     const email = this.contactFormDetails.anonymous ? `noreply@${this.urlService.baseDomain()}` : this.contactFormDetails.email;
     const replyTo = {email, name: this.contactFormDetails.name};
+    const toAddress = this.committeeMemberOverride
+      ? {name: this.committeeMember.fullName, email: this.committeeMember.email}
+      : this.mailMessagingService.createBrevoAddress(this.committeeMember.type);
     const emailRequest: SendSmtpEmailRequest = this.mailMessagingService.createEmailRequest({
       member: {email, firstName: name.firstName, lastName: name.lastName},
       notificationConfig: this.notificationConfig,
@@ -345,7 +353,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
       emailSubject: this.contactFormDetails.subject,
       bodyContent: this.inboundBodyContent(),
       sender: this.mailMessagingService.createBrevoAddress(this.notificationConfig.senderRole),
-      to: [this.mailMessagingService.createBrevoAddress(this.committeeMember.type)],
+      to: [toAddress],
       replyTo,
     });
     this.logger.info("sendInboundEmailRequest:emailRequest:", emailRequest);
@@ -390,6 +398,15 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     } catch (error) {
       this.logger.error("Failed to persist contact interaction:", error);
     }
+  }
+
+  contactIntro(): string {
+    const name = this.committeeMember?.fullName;
+    const description = this.committeeMember?.description;
+    if (name?.toLowerCase() === description?.toLowerCase() || !description) {
+      return `our ${name} inbox`;
+    }
+    return `${name}, our ${description}`;
   }
 
   emailSendDisabled() {

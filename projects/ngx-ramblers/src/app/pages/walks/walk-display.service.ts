@@ -1,12 +1,12 @@
 import { Location } from "@angular/common";
-import { inject, Injectable } from "@angular/core";
+import { inject, Injectable, Injector } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
 import { find, isEmpty, isNumber, isUndefined } from "es-toolkit/compat";
 import { PathSegment } from "../../models/content-text.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../../models/member.model";
-import { EventPopulation, Organisation } from "../../models/system.model";
+import { EventPopulation, Organisation, WalkLeaderContactMethod, WalkLeaderPhoneAction } from "../../models/system.model";
 import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
 import { ExpandedWalk } from "../../models/walk-expanded-view.model";
@@ -41,6 +41,8 @@ import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model"
 import { FeaturesService } from "../../services/features.service";
 import { validEmail } from "../../functions/strings";
 import { PageService } from "../../services/page.service";
+import { ContactUsModalService } from "../contact-us/contact-us-modal.service";
+import { CommitteeMember, RoleType } from "../../models/committee.model";
 
 @Injectable({
   providedIn: "root"
@@ -67,6 +69,7 @@ export class WalkDisplayService {
   private committeeConfig = inject(CommitteeConfigService);
   private dateUtils = inject(DateUtilsService);
   private pageService = inject(PageService);
+  private injector = inject(Injector);
   private subject = new ReplaySubject<Member[]>();
   public relatedLinksMediaWidth = 22;
   public expandedWalks: ExpandedWalk [] = [];
@@ -460,6 +463,115 @@ export class WalkDisplayService {
 
   showWalkOnRamblersLink(): boolean {
     return this.group?.showWalkOnRamblersLink !== false;
+  }
+
+  walkLeaderContactMethodValue(): WalkLeaderContactMethod {
+    return this.group?.walkLeaderContactMethod ?? WalkLeaderContactMethod.CONTACT_US;
+  }
+
+  isRamblersWebsiteContact(): boolean {
+    return this.walkLeaderContactMethodValue() === WalkLeaderContactMethod.RAMBLERS_WEBSITE;
+  }
+
+  isMailtoContact(): boolean {
+    return this.walkLeaderContactMethodValue() === WalkLeaderContactMethod.MAILTO;
+  }
+
+  isContactUsContact(): boolean {
+    return this.walkLeaderContactMethodValue() === WalkLeaderContactMethod.CONTACT_US;
+  }
+
+  walkLeaderContactTooltip(walk: ExtendedGroupEvent): string {
+    const displayName = walk?.fields?.contactDetails?.displayName;
+    const email = walk?.fields?.contactDetails?.email;
+    if (this.isRamblersWebsiteContact()) {
+      return `Click to visit the Ramblers website to contact ${displayName}`;
+    } else if (this.isMailtoContact()) {
+      return `Click to email ${displayName}`;
+    } else if (this.isContactUsContact()) {
+      if (this.group?.walkLeaderContactDirect && validEmail(email)) {
+        return `Click to send a message to ${displayName}`;
+      } else if (this.group?.walkLeaderContactRole) {
+        return `Click to send a message about this walk`;
+      }
+      const remoteUrl = this.contactEmailHref(email);
+      if (remoteUrl && !remoteUrl.startsWith("mailto:")) {
+        return `Click to visit the Ramblers website to contact ${displayName}`;
+      }
+      return `Contact is not available — no fallback committee role has been configured in system settings`;
+    }
+    return `Click to contact ${displayName}`;
+  }
+
+  walkLeaderContactHref(walk: ExtendedGroupEvent): string {
+    const email = walk?.fields?.contactDetails?.email;
+    if (this.isRamblersWebsiteContact()) {
+      const href = this.contactEmailHref(email);
+      return href?.startsWith("mailto:") ? null : href;
+    } else if (this.isMailtoContact()) {
+      return this.contactEmailHref(email);
+    }
+    return null;
+  }
+
+  contactWalkLeader(walk: ExtendedGroupEvent) {
+    const contactUsModalService = this.injector.get(ContactUsModalService);
+    const contactDetails = walk?.fields?.contactDetails;
+    const email = contactDetails?.email;
+    const displayName = contactDetails?.displayName;
+    const walkDate = walk?.groupEvent?.start_date_time ? ` on ${this.dateUtils.displayDate(walk.groupEvent.start_date_time)}` : "";
+    const subject = `Enquiry about walk: ${walk?.groupEvent?.title || ""}${walkDate}`;
+    const redirect = this.router.url;
+    if (this.group?.walkLeaderContactDirect && validEmail(email)) {
+      const leaderAsMember: CommitteeMember = {
+        fullName: displayName,
+        email,
+        description: "Walk Leader",
+        type: "walk-leader",
+        roleType: RoleType.COMMITTEE_MEMBER
+      };
+      contactUsModalService.openContactModalForMember(leaderAsMember, subject, redirect);
+    } else if (this.group?.walkLeaderContactRole) {
+      contactUsModalService.openContactModalForRole(this.group.walkLeaderContactRole, subject, redirect);
+    } else {
+      const remoteUrl = this.contactEmailHref(email);
+      if (remoteUrl && !remoteUrl.startsWith("mailto:")) {
+        window.open(remoteUrl, "_blank");
+      }
+    }
+  }
+
+  phoneActions(): WalkLeaderPhoneAction[] {
+    return [WalkLeaderPhoneAction.TEL, WalkLeaderPhoneAction.SMS, WalkLeaderPhoneAction.WHATSAPP];
+  }
+
+  phoneActionHref(phone: string, action: WalkLeaderPhoneAction): string {
+    const cleaned = phone?.replace(/\s/g, "");
+    if (action === WalkLeaderPhoneAction.WHATSAPP) {
+      const international = cleaned?.replace(/^\+/, "").replace(/^0/, "44");
+      return `https://wa.me/${international}`;
+    } else if (action === WalkLeaderPhoneAction.SMS) {
+      return `sms:${cleaned}`;
+    }
+    return `tel:${cleaned}`;
+  }
+
+  phoneActionLabel(action: WalkLeaderPhoneAction): string {
+    if (action === WalkLeaderPhoneAction.WHATSAPP) {
+      return "WhatsApp";
+    } else if (action === WalkLeaderPhoneAction.SMS) {
+      return "SMS";
+    }
+    return "Call";
+  }
+
+  phoneActionTooltip(displayName: string, phone: string, action: WalkLeaderPhoneAction): string {
+    if (action === WalkLeaderPhoneAction.WHATSAPP) {
+      return `Open WhatsApp chat with ${displayName} on ${phone}`;
+    } else if (action === WalkLeaderPhoneAction.SMS) {
+      return `Send an SMS to ${displayName} on ${phone}`;
+    }
+    return `Call ${displayName} on ${phone}`;
   }
 
   displayMapAsImageFallback(walk: ExtendedGroupEvent): boolean {
