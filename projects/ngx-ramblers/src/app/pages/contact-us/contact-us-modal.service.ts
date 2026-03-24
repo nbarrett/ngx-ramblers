@@ -5,6 +5,7 @@ import { filter } from "rxjs/operators";
 import { ContactUsModalComponent } from "./contact-us-modal.component";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
+import { CommitteeMember } from "../../models/committee.model";
 
 @Injectable({
   providedIn: "root"
@@ -28,12 +29,38 @@ export class ContactUsModalService {
 
   openContactModal(queryParams: Params) {
     this.modalService.show(ContactUsModalComponent, {
+      class: "modal-lg",
       initialState: {queryParams}
     }).onHidden.subscribe(() => {
       this.logger.info("Modal closed");
     });
     this.logger.info("Modal opened with queryParams:", queryParams);
     this.redirectBackToRoute(queryParams);
+  }
+
+  openContactModalForMember(committeeMember: CommitteeMember, subject: string, redirect: string) {
+    this.modalService.show(ContactUsModalComponent, {
+      class: "modal-lg",
+      initialState: {
+        committeeMemberOverride: committeeMember,
+        queryParams: {redirect, subject}
+      }
+    }).onHidden.subscribe(() => {
+      this.logger.info("Modal closed");
+    });
+    this.logger.info("Modal opened for member:", committeeMember);
+  }
+
+  openContactModalForRole(role: string, subject: string, redirect: string) {
+    this.modalService.show(ContactUsModalComponent, {
+      class: "modal-lg",
+      initialState: {
+        queryParams: {"contact-us": true, role, subject, redirect}
+      }
+    }).onHidden.subscribe(() => {
+      this.logger.info("Modal closed");
+    });
+    this.logger.info("Modal opened for role:", role);
   }
 
   redirectBackToRoute(queryParams: Params) {

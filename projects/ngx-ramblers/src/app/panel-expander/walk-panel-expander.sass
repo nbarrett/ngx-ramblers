@@ -17,11 +17,20 @@
   z-index: 10000
 
 .list
-  margin: 10px 0px 0px -15px
+  display: flex
+  align-items: center
+  justify-content: center
   z-index: 10000
 
 .view-single
   position: absolute
-  top: -2px
-  right: 10px
+  top: 3px
+  right: 9px
   z-index: 10000
+
+::ng-deep .expander-icons fa-icon
+  display: inline-flex
+  width: auto
+
+::ng-deep .expander-icons .svg-inline--fa
+  width: 0.75em

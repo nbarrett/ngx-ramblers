@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faAdd, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { AvailableArea, EventPopulation, SystemConfig } from "../../../../models/system.model";
+import { AvailableArea, EventPopulation, SystemConfig, WalkLeaderContactMethod } from "../../../../models/system.model";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
@@ -18,6 +18,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ALERT_WARNING } from "../../../../models/alert-target.model";
 import { EM_DASH } from "../../../../models/content-text.model";
 import { HttpClient } from "@angular/common/http";
+import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
+import { CommitteeMember } from "../../../../models/committee.model";
+import { CommitteeReferenceData } from "../../../../services/committee/committee-reference-data";
 
 @Component({
   selector: "[app-area-and-group-settings]",
@@ -32,207 +35,250 @@ import { HttpClient } from "@angular/common/http";
   `],
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
-      <div class="row">
-        <div class="col-md-12">
-          <div class="form-group">
-            <label for="area-group-code">Ramblers Area ({{ loadingAreas ? 'retrieving areas...' : availableAreas.length + ' areas available' }})</label>
-            <div class="position-relative">
-              <ng-select id="area-group-code"
-                         [items]="availableAreas"
-                         bindLabel="ngSelectLabel"
-                         bindValue="areaCode"
-                         [searchable]="true"
-                         [clearable]="false"
-                         dropdownPosition="bottom"
-                         placeholder="Select an area..."
-                         [(ngModel)]="config.area.groupCode"
-                         (ngModelChange)="onAreaCodeChange($event)">
-              </ng-select>
-              <app-status-icon noLabel [status]="areaQueryStatus" class="area-status-icon"/>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-12">
-          <alert [type]="ALERT_WARNING.type">
-            <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-            <strong class="ms-2">Group Search</strong>
-            <span class="p-2">{{ groupSearchMessage }}</span>
-          </alert>
-        </div>
-        <div class="col-md-12">
-          <div class="form-group">
-            <label class="me-2">Selection Mode:</label>
-            <div class="form-check form-check-inline">
-              <input class="form-check-input"
-                     id="area-selection-mode"
-                     name="selection-mode"
-                     type="radio"
-                     [value]="'area'"
-                     [(ngModel)]="selectionMode"
-                     (change)="onSelectionModeChange()"/>
-              <label class="form-check-label" for="area-selection-mode">Area Selection Mode</label>
-            </div>
-            <div class="form-check form-check-inline">
-              <input class="form-check-input"
-                     id="group-selection-mode"
-                     name="selection-mode"
-                     type="radio"
-                     [value]="'group'"
-                     [(ngModel)]="selectionMode"
-                     (change)="onSelectionModeChange()"/>
-              <label class="form-check-label" for="group-selection-mode">Group Selection Mode</label>
-            </div>
-          </div>
-        </div>
-        @if (selectionMode === 'group') {
+    <div class="row thumbnail-heading-frame">
+      <div class="thumbnail-heading">Group / Area Configuration</div>
+      <div class="col-sm-12">
+        <div class="row">
           <div class="col-md-12">
             <div class="form-group">
-              @if (areaGroup) {
-                <label for="group-multi-select">Ramblers {{ stringUtils.pluralise(groupCodes().length, 'Group') }}
-                  ({{ selectedGroups.length }}
-                  of {{ availableGroups.length }} selected)</label>
-                <ng-select id="group-multi-select"
-                           [items]="availableGroups"
-                           bindLabel="ngSelectAttributes.label"
-                           [multiple]="true"
+              <label for="area-group-code">Ramblers Area ({{ loadingAreas ? 'retrieving areas...' : availableAreas.length + ' areas available' }})</label>
+              <div class="position-relative">
+                <ng-select id="area-group-code"
+                           [items]="availableAreas"
+                           bindLabel="ngSelectLabel"
+                           bindValue="areaCode"
                            [searchable]="true"
-                           [clearable]="true"
-                           [loading]="loadingGroups"
+                           [clearable]="false"
                            dropdownPosition="bottom"
-                           placeholder="Select one or more groups..."
-                           [ngModel]="selectedGroups"
-                           (ngModelChange)="onGroupCodesChange($event)">
+                           placeholder="Select an area..."
+                           [(ngModel)]="config.area.groupCode"
+                           (ngModelChange)="onAreaCodeChange($event)">
                 </ng-select>
-              }
+                <app-status-icon noLabel [status]="areaQueryStatus" class="area-status-icon"/>
+              </div>
             </div>
           </div>
-        }
-        <div class="col-md-6">
-          <div class="form-group">
-            <label for="group-group-code">Ramblers
-              Group {{ stringUtils.pluralise(groupCodes().length, 'Code') }}</label>
-            <input disabled
-                   [value]="groupCodesJoined()"
-                   type="text" class="form-control input-sm"
-                   id="group-group-code">
+          <div class="col-md-12">
+            <alert [type]="ALERT_WARNING.type">
+              <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+              <strong class="ms-2">Group Search</strong>
+              <span class="p-2">{{ groupSearchMessage }}</span>
+            </alert>
           </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <label for="group-long-name">Long Name</label>
-            <input [(ngModel)]="config.group.longName"
-                   type="text" class="form-control input-sm"
-                   id="group-long-name"
-                   placeholder="Enter a title for group long name">
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <label for="group-short-name">Short Name</label>
-            <input [(ngModel)]="config.group.shortName"
-                   type="text" class="form-control input-sm"
-                   id="group-short-name"
-                   placeholder="Enter a title for group short name">
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <label for="group-href">Web Url</label>
-            <input [(ngModel)]="config.group.href"
-                   type="text" class="form-control input-sm"
-                   id="group-href"
-                   placeholder="Enter a link">
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <label for="walk-population">Walk Population</label>
-            <select [(ngModel)]="config.group.walkPopulation"
-                    class="form-control" id="walk-population">
-              @for (walkPopulation of populationMethods; track walkPopulation.key) {
-                <option [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}</option>
-              }
-            </select>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <label for="social-event-population">Social Event Population</label>
-            <select [(ngModel)]="config.group.socialEventPopulation"
-                    class="form-control" id="social-event-population">
-              @for (walkPopulation of populationMethods; track walkPopulation.key) {
-                <option [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}</option>
-              }
-            </select>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <div class="form-check">
-              <input [(ngModel)]="config.group.walkContactDetailsPublic"
-                     type="checkbox" class="form-check-input"
-                     id="walk-contact-details-public-viewable">
-              <label class="form-check-label"
-                     for="walk-contact-details-public-viewable">Walk Contact Details Public Viewable</label>
+          <div class="col-md-12">
+            <div class="form-group">
+              <label class="me-2">Selection Mode:</label>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input"
+                       id="area-selection-mode"
+                       name="selection-mode"
+                       type="radio"
+                       [value]="'area'"
+                       [(ngModel)]="selectionMode"
+                       (change)="onSelectionModeChange()"/>
+                <label class="form-check-label" for="area-selection-mode">Area Selection Mode</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input"
+                       id="group-selection-mode"
+                       name="selection-mode"
+                       type="radio"
+                       [value]="'group'"
+                       [(ngModel)]="selectionMode"
+                       (change)="onSelectionModeChange()"/>
+                <label class="form-check-label" for="group-selection-mode">Group Selection Mode</label>
+              </div>
             </div>
           </div>
-          <div class="form-group">
-            <div class="form-check">
-              <input [(ngModel)]="config.group.showWalkOnRamblersLink"
-                     type="checkbox" class="form-check-input"
-                     id="show-walk-on-ramblers-link">
-              <label class="form-check-label"
-                     for="show-walk-on-ramblers-link">Show "On Ramblers" Link for Group Walks</label>
+          @if (selectionMode === 'group') {
+            <div class="col-md-12">
+              <div class="form-group">
+                @if (areaGroup) {
+                  <label for="group-multi-select">Ramblers {{ stringUtils.pluralise(groupCodes().length, 'Group') }}
+                    ({{ selectedGroups.length }}
+                    of {{ availableGroups.length }} selected)</label>
+                  <ng-select id="group-multi-select"
+                             [items]="availableGroups"
+                             bindLabel="ngSelectAttributes.label"
+                             [multiple]="true"
+                             [searchable]="true"
+                             [clearable]="true"
+                             [loading]="loadingGroups"
+                             dropdownPosition="bottom"
+                             placeholder="Select one or more groups..."
+                             [ngModel]="selectedGroups"
+                             (ngModelChange)="onGroupCodesChange($event)">
+                  </ng-select>
+                }
+              </div>
+            </div>
+          }
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="group-group-code">Ramblers
+                Group {{ stringUtils.pluralise(groupCodes().length, 'Code') }}</label>
+              <input disabled
+                     [value]="groupCodesJoined()"
+                     type="text" class="form-control input-sm"
+                     id="group-group-code">
             </div>
           </div>
-          <div class="form-group">
-            <div class="form-check">
-              <input [(ngModel)]="config.group.allowSwitchWalkView"
-                     type="checkbox" class="form-check-input" id="allow-walk-listing-to-be-switched">
-              <label class="form-check-label"
-                     for="allow-walk-listing-to-be-switched">Allow Walk Listing to be switched
-                between {{ walkListViewsJoined }}</label>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="group-long-name">Long Name</label>
+              <input [(ngModel)]="config.group.longName"
+                     type="text" class="form-control input-sm"
+                     id="group-long-name"
+                     placeholder="Enter a title for group long name">
             </div>
           </div>
-          <div class="form-group">
-            <label for="navbar-location">Default Walk List View</label>
-            <select class="form-control input-sm"
-                    [(ngModel)]="config.group.defaultWalkListView"
-                    id="navbar-location">
-              @for (type of walkListViews; track type.key) {
-                <option [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}</option>
-              }
-            </select>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <div class="form-check">
-              <input [(ngModel)]="config.group.socialDetailsPublic"
-                     type="checkbox" class="form-check-input" id="social-details-public-viewable">
-              <label class="form-check-label"
-                     for="social-details-public-viewable">Social Details Public Viewable</label>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="group-short-name">Short Name</label>
+              <input [(ngModel)]="config.group.shortName"
+                     type="text" class="form-control input-sm"
+                     id="group-short-name"
+                     placeholder="Enter a title for group short name">
             </div>
           </div>
-          <div class="form-group">
-            <div class="form-check">
-              <input [(ngModel)]="config.group.showSocialOnRamblersLink"
-                     type="checkbox" class="form-check-input"
-                     id="show-social-on-ramblers-link">
-              <label class="form-check-label"
-                     for="show-social-on-ramblers-link">Show "On Ramblers" Link for Group Events</label>
-            </div>
-          </div>
-          <div class="form-group">
-            <div class="form-check">
-              <input [(ngModel)]="config.enableMigration.events"
-                     type="checkbox" class="form-check-input" id="enable-event-migration">
-              <label class="form-check-label"
-                     for="enable-event-migration">Enable Migration of Events</label>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="group-href">Web Url</label>
+              <input [(ngModel)]="config.group.href"
+                     type="text" class="form-control input-sm"
+                     id="group-href"
+                     placeholder="Enter a link">
             </div>
           </div>
         </div>
       </div>
+    </div>
+    <div class="row thumbnail-heading-frame mt-3">
+      <div class="thumbnail-heading">Event Configuration</div>
+      <div class="col-sm-12">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="walk-population">Walk Population</label>
+              <select [(ngModel)]="config.group.walkPopulation"
+                      class="form-control" id="walk-population">
+                @for (walkPopulation of populationMethods; track walkPopulation.key) {
+                  <option [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}</option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="social-event-population">Social Event Population</label>
+              <select [(ngModel)]="config.group.socialEventPopulation"
+                      class="form-control" id="social-event-population">
+                @for (walkPopulation of populationMethods; track walkPopulation.key) {
+                  <option [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}</option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <div class="form-check">
+                <input [(ngModel)]="config.group.walkContactDetailsPublic"
+                       type="checkbox" class="form-check-input"
+                       id="walk-contact-details-public-viewable">
+                <label class="form-check-label"
+                       for="walk-contact-details-public-viewable">Walk Contact Details Public Viewable</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input [(ngModel)]="config.group.showWalkOnRamblersLink"
+                       type="checkbox" class="form-check-input"
+                       id="show-walk-on-ramblers-link">
+                <label class="form-check-label"
+                       for="show-walk-on-ramblers-link">Show "On Ramblers" Link for Group Walks</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input [(ngModel)]="config.group.allowSwitchWalkView"
+                       type="checkbox" class="form-check-input" id="allow-walk-listing-to-be-switched">
+                <label class="form-check-label"
+                       for="allow-walk-listing-to-be-switched">Allow Walk Listing to be switched
+                  between {{ walkListViewsJoined }}</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="navbar-location">Default Walk List View</label>
+              <select class="form-control input-sm"
+                      [(ngModel)]="config.group.defaultWalkListView"
+                      id="navbar-location">
+                @for (type of walkListViews; track type.key) {
+                  <option [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}</option>
+                }
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="walk-leader-contact-method">Walk Leader Contact Method</label>
+              <select [(ngModel)]="config.group.walkLeaderContactMethod"
+                      class="form-control input-sm" id="walk-leader-contact-method">
+                @for (method of walkLeaderContactMethods; track method.key) {
+                  <option [ngValue]="method.value">{{ stringUtils.asTitle(method.value) }}</option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <div class="form-check">
+                <input [(ngModel)]="config.group.socialDetailsPublic"
+                       type="checkbox" class="form-check-input" id="social-details-public-viewable">
+                <label class="form-check-label"
+                       for="social-details-public-viewable">Social Details Public Viewable</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input [(ngModel)]="config.group.showSocialOnRamblersLink"
+                       type="checkbox" class="form-check-input"
+                       id="show-social-on-ramblers-link">
+                <label class="form-check-label"
+                       for="show-social-on-ramblers-link">Show "On Ramblers" Link for Group Events</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input [(ngModel)]="config.enableMigration.events"
+                       type="checkbox" class="form-check-input" id="enable-event-migration">
+                <label class="form-check-label"
+                       for="enable-event-migration">Enable Migration of Events</label>
+              </div>
+            </div>
+          </div>
+          @if (config.group.walkLeaderContactMethod === walkLeaderContactMethodContactUs) {
+            <div class="col-md-12">
+              <div class="form-group">
+                <div class="form-check">
+                  <input [(ngModel)]="config.group.walkLeaderContactDirect"
+                         type="checkbox" class="form-check-input"
+                         id="walk-leader-contact-direct">
+                  <label class="form-check-label"
+                         for="walk-leader-contact-direct">Contact Walk Leader Directly (when valid email exists)</label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="walk-leader-contact-role">Fallback Committee Role</label>
+                <select [(ngModel)]="config.group.walkLeaderContactRole"
+                        class="form-control" id="walk-leader-contact-role">
+                  @for (role of committeeRoles; track role.type) {
+                    <option [ngValue]="role.type">{{ role.description }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
     </div>`,
   imports: [UiSwitchModule, NgSelectComponent, StatusIconComponent, AlertComponent, FontAwesomeModule]
 })
@@ -242,8 +288,12 @@ export class AreaAndGroupSettingsComponent implements OnInit {
   stringUtils = inject(StringUtilsService);
   dateUtils = inject(DateUtilsService);
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
+  private committeeConfig = inject(CommitteeConfigService);
   populationMethods: KeyValue<string>[] = enumKeyValues(EventPopulation);
   walkListViews: KeyValue<string>[] = enumKeyValues(WalkListView);
+  walkLeaderContactMethods: KeyValue<string>[] = enumKeyValues(WalkLeaderContactMethod);
+  walkLeaderContactMethodContactUs = WalkLeaderContactMethod.CONTACT_US;
+  committeeRoles: CommitteeMember[] = [];
   walkListViewsJoined = this.walkListViews.map(item => this.stringUtils.asTitle(item.value)).join(" and ");
   faAdd = faAdd;
   faRemove = faRemove;
@@ -278,6 +328,10 @@ export class AreaAndGroupSettingsComponent implements OnInit {
       this.config.enableMigration = { events: false };
     }
     this.applyDefaultOnRamblersLinkVisibility();
+    this.applyDefaultWalkLeaderContactMethod();
+    this.committeeConfig.committeeReferenceDataEvents().subscribe((data: CommitteeReferenceData) => {
+      this.committeeRoles = data.committeeMembers();
+    });
     if (!this.config.area.groupCode && this.config.group.groupCode) {
       this.config.area.groupCode = this.stringUtils.left(this.config.group.groupCode, 2);
     }
@@ -287,6 +341,12 @@ export class AreaAndGroupSettingsComponent implements OnInit {
     if (initialAreaCode) {
       await this.queryGroups(initialAreaCode);
       this.updateSelectedGroupCodes();
+    }
+  }
+
+  private applyDefaultWalkLeaderContactMethod() {
+    if (!this.config?.group?.walkLeaderContactMethod) {
+      this.config.group.walkLeaderContactMethod = WalkLeaderContactMethod.CONTACT_US;
     }
   }
 

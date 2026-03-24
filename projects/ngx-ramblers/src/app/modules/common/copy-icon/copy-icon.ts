@@ -17,7 +17,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
       } @else {
         <fa-icon container="body" [tooltip]="tooltipPreCopy"
                  (click)="copyToClipboard(value)" [icon]="icon"
-                 class="fa-icon me-1 pointer" [ngClass]="iconClass"></fa-icon>
+                 class="fa-icon me-1" [ngClass]="[iconClass, disabled ? '' : 'pointer']"></fa-icon>
       }
       <ng-content/>
     `,

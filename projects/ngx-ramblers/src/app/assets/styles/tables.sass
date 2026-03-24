@@ -2,7 +2,7 @@
 
 table.styled-table
   border-spacing: 0px
-  border-collapse: collapse
+  border-collapse: separate
   width: 100%
   margin-bottom: 0px
   cursor: pointer
@@ -24,6 +24,12 @@ table.styled-table td
 table.styled-table td.nowrap
   white-space: nowrap
 
+table.styled-table tbody td:first-child
+  border-left: 1px solid rgba(0, 0, 0, 0.125)
+
+table.styled-table tbody td:last-child
+  border-right: 1px solid rgba(0, 0, 0, 0.125)
+
 table.styled-table th:first-child
   border-radius: 6px 0 0 0
 
@@ -34,3 +40,11 @@ table.styled-table th:last-child
 
 table.styled-table th:only-child
   border-radius: 6px 6px 0 0
+
+table.styled-table tfoot td
+  background-color: $ramblers-colour-granite
+  padding: 3px
+  border: none
+  border-left: 1px solid rgba(0, 0, 0, 0.125)
+  border-right: 1px solid rgba(0, 0, 0, 0.125)
+  border-radius: 0 0 6px 6px
