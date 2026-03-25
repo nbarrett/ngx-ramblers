@@ -2087,9 +2087,17 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   private async collectNestedAlbumIndexes() {
-    const albumIndexRows: PageContentRow[] = this.pagesBelow.map(item => item.rows.filter(row => this.actions.isIndex(row))).flat(3);
+    const allPages = [this.pageContent, ...this.pagesBelow];
+    const fragmentIds: string[] = allPages
+      .flatMap(page => (page?.rows || []).filter(row => this.actions.isSharedFragment(row)))
+      .map(row => row.fragment?.pageContentId)
+      .filter(id => !!id);
+    const fragmentPages = await Promise.all(fragmentIds.map(id => this.pageContentService.findById(id).catch(() => null)));
+    const resolvedFragments = fragmentPages.filter(page => !!page);
+    const allPagesWithFragments = [...allPages, ...resolvedFragments];
+    const albumIndexRows: PageContentRow[] = allPagesWithFragments.map(item => (item?.rows || []).filter(row => this.actions.isIndex(row))).flat(3);
     const albums = await Promise.all(albumIndexRows.map(albumIndexRow => this.indexService.albumIndexToPageContent(albumIndexRow, albumIndexRows.indexOf(albumIndexRow))));
-    this.logger.debug("collectNestedAlbumIndexes:albums:", albums);
+    this.logger.debug("collectNestedAlbumIndexes:albums:", albums, "resolvedFragments:", resolvedFragments.length);
     albums.forEach(album => this.collectAlbumIndexData(album));
   }
 

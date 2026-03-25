@@ -1,4 +1,5 @@
 import { LinkStyle, ListStyle } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { AccessLevel } from "../../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { RamblersGroupsApiResponse } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import {
   defaultHeaderBar,
@@ -109,15 +110,15 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
       showSocialOnRamblersLink: true,
       href: groupData.url || groupData.external_url,
       pages: [
-        { title: "Home", href: "" },
-        { title: "About Us", href: "about-us" },
-        { title: "Walks", href: "walks" },
-        { title: "Social Events", href: "social-events" },
-        { title: "News", href: "news" },
-        { title: "Contact Us", href: "contact-us" },
-        { title: "Photos", href: "photos" },
-        { title: "How-To", href: "how-to" },
-        { title: "Admin", href: "admin" }
+        { title: "Home", href: "", accessLevel: AccessLevel.PUBLIC },
+        { title: "About Us", href: "about-us", accessLevel: AccessLevel.PUBLIC },
+        { title: "Walks", href: "walks", accessLevel: AccessLevel.PUBLIC },
+        { title: "Social Events", href: "social-events", accessLevel: AccessLevel.PUBLIC },
+        { title: "News", href: "news", accessLevel: AccessLevel.PUBLIC },
+        { title: "Contact Us", href: "contact-us", accessLevel: AccessLevel.PUBLIC },
+        { title: "Photos", href: "photos", accessLevel: AccessLevel.PUBLIC },
+        { title: "How-To", href: "how-to", accessLevel: AccessLevel.PUBLIC },
+        { title: "Admin", href: "admin", accessLevel: AccessLevel.COMMITTEE }
       ],
       groups: [],
       center: groupData.latitude && groupData.longitude ? [groupData.latitude, groupData.longitude] : null,

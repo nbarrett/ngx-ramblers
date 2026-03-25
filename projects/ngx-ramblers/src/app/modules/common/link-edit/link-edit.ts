@@ -1,6 +1,7 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faClose, faDownLong, faUpLong } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
+import { AccessLevel } from "../../../models/member-resource.model";
 import { Link } from "../../../models/page.model";
 import { move } from "../../../functions/arrays";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -9,6 +10,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
 import { NumberUtilsService } from "../../../services/number-utils.service";
+import { enumValues } from "../../../functions/enums";
 
 @Component({
     selector: "app-link-edit",
@@ -19,12 +21,20 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
                  type="text" value="" class="form-control input-sm" [id]="uniqueIdFor('page-edit-href')"
                  placeholder="Enter a link">
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <input [(ngModel)]="link.title"
                  type="text" value="" class="form-control input-sm" [id]="uniqueIdFor('page-edit-title')"
                  placeholder="Enter a title for link">
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
+          <select [(ngModel)]="link.accessLevel" class="form-control input-sm"
+                  [id]="uniqueIdFor('page-edit-access-level')">
+            @for (level of accessLevels; track level) {
+              <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
           <div class="badge-button" (click)="deleteLink()"
                delay=500 tooltip="Delete link">
             <fa-icon [icon]="faClose"></fa-icon>
@@ -52,6 +62,14 @@ export class LinkEditComponent implements OnInit {
   @Input() links: Link[];
   @Output() delete: EventEmitter<Link> = new EventEmitter();
   uniqueId: string = this.numberUtilsService.generateUid();
+  accessLevels: AccessLevel[] = enumValues(AccessLevel);
+  accessLevelDescriptions: Record<AccessLevel, string> = {
+    [AccessLevel.HIDDEN]: "Hidden",
+    [AccessLevel.ENVIRONMENT_ADMIN]: "Environment Admin",
+    [AccessLevel.COMMITTEE]: "Committee",
+    [AccessLevel.LOGGED_IN_MEMBER]: "Logged In Member",
+    [AccessLevel.PUBLIC]: "Public"
+  };
   faClose = faClose;
   faDownLong = faDownLong;
   faUpLong = faUpLong;

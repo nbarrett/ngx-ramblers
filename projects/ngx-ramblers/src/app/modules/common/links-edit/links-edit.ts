@@ -1,6 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faAdd } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
+import { AccessLevel } from "../../../models/member-resource.model";
 import { Link } from "../../../models/page.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { remove } from "es-toolkit/compat";
@@ -26,10 +27,13 @@ import { LinkEditComponent } from "../link-edit/link-edit";
               <div class="col-md-3">
                 <label>Web Url</label>
               </div>
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <label>Title</label>
               </div>
-              <div class="col-md-3">
+              <div class="col-md-2">
+                <label>Access Level</label>
+              </div>
+              <div class="col-md-2">
                 <label>Actions</label>
               </div>
               <div class="col-md-3">
@@ -59,7 +63,7 @@ export class LinksEditComponent implements OnInit {
   }
 
   createNew() {
-    this.links.push({});
+    this.links.push({accessLevel: AccessLevel.PUBLIC});
   }
 
   newEditInProgress(): boolean {

@@ -7,6 +7,7 @@ import { contactUsGuard } from "./pages/contact-us/contact-us.guard";
 import { AreaExistsGuard } from "./guards/area-exists-guard";
 import { CommitteeAuthGuard } from "./guards/committee-auth-guard";
 import { GroupEventAuthGuard } from "./guards/group-event-auth-guard";
+import { PageAccessGuard } from "./guards/page-access-guard";
 import { SystemHealthyGuard } from "./guards/system-healthy-guard";
 
 const routes: Routes = [
@@ -97,7 +98,7 @@ const routes: Routes = [
     matcher: hasDynamicPath,
     loadComponent: () => import("./pages/walks/walk-list/walk-view-selector")
       .then(m => m.WalksViewSelector),
-    canActivate: [SystemHealthyGuard]
+    canActivate: [SystemHealthyGuard, PageAccessGuard]
   },
   {path: "**", redirectTo: "/"},
 ];

@@ -15,6 +15,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { AlertInstance } from "../../services/notifier.service";
+import { StringUtilsService } from "../../services/string-utils.service";
 import { UrlService } from "../../services/url.service";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
@@ -27,6 +28,7 @@ export class CommitteeDisplayService {
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeDisplayService", NgxLoggerLevel.ERROR);
   private memberLoginService = inject(MemberLoginService);
   urlService = inject(UrlService);
+  private stringUtils = inject(StringUtilsService);
   private valueOrDefault = inject(ValueOrDefaultPipe);
   private dateUtils = inject(DateUtilsService);
   private committeeFileService = inject(CommitteeFileService);
@@ -95,7 +97,19 @@ export class CommitteeDisplayService {
   }
 
   fileUrl(committeeFile: CommitteeFile) {
-    return committeeFile ? this.urlService.baseUrl() + "/" + this.committeeFileBaseUrl + "/" + committeeFile?.fileNameData?.awsFileName : "";
+    if (!committeeFile) {
+      return "";
+    } else if (this.urlService.isRemoteUrl(committeeFile?.fileNameData?.awsFileName)) {
+      return committeeFile.fileNameData.awsFileName;
+    } else {
+      return this.urlService.baseUrl() + "/" + this.committeeFileBaseUrl + "/" + committeeFile?.fileNameData?.awsFileName;
+    }
+  }
+
+  committeeFileSlug(committeeFile: CommitteeFile): string {
+    const dateStr = this.dateUtils.asString(committeeFile?.eventDate, undefined, this.dateUtils.formats.displayDateTh);
+    const title = committeeFile?.fileNameData?.title || committeeFile?.fileType || "";
+    return this.stringUtils.kebabCase(title, dateStr);
   }
 
   fileTitle(committeeFile: CommitteeFile) {
