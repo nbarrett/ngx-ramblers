@@ -47,6 +47,8 @@ export class SystemConfigService {
 
   constructor() {
     this.refresh();
+    this.broadcastService.on(NamedEventType.MEMBER_LOGIN_COMPLETE, () => this.refresh());
+    this.broadcastService.on(NamedEventType.MEMBER_LOGOUT_COMPLETE, () => this.refresh());
   }
 
   async refresh() {

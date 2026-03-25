@@ -5,7 +5,9 @@ import { Member } from "../../../models/member.model";
 import { CommitteeDisplayService } from "../../../pages/committee/committee-display.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { PageService } from "../../../services/page.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { UrlService } from "../../../services/url.service";
 import { Subscription } from "rxjs";
 import { Organisation } from "../../../models/system.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
@@ -33,7 +35,7 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
       <p>If you want to download this attachment you can click <a [href]="display.fileUrl(committeeFile)">here</a>,
       alternatively
       you can view or download it from our {{ group?.shortName }}
-      <a href="committee">Committee page</a>.
+      <a [href]="absolutePageUrl()">{{ sourcePageTitle || currentPageTitle() }} page</a>.
     </p>
   }
 </app-committee-notification-ramblers-message-item>
@@ -61,6 +63,8 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
   mailMessagingService = inject(MailMessagingService);
   googleMapsService = inject(GoogleMapsService);
   private systemConfigService = inject(SystemConfigService);
+  private pageService = inject(PageService);
+  private urlService = inject(UrlService);
   display = inject(CommitteeDisplayService);
 
   @Input()
@@ -69,6 +73,10 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
   public committeeFile: CommitteeFile;
   @Input()
   public notification: Notification;
+  @Input()
+  public sourcePagePath: string;
+  @Input()
+  public sourcePageTitle: string;
 
   private subscriptions: Subscription[] = [];
   public group: Organisation;
@@ -80,6 +88,15 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
   ngOnInit() {
     this.logger.info("ngOnInit:notification ->", this.notification, "committeeFile ->", this.committeeFile);
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
+  }
+
+  absolutePageUrl(): string {
+    const path = this.sourcePagePath || this.urlService.urlPath();
+    return this.urlService.baseUrl() + "/" + path;
+  }
+
+  currentPageTitle(): string {
+    return this.pageService.titleFromPath(this.urlService.urlPath());
   }
 
   ngOnDestroy(): void {

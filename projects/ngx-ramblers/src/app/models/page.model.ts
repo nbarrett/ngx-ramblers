@@ -1,6 +1,9 @@
+import { AccessLevel } from "./member-resource.model";
+
 export interface Link {
   href?: string;
   title?: string;
+  accessLevel?: AccessLevel;
 }
 
 export enum DeviceSize {

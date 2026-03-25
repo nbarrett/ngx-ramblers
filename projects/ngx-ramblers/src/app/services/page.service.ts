@@ -62,6 +62,10 @@ export class PageService {
     return this.stringUtils.asTitle(this.stringUtils.asWords(lastPathSegment));
   }
 
+  public titleFromPath(path: string): string {
+    return (path || "").split("/").filter(segment => segment.length > 0).map(segment => this.stringUtils.asTitle(this.stringUtils.asWords(segment))).join(" / ");
+  }
+
   contentDescription(anchor?: string): string {
     return this.stringUtils.replaceAll("/", " ", this.contentPath(anchor)).toString().toLowerCase();
   }

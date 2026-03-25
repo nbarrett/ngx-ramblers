@@ -58,6 +58,7 @@ import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi
 import {
   CommitteeNotificationDetailsComponent
 } from "../../../notifications/committee/templates/committee-notification-details.component";
+import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
 import { TitleCasePipe } from "@angular/common";
@@ -445,7 +446,9 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                       }
                       <div #notificationContent>
                         <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
-                                                            [notification]="notification"/>
+                                                            [notification]="notification"
+                                                            [sourcePagePath]="sourcePagePath"
+                                                            [sourcePageTitle]="sourcePageTitle"/>
                       </div>
                     </div>
                   </div>
@@ -469,8 +472,10 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                               title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
             <app-brevo-button class="ms-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
                               title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
-            <input type="submit" value="Back" (click)="back()"
-                   class="ms-2 btn btn-primary px-2 py-2">
+            <button (click)="back()"
+                    class="ms-2 btn btn-primary px-2 py-2">
+              <fa-icon [icon]="faArrowLeft" class="me-1"></fa-icon>Back
+            </button>
           </div>
         </div>
         <div class="d-none">
@@ -515,10 +520,13 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
   public committeeEventId: string;
   public systemConfig: SystemConfig;
   public pageTitle: string;
+  public sourcePagePath: string;
+  public sourcePageTitle: string;
   public notificationConfigListing: NotificationConfigListing;
   public senderExists: boolean;
   public notificationConfigs: NotificationConfig[] = [];
   protected readonly addresseeFirstName = ADDRESSEE_CONTACT_FIRST_NAME;
+  faArrowLeft = faArrowLeft;
 
   async ngOnInit() {
     this.logger.info("ngOnInit with", this.members.length, "members");
@@ -545,12 +553,21 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
       this.generateNotificationDefaults("committeeReferenceData");
       this.logger.info("initialised on open: committeeFile", this.committeeFile, ", roles", this.roles);
       this.logger.info("initialised on open: notification ->", this.notification);
-      this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
-        this.committeeEventId = paramMap.get(RouteParam.COMMITTEE_EVENT_ID);
-        this.logger.info("initialised with committee-event-id:", this.committeeEventId);
-        if (this.committeeEventId) {
-          this.committeeQueryService.queryFiles(this.committeeEventId)
-            .then(() => {
+      this.subscriptions.push(this.route.queryParamMap.subscribe((queryParamMap: ParamMap) => {
+        this.sourcePagePath = queryParamMap.get("source-page");
+        this.sourcePageTitle = this.sourcePagePath
+          ? this.pageService.titleFromPath(this.sourcePagePath)
+          : null;
+        const committeeFileSlug = queryParamMap.get("committee-file");
+        this.committeeEventId = this.route.snapshot.paramMap.get(RouteParam.COMMITTEE_EVENT_ID);
+        this.logger.info("committeeFileSlug:", committeeFileSlug, "committeeEventId:", this.committeeEventId, "sourcePagePath:", this.sourcePagePath);
+        const fileQuery = committeeFileSlug
+          ? this.committeeQueryService.queryFileBySlug(committeeFileSlug)
+          : this.committeeEventId
+            ? this.committeeQueryService.queryFiles(this.committeeEventId)
+            : null;
+        if (fileQuery) {
+          fileQuery.then(() => {
               this.logger.info("this.committeeQueryService.committeeFiles:", this.committeeQueryService.committeeFiles);
               if (this.committeeQueryService.committeeFiles?.length > 0) {
                 const committeeFile = this.committeeQueryService.committeeFiles[0];
@@ -674,7 +691,7 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
     return {
       id: member.id,
       order: 0,
-      memberGrouping: disabled ? "no email address" : `Subscribed to ${list.name} emails`,
+      memberGrouping: disabled ? "no email address" : list ? `Subscribed to ${list.name} emails` : "All members",
       member,
       memberInformation: this.fullNameWithAlias.transform(member),
       disabled

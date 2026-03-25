@@ -184,6 +184,19 @@ export class CommitteeQueryService {
     }
   }
 
+  queryFileBySlug(slug: string): Promise<void> {
+    this.logger.info("queryFileBySlug:slug:", slug);
+    return this.committeeFileService.all().then(files => {
+      const matchingFile = files.find(file => this.display.committeeFileSlug(file) === slug);
+      if (matchingFile) {
+        this.applyFiles([matchingFile]);
+      } else {
+        this.logger.warn("queryFileBySlug:no file found for slug:", slug);
+        this.applyFiles([]);
+      }
+    });
+  }
+
   applyFiles(files: CommitteeFile[]): void {
     this.committeeFiles = files
       .filter(file => this.display?.committeeReferenceData?.isPublic(file.fileType) || this.memberLoginService.allowCommittee() || this.memberLoginService.allowFileAdmin())

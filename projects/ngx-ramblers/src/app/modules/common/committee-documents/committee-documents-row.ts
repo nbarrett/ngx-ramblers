@@ -2,6 +2,7 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { first, last } from "es-toolkit/compat";
+import { faEdit, faEnvelope, faTrash, faCheck, faBan } from "@fortawesome/free-solid-svg-icons";
 import { AuthService } from "../../../auth/auth.service";
 import { CommitteeFile } from "../../../models/committee.model";
 import { NamedEventType } from "../../../models/broadcast.model";
@@ -22,6 +23,7 @@ import { CommitteeDisplayService } from "../../../pages/committee/committee-disp
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { sortBy } from "../../../functions/arrays";
 import { CommitteeFileEditor } from "../../../pages/committee/edit/committee-file-editor";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
   selector: "app-committee-documents-row",
@@ -76,27 +78,33 @@ import { CommitteeFileEditor } from "../../../pages/committee/edit/committee-fil
                     <div class="d-flex gap-2 flex-wrap mt-2">
                       @if (!display.confirm.deleteConfirmOutstanding()) {
                         @if (display.allowEditCommitteeFile(committeeFile)) {
-                          <input type="submit" value="Edit File"
-                                 (click)="editCommitteeFile(committeeFile)"
-                                 class="btn btn-success btn-sm">
+                          <button (click)="editCommitteeFile(committeeFile)"
+                                  class="btn btn-success btn-sm">
+                            <fa-icon [icon]="faEdit" class="me-1"></fa-icon>Edit
+                          </button>
                         }
                         @if (display.allowEditCommitteeFile(committeeFile)) {
-                          <input type="submit" value="Send Email"
-                                 (click)="sendNotification(committeeFile)"
-                                 class="btn btn-warning btn-sm">
+                          <button (click)="sendNotification(committeeFile)"
+                                  class="btn btn-warning btn-sm">
+                            <fa-icon [icon]="faEnvelope" class="me-1"></fa-icon>Send Email
+                          </button>
                         }
                         @if (display.allowDeleteCommitteeFile(committeeFile)) {
-                          <input type="submit" value="Delete File"
-                                 (click)="deleteCommitteeFile()"
-                                 class="btn btn-danger btn-sm">
+                          <button (click)="deleteCommitteeFile()"
+                                  class="btn btn-danger btn-sm">
+                            <fa-icon [icon]="faTrash" class="me-1"></fa-icon>Delete
+                          </button>
                         }
                       }
                       @if (display.confirm.deleteConfirmOutstanding()) {
-                        <input (click)="confirmDeleteCommitteeFile(committeeFile)"
-                               class="btn btn-danger btn-sm"
-                               type="submit" value="Confirm Delete">
-                        <input (click)="display.confirm.clear();" class="btn btn-secondary btn-sm"
-                               type="submit" value="Cancel Delete">
+                        <button (click)="confirmDeleteCommitteeFile(committeeFile)"
+                                class="btn btn-danger btn-sm">
+                          <fa-icon [icon]="faCheck" class="me-1"></fa-icon>Confirm Delete
+                        </button>
+                        <button (click)="display.confirm.clear();"
+                                class="btn btn-secondary btn-sm">
+                          <fa-icon [icon]="faBan" class="me-1"></fa-icon>Cancel
+                        </button>
                       }
                     </div>
                   }
@@ -114,11 +122,16 @@ import { CommitteeFileEditor } from "../../../pages/committee/edit/committee-fil
       </div>
     </div>`,
   styleUrls: ["./committee-documents-row.sass"],
-  imports: [CommitteeFileEditor]
+  imports: [CommitteeFileEditor, FontAwesomeModule]
 })
 export class CommitteeDocumentsRow implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeDocumentsRow", NgxLoggerLevel.ERROR);
+  faEdit = faEdit;
+  faEnvelope = faEnvelope;
+  faTrash = faTrash;
+  faCheck = faCheck;
+  faBan = faBan;
   memberLoginService = inject(MemberLoginService);
   display = inject(CommitteeDisplayService);
   private authService = inject(AuthService);
@@ -331,7 +344,11 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   }
 
   sendNotification(committeeFile: CommitteeFile) {
-    this.urlService.navigateTo([this.urlService.area(), PathSegment.SEND_NOTIFICATION, committeeFile.id]);
+    const slug = this.display.committeeFileSlug(committeeFile);
+    this.urlService.navigateTo([this.urlService.area(), PathSegment.SEND_NOTIFICATION], {
+      "committee-file": slug,
+      "source-page": this.urlService.urlPath()
+    });
   }
 
   deleteCommitteeFile() {
