@@ -59,6 +59,7 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
 import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
 import { YoutubeInputComponent } from "../youtube-input/youtube-input";
 import { HeightResizerComponent } from "../height-resizer/height-resizer";
+import { ColumnResizerComponent } from "./column-resizer";
 
 @Component({
     selector: "app-dynamic-content-site-edit-text-row",
@@ -66,7 +67,7 @@ import { HeightResizerComponent } from "../height-resizer/height-resizer";
       @if (actions.isTextRow(row)) {
         <div [class]="actions.rowClasses(row)">
           @for (column of row?.columns; let columnIndex = $index; track columnIndex) {
-            <div [class]="'col-sm-' + (focusSensitiveColumns(column))">
+            <div [class]="'col-sm-' + (focusSensitiveColumns(column))" style="position: relative;">
               <ng-template #columnMappingControls>
                 @if (allowColumnMappings && isMigrationTemplateSelected && isMigrationTemplateSelected() && templateMappingMode && columnMapping && columnContentTypeOptions && imagePatternOptions && columnMappingFor(rowIndex, columnIndex)) {
                   <div class="row thumbnail-heading-frame thumbnail-heading-mapping-mode">
@@ -755,6 +756,11 @@ import { HeightResizerComponent } from "../height-resizer/height-resizer";
                 </ng-template>
                 <ng-container [ngTemplateOutlet]="columnNestedRows"></ng-container>
               }
+              @if (columnIndex < row.columns.length - 1 && !expanded) {
+                <app-column-resizer
+                  [leftColumn]="column"
+                  [rightColumn]="row.columns[columnIndex + 1]"/>
+              }
             </div>
           }
           @if ((row?.columns?.length || 0) === 0) {
@@ -771,7 +777,7 @@ import { HeightResizerComponent } from "../height-resizer/height-resizer";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent, HeightResizerComponent]
+    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent, HeightResizerComponent, ColumnResizerComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
