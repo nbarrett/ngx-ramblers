@@ -43,6 +43,28 @@ export class PageContentService {
     return apiResponse.response;
   }
 
+  async allFragmentUsages(pageContentId: string): Promise<PageContent[]> {
+    const dataQueryOptions: DataQueryOptions = {criteria: {"rows.fragment.pageContentId": pageContentId}};
+    const params = this.commonDataService.toHttpParams(dataQueryOptions);
+    const apiResponse = await this.http.get<{ response: PageContent[] }>(`${this.BASE_URL}/all`, {params}).toPromise();
+    this.logger.debug("allFragmentUsages for", pageContentId, "- received", apiResponse);
+    return apiResponse.response;
+  }
+
+  async allAlbumIndexParents(childPath: string): Promise<PageContent[]> {
+    const dataQueryOptions: DataQueryOptions = {criteria: {"rows.albumIndex.contentPaths.stringMatch": "starts-with"}};
+    const params = this.commonDataService.toHttpParams(dataQueryOptions);
+    const apiResponse = await this.http.get<{ response: PageContent[] }>(`${this.BASE_URL}/all`, {params}).toPromise();
+    const allAlbumIndexPages = apiResponse.response as PageContent[];
+    return allAlbumIndexPages.filter(page =>
+      page.rows?.some(row =>
+        (row as any).albumIndex?.contentPaths?.some((cp: any) =>
+          cp.stringMatch === "starts-with" && childPath.startsWith(cp.contentPath)
+        )
+      )
+    );
+  }
+
   async findByPath(path: string): Promise<PageContent> {
     const dataQueryOptions: DataQueryOptions = {criteria: {path: {$eq: path}}};
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
