@@ -86,6 +86,7 @@ export interface AreaGroup {
   onsDistricts: string | string[];
   color?: string;
   nonGeographic?: boolean;
+  customGeometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon;
 }
 
 export interface AvailableArea {
