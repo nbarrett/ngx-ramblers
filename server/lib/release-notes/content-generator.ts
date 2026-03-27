@@ -203,11 +203,19 @@ export function generateMarkdown(data: ReleaseNotesData, githubRepo: string): st
     .flatMap(group => formatGroupCommits(group, githubRepo))
     .filter(section => section.length > 0);
 
+  // Remove commit sections whose heading just repeats the H1 title
+  const titleNormalised = data.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const dedupedSections = commitSections.filter(section => {
+    const headingLine = section.split("\n")[0];
+    const headingNormalised = headingLine.replace(/^###\s*/, "").replace(/\*\*/g, "").replace(/\([^)]*\)/g, "").replace(/\[[^\]]*\]/g, "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+    return headingNormalised !== titleNormalised;
+  });
+
   const sections = [
     ...headerLines,
     buildLine,
     "_____",
-    ...commitSections
+    ...dedupedSections
   ].filter(section => section.trim().length > 0);
 
   return sections.join("\n\n").trim();

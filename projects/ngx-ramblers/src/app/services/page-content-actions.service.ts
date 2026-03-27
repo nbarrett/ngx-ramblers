@@ -413,7 +413,7 @@ export class PageContentActionsService {
   }
 
   public isActionButtons(row: PageContentRow): boolean {
-    return ["slides", PageContentType.ACTION_BUTTONS].includes(row?.type.toString());
+    return ["slides", PageContentType.ACTION_BUTTONS].includes(row?.type?.toString());
   }
 
   public isTextRow(row: PageContentRow) {

@@ -377,19 +377,8 @@ async function generateReleaseNote(
   }
 
   if (existingReleasePage) {
-    const todayDate = dateTimeNow().startOf("day").toISODate();
-    const releaseDate = data.date;
-    const isSameDay = todayDate === releaseDate;
-
-    if (!isSameDay) {
-      debugLog(`Skipping update of existing release note: ${releasePath}`);
-      debugLog(`  Reason: release date (${releaseDate}) is not today (${todayDate})`);
-      debugLog(`  Existing release notes should only be updated on the same day they were created`);
-      return;
-    }
-
-    await cms.updatePageContent(auth, existingReleasePage.id!, pageContent);
-    debugLog(`Updated release note page: ${releasePath} (same day update)`);
+    debugLog(`Skipping update of existing release note: ${releasePath}`);
+    debugLog(`  Reason: existing release notes are never overwritten to preserve manual edits (images, formatting)`);
   } else {
     await cms.createPageContent(auth, pageContent);
     debugLog(`Created release note page: ${releasePath}`);

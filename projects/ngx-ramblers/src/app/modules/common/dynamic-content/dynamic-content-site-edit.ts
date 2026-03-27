@@ -664,8 +664,8 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
             <app-badge-button (click)="deletePageContent()"
                               [icon]="faRemove"
                               delay=500 caption="Delete page"
-                              [tooltip]="deletePagContentTooltip()"
-                              [disabled]="savingPage || allReferringPages().length !== 0"/>
+                              [tooltip]="deletePageContentTooltip()"
+                              [disabled]="deletePageContentDisabled()"/>
           </div>
           @if (pastePageContentVisible) {
             <div class="w-100">
@@ -729,15 +729,15 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
           </div>
           <div class="row w-100 mt-3">
             <div class="col-12">
-              @if (this.allReferringPageCount() > 0) {
-                <div>Referred to
-                  by: @for (referringPage of allReferringPages(); track referringPage; let linkIndex = $index) {
+              @if (totalReferenceCount() > 0) {
+                <div>Referenced by ({{ totalReferenceCount() }}):
+                  @for (ref of allReferences(); track ref.path; let linkIndex = $index) {
                     <a class="ms-2 rams-text-decoration-pink"
-                       [href]="referringPage">{{ formatHref(referringPage) }}{{ linkIndex < allReferringPageCount() - 1 ? ',' : '' }}</a>
+                       [href]="ref.path">{{ ref.path }}</a>{{ linkIndex < allReferences().length - 1 ? ',' : '' }}
                   }
                 </div>
               } @else {
-                <div>Not Referred to by any other pages or links</div>
+                <div>Not referenced by any other pages, indexes, or fragments</div>
               }
             </div>
           </div>
@@ -919,6 +919,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     description: InsertionPosition.AFTER
   }];
   public referringPages: PageContent[] = [];
+  public fragmentUsages: PageContent[] = [];
+  public albumIndexParents: PageContent[] = [];
   public pagesBelow: PageContent[] = [];
   private error: any = null;
   private pendingPageContent: PageContent;
@@ -1821,6 +1823,18 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
         this.queryCompleted = true;
         this.error = error;
       });
+    if (this.isFragmentPath() && this.pageContent?.id) {
+      await this.pageContentService.allFragmentUsages(this.pageContent.id)
+        .then(usages => {
+          this.fragmentUsages = usages;
+          this.logger.debug("fragmentUsages for:", this.pageContent.id, "count:", usages.length);
+        }).catch(error => this.logger.error("Failed to query fragment usages:", error));
+    }
+    await this.pageContentService.allAlbumIndexParents(this.pageContent?.path)
+      .then(parents => {
+        this.albumIndexParents = parents;
+        this.logger.debug("albumIndexParents for:", this.pageContent?.path, "count:", parents.length);
+      }).catch(error => this.logger.error("Failed to query album index parents:", error));
   }
 
   private async loadAllFragments() {
@@ -2049,14 +2063,51 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   public deletePageContent() {
-    if (!this.deletePagContentDisabled()) {
-      this.pageContentService.delete(this.pageContent.id)
-        .then(() => this.urlService.navigateUnconditionallyTo([this.urlService.area()]));
+    if (!this.deletePageContentDisabled()) {
+      const pagePath = this.pageContent?.path || "this page";
+      if (confirm(`Are you sure you want to delete "${pagePath}"? This action cannot be undone.`)) {
+        this.pageContentService.delete(this.pageContent.id)
+          .then(() => this.urlService.navigateUnconditionallyTo([this.urlService.area()]));
+      }
     }
   }
 
+  public deletePageContentTooltip() {
+    const totalRefs = this.totalReferenceCount();
+    if (totalRefs === 0) {
+      return "Delete this page";
+    }
+    const parts: string[] = [];
+    if (this.allReferringPageCount() > 0) {
+      parts.push(this.stringUtils.pluraliseWithCount(this.allReferringPageCount(), "page") + " links to this page");
+    }
+    if (this.fragmentUsages.length > 0) {
+      parts.push(this.stringUtils.pluraliseWithCount(this.fragmentUsages.length, "page") + " embeds this fragment");
+    }
+    if (this.albumIndexParents.length > 0) {
+      parts.push(this.stringUtils.pluraliseWithCount(this.albumIndexParents.length, "index") + " includes this page");
+    }
+    return "Can't delete: " + parts.join(", ");
+  }
+
   public deletePagContentTooltip() {
-    return this.allReferringPageCount() === 0 ? "Delete this page" : "Can't delete as " + this.stringUtils.pluraliseWithCount(this.allReferringPageCount(), "other page") + " " + this.stringUtils.pluraliseWithCount(this.allReferringPageCount(), "refers", "refer") + " to this page";
+    return this.deletePageContentTooltip();
+  }
+
+  public totalReferenceCount(): number {
+    return this.allReferringPageCount() + this.fragmentUsages.length + this.albumIndexParents.length;
+  }
+
+  public deletePageContentDisabled(): boolean {
+    return this.savingPage || this.totalReferenceCount() > 0;
+  }
+
+  public allReferences(): { path: string }[] {
+    const refs: { path: string }[] = [];
+    this.allReferringPages().forEach(path => refs.push({path}));
+    this.fragmentUsages.forEach(usage => refs.push({path: usage.path}));
+    this.albumIndexParents.forEach(parent => refs.push({path: parent.path}));
+    return refs;
   }
 
   public allReferringPageCount(): number {

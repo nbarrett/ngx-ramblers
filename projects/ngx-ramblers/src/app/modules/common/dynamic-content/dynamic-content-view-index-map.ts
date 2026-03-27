@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, inject, Input, NgZone, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import * as L from "leaflet";
 import "leaflet.markercluster";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
@@ -159,6 +159,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   private markerStyle = inject(MapMarkerStyleService);
   private urlService = inject(UrlService);
   private uiActions = inject(UiActionsService);
+  private zone = inject(NgZone);
 
   ngOnInit() {
     this.mapTiles.initializeProjections();
@@ -295,7 +296,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
 
     if (column.href) {
       marker.on("click", () => {
-        this.urlService.navigateTo([column.href]);
+        this.zone.run(() => this.urlService.navigateTo([column.href]));
       });
     }
 
