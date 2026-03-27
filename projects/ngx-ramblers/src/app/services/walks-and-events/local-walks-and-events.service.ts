@@ -14,6 +14,7 @@ import { DeleteDocumentsRequest } from "../../models/member.model";
 import { DeletionResponse, DeletionResponseApiResponse } from "../../models/mongo-models";
 import { EventQueryParameters } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEventQueryService } from "./extended-group-event-query.service";
+import { toSlug } from "../../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -102,9 +103,37 @@ export class LocalWalksAndEventsService {
     this.logger.info("queryById:eventId", eventId, "dataQueryOptions:", dataQueryOptions, "params", params.toString());
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ExtendedGroupEventApiResponse>(`${this.BASE_URL}/all`, {params}), this.extendedGroupEventApiResponseSubject);
     const results = apiResponse.response as ExtendedGroupEvent[];
-    const extendedGroupEvent = results?.[0];
-    this.logger.info("queryById:results:", results, "returning first:", extendedGroupEvent);
+    const extendedGroupEvent = this.bestMatchFrom(results, eventId);
+    this.logger.info("queryById:results:", results?.length, "returning best match:", extendedGroupEvent?.groupEvent?.title);
     return extendedGroupEvent;
+  }
+
+  private bestMatchFrom(results: ExtendedGroupEvent[], slug: string): ExtendedGroupEvent {
+    if (!results?.length) {
+      return null;
+    }
+    if (results.length === 1) {
+      return results[0];
+    }
+    const now = Date.now();
+    const normalised = toSlug(slug);
+    return results.sort((a, b) => {
+      const aUrl = a.groupEvent?.url || "";
+      const bUrl = b.groupEvent?.url || "";
+      const aExactUrl = toSlug(this.stringUtilsService.lastItemFrom(aUrl)) === normalised;
+      const bExactUrl = toSlug(this.stringUtilsService.lastItemFrom(bUrl)) === normalised;
+      if (aExactUrl !== bExactUrl) {
+        return aExactUrl ? -1 : 1;
+      }
+      const aStart = new Date(a.groupEvent?.start_date_time || 0).getTime();
+      const bStart = new Date(b.groupEvent?.start_date_time || 0).getTime();
+      const aFuture = aStart >= now;
+      const bFuture = bStart >= now;
+      if (aFuture !== bFuture) {
+        return aFuture ? -1 : 1;
+      }
+      return bStart - aStart;
+    })[0];
   }
 
   async queryWalkLeaders(range?: SearchDateRange | null): Promise<string[]> {

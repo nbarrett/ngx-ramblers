@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { faEnvelope, faFile, faHouse, faMapMarkerAlt, faPhone } from "@fortawesome/free-solid-svg-icons";
+import { faFile, faHouse, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { PathSegment } from "../../../models/content-text.model";
@@ -24,6 +24,7 @@ import { MediaQueryService } from "../../../services/committee/media-query.servi
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { BasicMedia } from "../../../models/ramblers-walks-manager";
 import { BookingFormComponent } from "../../admin/bookings/booking-form.component";
+import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
 
 @Component({
   selector: "app-group-event-view",
@@ -125,44 +126,7 @@ import { BookingFormComponent } from "../../admin/bookings/booking-form.componen
               </div>
             </div>
             <div class="col-sm-6">
-              <div class="event-panel rounded h-100">
-                <h1>Contact Details</h1>
-                <div class="col-sm-12">
-                  @if (!display.groupEventPopulationLocal()) {
-                    <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                      <fa-icon title tooltip="contact organiser {{groupEvent?.fields?.contactDetails?.displayName}}"
-                               [icon]="faEnvelope"
-                               class="fa-icon pointer"/>
-                      <a content
-                         [href]="groupEvent?.fields?.contactDetails?.email">{{ groupEvent?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
-                    </div>
-                  }
-                  @if (display.groupEventPopulationLocal()) {
-                    <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                      <app-copy-icon [icon]="faEnvelope" title [value]="groupEvent?.fields?.contactDetails?.email"
-                                     [elementName]="'email address for '+ groupEvent?.fields?.contactDetails?.displayName "/>
-                      <div content>
-                        <a [href]="'mailto' + groupEvent?.fields?.contactDetails?.email"
-                           tooltip="Click to email {{groupEvent?.fields?.contactDetails?.displayName}} at {{groupEvent?.fields?.contactDetails?.email}}">
-                          {{ groupEvent?.fields?.contactDetails?.displayName }}
-                        </a>
-                      </div>
-                    </div>
-                  }
-                  @if (groupEvent?.fields?.contactDetails?.phone) {
-                    <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                      <app-copy-icon [icon]="faPhone" title [value]="groupEvent?.fields?.contactDetails?.phone"
-                                     [elementName]="'phone number for '+ groupEvent?.fields?.contactDetails?.displayName "/>
-                      <div content>
-                        <a [href]="'tel:' + groupEvent?.fields?.contactDetails?.phone"
-                           tooltip="Click to ring {{groupEvent?.fields?.contactDetails?.displayName}} on {{groupEvent?.fields?.contactDetails?.phone}}">
-                          {{ groupEvent?.fields?.contactDetails?.phone }}
-                        </a>
-                      </div>
-                    </div>
-                  }
-                </div>
-              </div>
+              <app-event-leader [groupEvent]="groupEvent"/>
             </div>
           </div>
           <div class="mt-3 mb-1">
@@ -197,7 +161,7 @@ import { BookingFormComponent } from "../../admin/bookings/booking-form.componen
       </div>
     </div>`,
   styleUrls: ["group-event-view.sass"],
-  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent]
+  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent]
 })
 export class GroupEventView implements OnInit {
 
@@ -215,8 +179,6 @@ export class GroupEventView implements OnInit {
   public groupEvent: ExtendedGroupEvent;
   public notifyTarget: AlertTarget = {};
   public notify: AlertInstance;
-  faEnvelope = faEnvelope;
-  faPhone = faPhone;
   faMapMarkerAlt = faMapMarkerAlt;
   faHouse = faHouse;
   faFile = faFile;

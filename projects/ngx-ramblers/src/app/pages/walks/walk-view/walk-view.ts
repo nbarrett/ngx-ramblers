@@ -23,7 +23,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { MarkdownComponent } from "ngx-markdown";
-import { WalkLeaderComponent } from "./walk-leader";
+import { EventLeaderComponent } from "./event-leader";
 import { WalkFeaturesComponent } from "./walk-features";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCompress, faExpand } from "@fortawesome/free-solid-svg-icons";
@@ -104,7 +104,7 @@ import { BookingFormComponent } from "../../admin/bookings/booking-form.componen
               }
             </div>
             @if (display.hasWalkLeader(displayedWalk.walk)) {
-              <app-walk-leader [displayedWalk]="displayedWalk"/>
+              <app-event-leader [displayedWalk]="displayedWalk"/>
             }
             @if (displayedWalk?.hasFeatures) {
               <app-walk-features [extendedGroupEvent]="displayedWalk?.walk"/>
@@ -256,7 +256,7 @@ import { BookingFormComponent } from "../../admin/bookings/booking-form.componen
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],
-  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, WalkLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksComponent, DisplayTimePipe, BookingFormComponent]
+  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksComponent, DisplayTimePipe, BookingFormComponent]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
