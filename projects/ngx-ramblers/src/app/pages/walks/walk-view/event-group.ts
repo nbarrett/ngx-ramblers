@@ -2,6 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { faPeopleGroup } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { RamblersGroupsApiResponse } from "../../../models/ramblers-walks-manager";
+import { GroupEvent } from "../../../models/group-event.model";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -10,21 +11,22 @@ import { WalkDisplayService } from "../walk-display.service";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
-    selector: "app-walk-group",
+    selector: "app-event-group",
     template: `@if (true) {
-      @if (displayedWalk?.walk?.groupEvent?.group_code) {
+      @if (resolvedGroupEvent()?.group_code) {
         <div class="mb-2">
           <h1>Group</h1>
           <div>
             <div class="row">
               <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                <fa-icon title tooltip="contact {{displayedWalk?.walk?.groupEvent.group_name}}"
+                <fa-icon title tooltip="contact {{resolvedGroupEvent()?.group_name}}"
                          [icon]="faPeopleGroup"
                          class="fa-icon me-1 pointer"></fa-icon>
                 <a content target="_blank"
-                   [href]="urlFor(displayedWalk?.walk?.groupEvent?.group_code)">{{ displayedWalk?.walk?.groupEvent.group_name + " (" + displayedWalk?.walk?.groupEvent?.group_code + ")" }}</a>
+                   [href]="urlFor(resolvedGroupEvent()?.group_code)">{{ resolvedGroupEvent()?.group_name + " (" + resolvedGroupEvent()?.group_code + ")" }}</a>
               </div>
             </div>
           </div>
@@ -35,13 +37,15 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
     imports: [RelatedLinkComponent, FontAwesomeModule, TooltipDirective]
 })
 
-export class WalkGroupComponent implements OnInit {
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkGroupComponent", NgxLoggerLevel.ERROR);
+export class EventGroupComponent implements OnInit {
+  private logger: Logger = inject(LoggerFactory).createLogger("EventGroupComponent", NgxLoggerLevel.ERROR);
   googleMapsService = inject(GoogleMapsService);
   display = inject(WalkDisplayService);
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   @Input()
   public displayedWalk: DisplayedWalk;
+  @Input()
+  public groupEvent: ExtendedGroupEvent;
   faPeopleGroup = faPeopleGroup;
   private groups: RamblersGroupsApiResponse[] = [];
 
@@ -49,12 +53,8 @@ export class WalkGroupComponent implements OnInit {
     this.ramblersWalksAndEventsService.groupNotifications().subscribe(item => this.groups = item.response);
   }
 
-  elementNameStart(elementName: string) {
-    return `${this.displayedWalk.showEndpoint ? "Start " : ""}${elementName}`;
-  }
-
-  elementNameFinish(elementName: string) {
-    return `${this.displayedWalk.showEndpoint ? "Finish " : ""}${elementName}`;
+  resolvedGroupEvent(): GroupEvent {
+    return this.groupEvent?.groupEvent || this.displayedWalk?.walk?.groupEvent;
   }
 
   urlFor(groupCode: string): string {
