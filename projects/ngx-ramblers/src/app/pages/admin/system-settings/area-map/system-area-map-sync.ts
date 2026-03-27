@@ -6,7 +6,7 @@ import { AuthService } from "../../../../auth/auth.service";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
 
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCheckCircle, faEdit, faInfoCircle, faRefresh, faSave, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faCheckCircle, faEdit, faInfoCircle, faRefresh, faSave, faTimes, faUpload, faTrash, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { FormsModule } from "@angular/forms";
 import { AreaGroup, AvailableArea, SharedDistrictStyle, SystemConfig } from "../../../../models/system.model";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
@@ -21,6 +21,13 @@ import { RamblersWalksAndEventsService } from "../../../../services/walks-and-ev
 import { RamblersGroupsApiResponse } from "../../../../models/ramblers-walks-manager";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { SharedDistrictStyleSelectorComponent } from "../../../../shared/components/shared-district-style-selector";
+
+interface GroupBoundaryUploadResult {
+  totalFeatures: number;
+  matchedGroups: number;
+  coordinateTransform: string;
+  details: { groupCode: string; groupName: string; featureIndex: number; matched: boolean }[];
+}
 
 @Component({
   selector: "app-area-map-sync-settings",
@@ -149,6 +156,7 @@ import { SharedDistrictStyleSelectorComponent } from "../../../../shared/compone
                                           }
                                       </th>
                                       <th>Color</th>
+                                      <th class="text-center">Custom</th>
                                       <th class="text-center">Non-Geographic</th>
                                   </tr>
                                   </thead>
@@ -177,6 +185,17 @@ import { SharedDistrictStyleSelectorComponent } from "../../../../shared/compone
                                                          [(ngModel)]="group.color">
                                               </td>
                                               <td class="text-center align-middle">
+                                                  @if (group.customGeometry) {
+                                                      <fa-icon [icon]="faMapMarkerAlt" class="text-success"
+                                                               title="Custom boundary from shapefile"></fa-icon>
+                                                      <button class="btn btn-link btn-sm p-0 ms-1"
+                                                              title="Clear custom geometry"
+                                                              (click)="clearGroupGeometry(group)">
+                                                          <fa-icon [icon]="faTimes" class="text-danger small"></fa-icon>
+                                                      </button>
+                                                  }
+                                              </td>
+                                              <td class="text-center align-middle">
                                                   <input type="checkbox" class="form-check-input"
                                                          [(ngModel)]="group.nonGeographic"
                                                          (ngModelChange)="onNonGeographicChange(group)">
@@ -203,6 +222,66 @@ import { SharedDistrictStyleSelectorComponent } from "../../../../shared/compone
                       @if (errorMessage) {
                           <div class="alert alert-danger mt-3 mb-0" role="alert">
                               {{ errorMessage }}
+                          </div>
+                      }
+                  </div>
+              </div>
+          </div>
+          <div class="thumbnail-heading-frame">
+              <div class="thumbnail-heading">Custom Group Boundaries</div>
+              <div class="row">
+                  <div class="col-12">
+                      <p class="mb-3">
+                          Upload a shapefile (.zip) containing custom group boundary polygons. Features are matched
+                          to groups by GROUP_CODE or GROUP_NAME properties.
+                          @if (customGeometryCount > 0) {
+                              <strong>{{ customGeometryCount }} group(s)</strong> currently use custom boundaries.
+                          }
+                      </p>
+                      <div class="d-flex align-items-center mb-3" style="gap: 0.75rem;">
+                          <input type="file" class="d-none" accept=".zip"
+                                 #shapefileInput (change)="onShapefileSelected($event)">
+                          <app-badge-button
+                                  [caption]="uploadingShapefile ? 'Uploading Shapefile...' : 'Upload Group Boundaries Shapefile'"
+                                  [icon]="faUpload"
+                                  (click)="shapefileInput.click()"
+                                  [disabled]="busy || uploadingShapefile || !hasAreaGroups"/>
+                          @if (customGeometryCount > 0) {
+                              <app-badge-button
+                                      [caption]="busy ? 'Clearing...' : 'Clear All Custom Boundaries'"
+                                      [icon]="faTrash"
+                                      (click)="clearAllGroupGeometries()"
+                                      [disabled]="busy"/>
+                          }
+                      </div>
+                      @if (shapefileUploadResult) {
+                          <div class="alert alert-success mb-3" role="alert">
+                              <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                              <strong>Shapefile processed:</strong>
+                              {{ shapefileUploadResult.matchedGroups }} of {{ shapefileUploadResult.totalFeatures }}
+                              features matched to groups.
+                              @if (shapefileUploadResult.coordinateTransform !== 'none') {
+                                  Coordinates transformed ({{ shapefileUploadResult.coordinateTransform }}).
+                              }
+                              @if (shapefileUploadResult.details.length > 0) {
+                                  <ul class="mb-0 mt-2 small">
+                                      @for (detail of shapefileUploadResult.details; track detail.featureIndex) {
+                                          <li [class.text-muted]="!detail.matched">
+                                              {{ detail.groupName }} ({{ detail.groupCode }})
+                                              @if (detail.matched) {
+                                                  — matched
+                                              } @else {
+                                                  — <em>no matching group found</em>
+                                              }
+                                          </li>
+                                      }
+                                  </ul>
+                              }
+                          </div>
+                      }
+                      @if (shapefileErrorMessage) {
+                          <div class="alert alert-danger mb-3" role="alert">
+                              {{ shapefileErrorMessage }}
                           </div>
                       }
                   </div>
@@ -487,12 +566,19 @@ export class SystemAreaMapSyncComponent implements OnInit {
     });
   }
 
+  uploadingShapefile = false;
+  shapefileUploadResult: GroupBoundaryUploadResult | null = null;
+  shapefileErrorMessage = "";
+
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faEdit = faEdit;
   protected readonly faInfoCircle = faInfoCircle;
   protected readonly faRefresh = faRefresh;
   protected readonly faSave = faSave;
   protected readonly faTimes = faTimes;
+  protected readonly faUpload = faUpload;
+  protected readonly faTrash = faTrash;
+  protected readonly faMapMarkerAlt = faMapMarkerAlt;
 
   ngOnInit() {
     this.refreshKey();
@@ -1002,6 +1088,100 @@ export class SystemAreaMapSyncComponent implements OnInit {
       error: () => {
         this.errorMessage = "No geographic data available. Please upload area map data first.";
         this.logger.warn("Preview districts endpoint not available for rebuild");
+        this.setBusy(false);
+      }
+    });
+  }
+
+  get customGeometryCount(): number {
+    return this.editingGroups.filter(g => !!g.customGeometry).length;
+  }
+
+  onShapefileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    this.uploadingShapefile = true;
+    this.shapefileUploadResult = null;
+    this.shapefileErrorMessage = "";
+    this.errorMessage = "";
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${this.authService.authToken() ?? ""}`
+    });
+
+    this.http.post<GroupBoundaryUploadResult>("api/areas/upload-group-boundaries", formData, {headers}).subscribe({
+      next: result => {
+        this.shapefileUploadResult = result;
+        this.uploadingShapefile = false;
+        this.loadAreaGroups();
+        input.value = "";
+      },
+      error: error => {
+        this.shapefileErrorMessage = error?.error?.error || "Failed to upload shapefile";
+        this.logger.error("Shapefile upload failed", error);
+        this.uploadingShapefile = false;
+        input.value = "";
+      }
+    });
+  }
+
+  clearGroupGeometry(group: AreaGroup) {
+    if (this.busy) {
+      return;
+    }
+
+    this.setBusy(true);
+    this.shapefileErrorMessage = "";
+
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${this.authService.authToken() ?? ""}`
+    });
+
+    this.http.delete<{ message: string }>(`api/areas/group-boundary/${group.groupCode}`, {headers}).subscribe({
+      next: response => {
+        this.logger.info(response.message);
+        group.customGeometry = undefined;
+        this.setBusy(false);
+      },
+      error: error => {
+        this.shapefileErrorMessage = error?.error?.error || "Failed to clear custom geometry";
+        this.logger.error("Clear group geometry failed", error);
+        this.setBusy(false);
+      }
+    });
+  }
+
+  clearAllGroupGeometries() {
+    if (this.busy) {
+      return;
+    }
+
+    this.setBusy(true);
+    this.shapefileErrorMessage = "";
+    this.shapefileUploadResult = null;
+
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${this.authService.authToken() ?? ""}`
+    });
+
+    this.http.delete<{ message: string; cleared: number }>("api/areas/group-boundaries", {headers}).subscribe({
+      next: response => {
+        this.logger.info(response.message);
+        this.editingGroups.forEach(g => {
+          g.customGeometry = undefined;
+        });
+        this.setBusy(false);
+      },
+      error: error => {
+        this.shapefileErrorMessage = error?.error?.error || "Failed to clear custom geometries";
+        this.logger.error("Clear all geometries failed", error);
         this.setBusy(false);
       }
     });

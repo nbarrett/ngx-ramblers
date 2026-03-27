@@ -200,6 +200,22 @@ function transformCoordinates(coordinates: any): any {
   return coordinates;
 }
 
+function findGroupByNameCaseInsensitive(areaName: string, areaGroups: AreaGroupConfig[]): AreaGroupConfig | undefined {
+  const normalizedAreaName = areaName.trim().toLowerCase();
+  return areaGroups.find(group => group.name.toLowerCase() === normalizedAreaName);
+}
+
+function customGeometryFeatureCollection(group: AreaGroupConfig): GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon> {
+  return {
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      properties: {groupCode: group.groupCode, groupName: group.name},
+      geometry: group.customGeometry
+    }]
+  };
+}
+
 export async function areas(req: Request, res: Response) {
   try {
     const {areaName, areaNames, regionName = "Kent"} = req.query;
@@ -213,10 +229,17 @@ export async function areas(req: Request, res: Response) {
       return res.status(400).json({"error": "areaName query parameter is required"});
     }
 
+    const areaGroups = await areaGroupsFromConfig();
+    const matchedGroup = findGroupByNameCaseInsensitive(areaName, areaGroups);
+
+    if (matchedGroup?.customGeometry) {
+      debugLog(`Group ${areaName} has custom geometry - returning directly`);
+      return res.status(200).json(customGeometryFeatureCollection(matchedGroup));
+    }
+
     const geojson = await loadGeoJson();
 
-    const createAreaMappings = async (): Promise<AreaMappings> => {
-      const areaGroups = await areaGroupsFromConfig();
+    const createAreaMappings = (): AreaMappings => {
       const mappings: AreaMappings = {};
       areaGroups.forEach(group => {
         mappings[group.name] = group.onsDistricts;
@@ -224,7 +247,7 @@ export async function areas(req: Request, res: Response) {
       return mappings;
     };
 
-    const mappings = await createAreaMappings();
+    const mappings = createAreaMappings();
 
     const findMappingCaseInsensitive = (areaName: string, mappings: AreaMappings): string | string[] | undefined => {
       const normalizedAreaName = areaName.trim();
@@ -344,9 +367,17 @@ async function batchAreas(req: Request, res: Response, areaNames: string[]) {
       mappings[group.name] = group.onsDistricts;
     });
 
-    const results: Record<string, GeoJSON.FeatureCollection<GeoJSON.Polygon>> = {};
+    const results: Record<string, GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon>> = {};
 
-    for (const areaName of areaNames) {
+    areaNames.forEach(areaName => {
+      const matchedGroup = findGroupByNameCaseInsensitive(areaName, areaGroups);
+
+      if (matchedGroup?.customGeometry) {
+        debugLog(`Batch: group ${areaName} has custom geometry`);
+        results[areaName] = customGeometryFeatureCollection(matchedGroup);
+        return;
+      }
+
       const normalizedAreaName = areaName.trim();
       const lowerAreaName = normalizedAreaName.toLowerCase();
       const matchedKey = keys(mappings).find(key => key.toLowerCase() === lowerAreaName) || normalizedAreaName;
@@ -354,12 +385,12 @@ async function batchAreas(req: Request, res: Response, areaNames: string[]) {
 
       if (!targetNames) {
         results[areaName] = { type: "FeatureCollection", features: [] };
-        continue;
+        return;
       }
 
       if (isArray(targetNames) && targetNames.length === 0) {
         results[areaName] = { type: "FeatureCollection", features: [] };
-        continue;
+        return;
       }
 
       const districtNames = isArray(targetNames) ? targetNames : [targetNames];
@@ -383,7 +414,7 @@ async function batchAreas(req: Request, res: Response, areaNames: string[]) {
       });
 
       results[areaName] = { type: "FeatureCollection", features: transformedFeatures };
-    }
+    });
 
     debugLog(`Batch processed ${areaNames.length} areas`);
     res.status(200).json({ areas: results });
@@ -400,6 +431,7 @@ interface AreaGroupConfig {
   onsDistricts: string | string[];
   color?: string;
   nonGeographic?: boolean;
+  customGeometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon;
 }
 
 async function areaGroupsFromConfig(): Promise<AreaGroupConfig[]> {
@@ -881,6 +913,243 @@ export async function configureAreaGroups(req: Request, res: Response) {
       error: error.message
     });
   }
+}
+
+export async function uploadGroupBoundaries(req: Request, res: Response) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({error: "No file uploaded"});
+    }
+
+    const filePath = req.file.path;
+    const originalName = req.file.originalname || "upload.zip";
+    const extension = path.extname(originalName).toLowerCase();
+
+    if (extension !== ".zip") {
+      return res.status(400).json({error: "Only .zip shapefile archives are supported"});
+    }
+
+    const {parseShapefileZipSync} = await import("../map-routes/shapefile-parser");
+    const featureCollection = await parseShapefileZipSync(filePath);
+    const features = featureCollection.features;
+
+    if (features.length === 0) {
+      return res.status(400).json({error: "No features found in shapefile"});
+    }
+
+    const sampleCoord = extractFirstCoordinate(features[0].geometry);
+    const needsTransform = sampleCoord && (Math.abs(sampleCoord[0]) > 180 || Math.abs(sampleCoord[1]) > 90);
+
+    const transformedFeatures = needsTransform
+      ? features.map(f => ({
+        ...f,
+        geometry: {
+          ...f.geometry,
+          coordinates: transformCoordinates((f.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon).coordinates)
+        }
+      }))
+      : features;
+
+    const simplifiedFeatures = transformedFeatures.map(f =>
+      turf.simplify(f as GeoJSON.Feature<GeoJSON.Polygon>, {
+        tolerance: 0.0001,
+        highQuality: true
+      })
+    );
+
+    const groupCodeProperty = detectGroupCodeProperty(features);
+    const groupNameProperty = detectGroupNameProperty(features);
+
+    const config: SystemConfig = await systemConfig();
+    const areaGroups = config?.area?.groups || [];
+    const matched: { groupCode: string; groupName: string; featureIndex: number; matched: boolean }[] = [];
+    let matchedCount = 0;
+
+    simplifiedFeatures.forEach((feature, index) => {
+      const props = features[index].properties || {};
+      const featureGroupCode = groupCodeProperty ? String(props[groupCodeProperty]) : null;
+      const featureGroupName = groupNameProperty ? String(props[groupNameProperty]) : null;
+
+      const matchedGroup = areaGroups.find(g =>
+        (featureGroupCode && g.groupCode === featureGroupCode) ||
+        (featureGroupName && g.name.toLowerCase() === featureGroupName?.toLowerCase())
+      );
+
+      if (matchedGroup) {
+        matchedGroup.customGeometry = feature.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
+        matchedCount++;
+        matched.push({
+          groupCode: matchedGroup.groupCode,
+          groupName: matchedGroup.name,
+          featureIndex: index,
+          matched: true
+        });
+      } else {
+        matched.push({
+          groupCode: featureGroupCode || "unknown",
+          groupName: featureGroupName || `Feature ${index}`,
+          featureIndex: index,
+          matched: false
+        });
+      }
+    });
+
+    if (matchedCount > 0) {
+      const {createOrUpdate} = await import("../mongo/controllers/config");
+      const {ConfigKey} = await import("../../../projects/ngx-ramblers/src/app/models/config.model");
+
+      await new Promise<void>((resolve, reject) => {
+        const updateReq = {body: {key: ConfigKey.SYSTEM, value: config}} as Request;
+        const updateRes = {
+          status: (code: number) => ({
+            json: (data: any) => {
+              if (code === 200) {
+                resolve();
+              } else {
+                reject(new Error(`Config update failed: ${JSON.stringify(data)}`));
+              }
+            }
+          })
+        } as unknown as Response;
+        createOrUpdate(updateReq, updateRes);
+      });
+    }
+
+    await fs.remove(filePath);
+
+    res.status(200).json({
+      totalFeatures: features.length,
+      matchedGroups: matchedCount,
+      coordinateTransform: needsTransform ? "BNG to WGS84" : "none",
+      details: matched
+    });
+  } catch (error) {
+    debugLog(`Failed to upload group boundaries: ${error.message}`);
+    res.status(500).json({error: `Failed to process shapefile: ${error.message}`});
+  }
+}
+
+export async function clearGroupBoundary(req: Request, res: Response) {
+  try {
+    const {groupCode} = req.params;
+
+    if (!groupCode) {
+      return res.status(400).json({error: "groupCode is required"});
+    }
+
+    const config: SystemConfig = await systemConfig();
+    const areaGroups = config?.area?.groups || [];
+    const group = areaGroups.find(g => g.groupCode === groupCode);
+
+    if (!group) {
+      return res.status(404).json({error: `Group ${groupCode} not found`});
+    }
+
+    if (!group.customGeometry) {
+      return res.status(200).json({message: `Group ${groupCode} has no custom geometry to clear`});
+    }
+
+    delete group.customGeometry;
+
+    const {createOrUpdate} = await import("../mongo/controllers/config");
+    const {ConfigKey} = await import("../../../projects/ngx-ramblers/src/app/models/config.model");
+
+    await new Promise<void>((resolve, reject) => {
+      const updateReq = {body: {key: ConfigKey.SYSTEM, value: config}} as Request;
+      const updateRes = {
+        status: (code: number) => ({
+          json: (data: any) => {
+            if (code === 200) {
+              resolve();
+            } else {
+              reject(new Error(`Config update failed: ${JSON.stringify(data)}`));
+            }
+          }
+        })
+      } as unknown as Response;
+      createOrUpdate(updateReq, updateRes);
+    });
+
+    res.status(200).json({message: `Custom geometry cleared for group ${group.name} (${groupCode})`});
+  } catch (error) {
+    debugLog(`Failed to clear group boundary: ${error.message}`);
+    res.status(500).json({error: "Failed to clear group boundary"});
+  }
+}
+
+export async function clearAllGroupBoundaries(req: Request, res: Response) {
+  try {
+    const config: SystemConfig = await systemConfig();
+    const areaGroups = config?.area?.groups || [];
+    let clearedCount = 0;
+
+    areaGroups.forEach(group => {
+      if (group.customGeometry) {
+        delete group.customGeometry;
+        clearedCount++;
+      }
+    });
+
+    if (clearedCount === 0) {
+      return res.status(200).json({message: "No groups have custom geometry to clear", cleared: 0});
+    }
+
+    const {createOrUpdate} = await import("../mongo/controllers/config");
+    const {ConfigKey} = await import("../../../projects/ngx-ramblers/src/app/models/config.model");
+
+    await new Promise<void>((resolve, reject) => {
+      const updateReq = {body: {key: ConfigKey.SYSTEM, value: config}} as Request;
+      const updateRes = {
+        status: (code: number) => ({
+          json: (data: any) => {
+            if (code === 200) {
+              resolve();
+            } else {
+              reject(new Error(`Config update failed: ${JSON.stringify(data)}`));
+            }
+          }
+        })
+      } as unknown as Response;
+      createOrUpdate(updateReq, updateRes);
+    });
+
+    res.status(200).json({message: `Cleared custom geometry from ${clearedCount} groups`, cleared: clearedCount});
+  } catch (error) {
+    debugLog(`Failed to clear all group boundaries: ${error.message}`);
+    res.status(500).json({error: "Failed to clear group boundaries"});
+  }
+}
+
+function extractFirstCoordinate(geometry: any): [number, number] | null {
+  if (!geometry?.coordinates) {
+    return null;
+  }
+  const coords = geometry.coordinates;
+  if (geometry.type === "Polygon") {
+    return coords[0]?.[0] || null;
+  }
+  if (geometry.type === "MultiPolygon") {
+    return coords[0]?.[0]?.[0] || null;
+  }
+  return null;
+}
+
+function detectGroupCodeProperty(features: GeoJSON.Feature[]): string | null {
+  const candidates = ["GROUP_CODE", "group_code", "GroupCode", "groupCode", "code", "Code", "GROUP_CD"];
+  const firstProps = features[0]?.properties;
+  if (!firstProps) {
+    return null;
+  }
+  return candidates.find(c => firstProps[c] !== undefined) || null;
+}
+
+function detectGroupNameProperty(features: GeoJSON.Feature[]): string | null {
+  const candidates = ["GROUP_NAME", "group_name", "GroupName", "groupName", "name", "Name", "GROUP_NM"];
+  const firstProps = features[0]?.properties;
+  if (!firstProps) {
+    return null;
+  }
+  return candidates.find(c => firstProps[c] !== undefined) || null;
 }
 
 export async function deleteAreaMapData(req: Request, res: Response) {
