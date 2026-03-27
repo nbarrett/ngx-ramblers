@@ -115,7 +115,7 @@ export class LocalWalksAndEventsService {
     if (results.length === 1) {
       return results[0];
     }
-    const now = Date.now();
+    const now = this.dateUtils.dateTimeNow().valueOf();
     const normalised = toSlug(slug);
     return results.sort((a, b) => {
       const aUrl = a.groupEvent?.url || "";
@@ -125,8 +125,8 @@ export class LocalWalksAndEventsService {
       if (aExactUrl !== bExactUrl) {
         return aExactUrl ? -1 : 1;
       }
-      const aStart = new Date(a.groupEvent?.start_date_time || 0).getTime();
-      const bStart = new Date(b.groupEvent?.start_date_time || 0).getTime();
+      const aStart = this.dateUtils.asValueNoTime(a.groupEvent?.start_date_time) || 0;
+      const bStart = this.dateUtils.asValueNoTime(b.groupEvent?.start_date_time) || 0;
       const aFuture = aStart >= now;
       const bFuture = bStart >= now;
       if (aFuture !== bFuture) {
