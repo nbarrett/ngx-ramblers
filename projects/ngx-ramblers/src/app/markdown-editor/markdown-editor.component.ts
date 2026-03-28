@@ -76,7 +76,7 @@ import {
   ContentFormattingSelectorComponent
 } from "../modules/common/content-formatting-selector/content-formatting-selector";
 import { UrlService } from "../services/url.service";
-import { SystemConfig } from "../models/system.model";
+import { SystemConfig, TextStyle } from "../models/system.model";
 import { Subscription } from "rxjs";
 import { DataPopulationService } from "../pages/admin/data-population.service";
 import { SystemConfigService } from "../services/system/system-config.service";
@@ -1213,7 +1213,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   renderInline(): boolean {
     const currentClass = this.content?.styles?.class;
-    return currentClass === "as-button";
+    return currentClass === TextStyle.AS_BUTTON || currentClass === TextStyle.AS_BUTTON_WARNING;
   }
 
   contentStyleClasses() {

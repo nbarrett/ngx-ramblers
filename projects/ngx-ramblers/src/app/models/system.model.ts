@@ -353,8 +353,14 @@ export const colourSelectorsDarkLight: ColourSelector[] = [
   {class: classBackgroundDark, badgeClass: "badge badge-granite", name: "Dark", colour: rgbColourGranite}
 ];
 
+export enum TextStyle {
+  AS_BUTTON = "as-button",
+  AS_BUTTON_WARNING = "as-button-warning",
+}
+
 export const textStyleSelectors: ColourSelector[] = [
-  {class: "as-button", badgeClass: "badge badge-as-button", name: "Make Links Buttons"},
+  {class: TextStyle.AS_BUTTON, badgeClass: "badge badge-as-button", name: "Make Links Buttons"},
+  {class: TextStyle.AS_BUTTON_WARNING, badgeClass: "badge bg-warning text-dark", name: "Make Links Yellow Buttons"},
   {class: "", name: "Clear"},
   {class: "d-none", name: "Hide"},
   {class: "text-style-cloudy", badgeClass: "badge badge-cloudy", name: "Cloudy", colour: rgbColourCloudy},
