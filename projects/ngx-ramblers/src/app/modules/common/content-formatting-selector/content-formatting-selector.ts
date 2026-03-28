@@ -1,6 +1,7 @@
 import { Component, EventEmitter, inject, Input, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ContentTextStyles, ListStyle } from "../../../models/content-text.model";
+import { TextStyle } from "../../../models/system.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { BsDropdownModule } from "ngx-bootstrap/dropdown";
 import { NgTemplateOutlet } from "@angular/common";
@@ -50,9 +51,9 @@ import { NgTemplateOutlet } from "@angular/common";
       <li><hr class="dropdown-divider"></li>
       <li class="dropdown-header">Styling Options</li>
       <li>
-        <a class="dropdown-item p-1" (click)="selectTextStyle('as-button')">
+        <a class="dropdown-item p-1" (click)="selectTextStyle(TextStyle.AS_BUTTON)">
           <span class="badge-as-button btn-sm w-100 d-inline-block text-center">Make Links Buttons</span>
-          @if (textStyleIs('as-button')) {
+          @if (textStyleIs(TextStyle.AS_BUTTON)) {
             <strong> (Selected)</strong>
           }
         </a>
@@ -117,6 +118,7 @@ import { NgTemplateOutlet } from "@angular/common";
 export class ContentFormattingSelectorComponent {
   private logger: Logger = inject(LoggerFactory).createLogger("ContentFormattingSelectorComponent", NgxLoggerLevel.ERROR);
   protected readonly ListStyle = ListStyle;
+  protected readonly TextStyle = TextStyle;
 
   @Input() styles: ContentTextStyles;
   @Input() standaloneMenu = true;
