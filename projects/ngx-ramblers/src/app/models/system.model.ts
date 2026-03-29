@@ -45,7 +45,7 @@ export enum MapsSubTab {
   PARISH_ALLOCATIONS = "parish-allocations"
 }
 
-export enum ImageMigrationTab {
+export enum ContentMigrationTab {
   SCAN = "Scan Configuration",
   RESULTS = "Scan Results",
   ACTIVITY = "Activity",
@@ -308,6 +308,7 @@ export enum RootFolder {
   backgrounds = "backgrounds",
   bannerPhotos = "banner-photos",
   carousels = "carousels",
+  committeeFiles = "committeeFiles",
   icons = "icons",
   logos = "logos",
   siteContent = "site-content",
@@ -316,10 +317,6 @@ export enum RootFolder {
   gpxRoutes = "gpx-routes",
   socialEventsImages = "images-social-events",
   esriRoutes = "esri-routes"
-}
-
-export enum BuiltInAlbumName {
-  socialEventsImages = "images-social-events"
 }
 
 export enum NavBarLocation {
@@ -506,7 +503,7 @@ export interface CaptchaVerificationResponse {
   "error-codes"?: string[];
 }
 
-export enum ImageMigrationStatus {
+export enum ContentMigrationStatus {
   PENDING = "pending",
   IN_PROGRESS = "in-progress",
   MIGRATED = "migrated",
@@ -514,79 +511,90 @@ export enum ImageMigrationStatus {
   SKIPPED = "skipped"
 }
 
-export enum ImageMigrationSourceType {
+export enum ContentMigrationSourceType {
   CONTENT_METADATA = "content-metadata",
   PAGE_CONTENT = "page-content",
   GROUP_EVENT = "group-event",
-  SOCIAL_EVENT = "social-event"
+  SOCIAL_EVENT = "social-event",
+  COMMITTEE_FILE = "committee-file"
 }
 
-export interface ExternalImageReference {
+export enum ContentMigrationDocumentType {
+  IMAGE = "image",
+  PDF = "pdf",
+  SPREADSHEET = "spreadsheet",
+  DOCUMENT = "document",
+  OTHER = "other"
+}
+
+export interface ExternalContentReference {
   id: string;
-  sourceType: ImageMigrationSourceType;
+  sourceType: ContentMigrationSourceType;
   sourceId: string;
   sourcePath: string;
   sourceTitle: string;
   currentUrl: string;
   thumbnailUrl: string;
+  documentType: ContentMigrationDocumentType;
   fileSize: number | null;
-  status: ImageMigrationStatus;
+  status: ContentMigrationStatus;
   selected: boolean;
   newS3Url: string | null;
   errorMessage: string | null;
 }
 
-export interface ImageMigrationGroup {
+export interface ContentMigrationGroup {
   sourcePath: string;
-  sourceType: ImageMigrationSourceType;
+  sourceType: ContentMigrationSourceType;
   sourceTitle: string;
   expanded: boolean;
   selectAll: boolean;
-  images: ExternalImageReference[];
+  items: ExternalContentReference[];
 }
 
-export interface ImageMigrationScanRequest {
+export interface ContentMigrationScanRequest {
   hostPattern: string;
   scanAlbums: boolean;
   scanPageContent: boolean;
   scanGroupEvents: boolean;
   scanSocialEvents: boolean;
+  scanCommitteeFiles?: boolean;
 }
 
-export interface ImageMigrationScanResult {
+export interface ContentMigrationScanResult {
   hostPattern: string;
-  groups: ImageMigrationGroup[];
-  totalImages: number;
+  groups: ContentMigrationGroup[];
+  totalItems: number;
   totalPages: number;
   scanDurationMs: number;
 }
 
-export interface ImageMigrationRequest {
-  images: ExternalImageReference[];
+export interface ContentMigrationRequest {
+  items: ExternalContentReference[];
   targetRootFolder: RootFolder;
   maxImageSize?: number;
 }
 
-export interface ImageMigrationProgress {
-  totalImages: number;
-  processedImages: number;
+export interface ContentMigrationProgress {
+  totalItems: number;
+  processedItems: number;
   successCount: number;
   failureCount: number;
-  currentImage: string;
+  currentItem: string;
   percent: number;
   errorMessage?: string;
 }
 
-export interface ImageMigrationResult {
+export interface ContentMigrationResult {
   totalProcessed: number;
   successCount: number;
   failureCount: number;
-  migratedImages: ExternalImageReference[];
-  failedImages: ExternalImageReference[];
+  migratedItems: ExternalContentReference[];
+  failedItems: ExternalContentReference[];
   cancelled?: boolean;
 }
 
-export interface ImageMigrationActivityLog {
+export interface ContentMigrationActivityLog {
   id: string;
   status: string;
   time: number;

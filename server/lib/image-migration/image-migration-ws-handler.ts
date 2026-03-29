@@ -4,17 +4,28 @@ import { envConfig } from "../env-config/env-config";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import {
-  ImageMigrationProgress,
-  ImageMigrationRequest,
-  ImageMigrationScanRequest
+  ContentMigrationProgress,
+  ContentMigrationRequest,
+  ContentMigrationScanRequest
 } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { scanForExternalImages, scanForUniqueHosts } from "./image-migration-scanner";
-import { migrateImages } from "./image-migration-engine";
+import { scanForExternalContent, scanForUniqueHosts } from "./image-migration-scanner";
+import { migrateContent } from "./image-migration-engine";
 
-const debugLog = debug(envConfig.logNamespace("image-migration-ws-handler"));
+const debugLog = debug(envConfig.logNamespace("content-migration-ws-handler"));
 debugLog.enabled = true;
 
 let migrationCancelled = false;
+
+function decodeUrlForDisplay(value: string): string {
+  if (!value) {
+    return value;
+  }
+  try {
+    return decodeURI(value);
+  } catch {
+    return value;
+  }
+}
 
 function sendProgress(ws: WebSocket, message: string, data?: any): void {
   ws.send(JSON.stringify({
@@ -44,27 +55,27 @@ function sendCancelled(ws: WebSocket, message: string, data?: any): void {
   }));
 }
 
-export async function handleImageMigrationScanHosts(ws: WebSocket, data: any): Promise<void> {
-  debugLog("handleImageMigrationScanHosts:scanning for unique hosts");
+export async function handleContentMigrationScanHosts(ws: WebSocket, data: any): Promise<void> {
+  debugLog("handleContentMigrationScanHosts:scanning for unique hosts");
 
   try {
-    sendProgress(ws, "Scanning database for external image hosts...");
+    sendProgress(ws, "Scanning database for external content hosts...");
     const hosts = await scanForUniqueHosts();
     const summary = `Found ${hosts.length} unique external hosts`;
-    debugLog("handleImageMigrationScanHosts:completed:", summary);
+    debugLog("handleContentMigrationScanHosts:completed:", summary);
     sendComplete(ws, summary, { hosts });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Host scan failed";
-    debugLog("handleImageMigrationScanHosts:error:", message);
+    debugLog("handleContentMigrationScanHosts:error:", message);
     sendError(ws, message);
   }
 }
 
-export async function handleImageMigrationScan(ws: WebSocket, data: any): Promise<void> {
-  debugLog("handleImageMigrationScan:received request:", data);
+export async function handleContentMigrationScan(ws: WebSocket, data: any): Promise<void> {
+  debugLog("handleContentMigrationScan:received request:", data);
 
   try {
-    const request: ImageMigrationScanRequest = {
+    const request: ContentMigrationScanRequest = {
       hostPattern: data?.hostPattern || "",
       scanAlbums: data?.scanAlbums !== false,
       scanPageContent: data?.scanPageContent !== false,
@@ -77,80 +88,84 @@ export async function handleImageMigrationScan(ws: WebSocket, data: any): Promis
       return;
     }
 
-    sendProgress(ws, `Starting scan for images from host: ${request.hostPattern}`);
+    sendProgress(ws, `Starting scan for external content from host: ${request.hostPattern}`);
 
     if (request.scanAlbums) {
-      sendProgress(ws, "Scanning albums for external images...");
+      sendProgress(ws, "Scanning albums for external content...");
     }
     if (request.scanPageContent) {
-      sendProgress(ws, "Scanning page content for external images...");
+      sendProgress(ws, "Scanning page content for external content...");
     }
     if (request.scanGroupEvents) {
-      sendProgress(ws, "Scanning group events for external images...");
+      sendProgress(ws, "Scanning group events for external content...");
     }
     if (request.scanSocialEvents) {
-      sendProgress(ws, "Scanning social events for external images...");
+      sendProgress(ws, "Scanning social events for external content...");
     }
 
-    const result = await scanForExternalImages(request);
+    const result = await scanForExternalContent(request);
 
-    const summary = `Scan complete: Found ${result.totalImages} images across ${result.totalPages} sources in ${result.scanDurationMs}ms`;
-    debugLog("handleImageMigrationScan:completed:", summary);
+    const summary = `Scan complete: Found ${result.totalItems} items across ${result.totalPages} sources in ${result.scanDurationMs}ms`;
+    debugLog("handleContentMigrationScan:completed:", summary);
 
     sendComplete(ws, summary, { scanResult: result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Scan failed";
-    debugLog("handleImageMigrationScan:error:", message);
+    debugLog("handleContentMigrationScan:error:", message);
     sendError(ws, message);
   }
 }
 
-export async function handleImageMigrationExecute(ws: WebSocket, data: any): Promise<void> {
-  debugLog("handleImageMigrationExecute:received request with", data?.images?.length, "images, maxImageSize:", data?.maxImageSize);
+export async function handleContentMigrationExecute(ws: WebSocket, data: any): Promise<void> {
+  debugLog("handleContentMigrationExecute:received request with", data?.items?.length, "items, maxImageSize:", data?.maxImageSize);
 
   migrationCancelled = false;
 
   try {
-    const request: ImageMigrationRequest = {
-      images: data?.images || [],
+    const request: ContentMigrationRequest = {
+      items: data?.items || [],
       targetRootFolder: data?.targetRootFolder || "site-content",
       maxImageSize: data?.maxImageSize || 0
     };
 
-    if (!request.images.length) {
-      sendError(ws, "No images selected for migration");
+    if (!request.items.length) {
+      sendError(ws, "No items selected for migration");
       return;
     }
 
-    const resizeNote = request.maxImageSize > 0 ? ` (resizing to max ${request.maxImageSize} bytes)` : "";
-    sendProgress(ws, `Starting migration of ${request.images.length} images to ${request.targetRootFolder}${resizeNote}`);
+    const resizeNote = request.maxImageSize > 0 ? ` (resizing images to max ${request.maxImageSize} bytes)` : "";
+    sendProgress(ws, `Starting migration of ${request.items.length} items to ${request.targetRootFolder}${resizeNote}`);
 
-    const progressCallback = (progress: ImageMigrationProgress) => {
-      sendProgress(ws, progress.currentImage, { progress });
+    const progressCallback = (progress: ContentMigrationProgress) => {
+      const decodedItem = decodeUrlForDisplay(progress.currentItem);
+      const decodedError = progress.errorMessage ? decodeUrlForDisplay(progress.errorMessage) : progress.errorMessage;
+      sendProgress(ws, decodedItem, {
+        progress: { ...progress, currentItem: decodedItem, errorMessage: decodedError }
+      });
     };
 
     const isCancelled = () => migrationCancelled;
 
-    const result = await migrateImages(request, progressCallback, isCancelled);
+    const result = await migrateContent(request, progressCallback, isCancelled);
 
     if (result.cancelled) {
       const summary = `Migration cancelled: ${result.successCount} succeeded, ${result.failureCount} failed before cancellation`;
-      debugLog("handleImageMigrationExecute:cancelled:", summary);
+      debugLog("handleContentMigrationExecute:cancelled:", summary);
       sendCancelled(ws, summary, { migrationResult: result });
     } else {
       const summary = `Migration complete: ${result.successCount} succeeded, ${result.failureCount} failed`;
-      debugLog("handleImageMigrationExecute:completed:", summary);
+      debugLog("handleContentMigrationExecute:completed:", summary);
       sendComplete(ws, summary, { migrationResult: result });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Migration failed";
-    debugLog("handleImageMigrationExecute:error:", message);
+    debugLog("handleContentMigrationExecute:error:", message);
     sendError(ws, message);
   }
 }
 
-export async function handleImageMigrationCancel(ws: WebSocket, data: any): Promise<void> {
-  debugLog("handleImageMigrationCancel:cancellation requested");
+export async function handleContentMigrationCancel(ws: WebSocket, data: any): Promise<void> {
+  debugLog("handleContentMigrationCancel:cancellation requested");
   migrationCancelled = true;
-  sendProgress(ws, "Cancellation requested, stopping after current image...");
+  sendProgress(ws, "Cancellation requested, stopping after current item...");
 }

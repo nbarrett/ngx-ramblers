@@ -80,10 +80,10 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
   },
   {
     accessLevel: "committee",
-    title: "Image Migration",
+    title: "Content Migration",
     icon: "faCloudUploadAlt",
-    href: "admin/image-migration",
-    contentText: "Scan site content for images hosted on external domains and migrate them to S3 storage"
+    href: "admin/content-migration",
+    contentText: "Scan site content for images, PDFs, and documents hosted on external domains and migrate them to S3 storage"
   },
   {
     accessLevel: "committee",

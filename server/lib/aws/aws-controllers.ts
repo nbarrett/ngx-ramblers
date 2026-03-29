@@ -1,6 +1,7 @@
 import * as AWS from "@aws-sdk/client-s3";
 import AdmZip from "adm-zip";
 import { GetObjectCommand, GetObjectRequest, S3 } from "@aws-sdk/client-s3";
+import { Upload, Progress } from "@aws-sdk/lib-storage";
 import { ListObjectsV2CommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsV2Command";
 import { ListObjectsCommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsCommand";
 import * as crypto from "crypto";
@@ -180,7 +181,14 @@ export function listBuckets(req: Request, res: Response) {
   });
 }
 
-export function putObjectDirect(rootFolder: string, fileName: string, localFileName: string): Promise<AwsInfo | AwsUploadErrorResponse> {
+export type UploadProgressCallback = (progress: { loaded: number; total: number }) => void;
+
+export async function putObjectDirect(
+  rootFolder: string,
+  fileName: string,
+  localFileName: string,
+  onProgress?: UploadProgressCallback
+): Promise<AwsInfo | AwsUploadErrorResponse> {
   const config = s3Config();
   debugLog("configured with", config);
   const bucket = config.bucket;
@@ -195,17 +203,28 @@ export function putObjectDirect(rootFolder: string, fileName: string, localFileN
     ContentType: contentTypeFrom(objectKey)
   };
   debugLog(`Saving file to ${bucket}/${objectKey}, size: ${fileSizeInBytes} bytes, using params:`, JSON.stringify(omit(params, "Body")));
-  return s3().putObject(params)
-    .then(data => {
-      const information = `Successfully uploaded file to ${bucket}/${objectKey} (${fileSizeInBytes} bytes)`;
-      debugLog(information, "->", data);
-      return ({responseData: data, information});
-    })
-    .catch(error => {
-      const errorMessage = `Failed to upload object to ${bucket}/${objectKey}`;
-      debugLog(errorMessage, "->", error);
-      return ({responseData: error, error: errorMessage});
+  try {
+    const upload = new Upload({
+      client: s3(),
+      params,
+      partSize: 5 * 1024 * 1024,
+      queueSize: 4,
+      leavePartsOnError: false
     });
+    if (onProgress) {
+      upload.on("httpUploadProgress", (progress: Progress) => {
+        onProgress({ loaded: progress.loaded ?? 0, total: progress.total ?? fileSizeInBytes });
+      });
+    }
+    const data = await upload.done();
+    const information = `Successfully uploaded file to ${bucket}/${objectKey} (${fileSizeInBytes} bytes)`;
+    debugLog(information, "->", data);
+    return { responseData: data, information };
+  } catch (error) {
+    const errorMessage = `Failed to upload object to ${bucket}/${objectKey}`;
+    debugLog(errorMessage, "->", error);
+    return { responseData: error, error: errorMessage };
+  }
 }
 
 export function urlToFile(req: Request, res: Response) {

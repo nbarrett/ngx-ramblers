@@ -17,17 +17,17 @@ import { DisplayTimeWithSecondsPipe } from "../../../../pipes/display-time.pipe-
 import { StatusIconComponent } from "../../status-icon";
 import {
   ExternalAlbumImportResult,
-  ExternalImageReference,
-  ImageMigrationActivityLog,
-  ImageMigrationGroup,
-  ImageMigrationProgress,
-  ImageMigrationScanResult,
-  ImageMigrationTab,
+  ExternalContentReference,
+  ContentMigrationActivityLog,
+  ContentMigrationGroup,
+  ContentMigrationProgress,
+  ContentMigrationScanResult,
+  ContentMigrationTab,
   RootFolder
 } from "../../../../models/system.model";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { kebabCase, values } from "es-toolkit/compat";
-import { ImageMigrationGroupComponent } from "./image-migration-group";
+import { ContentMigrationGroupComponent } from "./image-migration-group";
 import { ExternalAlbumImportComponent } from "./external-album-import/external-album-import";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../../models/ui-actions";
@@ -36,13 +36,13 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
 import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-selector/file-size-selector";
 
 @Component({
-  selector: "app-image-migration-settings",
+  selector: "app-content-migration-settings",
   template: `
     <app-page autoTitle>
       <tabset class="custom-tabset">
-        <tab [active]="tabActive(ImageMigrationTab.SCAN)"
-             (selectTab)="selectTab(ImageMigrationTab.SCAN)"
-             heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.SCAN)}}">
+        <tab [active]="tabActive(ContentMigrationTab.SCAN)"
+             (selectTab)="selectTab(ContentMigrationTab.SCAN)"
+             heading="{{enumValueForKey(ContentMigrationTab, ContentMigrationTab.SCAN)}}">
           <div class="img-thumbnail thumbnail-admin-edit">
             @if (!loadingHosts) {
             @if (availableHosts.length === 0) {
@@ -50,15 +50,15 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
                 <div class="col-sm-12">
                   <div class="alert alert-success d-flex align-items-center gap-2">
                     <fa-icon [icon]="faCircleCheck" size="lg"/>
-                    <span><strong>All Images Hosted Locally</strong> — No external image hosts found.</span>
+                    <span><strong>All Content Hosted Locally</strong> — No external content hosts found.</span>
                   </div>
                 </div>
               </div>
             } @else {
               <div class="row p-3">
                 <div class="col-sm-12">
-                  <h5>Scan for External Images</h5>
-                  <p class="text-muted">Select a host to find images hosted externally that need to be migrated to S3.</p>
+                  <h5>Scan for External Content</h5>
+                  <p class="text-muted">Select a host to find images, PDFs, and other documents hosted externally that need to be migrated to S3.</p>
                 </div>
               </div>
               <div class="row p-3 align-items-end">
@@ -125,13 +125,20 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
                     <label class="form-check-label" for="scan-social-events">Scan Social Events</label>
                   </div>
                 </div>
+                <div class="col-sm-3">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="scan-committee-files"
+                           [(ngModel)]="scanCommitteeFiles">
+                    <label class="form-check-label" for="scan-committee-files">Scan Committee Files</label>
+                  </div>
+                </div>
               </div>
               <div class="row p-3">
                 <div class="col-sm-12">
                   <app-badge-button [icon]="scanning ? faSpinner : faPlay"
                                     [disabled]="!hostPattern || scanning"
                                     (click)="runScan()"
-                                    caption="Scan for External Images"/>
+                                    caption="Scan for External Content"/>
                 </div>
               </div>
             }
@@ -139,16 +146,16 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
           </div>
         </tab>
         @if (!loadingHosts && availableHosts.length > 0) {
-          <tab [active]="tabActive(ImageMigrationTab.RESULTS)"
-               (selectTab)="selectTab(ImageMigrationTab.RESULTS)"
-               heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.RESULTS)}}">
+          <tab [active]="tabActive(ContentMigrationTab.RESULTS)"
+               (selectTab)="selectTab(ContentMigrationTab.RESULTS)"
+               heading="{{enumValueForKey(ContentMigrationTab, ContentMigrationTab.RESULTS)}}">
             <div class="img-thumbnail thumbnail-admin-edit">
               @if (scanResult) {
                 <div class="row p-3">
                   <div class="col-sm-12">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                       <div>
-                        <strong>Found {{ stringUtils.pluraliseWithCount(scanResult.totalImages, "image") }}</strong> across
+                        <strong>Found {{ stringUtils.pluraliseWithCount(scanResult.totalItems, "item") }}</strong> across
                         {{ stringUtils.pluraliseWithCount(scanResult.totalPages, "source") }}
                         <span class="text-muted">(scanned in {{ scanResult.scanDurationMs }}ms)</span>
                       </div>
@@ -156,9 +163,9 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
                         <app-badge-button [icon]="faCheck" (click)="selectAll()" caption="Select All"/>
                         <app-badge-button [icon]="faTimes" (click)="deselectAll()" caption="Deselect All"/>
                         <app-badge-button [icon]="migrating ? faSpinner : faPlay"
-                                          [disabled]="!hasSelectedImages() || migrating"
+                                          [disabled]="!hasSelectedItems() || migrating"
                                           (click)="runMigration()"
-                                          [caption]="'Migrate ' + stringUtils.pluraliseWithCount(selectedImageCount(), 'Selected Image')"/>
+                                          [caption]="'Migrate ' + stringUtils.pluraliseWithCount(selectedItemCount(), 'Selected Item')"/>
                       </div>
                     </div>
                   </div>
@@ -167,7 +174,7 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
                   <div class="col-sm-12">
                     <div class="migration-accordion">
                       @for (group of scanResult.groups; track group.sourcePath) {
-                        <app-image-migration-group
+                        <app-content-migration-group
                           [group]="group"
                           (groupChanged)="onGroupChanged($event)"/>
                       }
@@ -177,9 +184,9 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
               }
             </div>
           </tab>
-          <tab [active]="tabActive(ImageMigrationTab.ACTIVITY)"
-               (selectTab)="selectTab(ImageMigrationTab.ACTIVITY)"
-               heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.ACTIVITY)}}">
+          <tab [active]="tabActive(ContentMigrationTab.ACTIVITY)"
+               (selectTab)="selectTab(ContentMigrationTab.ACTIVITY)"
+               heading="{{enumValueForKey(ContentMigrationTab, ContentMigrationTab.ACTIVITY)}}">
             <div class="img-thumbnail thumbnail-admin-edit">
             @if (activityTarget.showAlert) {
               <div class="row px-3 pt-3">
@@ -219,7 +226,7 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
                     }
                   </div>
                   <div class="text-muted mt-2">
-                    {{ migrationProgress.processedImages }} / {{ migrationProgress.totalImages }} images
+                    {{ migrationProgress.processedItems }} / {{ migrationProgress.totalItems }} items
                     ({{ migrationProgress.successCount }} succeeded, {{ migrationProgress.failureCount }} failed)
                   </div>
                 </div>
@@ -252,9 +259,9 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
           </div>
           </tab>
         }
-        <tab [active]="tabActive(ImageMigrationTab.EXTERNAL_IMPORT)"
-             (selectTab)="selectTab(ImageMigrationTab.EXTERNAL_IMPORT)"
-             heading="{{enumValueForKey(ImageMigrationTab, ImageMigrationTab.EXTERNAL_IMPORT)}}">
+        <tab [active]="tabActive(ContentMigrationTab.EXTERNAL_IMPORT)"
+             (selectTab)="selectTab(ContentMigrationTab.EXTERNAL_IMPORT)"
+             heading="{{enumValueForKey(ContentMigrationTab, ContentMigrationTab.EXTERNAL_IMPORT)}}">
           <app-external-album-import (importComplete)="onImportComplete($event)"/>
         </tab>
       </tabset>
@@ -266,11 +273,11 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
       border-radius: 6px
       overflow: hidden
 
-    .migration-accordion app-image-migration-group
+    .migration-accordion app-content-migration-group
       display: block
       border-bottom: 1px solid #dee2e6
 
-    .migration-accordion app-image-migration-group:last-child
+    .migration-accordion app-content-migration-group:last-child
       border-bottom: none
 
     .audit-table-scroll
@@ -305,13 +312,13 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
     DisplayTimeWithSecondsPipe,
     StatusIconComponent,
     NgSelectComponent,
-    ImageMigrationGroupComponent,
+    ContentMigrationGroupComponent,
     FileSizeSelectorComponent,
     ExternalAlbumImportComponent
   ]
 })
-export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
-  private logger: Logger = inject(LoggerFactory).createLogger("ImageMigrationSettingsComponent", NgxLoggerLevel.ERROR);
+export class ContentMigrationSettingsComponent implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("ContentMigrationSettingsComponent", NgxLoggerLevel.ERROR);
   private notifierService = inject(NotifierService);
   private webSocketClientService = inject(WebSocketClientService);
   private dateUtils = inject(DateUtilsService);
@@ -326,10 +333,10 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
   protected readonly faTimes = faTimes;
   protected readonly faBan = faBan;
   protected readonly faCircleCheck = faCircleCheck;
-  protected readonly ImageMigrationTab = ImageMigrationTab;
+  protected readonly ContentMigrationTab = ContentMigrationTab;
   protected readonly enumValueForKey = enumValueForKey;
 
-  private tab: ImageMigrationTab = ImageMigrationTab.SCAN;
+  private tab: ContentMigrationTab = ContentMigrationTab.SCAN;
 
   hostPattern = "";
   availableHosts: string[] = [];
@@ -341,26 +348,27 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
   scanPageContent = true;
   scanGroupEvents = false;
   scanSocialEvents = false;
+  scanCommitteeFiles = true;
 
   scanning = false;
   migrating = false;
   cancelling = false;
-  scanResult: ImageMigrationScanResult | null = null;
-  migrationProgress: ImageMigrationProgress | null = null;
+  scanResult: ContentMigrationScanResult | null = null;
+  migrationProgress: ContentMigrationProgress | null = null;
 
   activityTarget: AlertTarget = {};
   activityNotifier: AlertInstance;
-  logs: ImageMigrationActivityLog[] = [];
+  logs: ContentMigrationActivityLog[] = [];
 
   ngOnInit(): void {
     this.activityNotifier = this.notifierService.createAlertInstance(this.activityTarget);
 
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
-      const defaultValue = kebabCase(ImageMigrationTab.SCAN);
+      const defaultValue = kebabCase(ContentMigrationTab.SCAN);
       const tabParameter = params[StoredValue.TAB];
       const tab = tabParameter || defaultValue;
       this.logger.debug("received tab value of:", tabParameter, "defaultValue:", defaultValue, "selectTab:", tab);
-      this.tab = tab as ImageMigrationTab;
+      this.tab = tab as ContentMigrationTab;
     }));
 
     this.webSocketClientService.connect().then(() => {
@@ -371,11 +379,11 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
           if (data?.progress) {
             this.migrationProgress = data.progress;
             if (data.progress.errorMessage) {
-              this.addLog("error", `Failed: ${data.progress.currentImage} — ${data.progress.errorMessage}`);
+              this.addLog("error", `Failed: ${data.progress.currentItem} — ${data.progress.errorMessage}`);
               this.activityNotifier.error({ title: "Migration Failed", message: data.progress.errorMessage });
             } else {
               this.addLog("info", message);
-              this.activityNotifier.warning({ title: "Migration Progress", message: `Currently migrating ${data.progress.currentImage}` });
+              this.activityNotifier.warning({ title: "Migration Progress", message: `Currently migrating ${data.progress.currentItem}` });
             }
           } else {
             this.addLog("info", message);
@@ -416,7 +424,7 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
             this.logger.debug("Loaded", this.availableHosts.length, "available hosts, pre-selected:", this.hostPattern);
             this.activityNotifier.showContactUs(false);
             if (this.availableHosts.length === 0) {
-              this.activityNotifier.success("No external image hosts found — all images are already hosted locally");
+              this.activityNotifier.success("No external content hosts found — all content is already hosted locally");
             } else {
               this.activityNotifier.warning("Select a migration action on the Scan Configuration tab");
             }
@@ -427,7 +435,7 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
             if (data?.scanResult) {
               this.scanResult = data.scanResult;
               this.scanning = false;
-              this.selectTab(ImageMigrationTab.RESULTS);
+              this.selectTab(ContentMigrationTab.RESULTS);
             }
 
             if (data?.migrationResult) {
@@ -446,14 +454,14 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
 
   private scanForAvailableHosts(): void {
     this.loadingHosts = true;
-    this.webSocketClientService.sendMessage(EventType.IMAGE_MIGRATION_SCAN_HOSTS, {});
+    this.webSocketClientService.sendMessage(EventType.CONTENT_MIGRATION_SCAN_HOSTS, {});
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(s => s.unsubscribe());
   }
 
-  selectTab(tab: ImageMigrationTab): void {
+  selectTab(tab: ContentMigrationTab): void {
     this.tab = tab;
     this.router.navigate([], {
       queryParams: { [StoredValue.TAB]: kebabCase(tab) },
@@ -462,7 +470,7 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  tabActive(tab: ImageMigrationTab): boolean {
+  tabActive(tab: ContentMigrationTab): boolean {
     return kebabCase(this.tab) === kebabCase(tab);
   }
 
@@ -474,31 +482,32 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
     this.scanning = true;
     this.scanResult = null;
     this.logs = [];
-    this.selectTab(ImageMigrationTab.ACTIVITY);
+    this.selectTab(ContentMigrationTab.ACTIVITY);
     this.addLog("info", `Starting scan for host pattern: ${this.hostPattern}`);
 
-    this.webSocketClientService.sendMessage(EventType.IMAGE_MIGRATION_SCAN, {
+    this.webSocketClientService.sendMessage(EventType.CONTENT_MIGRATION_SCAN, {
       hostPattern: this.hostPattern,
       scanAlbums: this.scanAlbums,
       scanPageContent: this.scanPageContent,
       scanGroupEvents: this.scanGroupEvents,
-      scanSocialEvents: this.scanSocialEvents
+      scanSocialEvents: this.scanSocialEvents,
+      scanCommitteeFiles: this.scanCommitteeFiles
     });
   }
 
   runMigration(): void {
-    if (!this.hasSelectedImages() || this.migrating) {
+    if (!this.hasSelectedItems() || this.migrating) {
       return;
     }
 
     this.migrating = true;
     this.migrationProgress = null;
-    this.selectTab(ImageMigrationTab.ACTIVITY);
-    this.addLog("info", `Starting migration of ${this.stringUtils.pluraliseWithCount(this.selectedImageCount(), "image")}`);
+    this.selectTab(ContentMigrationTab.ACTIVITY);
+    this.addLog("info", `Starting migration of ${this.stringUtils.pluraliseWithCount(this.selectedItemCount(), "item")}`);
 
-    const selectedImages = this.collectSelectedImages();
-    this.webSocketClientService.sendMessage(EventType.IMAGE_MIGRATION_EXECUTE, {
-      images: selectedImages,
+    const selectedItems = this.collectSelectedItems();
+    this.webSocketClientService.sendMessage(EventType.CONTENT_MIGRATION_EXECUTE, {
+      items: selectedItems,
       targetRootFolder: this.targetRootFolder,
       maxImageSize: this.maxImageSize
     });
@@ -511,14 +520,14 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
 
     this.cancelling = true;
     this.addLog("info", "Cancellation requested...");
-    this.webSocketClientService.sendMessage(EventType.IMAGE_MIGRATION_CANCEL, {});
+    this.webSocketClientService.sendMessage(EventType.CONTENT_MIGRATION_CANCEL, {});
   }
 
   selectAll(): void {
     if (this.scanResult) {
       this.scanResult.groups.forEach(group => {
         group.selectAll = true;
-        group.images.forEach(img => img.selected = true);
+        group.items.forEach(item => item.selected = true);
       });
     }
   }
@@ -527,33 +536,33 @@ export class ImageMigrationSettingsComponent implements OnInit, OnDestroy {
     if (this.scanResult) {
       this.scanResult.groups.forEach(group => {
         group.selectAll = false;
-        group.images.forEach(img => img.selected = false);
+        group.items.forEach(item => item.selected = false);
       });
     }
   }
 
-  hasSelectedImages(): boolean {
-    return this.selectedImageCount() > 0;
+  hasSelectedItems(): boolean {
+    return this.selectedItemCount() > 0;
   }
 
-  selectedImageCount(): number {
+  selectedItemCount(): number {
     if (!this.scanResult) {
       return 0;
     }
     return this.scanResult.groups.reduce((sum, group) =>
-      sum + group.images.filter(img => img.selected).length, 0);
+      sum + group.items.filter(item => item.selected).length, 0);
   }
 
-  collectSelectedImages(): ExternalImageReference[] {
+  collectSelectedItems(): ExternalContentReference[] {
     if (!this.scanResult) {
       return [];
     }
     return this.scanResult.groups.flatMap(group =>
-      group.images.filter(img => img.selected)
+      group.items.filter(item => item.selected)
     );
   }
 
-  onGroupChanged(group: ImageMigrationGroup): void {
+  onGroupChanged(group: ContentMigrationGroup): void {
     this.logger.debug("Group changed:", group.sourcePath);
   }
 

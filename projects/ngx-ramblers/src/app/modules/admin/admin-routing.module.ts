@@ -124,10 +124,13 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
-      path: "image-migration",
+      path: "content-migration",
       loadComponent: () => import("../../pages/admin/system-settings/image-migration/image-migration-settings")
-        .then(m => m.ImageMigrationSettingsComponent),
+        .then(m => m.ContentMigrationSettingsComponent),
       canActivate: [SystemHealthyGuard, AdminAuthGuard]
+    },
+    {
+      path: "image-migration", redirectTo: "content-migration", pathMatch: "full"
     },
     {
       path: "environment-management",

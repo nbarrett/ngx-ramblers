@@ -1,19 +1,20 @@
 import { Component, EventEmitter, Input, Output } from "@angular/core";
-import { faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
+import { faExternalLinkAlt, faFileImage, faFilePdf, faFileExcel, faFileWord, faFile } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { NgClass } from "@angular/common";
 import {
-  ExternalImageReference,
-  ImageMigrationGroup,
-  ImageMigrationSourceType,
-  ImageMigrationStatus
+  ContentMigrationDocumentType,
+  ExternalContentReference,
+  ContentMigrationGroup,
+  ContentMigrationSourceType,
+  ContentMigrationStatus
 } from "../../../../models/system.model";
 import { StatusIconComponent } from "../../status-icon";
 import { VisibilityToggleButton } from "../../../../shared/components/visibility-toggle-button";
 
 @Component({
-  selector: "app-image-migration-group",
+  selector: "app-content-migration-group",
   template: `
     <div class="migration-item" [class.expanded]="group.expanded">
       <div class="migration-header clickable" (click)="toggleExpand()">
@@ -37,7 +38,7 @@ import { VisibilityToggleButton } from "../../../../shared/components/visibility
           }
         </div>
         <div class="migration-count">
-          <span class="badge bg-warning text-dark">{{ selectedCount() }}/{{ group.images.length }}</span>
+          <span class="badge bg-warning text-dark">{{ selectedCount() }}/{{ group.items.length }}</span>
         </div>
       </div>
       @if (group.expanded) {
@@ -47,48 +48,58 @@ import { VisibilityToggleButton } from "../../../../shared/components/visibility
               <tr>
                 <th style="width: 40px;"></th>
                 <th style="width: 80px;">Preview</th>
+                <th style="width: 90px;">Type</th>
                 <th>URL</th>
                 <th style="width: 100px;">Status</th>
               </tr>
             </thead>
             <tbody>
-              @for (image of group.images; track image.id) {
-                <tr [ngClass]="{'row-success': image.status === ImageMigrationStatus.MIGRATED,
-                               'row-danger': image.status === ImageMigrationStatus.FAILED}">
+              @for (item of group.items; track item.id) {
+                <tr [ngClass]="{'row-success': item.status === ContentMigrationStatus.MIGRATED,
+                               'row-danger': item.status === ContentMigrationStatus.FAILED}">
                   <td>
                     <input type="checkbox" class="form-check-input"
-                           [checked]="image.selected"
-                           [disabled]="image.status === ImageMigrationStatus.MIGRATED"
-                           (change)="toggleImageSelection(image)">
+                           [checked]="item.selected"
+                           [disabled]="item.status === ContentMigrationStatus.MIGRATED"
+                           (change)="toggleItemSelection(item)">
                   </td>
                   <td>
-                    <img [src]="image.thumbnailUrl"
-                         [alt]="image.sourceTitle"
-                         class="img-thumbnail"
-                         style="max-width: 60px; max-height: 60px;"
-                         (error)="onImageError($event)">
+                    @if (item.documentType === ContentMigrationDocumentType.IMAGE) {
+                      <img [src]="item.thumbnailUrl"
+                           [alt]="item.sourceTitle"
+                           class="img-thumbnail"
+                           style="max-width: 60px; max-height: 60px;"
+                           (error)="onImageError($event)">
+                    } @else {
+                      <fa-icon [icon]="documentTypeIcon(item.documentType)" size="2x" class="text-muted"/>
+                    }
+                  </td>
+                  <td>
+                    <span class="badge" [ngClass]="documentTypeBadgeClass(item.documentType)">
+                      {{ item.documentType }}
+                    </span>
                   </td>
                   <td class="text-break small">
-                    <a [href]="image.currentUrl" target="_blank" rel="noopener noreferrer"
+                    <a [href]="item.currentUrl" target="_blank" rel="noopener noreferrer"
                        class="text-decoration-none">
-                      {{ truncateUrl(image.currentUrl) }}
+                      {{ truncateUrl(item.currentUrl) }}
                       <fa-icon [icon]="faExternalLinkAlt" class="ms-1 small"></fa-icon>
                     </a>
-                    @if (image.newS3Url) {
+                    @if (item.newS3Url) {
                       <div class="text-success small mt-1">
-                        → {{ image.newS3Url }}
+                        → {{ item.newS3Url }}
                       </div>
                     }
-                    @if (image.errorMessage) {
+                    @if (item.errorMessage) {
                       <div class="text-danger small mt-1">
-                        {{ image.errorMessage }}
+                        {{ item.errorMessage }}
                       </div>
                     }
                   </td>
                   <td class="text-nowrap">
                     <span class="d-inline-flex align-items-center">
-                      <app-status-icon noLabel [status]="statusToIcon(image.status)"/>
-                      <span class="ms-1 small">{{ image.status }}</span>
+                      <app-status-icon noLabel [status]="statusToIcon(item.status)"/>
+                      <span class="ms-1 small">{{ item.status }}</span>
                     </span>
                   </td>
                 </tr>
@@ -121,7 +132,7 @@ import { VisibilityToggleButton } from "../../../../shared/components/visibility
 
     .migration-header
       display: grid
-      grid-template-columns: 28px 32px 80px 1fr 80px
+      grid-template-columns: 28px 32px 120px 1fr 80px
       gap: 12px
       padding: 12px 16px
       align-items: center
@@ -143,6 +154,7 @@ import { VisibilityToggleButton } from "../../../../shared/components/visibility
     .migration-type
       font-weight: 600
       color: #495057
+      white-space: nowrap
 
     .migration-path
       overflow: hidden
@@ -212,12 +224,13 @@ import { VisibilityToggleButton } from "../../../../shared/components/visibility
     VisibilityToggleButton
   ]
 })
-export class ImageMigrationGroupComponent {
-  @Input() group!: ImageMigrationGroup;
-  @Output() groupChanged = new EventEmitter<ImageMigrationGroup>();
+export class ContentMigrationGroupComponent {
+  @Input() group!: ContentMigrationGroup;
+  @Output() groupChanged = new EventEmitter<ContentMigrationGroup>();
 
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
-  protected readonly ImageMigrationStatus = ImageMigrationStatus;
+  protected readonly ContentMigrationStatus = ContentMigrationStatus;
+  protected readonly ContentMigrationDocumentType = ContentMigrationDocumentType;
 
   toggleExpand(): void {
     this.group.expanded = !this.group.expanded;
@@ -226,71 +239,105 @@ export class ImageMigrationGroupComponent {
 
   toggleSelectAll(): void {
     this.group.selectAll = !this.group.selectAll;
-    this.group.images.forEach(img => {
-      if (img.status !== ImageMigrationStatus.MIGRATED) {
-        img.selected = this.group.selectAll;
+    this.group.items.forEach(item => {
+      if (item.status !== ContentMigrationStatus.MIGRATED) {
+        item.selected = this.group.selectAll;
       }
     });
     this.groupChanged.emit(this.group);
   }
 
-  toggleImageSelection(image: ExternalImageReference): void {
-    image.selected = !image.selected;
+  toggleItemSelection(item: ExternalContentReference): void {
+    item.selected = !item.selected;
     this.updateSelectAllState();
     this.groupChanged.emit(this.group);
   }
 
   selectedCount(): number {
-    return this.group.images.filter(img => img.selected).length;
+    return this.group.items.filter(item => item.selected).length;
   }
 
   private updateSelectAllState(): void {
-    const selectableImages = this.group.images.filter(img => img.status !== ImageMigrationStatus.MIGRATED);
-    this.group.selectAll = selectableImages.length > 0 && selectableImages.every(img => img.selected);
+    const selectableItems = this.group.items.filter(item => item.status !== ContentMigrationStatus.MIGRATED);
+    this.group.selectAll = selectableItems.length > 0 && selectableItems.every(item => item.selected);
   }
 
-  sourceTypeLabel(type: ImageMigrationSourceType): string {
+  sourceTypeLabel(type: ContentMigrationSourceType): string {
     switch (type) {
-      case ImageMigrationSourceType.CONTENT_METADATA:
+      case ContentMigrationSourceType.CONTENT_METADATA:
         return "Album";
-      case ImageMigrationSourceType.PAGE_CONTENT:
+      case ContentMigrationSourceType.PAGE_CONTENT:
         return "Page";
-      case ImageMigrationSourceType.GROUP_EVENT:
+      case ContentMigrationSourceType.GROUP_EVENT:
         return "Walk";
-      case ImageMigrationSourceType.SOCIAL_EVENT:
+      case ContentMigrationSourceType.SOCIAL_EVENT:
         return "Social";
+      case ContentMigrationSourceType.COMMITTEE_FILE:
+        return "Committee File";
       default:
         return type;
     }
   }
 
-  sourceLinkFor(group: ImageMigrationGroup): string | null {
+  sourceLinkFor(group: ContentMigrationGroup): string | null {
     const isExternalUrl = group.sourcePath.startsWith("http://") || group.sourcePath.startsWith("https://");
     if (isExternalUrl) {
       return null;
     }
     switch (group.sourceType) {
-      case ImageMigrationSourceType.CONTENT_METADATA:
+      case ContentMigrationSourceType.CONTENT_METADATA:
         return `/admin/carousel-editor?carousel=${encodeURIComponent(group.sourceTitle)}`;
-      case ImageMigrationSourceType.PAGE_CONTENT:
+      case ContentMigrationSourceType.PAGE_CONTENT:
         return `/${group.sourcePath}`;
-      case ImageMigrationSourceType.GROUP_EVENT:
-      case ImageMigrationSourceType.SOCIAL_EVENT:
+      case ContentMigrationSourceType.GROUP_EVENT:
+      case ContentMigrationSourceType.SOCIAL_EVENT:
         return group.sourcePath.startsWith("/") ? group.sourcePath : `/${group.sourcePath}`;
+      case ContentMigrationSourceType.COMMITTEE_FILE:
+        return null;
       default:
         return null;
     }
   }
 
-  statusToIcon(status: ImageMigrationStatus): string {
+  documentTypeIcon(type: ContentMigrationDocumentType) {
+    switch (type) {
+      case ContentMigrationDocumentType.IMAGE:
+        return faFileImage;
+      case ContentMigrationDocumentType.PDF:
+        return faFilePdf;
+      case ContentMigrationDocumentType.SPREADSHEET:
+        return faFileExcel;
+      case ContentMigrationDocumentType.DOCUMENT:
+        return faFileWord;
+      default:
+        return faFile;
+    }
+  }
+
+  documentTypeBadgeClass(type: ContentMigrationDocumentType): string {
+    switch (type) {
+      case ContentMigrationDocumentType.IMAGE:
+        return "bg-primary";
+      case ContentMigrationDocumentType.PDF:
+        return "bg-danger";
+      case ContentMigrationDocumentType.SPREADSHEET:
+        return "bg-success";
+      case ContentMigrationDocumentType.DOCUMENT:
+        return "bg-info";
+      default:
+        return "bg-secondary";
+    }
+  }
+
+  statusToIcon(status: ContentMigrationStatus): string {
     switch (status) {
-      case ImageMigrationStatus.MIGRATED:
+      case ContentMigrationStatus.MIGRATED:
         return "complete";
-      case ImageMigrationStatus.FAILED:
+      case ContentMigrationStatus.FAILED:
         return "error";
-      case ImageMigrationStatus.IN_PROGRESS:
+      case ContentMigrationStatus.IN_PROGRESS:
         return "info";
-      case ImageMigrationStatus.SKIPPED:
+      case ContentMigrationStatus.SKIPPED:
         return "warning";
       default:
         return "info";
@@ -298,10 +345,22 @@ export class ImageMigrationGroupComponent {
   }
 
   truncateUrl(url: string): string {
-    if (url.length > 80) {
-      return url.substring(0, 40) + "..." + url.substring(url.length - 35);
+    const display = this.decodeForDisplay(url);
+    if (display.length > 80) {
+      return display.substring(0, 40) + "..." + display.substring(display.length - 35);
     }
-    return url;
+    return display;
+  }
+
+  private decodeForDisplay(url: string): string {
+    if (!url) {
+      return url;
+    }
+    try {
+      return decodeURI(url);
+    } catch {
+      return url;
+    }
   }
 
   onImageError(event: Event): void {

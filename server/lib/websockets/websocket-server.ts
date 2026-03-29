@@ -21,7 +21,7 @@ import { handleBackupRestoreWebSocket } from "../backup/backup-ws-handler";
 import { handleBackupEventsWebSocket } from "../backup/backup-events-ws-handler";
 import { handleEsriRouteImport } from "../map-routes/map-route-import-ws-handler";
 import { handleWalksManagerSync } from "../walks/walks-manager-sync-ws-handler";
-import { handleImageMigrationScanHosts, handleImageMigrationScan, handleImageMigrationExecute, handleImageMigrationCancel } from "../image-migration/image-migration-ws-handler";
+import { handleContentMigrationScanHosts, handleContentMigrationScan, handleContentMigrationExecute, handleContentMigrationCancel } from "../image-migration/image-migration-ws-handler";
 import { handleEnvironmentSetup, handleEnvironmentCreate, EnvironmentSetupWsData, EnvironmentCreateWsData } from "../environment-setup/environment-setup-ws-handler";
 import { handleExternalAlbumFetch, handleExternalAlbumImport, handleExternalUserAlbumsFetch, handleExternalBulkAlbumImport, handleExternalAlbumSplitPreview } from "../external-album/external-album-ws-handler";
 
@@ -43,10 +43,10 @@ const messageHandlers: MessageHandlers = {
   [EventType.BACKUP_EVENTS]: async (ws: WebSocket, data: any) => handleBackupEventsWebSocket(ws, data),
   [EventType.ESRI_ROUTE_IMPORT]: async (ws: WebSocket, data: any) => handleEsriRouteImport(ws, data),
   [EventType.WALKS_MANAGER_SYNC]: async (ws: WebSocket, data: any) => handleWalksManagerSync(ws, data),
-  [EventType.IMAGE_MIGRATION_SCAN_HOSTS]: async (ws: WebSocket, data: any) => handleImageMigrationScanHosts(ws, data),
-  [EventType.IMAGE_MIGRATION_SCAN]: async (ws: WebSocket, data: any) => handleImageMigrationScan(ws, data),
-  [EventType.IMAGE_MIGRATION_EXECUTE]: async (ws: WebSocket, data: any) => handleImageMigrationExecute(ws, data),
-  [EventType.IMAGE_MIGRATION_CANCEL]: async (ws: WebSocket, data: any) => handleImageMigrationCancel(ws, data),
+  [EventType.CONTENT_MIGRATION_SCAN_HOSTS]: async (ws: WebSocket, data: any) => handleContentMigrationScanHosts(ws, data),
+  [EventType.CONTENT_MIGRATION_SCAN]: async (ws: WebSocket, data: any) => handleContentMigrationScan(ws, data),
+  [EventType.CONTENT_MIGRATION_EXECUTE]: async (ws: WebSocket, data: any) => handleContentMigrationExecute(ws, data),
+  [EventType.CONTENT_MIGRATION_CANCEL]: async (ws: WebSocket, data: any) => handleContentMigrationCancel(ws, data),
   [EventType.ENVIRONMENT_SETUP]: async (ws: WebSocket, data: EnvironmentSetupWsData) => handleEnvironmentSetup(ws, data),
   [EventType.ENVIRONMENT_CREATE]: async (ws: WebSocket, data: EnvironmentCreateWsData) => handleEnvironmentCreate(ws, data),
   [EventType.EXTERNAL_ALBUM_FETCH]: async (ws: WebSocket, data: any) => handleExternalAlbumFetch(ws, data),
