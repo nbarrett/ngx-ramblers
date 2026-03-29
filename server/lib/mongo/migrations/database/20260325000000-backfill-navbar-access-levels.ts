@@ -1,8 +1,9 @@
 import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 
+import { CONFIG_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("backfill-navbar-access-levels");
-const CONFIG_COLLECTION = "config";
 const DEFAULT_ACCESS_LEVEL = "public";
 
 export async function up(db: Db) {

@@ -2,6 +2,7 @@ import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { isArray } from "es-toolkit/compat";
 import { PageContentType } from "../../../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { PAGE_CONTENT_COLLECTION } from "../shared/collection-names";
 
 const debugLog = createMigrationLogger("fix-admin-action-buttons-layout");
 const TARGET_PATH = "admin#action-buttons";
@@ -11,7 +12,7 @@ function normaliseHref(value: string | undefined): string {
 }
 
 export async function up(db: Db, client: MongoClient) {
-  const collection = db.collection("pageContent");
+  const collection = db.collection(PAGE_CONTENT_COLLECTION);
   const target = await collection.findOne({ path: TARGET_PATH });
 
   if (!target) {

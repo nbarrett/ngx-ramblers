@@ -5,8 +5,9 @@ import { seedBrevoTemplatesFromLocal } from "../../../brevo/templates/template-s
 import { isObject, keys } from "es-toolkit/compat";
 import { MigrationUpResult } from "../../../../../projects/ngx-ramblers/src/app/models/mongo-migration-model";
 
+import { NOTIFICATION_CONFIG_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("sync-all-brevo-templates");
-const NOTIFICATION_CONFIGS_COLLECTION = "notificationConfigs";
 
 const TEMPLATE_TO_SUBJECTS: Record<string, string[]> = {
   "welcome-to-the-group": ["Welcome to The Group"],
@@ -20,7 +21,7 @@ const TEMPLATE_TO_SUBJECTS: Record<string, string[]> = {
 const DEFAULT_TEMPLATE = "fully-automated-text-body";
 
 async function autoMatchTemplatesToNotificationConfigs(db: Db, templateIdMap: Record<string, number>) {
-  const collection = db.collection(NOTIFICATION_CONFIGS_COLLECTION);
+  const collection = db.collection(NOTIFICATION_CONFIG_COLLECTION);
   const unmatchedConfigs = await collection.find({
     $or: [{templateId: null}, {templateId: {$exists: false}}]
   }).toArray();

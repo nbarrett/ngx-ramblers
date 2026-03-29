@@ -185,6 +185,12 @@ export interface AreaMapData {
   showLegend?: boolean;
   legendPosition?: LegendPosition;
   sharedDistrictStyle?: SharedDistrictStyle;
+  showAreas?: boolean;
+  showParishes?: boolean;
+  parishAllocatedColor?: string;
+  parishVacantColor?: string;
+  parishBorderColor?: string;
+  parishFillOpacity?: number;
 }
 
 export enum LegendPosition {

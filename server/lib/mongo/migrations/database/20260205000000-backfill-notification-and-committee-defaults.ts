@@ -3,12 +3,12 @@ import createMigrationLogger from "../migrations-logger";
 import { NOTIFICATION_CONFIG_DEFAULTS } from "../../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { RoleType } from "../../../../../projects/ngx-ramblers/src/app/models/committee.model";
 
+import { CONFIG_COLLECTION, NOTIFICATION_CONFIG_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("backfill-notification-and-committee-defaults");
-const NOTIFICATION_CONFIGS_COLLECTION = "notificationConfigs";
-const CONFIG_COLLECTION = "config";
 
 async function backfillNotificationConfigs(db: Db) {
-  const collection = db.collection(NOTIFICATION_CONFIGS_COLLECTION);
+  const collection = db.collection(NOTIFICATION_CONFIG_COLLECTION);
 
   for (const config of NOTIFICATION_CONFIG_DEFAULTS) {
     const existing = await collection.findOne({ "subject.text": config.subject.text });
@@ -23,7 +23,7 @@ async function backfillNotificationConfigs(db: Db) {
 }
 
 async function backfillNotificationDefaults(db: Db) {
-  const collection = db.collection(NOTIFICATION_CONFIGS_COLLECTION);
+  const collection = db.collection(NOTIFICATION_CONFIG_COLLECTION);
   const monthsResult = await collection.updateMany(
     {
       $or: [

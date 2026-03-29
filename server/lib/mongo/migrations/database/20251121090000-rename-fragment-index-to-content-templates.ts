@@ -1,9 +1,10 @@
 import { Collection, Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 
+import { PAGE_CONTENT_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("rename-fragment-index-to-content-templates");
 const CONTENT_TEXT_COLLECTION = "content-text";
-const PAGE_CONTENT_COLLECTION = "pageContent";
 const OLD_NAME = "fragment-index";
 const NEW_NAME = "content-templates";
 const OLD_HREF = "admin/fragment-index";

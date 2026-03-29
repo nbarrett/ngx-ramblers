@@ -62,11 +62,6 @@ function configKeyFromQuerystring(req: Request): ConfigKey {
   }
 }
 
-function configCriteriaFromQuerystring(req: Request) {
-  const configKey = configKeyFromQuerystring(req);
-  return criteriaForKey(configKey);
-}
-
 export async function createOrUpdate(req: Request, res: Response) {
   const isAdmin = isAdminFromRequest(req);
 

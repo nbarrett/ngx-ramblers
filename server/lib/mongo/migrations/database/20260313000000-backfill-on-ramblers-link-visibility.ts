@@ -2,9 +2,9 @@ import { Db, MongoClient } from "mongodb";
 import { keys } from "es-toolkit/compat";
 import createMigrationLogger from "../migrations-logger";
 import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
+import { CONFIG_COLLECTION } from "../shared/collection-names";
 
 const debugLog = createMigrationLogger("backfill-on-ramblers-link-visibility");
-const CONFIG_COLLECTION = "config";
 
 export async function up(db: Db, client: MongoClient) {
   const collection = db.collection(CONFIG_COLLECTION);

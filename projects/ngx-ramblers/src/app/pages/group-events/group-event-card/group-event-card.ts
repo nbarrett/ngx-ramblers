@@ -12,6 +12,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { CardImageOrMap } from "../../../modules/common/card/image/card-image-or-map";
 import { WalkDisplayService } from "../../walks/walk-display.service";
 import { DisplayedWalk } from "../../../models/walk.model";
+import { EventGroupComponent } from "../../walks/walk-view/event-group";
 
 @Component({
     selector: "app-group-event-card",
@@ -26,10 +27,11 @@ import { DisplayedWalk } from "../../../models/walk.model";
                target="_self">{{ groupEvent?.groupEvent?.title }}</a>
           </h4>
           <div>{{ groupEvent?.groupEvent | eventDatesAndTimes }}</div>
+          <app-event-group [displayedWalk]="displayedWalk" [groupEvent]="groupEvent" compact="true"/>
         </div>
       </div>`,
   providers: [DateUtilsService],
-  imports: [EventDatesAndTimesPipe, CardImageOrMap]
+  imports: [EventDatesAndTimesPipe, CardImageOrMap, EventGroupComponent]
 })
 export class GroupEventCard implements OnInit {
 

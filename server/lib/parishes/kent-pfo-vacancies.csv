@@ -1,0 +1,328 @@
+parishCode,parishName,status
+E04005080,Acol,allocated
+E04005012,Acrise,allocated
+E04005089,Addington,allocated
+E04004866,Adisham,allocated
+E04004824,Aldington,allocated
+E04004900,Alkham,allocated
+E04001129,Allhallows,vacant
+E04004825,Appledore,allocated
+E04004901,Ash,allocated
+E04012390,Ash-cum-Ridley,allocated
+E43000287,"Ashford, unparished area",vacant
+E04005090,Aylesford,allocated
+E04004902,Aylesham,allocated
+E04012605,Badgers Mount,allocated
+E04005042,Badlesmere,allocated
+E04005043,Bapchild,allocated
+E04004867,Barham,allocated
+E04013397,Barming,allocated
+E04004892,Bean,allocated
+E04004942,Bearsted,allocated
+E04012939,Bekesbourne-with-Patrixbourne,allocated
+E04005116,Benenden,allocated
+E04012782,Bethersden,allocated
+E04004943,Bicknor,allocated
+E04005117,Bidborough,allocated
+E04013231,Biddenden,allocated
+E04004828,Bilsington,allocated
+E04005081,Birchington,allocated
+E04005091,Birling,allocated
+E04004869,Bishopsbourne,allocated
+E04012940,Blean,allocated
+E04012438,Bobbing,allocated
+E04004829,Bonnington,allocated
+E04012439,Borden,allocated
+E04005092,Borough Green,allocated
+E04013232,Boughton Aluph,vacant
+E04004944,Boughton Malherbe,allocated
+E04013398,Boughton Monchelsea,allocated
+E04005046,Boughton under Blean,allocated
+E04004831,Brabourne,allocated
+E04012391,Brasted,allocated
+E04005047,Bredgar,allocated
+E04004947,Bredhurst,allocated
+E04005118,Brenchley and Matfield,allocated
+E04005013,Brenzett,allocated
+E04012941,Bridge,allocated
+E04005082,Broadstairs and St. Peters,allocated
+E04004832,Brook,allocated
+E04005014,Brookland,vacant
+E04004948,Broomfield and Kingswood,allocated
+E04005093,Burham,allocated
+E04005015,Burmarsh,allocated
+E04005119,Capel,allocated
+E04004903,Capel-le-Ferne,allocated
+E43000269,"Canterbury, unparished area",vacant
+E04004833,Challock,allocated
+E04012783,Charing,allocated
+E04013400,Chart Sutton,allocated
+E04004871,Chartham,allocated
+E43000030,"Medway, unparished area",vacant
+E04012409,Chevening,allocated
+E04012942,Chestfield,allocated
+E04004985,Chiddingstone,allocated
+E04004835,Chilham,allocated
+E04012943,Chislet,allocated
+E04001130,Cliffe and Cliffe Woods,vacant
+E04004935,Cobham,allocated
+E04004981,Collier Street,allocated
+E04001131,Cooling,vacant
+E04004986,Cowden,allocated
+E04013401,Coxheath,allocated
+E04005120,Cranbrook & Sissinghurst,allocated
+E04004987,Crockenhill,allocated
+E04004836,Crundale,allocated
+E04001132,Cuxton,allocated
+E04012918,Darenth,allocated
+E43000286,"Dartford, unparished area",allocated
+E04004931,Deal,allocated
+E04004904,Denton with Wootton,allocated
+E04004951,Detling,allocated
+E04012123,Ditton,allocated
+E04005048,Doddington,allocated
+E04004932,Dover,vacant
+E04013402,Downswood,vacant
+E04005049,Dunkirk,allocated
+E04004988,Dunton Green,allocated
+E04005016,Dymchurch,vacant
+E04013403,East Farleigh,allocated
+E04012797,East Malling and Larkfield,allocated
+E04005096,East Peckham,allocated
+E04004954,East Sutton,allocated
+E04005050,Eastchurch,vacant
+E04005051,Eastling,allocated
+E04004905,Eastry,allocated
+E04004837,Eastwell,allocated
+E04004989,Edenbridge,allocated
+E04012784,Egerton,allocated
+E04005017,Elham,allocated
+E04005018,Elmsted,allocated
+E04012392,Eynsford,allocated
+E04004906,Eythorne,allocated
+E04004991,Farningham,allocated
+E04005052,Faversham,allocated
+E04004992,Fawkham,allocated
+E04005040,Folkestone,vacant
+E04004874,Fordwich,allocated
+E04001133,Frindsbury Extra,vacant
+E04004955,Frinsted,allocated
+E04005121,Frittenden,allocated
+E04004839,Godmersham,allocated
+E04004907,Goodnestone,allocated
+E04005122,Goudhurst,allocated
+E04005053,Graveney with Goodnestone,allocated
+E43000087,"Gravesham, unparished area",allocated
+E04012785,Great Chart with Singleton,allocated
+E04004933,Great Mongeham,allocated
+E04004908,Guston,allocated
+E04004875,Hackington,allocated
+E04005097,Hadlow,allocated
+E43000268,"Swale, unparished area",vacant
+E04001134,Halling,allocated
+E04004993,Halstead,allocated
+E04004876,Harbledown and Rough Common,allocated
+E04004956,Harrietsham,allocated
+E04012393,Hartley,allocated
+E04005054,Hartlip,allocated
+E04004841,Hastingleigh,allocated
+E04005123,Hawkhurst,allocated
+E04005019,Hawkinge,allocated
+E04004957,Headcorn,allocated
+E04004891,Herne and Broomfield,allocated
+E04005055,Hernhill,allocated
+E04012944,Hersden,allocated
+E04004995,Hever,allocated
+E04012394,Hextable,allocated
+E04013233,High Halden,allocated
+E04001135,High Halstow,vacant
+E04004936,Higham,allocated
+E04005098,Hildenborough,allocated
+E04004877,Hoath,allocated
+E04004958,Hollingbourne,allocated
+E04001136,Hoo St. Werburgh,vacant
+E04005124,Horsmonden,allocated
+E04004996,Horton Kirby and South Darenth,allocated
+E04004843,Hothfield,allocated
+E04004909,Hougham Without,allocated
+E04004959,Hucking,allocated
+E04004960,Hunton,allocated
+E04005020,Hythe,vacant
+E04012945,Ickham and Well,allocated
+E04005099,Ightham,allocated
+E04001137,Isle of Grain,vacant
+E04005021,Ivychurch,vacant
+E04005056,Iwade,allocated
+E04004997,Kemsing,allocated
+E04004844,Kenardington,allocated
+E04012975,Kennington,allocated
+E04012798,Kings Hill,allocated
+E04004915,Ringwould with Kingsdown,allocated
+E04012786,Kingsnorth,vacant
+E04004879,Kingston,allocated
+E04004998,Knockholt,allocated
+E04005125,Lamberhurst,allocated
+E04004910,Langdon,allocated
+E04013404,Langley,allocated
+E04005057,Leaveland,allocated
+E04004962,Leeds,allocated
+E04012395,Leigh,allocated
+E04004963,Lenham,allocated
+E04012345,Leybourne,allocated
+E04005058,Leysdown,vacant
+E04004964,Linton,allocated
+E04012787,Little Chart,allocated
+E04004880,Littlebourne,allocated
+E04012919,Longfield and New Barn,allocated
+E04013405,Loose,allocated
+E04005059,Lower Halstow,allocated
+E04012946,Lower Hardres and Nackington,allocated
+E04005060,Luddenham,allocated
+E04004937,Luddesdown,allocated
+E04005022,Lydd,vacant
+E04005023,Lyminge,allocated
+E04005024,Lympne,allocated
+E04005061,Lynsted with Kingsdown,allocated
+E43000297,"Maidstone, unparished area",vacant
+E04005083,Manston,allocated
+E04004966,Marden,allocated
+E43000241,"Thanet, unparished area",vacant
+E04004938,Meopham,allocated
+E04005101,Mereworth,allocated
+E04013234,Mersham,allocated
+E04005062,Milstead,allocated
+E04005084,Minster,allocated
+E04005079,Minster-on-Sea,vacant
+E04004848,Molash,allocated
+E04005085,Monkton,allocated
+E04005025,Monks Horton,allocated
+E04004967,Nettlestead,allocated
+E04005028,New Romney,vacant
+E04005026,Newchurch,vacant
+E04004849,Newenden,allocated
+E04005063,Newington,allocated
+E04005064,Newnham,allocated
+E04004912,Nonington,allocated
+E04004913,Northbourne,allocated
+E04005066,Oare,allocated
+E04005102,Offham,allocated
+E04005029,Old Romney,vacant
+E04012790,Orlestone,allocated
+E04005067,Ospringe,allocated
+E04012396,Otford,allocated
+E04013406,Otham,allocated
+E04004969,Otterden,allocated
+E04005030,Paddlesworth,allocated
+E04005126,Paddock Wood,allocated
+E04005127,Pembury,allocated
+E04012397,Penshurst,allocated
+E04004882,Petham,allocated
+E04005103,Platt,allocated
+E04005104,Plaxtol,allocated
+E04012791,Pluckley,allocated
+E04005031,Postling,allocated
+E04004914,Preston,allocated
+E04005068,Queenborough,vacant
+E04004916,Ripple,allocated
+E04004917,River,allocated
+E04005002,Riverhead,allocated
+E04005069,Rodmersham,allocated
+E04004852,Rolvenden,allocated
+E04004853,Ruckinge,allocated
+E04012174,Rusthall,allocated
+E04012346,Ryarsh,allocated
+E04004918,St. Margaret's at Cliffe,allocated
+E04005032,St. Mary in the Marsh,vacant
+E04001138,St. Mary Hoo,vacant
+E04005086,St. Nicholas at Wade,allocated
+E04005033,Saltwood,allocated
+E04005041,Sandgate,allocated
+E04005128,Sandhurst,allocated
+E04004919,Sandwich,allocated
+E04005087,Sarre,allocated
+E04005003,Seal,allocated
+E04005070,Selling,allocated
+E04005034,Sellindge,allocated
+E04005004,Sevenoaks,allocated
+E04012410,Sevenoaks Weald,allocated
+E04013235,Sevington with Finberry,vacant
+E04012792,Shadoxhurst,allocated
+E04005071,Sheldwich,allocated
+E04012936,Sheerness,vacant
+E04004920,Shepherdswell with Coldred,allocated
+E04005106,Shipbourne,allocated
+E04004921,Sholden,allocated
+E04012606,Shoreham,allocated
+E04004939,Shorne,allocated
+E04004856,Smarden,allocated
+E04004857,Smeeth,allocated
+E04005035,Snargate,vacant
+E04005107,Snodland,allocated
+E04005129,Southborough,allocated
+E04012920,Southfleet,allocated
+E04005130,Speldhurst,allocated
+E04005072,Stalisfield,allocated
+E04005036,Stanford,allocated
+E04005108,Stansted,allocated
+E04004922,Staple,allocated
+E04004970,Staplehurst,allocated
+E04005037,Stelling Minnis,allocated
+E04004971,Stockbury,vacant
+E04001139,Stoke,vacant
+E04012921,Stone,allocated
+E04004859,Stone-cum-Ebony,allocated
+E04004923,Stourmouth,allocated
+E04005038,Stowting,allocated
+E04012947,Sturry,allocated
+E04005007,Sundridge with Ide Hill,allocated
+E04004897,Sutton-at-Hone and Hawley,allocated
+E04004972,Sutton Valence,allocated
+E04012399,Swanley,allocated
+E04013212,Swanscombe and Greenhithe,allocated
+E04005039,Swingfield,allocated
+E04004925,Temple Ewell,allocated
+E04004860,Tenterden,allocated
+E04004973,Teston,allocated
+E04005073,Teynham,allocated
+E04004885,Thanington,allocated
+E04005074,Throwley,allocated
+E04013407,Thurnham,allocated
+E04004926,Tilmanstone,allocated
+E43000091,"Tonbridge and Malling, unparished area",allocated
+E04005075,Tonge,allocated
+E04013408,Tovil,allocated
+E04005109,Trottiscliffe,allocated
+E43000092,"Tunbridge Wells, unparished area",vacant
+E04012440,Tunstall,allocated
+E04004976,Ulcombe,allocated
+E04005077,Upchurch,allocated
+E04004886,Upper Hardres,allocated
+E04004940,Vigo,allocated
+E04004934,Walmer,allocated
+E04004887,Waltham,allocated
+E04005078,Warden,allocated
+E04012793,Warehorne,allocated
+E04005110,Wateringbury,allocated
+E04004977,West Farleigh,allocated
+E04005010,West Kingsdown,allocated
+E04005111,West Malling,allocated
+E04005112,West Peckham,allocated
+E04012948,Westbere,allocated
+E04012400,Westerham,allocated
+E04012472,Westgate-on-Sea,allocated
+E04012794,Westwell,allocated
+E04004927,Whitfield,allocated
+E04004978,Wichling,allocated
+E04012949,Wickhambreaux,allocated
+E04012923,Wilmington,allocated
+E04004928,Wingham,allocated
+E04004863,Wittersham,allocated
+E04004890,Womenswold,allocated
+E04004864,Woodchurch,allocated
+E04004929,Woodnesborough,allocated
+E04010000,Worth,allocated
+E04004979,Wormshill,allocated
+E04005113,Wouldham,allocated
+E04005114,Wrotham,allocated
+E04004865,Wye with Hinxhill,allocated
+E04004980,Yalding,allocated

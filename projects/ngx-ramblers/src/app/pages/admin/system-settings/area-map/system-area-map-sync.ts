@@ -6,21 +6,47 @@ import { AuthService } from "../../../../auth/auth.service";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
 
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCheckCircle, faEdit, faInfoCircle, faRefresh, faSave, faTimes, faUpload, faTrash, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowDown,
+  faArrowUp,
+  faCheckCircle,
+  faEdit,
+  faInfoCircle,
+  faMapMarkerAlt,
+  faRefresh,
+  faSave,
+  faSearch,
+  faTimes,
+  faTrash,
+  faUpload
+} from "@fortawesome/free-solid-svg-icons";
 import { FormsModule } from "@angular/forms";
-import { AreaGroup, AvailableArea, SharedDistrictStyle, SystemConfig } from "../../../../models/system.model";
+import {
+  AreaGroup,
+  AreaGroupGeometrySource,
+  AvailableArea,
+  MapsSubTab,
+  SharedDistrictStyle,
+  SystemConfig
+} from "../../../../models/system.model";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { isString } from "es-toolkit/predicate";
 import { isArray } from "es-toolkit/compat";
 import { asNumber } from "../../../../functions/numbers";
 import { AreaMap } from "../../../area-map/area-map";
-import { faArrowDown, faArrowUp, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute, Router } from "@angular/router";
 import { RamblersWalksAndEventsService } from "../../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { RamblersGroupsApiResponse } from "../../../../models/ramblers-walks-manager";
 import { StringUtilsService } from "../../../../services/string-utils.service";
+import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { SharedDistrictStyleSelectorComponent } from "../../../../shared/components/shared-district-style-selector";
+import { TooltipModule } from "ngx-bootstrap/tooltip";
+import { SectionToggle, SectionToggleTab } from "../../../../shared/components/section-toggle";
+import { ParishMapService } from "../../../../services/parish-map.service";
+import { ParishAllocation } from "../../../../models/parish-map.model";
+import { MemberLoginService } from "../../../../services/member/member-login.service";
+import { NgClass } from "@angular/common";
 
 interface GroupBoundaryUploadResult {
   totalFeatures: number;
@@ -51,6 +77,12 @@ interface GroupBoundaryUploadResult {
   `],
   template: `
       <div class="img-thumbnail thumbnail-admin-edit">
+          <app-section-toggle
+              [tabs]="mapsSubTabs"
+              [(selectedTab)]="mapsSubTab"
+              [queryParamKey]="'maps-sub-tab'"
+              [fullWidth]="true"/>
+          @if (showMapsSubTab(MapsSubTab.AREA_GROUPS)) {
           <div class="thumbnail-heading-frame">
               <div class="thumbnail-heading">Area Groups Configuration</div>
               <div class="row">
@@ -150,7 +182,7 @@ interface GroupBoundaryUploadResult {
                                           }
                                       </th>
                                       <th class="sortable-header" (click)="onSortChange('districts')">
-                                          Districts
+                                          Boundary Source
                                           @if (sortField === 'districts') {
                                               <fa-icon [icon]="sortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                           }
@@ -166,18 +198,48 @@ interface GroupBoundaryUploadResult {
                                               <td class="align-middle">{{ group.groupCode }}</td>
                                               <td class="align-middle">{{ group.name }}</td>
                                               <td>
-                                                  <ng-select [items]="availableDistricts"
-                                                             [multiple]="true"
-                                                             [searchable]="true"
-                                                             [clearable]="true"
-                                                             [closeOnSelect]="false"
-                                                             [hideSelected]="true"
-                                                             [clearSearchOnAdd]="true"
-                                                             [disabled]="group.nonGeographic"
-                                                             placeholder="Select districts..."
-                                                             [(ngModel)]="group.onsDistricts"
-                                                             (change)="onDistrictsChange(group)">
-                                                  </ng-select>
+                                                  <div class="d-flex flex-column" style="gap: 0.25rem;">
+                                                      @if (group.customGeometry) {
+                                                          <span class="badge bg-success" style="width: fit-content;">Custom Shapefile</span>
+                                                      } @else {
+                                                          <select class="form-select form-select-sm"
+                                                                  style="width: auto; min-width: 140px;"
+                                                                  [(ngModel)]="group.geometrySource"
+                                                                  [disabled]="group.nonGeographic"
+                                                                  (ngModelChange)="onGeometrySourceChange(group)">
+                                                              <option value="ons-districts">ONS Districts</option>
+                                                              <option value="member-groups">Member Groups</option>
+                                                          </select>
+                                                          @if (group.geometrySource === "member-groups") {
+                                                              <ng-select [items]="memberGroupOptions(group)"
+                                                                         bindLabel="label"
+                                                                         bindValue="groupCode"
+                                                                         [multiple]="true"
+                                                                         [searchable]="true"
+                                                                         [closeOnSelect]="false"
+                                                                         [hideSelected]="true"
+                                                                         [clearSearchOnAdd]="true"
+                                                                         [disabled]="group.nonGeographic"
+                                                                         placeholder="Select member groups..."
+                                                                         [(ngModel)]="group.memberGroupCodes"
+                                                                         (change)="onMemberGroupsChange(group)">
+                                                              </ng-select>
+                                                          } @else {
+                                                              <ng-select [items]="availableDistricts"
+                                                                         [multiple]="true"
+                                                                         [searchable]="true"
+                                                                         [clearable]="true"
+                                                                         [closeOnSelect]="false"
+                                                                         [hideSelected]="true"
+                                                                         [clearSearchOnAdd]="true"
+                                                                         [disabled]="group.nonGeographic"
+                                                                         placeholder="Select districts..."
+                                                                         [(ngModel)]="group.onsDistricts"
+                                                                         (change)="onDistrictsChange(group)">
+                                                              </ng-select>
+                                                          }
+                                                      }
+                                                  </div>
                                               </td>
                                               <td>
                                                   <input type="color"
@@ -187,9 +249,9 @@ interface GroupBoundaryUploadResult {
                                               <td class="text-center align-middle">
                                                   @if (group.customGeometry) {
                                                       <fa-icon [icon]="faMapMarkerAlt" class="text-success"
-                                                               title="Custom boundary from shapefile"></fa-icon>
+                                                               tooltip="Custom boundary from shapefile"></fa-icon>
                                                       <button class="btn btn-link btn-sm p-0 ms-1"
-                                                              title="Clear custom geometry"
+                                                              tooltip="Clear custom geometry"
                                                               (click)="clearGroupGeometry(group)">
                                                           <fa-icon [icon]="faTimes" class="text-danger small"></fa-icon>
                                                       </button>
@@ -227,6 +289,8 @@ interface GroupBoundaryUploadResult {
                   </div>
               </div>
           </div>
+          }
+          @if (showMapsSubTab(MapsSubTab.CUSTOM_BOUNDARIES)) {
           <div class="thumbnail-heading-frame">
               <div class="thumbnail-heading">Custom Group Boundaries</div>
               <div class="row">
@@ -281,12 +345,16 @@ interface GroupBoundaryUploadResult {
                       }
                       @if (shapefileErrorMessage) {
                           <div class="alert alert-danger mb-3" role="alert">
+                              <fa-icon [icon]="faTimes" class="me-2"></fa-icon>
+                              <strong>Shapefile upload failed:</strong>
                               {{ shapefileErrorMessage }}
                           </div>
                       }
                   </div>
               </div>
           </div>
+          }
+          @if (showMapsSubTab(MapsSubTab.GEOGRAPHIC_DATA)) {
           <div class="thumbnail-heading-frame">
               <div class="thumbnail-heading">Geographic Data</div>
               <div class="row">
@@ -397,9 +465,139 @@ interface GroupBoundaryUploadResult {
                   </div>
               </div>
           </div>
+          }
+          @if (showMapsSubTab(MapsSubTab.PARISH_ALLOCATIONS)) {
+          <div class="thumbnail-heading-frame">
+              <div class="thumbnail-heading">Parish Allocations</div>
+              <div class="row">
+                  <div class="col-12">
+                      <p class="mb-3">
+                        Import parish allocation data from a CSV file. Each row assigns a parish as allocated or vacant
+                      </p>
+                      @if (parishAllocations.length > 0) {
+                          <div class="d-flex align-items-center mb-3" style="gap: 0.75rem;">
+                              <app-badge-button
+                                  [caption]="clearingAllocations ? 'Clearing…' : 'Clear All Allocations (' + parishAllocations.length + ')'"
+                                  [icon]="faTrash"
+                                  [disabled]="clearingAllocations"
+                                  (click)="clearAllAllocations()"/>
+                          </div>
+                      }
+                      <input #csvFileElement class="d-none" type="file" accept=".csv"
+                             (change)="onCsvFileSelected($event)">
+                      <div class="row mb-3">
+                          <div class="col-6">
+                              <app-badge-button fullWidth
+                                                [disabled]="csvImporting"
+                                                [icon]="faUpload"
+                                                caption="Choose CSV File"
+                                                (click)="browseToFile(csvFileElement)"/>
+                          </div>
+                          <div class="col-sm-6 align-self-center">
+                              <div [ngClass]="{'file-over': csvFileOver}"
+                                   (dragover)="onCsvDragOver($event)"
+                                   (dragleave)="csvFileOver = false"
+                                   (drop)="onCsvFileDrop($event)"
+                                   class="badge-drop-zone-single-height mb-2">
+                                  Or drop CSV file here
+                              </div>
+                          </div>
+                      </div>
+                      @if (csvFileName) {
+                          <div class="d-flex align-items-center mb-3" style="gap: 0.75rem;">
+                              <span class="text-muted small"><fa-icon [icon]="faCheckCircle" class="text-success me-1"></fa-icon>{{ csvFileName }}</span>
+                              <app-badge-button
+                                  [caption]="csvImporting ? 'Importing…' : 'Import'"
+                                  [icon]="faUpload"
+                                  [disabled]="csvImporting"
+                                  (click)="importCsvAllocations()"/>
+                          </div>
+                      }
+                      <small class="form-text text-muted">CSV with columns: parishName, status (allocated/vacant), assignee (optional), notes (optional)</small>
+                      @if (csvErrorMessage) {
+                          <div class="alert alert-danger mt-2 p-2">
+                              <fa-icon [icon]="faTimes" class="me-2"></fa-icon>
+                              <strong>Import failed:</strong> {{ csvErrorMessage }}
+                          </div>
+                      }
+                      @if (csvImportResult) {
+                          <div class="alert mt-2 p-2" [class.alert-success]="!csvImportResult.errors" [class.alert-warning]="csvImportResult.errors">
+                              <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                              <strong>Import complete:</strong> {{ csvImportResult.created }} created, {{ csvImportResult.updated }} updated{{ csvImportResult.errors ? ', ' + csvImportResult.errors + ' errors' : '' }} ({{ csvImportResult.total }} rows)
+                              @if (csvImportResult.errorDetails?.length) {
+                                  <ul class="mb-0 mt-2 small">
+                                      @for (detail of csvImportResult.errorDetails; track detail) {
+                                          <li>{{ detail }}</li>
+                                      }
+                                  </ul>
+                              }
+                          </div>
+                      }
+                      @if (parishAllocations.length > 0) {
+                          <div class="mt-3">
+                              <label class="form-label">Current Allocations ({{ parishAllocations.length }})</label>
+                              <div class="mb-2">
+                                  <div class="input-group input-group-sm">
+                                      <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+                                      <input type="text" class="form-control" placeholder="Filter parishes..."
+                                             [(ngModel)]="parishFilterText">
+                                  </div>
+                              </div>
+                              <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                  <table class="table table-sm table-striped table-sticky-header">
+                                      <thead>
+                                      <tr>
+                                          <th class="sortable-header" (click)="onParishSortChange('parishName')">
+                                              Parish Name
+                                              @if (parishSortField === 'parishName') {
+                                                  <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
+                                              }
+                                          </th>
+                                          <th class="sortable-header" (click)="onParishSortChange('parishCode')">
+                                              Parish Code
+                                              @if (parishSortField === 'parishCode') {
+                                                  <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
+                                              }
+                                          </th>
+                                          <th class="sortable-header" (click)="onParishSortChange('status')">
+                                              Status
+                                              @if (parishSortField === 'status') {
+                                                  <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
+                                              }
+                                          </th>
+                                          <th class="sortable-header" (click)="onParishSortChange('assignee')">
+                                              Assignee
+                                              @if (parishSortField === 'assignee') {
+                                                  <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
+                                              }
+                                          </th>
+                                      </tr>
+                                      </thead>
+                                      <tbody>
+                                          @for (alloc of filteredParishAllocations; track alloc.parishCode) {
+                                              <tr>
+                                                  <td>{{ alloc.parishName }}</td>
+                                                  <td class="text-muted small">{{ alloc.parishCode }}</td>
+                                                  <td>
+                                                      <span class="badge" [class.bg-success]="alloc.status === 'allocated'" [class.bg-danger]="alloc.status === 'vacant'">
+                                                          {{ alloc.status }}
+                                                      </span>
+                                                  </td>
+                                                  <td>{{ alloc.assignee || '—' }}</td>
+                                              </tr>
+                                          }
+                                      </tbody>
+                                  </table>
+                              </div>
+                          </div>
+                      }
+                  </div>
+              </div>
+          </div>
+          }
       </div>
   `,
-  imports: [BadgeButtonComponent, FontAwesomeModule, FormsModule, MarkdownEditorComponent, NgSelectComponent, AreaMap, SharedDistrictStyleSelectorComponent]
+  imports: [BadgeButtonComponent, FontAwesomeModule, FormsModule, MarkdownEditorComponent, NgSelectComponent, AreaMap, SharedDistrictStyleSelectorComponent, SectionToggle, TooltipModule, NgClass]
 })
 export class SystemAreaMapSyncComponent implements OnInit {
   private http = inject(HttpClient);
@@ -407,11 +605,24 @@ export class SystemAreaMapSyncComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private ramblersService = inject(RamblersWalksAndEventsService);
+  private systemConfigService = inject(SystemConfigService);
+  private parishMapService = inject(ParishMapService);
+  private memberLoginService = inject(MemberLoginService);
   stringUtils = inject(StringUtilsService);
   private logger: Logger = inject(LoggerFactory).createLogger("SystemAreaMapSyncComponent", NgxLoggerLevel.ERROR);
 
   @Input() config: SystemConfig;
   @Output() busyChange = new EventEmitter<boolean>();
+
+  protected readonly MapsSubTab = MapsSubTab;
+  mapsSubTab: MapsSubTab = MapsSubTab.ALL;
+  mapsSubTabs: SectionToggleTab[] = [
+    {value: MapsSubTab.ALL, label: "All"},
+    {value: MapsSubTab.AREA_GROUPS, label: "Area Groups"},
+    {value: MapsSubTab.CUSTOM_BOUNDARIES, label: "Custom Boundaries"},
+    {value: MapsSubTab.GEOGRAPHIC_DATA, label: "Geographic Data"},
+    {value: MapsSubTab.PARISH_ALLOCATIONS, label: "Parish Allocations"}
+  ];
 
   busy = false;
   errorMessage = "";
@@ -436,6 +647,18 @@ export class SystemAreaMapSyncComponent implements OnInit {
   faSearch = faSearch;
   faArrowUp = faArrowUp;
   faArrowDown = faArrowDown;
+
+  csvFileContent: string | null = null;
+  csvFileName: string | null = null;
+  csvFileOver = false;
+  csvImporting = false;
+  csvImportResult: { created: number; updated: number; errors: number; total: number; errorDetails?: string[] } | null = null;
+  csvErrorMessage: string | null = null;
+  parishAllocations: ParishAllocation[] = [];
+  parishFilterText = "";
+  parishSortField: "parishName" | "parishCode" | "status" | "assignee" = "parishName";
+  parishSortAsc = true;
+  clearingAllocations = false;
 
   get exclusiveDistricts(): boolean {
     return this.config?.area?.exclusiveDistricts !== false;
@@ -585,10 +808,147 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.loadAreaGroups();
     this.loadAvailableDistricts();
     this.loadAvailableNeighboringAreas();
+    this.loadParishAllocations();
     const params = this.route.snapshot.queryParams;
     this.filterText = params["filter"] || "";
     this.sortField = params["sort"] || "groupCode";
     this.sortAsc = params["sortAsc"] !== "false";
+    this.systemConfigService.events().subscribe(config => {
+      this.config = config;
+      this.loadAreaGroups();
+    });
+  }
+
+  showMapsSubTab(tab: MapsSubTab): boolean {
+    return [MapsSubTab.ALL, tab].includes(this.mapsSubTab);
+  }
+
+  get filteredParishAllocations(): ParishAllocation[] {
+    let allocations = this.parishAllocations;
+    if (this.parishFilterText) {
+      const filter = this.parishFilterText.toLowerCase();
+      allocations = allocations.filter(a =>
+        a.parishName?.toLowerCase().includes(filter) ||
+        a.parishCode?.toLowerCase().includes(filter) ||
+        a.status?.toLowerCase().includes(filter) ||
+        a.assignee?.toLowerCase().includes(filter)
+      );
+    }
+    return allocations.slice().sort((a, b) => {
+      const aVal = (a[this.parishSortField] || "").toLowerCase();
+      const bVal = (b[this.parishSortField] || "").toLowerCase();
+      const comparison = aVal.localeCompare(bVal);
+      return this.parishSortAsc ? comparison : -comparison;
+    });
+  }
+
+  onParishSortChange(field: "parishName" | "parishCode" | "status" | "assignee") {
+    if (this.parishSortField === field) {
+      this.parishSortAsc = !this.parishSortAsc;
+    } else {
+      this.parishSortField = field;
+      this.parishSortAsc = true;
+    }
+  }
+
+  private loadParishAllocations() {
+    const groupCode = this.config?.group?.groupCode;
+    if (!groupCode) {
+      return;
+    }
+    this.parishMapService.allocationsByGroupCode(groupCode).subscribe({
+      next: (allocations) => {
+        this.parishAllocations = allocations.sort((a, b) => (a.parishName || "").localeCompare(b.parishName || ""));
+        this.logger.info(`Loaded ${allocations.length} parish allocations`);
+      },
+      error: (error) => {
+        this.logger.error("Failed to load parish allocations:", error);
+      }
+    });
+  }
+
+  browseToFile(fileElement: HTMLInputElement) {
+    fileElement.click();
+  }
+
+  onCsvFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (file) {
+      this.readCsvFile(file);
+    }
+  }
+
+  onCsvDragOver(event: DragEvent) {
+    event.preventDefault();
+    this.csvFileOver = true;
+  }
+
+  onCsvFileDrop(event: DragEvent) {
+    event.preventDefault();
+    this.csvFileOver = false;
+    const file = event.dataTransfer?.files?.[0];
+    if (file && file.name.endsWith(".csv")) {
+      this.readCsvFile(file);
+    }
+  }
+
+  private readCsvFile(file: File) {
+    this.csvFileName = file.name;
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.csvFileContent = reader.result as string;
+    };
+    reader.readAsText(file);
+  }
+
+  importCsvAllocations() {
+    if (!this.csvFileContent) {
+      return;
+    }
+    const groupCode = this.config?.group?.groupCode;
+    const memberId = this.memberLoginService.loggedInMember()?.memberId;
+    if (!groupCode) {
+      this.logger.error("No group code configured");
+      return;
+    }
+    this.csvImporting = true;
+    this.csvImportResult = null;
+    this.csvErrorMessage = null;
+    this.parishMapService.importCsv(this.csvFileContent, groupCode, memberId || "").subscribe({
+      next: (result) => {
+        this.csvImportResult = result;
+        this.csvImporting = false;
+        this.logger.info("CSV import result:", result);
+        this.loadParishAllocations();
+      },
+      error: (error) => {
+        this.logger.error("CSV import failed:", error);
+        this.csvImporting = false;
+        this.csvErrorMessage = error?.error?.error || error?.message || "CSV import failed";
+      }
+    });
+  }
+
+  clearAllAllocations() {
+    const groupCode = this.config?.group?.groupCode;
+    if (!groupCode) {
+      return;
+    }
+    this.clearingAllocations = true;
+    this.parishMapService.deleteAllByGroupCode(groupCode).subscribe({
+      next: (result) => {
+        this.logger.info("Cleared allocations:", result);
+        this.clearingAllocations = false;
+        this.csvImportResult = null;
+        this.csvErrorMessage = null;
+        this.loadParishAllocations();
+      },
+      error: (error) => {
+        this.logger.error("Failed to clear allocations:", error);
+        this.clearingAllocations = false;
+      }
+    });
   }
 
   private loadAvailableDistricts() {
@@ -673,7 +1033,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.http.post<{ key: string; featureCount?: number }>("api/areas/upload-default", {}, { headers }).subscribe({
       next: response => {
         if (response?.key) {
-          this.logger.info("Uploaded area map to", response.key);
+          this.logger.debug("Uploaded area map to", response.key);
           const featureInfo = response.featureCount ? ` with ${response.featureCount} district${response.featureCount !== 1 ? "s" : ""}` : "";
           this.geoSuccessMessage = `Successfully uploaded area map${featureInfo}`;
           this.geoDataNeedsUpdate = false;
@@ -714,7 +1074,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.http.delete<{ message: string; deletedKeys: string[] }>("api/areas/s3-data", { headers }).subscribe({
       next: response => {
         const count = response.deletedKeys?.length || 0;
-        this.logger.info(`Deleted ${count} area map object(s):`, response.deletedKeys);
+        this.logger.debug(`Deleted ${count} area map object(s):`, response.deletedKeys);
         this.geoSuccessMessage = `Successfully reset area map data`;
         this.refreshKey();
         this.loadAvailableDistricts();
@@ -743,7 +1103,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
   private loadAreaGroups() {
     const groups = this.config?.area?.groups || [];
     this.hasAreaGroups = groups.length > 0;
-    this.logger.info(`loadAreaGroups: found ${groups.length} groups, hasAreaGroups=${this.hasAreaGroups}`);
+    this.logger.debug(`loadAreaGroups: found ${groups.length} groups, hasAreaGroups=${this.hasAreaGroups}`);
     if (!this.hasAreaGroups) {
       this.editingGroups = [];
       this.inferredDistrictsByGroup.clear();
@@ -751,7 +1111,9 @@ export class SystemAreaMapSyncComponent implements OnInit {
       return;
     }
     this.editingGroups = groups.map(group => ({ ...group, onsDistricts: isArray(group.onsDistricts) ? [...group.onsDistricts] : group.onsDistricts }));
-    this.logger.info(`loadAreaGroups: editingGroups populated with ${this.editingGroups.length} groups`);
+    const customCount = this.editingGroups.filter(g => !!g.customGeometry).length;
+    this.logger.info(`loadAreaGroups: editingGroups populated with ${this.editingGroups.length} groups, ${customCount} with customGeometry`);
+    this.editingGroups.forEach(g => this.logger.info(`  group ${g.groupCode} (${g.name}): customGeometry=${!!g.customGeometry}`));
     this.inferredDistrictsByGroup.clear();
     this.updateRelevantDistricts();
   }
@@ -784,7 +1146,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
         if (previewResponse.districts && previewResponse.districts.length > 0 && this.availableDistricts.length === 0) {
           this.availableDistricts = previewResponse.districts;
           this.districtsLoaded = true;
-          this.logger.info(`Loaded ${this.availableDistricts.length} districts from preview API`);
+          this.logger.debug(`Loaded ${this.availableDistricts.length} districts from preview API`);
         }
 
         try {
@@ -932,6 +1294,25 @@ export class SystemAreaMapSyncComponent implements OnInit {
   }
 
 
+  onGeometrySourceChange(group: AreaGroup) {
+    if (group.geometrySource === AreaGroupGeometrySource.MEMBER_GROUPS) {
+      group.memberGroupCodes = group.memberGroupCodes || [];
+    } else {
+      group.memberGroupCodes = null;
+    }
+    this.geoDataNeedsUpdate = true;
+  }
+
+  onMemberGroupsChange(_group: AreaGroup) {
+    this.geoDataNeedsUpdate = true;
+  }
+
+  memberGroupOptions(excludeGroup: AreaGroup): { groupCode: string; label: string }[] {
+    return this.editingGroups
+      .filter(g => g.groupCode !== excludeGroup.groupCode && g.customGeometry)
+      .map(g => ({groupCode: g.groupCode, label: `${g.groupCode} - ${g.name}`}));
+  }
+
   onNonGeographicChange(group: AreaGroup) {
     if (group.nonGeographic) {
       group.onsDistricts = [];
@@ -976,9 +1357,9 @@ export class SystemAreaMapSyncComponent implements OnInit {
 
     const unallocated = this.availableDistricts.filter(d => !allocatedDistricts.has(d)).sort();
 
-    this.logger.info(`unallocatedDistricts: availableDistricts=${this.availableDistricts.length}, allocated=${allocatedDistricts.size}, unallocated=${unallocated.length}`);
+    this.logger.debug(`unallocatedDistricts: availableDistricts=${this.availableDistricts.length}, allocated=${allocatedDistricts.size}, unallocated=${unallocated.length}`);
     if (unallocated.length > 0) {
-      this.logger.info(`Unallocated districts:`, unallocated);
+      this.logger.debug(`Unallocated districts:`, unallocated);
     }
 
     return unallocated;
@@ -1012,7 +1393,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.geoSuccessMessage = "";
 
     const existingGroupsMap = new Map(this.editingGroups.map(g => [g.groupCode, g]));
-    this.logger.info("Existing groups before rebuild:", this.editingGroups);
+    this.logger.debug("Existing groups before rebuild:", this.editingGroups);
     const mainAreaCode = this.config?.area?.groupCode || this.editingGroups[0]?.groupCode?.substring(0, 2);
 
     if (!mainAreaCode) {
@@ -1064,7 +1445,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
               newColor = this.generateUniqueColor(usedColors);
               usedColors.add(newColor);
             }
-            this.logger.info(`Rebuilding group ${group.group_code}: color=${newColor}`);
+            this.logger.debug(`Rebuilding group ${group.group_code}: color=${newColor}`);
             return {
               groupCode: group.group_code,
               name: group.name,
@@ -1120,7 +1501,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
       next: result => {
         this.shapefileUploadResult = result;
         this.uploadingShapefile = false;
-        this.loadAreaGroups();
+        this.systemConfigService.refresh();
         input.value = "";
       },
       error: error => {

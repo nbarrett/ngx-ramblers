@@ -1,4 +1,4 @@
-import { SharedDistrictStyle } from "./system.model";
+import { AreaGroupGeometrySource, SharedDistrictStyle } from "./system.model";
 
 export interface ONSFeatureProperties {
   LAD23NM: string;
@@ -15,6 +15,8 @@ export interface RegionGroup {
   onsDistricts: string | string[];
   color?: string;
   nonGeographic?: boolean;
+  geometrySource?: AreaGroupGeometrySource;
+  memberGroupCodes?: string[];
 }
 
 export interface SharedDistrictInfo {

@@ -63,7 +63,7 @@ import { fieldStartsWithValue } from "../../../functions/mongo";
 import { PageService } from "../../../services/page.service";
 import { assignDeep } from "../../../functions/object-utils";
 import { UiActionsService } from "../../../services/ui-actions.service";
-import { StoredValue } from "../../../models/ui-actions";
+import { Confirm, StoredValue } from "../../../models/ui-actions";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -661,11 +661,23 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                 [tooltip]="'Copy migration debug logs to clipboard'"
                 (click)="copyDebugLogs()"/>
             }
-            <app-badge-button (click)="deletePageContent()"
-                              [icon]="faRemove"
-                              delay=500 caption="Delete page"
-                              [tooltip]="deletePageContentTooltip()"
-                              [disabled]="deletePageContentDisabled()"/>
+            @if (deleteConfirm.deleteConfirmOutstanding()) {
+              <app-badge-button (click)="confirmDeletePageContent()"
+                                [icon]="faRemove"
+                                caption="Confirm delete of &quot;{{ pageContent?.path }}&quot;"
+                                [tooltip]="'Click to permanently delete this page'"
+                                [disabled]="deletePageContentDisabled()"/>
+              <app-badge-button (click)="deleteConfirm.clear()"
+                                [icon]="faUndo"
+                                caption="Cancel delete"
+                                [tooltip]="'Cancel page deletion'"/>
+            } @else {
+              <app-badge-button (click)="deletePageContent()"
+                                [icon]="faRemove"
+                                delay=500 caption="Delete page"
+                                [tooltip]="deletePageContentTooltip()"
+                                [disabled]="deletePageContentDisabled()"/>
+            }
           </div>
           @if (pastePageContentVisible) {
             <div class="w-100">
@@ -905,6 +917,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   faCircleCheck = faCircleCheck;
   TextMatchPattern = TextMatchPattern;
   public savingPage = false;
+  public deleteConfirm = new Confirm();
   providers: [{ provide: BsDropdownConfig, useValue: { isAnimated: true, autoClose: true } }];
   public destinationPath: string;
   public destinationPathLookup: Subject<string> = new Subject<string>();
@@ -1075,15 +1088,11 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       const saved = await this.pageContentService.createOrUpdate(fragmentPayload);
       await this.fragmentService.ensureLoadedById(saved.id);
       await this.templateSelector?.refresh();
-      const navigateToTemplate = confirm(`Template created at ${saved.path}.\n\nWould you like to navigate to the template to configure it?`);
-      if (navigateToTemplate) {
-        this.urlService.navigateTo(["admin", "page-content", saved.path]);
-      } else {
-        this.notify.success({
-          title: "Template Created",
-          message: `Template saved at ${saved.path}`
-        });
-      }
+      this.notify.success({
+        title: "Template Created",
+        message: `Template saved at ${saved.path}`
+      });
+      this.urlService.navigateTo(["admin", "page-content", saved.path]);
     } catch (error) {
       this.notify.error({title: "Create Template", message: error});
     }
@@ -2064,12 +2073,16 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   public deletePageContent() {
     if (!this.deletePageContentDisabled()) {
-      const pagePath = this.pageContent?.path || "this page";
-      if (confirm(`Are you sure you want to delete "${pagePath}"? This action cannot be undone.`)) {
-        this.pageContentService.delete(this.pageContent.id)
-          .then(() => this.urlService.navigateUnconditionallyTo([this.urlService.area()]));
-      }
+      this.deleteConfirm.toggleOnDeleteConfirm();
     }
+  }
+
+  public confirmDeletePageContent() {
+    this.deleteConfirm.clear();
+    const currentPath = this.pageContent?.path || "";
+    const parentPath = currentPath.includes("/") ? currentPath.substring(0, currentPath.lastIndexOf("/")) : "";
+    this.pageContentService.delete(this.pageContent.id)
+      .then(() => this.urlService.navigateUnconditionallyTo([parentPath || this.urlService.area()]));
   }
 
   public deletePageContentTooltip() {

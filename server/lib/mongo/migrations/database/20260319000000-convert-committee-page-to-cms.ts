@@ -12,9 +12,9 @@ import {
 import { AccessLevel } from "../../../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { SortDirection } from "../../../../../projects/ngx-ramblers/src/app/models/sort.model";
 
+import { CONFIG_COLLECTION, PAGE_CONTENT_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("convert-committee-page-to-cms");
-const CONFIG_COLLECTION = "config";
-const PAGE_CONTENT_COLLECTION = "pageContent";
 const CONTENT_TEXT_COLLECTION = "contentText";
 const COMMITTEE_FILES_COLLECTION = "committeeFiles";
 const COMMITTEE_ROOT_PATH = "committee";
