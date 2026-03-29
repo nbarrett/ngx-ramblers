@@ -7,35 +7,40 @@ import * as os from "os";
 import sharp from "sharp";
 import { envConfig } from "../env-config/env-config";
 import {
-  ExternalImageReference,
-  ImageMigrationProgress,
-  ImageMigrationRequest,
-  ImageMigrationResult,
-  ImageMigrationSourceType,
-  ImageMigrationStatus,
+  ContentMigrationDocumentType,
+  ContentMigrationProgress,
+  ContentMigrationRequest,
+  ContentMigrationResult,
+  ContentMigrationSourceType,
+  ContentMigrationStatus,
+  ExternalContentReference,
   RootFolder
 } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import * as aws from "../aws/aws-controllers";
 import { contentMetadata } from "../mongo/models/content-metadata";
 import { pageContent } from "../mongo/models/page-content";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
+import committeeFile from "../mongo/models/committee-file";
 import { generateAwsFileName, isAwsUploadErrorResponse } from "../aws/aws-utils";
 import * as mongooseClient from "../mongo/mongoose-client";
 import { isArray, keys, values } from "es-toolkit/compat";
 import { humanFileSize } from "../../../projects/ngx-ramblers/src/app/functions/file-utils";
 import { createProcessTimer } from "../shared/process-timer";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { documentTypeFromUrl } from "./image-migration-scanner";
 
-const debugLog = debug(envConfig.logNamespace("image-migration-engine"));
+const debugLog = debug(envConfig.logNamespace("content-migration-engine"));
 debugLog.enabled = true;
 
-type ProgressCallback = (progress: ImageMigrationProgress) => void;
+type ProgressCallback = (progress: ContentMigrationProgress) => void;
 type CancellationCheck = () => boolean;
 type UrlMapping = Record<string, string>;
 
-function rootFolderForSourceType(sourceType: ImageMigrationSourceType, fallbackFolder: RootFolder): RootFolder {
-  if (sourceType === ImageMigrationSourceType.CONTENT_METADATA) {
+function rootFolderForSourceType(sourceType: ContentMigrationSourceType, fallbackFolder: RootFolder): RootFolder {
+  if (sourceType === ContentMigrationSourceType.CONTENT_METADATA) {
     return RootFolder.carousels;
+  } else if (sourceType === ContentMigrationSourceType.COMMITTEE_FILE) {
+    return RootFolder.committeeFiles;
   } else {
     return fallbackFolder;
   }
@@ -46,17 +51,17 @@ function extractAlbumNameFromSourcePath(sourcePath: string): string {
   return parts.length > 1 ? parts.slice(1).join("/") : sourcePath;
 }
 
-function targetPathForImage(imageRef: ExternalImageReference, fallbackFolder: RootFolder): string {
-  const rootFolder = rootFolderForSourceType(imageRef.sourceType, fallbackFolder);
-  if (imageRef.sourceType === ImageMigrationSourceType.CONTENT_METADATA) {
-    const albumName = extractAlbumNameFromSourcePath(imageRef.sourcePath);
+function targetPathForItem(itemRef: ExternalContentReference, fallbackFolder: RootFolder): string {
+  const rootFolder = rootFolderForSourceType(itemRef.sourceType, fallbackFolder);
+  if (itemRef.sourceType === ContentMigrationSourceType.CONTENT_METADATA) {
+    const albumName = extractAlbumNameFromSourcePath(itemRef.sourcePath);
     return `${rootFolder}/${albumName}`;
   } else {
     return rootFolder;
   }
 }
 
-async function downloadExternalImage(url: string): Promise<{ buffer: Buffer; contentType: string }> {
+async function downloadExternalContent(url: string): Promise<{ buffer: Buffer; contentType: string }> {
   return new Promise((resolve, reject) => {
     const safeUrl = url.replace(/ /g, "%20");
     const protocol = safeUrl.startsWith("https") ? https : http;
@@ -65,18 +70,18 @@ async function downloadExternalImage(url: string): Promise<{ buffer: Buffer; con
       if (response.statusCode === 301 || response.statusCode === 302) {
         const redirectUrl = response.headers.location;
         if (redirectUrl) {
-          downloadExternalImage(redirectUrl.replace(/ /g, "%20")).then(resolve).catch(reject);
+          downloadExternalContent(redirectUrl.replace(/ /g, "%20")).then(resolve).catch(reject);
           return;
         }
       }
 
       if (response.statusCode !== 200) {
-        reject(new Error(`Failed to download image: HTTP ${response.statusCode}`));
+        reject(new Error(`Failed to download content: HTTP ${response.statusCode}`));
         return;
       }
 
       const chunks: Uint8Array[] = [];
-      const contentType = response.headers["content-type"] || "image/jpeg";
+      const contentType = response.headers["content-type"] || "application/octet-stream";
 
       response.on("data", (chunk: Uint8Array) => chunks.push(chunk));
       response.on("end", () => {
@@ -101,12 +106,12 @@ function extractFileNameFromUrl(url: string): string {
     const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split("/");
     const fileName = pathParts[pathParts.length - 1];
-    if (fileName && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileName)) {
+    if (fileName && /\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico|pdf|doc|docx|dot|xls|xlsx|csv|ppt|pptx|odt|ods|odp|rtf|txt|gpx|zip|json|geojson|xml)$/i.test(fileName)) {
       return fileName;
     }
-    return `image-${dateTimeNowAsValue()}.jpg`;
+    return `file-${dateTimeNowAsValue()}.bin`;
   } catch {
-    return `image-${dateTimeNowAsValue()}.jpg`;
+    return `file-${dateTimeNowAsValue()}.bin`;
   }
 }
 
@@ -141,7 +146,12 @@ async function resizeImageIfNeeded(buffer: Buffer, imagePath: string, maxFileSiz
   return { buffer: resizedBuffer, wasResized: true };
 }
 
-async function uploadToS3(buffer: Buffer, originalFileName: string, targetFolder: string): Promise<string> {
+async function uploadToS3(
+  buffer: Buffer,
+  originalFileName: string,
+  targetFolder: string,
+  onProgress?: (loaded: number, total: number) => void
+): Promise<string> {
   const tempDir = os.tmpdir();
   const awsFileName = generateAwsFileName(originalFileName);
   const tempFilePath = path.join(tempDir, awsFileName);
@@ -149,7 +159,8 @@ async function uploadToS3(buffer: Buffer, originalFileName: string, targetFolder
   await fs.promises.writeFile(tempFilePath, new Uint8Array(buffer));
 
   try {
-    const result = await aws.putObjectDirect(targetFolder, awsFileName, tempFilePath);
+    const result = await aws.putObjectDirect(targetFolder, awsFileName, tempFilePath,
+      onProgress ? ({ loaded, total }) => onProgress(loaded, total) : undefined);
 
     if (isAwsUploadErrorResponse(result)) {
       throw new Error(result.error || "S3 upload failed");
@@ -175,14 +186,22 @@ function replaceUrlsInText(text: string, urlMapping: UrlMapping): string {
     debugLog("replaceUrlsInText:checking", oldUrl, "->", newUrl, "containsUrl:", containsUrl);
     if (containsUrl) {
       const escapedOldUrl = oldUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const markdownRegex = new RegExp(`(!\\[[^\\]]*\\]\\()${escapedOldUrl}(\\))`, "g");
-      const markdownMatches = result.match(markdownRegex);
-      debugLog("replaceUrlsInText:markdown matches:", markdownMatches?.length || 0);
-      result = result.replace(markdownRegex, `$1${newUrl}$2`);
-      const htmlRegex = new RegExp(`(<img[^>]+src=["'])${escapedOldUrl}(["'][^>]*>)`, "gi");
-      const htmlMatches = result.match(htmlRegex);
-      debugLog("replaceUrlsInText:HTML matches:", htmlMatches?.length || 0);
-      result = result.replace(htmlRegex, `$1${newUrl}$2`);
+      const markdownImageRegex = new RegExp(`(!\\[[^\\]]*\\]\\()${escapedOldUrl}(\\))`, "g");
+      const markdownImageMatches = result.match(markdownImageRegex);
+      debugLog("replaceUrlsInText:markdown image matches:", markdownImageMatches?.length || 0);
+      result = result.replace(markdownImageRegex, `$1${newUrl}$2`);
+      const htmlImgRegex = new RegExp(`(<img[^>]+src=["'])${escapedOldUrl}(["'][^>]*>)`, "gi");
+      const htmlImgMatches = result.match(htmlImgRegex);
+      debugLog("replaceUrlsInText:HTML img matches:", htmlImgMatches?.length || 0);
+      result = result.replace(htmlImgRegex, `$1${newUrl}$2`);
+      const markdownLinkRegex = new RegExp(`(\\[[^\\]]+\\]\\()${escapedOldUrl}(\\))`, "g");
+      const markdownLinkMatches = result.match(markdownLinkRegex);
+      debugLog("replaceUrlsInText:markdown link matches:", markdownLinkMatches?.length || 0);
+      result = result.replace(markdownLinkRegex, `$1${newUrl}$2`);
+      const htmlLinkRegex = new RegExp(`(<a[^>]+href=["'])${escapedOldUrl}(["'][^>]*>)`, "gi");
+      const htmlLinkMatches = result.match(htmlLinkRegex);
+      debugLog("replaceUrlsInText:HTML link matches:", htmlLinkMatches?.length || 0);
+      result = result.replace(htmlLinkRegex, `$1${newUrl}$2`);
     }
   });
   return result;
@@ -241,11 +260,15 @@ async function updatePageContentWithMapping(sourceId: string, urlMapping: UrlMap
 
   const docObj = doc.toObject ? doc.toObject() : doc;
 
-  function updateColumnImages(column: any): any {
+  function updateColumnUrls(column: any): any {
     const updatedColumn = { ...column };
     if (updatedColumn.imageSource && urlMapping[updatedColumn.imageSource]) {
       debugLog("updatePageContentWithMapping:replacing imageSource:", updatedColumn.imageSource, "->", urlMapping[updatedColumn.imageSource]);
       updatedColumn.imageSource = urlMapping[updatedColumn.imageSource];
+    }
+    if (updatedColumn.href && urlMapping[updatedColumn.href]) {
+      debugLog("updatePageContentWithMapping:replacing href:", updatedColumn.href, "->", urlMapping[updatedColumn.href]);
+      updatedColumn.href = urlMapping[updatedColumn.href];
     }
     if (updatedColumn.contentText) {
       const originalText = updatedColumn.contentText;
@@ -257,7 +280,7 @@ async function updatePageContentWithMapping(sourceId: string, urlMapping: UrlMap
     if (updatedColumn.rows && isArray(updatedColumn.rows)) {
       updatedColumn.rows = updatedColumn.rows.map((nestedRow: any) => ({
         ...nestedRow,
-        columns: (nestedRow.columns || []).map(updateColumnImages)
+        columns: (nestedRow.columns || []).map(updateColumnUrls)
       }));
     }
     return updatedColumn;
@@ -265,7 +288,7 @@ async function updatePageContentWithMapping(sourceId: string, urlMapping: UrlMap
 
   const updatedRows = (docObj.rows || []).map((row: any) => ({
     ...row,
-    columns: (row.columns || []).map(updateColumnImages)
+    columns: (row.columns || []).map(updateColumnUrls)
   }));
 
   const changedColumns = updatedRows.flatMap((row: any) =>
@@ -321,84 +344,112 @@ async function updateGroupEventWithMapping(sourceId: string, urlMapping: UrlMapp
   debugLog("updateGroupEventWithMapping:updated successfully");
 }
 
+async function updateCommitteeFileWithMapping(sourceId: string, urlMapping: UrlMapping): Promise<void> {
+  debugLog("updateCommitteeFileWithMapping:updating", sourceId, "with", keys(urlMapping).length, "URL replacements");
+  await mongooseClient.connect(debugLog);
+
+  const doc = await committeeFile.findById(sourceId).exec();
+  if (!doc) {
+    throw new Error(`CommitteeFile not found: ${sourceId}`);
+  }
+
+  const docObj: any = doc.toObject ? doc.toObject() : doc;
+  const currentAwsFileName = docObj.fileNameData?.awsFileName;
+  if (currentAwsFileName && urlMapping[currentAwsFileName]) {
+    const newS3Path = urlMapping[currentAwsFileName];
+    const awsFileName = newS3Path.split("/").pop();
+    const rootFolder = newS3Path.substring(0, newS3Path.length - (awsFileName?.length || 0) - 1);
+    await committeeFile.findByIdAndUpdate(sourceId, {
+      "fileNameData.awsFileName": awsFileName,
+      "fileNameData.rootFolder": rootFolder
+    }).exec();
+    debugLog("updateCommitteeFileWithMapping:updated", sourceId, "to", newS3Path);
+  }
+}
+
 async function updateDocumentWithMapping(
-  sourceType: ImageMigrationSourceType,
+  sourceType: ContentMigrationSourceType,
   sourceId: string,
   urlMapping: UrlMapping,
   maxImageSize?: number
 ): Promise<void> {
   switch (sourceType) {
-    case ImageMigrationSourceType.CONTENT_METADATA:
+    case ContentMigrationSourceType.CONTENT_METADATA:
       await updateContentMetadataWithMapping(sourceId, urlMapping, maxImageSize);
       break;
-    case ImageMigrationSourceType.PAGE_CONTENT:
+    case ContentMigrationSourceType.PAGE_CONTENT:
       await updatePageContentWithMapping(sourceId, urlMapping);
       break;
-    case ImageMigrationSourceType.GROUP_EVENT:
-    case ImageMigrationSourceType.SOCIAL_EVENT:
+    case ContentMigrationSourceType.GROUP_EVENT:
+    case ContentMigrationSourceType.SOCIAL_EVENT:
       await updateGroupEventWithMapping(sourceId, urlMapping);
+      break;
+    case ContentMigrationSourceType.COMMITTEE_FILE:
+      await updateCommitteeFileWithMapping(sourceId, urlMapping);
       break;
     default:
       throw new Error(`Unknown source type: ${sourceType}`);
   }
 }
 
-export async function migrateImages(
-  request: ImageMigrationRequest,
+export async function migrateContent(
+  request: ContentMigrationRequest,
   progressCallback?: ProgressCallback,
   isCancelled?: CancellationCheck
-): Promise<ImageMigrationResult> {
-  const timer = createProcessTimer("migrateImages", debugLog);
-  debugLog("migrateImages:migrating", request.images.length, "images to", request.targetRootFolder);
+): Promise<ContentMigrationResult> {
+  const timer = createProcessTimer("migrateContent", debugLog);
+  debugLog("migrateContent:migrating", request.items.length, "items to", request.targetRootFolder);
 
-  const migratedImages: ExternalImageReference[] = [];
-  const failedImages: ExternalImageReference[] = [];
+  const migratedItems: ExternalContentReference[] = [];
+  const failedItems: ExternalContentReference[] = [];
 
   const maxImageSize = request.maxImageSize || 0;
 
-  const urlToImageRef = request.images.reduce((acc, img) => {
-    if (!acc[img.currentUrl]) {
-      acc[img.currentUrl] = img;
+  const urlToItemRef = request.items.reduce((acc, item) => {
+    if (!acc[item.currentUrl]) {
+      acc[item.currentUrl] = item;
     }
     return acc;
-  }, {} as Record<string, ExternalImageReference>);
+  }, {} as Record<string, ExternalContentReference>);
 
-  const uniqueUrls = keys(urlToImageRef);
-  debugLog("migrateImages:found", uniqueUrls.length, "unique URLs from", request.images.length, "image references");
+  const uniqueUrls = keys(urlToItemRef);
+  debugLog("migrateContent:found", uniqueUrls.length, "unique URLs from", request.items.length, "content references");
 
   const globalUrlMapping: UrlMapping = {};
   const failedUrls = new Set<string>();
   let uploadedCount = 0;
+  let inFlightFraction = 0;
 
-  const sendProgress = (currentImage: string, phase: "upload" | "update", errorMessage?: string) => {
+  const sendProgress = (currentItem: string, phase: "upload" | "update", errorMessage?: string) => {
     if (progressCallback) {
       const uploadWeight = 0.8;
       const updateWeight = 0.2;
       let percent: number;
-      let processedImages: number;
+      let processedItems: number;
       let successCount: number;
       let failureCount: number;
 
       if (phase === "upload") {
-        percent = Math.round((uploadedCount / uniqueUrls.length) * uploadWeight * 100);
-        processedImages = uploadedCount;
+        const uploadFraction = (uploadedCount + inFlightFraction) / uniqueUrls.length;
+        percent = Math.round(uploadFraction * uploadWeight * 100);
+        processedItems = uploadedCount;
         successCount = keys(globalUrlMapping).length;
         failureCount = failedUrls.size;
       } else {
         const uploadPercent = uploadWeight * 100;
-        const updatePercent = (migratedImages.length + failedImages.length) / request.images.length * updateWeight * 100;
+        const updatePercent = (migratedItems.length + failedItems.length) / request.items.length * updateWeight * 100;
         percent = Math.round(uploadPercent + updatePercent);
-        processedImages = migratedImages.length + failedImages.length;
-        successCount = migratedImages.length;
-        failureCount = failedImages.length;
+        processedItems = migratedItems.length + failedItems.length;
+        successCount = migratedItems.length;
+        failureCount = failedItems.length;
       }
 
       progressCallback({
-        totalImages: phase === "upload" ? uniqueUrls.length : request.images.length,
-        processedImages,
+        totalItems: phase === "upload" ? uniqueUrls.length : request.items.length,
+        processedItems,
         successCount,
         failureCount,
-        currentImage,
+        currentItem,
         percent: Math.min(percent, 100),
         errorMessage
       });
@@ -406,39 +457,59 @@ export async function migrateImages(
   };
 
   uniqueUrls.forEach((url, index) => {
-    debugLog("migrateImages:queued for upload:", index + 1, "/", uniqueUrls.length, url);
+    debugLog("migrateContent:queued for upload:", index + 1, "/", uniqueUrls.length, url);
   });
 
   for (const url of uniqueUrls) {
     if (isCancelled?.()) {
-      debugLog("migrateImages:cancellation requested, stopping upload phase");
+      debugLog("migrateContent:cancellation requested, stopping upload phase");
       break;
     }
     try {
-      debugLog("migrateImages:downloading unique image:", url);
+      debugLog("migrateContent:downloading:", url);
       sendProgress(url, "upload");
 
-      const { buffer: downloadedBuffer } = await downloadExternalImage(url);
+      const { buffer: downloadedBuffer } = await downloadExternalContent(url);
       const fileName = extractFileNameFromUrl(url);
+      const docType = documentTypeFromUrl(url);
 
-      const { buffer: finalBuffer, wasResized } = await resizeImageIfNeeded(downloadedBuffer, fileName, maxImageSize);
-      if (wasResized) {
-        debugLog("migrateImages:resized image from", humanFileSize(downloadedBuffer.length), "to", humanFileSize(finalBuffer.length));
+      let finalBuffer: Buffer;
+      if (docType === ContentMigrationDocumentType.IMAGE) {
+        const { buffer: resizedBuffer, wasResized } = await resizeImageIfNeeded(downloadedBuffer, fileName, maxImageSize);
+        if (wasResized) {
+          debugLog("migrateContent:resized image from", humanFileSize(downloadedBuffer.length), "to", humanFileSize(resizedBuffer.length));
+        }
+        finalBuffer = resizedBuffer;
+      } else {
+        debugLog("migrateContent:non-image file, skipping resize:", fileName, `(${docType})`);
+        finalBuffer = downloadedBuffer;
       }
 
-      const imageRef = urlToImageRef[url];
-      const targetFolder = targetPathForImage(imageRef, request.targetRootFolder);
-      debugLog("migrateImages:target folder for", url, "is", targetFolder, "based on source type", imageRef.sourceType, "sourcePath", imageRef.sourcePath);
+      const itemRef = urlToItemRef[url];
+      const targetFolder = targetPathForItem(itemRef, request.targetRootFolder);
+      debugLog("migrateContent:target folder for", url, "is", targetFolder, "based on source type", itemRef.sourceType, "sourcePath", itemRef.sourcePath);
 
-      const newS3Url = await uploadToS3(finalBuffer, fileName, targetFolder);
+      inFlightFraction = 0;
+      let lastReportedFraction = 0;
+      const newS3Url = await uploadToS3(finalBuffer, fileName, targetFolder, (loaded, total) => {
+        if (total > 0) {
+          inFlightFraction = Math.min(loaded / total, 1);
+          if (inFlightFraction - lastReportedFraction >= 0.05 || inFlightFraction === 1) {
+            lastReportedFraction = inFlightFraction;
+            sendProgress(url, "upload");
+          }
+        }
+      });
+      inFlightFraction = 0;
       globalUrlMapping[url] = newS3Url;
       uploadedCount++;
-      debugLog("migrateImages:uploaded:", url, "->", newS3Url);
+      debugLog("migrateContent:uploaded:", url, "->", newS3Url);
       sendProgress(url, "upload");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      debugLog("migrateImages:failed to download/upload:", url, "error:", errorMessage);
+      debugLog("migrateContent:failed to download/upload:", url, "error:", errorMessage);
       failedUrls.add(url);
+      inFlightFraction = 0;
       uploadedCount++;
       sendProgress(url, "upload", errorMessage);
     }
@@ -446,86 +517,86 @@ export async function migrateImages(
 
   timer.log(`upload phase complete. Success: ${keys(globalUrlMapping).length}, Failed: ${failedUrls.size}`);
 
-  const imagesByDocument = request.images.reduce((acc, image) => {
-    const key = `${image.sourceType}:::${image.sourceId}`;
+  const itemsByDocument = request.items.reduce((acc, item) => {
+    const key = `${item.sourceType}:::${item.sourceId}`;
     if (!acc[key]) {
-      acc[key] = { sourceType: image.sourceType, sourceId: image.sourceId, images: [] };
+      acc[key] = { sourceType: item.sourceType, sourceId: item.sourceId, items: [] };
     }
-    acc[key].images.push(image);
+    acc[key].items.push(item);
     return acc;
-  }, {} as Record<string, { sourceType: ImageMigrationSourceType; sourceId: string; images: ExternalImageReference[] }>);
+  }, {} as Record<string, { sourceType: ContentMigrationSourceType; sourceId: string; items: ExternalContentReference[] }>);
 
   const wasCancelledDuringUpload = isCancelled?.() || false;
   if (wasCancelledDuringUpload) {
-    debugLog("migrateImages:cancelled during upload phase, will still save", keys(globalUrlMapping).length, "successfully uploaded images");
+    debugLog("migrateContent:cancelled during upload phase, will still save", keys(globalUrlMapping).length, "successfully uploaded items");
   }
 
-  timer.log(`updating ${keys(imagesByDocument).length} documents`);
+  timer.log(`updating ${keys(itemsByDocument).length} documents`);
 
-  for (const docGroup of values(imagesByDocument)) {
+  for (const docGroup of values(itemsByDocument)) {
     const documentUrlMapping: UrlMapping = {};
-    const documentImages = docGroup.images;
+    const documentItems = docGroup.items;
 
-    documentImages.forEach(image => {
-      if (globalUrlMapping[image.currentUrl]) {
-        documentUrlMapping[image.currentUrl] = globalUrlMapping[image.currentUrl];
+    documentItems.forEach(item => {
+      if (globalUrlMapping[item.currentUrl]) {
+        documentUrlMapping[item.currentUrl] = globalUrlMapping[item.currentUrl];
       }
     });
 
     if (keys(documentUrlMapping).length > 0) {
       try {
-        debugLog("migrateImages:updating document", docGroup.sourceType, docGroup.sourceId, "with", keys(documentUrlMapping).length, "URL mappings");
+        debugLog("migrateContent:updating document", docGroup.sourceType, docGroup.sourceId, "with", keys(documentUrlMapping).length, "URL mappings");
         await updateDocumentWithMapping(docGroup.sourceType, docGroup.sourceId, documentUrlMapping, maxImageSize);
-        debugLog("migrateImages:document updated successfully", docGroup.sourceId);
+        debugLog("migrateContent:document updated successfully", docGroup.sourceId);
 
-        documentImages.forEach(image => {
-          if (globalUrlMapping[image.currentUrl]) {
-            migratedImages.push({
-              ...image,
-              status: ImageMigrationStatus.MIGRATED,
-              newS3Url: globalUrlMapping[image.currentUrl]
+        documentItems.forEach(item => {
+          if (globalUrlMapping[item.currentUrl]) {
+            migratedItems.push({
+              ...item,
+              status: ContentMigrationStatus.MIGRATED,
+              newS3Url: globalUrlMapping[item.currentUrl]
             });
           } else {
-            failedImages.push({
-              ...image,
-              status: ImageMigrationStatus.FAILED,
-              errorMessage: "Failed to download or upload image"
+            failedItems.push({
+              ...item,
+              status: ContentMigrationStatus.FAILED,
+              errorMessage: "Failed to download or upload content"
             });
           }
-          sendProgress(image.currentUrl, "update");
+          sendProgress(item.currentUrl, "update");
         });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        debugLog("migrateImages:failed to update document:", docGroup.sourceId, "error:", errorMessage);
-        documentImages.forEach(image => {
-          failedImages.push({
-            ...image,
-            status: ImageMigrationStatus.FAILED,
+        debugLog("migrateContent:failed to update document:", docGroup.sourceId, "error:", errorMessage);
+        documentItems.forEach(item => {
+          failedItems.push({
+            ...item,
+            status: ContentMigrationStatus.FAILED,
             errorMessage
           });
-          sendProgress(image.currentUrl, "update");
+          sendProgress(item.currentUrl, "update");
         });
       }
     } else {
-      documentImages.forEach(image => {
-        failedImages.push({
-          ...image,
-          status: ImageMigrationStatus.FAILED,
-          errorMessage: "Failed to download or upload image"
+      documentItems.forEach(item => {
+        failedItems.push({
+          ...item,
+          status: ContentMigrationStatus.FAILED,
+          errorMessage: "Failed to download or upload content"
         });
-        sendProgress(image.currentUrl, "update");
+        sendProgress(item.currentUrl, "update");
       });
     }
   }
 
-  timer.complete(`Success: ${migratedImages.length}, Failed: ${failedImages.length}${wasCancelledDuringUpload ? " (cancelled)" : ""}`);
+  timer.complete(`Success: ${migratedItems.length}, Failed: ${failedItems.length}${wasCancelledDuringUpload ? " (cancelled)" : ""}`);
 
   return {
-    totalProcessed: migratedImages.length + failedImages.length,
-    successCount: migratedImages.length,
-    failureCount: failedImages.length,
-    migratedImages,
-    failedImages,
+    totalProcessed: migratedItems.length + failedItems.length,
+    successCount: migratedItems.length,
+    failureCount: failedItems.length,
+    migratedItems,
+    failedItems,
     cancelled: wasCancelledDuringUpload
   };
 }

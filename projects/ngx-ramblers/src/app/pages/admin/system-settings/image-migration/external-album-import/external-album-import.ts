@@ -23,7 +23,7 @@ import {
   ExternalSourceOption,
   ExternalPhoto,
   ExternalUserAlbumsMetadata,
-  ImageMigrationActivityLog,
+  ContentMigrationActivityLog,
   SplitAlbumPreviewEntry
 } from "../../../../../models/system.model";
 import { NgSelectComponent } from "@ng-select/ng-select";
@@ -504,7 +504,7 @@ export class ExternalAlbumImportComponent implements OnInit, OnDestroy {
 
   activityTarget: AlertTarget = {};
   activityNotifier: AlertInstance;
-  logs: ImageMigrationActivityLog[] = [];
+  logs: ContentMigrationActivityLog[] = [];
   selectedTemplate: PageContent | null = null;
   creationMode: ExternalAlbumCreationMode = ExternalAlbumCreationMode.DEFAULT;
   protected readonly ExternalAlbumCreationMode = ExternalAlbumCreationMode;
