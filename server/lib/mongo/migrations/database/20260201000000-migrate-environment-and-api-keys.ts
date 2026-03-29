@@ -2,8 +2,9 @@ import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { keys } from "es-toolkit/compat";
 
+import { CONFIG_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("migrate-environment-and-api-keys");
-const CONFIG_COLLECTION = "config";
 const SYSTEM_CONFIG_KEY = "system";
 const ENVIRONMENTS_CONFIG_KEY = "environments";
 

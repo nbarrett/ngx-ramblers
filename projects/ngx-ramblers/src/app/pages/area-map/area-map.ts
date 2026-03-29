@@ -1,6 +1,24 @@
-import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
+import {
+  ApplicationRef,
+  Component,
+  ComponentRef,
+  createComponent,
+  EnvironmentInjector,
+  inject,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  SimpleChanges
+} from "@angular/core";
 import * as L from "leaflet";
 import { FormsModule } from "@angular/forms";
+
+declare module "leaflet" {
+  interface GeoJSONOptions {
+    renderer?: L.Renderer;
+  }
+}
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { GroupAreasService } from "../../services/group-areas.service";
 import { GroupAreaConfig, SharedDistrictInfo } from "../../models/group-area.model";
@@ -15,9 +33,15 @@ import { UiActionsService } from "../../services/ui-actions.service";
 import { StoredValue } from "../../models/ui-actions";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { AreaMapClickAction, AreaMapData, LegendPosition, PageContent, PageContentRow } from "../../models/content-text.model";
-import { Subscription } from "rxjs";
-import { isArray, isFunction, isNull, isNumber, isString, isUndefined, keys } from "es-toolkit/compat";
+import {
+  AreaMapClickAction,
+  AreaMapData,
+  LegendPosition,
+  PageContent,
+  PageContentRow
+} from "../../models/content-text.model";
+import { forkJoin, of, Subscription } from "rxjs";
+import { isArray, isFunction, isNull, isNumber, isString, keys } from "es-toolkit/compat";
 import { range } from "es-toolkit";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { SystemConfigService } from "../../services/system/system-config.service";
@@ -27,6 +51,16 @@ import { asNumber } from "../../functions/numbers";
 import { HeightResizerComponent } from "../../modules/common/height-resizer/height-resizer";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { ParishMapService } from "../../services/parish-map.service";
+import { ParishAllocation, ParishFeatureProperties, ParishStatus } from "../../models/parish-map.model";
+import { MemberLoginService } from "../../services/member/member-login.service";
+import { catchError } from "rxjs/operators";
+import { ParishPopup } from "./parish-popup";
+import { FullNamePipe } from "../../pipes/full-name.pipe";
+import { Member, MemberWithLabel } from "../../models/member.model";
+import { MemberService } from "../../services/member/member.service";
+import { DateUtilsService } from "../../services/date-utils.service";
+import { sortBy } from "../../functions/arrays";
 
 @Component({
   selector: "app-area-map",
@@ -36,6 +70,11 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
       height: 480px
       border-radius: 0.5rem
       overflow: hidden
+    :host ::ng-deep .map-container *:focus
+      outline: none !important
+      box-shadow: none !important
+    :host ::ng-deep .leaflet-interactive:focus
+      outline: none !important
     :host ::ng-deep .leaflet-control-attribution
       font-size: 0.75rem
     :host ::ng-deep .group-name-label span
@@ -254,6 +293,44 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
       align-items: center
       gap: 6px
       padding: 2px 0
+
+    .parish-loading-indicator, .parish-count-indicator
+      font-size: 0.8rem
+      color: #6c757d
+      padding: 4px 8px
+      text-align: right
+
+    .parish-loading-indicator fa-icon
+      margin-right: 4px
+
+    :host ::ng-deep .parish-admin-popup .leaflet-popup-content-wrapper
+      border-radius: 6px
+      padding: 6px
+
+    :host ::ng-deep .parish-admin-popup .leaflet-popup-content
+      margin: 0
+      min-width: 0
+      line-height: 1.4
+
+    :host ::ng-deep .parish-admin-popup .leaflet-popup-close-button
+      color: #000
+      font-size: 18px
+      padding: 0
+      top: -8px
+      right: -8px
+      width: 20px
+      height: 20px
+      line-height: 20px
+      text-align: center
+      background: white
+      border-radius: 50%
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2)
+
+    :host ::ng-deep .parish-admin-popup .leaflet-popup-close-button:hover
+      background: #f8f9fa
+
+    :host ::ng-deep .parish-admin-popup .leaflet-popup-tip
+      background: white
   `],
   template: `
     @if (standalone) {
@@ -447,25 +524,46 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
   private stripePatternContainer: HTMLElement | null = null;
   private stripePatternCounter = 0;
   private areas = inject(GroupAreasService);
+  private parishService = inject(ParishMapService);
   private tiles = inject(MapTilesService);
   private mapControlsStateService = inject(MapControlsStateService);
   private mapRecreation = inject(MapRecreationService);
   private uiActions = inject(UiActionsService);
   private systemConfigService = inject(SystemConfigService);
   private broadcastService = inject(BroadcastService);
+  private memberLoginService = inject(MemberLoginService);
+  private appRef = inject(ApplicationRef);
+  private environmentInjector = inject(EnvironmentInjector);
+  private fullNamePipe = inject(FullNamePipe);
+  private memberService = inject(MemberService);
+  private dateUtils = inject(DateUtilsService);
   private cmsSettings?: AreaMapData;
+  private popupComponentRef: ComponentRef<ParishPopup> | null = null;
+  private membersWithLabel: MemberWithLabel[] = [];
+  private tooltipsSuppressed = false;
 
   private savedCenter: L.LatLng | null = null;
   private savedZoom = 9;
   private preserveNextView = false;
+  private parishLayer: L.GeoJSON | null = null;
+  private parishAllocations: Map<string, ParishAllocation> = new Map();
+  public parishCount = 0;
+  public parishesLoading = false;
 
   get standalone(): boolean {
     return !this.row;
   }
-  ngOnInit() {
+  async ngOnInit() {
     this.logger.info("AreaMapComponent ngOnInit started");
     this.isInitialized = true;
     this.initializeComponent();
+    if (this.memberLoginService.allowContentEdits()) {
+      const members = await this.memberService.all();
+      this.membersWithLabel = members.map(member => ({
+        ...member,
+        ngSelectAttributes: {label: this.fullNamePipe.transform(member)}
+      })).sort(sortBy("ngSelectAttributes.label"));
+    }
     this.logger.info("AreaMapComponent ngOnInit completed");
   }
 
@@ -492,12 +590,17 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnDestroy() {
+    this.destroyPopupComponent();
     this.cmsSettingsSubscription?.unsubscribe();
     this.clearHoverTimeout();
     this.clearLegendHoverTimeout();
     if (this.stripePatternContainer) {
       this.stripePatternContainer.remove();
       this.stripePatternContainer = null;
+    }
+    if (this.parishLayer && this.mapRef) {
+      this.mapRef.removeLayer(this.parishLayer);
+      this.parishLayer = null;
     }
   }
 
@@ -527,7 +630,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
       this.cmsSettings = this.row.areaMap;
     }
 
-    this.region = this.cmsSettings?.region;
+    this.region = this.systemConfigService.systemConfig()?.area?.shortName || this.cmsSettings?.region;
     this.mapHeight = this.cmsSettings?.mapHeight || 480;
     this.provider = (this.cmsSettings?.provider as MapProvider) || this.provider;
     this.osStyle = this.cmsSettings?.osStyle || this.osStyle;
@@ -1126,9 +1229,10 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
     }).subscribe({
       next: (cfg) => {
         if (!cfg || !cfg.areas || cfg.areas.length === 0) {
-          this.logger.warn("No GeoJSON areas received from backend");
+          this.logger.info("No GeoJSON areas received from backend, showParishes:", this.cmsSettings?.showParishes, "mapCenter:", this.cmsSettings?.mapCenter);
           this.layers = [];
           this.dataLoading = false;
+          this.loadParishesIfEnabled([]);
           return;
         }
 
@@ -1158,13 +1262,16 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
           return feature.geometry && feature.geometry.coordinates && feature.geometry.coordinates.length > 0;
         });
 
+        const showAreas = this.cmsSettings?.showAreas !== false;
         this.availableGroups = validAreas.map(area => area.name).sort();
 
-        const areasToDisplay = this.selectedGroups.length > 0
-          ? validAreas.filter(area => this.selectedGroups.includes(area.name))
-          : validAreas;
+        const areasToDisplay = showAreas
+          ? (this.selectedGroups.length > 0
+            ? validAreas.filter(area => this.selectedGroups.includes(area.name))
+            : validAreas)
+          : [];
 
-        this.logger.info(`Creating overlays for ${areasToDisplay.length} areas`);
+        this.logger.info(`Creating overlays for ${areasToDisplay.length} areas (showAreas: ${showAreas})`);
 
         const sortedAreas = [...areasToDisplay].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -1406,11 +1513,410 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
 
         this.logger.info("Successfully loaded GeoJSON areas");
         this.dataLoading = false;
+
+        this.loadParishesIfEnabled(validAreas, bounds);
       },
       error: (error) => {
         this.logger.error("Failed to fetch GeoJSON areas:", error);
         this.layers = [];
         this.dataLoading = false;
+        this.loadParishesIfEnabled([]);
+      }
+    });
+  }
+
+  private loadParishesIfEnabled(areas: GroupAreaConfig[], areaBounds?: L.LatLngBounds) {
+    if (!this.cmsSettings?.showParishes) {
+      return;
+    }
+    let bounds = areaBounds?.isValid() ? areaBounds : this.computeBoundsFromAreas(areas);
+    if (!bounds.isValid()) {
+      bounds = this.computeBoundsFromMapSettings();
+    }
+    if (bounds.isValid()) {
+      this.loadParishOverlay(bounds, areas);
+    } else {
+      this.logger.warn("Cannot load parishes: no valid bounds available from areas or map settings");
+    }
+  }
+
+  private computeBoundsFromMapSettings(): L.LatLngBounds {
+    const center = this.cmsSettings?.mapCenter;
+    if (center && isArray(center) && center.length === 2) {
+      const latLng = L.latLng(center[0], center[1]);
+      const zoom = this.cmsSettings?.mapZoom ?? 10;
+      const offset = zoom <= 8 ? 1.2 : zoom <= 10 ? 0.8 : 0.4;
+      return L.latLngBounds(
+        [latLng.lat - offset, latLng.lng - offset],
+        [latLng.lat + offset, latLng.lng + offset]
+      );
+    }
+    return L.latLngBounds([]);
+  }
+
+  private computeBoundsFromAreas(areas: GroupAreaConfig[]): L.LatLngBounds {
+    const allBounds = L.latLngBounds([]);
+    areas.forEach(area => {
+      try {
+        const tempLayer = L.geoJSON(area.geoJsonFeature);
+        const layerBounds = tempLayer.getBounds();
+        if (layerBounds.isValid()) {
+          allBounds.extend(layerBounds);
+        }
+      } catch (e) {
+        this.logger.warn("Could not compute bounds for area:", area.name);
+      }
+    });
+    return allBounds;
+  }
+
+  private buildAreaClipLayers(areas: GroupAreaConfig[]): L.GeoJSON[] {
+    return areas.map(area => L.geoJSON(area.geoJsonFeature)).filter(layer => {
+      try {
+        return layer.getBounds().isValid();
+      } catch {
+        return false;
+      }
+    });
+  }
+
+  private isPointInsideAnyLayer(point: L.LatLng, layers: L.GeoJSON[]): boolean {
+    return layers.some(areaLayer => {
+      let inside = false;
+      areaLayer.eachLayer((sublayer: any) => {
+        if (!inside && sublayer.getBounds && sublayer.getBounds().contains(point)) {
+          if (isFunction(sublayer.getLatLngs)) {
+            const rings = sublayer.getLatLngs();
+            inside = this.isPointInPolygonRings(point, rings);
+          }
+        }
+      });
+      return inside;
+    });
+  }
+
+  private isPointInPolygonRings(point: L.LatLng, rings: any): boolean {
+    const flatRings: L.LatLng[][] = isArray(rings[0]) && isArray(rings[0][0])
+      ? rings.flat()
+      : rings;
+
+    return flatRings.some((ring: L.LatLng[]) => {
+      if (!isArray(ring)) {
+        return false;
+      }
+      let inside = false;
+      const x = point.lng;
+      const y = point.lat;
+      ring.forEach((current: L.LatLng, i: number) => {
+        const next = ring[(i + 1) % ring.length];
+        if (!current || !next) {
+          return;
+        }
+        const xi = current.lng;
+        const yi = current.lat;
+        const xj = next.lng;
+        const yj = next.lat;
+        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) {
+          inside = !inside;
+        }
+      });
+      return inside;
+    });
+  }
+
+  private loadParishOverlay(areaBounds: L.LatLngBounds, areas: GroupAreaConfig[]) {
+    this.parishesLoading = true;
+    this.parishCount = 0;
+
+    const bbox = {
+      west: areaBounds.getWest(),
+      south: areaBounds.getSouth(),
+      east: areaBounds.getEast(),
+      north: areaBounds.getNorth()
+    };
+
+    const groupCode = this.systemConfigService.systemConfig()?.group?.groupCode;
+    this.logger.info("Loading parishes for bounds:", bbox, "groupCode:", groupCode);
+
+    const parishes$ = this.parishService.queryParishes(bbox);
+    const allocations$ = groupCode
+      ? this.parishService.allocationsByGroupCode(groupCode).pipe(catchError(() => of([] as ParishAllocation[])))
+      : of([] as ParishAllocation[]);
+
+    const clipLayers = this.buildAreaClipLayers(areas);
+
+    forkJoin({parishes: parishes$, allocations: allocations$}).subscribe({
+      next: ({parishes, allocations}) => {
+        this.logger.info(`Received ${parishes.features.length} parishes before clipping, ${allocations.length} allocations`);
+
+        const clippedFeatures = clipLayers.length > 0
+          ? parishes.features.filter(feature => {
+              const tempLayer = L.geoJSON(feature);
+              const center = tempLayer.getBounds().getCenter();
+              return this.isPointInsideAnyLayer(center, clipLayers);
+            })
+          : parishes.features;
+
+        const clippedParishes: GeoJSON.FeatureCollection = {type: "FeatureCollection", features: clippedFeatures};
+        this.logger.info(`${clippedFeatures.length} parishes after clipping to area boundaries`);
+        this.parishCount = clippedFeatures.length;
+
+        this.parishAllocations.clear();
+        (allocations || []).forEach(a => this.parishAllocations.set(a.parishCode, a));
+
+        if (this.parishLayer && this.mapRef) {
+          this.mapRef.removeLayer(this.parishLayer);
+        }
+
+        const allocatedColor = this.cmsSettings?.parishAllocatedColor || "#4a8c3f";
+        const vacantColor = this.cmsSettings?.parishVacantColor || "#cc0000";
+        const borderColor = this.cmsSettings?.parishBorderColor || "#333333";
+        const fillOpacity = this.cmsSettings?.parishFillOpacity ?? 0.7;
+
+        this.parishLayer = L.geoJSON(clippedParishes, {
+          renderer: L.canvas({padding: 1.0}),
+          style: (feature) => {
+            const props = feature?.properties as ParishFeatureProperties;
+            const allocation = props?.PARNCP24CD ? this.parishAllocations.get(props.PARNCP24CD) : null;
+            const fillColor = allocation?.status === ParishStatus.VACANT ? vacantColor
+              : allocation?.status === ParishStatus.ALLOCATED ? allocatedColor
+              : allocatedColor;
+            return {
+              color: borderColor,
+              weight: 1,
+              fillColor,
+              fillOpacity
+            };
+          },
+          onEachFeature: (feature, layer) => {
+            const props = feature.properties as ParishFeatureProperties;
+            if (props?.PARNCP24NM) {
+              const allocation = this.parishAllocations.get(props.PARNCP24CD);
+              const assigneeName = allocation?.assigneeMemberId
+                ? this.membersWithLabel.find(m => m.id === allocation.assigneeMemberId)
+                : null;
+              const statusText = allocation ? ` (${allocation.status})` : "";
+              const assigneeText = assigneeName ? ` - ${this.fullNamePipe.transform(assigneeName)}` : (allocation?.assignee ? ` - ${allocation.assignee}` : "");
+              layer.bindTooltip(`${props.PARNCP24NM}${statusText}${assigneeText}`, {
+                sticky: true,
+                direction: "top",
+                className: "bootstrap-tooltip",
+                opacity: 0.9
+              });
+
+              layer.on("click", () => {
+                if (this.mapRef) {
+                  this.showParishPopup(props, layer, allocatedColor, vacantColor, borderColor, fillOpacity);
+                }
+              });
+
+              layer.on("mouseover", () => {
+                if (this.tooltipsSuppressed) {
+                  (layer as any).closeTooltip();
+                }
+                (layer as any).setStyle({fillOpacity: Math.min(1, fillOpacity + 0.3), weight: 2});
+              });
+              layer.on("mouseout", () => {
+                const currentAllocation = this.parishAllocations.get(props.PARNCP24CD);
+                const currentFill = currentAllocation?.status === ParishStatus.VACANT ? vacantColor
+                  : currentAllocation?.status === ParishStatus.ALLOCATED ? allocatedColor
+                  : allocatedColor;
+                (layer as any).setStyle({fillColor: currentFill, fillOpacity, weight: 1});
+              });
+            }
+          }
+        });
+
+        if (this.mapRef) {
+          if (this.layers.length > 0) {
+            this.parishLayer.addTo(this.mapRef);
+            this.parishLayer.bringToBack();
+          } else {
+            this.layers = [this.parishLayer];
+            const parishBounds = this.parishLayer.getBounds();
+            if (parishBounds.isValid()) {
+              this.fitBounds = parishBounds.pad(0.05);
+            }
+          }
+        }
+
+        this.parishesLoading = false;
+      },
+      error: (error) => {
+        this.logger.error("Failed to load parishes:", error);
+        this.parishesLoading = false;
+      }
+    });
+  }
+
+  private suppressParishTooltips() {
+    if (this.parishLayer) {
+      this.parishLayer.eachLayer(l => {
+        const tooltip = (l as any).getTooltip();
+        if (tooltip) {
+          (l as any).closeTooltip();
+        }
+      });
+      this.tooltipsSuppressed = true;
+    }
+  }
+
+  private restoreParishTooltips() {
+    this.tooltipsSuppressed = false;
+  }
+
+  private destroyPopupComponent() {
+    if (this.popupComponentRef) {
+      this.appRef.detachView(this.popupComponentRef.hostView);
+      this.popupComponentRef.destroy();
+      this.popupComponentRef = null;
+    }
+  }
+
+  private showParishPopup(props: ParishFeatureProperties, layer: L.Layer, allocatedColor: string, vacantColor: string, borderColor: string, fillOpacity: number) {
+    this.destroyPopupComponent();
+    const allocation = this.parishAllocations.get(props.PARNCP24CD) || null;
+    const isAdmin = this.memberLoginService.allowContentEdits();
+
+    const componentRef = createComponent(ParishPopup, {
+      environmentInjector: this.environmentInjector
+    });
+
+    componentRef.instance.props = props;
+    componentRef.instance.allocation = allocation;
+    componentRef.instance.isAdmin = isAdmin;
+    componentRef.instance.allocatedColor = allocatedColor;
+    componentRef.instance.vacantColor = vacantColor;
+    componentRef.instance.membersWithLabel = this.membersWithLabel;
+
+    if (allocation?.assigneeMemberId) {
+      const matched = this.membersWithLabel.find(m => m.id === allocation.assigneeMemberId);
+      componentRef.instance.selectedMember = matched || null;
+      componentRef.instance.assignedMember = matched || null;
+    }
+
+    componentRef.instance.memberAssigned.subscribe((member: Member | null) => {
+      this.assignMemberToParish(props, layer, allocatedColor, vacantColor, borderColor, fillOpacity, member);
+    });
+
+    componentRef.instance.statusToggled.subscribe(() => {
+      this.toggleParishStatus(props, layer, allocatedColor, vacantColor, borderColor, fillOpacity);
+      this.mapRef?.closePopup();
+    });
+
+    componentRef.instance.closed.subscribe(() => {
+      this.mapRef?.closePopup();
+    });
+
+    this.appRef.attachView(componentRef.hostView);
+    this.popupComponentRef = componentRef;
+
+    const popupElement = componentRef.location.nativeElement;
+
+    this.suppressParishTooltips();
+
+    const popup = L.popup({closeButton: true, autoClose: true, closeOnClick: true, className: "parish-admin-popup"})
+      .setLatLng((layer as any).getBounds().getCenter())
+      .setContent(popupElement)
+      .openOn(this.mapRef!);
+
+    this.mapRef?.once("popupclose", () => {
+      this.destroyPopupComponent();
+      this.restoreParishTooltips();
+    });
+  }
+
+  private toggleParishStatus(props: ParishFeatureProperties, layer: L.Layer, allocatedColor: string, vacantColor: string, borderColor: string, fillOpacity: number) {
+    const groupCode = this.systemConfigService.systemConfig()?.group?.groupCode;
+    if (!groupCode) {
+      return;
+    }
+    const memberId = this.memberLoginService.loggedInMember()?.memberId || "";
+    const existing = this.parishAllocations.get(props.PARNCP24CD);
+    const newStatus = existing?.status === ParishStatus.VACANT ? ParishStatus.ALLOCATED : ParishStatus.VACANT;
+
+    const allocationData: ParishAllocation = {
+      ...(existing || {}),
+      groupCode,
+      parishCode: props.PARNCP24CD,
+      parishName: props.PARNCP24NM,
+      status: newStatus,
+      assignee: newStatus === ParishStatus.VACANT ? "" : (existing?.assignee || ""),
+      assigneeMemberId: newStatus === ParishStatus.VACANT ? "" : (existing?.assigneeMemberId || ""),
+      updatedAt: this.dateUtils.dateTimeNow().valueOf(),
+      updatedBy: memberId
+    };
+
+    const save$ = existing?.id
+      ? this.parishService.updateAllocation({...allocationData, id: existing.id})
+      : this.parishService.createAllocation(allocationData);
+
+    save$.subscribe({
+      next: (saved) => {
+        this.parishAllocations.set(props.PARNCP24CD, saved);
+        const fillColor = saved.status === ParishStatus.VACANT ? vacantColor : allocatedColor;
+        (layer as any).setStyle({fillColor, fillOpacity, color: borderColor, weight: 1});
+        const assigneeName = saved.assigneeMemberId
+          ? this.membersWithLabel.find(m => m.id === saved.assigneeMemberId)
+          : null;
+        const assigneeText = assigneeName ? ` - ${this.fullNamePipe.transform(assigneeName)}` : (saved.assignee ? ` - ${saved.assignee}` : "");
+        (layer as any).unbindTooltip();
+        (layer as any).bindTooltip(`${props.PARNCP24NM} (${saved.status})${assigneeText}`, {
+          sticky: true,
+          direction: "top",
+          className: "bootstrap-tooltip",
+          opacity: 0.9
+        });
+        this.logger.info(`Toggled parish ${props.PARNCP24NM} to ${saved.status}`);
+      },
+      error: (error) => {
+        this.logger.error("Failed to toggle parish status:", error);
+      }
+    });
+  }
+
+  private assignMemberToParish(props: ParishFeatureProperties, layer: L.Layer, allocatedColor: string, vacantColor: string, borderColor: string, fillOpacity: number, member: Member | null) {
+    const groupCode = this.systemConfigService.systemConfig()?.group?.groupCode;
+    if (!groupCode) {
+      return;
+    }
+    const updatedBy = this.memberLoginService.loggedInMember()?.memberId || "";
+    const existing = this.parishAllocations.get(props.PARNCP24CD);
+
+    const allocationData: ParishAllocation = {
+      ...(existing || {}),
+      groupCode,
+      parishCode: props.PARNCP24CD,
+      parishName: props.PARNCP24NM,
+      status: member ? ParishStatus.ALLOCATED : (existing?.status || ParishStatus.ALLOCATED),
+      assignee: member ? this.fullNamePipe.transform(member) : "",
+      assigneeMemberId: member?.id || "",
+      updatedAt: this.dateUtils.dateTimeNow().valueOf(),
+      updatedBy
+    };
+
+    const save$ = existing?.id
+      ? this.parishService.updateAllocation({...allocationData, id: existing.id})
+      : this.parishService.createAllocation(allocationData);
+
+    save$.subscribe({
+      next: (saved) => {
+        this.parishAllocations.set(props.PARNCP24CD, saved);
+        const memberName = member ? this.fullNamePipe.transform(member) : "";
+        const statusText = ` (${saved.status})`;
+        const assigneeText = memberName ? ` - ${memberName}` : "";
+        (layer as any).unbindTooltip();
+        (layer as any).bindTooltip(`${props.PARNCP24NM}${statusText}${assigneeText}`, {
+          sticky: true,
+          direction: "top",
+          className: "bootstrap-tooltip",
+          opacity: 0.9
+        });
+        this.logger.info("Assigned", memberName || "nobody", "to parish", props.PARNCP24NM);
+      },
+      error: (error) => {
+        this.logger.error("Failed to assign member to parish:", error);
       }
     });
   }

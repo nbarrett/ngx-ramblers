@@ -9,7 +9,7 @@ import os from "os";
 import { keys } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("shapefile-parser"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 
 interface ShapefileParts {
   shp: string;

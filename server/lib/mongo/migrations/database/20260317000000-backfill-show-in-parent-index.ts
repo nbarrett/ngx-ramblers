@@ -1,9 +1,9 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { PageContentType } from "../../../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { PAGE_CONTENT_COLLECTION } from "../shared/collection-names";
 
 const debugLog = createMigrationLogger("backfill-show-in-parent-index");
-const PAGE_CONTENT_COLLECTION = "pagecontent";
 
 export async function up(db: Db, client: MongoClient) {
   const collection = db.collection(PAGE_CONTENT_COLLECTION);

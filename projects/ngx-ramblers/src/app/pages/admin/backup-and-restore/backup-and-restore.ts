@@ -26,7 +26,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NotifierService } from "../../../services/notifier.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { BackupAndRestoreService } from "../../../services/backup-and-restore.service";
-import { StoredValue } from "../../../models/ui-actions";
+import { Confirm, StoredValue } from "../../../models/ui-actions";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { EventType, MessageType } from "../../../models/websocket.model";
 import { NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
@@ -278,11 +278,23 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                   </div>
                   @if (selectedBackups.length > 0) {
                     <div class="d-flex gap-2 mb-3">
-                      <button type="button" class="btn btn-danger"
-                              (click)="deleteSelectedBackups()">
-                        <fa-icon [icon]="faTrash"></fa-icon>
-                        Delete {{ selectedBackups.length }} Backup(s)
-                      </button>
+                      @if (backupDeleteConfirm.deleteConfirmOutstanding()) {
+                        <button type="button" class="btn btn-danger"
+                                (click)="confirmDeleteSelectedBackups()">
+                          <fa-icon [icon]="faTrash"></fa-icon>
+                          Confirm delete of {{ selectedBackups.length }} backup(s)
+                        </button>
+                        <button type="button" class="btn btn-secondary"
+                                (click)="backupDeleteConfirm.clear()">
+                          Cancel
+                        </button>
+                      } @else {
+                        <button type="button" class="btn btn-danger"
+                                (click)="deleteSelectedBackups()">
+                          <fa-icon [icon]="faTrash"></fa-icon>
+                          Delete {{ selectedBackups.length }} Backup(s)
+                        </button>
+                      }
                     </div>
                   }
                 </div>
@@ -406,6 +418,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   selectedEnvironments: EnvironmentInfo[] = [];
   backups: BackupListItem[] = [];
   selectedBackups: BackupListItem[] = [];
+  backupDeleteConfirm = new Confirm();
   allBackups: BackupListItem[] = [];
   selectedBackupForRestore: BackupListItem | null = null;
   backupSource: BackupLocation = BackupLocation.S3;
@@ -863,14 +876,11 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     if (this.selectedBackups.length === 0) {
       return;
     }
+    this.backupDeleteConfirm.toggleOnDeleteConfirm();
+  }
 
-    const backupNames = this.selectedBackups.map(b => b.name).join(", ");
-    const confirmed = confirm(`Are you sure you want to delete ${this.selectedBackups.length} backup(s)?\n\n${backupNames}\n\nThis action cannot be undone.`);
-
-    if (!confirmed) {
-      return;
-    }
-
+  confirmDeleteSelectedBackups() {
+    this.backupDeleteConfirm.clear();
     const names = this.selectedBackups.map(b => b.name);
     const obs = this.backupSource === BackupLocation.S3
       ? this.backupRestoreService.deleteS3Backups(names)

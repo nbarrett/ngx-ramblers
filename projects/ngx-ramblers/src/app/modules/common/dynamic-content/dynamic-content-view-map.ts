@@ -32,7 +32,14 @@ import { UrlService } from "../../../services/url.service";
 import { FileNameData, ServerFileNameData } from "../../../models/aws-object.model";
 import { MapControls, MapControlsConfig, MapControlsState } from "../../../shared/components/map-controls";
 import { MapOverlay } from "../../../shared/components/map-overlay";
-import { DEFAULT_OS_STYLE, MapProvider, MapRouteViewModel, RouteGpxData, TrackWithBounds } from "../../../models/map.model";
+import {
+  DEFAULT_OS_STYLE,
+  GeocodeResult,
+  MapProvider,
+  MapRouteViewModel,
+  RouteGpxData,
+  TrackWithBounds
+} from "../../../models/map.model";
 import { isArray, isUndefined, keys } from "es-toolkit/compat";
 import { MarkdownComponent } from "ngx-markdown";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -45,7 +52,6 @@ import { FormsModule } from "@angular/forms";
 import { AutocompleteSuggestion } from "../../../models/spatial-features.model";
 import { SpatialFeaturesService } from "../../../services/spatial-features.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
-import { GeocodeResult } from "../../../models/map.model";
 import { NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -447,7 +453,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   public selectedPath: AutocompleteSuggestion | null = null;
   public numberUtils = inject(NumberUtilsService);
   private dateUtils = inject(DateUtilsService);
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.ERROR);
   private mapTiles = inject(MapTilesService);
   private mapMarkerStyle = inject(MapMarkerStyleService);
   private gpxParser = inject(GpxParserService);

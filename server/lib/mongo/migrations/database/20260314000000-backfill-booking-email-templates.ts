@@ -1,8 +1,9 @@
 import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 
+import { CONFIG_COLLECTION, CONTENT_TEXT_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("backfill-booking-email-templates");
-const CONFIG_COLLECTION = "config";
 const BOOKING_CONFIG_KEY = "booking";
 
 const DEFAULT_TEMPLATES = {
@@ -79,7 +80,6 @@ This is a reminder that **{{EVENT_TITLE}}** is coming up soon.
 View full event details on the [event page]({{EVENT_LINK}}).`
 };
 
-const CONTENT_TEXTS_COLLECTION = "contentTexts";
 const HELP_ENTRIES = [
   {
     name: "bookings-configuration-help",
@@ -135,7 +135,7 @@ export async function up(db: Db) {
     debugLog("Created booking config with default email templates");
   }
 
-  const contentTextsCollection = db.collection(CONTENT_TEXTS_COLLECTION);
+  const contentTextsCollection = db.collection(CONTENT_TEXT_COLLECTION);
   for (const entry of HELP_ENTRIES) {
     const existingHelp = await contentTextsCollection.findOne({name: entry.name, category: entry.category});
     if (existingHelp) {
@@ -155,7 +155,7 @@ export async function down(db: Db) {
   );
   debugLog("Removed email templates — matched: %d, modified: %d", result.matchedCount, result.modifiedCount);
 
-  const contentTextsCollection = db.collection(CONTENT_TEXTS_COLLECTION);
+  const contentTextsCollection = db.collection(CONTENT_TEXT_COLLECTION);
   for (const entry of HELP_ENTRIES) {
     await contentTextsCollection.deleteOne({name: entry.name, category: entry.category});
     debugLog("Removed help content: %s", entry.name);

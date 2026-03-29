@@ -1,9 +1,9 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 
+import { CONFIG_COLLECTION, CONTENT_TEXT_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("add-walk-config-help-content");
-const CONTENT_TEXT_COLLECTION = "contentTexts";
-const CONFIG_COLLECTION = "config";
 const WALKS_CONFIG_KEY = "walks";
 const WALKS_COLLECTION = "extendedGroupEvents";
 const CATEGORY = "walks-admin";

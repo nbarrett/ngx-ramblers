@@ -37,6 +37,14 @@ export enum EnvironmentSettingsSubTab {
   GITHUB = "github"
 }
 
+export enum MapsSubTab {
+  ALL = "all",
+  AREA_GROUPS = "area-groups",
+  CUSTOM_BOUNDARIES = "custom-boundaries",
+  GEOGRAPHIC_DATA = "geographic-data",
+  PARISH_ALLOCATIONS = "parish-allocations"
+}
+
 export enum ImageMigrationTab {
   SCAN = "Scan Configuration",
   RESULTS = "Scan Results",
@@ -78,6 +86,12 @@ export interface Group {
   groupCode?: string;
 }
 
+export enum AreaGroupGeometrySource {
+  ONS_DISTRICTS = "ons-districts",
+  MEMBER_GROUPS = "member-groups",
+  CUSTOM_SHAPEFILE = "custom-shapefile"
+}
+
 export interface AreaGroup {
   groupCode: string;
   name: string;
@@ -87,6 +101,8 @@ export interface AreaGroup {
   color?: string;
   nonGeographic?: boolean;
   customGeometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon;
+  geometrySource?: AreaGroupGeometrySource;
+  memberGroupCodes?: string[];
 }
 
 export interface AvailableArea {

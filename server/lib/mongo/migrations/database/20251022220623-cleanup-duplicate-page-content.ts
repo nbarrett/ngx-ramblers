@@ -3,6 +3,8 @@ import { isArray, isEqual, isNumber, isString } from "es-toolkit/compat";
 import createMigrationLogger from "../migrations-logger";
 import { dateTimeFromIso, dateTimeFromJsDate, dateTimeFromMillis } from "../../../shared/dates";
 
+import { PAGE_CONTENT_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("cleanup-and-inline-page-content");
 
 function updatedAtMillis(value: any): number | null {
@@ -24,7 +26,7 @@ function updatedAtMillis(value: any): number | null {
 }
 
 export async function up(db: Db, client: MongoClient) {
-    const pageContentCollection = db.collection("pageContent");
+    const pageContentCollection = db.collection(PAGE_CONTENT_COLLECTION);
     const contentTextCollection = db.collection("contentText");
 
     debugLog("Step 1: Cleanup duplicate page content entries...");
@@ -142,7 +144,7 @@ export async function up(db: Db, client: MongoClient) {
 }
 
 export async function down(db: Db, client: MongoClient) {
-    const pageContentCollection = db.collection("pageContent");
+    const pageContentCollection = db.collection(PAGE_CONTENT_COLLECTION);
 
     debugLog("Removing unique index on path field...");
     try {

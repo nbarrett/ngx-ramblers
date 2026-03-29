@@ -16,6 +16,8 @@ interface RamblersGroupConfig {
   onsDistricts: string | string[];
   color?: string;
   nonGeographic?: boolean;
+  geometrySource?: string;
+  memberGroupCodes?: string[];
 }
 
 interface SharedDistrictInfo {
@@ -96,7 +98,9 @@ export async function regions(req: Request, res: Response) {
         groupCode: group.groupCode,
         onsDistricts: group.onsDistricts,
         color: group.color,
-        nonGeographic: group.nonGeographic || false
+        nonGeographic: group.nonGeographic || false,
+        geometrySource: group.geometrySource,
+        memberGroupCodes: group.memberGroupCodes
       })),
       sharedDistricts: keys(sharedDistricts).length > 0 ? sharedDistricts : undefined,
       sharedDistrictStyle: systemConfig.area.sharedDistrictStyle,

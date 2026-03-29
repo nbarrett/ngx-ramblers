@@ -5,6 +5,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 
+import { DecimalPipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { KeyValue } from "../../../functions/enums";
@@ -24,25 +25,6 @@ interface RegionOption extends KeyValue<string> {}
   styleUrls: ["./dynamic-content.sass"],
   template: `
     @if (row?.areaMap) {
-      <div class="row mb-2">
-        <div class="col-12">
-          <div class="form-group">
-            <label for="groups-select-{{id}}">Groups to Display</label>
-            <ng-select id="groups-select-{{id}}"
-                       [items]="availableGroups"
-                       [multiple]="true"
-                       [closeOnSelect]="false"
-                       [searchable]="true"
-                       [clearable]="true"
-                       placeholder="All groups"
-                       [(ngModel)]="row.areaMap.selectedGroups"
-                       (ngModelChange)="onGroupSelectionChange()">
-            </ng-select>
-            <small class="form-text text-muted">Leave empty to show all groups</small>
-          </div>
-        </div>
-      </div>
-
       <app-map-overlay-controls
         [config]="row.areaMap"
         [id]="id"
@@ -61,38 +43,119 @@ interface RegionOption extends KeyValue<string> {}
 
       <div class="row mb-2">
         <div class="col-md-6">
-          <div class="form-group">
-            <label>Shared District Display Style</label>
-            <app-shared-district-style-selector
-              [(value)]="row.areaMap.sharedDistrictStyle"
-              (valueChange)="onStyleChange()">
-            </app-shared-district-style-selector>
-            <small class="form-text text-muted">How to display districts shared between groups</small>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <label>Legend Position</label>
-            <app-legend-position-selector
-              [(value)]="row.areaMap.legendPosition"
-              [disabled]="!row.areaMap.showLegend"
-              (valueChange)="onLegendChange()">
-            </app-legend-position-selector>
-          </div>
-        </div>
-      </div>
-      <div class="row mb-2">
-        <div class="col-12">
           <div class="form-check">
-            <input type="checkbox" class="form-check-input" id="show-legend-{{id}}"
-                   [(ngModel)]="row.areaMap.showLegend"
-                   (ngModelChange)="onLegendChange()">
-            <label class="form-check-label" for="show-legend-{{id}}">
-              Show legend with group names and colors
+            <input type="checkbox" class="form-check-input" id="show-areas-{{id}}"
+                   [ngModel]="row.areaMap.showAreas !== false"
+                   (ngModelChange)="row.areaMap.showAreas = $event; onParishSettingChange()">
+            <label class="form-check-label" for="show-areas-{{id}}">
+              Show group area overlays
             </label>
           </div>
         </div>
       </div>
+      @if (row.areaMap.showAreas !== false) {
+        <div class="row mb-2">
+          <div class="col-12">
+            <div class="form-group">
+              <label for="groups-select-{{id}}">Groups to Display</label>
+              <ng-select id="groups-select-{{id}}"
+                         [items]="availableGroups"
+                         [multiple]="true"
+                         [closeOnSelect]="false"
+                         [searchable]="true"
+                         [clearable]="true"
+                         placeholder="All groups"
+                         [(ngModel)]="row.areaMap.selectedGroups"
+                         (ngModelChange)="onGroupSelectionChange()">
+              </ng-select>
+              <small class="form-text text-muted">Leave empty to show all groups</small>
+            </div>
+          </div>
+        </div>
+        <div class="row mb-2">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label>Shared District Display Style</label>
+              <app-shared-district-style-selector
+                [(value)]="row.areaMap.sharedDistrictStyle"
+                (valueChange)="onStyleChange()">
+              </app-shared-district-style-selector>
+              <small class="form-text text-muted">How to display districts shared between groups</small>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label>Legend Position</label>
+              <app-legend-position-selector
+                [(value)]="row.areaMap.legendPosition"
+                [disabled]="!row.areaMap.showLegend"
+                (valueChange)="onLegendChange()">
+              </app-legend-position-selector>
+            </div>
+          </div>
+        </div>
+        <div class="row mb-2">
+          <div class="col-12">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="show-legend-{{id}}"
+                     [(ngModel)]="row.areaMap.showLegend"
+                     (ngModelChange)="onLegendChange()">
+              <label class="form-check-label" for="show-legend-{{id}}">
+                Show legend with group names and colors
+              </label>
+            </div>
+          </div>
+        </div>
+      }
+      <div class="row mb-2">
+        <div class="col-md-6">
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="show-parishes-{{id}}"
+                   [(ngModel)]="row.areaMap.showParishes"
+                   (ngModelChange)="onParishSettingChange()">
+            <label class="form-check-label" for="show-parishes-{{id}}">
+              Show civil parish boundaries (from ONS)
+            </label>
+          </div>
+        </div>
+      </div>
+      @if (row.areaMap.showParishes) {
+        <div class="row mb-2">
+          <div class="col-md-3">
+            <div class="form-group">
+              <label for="parish-allocated-{{id}}">Allocated Colour</label>
+              <input type="color" class="form-control form-control-sm" id="parish-allocated-{{id}}"
+                     [ngModel]="row.areaMap.parishAllocatedColor || '#4a8c3f'"
+                     (ngModelChange)="row.areaMap.parishAllocatedColor = $event; onParishSettingChange()">
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="form-group">
+              <label for="parish-vacant-{{id}}">Vacant Colour</label>
+              <input type="color" class="form-control form-control-sm" id="parish-vacant-{{id}}"
+                     [ngModel]="row.areaMap.parishVacantColor || '#cc0000'"
+                     (ngModelChange)="row.areaMap.parishVacantColor = $event; onParishSettingChange()">
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="form-group">
+              <label for="parish-border-{{id}}">Border Colour</label>
+              <input type="color" class="form-control form-control-sm" id="parish-border-{{id}}"
+                     [ngModel]="row.areaMap.parishBorderColor || '#333333'"
+                     (ngModelChange)="row.areaMap.parishBorderColor = $event; onParishSettingChange()">
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="form-group">
+              <label for="parish-opacity-{{id}}">Fill Opacity</label>
+              <input type="range" class="form-range" id="parish-opacity-{{id}}" min="0" max="1" step="0.05"
+                     [ngModel]="row.areaMap.parishFillOpacity ?? 0.7"
+                     (ngModelChange)="row.areaMap.parishFillOpacity = $event; onParishSettingChange()">
+              <small class="form-text text-muted">{{ (row.areaMap.parishFillOpacity ?? 0.7) | number:'1.2-2' }}</small>
+            </div>
+          </div>
+        </div>
+      }
 
       <div class="row mb-3">
         <div class="col-12">
@@ -104,7 +167,7 @@ interface RegionOption extends KeyValue<string> {}
       </div>
     }
   `,
-  imports: [FormsModule, NgSelectComponent, AreaMap, MapOverlayControls, SharedDistrictStyleSelectorComponent, LegendPositionSelectorComponent]
+  imports: [DecimalPipe, FormsModule, NgSelectComponent, AreaMap, MapOverlayControls, SharedDistrictStyleSelectorComponent, LegendPositionSelectorComponent]
 })
 export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditAreaMapComponent", NgxLoggerLevel.OFF);
@@ -131,9 +194,9 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   }
 
   private ensureAreaMapData() {
+    const systemConfig = this.systemConfigService.systemConfig();
+    const regionName = systemConfig?.area?.shortName;
     if (!this.row.areaMap) {
-      const systemConfig = this.systemConfigService.systemConfig();
-      const regionName = systemConfig?.area?.shortName;
       this.row.areaMap = {
         region: regionName,
         title: "Areas",
@@ -153,6 +216,10 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
         legendPosition: LegendPosition.TOP_RIGHT,
         sharedDistrictStyle: systemConfig?.area?.sharedDistrictStyle || SharedDistrictStyle.FIRST_GROUP
       };
+      this.broadcastChange();
+    } else if (regionName && this.row.areaMap.region !== regionName) {
+      this.logger.info("Syncing region from system config:", this.row.areaMap.region, "->", regionName);
+      this.row.areaMap.region = regionName;
       this.broadcastChange();
     }
   }
@@ -202,6 +269,11 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   }
 
   onStyleChange() {
+    this.broadcastChange();
+    this.recreateAreaMap();
+  }
+
+  onParishSettingChange() {
     this.broadcastChange();
     this.recreateAreaMap();
   }

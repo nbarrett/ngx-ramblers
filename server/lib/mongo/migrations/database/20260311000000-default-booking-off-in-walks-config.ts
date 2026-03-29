@@ -3,9 +3,9 @@ import { isArray } from "es-toolkit/compat";
 import createMigrationLogger from "../migrations-logger";
 import { ensureActionButton, removeActionButtonByHref } from "../shared/page-content-actions";
 
+import { CONFIG_COLLECTION, CONTENT_TEXT_COLLECTION, NOTIFICATION_CONFIG_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("default-booking-off-in-walks-config");
-const CONFIG_COLLECTION = "config";
-const NOTIFICATION_CONFIGS_COLLECTION = "notificationConfigs";
 const BOOKING_CONFIG_KEY = "booking";
 const WALKS_CONFIG_KEY = "walks";
 const BREVO_CONFIG_KEY = "brevo";
@@ -21,7 +21,6 @@ const DEFAULT_BOOKING = {
 
 const NEWSLETTER_SUBJECT = "Newsletter";
 const ADMIN_ACTION_BUTTONS_PATH = "admin#action-buttons";
-const CONTENT_TEXTS_COLLECTION = "contentTexts";
 const HELP_ENTRIES = [
   {
     name: "bookings-summary-help",
@@ -48,7 +47,7 @@ const BOOKINGS_MENU_ITEM = {
 };
 
 async function migrateCcRolesToBccRoles(db: Db) {
-  const notificationConfigsCollection = db.collection(NOTIFICATION_CONFIGS_COLLECTION);
+  const notificationConfigsCollection = db.collection(NOTIFICATION_CONFIG_COLLECTION);
   const configsWithCcRoles = await notificationConfigsCollection.find({
     ccRoles: {$exists: true, $ne: []}
   }).toArray();
@@ -69,7 +68,7 @@ async function migrateCcRolesToBccRoles(db: Db) {
 }
 
 async function migrateBccRolesToCcRoles(db: Db) {
-  const notificationConfigsCollection = db.collection(NOTIFICATION_CONFIGS_COLLECTION);
+  const notificationConfigsCollection = db.collection(NOTIFICATION_CONFIG_COLLECTION);
   const configsWithBccRoles = await notificationConfigsCollection.find({
     bccRoles: {$exists: true, $ne: []}
   }).toArray();
@@ -128,7 +127,7 @@ export async function up(db: Db) {
     debugLog("Removed booking settings from walks config");
   }
 
-  const notificationConfigsCollection = db.collection(NOTIFICATION_CONFIGS_COLLECTION);
+  const notificationConfigsCollection = db.collection(NOTIFICATION_CONFIG_COLLECTION);
   await migrateCcRolesToBccRoles(db);
   const existing = await notificationConfigsCollection.findOne({"subject.text": BOOKING_NOTIFICATION_SUBJECT});
   if (existing) {
@@ -181,7 +180,7 @@ export async function up(db: Db) {
 
   await ensureActionButton(db, ADMIN_ACTION_BUTTONS_PATH, BOOKINGS_MENU_ITEM, debugLog);
 
-  const contentTextsCollection = db.collection(CONTENT_TEXTS_COLLECTION);
+  const contentTextsCollection = db.collection(CONTENT_TEXT_COLLECTION);
   for (const entry of HELP_ENTRIES) {
     const existing = await contentTextsCollection.findOne({name: entry.name, category: entry.category});
     if (existing) {
@@ -213,13 +212,13 @@ export async function down(db: Db) {
   );
   debugLog("Removed bookingNotificationConfigId from brevo config");
 
-  const notificationConfigsCollection = db.collection(NOTIFICATION_CONFIGS_COLLECTION);
+  const notificationConfigsCollection = db.collection(NOTIFICATION_CONFIG_COLLECTION);
   await notificationConfigsCollection.deleteOne({"subject.text": BOOKING_NOTIFICATION_SUBJECT});
   debugLog("Removed Booking Notification config");
 
   await removeActionButtonByHref(db, ADMIN_ACTION_BUTTONS_PATH, BOOKINGS_MENU_ITEM.href, debugLog);
 
-  const contentTextsCollection = db.collection(CONTENT_TEXTS_COLLECTION);
+  const contentTextsCollection = db.collection(CONTENT_TEXT_COLLECTION);
   for (const entry of HELP_ENTRIES) {
     await contentTextsCollection.deleteOne({name: entry.name, category: entry.category});
   }

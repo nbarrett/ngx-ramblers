@@ -1,8 +1,9 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 
+import { CONTENT_TEXT_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("add-mail-senders-help-content");
-const CONTENT_TEXT_COLLECTION = "contentTexts";
 const HELP_NAME = "mail-settings-senders-help";
 const HELP_CATEGORY = "admin";
 const HELP_TEXT = "* Use this tab to manage Brevo sender identities used for outbound email.\n" +

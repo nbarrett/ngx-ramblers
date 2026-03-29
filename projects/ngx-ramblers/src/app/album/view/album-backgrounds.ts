@@ -12,11 +12,10 @@ import { MarkdownComponent } from "ngx-markdown";
 import { HeightResizerComponent } from "../../modules/common/height-resizer/height-resizer";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { DisplayDayPipe } from "../../pipes/display-day.pipe";
-import { MarkdownEditorComponent } from "../../markdown-editor/markdown-editor.component";
 
 @Component({
   selector: "app-album-backgrounds",
-  imports: [NgClass, MarkdownComponent, HeightResizerComponent, DisplayDayPipe, MarkdownEditorComponent],
+  imports: [NgClass, MarkdownComponent, HeightResizerComponent, DisplayDayPipe],
   template: `
     <div class="d-flex flex-column flex-md-row position-relative"
          [style.border-radius.px]="album?.gridViewOptions?.borderRadius || 0"
@@ -102,7 +101,7 @@ import { MarkdownEditorComponent } from "../../markdown-editor/markdown-editor.c
 })
 export class AlbumBackgroundsComponent implements OnInit, OnChanges, OnDestroy {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("AlbumBackgroundsComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("AlbumBackgroundsComponent", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
   protected urlService = inject(UrlService);
   private subscriptions: Subscription[] = [];

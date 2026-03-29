@@ -1,8 +1,9 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 
+import { CONTENT_TEXT_COLLECTION } from "../shared/collection-names";
+
 const debugLog = createMigrationLogger("seed-committee-help-content");
-const CONTENT_TEXT_COLLECTION = "contentTexts";
 
 const COMMITTEE_HELP_ENTRIES = [
   {
