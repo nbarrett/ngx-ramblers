@@ -405,8 +405,10 @@ import { sortBy } from "../../functions/arrays";
             <div class="map-legend-title">Groups</div>
             @for (item of legendItems; track item.name) {
               <div class="map-legend-item"
+                   style="cursor: pointer;"
                    (mouseenter)="onLegendItemHover($event, item.name, true)"
-                   (mouseleave)="onLegendItemHover($event, item.name, false)">
+                   (mouseleave)="onLegendItemHover($event, item.name, false)"
+                   (click)="onLegendItemClick(item.name)">
                 <div class="map-legend-color" [style.background]="item.color"></div>
                 <div class="map-legend-label" [title]="item.name">{{ item.name }}</div>
               </div>
@@ -432,8 +434,10 @@ import { sortBy } from "../../functions/arrays";
         <div class="map-legend-title">Groups</div>
         @for (item of legendItems; track item.name) {
           <div class="map-legend-item"
+               style="cursor: pointer;"
                (mouseenter)="onLegendItemHover($event, item.name, true)"
-               (mouseleave)="onLegendItemHover($event, item.name, false)">
+               (mouseleave)="onLegendItemHover($event, item.name, false)"
+               (click)="onLegendItemClick(item.name)">
             <div class="map-legend-color" [style.background]="item.color"></div>
             <div class="map-legend-label">{{ item.name }}</div>
           </div>
@@ -450,6 +454,8 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
   @Input() region?: string;
   @Input() preview = false;
   @Input() previewSharedDistrictStyle?: SharedDistrictStyle;
+  @Input() previewAreaColors?: Record<string, string>;
+  @Input() previewSelectedGroups?: string[];
   public dataLoading = true;
   protected readonly faSpinner = faSpinner;
   protected readonly LegendPosition = LegendPosition;
@@ -574,6 +580,16 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
       this.preserveCurrentView();
       this.rebuildMap();
     }
+    if (changes["previewAreaColors"] && !changes["previewAreaColors"].firstChange && this.isInitialized) {
+      this.areaColors = {...(changes["previewAreaColors"].currentValue || {})};
+      this.preserveCurrentView();
+      this.rebuildMap();
+    }
+    if (changes["previewSelectedGroups"] && !changes["previewSelectedGroups"].firstChange && this.isInitialized) {
+      this.selectedGroups = changes["previewSelectedGroups"].currentValue || [];
+      this.preserveCurrentView();
+      this.rebuildMap();
+    }
   }
 
   private preserveCurrentView() {
@@ -638,7 +654,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
     this.opacityNormal = this.cmsSettings?.opacityNormal || 0.5;
     this.opacityHover = this.cmsSettings?.opacityHover || 0.8;
     this.textOpacity = this.cmsSettings?.textOpacity || 0.9;
-    this.selectedGroups = this.cmsSettings?.selectedGroups || [];
+    this.selectedGroups = this.previewSelectedGroups || this.cmsSettings?.selectedGroups || [];
     this.clickAction = this.uiActions.initialValueFor(StoredValue.AREA_MAP_CLICK_ACTION, AreaMapClickAction.GROUP_WEBSITE) as AreaMapClickAction;
     this.areaColors = this.cmsSettings?.areaColors || {};
     this.showLegend = this.cmsSettings?.showLegend ?? false;
@@ -866,7 +882,17 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
     if (this.standalone) {
       this.saveOpacityToStorage();
     }
-    this.updateMap();
+    this.areaLayerMap.forEach(polygon => {
+      polygon.setStyle({fillOpacity: this.opacityNormal});
+    });
+    this.updateLabelOpacity();
+    this.broadcastCmsChange();
+  }
+
+  private updateLabelOpacity() {
+    document.querySelectorAll(".group-name-label span").forEach(el => {
+      (el as HTMLElement).style.background = `rgba(60, 60, 60, ${this.textOpacity})`;
+    });
   }
 
   onGroupSelectionChange() {
@@ -893,6 +919,17 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
 
     if (this.preview) {
       this.applyFitBoundsWhenReady();
+    }
+  }
+
+  refreshMapSize() {
+    if (this.mapRef) {
+      setTimeout(() => {
+        this.mapRef?.invalidateSize(true);
+        if (this.fitBounds?.isValid()) {
+          this.mapRef?.fitBounds(this.fitBounds, {animate: false, padding: [20, 20]});
+        }
+      }, 100);
     }
   }
 
@@ -1100,8 +1137,8 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
 
     const { width, height } = this.estimateLabelSize(text);
     const originPoint = this.mapRef.latLngToLayerPoint(initial);
-    const stepDistance = 18;
-    const maxSteps = 12;
+    const stepDistance = 14;
+    const maxSteps = 20;
     const directions = [
       L.point(0, 0),
       L.point(1, 0),
@@ -1111,7 +1148,15 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
       L.point(1, 1),
       L.point(-1, 1),
       L.point(1, -1),
-      L.point(-1, -1)
+      L.point(-1, -1),
+      L.point(2, 1),
+      L.point(-2, 1),
+      L.point(2, -1),
+      L.point(-2, -1),
+      L.point(1, 2),
+      L.point(-1, 2),
+      L.point(1, -2),
+      L.point(-1, -2)
     ];
 
     const candidateBounds = (point: L.Point) => {
@@ -1275,6 +1320,14 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
 
         const sortedAreas = [...areasToDisplay].sort((a, b) => a.name.localeCompare(b.name));
 
+        this.logger.info("All area popup data:", sortedAreas.map(area => ({
+          name: area.name,
+          url: area.url,
+          externalUrl: area.externalUrl,
+          groupCode: area.groupCode,
+          isMainArea: area.groupCode ? this.mainAreaGroupCodes.includes(area.groupCode) : false
+        })));
+
         sortedAreas.slice(0, 3).forEach((area, index) => {
           const geoJson = area.geoJsonFeature as any;
           const coordSample = geoJson?.geometry?.coordinates?.[0]?.[0]?.slice(0, 2) ||
@@ -1299,7 +1352,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
         }
 
         const overlays: L.Layer[] = sortedAreas.map((area, index) => {
-          const borderColor = area.color || this.resolveAreaColor(area.name);
+          const borderColor = this.areaColors[area.name] || area.color || this.resolveAreaColor(area.name);
           const fillColor = borderColor.replace(/(\d+)%\)$/, (match, lightness) =>
             `${Math.min(90, asNumber(lightness) + 30)}%)`
           );
@@ -1344,38 +1397,21 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
             });
           }
 
-          polygon.bindTooltip(area.name, {
+          const tooltipContent = `${area.name} — click for options`;
+          polygon.bindTooltip(tooltipContent, {
             sticky: true,
             direction: "top",
             className: "bootstrap-tooltip",
             opacity: 0.9
           });
 
-          let popupShown = false;
-          let lastMouseEvent: L.LeafletMouseEvent | null = null;
-
-          polygon.on("mousemove", (e) => {
-            lastMouseEvent = e;
-            if (!this.hoverTimeout && !popupShown) {
-              this.hoverTimeout = setTimeout(() => {
-                polygon.unbindTooltip();
-                if (lastMouseEvent) {
-                  this.showAreaPopup(lastMouseEvent.latlng, area);
-                }
-                popupShown = true;
-              }, 800);
-            }
-          });
-
-          polygon.on("mouseout", () => {
-            this.clearHoverTimeout();
-            popupShown = false;
-            lastMouseEvent = null;
+          polygon.on("click", (e) => {
+            polygon.unbindTooltip();
+            this.showAreaPopup(e.latlng, area);
           });
 
           polygon.on("popupclose", () => {
-            popupShown = false;
-            polygon.bindTooltip(area.name, {
+            polygon.bindTooltip(tooltipContent, {
               sticky: true,
               direction: "top",
               className: "bootstrap-tooltip",
@@ -1952,22 +1988,23 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
 
   onLegendItemHover(event: MouseEvent, areaName: string, isHovering: boolean) {
     const polygon = this.areaLayerMap.get(areaName);
-    const areaData = this.areaDataMap.get(areaName);
     if (polygon) {
       if (isHovering) {
         polygon.setStyle({ fillOpacity: 1.0, weight: 4 });
         polygon.bringToFront();
-        if (areaData && !this.legendHoverTimeout) {
-          this.legendHoverTimeout = setTimeout(() => {
-            const centroid = polygon.getBounds().getCenter();
-            this.showAreaPopup(centroid, areaData);
-          }, 800);
-        }
       } else {
-        this.clearLegendHoverTimeout();
         polygon.setStyle({ fillOpacity: this.opacityNormal, weight: 2 });
         this.reapplyPatterns(polygon);
       }
+    }
+  }
+
+  onLegendItemClick(areaName: string) {
+    const polygon = this.areaLayerMap.get(areaName);
+    const areaData = this.areaDataMap.get(areaName);
+    if (polygon && areaData) {
+      const centroid = polygon.getBounds().getCenter();
+      this.showAreaPopup(centroid, areaData);
     }
   }
 
@@ -1990,13 +2027,14 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
   }
 
   private showAreaPopup(position: L.LatLng, area: { name: string; url: string; externalUrl?: string; groupCode?: string }) {
+    this.logger.info("showAreaPopup area data:", area);
     const isMainAreaGroup = area.groupCode && this.mainAreaGroupCodes.includes(area.groupCode);
-    const hasOwnWebsite = area.externalUrl && !area.externalUrl.includes("ramblers.org.uk");
+    const hasExternalUrl = !!area.externalUrl;
     const content = `
       <div style="text-align: center;">
         <div style="font-weight: 600; margin-bottom: 6px; font-size: 12px;">${area.name}</div>
-        ${hasOwnWebsite ? `<button type="button" class="badge bg-success border-0 me-1" onclick="document.querySelector('.leaflet-popup-close-button')?.click(); setTimeout(() => window.open('${area.externalUrl}', '_blank'), 100);">group website</button>` : ""}
-        ${area.url ? `<button type="button" class="badge bg-primary border-0 me-1" onclick="document.querySelector('.leaflet-popup-close-button')?.click(); setTimeout(() => window.location.href='${area.url}', 100);">ramblers page</button>` : ""}
+        ${hasExternalUrl ? `<button type="button" class="badge bg-success border-0 me-1" onclick="document.querySelector('.leaflet-popup-close-button')?.click(); setTimeout(() => window.open('${area.externalUrl}', '_blank'), 100);">group website</button>` : ""}
+        ${area.url ? `<button type="button" class="badge bg-primary border-0 me-1" onclick="document.querySelector('.leaflet-popup-close-button')?.click(); setTimeout(() => window.open('${area.url}', '_blank'), 100);">ramblers page</button>` : ""}
         ${isMainAreaGroup ? `<button type="button" class="badge bg-primary border-0" onclick="document.querySelector('.leaflet-popup-close-button')?.click(); setTimeout(() => window.location.href='/walks?${StoredValue.SEARCH}=${encodeURIComponent(area.groupCode)}', 100);">view walks</button>` : ""}
       </div>
     `;

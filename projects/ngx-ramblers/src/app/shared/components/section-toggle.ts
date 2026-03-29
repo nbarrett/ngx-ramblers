@@ -36,6 +36,7 @@ export interface SectionToggleTab {
       border: none
       border-radius: 0
       border-right: 2px solid var(--ramblers-colour-sunrise)
+      white-space: nowrap
     .section-toggle .btn:last-child
       border-right: none
     .section-toggle .btn.btn-outline-ramblers

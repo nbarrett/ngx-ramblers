@@ -1,8 +1,7 @@
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { NgHeaderTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
-import { BadgeButtonComponent } from "../badge-button/badge-button";
-import { faCheck } from "@fortawesome/free-solid-svg-icons";
+import { SelectAllHeaderComponent } from "./select-all-header";
 
 @Component({
   selector: "app-collections-multi-select",
@@ -21,32 +20,23 @@ import { faCheck } from "@fortawesome/free-solid-svg-icons";
       name="collectionsMultiSelect"
       appearance="outline">
       <ng-template ng-header-tmp>
-        <div class="px-2 py-1">
-          <app-badge-button inline [icon]="faCheck" caption="Select all" (click)="selectAll()" [disabled]="!available?.length" [height]="28"></app-badge-button>
-        </div>
+        <app-select-all-header [allSelected]="selected?.length === available?.length" [disabled]="!available?.length" (toggle)="toggleSelectAll()"></app-select-all-header>
       </ng-template>
       <ng-template ng-option-tmp let-item="item">
         <div>{{ item }}</div>
       </ng-template>
     </ng-select>
   `,
-  styles: [`
-    :host ::ng-deep .ng-dropdown-header .inline-button
-      padding: 2px 8px
-      font-size: 0.875rem
-  `],
-  imports: [FormsModule, NgSelectComponent, NgHeaderTemplateDirective, NgOptionTemplateDirective, BadgeButtonComponent]
+  imports: [FormsModule, NgSelectComponent, NgHeaderTemplateDirective, NgOptionTemplateDirective, SelectAllHeaderComponent]
 })
 export class CollectionsMultiSelectComponent {
   @Input() available: string[] = [];
   @Input() selected: string[] = [];
   @Input() placeholder?: string;
   @Output() selectedChange = new EventEmitter<string[]>();
-  faCheck = faCheck;
 
-  selectAll() {
-    this.selected = [...(this.available || [])];
+  toggleSelectAll() {
+    this.selected = this.selected?.length === this.available?.length ? [] : [...(this.available || [])];
     this.selectedChange.emit(this.selected);
   }
-
 }

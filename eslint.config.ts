@@ -104,6 +104,33 @@ const typeofRestrictions = [
   }
 ];
 
+const nativeBrowserDialogRestrictions = [
+  {
+    "selector": "CallExpression[callee.name='alert']",
+    "message": "Native alert() dialogs are not allowed. Use inline UI elements instead."
+  },
+  {
+    "selector": "CallExpression[callee.name='confirm']",
+    "message": "Native confirm() dialogs are not allowed. Use inline UI elements instead."
+  },
+  {
+    "selector": "CallExpression[callee.name='prompt']",
+    "message": "Native prompt() dialogs are not allowed. Use inline UI elements (e.g. input fields) instead."
+  },
+  {
+    "selector": "MemberExpression[object.name='window'][property.name='alert']",
+    "message": "Native window.alert() dialogs are not allowed. Use inline UI elements instead."
+  },
+  {
+    "selector": "MemberExpression[object.name='window'][property.name='confirm']",
+    "message": "Native window.confirm() dialogs are not allowed. Use inline UI elements instead."
+  },
+  {
+    "selector": "MemberExpression[object.name='window'][property.name='prompt']",
+    "message": "Native window.prompt() dialogs are not allowed. Use inline UI elements (e.g. input fields) instead."
+  }
+];
+
 const sharedSyntaxRestrictions = [
   {
     "selector": "CallExpression[callee.object.name='console'][callee.property.name='log']",
@@ -137,7 +164,8 @@ const sharedSyntaxRestrictions = [
     "selector": "CallExpression[callee.object.name='Array'][callee.property.name='isArray']",
     "message": "Use isArray() from es-toolkit/compat instead of Array.isArray() for consistency."
   },
-  ...typeofRestrictions
+  ...typeofRestrictions,
+  ...nativeBrowserDialogRestrictions
 ];
 
 export default defineConfig([

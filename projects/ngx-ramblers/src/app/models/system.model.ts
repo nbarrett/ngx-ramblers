@@ -39,8 +39,9 @@ export enum EnvironmentSettingsSubTab {
 
 export enum MapsSubTab {
   ALL = "all",
-  AREA_GROUPS = "area-groups",
-  CUSTOM_BOUNDARIES = "custom-boundaries",
+  MAP_PREVIEW = "map-preview",
+  GROUPS = "groups",
+  NEIGHBOURING_AREAS = "neighbouring-areas",
   GEOGRAPHIC_DATA = "geographic-data",
   PARISH_ALLOCATIONS = "parish-allocations"
 }
@@ -114,6 +115,34 @@ export interface AvailableAreaWithLabel extends AvailableArea {
   ngSelectLabel: string;
 }
 
+export enum ColourPalette {
+  RAMBLERS = "ramblers",
+  RANDOM = "random",
+  EARTH_TONES = "earth-tones",
+  OCEAN = "ocean",
+  SUNSET = "sunset",
+  FOREST = "forest",
+  PASTEL = "pastel",
+  VIVID = "vivid",
+  AUTUMN = "autumn",
+  BERRY = "berry",
+  SLATE = "slate",
+  TROPICAL = "tropical",
+  LAVENDER = "lavender",
+  TERRACOTTA = "terracotta",
+  NORDIC = "nordic",
+  JEWEL = "jewel",
+  CITRUS = "citrus",
+  DUSTY_ROSE = "dusty-rose",
+  APPEALING = "appealing"
+}
+
+export interface GroupPreset {
+  name: string;
+  groupNames: string[];
+  colourPalette?: ColourPalette;
+}
+
 export enum SharedDistrictStyle {
   STRIPES = "stripes",
   FIRST_GROUP = "first-group",
@@ -156,6 +185,7 @@ export interface Organisation extends Group {
   neighboringAreaCodes?: string[];
   exclusiveDistricts?: boolean;
   sharedDistrictStyle?: SharedDistrictStyle;
+  groupPresets?: GroupPreset[];
 }
 
 export interface Ramblers {

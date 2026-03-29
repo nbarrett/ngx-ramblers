@@ -89,6 +89,9 @@ export enum StoredValue {
   GRID_LAYOUT_MODE = "grid-layout-mode",
   GRID_SHOW_TITLES = "grid-show-titles",
   ALBUM_VIEW = "album-view",
+  GROUPS_TABLE_HEIGHT = "groups-table-height",
+  PARISH_TABLE_HEIGHT = "parish-table-height",
+  COLOUR_PALETTE = "colour-palette",
 }
 
 export enum WalkEditTab {

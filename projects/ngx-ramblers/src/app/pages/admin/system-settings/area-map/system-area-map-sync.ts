@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output, ViewChild } from "@angular/core";
 import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -25,12 +25,19 @@ import {
   AreaGroup,
   AreaGroupGeometrySource,
   AvailableArea,
+  ColourPalette,
+  GroupPreset,
   MapsSubTab,
   SharedDistrictStyle,
   SystemConfig
 } from "../../../../models/system.model";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
-import { NgSelectComponent } from "@ng-select/ng-select";
+import { NgHeaderTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
+import { SelectAllHeaderComponent } from "../../../../modules/common/selectors/select-all-header";
+import { ColourPaletteSelectorComponent, COLOUR_PALETTE_COLOURS } from "../../../../modules/common/selectors/colour-palette-selector";
+import { HeightResizerComponent } from "../../../../modules/common/height-resizer/height-resizer";
+import { UiActionsService } from "../../../../services/ui-actions.service";
+import { StoredValue } from "../../../../models/ui-actions";
 import { isString } from "es-toolkit/predicate";
 import { isArray } from "es-toolkit/compat";
 import { asNumber } from "../../../../functions/numbers";
@@ -82,17 +89,107 @@ interface GroupBoundaryUploadResult {
               [(selectedTab)]="mapsSubTab"
               [queryParamKey]="'maps-sub-tab'"
               [fullWidth]="true"/>
-          @if (showMapsSubTab(MapsSubTab.AREA_GROUPS)) {
+          @if (showMapsSubTab(MapsSubTab.MAP_PREVIEW)) {
           <div class="thumbnail-heading-frame">
-              <div class="thumbnail-heading">Area Groups Configuration</div>
+              <div class="thumbnail-heading">Map Preview</div>
               <div class="row">
                   <div class="col-12">
-                      @if (districtsLoaded && unallocatedDistricts.length > 0 && hasAreaGroups && relevantUnallocatedDistricts.length > 0) {
+                      @if (!hasAreaGroups) {
                           <div class="alert alert-warning mb-3" role="alert">
-                              <strong>Unallocated Districts ({{ relevantUnallocatedDistricts.length }}):</strong>
-                              {{ relevantUnallocatedDistricts.join(", ") }}
+                              Configure area groups on the Groups tab before previewing the map.
+                          </div>
+                      } @else if (hasS3Data) {
+                          @if (mapsSubTab === MapsSubTab.MAP_PREVIEW) {
+                              <div class="mb-3">
+                                  <app-colour-palette-selector
+                                      [(selected)]="selectedPalette"
+                                      (selectedChange)="regenerateColours()"
+                                      (reapply)="regenerateColours()"
+                                      [disabled]="busy"/>
+                              </div>
+                          }
+                          <div class="mb-3">
+                              <label class="form-label">Preview Groups</label>
+                              <div class="d-flex align-items-start" style="gap: 0.5rem;">
+                                  <div class="flex-grow-1">
+                                      <ng-select [items]="previewGroupNames"
+                                                 [multiple]="true"
+                                                 [closeOnSelect]="false"
+                                                 [searchable]="true"
+                                                 [clearable]="true"
+                                                 appendTo="body"
+                                                 placeholder="All groups (select to filter)..."
+                                                 [(ngModel)]="previewSelectedGroups"
+                                                 (ngModelChange)="onPreviewGroupsChange()">
+                                          <ng-template ng-header-tmp>
+                                              <app-select-all-header [allSelected]="previewSelectedGroups?.length === previewGroupNames?.length" [disabled]="!previewGroupNames?.length" (toggle)="togglePreviewSelectAll()"></app-select-all-header>
+                                          </ng-template>
+                                      </ng-select>
+                                  </div>
+                                  <div class="d-flex align-items-center" style="gap: 0.25rem;">
+                                      @if (showPresetNameInput) {
+                                          <input type="text" class="form-control form-control-sm" style="width: 160px;"
+                                                 placeholder="Preset name..."
+                                                 [(ngModel)]="presetName"
+                                                 (keyup.enter)="confirmSavePreset()"
+                                                 (keyup.escape)="cancelSavePreset()">
+                                          <app-badge-button caption="Save" [icon]="faSave" (click)="confirmSavePreset()" [disabled]="!presetName?.trim()"/>
+                                          <app-badge-button caption="Cancel" [icon]="faTimes" (click)="cancelSavePreset()"/>
+                                      } @else {
+                                          <app-badge-button caption="Save as Preset" [icon]="faSave" (click)="startSavePreset()" [disabled]="!previewSelectedGroups?.length"/>
+                                      }
+                                  </div>
+                              </div>
+                              @if (groupPresets.length > 0) {
+                                  <div class="mt-2 d-flex flex-wrap align-items-center" style="gap: 0.5rem;">
+                                      <small class="text-muted">Presets:</small>
+                                      @for (preset of groupPresets; track preset.name) {
+                                          <div class="btn-group btn-group-sm">
+                                              <button class="btn btn-sm"
+                                                      [class.btn-warning]="activePresetName === preset.name"
+                                                      [class.btn-outline-secondary]="activePresetName !== preset.name"
+                                                      (click)="applyPreset(preset)">{{ preset.name }}</button>
+                                              @if (presetPendingDelete === preset.name) {
+                                                  <button class="btn btn-danger btn-sm" (click)="confirmDeletePreset(preset)" tooltip="Confirm delete">
+                                                      <fa-icon [icon]="faCheckCircle"></fa-icon>
+                                                  </button>
+                                                  <button class="btn btn-outline-secondary btn-sm" (click)="presetPendingDelete = null" tooltip="Cancel">
+                                                      <fa-icon [icon]="faTimes"></fa-icon>
+                                                  </button>
+                                              } @else {
+                                                  <button class="btn btn-outline-secondary btn-sm" (click)="presetPendingDelete = preset.name" tooltip="Delete preset">
+                                                      <fa-icon [icon]="faTimes"></fa-icon>
+                                                  </button>
+                                              }
+                                          </div>
+                                      }
+                                  </div>
+                              }
+                          </div>
+                          <div class="mb-3">
+                              <div class="map-preview-container border rounded">
+                                  <app-area-map [region]="config?.area?.shortName"
+                                                [preview]="true"
+                                                [previewSharedDistrictStyle]="sharedDistrictStyle"
+                                                [previewAreaColors]="previewAreaColors"
+                                                [previewSelectedGroups]="previewSelectedGroups">
+                                  </app-area-map>
+                              </div>
+                          </div>
+                      } @else {
+                          <div class="alert alert-warning mb-3" role="alert">
+                              Upload geographic data on the Geographic Data tab to enable the map preview.
                           </div>
                       }
+                  </div>
+              </div>
+          </div>
+          }
+          @if (showMapsSubTab(MapsSubTab.GROUPS)) {
+          <div class="thumbnail-heading-frame">
+              <div class="thumbnail-heading">Groups</div>
+              <div class="row">
+                  <div class="col-12">
                       @if (missingGeographicData) {
                           <div class="alert alert-warning mb-3" role="alert">
                               {{ geographicDataMessage }}
@@ -113,59 +210,31 @@ interface GroupBoundaryUploadResult {
                               <app-markdown-editor standalone category="admin" name="area-map-group-configuration-help"
                                                    description="Area Map Group Configuration Help"/>
                           </div>
-                          <div class="mb-3">
-                              <label class="form-label">Neighboring Areas ({{ stringUtils.pluraliseWithCount(neighboringAreaCodes?.length || 0, 'area') }} of {{ availableNeighboringAreas?.length || 0 }} selected)</label>
-                              <p class="text-muted small mb-2">
-                                  Select neighboring Ramblers areas to include their groups and districts in addition to {{ config?.area?.shortName || 'your area' }}.
-                              </p>
-                              <ng-select [items]="availableNeighboringAreas"
-                                         bindLabel="ngSelectLabel"
-                                         bindValue="areaCode"
-                                         [multiple]="true"
-                                         [searchable]="true"
-                                         [closeOnSelect]="false"
-                                         [hideSelected]="true"
-                                         [loading]="loadingNeighboringAreas"
-                                         dropdownPosition="bottom"
-                                         placeholder="Select neighboring areas..."
-                                         [(ngModel)]="neighboringAreaCodes"
-                                         (ngModelChange)="onNeighboringAreasChange($event)">
-                              </ng-select>
-                          </div>
-                          <div class="form-check mb-3">
-                              <input type="checkbox" class="form-check-input" id="shared-districts"
-                                     [(ngModel)]="sharedDistrictsEnabled">
-                              <label class="form-check-label" for="shared-districts">
-                                  Allow districts to be shared between multiple groups
-                              </label>
-                          </div>
-                          @if (sharedDistrictsEnabled) {
-                              <div class="mb-3">
-                                  <label class="form-label">Shared District Display Style</label>
-                                  <app-shared-district-style-selector
-                                      [(value)]="sharedDistrictStyle">
-                                  </app-shared-district-style-selector>
-                              </div>
-                          }
-                          @if (hasS3Data && hasAreaGroups) {
-                              <div class="mb-3">
-                                  <label class="form-label">Map Preview</label>
-                                  <div class="map-preview-container border rounded">
-                                      <app-area-map [region]="config?.area?.shortName"
-                                                    [preview]="true"
-                                                    [previewSharedDistrictStyle]="sharedDistrictStyle">
-                                      </app-area-map>
-                                  </div>
-                              </div>
-                          }
-                          <div class="mb-2">
-                              <div class="input-group input-group-sm">
+                          <div class="mb-2 d-flex align-items-center" style="gap: 0.75rem;">
+                              <div class="input-group input-group-sm" style="flex: 1;">
                                   <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
                                   <input type="text" class="form-control" placeholder="Filter groups..."
                                          [(ngModel)]="filterText" (ngModelChange)="onFilterChange()">
                               </div>
+                              <div class="form-check form-check-inline mb-0">
+                                  <input type="checkbox" class="form-check-input" id="populated-only"
+                                         [(ngModel)]="populatedDistrictsOnly" (ngModelChange)="onFilterChange()">
+                                  <label class="form-check-label small" for="populated-only">Populated districts only</label>
+                              </div>
                           </div>
-                          <div class="table-responsive mb-3" style="max-height: 500px; overflow-y: auto;">
+                          <div class="d-flex align-items-center mb-3" style="gap: 0.75rem;">
+                              <app-badge-button
+                                      [caption]="busy ? 'Rebuilding Groups...' : 'Rebuild Groups'"
+                                      [icon]="faRefresh"
+                                      (click)="rebuildGroupsInEditMode()"
+                                      [disabled]="busy"/>
+                              <app-colour-palette-selector
+                                  [(selected)]="selectedPalette"
+                                  (selectedChange)="regenerateColours()"
+                                  (reapply)="regenerateColours()"
+                                  [disabled]="busy"/>
+                          </div>
+                          <div class="table-responsive" [style.max-height.px]="groupsTableHeight" style="overflow-y: auto;">
                               <table class="table table-sm table-striped table-sticky-header">
                                   <thead>
                                   <tr>
@@ -187,8 +256,7 @@ interface GroupBoundaryUploadResult {
                                               <fa-icon [icon]="sortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                           }
                                       </th>
-                                      <th>Color</th>
-                                      <th class="text-center">Custom</th>
+                                      <th>Colour</th>
                                       <th class="text-center">Non-Geographic</th>
                                   </tr>
                                   </thead>
@@ -200,14 +268,21 @@ interface GroupBoundaryUploadResult {
                                               <td>
                                                   <div class="d-flex flex-column" style="gap: 0.25rem;">
                                                       @if (group.customGeometry) {
-                                                          <span class="badge bg-success" style="width: fit-content;">Custom Shapefile</span>
+                                                          <div class="d-flex align-items-center" style="gap: 0.25rem;">
+                                                              <small class="text-muted"><fa-icon [icon]="faMapMarkerAlt" class="text-success me-1"></fa-icon>Custom shapefile</small>
+                                                              <button class="btn btn-link btn-sm p-0 ms-1"
+                                                                      tooltip="Clear custom geometry"
+                                                                      (click)="clearGroupGeometry(group)">
+                                                                  <fa-icon [icon]="faTimes" class="text-danger"></fa-icon>
+                                                              </button>
+                                                          </div>
                                                       } @else {
                                                           <select class="form-select form-select-sm"
                                                                   style="width: auto; min-width: 140px;"
                                                                   [(ngModel)]="group.geometrySource"
                                                                   [disabled]="group.nonGeographic"
                                                                   (ngModelChange)="onGeometrySourceChange(group)">
-                                                              <option value="ons-districts">ONS Districts</option>
+                                                              <option value="ons-districts">Local Authority Districts</option>
                                                               <option value="member-groups">Member Groups</option>
                                                           </select>
                                                           @if (group.geometrySource === "member-groups") {
@@ -217,12 +292,15 @@ interface GroupBoundaryUploadResult {
                                                                          [multiple]="true"
                                                                          [searchable]="true"
                                                                          [closeOnSelect]="false"
-                                                                         [hideSelected]="true"
                                                                          [clearSearchOnAdd]="true"
                                                                          [disabled]="group.nonGeographic"
+                                                                         appendTo="body"
                                                                          placeholder="Select member groups..."
                                                                          [(ngModel)]="group.memberGroupCodes"
-                                                                         (change)="onMemberGroupsChange(group)">
+                                                                         (ngModelChange)="onMemberGroupsChange(group)">
+                                                                  <ng-template ng-header-tmp>
+                                                                      <app-select-all-header [allSelected]="allMemberGroupsSelected(group)" (toggle)="toggleSelectAllMemberGroups(group)"></app-select-all-header>
+                                                                  </ng-template>
                                                               </ng-select>
                                                           } @else {
                                                               <ng-select [items]="availableDistricts"
@@ -242,20 +320,17 @@ interface GroupBoundaryUploadResult {
                                                   </div>
                                               </td>
                                               <td>
-                                                  <input type="color"
-                                                         class="form-control form-control-color"
-                                                         [(ngModel)]="group.color">
-                                              </td>
-                                              <td class="text-center align-middle">
-                                                  @if (group.customGeometry) {
-                                                      <fa-icon [icon]="faMapMarkerAlt" class="text-success"
-                                                               tooltip="Custom boundary from shapefile"></fa-icon>
-                                                      <button class="btn btn-link btn-sm p-0 ms-1"
-                                                              tooltip="Clear custom geometry"
-                                                              (click)="clearGroupGeometry(group)">
-                                                          <fa-icon [icon]="faTimes" class="text-danger small"></fa-icon>
+                                                  <div class="d-flex align-items-center" style="gap: 0.25rem;">
+                                                      <input type="color"
+                                                             class="form-control form-control-color"
+                                                             [(ngModel)]="group.color"
+                                                             (ngModelChange)="updatePreviewAreaColors()">
+                                                      <button type="button" class="btn btn-sm btn-outline-secondary p-1"
+                                                              tooltip="Regenerate colour"
+                                                              (click)="regenerateColourForGroup(group)">
+                                                          <fa-icon [icon]="faRefresh" style="font-size: 0.7rem;"></fa-icon>
                                                       </button>
-                                                  }
+                                                  </div>
                                               </td>
                                               <td class="text-center align-middle">
                                                   <input type="checkbox" class="form-check-input"
@@ -267,13 +342,67 @@ interface GroupBoundaryUploadResult {
                                   </tbody>
                               </table>
                           </div>
-                          <div class="d-flex align-items-center" style="gap: 0.75rem;">
+                          <app-height-resizer compact
+                                             [height]="groupsTableHeight"
+                                             [minHeight]="200"
+                                             [maxHeight]="2000"
+                                             (heightChange)="onGroupsTableHeightChange($event)"/>
+                          <h6 class="fw-bold mt-3">Custom Group Boundaries</h6>
+                          <p class="mb-3">
+                              Upload a shapefile (.zip) containing custom group boundary polygons. Features are matched
+                              to groups by GROUP_CODE or GROUP_NAME properties.
+                              @if (customGeometryCount > 0) {
+                                  <strong>{{ customGeometryCount }} group(s)</strong> currently use custom boundaries.
+                              }
+                          </p>
+                          <div class="d-flex align-items-center mb-3" style="gap: 0.75rem;">
+                              <input type="file" class="d-none" accept=".zip"
+                                     #shapefileInput (change)="onShapefileSelected($event)">
                               <app-badge-button
-                                      [caption]="busy ? 'Rebuilding Groups...' : 'Rebuild Groups'"
-                                      [icon]="faRefresh"
-                                      (click)="rebuildGroupsInEditMode()"
-                                      [disabled]="busy"/>
+                                      [caption]="uploadingShapefile ? 'Uploading Shapefile...' : 'Upload Group Boundaries Shapefile'"
+                                      [icon]="faUpload"
+                                      (click)="shapefileInput.click()"
+                                      [disabled]="busy || uploadingShapefile"/>
+                              @if (customGeometryCount > 0) {
+                                  <app-badge-button
+                                          [caption]="busy ? 'Clearing...' : 'Clear All Custom Boundaries'"
+                                          [icon]="faTrash"
+                                          (click)="clearAllGroupGeometries()"
+                                          [disabled]="busy"/>
+                              }
                           </div>
+                          @if (shapefileUploadResult) {
+                              <div class="alert alert-success mb-3" role="alert">
+                                  <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
+                                  <strong>Shapefile processed:</strong>
+                                  {{ shapefileUploadResult.matchedGroups }} of {{ shapefileUploadResult.totalFeatures }}
+                                  features matched to groups.
+                                  @if (shapefileUploadResult.coordinateTransform !== 'none') {
+                                      Coordinates transformed ({{ shapefileUploadResult.coordinateTransform }}).
+                                  }
+                                  @if (shapefileUploadResult.details.length > 0) {
+                                      <ul class="mb-0 mt-2 small">
+                                          @for (detail of shapefileUploadResult.details; track detail.featureIndex) {
+                                              <li [class.text-muted]="!detail.matched">
+                                                  {{ detail.groupName }} ({{ detail.groupCode }})
+                                                  @if (detail.matched) {
+                                                      — matched
+                                                  } @else {
+                                                      — <em>no matching group found</em>
+                                                  }
+                                              </li>
+                                          }
+                                      </ul>
+                                  }
+                              </div>
+                          }
+                          @if (shapefileErrorMessage) {
+                              <div class="alert alert-danger mb-3" role="alert">
+                                  <fa-icon [icon]="faTimes" class="me-2"></fa-icon>
+                                  <strong>Shapefile upload failed:</strong>
+                                  {{ shapefileErrorMessage }}
+                              </div>
+                          }
                       }
                       @if (groupsSuccessMessage) {
                           <div class="alert alert-success mt-3 mb-0" role="alert">
@@ -290,65 +419,56 @@ interface GroupBoundaryUploadResult {
               </div>
           </div>
           }
-          @if (showMapsSubTab(MapsSubTab.CUSTOM_BOUNDARIES)) {
+          @if (showMapsSubTab(MapsSubTab.NEIGHBOURING_AREAS)) {
           <div class="thumbnail-heading-frame">
-              <div class="thumbnail-heading">Custom Group Boundaries</div>
+              <div class="thumbnail-heading">Neighbouring Areas</div>
               <div class="row">
                   <div class="col-12">
-                      <p class="mb-3">
-                          Upload a shapefile (.zip) containing custom group boundary polygons. Features are matched
-                          to groups by GROUP_CODE or GROUP_NAME properties.
-                          @if (customGeometryCount > 0) {
-                              <strong>{{ customGeometryCount }} group(s)</strong> currently use custom boundaries.
-                          }
-                      </p>
-                      <div class="d-flex align-items-center mb-3" style="gap: 0.75rem;">
-                          <input type="file" class="d-none" accept=".zip"
-                                 #shapefileInput (change)="onShapefileSelected($event)">
-                          <app-badge-button
-                                  [caption]="uploadingShapefile ? 'Uploading Shapefile...' : 'Upload Group Boundaries Shapefile'"
-                                  [icon]="faUpload"
-                                  (click)="shapefileInput.click()"
-                                  [disabled]="busy || uploadingShapefile || !hasAreaGroups"/>
-                          @if (customGeometryCount > 0) {
-                              <app-badge-button
-                                      [caption]="busy ? 'Clearing...' : 'Clear All Custom Boundaries'"
-                                      [icon]="faTrash"
-                                      (click)="clearAllGroupGeometries()"
-                                      [disabled]="busy"/>
-                          }
-                      </div>
-                      @if (shapefileUploadResult) {
-                          <div class="alert alert-success mb-3" role="alert">
-                              <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
-                              <strong>Shapefile processed:</strong>
-                              {{ shapefileUploadResult.matchedGroups }} of {{ shapefileUploadResult.totalFeatures }}
-                              features matched to groups.
-                              @if (shapefileUploadResult.coordinateTransform !== 'none') {
-                                  Coordinates transformed ({{ shapefileUploadResult.coordinateTransform }}).
-                              }
-                              @if (shapefileUploadResult.details.length > 0) {
-                                  <ul class="mb-0 mt-2 small">
-                                      @for (detail of shapefileUploadResult.details; track detail.featureIndex) {
-                                          <li [class.text-muted]="!detail.matched">
-                                              {{ detail.groupName }} ({{ detail.groupCode }})
-                                              @if (detail.matched) {
-                                                  — matched
-                                              } @else {
-                                                  — <em>no matching group found</em>
-                                              }
-                                          </li>
-                                      }
-                                  </ul>
-                              }
+                      @if (!hasAreaGroups) {
+                          <div class="alert alert-warning mb-3" role="alert">
+                              Configure area groups on the Groups tab before managing neighbouring areas.
                           </div>
-                      }
-                      @if (shapefileErrorMessage) {
-                          <div class="alert alert-danger mb-3" role="alert">
-                              <fa-icon [icon]="faTimes" class="me-2"></fa-icon>
-                              <strong>Shapefile upload failed:</strong>
-                              {{ shapefileErrorMessage }}
+                      } @else {
+                          <div class="mb-3">
+                              <label class="form-label">Neighbouring Areas ({{ stringUtils.pluraliseWithCount(neighboringAreaCodes?.length || 0, 'area') }} of {{ availableNeighboringAreas?.length || 0 }} selected)</label>
+                              <p class="text-muted small mb-2">
+                                  Select neighbouring Ramblers areas to include their groups and districts in addition to {{ config?.area?.shortName || 'your area' }}.
+                              </p>
+                              <ng-select [items]="availableNeighboringAreas"
+                                         bindLabel="ngSelectLabel"
+                                         bindValue="areaCode"
+                                         [multiple]="true"
+                                         [searchable]="true"
+                                         [closeOnSelect]="false"
+                                         [hideSelected]="true"
+                                         [loading]="loadingNeighboringAreas"
+                                         dropdownPosition="bottom"
+                                         placeholder="Select neighbouring areas..."
+                                         [(ngModel)]="neighboringAreaCodes"
+                                         (ngModelChange)="onNeighboringAreasChange($event)">
+                              </ng-select>
                           </div>
+                          <div class="form-check mb-3">
+                              <input type="checkbox" class="form-check-input" id="shared-districts"
+                                     [(ngModel)]="sharedDistrictsEnabled">
+                              <label class="form-check-label" for="shared-districts">
+                                  Allow districts to be shared between multiple groups
+                              </label>
+                          </div>
+                          @if (sharedDistrictsEnabled) {
+                              <div class="mb-3">
+                                  <label class="form-label">Shared District Display Style</label>
+                                  <app-shared-district-style-selector
+                                      [(value)]="sharedDistrictStyle">
+                                  </app-shared-district-style-selector>
+                              </div>
+                          }
+                          @if (districtsLoaded && unallocatedDistricts.length > 0 && relevantUnallocatedDistricts.length > 0) {
+                              <div class="alert alert-warning mb-3" role="alert">
+                                  <strong>Unallocated Districts ({{ relevantUnallocatedDistricts.length }}):</strong>
+                                  {{ relevantUnallocatedDistricts.join(", ") }}
+                              </div>
+                          }
                       }
                   </div>
               </div>
@@ -543,7 +663,7 @@ interface GroupBoundaryUploadResult {
                                              [(ngModel)]="parishFilterText">
                                   </div>
                               </div>
-                              <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                              <div class="table-responsive" [style.max-height.px]="parishTableHeight" style="overflow-y: auto;">
                                   <table class="table table-sm table-striped table-sticky-header">
                                       <thead>
                                       <tr>
@@ -589,6 +709,11 @@ interface GroupBoundaryUploadResult {
                                       </tbody>
                                   </table>
                               </div>
+                              <app-height-resizer compact
+                                                 [height]="parishTableHeight"
+                                                 [minHeight]="200"
+                                                 [maxHeight]="2000"
+                                                 (heightChange)="onParishTableHeightChange($event)"/>
                           </div>
                       }
                   </div>
@@ -597,9 +722,10 @@ interface GroupBoundaryUploadResult {
           }
       </div>
   `,
-  imports: [BadgeButtonComponent, FontAwesomeModule, FormsModule, MarkdownEditorComponent, NgSelectComponent, AreaMap, SharedDistrictStyleSelectorComponent, SectionToggle, TooltipModule, NgClass]
+  imports: [BadgeButtonComponent, ColourPaletteSelectorComponent, FontAwesomeModule, FormsModule, HeightResizerComponent, MarkdownEditorComponent, NgHeaderTemplateDirective, NgSelectComponent, AreaMap, SelectAllHeaderComponent, SharedDistrictStyleSelectorComponent, SectionToggle, TooltipModule, NgClass]
 })
 export class SystemAreaMapSyncComponent implements OnInit {
+  private uiActionsService = inject(UiActionsService);
   private http = inject(HttpClient);
   private authService = inject(AuthService);
   private router = inject(Router);
@@ -611,15 +737,24 @@ export class SystemAreaMapSyncComponent implements OnInit {
   stringUtils = inject(StringUtilsService);
   private logger: Logger = inject(LoggerFactory).createLogger("SystemAreaMapSyncComponent", NgxLoggerLevel.ERROR);
 
+  @ViewChild(AreaMap) areaMap: AreaMap;
   @Input() config: SystemConfig;
+  @Input() set tabActive(active: boolean) {
+    if (active) {
+      setTimeout(() => this.areaMap?.refreshMapSize(), 200);
+    }
+  }
   @Output() busyChange = new EventEmitter<boolean>();
 
   protected readonly MapsSubTab = MapsSubTab;
+  groupsTableHeight = asNumber(this.uiActionsService.initialValueFor(StoredValue.GROUPS_TABLE_HEIGHT, 500));
+  parishTableHeight = asNumber(this.uiActionsService.initialValueFor(StoredValue.PARISH_TABLE_HEIGHT, 400));
   mapsSubTab: MapsSubTab = MapsSubTab.ALL;
   mapsSubTabs: SectionToggleTab[] = [
     {value: MapsSubTab.ALL, label: "All"},
-    {value: MapsSubTab.AREA_GROUPS, label: "Area Groups"},
-    {value: MapsSubTab.CUSTOM_BOUNDARIES, label: "Custom Boundaries"},
+    {value: MapsSubTab.MAP_PREVIEW, label: "Map Preview"},
+    {value: MapsSubTab.GROUPS, label: "Groups"},
+    {value: MapsSubTab.NEIGHBOURING_AREAS, label: "Neighbouring Areas"},
     {value: MapsSubTab.GEOGRAPHIC_DATA, label: "Geographic Data"},
     {value: MapsSubTab.PARISH_ALLOCATIONS, label: "Parish Allocations"}
   ];
@@ -629,6 +764,10 @@ export class SystemAreaMapSyncComponent implements OnInit {
   groupsSuccessMessage = "";
   geoSuccessMessage = "";
   geoDataNeedsUpdate = false;
+  previewAreaColors: Record<string, string> = {};
+  previewSelectedGroups: string[] = [];
+  previewGroupNames: string[] = [];
+  selectedPalette: ColourPalette = (this.uiActionsService.initialValueFor(StoredValue.COLOUR_PALETTE, ColourPalette.RAMBLERS)) as ColourPalette;
   effectiveKey = "";
   hasS3Data = false;
   hasAreaGroups = false;
@@ -642,6 +781,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
   availableNeighboringAreas: (AvailableArea & { ngSelectLabel: string })[] = [];
   loadingNeighboringAreas = false;
   filterText = "";
+  populatedDistrictsOnly = false;
   sortField: "groupCode" | "name" | "districts" = "groupCode";
   sortAsc = true;
   faSearch = faSearch;
@@ -732,10 +872,19 @@ export class SystemAreaMapSyncComponent implements OnInit {
     if (this.config?.area) {
       this.config.area.groups = groups;
     }
+    this.refreshMemberGroupOptionsCache();
+    this.updatePreviewGroupNames();
   }
 
   get filteredAndSortedGroups(): AreaGroup[] {
     let groups = this.editingGroups;
+    if (this.populatedDistrictsOnly) {
+      groups = groups.filter(g => {
+        const districts = isArray(g.onsDistricts) ? g.onsDistricts : [];
+        const memberGroups = isArray(g.memberGroupCodes) ? g.memberGroupCodes : [];
+        return districts.length > 0 || memberGroups.length > 0 || !!g.customGeometry;
+      });
+    }
     if (this.filterText) {
       const filter = this.filterText.toLowerCase();
       groups = groups.filter(g =>
@@ -802,7 +951,6 @@ export class SystemAreaMapSyncComponent implements OnInit {
   protected readonly faUpload = faUpload;
   protected readonly faTrash = faTrash;
   protected readonly faMapMarkerAlt = faMapMarkerAlt;
-
   ngOnInit() {
     this.refreshKey();
     this.loadAreaGroups();
@@ -821,6 +969,16 @@ export class SystemAreaMapSyncComponent implements OnInit {
 
   showMapsSubTab(tab: MapsSubTab): boolean {
     return [MapsSubTab.ALL, tab].includes(this.mapsSubTab);
+  }
+
+  onGroupsTableHeightChange(height: number) {
+    this.groupsTableHeight = height;
+    this.uiActionsService.saveValueFor(StoredValue.GROUPS_TABLE_HEIGHT, height);
+  }
+
+  onParishTableHeightChange(height: number) {
+    this.parishTableHeight = height;
+    this.uiActionsService.saveValueFor(StoredValue.PARISH_TABLE_HEIGHT, height);
   }
 
   get filteredParishAllocations(): ParishAllocation[] {
@@ -1040,6 +1198,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
           this.groupsSuccessMessage = "";
           this.refreshKey();
           this.loadAvailableDistricts();
+          this.applyPreviewAreaColors();
         } else {
           this.errorMessage = "Upload succeeded but no key was returned";
         }
@@ -1113,6 +1272,18 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.editingGroups = groups.map(group => ({ ...group, onsDistricts: isArray(group.onsDistricts) ? [...group.onsDistricts] : group.onsDistricts }));
     const customCount = this.editingGroups.filter(g => !!g.customGeometry).length;
     this.logger.info(`loadAreaGroups: editingGroups populated with ${this.editingGroups.length} groups, ${customCount} with customGeometry`);
+    this.logger.info("Group data:", this.editingGroups.map(g => ({
+      groupCode: g.groupCode,
+      name: g.name,
+      url: g.url,
+      externalUrl: g.externalUrl,
+      geometrySource: g.geometrySource,
+      color: g.color,
+      nonGeographic: g.nonGeographic,
+      districts: isArray(g.onsDistricts) ? (g.onsDistricts as string[]).length : 0,
+      memberGroups: isArray(g.memberGroupCodes) ? g.memberGroupCodes.length : 0,
+      hasCustomGeometry: !!g.customGeometry
+    })));
     this.editingGroups.forEach(g => this.logger.info(`  group ${g.groupCode} (${g.name}): customGeometry=${!!g.customGeometry}`));
     this.inferredDistrictsByGroup.clear();
     this.updateRelevantDistricts();
@@ -1215,6 +1386,127 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.setBusy(false);
   }
 
+  regenerateColours() {
+    const visibleGroups = this.filteredAndSortedGroups.filter(g => !g.nonGeographic);
+    const count = visibleGroups.length;
+    if (count === 0) {
+      return;
+    }
+    const colours = COLOUR_PALETTE_COLOURS[this.selectedPalette];
+    const startOffset = Math.floor(Math.random() * colours.length);
+    visibleGroups.forEach((group, index) => {
+      group.color = colours[(index + startOffset) % colours.length];
+    });
+    this.uiActionsService.saveValueFor(StoredValue.COLOUR_PALETTE, this.selectedPalette);
+    this.applyPreviewAreaColors();
+    this.geoDataNeedsUpdate = true;
+    this.logger.info(`Regenerated colours for ${count} visible geographic groups using palette: ${this.selectedPalette}`);
+  }
+
+  regenerateColourForGroup(group: AreaGroup) {
+    const colours = COLOUR_PALETTE_COLOURS[this.selectedPalette];
+    group.color = colours[Math.floor(Math.random() * colours.length)];
+    this.applyPreviewAreaColors();
+    this.geoDataNeedsUpdate = true;
+  }
+
+  private colourUpdateTimer: any = null;
+
+  updatePreviewAreaColors() {
+    if (this.colourUpdateTimer) {
+      clearTimeout(this.colourUpdateTimer);
+    }
+    this.colourUpdateTimer = setTimeout(() => {
+      this.applyPreviewAreaColors();
+      this.colourUpdateTimer = null;
+    }, 300);
+  }
+
+  private applyPreviewAreaColors() {
+    const colors: Record<string, string> = {};
+    this.editingGroups.forEach(group => {
+      if (group.color) {
+        colors[group.name] = group.color;
+      }
+    });
+    this.previewAreaColors = colors;
+  }
+
+  private updatePreviewGroupNames() {
+    this.previewGroupNames = this.editingGroups
+      .filter(g => !g.nonGeographic)
+      .map(g => g.name)
+      .sort();
+  }
+
+  onPreviewGroupsChange() {
+    this.previewSelectedGroups = [...this.previewSelectedGroups];
+  }
+
+  togglePreviewSelectAll() {
+    this.previewSelectedGroups = this.previewSelectedGroups?.length === this.previewGroupNames?.length
+      ? []
+      : [...this.previewGroupNames];
+  }
+
+  get groupPresets(): GroupPreset[] {
+    return this.config?.area?.groupPresets || [];
+  }
+
+  showPresetNameInput = false;
+  presetName = "";
+
+  startSavePreset() {
+    this.showPresetNameInput = true;
+    this.presetName = "";
+  }
+
+  confirmSavePreset() {
+    if (!this.presetName?.trim()) {
+      return;
+    }
+    const preset: GroupPreset = {name: this.presetName.trim(), groupNames: [...this.previewSelectedGroups], colourPalette: this.selectedPalette};
+    if (!this.config.area.groupPresets) {
+      this.config.area.groupPresets = [];
+    }
+    const existingIndex = this.config.area.groupPresets.findIndex(p => p.name === preset.name);
+    if (existingIndex >= 0) {
+      this.config.area.groupPresets[existingIndex] = preset;
+    } else {
+      this.config.area.groupPresets.push(preset);
+    }
+    this.showPresetNameInput = false;
+    this.presetName = "";
+  }
+
+  cancelSavePreset() {
+    this.showPresetNameInput = false;
+    this.presetName = "";
+  }
+
+  activePresetName: string = null;
+  presetPendingDelete: string = null;
+
+  applyPreset(preset: GroupPreset) {
+    this.activePresetName = preset.name;
+    this.previewSelectedGroups = [...preset.groupNames];
+    if (preset.colourPalette) {
+      this.selectedPalette = preset.colourPalette;
+      this.regenerateColours();
+    }
+  }
+
+  confirmDeletePreset(preset: GroupPreset) {
+    if (this.config?.area?.groupPresets) {
+      this.config.area.groupPresets = this.config.area.groupPresets.filter(p => p.name !== preset.name);
+    }
+    if (this.activePresetName === preset.name) {
+      this.activePresetName = null;
+    }
+    this.presetPendingDelete = null;
+  }
+
+
   private generateRandomColor(): string {
     const ramblersColors = [
       "#9BC8AB",
@@ -1307,16 +1599,40 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.geoDataNeedsUpdate = true;
   }
 
+  private memberGroupOptionsCache = new Map<string, { groupCode: string; label: string }[]>();
+
+  refreshMemberGroupOptionsCache() {
+    this.memberGroupOptionsCache.clear();
+    this.editingGroups.forEach(group => {
+      this.memberGroupOptionsCache.set(group.groupCode, this.editingGroups
+        .filter(g => g.groupCode !== group.groupCode && !g.nonGeographic)
+        .map(g => ({groupCode: g.groupCode, label: `${g.groupCode} - ${g.name}`})));
+    });
+  }
+
   memberGroupOptions(excludeGroup: AreaGroup): { groupCode: string; label: string }[] {
-    return this.editingGroups
-      .filter(g => g.groupCode !== excludeGroup.groupCode && g.customGeometry)
-      .map(g => ({groupCode: g.groupCode, label: `${g.groupCode} - ${g.name}`}));
+    return this.memberGroupOptionsCache.get(excludeGroup.groupCode) || [];
+  }
+
+  allMemberGroupsSelected(group: AreaGroup): boolean {
+    const options = this.memberGroupOptions(group);
+    return options.length > 0 && (group.memberGroupCodes?.length || 0) === options.length;
+  }
+
+  toggleSelectAllMemberGroups(group: AreaGroup) {
+    if (this.allMemberGroupsSelected(group)) {
+      group.memberGroupCodes = [];
+    } else {
+      group.memberGroupCodes = this.memberGroupOptions(group).map(o => o.groupCode);
+    }
+    this.onMemberGroupsChange(group);
   }
 
   onNonGeographicChange(group: AreaGroup) {
     if (group.nonGeographic) {
       group.onsDistricts = [];
     }
+    this.refreshMemberGroupOptionsCache();
     this.updateRelevantDistricts();
   }
 

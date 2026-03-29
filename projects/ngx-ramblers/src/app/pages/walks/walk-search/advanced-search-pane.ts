@@ -289,6 +289,9 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
                       }
                     </label>
                   </div>
+                  @if (locationError) {
+                    <div class="alert alert-danger py-1 px-2 mb-2 small">{{ locationError }}</div>
+                  }
                   <div class="form-check form-check-inline">
                     <input
                       class="form-check-input"
@@ -592,6 +595,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
   radiusPresets = [5, 10, 25, 50];
   protected readonly LocationMethod = LocationMethod;
   gettingLocation = false;
+  locationError: string = null;
   daysOfWeek = this.dateUtils.daysOfWeek();
   selectedDaysOfWeek: string[] = [];
   difficultyLevels = WALK_GRADES.map(grade => grade.description);
@@ -1105,10 +1109,11 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
   useCurrentLocation() {
     if (!navigator.geolocation) {
       this.logger.error("Geolocation is not supported by this browser");
-      alert("Geolocation is not supported by your browser");
+      this.locationError = "Geolocation is not supported by your browser.";
       return;
     }
 
+    this.locationError = null;
     this.gettingLocation = true;
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -1119,6 +1124,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
           this.radiusRange = { min: 1, max: 5, unit: DistanceUnit.MILES };
         }
         this.gettingLocation = false;
+        this.locationError = null;
         this.initializeProximityMapOptions();
         setTimeout(() => this.updateProximityMap(), 0);
         this.onCriteriaChange();
@@ -1127,16 +1133,16 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
         this.gettingLocation = false;
         if (error.code === 1) {
           this.logger.error("Location permission denied");
-          alert("Location access denied. Please enable location permissions in your browser.");
+          this.locationError = "Location access denied. Please enable location permissions in your browser.";
         } else if (error.code === 2) {
           this.logger.error("Location unavailable");
-          alert("Location unavailable. Please check your device settings.");
+          this.locationError = "Location unavailable. Please check your device settings.";
         } else if (error.code === 3) {
           this.logger.error("Location request timed out");
-          alert("Location request timed out. Please try again.");
+          this.locationError = "Location request timed out. Please try again.";
         } else {
           this.logger.error("Error getting current location:", error);
-          alert("Failed to get your location. Please try again.");
+          this.locationError = "Failed to get your location. Please try again.";
         }
       },
       {
