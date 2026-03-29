@@ -9,8 +9,7 @@ import {
 import { EnvironmentInfo } from "../../../models/backup-session.model";
 import { HumanisePipe } from "../../../pipes/humanise.pipe";
 import { HasNgSelectAttributes } from "../../../models/ramblers-walks-manager";
-import { BadgeButtonComponent } from "../badge-button/badge-button";
-import { faCheck } from "@fortawesome/free-solid-svg-icons";
+import { SelectAllHeaderComponent } from "./select-all-header";
 
 @Component({
   selector: "app-environment-select",
@@ -32,9 +31,7 @@ import { faCheck } from "@fortawesome/free-solid-svg-icons";
       appearance="outline">
       @if (multiple && showSelectAllHeader) {
         <ng-template ng-header-tmp>
-          <div class="px-2 py-1">
-            <app-badge-button inline [icon]="faCheck" [caption]="allSelected() ? 'Select none' : 'Select all'" (click)="toggleSelectAll()" [disabled]="!items?.length" [height]="28"></app-badge-button>
-          </div>
+          <app-select-all-header [allSelected]="allSelected()" [disabled]="!items?.length" (toggle)="toggleSelectAll()"></app-select-all-header>
         </ng-template>
       }
       @if (!multiple) {
@@ -50,12 +47,7 @@ import { faCheck } from "@fortawesome/free-solid-svg-icons";
       </ng-template>
     </ng-select>
   `,
-  styles: [`
-    :host ::ng-deep .ng-dropdown-header .inline-button
-      padding: 2px 8px
-      font-size: 0.875rem
-  `],
-  imports: [FormsModule, NgSelectComponent, NgHeaderTemplateDirective, NgLabelTemplateDirective, NgOptionTemplateDirective, HumanisePipe, BadgeButtonComponent]
+  imports: [FormsModule, NgSelectComponent, NgHeaderTemplateDirective, NgLabelTemplateDirective, NgOptionTemplateDirective, HumanisePipe, SelectAllHeaderComponent]
 })
 export class EnvironmentSelectComponent {
   private _items: EnvironmentInfo[] = [];
@@ -79,7 +71,6 @@ export class EnvironmentSelectComponent {
   @Input() selectedName: string;
   @Output() selectedNameChange = new EventEmitter<string>();
 
-  faCheck = faCheck;
   private humanise = inject(HumanisePipe);
   displayItems: (EnvironmentInfo & HasNgSelectAttributes)[] = [];
 

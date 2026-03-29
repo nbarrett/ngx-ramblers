@@ -304,7 +304,7 @@ import { FooterLinkSetting } from "./footer-link-setting";
                 <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.MAPS)}}"
                      [active]="tabActive(SystemSettingsTab.MAPS)"
                      (selectTab)="selectTab(SystemSettingsTab.MAPS)">
-                  <app-area-map-sync-settings [config]="config" (busyChange)="areaMapSyncBusy=$event"/>
+                  <app-area-map-sync-settings [config]="config" [tabActive]="tabActive(SystemSettingsTab.MAPS)" (busyChange)="areaMapSyncBusy=$event"/>
                 </tab>
                 <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.EXTERNAL_SYSTEMS)}}"
                      [active]="tabActive(SystemSettingsTab.EXTERNAL_SYSTEMS)"

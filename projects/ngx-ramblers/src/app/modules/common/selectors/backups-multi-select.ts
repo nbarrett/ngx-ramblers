@@ -3,8 +3,7 @@ import { FormsModule } from "@angular/forms";
 import { NgHeaderTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { BackupListItem } from "../../../models/backup-session.model";
 import { DatePipe } from "@angular/common";
-import { BadgeButtonComponent } from "../badge-button/badge-button";
-import { faCheck } from "@fortawesome/free-solid-svg-icons";
+import { SelectAllHeaderComponent } from "./select-all-header";
 
 @Component({
   selector: "app-backups-multi-select",
@@ -24,9 +23,7 @@ import { faCheck } from "@fortawesome/free-solid-svg-icons";
       name="backupsMultiSelect"
       appearance="outline">
       <ng-template ng-header-tmp>
-        <div class="px-2 py-1">
-          <app-badge-button inline [icon]="faCheck" caption="Select all" (click)="selectAll()" [disabled]="!items?.length"></app-badge-button>
-        </div>
+        <app-select-all-header [allSelected]="selected?.length === items?.length" [disabled]="!items?.length" (toggle)="toggleSelectAll()"/>
       </ng-template>
       <ng-template ng-option-tmp let-item="item">
         <div>
@@ -36,18 +33,16 @@ import { faCheck } from "@fortawesome/free-solid-svg-icons";
       </ng-template>
     </ng-select>
   `,
-  imports: [FormsModule, NgSelectComponent, NgHeaderTemplateDirective, NgOptionTemplateDirective, DatePipe, BadgeButtonComponent]
+  imports: [FormsModule, NgSelectComponent, NgHeaderTemplateDirective, NgOptionTemplateDirective, DatePipe, SelectAllHeaderComponent]
 })
 export class BackupsMultiSelectComponent {
   @Input() items: BackupListItem[] = [];
   @Input() selected: BackupListItem[] = [];
   @Input() placeholder?: string;
   @Output() selectedChange = new EventEmitter<BackupListItem[]>();
-  faCheck = faCheck;
 
-  selectAll() {
-    this.selected = [...(this.items || [])];
+  toggleSelectAll() {
+    this.selected = this.selected?.length === this.items?.length ? [] : [...(this.items || [])];
     this.selectedChange.emit(this.selected);
   }
-
 }
