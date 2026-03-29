@@ -84,6 +84,10 @@ import favicon from "serve-favicon";
 import fs from "fs";
 import committeeFile from "./mongo/routes/committee-file";
 import memberResource from "./mongo/routes/member-resource";
+import { legacyUrlMappingRoutes } from "./mongo/routes/legacy-url-mapping";
+import { legacyScrapeRunRoutes } from "./mongo/routes/legacy-scrape-run";
+import { redirectMiddleware, initialiseRedirectMiddleware } from "./legacy-redirect/redirect-middleware";
+import { reconcileOrphanedScrapeRuns } from "./legacy-redirect/legacy-redirect-ws-handler";
 
 install();
 const debugLog = debug(envConfig.logNamespace("server"));
@@ -203,11 +207,14 @@ app.use("/api/database/walks", walksRoutes);
 app.use("/api/database/group-event", extendedGroupEventRoutes);
 app.use("/api/database/migrations", migrationsRoutes);
 app.use("/api/database/venues", venueRoutes);
+app.use("/api/database/legacy-url-mapping", legacyUrlMappingRoutes);
+app.use("/api/database/legacy-scrape-run", legacyScrapeRunRoutes);
 app.use("/api/cloudflare/email-routing", cloudflareEmailRoutingRoutes);
 app.use("/api/cloudflare/web-analytics", cloudflareWebAnalyticsRoutes);
 app.use("/api/inbox/oauth", lazyRouter(async () => (await import("./inbox/oauth-routes")).inboxOauthRoutes));
 app.use("/api/inbox", lazyRouter(async () => (await import("./inbox/inbox-routes")).inboxRoutes));
 app.use("/api/environment-setup", environmentSetupRoutes);
+app.use(redirectMiddleware);
 const staticAssetExtensions = /\.(js|mjs|css|map|wasm|json|ico|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|eot|txt|xml)$/i;
 if (fs.existsSync(distFolder)) {
   const indexPath = path.join(distFolder, "index.html");
@@ -286,6 +293,14 @@ async function startServer() {
     debugLog("⏳Connecting to MongoDB in background...");
     mongooseClient.connect().then(() => {
       debugLog("✅ MongoDB connected successfully");
+
+      initialiseRedirectMiddleware().catch(error => {
+        debugLog("❌ Failed to initialise redirect middleware:", error);
+      });
+
+      reconcileOrphanedScrapeRuns().catch(error => {
+        debugLog("❌ Failed to reconcile orphaned legacy scrape runs:", error);
+      });
 
       if (envConfig.booleanValue(Environment.SKIP_MIGRATIONS_ON_STARTUP)) {
         debugLog(`⏭️ Skipping automatic migrations (${Environment.SKIP_MIGRATIONS_ON_STARTUP} is true)`);

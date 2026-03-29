@@ -13,6 +13,7 @@ export enum ConfigKey {
   RAMBLERS_AREAS_CACHE = "ramblers-areas-cache",
   SALESFORCE = "salesforce",
   SYSTEM = "system",
+  LEGACY_REDIRECT = "legacy-redirect",
   WALKS = "walks",
 }
 

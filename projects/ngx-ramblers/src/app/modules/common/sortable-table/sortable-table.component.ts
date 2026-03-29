@@ -12,7 +12,7 @@ import { SortableTableCellDirective } from "./sortable-table-cell.directive";
   standalone: true,
   imports: [NgTemplateOutlet, FontAwesomeModule],
   template: `
-    <div class="sortable-table-card">
+    <div class="sortable-table-card" [class.scrollable]="!!maxHeight" [style.max-height]="maxHeight">
       <table class="sortable-table">
         <thead>
           <tr>
@@ -61,6 +61,15 @@ import { SortableTableCellDirective } from "./sortable-table-cell.directive";
       overflow: hidden
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08)
       background: white
+
+    .sortable-table-card.scrollable
+      overflow: auto
+
+    .sortable-table-card.scrollable thead th
+      position: sticky
+      top: 0
+      z-index: 2
+      background: linear-gradient(to bottom, rgb(225, 239, 230), rgb(240, 247, 242))
 
     .sortable-table
       width: 100%
@@ -121,6 +130,7 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
 
   @Input() columns: SortableTableColumn[] = [];
   @Input() rows: any[] = [];
+  @Input() maxHeight: string | null = null;
   @Input() defaultSortKey: string | null = null;
   @Input() defaultSortDirection: string = ASCENDING;
   @Input() emptyMessage: string = "No data to display";

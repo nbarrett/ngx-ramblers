@@ -26,7 +26,7 @@ const LOCAL_ACTIVE_FILTER = {
   ]
 };
 
-function convertTitleToSlug(title: string) {
+export function convertTitleToSlug(title: string) {
   if (title) {
     const stopwords = new Set(["a", "an", "the", "to", "by", "via", "in", "of", "from"]);
     return kebabCase(title).split("-").filter(item => !stopwords.has(item)).join("-");
