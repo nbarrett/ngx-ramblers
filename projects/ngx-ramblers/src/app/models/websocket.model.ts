@@ -38,6 +38,7 @@ export enum EventType {
   EXTERNAL_ALBUM_SPLIT_PREVIEW = "external-album-split-preview",
   EXTERNAL_USER_ALBUMS_FETCH = "external-user-albums-fetch",
   EXTERNAL_BULK_ALBUM_IMPORT = "external-bulk-album-import",
+  LEGACY_URL_SCRAPE = "legacy-url-scrape",
   PING = "ping",
 }
 

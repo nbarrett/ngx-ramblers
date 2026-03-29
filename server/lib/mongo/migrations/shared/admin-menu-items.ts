@@ -8,6 +8,14 @@ export const CONTRIBUTOR_ENVIRONMENT_MENU_ITEM: ActionButtonColumn = {
   contentText: "Generate a developer environment bundle so a contributor can run NGX on their own machine against this group's environment"
 };
 
+export const LEGACY_REDIRECTS_MENU_ITEM: ActionButtonColumn = {
+  accessLevel: "committee",
+  title: "Legacy Redirects",
+  icon: "faRoute",
+  href: "admin/legacy-redirects",
+  contentText: "Map URLs from a migrated legacy site to their new NGX pages and manage redirects"
+};
+
 export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
   {
     accessLevel: "loggedInMember",
@@ -93,6 +101,7 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
     href: "admin/content-migration",
     contentText: "Scan site content for images, PDFs, and documents hosted on external domains and migrate them to S3 storage"
   },
+  LEGACY_REDIRECTS_MENU_ITEM,
   {
     accessLevel: "committee",
     title: "Maintenance",

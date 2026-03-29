@@ -179,6 +179,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       path: "migration-health", redirectTo: "environment-management/health", pathMatch: "full"
     },
     {
+      path: "legacy-redirects",
+      loadComponent: () => import("../../pages/admin/legacy-redirects/legacy-redirects.component")
+        .then(m => m.LegacyRedirectsComponent),
+      canActivate: [SystemHealthyGuard, AdminAuthGuard]
+    },
+    {
       path: "banners", loadComponent: () => import("../../pages/banner/banner.component")
         .then(m => m.BannerComponent),
       canActivate: [SystemHealthyGuard]

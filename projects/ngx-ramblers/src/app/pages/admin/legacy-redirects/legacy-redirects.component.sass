@@ -1,0 +1,97 @@
+.confidence-badge
+  display: inline-block
+  padding: 2px 8px
+  border-radius: 4px
+  font-size: 0.8em
+  font-weight: 600
+  text-transform: capitalize
+  white-space: nowrap
+
+  &.high
+    background-color: #d4edda
+    color: #155724
+
+  &.medium
+    background-color: #fff3cd
+    color: #856404
+
+  &.low
+    background-color: #f8d7da
+    color: #721c24
+
+  &.unmapped
+    background-color: #e2e3e5
+    color: #383d41
+
+.status-badge
+  display: inline-block
+  padding: 2px 8px
+  border-radius: 4px
+  font-size: 0.8em
+  white-space: nowrap
+
+  &.accepted
+    background-color: #d4edda
+    color: #155724
+
+  &.pending
+    background-color: #fff3cd
+    color: #856404
+
+  &.rejected
+    background-color: #f8d7da
+    color: #721c24
+
+  &.ignored
+    background-color: #e2e3e5
+    color: #383d41
+
+.progress-summary
+  display: flex
+  gap: 16px
+  flex-wrap: wrap
+  margin-bottom: 16px
+
+  .stat-card
+    padding: 12px 20px
+    border-radius: 8px
+    background: #f8f9fa
+    border: 1px solid #dee2e6
+    text-align: center
+    min-width: 120px
+
+    .stat-value
+      font-size: 1.8em
+      font-weight: 700
+
+    .stat-label
+      font-size: 0.85em
+      color: #6c757d
+
+.action-btn
+  padding: 0.1rem 0.4rem
+  line-height: 1.2
+  font-size: 0.8rem
+
+.action-btn-warning, .action-btn-danger
+  background-color: rgb(222, 226, 230)
+  border-color: rgb(222, 226, 230)
+  color: rgb(33, 37, 41)
+
+.action-btn-warning:hover, .action-btn-warning:focus
+  background-color: rgb(249, 177, 4)
+  border-color: rgb(249, 177, 4)
+  color: rgb(33, 37, 41)
+
+.action-btn-danger:hover, .action-btn-danger:focus
+  background-color: #dc3545
+  border-color: #dc3545
+  color: #fff
+
+.scrape-progress
+  margin: 16px 0
+
+  .progress-message
+    font-size: 0.9em
+    color: #495057
+    margin-top: 8px

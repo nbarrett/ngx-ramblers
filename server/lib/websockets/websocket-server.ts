@@ -25,6 +25,7 @@ import { handleContentMigrationScanHosts, handleContentMigrationScan, handleCont
 import { handleEnvironmentSetup, handleEnvironmentCreate, EnvironmentSetupWsData, EnvironmentCreateWsData } from "../environment-setup/environment-setup-ws-handler";
 import { handleExternalAlbumFetch, handleExternalAlbumImport, handleExternalUserAlbumsFetch, handleExternalBulkAlbumImport, handleExternalAlbumSplitPreview } from "../external-album/external-album-ws-handler";
 import { registerWebSocketServer } from "./websocket-broadcaster";
+import { handleLegacyUrlScrape } from "../legacy-redirect/legacy-redirect-ws-handler";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
@@ -55,6 +56,7 @@ const messageHandlers: MessageHandlers = {
   [EventType.EXTERNAL_ALBUM_SPLIT_PREVIEW]: async (ws: WebSocket, data: any) => handleExternalAlbumSplitPreview(ws, data),
   [EventType.EXTERNAL_USER_ALBUMS_FETCH]: async (ws: WebSocket, data: any) => handleExternalUserAlbumsFetch(ws, data),
   [EventType.EXTERNAL_BULK_ALBUM_IMPORT]: async (ws: WebSocket, data: any) => handleExternalBulkAlbumImport(ws, data),
+  [EventType.LEGACY_URL_SCRAPE]: async (ws: WebSocket, data: any) => handleLegacyUrlScrape(ws, data),
   [EventType.PING]: (ws: WebSocket) => {
     ws.send(JSON.stringify({ type: "pong", data: {} }));
   },
