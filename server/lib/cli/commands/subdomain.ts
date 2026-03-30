@@ -76,9 +76,11 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
   const existingRecords = await listDnsRecords(cloudflareConfig, fullHostname);
   const existingA = existingRecords.find(r => r.type === "A");
   const existingAAAA = existingRecords.find(r => r.type === "AAAA");
+  const existingMx = existingRecords.filter(r => r.type === "MX");
 
   if (existingA) log(`   ⚠ A record exists: ${existingA.content}`);
   if (existingAAAA) log(`   ⚠ AAAA record exists: ${existingAAAA.content}`);
+  if (existingMx.length > 0) log(`   ⚠ ${existingMx.length} MX record(s) exist`);
 
   log("\n4. Creating DNS records...");
   if (ips.ipv4 && !existingA) {
@@ -93,6 +95,22 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
     log(`   ✓ AAAA record created: ${subdomain} -> ${ips.ipv6}`);
   } else if (existingAAAA) {
     log(`   - Skipping AAAA record (already exists)`);
+  }
+
+  const requiredMxRecords = [
+    {content: "route1.mx.cloudflare.net", priority: 16},
+    {content: "route2.mx.cloudflare.net", priority: 99},
+    {content: "route3.mx.cloudflare.net", priority: 2}
+  ];
+
+  for (const mx of requiredMxRecords) {
+    const existing = existingMx.find(r => r.content === mx.content);
+    if (!existing) {
+      await createDnsRecord(cloudflareConfig, {type: "MX", name: subdomain, content: mx.content, priority: mx.priority});
+      log(`   ✓ MX record created: ${subdomain} -> ${mx.content} (priority ${mx.priority})`);
+    } else {
+      log(`   - Skipping MX record ${mx.content} (already exists)`);
+    }
   }
 
   log("\n5. Adding Fly.io certificate...");

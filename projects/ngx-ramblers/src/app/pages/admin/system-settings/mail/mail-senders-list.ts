@@ -3,7 +3,9 @@ import { ActivatedRoute, Router } from "@angular/router";
 import {
   faCheck,
   faClose,
+  faEnvelope,
   faExclamationTriangle,
+  faPlus,
   faSearch,
   faShieldAlt,
   faSort,
@@ -21,6 +23,7 @@ import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/c
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { CommitteeMember } from "../../../../models/committee.model";
 import { BrevoDomainConfiguration, DomainAuthenticationResult, Sender, SenderSortField, SendersResponse } from "../../../../models/mail.model";
+import { MxRecordStatus } from "../../../../models/cloudflare-email-routing.model";
 import { ALERT_ERROR } from "../../../../models/alert-target.model";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { SortDirection } from "../../../../models/sort.model";
@@ -151,6 +154,70 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
                 @if (domainAuthResult.brevoDomainsUrl) {
                   <a [href]="domainAuthResult.brevoDomainsUrl" target="_blank" class="ms-1">Open Brevo Domains</a>
                 }
+              </div>
+            }
+          </div>
+        </div>
+      }
+      @if (baseDomain) {
+        <div class="row mb-3">
+          <div class="col-md-12">
+            <div class="d-flex align-items-center gap-3 p-2 border rounded bg-light">
+              <fa-icon [icon]="faEnvelope" class="fa-icon"></fa-icon>
+              <div class="flex-grow-1">
+                <strong>MX Records:</strong> {{ baseDomain }}
+                @if (mxRecordLoading) {
+                  <fa-icon [icon]="faSpinner" animation="spin" class="ms-2"></fa-icon>
+                } @else if (mxRecordStatus) {
+                  @if (mxRecordStatus.allPresent) {
+                    <span class="badge bg-success ms-2">All MX records present</span>
+                  } @else {
+                    <span class="badge bg-danger ms-2">Missing MX records</span>
+                  }
+                }
+              </div>
+              @if (mxRecordStatus && !mxRecordStatus.allPresent) {
+                <button class="btn btn-sm btn-primary" [disabled]="mxRecordCreating" (click)="createMissingMxRecords()">
+                  @if (mxRecordCreating) {
+                    <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Creating...
+                  } @else {
+                    <fa-icon [icon]="faPlus" class="me-1"></fa-icon>Add Missing MX Records
+                  }
+                </button>
+              }
+            </div>
+            @if (mxRecordStatus) {
+              <div class="mt-2">
+                <table class="table table-sm table-bordered mb-0">
+                  <thead>
+                    <tr>
+                      <th>MX Server</th>
+                      <th style="width: 100px">Priority</th>
+                      <th style="width: 80px" class="text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (record of mxRecordStatus.expectedRecords; track record.content) {
+                      <tr>
+                        <td class="small">{{ record.content }}</td>
+                        <td>{{ record.priority }}</td>
+                        <td class="text-center">
+                          @if (record.exists) {
+                            <fa-icon [icon]="faCheck" class="text-success"></fa-icon>
+                          } @else {
+                            <fa-icon [icon]="faClose" class="text-danger"></fa-icon>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+            @if (mxRecordError) {
+              <div class="alert alert-danger mt-2 mb-0">
+                <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                {{ mxRecordError }}
               </div>
             }
           </div>
@@ -316,7 +383,9 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
   protected readonly SenderSortField = SenderSortField;
   protected readonly faCheck = faCheck;
   protected readonly faClose = faClose;
+  protected readonly faEnvelope = faEnvelope;
   protected readonly faExclamationTriangle = faExclamationTriangle;
+  protected readonly faPlus = faPlus;
   protected readonly faSearch = faSearch;
   protected readonly faShieldAlt = faShieldAlt;
   protected readonly faSpinner = faSpinner;
@@ -325,6 +394,10 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
   public domainStatus: BrevoDomainConfiguration | null = null;
   public domainAuthenticating = false;
   public domainAuthResult: DomainAuthenticationResult | null = null;
+  public mxRecordStatus: MxRecordStatus | null = null;
+  public mxRecordLoading = false;
+  public mxRecordCreating = false;
+  public mxRecordError: string | null = null;
 
   async ngOnInit() {
     this.subscriptions.push(
@@ -359,6 +432,7 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
           this.baseDomain = config?.baseDomain;
           if (this.baseDomain) {
             await this.loadDomainStatus();
+            await this.loadMxRecordStatus();
           }
         } catch (err) {
           this.logger.warn("Could not load cloudflare config for domain validation:", err);
@@ -527,6 +601,34 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
     } catch (err) {
       this.logger.warn("Could not load domain status:", err);
       this.domainStatus = null;
+    }
+  }
+
+  private async loadMxRecordStatus(): Promise<void> {
+    this.mxRecordLoading = true;
+    this.mxRecordError = null;
+    try {
+      this.mxRecordStatus = await this.cloudflareEmailRoutingService.queryMxRecordStatus();
+      this.logger.info("MX record status:", this.mxRecordStatus);
+    } catch (err) {
+      this.logger.warn("Could not load MX record status:", err);
+      this.mxRecordError = this.stringUtilsService.stringify(err);
+    } finally {
+      this.mxRecordLoading = false;
+    }
+  }
+
+  async createMissingMxRecords(): Promise<void> {
+    this.mxRecordCreating = true;
+    this.mxRecordError = null;
+    try {
+      this.mxRecordStatus = await this.cloudflareEmailRoutingService.createMissingMxRecords();
+      this.logger.info("MX records created, status:", this.mxRecordStatus);
+    } catch (err) {
+      this.logger.error("Failed to create MX records:", err);
+      this.mxRecordError = this.stringUtilsService.stringify(err);
+    } finally {
+      this.mxRecordCreating = false;
     }
   }
 

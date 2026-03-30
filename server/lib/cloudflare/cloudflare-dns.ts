@@ -20,7 +20,8 @@ export async function createDnsRecord(config: CloudflareDnsConfig, record: DnsRe
       name: record.name,
       content: record.content,
       ttl: record.ttl ?? 1,
-      proxied: record.proxied ?? false
+      proxied: record.proxied ?? false,
+      ...(record.priority !== undefined ? {priority: record.priority} : {})
     })
   });
 
