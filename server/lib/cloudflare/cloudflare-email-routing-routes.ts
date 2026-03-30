@@ -10,6 +10,8 @@ import {
   listEmailRoutingRules,
   updateEmailRoutingRule
 } from "./cloudflare-email-routing";
+import { createDnsRecord, listDnsRecords } from "./cloudflare-dns";
+import { MxRecordStatus } from "./cloudflare.model";
 import {
   createDestinationAddress,
   deleteDestinationAddress,
@@ -300,6 +302,91 @@ router.post("/logs/workers", authConfig.authenticate(), async (req: Request, res
     res.json({request: {messageType}, response: logs});
   } catch (error) {
     errorDebugLog("Error querying worker logs:", error.message, error.stack);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+const REQUIRED_MX_RECORDS = [
+  {content: "route1.mx.cloudflare.net", priority: 16},
+  {content: "route2.mx.cloudflare.net", priority: 99},
+  {content: "route3.mx.cloudflare.net", priority: 2}
+];
+
+router.get("/mx-records", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    const nsConfig = await nonSensitiveCloudflareConfig();
+    if (!nsConfig.configured || !nsConfig.baseDomain) {
+      res.status(400).json({request: {messageType}, error: {message: "Cloudflare not configured or baseDomain not available"}});
+      return;
+    }
+
+    const cloudflareConfig = await configuredCloudflare();
+    const subdomain = nsConfig.baseDomain;
+    const existingRecords = await listDnsRecords({apiToken: cloudflareConfig.apiToken, zoneId: cloudflareConfig.zoneId}, subdomain, "MX");
+
+    const expectedRecords = REQUIRED_MX_RECORDS.map(mx => ({
+      content: mx.content,
+      priority: mx.priority,
+      exists: existingRecords.some(r => r.content === mx.content)
+    }));
+
+    const status: MxRecordStatus = {
+      subdomain,
+      allPresent: expectedRecords.every(r => r.exists),
+      expectedRecords,
+      existingRecords
+    };
+
+    res.json({request: {messageType}, response: status});
+  } catch (error) {
+    errorDebugLog("Error fetching MX record status:", error.message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+router.post("/mx-records", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    const nsConfig = await nonSensitiveCloudflareConfig();
+    if (!nsConfig.configured || !nsConfig.baseDomain) {
+      res.status(400).json({request: {messageType}, error: {message: "Cloudflare not configured or baseDomain not available"}});
+      return;
+    }
+
+    const cloudflareConfig = await configuredCloudflare();
+    const subdomain = nsConfig.baseDomain;
+    const dnsConfig = {apiToken: cloudflareConfig.apiToken, zoneId: cloudflareConfig.zoneId};
+    const existingRecords = await listDnsRecords(dnsConfig, subdomain, "MX");
+
+    const created: string[] = [];
+    const skipped: string[] = [];
+
+    for (const mx of REQUIRED_MX_RECORDS) {
+      const existing = existingRecords.find(r => r.content === mx.content);
+      if (!existing) {
+        await createDnsRecord(dnsConfig, {type: "MX", name: subdomain, content: mx.content, priority: mx.priority});
+        created.push(`${mx.content} (priority ${mx.priority})`);
+      } else {
+        skipped.push(`${mx.content} (already exists)`);
+      }
+    }
+
+    const updatedRecords = await listDnsRecords(dnsConfig, subdomain, "MX");
+    const expectedRecords = REQUIRED_MX_RECORDS.map(mx => ({
+      content: mx.content,
+      priority: mx.priority,
+      exists: updatedRecords.some(r => r.content === mx.content)
+    }));
+
+    const status: MxRecordStatus = {
+      subdomain,
+      allPresent: expectedRecords.every(r => r.exists),
+      expectedRecords,
+      existingRecords: updatedRecords
+    };
+
+    res.json({request: {messageType}, response: status});
+  } catch (error) {
+    errorDebugLog("Error creating MX records:", error.message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });

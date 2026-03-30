@@ -9,6 +9,7 @@ export interface DnsRecord {
   content: string;
   ttl?: number;
   proxied?: boolean;
+  priority?: number;
 }
 
 export interface CloudflareResponse<T> {
@@ -24,6 +25,7 @@ export interface DnsRecordResult {
   content: string;
   ttl: number;
   proxied: boolean;
+  priority?: number;
   created_on: string;
   modified_on: string;
 }
@@ -33,4 +35,17 @@ export interface NonSensitiveCloudflareConfig {
   accountId?: string;
   zoneId?: string;
   baseDomain?: string;
+}
+
+export interface MxRecordDetail {
+  content: string;
+  priority: number;
+  exists: boolean;
+}
+
+export interface MxRecordStatus {
+  subdomain: string;
+  allPresent: boolean;
+  expectedRecords: MxRecordDetail[];
+  existingRecords: DnsRecordResult[];
 }

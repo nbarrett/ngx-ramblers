@@ -11,6 +11,7 @@ import {
   EmailRoutingLogsRequest,
   EmailRoutingRule,
   EmailWorkerScript,
+  MxRecordStatus,
   NonSensitiveCloudflareConfig,
   WorkerInvocationSummary,
   WorkerLogsRequest
@@ -210,6 +211,14 @@ export class CloudflareEmailRoutingService {
 
   async queryWorkerLogs(request: WorkerLogsRequest): Promise<WorkerInvocationSummary[]> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/logs/workers`, request))).response;
+  }
+
+  async queryMxRecordStatus(): Promise<MxRecordStatus> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/mx-records`))).response;
+  }
+
+  async createMissingMxRecords(): Promise<MxRecordStatus> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/mx-records`, {}))).response;
   }
 
   invalidateCache() {

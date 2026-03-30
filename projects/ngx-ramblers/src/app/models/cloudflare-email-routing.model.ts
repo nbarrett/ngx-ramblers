@@ -106,6 +106,27 @@ export interface NonSensitiveCloudflareConfig {
   baseDomain?: string;
 }
 
+export interface MxRecordDetail {
+  content: string;
+  priority: number;
+  exists: boolean;
+}
+
+export interface MxExistingRecord {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+  priority?: number;
+}
+
+export interface MxRecordStatus {
+  subdomain: string;
+  allPresent: boolean;
+  expectedRecords: MxRecordDetail[];
+  existingRecords: MxExistingRecord[];
+}
+
 export interface EmailWorkerScript {
   id: string;
   etag?: string;
