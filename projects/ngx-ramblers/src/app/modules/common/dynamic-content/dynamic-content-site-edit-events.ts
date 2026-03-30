@@ -335,6 +335,19 @@ export class DynamicContentSiteEditEvents implements OnInit {
       row.events = events;
       this.fromAndTo = this.display.fromAndToFrom(row.events);
     } else {
+      if (!row.events.eventTypes) {
+        const legacyEventType = (row.events as any)?.eventType;
+        row.events.eventTypes = legacyEventType ? [legacyEventType] : [RamblersEventType.GROUP_EVENT];
+      }
+      if (!row.events.allow) {
+        row.events.allow = {addNew: false, pagination: false, quickSearch: false};
+      }
+      if (!row.events.filterCriteria) {
+        row.events.filterCriteria = FilterCriteria.FUTURE_EVENTS;
+      }
+      if (!row.events.sortOrder) {
+        row.events.sortOrder = SortOrder.DATE_ASCENDING;
+      }
       if (!row.events.dateRangeMode) {
         row.events.dateRangeMode = DateRangeMode.DATE_PICKERS;
       }
