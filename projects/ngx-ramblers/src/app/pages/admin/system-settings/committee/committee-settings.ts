@@ -218,11 +218,22 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                         <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
                                       </a>
                                     }
-                                    <button type="button" class="btn btn-sm btn-outline-danger"
-                                      [disabled]="workerDeletePending === script.id"
-                                      (click)="deleteWorkerScript(script.id)">
-                                      Delete
-                                    </button>
+                                    @if (workerDeleteConfirmPending === script.id) {
+                                      <button type="button" class="btn btn-sm btn-danger"
+                                        (click)="deleteWorkerScript(script.id)">
+                                        Confirm
+                                      </button>
+                                      <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        (click)="cancelDeleteWorkerScript()">
+                                        Cancel
+                                      </button>
+                                    } @else {
+                                      <button type="button" class="btn btn-sm btn-outline-danger"
+                                        [disabled]="workerDeletePending === script.id"
+                                        (click)="requestDeleteWorkerScript(script.id)">
+                                        Delete
+                                      </button>
+                                    }
                                   </div>
                                 </td>
                               </tr>
@@ -735,14 +746,21 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     return "Cloudflare routing link is not available yet.";
   }
 
+  workerDeleteConfirmPending: string = null;
+
+  requestDeleteWorkerScript(scriptName: string) {
+    this.workerDeleteConfirmPending = scriptName;
+  }
+
+  cancelDeleteWorkerScript() {
+    this.workerDeleteConfirmPending = null;
+  }
+
   async deleteWorkerScript(scriptName: string) {
     if (!this.platformAdminEnabled || !scriptName) {
       return;
     }
-    const confirmed = confirm(`Delete Cloudflare worker "${scriptName}"?`);
-    if (!confirmed) {
-      return;
-    }
+    this.workerDeleteConfirmPending = null;
     this.workerDeletePending = scriptName;
     try {
       await this.cloudflareEmailRoutingService.deleteWorker(scriptName);

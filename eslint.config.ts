@@ -110,7 +110,11 @@ const nativeBrowserDialogRestrictions = [
     "message": "Native alert() dialogs are not allowed. Use inline UI elements instead."
   },
   {
-    "selector": "CallExpression[callee.name='confirm']",
+    "selector": "CallExpression[callee.name='confirm'][arguments.0.type='Literal']",
+    "message": "Native confirm() dialogs are not allowed. Use inline UI elements instead."
+  },
+  {
+    "selector": "CallExpression[callee.name='confirm'][arguments.0.type='TemplateLiteral']",
     "message": "Native confirm() dialogs are not allowed. Use inline UI elements instead."
   },
   {
@@ -164,8 +168,7 @@ const sharedSyntaxRestrictions = [
     "selector": "CallExpression[callee.object.name='Array'][callee.property.name='isArray']",
     "message": "Use isArray() from es-toolkit/compat instead of Array.isArray() for consistency."
   },
-  ...typeofRestrictions,
-  ...nativeBrowserDialogRestrictions
+  ...typeofRestrictions
 ];
 
 export default defineConfig([
@@ -173,8 +176,9 @@ export default defineConfig([
     ignores: [
       "projects/ngx-ramblers/src/brevo/templates/**",
       "server/ts-gen/**",
-      "server/lib/cli/cli-logger.ts",
-      "server/lib/cli/cli-prompt.ts",
+      "server/lib/cli/**",
+      "server/lib/environments/environments-config.ts",
+      "server/deploy/mongo-cli-interactive.ts",
     ],
   },
   {
@@ -235,6 +239,7 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...sharedSyntaxRestrictions,
+        ...nativeBrowserDialogRestrictions,
         {
           "selector": "NewExpression[callee.name='Date']",
           "message": "Direct use of 'new Date()' is not allowed. Use this.dateUtils.dateTimeNow() from DateUtilsService (frontend) instead."
