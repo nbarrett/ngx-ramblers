@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { PageContent, PageContentColumn, PageContentType } from "../models/content-text.model";
+import { PageContent, PageContentColumn, PageContentRow, PageContentType } from "../models/content-text.model";
 import { AccessLevel } from "../models/member-resource.model";
 import { LocationDetails } from "../models/ramblers-walks-manager";
 import { LoggerFactory } from "./logger-factory.service";
@@ -142,6 +142,33 @@ export class LocationExtractionService {
       county: parts[1],
       region: parts[2]
     };
+  }
+
+  findAllImagesInPage(pageContent: PageContent): string[] {
+    const images: string[] = [];
+    this.collectImagesFromRows(pageContent.rows || [], images);
+    return images;
+  }
+
+  private collectImagesFromRows(rows: PageContentRow[], images: string[]) {
+    rows.forEach(row => {
+      if (row.type === PageContentType.ALBUM_INDEX) {
+        return;
+      }
+      if (row.committeeDocuments?.imageSource) {
+        images.push(row.committeeDocuments.imageSource);
+      }
+      (row.columns || []).forEach(column => {
+        if (column.imageSource) {
+          images.push(column.imageSource);
+        } else if (column.youtubeId) {
+          images.push(this.youtubeService.thumbnailUrl(column.youtubeId));
+        }
+        if (column.rows) {
+          this.collectImagesFromRows(column.rows, images);
+        }
+      });
+    });
   }
 
   private findFirstImageInPage(pageContent: PageContent): string | undefined {

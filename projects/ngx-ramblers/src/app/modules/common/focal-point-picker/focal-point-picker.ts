@@ -2,6 +2,7 @@ import { Component, ElementRef, EventEmitter, inject, Input, NgZone, Output, Vie
 import { DecimalPipe, NgStyle } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { rangeSliderStyles } from "../../../components/range-slider.styles";
+import { HeightResizerComponent } from "../height-resizer/height-resizer";
 import { FocalPoint } from "../../../models/image-cropper.model";
 
 export type { FocalPoint } from "../../../models/image-cropper.model";
@@ -26,6 +27,14 @@ export type { FocalPoint } from "../../../models/image-cropper.model";
         </div>
       }
     </div>
+    @if (resizable) {
+      <app-height-resizer
+        [height]="effectiveHeight"
+        [minHeight]="minHeight"
+        [maxHeight]="maxHeight"
+        [compact]="true"
+        (heightChange)="onHeightChange($event)"/>
+    }
     @if (showZoomSlider) {
       <div class="zoom-slider-container mt-2">
         <div class="d-flex justify-content-between align-items-center mb-1">
@@ -33,7 +42,7 @@ export type { FocalPoint } from "../../../models/image-cropper.model";
           <span class="zoom-value">{{ zoomValue | number:'1.1-1' }}x</span>
         </div>
         <div class="range-slider-row">
-          <span class="range-edge text-start">1x</span>
+          <span class="range-edge text-start">{{ minZoom }}x</span>
           <div class="slider-wrapper">
             <input type="range"
                    class="range-slider range-high"
@@ -108,7 +117,7 @@ export type { FocalPoint } from "../../../models/image-cropper.model";
 
     ${rangeSliderStyles}
   `],
-  imports: [NgStyle, FormsModule, DecimalPipe]
+  imports: [NgStyle, FormsModule, DecimalPipe, HeightResizerComponent]
 })
 export class FocalPointPickerComponent {
   @ViewChild("container") container: ElementRef<HTMLDivElement>;
@@ -119,10 +128,18 @@ export class FocalPointPickerComponent {
   @Input() height: number = null;
   @Input() borderRadius: number = null;
   @Input() showZoomSlider = true;
+  @Input() resizable = false;
+  @Input() minHeight = 150;
+  @Input() maxHeight = 800;
   @Output() focalPointChange = new EventEmitter<FocalPoint>();
 
   private ngZone = inject(NgZone);
   private isDragging = false;
+  private resizedHeight: number = null;
+
+  get effectiveHeight(): number {
+    return this.resizedHeight ?? this.height ?? this.minHeight;
+  }
 
   get zoomValue(): number {
     return this.focalPoint?.zoom ?? 1;
@@ -132,10 +149,15 @@ export class FocalPointPickerComponent {
     return ((this.zoomValue - this.minZoom) / (this.maxZoom - this.minZoom)) * 100;
   }
 
+  onHeightChange(newHeight: number) {
+    this.resizedHeight = newHeight;
+  }
+
   containerStyle(): any {
     const styles: any = {};
-    if (this.height) {
-      styles["height.px"] = this.height;
+    const h = this.resizable ? this.effectiveHeight : this.height;
+    if (h) {
+      styles["height.px"] = h;
     }
     if (this.borderRadius !== null) {
       styles["border-radius.px"] = this.borderRadius;
@@ -145,8 +167,9 @@ export class FocalPointPickerComponent {
 
   imageStyle(): any {
     const styles: any = {};
-    if (this.height) {
-      styles["height.px"] = this.height;
+    const h = this.resizable ? this.effectiveHeight : this.height;
+    if (h) {
+      styles["height.px"] = h;
     }
     if (this.borderRadius !== null) {
       styles["border-radius.px"] = this.borderRadius;

@@ -256,7 +256,8 @@ import { ContentText } from "../../../models/content-text.model";
         <app-index-entry-override-editor
           [row]="row"
           [indexPageContent]="indexPageContent"
-          (overridesChanged)="refreshContentPreview()"/>
+          (overridesChanged)="refreshContentPreview()"
+          (expandedHrefChanged)="onOverrideExpandedHrefChanged($event)"/>
       }
       @if (showMapConfig()) {
         <app-map-overlay-controls
@@ -312,7 +313,7 @@ import { ContentText } from "../../../models/content-text.model";
           </div>
         </div>
       }
-      <app-action-buttons [pageContent]="indexPageContent" [rowIndex]="0" presentationMode/>`,
+      <app-action-buttons [pageContent]="previewPageContent()" [rowIndex]="0" presentationMode/>`,
     imports: [BadgeButtonComponent, FormsModule, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap, MarkdownEditorComponent, IndexEntryOverrideEditor]
 })
 export class IndexSiteEdit implements OnInit {
@@ -354,6 +355,7 @@ export class IndexSiteEdit implements OnInit {
     {value: SortDirection.DESC, title: "Descending"}
   ];
   showMapPreview = false;
+  overrideExpandedHref: string = null;
   protected readonly MapProvider = MapProvider;
   protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
   private pageService: PageService = inject(PageService);
@@ -523,6 +525,21 @@ export class IndexSiteEdit implements OnInit {
       this.row.albumIndex.mapConfig.height = height;
       this.onMapConfigChange();
     }
+  }
+
+  onOverrideExpandedHrefChanged(href: string) {
+    this.overrideExpandedHref = href;
+  }
+
+  previewPageContent(): PageContent {
+    if (!this.overrideExpandedHref || !this.indexPageContent?.rows?.[0]?.columns) {
+      return this.indexPageContent;
+    }
+    const filteredColumns = this.indexPageContent.rows[0].columns.filter(c => c.href === this.overrideExpandedHref);
+    return {
+      ...this.indexPageContent,
+      rows: [{...this.indexPageContent.rows[0], columns: filteredColumns}]
+    };
   }
 
 }
