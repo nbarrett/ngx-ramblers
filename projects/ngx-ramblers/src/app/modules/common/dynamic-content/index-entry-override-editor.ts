@@ -18,6 +18,7 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
 import { PageContentService } from "../../../services/page-content.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { UrlService } from "../../../services/url.service";
+import { LocationExtractionService } from "../../../services/location-extraction.service";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronRight, faImage, faStar, faUndo } from "@fortawesome/free-solid-svg-icons";
@@ -27,6 +28,7 @@ interface ExpandedEntry {
   metadata: ContentMetadata;
   images: { image: string; imageSource: string }[];
   defaultCoverImage: string;
+  fromPageContent: boolean;
 }
 
 @Component({
@@ -100,9 +102,10 @@ interface ExpandedEntry {
                       <small class="text-muted d-block mb-2">No image catalogue available for this entry. You can adjust the focal point of the current cover image below.</small>
                       <label class="form-label">Focal point</label>
                       <app-focal-point-picker
-                        [imageSrc]="column.imageSource"
+                        [imageSrc]="resolvedImageSource(column.imageSource)"
                         [focalPoint]="effectiveFocalPoint(column)"
                         [height]="200"
+                        [resizable]="true"
                         (focalPointChange)="onFocalPointChange(column, $event)"/>
                     </div>
                     @if (hasOverride(column)) {
@@ -120,10 +123,10 @@ interface ExpandedEntry {
                         @for (img of expandedEntry.images; track img.image) {
                           <div class="image-grid-item"
                                [class.selected]="isEffectiveImage(column, img.image)"
-                               [class.album-default]="isAlbumDefault(img.image) && !isEffectiveImage(column, img.image)"
+                               [class.album-default]="!expandedEntry.fromPageContent && isAlbumDefault(img.image) && !isEffectiveImage(column, img.image)"
                                (click)="selectCoverImage(column, img.image)">
                             <img [src]="img.imageSource" [alt]="img.image" loading="lazy"/>
-                            @if (isAlbumDefault(img.image)) {
+                            @if (!expandedEntry.fromPageContent && isAlbumDefault(img.image)) {
                               <div class="default-overlay" [class.selected-default]="isEffectiveImage(column, img.image)">
                                 <fa-icon [icon]="faStar"></fa-icon>
                               </div>
@@ -136,9 +139,11 @@ interface ExpandedEntry {
                           </div>
                         }
                       </div>
-                      <small class="text-muted mt-1 d-block">
-                        <fa-icon [icon]="faStar" class="text-warning me-1"></fa-icon>Album default cover image
-                      </small>
+                      @if (!expandedEntry.fromPageContent) {
+                        <small class="text-muted mt-1 d-block">
+                          <fa-icon [icon]="faStar" class="text-warning me-1"></fa-icon>Album default cover image
+                        </small>
+                      }
                     </div>
                     @if (effectiveImageSource(column)) {
                       <div class="mb-3">
@@ -147,6 +152,7 @@ interface ExpandedEntry {
                           [imageSrc]="effectiveImageSource(column)"
                           [focalPoint]="effectiveFocalPoint(column)"
                           [height]="200"
+                          [resizable]="true"
                           (focalPointChange)="onFocalPointChange(column, $event)"/>
                       </div>
                     }
@@ -196,12 +202,12 @@ interface ExpandedEntry {
       cursor: pointer
       border: 2px solid transparent
       &:hover
-        border-color: var(--bs-primary, #0d6efd)
+        border-color: rgb(240, 128, 80)
       &.selected
-        border-color: var(--bs-primary, #0d6efd)
-        box-shadow: 0 0 0 2px var(--bs-primary, #0d6efd)
+        border-color: rgb(240, 128, 80)
+        box-shadow: 0 0 0 2px rgb(240, 128, 80)
       &.album-default
-        border-color: var(--bs-warning, #ffc107)
+        border-color: var(--ramblers-colour-sunrise)
       img
         width: 100%
         height: 100%
@@ -211,7 +217,7 @@ interface ExpandedEntry {
       position: absolute
       top: 4px
       right: 4px
-      background: var(--bs-primary, #0d6efd)
+      background: rgb(240, 128, 80)
       color: white
       border-radius: 50%
       width: 22px
@@ -225,7 +231,7 @@ interface ExpandedEntry {
       position: absolute
       top: 4px
       left: 4px
-      background: var(--bs-warning, #ffc107)
+      background: var(--ramblers-colour-sunrise)
       color: white
       border-radius: 50%
       width: 22px
@@ -235,7 +241,7 @@ interface ExpandedEntry {
       justify-content: center
       font-size: 0.7rem
       &.selected-default
-        background: var(--bs-primary, #0d6efd)
+        background: rgb(240, 128, 80)
 
     .min-width-0
       min-width: 0
@@ -247,9 +253,11 @@ export class IndexEntryOverrideEditor {
   @Input() row: PageContentRow;
   @Input() indexPageContent: PageContent;
   @Output() overridesChanged = new EventEmitter<void>();
+  @Output() expandedHrefChanged = new EventEmitter<string>();
 
   private contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   private pageContentService: PageContentService = inject(PageContentService);
+  private locationExtractionService: LocationExtractionService = inject(LocationExtractionService);
   private actions: PageContentActionsService = inject(PageContentActionsService);
   private urlService: UrlService = inject(UrlService);
   private loggerFactory: LoggerFactory = inject(LoggerFactory);
@@ -267,7 +275,11 @@ export class IndexEntryOverrideEditor {
   faUndo = faUndo;
 
   columns(): PageContentColumn[] {
-    return this.indexPageContent?.rows?.[0]?.columns || [];
+    const allColumns = this.indexPageContent?.rows?.[0]?.columns || [];
+    if (this.expandedHref) {
+      return allColumns.filter(c => c.href === this.expandedHref);
+    }
+    return allColumns;
   }
 
 
@@ -295,7 +307,7 @@ export class IndexEntryOverrideEditor {
       "background-size": "cover",
       "background-position": "center",
       "background-color": "#e9ecef",
-      "background-image": column.imageSource ? `url(${column.imageSource})` : "none"
+      "background-image": column.imageSource ? `url(${this.resolvedImageSource(column.imageSource)})` : "none"
     };
   }
 
@@ -305,9 +317,11 @@ export class IndexEntryOverrideEditor {
       this.logger.info("Collapsing:", column.href);
       this.expandedHref = null;
       this.expandedEntry = null;
+      this.expandedHrefChanged.emit(null);
       return;
     }
     this.expandedHref = column.href;
+    this.expandedHrefChanged.emit(column.href);
     this.expandedEntry = null;
     this.loadingMetadata = true;
 
@@ -315,7 +329,7 @@ export class IndexEntryOverrideEditor {
     if (lookupNames.length === 0) {
       this.logger.warn("No albumName or href for column");
       this.loadingMetadata = false;
-      this.expandedEntry = {column, metadata: null, images: [], defaultCoverImage: null};
+      this.expandedEntry = {column, metadata: null, images: [], defaultCoverImage: null, fromPageContent: false};
       return;
     }
 
@@ -338,7 +352,7 @@ export class IndexEntryOverrideEditor {
         }
       }
 
-      const images = allMetadata.flatMap(m =>
+      let images = allMetadata.flatMap(m =>
         (m.files || [])
           .filter((file: ContentMetadataItem) => !!file.image)
           .map((file: ContentMetadataItem) => ({
@@ -347,13 +361,18 @@ export class IndexEntryOverrideEditor {
           }))
           .filter(img => img.imageSource && img.imageSource !== "null")
       );
+      let fromPageContent = false;
+      if (images.length === 0 && column.href) {
+        images = await this.extractPageImages(column.href);
+        fromPageContent = images.length > 0;
+      }
       const primaryMetadata = allMetadata[0] || null;
-      const defaultCoverImage = primaryMetadata?.coverImage || images[0]?.image || null;
-      this.logger.info("toggleExpand:", lookupNames, "allMetadata:", allMetadata.length, "images:", images.length, "defaultCoverImage:", defaultCoverImage);
-      this.expandedEntry = {column, metadata: primaryMetadata, images, defaultCoverImage};
+      const defaultCoverImage = fromPageContent ? null : (primaryMetadata?.coverImage || images[0]?.image || null);
+      this.logger.info("toggleExpand:", lookupNames, "allMetadata:", allMetadata.length, "images:", images.length, "fromPageContent:", fromPageContent, "defaultCoverImage:", defaultCoverImage);
+      this.expandedEntry = {column, metadata: primaryMetadata, images, defaultCoverImage, fromPageContent};
     } catch (error) {
       this.logger.error("Failed to fetch metadata for:", lookupNames, error);
-      this.expandedEntry = {column, metadata: null, images: [], defaultCoverImage: null};
+      this.expandedEntry = {column, metadata: null, images: [], defaultCoverImage: null, fromPageContent: false};
     }
 
     this.loadingMetadata = false;
@@ -406,7 +425,7 @@ export class IndexEntryOverrideEditor {
         return imgEntry.imageSource;
       }
     }
-    return column.imageSource;
+    return this.resolvedImageSource(column.imageSource);
   }
 
   effectiveFocalPoint(column: PageContentColumn): FocalPoint {
@@ -481,6 +500,18 @@ export class IndexEntryOverrideEditor {
       return null;
     }
     return null;
+  }
+
+  private async extractPageImages(href: string): Promise<{ image: string; imageSource: string }[]> {
+    const pages = await this.pageContentService.all({criteria: {path: href}});
+    const page = pages?.[0];
+    if (!page) {
+      this.logger.info("extractPageImages: no page found for:", href);
+      return [];
+    }
+    const rawImages = this.locationExtractionService.findAllImagesInPage(page);
+    this.logger.info("extractPageImages:", href, "found", rawImages.length, "images");
+    return rawImages.map(image => ({image, imageSource: this.urlService.imageSource(image)}));
   }
 
   private async findChildAlbumMetadata(href: string): Promise<ContentMetadata[]> {
@@ -560,6 +591,10 @@ export class IndexEntryOverrideEditor {
   private cleanupEmptyColumnOverrides() {
     this.row.albumIndex.columnOverrides = (this.row.albumIndex.columnOverrides || [])
       .filter(o => o.title || o.contentText);
+  }
+
+  resolvedImageSource(imageSource: string): string {
+    return this.urlService.imageSource(imageSource);
   }
 
   private ensureOverrides() {

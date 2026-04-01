@@ -363,7 +363,7 @@ export class IndexService {
       .filter(item => !!item);
 
     if (childIndexes.length === 0) {
-      return columns;
+      return this.applyEntryOverridesForPages(columns, entryOverrides);
     }
 
     const allContentPathRegex = childIndexes.flatMap(item =>
@@ -444,13 +444,17 @@ export class IndexService {
       }
 
       const override = entryOverrides?.[column.href];
-      if (override?.coverImage && albumName) {
-        const overrideMetadata = allMetadata.find(m => m.name === albumName);
-        if (overrideMetadata) {
-          const overriddenSource = this.urlService.imageSourceFor({image: override.coverImage}, overrideMetadata);
-          if (overriddenSource && overriddenSource !== "null") {
-            imageSource = this.optimiseIndexImageSource(overriddenSource);
+      if (override?.coverImage) {
+        if (albumName) {
+          const overrideMetadata = allMetadata.find(m => m.name === albumName);
+          if (overrideMetadata) {
+            const overriddenSource = this.urlService.imageSourceFor({image: override.coverImage}, overrideMetadata);
+            if (overriddenSource && overriddenSource !== "null") {
+              imageSource = this.optimiseIndexImageSource(overriddenSource);
+            }
           }
+        } else {
+          imageSource = this.optimiseIndexImageSource(override.coverImage);
         }
       }
       if (override?.coverImageFocalPoint !== undefined) {
@@ -464,6 +468,27 @@ export class IndexService {
       const contentText = this.summarizeTitles(sortedTitles) || column.contentText;
 
       return {...column, imageSource, imageFocalPoint, albumName, contentText};
+    });
+  }
+
+  private applyEntryOverridesForPages(columns: PageContentColumn[], entryOverrides?: Record<string, IndexEntryOverride>): PageContentColumn[] {
+    if (!entryOverrides) {
+      return columns;
+    }
+    return columns.map(column => {
+      const override = entryOverrides[column.href];
+      if (!override) {
+        return column;
+      }
+      let imageSource = column.imageSource;
+      let imageFocalPoint = column.imageFocalPoint;
+      if (override.coverImage) {
+        imageSource = this.optimiseIndexImageSource(override.coverImage);
+      }
+      if (override.coverImageFocalPoint !== undefined) {
+        imageFocalPoint = override.coverImageFocalPoint;
+      }
+      return {...column, imageSource, imageFocalPoint};
     });
   }
 
