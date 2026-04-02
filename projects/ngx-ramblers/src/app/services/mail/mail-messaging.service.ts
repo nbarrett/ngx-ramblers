@@ -195,6 +195,9 @@ export class MailMessagingService {
   }
 
   private extractErrorMessage(error: any): string {
+    if (error?.error?.error?.message) {
+      return error.error.error.message;
+    }
     if (error?.error?.message) {
       return error.error.message;
     }
@@ -206,6 +209,7 @@ export class MailMessagingService {
     }
     return "An unknown error occurred";
   }
+
 
   private async configureBrevoLists() {
     const configType = "Brevo Lists";
@@ -361,6 +365,7 @@ export class MailMessagingService {
       replyTo,
       params: this.createSendSmtpEmailParams(createSendSmtpEmailRequest.notificationConfig.signOffRoles, createSendSmtpEmailRequest.notificationDirective, createSendSmtpEmailRequest.member, createSendSmtpEmailRequest.notificationConfig, createSendSmtpEmailRequest.bodyContent, true, "Hi {{params.messageMergeFields.FNAME}},"),
       templateId: createSendSmtpEmailRequest.notificationConfig.templateId,
+      templateOverrides: createSendSmtpEmailRequest.notificationConfig.templateOverrides,
     };
     if (createSendSmtpEmailRequest.notificationConfig?.bccRoles.length > 0) {
       emailRequest.bcc = createSendSmtpEmailRequest.notificationConfig?.bccRoles?.map(role => this.createBrevoAddress(role));

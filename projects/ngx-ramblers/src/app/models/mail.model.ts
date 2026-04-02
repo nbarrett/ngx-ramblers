@@ -44,6 +44,7 @@ export interface NotificationConfig extends Auditable, Identifiable {
   replyToRole?: string;
   contentPreset?: string;
   help?: string;
+  templateOverrides?: Record<string, string>;
 }
 
 export enum MemberSelection {
@@ -97,6 +98,7 @@ export interface EmailRequest {
   headers?: object;
   params: SendSmtpEmailParams;
   templateId?: number;
+  templateOverrides?: Record<string, string>;
   htmlContent?: string;
 }
 
@@ -802,6 +804,7 @@ export interface TemplateDiffResponse {
   matchesLocal: boolean;
   brevoContentLength: number;
   localContentLength: number;
+  overrideKeys?: string[];
 }
 
 export interface SnapshotTemplatesRequest {
@@ -879,4 +882,13 @@ export interface DomainAuthenticationResult {
   dnsRecords: BrevoDomainDnsRecords;
   message: string;
   brevoDomainsUrl?: string;
+}
+
+export function extractOverrideKeys(html: string): string[] {
+  const matches = html.match(/\{\{override\.([A-Z_]+)\}\}/g) || [];
+  return [...new Set(matches.map(m => m.replace(/\{\{override\.|\}\}/g, "")))];
+}
+
+export function overrideKeyToLabel(key: string): string {
+  return key.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }

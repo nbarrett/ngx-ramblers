@@ -5,6 +5,7 @@ import { handleError, successfulResponse } from "../common/messages";
 import { queryTemplateContent } from "../transactional-mail/query-template-content";
 import { readLocalTemplate } from "./local-template-reader";
 import {
+  extractOverrideKeys,
   TemplateDiffRequest,
   TemplateDiffResponse
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
@@ -38,14 +39,16 @@ export async function templateDiff(req: Request, res: Response, next: NextFuncti
     const brevoContent = brevoTemplate?.htmlContent || "";
     const normalisedBrevo = normaliseHtml(brevoContent);
     const normalisedLocal = normaliseHtml(localContent);
-    debugLog("normalised brevo length:", normalisedBrevo.length, "normalised local length:", normalisedLocal.length);
+    const overrideKeys = extractOverrideKeys(brevoContent);
+    debugLog("normalised brevo length:", normalisedBrevo.length, "normalised local length:", normalisedLocal.length, "overrideKeys:", overrideKeys);
     const response: TemplateDiffResponse = {
       templateId: request.templateId,
       templateName: request.templateName,
       hasLocalTemplate: true,
       matchesLocal: normalisedBrevo === normalisedLocal,
       brevoContentLength: brevoContent.length,
-      localContentLength: localContent.length
+      localContentLength: localContent.length,
+      overrideKeys
     };
     debugLog("diff result:", response);
     successfulResponse({req, res, response, messageType, debugLog});

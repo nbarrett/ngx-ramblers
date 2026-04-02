@@ -170,15 +170,15 @@ export class FileUtilsService {
     const mime = arr[0].match(/:(.*?);/)[1];
     const bstr = atob(arr[1]);
     const u8arr = new Uint8Array(Array.from({length: bstr.length}, (_, i) => bstr.charCodeAt(i)));
-    const name = filename ? filename : this.defaultPastedFilename(mime);
+    const name = filename ? filename : this.pastedFilenameForMime(mime);
 
     return new File([u8arr], name, {type: mime});
   }
 
-  private defaultPastedFilename(mime: string): string {
+  public pastedFilenameForMime(mime: string): string {
     const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : mime.includes("gif") ? "gif" : "jpeg";
     const stamped = this.dateUtils.displayDateAndTime(this.dateUtils.dateTimeNow());
-    return `${stamped} pasted content.${ext}`;
+    return `${this.stringUtils.kebabCase(stamped, "pasted content")}.${ext}`;
   }
 
   async localUrlToBlob(url: string): Promise<Blob> {

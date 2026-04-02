@@ -9,12 +9,13 @@ import { Account } from "../../../../projects/ngx-ramblers/src/app/models/mail.m
 
 const messageType = "brevo:account";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = false;
+debugLog.enabled = true;
 
 export async function queryAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const brevoConfig = await configuredBrevo();
     const apiInstance = new SibApiV3Sdk.AccountApi();
+    debugLog("setting API key on AccountApi:", brevoConfig.apiKey);
     apiInstance.setApiKey(SibApiV3Sdk.AccountApiApiKeys.apiKey, brevoConfig.apiKey);
     const accountResponse: AccountResponse = await apiInstance.getAccount();
     const account: Account = accountResponse.body;

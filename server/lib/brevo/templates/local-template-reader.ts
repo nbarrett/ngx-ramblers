@@ -2,6 +2,7 @@ import { readFileSync, existsSync, readdirSync } from "fs";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { resolveClientPath } from "../../shared/path-utils";
+import { injectResponsiveStyles } from "./responsive-email-styles";
 
 const debugLog = debug(envConfig.logNamespace("brevo:local-template-reader"));
 
@@ -15,7 +16,8 @@ export function readLocalTemplate(templateName: string): string | null {
   const templatePath = localTemplatePath(templateName);
   debugLog(`Attempting to read local template: ${templatePath}`);
   if (existsSync(templatePath)) {
-    const content = readFileSync(templatePath, "utf-8");
+    const rawContent = readFileSync(templatePath, "utf-8");
+    const content = injectResponsiveStyles(rawContent);
     debugLog(`Local template found for "${templateName}", length: ${content.length}`);
     return content;
   }

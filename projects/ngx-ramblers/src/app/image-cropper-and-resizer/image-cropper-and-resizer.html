@@ -40,8 +40,32 @@
       </div>
     </div>
   </div>
+  <div class="row mt-2">
+    <div class="col-sm-8 mb-2">
+      <label for="image-source">Image Source</label>
+      <input [(ngModel)]="imageSource"
+             id="image-source"
+             class="form-control input-sm"
+             placeholder="Paste image URL, site-content path or base64 image here"
+             type="text"
+             (paste)="imageSourcePasted($event)">
+    </div>
+    <div class="col-sm-2 mb-2 d-flex align-items-end">
+      <button type="button"
+              class="btn btn-outline-secondary w-100"
+              [disabled]="notifyTarget.busy"
+              (click)="pasteClipboardImage()">Paste</button>
+    </div>
+    <div class="col-sm-2 mb-2 d-flex align-items-end">
+      <app-badge-button fullWidth
+                        [disabled]="notifyTarget.busy || !imageSource?.trim()"
+                        [icon]="faFile"
+                        caption="Load"
+                        (click)="loadPastedImageSource()"/>
+    </div>
+  </div>
 }
-<div class="row mt-2 mb-2">
+<div class="row mt-2 mb-2 cropper-surface">
   <div class="col-sm-12 img-fluid w-100"
        (mousedown)="$event.stopPropagation()"
        (pointerdown)="$event.stopPropagation()"
@@ -79,7 +103,7 @@
     }
   </div>
 </div>
-<div class="row">
+<div class="row mt-4 pt-2 cropper-controls">
   <div class="col-sm-6 mb-2">
     <app-aspect-ratio-selector [dimensionsDescription]="selectAspectRatio"
                                [disabled]="actionDisabled"
@@ -147,6 +171,14 @@
                       [icon]="faMagnifyingGlassPlus"
                       caption="zoom"/>
   </div>
+  @if (nonDestructive && allowPermanentSave) {
+    <div class="col" [ngClass]="{'pe-1': !wrapButtons}">
+      <app-badge-button fullWidth (click)="saveImagePermanently()"
+                        delay=500 tooltip="save image" [disabled]="!fileTypeAttributes"
+                        [icon]="faSave"
+                        caption="save image"/>
+    </div>
+  }
 </ng-template>
 <ng-template #buttonSet2>
   <div class="col pe-1">
@@ -191,14 +223,6 @@
                         caption="save"/>
     </div>
   }
-  @if (nonDestructive && allowPermanentSave) {
-    <div class="col">
-      <app-badge-button fullWidth (click)="saveImagePermanently()"
-                        delay=500 tooltip="save image" [disabled]="!fileTypeAttributes"
-                        [icon]="faSave"
-                        caption="save image"/>
-    </div>
-  }
 </ng-template>
 @if (!hideActionButtons) {
   @if (cropOnlyMode) {
@@ -218,9 +242,12 @@
     </div>
   }
   @if (!cropOnlyMode && !wrapButtons) {
-    <div class="row g-0">
+    <div class="row row-cols-6 g-0">
       <ng-container *ngTemplateOutlet="buttonSet1"/>
+    </div>
+    <div class="row row-cols-6 g-0">
       <ng-container *ngTemplateOutlet="buttonSet2"/>
+      <div class="col pe-1 invisible" aria-hidden="true"></div>
     </div>
   }
   @if (!cropOnlyMode && wrapButtons) {

@@ -9,7 +9,7 @@ import * as transforms from "./transforms";
 import { createDocumentRequest, parseError, toObjectWithId } from "./transforms";
 import { enumForKey, enumValues } from "../../../../projects/ngx-ramblers/src/app/functions/enums";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
-import { isArray, isNull, isObject, isUndefined } from "es-toolkit/compat";
+import { isArray, isNull, isObject, isString, isUndefined, keys } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("config"));
 debugLog.enabled = false;
@@ -34,6 +34,7 @@ const adminOnlyConfigKeys = new Set([
   ConfigKey.ENVIRONMENTS,
   ConfigKey.MAILCHIMP,
   ConfigKey.MAIL,
+  ConfigKey.BREVO,
 ]);
 export const create = controller.create;
 export const all = controller.all;
@@ -211,8 +212,10 @@ function redactSensitive(value: any): any {
     if (isArray(obj)) return obj.map(cleanse);
     if (!isObject(obj)) return obj;
     const out: any = isArray(obj) ? [] : {};
-    for (const [k, v] of Object.entries(obj)) {
+    for (const k of keys(obj)) {
+      const v = obj[k];
       if (sensitiveKeys.has(k)) {
+        out[k] = v ? "***" : null;
         continue;
       }
       out[k] = cleanse(v);
@@ -221,6 +224,10 @@ function redactSensitive(value: any): any {
   }
 
   return cleanse(value);
+}
+
+function maskedSensitiveValue(value: any): boolean {
+  return isString(value) && value.trim() === "***";
 }
 
 function restoreSensitiveFields(existingValue: any, incomingValue: any): any {
@@ -232,9 +239,10 @@ function restoreSensitiveFields(existingValue: any, incomingValue: any): any {
     }
     if (isObject(existing) && isObject(incoming)) {
       const merged = {...incoming};
-      for (const [k, v] of Object.entries(existing)) {
+      for (const k of keys(existing)) {
+        const v = existing[k];
         if (sensitiveKeys.has(k)) {
-          if (!(k in incoming)) {
+          if (!(k in incoming) || maskedSensitiveValue(incoming[k])) {
             merged[k] = v;
           }
         } else if (isObject(v) && k in incoming && !isNull(incoming[k])) {
