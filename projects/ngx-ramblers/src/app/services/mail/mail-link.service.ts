@@ -61,7 +61,7 @@ export class MailLinkService {
   }
 
   public templateEditRichText(templateId: number) {
-    return `${this.config.editorUrl}/editor/template/rich-text/${templateId}`;
+    return `${this.config.editorUrl}/editor/classic/rich-text/${templateId}`;
   }
 
   public listView(listId: number) {

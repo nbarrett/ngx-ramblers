@@ -4,6 +4,8 @@ import debug from "debug";
 import http from "http";
 import {
   CreateCampaignRequest,
+  extractOverrideKeys,
+  overrideKeyToLabel,
   SendSmtpEmailRequest,
   StatusMappedResponseMultipleInputs,
   StatusMappedResponseSingleInput,
@@ -31,12 +33,34 @@ export function collapseFroalaPlaceholderSpans(html: string): string {
   return html.replace(/<span\s+class="placeholder rte-personalized-node fr-deletable"[^>]*>([^<]*)<\/span>\u200b?/g, "$1");
 }
 
+export function collapseBlankLines(html: string): string {
+  return html.replace(/(<body[^>]*>)\n{2,}/g, "$1\n");
+}
+
 export function sanitiseBrevoTemplate(html: string): string {
-  return normaliseMergeFieldPlaceholders(
-    collapseFroalaPlaceholderSpans(
-      stripFroalaArtefacts(html)
+  return collapseBlankLines(
+    normaliseMergeFieldPlaceholders(
+      collapseFroalaPlaceholderSpans(
+        stripFroalaArtefacts(html)
+      )
     )
   );
+}
+
+export function applyTemplateOverrides(html: string, overrides?: Record<string, string>): string {
+  const keys = extractOverrideKeys(html);
+  if (keys.length === 0) {
+    return html;
+  }
+  return keys.reduce((content, key) => {
+    const marker = `{{override.${key}}}`;
+    const imageUrl = overrides?.[key];
+    const label = overrideKeyToLabel(key);
+    const replacement = imageUrl
+      ? `<img src="${imageUrl}" alt="${label}" style="max-width:100%;height:auto;display:block">`
+      : `<em style="color:#757575">[${label} — To Be Added By Your Webmaster]</em>`;
+    return replaceAll(marker, replacement, content) as string;
+  }, html);
 }
 
 export async function performTemplateSubstitution(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest,
@@ -49,6 +73,7 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
       debugLog("performing template substitution in email content for templateId", emailRequest.templateId);
       const templateResponse: TemplateResponse = await queryTemplateContent(emailRequest.templateId);
       const sanitisedHtml = sanitiseBrevoTemplate(templateResponse.htmlContent);
+      const overriddenHtml = applyTemplateOverrides(sanitisedHtml, emailRequest.templateOverrides);
       const parametersAndValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, true);
       debugLog("parametersAndValues:", parametersAndValues);
       const htmlContent: string = parametersAndValues.reduce(
@@ -56,7 +81,7 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
           debugLog(`Replacing ${keyValue.key} with ${keyValue.value} in ${templateContent}`);
           return replaceAll(keyValue.key, keyValue.value, templateContent) as string;
         },
-        sanitisedHtml,
+        overriddenHtml,
       );
       debugLog(`Setting final htmlContent to ${htmlContent}`);
       sendSmtpEmail.htmlContent = htmlContent;

@@ -23,6 +23,7 @@ const notificationConfigSchema = new mongoose.Schema({
   ccRoles: [{type: String}],
   contentPreset: {type: String},
   help: {type: String},
+  templateOverrides: {type: Object},
   createdAt: {type: Number},
   createdBy: {type: String},
   updatedAt: {type: Number},

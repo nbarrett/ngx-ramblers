@@ -1,9 +1,10 @@
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, OnDestroy, OnInit, Output } from "@angular/core";
 import {
   MailMessagingConfig,
   MailSettingsTab,
   MemberSelection,
   NotificationConfig,
+  overrideKeyToLabel,
   SendSmtpEmailParams,
   TemplateDiffResponse,
   WorkflowAction
@@ -18,11 +19,21 @@ import { UrlService } from "../../../../services/url.service";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { extractParametersFrom } from "../../../../common/mail-parameters";
 import { enumKeyValues, KEY_NULL_VALUE_NONE, KeyValue } from "../../../../functions/enums";
-import { last } from "es-toolkit/compat";
+import { cloneDeep, first, last } from "es-toolkit/compat";
 import { Subscription } from "rxjs";
-import { faAdd, faBackward, faCopy, faEraser, faForward, faSpinner, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep } from "es-toolkit/compat";
-import { first } from "es-toolkit/compat";
+import {
+  faAdd,
+  faBackward,
+  faChevronDown,
+  faChevronUp,
+  faCopy,
+  faEraser,
+  faForward,
+  faImage,
+  faSpinner,
+  faTrash,
+  faTriangleExclamation
+} from "@fortawesome/free-solid-svg-icons";
 import { BroadcastService } from "../../../../services/broadcast-service";
 import { AlertLevel } from "../../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../../models/broadcast.model";
@@ -33,321 +44,403 @@ import { BadgeButtonComponent } from "../../../../modules/common/badge-button/ba
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
 import { BrevoDropdownItem } from "../../../../models/brevo-dropdown.model";
 import { SenderRepliesAndSignoff } from "../../send-emails/sender-replies-and-signoff";
-import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifications/admin/templates/forgot-password-notification-details";
+import {
+  ForgotPasswordNotificationDetailsComponent
+} from "../../../../notifications/admin/templates/forgot-password-notification-details";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { ImageCropperAndResizerComponent } from "../../../../image-cropper-and-resizer/image-cropper-and-resizer";
+import { AwsFileData } from "../../../../models/aws-object.model";
+import { RootFolder } from "../../../../models/system.model";
+import { ActivatedRoute } from "@angular/router";
+import { Location } from "@angular/common";
+import { StoredValue } from "../../../../models/ui-actions";
+import { toKebabCase } from "../../../../functions/strings";
+import { ImageActionsDropdownComponent } from "../../../../modules/common/dynamic-content/image-actions-dropdown";
 
 @Component({
     selector: "app-mail-notification-template-mapping-editor",
+    styles: [`
+      .override-accordion-toggle
+        background: var(--ramblers-colour-mintcake)
+        border: 0
+        color: var(--ramblers-colour-white)
+
+      .override-accordion-toggle:hover,
+      .override-accordion-toggle:focus
+        background: var(--ramblers-colour-sunrise)
+        color: var(--ramblers-colour-black)
+        box-shadow: none
+
+      .override-accordion-toggle-active
+        background: var(--ramblers-colour-sunrise)
+        color: var(--ramblers-colour-black)
+
+      .override-accordion-toggle .text-muted,
+      .override-accordion-toggle-active .text-muted
+        color: inherit !important
+
+      .brevo-icon
+        width: 17px
+    `],
     template: `
-    @if (mailMessagingConfig) {
-      <div class="row thumbnail-heading-frame">
-        <div class="thumbnail-heading-with-select">
-          <div class="d-flex flex-wrap align-items-center gap-2">
-            <label for="template-mapping">Email Configuration
-              {{ mailMessagingConfig.notificationConfigs.indexOf(notificationConfig) + 1 }}
-            of {{ mailMessagingConfig.notificationConfigs.length }}: </label>
-            <select [(ngModel)]="notificationConfig"
-              (ngModelChange)="select(notificationConfig)"
-              id="template-mapping"
-              class="form-control input-sm"
-              style="width: auto; max-width: 300px;">
-              @for (mapping of mailMessagingConfig.notificationConfigs; track mapping.subject.text) {
-                <option
-                  [ngValue]="mapping">{{ configLabel(mapping) }}
-                </option>
-              }
-            </select>
-          </div>
-        </div>
-        <div class="col-sm-12 mt-2 mb-2">
-          <app-markdown-editor standalone category="admin" name="mail-settings-email-configurations-help"
-          description="Mail Settings Email Configuration Help"/>
-        </div>
-        <div class="col-sm-12">
-          <div class="row">
-            <div class="col pe-1">
-              <app-badge-button fullWidth [icon]="faBackward" caption="Previous" (click)="previousConfig()"
-                [disabled]="previousConfigDisabled()"/>
-            </div>
-            <div class="col pe-1">
-              <app-badge-button fullWidth [icon]="faForward" caption="Next" (click)="nextConfig()"
-                [disabled]="nextConfigDisabled()"/>
-            </div>
-            <div class="col pe-1">
-              <app-badge-button fullWidth [icon]="faCopy" caption="Duplicate" (click)="duplicateConfig()"/>
-            </div>
-            <div class="col">
-              <app-badge-button fullWidth [icon]="faAdd" caption="Add New" (click)="addNewConfig()"/>
-            </div>
-            <div class="col pe-1">
-              <app-badge-button fullWidth [icon]="faEraser" caption="Delete" (click)="deleteConfig()"/>
+      @if (mailMessagingConfig) {
+        <div class="row thumbnail-heading-frame">
+          <div class="thumbnail-heading-with-select">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <label for="template-mapping">Email Configuration
+                {{ mailMessagingConfig.notificationConfigs.indexOf(notificationConfig) + 1 }}
+                of {{ mailMessagingConfig.notificationConfigs.length }}: </label>
+              <select [ngModel]="selectedConfigValue()"
+                      (ngModelChange)="selectByValue($event)"
+                      id="template-mapping"
+                      class="form-control input-sm"
+                      style="width: auto; max-width: 300px;">
+                @for (mapping of mailMessagingConfig.notificationConfigs; track mapping.id || mapping.subject.text; let index = $index) {
+                  <option [ngValue]="configSelectionValue(mapping, index)">{{ cachedConfigLabels.get(mapping) || mapping?.subject?.text }}</option>
+                }
+              </select>
             </div>
           </div>
-        </div>
-        @if (notificationConfig) {
-          @if (configIssues().length > 0) {
-            <div class="col-sm-12 mt-2">
-              <div class="alert alert-warning py-2 mb-2">
-                <fa-icon [icon]="faTriangleExclamation" class="me-1"/>
-                <strong>{{ configIssues().length }} issue{{ configIssues().length > 1 ? 's' : '' }} found:</strong>
-                @for (issue of configIssues(); track issue) {
-                  <div><small>{{ issue }}</small></div>
-                }
+          <div class="col-sm-12 mt-2 mb-2">
+            <app-markdown-editor standalone category="admin" name="mail-settings-email-configurations-help"
+                                 description="Mail Settings Email Configuration Help"/>
+          </div>
+          <div class="col-sm-12">
+            <div class="row">
+              <div class="col pe-1">
+                <app-badge-button fullWidth [icon]="faBackward" caption="Previous" (click)="previousConfig()"
+                                  [disabled]="previousConfigDisabled()"/>
+              </div>
+              <div class="col pe-1">
+                <app-badge-button fullWidth [icon]="faForward" caption="Next" (click)="nextConfig()"
+                                  [disabled]="nextConfigDisabled()"/>
+              </div>
+              <div class="col pe-1">
+                <app-badge-button fullWidth [icon]="faCopy" caption="Duplicate" (click)="duplicateConfig()"/>
+              </div>
+              <div class="col">
+                <app-badge-button fullWidth [icon]="faAdd" caption="Add New" (click)="addNewConfig()"/>
+              </div>
+              <div class="col pe-1">
+                <app-badge-button fullWidth [icon]="faEraser" caption="Delete" (click)="deleteConfig()"/>
               </div>
             </div>
-          }
-          <div>
-            <div class="row thumbnail-heading-frame">
-              <div class="thumbnail-heading">Notification Settings</div>
-              @if (notificationConfig?.subject) {
-                <div class="col-sm-12">
-                  <div class="row">
-                    <div class="col">
-                      <div class="form-group">
-                        <label for="prefix-parameter">Subject Prefix</label>
-                        <select [(ngModel)]="notificationConfig.subject.prefixParameter"
-                          id="{{heading | kebabCase}-prefix-parameter"
-                          class="form-control input-sm flex-grow-1 me-2">
-                          @for (keyValue of parametersFrom; track keyValue.key) {
-                            <option
-                              [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
-                            </option>
-                          }
-                        </select>
-                      </div>
-                    </div>
-                    <div class="col">
-                      <div class="form-group flex-grow-1">
-                        <label for="title">Subject Text</label>
-                        <input [(ngModel)]="notificationConfig.subject.text"
-                          type="text" id="title"
-                          class="form-control input-sm">
-                      </div>
-                    </div>
-                    <div class="col">
-                      <div class="form-group">
-                        <label for="suffix-parameter">Subject Suffix</label>
-                        <select [(ngModel)]="notificationConfig.subject.suffixParameter"
-                          id="suffix-parameter"
-                          class="form-control input-sm flex-grow-1 me-2">
-                          @for (keyValue of parametersFrom; track keyValue.key) {
-                            <option
-                              [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
-                            </option>
-                          }
-                        </select>
-                      </div>
-                    </div>
-                  </div>
+          </div>
+          @if (notificationConfig) {
+            @if (cachedIssues.length > 0) {
+              <div class="col-sm-12 mt-2">
+                <div class="alert alert-warning py-2 mb-2">
+                  <fa-icon [icon]="faTriangleExclamation" class="me-1"/>
+                  <strong>{{ cachedIssues.length }} issue{{ cachedIssues.length > 1 ? 's' : '' }} found:</strong>
+                  @for (issue of cachedIssues; track issue) {
+                    <div><small>{{ issue }}</small></div>
+                  }
                 </div>
-              }
-              <ng-container>
-                <div class="col-sm-12">
-                  <div class="form-group">
-                    <label for="banner-lookup">Banner Image</label>
-                    <select class="form-control input-sm"
-                      [class.is-invalid]="!notificationConfig.bannerId"
-                      id="banner-lookup"
-                      [(ngModel)]="notificationConfig.bannerId" (ngModelChange)="bannerSelected($event)">
-                      @for (banner of mailMessagingConfig.banners; track banner.id) {
-                        <option
-                          [ngValue]="banner.id">{{ toBannerInformation(banner) }}
-                        </option>
-                      }
-                    </select>
-                  </div>
-                </div>
-                @if (notificationConfig?.bannerId) {
-                  <div class="col-sm-12 mb-2">
-                    <img class="card-img"
-                      [src]="mailMessagingService.bannerImageSource(notificationConfig, false)">
+              </div>
+            }
+            <div>
+              <div class="row thumbnail-heading-frame">
+                <div class="thumbnail-heading">Notification Settings</div>
+                @if (notificationConfig?.subject) {
+                  <div class="col-sm-12">
+                    <div class="row">
+                      <div class="col">
+                        <div class="form-group">
+                          <label for="prefix-parameter">Subject Prefix</label>
+                          <select [(ngModel)]="notificationConfig.subject.prefixParameter"
+                                  id="{{heading | kebabCase}-prefix-parameter"
+                                  class="form-control input-sm flex-grow-1 me-2">
+                            @for (keyValue of parametersFrom; track keyValue.key) {
+                              <option
+                                [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
+                              </option>
+                            }
+                          </select>
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="form-group flex-grow-1">
+                          <label for="title">Subject Text</label>
+                          <input [(ngModel)]="notificationConfig.subject.text"
+                                 type="text" id="title"
+                                 class="form-control input-sm">
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="form-group">
+                          <label for="suffix-parameter">Subject Suffix</label>
+                          <select [(ngModel)]="notificationConfig.subject.suffixParameter"
+                                  id="suffix-parameter"
+                                  class="form-control input-sm flex-grow-1 me-2">
+                            @for (keyValue of parametersFrom; track keyValue.key) {
+                              <option
+                                [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
+                              </option>
+                            }
+                          </select>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 }
-              </ng-container>
-              <div class="col-sm-12">
-                <app-sender-replies-and-sign-off [mailMessagingConfig]="mailMessagingConfig"
-                  [notificationConfig]="notificationConfig"/>
-              </div>
-              <div class="col-sm-12">
-                <div class="form-group">
-                  <label for="template">Brevo Template</label>
-                  <div class="d-flex align-items-center gap-2">
-                    <select [(ngModel)]="notificationConfig.templateId"
-                      [class.is-invalid]="!notificationConfig.templateId"
-                      (ngModelChange)="templateChanged()"
-                      id="template"
-                      class="form-control input-sm">
-                      @for (template of mailMessagingConfig?.brevo?.mailTemplates?.templates; track template.id) {
-                        <option
-                          [ngValue]="template.id">{{ template.name }}
-                        </option>
-                      }
-                    </select>
-                    <app-brevo-button button title="Template"
-                      [disabled]="notReady()"
-                      [dropdownItems]="templateDropdownItems"
-                      (dropdownSelected)="handleTemplateDropdown($event)"/>
-                    <app-brevo-button button title="Push Default Template"
-                      [disabled]="notReady() || !localTemplateAvailable()"
-                      (click)="pushDefaultTemplate()"/>
-                    <app-brevo-button button title="Snapshot Templates"
-                      [showTooltip]="true"
-                      [disabled]="snapshotTemplatesDisabled()"
-                      (click)="snapshotTemplates()"/>
-                  </div>
-                  <div class="mt-1">
-                    @if (templateDiffLoading) {
-                      <span class="badge bg-secondary">
-                        <fa-icon [icon]="faSpinner" animation="spin"/>
-                        <span class="ms-1">Checking...</span>
-                      </span>
-                    }
-                    @if (snapshotLoading) {
-                      <span class="badge bg-secondary ms-2">
-                        <fa-icon [icon]="faSpinner" animation="spin"/>
-                        <span class="ms-1">Snapshotting templates...</span>
-                      </span>
-                    }
-                    @if (!templateDiffLoading && templateDiffStatus) {
-                      <span class="badge" [class.bg-success]="templateDiffStatus.matchesLocal"
-                        [class.bg-warning]="!templateDiffStatus.matchesLocal && templateDiffStatus.hasLocalTemplate"
-                        [class.bg-secondary]="!templateDiffStatus.hasLocalTemplate">{{ templateDiffLabel() }}</span>
-                    }
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="thumbnail-heading-frame">
-              <div class="thumbnail-heading">Member Selection And Actions</div>
-              @if (mailMessagingService.workflowIdsFor(mailMessagingConfig?.mailConfig)?.includes(notificationConfig.id)) {
-                <div class="row"
-                  >
+                <ng-container>
                   <div class="col-sm-12">
                     <div class="form-group">
-                      <label>Member Selected automatically via built-in workflow on <a (click)="tabSelected.emit(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)">{{ MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS }}</a> tab</label>
-                    </div>
-                  </div>
-                </div>
-              }
-              @if (!mailMessagingService.workflowIdsFor(mailMessagingConfig?.mailConfig)?.includes(notificationConfig.id)) {
-                <div class="row">
-                  <div class="col-sm-6">
-                    <div class="form-group">
-                      <label for="member-selection">Member Selection</label>
+                      <label for="banner-lookup">Banner Image</label>
                       <select class="form-control input-sm"
-                        [(ngModel)]="notificationConfig.defaultMemberSelection"
-                        id="member-selection">
-                        @for (type of memberSelections; track type.key) {
+                              [class.is-invalid]="!notificationConfig.bannerId"
+                              id="banner-lookup"
+                              [(ngModel)]="notificationConfig.bannerId" (ngModelChange)="bannerSelected($event)">
+                        @for (banner of mailMessagingConfig.banners; track banner.id) {
                           <option
-                            [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                            [ngValue]="banner.id">{{ toBannerInformation(banner) }}
                           </option>
                         }
                       </select>
                     </div>
                   </div>
-                  <div class="col-sm-6">
-                    @if (notificationConfig.defaultMemberSelection!==MemberSelection.MAILING_LIST) {
-                      <div
-                        class="form-group">
-                        <label for="campaign-months-in-past-filter">Months In Past</label>
-                        <input [(ngModel)]="notificationConfig.monthsInPast"
-                          type="number" id="campaign-months-in-past-filter"
-                          class="form-control input-sm">
-                      </div>
-                    }
-                    @if (notificationConfig.defaultMemberSelection===MemberSelection.MAILING_LIST) {
-                      <div
-                        class="form-group">
-                        <label for="default-list">
-                        Default List</label>
-                        <select [compareWith]="arrayComparer" class="form-control input-sm"
-                          [(ngModel)]="notificationConfig.defaultListId"
-                          id="default-list">
-                          @for (list of mailMessagingConfig.brevo.lists.lists; track list.id) {
-                            <option
-                              [ngValue]="list.id">{{ list.name }}
-                            </option>
-                          }
-                        </select>
-                      </div>
-                    }
+                  @if (notificationConfig?.bannerId) {
+                    <div class="col-sm-12 mb-2">
+                      <img class="card-img"
+                           [src]="mailMessagingService.bannerImageSource(notificationConfig, false)">
+                    </div>
+                  }
+                </ng-container>
+                <div class="col-sm-12">
+                  <app-sender-replies-and-sign-off [mailMessagingConfig]="mailMessagingConfig"
+                                                   [notificationConfig]="notificationConfig"/>
+                </div>
+                <div class="col-sm-12">
+                  <div class="form-group">
+                    <label for="template">Brevo Template</label>
+                    <div class="d-flex align-items-center gap-2">
+                      <select [(ngModel)]="notificationConfig.templateId"
+                              [class.is-invalid]="!notificationConfig.templateId"
+                              (ngModelChange)="templateChanged()"
+                              id="template"
+                              class="form-control input-sm">
+                        @for (template of mailMessagingConfig?.brevo?.mailTemplates?.templates; track template.id) {
+                          <option
+                            [ngValue]="template.id">{{ template.name }}
+                          </option>
+                        }
+                      </select>
+                      <app-brevo-button button title="Template"
+                                        [disabled]="notReady()"
+                                        [dropdownItems]="templateDropdownItems"
+                                        (dropdownSelected)="handleTemplateDropdown($event)"/>
+                      <app-brevo-button button title="Push Default Template"
+                                        [disabled]="notReady() || !localTemplateAvailable()"
+                                        (click)="pushDefaultTemplate()"/>
+                      <app-brevo-button button title="Snapshot Templates"
+                                        [showTooltip]="true"
+                                        [disabled]="snapshotTemplatesDisabled()"
+                                        (click)="snapshotTemplates()"/>
+                    </div>
+                    <div class="mt-1">
+                      @if (templateDiffLoading) {
+                        <span class="badge bg-secondary">
+                        <fa-icon [icon]="faSpinner" animation="spin"/>
+                        <span class="ms-1">Checking...</span>
+                      </span>
+                      }
+                      @if (snapshotLoading) {
+                        <span class="badge bg-secondary ms-2">
+                        <fa-icon [icon]="faSpinner" animation="spin"/>
+                        <span class="ms-1">Snapshotting templates...</span>
+                      </span>
+                      }
+                      @if (!templateDiffLoading && templateDiffStatus) {
+                        <span class="badge" [class.bg-success]="templateDiffStatus.matchesLocal"
+                              [class.bg-warning]="!templateDiffStatus.matchesLocal && templateDiffStatus.hasLocalTemplate"
+                              [class.bg-secondary]="!templateDiffStatus.hasLocalTemplate">{{ templateDiffLabel() }}</span>
+                      }
+                    </div>
                   </div>
                 </div>
-                @if (notificationConfig.defaultMemberSelection!==MemberSelection.MAILING_LIST) {
-                  <div class="row">
-                    <div class="col-sm-6">
-                      <div class="form-group">
-                        <label for="member-selection">
-                        Pre-Send Action</label>
-                        <select [compareWith]="arrayComparer" class="form-control input-sm"
-                          [(ngModel)]="notificationConfig.preSendActions"
-                          id="member-selection">
-                          @for (type of workflowActions; track type.key) {
-                            <option
-                              [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
-                            </option>
-                          }
-                        </select>
+                @if (discoveredOverrideKeys.length > 0) {
+                  <div class="col-sm-12 mt-2">
+                    <div class="row thumbnail-heading-frame">
+                      <div class="thumbnail-heading">Template Image Overrides</div>
+                      <div class="col-sm-12 mb-2">
+                        <small class="text-muted">Upload site-specific screenshots for this template. These are
+                          preserved when the base template is updated centrally.</small>
                       </div>
+                      @for (key of discoveredOverrideKeys; track key) {
+                        <div class="col-sm-12 mb-3">
+                          <div class="border rounded overflow-hidden">
+                            <button type="button"
+                                    class="btn text-start text-decoration-none w-100 d-flex justify-content-between align-items-center px-3 py-2 override-accordion-toggle"
+                                    [class.override-accordion-toggle-active]="activeOverrideAccordion === key"
+                                    (click)="toggleOverrideAccordion(key)">
+                              <span>
+                                <span class="fw-bold">{{ labelForKey(key) }}</span>
+                                <span class="ms-2 small text-muted">{{ overrideValue(key) ? "Image configured" : "No image configured" }}</span>
+                              </span>
+                              <fa-icon [icon]="activeOverrideAccordion === key ? faChevronUp : faChevronDown"/>
+                            </button>
+                            @if (activeOverrideAccordion === key) {
+                              <div class="p-3 border-top">
+                                @if (overrideValue(key)) {
+                                  <div class="mb-2 p-2 border rounded" style="background: #fafafa;">
+                                    <img [src]="overrideValue(key)" [alt]="labelForKey(key)"
+                                         style="max-width: 100%; height: auto; display: block;">
+                                  </div>
+                                } @else {
+                                  <div class="mb-2">
+                                    <small class="text-muted">No image configured</small>
+                                  </div>
+                                }
+                                <div class="mb-3">
+                                  <app-image-actions-dropdown [hasImage]="!!overrideValue(key)"
+                                                              (edit)="editOverrideImage(key)"
+                                                              (replace)="replaceOverrideImage(key)"
+                                                              (remove)="removeOverrideValue(key)"/>
+                                </div>
+                                @if (activeOverrideEditor === key) {
+                                  <app-image-cropper-and-resizer
+                                    [rootFolder]="overrideImageFolder"
+                                    [preloadImage]="overridePreloadImage(key)"
+                                    [hideFileSelection]="editingExistingOverride(key)"
+                                    (imageChange)="overrideImageChanged(key, $event)"
+                                    (save)="overrideImageSaved(key, $event)"
+                                    (quit)="closeOverrideEditor(key)">
+                                  </app-image-cropper-and-resizer>
+                                }
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      }
                     </div>
-                    <div class="col-sm-6">
+                  </div>
+                }
+              </div>
+              <div class="thumbnail-heading-frame">
+                <div class="thumbnail-heading">Member Selection And Actions</div>
+                @if (isWorkflowConfig) {
+                  <div class="row"
+                  >
+                    <div class="col-sm-12">
                       <div class="form-group">
-                        <label for="member-selection">
-                        Post-Send Action</label>
-                        <select [compareWith]="arrayComparer" class="form-control input-sm"
-                          [(ngModel)]="notificationConfig.postSendActions"
-                          id="member-selection">
-                          @for (type of workflowActions; track type.key) {
-                            <option
-                              [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
-                            </option>
-                          }
-                        </select>
+                        <label>Member Selected automatically via built-in workflow on <a
+                          (click)="tabSelected.emit(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)">{{ MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS }}</a>
+                          tab</label>
                       </div>
                     </div>
                   </div>
                 }
-              }
-              @if (notificationConfig?.contentPreset) {
-                <div class="row">
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                      <app-forgot-password-notification-details [params]="params"
-                        [notificationConfig]="notificationConfig"/>
+                @if (!isWorkflowConfig) {
+                  <div class="row">
+                    <div class="col-sm-6">
+                      <div class="form-group">
+                        <label for="member-selection">Member Selection</label>
+                        <select class="form-control input-sm"
+                                [(ngModel)]="notificationConfig.defaultMemberSelection"
+                                id="member-selection">
+                          @for (type of memberSelections; track type.key) {
+                            <option
+                              [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                            </option>
+                          }
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-sm-6">
+                      @if (notificationConfig.defaultMemberSelection !== MemberSelection.MAILING_LIST) {
+                        <div
+                          class="form-group">
+                          <label for="campaign-months-in-past-filter">Months In Past</label>
+                          <input [(ngModel)]="notificationConfig.monthsInPast"
+                                 type="number" id="campaign-months-in-past-filter"
+                                 class="form-control input-sm">
+                        </div>
+                      }
+                      @if (notificationConfig.defaultMemberSelection === MemberSelection.MAILING_LIST) {
+                        <div
+                          class="form-group">
+                          <label for="default-list">
+                            Default List</label>
+                          <select [compareWith]="arrayComparer" class="form-control input-sm"
+                                  [(ngModel)]="notificationConfig.defaultListId"
+                                  id="default-list">
+                            @for (list of mailMessagingConfig.brevo.lists.lists; track list.id) {
+                              <option
+                                [ngValue]="list.id">{{ list.name }}
+                              </option>
+                            }
+                          </select>
+                        </div>
+                      }
                     </div>
                   </div>
-                </div>
-              }
+                  @if (notificationConfig.defaultMemberSelection !== MemberSelection.MAILING_LIST) {
+                    <div class="row">
+                      <div class="col-sm-6">
+                        <div class="form-group">
+                          <label for="member-selection">
+                            Pre-Send Action</label>
+                          <select [compareWith]="arrayComparer" class="form-control input-sm"
+                                  [(ngModel)]="notificationConfig.preSendActions"
+                                  id="member-selection">
+                            @for (type of workflowActions; track type.key) {
+                              <option
+                                [ngValue]="workflowActionValue(type.key)">{{ stringUtils.asTitle(type.value) }}
+                              </option>
+                            }
+                          </select>
+                        </div>
+                      </div>
+                      <div class="col-sm-6">
+                        <div class="form-group">
+                          <label for="member-selection">
+                            Post-Send Action</label>
+                          <select [compareWith]="arrayComparer" class="form-control input-sm"
+                                  [(ngModel)]="notificationConfig.postSendActions"
+                                  id="member-selection">
+                            @for (type of workflowActions; track type.key) {
+                              <option
+                                [ngValue]="workflowActionValue(type.key)">{{ stringUtils.asTitle(type.value) }}
+                              </option>
+                            }
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                }
+                @if (notificationConfig?.contentPreset) {
+                  <div class="row">
+                    <div class="col-sm-12">
+                      <div class="form-group">
+                        <app-forgot-password-notification-details [params]="params"
+                                                                  [notificationConfig]="notificationConfig"/>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
             </div>
-          </div>
-        }
-      </div>
-    }
+          }
+        </div>
+      }
     `,
-    styles: [`
-    .brevo-icon
-      width: 17px
-  `],
-    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, SenderRepliesAndSignoff, BrevoButtonComponent, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule]
+    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, SenderRepliesAndSignoff, BrevoButtonComponent, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule, ImageCropperAndResizerComponent, ImageActionsDropdownComponent]
 })
 
-export class MailNotificationTemplateMappingComponent implements OnInit, OnDestroy {
-
-  @Input("notificationConfig") set notificationConfigValue(notificationConfig: NotificationConfig) {
-    this.notificationConfig = notificationConfig;
-    this.logger.info("initialised with notificationConfig:", this.notificationConfig);
-    if (this.notificationConfig) {
-      this.mailMessagingService.initialiseSubject(this.notificationConfig);
-    }
-  }
+export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("MailNotificationTemplateEditor", NgxLoggerLevel.ERROR);
 
   memberSelections: KeyValue<string>[] = [KEY_NULL_VALUE_NONE].concat(enumKeyValues(MemberSelection));
   workflowActions: KeyValue<string>[] = [KEY_NULL_VALUE_NONE].concat(enumKeyValues(WorkflowAction));
-  private loggerFactory: LoggerFactory = inject(LoggerFactory);
+  workflowActionValues: Map<string, string[]> = new Map(
+    this.workflowActions.map(item => [item.key, item.key ? [item.value] : []])
+  );
+
   private subscriptions: Subscription[] = [];
   @Output() configDeleted: EventEmitter<string> = new EventEmitter();
   @Output() tabSelected: EventEmitter<MailSettingsTab> = new EventEmitter();
-  private logger: Logger = this.loggerFactory.createLogger("MailNotificationTemplateMappingComponent", NgxLoggerLevel.ERROR);
+
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public mailLinkService: MailLinkService = inject(MailLinkService);
   public mailService: MailService = inject(MailService);
@@ -362,7 +455,7 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   public mailMessagingConfig: MailMessagingConfig;
   public parametersFrom: KeyValue<any>[] = [];
   public params: SendSmtpEmailParams;
-  public notificationConfig!: NotificationConfig;
+  public notificationConfig: NotificationConfig = null;
   public templateDiffStatus: TemplateDiffResponse;
   public templateDiffLoading = false;
   public snapshotLoading = false;
@@ -376,28 +469,50 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   protected readonly faBackward = faBackward;
   protected readonly faSpinner = faSpinner;
   protected readonly faTriangleExclamation = faTriangleExclamation;
+  protected readonly faImage = faImage;
+  protected readonly faTrash = faTrash;
+  protected readonly faChevronDown = faChevronDown;
+  protected readonly faChevronUp = faChevronUp;
+  public activeOverrideAccordion: string = null;
+  public activeOverrideEditor: string = null;
+  public activeOverrideEditorMode: "edit" | "replace" | null = null;
+  public pendingOverridePreviews: Record<string, string> = {};
+  public overrideImageFolder = RootFolder.siteContent;
+  public discoveredOverrideKeys: string[] = [];
+  private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
+  private location: Location = inject(Location);
+  private configurationParam: string = null;
+  public cachedIssues: string[] = [];
+  public cachedConfigLabels: Map<NotificationConfig, string> = new Map();
+  public isWorkflowConfig = false;
 
   protected readonly MemberSelection = MemberSelection;
 
   protected readonly MailSettingsTab = MailSettingsTab;
 
   async ngOnInit() {
+    this.logger.info("ngOnInit:start");
+    this.configurationParam = this.activatedRoute.snapshot.queryParams[StoredValue.CONFIGURATION] || null;
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
+      this.logger.info("mailMessagingConfig:", mailMessagingConfig, "configurationParam:", this.configurationParam);
       this.mailMessagingConfig = mailMessagingConfig;
       this.params = this.mailMessagingService.exampleEmailParams();
-      this.notificationConfig = first(mailMessagingConfig.notificationConfigs);
+      this.ensureNotificationConfigSelection(mailMessagingConfig);
+      this.refreshCachedState();
       const parameters: KeyValue<any>[] = extractParametersFrom(this.params, false);
       const parametersAndValues: KeyValue<any>[] = extractParametersFrom(this.params, true);
-      this.logger.debug("parameters:raw:", parameters, "parameters:wrapped:", parametersAndValues);
+      this.logger.info("parameters:raw:", parameters, "parameters:wrapped:", parametersAndValues);
       this.parametersFrom = [{
         key: null,
         value: "(none)"
       }].concat(parameters.filter(item => !item.key.includes("subject")));
       this.refreshTemplateDiff();
+      this.logger.info("refreshTemplateDiff:complete");
     }));
     const systemStatus = await this.siteMaintenanceService.getMigrationStatus();
     const environmentName = systemStatus?.environment?.env || systemStatus?.environment?.nodeEnv;
     this.snapshotAllowed = environmentName === "development";
+    this.logger.info("ngOnInit:complete");
   }
 
   ngOnDestroy(): void {
@@ -406,6 +521,31 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
 
   arrayComparer(item1: string[], item2: string[]): boolean {
     return JSON.stringify(item1) === JSON.stringify(item2);
+  }
+
+  notificationConfigComparer(item1: NotificationConfig, item2: NotificationConfig): boolean {
+    if (!item1 || !item2) {
+      return item1 === item2;
+    }
+    if (item1.id && item2.id) {
+      return item1.id === item2.id;
+    }
+    return this.configSlug(item1) === this.configSlug(item2);
+  }
+
+  configSelectionValue(config: NotificationConfig, index: number): string {
+    if (!config) {
+      return null;
+    }
+    if (config.id) {
+      return config.id;
+    }
+    return `${this.configSlug(config)}-${index}`;
+  }
+
+  selectedConfigValue(): string {
+    const selectedIndex = this.mailMessagingConfig?.notificationConfigs?.indexOf(this.notificationConfig) ?? -1;
+    return selectedIndex > -1 ? this.configSelectionValue(this.notificationConfig, selectedIndex) : null;
   }
 
   subject(): string {
@@ -476,10 +616,8 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
     this.mailMessagingConfig.notificationConfigs.push(this.notificationConfig);
   }
 
-  keyValueAsArray(input: KeyValue<string>) {
-    const value = input.key ? [input.value] : [];
-    this.logger.off("keyValueAsArray:input:", input, "value:", value);
-    return value;
+  workflowActionValue(key: string): string[] {
+    return this.workflowActionValues.get(key) || [];
   }
 
   nextConfig() {
@@ -495,10 +633,70 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   }
 
   public select(notificationConfig: NotificationConfig) {
+    if (!notificationConfig) {
+      return;
+    }
+    if (this.notificationConfig === notificationConfig) {
+      return;
+    }
     this.notificationConfig = notificationConfig;
     this.mailMessagingService.initialiseSubject(this.notificationConfig);
+    this.refreshCachedState();
     this.logger.info("selected notificationConfig:", this.notificationConfig);
+    this.updateConfigurationUrl(notificationConfig);
     this.refreshTemplateDiff();
+  }
+
+  selectByValue(selectionValue: string) {
+    const selectedConfig = this.mailMessagingConfig?.notificationConfigs?.find((config, index) => this.configSelectionValue(config, index) === selectionValue);
+    this.select(selectedConfig);
+  }
+
+  private updateConfigurationUrl(config: NotificationConfig) {
+    const slug = this.configSlug(config);
+    if (slug !== this.configurationParam) {
+      this.configurationParam = slug;
+      const params = new URLSearchParams(window.location.search);
+      params.set(StoredValue.CONFIGURATION, slug);
+      this.location.replaceState(window.location.pathname, params.toString());
+    }
+  }
+
+  private configSlug(config: NotificationConfig): string {
+    return toKebabCase(config?.subject?.text || "");
+  }
+
+  private selectedConfigFor(mailMessagingConfig: MailMessagingConfig): NotificationConfig {
+    const notificationConfigs = mailMessagingConfig?.notificationConfigs || [];
+    const selectedConfigByCurrentValue = notificationConfigs.find(config => this.notificationConfigComparer(config, this.notificationConfig));
+    if (selectedConfigByCurrentValue) {
+      this.logger.info("selected configuration from current value:", selectedConfigByCurrentValue);
+      return selectedConfigByCurrentValue;
+    }
+    const selectedConfigByParam = this.configurationParam
+      ? notificationConfigs.find(config => this.configSlug(config) === this.configurationParam)
+      : null;
+    if (selectedConfigByParam) {
+      this.logger.info("selected configuration from query param:", selectedConfigByParam);
+      return selectedConfigByParam;
+    }
+    const firstConfig = first(notificationConfigs);
+    this.logger.info("selected first configuration:", firstConfig);
+    return firstConfig;
+  }
+
+  private ensureNotificationConfigSelection(mailMessagingConfig: MailMessagingConfig) {
+    const selectedConfig = this.selectedConfigFor(mailMessagingConfig);
+    if (!selectedConfig) {
+      this.notificationConfig = null;
+      return;
+    }
+    if (this.notificationConfigComparer(this.notificationConfig, selectedConfig)) {
+      return;
+    }
+    this.notificationConfig = selectedConfig;
+    this.mailMessagingService.initialiseSubject(this.notificationConfig);
+    this.logger.info("ensured notificationConfig:", this.notificationConfig);
   }
 
   handleTemplateDropdown(item: BrevoDropdownItem) {
@@ -535,13 +733,15 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
     const templateId = this.notificationConfig?.templateId;
     if (!templateId || !templateName) {
       this.templateDiffStatus = null;
+      this.discoveredOverrideKeys = [];
       return;
     }
     this.templateDiffLoading = true;
     this.mailService.templateDiff({templateId, templateName}).then(response => {
       this.templateDiffStatus = response;
+      this.discoveredOverrideKeys = response.overrideKeys || [];
       this.templateDiffLoading = false;
-      this.logger.info("template diff result:", response);
+      this.logger.info("template diff result:", response, "discoveredOverrideKeys:", this.discoveredOverrideKeys);
     }).catch(error => {
       this.logger.error("template diff error:", error);
       this.templateDiffLoading = false;
@@ -557,6 +757,13 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
     this.templateDiffLoading = true;
     this.mailService.pushDefaultTemplate({templateId, templateName}).then(response => {
       this.logger.info("push default template result:", response);
+      this.templateDiffStatus = {
+        ...(this.templateDiffStatus || {}),
+        hasLocalTemplate: true,
+        matchesLocal: true,
+        overrideKeys: this.discoveredOverrideKeys
+      } as TemplateDiffResponse;
+      this.templateDiffLoading = false;
       this.refreshTemplateDiff();
     }).catch(error => {
       this.logger.error("push default template error:", error);
@@ -611,6 +818,15 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
     });
   }
 
+  refreshCachedState() {
+    this.cachedIssues = this.configIssues();
+    this.cachedConfigLabels = new Map();
+    this.mailMessagingConfig?.notificationConfigs?.forEach(config => {
+      this.cachedConfigLabels.set(config, this.configLabel(config));
+    });
+    this.isWorkflowConfig = this.mailMessagingService.workflowIdsFor(this.mailMessagingConfig?.mailConfig)?.includes(this.notificationConfig?.id);
+  }
+
   configIssues(config?: NotificationConfig): string[] {
     const target = config || this.notificationConfig;
     if (!target) {
@@ -650,6 +866,79 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
     const text = config?.subject?.text || "(no subject)";
     const issueCount = this.configIssues(config).length;
     return issueCount > 0 ? `${text} (${issueCount} issue${issueCount > 1 ? "s" : ""})` : text;
+  }
+
+  labelForKey(key: string): string {
+    return overrideKeyToLabel(key);
+  }
+
+  overrideValue(key: string): string {
+    return this.pendingOverridePreviews[key] || this.notificationConfig?.templateOverrides?.[key] || "";
+  }
+
+  toggleOverrideAccordion(key: string) {
+    if (this.activeOverrideAccordion === key) {
+      this.closeOverrideEditor(key);
+    } else {
+      this.activeOverrideAccordion = key;
+      this.activeOverrideEditor = null;
+      this.activeOverrideEditorMode = null;
+    }
+  }
+
+  editOverrideImage(key: string) {
+    this.activeOverrideAccordion = key;
+    this.activeOverrideEditor = key;
+    this.activeOverrideEditorMode = "edit";
+  }
+
+  replaceOverrideImage(key: string) {
+    this.activeOverrideAccordion = key;
+    this.activeOverrideEditor = key;
+    this.activeOverrideEditorMode = "replace";
+  }
+
+  editingExistingOverride(key: string): boolean {
+    return this.activeOverrideEditor === key && this.activeOverrideEditorMode === "edit" && !!this.overrideValue(key);
+  }
+
+  overridePreloadImage(key: string): string {
+    return this.editingExistingOverride(key) ? this.overrideValue(key) : null;
+  }
+
+  overrideImageChanged(key: string, awsFileData: AwsFileData) {
+    this.pendingOverridePreviews[key] = awsFileData?.image || "";
+  }
+
+  overrideImageSaved(key: string, awsFileData: AwsFileData) {
+    if (!this.notificationConfig.templateOverrides) {
+      this.notificationConfig.templateOverrides = {};
+    }
+    this.notificationConfig.templateOverrides[key] = this.urlService.imageSource(awsFileData.awsFileName, true);
+    delete this.pendingOverridePreviews[key];
+    this.activeOverrideEditor = null;
+    this.activeOverrideEditorMode = null;
+    this.logger.info("override image saved for", key, ":", this.notificationConfig.templateOverrides[key]);
+  }
+
+  removeOverrideValue(key: string) {
+    if (this.notificationConfig.templateOverrides) {
+      delete this.notificationConfig.templateOverrides[key];
+    }
+    delete this.pendingOverridePreviews[key];
+    this.activeOverrideEditor = null;
+    this.activeOverrideEditorMode = null;
+  }
+
+  closeOverrideEditor(key: string) {
+    delete this.pendingOverridePreviews[key];
+    if (this.activeOverrideAccordion === key) {
+      this.activeOverrideAccordion = null;
+    }
+    if (this.activeOverrideEditor === key) {
+      this.activeOverrideEditor = null;
+    }
+    this.activeOverrideEditorMode = null;
   }
 
 }

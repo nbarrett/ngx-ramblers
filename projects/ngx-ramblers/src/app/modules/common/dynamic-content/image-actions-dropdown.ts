@@ -6,7 +6,7 @@ import { faImage } from "@fortawesome/free-solid-svg-icons";
 @Component({
   selector: "app-image-actions-dropdown",
   template: `
-    <div class="btn-group" [class.w-100]="fullWidth" dropdown>
+    <div class="btn-group" [class.w-100]="fullWidth" dropdown [container]="'body'">
       <button aria-controls="dropdown-image-actions" class="dropdown-toggle badge-button border-0" [class.w-100]="fullWidth" dropdownToggle type="button">
         <fa-icon [icon]="faImage"></fa-icon>
         <span class="ms-2">Image Actions</span>

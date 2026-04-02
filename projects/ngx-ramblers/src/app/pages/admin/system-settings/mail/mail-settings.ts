@@ -26,7 +26,7 @@ import { first } from "es-toolkit/compat";
 import { isEmpty } from "es-toolkit/compat";
 import { PageComponent } from "../../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
-import { MailNotificationTemplateMappingComponent } from "./mail-notification-template-editor";
+import { MailNotificationTemplateEditor } from "./mail-notification-template-editor";
 import { NotificationConfigToProcessMappingComponent } from "./notification-config-to-process-mappings";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { FormsModule } from "@angular/forms";
@@ -145,6 +145,7 @@ import { InputSize } from "../../../../models/ui-size.model";
                         <div class="input-group">
                           <app-secret-input
                             [(ngModel)]="mailMessagingConfig.mailConfig.apiKey"
+                            (ngModelChange)="apiKeyChanged($event)"
                             id="api-key"
                             [size]="InputSize.SM"
                             autocomplete="off"
@@ -157,7 +158,19 @@ import { InputSize } from "../../../../models/ui-size.model";
                       </div>
                     </div>
                   </div>
-                  @if (mailMessagingConfig.brevo.accountError) {
+                  @if (pendingApiKeyValidation) {
+                    <div class="thumbnail-heading-frame">
+                      <div class="thumbnail-heading">Account Profile</div>
+                      <div class="row">
+                        <div class="col-sm-12 mb-2">
+                          <div class="alert alert-warning mb-0 p-4">
+                            <h5><fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>Brevo account needs revalidation</h5>
+                            <p class="mb-0">Save settings to validate the API key currently entered above.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  } @else if (mailMessagingConfig.brevo.accountError) {
                     <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Account Profile</div>
                       <div class="row">
@@ -165,15 +178,8 @@ import { InputSize } from "../../../../models/ui-size.model";
                           <div class="alert alert-danger mb-0 p-4">
                             <h5><fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>Failed to load Brevo account</h5>
                             <p class="mb-2"><strong>Error:</strong> {{ mailMessagingConfig.brevo.accountError }}</p>
-                            <p class="mb-2">This usually means the API key is invalid or has expired. To resolve this:</p>
-                            <ol class="mb-3">
-                              <li>Log into your <a [href]="mailMessagingConfig.mailConfig.baseUrl" target="_blank">Brevo account</a></li>
-                              <li>Navigate to <strong>SMTP &amp; API</strong> &gt; <strong>API Keys</strong> (or use the button below)</li>
-                              <li>Generate a new API key or verify your existing key is valid</li>
-                              <li>Update the API Key field above and save</li>
-                            </ol>
-                            <app-brevo-button button title="Open Brevo API Keys"
-                              (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"/>
+                            <app-brevo-button button title="Open Brevo Account"
+                              (click)="mailLinkService.openUrl(mailLinkService.appUrl())"/>
                           </div>
                         </div>
                       </div>
@@ -327,7 +333,7 @@ import { InputSize } from "../../../../models/ui-size.model";
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateMappingComponent, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, FontAwesomeModule, NgClass, SecretInputComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, FontAwesomeModule, NgClass, SecretInputComponent]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];
@@ -335,6 +341,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public mailMessagingConfig: MailMessagingConfig;
+  public pendingApiKeyValidation = false;
   private notifierService: NotifierService = inject(NotifierService);
   public mailLinkService: MailLinkService = inject(MailLinkService);
   private broadcastService: BroadcastService<any> = inject(BroadcastService);
@@ -352,7 +359,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   private error: any;
   public CREDITS_AVAILABLE = 300;
   public confirm: Confirm = new Confirm();
-  private tab: MailSettingsTab = MailSettingsTab.EMAIL_CONFIGURATIONS;
+  private tab = kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS);
   public listCreateRequest: ListCreateRequest;
   public listCreateResponse: ListCreateResponse;
   protected readonly MailSettingsTab = MailSettingsTab;
@@ -366,14 +373,22 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
       const defaultValue = kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS);
       const tabParameter = params[StoredValue.TAB];
-      this.tab = tabParameter || defaultValue;
       this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue);
-      this.selectTab(this.tab);
+      if (tabParameter) {
+        this.tab = tabParameter;
+      } else {
+        this.tab = defaultValue;
+        this.router.navigate([], {
+          queryParams: {[StoredValue.TAB]: defaultValue},
+          queryParamsHandling: "merge"
+        });
+      }
     }));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       if (!this.mailMessagingConfig || this.acceptNextConfigEmission) {
         this.mailMessagingConfig = mailMessagingConfig;
         this.acceptNextConfigEmission = false;
+        this.pendingApiKeyValidation = false;
       }
     }));
     this.broadcastService.on(NamedEventType.MAIL_LISTS_CHANGED, () => {
@@ -445,6 +460,10 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.logger.info("saving config", this.mailMessagingConfig?.mailConfig);
     this.acceptNextConfigEmission = true;
     return this.mailMessagingService.saveConfig(this.mailMessagingConfig, this.deletedConfigs)
+      .then(response => {
+        this.pendingApiKeyValidation = false;
+        return response;
+      })
       .catch((error) => this.notify.error(error));
   }
 
@@ -463,7 +482,15 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
 
   undoChanges() {
     this.acceptNextConfigEmission = true;
+    this.pendingApiKeyValidation = false;
     this.mailMessagingService.refresh();
+  }
+
+  apiKeyChanged(apiKey: string) {
+    if (this.mailMessagingConfig?.mailConfig) {
+      this.mailMessagingConfig.mailConfig.apiKey = apiKey;
+      this.pendingApiKeyValidation = true;
+    }
   }
 
   freeCreditsUsed(): number {
@@ -475,6 +502,10 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   }
 
   public selectTab(tab: MailSettingsTab) {
+    if (kebabCase(this.tab) === kebabCase(tab)) {
+      return;
+    }
+    this.tab = tab;
     this.router.navigate([], {
       queryParams: {[StoredValue.TAB]: kebabCase(tab)},
       queryParamsHandling: "merge"
@@ -490,4 +521,5 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   }
 
   protected readonly faExclamationTriangle = faExclamationTriangle;
+
 }

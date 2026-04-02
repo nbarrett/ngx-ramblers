@@ -48,7 +48,7 @@ export const fileTypeAttributes: FileTypeAttributes[] = [
     contentType: IMAGE_PNG,
     fileExtensions: ["png"],
     base64Prefix: BASE64_PREFIX_PNG,
-    croppable: false,
+    croppable: true,
     cropperFormat: "png"
   },
   {
@@ -71,7 +71,7 @@ export const fileTypeAttributes: FileTypeAttributes[] = [
     contentType: IMAGE_WEBP,
     fileExtensions: ["webp"],
     base64Prefix: BASE64_PREFIX_WEBP,
-    croppable: false,
+    croppable: true,
     cropperFormat: "webp"
   }];
 

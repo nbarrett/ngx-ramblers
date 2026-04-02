@@ -3,6 +3,7 @@ import {
     AfterViewInit,
     Component,
     EventEmitter,
+    HostListener,
     inject,
     Input,
     OnDestroy,
@@ -67,6 +68,7 @@ import { NgClass, NgStyle, NgTemplateOutlet } from "@angular/common";
 import { AspectRatioSelectorComponent } from "../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { ImageCropperPosition } from "../models/image-cropper.model";
+import { ClipboardService } from "../services/clipboard.service";
 
 @Component({
     selector: "app-image-cropper-and-resizer",
@@ -76,13 +78,14 @@ import { ImageCropperPosition } from "../models/image-cropper.model";
 })
 
 export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, OnDestroy {
-    private logger: Logger = inject(LoggerFactory).createLogger("ImageCropperAndResizerComponent", NgxLoggerLevel.ERROR);
+    private logger: Logger = inject(LoggerFactory).createLogger("ImageCropperAndResizerComponent", NgxLoggerLevel.INFO);
     private broadcastService = inject<BroadcastService<Base64File[]>>(BroadcastService);
     private numberUtils = inject(NumberUtilsService);
     private fileUploadService = inject(FileUploadService);
     private urlService = inject(UrlService);
     private notifierService = inject(NotifierService);
     private fileUtils = inject(FileUtilsService);
+    private clipboardService = inject(ClipboardService);
     public wrapButtons: boolean;
     public hideFileSelection: boolean;
     public hideActionButtons: boolean;
@@ -127,7 +130,9 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     public fileTypeAttributes: FileTypeAttributes = null;
     public cropperPosition: ImageCropperPosition = null;
     public resolvedCropperPosition: CropperPosition = null;
+    public imageSource = "";
     private forceSavePermanently = false;
+    private cropSubmitTimeout: ReturnType<typeof setTimeout> = null;
     protected readonly faRemove = faRemove;
     @ViewChild(ImageCropperComponent) imageCropperComponent: ImageCropperComponent;
     @Input() selectAspectRatio: string;
@@ -196,25 +201,27 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
             // end of extra bit from other handler
         }));
         if (this.preloadImage) {
+            this.imageSource = this.preloadImage;
             this.notify.success({title: "Image Cropper", message: "loading file into editor"});
-            if (this.urlService.isBase64Image(this.preloadImage)) {
-                await this.processSingleFile(this.fileUtils.base64ToFileWithName(this.preloadImage, null));
-            } else {
-                this.fileUploadService.urlToFile(this.preloadImage, this.preloadImage)
-                    .then(async (file: File) => await this.processSingleFile(file))
-                    .catch(error => this.throwOrNotifyError({title: "Unexpected Error", message: error}));
-            }
+            await this.loadImageSource(this.preloadImage);
         } else {
             this.updateActionDisabled();
         }
     }
 
     ngOnDestroy(): void {
+        if (this.cropSubmitTimeout) {
+            clearTimeout(this.cropSubmitTimeout);
+        }
         this.subscriptions.forEach(subscription => subscription.unsubscribe());
     }
 
     format(): OutputFormat {
-        return this.fileTypeAttributes?.cropperFormat;
+        if ([FileType.PNG, FileType.WEBP].includes(this.fileTypeAttributes?.key)) {
+            return "jpeg";
+        } else {
+            return this.fileTypeAttributes?.cropperFormat;
+        }
     }
 
     private async calculateImageTypeAttributes(): Promise<void> {
@@ -261,7 +268,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
             imagePosition: event?.imagePosition,
             imageSize: this.originalImageData?.size
         });
-        const normalizedCropperPosition = this.normalizedCropperPosition(event?.imagePosition);
+        const normalizedCropperPosition = this.normalizedCropperPosition(event?.cropperPosition);
         if (normalizedCropperPosition) {
             this.logger.info("imageCropped - emitting cropperPositionChange:", normalizedCropperPosition);
             this.cropperPositionChange.emit(normalizedCropperPosition);
@@ -427,6 +434,64 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
         this.onFileDropped(fileList);
     }
 
+    async loadPastedImageSource() {
+        const imageSource = this.normalisedImageSource(this.imageSource);
+        this.logger.info("loadPastedImageSource:imageSource:", imageSource);
+        if (!imageSource) {
+            this.notify.warning({title: "Image source", message: "Paste an image URL, site-content path or base64 image first"});
+            return;
+        }
+        this.notify.setBusy();
+        await this.loadImageSource(imageSource);
+    }
+
+    async pasteClipboardImage() {
+        this.logger.info("pasteClipboardImage:start");
+        const clipboardFile = await this.clipboardService.imageFileFromClipboard();
+        if (clipboardFile) {
+            await this.loadClipboardFile(clipboardFile);
+        } else {
+            this.notify.warning({title: "Image source", message: "No image found on the clipboard"});
+        }
+    }
+
+    @HostListener("document:paste", ["$event"])
+    async handleDocumentPaste(event: ClipboardEvent) {
+        const activeElement = document.activeElement as HTMLElement | null;
+        const insideCropper = !!activeElement?.closest("app-image-cropper-and-resizer");
+        this.logger.info("handleDocumentPaste:insideCropper:", insideCropper);
+        if (!insideCropper) {
+            return;
+        }
+        await this.imageSourcePasted(event);
+    }
+
+    async imageSourcePasted(event: ClipboardEvent) {
+        const imageFile = this.clipboardService.imageFileFromPasteEvent(event);
+        this.logger.info("imageSourcePasted:image file:", imageFile?.name, imageFile?.type, imageFile?.size);
+        if (imageFile) {
+            event.preventDefault();
+            await this.loadClipboardFile(imageFile);
+            return;
+        }
+        const pastedText = event.clipboardData?.getData("text")?.trim();
+        this.logger.info("imageSourcePasted:pastedText:", pastedText?.substring(0, 200));
+        if (!pastedText) {
+            const clipboardFile = await this.clipboardService.imageFileFromClipboard();
+            if (clipboardFile) {
+                event.preventDefault();
+                await this.loadClipboardFile(clipboardFile);
+            } else {
+                this.logger.info("imageSourcePasted:no pasted text or clipboard image available");
+            }
+            return;
+        }
+        event.preventDefault();
+        this.imageSource = this.normalisedImageSource(pastedText);
+        this.notify.setBusy();
+        await this.loadImageSource(this.imageSource);
+    }
+
     private async processSingleFile(file: File) {
         this.logger.info("processSingleFile:file:", file, "queue:", this.uploader.queue, "original file size:", this.numberUtils.humanFileSize(file.size));
         if (this?.croppedFile?.awsFileName) {
@@ -438,8 +503,47 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
             this.logger.info("processSingleFile:no existing loaded filename to retain - file being processed:", file.name, " will be used as original");
             this.originalFile = file;
         }
+        this.imageSource = this.originalFile?.name || file.name;
         this.notify.progress({title: "File upload", message: `loading preview for ${file.name}...`});
         await this.calculateImageTypeAttributes();
+    }
+
+    private async loadImageSource(imageSource: string) {
+        try {
+            const normalisedImageSource = this.normalisedImageSource(imageSource);
+            this.logger.info("loadImageSource:start:", normalisedImageSource?.substring(0, 200), "isBase64:", this.urlService.isBase64Image(normalisedImageSource));
+            if (this.urlService.isBase64Image(normalisedImageSource)) {
+                const file = this.fileUtils.base64ToFileWithName(normalisedImageSource, null);
+                this.logger.info("loadImageSource:base64 converted to file:", file?.name, file?.type, file?.size);
+                await this.processSingleFile(file);
+            } else {
+                const file = await this.fileUploadService.urlToFile(normalisedImageSource, normalisedImageSource);
+                this.logger.info("loadImageSource:url converted to file:", file?.name, file?.type, file?.size);
+                await this.processSingleFile(file);
+            }
+            this.logger.info("loadImageSource:complete:", normalisedImageSource?.substring(0, 200));
+        } catch (error) {
+            this.logger.error("loadImageSource:error:", error);
+            this.throwOrNotifyError({title: "Image source", message: error});
+        }
+    }
+
+    private async loadClipboardFile(file: File): Promise<void> {
+        this.logger.info("loadClipboardFile:file:", file.name, file.type, file.size);
+        this.imageSource = file.name;
+        this.notify.setBusy();
+        await this.processSingleFile(file);
+    }
+
+    private normalisedImageSource(imageSource: string): string {
+        const trimmedImageSource = imageSource?.trim();
+        if (!trimmedImageSource) {
+            return null;
+        } else if (this.urlService.isRemoteUrl(trimmedImageSource) || this.urlService.isBase64Image(trimmedImageSource)) {
+            return trimmedImageSource;
+        } else {
+            return trimmedImageSource.replace(/^\/+/, "");
+        }
     }
 
     showAlertMessage(): boolean {
@@ -468,9 +572,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     }
 
     manuallySubmitCrop() {
-        setTimeout(() => {
-            this.cropForCurrentCompression();
-        }, 0);
+        this.scheduleCropForCurrentCompression(0);
     }
 
     applyCrop() {
@@ -535,8 +637,20 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
         this.logger.info("changeRange:", $event.target?.value);
         this.imageQuality = $event.target?.value;
         if (crop) {
-            this.manuallySubmitCrop();
+            this.scheduleCropForCurrentCompression(0);
+        } else {
+            this.scheduleCropForCurrentCompression(150);
         }
+    }
+
+    private scheduleCropForCurrentCompression(delay: number) {
+        if (this.cropSubmitTimeout) {
+            clearTimeout(this.cropSubmitTimeout);
+        }
+        this.cropSubmitTimeout = setTimeout(() => {
+            this.cropSubmitTimeout = null;
+            this.cropForCurrentCompression();
+        }, delay);
     }
 
     private coverImagePosition(event: ImageCroppedEvent): number | null {
@@ -566,27 +680,13 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     }
 
     private defaultCropperPosition(size: Dimensions): CropperPosition {
-        const imageAspectRatio = size.width / size.height;
-        const aspectRatio = (this.maintainAspectRatio && this.aspectRatio > 0) ? this.aspectRatio : imageAspectRatio;
-
-        let cropWidth: number;
-        let cropHeight: number;
-
-        if (aspectRatio > imageAspectRatio) {
-            cropWidth = size.width;
-            cropHeight = size.width / aspectRatio;
-        } else {
-            cropHeight = size.height;
-            cropWidth = size.height * aspectRatio;
-        }
-
-        const x1 = (size.width - cropWidth) / 2;
-        const y1 = (size.height - cropHeight) / 2;
-        const x2 = x1 + cropWidth;
-        const y2 = y1 + cropHeight;
-
-        this.logger.info("defaultCropperPosition - aspectRatio:", aspectRatio, "imageAspectRatio:", imageAspectRatio, "size:", size, "crop:", {x1, y1, x2, y2});
-        return {x1, y1, x2, y2};
+        const inset = Math.max(8, Math.round(Math.min(size.width, size.height) * 0.015));
+        return {
+            x1: inset,
+            y1: inset,
+            x2: Math.max(inset + 10, size.width - inset),
+            y2: Math.max(inset + 10, size.height - inset)
+        };
     }
 
     private cropperPositionFromPercent(position: ImageCropperPosition, size: Dimensions): CropperPosition | null {

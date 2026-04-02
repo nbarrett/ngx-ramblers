@@ -92,6 +92,7 @@ export enum StoredValue {
   GROUPS_TABLE_HEIGHT = "groups-table-height",
   PARISH_TABLE_HEIGHT = "parish-table-height",
   COLOUR_PALETTE = "colour-palette",
+  CONFIGURATION = "configuration",
 }
 
 export enum WalkEditTab {

@@ -60,6 +60,7 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
 import { YoutubeInputComponent } from "../youtube-input/youtube-input";
 import { HeightResizerComponent } from "../height-resizer/height-resizer";
 import { ColumnResizerComponent } from "./column-resizer";
+import { ClipboardService } from "../../../services/clipboard.service";
 
 @Component({
     selector: "app-dynamic-content-site-edit-text-row",
@@ -791,6 +792,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   public expanded: boolean;
   isUndefined = isUndefined;
   private fileUtils = inject(FileUtilsService);
+  private clipboardService = inject(ClipboardService);
 
   @Input()
   public row: PageContentRow;
@@ -954,21 +956,17 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   }
 
   async onImageSourcePaste(event: ClipboardEvent, rowIndex: number, columnIndex: number) {
-    const items = event.clipboardData?.items || [];
-    const fileItem = Array.from(items).find(item => item.kind === "file" && item.type.startsWith("image/"));
-    if (fileItem) {
+    const file = this.clipboardService.imageFileFromPasteEvent(event);
+    if (file) {
       event.preventDefault();
-      const file = fileItem.getAsFile();
-      if (file) {
-        const base64File = await this.fileUtils.loadBase64ImageFromFile(file);
-        this.pageContentEditEvents = this.pageContentEditService.handleEvent({
-          path: this.pageContent.path,
-          rowIndex,
-          columnIndex,
-          editActive: true,
-          image: base64File.base64Content
-        }, this.pageContentEditEvents);
-      }
+      const base64File = await this.fileUtils.loadBase64ImageFromFile(file);
+      this.pageContentEditEvents = this.pageContentEditService.handleEvent({
+        path: this.pageContent.path,
+        rowIndex,
+        columnIndex,
+        editActive: true,
+        image: base64File.base64Content
+      }, this.pageContentEditEvents);
     }
   }
 
