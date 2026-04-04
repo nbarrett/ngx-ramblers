@@ -365,7 +365,7 @@ export class MailMessagingService {
       replyTo,
       params: this.createSendSmtpEmailParams(createSendSmtpEmailRequest.notificationConfig.signOffRoles, createSendSmtpEmailRequest.notificationDirective, createSendSmtpEmailRequest.member, createSendSmtpEmailRequest.notificationConfig, createSendSmtpEmailRequest.bodyContent, true, "Hi {{params.messageMergeFields.FNAME}},"),
       templateId: createSendSmtpEmailRequest.notificationConfig.templateId,
-      templateOverrides: createSendSmtpEmailRequest.notificationConfig.templateOverrides,
+      templateOverrides: this.resolveTemplateOverrides(createSendSmtpEmailRequest.notificationConfig.templateOverrides),
     };
     if (createSendSmtpEmailRequest.notificationConfig?.bccRoles.length > 0) {
       emailRequest.bcc = createSendSmtpEmailRequest.notificationConfig?.bccRoles?.map(role => this.createBrevoAddress(role));
@@ -467,9 +467,31 @@ export class MailMessagingService {
     };
   }
 
+  private resolveTemplateOverrides(overrides?: Record<string, string>): Record<string, string> | undefined {
+    if (!overrides) {
+      return overrides;
+    }
+    const publicBaseUrl = this.urlService.publicBaseUrl();
+    const resolved: Record<string, string> = {};
+    for (const [key, value] of Object.entries(overrides)) {
+      if (!value) {
+        resolved[key] = value;
+        continue;
+      }
+      const apiPathMatch = value.match(/(\/api\/aws\/s3\/.+)$/);
+      if (apiPathMatch) {
+        resolved[key] = `${publicBaseUrl}${apiPathMatch[1]}`;
+      } else {
+        resolved[key] = value;
+      }
+    }
+    return resolved;
+  }
+
   bannerImageSource(notificationConfig: NotificationConfig, absolute: boolean) {
     const selectedBanner = this.mailMessagingConfig?.banners?.find(item => item.id === notificationConfig?.bannerId);
-    const bannerSource = this.urlService.imageSource(`${selectedBanner?.fileNameData.rootFolder}/${selectedBanner?.fileNameData.awsFileName}`, absolute);
+    const relativePath = this.urlService.imageSource(`${selectedBanner?.fileNameData.rootFolder}/${selectedBanner?.fileNameData.awsFileName}`, false);
+    const bannerSource = absolute && relativePath ? `${this.urlService.publicBaseUrl()}/${relativePath}` : relativePath;
     this.logger.debug("notificationConfig.bannerId:", notificationConfig?.bannerId, "bannerSource:", bannerSource);
     return bannerSource;
   }

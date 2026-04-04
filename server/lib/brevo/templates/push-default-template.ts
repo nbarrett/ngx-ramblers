@@ -1,7 +1,7 @@
 import debug from "debug";
 import { NextFunction, Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
-import { handleError, successfulResponse } from "../common/messages";
+import { handleError, successfulResponse, wrapMergeFieldsAsFroalaPlaceholders } from "../common/messages";
 import { updateTemplate } from "./template-management";
 import { readLocalTemplate } from "./local-template-reader";
 import {
@@ -17,8 +17,8 @@ export async function pushDefaultTemplate(req: Request, res: Response, next: Nex
   try {
     const request: PushDefaultTemplateRequest = req.body;
     debugLog("received push request:", request);
-    const htmlContent = readLocalTemplate(request.templateName);
-    if (!htmlContent) {
+    const rawContent = readLocalTemplate(request.templateName);
+    if (!rawContent) {
       const response: PushDefaultTemplateResponse = {
         templateId: request.templateId,
         templateName: request.templateName,
@@ -28,6 +28,7 @@ export async function pushDefaultTemplate(req: Request, res: Response, next: Nex
       successfulResponse({req, res, response, messageType, debugLog});
       return;
     }
+    const htmlContent = wrapMergeFieldsAsFroalaPlaceholders(rawContent);
     await updateTemplate({templateId: request.templateId, htmlContent});
     const response: PushDefaultTemplateResponse = {
       templateId: request.templateId,

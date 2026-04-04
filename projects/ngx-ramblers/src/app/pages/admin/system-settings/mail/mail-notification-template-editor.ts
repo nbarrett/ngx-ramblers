@@ -61,23 +61,60 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
     selector: "app-mail-notification-template-mapping-editor",
     styles: [`
       .override-accordion-toggle
-        background: var(--ramblers-colour-mintcake)
+        background: var(--ramblers-colour-mintcake) !important
         border: 0
-        color: var(--ramblers-colour-white)
+        color: #ffffff !important
+
+      .override-accordion-toggle span,
+      .override-accordion-toggle .fw-bold,
+      .override-accordion-toggle .text-muted,
+      .override-accordion-toggle .small
+        color: #ffffff !important
+
+      .override-accordion-toggle fa-icon,
+      .override-accordion-toggle svg
+        color: #ffffff !important
+        fill: #ffffff !important
 
       .override-accordion-toggle:hover,
       .override-accordion-toggle:focus
-        background: var(--ramblers-colour-sunrise)
-        color: var(--ramblers-colour-black)
+        background: var(--ramblers-colour-sunrise) !important
+        color: #000000 !important
         box-shadow: none
 
-      .override-accordion-toggle-active
-        background: var(--ramblers-colour-sunrise)
-        color: var(--ramblers-colour-black)
+      .override-accordion-toggle:hover span,
+      .override-accordion-toggle:hover .fw-bold,
+      .override-accordion-toggle:hover .text-muted,
+      .override-accordion-toggle:hover .small,
+      .override-accordion-toggle:focus span,
+      .override-accordion-toggle:focus .fw-bold,
+      .override-accordion-toggle:focus .text-muted,
+      .override-accordion-toggle:focus .small
+        color: #000000 !important
 
-      .override-accordion-toggle .text-muted,
-      .override-accordion-toggle-active .text-muted
-        color: inherit !important
+      .override-accordion-toggle:hover fa-icon,
+      .override-accordion-toggle:hover svg,
+      .override-accordion-toggle:focus fa-icon,
+      .override-accordion-toggle:focus svg
+        color: #000000 !important
+        fill: #000000 !important
+
+      .override-accordion-toggle-active,
+      .override-accordion-toggle-active:hover,
+      .override-accordion-toggle-active:focus
+        background: var(--ramblers-colour-sunrise) !important
+        color: #000000 !important
+
+      .override-accordion-toggle-active span,
+      .override-accordion-toggle-active .fw-bold,
+      .override-accordion-toggle-active .text-muted,
+      .override-accordion-toggle-active .small
+        color: #000000 !important
+
+      .override-accordion-toggle-active fa-icon,
+      .override-accordion-toggle-active svg
+        color: #000000 !important
+        fill: #000000 !important
 
       .brevo-icon
         width: 17px
@@ -275,7 +312,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                                     (click)="toggleOverrideAccordion(key)">
                               <span>
                                 <span class="fw-bold">{{ labelForKey(key) }}</span>
-                                <span class="ms-2 small text-muted">{{ overrideValue(key) ? "Image configured" : "No image configured" }}</span>
+                                <span class="ms-2 small text-muted">{{ overrideValue(key) ? "configured" : "not configured" }}</span>
                               </span>
                               <fa-icon [icon]="activeOverrideAccordion === key ? faChevronUp : faChevronDown"/>
                             </button>

@@ -33,6 +33,12 @@ export function collapseFroalaPlaceholderSpans(html: string): string {
   return html.replace(/<span\s+class="placeholder rte-personalized-node fr-deletable"[^>]*>([^<]*)<\/span>\u200b?/g, "$1");
 }
 
+export function wrapMergeFieldsAsFroalaPlaceholders(html: string): string {
+  return html.replace(/\{\{\s*params\.[a-zA-Z]+\.[A-Z_]+\s*\}\}/g, (match) => {
+    return `<span class="placeholder rte-personalized-node fr-deletable" contenteditable="false">${match}</span>`;
+  });
+}
+
 export function collapseBlankLines(html: string): string {
   return html.replace(/(<body[^>]*>)\n{2,}/g, "$1\n");
 }
