@@ -1,7 +1,7 @@
 import debug from "debug";
 import { NextFunction, Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
-import { handleError, successfulResponse } from "../common/messages";
+import { collapseFroalaPlaceholderSpans, handleError, successfulResponse } from "../common/messages";
 import { queryTemplateContent } from "../transactional-mail/query-template-content";
 import { readLocalTemplate } from "./local-template-reader";
 import {
@@ -15,7 +15,7 @@ const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = false;
 
 function normaliseHtml(html: string): string {
-  return html.replace(/\s+/g, " ").trim();
+  return collapseFroalaPlaceholderSpans(html).replace(/\s+/g, " ").trim();
 }
 
 export async function templateDiff(req: Request, res: Response, next: NextFunction): Promise<void> {
