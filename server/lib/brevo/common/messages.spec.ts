@@ -31,11 +31,33 @@ describe("brevo messages", () => {
       );
     });
 
-    it("wraps merge fields concatenated with other text without spaces", () => {
-      const input = `<a href="{{params.systemMergeFields.APP_URL}}/how-to">link</a>`;
+    it("wraps merge fields concatenated with other text without spaces in text content", () => {
+      const input = `<p>Visit {{params.systemMergeFields.APP_URL}}/how-to for help</p>`;
       const output = wrapMergeFieldsAsFroalaPlaceholders(input);
       expect(output).toContain(
         `<span class="placeholder rte-personalized-node fr-deletable" contenteditable="false">{{params.systemMergeFields.APP_URL}}</span>/how-to`
+      );
+    });
+
+    it("does NOT wrap merge fields inside HTML attribute values", () => {
+      const input = `<a href="{{params.systemMergeFields.APP_URL}}/how-to">link</a>`;
+      const output = wrapMergeFieldsAsFroalaPlaceholders(input);
+      expect(output).toBe(input);
+      expect(output).not.toContain(`placeholder rte-personalized-node`);
+    });
+
+    it("does NOT wrap merge fields inside src or href attributes", () => {
+      const input = `<img src="{{params.messageMergeFields.BANNER_IMAGE_SOURCE}}" alt="logo">`;
+      const output = wrapMergeFieldsAsFroalaPlaceholders(input);
+      expect(output).toBe(input);
+    });
+
+    it("wraps merge fields in text content while leaving attributes untouched in the same element", () => {
+      const input = `<a href="{{params.systemMergeFields.APP_URL}}">Go to {{params.systemMergeFields.APP_SHORTNAME}}</a>`;
+      const output = wrapMergeFieldsAsFroalaPlaceholders(input);
+      expect(output).toContain(`href="{{params.systemMergeFields.APP_URL}}"`);
+      expect(output).toContain(
+        `<span class="placeholder rte-personalized-node fr-deletable" contenteditable="false">{{params.systemMergeFields.APP_SHORTNAME}}</span></a>`
       );
     });
 

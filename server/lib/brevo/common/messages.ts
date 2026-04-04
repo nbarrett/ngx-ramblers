@@ -33,10 +33,15 @@ export function collapseFroalaPlaceholderSpans(html: string): string {
   return html.replace(/<span\s+class="placeholder rte-personalized-node fr-deletable"[^>]*>([^<]*)<\/span>\u200b?/g, "$1");
 }
 
+const MERGE_FIELD_REGEX = /\{\{\s*params\.[a-zA-Z]+\.[A-Z_]+\s*\}\}/g;
+
+function wrapToken(token: string): string {
+  return `<span class="placeholder rte-personalized-node fr-deletable" contenteditable="false">${token}</span>`;
+}
+
 export function wrapMergeFieldsAsFroalaPlaceholders(html: string): string {
-  return html.replace(/\{\{\s*params\.[a-zA-Z]+\.[A-Z_]+\s*\}\}/g, (match) => {
-    return `<span class="placeholder rte-personalized-node fr-deletable" contenteditable="false">${match}</span>`;
-  });
+  const segments = html.split(/(<[^>]*>)/g);
+  return segments.map(segment => segment.startsWith("<") ? segment : segment.replace(MERGE_FIELD_REGEX, wrapToken)).join("");
 }
 
 export function collapseBlankLines(html: string): string {
