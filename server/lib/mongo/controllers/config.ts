@@ -30,12 +30,24 @@ const sensitiveKeys = new Set([
   "secretKey",
 ]);
 
-const adminOnlyConfigKeys = new Set([
-  ConfigKey.ENVIRONMENTS,
-  ConfigKey.MAILCHIMP,
-  ConfigKey.MAIL,
-  ConfigKey.BREVO,
-]);
+enum ConfigAccess {
+  ADMIN_ONLY,
+  PUBLIC_WITH_REDACTION,
+}
+
+const configAccessPolicy: Record<ConfigKey, ConfigAccess> = {
+  [ConfigKey.BOOKING]: ConfigAccess.PUBLIC_WITH_REDACTION,
+  [ConfigKey.BREVO]: ConfigAccess.PUBLIC_WITH_REDACTION,
+  [ConfigKey.COMMITTEE]: ConfigAccess.PUBLIC_WITH_REDACTION,
+  [ConfigKey.ENVIRONMENTS]: ConfigAccess.ADMIN_ONLY,
+  [ConfigKey.MAIL]: ConfigAccess.ADMIN_ONLY,
+  [ConfigKey.MAILCHIMP]: ConfigAccess.ADMIN_ONLY,
+  [ConfigKey.MEETUP]: ConfigAccess.PUBLIC_WITH_REDACTION,
+  [ConfigKey.MIGRATION]: ConfigAccess.PUBLIC_WITH_REDACTION,
+  [ConfigKey.RAMBLERS_AREAS_CACHE]: ConfigAccess.PUBLIC_WITH_REDACTION,
+  [ConfigKey.SYSTEM]: ConfigAccess.PUBLIC_WITH_REDACTION,
+  [ConfigKey.WALKS]: ConfigAccess.PUBLIC_WITH_REDACTION,
+};
 export const create = controller.create;
 export const all = controller.all;
 export const deleteOne = controller.deleteOne;
@@ -123,7 +135,7 @@ export function handleQuery(req: Request, res: Response): Promise<any> {
     const tokenPresent = hasAuthToken(req);
     const { isAdmin, tokenValid } = resolveTokenStatus(req);
 
-    if (adminOnlyConfigKeys.has(configKey) && !isAdmin) {
+    if (configAccessPolicy[configKey] === ConfigAccess.ADMIN_ONLY && !isAdmin) {
       if (tokenPresent && !tokenValid) {
         debugLog(`Rejected expired/invalid token for admin-only config: ${configKey}`);
         return Promise.resolve(res.status(401).json({
