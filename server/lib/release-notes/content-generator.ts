@@ -60,7 +60,8 @@ const TYPE_SUMMARIES: Record<string, { singular: string; plural?: string }> = {
 
 const TITLE_MAX_LENGTH = 90;
 const PAGE_TITLE_MAX_LENGTH = 200;
-const entryLineRegex = /^-\s*\[(.+?)\]\((.+?)\)\s*$/;
+const CAMERA_SUFFIX = " 📸";
+const entryLineRegex = /^-\s*\[(.+?)\]\((.+?)\)(\s*📸)?\s*$/;
 
 export function groupCommitsByType(commits: ConventionalCommit[]): CommitGroup[] {
   const groups: Map<string, ConventionalCommit[]> = new Map();
@@ -401,6 +402,7 @@ interface IndexEntry {
   remainder: string;
   originalLabel: string;
   issueNumber: string | null;
+  hasCamera: boolean;
 }
 
 
@@ -415,7 +417,7 @@ function parseIndexLine(line: string): IndexEntry | null {
     return null;
   }
 
-  const [, label, path] = match;
+  const [, label, path, cameraSuffix] = match;
   const [dateSegment, ...rest] = label.split(" — ");
   const remainder = rest.join(" — ").trim();
   const issueNumberFromLabel = remainder.match(/^#(\d+)\b/)?.[1] || null;
@@ -432,13 +434,15 @@ function parseIndexLine(line: string): IndexEntry | null {
     displayDate,
     remainder,
     originalLabel: label.trim(),
-    issueNumber
+    issueNumber,
+    hasCamera: Boolean(cameraSuffix)
   };
 }
 
 function formatIndexLine(entry: IndexEntry): string {
   const label = buildIndexLabel(entry);
-  return `- [${label}](${entry.path})`;
+  const suffix = entry.hasCamera ? CAMERA_SUFFIX : "";
+  return `- [${label}](${entry.path})${suffix}`;
 }
 
 function buildIndexLabel(entry: IndexEntry): string {
@@ -516,7 +520,8 @@ export function updateIndexPageContent(
     displayDate,
     remainder: remainderText,
     originalLabel: baseLabel,
-    issueNumber: newEntry.issueNumber
+    issueNumber: newEntry.issueNumber,
+    hasCamera: false
   };
 
   if (!existingContent.rows || existingContent.rows.length === 0) {
@@ -559,7 +564,11 @@ export function updateIndexPageContent(
     .filter(entry => allowUnassigned || !entry.path.endsWith("-other"));
   const entries = new Map<string, IndexEntry>(parsedEntries.map(entry => [indexEntryKey(entry), entry]));
 
-  entries.set(indexEntryKey(newIndexEntry), newIndexEntry);
+  const existingForNewEntry = entries.get(indexEntryKey(newIndexEntry));
+  entries.set(indexEntryKey(newIndexEntry), {
+    ...newIndexEntry,
+    hasCamera: existingForNewEntry?.hasCamera ?? newIndexEntry.hasCamera
+  });
 
   const sortedEntries = Array.from(entries.values()).sort(compareIndexEntries);
   const listLines = sortedEntries.map(formatIndexLine);
