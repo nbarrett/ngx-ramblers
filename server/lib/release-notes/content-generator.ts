@@ -287,17 +287,17 @@ function formatCommitBody(body: string): string {
     return "";
   }
 
-  const bodyLines = body
-    .split("\n")
-    .map(line => line.trim())
-    .filter(line => line.length > 0);
+  const paragraphs = body
+    .split(/\n\s*\n/)
+    .map(paragraph => paragraph
+      .split("\n")
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .flatMap(line => formatBodyLine(line))
+      .join("\n"))
+    .filter(paragraph => paragraph.length > 0);
 
-  if (bodyLines.length === 0) {
-    return "";
-  }
-
-  const formattedLines = bodyLines.flatMap(line => formatBodyLine(line));
-  return formattedLines.join("\n");
+  return paragraphs.join("\n\n");
 }
 
 function formatBodyLine(line: string): string[] {
