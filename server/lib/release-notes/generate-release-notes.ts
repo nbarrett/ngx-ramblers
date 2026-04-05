@@ -324,6 +324,26 @@ async function promptForCredentials(config: ReleaseNotesConfig): Promise<Release
   };
 }
 
+async function resolveNonCollidingReleasePath(
+  auth: CMSAuth,
+  basePath: string,
+  data: ReleaseNotesData
+): Promise<string> {
+  const preferredSuffix = data.buildNumber
+    ? `-build-${data.buildNumber}`
+    : `-commit-${data.commitHash}`;
+
+  const tryCandidate = async (counter: number): Promise<string> => {
+    const candidate = counter === 1
+      ? `${basePath}${preferredSuffix}`
+      : `${basePath}${preferredSuffix}-${counter}`;
+    const exists = await cms.pageExists(auth, candidate);
+    return exists ? tryCandidate(counter + 1) : candidate;
+  };
+
+  return tryCandidate(1);
+}
+
 async function generateReleaseNote(
   data: ReleaseNotesData,
   auth: CMSAuth,
@@ -332,9 +352,15 @@ async function generateReleaseNote(
   dryRun: boolean,
   allowUnassigned: boolean
 ): Promise<void> {
-  const releasePath = `${config.indexPath}/${formatDateForPath(data.date)}${pathSuffix}`;
+  const basePath = `${config.indexPath}/${formatDateForPath(data.date)}${pathSuffix}`;
 
-  const existingReleasePage = dryRun ? null : await cms.pageContent(auth, releasePath);
+  const existingReleasePage = dryRun ? null : await cms.pageContent(auth, basePath);
+
+  let releasePath = basePath;
+  if (existingReleasePage) {
+    releasePath = await resolveNonCollidingReleasePath(auth, basePath, data);
+    debugLog(`Existing release note found at ${basePath}; writing new note at ${releasePath} to preserve manual edits`);
+  }
 
   if (!data.buildNumber && existingReleasePage) {
     const existingBuild = extractExistingBuildMetadata(existingReleasePage);
@@ -376,15 +402,10 @@ async function generateReleaseNote(
     return;
   }
 
-  if (existingReleasePage) {
-    debugLog(`Skipping update of existing release note: ${releasePath}`);
-    debugLog(`  Reason: existing release notes are never overwritten to preserve manual edits (images, formatting)`);
-  } else {
-    await cms.createPageContent(auth, pageContent);
-    debugLog(`Created release note page: ${releasePath}`);
-  }
+  await cms.createPageContent(auth, pageContent);
+  debugLog(`Created release note page: ${releasePath}`);
 
-  if (!dryRun) {
+  if (!dryRun && releasePath === basePath) {
     await removeLegacyReleasePages(auth, releasePath, data.issueNumber, pathSuffix);
   }
 
