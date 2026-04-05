@@ -1,10 +1,11 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { refreshIndexPageContent, updateIndexPageContent } from "./content-generator";
+import { createReleaseNotesData, generateMarkdown, refreshIndexPageContent, updateIndexPageContent } from "./content-generator";
 import {
   PageContent,
   PageContentType
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { ConventionalCommit } from "./models";
 
 function makeIndexPage(body: string): PageContent {
   return {
@@ -190,5 +191,88 @@ describe("content-generator updateIndexPageContent", () => {
     expect(content).toContain("- [03-Apr-2026 — B](how-to/committee/release-notes/2026-04-03) 📸");
     expect(content).toContain("- [01-Apr-2026 — C](how-to/committee/release-notes/2026-04-01)");
     expect(content).toContain("- [04-Apr-2026 — Inserted](how-to/committee/release-notes/2026-04-04)");
+  });
+});
+
+describe("content-generator generateMarkdown commit body paragraphs", () => {
+
+  function makeCommit(body: string): ConventionalCommit {
+    return {
+      hash: "abcdef1234567890abcdef1234567890abcdef12",
+      shortHash: "abcdef1",
+      date: "2026-04-05",
+      type: "fix",
+      scope: "example",
+      subject: "example subject line",
+      body,
+      footer: "",
+      issueReferences: [],
+      breakingChange: false
+    };
+  }
+
+  it("preserves paragraph breaks between sections in a commit body", () => {
+    const body = [
+      "First paragraph of context.",
+      "",
+      "Second paragraph after a blank line.",
+      "",
+      "Third paragraph."
+    ].join("\n");
+
+    const data = createReleaseNotesData([makeCommit(body)], null, "owner/repo");
+    const markdown = generateMarkdown(data, "owner/repo");
+
+    expect(markdown).toContain("First paragraph of context.\n\nSecond paragraph after a blank line.\n\nThird paragraph.");
+  });
+
+  it("preserves multiline paragraphs (soft wraps within a paragraph) as single paragraphs", () => {
+    const body = [
+      "A commit message body",
+      "that is soft-wrapped",
+      "across several lines.",
+      "",
+      "A second paragraph."
+    ].join("\n");
+
+    const data = createReleaseNotesData([makeCommit(body)], null, "owner/repo");
+    const markdown = generateMarkdown(data, "owner/repo");
+
+    expect(markdown).toContain("A commit message body\nthat is soft-wrapped\nacross several lines.\n\nA second paragraph.");
+  });
+
+  it("keeps setext-style section headings intact with surrounding blank lines", () => {
+    const body = [
+      "Intro paragraph.",
+      "",
+      "Section Heading",
+      "---------------",
+      "Section body text.",
+      "",
+      "Another Heading",
+      "---------------",
+      "Another section body."
+    ].join("\n");
+
+    const data = createReleaseNotesData([makeCommit(body)], null, "owner/repo");
+    const markdown = generateMarkdown(data, "owner/repo");
+
+    expect(markdown).toContain("Intro paragraph.\n\nSection Heading\n---------------\nSection body text.\n\nAnother Heading\n---------------\nAnother section body.");
+  });
+
+  it("collapses runs of multiple blank lines to a single paragraph separator", () => {
+    const body = [
+      "Paragraph one.",
+      "",
+      "",
+      "",
+      "Paragraph two."
+    ].join("\n");
+
+    const data = createReleaseNotesData([makeCommit(body)], null, "owner/repo");
+    const markdown = generateMarkdown(data, "owner/repo");
+
+    expect(markdown).toContain("Paragraph one.\n\nParagraph two.");
+    expect(markdown).not.toContain("\n\n\n");
   });
 });
