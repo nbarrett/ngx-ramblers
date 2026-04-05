@@ -28,22 +28,23 @@ export class ContactUsModalService {
   }
 
   openContactModal(queryParams: Params) {
+    const enriched = this.withCurrentPath(queryParams);
     this.modalService.show(ContactUsModalComponent, {
       class: "modal-lg",
-      initialState: {queryParams}
+      initialState: {queryParams: enriched}
     }).onHidden.subscribe(() => {
       this.logger.info("Modal closed");
     });
-    this.logger.info("Modal opened with queryParams:", queryParams);
-    this.redirectBackToRoute(queryParams);
+    this.logger.info("Modal opened with queryParams:", enriched);
+    this.redirectBackToRoute(enriched);
   }
 
-  openContactModalForMember(committeeMember: CommitteeMember, subject: string, redirect: string) {
+  openContactModalForMember(committeeMember: CommitteeMember, subject: string, redirect?: string) {
     this.modalService.show(ContactUsModalComponent, {
       class: "modal-lg",
       initialState: {
         committeeMemberOverride: committeeMember,
-        queryParams: {redirect, subject}
+        queryParams: this.withCurrentPath({subject, redirect})
       }
     }).onHidden.subscribe(() => {
       this.logger.info("Modal closed");
@@ -51,16 +52,23 @@ export class ContactUsModalService {
     this.logger.info("Modal opened for member:", committeeMember);
   }
 
-  openContactModalForRole(role: string, subject: string, redirect: string) {
+  openContactModalForRole(role: string, subject: string, redirect?: string) {
     this.modalService.show(ContactUsModalComponent, {
       class: "modal-lg",
       initialState: {
-        queryParams: {"contact-us": true, role, subject, redirect}
+        queryParams: this.withCurrentPath({"contact-us": true, role, subject, redirect})
       }
     }).onHidden.subscribe(() => {
       this.logger.info("Modal closed");
     });
     this.logger.info("Modal opened for role:", role);
+  }
+
+  private withCurrentPath(queryParams: Params): Params {
+    return {
+      ...queryParams,
+      redirect: queryParams["redirect"] || window.location.pathname
+    };
   }
 
   redirectBackToRoute(queryParams: Params) {

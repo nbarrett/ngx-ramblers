@@ -521,7 +521,7 @@ export class WalkDisplayService {
     const displayName = contactDetails?.displayName;
     const walkDate = walk?.groupEvent?.start_date_time ? ` on ${this.dateUtils.displayDate(walk.groupEvent.start_date_time)}` : "";
     const subject = `Enquiry about walk: ${walk?.groupEvent?.title || ""}${walkDate}`;
-    const redirect = this.router.url;
+    const redirect = this.walkRouterLink(walk) || this.router.url;
     if (this.group?.walkLeaderContactDirect && validEmail(email)) {
       const leaderAsMember: CommitteeMember = {
         fullName: displayName,

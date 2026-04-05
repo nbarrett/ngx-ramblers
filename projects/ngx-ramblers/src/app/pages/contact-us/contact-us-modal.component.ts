@@ -16,7 +16,6 @@ import { MailMessagingService } from "../../services/mail/mail-messaging.service
 import { StringUtilsService } from "../../services/string-utils.service";
 import { NotificationConfig, SendSmtpEmailRequest } from "../../models/mail.model";
 import { NotificationDirective } from "../../notifications/common/notification.directive";
-import { omit } from "es-toolkit/compat";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { FirstAndLastName } from "../../models/member.model";
 import { MemberNamingService } from "../../services/member/member-naming.service";
@@ -145,9 +144,9 @@ import { ContactInteractionStatus } from "../../models/booking.model";
           </dl>
           <dl>
             <dt>
-              <b>Route:</b>
+              <b>Page:</b>
             </dt>
-            <dd>{{ formatRoute() }}</dd>
+            <dd><a [href]="pageUrl()">{{ pageUrl() }}</a></dd>
           </dl>
           <dl>
             <dt>
@@ -160,6 +159,12 @@ import { ContactInteractionStatus } from "../../models/booking.model";
               <b>Contact Email:</b>
             </dt>
             <dd>{{ contactFormDetails.anonymous ? 'Anonymous' : contactFormDetails.email }}</dd>
+          </dl>
+          <dl>
+            <dt>
+              <b>Subject:</b>
+            </dt>
+            <dd>{{ contactFormDetails.subject }}</dd>
           </dl>
           <dl>
             <dt>
@@ -178,6 +183,12 @@ import { ContactInteractionStatus } from "../../models/booking.model";
           </dl>
           <dl>
             <dt>
+              <b>Page:</b>
+            </dt>
+            <dd><a [href]="pageUrl()">{{ pageUrl() }}</a></dd>
+          </dl>
+          <dl>
+            <dt>
               <b>Contact Name:</b>
             </dt>
             <dd>{{ contactFormDetails.name }}</dd>
@@ -187,6 +198,12 @@ import { ContactInteractionStatus } from "../../models/booking.model";
               <b>Contact Email:</b>
             </dt>
             <dd>{{ contactFormDetails.email }}</dd>
+          </dl>
+          <dl>
+            <dt>
+              <b>Subject:</b>
+            </dt>
+            <dd>{{ contactFormDetails.subject }}</dd>
           </dl>
           <dl>
             <dt>
@@ -413,7 +430,9 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     return !this.committeeMember || this.emailSent || !this.validateTokenRequest.captchaToken;
   }
 
-  formatRoute() {
-    return this.stringUtils.stringifyObject(omit(this.queryParams, "contact-us"));
+  pageUrl(): string {
+    const path = this.queryParams?.["redirect"] || window.location.pathname;
+    const normalised = path.startsWith("/") ? path : `/${path}`;
+    return `${this.urlService.publicBaseUrl()}${normalised}`;
   }
 }
