@@ -417,7 +417,8 @@ function parseIndexLine(line: string): IndexEntry | null {
     return null;
   }
 
-  const [, label, path, cameraSuffix] = match;
+  const [, label, rawPath, cameraSuffix] = match;
+  const path = rawPath.replace(/^\//, "");
   const [dateSegment, ...rest] = label.split(" — ");
   const remainder = rest.join(" — ").trim();
   const issueNumberFromLabel = remainder.match(/^#(\d+)\b/)?.[1] || null;
@@ -471,6 +472,46 @@ function compareIndexEntries(a: IndexEntry, b: IndexEntry): number {
 function extractDateFromPath(path: string): string | null {
   const match = path.match(/(\d{4}-\d{2}-\d{2})/);
   return match ? match[1] : null;
+}
+
+function yearForEntry(entry: IndexEntry): string | null {
+  if (entry.date) return entry.date.substring(0, 4);
+  const fromPath = extractDateFromPath(entry.path);
+  if (fromPath) return fromPath.substring(0, 4);
+  const displayMatch = entry.displayDate?.match(/(\d{4})/);
+  return displayMatch ? displayMatch[1] : null;
+}
+
+function formatGroupedEntryLines(sortedEntries: IndexEntry[]): string {
+  // Assumes sortedEntries are in newest-first order. Emits `## <year>` above
+  // each year's first entry so the index groups by year consistently.
+  const sections: string[] = [];
+  let currentYear: string | null = null;
+  let currentLines: string[] = [];
+
+  const flush = () => {
+    if (currentLines.length === 0) return;
+    const header = currentYear ? `## ${currentYear}\n\n` : "";
+    sections.push(`${header}${currentLines.join("\n")}`);
+    currentLines = [];
+  };
+
+  for (const entry of sortedEntries) {
+    const year = yearForEntry(entry);
+    if (year !== currentYear) {
+      flush();
+      currentYear = year;
+    }
+    currentLines.push(formatIndexLine(entry));
+  }
+  flush();
+  return sections.join("\n\n");
+}
+
+function stripYearHeadings(preambleLines: string[]): string[] {
+  // Drop any `## YYYY` headings that may have leaked into the preamble from
+  // an earlier format; they will be re-emitted inline with the entry list.
+  return preambleLines.filter(line => !/^\s*##\s*\d{4}\s*$/.test(line));
 }
 
 function indexEntryKey(entry: IndexEntry): string {
@@ -571,15 +612,70 @@ export function updateIndexPageContent(
   });
 
   const sortedEntries = Array.from(entries.values()).sort(compareIndexEntries);
-  const listLines = sortedEntries.map(formatIndexLine);
-  const preambleText = preambleLines.join("\n").replace(/\s+$/, "");
+  const listText = formatGroupedEntryLines(sortedEntries);
+  const preambleText = stripYearHeadings(preambleLines).join("\n").replace(/\s+$/, "");
 
   const sections: string[] = [];
   if (preambleText.trim().length > 0) {
     sections.push(preambleText.trim());
   }
-  if (listLines.length > 0) {
-    sections.push(listLines.join("\n"));
+  if (listText.length > 0) {
+    sections.push(listText);
+  }
+
+  column.contentText = sections.join("\n\n");
+
+  return existingContent;
+}
+
+/**
+ * Re-serialises an existing index page without merging a new entry.
+ *
+ * Used by one-off recovery scripts to re-apply the current formatting rules
+ * (year headings, path normalisation, `hasCamera` preservation) to a page
+ * that was authored or edited before those rules existed.
+ */
+export function refreshIndexPageContent(
+  existingContent: PageContent,
+  options?: { allowUnassigned?: boolean }
+): PageContent {
+  const allowUnassigned = Boolean(options?.allowUnassigned);
+  if (!existingContent.rows || existingContent.rows.length === 0) {
+    return existingContent;
+  }
+
+  const textRow = existingContent.rows.find(row => row.type === PageContentType.TEXT);
+  if (!textRow || !textRow.columns || textRow.columns.length === 0) {
+    return existingContent;
+  }
+
+  const column = textRow.columns[0];
+  const currentContent = column.contentText || "";
+  const lines = currentContent.split("\n");
+  const firstEntryIndex = lines.findIndex(line => entryLineRegex.test(line.trim()));
+  const preambleLines = firstEntryIndex === -1 ? lines : lines.slice(0, firstEntryIndex);
+  const entryLines = firstEntryIndex === -1 ? [] : lines.slice(firstEntryIndex);
+
+  const parsedEntries = entryLines
+    .map(line => parseIndexLine(line))
+    .filter((entry): entry is IndexEntry => Boolean(entry))
+    .filter(entry => allowUnassigned || !entry.path.endsWith("-other"));
+
+  const entries = new Map<string, IndexEntry>();
+  for (const entry of parsedEntries) {
+    entries.set(indexEntryKey(entry), entry);
+  }
+
+  const sortedEntries = Array.from(entries.values()).sort(compareIndexEntries);
+  const listText = formatGroupedEntryLines(sortedEntries);
+  const preambleText = stripYearHeadings(preambleLines).join("\n").replace(/\s+$/, "");
+
+  const sections: string[] = [];
+  if (preambleText.trim().length > 0) {
+    sections.push(preambleText.trim());
+  }
+  if (listText.length > 0) {
+    sections.push(listText);
   }
 
   column.contentText = sections.join("\n\n");

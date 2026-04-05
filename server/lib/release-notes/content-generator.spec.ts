@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { updateIndexPageContent } from "./content-generator";
+import { refreshIndexPageContent, updateIndexPageContent } from "./content-generator";
 import {
   PageContent,
   PageContentType
@@ -97,6 +97,74 @@ describe("content-generator updateIndexPageContent", () => {
     const newLine = content.split("\n").find(line => line.includes("2026-04-04"));
     expect(newLine).toBeDefined();
     expect(newLine).not.toContain("📸");
+  });
+
+  it("emits ## <year> headings consistently above each year's entries", () => {
+    const existing = makeIndexPage(
+      [
+        "# Release Notes",
+        "",
+        "## 2026",
+        "",
+        "- [08-Jan-2026 — Early 2026](how-to/committee/release-notes/2026-01-08)",
+        "- [20-Dec-2025 — Late 2025](how-to/committee/release-notes/2025-12-20)",
+        "- [07-May-2025 — Mid 2025](how-to/committee/release-notes/2025-05-07) 📸",
+        "- [19-Dec-2024 — Late 2024](how-to/committee/release-notes/2024-12-19) 📸"
+      ].join("\n")
+    );
+
+    const updated = updateIndexPageContent(existing, {
+      date: "2026-04-04",
+      title: "New release",
+      path: "how-to/committee/release-notes/2026-04-04",
+      issueNumber: null
+    });
+
+    const content = extractContent(updated);
+    expect(content).toContain("## 2026\n\n- [04-Apr-2026");
+    expect(content).toContain("## 2025\n\n- [20-Dec-2025");
+    expect(content).toContain("## 2024\n\n- [19-Dec-2024");
+    // Ensure the original stray `## 2026` was stripped from preamble (not duplicated)
+    expect(content.match(/## 2026/g)?.length).toBe(1);
+  });
+
+  it("normalises leading-slash paths in existing entries on round-trip", () => {
+    const existing = makeIndexPage(
+      [
+        "# Release Notes",
+        "",
+        "- [07-May-2025 — Legacy](/how-to/committee/release-notes/2025-05-07) 📸"
+      ].join("\n")
+    );
+
+    const updated = updateIndexPageContent(existing, {
+      date: "2026-04-04",
+      title: "New",
+      path: "how-to/committee/release-notes/2026-04-04",
+      issueNumber: null
+    });
+
+    const content = extractContent(updated);
+    expect(content).not.toContain("](/how-to/committee/release-notes/");
+    expect(content).toContain("(how-to/committee/release-notes/2025-05-07) 📸");
+  });
+
+  it("refreshIndexPageContent applies year headings without merging a new entry", () => {
+    const existing = makeIndexPage(
+      [
+        "# Release Notes",
+        "",
+        "- [08-Jan-2026 — 2026 entry](how-to/committee/release-notes/2026-01-08)",
+        "- [19-Dec-2024 — 2024 entry](/how-to/committee/release-notes/2024-12-19) 📸"
+      ].join("\n")
+    );
+
+    const refreshed = refreshIndexPageContent(existing);
+    const content = extractContent(refreshed);
+    expect(content).toContain("## 2026\n\n- [08-Jan-2026");
+    expect(content).toContain("## 2024\n\n- [19-Dec-2024");
+    expect(content).toContain("(how-to/committee/release-notes/2024-12-19) 📸");
+    expect(content).not.toContain("](/how-to/committee/release-notes/");
   });
 
   it("preserves 📸 across many entries when inserting in the middle", () => {
