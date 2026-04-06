@@ -54,6 +54,7 @@ export interface CommitteeFileApiResponse extends ApiResponse {
 }
 
 export interface GroupEventSummary extends Identifiable {
+  ramblersEventType?: string;
   image?: string;
   slug: string;
   selected: boolean;
@@ -68,6 +69,7 @@ export interface GroupEventSummary extends Identifiable {
   contactName: string;
   contactPhone?: string;
   contactEmail: string;
+  contactHref?: string;
 }
 
 interface NotificationImage {

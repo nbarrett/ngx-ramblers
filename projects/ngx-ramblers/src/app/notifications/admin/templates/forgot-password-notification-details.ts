@@ -14,7 +14,7 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
         </div>
       }
       <h1>{{ params?.systemMergeFields?.APP_SHORTNAME }} {{ notificationConfig.subject }}</h1>
-      <p>Hi {{ params?.memberMergeFields?.FNAME }},</p>
+      <p>{{ params?.messageMergeFields?.ADDRESS_LINE }}</p>
       <p>Sorry you are having trouble logging into the {{ params?.systemMergeFields?.APP_SHORTNAME }}
       site.</p>
       <p>Please click the following link:

@@ -20,6 +20,7 @@ import {
   MailConfig,
   NotificationConfig,
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { ADMIN_SET_PASSWORD_PATH, SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
@@ -195,8 +196,9 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
       subject: null as string,
       SIGNOFF_NAMES: signoffNamesHtml(committeeRoles, notifConfig.signOffRoles),
       BANNER_IMAGE_SOURCE: bannerImage,
-      ADDRESS_LINE: "Hi {{params.messageMergeFields.FNAME}},",
+      ADDRESS_LINE: "Hi {{params.memberMergeFields.FNAME}},",
       BODY_CONTENT: "",
+      ACCENT_COLOR: resolveAccentColor(notifConfig?.accentColor),
     },
     memberMergeFields: {
       FULL_NAME: memberFullName,

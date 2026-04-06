@@ -79,8 +79,11 @@ export async function up(db: Db, client: MongoClient): Promise<MigrationUpResult
     } catch (error) {
       const apiError = error as any;
       const statusCode = apiError?.statusCode || apiError?.response?.statusCode;
-      if (statusCode === 401 || statusCode === 403) {
-        const reason = `Brevo API returned ${statusCode} — skipping template sync (API key may be invalid or sender not verified)`;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isAuthError = statusCode === 401 || statusCode === 403
+        || /Brevo API error \[(401|403)]/.test(errorMessage);
+      if (isAuthError) {
+        const reason = `Brevo API returned ${statusCode || "401/403"} — skipping template sync (API key may be invalid or sender not verified): ${errorMessage}`;
         debugLog(reason);
         return {skipped: true, reason};
       } else {
@@ -95,8 +98,8 @@ export async function up(db: Db, client: MongoClient): Promise<MigrationUpResult
         const apiErrorMessage = apiError?.body?.message || apiError?.response?.body?.message;
         const apiErrorCode = apiError?.body?.code || apiError?.response?.body?.code;
         const enhancedMessage = apiErrorMessage
-          ? `${error instanceof Error ? error.message : "Error"}: [${statusCode}] ${apiErrorCode} - ${apiErrorMessage}`
-          : (error instanceof Error ? error.message : String(error));
+          ? `${errorMessage}: [${statusCode}] ${apiErrorCode} - ${apiErrorMessage}`
+          : errorMessage;
         throw new Error(enhancedMessage);
       }
     }

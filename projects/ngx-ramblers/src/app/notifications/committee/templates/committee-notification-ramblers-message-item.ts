@@ -50,18 +50,15 @@ import { UrlService } from "../../../services/url.service";
               }
             <tr>
               <td
-                style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;word-break: break-word;color: #757575;font-family: Helvetica;font-size: 16px;line-height: 150%;text-align: left;"
+                style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;word-break: break-word;"
                 valign="top" width="600">
                 @if (notificationItem?.subject) {
-                  <h3
-                    style="display: block;margin: 0;padding: 0;color: #444444;font-family: Helvetica;font-size: 22px;font-style: normal;font-weight: bold;line-height: 150%;letter-spacing: normal;text-align: left;">
-                    <span style="color:#000000">{{ notificationItem.subject }}</span>
-                  </h3>
+                  <h3>{{ notificationItem.subject }}</h3>
                 }
-                <span
-                  style="margin: 10px 0;padding: 0;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;color:#000000;font-family: Helvetica;font-size: 16px;line-height: 150%;text-align: left;">
+                <div
+                  style="margin: 10px 0;padding: 0;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;">
                     <ng-content/>
-                  </span>
+                  </div>
               </td>
             </tr>
             </tbody>
@@ -88,7 +85,7 @@ import { UrlService } from "../../../services/url.service";
                     style="font-family: Arial;font-size: 16px;padding: 12px;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;"
                     valign="middle">
                   <a target=" _blank"
-                     style="font-weight:bold;letter-spacing:normal;line-height:100%;text-align:center;text-decoration:none;color:#202020;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;display:block;"
+                     style="font-weight:bold;letter-spacing:normal;line-height:100%;text-align:center;text-decoration:none;color:#222222;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;display:block;"
                      title="{{notificationItem.callToAction.title}}"
                      href="{{notificationItem.callToAction.href}}">
                     {{ notificationItem.callToAction.title }}</a>
@@ -101,28 +98,7 @@ import { UrlService } from "../../../services/url.service";
         </tbody>
       </table>
     }
-    <table align="center" border="0" cellpadding="0" cellspacing="0"
-           style="border-collapse: collapse;mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;width:600px;"
-           width="600">
-      <tbody>
-      <tr>
-        <td
-          style="min-width: 100%;padding: 20px 0px 30px;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;">
-          <table border="0" cellpadding="0" cellspacing="0"
-                 style="min-width: 100%;border-top: 2px solid #F6B09D;border-collapse: collapse;mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;"
-                 width="100%">
-            <tbody>
-            <tr>
-              <td
-                style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;">
-              </td>
-            </tr>
-            </tbody>
-          </table>
-        </td>
-      </tr>
-      </tbody>
-    </table>`,
+    `,
     imports: [NgStyle]
 })
 export class CommitteeNotificationRamblersMessageItemComponent implements OnInit, OnDestroy {

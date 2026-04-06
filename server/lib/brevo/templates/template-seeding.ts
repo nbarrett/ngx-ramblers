@@ -36,13 +36,19 @@ export async function seedBrevoTemplatesFromLocal(): Promise<SeedBrevoTemplatesR
     } else {
       createdCount += 1;
     }
-    const templateId = await createOrUpdateTemplate({
-      templateName,
-      htmlContent,
-      subject: TEMPLATE_SUBJECT,
-      isActive: true
-    });
-    templateIdMap[templateName] = templateId;
+    debugLog("Processing template", templateName);
+    try {
+      const templateId = await createOrUpdateTemplate({
+        templateName,
+        htmlContent,
+        subject: TEMPLATE_SUBJECT,
+        isActive: true
+      });
+      templateIdMap[templateName] = templateId;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed processing template "${templateName}": ${message}`);
+    }
   }
 
   debugLog("Seeding complete", {createdCount, updatedCount, skippedCount});

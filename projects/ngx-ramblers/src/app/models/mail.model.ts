@@ -32,6 +32,7 @@ export interface NotificationConfig extends Auditable, Identifiable {
   subject: NotificationSubject;
   bannerId: string;
   templateId?: number;
+  accentColor?: string;
   preSendActions: WorkflowAction[];
   defaultMemberSelection: MemberSelection;
   postSendActions: WorkflowAction[];
@@ -102,6 +103,17 @@ export interface EmailRequest {
   htmlContent?: string;
 }
 
+export interface TemplateRenderRequest {
+  params: SendSmtpEmailParams;
+  templateId?: number;
+  templateOverrides?: Record<string, string>;
+  htmlContent?: string;
+}
+
+export interface TemplateRenderResponse {
+  htmlContent: string;
+}
+
 export interface SendSmtpEmailRequest extends EmailRequest {
   to?: EmailAddress[];
   bcc?: EmailAddress[];
@@ -144,6 +156,7 @@ export interface MessageMergeFields {
   BANNER_IMAGE_SOURCE: string;
   ADDRESS_LINE: string;
   BODY_CONTENT?: string;
+  ACCENT_COLOR?: string;
 }
 
 export interface SystemMergeFields {

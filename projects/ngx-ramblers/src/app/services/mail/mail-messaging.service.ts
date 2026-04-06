@@ -27,6 +27,7 @@ import {
   SendSmtpEmailRequest,
   SystemMergeFields
 } from "../../models/mail.model";
+import { DEFAULT_ACCENT_COLOR, resolveAccentColor } from "../../models/email-accent-palette";
 import { NotificationHost } from "../../models/notification-host.model";
 import { DateUtilsService } from "../date-utils.service";
 import { CommitteeConfigService } from "../committee/commitee-config.service";
@@ -69,6 +70,8 @@ export class MailMessagingService {
   private memberLoginService: MemberLoginService = inject(MemberLoginService);
   private fullNamePipe: FullNamePipe = inject(FullNamePipe);
   private logger: Logger = inject(LoggerFactory).createLogger("MailMessagingService", NgxLoggerLevel.ERROR);
+
+  private readonly defaultTransactionalAddressLine = "Hi {{params.memberMergeFields.FNAME}},";
 
   constructor() {
     this.committeeConfig.committeeReferenceDataEvents().subscribe(data => {
@@ -363,7 +366,16 @@ export class MailMessagingService {
       to,
       sender,
       replyTo,
-      params: this.createSendSmtpEmailParams(createSendSmtpEmailRequest.notificationConfig.signOffRoles, createSendSmtpEmailRequest.notificationDirective, createSendSmtpEmailRequest.member, createSendSmtpEmailRequest.notificationConfig, createSendSmtpEmailRequest.bodyContent, true, "Hi {{params.messageMergeFields.FNAME}},"),
+      params: this.createSendSmtpEmailParams(
+        createSendSmtpEmailRequest.notificationConfig.signOffRoles,
+        createSendSmtpEmailRequest.notificationDirective,
+        createSendSmtpEmailRequest.member,
+        createSendSmtpEmailRequest.notificationConfig,
+        createSendSmtpEmailRequest.bodyContent,
+        true,
+        null,
+        this.defaultTransactionalAddressLine
+      ),
       templateId: createSendSmtpEmailRequest.notificationConfig.templateId,
       templateOverrides: this.resolveTemplateOverrides(createSendSmtpEmailRequest.notificationConfig.templateOverrides),
     };
@@ -384,8 +396,9 @@ export class MailMessagingService {
         subject,
         SIGNOFF_NAMES: includeSignOffNames ? this.signoffNames(signoffRoles, notificationDirective) : "",
         BANNER_IMAGE_SOURCE: this.bannerImageSource(notificationConfig, true),
-        ADDRESS_LINE: addresseeType,
+        ADDRESS_LINE: addresseeType || this.defaultTransactionalAddressLine,
         BODY_CONTENT: bodyContent,
+        ACCENT_COLOR: resolveAccentColor(notificationConfig?.accentColor),
       },
       memberMergeFields: this.toMemberMergeVariables(member),
       systemMergeFields: this.toSystemMergeFields(member),
@@ -437,7 +450,7 @@ export class MailMessagingService {
       messageMergeFields: {
         subject: "Example Email",
         BANNER_IMAGE_SOURCE: "Example Banner Image Source",
-        ADDRESS_LINE: `<p>Hi {{params.memberMergeFields.FNAME}},</p>`,
+        ADDRESS_LINE: this.defaultTransactionalAddressLine,
         SIGNOFF_NAMES: "Example Signoff Names"
       },
       memberMergeFields: this.toMemberMergeVariables(this.memberLoginService.loggedInMember()),

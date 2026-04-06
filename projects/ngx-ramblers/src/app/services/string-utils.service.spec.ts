@@ -209,6 +209,16 @@ describe("StringUtilsService", () => {
       const result = service.asTitle("hello world");
       expect(result).toBe("Hello World");
     });
+
+    it("should convert kebab case to title case words", () => {
+      const result = service.asTitle("group-event");
+      expect(result).toBe("Group Event");
+    });
+
+    it("should convert camel case to title case words", () => {
+      const result = service.asTitle("socialEvent");
+      expect(result).toBe("Social Event");
+    });
   });
 
   describe("asWords", () => {

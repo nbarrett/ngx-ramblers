@@ -32,10 +32,9 @@ import { StringUtilsService } from "../../../services/string-utils.service";
           [textContent]="groupEvent?.groupEvent?.title"></strong>
         </h3>
       }
-      <p [textContent]="latestNotification?.content?.addresseeType"></p>
       @if (latestNotification?.content?.eventDetails?.include) {
         <div>
-          <h4><strong style="font-size:14px">{{ latestNotification?.content?.eventDetails.value }}</strong></h4>
+          <h4>{{ latestNotification?.content?.eventDetails.value }}</h4>
           <table
             style="cellpadding:10; border:1px solid lightgrey;border-collapse:collapse;width: 100%;border-spacing: 5px;">
             @if (groupEvent?.groupEvent?.start_date_time) {

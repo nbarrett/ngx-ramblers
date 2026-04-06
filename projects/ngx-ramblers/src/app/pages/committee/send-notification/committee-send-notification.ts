@@ -1,8 +1,10 @@
 import { Location } from "@angular/common";
 import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
+import { isUndefined } from "es-toolkit/compat";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { RouteParam } from "../../../models/content-text.model";
 import {
@@ -38,7 +40,8 @@ import {
   MemberSelection,
   NotificationConfig,
   NotificationConfigListing,
-  StatusMappedResponseSingleInput
+  StatusMappedResponseSingleInput,
+  TemplateRenderRequest
 } from "../../../models/mail.model";
 import { MailService } from "../../../services/mail/mail.service";
 import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
@@ -366,7 +369,8 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                           @if (notification?.groupEventsFilter?.includeContact && groupEvent?.contactName) {
                             <span> • Contact:
                               <a
-                                [href]="'mailto:' + groupEvent?.contactEmail">{{ groupEvent?.contactName || groupEvent?.contactEmail }}</a>
+                                [href]="groupEvent?.contactHref"
+                                [target]="groupEvent?.contactHref?.startsWith('http') ? '_blank' : '_self'">{{ groupEvent?.contactName || groupEvent?.contactEmail }}</a>
                               @if (groupEvent?.contactPhone) {
                                 <span> ({{ groupEvent.contactPhone }})</span>
                               }</span>
@@ -435,21 +439,29 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                     </div>
                   </div>
                 </tab>
-                <tab heading="Preview">
+                <tab heading="Preview" (selectTab)="refreshPreview()">
                   <div class="img-thumbnail thumbnail-admin-edit">
-                    <div class="print-preview">
-                      @if (notification?.content?.notificationConfig?.bannerId) {
-                        <div class="mb-2">
-                          <img class="card-img"
-                               [src]="mailMessagingService.bannerImageSource(notification?.content?.notificationConfig, false)">
-                        </div>
-                      }
-                      <div #notificationContent>
+                    <div class="print-preview" style="height:auto;overflow:visible;">
+                      <div #notificationContent class="d-none">
                         <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
                                                             [notification]="notification"
                                                             [sourcePagePath]="sourcePagePath"
                                                             [sourcePageTitle]="sourcePageTitle"/>
                       </div>
+                      @if (previewLoading) {
+                        <div class="p-3">Rendering preview...</div>
+                      } @else if (previewError) {
+                        <div class="alert alert-warning m-3">{{ previewError }}</div>
+                      } @else if (previewUrl) {
+                        <iframe
+                          #previewFrame
+                          title="Email preview"
+                          scrolling="yes"
+                          sandbox="allow-popups allow-popups-to-escape-sandbox"
+                          (load)="resizePreviewFrame()"
+                          [src]="previewUrl"
+                          style="display:block;width:100%;height:70vh;border:0;background:#f3f3f3;"></iframe>
+                      }
                     </div>
                   </div>
                 </tab>
@@ -492,6 +504,7 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
   private memberLoginService = inject(MemberLoginService);
   private committeeQueryService = inject(CommitteeQueryService);
   private mailService = inject(MailService);
+  private sanitizer = inject(DomSanitizer);
   protected mailMessagingService = inject(MailMessagingService);
   private notifierService = inject(NotifierService);
   display = inject(CommitteeDisplayService);
@@ -506,6 +519,7 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
   private urlService = inject(UrlService);
   protected dateUtils = inject(DateUtilsService);
   @ViewChild("notificationContent") notificationContent: ElementRef;
+  @ViewChild("previewFrame") previewFrame: ElementRef<HTMLIFrameElement>;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   public segmentEditingSupported = false;
   public committeeFile: CommitteeFile;
@@ -525,6 +539,14 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
   public notificationConfigListing: NotificationConfigListing;
   public senderExists: boolean;
   public notificationConfigs: NotificationConfig[] = [];
+  public previewHtml: string | null = null;
+  public previewUrl: SafeResourceUrl | null = null;
+  public previewHeight = 1600;
+  public previewLoading = false;
+  public previewError: string | null = null;
+  private previewObjectUrl: string | null = null;
+  private previewResizeObserver: ResizeObserver | null = null;
+  private previewMutationObserver: MutationObserver | null = null;
   protected readonly addresseeFirstName = ADDRESSEE_CONTACT_FIRST_NAME;
   faArrowLeft = faArrowLeft;
 
@@ -609,6 +631,8 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.clearPreviewObservers();
+    this.clearPreviewObjectUrl();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
@@ -805,6 +829,104 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
     const bodyContent = this.notificationContent?.nativeElement?.innerHTML;
     this.logger.info("this.generateNotificationHTML bodyContent ->", bodyContent);
     return bodyContent;
+  }
+
+  async refreshPreview() {
+    if (!this.notification?.content?.notificationConfig?.templateId) {
+      this.previewHtml = null;
+      this.previewUrl = null;
+      this.previewError = "Choose a Brevo template to render the preview.";
+      return;
+    }
+    this.previewLoading = true;
+    this.previewError = null;
+    try {
+      const bodyContent = this.generateNotificationHTML();
+      const request = await this.previewRequest(bodyContent);
+      const response = await this.mailService.renderTemplate(request);
+      this.clearPreviewObservers();
+      this.previewHeight = 1600;
+      this.previewHtml = response.htmlContent;
+      this.previewUrl = this.toPreviewUrl(response.htmlContent);
+    } catch (error) {
+      this.previewHtml = null;
+      this.previewUrl = null;
+      this.previewError = "Preview could not be rendered.";
+      this.logger.error("refreshPreview failed", error);
+    } finally {
+      this.previewLoading = false;
+    }
+  }
+
+  private async previewRequest(bodyContent: string): Promise<TemplateRenderRequest> {
+    const signoffRoles = this.stringUtils.arrayFromDelimitedData(this.notification.content.signoffAs.value);
+    const member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
+    return {
+      templateId: this.notification.content.notificationConfig.templateId,
+      templateOverrides: this.notification.content.notificationConfig.templateOverrides,
+      htmlContent: bodyContent,
+      params: this.mailMessagingService.createSendSmtpEmailParams(
+        signoffRoles,
+        this.notificationDirective,
+        member,
+        this.notification.content.notificationConfig,
+        bodyContent,
+        this.notification?.content.signoffAs.include,
+        this.notification.content.title.value,
+        this.notification.content.addresseeType
+      )
+    };
+  }
+
+  private toPreviewUrl(html: string): SafeResourceUrl {
+    this.clearPreviewObjectUrl();
+    this.previewObjectUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    return this.sanitizer.bypassSecurityTrustResourceUrl(this.previewObjectUrl);
+  }
+
+  private clearPreviewObjectUrl() {
+    if (this.previewObjectUrl) {
+      URL.revokeObjectURL(this.previewObjectUrl);
+      this.previewObjectUrl = null;
+    }
+  }
+
+  private clearPreviewObservers() {
+    this.previewResizeObserver?.disconnect();
+    this.previewResizeObserver = null;
+    this.previewMutationObserver?.disconnect();
+    this.previewMutationObserver = null;
+  }
+
+  resizePreviewFrame() {
+    const doc = this.previewFrame?.nativeElement?.contentDocument;
+    const applyHeight = () => {
+      if (doc?.documentElement && doc?.body) {
+        doc.documentElement.style.overflow = "hidden";
+        doc.body.style.overflow = "hidden";
+      }
+      const nextHeight = Math.max(
+        doc?.body?.scrollHeight || 0,
+        doc?.body?.offsetHeight || 0,
+        doc?.documentElement?.scrollHeight || 0,
+        doc?.documentElement?.offsetHeight || 0,
+        1600
+      );
+      this.previewHeight = nextHeight;
+      return nextHeight;
+    };
+    this.clearPreviewObservers();
+    if (doc?.body && !isUndefined(ResizeObserver)) {
+      this.previewResizeObserver = new ResizeObserver(() => applyHeight());
+      this.previewResizeObserver.observe(doc.body);
+      this.previewResizeObserver.observe(doc.documentElement);
+    }
+    if (doc?.body && !isUndefined(MutationObserver)) {
+      this.previewMutationObserver = new MutationObserver(() => applyHeight());
+      this.previewMutationObserver.observe(doc.body, { childList: true, subtree: true, attributes: true, characterData: true });
+    }
+    doc?.querySelectorAll("img").forEach(image => image.addEventListener("load", applyHeight, { once: true }));
+    window.setTimeout(applyHeight, 0);
   }
 
   completeInMailSystem() {
