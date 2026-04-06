@@ -70,14 +70,14 @@ import { environment } from "../../../../environments/environment";
                   <span class="caret"></span>
                 </button>
                 <ul *dropdownMenu class="dropdown-menu" id="dropdown-animated" role="menu">
-                  <li role="menuitem"><a (click)="switchToView(WalkListView.CARDS)" class="dropdown-item">
+                  <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.CARDS)" class="dropdown-item">
                     <div><fa-icon [icon]="faImages" class="me-2"/>{{ stringUtils.asTitle(WalkListView.CARDS) }} View</div>
                   </a></li>
-                  <li role="menuitem"><a (click)="switchToView(WalkListView.TABLE)" class="dropdown-item">
+                  <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.TABLE)" class="dropdown-item">
                     <div><fa-icon [icon]="faTableCells" class="me-2"/>{{ stringUtils.asTitle(WalkListView.TABLE) }} View
                     </div>
                   </a></li>
-                  <li role="menuitem"><a (click)="switchToView(WalkListView.MAP)" class="dropdown-item">
+                  <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.MAP)" class="dropdown-item">
                     <div><fa-icon [icon]="faWalking" class="me-2"/>{{ stringUtils.asTitle(WalkListView.MAP) }} View</div>
                   </a></li>
                 </ul>
@@ -194,47 +194,48 @@ export class EventsFull implements OnInit, OnDestroy {
       this.queryParamsActive = hasQueryState;
       if (!hasQueryState) {
         this.resetQueryDrivenState();
-        return;
-      }
-      if (!isNull(q)) {
-        this.filterParameters.quickSearch = q;
-      }
-      if (type) {
-        this.filterParameters.selectType = type.replace(/-/g, "_").toUpperCase() as any;
-      }
-      if (!isNull(sort)) {
-        this.filterParameters.ascending = sort !== "false";
-      }
-      if (view === "cards" || view === "table" || view === "map") {
-        this.updateViewAndPagination(view as WalkListView);
-        this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, this.walkListView);
-      }
-      if (page) {
-        const pageNum = asNumber(page);
-        if (!isNaN(pageNum) && pageNum > 0) {
-          this.pageNumber = pageNum;
+      } else {
+        if (!isNull(q)) {
+          this.filterParameters.quickSearch = q;
         }
-      }
-      if (dateRangePreset) {
-        this.selectedPresetLabel = this.stringUtils.asTitle(dateRangePreset);
-        const resolvedPreset = resolvePresetByLabel(dateRangePreset, this.stringUtils);
-        if (resolvedPreset) {
-          const range = resolvedPreset.range();
-          const presetCriteria: AdvancedSearchCriteria = {
-            ...(advancedCriteria || {}),
-            dateFrom: range.from,
-            dateTo: range.to
-          };
-          this.storedAdvancedSearchCriteria = presetCriteria;
-          this.advancedSearchCriteria = this.advancedSearchAllowed() ? presetCriteria : null;
+        if (type) {
+          this.filterParameters.selectType = type.replace(/-/g, "_").toUpperCase() as any;
+        }
+        if (!isNull(sort)) {
+          this.filterParameters.ascending = sort !== "false";
+        }
+        if (view === "cards" || view === "table" || view === "map") {
+          this.updateViewAndPagination(view as WalkListView);
+          this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, this.walkListView);
+        }
+        if (page) {
+          const pageNum = asNumber(page);
+          if (!isNaN(pageNum) && pageNum > 0) {
+            this.pageNumber = pageNum;
+          }
+        }
+        if (dateRangePreset) {
+          this.selectedPresetLabel = this.stringUtils.asTitle(dateRangePreset);
+          const resolvedPreset = resolvePresetByLabel(dateRangePreset, this.stringUtils);
+          if (resolvedPreset) {
+            const range = resolvedPreset.range();
+            const presetCriteria: AdvancedSearchCriteria = {
+              ...(advancedCriteria || {}),
+              dateFrom: range.from,
+              dateTo: range.to
+            };
+            this.storedAdvancedSearchCriteria = presetCriteria;
+            this.advancedSearchCriteria = this.advancedSearchAllowed() ? presetCriteria : null;
+          } else {
+            this.storedAdvancedSearchCriteria = advancedCriteria;
+            this.advancedSearchCriteria = this.advancedSearchAllowed() ? this.storedAdvancedSearchCriteria : null;
+          }
         } else {
           this.storedAdvancedSearchCriteria = advancedCriteria;
           this.advancedSearchCriteria = this.advancedSearchAllowed() ? this.storedAdvancedSearchCriteria : null;
         }
-      } else {
-        this.storedAdvancedSearchCriteria = advancedCriteria;
-        this.advancedSearchCriteria = this.advancedSearchAllowed() ? this.storedAdvancedSearchCriteria : null;
       }
+      this.performServerSideSearch();
     });
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.defaultWalkListView = systemConfig.group.defaultWalkListView;
@@ -266,7 +267,6 @@ export class EventsFull implements OnInit, OnDestroy {
       this.logger.info("ngOnInit: applied eventsData config, filterParameters:", this.filterParameters, "savedCriteria:", savedCriteria);
     }
     setTimeout(() => {
-      this.performServerSideSearch();
       this.isInitializing = false;
     }, 100);
   }
@@ -298,7 +298,7 @@ export class EventsFull implements OnInit, OnDestroy {
     const shouldResetPage = !this.isInitializing && criteriaChanged;
     this.storedAdvancedSearchCriteria = nextCriteria;
     this.advancedSearchCriteria = this.advancedSearchAllowed() ? nextCriteria : null;
-    this.logger.info("onAdvancedSearch: shouldResetPage:", shouldResetPage, "criteriaChanged:", criteriaChanged, "queryParamsActive:", this.queryParamsActive);
+    this.logger.info("onAdvancedSearch: criteriaChanged:", criteriaChanged, "shouldResetPage:", shouldResetPage, "queryParamsActive:", this.queryParamsActive, "nextCriteria:", nextCriteria);
     if (shouldResetPage) {
       this.pageNumber = 1;
       if (this.queryParamsActive) {
@@ -309,7 +309,7 @@ export class EventsFull implements OnInit, OnDestroy {
         });
       }
     }
-    setTimeout(() => this.performServerSideSearch(), 0);
+    this.performServerSideSearch();
   }
 
   onFilterStateChange(event: FilterStateEvent) {
@@ -327,6 +327,7 @@ export class EventsFull implements OnInit, OnDestroy {
   }
 
   private async performServerSideSearch() {
+    this.logger.info("performServerSideSearch called, advancedSearchCriteria:", this.advancedSearchCriteria);
     this.searchCounter++;
     const thisSearchId = this.searchCounter;
     this.latestSearchId = thisSearchId;
@@ -424,6 +425,15 @@ export class EventsFull implements OnInit, OnDestroy {
       if (thisSearchId === this.latestSearchId) {
         const events = isArray(response.response) ? response.response : [response.response].filter(Boolean);
         this.serverSideTotalItems = response.pagination?.total || events.length || 0;
+        const totalPages = Math.ceil(this.serverSideTotalItems / this.pageSize);
+        if (events.length === 0 && totalPages > 0 && this.pageNumber > totalPages) {
+          this.pageNumber = 1;
+          if (this.queryParamsActive) {
+            this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: 1});
+          }
+          this.notify.clearBusy();
+          return this.performServerSideSearch();
+        }
         const displayedWalks = events.map(event => this.display.toDisplayedWalk(event));
         this.filteredWalks = displayedWalks;
         this.currentPageWalks = displayedWalks;
@@ -535,6 +545,9 @@ export class EventsFull implements OnInit, OnDestroy {
     if (this.walkListView === WalkListView.MAP && nextView !== WalkListView.MAP) {
       this.pageNumber = this.lastNonMapPageNumber || 1;
     }
+    if (nextView === WalkListView.TABLE) {
+      this.display.expandedWalks = [];
+    }
     this.walkListView = nextView;
   }
 
@@ -552,11 +565,12 @@ export class EventsFull implements OnInit, OnDestroy {
 
   private replaceQueryParams(params: Record<string, string | number | null>) {
     this.logger.info("replaceQueryParams called with:", params, "queryParamsActive:", this.queryParamsActive);
-    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => !isUndefined(v)));
+    const currentTree = this.router.parseUrl(this.location.path());
+    const merged = {...currentTree.queryParams, ...params};
+    const queryParams = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== null && !isUndefined(v)));
     const urlTree = this.router.createUrlTree([], {
       relativeTo: this.route,
       queryParams,
-      queryParamsHandling: "merge",
       fragment: this.route.snapshot.fragment
     });
     this.location.replaceState(this.router.serializeUrl(urlTree));
@@ -567,6 +581,6 @@ export class EventsFull implements OnInit, OnDestroy {
     this.pageNumber = 1;
     this.storedAdvancedSearchCriteria = null;
     this.advancedSearchCriteria = null;
-    this.updateViewAndPagination(this.defaultWalkListView);
+    this.updateViewAndPagination(this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, this.defaultWalkListView) as WalkListView);
   }
 }

@@ -363,13 +363,10 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
     } else {
       this.resetToDefaultPreset();
     }
-    if (this.queryParamsActive) {
-      const queryParams = advancedCriteriaQueryParams(this.advancedCriteria, this.stringUtils, this.dateUtils, event.leaderOptions);
-      this.logger.info("onAdvancedSearchChange: writing query params:", queryParams);
-      this.replaceQueryParams(queryParams);
-    } else {
-      this.logger.info("onAdvancedSearchChange: skipping query params (queryParamsActive=false)");
-    }
+    this.queryParamsActive = true;
+    const queryParams = advancedCriteriaQueryParams(this.advancedCriteria, this.stringUtils, this.dateUtils, event.leaderOptions);
+    this.logger.info("onAdvancedSearchChange: writing query params:", queryParams);
+    this.replaceQueryParams(queryParams);
     this.advancedSearchChange.emit(event.criteria);
     this.emitFilterState();
   }
@@ -420,11 +417,12 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
 
   private replaceQueryParams(params: Record<string, string | number | null>) {
     this.logger.info("replaceQueryParams called with:", params, "queryParamsActive:", this.queryParamsActive);
-    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => !isUndefined(v)));
+    const currentTree = this.router.parseUrl(this.location.path());
+    const merged = {...currentTree.queryParams, ...params};
+    const queryParams = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== null && !isUndefined(v)));
     const urlTree = this.router.createUrlTree([], {
       relativeTo: this.route,
       queryParams,
-      queryParamsHandling: "merge",
       fragment: this.route.snapshot.fragment
     });
     this.location.replaceState(this.router.serializeUrl(urlTree));
