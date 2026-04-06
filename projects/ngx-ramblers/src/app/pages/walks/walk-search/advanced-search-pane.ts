@@ -130,7 +130,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
           </div>
 
           <div class="col-12 mb-2">
-            <label class="form-label">Walk Leaders ({{ filteredLeaderOptions.length }})</label>
+            <label class="form-label">Walk Leaders ({{ selectedLeaderIds.length }} of {{ filteredLeaderOptions.length }} selected)</label>
             <ng-select
               [items]="filteredLeaderOptions"
               [multiple]="true"
@@ -147,7 +147,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
           </div>
           @if (showGroupSelector) {
             <div class="col-md-6 mb-3">
-              <label class="form-label">Groups</label>
+              <label class="form-label">Groups ({{ selectedGroupCodes.length }} of {{ availableGroups.length }} selected)</label>
               <ng-select
                 [items]="availableGroups"
                 [multiple]="true"
@@ -165,7 +165,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
             </div>
           }
           <div class="col-md-6 mb-3">
-            <label class="form-label">Day of the Week</label>
+            <label class="form-label">Day of the Week ({{ selectedDaysOfWeek.length }} of {{ daysOfWeek.length }} selected)</label>
             <ng-select
               [items]="daysOfWeek"
               [multiple]="true"
@@ -178,7 +178,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
             </ng-select>
           </div>
           <div class="col-md-6 mb-3">
-            <label class="form-label">Difficulty</label>
+            <label class="form-label">Difficulty ({{ selectedDifficulty.length }} of {{ difficultyLevels.length }} selected)</label>
             <ng-select
               [items]="difficultyLevels"
               [multiple]="true"
@@ -192,7 +192,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
           </div>
 
           <div class="col-md-6 mb-3">
-            <label class="form-label">Accessibility</label>
+            <label class="form-label">Accessibility ({{ selectedAccessibility.length }} of {{ accessibilityOptions.length }} selected)</label>
             <ng-select
               [items]="accessibilityOptions"
               [multiple]="true"
@@ -205,7 +205,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
             </ng-select>
           </div>
           <div class="col-md-6 mb-3">
-            <label class="form-label">Facilities</label>
+            <label class="form-label">Facilities ({{ selectedFacilities.length }} of {{ facilityOptions.length }} selected)</label>
             <ng-select
               [items]="facilityOptions"
               [multiple]="true"
