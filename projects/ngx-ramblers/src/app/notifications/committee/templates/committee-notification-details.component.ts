@@ -15,6 +15,7 @@ import { CommitteeNotificationRamblersMessageItemComponent } from "./committee-n
 import { MarkdownComponent } from "ngx-markdown";
 import { CommitteeNotificationGroupEventMessageItemComponent } from "./committee-notification-group-event-message-item";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
+import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
     selector: "app-committee-notification-details",
@@ -22,7 +23,6 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 
 <app-committee-notification-ramblers-message-item
   [notificationItem]="toNotificationItemFromNotification(notification)">
-  <p>{{ notification?.content.addresseeType }}</p>
   <p markdown [data]="notification.content.text.value"></p>
   @if (notification?.content.includeDownloadInformation) {
     <p>
@@ -41,10 +41,27 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 </app-committee-notification-ramblers-message-item>
 
 @if (selectedGroupEvents().length > 0) {
-  @for (event of selectedGroupEvents(); track event.id) {
+  @for (event of selectedGroupEvents(); track event.id; let last = $last) {
     <app-committee-notification-ramblers-message-item [notificationItem]="toNotificationItem(event, notification)">
       <app-committee-notification-group-event-message-item [notification]="notification" [event]="event"/>
     </app-committee-notification-ramblers-message-item>
+    @if (!last) {
+      <table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;width:600px;" width="600">
+        <tbody>
+        <tr>
+          <td style="padding: 10px 0 26px;">
+            <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;width:100%;" width="100%">
+              <tbody>
+              <tr>
+                <td style="border-top: 2px solid #f6b09d;">&nbsp;</td>
+              </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        </tbody>
+      </table>
+    }
   }
 }
 @if (notification.content.signoffText.include) {
@@ -65,6 +82,7 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
   private systemConfigService = inject(SystemConfigService);
   private pageService = inject(PageService);
   private urlService = inject(UrlService);
+  private stringUtils = inject(StringUtilsService);
   display = inject(CommitteeDisplayService);
 
   @Input()
@@ -105,7 +123,7 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
 
   toNotificationItem(event: GroupEventSummary, notification: Notification): NotificationItem {
     const href = this.display.urlService.linkUrl({area: event.eventType.area, id: event.slug || event.id});
-    const title = "View " + event.eventType.description;
+    const title = "View " + this.stringUtils.asTitle(this.stringUtils.asWords(event.ramblersEventType || event.eventType.eventType || ""));
     const image = notification.groupEventsFilter.includeImage ? {
       alt: title,
       link: {href, title},

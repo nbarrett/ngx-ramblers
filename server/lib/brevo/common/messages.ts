@@ -9,12 +9,28 @@ import {
   SendSmtpEmailRequest,
   StatusMappedResponseMultipleInputs,
   StatusMappedResponseSingleInput,
+  TemplateRenderRequest,
   TemplateResponse
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { queryTemplateContent } from "../transactional-mail/query-template-content";
 import { KeyValue } from "../../../../projects/ngx-ramblers/src/app/functions/enums";
 import { extractParametersFrom } from "../../../../projects/ngx-ramblers/src/app/common/mail-parameters";
 import { replaceAll } from "../../shared/string-utils";
+
+function valueAtPath(source: Record<string, any>, path: string): any {
+  return path.split(".").reduce((value, key) => value?.[key], source);
+}
+
+function truthy(value: any): boolean {
+  return !!(value && `${value}`.trim());
+}
+
+export function applyBrevoConditionals(html: string, params?: Record<string, any>): string {
+  return html.replace(/\{%\s*if\s+([^%]+?)\s*%\}([\s\S]*?)\{%\s*endif\s*%\}/g, (_, rawPath: string, content: string) => {
+    const conditionPath = rawPath.trim();
+    return truthy(valueAtPath({ params }, conditionPath)) ? content : "";
+  });
+}
 
 export function normaliseMergeFieldPlaceholders(html: string): string {
   return html.replace(/\{\{\s*(params\.\w+\.\w+)\s*\}\}/g, "{{$1}}");
@@ -74,7 +90,29 @@ export function applyTemplateOverrides(html: string, overrides?: Record<string, 
   }, html);
 }
 
-export async function performTemplateSubstitution(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest,
+export function inlineDefaultLinkStyles(html: string): string {
+  return html.replace(/<a\b([^>]*)>/gi, (match: string, attributes: string) => {
+    const styleMatch = attributes.match(/\sstyle=(["'])(.*?)\1/i);
+    if (!styleMatch) {
+      return `<a${attributes} style="color:#c05711;text-decoration:underline;">`;
+    }
+    const styleQuote = styleMatch[1];
+    const styleValue = styleMatch[2];
+    const hasColour = /(^|;)\s*color\s*:/i.test(styleValue);
+    const hasTextDecoration = /(^|;)\s*text-decoration\s*:/i.test(styleValue);
+    const additions = [
+      hasColour ? null : "color:#c05711",
+      hasTextDecoration ? null : "text-decoration:underline"
+    ].filter(Boolean).join(";");
+    if (!additions) {
+      return match;
+    }
+    const mergedStyleValue = `${styleValue}${styleValue.trim().endsWith(";") ? "" : ";"}${additions};`;
+    return match.replace(styleMatch[0], ` style=${styleQuote}${mergedStyleValue}${styleQuote}`);
+  });
+}
+
+export async function performTemplateSubstitution(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest | TemplateRenderRequest,
                                                   sendSmtpEmail: SendSmtpEmail | CreateEmailCampaign,
                                                   debugLog: debug.Debugger): Promise<SendSmtpEmail | CreateEmailCampaign> {
   const priorDebugValue = debugLog.enabled;
@@ -87,13 +125,14 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
       const overriddenHtml = applyTemplateOverrides(sanitisedHtml, emailRequest.templateOverrides);
       const parametersAndValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, true);
       debugLog("parametersAndValues:", parametersAndValues);
-      const htmlContent: string = parametersAndValues.reduce(
+      const substitutedHtmlContent: string = parametersAndValues.reduce(
         (templateContent, keyValue) => {
           debugLog(`Replacing ${keyValue.key} with ${keyValue.value} in ${templateContent}`);
           return replaceAll(keyValue.key, keyValue.value, templateContent) as string;
         },
         overriddenHtml,
       );
+      const htmlContent = inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, emailRequest.params));
       debugLog(`Setting final htmlContent to ${htmlContent}`);
       sendSmtpEmail.htmlContent = htmlContent;
     } else {

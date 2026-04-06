@@ -10,6 +10,7 @@ import {
   NotificationConfig,
   SendSmtpEmailRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
@@ -154,6 +155,7 @@ async function sendBookingNotification(emailType: BookingEmailType, bookingRecor
         BANNER_IMAGE_SOURCE: bannerImageSource(allBanners, notifConfig.bannerId, groupHref),
         ADDRESS_LINE: `Hi ${primaryAttendee.displayName?.split(" ")?.[0] || primaryAttendee.displayName},`,
         BODY_CONTENT: bodyContent,
+        ACCENT_COLOR: resolveAccentColor(notifConfig?.accentColor),
       },
       memberMergeFields: {
         FULL_NAME: primaryAttendee.displayName,

@@ -33,6 +33,8 @@ import {
   SendSmtpEmailRequest,
   StatusMappedResponseMultipleInputs,
   StatusMappedResponseSingleInput,
+  TemplateRenderRequest,
+  TemplateRenderResponse,
   TemplateDiffRequest,
   TemplateDiffResponse,
   TemplateOptions,
@@ -194,6 +196,11 @@ export class MailService {
   async snapshotTemplates(request: SnapshotTemplatesRequest): Promise<SnapshotTemplatesResponse> {
     this.logger.info("snapshotTemplates:", request);
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/snapshot`, request))).response;
+  }
+
+  async renderTemplate(request: TemplateRenderRequest): Promise<TemplateRenderResponse> {
+    this.logger.info("renderTemplate:", request);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/render`, request))).response;
   }
 
   async listDomains(): Promise<BrevoDomainInfo[]> {

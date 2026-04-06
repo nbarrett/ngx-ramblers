@@ -1,6 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
+import { Subscription } from "rxjs";
 import { chain } from "../../functions/chain";
 import {
   CommitteeFile,
@@ -33,6 +34,9 @@ import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { DistanceValidationService } from "../walks/distance-validation.service";
 import { StringUtilsService } from "../string-utils.service";
 import { GroupEventField } from "../../models/walk.model";
+import { SystemConfigService } from "../system/system-config.service";
+import { EventPopulation, Organisation } from "../../models/system.model";
+import { validEmail } from "../../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -57,10 +61,14 @@ export class CommitteeQueryService {
   public committeeFiles: CommitteeFile[] = [];
   public committeeMembers: Member[] = [];
   private committeeConfig = inject(CommitteeConfigService);
+  private systemConfigService = inject(SystemConfigService);
   loggerFactory = inject(LoggerFactory);
+  private subscriptions: Subscription[] = [];
+  private group: Organisation | null = null;
 
   constructor() {
     this.committeeConfig.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
+    this.subscriptions.push(this.systemConfigService.events().subscribe(config => this.group = config?.group || null));
     this.queryCommitteeMembers();
   }
 
@@ -99,6 +107,7 @@ export class CommitteeQueryService {
           .then((extendedGroupEvents: ExtendedGroupEvent[]) => this.extendedGroupEventQueryService.activeEvents(extendedGroupEvents))
           .then((extendedGroupEvents: ExtendedGroupEvent[]) => extendedGroupEvents?.forEach(event => events.push({
             id: event.id || event?.groupEvent?.id,
+            ramblersEventType: event?.groupEvent?.item_type || RamblersEventType.GROUP_WALK,
             slug: this.stringUtilsService.lastItemFrom(event?.groupEvent?.url || this.stringUtilsService.kebabCase(event?.groupEvent?.title)),
             selected: true,
             eventType: this.display.groupEventType(event),
@@ -109,9 +118,10 @@ export class CommitteeQueryService {
             postcode: (event.groupEvent.start_location || event.groupEvent.location)?.postcode,
             title: event.groupEvent.title || "Awaiting " + event.groupEvent.item_type + " details",
             description: event.groupEvent.description,
-            contactName: event.fields?.contactDetails?.displayName || "Awaiting " + event.groupEvent.item_type + " leader",
+            contactName: event.fields?.contactDetails?.displayName || this.walkContactFallback(event),
             contactPhone: event.fields?.contactDetails?.phone,
             contactEmail: event.fields?.contactDetails?.email,
+            contactHref: this.contactHref(event.fields?.contactDetails?.email),
             image: this.mediaQueryService.imageUrlFrom(event.groupEvent)
           }))));
     }
@@ -130,6 +140,7 @@ export class CommitteeQueryService {
             id: committeeFile.id,
             slug: this.stringUtilsService.kebabCase(committeeFile.fileType, this.dateUtils.isoDateTime(committeeFile.eventDate)),
             selected: true,
+            ramblersEventType: GroupEventTypes.COMMITTEE.eventType,
             eventType: GroupEventTypes.COMMITTEE,
             eventDate: committeeFile.eventDate,
             location: null,
@@ -137,13 +148,43 @@ export class CommitteeQueryService {
             description: committeeFile.fileType,
             title: this.committeeDisplayService.fileTitle(committeeFile),
             contactName: committeeContactDetails?.fullName,
-            contactEmail: committeeContactDetails?.email
+            contactEmail: committeeContactDetails?.email,
+            contactHref: this.contactHref(committeeContactDetails?.email)
           }))));
     }
     return Promise.all(promises).then(() => {
       this.logger.info("queried total of", promises.length, "events types containing total of", events.length, "events:", events);
       return events.sort(sortBy(groupEventsFilter.sortBy || "eventDate"));
     });
+  }
+
+  private walkContactFallback(event: ExtendedGroupEvent): string | null {
+    if (this.group?.walkPopulation === EventPopulation.LOCAL) {
+      return "Awaiting " + event.groupEvent.item_type + " leader";
+    } else if (event?.groupEvent?.item_type === RamblersEventType.GROUP_WALK && event?.fields?.contactDetails?.email) {
+      return "Contact Via Ramblers";
+    } else if (event?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT && event?.fields?.contactDetails?.email) {
+      return "Contact Via Ramblers";
+    } else {
+      return "Awaiting " + event.groupEvent.item_type + " leader";
+    }
+  }
+
+  private contactHref(value: string | null): string | null {
+    const normalised = (value || "").trim();
+    const lowerCase = normalised.toLowerCase();
+    if (!normalised) {
+      return null;
+    } else if (lowerCase.startsWith("mailto:")) {
+      const address = normalised.substring(7).trim();
+      return validEmail(address.toLowerCase()) ? `mailto:${address}` : null;
+    } else if (validEmail(lowerCase)) {
+      return `mailto:${normalised}`;
+    } else if (normalised.startsWith("http://") || normalised.startsWith("https://")) {
+      return normalised;
+    } else {
+      return null;
+    }
   }
 
   private mongoOrRawIdsFrom(groupEventsFilter: GroupEventsFilter): string[] {

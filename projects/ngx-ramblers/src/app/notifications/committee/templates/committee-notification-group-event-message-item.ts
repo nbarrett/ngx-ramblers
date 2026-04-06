@@ -28,7 +28,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
       <br/>
       @if (notification?.groupEventsFilter?.includeContact && event.contactName) {
         <span>
-        Contact: <a [href]="'mailto:' + event.contactEmail">
+        Contact: <a [href]="event.contactHref" [target]="event.contactHref?.startsWith('http') ? '_blank' : '_self'">
         <span>{{ event.contactName || event.contactEmail }}</span>
       </a>
           @if (event?.contactPhone) {

@@ -140,7 +140,7 @@ StringUtilsService {
   }
 
   asTitle(str: string) {
-    return startCase(toLower(str));
+    return startCase(toLower(this.asWords(str)));
   }
 
   asWords(str: string) {
