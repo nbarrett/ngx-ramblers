@@ -92,7 +92,7 @@ import { RouterLink } from "@angular/router";
                   @if (displayedWalk?.walk?.fields?.contactDetails?.email) {
                     <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-6 nowrap">
                       <app-copy-icon [icon]="faEnvelope" title
-                                     [disabled]="display.isContactUsContact()"
+                                     [disabled]="display.isContactUsContact(displayedWalk?.walk)"
                                      [value]="displayedWalk?.walk?.fields?.contactDetails?.email"
                                      [elementName]="'email address for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
                       <div content>

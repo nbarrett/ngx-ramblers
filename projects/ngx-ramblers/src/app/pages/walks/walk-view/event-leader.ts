@@ -22,7 +22,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
           @if (resolvedEvent()?.fields?.contactDetails?.email) {
             <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
               <app-copy-icon [icon]="faEnvelope" title
-                             [disabled]="display.isContactUsContact()"
+                             [disabled]="display.isContactUsContact(resolvedEvent())"
                              [value]="resolvedEvent()?.fields?.contactDetails?.email"
                              [elementName]="'email address for '+ resolvedEvent()?.fields?.contactDetails?.displayName"/>
               <div content>
@@ -78,9 +78,6 @@ export class EventLeaderComponent {
 
   heading(): string {
     const event = this.resolvedEvent();
-    if (this.displayedWalk && this.display.isWalk(event)) {
-      return "Walk Leader";
-    }
-    return (this.display.eventTypeTitle(event) || "Event") + " Organiser";
+    return (this.display.eventTypeTitle(event) || "Group Walk") + " Leader";
   }
 }
