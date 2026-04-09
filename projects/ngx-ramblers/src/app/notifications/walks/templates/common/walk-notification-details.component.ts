@@ -15,6 +15,7 @@ import { ValueOrDefaultPipe } from "../../../../pipes/value-or-default.pipe";
 import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
 import { ExtendedGroupEvent } from "../../../../models/group-event.model";
 import { StringUtilsService } from "../../../../services/string-utils.service";
+import { EventContactService } from "../../../../services/walks-and-events/event-contact.service";
 
 @Component({
     selector: "app-walk-notification-details",
@@ -66,7 +67,7 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Contact Email:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"><a [href]="'mailto:'+ walk?.fields?.contactDetails?.email"><span>{{ walk?.fields?.contactDetails?.email | valueOrDefault }}</span></a></td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"><a [href]="eventContactService.emailContactHref(walk)"><span>{{ eventContactService.emailContactLabel(walk) | valueOrDefault }}</span></a></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Contact Phone:</td>
@@ -82,6 +83,7 @@ export class WalkNotificationDetailsComponent implements OnInit {
   private auditDeltaValuePipe = inject(AuditDeltaValuePipe);
   googleMapsService = inject(GoogleMapsService);
   display = inject(WalkDisplayService);
+  eventContactService = inject(EventContactService);
   protected stringUtils = inject(StringUtilsService);
   public data: WalkNotification;
   public walk: ExtendedGroupEvent;

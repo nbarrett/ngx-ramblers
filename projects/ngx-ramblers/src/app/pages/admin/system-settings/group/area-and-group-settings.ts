@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faAdd, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { AvailableArea, EventPopulation, SystemConfig, WalkLeaderContactMethod } from "../../../../models/system.model";
+import { AvailableArea, SystemConfig } from "../../../../models/system.model";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
@@ -9,7 +9,7 @@ import { UiSwitchModule } from "ngx-ui-switch";
 import { enumKeyValues, KeyValue } from "../../../../functions/enums";
 import { WalkListView } from "../../../../models/walk.model";
 import { RamblersWalksAndEventsService } from "../../../../services/walks-and-events/ramblers-walks-and-events.service";
-import { RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../../models/ramblers-walks-manager";
+import { RamblersEventType, RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../../models/ramblers-walks-manager";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { StatusIconComponent } from "../../status-icon";
 import { Status } from "../../../../models/ramblers-upload-audit.model";
@@ -18,9 +18,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ALERT_WARNING } from "../../../../models/alert-target.model";
 import { EM_DASH } from "../../../../models/content-text.model";
 import { HttpClient } from "@angular/common/http";
-import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
-import { CommitteeMember } from "../../../../models/committee.model";
-import { CommitteeReferenceData } from "../../../../services/committee/committee-reference-data";
+import { EventTypeSettingsComponent } from "./event-type-settings";
 
 @Component({
   selector: "[app-area-and-group-settings]",
@@ -158,93 +156,12 @@ import { CommitteeReferenceData } from "../../../../services/committee/committee
       <div class="col-sm-12">
         <div class="row">
           <div class="col-md-6">
-            <div class="form-group">
-              <label for="walk-population">Walk Population</label>
-              <select [(ngModel)]="config.group.walkPopulation"
-                      class="form-control" id="walk-population">
-                @for (walkPopulation of populationMethods; track walkPopulation.key) {
-                  <option [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}</option>
-                }
-              </select>
-            </div>
+            <app-event-type-settings [config]="config" [eventType]="RamblersEventType.GROUP_WALK"/>
           </div>
           <div class="col-md-6">
-            <div class="form-group">
-              <label for="social-event-population">Social Event Population</label>
-              <select [(ngModel)]="config.group.socialEventPopulation"
-                      class="form-control" id="social-event-population">
-                @for (walkPopulation of populationMethods; track walkPopulation.key) {
-                  <option [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}</option>
-                }
-              </select>
-            </div>
+            <app-event-type-settings [config]="config" [eventType]="RamblersEventType.GROUP_EVENT"/>
           </div>
           <div class="col-md-6">
-            <div class="form-group">
-              <div class="form-check">
-                <input [(ngModel)]="config.group.walkContactDetailsPublic"
-                       type="checkbox" class="form-check-input"
-                       id="walk-contact-details-public-viewable">
-                <label class="form-check-label"
-                       for="walk-contact-details-public-viewable">Walk Contact Details Public Viewable</label>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="form-check">
-                <input [(ngModel)]="config.group.showWalkOnRamblersLink"
-                       type="checkbox" class="form-check-input"
-                       id="show-walk-on-ramblers-link">
-                <label class="form-check-label"
-                       for="show-walk-on-ramblers-link">Show "On Ramblers" Link for Group Walks</label>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="form-check">
-                <input [(ngModel)]="config.group.allowSwitchWalkView"
-                       type="checkbox" class="form-check-input" id="allow-walk-listing-to-be-switched">
-                <label class="form-check-label"
-                       for="allow-walk-listing-to-be-switched">Allow Walk Listing to be switched
-                  between {{ walkListViewsJoined }}</label>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="navbar-location">Default Walk List View</label>
-              <select class="form-control input-sm"
-                      [(ngModel)]="config.group.defaultWalkListView"
-                      id="navbar-location">
-                @for (type of walkListViews; track type.key) {
-                  <option [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}</option>
-                }
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="walk-leader-contact-method">Walk Leader Contact Method</label>
-              <select [(ngModel)]="config.group.walkLeaderContactMethod"
-                      class="form-control input-sm" id="walk-leader-contact-method">
-                @for (method of walkLeaderContactMethods; track method.key) {
-                  <option [ngValue]="method.value">{{ stringUtils.asTitle(method.value) }}</option>
-                }
-              </select>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <div class="form-check">
-                <input [(ngModel)]="config.group.socialDetailsPublic"
-                       type="checkbox" class="form-check-input" id="social-details-public-viewable">
-                <label class="form-check-label"
-                       for="social-details-public-viewable">Social Details Public Viewable</label>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="form-check">
-                <input [(ngModel)]="config.group.showSocialOnRamblersLink"
-                       type="checkbox" class="form-check-input"
-                       id="show-social-on-ramblers-link">
-                <label class="form-check-label"
-                       for="show-social-on-ramblers-link">Show "On Ramblers" Link for Group Events</label>
-              </div>
-            </div>
             <div class="form-group">
               <div class="form-check">
                 <input [(ngModel)]="config.enableMigration.events"
@@ -254,33 +171,25 @@ import { CommitteeReferenceData } from "../../../../services/committee/committee
               </div>
             </div>
           </div>
-          @if (config.group.walkLeaderContactMethod === walkLeaderContactMethodContactUs) {
-            <div class="col-md-12">
-              <div class="form-group">
-                <div class="form-check">
-                  <input [(ngModel)]="config.group.walkLeaderContactDirect"
-                         type="checkbox" class="form-check-input"
-                         id="walk-leader-contact-direct">
-                  <label class="form-check-label"
-                         for="walk-leader-contact-direct">Contact Walk Leader Directly (when valid email exists)</label>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="walk-leader-contact-role">Fallback Committee Role</label>
-                <select [(ngModel)]="config.group.walkLeaderContactRole"
-                        class="form-control" id="walk-leader-contact-role">
-                  @for (role of committeeRoles; track role.type) {
-                    <option [ngValue]="role.type">{{ role.description }}</option>
-                  }
-                </select>
-              </div>
+          <div class="col-md-6"></div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="default-walk-list-view">Default Walk List View</label>
+              <select class="form-control input-sm"
+                      [(ngModel)]="config.group.defaultWalkListView"
+                      id="default-walk-list-view">
+                @for (type of walkListViews; track type.key) {
+                  <option [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}</option>
+                }
+              </select>
             </div>
-          }
+          </div>
+          <div class="col-md-6"></div>
         </div>
       </div>
     </div>
     </div>`,
-  imports: [UiSwitchModule, NgSelectComponent, StatusIconComponent, AlertComponent, FontAwesomeModule]
+  imports: [UiSwitchModule, NgSelectComponent, StatusIconComponent, AlertComponent, FontAwesomeModule, EventTypeSettingsComponent]
 })
 export class AreaAndGroupSettingsComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupSettingsComponent", NgxLoggerLevel.ERROR);
@@ -288,13 +197,8 @@ export class AreaAndGroupSettingsComponent implements OnInit {
   stringUtils = inject(StringUtilsService);
   dateUtils = inject(DateUtilsService);
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
-  private committeeConfig = inject(CommitteeConfigService);
-  populationMethods: KeyValue<string>[] = enumKeyValues(EventPopulation);
   walkListViews: KeyValue<string>[] = enumKeyValues(WalkListView);
-  walkLeaderContactMethods: KeyValue<string>[] = enumKeyValues(WalkLeaderContactMethod);
-  walkLeaderContactMethodContactUs = WalkLeaderContactMethod.CONTACT_US;
-  committeeRoles: CommitteeMember[] = [];
-  walkListViewsJoined = this.walkListViews.map(item => this.stringUtils.asTitle(item.value)).join(" and ");
+  RamblersEventType = RamblersEventType;
   faAdd = faAdd;
   faRemove = faRemove;
   groups: RamblersGroupsApiResponse[] = [];
@@ -327,11 +231,6 @@ export class AreaAndGroupSettingsComponent implements OnInit {
     if (!this.config.enableMigration) {
       this.config.enableMigration = { events: false };
     }
-    this.applyDefaultOnRamblersLinkVisibility();
-    this.applyDefaultWalkLeaderContactMethod();
-    this.committeeConfig.committeeReferenceDataEvents().subscribe((data: CommitteeReferenceData) => {
-      this.committeeRoles = data.committeeMembers();
-    });
     if (!this.config.area.groupCode && this.config.group.groupCode) {
       this.config.area.groupCode = this.stringUtils.left(this.config.group.groupCode, 2);
     }
@@ -341,21 +240,6 @@ export class AreaAndGroupSettingsComponent implements OnInit {
     if (initialAreaCode) {
       await this.queryGroups(initialAreaCode);
       this.updateSelectedGroupCodes();
-    }
-  }
-
-  private applyDefaultWalkLeaderContactMethod() {
-    if (!this.config?.group?.walkLeaderContactMethod) {
-      this.config.group.walkLeaderContactMethod = WalkLeaderContactMethod.CONTACT_US;
-    }
-  }
-
-  private applyDefaultOnRamblersLinkVisibility() {
-    if (this.config?.group?.showWalkOnRamblersLink === null || this.config?.group?.showWalkOnRamblersLink === undefined) {
-      this.config.group.showWalkOnRamblersLink = true;
-    }
-    if (this.config?.group?.showSocialOnRamblersLink === null || this.config?.group?.showSocialOnRamblersLink === undefined) {
-      this.config.group.showSocialOnRamblersLink = true;
     }
   }
 

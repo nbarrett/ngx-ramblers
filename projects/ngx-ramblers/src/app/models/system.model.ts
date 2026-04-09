@@ -150,7 +150,7 @@ export enum SharedDistrictStyle {
   GRADIENT = "gradient"
 }
 
-export enum WalkLeaderContactMethod {
+export enum EventLeaderContactMethod {
   CONTACT_US = "contact-us",
   RAMBLERS_WEBSITE = "ramblers-website",
   MAILTO = "mailto"
@@ -171,9 +171,15 @@ export interface Organisation extends Group {
   allowSwitchWalkView: boolean;
   socialDetailsPublic: boolean;
   showSocialOnRamblersLink: boolean;
-  walkLeaderContactMethod?: WalkLeaderContactMethod;
+  walkLeaderContactMethod?: EventLeaderContactMethod;
   walkLeaderContactDirect?: boolean;
   walkLeaderContactRole?: string;
+  groupWalkContactMethod?: EventLeaderContactMethod;
+  groupWalkContactDirect?: boolean;
+  groupWalkContactRole?: string;
+  groupEventContactMethod?: EventLeaderContactMethod;
+  groupEventContactDirect?: boolean;
+  groupEventContactRole?: string;
   walkLeaderPhoneAction?: WalkLeaderPhoneAction;
   shortName?: string;
   href?: string;
