@@ -795,7 +795,7 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
       this.notifyEmailSendComplete(campaignName, createAsDraft);
     } else {
       this.notify.error({
-        title: "Send Committee notification",
+        title: "Send notification",
         message: `${this.creationOrSending(createAsDraft)} of ${campaignName} was not successful as no lists were found to send to`
       });
     }
@@ -805,7 +805,7 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
     this.notify.clearBusy();
     if (!this.notification.cancelled) {
       this.notify.success({
-        title: "Send Committee notification",
+        title: "Send notification",
         message: `${this.creationOrSending(dontSend)} of ${campaignName} was successful`
       });
       this.display.confirm.clear();

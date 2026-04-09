@@ -16,6 +16,7 @@ import { queryTemplateContent } from "../transactional-mail/query-template-conte
 import { KeyValue } from "../../../../projects/ngx-ramblers/src/app/functions/enums";
 import { extractParametersFrom } from "../../../../projects/ngx-ramblers/src/app/common/mail-parameters";
 import { replaceAll } from "../../shared/string-utils";
+import { ramblersEmailLayout } from "../templates/ramblers-email-layout";
 
 function valueAtPath(source: Record<string, any>, path: string): any {
   return path.split(".").reduce((value, key) => value?.[key], source);
@@ -33,7 +34,9 @@ export function applyBrevoConditionals(html: string, params?: Record<string, any
 }
 
 export function normaliseMergeFieldPlaceholders(html: string): string {
-  return html.replace(/\{\{\s*(params\.\w+\.\w+)\s*\}\}/g, "{{$1}}");
+  return html
+    .replace(/\{\{\s*(params\.\w+\.\w+)\s*\}\}/g, "{{$1}}")
+    .replace(/\{\{\s*(override\.[A-Z_]+)\s*\}\}/g, "{{$1}}");
 }
 
 export function stripFroalaArtefacts(html: string): string {
@@ -46,7 +49,9 @@ export function stripFroalaArtefacts(html: string): string {
 }
 
 export function collapseFroalaPlaceholderSpans(html: string): string {
-  return html.replace(/<span\s+class="placeholder rte-personalized-node fr-deletable"[^>]*>([^<]*)<\/span>\u200b?/g, "$1");
+  return html
+    .replace(/<span\s+class="placeholder rte-personalized-node fr-deletable"[^>]*>([^<]*)<\/span>\u200b?/g, "$1")
+    .replace(/<span[^>]*>\s*(\{\{\s*override\.[A-Z_]+\s*\}\})\s*<\/span>/g, "$1");
 }
 
 const MERGE_FIELD_REGEX = /\{\{\s*params\.[a-zA-Z]+\.[A-Z_]+\s*\}\}/g;
@@ -123,6 +128,7 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
       const templateResponse: TemplateResponse = await queryTemplateContent(emailRequest.templateId);
       const sanitisedHtml = sanitiseBrevoTemplate(templateResponse.htmlContent);
       const overriddenHtml = applyTemplateOverrides(sanitisedHtml, emailRequest.templateOverrides);
+      const wrappedHtml = ramblersEmailLayout(overriddenHtml);
       const parametersAndValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, true);
       debugLog("parametersAndValues:", parametersAndValues);
       const substitutedHtmlContent: string = parametersAndValues.reduce(
@@ -130,7 +136,7 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
           debugLog(`Replacing ${keyValue.key} with ${keyValue.value} in ${templateContent}`);
           return replaceAll(keyValue.key, keyValue.value, templateContent) as string;
         },
-        overriddenHtml,
+        wrappedHtml,
       );
       const htmlContent = inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, emailRequest.params));
       debugLog(`Setting final htmlContent to ${htmlContent}`);

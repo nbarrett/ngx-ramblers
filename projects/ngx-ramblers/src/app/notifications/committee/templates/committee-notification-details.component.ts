@@ -23,7 +23,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 
 <app-committee-notification-ramblers-message-item
   [notificationItem]="toNotificationItemFromNotification(notification)">
-  <p markdown [data]="notification.content.text.value"></p>
+  <div markdown [data]="notification.content.text.value"></div>
   @if (notification?.content.includeDownloadInformation) {
     <p>
       <b>File type:</b>
@@ -46,7 +46,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       <app-committee-notification-group-event-message-item [notification]="notification" [event]="event"/>
     </app-committee-notification-ramblers-message-item>
     @if (!last) {
-      <table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;width:600px;" width="600">
+      <table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;width:100%;" width="100%">
         <tbody>
         <tr>
           <td style="padding: 10px 0 26px;">
@@ -66,7 +66,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 }
 @if (notification.content.signoffText.include) {
   <app-committee-notification-ramblers-message-item>
-    <p markdown [data]="notification?.content.signoffText.value"></p>
+    <div markdown [data]="notification?.content.signoffText.value"></div>
     @if (notification?.content.signoffAs.include) {
       <app-contact-us format="list"
       [roles]="notification?.content.signoffAs.value"></app-contact-us>
