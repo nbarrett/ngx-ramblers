@@ -16,61 +16,55 @@ import { UrlService } from "../../../services/url.service";
     selector: "app-committee-notification-ramblers-message-item",
   template: `
     <table align="center" border="0" cellpadding="0" cellspacing="0"
-           style="border-collapse: collapse;mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;width:600px;"
-           width="600">
+           style="border-collapse: collapse;mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;width:100%;"
+           width="100%">
       <tbody>
-      <tr>
-        <td style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;"
+        @if (notificationItem?.image?.src) {
+          <tr>
+            <td align="center"
+                style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;"
+                valign="top">
+              <a href="{{notificationItem.image.link.href}}"
+                 style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;"
+                 target="_blank" title="">
+                <img
+                  alt="{{notificationItem.image.alt}}"
+                  src="{{urlService.imageSource(notificationItem.image.src, true)}}"
+                  [ngStyle]="{
+                    'object-fit': 'cover',
+                    'object-position': 'center',
+                    'max-width': '100%',
+                    'border': '0',
+                    'height': 'auto',
+                    'outline': 'none',
+                    'text-decoration': 'none',
+                    '-ms-interpolation-mode': 'bicubic',
+                    'vertical-align': 'bottom'
+                  }"
+                  width="100%"/>
+              </a>
+            </td>
+          </tr>
+        }
+        <tr>
+          <td
+            style="font-family: Helvetica, Arial, sans-serif;font-size: 16px;line-height: 150%;color: #222222;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;word-break: break-word;"
             valign="top">
-          <table align="center" border="0" cellpadding="0" cellspacing="0"
-                 style="border-collapse: collapse;mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;">
-            <tbody>
-              @if (notificationItem?.image?.src) {
-                <tr>
-                  <td align="center"
-                      style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;"
-                      valign="top">
-                    <a href="{{notificationItem.image.link.href}}"
-                       style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;"
-                       target="_blank" title=""> <img
-                      alt="{{notificationItem.image.alt}}"
-                      src="{{urlService.imageSource(notificationItem.image.src, true)}}"
-                      [ngStyle]="{
-                  'object-fit': 'cover',
-                  'object-position': 'center',
-                   'max-width': '1200px',
-                   'border': '0',
-                   'height': 'auto',
-                   'outline': 'none',
-                   'text-decoration': 'none',
-                   '-ms-interpolation-mode': 'bicubic',
-                   'vertical-align': 'bottom'}"
-                      width="600"/> </a></td>
-                </tr>
-              }
-            <tr>
-              <td
-                style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;word-break: break-word;"
-                valign="top" width="600">
-                @if (notificationItem?.subject) {
-                  <h3>{{ notificationItem.subject }}</h3>
-                }
-                <div
-                  style="margin: 10px 0;padding: 0;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;">
-                    <ng-content/>
-                  </div>
-              </td>
-            </tr>
-            </tbody>
-          </table>
-        </td>
-      </tr>
+            @if (notificationItem?.subject) {
+              <h3>{{ notificationItem.subject }}</h3>
+            }
+            <div
+              style="margin: 10px 0;padding: 0;font-family: Helvetica, Arial, sans-serif;font-size: 16px;line-height: 150%;color: #222222;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;">
+              <ng-content/>
+            </div>
+          </td>
+        </tr>
       </tbody>
     </table>
     @if (notificationItem?.callToAction) {
       <table align="center" border="0" cellpadding="0" cellspacing="0"
-             style="border-collapse: collapse;mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;width:600px;"
-             width="600">
+             style="border-collapse: collapse;mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;width:100%;"
+             width="100%">
         <tbody>
         <tr>
           <td align="center"

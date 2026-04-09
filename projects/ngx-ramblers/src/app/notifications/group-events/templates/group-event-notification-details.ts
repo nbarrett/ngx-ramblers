@@ -113,17 +113,15 @@ import { StringUtilsService } from "../../../services/string-utils.service";
         </div>
       }
       @if (latestNotification?.content?.description.include) {
-        <p>
-          <span markdown [data]="groupEvent?.groupEvent?.description"></span>
-        </p>
+        <div markdown [data]="groupEvent?.groupEvent?.description"></div>
       }
       @if (latestNotification?.content?.text.include) {
         <p
           [textContent]="latestNotification?.content?.text.value"></p>
       }
       @if (latestNotification?.content?.signoffText.include) {
-        <p
-          markdown [data]="latestNotification?.content?.signoffText.value"></p>
+        <div
+          markdown [data]="latestNotification?.content?.signoffText.value"></div>
       }
       @if (latestNotification?.content?.signoffAs.include) {
         <app-contact-us

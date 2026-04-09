@@ -16,7 +16,7 @@ function responsiveStyles(): string {
   p { margin: 0 0 12px; }
   @media only screen and (max-width: 768px) {
     .email-container { width: 100% !important; max-width: 100% !important; }
-    .email-container img { width: 100% !important; height: auto !important; }
+    .banner-img { width: 100% !important; height: auto !important; }
   }
   @media only screen and (max-width: 480px) {
     .email-body { padding: 20px 16px !important; }
