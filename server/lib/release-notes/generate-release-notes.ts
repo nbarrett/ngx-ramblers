@@ -774,7 +774,12 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
     }
   } else if (options.latest) {
     const tag = latestTag();
-    const commits = tag ? commitsBetween(tag, "HEAD") : gitLog("HEAD~10", "HEAD");
+    const allCommits = tag ? commitsBetween(tag, "HEAD") : gitLog("HEAD~10", "HEAD");
+    const latestDate = allCommits[0]?.date;
+    const commits = latestDate ? allCommits.filter(commit => commit.date === latestDate) : allCommits;
+    if (commits.length < allCommits.length) {
+      debugLog(`Filtered ${allCommits.length} commits to ${commits.length} from latest date ${latestDate}`);
+    }
 
     if (commits.length === 0) {
       debugLog("No new commits since last tag");
