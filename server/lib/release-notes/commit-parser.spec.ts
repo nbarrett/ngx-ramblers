@@ -111,6 +111,15 @@ describe("commit-parser", () => {
         expect(result?.issueReferences).toHaveLength(0);
       });
 
+      it("should not treat 6-digit hex colours like #222222 as issue references", () => {
+        const raw = createRawCommit(
+          "fix(email): refresh templates (#223)",
+          "Use bold black (#222222) text on a charcoal #404141 footer background."
+        );
+        const result = parseCommit(raw);
+        expect(result?.issueReferences.map(r => r.issue)).toEqual(["223"]);
+      });
+
     });
 
     describe("conventional commit parsing", () => {
