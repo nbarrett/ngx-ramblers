@@ -129,9 +129,16 @@ jobs:
         env:
           CMS_USERNAME: ${{ secrets.CMS_USERNAME }}
           CMS_PASSWORD: ${{ secrets.CMS_PASSWORD }}
+          PREV_SHA: ${{ github.event.before }}
         run: |
           cd server
-          npm run release-notes -- --latest --build-number ${{ github.run_number }} --include-unassigned
+          if [ -z "$PREV_SHA" ] || [ "$PREV_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "No previous push SHA available - falling back to --latest"
+            npm run release-notes -- --latest --build-number ${{ github.run_number }} --include-unassigned
+          else
+            echo "Generating release notes for commits since $PREV_SHA"
+            npm run release-notes -- --since "$PREV_SHA" --build-number ${{ github.run_number }} --include-unassigned
+          fi
 
       - name: Cleanup sensitive files
         if: always()
