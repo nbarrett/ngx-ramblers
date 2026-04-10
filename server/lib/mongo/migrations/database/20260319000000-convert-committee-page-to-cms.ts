@@ -12,7 +12,8 @@ import {
 import { AccessLevel } from "../../../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { SortDirection } from "../../../../../projects/ngx-ramblers/src/app/models/sort.model";
 
-import { CONFIG_COLLECTION, PAGE_CONTENT_COLLECTION } from "../shared/collection-names";
+import { PAGE_CONTENT_COLLECTION } from "../shared/collection-names";
+import { systemConfig } from "../../../config/system-config";
 
 const debugLog = createMigrationLogger("convert-committee-page-to-cms");
 const CONTENT_TEXT_COLLECTION = "contentText";
@@ -137,8 +138,8 @@ async function migrateCommitteePage(db: Db) {
   const actionButtonsFragment = await pageContentCollection.findOne({path: COMMITTEE_ACTION_BUTTONS_PATH});
 
   const introductionText = await contentTextCollection.findOne({category: "committee", name: "introduction"});
-  const systemConfigDoc = await db.collection(CONFIG_COLLECTION).findOne({key: "system"});
-  const shortName = systemConfigDoc?.value?.area?.shortName || "the group";
+  const config = await systemConfig();
+  const shortName = config?.area?.shortName || "the group";
   const introText = introductionText?.text || `Welcome to the ${shortName} Committee page. Here, you'll find events related to the Committee, AGM and Annual Financial Returns for the group.`;
 
   // Extract image sources from existing fragment action-button columns before converting

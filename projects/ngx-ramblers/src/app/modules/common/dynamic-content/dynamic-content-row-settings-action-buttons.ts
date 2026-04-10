@@ -25,6 +25,19 @@ import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-c
               </div>
             </div>
           }
+          @if (actions.isActionButtons(row)) {
+            <div class="col-auto">
+              <div class="form-check form-check-inline mb-0">
+                <input name="allowSearch" [(ngModel)]="row.allowSearch"
+                       [checked]="row.allowSearch"
+                       type="checkbox" class="form-check-input"
+                       [id]="id +'-allow-search'">
+                <label class="form-check-label"
+                       [for]="id +'-allow-search'">Allow Search
+                </label>
+              </div>
+            </div>
+          }
         </div>
       }
     `,

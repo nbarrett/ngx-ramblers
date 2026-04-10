@@ -22,11 +22,18 @@ import { PageContentEditService } from "../../../services/page-content-edit.serv
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { SvgComponent } from "../svg/svg";
 import { CardEditorComponent } from "../card-editor/card-editor";
+import {
+  DynamicContentSearchInputComponent,
+  filterColumnsBySearchText
+} from "../dynamic-content/dynamic-content-search-input";
 
 @Component({
     selector: "app-action-buttons",
     template: `
       @if (row) {
+        @if (row.allowSearch) {
+          <app-dynamic-content-search-input (searchTextChange)="searchText = $event"/>
+        }
         <div class="row">
           @if (row.showSwiper && viewableColumnCount() < pageContentColumns().length) {
             <div class="d-flex align-items-center mb-3 col">
@@ -121,7 +128,7 @@ import { CardEditorComponent } from "../card-editor/card-editor";
   &.dragging
     cursor: grabbing
 `],
-    imports: [SvgComponent, CardEditorComponent]
+    imports: [SvgComponent, CardEditorComponent, DynamicContentSearchInputComponent]
 })
 export class ActionButtons implements OnInit, AfterViewInit, OnDestroy {
 
@@ -143,6 +150,7 @@ export class ActionButtons implements OnInit, AfterViewInit, OnDestroy {
   public pageContent: PageContent;
   public rowIndex: number;
   public presentationMode: boolean;
+  public searchText = "";
 
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
     this.presentationMode = coerceBooleanProperty(presentationMode);
@@ -210,7 +218,7 @@ export class ActionButtons implements OnInit, AfterViewInit, OnDestroy {
   }
 
   pageContentColumns(): PageContentColumn[] {
-    return this.row?.columns || [];
+    return filterColumnsBySearchText(this.row?.columns || [], this.searchText);
   }
 
   private determineMaxViewableSlideCount(): number {

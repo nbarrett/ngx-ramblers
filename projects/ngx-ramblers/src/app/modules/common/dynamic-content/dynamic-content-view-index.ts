@@ -5,19 +5,14 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { ActionButtons } from "../action-buttons/action-buttons";
-import { FormsModule } from "@angular/forms";
-import { faSearch } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { DynamicContentViewIndexMap } from "./dynamic-content-view-index-map";
 import { IndexService } from "../../../services/index.service";
-import { UiActionsService } from "../../../services/ui-actions.service";
-import { StoredValue } from "../../../models/ui-actions";
-import { Location } from "@angular/common";
-import { ActivatedRoute } from "@angular/router";
-import { StringUtilsService } from "../../../services/string-utils.service";
-import { isNull } from "es-toolkit/compat";
 import { MarkdownComponent } from "ngx-markdown";
 import { PageService } from "../../../services/page.service";
+import {
+  DynamicContentSearchInputComponent,
+  filterColumnsBySearchText
+} from "./dynamic-content-search-input";
 
 @Component({
     selector: "app-dynamic-content-view-index",
@@ -27,20 +22,7 @@ import { PageService } from "../../../services/page.service";
           <div class="mb-3" markdown [data]="indexMarkdown()"></div>
         }
         @if (shouldShowSearch()) {
-          <div class="row mb-3">
-            <div class="col-12">
-              <div class="input-group">
-              <span class="input-group-text">
-                <fa-icon [icon]="faSearch"></fa-icon>
-              </span>
-                <input type="text"
-                       class="form-control"
-                       placeholder="Search..."
-                       [(ngModel)]="searchText"
-                       (ngModelChange)="onSearchChange()">
-              </div>
-            </div>
-          </div>
+          <app-dynamic-content-search-input (searchTextChange)="searchText = $event"/>
         }
         @for (renderMode of getRenderModes(); track renderMode) {
           @if (renderMode === IndexRenderMode.ACTION_BUTTONS) {
@@ -74,7 +56,7 @@ import { PageService } from "../../../services/page.service";
           }
         }
       }`,
-    imports: [ActionButtons, DynamicContentViewIndexMap, FormsModule, FontAwesomeModule, MarkdownComponent]
+    imports: [ActionButtons, DynamicContentViewIndexMap, MarkdownComponent, DynamicContentSearchInputComponent]
 })
 export class DynamicContentViewIndex implements OnInit {
 
@@ -83,34 +65,17 @@ export class DynamicContentViewIndex implements OnInit {
   public albumIndexPageContent: PageContent;
   public actions: PageContentActionsService = inject(PageContentActionsService);
   public albumIndexService: IndexService = inject(IndexService);
-  public ui: UiActionsService = inject(UiActionsService);
-  private location: Location = inject(Location);
-  private route: ActivatedRoute = inject(ActivatedRoute);
-  private stringUtils: StringUtilsService = inject(StringUtilsService);
   private pageService: PageService = inject(PageService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   public logger = this.loggerFactory.createLogger("DynamicContentViewIndex", NgxLoggerLevel.ERROR);
   protected readonly IndexRenderMode = IndexRenderMode;
-  protected readonly faSearch = faSearch;
   protected readonly MapProvider = MapProvider;
   protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
   public searchText = "";
-  private searchDebounce: any;
 
   async ngOnInit() {
     this.actions.ensureAlbumIndexMapConfigDefaults(this.row);
     const albumIndex = this.row.albumIndex;
-    const searchParam = this.stringUtils.kebabCase(StoredValue.SEARCH);
-    const urlSearchValue = this.route.snapshot.queryParamMap.get(searchParam);
-
-    if (!isNull(urlSearchValue)) {
-      this.searchText = urlSearchValue;
-      this.ui.saveValueFor(StoredValue.SEARCH, urlSearchValue);
-    } else {
-      this.searchText = "";
-      this.ui.saveValueFor(StoredValue.SEARCH, "");
-    }
-
     this.albumIndexPageContent = await this.albumIndexService.albumIndexToPageContent(this.row, 0);
     this.logger.info("row", this.row, "albumIndex:", albumIndex, "albumIndexPageContent:", this.albumIndexPageContent);
   }
@@ -123,45 +88,14 @@ export class DynamicContentViewIndex implements OnInit {
     return (this.albumIndexPageContent?.rows?.[0]?.columns?.length || 0) > 5;
   }
 
-  onSearchChange() {
-    this.logger.info("Search text changed:", this.searchText);
-    if (this.searchDebounce) {
-      clearTimeout(this.searchDebounce);
-    }
-    this.searchDebounce = setTimeout(() => {
-      this.ui.saveValueFor(StoredValue.SEARCH, this.searchText || "");
-      this.updateUrlParams();
-    }, 300);
-  }
-
-  private updateUrlParams() {
-    const searchParam = this.stringUtils.kebabCase(StoredValue.SEARCH);
-    const params = new URLSearchParams(window.location.search);
-
-    if (this.searchText) {
-      params.set(searchParam, this.searchText);
-    } else {
-      params.delete(searchParam);
-    }
-
-    const newUrl = params.toString()
-      ? `${window.location.pathname}?${params.toString()}`
-      : window.location.pathname;
-
-    this.location.replaceState(newUrl);
-  }
-
   filteredPageContent(): PageContent {
-    if (!this.searchText || !this.albumIndexPageContent) {
+    if (!this.albumIndexPageContent) {
       return this.albumIndexPageContent;
     }
-
-    const searchLower = this.searchText.toLowerCase();
-    const filteredColumns = this.albumIndexPageContent.rows[0].columns.filter(column => {
-      const titleMatch = column.title?.toLowerCase().includes(searchLower);
-      const contentMatch = column.contentText?.toLowerCase().includes(searchLower);
-      return titleMatch || contentMatch;
-    });
+    const filteredColumns = filterColumnsBySearchText(
+      this.albumIndexPageContent.rows[0].columns,
+      this.searchText
+    );
     return {
       ...this.albumIndexPageContent,
       rows: [{

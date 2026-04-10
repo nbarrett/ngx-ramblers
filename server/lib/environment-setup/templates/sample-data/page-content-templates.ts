@@ -134,6 +134,73 @@ export function createAdminActionButtons(params: PageContentTemplateParams): Pag
   };
 }
 
+export const PRIVACY_POLICY_PATH = "about-us/privacy-policy";
+
+export function createPrivacyPolicyPage(params: PageContentTemplateParams): PageContent {
+  return {
+    path: PRIVACY_POLICY_PATH,
+    rows: [
+      createTextRow(`# Privacy Policy for ${params.groupName}
+
+At ${params.groupName}, one of our main priorities is the privacy of our visitors. This Privacy Policy explains what information is stored on your device, what data we collect, and how we use it.
+
+If you have additional questions or require more information about our Privacy Policy, do not hesitate to contact us.
+
+## What We Store on Your Device
+
+### Browser Local Storage
+
+This site uses browser localStorage (a mechanism similar to cookies) to store:
+
+- **Authentication tokens (JWTs)** — When you log in as a member, a JSON Web Token is stored to maintain your session. This is essential for the login function to work.
+- **Display preferences** — If you change settings such as map zoom level, search filters, sort orders, or view modes, these choices are remembered so you don't have to set them again on each visit.
+
+This storage is **strictly necessary** for the provision of features you have explicitly requested, and qualifies for the exemption under PECR Regulation 6(4). No consent mechanism is required for this type of storage.
+
+No personal data, analytics identifiers, or tracking information is stored in your browser's local storage.
+
+## Analytics
+
+If analytics have been configured for this site, it may use one of the following:
+
+- **Google Analytics** — sets cookies (\`_ga\`, \`_ga_*\`, \`_gid\`) to collect anonymous usage statistics. These cookies are set by Google, not by ${params.groupName} directly.
+- **Cloudflare Web Analytics** — a cookieless analytics solution that collects anonymous page view statistics without storing anything on your device.
+
+### What We Do NOT Use
+
+- No advertising or behavioural tracking cookies
+- No third-party tracking pixels
+- No social media tracking cookies
+- No web beacons
+
+## Third Party Services
+
+This site uses the following third-party services:
+
+- **Font Awesome** — for displaying icons (loaded from a CDN, sets no cookies)
+- **Cloudflare** — for DNS and content delivery (may set a \`__cf_bm\` cookie for security purposes)
+
+${params.groupName} has no access to or control over cookies set by third-party services.
+
+## Children's Information
+
+${params.groupName} does not knowingly collect any Personal Identifiable Information from children under the age of 13. If you think that your child provided this kind of information on our website, we strongly encourage you to contact us immediately and we will do our best efforts to promptly remove such information from our records.
+
+## Online Privacy Policy Only
+
+This Privacy Policy applies only to our online activities and is valid for visitors to our website with regards to the information that they shared and/or collected by ${params.groupName}. This policy is not applicable to any information collected offline or via channels other than this website.
+
+## Further Reading
+
+For a detailed technical explanation of how this platform handles privacy, cookies, and PECR compliance, see the [Privacy, Cookies and PECR Compliance](https://www.ngx-ramblers.org.uk/how-to/technical-articles/2026-04-04-privacy-cookies-and-compliance) technical article.
+
+## Consent
+
+By using our website, you hereby consent to our Privacy Policy and agree to its Terms and Conditions.`)
+    ]
+  };
+}
+
 export function createAllSamplePageContent(params: PageContentTemplateParams): PageContent[] {
   return [
     createHomeContent(params),
@@ -141,7 +208,8 @@ export function createAllSamplePageContent(params: PageContentTemplateParams): P
     createWalksInformation(params),
     createContactUsPageContent(params),
     createAboutUsPageContent(params),
-    createAdminActionButtons(params)
+    createAdminActionButtons(params),
+    createPrivacyPolicyPage(params)
   ];
 }
 
