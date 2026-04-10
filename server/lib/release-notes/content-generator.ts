@@ -204,13 +204,30 @@ export function generateMarkdown(data: ReleaseNotesData, githubRepo: string): st
     .flatMap(group => formatGroupCommits(group, githubRepo))
     .filter(section => section.length > 0);
 
-  // Remove commit sections whose heading just repeats the H1 title
-  const titleNormalised = data.title.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const dedupedSections = commitSections.filter(section => {
-    const headingLine = section.split("\n")[0];
-    const headingNormalised = headingLine.replace(/^###\s*/, "").replace(/\*\*/g, "").replace(/\([^)]*\)/g, "").replace(/\[[^\]]*\]/g, "").replace(/[^a-z0-9]/gi, "").toLowerCase();
-    return headingNormalised !== titleNormalised;
-  });
+  // Drop the `### **scope**: subject` heading line when its subject is already conveyed by the H1.
+  // The H1 is the bare subject (no scope), so strip `**scope**:` / `scope:` prefixes before comparing,
+  // and use a "starts with" match so multi-commit groupings whose first subject is in the title also
+  // collapse. We only remove the heading line, never the body, so unique detail is preserved.
+  const stripScopePrefix = (text: string): string => text.replace(/^\*\*[^*]+\*\*:\s*/, "").replace(/^[a-z0-9-]+:\s*/i, "");
+  const normaliseForCompare = (text: string): string => stripScopePrefix(text)
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\[[^\]]*\]/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase();
+  const titleNormalised = normaliseForCompare(data.title);
+  const dedupedSections = commitSections.map(section => {
+    const lines = section.split("\n");
+    const headingLine = lines[0].replace(/^###\s*/, "");
+    const headingNormalised = normaliseForCompare(headingLine);
+    if (titleNormalised.length === 0 || headingNormalised.length === 0) {
+      return section;
+    }
+    if (headingNormalised.startsWith(titleNormalised)) {
+      return lines.slice(1).join("\n").trim();
+    }
+    return section;
+  }).filter(section => section.trim().length > 0);
 
   const sections = [
     ...headerLines,

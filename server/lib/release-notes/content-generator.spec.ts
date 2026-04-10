@@ -275,4 +275,14 @@ describe("content-generator generateMarkdown commit body paragraphs", () => {
     expect(markdown).toContain("Paragraph one.\n\nParagraph two.");
     expect(markdown).not.toContain("\n\n\n");
   });
+
+  it("drops the redundant ### **scope**: subject heading when its subject already appears in the H1, but keeps the body", () => {
+    const data = createReleaseNotesData([makeCommit("- bullet one\n- bullet two")], null, "owner/repo");
+    const markdown = generateMarkdown(data, "owner/repo");
+
+    expect(markdown).not.toContain("### **example**: example subject line");
+    expect(markdown).toContain("- bullet one");
+    expect(markdown).toContain("- bullet two");
+    expect(markdown).toContain("example subject line");
+  });
 });
