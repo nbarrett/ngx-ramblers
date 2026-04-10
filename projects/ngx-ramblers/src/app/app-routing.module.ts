@@ -54,12 +54,6 @@ const routes: Routes = [
     canActivate: [SystemHealthyGuard]
   },
   {
-    path: "privacy-policy",
-    loadComponent: () => import("./pages/home/privacy-policy.component")
-      .then(m => m.PrivacyPolicyComponent),
-    canActivate: [SystemHealthyGuard]
-  },
-  {
     path: "fragments",
     redirectTo: "/admin/content-templates",
     pathMatch: "full"

@@ -25,6 +25,7 @@ const PageContentRow = new mongoose.Schema({
   type: {type: String, required: true},
   maxColumns: {type: Number},
   showSwiper: {type: Boolean},
+  allowSearch: {type: Boolean},
   columns: [PageContentColumn],
   marginTop: {type: Number},
   marginBottom: {type: Number},

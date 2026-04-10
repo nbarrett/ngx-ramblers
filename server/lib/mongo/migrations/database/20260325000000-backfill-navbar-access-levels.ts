@@ -1,24 +1,25 @@
 import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
-
-import { CONFIG_COLLECTION } from "../shared/collection-names";
+import { systemConfig } from "../../../config/system-config";
+import { createOrUpdateKey } from "../../controllers/config";
+import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
+import { AccessLevel } from "../../../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 
 const debugLog = createMigrationLogger("backfill-navbar-access-levels");
-const DEFAULT_ACCESS_LEVEL = "public";
+const DEFAULT_ACCESS_LEVEL = AccessLevel.PUBLIC;
 
-export async function up(db: Db) {
-  const collection = db.collection(CONFIG_COLLECTION);
-  const systemConfig = await collection.findOne({key: "system"});
+export async function up(_db: Db) {
+  const config = await systemConfig();
 
-  if (!systemConfig?.value?.group?.pages) {
+  if (!config?.group?.pages) {
     debugLog("No group pages found in system config — skipping");
     return;
   }
 
-  const pages = systemConfig.value.group.pages;
+  const pages = config.group.pages;
   let updated = 0;
 
-  pages.forEach((page: any) => {
+  pages.forEach(page => {
     if (!page.accessLevel) {
       page.accessLevel = DEFAULT_ACCESS_LEVEL;
       updated++;
@@ -26,26 +27,25 @@ export async function up(db: Db) {
   });
 
   if (updated > 0) {
-    await collection.updateOne({key: "system"}, {$set: {"value.group.pages": pages}});
+    await createOrUpdateKey(ConfigKey.SYSTEM, config);
     debugLog("Backfilled accessLevel on %d of %d navbar items", updated, pages.length);
   } else {
     debugLog("All %d navbar items already have accessLevel set", pages.length);
   }
 }
 
-export async function down(db: Db) {
-  const collection = db.collection(CONFIG_COLLECTION);
-  const systemConfig = await collection.findOne({key: "system"});
+export async function down(_db: Db) {
+  const config = await systemConfig();
 
-  if (!systemConfig?.value?.group?.pages) {
+  if (!config?.group?.pages) {
     return;
   }
 
-  const pages = systemConfig.value.group.pages;
-  pages.forEach((page: any) => {
+  const pages = config.group.pages;
+  pages.forEach(page => {
     delete page.accessLevel;
   });
 
-  await collection.updateOne({key: "system"}, {$set: {"value.group.pages": pages}});
+  await createOrUpdateKey(ConfigKey.SYSTEM, config);
   debugLog("Removed accessLevel from %d navbar items", pages.length);
 }

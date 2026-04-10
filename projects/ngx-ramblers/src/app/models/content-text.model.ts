@@ -249,6 +249,7 @@ export interface CommitteeDocumentsData {
 export interface PageContentRow extends HasColumnRange {
   type: PageContentType;
   showSwiper: boolean;
+  allowSearch?: boolean;
   columns: PageContentColumn[];
   marginTop?: number;
   marginBottom?: number;
