@@ -4,7 +4,8 @@ import { ensureModel } from "../utils/model-utils";
 import {
   BackupSessionStatus,
   BackupSessionTrigger,
-  BackupSessionType
+  BackupSessionType,
+  S3BackupSummary
 } from "../../../../projects/ngx-ramblers/src/app/models/backup-session.model";
 
 export interface BackupSession {
@@ -26,9 +27,12 @@ export interface BackupSession {
     drop?: boolean;
     dryRun?: boolean;
     from?: string;
+    includeS3?: boolean;
   };
   backupPath?: string;
   s3Location?: string;
+  s3Backups?: S3BackupSummary[];
+  s3Restores?: S3BackupSummary[];
   logs: string[];
   error?: string;
   metadata?: {
@@ -59,10 +63,13 @@ const backupSessionSchema = new mongoose.Schema({
     s3Prefix: { type: String },
     drop: { type: Boolean },
     dryRun: { type: Boolean },
-    from: { type: String }
+    from: { type: String },
+    includeS3: { type: Boolean }
   },
   backupPath: { type: String },
   s3Location: { type: String },
+  s3Backups: [{ type: mongoose.Schema.Types.Mixed }],
+  s3Restores: [{ type: mongoose.Schema.Types.Mixed }],
   logs: [{ type: String }],
   error: { type: String },
   metadata: {

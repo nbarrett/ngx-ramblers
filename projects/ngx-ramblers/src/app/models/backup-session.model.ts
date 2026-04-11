@@ -1,8 +1,9 @@
-import { AwsConfig, EnvironmentConfig, EnvironmentsConfig, FlyioConfig, MongoConfig } from "./environment-config.model";
+import { EnvironmentConfig, EnvironmentsConfig } from "./environment-config.model";
 
 export enum BackupRestoreTab {
   BACKUP = "Backup",
   RESTORE = "Restore",
+  S3_BACKUP = "S3 Backup",
   BACKUPS = "Backups",
   HISTORY = "History",
   SETTINGS = "Settings"
@@ -51,6 +52,8 @@ export interface BackupSession {
   options: BackupSessionOptions;
   backupPath?: string;
   s3Location?: string;
+  s3Backups?: S3BackupSummary[];
+  s3Restores?: S3BackupSummary[];
   logs: string[];
   error?: string;
   metadata?: BackupSessionMetadata;
@@ -78,6 +81,7 @@ export interface BackupRequest {
   collections?: string[];
   scaleDown?: boolean;
   upload?: boolean;
+  includeS3?: boolean;
 }
 
 export interface RestoreRequest {
@@ -87,6 +91,7 @@ export interface RestoreRequest {
   collections?: string[];
   drop?: boolean;
   dryRun?: boolean;
+  includeS3?: boolean;
 }
 
 export interface EnvironmentInfo {
@@ -109,6 +114,70 @@ export interface BackupListItem {
 export interface SecretEntry {
   key: string;
   value: string;
+}
+
+export interface S3BackupManifestEntry {
+  key: string;
+  eTag: string;
+  size: number;
+  lastModified: string;
+  action: S3BackupAction;
+}
+
+export const S3BackupAction = {
+  COPIED: "copied",
+  SKIPPED: "skipped"
+} as const;
+
+export type S3BackupAction = typeof S3BackupAction[keyof typeof S3BackupAction];
+
+export interface S3BackupManifest {
+  _id?: string;
+  timestamp: string;
+  site: string;
+  sourceBucket: string;
+  backupBucket: string;
+  backupPrefix: string;
+  mongoTimestamp?: string;
+  entries: S3BackupManifestEntry[];
+  totalObjects: number;
+  copiedObjects: number;
+  skippedObjects: number;
+  totalSizeBytes: number;
+  copiedSizeBytes: number;
+  durationMs: number;
+  status: BackupSessionStatus;
+  error?: string;
+  createdAt?: Date | number;
+  deletable?: boolean;
+  blockReason?: string;
+}
+
+export interface S3BackupRequest {
+  site?: string;
+  all?: boolean;
+  mongoTimestamp?: string;
+  dryRun?: boolean;
+}
+
+export interface S3RestoreRequest {
+  site?: string;
+  all?: boolean;
+  timestamp: string;
+  targetSite?: string;
+  dryRun?: boolean;
+}
+
+export interface S3BackupSummary {
+  site: string;
+  timestamp: string;
+  totalObjects: number;
+  copiedObjects: number;
+  skippedObjects: number;
+  totalSizeBytes: number;
+  copiedSizeBytes: number;
+  durationMs: number;
+  status: BackupSessionStatus;
 }
 
 export type EnvironmentBackupConfig = EnvironmentConfig;

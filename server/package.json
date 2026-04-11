@@ -5,7 +5,6 @@
   "license": "ISC",
   "private": true,
   "scripts": {
-    "aws-backup": "ts-node aws-backup/backup-s3-images.ts",
     "build": "npm run clean-ts && npm run tsc && npm run copy-assets",
     "clean": "rimraf target/site/serenity",
     "clean-node": "rm -rf node_modules",
