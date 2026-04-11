@@ -39,7 +39,6 @@ export class LocalWalksAndEventsService {
       [GroupEventField.ITEM_TYPE]: 1,
       [GroupEventField.START_DATE]: 1,
       [GroupEventField.START_LOCATION]: 1,
-      [GroupEventField.LOCATION_DESCRIPTION]: 1,
       [GroupEventField.DESCRIPTION]: 1,
       [GroupEventField.MEDIA]: 1,
       [GroupEventField.URL]: 1,
