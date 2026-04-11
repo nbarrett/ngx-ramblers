@@ -5,7 +5,8 @@ import {
   deleteVolumeIfExists,
   flyTomlAbsolutePath,
   readConfigFile,
-  runCommand
+  runCommand,
+  runCommandWithRetry
 } from "../lib/fly/fly-commands";
 import fs from "fs";
 import os from "os";
@@ -65,7 +66,7 @@ async function importSecretsFromDatabase(environmentName: string, appName: strin
   const tempFile = path.join(os.tmpdir(), `secrets-${appName}-${Date.now()}.env`);
   try {
     fs.writeFileSync(tempFile, content, { encoding: "utf-8" });
-    runCommand(`flyctl secrets import --app ${appName} < ${tempFile}`);
+    await runCommandWithRetry(`flyctl secrets import --app ${appName} < ${tempFile}`);
     debugLog("Imported secrets from database for environment:", environmentName);
     return true;
   } finally {
@@ -75,10 +76,10 @@ async function importSecretsFromDatabase(environmentName: string, appName: strin
   }
 }
 
-function importSecretsFromFile(appName: string): boolean {
+async function importSecretsFromFile(appName: string): Promise<boolean> {
   const secretsFilePath = path.resolve(__dirname, `../../non-vcs/secrets/secrets.${appName}.env`);
   if (fs.existsSync(secretsFilePath)) {
-    runCommand(`flyctl secrets import --app ${appName} < ${secretsFilePath}`);
+    await runCommandWithRetry(`flyctl secrets import --app ${appName} < ${secretsFilePath}`);
     debugLog("Imported secrets from local file:", secretsFilePath);
     return true;
   } else {
@@ -94,10 +95,10 @@ async function importSecrets(environmentName: string, appName: string): Promise<
       const imported = await importSecretsFromDatabase(environmentName, appName);
       if (!imported) {
         debugLog("Database secrets import returned nothing - falling back to local file for:", appName);
-        importSecretsFromFile(appName);
+        await importSecretsFromFile(appName);
       }
     } else {
-      importSecretsFromFile(appName);
+      await importSecretsFromFile(appName);
     }
   } catch (error) {
     debugLog("Secrets import failed for %s (continuing deployment):", appName, error);
@@ -133,8 +134,8 @@ async function deployToEnvironments(configFilePath: string, environmentsFilter: 
     deleteVolumeIfExists(environmentConfig.appName, config.region);
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
     await importSecrets(environmentConfig.name, environmentConfig.appName);
-    runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling --wait-timeout 600`);
-    runCommand(`flyctl scale count ${environmentConfig.scaleCount} --app ${environmentConfig.appName} --yes`);
-    runCommand(`flyctl scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
+    await runCommandWithRetry(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling --wait-timeout 600`);
+    await runCommandWithRetry(`flyctl scale count ${environmentConfig.scaleCount} --app ${environmentConfig.appName} --yes`);
+    await runCommandWithRetry(`flyctl scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
   }
 }

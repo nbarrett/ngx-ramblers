@@ -43,6 +43,22 @@ export function runCommand(command: string, returnOutput: boolean = false, throw
   }
 }
 
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+export async function runCommandWithRetry(command: string, attempts: number = 3, initialDelayMs: number = 2000, attempt: number = 1): Promise<void> {
+  try {
+    runCommand(command, false, true);
+  } catch (error) {
+    if (attempt >= attempts) {
+      throw error;
+    }
+    const backoffMs = initialDelayMs * 2 ** (attempt - 1);
+    debugLog(`Attempt ${attempt}/${attempts} failed, retrying in ${backoffMs}ms: ${command}`);
+    await sleep(backoffMs);
+    return runCommandWithRetry(command, attempts, initialDelayMs, attempt + 1);
+  }
+}
+
 export function runCommandStreaming(
   command: string,
   onOutput?: OutputCallback
