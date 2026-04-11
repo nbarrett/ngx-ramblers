@@ -6,6 +6,9 @@ import { SelectAllHeaderComponent } from "./select-all-header";
 @Component({
   selector: "app-collections-multi-select",
   template: `
+    @if (label) {
+      <label class="form-label">{{ labelText() }}</label>
+    }
     <ng-select
       [items]="available"
       [multiple]="true"
@@ -33,10 +36,20 @@ export class CollectionsMultiSelectComponent {
   @Input() available: string[] = [];
   @Input() selected: string[] = [];
   @Input() placeholder?: string;
+  @Input() label?: string;
   @Output() selectedChange = new EventEmitter<string[]>();
 
   toggleSelectAll() {
     this.selected = this.selected?.length === this.available?.length ? [] : [...(this.available || [])];
     this.selectedChange.emit(this.selected);
+  }
+
+  labelText(): string {
+    if (!this.label) {
+      return "";
+    }
+    const totalCount = this.available?.length || 0;
+    const selectedCount = this.selected?.length || 0;
+    return `${this.label} (${selectedCount} of ${totalCount} selected)`;
   }
 }

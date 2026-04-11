@@ -9,7 +9,16 @@ import { isNumber, isString, kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faExclamationTriangle, faSpinner, faTrash } from "@fortawesome/free-solid-svg-icons";
+import {
+  faChartBar,
+  faChevronDown,
+  faChevronUp,
+  faExclamationTriangle,
+  faFileLines,
+  faRotateLeft,
+  faSpinner,
+  faTrash
+} from "@fortawesome/free-solid-svg-icons";
 import { EnvironmentSetupService } from "../../../services/environment-setup/environment-setup.service";
 import { PageComponent } from "../../../page/page.component";
 import { EnvironmentSettings } from "../../../modules/common/environment-settings/environment-settings";
@@ -25,11 +34,16 @@ import {
   EnvironmentInfo,
   RestoreRequest,
   S3BackupManifest,
-  S3BackupRequest,
   S3BackupSummary,
+  S3ManifestBreakdown,
   S3RestoreRequest
 } from "../../../models/backup-session.model";
 import { humanFileSize } from "../../../functions/file-utils";
+import {
+  groupEntriesByExtension,
+  groupEntriesByPrefix,
+  topLargestEntries
+} from "../../../functions/s3-manifest-analysis";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NotifierService } from "../../../services/notifier.service";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -70,6 +84,8 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
       border-radius: 0.25rem
       font-size: 0.875rem
       font-weight: 500
+      white-space: nowrap
+      display: inline-block
 
     .session-logs
       background-color: #1e293b
@@ -83,6 +99,13 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
 
       div
         margin-bottom: 0.25rem
+
+    .manifest-analysis-header
+      min-height: 5.5rem
+      margin-bottom: 0.5rem
+
+    .manifest-analysis-header-full
+      min-height: 0
   `],
   template: `
     <app-page autoTitle pageTitle="Backup & Restore">
@@ -103,8 +126,8 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                   <div class="thumbnail-heading">Backup</div>
                   <form (ngSubmit)="startBackup()" autocomplete="off">
                     <div class="mb-3">
-                      <label class="form-label">Environment(s)</label>
                       <app-environment-select
+                        label="Environments"
                         [items]="environmentsWithMongo"
                         [multiple]="true"
                         [showSelectAllHeader]="true"
@@ -116,15 +139,10 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                           Settings tab first.
                         </small>
                       }
-                      @if (selectedEnvironments.length > 0) {
-                        <small class="form-text">
-                          {{ stringUtils.pluraliseWithCount(selectedEnvironments.length, 'environment') }}
-                          selected</small>
-                      }
                     </div>
                     <div class="mb-3">
-                      <label class="form-label">Collections (optional)</label>
                       <app-collections-multi-select
+                        label="Collections (optional)"
                         [available]="availableCollections"
                         [(selected)]="selectedCollections">
                       </app-collections-multi-select>
@@ -183,8 +201,8 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                   </div>
                   <form (ngSubmit)="startRestore()" autocomplete="off">
                     <div class="mb-3">
-                      <label class="form-label">Target Environment</label>
                       <app-environment-select
+                        label="Target Environment"
                         [items]="environmentsWithMongo"
                         [(selectedName)]="restoreRequest.environment"
                         (selectedNameChange)="onRestoreEnvironmentChange($event)"
@@ -197,8 +215,8 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       }
                     </div>
                     <div class="mb-3">
-                      <label class="form-label">Source Environment</label>
                       <app-environment-select
+                        label="Source Environment"
                         [items]="environmentsWithMongo"
                         [(selectedName)]="sourceEnvironment"
                         (selectedNameChange)="onSourceEnvironmentChange($event)"
@@ -240,8 +258,8 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       }
                     </div>
                     <div class="mb-3">
-                      <label class="form-label">Collections (optional)</label>
                       <app-collections-multi-select
+                        label="Collections (optional)"
                         [available]="restoreAvailableCollections"
                         [(selected)]="selectedRestoreCollections">
                       </app-collections-multi-select>
@@ -266,258 +284,50 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       {{ restoreButtonLabel() }}
                     </button>
                   </form>
-                </div>
-              </div>
-            </tab>
-            <tab [active]="tabActive(BackupRestoreTab.S3_BACKUP)"
-                 (selectTab)="selectTab(BackupRestoreTab.S3_BACKUP)"
-                 [heading]="BackupRestoreTab.S3_BACKUP">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="row thumbnail-heading-frame">
-                  <div class="thumbnail-heading">S3 Incremental Backup</div>
-                  <form (ngSubmit)="startS3Backup()" autocomplete="off">
-                    <div class="mb-3">
-                      <label class="form-label">Site</label>
-                      <ng-select
-                        [(ngModel)]="s3SelectedSite"
-                        [items]="s3Sites"
-                        [clearable]="true"
-                        placeholder="Select site or leave empty for all..."
-                        name="s3Site"
-                        appearance="outline">
-                      </ng-select>
-                      @if (s3Sites.length === 0) {
-                        <small class="form-text text-warning">No sites configured with S3 credentials.</small>
-                      }
-                    </div>
-                    <div class="mb-3 form-check">
-                      <input type="checkbox" class="form-check-input"
-                             [(ngModel)]="s3BackupAllSites" name="s3BackupAll"
-                             id="s3BackupAll">
-                      <label class="form-check-label" for="s3BackupAll">Backup all sites</label>
-                    </div>
-                    <div class="mb-3 form-check">
-                      <input type="checkbox" class="form-check-input"
-                             [(ngModel)]="s3BackupDryRun" name="s3BackupDryRun"
-                             id="s3BackupDryRun">
-                      <label class="form-check-label" for="s3BackupDryRun">Dry run (simulate only)</label>
-                    </div>
-                    <button type="submit" class="btn btn-primary"
-                            [disabled]="!s3BackupAllSites && !s3SelectedSite || s3BackupInProgress">
-                      @if (s3BackupInProgress) {
-                        <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
-                      }
-                      Start S3 Backup
-                    </button>
-                  </form>
-
-                  @if (s3BackupResults.length > 0) {
-                    <div class="mt-3">
-                      <div class="thumbnail-heading">Backup Results</div>
-                      <div class="table-responsive">
-                        <table class="table table-striped table-sm">
-                          <thead>
-                          <tr>
-                            <th>Site</th>
-                            <th>Status</th>
-                            <th>Total Objects</th>
-                            <th>Copied</th>
-                            <th>Skipped</th>
-                            <th>Size Copied</th>
-                            <th>Duration</th>
-                          </tr>
-                          </thead>
-                          <tbody>
-                            @for (result of s3BackupResults; track result.site) {
-                              <tr>
-                                <td>{{ result.site }}</td>
-                                <td>
-                                  <span class="session-status" [ngClass]="statusStyle(result.status)">
-                                    {{ humaniseStatus(result.status) }}
-                                  </span>
-                                </td>
-                                <td>{{ result.totalObjects }}</td>
-                                <td>{{ result.copiedObjects }}</td>
-                                <td>{{ result.skippedObjects }}</td>
-                                <td>{{ formatBytes(result.copiedSizeBytes) }}</td>
-                                <td>{{ formatDurationMs(result.durationMs) }}</td>
-                              </tr>
-                            }
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  }
-
                   <div class="mt-4">
-                    <div class="thumbnail-heading">S3 Backup History</div>
-                    <div class="mb-3">
-                      <label class="form-label">Filter by Site</label>
-                      <ng-select
-                        [(ngModel)]="s3ManifestFilterSite"
-                        [ngModelOptions]="{standalone: true}"
-                        (ngModelChange)="loadS3Manifests()"
-                        [items]="s3Sites"
-                        [clearable]="true"
-                        placeholder="All sites"
-                        name="s3ManifestFilter"
-                        appearance="outline">
-                      </ng-select>
-                    </div>
-                    <div class="table-responsive">
-                      <table class="table table-striped table-sm">
-                        <thead>
-                        <tr>
-                          <th>Timestamp</th>
-                          <th>Site</th>
-                          <th>Status</th>
-                          <th>Total</th>
-                          <th>Copied</th>
-                          <th>Skipped</th>
-                          <th>Total Size</th>
-                          <th>Copied Size</th>
-                          <th>Duration</th>
-                          <th>Actions</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                          @for (m of s3Manifests; track m._id) {
-                            <tr>
-                              <td>{{ m.timestamp }}</td>
-                              <td>{{ m.site }}</td>
-                              <td>
-                                <span class="session-status" [ngClass]="statusStyle(m.status)">
-                                  {{ humaniseStatus(m.status) }}
-                                </span>
-                              </td>
-                              <td>{{ m.totalObjects }}</td>
-                              <td>{{ m.copiedObjects }}</td>
-                              <td>{{ m.skippedObjects }}</td>
-                              <td>{{ formatBytes(m.totalSizeBytes) }}</td>
-                              <td>{{ formatBytes(m.copiedSizeBytes) }}</td>
-                              <td>{{ formatDurationMs(m.durationMs) }}</td>
-                              <td>
-                                @if (pendingRestoreManifest?._id === m._id) {
-                                  <button class="btn btn-sm btn-warning me-1"
-                                          [disabled]="s3RestoreInProgress"
-                                          (click)="confirmRestore(m)">Confirm Restore
-                                  </button>
-                                  <button class="btn btn-sm btn-outline-secondary"
-                                          (click)="cancelManifestConfirmation()">Cancel
-                                  </button>
-                                } @else if (pendingDeleteManifest?._id === m._id) {
-                                  <button class="btn btn-sm btn-danger me-1"
-                                          (click)="confirmDelete(m)">Confirm Delete
-                                  </button>
-                                  <button class="btn btn-sm btn-outline-secondary"
-                                          (click)="cancelManifestConfirmation()">Cancel
-                                  </button>
-                                } @else {
-                                  <button class="btn btn-sm btn-warning me-1"
-                                          (click)="requestRestore(m)"
-                                          [disabled]="m.status !== BackupSessionStatus.COMPLETED || s3RestoreInProgress">Restore
-                                  </button>
-                                  <button class="btn btn-sm btn-danger"
-                                          container="body"
-                                          [tooltip]="m.deletable === false ? m.blockReason : null"
-                                          [disabled]="m.deletable === false"
-                                          (click)="requestDelete(m)">
-                                    <fa-icon [icon]="faTrash"></fa-icon>
-                                  </button>
-                                }
-                              </td>
-                            </tr>
+                    <button type="button" class="btn btn-sm btn-warning"
+                            (click)="manageStoredBackupsOpen = !manageStoredBackupsOpen">
+                      <fa-icon [icon]="manageStoredBackupsOpen ? faChevronUp : faChevronDown" class="me-1"></fa-icon>
+                      Manage stored backups
+                    </button>
+                    @if (manageStoredBackupsOpen) {
+                      <div class="mt-2 p-3 bg-light border rounded">
+                        <div class="small text-muted mb-2">
+                          Bulk-select and delete old Mongo backup files from S3 and local storage. Use this to prune stale snapshots that are no longer needed.
+                        </div>
+                        <div class="mb-3">
+                          <app-backups-multi-select
+                            [items]="backups"
+                            [(selected)]="selectedBackups">
+                          </app-backups-multi-select>
+                          @if (selectedBackups.length > 0) {
+                            <small class="form-text">{{ stringUtils.pluraliseWithCount(selectedBackups.length, 'backup') }} selected</small>
                           }
-                          @if (s3Manifests.length === 0) {
-                            <tr>
-                              <td colspan="10" class="text-muted text-center">No S3 backup history found.</td>
-                            </tr>
-                          }
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  @if (s3RestoreInProgress) {
-                    <div class="alert alert-warning mt-3">
-                      <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
-                      S3 restore in progress...
-                    </div>
-                  }
-
-                  @if (s3RestoreResults.length > 0) {
-                    <div class="mt-3">
-                      <div class="thumbnail-heading">Restore Results</div>
-                      <div class="table-responsive">
-                        <table class="table table-striped table-sm">
-                          <thead>
-                          <tr>
-                            <th>Site</th>
-                            <th>Status</th>
-                            <th>Restored</th>
-                            <th>Skipped</th>
-                            <th>Duration</th>
-                          </tr>
-                          </thead>
-                          <tbody>
-                            @for (result of s3RestoreResults; track result.site) {
-                              <tr>
-                                <td>{{ result.site }}</td>
-                                <td>
-                                  <span class="session-status" [ngClass]="statusStyle(result.status)">
-                                    {{ humaniseStatus(result.status) }}
-                                  </span>
-                                </td>
-                                <td>{{ result.copiedObjects }}</td>
-                                <td>{{ result.skippedObjects }}</td>
-                                <td>{{ formatDurationMs(result.durationMs) }}</td>
-                              </tr>
+                        </div>
+                        @if (selectedBackups.length > 0) {
+                          <div class="d-flex gap-2">
+                            @if (backupDeleteConfirm.deleteConfirmOutstanding()) {
+                              <button type="button" class="btn btn-danger"
+                                      (click)="confirmDeleteSelectedBackups()">
+                                <fa-icon [icon]="faTrash"></fa-icon>
+                                Confirm delete of {{ selectedBackups.length }} backup(s)
+                              </button>
+                              <button type="button" class="btn btn-secondary"
+                                      (click)="backupDeleteConfirm.clear()">
+                                Cancel
+                              </button>
+                            } @else {
+                              <button type="button" class="btn btn-danger"
+                                      (click)="deleteSelectedBackups()">
+                                <fa-icon [icon]="faTrash"></fa-icon>
+                                Delete {{ selectedBackups.length }} Backup(s)
+                              </button>
                             }
-                          </tbody>
-                        </table>
+                          </div>
+                        }
                       </div>
-                    </div>
-                  }
-                </div>
-              </div>
-            </tab>
-            <tab [active]="tabActive(BackupRestoreTab.BACKUPS)"
-                 (selectTab)="selectTab(BackupRestoreTab.BACKUPS)"
-                 [heading]="BackupRestoreTab.BACKUPS">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="row thumbnail-heading-frame">
-                  <div class="thumbnail-heading">Bulk Backup Management</div>
-                  <div class="mb-3">
-                    <label class="form-label">Select Backups for Bulk Actions</label>
-                    <app-backups-multi-select
-                      [items]="backups"
-                      [(selected)]="selectedBackups">
-                    </app-backups-multi-select>
-                    @if (selectedBackups.length > 0) {
-                      <small class="form-text">{{ stringUtils.pluraliseWithCount(selectedBackups.length, 'backup') }} selected</small>
                     }
                   </div>
-                  @if (selectedBackups.length > 0) {
-                    <div class="d-flex gap-2 mb-3">
-                      @if (backupDeleteConfirm.deleteConfirmOutstanding()) {
-                        <button type="button" class="btn btn-danger"
-                                (click)="confirmDeleteSelectedBackups()">
-                          <fa-icon [icon]="faTrash"></fa-icon>
-                          Confirm delete of {{ selectedBackups.length }} backup(s)
-                        </button>
-                        <button type="button" class="btn btn-secondary"
-                                (click)="backupDeleteConfirm.clear()">
-                          Cancel
-                        </button>
-                      } @else {
-                        <button type="button" class="btn btn-danger"
-                                (click)="deleteSelectedBackups()">
-                          <fa-icon [icon]="faTrash"></fa-icon>
-                          Delete {{ selectedBackups.length }} Backup(s)
-                        </button>
-                      }
-                    </div>
-                  }
                 </div>
               </div>
             </tab>
@@ -527,6 +337,22 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
               <div class="img-thumbnail thumbnail-admin-edit">
                 <div class="row thumbnail-heading-frame">
                   <div class="thumbnail-heading">Backup/Restore History</div>
+                  <div class="mb-3">
+                    <app-environment-select
+                      label="Environments"
+                      [items]="environmentsWithMongo"
+                      [multiple]="true"
+                      [showSelectAllHeader]="true"
+                      [(selected)]="historyFilterEnvironments"
+                      (selectedChange)="onHistoryFilterChange($event)"></app-environment-select>
+                    <small class="form-text text-muted">
+                      @if (historyFilterEnvironments.length === 0) {
+                        No filter applied — showing sessions for all environments.
+                      } @else {
+                        Filtered to {{ historyFilterEnvironments.length }} of {{ environmentsWithMongo.length }} environments.
+                      }
+                    </small>
+                  </div>
                   <div class="table-responsive">
                     <table class="table table-striped table-sm">
                       <thead>
@@ -541,7 +367,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       </tr>
                       </thead>
                       <tbody>
-                        @for (session of sessions; track session._id) {
+                        @for (session of filteredSessions(); track session._id) {
                           <tr>
                             <td>{{ session.type }}</td>
                             <td>{{ session.environment }}</td>
@@ -573,17 +399,48 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                                 <span class="text-muted">-</span>
                               }
                             </td>
-                            <td>
-                              <button class="btn btn-sm btn-info"
-                                      (click)="toggleSessionLogs(session)">
-                                {{ isSessionExpanded(session) ? 'Hide Logs' : 'View Logs' }}
-                              </button>
+                            <td class="text-nowrap">
+                              <div class="d-inline-flex gap-1 align-items-center">
+                                <button type="button" class="btn btn-sm btn-info"
+                                        container="body"
+                                        [tooltip]="isSessionExpanded(session) ? 'Hide logs' : 'View logs'"
+                                        (click)="toggleSessionLogs(session)">
+                                  <fa-icon [icon]="isSessionExpanded(session) ? faChevronUp : faFileLines"></fa-icon>
+                                </button>
+                                @if (manifestForSession(session); as manifest) {
+                                  @if (pendingDeleteManifest?._id === manifest._id) {
+                                    <button type="button" class="btn btn-sm btn-danger"
+                                            (click)="confirmDelete(manifest)">Confirm
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            (click)="cancelManifestConfirmation()">Cancel
+                                    </button>
+                                  } @else {
+                                    <button type="button" class="btn btn-sm btn-warning"
+                                            container="body"
+                                            [tooltip]="isAnalysing(manifest) ? 'Hide analysis' : 'Analyse S3 snapshot contents'"
+                                            (click)="toggleAnalyse(manifest)">
+                                      <fa-icon [icon]="isAnalysing(manifest) ? faChevronUp : faChartBar"></fa-icon>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger"
+                                            container="body"
+                                            [tooltip]="manifest.deletable === false ? manifest.blockReason : 'Delete S3 snapshot'"
+                                            [disabled]="manifest.deletable === false"
+                                            (click)="requestDelete(manifest)">
+                                      <fa-icon [icon]="faTrash"></fa-icon>
+                                    </button>
+                                  }
+                                }
+                              </div>
                             </td>
                           </tr>
                           @if (isSessionExpanded(session)) {
                             <tr>
                               <td colspan="7">
                                 <div class="session-logs">
+                                  @if (logsNewestFirst(session).length === 0 && session.status === BackupSessionStatus.IN_PROGRESS) {
+                                    <div><fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Waiting for log output...</div>
+                                  }
                                   @for (log of logsNewestFirst(session); track $index) {
                                     <div>{{ log }}</div>
                                   }
@@ -594,6 +451,105 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               </td>
                             </tr>
                           }
+                          @if (manifestForSession(session); as manifest) {
+                            @if (isAnalysing(manifest)) {
+                              <tr>
+                                <td colspan="7" class="p-0">
+                                  <div class="manifest-analysis p-3 bg-white border-top">
+                                    <div class="row g-3">
+                                      <div class="col-md-6">
+                                        <div class="manifest-analysis-section">
+                                          <div class="manifest-analysis-header">
+                                            <div class="fw-bold mb-1">Breakdown by top-level prefix</div>
+                                            <div class="small text-muted">Bytes per top-level folder.</div>
+                                          </div>
+                                          <table class="table table-sm table-striped table-bordered mb-0">
+                                            <thead class="table-light">
+                                            <tr>
+                                              <th>Prefix</th>
+                                              <th class="text-end">Count</th>
+                                              <th class="text-end">Size</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                              @for (bucket of prefixBreakdown(manifest); track bucket.label) {
+                                                <tr>
+                                                  <td>{{ bucket.label }}</td>
+                                                  <td class="text-end">{{ bucket.count }}</td>
+                                                  <td class="text-end">{{ formatBytes(bucket.bytes) }}</td>
+                                                </tr>
+                                              }
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                      <div class="col-md-6">
+                                        <div class="manifest-analysis-section">
+                                          <div class="manifest-analysis-header">
+                                            <div class="fw-bold mb-1">Breakdown by file extension</div>
+                                            <div class="small text-muted">Bytes per file type.</div>
+                                          </div>
+                                          <table class="table table-sm table-striped table-bordered mb-0">
+                                            <thead class="table-light">
+                                            <tr>
+                                              <th>Extension</th>
+                                              <th class="text-end">Count</th>
+                                              <th class="text-end">Size</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                              @for (bucket of extensionBreakdown(manifest); track bucket.label) {
+                                                <tr>
+                                                  <td>{{ bucket.label }}</td>
+                                                  <td class="text-end">{{ bucket.count }}</td>
+                                                  <td class="text-end">{{ formatBytes(bucket.bytes) }}</td>
+                                                </tr>
+                                              }
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                      <div class="col-12">
+                                        <div class="manifest-analysis-section">
+                                          <div class="manifest-analysis-header manifest-analysis-header-full">
+                                            <div class="fw-bold mb-1">Top 20 largest objects</div>
+                                            <div class="small text-muted">Largest individual files in this snapshot.</div>
+                                          </div>
+                                          <table class="table table-sm table-striped table-bordered mb-0">
+                                            <thead class="table-light">
+                                            <tr>
+                                              <th class="text-end" style="width: 8rem;">Size</th>
+                                              <th>Key</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                              @for (entry of topEntries(manifest); track entry.key) {
+                                                <tr>
+                                                  <td class="text-end">{{ formatBytes(entry.size) }}</td>
+                                                  <td class="font-monospace small text-break">{{ entry.key }}</td>
+                                                </tr>
+                                              }
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            }
+                          }
+                        }
+                        @if (filteredSessions().length === 0) {
+                          <tr>
+                            <td colspan="7" class="text-muted text-center">
+                              @if (sessions.length === 0) {
+                                No backup or restore sessions yet.
+                              } @else {
+                                No sessions match the selected environment filter.
+                              }
+                            </td>
+                          </tr>
                         }
                       </tbody>
                     </table>
@@ -641,6 +597,11 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly faTrash = faTrash;
   protected readonly faSpinner = faSpinner;
+  protected readonly faChartBar = faChartBar;
+  protected readonly faChevronUp = faChevronUp;
+  protected readonly faChevronDown = faChevronDown;
+  protected readonly faFileLines = faFileLines;
+  protected readonly faRotateLeft = faRotateLeft;
 
   enabled = false;
 
@@ -684,19 +645,69 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   };
 
   s3Sites: string[] = [];
-  s3SelectedSite: string | null = null;
-  s3BackupAllSites = false;
-  s3BackupDryRun = false;
-  s3BackupInProgress = false;
-  s3BackupResults: S3BackupSummary[] = [];
   s3Manifests: S3BackupManifest[] = [];
   s3ManifestFilterSite: string | null = null;
   s3RestoreInProgress = false;
-  s3RestoreResults: S3BackupSummary[] = [];
   pendingRestoreManifest: S3BackupManifest | undefined;
   pendingDeleteManifest: S3BackupManifest | undefined;
+  historyFilterEnvironments: EnvironmentInfo[] = [];
+  analysingManifestIds: Set<string> = new Set<string>();
+  manageStoredBackupsOpen = false;
   protected readonly BackupSessionStatus = BackupSessionStatus;
   protected readonly BackupSessionType = BackupSessionType;
+
+  filteredSessions(): BackupSession[] {
+    if (!this.historyFilterEnvironments || this.historyFilterEnvironments.length === 0) {
+      return this.sessions;
+    }
+    const selectedNames = new Set(this.historyFilterEnvironments.map(environment => environment.name));
+    return this.sessions.filter(session => selectedNames.has(session.environment));
+  }
+
+  manifestForSession(session: BackupSession): S3BackupManifest | undefined {
+    if (session.type !== BackupSessionType.BACKUP) {
+      return undefined;
+    }
+    const timestampMatch = session.sessionId?.match(/^backup-(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})-/);
+    if (!timestampMatch) {
+      return undefined;
+    }
+    const timestamp = timestampMatch[1];
+    return this.s3Manifests.find(manifest =>
+      manifest.site === session.environment && manifest.mongoTimestamp === timestamp
+    );
+  }
+
+  onHistoryFilterChange(selected: EnvironmentInfo[]) {
+    this.historyFilterEnvironments = selected || [];
+  }
+
+  toggleAnalyse(manifest: S3BackupManifest) {
+    if (!manifest._id) {
+      return;
+    }
+    if (this.analysingManifestIds.has(manifest._id)) {
+      this.analysingManifestIds.delete(manifest._id);
+    } else {
+      this.analysingManifestIds.add(manifest._id);
+    }
+  }
+
+  isAnalysing(manifest: S3BackupManifest): boolean {
+    return !!manifest._id && this.analysingManifestIds.has(manifest._id);
+  }
+
+  prefixBreakdown(manifest: S3BackupManifest): S3ManifestBreakdown[] {
+    return groupEntriesByPrefix(manifest.entries || [], 1);
+  }
+
+  extensionBreakdown(manifest: S3BackupManifest): S3ManifestBreakdown[] {
+    return groupEntriesByExtension(manifest.entries || []);
+  }
+
+  topEntries(manifest: S3BackupManifest) {
+    return topLargestEntries(manifest.entries || [], 20);
+  }
 
   statusStyle(status: string) {
     if (status === BackupSessionStatus.COMPLETED) return "text-style-mintcake";
@@ -832,11 +843,9 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   private handleTabChange(tab: string) {
     if (kebabCase(tab) === kebabCase(BackupRestoreTab.HISTORY)) {
       this.startAutoRefresh();
+      this.loadS3Manifests();
     } else {
       this.stopAutoRefresh();
-    }
-    if (kebabCase(tab) === kebabCase(BackupRestoreTab.S3_BACKUP)) {
-      this.loadS3Manifests();
     }
   }
 
@@ -852,6 +861,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
             this.selectedSession = updated;
           }
         }
+        this.loadS3Manifests();
       });
   }
 
@@ -867,7 +877,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
       this.backupRestoreService.listEnvironments().subscribe({
         next: envs => {
           this.environments = envs;
-          this.environmentsWithMongo = envs.filter(e => e.hasMongoConfig);
+          this.environmentsWithMongo = envs.filter(environment => environment.hasMongoConfig);
           this.logger.info("Loaded environments:", envs);
         },
         error: err => this.notify.error({
@@ -1359,49 +1369,6 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     );
   }
 
-  startS3Backup() {
-    const request: S3BackupRequest = {
-      all: this.s3BackupAllSites,
-      dryRun: this.s3BackupDryRun
-    };
-    if (!this.s3BackupAllSites && this.s3SelectedSite) {
-      request.site = this.s3SelectedSite;
-      request.all = false;
-    }
-
-    this.s3BackupInProgress = true;
-    this.s3BackupResults = [];
-
-    this.subscriptions.push(
-      this.backupRestoreService.startS3Backup(request).subscribe({
-        next: results => {
-          this.s3BackupResults = results;
-          this.s3BackupInProgress = false;
-          const failed = results.filter(r => r.status === BackupSessionStatus.FAILED);
-          if (failed.length > 0) {
-            this.notify.error({
-              title: "S3 Backup Partially Failed",
-              message: `${failed.length} site(s) failed`
-            });
-          } else {
-            this.notify.success({
-              title: "S3 Backup Completed",
-              message: `${results.length} site(s) backed up successfully`
-            });
-          }
-          this.loadS3Manifests();
-        },
-        error: err => {
-          this.s3BackupInProgress = false;
-          this.notify.error({
-            title: "S3 Backup Failed",
-            message: this.extractErrorMessage(err)
-          });
-        }
-      })
-    );
-  }
-
   requestRestore(manifest: S3BackupManifest) {
     this.pendingRestoreManifest = manifest;
     this.pendingDeleteManifest = undefined;
@@ -1426,14 +1393,12 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     };
 
     this.s3RestoreInProgress = true;
-    this.s3RestoreResults = [];
 
     this.subscriptions.push(
       this.backupRestoreService.startS3Restore(request).subscribe({
         next: results => {
-          this.s3RestoreResults = results;
           this.s3RestoreInProgress = false;
-          const failed = results.filter(r => r.status === BackupSessionStatus.FAILED);
+          const failed = results.filter(result => result.status === BackupSessionStatus.FAILED);
           if (failed.length > 0) {
             this.notify.error({
               title: "S3 Restore Failed",
@@ -1445,6 +1410,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
               message: `${results.length} site(s) restored successfully`
             });
           }
+          this.loadS3Manifests();
         },
         error: err => {
           this.s3RestoreInProgress = false;
@@ -1475,7 +1441,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
           if (result.blocked?.length > 0) {
             this.notify.warning({
               title: "Manifest Delete Blocked",
-              message: result.blocked.map(b => b.reason).join("; ")
+              message: result.blocked.map(block => block.reason).join("; ")
             });
           }
           this.loadS3Manifests();

@@ -336,9 +336,12 @@ export class BackupAndRestoreService {
         if (configuredSites.includes(options.environment)) {
           await this.addLog(sessionId, `Starting S3 object backup for site ${options.environment} aligned with timestamp ${mongoTimestamp}`);
           try {
-            const s3Results = await startS3Backup({ site: options.environment, mongoTimestamp });
+            const s3Results = await startS3Backup(
+              { site: options.environment, mongoTimestamp },
+              (msg) => this.addLog(sessionId, msg)
+            );
             await this.updateSession(sessionId, { s3Backups: s3Results });
-            const summary = s3Results.map(r => `${r.site}: ${r.copiedObjects} copied, ${r.skippedObjects} skipped, ${this.formatBytes(r.copiedSizeBytes)} (${r.status})`).join("; ");
+            const summary = s3Results.map(result => `${result.site}: ${result.copiedObjects} copied, ${result.skippedObjects} skipped, ${this.formatBytes(result.copiedSizeBytes)} (${result.status})`).join("; ");
             await this.addLog(sessionId, `S3 object backup completed: ${summary}`);
           } catch (error: any) {
             await this.addLog(sessionId, `S3 object backup failed: ${error.message} (Mongo backup is still valid)`);
@@ -537,13 +540,16 @@ export class BackupAndRestoreService {
           const crossEnvNote = crossEnvironment ? ` (cross-environment: ${sourceSite} -> ${targetSite})` : "";
           await this.addLog(sessionId, `Starting S3 object restore for site ${targetSite} at timestamp ${timestamp}${crossEnvNote}`);
           try {
-            const s3Results = await startS3Restore({
-              site: sourceSite,
-              targetSite: crossEnvironment ? targetSite : undefined,
-              timestamp
-            });
+            const s3Results = await startS3Restore(
+              {
+                site: sourceSite,
+                targetSite: crossEnvironment ? targetSite : undefined,
+                timestamp
+              },
+              (msg) => this.addLog(sessionId, msg)
+            );
             await this.updateSession(sessionId, { s3Restores: s3Results });
-            const summary = s3Results.map(r => `${r.site}: ${r.copiedObjects} restored, ${r.skippedObjects} skipped, ${this.formatBytes(r.copiedSizeBytes)} (${r.status})`).join("; ");
+            const summary = s3Results.map(result => `${result.site}: ${result.copiedObjects} restored, ${result.skippedObjects} skipped, ${this.formatBytes(result.copiedSizeBytes)} (${result.status})`).join("; ");
             await this.addLog(sessionId, `S3 object restore completed: ${summary}`);
           } catch (error: any) {
             await this.addLog(sessionId, `S3 object restore failed: ${error.message} (Mongo restore is still valid)`);

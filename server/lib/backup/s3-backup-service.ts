@@ -2,6 +2,7 @@ import debug from "debug";
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
+  HeadObjectCommand,
   ListObjectsV2Command,
   S3Client
 } from "@aws-sdk/client-s3";
@@ -23,7 +24,57 @@ import { s3BackupManifest } from "../mongo/models/s3-backup-manifest";
 import { configuredBackup } from "./backup-config";
 
 const debugLog = debug(envConfig.logNamespace("s3-backup-service"));
-debugLog.enabled = false;
+debugLog.enabled = true;
+
+const PROGRESS_EVERY_MS = 3000;
+
+function formatBytes(bytes: number): string {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exp = Math.floor(Math.log(bytes) / Math.log(1024));
+  const size = (bytes / Math.pow(1024, exp)).toFixed(1);
+  return `${size} ${units[exp]}`;
+}
+
+export type ProgressCallback = (message: string) => void | Promise<void>;
+
+async function copyObjectWithETagGuard(
+  client: S3Client,
+  sourceBucket: string,
+  sourceKey: string,
+  destBucket: string,
+  destKey: string,
+  expectedETag: string,
+  siteLabel: string,
+  progressPrefix: string,
+  attemptsRemaining: number = 3
+): Promise<string> {
+  try {
+    await client.send(new CopyObjectCommand({
+      Bucket: destBucket,
+      CopySource: encodeURIComponent(`${sourceBucket}/${sourceKey}`),
+      CopySourceIfMatch: expectedETag,
+      Key: destKey
+    }));
+    return expectedETag;
+  } catch (error: any) {
+    const code = error?.Code || error?.name;
+    const status = error?.$metadata?.httpStatusCode;
+    const isPreconditionFailed = code === "PreconditionFailed" || status === 412;
+    if (!isPreconditionFailed || attemptsRemaining <= 1) {
+      throw error;
+    }
+    debugLog(`[${siteLabel}] ${progressPrefix} source modified mid-backup; rereading ${sourceKey} (${attemptsRemaining - 1} attempts remaining)`);
+    const head = await client.send(new HeadObjectCommand({ Bucket: sourceBucket, Key: sourceKey }));
+    const newETag = (head.ETag || "").replace(/"/g, "");
+    if (!newETag || newETag === expectedETag) {
+      throw error;
+    }
+    return copyObjectWithETagGuard(
+      client, sourceBucket, sourceKey, destBucket, destKey, newETag, siteLabel, progressPrefix, attemptsRemaining - 1
+    );
+  }
+}
 
 interface S3ObjectInfo {
   key: string;
@@ -39,6 +90,7 @@ interface SiteConfig {
   backupBucket: string;
   backupRegion: string;
   credentials: { accessKeyId: string; secretAccessKey: string };
+  sharedWith?: string[];
 }
 
 export function buildBackupPrefix(site: string, timestamp: string): string {
@@ -73,7 +125,7 @@ export function buildETagIndex(objectInfos: S3ObjectInfo[]): Map<string, S3Objec
   return new Map(objectInfos.map(obj => [obj.key, obj]));
 }
 
-export function siteConfigs(backupConfig: BackupConfig): SiteConfig[] {
+function rawSiteConfigs(backupConfig: BackupConfig): SiteConfig[] {
   const globalCredentials = backupConfig.aws?.accessKeyId && backupConfig.aws?.secretAccessKey
     ? { accessKeyId: backupConfig.aws.accessKeyId, secretAccessKey: backupConfig.aws.secretAccessKey }
     : null;
@@ -102,8 +154,33 @@ export function siteConfigs(backupConfig: BackupConfig): SiteConfig[] {
     .filter((config): config is SiteConfig => config !== null);
 }
 
+export function dedupeSiteConfigsByBucket(rawSites: SiteConfig[]): SiteConfig[] {
+  const byBucket = new Map<string, SiteConfig[]>();
+  for (const site of rawSites) {
+    const list = byBucket.get(site.sourceBucket) || [];
+    list.push(site);
+    byBucket.set(site.sourceBucket, list);
+  }
+  const deduped: SiteConfig[] = [];
+  for (const sitesForBucket of byBucket.values()) {
+    const sortedBySite = [...sitesForBucket].sort((left, right) => left.site.localeCompare(right.site));
+    const primary = {...sortedBySite[0]};
+    if (sortedBySite.length > 1) {
+      primary.sharedWith = sortedBySite.slice(1).map(aliasSite => aliasSite.site);
+    }
+    deduped.push(primary);
+  }
+  return deduped.sort((left, right) => left.site.localeCompare(right.site));
+}
+
+export function siteConfigs(backupConfig: BackupConfig): SiteConfig[] {
+  return dedupeSiteConfigsByBucket(rawSiteConfigs(backupConfig));
+}
+
 export function siteConfigFor(backupConfig: BackupConfig, siteName: string): SiteConfig | null {
-  return siteConfigs(backupConfig).find(c => c.site === siteName) || null;
+  return siteConfigs(backupConfig).find(
+    candidate => candidate.site === siteName || (candidate.sharedWith || []).includes(siteName)
+  ) || null;
 }
 
 async function previousManifest(site: string): Promise<S3BackupManifest | null> {
@@ -114,7 +191,8 @@ async function performIncrementalBackup(
   config: SiteConfig,
   timestamp: string,
   mongoTimestamp?: string,
-  dryRun?: boolean
+  dryRun?: boolean,
+  onProgress?: ProgressCallback
 ): Promise<S3BackupManifest> {
   const startMs = dateTimeNowAsValue();
   const backupPrefix = buildBackupPrefix(config.site, timestamp);
@@ -124,22 +202,34 @@ async function performIncrementalBackup(
     ? sourceClient
     : new S3Client({ region: config.backupRegion, credentials: config.credentials });
 
-  debugLog(`Listing objects in source bucket ${config.sourceBucket}`);
+  debugLog(`[${config.site}] Listing objects in source bucket ${config.sourceBucket}`);
   const sourceObjects = await listAllObjects(sourceClient, config.sourceBucket);
-  debugLog(`Found ${sourceObjects.length} objects in source bucket`);
+  debugLog(`[${config.site}] Found ${sourceObjects.length} objects in source bucket`);
+  if (onProgress) {
+    await onProgress(`S3 backup ${config.site}: discovered ${sourceObjects.length} source objects in ${config.sourceBucket}`);
+  }
 
   const previous = await previousManifest(config.site);
   const previousIndex = previous
-    ? buildETagIndex(previous.entries.map(e => ({ key: e.key, eTag: e.eTag, size: e.size, lastModified: e.lastModified })))
+    ? buildETagIndex(previous.entries.map(previousEntry => ({
+        key: previousEntry.key,
+        eTag: previousEntry.eTag,
+        size: previousEntry.size,
+        lastModified: previousEntry.lastModified
+      })))
     : new Map<string, S3ObjectInfo>();
+  debugLog(`[${config.site}] Previous manifest: ${previous ? `${previous.timestamp} with ${previousIndex.size} entries` : "none (first run, full backup)"}`);
 
   const manifestEntries: S3BackupManifestEntry[] = [];
   let copiedCount = 0;
   let skippedCount = 0;
   let copiedBytes = 0;
   let totalBytes = 0;
+  let lastProgressMs = dateTimeNowAsValue();
+  let processed = 0;
 
   for (const obj of sourceObjects) {
+    processed++;
     totalBytes += obj.size;
     const previousEntry = previousIndex.get(obj.key);
     const unchanged = previousEntry && previousEntry.eTag === obj.eTag;
@@ -153,25 +243,53 @@ async function performIncrementalBackup(
         action: S3BackupAction.SKIPPED
       });
       skippedCount++;
+      debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] SKIPPED ${obj.key} (${formatBytes(obj.size)}, eTag ${obj.eTag})`);
     } else {
+      debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] COPY START ${obj.key} (${formatBytes(obj.size)}${previousEntry ? `, old eTag ${previousEntry.eTag} → new eTag ${obj.eTag}` : ", new"})`);
+      let recordedETag = obj.eTag;
       if (!dryRun) {
-        const destKey = `${backupPrefix}/${obj.key}`;
-        await backupClient.send(new CopyObjectCommand({
-          Bucket: config.backupBucket,
-          CopySource: encodeURIComponent(`${config.sourceBucket}/${obj.key}`),
-          Key: destKey
-        }));
-        debugLog(`Copied ${obj.key} to ${config.backupBucket}/${destKey}`);
+        try {
+          const destKey = `${backupPrefix}/${obj.key}`;
+          recordedETag = await copyObjectWithETagGuard(
+            backupClient,
+            config.sourceBucket,
+            obj.key,
+            config.backupBucket,
+            destKey,
+            obj.eTag,
+            config.site,
+            `[${processed}/${sourceObjects.length}]`
+          );
+          if (recordedETag !== obj.eTag) {
+            debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] COPY DONE  ${obj.key} -> ${config.backupBucket}/${destKey} (eTag updated ${obj.eTag} -> ${recordedETag})`);
+          } else {
+            debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] COPY DONE  ${obj.key} -> ${config.backupBucket}/${destKey}`);
+          }
+        } catch (error: any) {
+          debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] COPY FAIL  ${obj.key}: ${error?.name || ""} ${error?.message || error}`);
+          throw error;
+        }
+      } else {
+        debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] COPY DRY-RUN ${obj.key}`);
       }
       manifestEntries.push({
         key: obj.key,
-        eTag: obj.eTag,
+        eTag: recordedETag,
         size: obj.size,
         lastModified: obj.lastModified,
         action: S3BackupAction.COPIED
       });
       copiedCount++;
       copiedBytes += obj.size;
+    }
+
+    if (onProgress) {
+      const nowMs = dateTimeNowAsValue();
+      const isLast = processed === sourceObjects.length;
+      if (isLast || nowMs - lastProgressMs >= PROGRESS_EVERY_MS) {
+        lastProgressMs = nowMs;
+        await onProgress(`S3 backup ${config.site}: ${processed}/${sourceObjects.length} processed (${copiedCount} copied, ${skippedCount} skipped, ${formatBytes(copiedBytes)} transferred)`);
+      }
     }
   }
 
@@ -208,48 +326,71 @@ async function performRestore(
   sourceConfig: SiteConfig,
   manifest: S3BackupManifest,
   targetConfig: SiteConfig,
-  dryRun?: boolean
+  dryRun?: boolean,
+  onProgress?: ProgressCallback
 ): Promise<S3BackupManifest> {
   const startMs = dateTimeNowAsValue();
 
   const sourceClient = new S3Client({ region: sourceConfig.backupRegion, credentials: sourceConfig.credentials });
   const destClient = new S3Client({ region: targetConfig.sourceRegion, credentials: targetConfig.credentials });
 
+  debugLog(`[${targetConfig.site}] Listing current objects in ${targetConfig.sourceBucket}`);
   const currentObjects = await listAllObjects(destClient, targetConfig.sourceBucket);
   const currentIndex = buildETagIndex(currentObjects);
+  debugLog(`[${targetConfig.site}] Current target bucket has ${currentObjects.length} objects; manifest has ${manifest.entries.length} entries`);
+  if (onProgress) {
+    await onProgress(`S3 restore ${targetConfig.site}: target has ${currentObjects.length} current objects, manifest has ${manifest.entries.length} entries`);
+  }
 
-  const copiedEntries = manifest.entries.filter(e => e.action === S3BackupAction.COPIED);
+  const copiedEntries = manifest.entries.filter(manifestEntry => manifestEntry.action === S3BackupAction.COPIED);
   const allEntries = manifest.entries;
 
-  const manifestKeySet = new Set(allEntries.map(e => e.key));
+  const manifestKeySet = new Set(allEntries.map(manifestEntry => manifestEntry.key));
   const keysToDelete = currentObjects
-    .filter(obj => !manifestKeySet.has(obj.key))
-    .map(obj => obj.key);
+    .filter(currentObject => !manifestKeySet.has(currentObject.key))
+    .map(currentObject => currentObject.key);
 
   let restoredCount = 0;
   let skippedCount = 0;
   let deletedCount = 0;
+  let lastProgressMs = dateTimeNowAsValue();
+  let processed = 0;
 
   for (const entry of allEntries) {
+    processed++;
     const currentObj = currentIndex.get(entry.key);
     if (currentObj && currentObj.eTag === entry.eTag) {
       skippedCount++;
+      debugLog(`[${targetConfig.site}] [${processed}/${allEntries.length}] ALREADY-OK ${entry.key}`);
+      if (onProgress) {
+        const nowMs = dateTimeNowAsValue();
+        if (nowMs - lastProgressMs >= PROGRESS_EVERY_MS) {
+          lastProgressMs = nowMs;
+          await onProgress(`S3 restore ${targetConfig.site}: ${processed}/${allEntries.length} processed (${restoredCount} restored, ${skippedCount} already in place)`);
+        }
+      }
       continue;
     }
 
-    const isCopiedEntry = copiedEntries.some(e => e.key === entry.key);
+    const isCopiedEntry = copiedEntries.some(copiedEntry => copiedEntry.key === entry.key);
     if (isCopiedEntry) {
       const backupKey = `${manifest.backupPrefix}/${entry.key}`;
+      debugLog(`[${targetConfig.site}] [${processed}/${allEntries.length}] COPY FROM snapshot ${entry.key}`);
       if (!dryRun) {
-        await destClient.send(new CopyObjectCommand({
-          Bucket: targetConfig.sourceBucket,
-          CopySource: encodeURIComponent(`${manifest.backupBucket}/${backupKey}`),
-          Key: entry.key
-        }));
+        try {
+          await destClient.send(new CopyObjectCommand({
+            Bucket: targetConfig.sourceBucket,
+            CopySource: encodeURIComponent(`${manifest.backupBucket}/${backupKey}`),
+            Key: entry.key
+          }));
+        } catch (error: any) {
+          debugLog(`[${targetConfig.site}] [${processed}/${allEntries.length}] COPY FAIL ${entry.key}: ${error?.name || ""} ${error?.message || error}`);
+          throw error;
+        }
       }
       restoredCount++;
     } else {
-      const sourceManifest = await s3BackupManifest.findOne({
+      const priorManifest = await s3BackupManifest.findOne({
         site: sourceConfig.site,
         status: BackupSessionStatus.COMPLETED,
         timestamp: { $lte: manifest.timestamp },
@@ -262,24 +403,42 @@ async function performRestore(
         }
       }).sort({ timestamp: -1 }).lean() as S3BackupManifest | null;
 
-      if (sourceManifest) {
-        const backupKey = `${sourceManifest.backupPrefix}/${entry.key}`;
+      if (priorManifest) {
+        const backupKey = `${priorManifest.backupPrefix}/${entry.key}`;
+        debugLog(`[${targetConfig.site}] [${processed}/${allEntries.length}] COPY FROM earlier ${priorManifest.timestamp} ${entry.key}`);
         if (!dryRun) {
-          await destClient.send(new CopyObjectCommand({
-            Bucket: targetConfig.sourceBucket,
-            CopySource: encodeURIComponent(`${sourceManifest.backupBucket}/${backupKey}`),
-            Key: entry.key
-          }));
+          try {
+            await destClient.send(new CopyObjectCommand({
+              Bucket: targetConfig.sourceBucket,
+              CopySource: encodeURIComponent(`${priorManifest.backupBucket}/${backupKey}`),
+              Key: entry.key
+            }));
+          } catch (error: any) {
+            debugLog(`[${targetConfig.site}] [${processed}/${allEntries.length}] COPY FAIL ${entry.key}: ${error?.name || ""} ${error?.message || error}`);
+            throw error;
+          }
         }
         restoredCount++;
       } else {
-        debugLog(`No source manifest found for ${entry.key} with eTag ${entry.eTag} at or before ${manifest.timestamp} — skipping`);
+        debugLog(`[${targetConfig.site}] [${processed}/${allEntries.length}] MISS ${entry.key} (eTag ${entry.eTag} not found at or before ${manifest.timestamp})`);
         skippedCount++;
+      }
+    }
+
+    if (onProgress) {
+      const nowMs = dateTimeNowAsValue();
+      if (nowMs - lastProgressMs >= PROGRESS_EVERY_MS) {
+        lastProgressMs = nowMs;
+        await onProgress(`S3 restore ${targetConfig.site}: ${processed}/${allEntries.length} processed (${restoredCount} restored, ${skippedCount} already in place)`);
       }
     }
   }
 
+  if (keysToDelete.length > 0 && onProgress) {
+    await onProgress(`S3 restore ${targetConfig.site}: deleting ${keysToDelete.length} extra target objects not in snapshot`);
+  }
   for (const key of keysToDelete) {
+    debugLog(`[${targetConfig.site}] DELETE-EXTRA ${key}`);
     if (!dryRun) {
       await destClient.send(new DeleteObjectCommand({
         Bucket: targetConfig.sourceBucket,
@@ -301,7 +460,7 @@ async function performRestore(
   } as S3BackupManifest;
 }
 
-export async function startS3Backup(request: S3BackupRequest): Promise<S3BackupSummary[]> {
+export async function startS3Backup(request: S3BackupRequest, onProgress?: ProgressCallback): Promise<S3BackupSummary[]> {
   const backupConfig = await configuredBackup();
   const timestamp = request.mongoTimestamp || dateTimeNow().toFormat(DateFormat.FILE_TIMESTAMP);
   const configs = request.all
@@ -319,7 +478,11 @@ export async function startS3Backup(request: S3BackupRequest): Promise<S3BackupS
   const results: S3BackupSummary[] = [];
   for (const config of configs) {
     try {
-      const manifest = await performIncrementalBackup(config, timestamp, request.mongoTimestamp, request.dryRun);
+      if (config.sharedWith && config.sharedWith.length > 0 && onProgress) {
+        await onProgress(`S3 backup ${config.site}: bucket ${config.sourceBucket} is shared with ${config.sharedWith.join(", ")} — backing up once under primary site "${config.site}"`);
+      }
+      debugLog(`[${config.site}] Starting incremental backup; sharedWith=${(config.sharedWith || []).join(",") || "none"}`);
+      const manifest = await performIncrementalBackup(config, timestamp, request.mongoTimestamp, request.dryRun, onProgress);
       results.push({
         site: manifest.site,
         timestamp: manifest.timestamp,
@@ -367,7 +530,7 @@ export async function startS3Backup(request: S3BackupRequest): Promise<S3BackupS
   return results;
 }
 
-export async function startS3Restore(request: S3RestoreRequest): Promise<S3BackupSummary[]> {
+export async function startS3Restore(request: S3RestoreRequest, onProgress?: ProgressCallback): Promise<S3BackupSummary[]> {
   const backupConfig = await configuredBackup();
   const sourceConfigs = request.all
     ? siteConfigs(backupConfig)
@@ -417,7 +580,10 @@ export async function startS3Restore(request: S3RestoreRequest): Promise<S3Backu
 
     try {
       const targetConfig = resolveTargetConfig(sourceConfig);
-      const result = await performRestore(sourceConfig, manifestDoc, targetConfig, request.dryRun);
+      if (targetConfig.sharedWith && targetConfig.sharedWith.length > 0 && onProgress) {
+        await onProgress(`S3 restore ${targetConfig.site}: target bucket ${targetConfig.sourceBucket} is shared with ${targetConfig.sharedWith.join(", ")} — single snapshot applied once under primary site`);
+      }
+      const result = await performRestore(sourceConfig, manifestDoc, targetConfig, request.dryRun, onProgress);
       results.push({
         site: result.site,
         timestamp: result.timestamp,
@@ -494,12 +660,15 @@ export async function manifest(id: string): Promise<S3BackupManifest | null> {
 }
 
 export async function manifestByTimestamp(site: string, timestamp: string): Promise<S3BackupManifest | null> {
-  return s3BackupManifest.findOne({ site, timestamp, status: BackupSessionStatus.COMPLETED }).lean() as Promise<S3BackupManifest | null>;
+  const backupConfig = await configuredBackup();
+  const resolved = siteConfigFor(backupConfig, site);
+  const effectiveSite = resolved?.site || site;
+  return s3BackupManifest.findOne({ site: effectiveSite, timestamp, status: BackupSessionStatus.COMPLETED }).lean() as Promise<S3BackupManifest | null>;
 }
 
 export async function availableSites(): Promise<string[]> {
   const backupConfig = await configuredBackup();
-  return siteConfigs(backupConfig).map(c => c.site);
+  return siteConfigs(backupConfig).map(siteConfig => siteConfig.site);
 }
 
 export async function deleteManifests(ids: string[]): Promise<{ deleted: number; blocked: Array<{ id: string; reason: string }> }> {

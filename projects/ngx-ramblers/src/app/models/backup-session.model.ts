@@ -3,8 +3,6 @@ import { EnvironmentConfig, EnvironmentsConfig } from "./environment-config.mode
 export enum BackupRestoreTab {
   BACKUP = "Backup",
   RESTORE = "Restore",
-  S3_BACKUP = "S3 Backup",
-  BACKUPS = "Backups",
   HISTORY = "History",
   SETTINGS = "Settings"
 }
@@ -178,6 +176,12 @@ export interface S3BackupSummary {
   copiedSizeBytes: number;
   durationMs: number;
   status: BackupSessionStatus;
+}
+
+export interface S3ManifestBreakdown {
+  label: string;
+  count: number;
+  bytes: number;
 }
 
 export type EnvironmentBackupConfig = EnvironmentConfig;
