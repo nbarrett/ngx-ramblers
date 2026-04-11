@@ -14,6 +14,9 @@ import { SelectAllHeaderComponent } from "./select-all-header";
 @Component({
   selector: "app-environment-select",
   template: `
+    @if (label) {
+      <label class="form-label">{{ labelText() }}</label>
+    }
     <ng-select
       [items]="displayItems"
       [multiple]="multiple"
@@ -64,6 +67,7 @@ export class EnvironmentSelectComponent {
   @Input() multiple = false;
   @Input() showSelectAllHeader = false;
   @Input() placeholder?: string;
+  @Input() label?: string;
 
   @Input() selected: EnvironmentInfo[] = [];
   @Output() selectedChange = new EventEmitter<EnvironmentInfo[]>();
@@ -114,5 +118,17 @@ export class EnvironmentSelectComponent {
     } else {
       this.selectAll();
     }
+  }
+
+  labelText(): string {
+    if (!this.label) {
+      return "";
+    }
+    if (!this.multiple) {
+      return this.label;
+    }
+    const totalCount = this.items?.length || 0;
+    const selectedCount = this.ngModelValue?.length || 0;
+    return `${this.label} (${selectedCount} of ${totalCount} selected)`;
   }
 }

@@ -11,6 +11,11 @@ import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/conf
 import { BackupConfig, S3BackupRequest, S3RestoreRequest } from "../../../../projects/ngx-ramblers/src/app/models/backup-session.model";
 import { connect } from "../../mongo/mongoose-client";
 import * as s3BackupService from "../../backup/s3-backup-service";
+import {
+  groupEntriesByExtension,
+  groupEntriesByPrefix,
+  topLargestEntries
+} from "../../../../projects/ngx-ramblers/src/app/functions/s3-manifest-analysis";
 
 const debugLog = debug(envConfig.logNamespace("cli:backup"));
 
@@ -360,6 +365,57 @@ export async function listS3Sites(): Promise<void> {
   }
 }
 
+export async function analyseS3Manifest(site: string, options: { timestamp?: string; depth?: number; top?: number }): Promise<void> {
+  try {
+    await connect();
+    if (!site) {
+      logError("Site name is required. Use --site <name>");
+      return;
+    }
+    const manifestsList = await s3BackupService.manifests(site, 50);
+    const matching = options.timestamp
+      ? manifestsList.find(candidate => candidate.timestamp === options.timestamp)
+      : manifestsList[0];
+    if (!matching) {
+      log(`\nNo S3 manifest found for site "${site}"${options.timestamp ? ` at timestamp ${options.timestamp}` : ""}.\n`);
+      return;
+    }
+
+    const depth = options.depth && options.depth > 0 ? options.depth : 1;
+    const topN = options.top && options.top > 0 ? options.top : 20;
+
+    log(`\nAnalysing S3 manifest for ${matching.site} @ ${matching.timestamp}`);
+    log(`  ${matching.totalObjects} total objects, ${formatBytes(matching.totalSizeBytes)} total`);
+    log(`  ${matching.copiedObjects} copied, ${matching.skippedObjects} skipped on this snapshot`);
+    log("");
+
+    log(`Breakdown by top-level prefix (depth ${depth}):`);
+    log(`  ${"prefix".padEnd(40)}  ${"count".padStart(8)}  ${"bytes".padStart(12)}`);
+    groupEntriesByPrefix(matching.entries, depth).forEach(bucket => {
+      log(`  ${bucket.label.padEnd(40)}  ${String(bucket.count).padStart(8)}  ${formatBytes(bucket.bytes).padStart(12)}`);
+    });
+    log("");
+
+    log("Breakdown by file extension:");
+    log(`  ${"extension".padEnd(20)}  ${"count".padStart(8)}  ${"bytes".padStart(12)}`);
+    groupEntriesByExtension(matching.entries).forEach(bucket => {
+      log(`  ${bucket.label.padEnd(20)}  ${String(bucket.count).padStart(8)}  ${formatBytes(bucket.bytes).padStart(12)}`);
+    });
+    log("");
+
+    log(`Top ${topN} largest objects:`);
+    log(`  ${"size".padStart(12)}  key`);
+    topLargestEntries(matching.entries, topN).forEach(entry => {
+      log(`  ${formatBytes(entry.size).padStart(12)}  ${entry.key}`);
+    });
+    log("");
+  } catch (error) {
+    logError(`Failed to analyse manifest: ${error.message}`);
+  } finally {
+    await closeConnection();
+  }
+}
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -441,6 +497,17 @@ export function createBackupCommand(): Command {
     .description("List available S3 backup sites")
     .action(async () => {
       await listS3Sites();
+    });
+
+  s3Cmd
+    .command("analyse <site>")
+    .alias("analyze")
+    .description("Show what makes up a site's backup manifest (prefix / extension / top objects)")
+    .option("--timestamp <timestamp>", "Analyse a specific manifest timestamp instead of the most recent")
+    .option("--depth <depth>", "Prefix segment depth to group by (default 1)", (value) => parseInt(value, 10))
+    .option("--top <n>", "Number of largest objects to list (default 20)", (value) => parseInt(value, 10))
+    .action(async (site: string, options: { timestamp?: string; depth?: number; top?: number }) => {
+      await analyseS3Manifest(site, options);
     });
 
   return cmd;

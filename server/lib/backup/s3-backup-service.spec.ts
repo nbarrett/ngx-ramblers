@@ -159,7 +159,7 @@ describe("s3-backup-service", () => {
       };
       const result = siteConfigs(config);
       expect(result).toHaveLength(2);
-      expect(result.map(c => c.site)).toEqual(["kent", "bolton"]);
+      expect(result.map(siteConfig => siteConfig.site)).toEqual(["bolton", "kent"]);
     });
 
   });
@@ -192,10 +192,10 @@ describe("s3-backup-service", () => {
       sourceBucket: "kent-images",
       backupBucket: "kent-images-backups",
       backupPrefix: "s3-backups/kent/2026-04-11-00-00-00",
-      entries: entries.map(e => ({ key: e.key, eTag: `et-${e.key}`, size: 1, lastModified: "", action: e.action })),
+      entries: entries.map(entry => ({ key: entry.key, eTag: `et-${entry.key}`, size: 1, lastModified: "", action: entry.action })),
       totalObjects: entries.length,
-      copiedObjects: entries.filter(e => e.action === S3BackupAction.COPIED).length,
-      skippedObjects: entries.filter(e => e.action === S3BackupAction.SKIPPED).length,
+      copiedObjects: entries.filter(entry => entry.action === S3BackupAction.COPIED).length,
+      skippedObjects: entries.filter(entry => entry.action === S3BackupAction.SKIPPED).length,
       totalSizeBytes: entries.length,
       copiedSizeBytes: 0,
       durationMs: 0,
