@@ -17,7 +17,12 @@ import { uploadDirectoryToS3 } from "../aws/s3-utils";
 import { dateTimeFromMillis, dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
 import { backupSession, BackupSession } from "../mongo/models/backup-session";
 import { BackupNotificationService } from "./backup-notification-service";
-import { BackupConfig, EnvironmentBackupConfig } from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
+import {
+  BackupConfig,
+  BackupSessionStatus,
+  BackupSessionType,
+  EnvironmentBackupConfig
+} from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
 import {
   RamblersWalksManagerDateFormat as DateFormat
 } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
@@ -28,7 +33,15 @@ import { NamedError } from "../../../projects/ngx-ramblers/src/app/models/api-re
 import { AWS_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { buildMongoUri } from "../shared/mongodb-uri";
 import { isUndefined } from "es-toolkit/compat";
-import { buildS3KeyForBackup, buildS3LocationUrl, parseS3BackupPrefix, parseTimestampToDate } from "./backup-paths";
+import {
+  buildS3KeyForBackup,
+  buildS3LocationUrl,
+  extractSourceEnvironmentFromBackupName,
+  extractTimestampFromBackupName,
+  parseS3BackupPrefix,
+  parseTimestampToDate
+} from "./backup-paths";
+import { availableSites, manifestByTimestamp, startS3Backup, startS3Restore } from "./s3-backup-service";
 
 const debugLog = debug(envConfig.logNamespace("backup-and-restore-service"));
 debugLog.enabled = false;
@@ -39,6 +52,7 @@ export interface BackupOptions {
   collections?: string[];
   scaleDown?: boolean;
   upload?: boolean;
+  includeS3?: boolean;
   user?: string;
 }
 
@@ -49,6 +63,7 @@ export interface RestoreOptions {
   collections?: string[];
   drop?: boolean;
   dryRun?: boolean;
+  includeS3?: boolean;
   user?: string;
 }
 
@@ -136,18 +151,19 @@ export class BackupAndRestoreService {
 
     const session: BackupSession = {
       sessionId,
-      type: "backup",
+      type: BackupSessionType.BACKUP,
       environment: options.environment,
       database: dbName,
       collections: options.collections,
-      status: "pending",
+      status: BackupSessionStatus.PENDING,
       startTime: dateTimeNow().toJSDate(),
       options: {
         scaleDown: options.scaleDown,
         upload: options.upload,
         s3Bucket: options.upload ? this.preferredBucket(envBackupConfig) : undefined,
         s3Region: options.upload ? this.preferredRegion(envBackupConfig) : undefined,
-        s3Prefix: "backups"
+        s3Prefix: "backups",
+        includeS3: options.includeS3 !== false
       },
       logs: [],
       metadata: {
@@ -198,16 +214,17 @@ export class BackupAndRestoreService {
 
     const session: BackupSession = {
       sessionId,
-      type: "restore",
+      type: BackupSessionType.RESTORE,
       environment: options.environment,
       database: dbName,
       collections: options.collections,
-      status: "pending",
+      status: BackupSessionStatus.PENDING,
       startTime: dateTimeNow().toJSDate(),
       options: {
         from: options.from,
         drop: options.drop !== false,
-        dryRun: options.dryRun
+        dryRun: options.dryRun,
+        includeS3: options.includeS3 !== false
       },
       logs: [],
       metadata: {
@@ -228,7 +245,7 @@ export class BackupAndRestoreService {
       });
     } else {
       await this.updateSession(savedSession._id!.toString(), {
-        status: "completed",
+        status: BackupSessionStatus.COMPLETED,
         endTime: dateTimeNow().toJSDate(),
         logs: ["DRY RUN - No changes made"]
       });
@@ -246,7 +263,7 @@ export class BackupAndRestoreService {
   ): Promise<void> {
     let originalScaleCount: number | undefined;
     try {
-      await this.updateSession(sessionId, { status: "in_progress" });
+      await this.updateSession(sessionId, { status: BackupSessionStatus.IN_PROGRESS });
 
       const dbName = options.database || config.mongo!.db;
       const outDir = path.join(this.dumpBaseDir, "backups", backupName);
@@ -313,7 +330,25 @@ export class BackupAndRestoreService {
         debugLog(`Uploaded to ${s3Location}`);
       }
 
-      await this.updateSession(sessionId, { status: "completed", endTime: dateTimeNow().toJSDate() });
+      if (options.includeS3 !== false) {
+        const mongoTimestamp = extractTimestampFromBackupName(backupName);
+        const configuredSites = await availableSites().catch(() => [] as string[]);
+        if (configuredSites.includes(options.environment)) {
+          await this.addLog(sessionId, `Starting S3 object backup for site ${options.environment} aligned with timestamp ${mongoTimestamp}`);
+          try {
+            const s3Results = await startS3Backup({ site: options.environment, mongoTimestamp });
+            await this.updateSession(sessionId, { s3Backups: s3Results });
+            const summary = s3Results.map(r => `${r.site}: ${r.copiedObjects} copied, ${r.skippedObjects} skipped, ${this.formatBytes(r.copiedSizeBytes)} (${r.status})`).join("; ");
+            await this.addLog(sessionId, `S3 object backup completed: ${summary}`);
+          } catch (error: any) {
+            await this.addLog(sessionId, `S3 object backup failed: ${error.message} (Mongo backup is still valid)`);
+          }
+        } else {
+          await this.addLog(sessionId, `No S3 source bucket configured for site ${options.environment}, skipping S3 object backup`);
+        }
+      }
+
+      await this.updateSession(sessionId, { status: BackupSessionStatus.COMPLETED, endTime: dateTimeNow().toJSDate() });
 
       if (this.notificationService) {
         const completedSession = await this.session(sessionId);
@@ -404,7 +439,7 @@ export class BackupAndRestoreService {
         }
         options = { ...options, from: s3Prefix };
       }
-      await this.updateSession(sessionId, { status: "in_progress" });
+      await this.updateSession(sessionId, { status: BackupSessionStatus.IN_PROGRESS });
 
       const fromPath = path.join(this.dumpBaseDir, options.from);
       const dbName = options.database || config.mongo!.db;
@@ -490,7 +525,35 @@ export class BackupAndRestoreService {
       await this.addLog(sessionId, `Starting mongorestore from ${restoreDir}`);
       await this.execCommandWithRetry("mongorestore", restoreArgs, sessionId, 3);
       await this.addLog(sessionId, `Restore completed to ${options.environment}`);
-      await this.updateSession(sessionId, { status: "completed", endTime: dateTimeNow().toJSDate() });
+
+      if (options.includeS3 !== false) {
+        const baseName = path.basename(options.from);
+        const timestamp = extractTimestampFromBackupName(baseName);
+        const sourceSite = extractSourceEnvironmentFromBackupName(baseName, dbName) || options.environment;
+        const targetSite = options.environment;
+        const crossEnvironment = sourceSite !== targetSite;
+        const matchingManifest = await manifestByTimestamp(sourceSite, timestamp).catch(() => null);
+        if (matchingManifest) {
+          const crossEnvNote = crossEnvironment ? ` (cross-environment: ${sourceSite} -> ${targetSite})` : "";
+          await this.addLog(sessionId, `Starting S3 object restore for site ${targetSite} at timestamp ${timestamp}${crossEnvNote}`);
+          try {
+            const s3Results = await startS3Restore({
+              site: sourceSite,
+              targetSite: crossEnvironment ? targetSite : undefined,
+              timestamp
+            });
+            await this.updateSession(sessionId, { s3Restores: s3Results });
+            const summary = s3Results.map(r => `${r.site}: ${r.copiedObjects} restored, ${r.skippedObjects} skipped, ${this.formatBytes(r.copiedSizeBytes)} (${r.status})`).join("; ");
+            await this.addLog(sessionId, `S3 object restore completed: ${summary}`);
+          } catch (error: any) {
+            await this.addLog(sessionId, `S3 object restore failed: ${error.message} (Mongo restore is still valid)`);
+          }
+        } else {
+          await this.addLog(sessionId, `No S3 manifest found for site ${sourceSite} at timestamp ${timestamp}, skipping S3 object restore`);
+        }
+      }
+
+      await this.updateSession(sessionId, { status: BackupSessionStatus.COMPLETED, endTime: dateTimeNow().toJSDate() });
 
       if (this.notificationService) {
         const completedSession = await this.session(sessionId);
@@ -598,6 +661,14 @@ export class BackupAndRestoreService {
     return downloadPage(undefined, 0);
   }
 
+  private formatBytes(bytes: number): string {
+    if (!bytes) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const exp = Math.floor(Math.log(bytes) / Math.log(1024));
+    const size = (bytes / Math.pow(1024, exp)).toFixed(1);
+    return `${size} ${units[exp]}`;
+  }
+
   private async scaleApp(config: EnvironmentConfig, count: number): Promise<void> {
     return new Promise((resolve, reject) => {
       const proc = spawn("flyctl", ["scale", "count", count.toString(), "--app", config.appName]);
@@ -618,13 +689,13 @@ export class BackupAndRestoreService {
   private async updateSessionError(sessionId: string, error: string): Promise<void> {
     await backupSession.updateOne(
       { _id: sessionId },
-      { $set: { status: "failed", error, endTime: dateTimeNow().toJSDate() } }
+      { $set: { status: BackupSessionStatus.FAILED, error, endTime: dateTimeNow().toJSDate() } }
     );
 
     if (this.notificationService) {
       const failedSession = await this.session(sessionId);
       if (failedSession) {
-        if (failedSession.type === "backup") {
+        if (failedSession.type === BackupSessionType.BACKUP) {
           await this.notificationService.notifyBackupCompleted(failedSession);
         } else {
           await this.notificationService.notifyRestoreCompleted(failedSession);
@@ -641,7 +712,7 @@ export class BackupAndRestoreService {
     const tenMinutesAgo = dateTimeFromMillis(dateTimeNowAsValue() - 10 * 60 * 1000).toJSDate();
 
     const stuckSessions = await backupSession.find({
-      status: "in_progress",
+      status: BackupSessionStatus.IN_PROGRESS,
       startTime: { $lt: tenMinutesAgo }
     });
 

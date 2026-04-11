@@ -5,6 +5,11 @@ import { configuredBrevo } from "../brevo/brevo-config";
 import { BackupSession } from "../mongo/models/backup-session";
 import { dateTimeFromJsDate } from "../shared/dates";
 import { DateTime } from "luxon";
+import {
+  BackupSessionStatus,
+  BackupSessionType,
+  S3BackupSummary
+} from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
 
 const debugLog = debug(envConfig.logNamespace("backup-notification"));
 debugLog.enabled = false;
@@ -47,8 +52,8 @@ export class BackupNotificationService {
   async notifyBackupCompleted(session: BackupSession): Promise<void> {
     if (!this.options.notifyOnComplete) return;
 
-    const subject = `[${session.environment}] Database Backup ${session.status === "completed" ? "Completed" : "Failed"}`;
-    const htmlContent = session.status === "completed"
+    const subject = `[${session.environment}] Database Backup ${session.status === BackupSessionStatus.COMPLETED ? "Completed" : "Failed"}`;
+    const htmlContent = session.status === BackupSessionStatus.COMPLETED
       ? this.buildCompletedEmailHtml(session)
       : this.buildFailedEmailHtml(session);
 
@@ -67,8 +72,8 @@ export class BackupNotificationService {
   async notifyRestoreCompleted(session: BackupSession): Promise<void> {
     if (!this.options.notifyOnComplete) return;
 
-    const subject = `[${session.environment}] Database Restore ${session.status === "completed" ? "Completed" : "Failed"}`;
-    const htmlContent = session.status === "completed"
+    const subject = `[${session.environment}] Database Restore ${session.status === BackupSessionStatus.COMPLETED ? "Completed" : "Failed"}`;
+    const htmlContent = session.status === BackupSessionStatus.COMPLETED
       ? this.buildRestoreCompletedEmailHtml(session)
       : this.buildFailedEmailHtml(session);
 
@@ -133,8 +138,8 @@ export class BackupNotificationService {
     return `
       <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
-          <h2 style="color: #16a34a;">Database Backup Completed Successfully</h2>
-          <p>The database backup operation has completed successfully:</p>
+          <h2 style="color: #16a34a;">Backup Completed Successfully</h2>
+          <p>The backup operation has completed successfully:</p>
           <ul>
             <li><strong>Session ID:</strong> ${session.sessionId}</li>
             <li><strong>Environment:</strong> ${session.environment}</li>
@@ -142,6 +147,7 @@ export class BackupNotificationService {
             <li><strong>Duration:</strong> ${duration}</li>
           </ul>
           ${locationInfo}
+          ${this.buildS3SummarySection("S3 Object Backup", session.s3Backups, "copied")}
           <p style="color: #16a34a; font-weight: bold;">Status: Completed</p>
         </body>
       </html>
@@ -183,8 +189,8 @@ export class BackupNotificationService {
     return `
       <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
-          <h2 style="color: #16a34a;">Database Restore Completed Successfully</h2>
-          <p>The database restore operation has completed successfully:</p>
+          <h2 style="color: #16a34a;">Restore Completed Successfully</h2>
+          <p>The restore operation has completed successfully:</p>
           <ul>
             <li><strong>Session ID:</strong> ${session.sessionId}</li>
             <li><strong>Environment:</strong> ${session.environment}</li>
@@ -192,6 +198,7 @@ export class BackupNotificationService {
             <li><strong>Source:</strong> ${session.options.from}</li>
             <li><strong>Duration:</strong> ${duration}</li>
           </ul>
+          ${this.buildS3SummarySection("S3 Object Restore", session.s3Restores, "restored")}
           ${session.options.dryRun ? `<p style="color: #2563eb;">This was a DRY RUN - no actual changes were made.</p>` : ""}
           <p style="color: #16a34a; font-weight: bold;">Status: Completed</p>
         </body>
@@ -205,7 +212,7 @@ export class BackupNotificationService {
     return `
       <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
-          <h2 style="color: #dc2626;">Database ${session.type === "backup" ? "Backup" : "Restore"} Failed</h2>
+          <h2 style="color: #dc2626;">Database ${session.type === BackupSessionType.BACKUP ? "Backup" : "Restore"} Failed</h2>
           <p><strong style="color: #dc2626;">⚠️ Error:</strong> The operation has failed.</p>
           <ul>
             <li><strong>Session ID:</strong> ${session.sessionId}</li>
@@ -229,5 +236,50 @@ export class BackupNotificationService {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return minutes > 0 ? `${minutes}m ${remainingSeconds}s` : `${seconds}s`;
+  }
+
+  private formatBytes(bytes: number): string {
+    if (!bytes) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const exp = Math.floor(Math.log(bytes) / Math.log(1024));
+    const size = (bytes / Math.pow(1024, exp)).toFixed(1);
+    return `${size} ${units[exp]}`;
+  }
+
+  private buildS3SummarySection(heading: string, summaries: S3BackupSummary[] | undefined, copiedVerb: string): string {
+    if (!summaries || summaries.length === 0) {
+      return "";
+    }
+    const rows = summaries.map(summary => {
+      const statusColour = summary.status === BackupSessionStatus.COMPLETED ? "#16a34a" : "#dc2626";
+      return `
+        <tr>
+          <td style="padding: 6px 12px; border: 1px solid #e5e7eb;">${summary.site}</td>
+          <td style="padding: 6px 12px; border: 1px solid #e5e7eb; color: ${statusColour}; font-weight: 600; text-transform: capitalize;">${summary.status}</td>
+          <td style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: right;">${summary.totalObjects}</td>
+          <td style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: right;">${summary.copiedObjects}</td>
+          <td style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: right;">${summary.skippedObjects}</td>
+          <td style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: right;">${this.formatBytes(summary.copiedSizeBytes)}</td>
+          <td style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: right;">${this.formatBytes(summary.totalSizeBytes)}</td>
+        </tr>
+      `;
+    }).join("");
+    return `
+      <h3 style="color: #2563eb; margin-top: 24px;">${heading}</h3>
+      <table style="border-collapse: collapse; border: 1px solid #e5e7eb; font-size: 0.9em;">
+        <thead>
+          <tr style="background-color: #f3f4f6;">
+            <th style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: left;">Site</th>
+            <th style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: left;">Status</th>
+            <th style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: right;">Total Objects</th>
+            <th style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: right;">${copiedVerb.charAt(0).toUpperCase() + copiedVerb.slice(1)}</th>
+            <th style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: right;">Skipped</th>
+            <th style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: right;">${copiedVerb.charAt(0).toUpperCase() + copiedVerb.slice(1)} Size</th>
+            <th style="padding: 6px 12px; border: 1px solid #e5e7eb; text-align: right;">Total Size</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
   }
 }

@@ -3,10 +3,32 @@ import { dateTimeInTimezone } from "../shared/dates";
 import { RamblersWalksManagerDateFormat as DateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
 const TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})/;
+const TIMESTAMP_ENV_DB_PATTERN = /^(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})-([^-]+(?:-[^-]+)*?)-([^-]+)$/;
 
 export function extractTimestampFromBackupName(backupName: string): string {
   const match = backupName.match(TIMESTAMP_PATTERN);
   return match ? match[1] : backupName;
+}
+
+export function extractSourceEnvironmentFromBackupName(backupName: string, dbName?: string): string | undefined {
+  const base = backupName.split("/").pop() || backupName;
+  const match = base.match(TIMESTAMP_PATTERN);
+  if (!match) {
+    return undefined;
+  }
+  const afterTimestamp = base.substring(match[0].length).replace(/^-/, "");
+  if (!afterTimestamp) {
+    return undefined;
+  }
+  if (dbName && afterTimestamp.endsWith(`-${dbName}`)) {
+    const envPart = afterTimestamp.substring(0, afterTimestamp.length - dbName.length - 1);
+    return envPart || undefined;
+  }
+  const lastDash = afterTimestamp.lastIndexOf("-");
+  if (lastDash <= 0) {
+    return undefined;
+  }
+  return afterTimestamp.substring(0, lastDash);
 }
 
 export function buildS3KeyForBackup(environment: string, backupName: string): string {

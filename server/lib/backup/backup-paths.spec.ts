@@ -1,6 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import {
+  extractSourceEnvironmentFromBackupName,
   extractTimestampFromBackupName,
   buildS3KeyForBackup,
   buildS3LocationUrl,
@@ -151,6 +152,40 @@ describe("backup-paths", () => {
         expect(parsed).not.toBeNull();
         expect(parsed?.environment).toEqual(env);
       }
+    });
+
+  });
+
+  describe("extractSourceEnvironmentFromBackupName", () => {
+
+    it("extracts single-segment environment when dbName hint supplied", () => {
+      const result = extractSourceEnvironmentFromBackupName("2026-04-11-00-00-00-staging-ngx-ramblers", "ngx-ramblers");
+      expect(result).toEqual("staging");
+    });
+
+    it("extracts multi-segment environment when dbName hint supplied", () => {
+      const result = extractSourceEnvironmentFromBackupName("2026-04-11-00-00-00-berkshire-weekend-walkers-ngx-ramblers", "ngx-ramblers");
+      expect(result).toEqual("berkshire-weekend-walkers");
+    });
+
+    it("falls back to last-dash split when no dbName hint", () => {
+      const result = extractSourceEnvironmentFromBackupName("2026-04-11-00-00-00-kent-mydb");
+      expect(result).toEqual("kent");
+    });
+
+    it("strips leading path segments", () => {
+      const result = extractSourceEnvironmentFromBackupName("backups/2026-04-11-00-00-00-kent-ngx-ramblers", "ngx-ramblers");
+      expect(result).toEqual("kent");
+    });
+
+    it("returns undefined when backup name lacks a timestamp", () => {
+      const result = extractSourceEnvironmentFromBackupName("not-a-real-backup");
+      expect(result).toBeUndefined();
+    });
+
+    it("returns undefined when only timestamp is present", () => {
+      const result = extractSourceEnvironmentFromBackupName("2026-04-11-00-00-00");
+      expect(result).toBeUndefined();
     });
 
   });

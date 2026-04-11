@@ -16,4 +16,4 @@ router.post("/backups/delete", authConfig.authenticate(), controller.deleteBacku
 router.get("/s3/backups", authConfig.authenticate(), controller.listS3Backups);
 router.post("/backups/s3/delete", authConfig.authenticate(), controller.deleteS3Backups);
 
-export const backupRoutes = router;
+export const mongoBackupRoutes = router;

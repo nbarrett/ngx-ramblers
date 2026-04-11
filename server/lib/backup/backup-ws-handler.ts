@@ -3,6 +3,7 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { backupSession } from "../mongo/models/backup-session";
+import { BackupSessionStatus } from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
 
 const debugLog = debug(envConfig.logNamespace("backup-ws-handler"));
 debugLog.enabled = false;
@@ -52,7 +53,7 @@ export async function handleBackupRestoreWebSocket(ws: WebSocket, data: any): Pr
           previousLogCount = updatedSession.logs.length;
         }
 
-        if (updatedSession.status === "completed" || updatedSession.status === "failed") {
+        if (updatedSession.status === BackupSessionStatus.COMPLETED || updatedSession.status === BackupSessionStatus.FAILED) {
           ws.send(JSON.stringify({
             type: MessageType.COMPLETE,
             data: {
