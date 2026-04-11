@@ -22,6 +22,7 @@ import {
 import { AWS_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { s3BackupManifest } from "../mongo/models/s3-backup-manifest";
 import { configuredBackup } from "./backup-config";
+import { backupEvents } from "./backup-events";
 
 const debugLog = debug(envConfig.logNamespace("s3-backup-service"));
 debugLog.enabled = true;
@@ -177,6 +178,24 @@ export function siteConfigs(backupConfig: BackupConfig): SiteConfig[] {
   return dedupeSiteConfigsByBucket(rawSiteConfigs(backupConfig));
 }
 
+const MONGO_BACKUP_TIMESTAMP_SEGMENT = /\/\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\//;
+
+export function isSelfBackupKey(key: string): boolean {
+  if (!key) {
+    return false;
+  }
+  if (key.startsWith("s3-backups/") || key.includes("/s3-backups/")) {
+    return true;
+  }
+  if (key.startsWith("database-backups/") || key.includes("/database-backups/")) {
+    return true;
+  }
+  if (MONGO_BACKUP_TIMESTAMP_SEGMENT.test("/" + key)) {
+    return true;
+  }
+  return false;
+}
+
 export function siteConfigFor(backupConfig: BackupConfig, siteName: string): SiteConfig | null {
   return siteConfigs(backupConfig).find(
     candidate => candidate.site === siteName || (candidate.sharedWith || []).includes(siteName)
@@ -203,10 +222,21 @@ async function performIncrementalBackup(
     : new S3Client({ region: config.backupRegion, credentials: config.credentials });
 
   debugLog(`[${config.site}] Listing objects in source bucket ${config.sourceBucket}`);
-  const sourceObjects = await listAllObjects(sourceClient, config.sourceBucket);
-  debugLog(`[${config.site}] Found ${sourceObjects.length} objects in source bucket`);
+  const rawSourceObjects = await listAllObjects(sourceClient, config.sourceBucket);
+  const sourceObjects = rawSourceObjects.filter(object => !isSelfBackupKey(object.key));
+  const excludedCount = rawSourceObjects.length - sourceObjects.length;
+  debugLog(`[${config.site}] Found ${rawSourceObjects.length} raw objects, ${sourceObjects.length} after excluding ${excludedCount} self-backup paths`);
   if (onProgress) {
+    if (excludedCount > 0) {
+      await onProgress(`S3 backup ${config.site}: excluded ${excludedCount} historical backup files (s3-backups/, database-backups/, <env>/<timestamp>/) from source`);
+    }
     await onProgress(`S3 backup ${config.site}: discovered ${sourceObjects.length} source objects in ${config.sourceBucket}`);
+  }
+  if (config.sourceBucket === config.backupBucket) {
+    debugLog(`[${config.site}] WARNING: source bucket and backup bucket are identical (${config.sourceBucket}); relying on self-backup-key filter to prevent recursion`);
+    if (onProgress) {
+      await onProgress(`S3 backup ${config.site}: WARNING source and backup bucket are both ${config.sourceBucket}; consider configuring a separate backup bucket to fully isolate them`);
+    }
   }
 
   const previous = await previousManifest(config.site);
@@ -318,8 +348,10 @@ async function performIncrementalBackup(
   }
 
   const saved = await s3BackupManifest.create(manifest);
+  const savedObject = saved.toObject() as S3BackupManifest;
   debugLog(`Saved manifest for ${config.site} at ${timestamp}: ${copiedCount} copied, ${skippedCount} skipped`);
-  return saved.toObject() as S3BackupManifest;
+  backupEvents.emit("manifest-created", { manifest: {...savedObject, entries: []} });
+  return savedObject;
 }
 
 async function performRestore(
@@ -512,7 +544,8 @@ export async function startS3Backup(request: S3BackupRequest, onProgress?: Progr
         status: BackupSessionStatus.FAILED,
         error: error.message
       };
-      await s3BackupManifest.create(failedManifest);
+      const savedFailed = await s3BackupManifest.create(failedManifest);
+      backupEvents.emit("manifest-created", { manifest: {...(savedFailed.toObject() as S3BackupManifest), entries: []} });
       results.push({
         site: config.site,
         timestamp,
@@ -648,10 +681,32 @@ async function enrichDeletability(candidate: S3BackupManifest): Promise<S3Backup
   };
 }
 
+const MANIFEST_SUMMARY_PROJECTION = {
+  timestamp: 1,
+  site: 1,
+  sourceBucket: 1,
+  backupBucket: 1,
+  backupPrefix: 1,
+  mongoTimestamp: 1,
+  totalObjects: 1,
+  copiedObjects: 1,
+  skippedObjects: 1,
+  totalSizeBytes: 1,
+  copiedSizeBytes: 1,
+  durationMs: 1,
+  status: 1,
+  error: 1,
+  createdAt: 1
+} as const;
+
 export async function manifests(site?: string, limit: number = 50): Promise<S3BackupManifest[]> {
   const query = site ? { site } : {};
-  const rawManifests = await s3BackupManifest.find(query).sort({ timestamp: -1 }).limit(limit).lean() as S3BackupManifest[];
-  return Promise.all(rawManifests.map(enrichDeletability));
+  const summaries = await s3BackupManifest
+    .find(query, MANIFEST_SUMMARY_PROJECTION)
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .lean() as S3BackupManifest[];
+  return summaries.map(summary => ({...summary, entries: []}));
 }
 
 export async function manifest(id: string): Promise<S3BackupManifest | null> {
@@ -689,6 +744,7 @@ export async function deleteManifests(ids: string[]): Promise<{ deleted: number;
   }
   if (deletable.length > 0) {
     await s3BackupManifest.deleteMany({ _id: { $in: deletable } });
+    deletable.forEach(id => backupEvents.emit("manifest-deleted", { id }));
   }
   return { deleted: deletable.length, blocked };
 }

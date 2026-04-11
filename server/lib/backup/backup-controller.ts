@@ -9,7 +9,7 @@ import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.
 import type { MailMessagingConfig } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import * as config from "../mongo/controllers/config";
 import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
-import { isArray } from "es-toolkit/compat";
+import { isArray, isString } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("backup"));
 debugLog.enabled = false;
@@ -71,7 +71,11 @@ export async function listSessions(req: Request, res: Response) {
   try {
     const svc = await service();
     const limit = asNumber(req.query.limit || 50);
-    const sessions = await svc.sessions(limit);
+    const environmentsParam = req.query.environments;
+    const environments = isString(environmentsParam) && environmentsParam.length > 0
+      ? environmentsParam.split(",").map(environmentName => environmentName.trim()).filter(environmentName => environmentName.length > 0)
+      : undefined;
+    const sessions = await svc.sessions(limit, environments);
     res.status(200).json(sessions);
   } catch (error) {
     debugLog("listSessions:error:", error);

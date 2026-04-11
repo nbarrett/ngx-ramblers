@@ -14,7 +14,7 @@ import {
   S3Client
 } from "@aws-sdk/client-s3";
 import { uploadDirectoryToS3 } from "../aws/s3-utils";
-import { dateTimeFromMillis, dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
+import { dateTimeNow } from "../shared/dates";
 import { backupSession, BackupSession } from "../mongo/models/backup-session";
 import { BackupNotificationService } from "./backup-notification-service";
 import {
@@ -42,9 +42,12 @@ import {
   parseTimestampToDate
 } from "./backup-paths";
 import { availableSites, manifestByTimestamp, startS3Backup, startS3Restore } from "./s3-backup-service";
+import { backupEvents } from "./backup-events";
 
 const debugLog = debug(envConfig.logNamespace("backup-and-restore-service"));
-debugLog.enabled = false;
+debugLog.enabled = true;
+
+const SERVER_START_TIME = dateTimeNow().toJSDate();
 
 export interface BackupOptions {
   environment: string;
@@ -173,6 +176,7 @@ export class BackupAndRestoreService {
     };
 
     const savedSession = await backupSession.create(session);
+    backupEvents.emit("session-updated", { session: savedSession.toObject() as BackupSession });
 
     if (this.notificationService) {
       await this.notificationService.notifyBackupStarted(savedSession);
@@ -234,6 +238,7 @@ export class BackupAndRestoreService {
     };
 
     const savedSession = await backupSession.create(session);
+    backupEvents.emit("session-updated", { session: savedSession.toObject() as BackupSession });
 
     if (this.notificationService) {
       await this.notificationService.notifyRestoreStarted(savedSession);
@@ -275,6 +280,7 @@ export class BackupAndRestoreService {
       const dumpArgs = [
         "--uri", mongoUri,
         "--gzip",
+        "--verbose",
         "--out", outDir
       ];
 
@@ -479,7 +485,8 @@ export class BackupAndRestoreService {
 
       const restoreArgs = [
         "--uri", mongoUri,
-        "--gzip"
+        "--gzip",
+        "--verbose"
       ];
 
       if (options.drop !== false) {
@@ -574,30 +581,102 @@ export class BackupAndRestoreService {
     }
   }
 
+  private async addLogs(sessionId: string, messages: string[]): Promise<void> {
+    if (messages.length === 0) {
+      return;
+    }
+    await backupSession.updateOne(
+      { _id: sessionId },
+      { $push: { logs: { $each: messages } }, $currentDate: { updatedAt: true } }
+    );
+    await this.emitSessionUpdated(sessionId);
+  }
+
+  private async emitSessionUpdated(sessionId: string): Promise<void> {
+    try {
+      const fresh = await backupSession.findById(sessionId).lean() as BackupSession | null;
+      if (fresh) {
+        backupEvents.emit("session-updated", { session: fresh });
+      }
+    } catch (error) {
+      debugLog(`emitSessionUpdated failed for ${sessionId}:`, error);
+    }
+  }
+
   private async execCommand(cmd: string, args: string[], sessionId: string): Promise<void> {
     const redactedArgs = args.map((arg, i) => i > 0 && args[i - 1] === "--uri" ? "[REDACTED-URI]" : arg);
     await this.addLog(sessionId, `Executing: ${cmd} ${redactedArgs.join(" ")}`);
     return new Promise((resolve, reject) => {
       const proc: ChildProcess = spawn(cmd, args);
-      let stdout = "";
-      let stderr = "";
+
+      const pending: string[] = [];
+      let stdoutBuffer = "";
+      let stderrBuffer = "";
+      let flushTimer: NodeJS.Timeout | null = null;
+      let closed = false;
+
+      const scheduleFlush = () => {
+        if (flushTimer || closed) {
+          return;
+        }
+        flushTimer = setTimeout(() => {
+          flushTimer = null;
+          const drained = pending.splice(0, pending.length);
+          this.addLogs(sessionId, drained).catch(error => {
+            debugLog(`addLogs failed for session ${sessionId}:`, error);
+          });
+        }, 500);
+      };
+
+      const sessionTag = sessionId.slice(-6);
+      const appendLine = (line: string) => {
+        if (!line.trim()) {
+          return;
+        }
+        debugLog(`[${cmd}:${sessionTag}] ${line}`);
+        pending.push(line);
+        scheduleFlush();
+      };
+
+      const consume = (buffer: string, chunk: Buffer): string => {
+        const combined = buffer + chunk.toString();
+        const lines = combined.split(/\r?\n/);
+        const remainder = lines.pop() || "";
+        lines.forEach(appendLine);
+        return remainder;
+      };
 
       if (proc.stdout) {
         proc.stdout.on("data", data => {
-          stdout += data.toString();
+          stdoutBuffer = consume(stdoutBuffer, data);
         });
       }
 
       if (proc.stderr) {
         proc.stderr.on("data", data => {
-          stderr += data.toString();
+          stderrBuffer = consume(stderrBuffer, data);
         });
       }
 
       proc.on("close", async (code: number) => {
-        if (stdout) await this.addLog(sessionId, stdout);
-        if (stderr) await this.addLog(sessionId, stderr);
-
+        closed = true;
+        if (flushTimer) {
+          clearTimeout(flushTimer);
+          flushTimer = null;
+        }
+        if (stdoutBuffer.trim()) {
+          pending.push(stdoutBuffer);
+        }
+        if (stderrBuffer.trim()) {
+          pending.push(stderrBuffer);
+        }
+        if (pending.length > 0) {
+          try {
+            await this.addLogs(sessionId, pending.splice(0, pending.length));
+          } catch (error) {
+            debugLog(`final addLogs failed for session ${sessionId}:`, error);
+          }
+        }
         if (code === 0) {
           resolve();
         } else {
@@ -689,14 +768,20 @@ export class BackupAndRestoreService {
   }
 
   private async updateSession(sessionId: string, updates: Partial<BackupSession>): Promise<void> {
-    await backupSession.updateOne({ _id: sessionId }, { $set: updates });
+    const update: Record<string, any> = { $set: updates, $currentDate: { updatedAt: true } };
+    if (updates.status === BackupSessionStatus.COMPLETED) {
+      update.$unset = { error: "" };
+    }
+    await backupSession.updateOne({ _id: sessionId }, update);
+    await this.emitSessionUpdated(sessionId);
   }
 
   private async updateSessionError(sessionId: string, error: string): Promise<void> {
     await backupSession.updateOne(
       { _id: sessionId },
-      { $set: { status: BackupSessionStatus.FAILED, error, endTime: dateTimeNow().toJSDate() } }
+      { $set: { status: BackupSessionStatus.FAILED, error, endTime: dateTimeNow().toJSDate() }, $currentDate: { updatedAt: true } }
     );
+    await this.emitSessionUpdated(sessionId);
 
     if (this.notificationService) {
       const failedSession = await this.session(sessionId);
@@ -711,22 +796,24 @@ export class BackupAndRestoreService {
   }
 
   private async addLog(sessionId: string, message: string): Promise<void> {
-    await backupSession.updateOne({ _id: sessionId }, { $push: { logs: message } });
+    await backupSession.updateOne(
+      { _id: sessionId },
+      { $push: { logs: message }, $currentDate: { updatedAt: true } }
+    );
+    await this.emitSessionUpdated(sessionId);
   }
 
   async cleanupStuckSessions(): Promise<number> {
-    const tenMinutesAgo = dateTimeFromMillis(dateTimeNowAsValue() - 10 * 60 * 1000).toJSDate();
-
-    const stuckSessions = await backupSession.find({
+    const candidates = await backupSession.find({
       status: BackupSessionStatus.IN_PROGRESS,
-      startTime: { $lt: tenMinutesAgo }
+      startTime: { $lt: SERVER_START_TIME }
     });
 
     let cleanedCount = 0;
-    for (const session of stuckSessions) {
+    for (const candidate of candidates) {
       await this.updateSessionError(
-        session._id!.toString(),
-        "Session timed out after 10 minutes without completion"
+        candidate._id!.toString(),
+        "Session orphaned by a prior server restart. The underlying operation may have completed before the restart; check S3 or the backup directory to confirm."
       );
       cleanedCount++;
     }
@@ -734,9 +821,12 @@ export class BackupAndRestoreService {
     return cleanedCount;
   }
 
-  async sessions(limit: number = 50): Promise<BackupSession[]> {
+  async sessions(limit: number = 50, environments?: string[]): Promise<BackupSession[]> {
     await this.cleanupStuckSessions();
-    return backupSession.find().sort({startTime: -1}).limit(limit);
+    const query = environments && environments.length > 0
+      ? { environment: { $in: environments } }
+      : {};
+    return backupSession.find(query).sort({startTime: -1}).limit(limit);
   }
 
   async session(sessionId: string): Promise<BackupSession | null> {

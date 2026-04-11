@@ -87,6 +87,10 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
       white-space: nowrap
       display: inline-block
 
+    .session-logs-cell
+      max-width: 0
+      width: 100%
+
     .session-logs
       background-color: #1e293b
       color: #e2e8f0
@@ -95,10 +99,18 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
       font-family: monospace
       font-size: 0.875rem
       max-height: 400px
+      max-width: 100%
       overflow-y: auto
+      overflow-x: hidden
+      white-space: pre-wrap
+      word-break: break-word
+      overflow-wrap: anywhere
 
       div
         margin-bottom: 0.25rem
+        white-space: pre-wrap
+        word-break: break-word
+        overflow-wrap: anywhere
 
     .manifest-analysis-header
       min-height: 5.5rem
@@ -106,6 +118,17 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
 
     .manifest-analysis-header-full
       min-height: 0
+
+    .session-history-scroll
+      max-height: 70vh
+      overflow: auto
+
+      thead th
+        position: sticky
+        top: 0
+        background-color: #fff
+        z-index: 2
+        box-shadow: inset 0 -1px 0 #dee2e6
   `],
   template: `
     <app-page autoTitle pageTitle="Backup & Restore">
@@ -279,6 +302,19 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                              id="dryRun">
                       <label class="form-check-label" for="dryRun">Dry run (simulate only)</label>
                     </div>
+                    <div class="mb-3 form-check">
+                      <input type="checkbox" class="form-check-input"
+                             [ngModel]="restoreRequest.includeS3 !== false"
+                             (ngModelChange)="restoreRequest.includeS3 = $event"
+                             name="restoreIncludeS3"
+                             id="restoreIncludeS3">
+                      <label class="form-check-label" for="restoreIncludeS3">
+                        Also restore S3 objects for this environment
+                      </label>
+                      <small class="form-text text-muted d-block">
+                        Uncheck to restore only the Mongo database. Leave unchecked if the target environment shares an S3 bucket with another environment and you don't want to overwrite its live objects.
+                      </small>
+                    </div>
                     <button type="submit" class="btn btn-warning"
                             [disabled]="!restoreRequest.environment || !selectedBackupForRestore">
                       {{ restoreButtonLabel() }}
@@ -353,7 +389,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       }
                     </small>
                   </div>
-                  <div class="table-responsive">
+                  <div class="table-responsive session-history-scroll">
                     <table class="table table-striped table-sm">
                       <thead>
                       <tr>
@@ -372,7 +408,9 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                             <td>{{ session.type }}</td>
                             <td>{{ session.environment }}</td>
                             <td>
-                              <span class="session-status" [ngClass]="statusStyle(session.status)">
+                              <span class="session-status" [ngClass]="statusStyle(session.status)"
+                                    container="body"
+                                    [tooltip]="session.error || null">
                                 @if (session.status === BackupSessionStatus.IN_PROGRESS) {
                                   <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
                                 }
@@ -436,16 +474,16 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                           </tr>
                           @if (isSessionExpanded(session)) {
                             <tr>
-                              <td colspan="7">
+                              <td colspan="7" class="session-logs-cell">
+                                @if (session.error) {
+                                  <div class="alert alert-danger mb-2"><strong>Error:</strong> {{ session.error }}</div>
+                                }
                                 <div class="session-logs">
                                   @if (logsNewestFirst(session).length === 0 && session.status === BackupSessionStatus.IN_PROGRESS) {
                                     <div><fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Waiting for log output...</div>
                                   }
                                   @for (log of logsNewestFirst(session); track $index) {
                                     <div>{{ log }}</div>
-                                  }
-                                  @if (session.error) {
-                                    <div class="text-danger">ERROR: {{ session.error }}</div>
                                   }
                                 </div>
                               </td>
@@ -456,6 +494,12 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               <tr>
                                 <td colspan="7" class="p-0">
                                   <div class="manifest-analysis p-3 bg-white border-top">
+                                    @if (!isAnalysisLoaded(manifest)) {
+                                      <div class="d-flex align-items-center text-muted">
+                                        <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>
+                                        Loading manifest entries...
+                                      </div>
+                                    } @else {
                                     <div class="row g-3">
                                       <div class="col-md-6">
                                         <div class="manifest-analysis-section">
@@ -534,6 +578,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                                         </div>
                                       </div>
                                     </div>
+                                    }
                                   </div>
                                 </td>
                               </tr>
@@ -652,6 +697,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   pendingDeleteManifest: S3BackupManifest | undefined;
   historyFilterEnvironments: EnvironmentInfo[] = [];
   analysingManifestIds: Set<string> = new Set<string>();
+  fullManifestsById: Map<string, S3BackupManifest> = new Map<string, S3BackupManifest>();
   manageStoredBackupsOpen = false;
   protected readonly BackupSessionStatus = BackupSessionStatus;
   protected readonly BackupSessionType = BackupSessionType;
@@ -680,16 +726,35 @@ export class BackupAndRestore implements OnInit, OnDestroy {
 
   onHistoryFilterChange(selected: EnvironmentInfo[]) {
     this.historyFilterEnvironments = selected || [];
+    this.loadSessions();
+    this.loadS3Manifests();
   }
 
   toggleAnalyse(manifest: S3BackupManifest) {
     if (!manifest._id) {
       return;
     }
-    if (this.analysingManifestIds.has(manifest._id)) {
-      this.analysingManifestIds.delete(manifest._id);
-    } else {
-      this.analysingManifestIds.add(manifest._id);
+    const id = manifest._id;
+    if (this.analysingManifestIds.has(id)) {
+      this.analysingManifestIds.delete(id);
+      return;
+    }
+    this.analysingManifestIds.add(id);
+    if (!this.fullManifestsById.has(id)) {
+      this.subscriptions.push(
+        this.backupRestoreService.s3Manifest(id).subscribe({
+          next: full => {
+            this.fullManifestsById.set(id, full);
+          },
+          error: err => {
+            this.analysingManifestIds.delete(id);
+            this.notify.error({
+              title: "Analyse Failed",
+              message: this.extractErrorMessage(err)
+            });
+          }
+        })
+      );
     }
   }
 
@@ -697,16 +762,23 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     return !!manifest._id && this.analysingManifestIds.has(manifest._id);
   }
 
+  isAnalysisLoaded(manifest: S3BackupManifest): boolean {
+    return !!manifest._id && this.fullManifestsById.has(manifest._id);
+  }
+
   prefixBreakdown(manifest: S3BackupManifest): S3ManifestBreakdown[] {
-    return groupEntriesByPrefix(manifest.entries || [], 1);
+    const full = manifest._id ? this.fullManifestsById.get(manifest._id) : undefined;
+    return groupEntriesByPrefix(full?.entries || [], 1);
   }
 
   extensionBreakdown(manifest: S3BackupManifest): S3ManifestBreakdown[] {
-    return groupEntriesByExtension(manifest.entries || []);
+    const full = manifest._id ? this.fullManifestsById.get(manifest._id) : undefined;
+    return groupEntriesByExtension(full?.entries || []);
   }
 
   topEntries(manifest: S3BackupManifest) {
-    return topLargestEntries(manifest.entries || [], 20);
+    const full = manifest._id ? this.fullManifestsById.get(manifest._id) : undefined;
+    return topLargestEntries(full?.entries || [], 20);
   }
 
   statusStyle(status: string) {
@@ -772,10 +844,65 @@ export class BackupAndRestore implements OnInit, OnDestroy {
           this.handleError(data);
         })
       );
+
+      this.subscriptions.push(
+        this.websocketService.receiveMessages<{manifest: S3BackupManifest}>(MessageType.BACKUP_MANIFEST_CREATED).subscribe(data => {
+          this.handleManifestCreated(data.manifest);
+        })
+      );
+
+      this.subscriptions.push(
+        this.websocketService.receiveMessages<{id: string}>(MessageType.BACKUP_MANIFEST_DELETED).subscribe(data => {
+          this.handleManifestDeleted(data.id);
+        })
+      );
+
+      this.subscriptions.push(
+        this.websocketService.receiveMessages<{session: BackupSession}>(MessageType.BACKUP_SESSION_UPDATED).subscribe(data => {
+          this.handleSessionUpdated(data.session);
+        })
+      );
+
+      this.websocketService.sendMessage(EventType.BACKUP_EVENTS, {});
     } catch (error) {
       this.logger.error("Failed to connect WebSocket:", error);
       this.wsConnected = false;
     }
+  }
+
+  private handleManifestCreated(manifest: S3BackupManifest) {
+    if (!manifest?._id) {
+      return;
+    }
+    const existingIndex = this.s3Manifests.findIndex(existing => existing._id === manifest._id);
+    if (existingIndex >= 0) {
+      this.s3Manifests[existingIndex] = manifest;
+    } else {
+      this.s3Manifests = [manifest, ...this.s3Manifests];
+    }
+  }
+
+  private handleManifestDeleted(id: string) {
+    this.s3Manifests = this.s3Manifests.filter(manifest => manifest._id !== id);
+    this.fullManifestsById.delete(id);
+    this.analysingManifestIds.delete(id);
+  }
+
+  private handleSessionUpdated(session: BackupSession) {
+    if (!session?._id) {
+      return;
+    }
+    const existingIndex = this.sessions.findIndex(existing => existing._id === session._id);
+    if (existingIndex >= 0) {
+      this.sessions = [
+        ...this.sessions.slice(0, existingIndex),
+        session,
+        ...this.sessions.slice(existingIndex + 1)
+      ];
+    } else {
+      this.sessions = [session, ...this.sessions];
+    }
+    this.ensureInProgressExpanded(this.sessions);
   }
 
   private handleProgressUpdate(data: any) {
@@ -850,19 +977,9 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   startAutoRefresh() {
-    this.refreshSubscription = interval(5000)
-      .pipe(switchMap(() => this.backupRestoreService.listSessions(50)))
-      .subscribe(sessions => {
-        this.sessions = sessions;
-        this.ensureInProgressExpanded(sessions);
-        if (this.selectedSession) {
-          const updated = sessions.find(s => s._id === this.selectedSession?._id);
-          if (updated) {
-            this.selectedSession = updated;
-          }
-        }
-        this.loadS3Manifests();
-      });
+    // Event-driven via WebSocket (see connectWebSocket + BACKUP_EVENTS subscription).
+    // This method is kept as a no-op so callers can still request "refresh while on History tab"
+    // semantics without re-introducing HTTP polling.
   }
 
   stopAutoRefresh() {
@@ -913,8 +1030,9 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   loadSessions() {
+    const environmentNames = this.historyFilterEnvironments.map(environment => environment.name);
     this.subscriptions.push(
-      this.backupRestoreService.listSessions(50).subscribe({
+      this.backupRestoreService.listSessions(50, environmentNames).subscribe({
         next: sessions => {
           this.sessions = sessions;
           this.logger.info("Loaded sessions:", sessions);
@@ -1459,7 +1577,25 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   sessionS3Summaries(session: BackupSession): S3BackupSummary[] {
-    return session.type === BackupSessionType.RESTORE ? (session.s3Restores || []) : (session.s3Backups || []);
+    const stored = session.type === BackupSessionType.RESTORE ? session.s3Restores : session.s3Backups;
+    if (stored && stored.length > 0) {
+      return stored;
+    }
+    const matching = this.manifestForSession(session);
+    if (!matching) {
+      return [];
+    }
+    return [{
+      site: matching.site,
+      timestamp: matching.timestamp,
+      totalObjects: matching.totalObjects,
+      copiedObjects: matching.copiedObjects,
+      skippedObjects: matching.skippedObjects,
+      totalSizeBytes: matching.totalSizeBytes,
+      copiedSizeBytes: matching.copiedSizeBytes,
+      durationMs: matching.durationMs,
+      status: matching.status
+    }];
   }
 
   formatDurationMs(ms: number): string {
