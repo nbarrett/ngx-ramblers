@@ -24,6 +24,7 @@ export enum EventType {
   RESIZE_UNSAVED_IMAGES = "resize-unsaved-images",
   TEST_STEP_REPORTER = "test-step-reporter",
   BACKUP_RESTORE = "backup-restore",
+  BACKUP_EVENTS = "backup-events",
   ESRI_ROUTE_IMPORT = "esri-route-import",
   WALKS_MANAGER_SYNC = "walks-manager-sync",
   IMAGE_MIGRATION_SCAN_HOSTS = "image-migration-scan-hosts",
@@ -45,6 +46,9 @@ export enum MessageType {
   PROGRESS = "progress",
   ERROR = "error",
   CANCELLED = "cancelled",
+  BACKUP_MANIFEST_CREATED = "backup-manifest-created",
+  BACKUP_MANIFEST_DELETED = "backup-manifest-deleted",
+  BACKUP_SESSION_UPDATED = "backup-session-updated",
 }
 
 export const allowableStatusCodes: number[] = [1000, 1005];

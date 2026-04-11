@@ -18,6 +18,7 @@ import { mapStatusCode } from "../../../projects/ngx-ramblers/src/app/functions/
 import { processTestStepEvent } from "../ramblers/process-test-step-event";
 import { handleSiteMigration } from "../migration/site-migration-ws-handler";
 import { handleBackupRestoreWebSocket } from "../backup/backup-ws-handler";
+import { handleBackupEventsWebSocket } from "../backup/backup-events-ws-handler";
 import { handleEsriRouteImport } from "../map-routes/map-route-import-ws-handler";
 import { handleWalksManagerSync } from "../walks/walks-manager-sync-ws-handler";
 import { handleImageMigrationScanHosts, handleImageMigrationScan, handleImageMigrationExecute, handleImageMigrationCancel } from "../image-migration/image-migration-ws-handler";
@@ -25,7 +26,7 @@ import { handleEnvironmentSetup, handleEnvironmentCreate, EnvironmentSetupWsData
 import { handleExternalAlbumFetch, handleExternalAlbumImport, handleExternalUserAlbumsFetch, handleExternalBulkAlbumImport, handleExternalAlbumSplitPreview } from "../external-album/external-album-ws-handler";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 const clientWebSocketInstance: WebSocketInstance = {instance: null};
 const messageHandlers: MessageHandlers = {
   [EventType.RAMBLERS_WALKS_UPLOAD]: (ws: WebSocket, data: RamblersWalksUploadRequest) => uploadWalks(ws, data),
@@ -34,6 +35,7 @@ const messageHandlers: MessageHandlers = {
   [EventType.TEST_STEP_REPORTER]: (ws: WebSocket, data: string) => processTestStepEvent(clientWebSocketInstance.instance || ws, data),
   [EventType.SITE_MIGRATION]: async (ws: WebSocket, data: any) => handleSiteMigration(ws, data),
   [EventType.BACKUP_RESTORE]: async (ws: WebSocket, data: any) => handleBackupRestoreWebSocket(ws, data),
+  [EventType.BACKUP_EVENTS]: async (ws: WebSocket, data: any) => handleBackupEventsWebSocket(ws, data),
   [EventType.ESRI_ROUTE_IMPORT]: async (ws: WebSocket, data: any) => handleEsriRouteImport(ws, data),
   [EventType.WALKS_MANAGER_SYNC]: async (ws: WebSocket, data: any) => handleWalksManagerSync(ws, data),
   [EventType.IMAGE_MIGRATION_SCAN_HOSTS]: async (ws: WebSocket, data: any) => handleImageMigrationScanHosts(ws, data),

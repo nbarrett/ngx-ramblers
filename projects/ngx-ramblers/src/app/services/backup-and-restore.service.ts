@@ -38,9 +38,15 @@ export class BackupAndRestoreService {
     return this.http.get<BackupListItem[]>(`${this.MONGO_BASE_URL}/backups`);
   }
 
-  listSessions(limit?: number): Observable<BackupSession[]> {
-    this.logger.info("listSessions", limit);
-    const params = limit ? { limit: limit.toString() } : {};
+  listSessions(limit?: number, environments?: string[]): Observable<BackupSession[]> {
+    this.logger.info("listSessions", limit, environments);
+    const params: Record<string, string> = {};
+    if (limit) {
+      params["limit"] = limit.toString();
+    }
+    if (environments && environments.length > 0) {
+      params["environments"] = environments.join(",");
+    }
     return this.http.get<BackupSession[]>(`${this.MONGO_BASE_URL}/sessions`, { params });
   }
 
