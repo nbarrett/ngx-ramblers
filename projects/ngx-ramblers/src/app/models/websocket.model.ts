@@ -19,6 +19,7 @@ export interface RamblersUploadAuditProgressResponse {
 
 export enum EventType {
   RAMBLERS_WALKS_UPLOAD = "ramblers-walks-upload",
+  RAMBLERS_WALKS_UPLOAD_CANCEL = "ramblers-walks-upload-cancel",
   SITE_MIGRATION = "site-migration",
   RESIZE_SAVED_IMAGES = "resize-saved-images",
   RESIZE_UNSAVED_IMAGES = "resize-unsaved-images",

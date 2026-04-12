@@ -130,11 +130,19 @@ import { ServerDownloadStatusService } from "../../../services/walks/download-st
             <div class="row">
               @if (!display.walkPopulationWalksManager()) {
                 <div class="col mb-2">
-                  <input type="submit"
-                         [value]="uploadButtonLabel()"
-                         (click)="uploadToRamblers()"
-                         [disabled]="newActionsDisabled()"
-                         class="btn btn-primary w-100"/>
+                  @if (exportInProgress) {
+                    <button type="button"
+                            (click)="cancelActiveUpload()"
+                            class="btn btn-danger w-100">
+                      Cancel upload
+                    </button>
+                  } @else {
+                    <input type="submit"
+                           [value]="uploadButtonLabel()"
+                           (click)="uploadToRamblers()"
+                           [disabled]="newActionsDisabled()"
+                           class="btn btn-primary w-100"/>
+                  }
                 </div>
                 <div class="col mb-2">
                   <input type="submit"
@@ -674,6 +682,16 @@ export class WalkExport implements OnInit, OnDestroy {
       });
       this.ramblersWalksAndEventsService.notifyWalkUploadStarted(this.walkExportNotifier, ramblersWalksUploadRequest);
       this.selectTab(WalkExportTab.WALK_UPLOAD_AUDIT);
+    });
+  }
+
+  cancelActiveUpload(): void {
+    this.logger.info("cancelActiveUpload invoked");
+    this.webSocketClientService.sendMessage(EventType.RAMBLERS_WALKS_UPLOAD_CANCEL, {});
+    this.exportInProgress = false;
+    this.walkExportNotifier.warning({
+      title: "Upload cancelled",
+      message: "Requested cancellation of the active Ramblers walks upload"
     });
   }
 

@@ -31,6 +31,20 @@ function checkPortAvailable(port: number): Promise<boolean> {
 const PROJECT_ROOT = path.resolve(__dirname, "../../../../");
 const DEFAULT_LOG_DIR = "cli-output/logs";
 
+function readWorkerUrlFromServerEnv(): string | null {
+  const serverEnvPath = path.join(PROJECT_ROOT, "server", ".env");
+  if (!fs.existsSync(serverEnvPath)) {
+    return null;
+  }
+  const contents = fs.readFileSync(serverEnvPath, "utf-8");
+  const match = contents.split(/\r?\n/).find(line => /^\s*RAMBLERS_UPLOAD_WORKER_URL\s*=/.test(line));
+  if (!match) {
+    return null;
+  }
+  const value = match.split("=").slice(1).join("=").trim();
+  return value.replace(/^["']|["']$/g, "");
+}
+
 function detectInstalledChromeVersion(): string | null {
   const chromedriverDir = path.join(PROJECT_ROOT, "server/chromedriver");
   if (!fs.existsSync(chromedriverDir)) {
@@ -417,6 +431,8 @@ async function runDev(config: LocalRunConfig): Promise<void> {
     log("Note: No local secrets file for %s - will load from database", envConfig.appName);
   }
 
+  const workerPort = config.port + 1;
+
   const backendPortAvailable = await checkPortAvailable(config.port);
   if (!backendPortAvailable) {
     throw new Error(`Backend port ${config.port} is already in use`);
@@ -430,10 +446,29 @@ async function runDev(config: LocalRunConfig): Promise<void> {
   const completeSecrets = await loadAndEnsureSecrets(config.environmentName, envConfig.appName, envConfig.apiKey);
   const s3BucketOverride = config.s3BucketOverride ?? await selectS3BucketOverride(config.environmentName, completeSecrets.AWS_BUCKET || "unknown");
   const env = buildEnvironmentVariables(completeSecrets, "dev", config.port, s3BucketOverride);
+
+  const configuredWorkerUrl = (
+    env.RAMBLERS_UPLOAD_WORKER_URL
+    || readWorkerUrlFromServerEnv()
+    || ""
+  ).trim();
+  const spawnLocalWorker = configuredWorkerUrl === ""
+    || configuredWorkerUrl.includes("localhost")
+    || configuredWorkerUrl.includes("127.0.0.1");
+
+  if (spawnLocalWorker) {
+    const workerPortAvailable = await checkPortAvailable(workerPort);
+    if (!workerPortAvailable) {
+      throw new Error(`Worker port ${workerPort} is already in use`);
+    }
+  }
+
+  const workerEnv: NodeJS.ProcessEnv = { ...env, PORT: String(workerPort) };
   const logDir = resolveLogDir(config.logDir);
   const timestamp = buildLogTimestamp(config.logTimestamp);
   const frontendLogPath = buildLogFilePath(logDir, applyLogTimestamp("frontend.log", timestamp));
   const backendLogPath = buildLogFilePath(logDir, applyLogTimestamp("backend.log", timestamp));
+  const workerLogPath = spawnLocalWorker ? buildLogFilePath(logDir, applyLogTimestamp("worker.log", timestamp)) : null;
 
   log("\n========================================");
   log("Starting in DEVELOPMENT mode");
@@ -446,6 +481,11 @@ async function runDev(config: LocalRunConfig): Promise<void> {
   }
   log("Frontend: http://localhost:4200");
   log("Backend: http://localhost:%d", config.port);
+  if (spawnLocalWorker) {
+    log("Worker:  http://localhost:%d", workerPort);
+  } else {
+    log("Worker:  %s (remote - not spawning local worker)", configuredWorkerUrl);
+  }
   log("========================================\n");
 
   const processes: RunningProcess[] = [];
@@ -496,6 +536,22 @@ async function runDev(config: LocalRunConfig): Promise<void> {
   );
   processes.push({ child: backendProcess, label: "Backend" });
 
+  if (spawnLocalWorker) {
+    const workerState = createProcessState();
+    const workerProcess = runCommand(
+      "npm",
+      ["run", "worker-server-live", "--prefix", "server"],
+      workerEnv,
+      PROJECT_ROOT,
+      "Worker (tsx watch)",
+      workerState,
+      onError,
+      workerLogPath,
+      showOutput
+    );
+    processes.push({ child: workerProcess, label: "Worker" });
+  }
+
   const frontendState = createProcessState();
   const frontendProcess = runCommand(
     "npm",
@@ -517,6 +573,7 @@ async function runDev(config: LocalRunConfig): Promise<void> {
     await openLogViewer({
       frontendLogPath,
       backendLogPath,
+      workerLogPath: workerLogPath || undefined,
       refreshIntervalMs: 500,
       maxLines: 2000
     });

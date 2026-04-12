@@ -51,6 +51,7 @@ import { bookingRoutes } from "./mongo/routes/booking";
 import { contactInteractionRoutes } from "./mongo/routes/contact-interaction";
 import { configureLogging } from "./logging/logging";
 import { downloadStatusRoutes } from "./ramblers/download-status-routes";
+import { ramblersUploadWorkerRoutes } from "./ramblers/ramblers-upload-worker-routes";
 import { geoJsonRoutes } from "./geojson/geojson-routes";
 import { regions } from "./geojson/regions";
 import { parishRoutes } from "./parishes/parish-routes";
@@ -104,6 +105,7 @@ app.get("/api/regions", regions);
 app.use("/api/parishes", parishRoutes);
 app.use("/api/download-status", downloadStatusRoutes);
 app.use("/api/ramblers", ramblersRoutes);
+app.use("/api/ramblers-upload-worker", ramblersUploadWorkerRoutes);
 app.use("/api/routes", mapRouteRoutes);
 app.use(spatialFeaturesController);
 app.use("/api/aws", awsRoutes);
@@ -186,7 +188,7 @@ async function runMigrationsInBackground() {
 
 async function startServer() {
   try {
-    server.listen(port, "0.0.0.0", () => {
+    server.listen(port, "::", () => {
       debugLog(`🚀 Server is listening on port for ${envConfig.env} environment`, port);
     });
 
@@ -194,6 +196,13 @@ async function startServer() {
     server.keepAliveTimeout = 610000;
     server.headersTimeout = 620000;
     debugLog(`⏱️ Server timeouts configured: timeout=${server.timeout}ms, keepAliveTimeout=${server.keepAliveTimeout}ms, headersTimeout=${server.headersTimeout}ms`);
+
+    const workerUrl = envConfig.value(Environment.RAMBLERS_UPLOAD_WORKER_URL);
+    if (workerUrl) {
+      debugLog(`📦 Ramblers walks uploads will route to remote worker at ${workerUrl}`);
+    } else {
+      debugLog("📦 Ramblers walks uploads will run in-process (no RAMBLERS_UPLOAD_WORKER_URL set)");
+    }
 
     createWebSocketServer(server, port);
 

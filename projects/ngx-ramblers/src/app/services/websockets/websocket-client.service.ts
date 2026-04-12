@@ -14,7 +14,7 @@ import { mapStatusCode } from "../../functions/websockets";
 export class WebSocketClientService {
   private socket: WebSocket;
   private subjects: { [key: string]: Subject<any> } = {};
-  private logger: Logger = inject(LoggerFactory).createLogger("WebSocketClientService", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WebSocketClientService", NgxLoggerLevel.DEBUG);
   private urlService = inject(UrlService);
   private numberUtilsService = inject(NumberUtilsService);
   private pingInterval: any;

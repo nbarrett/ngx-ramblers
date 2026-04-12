@@ -11,7 +11,6 @@ import { createDestroyCommand } from "./commands/destroy";
 import { createLocalCommand } from "./commands/local";
 import { createBackupCommand } from "./commands/backup";
 import { createLocksCommand } from "./commands/locks";
-import { createGitHubCommand } from "./commands/github";
 import { createMigrateCommand } from "./commands/migrate";
 import { createSubdomainCommand } from "./commands/subdomain";
 import { Environment } from "../env-config/environment-model";
@@ -34,7 +33,6 @@ export { createBucketAndUser, copyAssets } from "./commands/aws";
 export { validateMongodb, validateAwsAdmin, validateRamblersApi } from "./commands/validate";
 export { destroyEnvironment } from "./commands/destroy";
 export { createBackup, restoreBackup } from "./commands/backup";
-export { reconcileConfigs, syncDatabaseToGitHub, updateGitHubSecret } from "./commands/github";
 
 export * from "./types";
 
@@ -69,7 +67,6 @@ program.addCommand(configureHelp(createDestroyCommand()));
 program.addCommand(configureHelp(createLocalCommand()));
 program.addCommand(configureHelp(createBackupCommand()));
 program.addCommand(configureHelp(createLocksCommand()));
-program.addCommand(configureHelp(createGitHubCommand()));
 program.addCommand(configureHelp(createMigrateCommand()));
 program.addCommand(configureHelp(createSubdomainCommand()));
 

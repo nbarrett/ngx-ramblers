@@ -1,0 +1,25 @@
+app = "ngx-ramblers-upload-worker"
+primary_region = "lhr"
+
+[processes]
+app = "npm run worker-server --prefix server"
+
+[http_service]
+auto_start_machines = true
+auto_stop_machines = false
+force_https = true
+internal_port = 5001
+min_machines_running = 1
+processes = ["app"]
+
+[[http_service.checks]]
+interval = "15s"
+timeout = "10s"
+grace_period = "60s"
+method = "GET"
+path = "/api/health"
+
+[[vm]]
+memory = "1024mb"
+cpu_kind = "shared"
+cpus = 1

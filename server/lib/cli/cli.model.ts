@@ -32,6 +32,7 @@ export interface ProcessState {
 export interface LogViewerConfig {
   frontendLogPath: string;
   backendLogPath: string;
+  workerLogPath?: string;
   refreshIntervalMs: number;
   maxLines: number;
 }

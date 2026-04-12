@@ -11,6 +11,7 @@ import {
   AuthErrorCookieBannerOrCreateMenuDropdown
 } from "../../../questions/ramblers/auth-error-cookie-banner-or-create-menu-dropdown";
 import { Accept } from "./accept-cookie-prompt";
+import { Environment } from "../../../../../env-config/environment-model";
 
 export class Login extends Task {
 
@@ -21,8 +22,8 @@ export class Login extends Task {
   performAs(actor: PerformsActivities & AnswersQuestions): Promise<void> {
     return mongooseClient.execute(() => systemConfig()
       .then((systemConfig: SystemConfig) => {
-        const username = systemConfig?.national?.walksManager?.userName;
-        const password = systemConfig?.national?.walksManager?.password;
+        const username = process.env[Environment.RAMBLERS_USERNAME] || systemConfig?.national?.walksManager?.userName;
+        const password = process.env[Environment.RAMBLERS_PASSWORD] || systemConfig?.national?.walksManager?.password;
         return actor.attemptsTo(
           Check.whether(WalksPageElements.createMenuDropdown, isPresent())
             .andIfSo(Log.message("Session is already logged in so no need to login again"))

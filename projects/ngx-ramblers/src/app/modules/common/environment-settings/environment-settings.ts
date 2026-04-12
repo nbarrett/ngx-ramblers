@@ -7,8 +7,11 @@ import {
   createEmptyAwsConfig,
   createEmptyCloudflareConfig,
   createDefaultFlyioConfig,
+  createDefaultUploadWorkerConfig,
   createEmptyMongoConfig,
-  EnvironmentsConfig
+  EnvironmentConfig,
+  EnvironmentsConfig,
+  UploadWorkerConfig
 } from "../../../models/environment-config.model";
 import { EnvironmentSettingsSubTab } from "../../../models/system.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -20,7 +23,6 @@ import { SectionToggle, SectionToggleTab } from "../../../shared/components/sect
 import { EnvironmentGlobalSettings } from "./environment-global-settings";
 import { EnvironmentPerEnvSettings } from "./environment-per-env-settings";
 import { EnvironmentConfigTools } from "./environment-config-tools";
-import { EnvironmentGitHubSecrets } from "./environment-github-secrets";
 
 @Component({
   selector: "app-environment-settings",
@@ -30,8 +32,7 @@ import { EnvironmentGitHubSecrets } from "./environment-github-secrets";
     SectionToggle,
     EnvironmentGlobalSettings,
     EnvironmentPerEnvSettings,
-    EnvironmentConfigTools,
-    EnvironmentGitHubSecrets
+    EnvironmentConfigTools
   ],
   template: `
     <div class="row thumbnail-heading-frame">
@@ -53,9 +54,6 @@ import { EnvironmentGitHubSecrets } from "./environment-github-secrets";
           [configJson]="configJson"
           (configJsonChange)="configJson = $event"
           (configLoaded)="populateFormFromConfig($event)"/>
-      }
-      @if (showSubTab(EnvironmentSettingsSubTab.GITHUB)) {
-        <app-environment-github-secrets/>
       }
       <form (ngSubmit)="saveConfigFromForm()" autocomplete="off">
         @if (showSubTab(EnvironmentSettingsSubTab.GLOBAL)) {
@@ -102,7 +100,6 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
     {value: EnvironmentSettingsSubTab.ENVIRONMENTS, label: "Environments"},
     {value: EnvironmentSettingsSubTab.GLOBAL, label: "Global Settings"},
     {value: EnvironmentSettingsSubTab.TOOLS, label: "View or Initialise"},
-    {value: EnvironmentSettingsSubTab.GITHUB, label: "GitHub Secrets"},
     {value: EnvironmentSettingsSubTab.ALL, label: "All"}
   ];
 
@@ -140,6 +137,7 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
     this.editableConfig.aws = {...createEmptyAwsConfig(), ...this.editableConfig.aws};
     this.editableConfig.cloudflare = {...createEmptyCloudflareConfig(), ...this.editableConfig.cloudflare};
     this.editableConfig.secrets = this.editableConfig.secrets || {};
+    this.editableConfig.uploadWorker = {...createDefaultUploadWorkerConfig(), ...this.editableConfig.uploadWorker};
     this.editableConfig.environments = this.editableConfig.environments
       .map(env => ({
         environment: env.environment || "",
@@ -155,13 +153,15 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
   saveConfigFromForm() {
     this.configError = "";
     const config: EnvironmentsConfig = {
-      environments: this.editableConfig.environments,
+      environments: this.propagateWorkerSecrets(this.editableConfig.environments, this.editableConfig.uploadWorker),
       aws: this.editableConfig.aws,
       cloudflare: this.editableConfig.cloudflare,
-      secrets: this.editableConfig.secrets
+      secrets: this.editableConfig.secrets,
+      uploadWorker: this.editableConfig.uploadWorker
     };
 
     this.environmentConfigService.saveConfig(config).then(() => {
+      this.editableConfig.environments = config.environments;
       this.configJson = JSON.stringify(config, null, 2);
       this.notify.success({
         title: "Configuration Saved",
@@ -173,6 +173,27 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
         title: "Error saving configuration",
         message: err.message
       });
+    });
+  }
+
+  private propagateWorkerSecrets(environments: EnvironmentConfig[], uploadWorker: UploadWorkerConfig): EnvironmentConfig[] {
+    if (!uploadWorker?.appName) {
+      return environments;
+    }
+    const workerUrl = `https://${uploadWorker.appName}.fly.dev`;
+    return environments.map(env => {
+      if (!env.secrets?.RAMBLERS_UPLOAD_WORKER_URL) {
+        return env;
+      }
+      return {
+        ...env,
+        secrets: {
+          ...env.secrets,
+          RAMBLERS_UPLOAD_WORKER_URL: workerUrl,
+          RAMBLERS_UPLOAD_WORKER_SHARED_SECRET: uploadWorker.sharedSecret || "",
+          RAMBLERS_UPLOAD_WORKER_ENCRYPTION_KEY: uploadWorker.encryptionKey || ""
+        }
+      };
     });
   }
 

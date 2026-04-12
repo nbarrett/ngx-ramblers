@@ -16,20 +16,32 @@ import {
   RamblersUploadAuditProgressResponse
 } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import * as auditParser from "./ramblers-audit-parser";
+import {
+  completeRamblersUploadSession,
+  currentRamblersUploadSession,
+  registerRamblersUploadSession,
+  updateRamblersUploadSession
+} from "./ramblers-upload-session-registry";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = false;
-const currentUploadSession: CurrentUploadSession = {logStandardOut: false, fileName: null, record: 0};
 
-export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadParams<T>) {
+export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadParams<T>, jobId?: string) {
+  const session = currentRamblersUploadSession(jobId);
+
+  if (!session) {
+    throw new Error(`No active upload session found for audit publication${jobId ? ` (${jobId})` : ""}`);
+  }
+
   return Promise.all(props.parserFunction(props.auditMessage, props.status).map((uploadAudit: ParsedRamblersUploadAudit) => {
     if (uploadAudit.audit) {
-      currentUploadSession.record++;
+      const nextRecord = session.record + 1;
+      updateRamblersUploadSession(session.jobId, { record: nextRecord });
       const data = uploadAudit.data;
       return mongooseClient.create<RamblersUploadAudit>(ramblersUploadAudit, {
         auditTime: data.auditTime || dateTimeNowAsValue(),
-        fileName: currentUploadSession.fileName,
-        record: currentUploadSession.record,
+        fileName: session.fileName,
+        record: nextRecord,
         type: data.type,
         status: data.status,
         message: data.message,
@@ -48,6 +60,7 @@ export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadPara
     debugLog("📣 published data:", publishedData);
     if (props.messageType === MessageType.COMPLETE) {
       ws.close();
+      completeRamblersUploadSession(session.jobId);
     }
     return response;
   }).catch(error => reportErrorAndClose(error, ws));
@@ -66,25 +79,26 @@ export function reportErrorAndClose(error, ws: WebSocket) {
   ws.close();
 }
 
-export function registerUploadStart(fileName: string, ws: WebSocket): void {
+export function registerUploadStart(fileName: string, ws: WebSocket, jobId: string): void {
   debugLog("✅ registered upload file name:", fileName);
-  currentUploadSession.fileName = fileName;
-  currentUploadSession.record = 0;
-  currentUploadSession.logStandardOut = true;
+  registerRamblersUploadSession(jobId, fileName, ws);
   sendAudit(ws, {
     messageType: MessageType.PROGRESS,
     status: Status.INFO,
     auditMessage: `Upload started with file name ${fileName}`,
     parserFunction: auditParser.parseStandardOut
-  });
+  }, jobId);
 
 }
 
-export function queryCurrentUploadSession() {
-  return {...currentUploadSession};
+export function queryCurrentUploadSession(jobId?: string): CurrentUploadSession | null {
+  const session = currentRamblersUploadSession(jobId);
+  return session ? { ...session } : null;
 }
 
-export function toggleStandardOutLogging(toggle: boolean): void {
-  currentUploadSession.logStandardOut = toggle;
+export function toggleStandardOutLogging(toggle: boolean, jobId?: string): void {
+  const session = currentRamblersUploadSession(jobId);
+  if (session) {
+    updateRamblersUploadSession(session.jobId, { logStandardOut: toggle });
+  }
 }
-

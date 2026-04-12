@@ -79,6 +79,7 @@ export interface DomainEventData {
 }
 
 export interface CurrentUploadSession {
+  jobId?: string;
   logStandardOut: boolean;
   record: number;
   fileName: string;
