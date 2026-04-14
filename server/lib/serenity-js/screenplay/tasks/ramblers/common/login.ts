@@ -11,6 +11,7 @@ import {
   AuthErrorCookieBannerOrCreateMenuDropdown
 } from "../../../questions/ramblers/auth-error-cookie-banner-or-create-menu-dropdown";
 import { Accept } from "./accept-cookie-prompt";
+import { Environment } from "../../../../../env-config/environment-model";
 
 export class Login extends Task {
 
@@ -19,26 +20,35 @@ export class Login extends Task {
   }
 
   performAs(actor: PerformsActivities & AnswersQuestions): Promise<void> {
+    const envUsername = process.env[Environment.RAMBLERS_USERNAME];
+    const envPassword = process.env[Environment.RAMBLERS_PASSWORD];
+    if (envUsername && envPassword) {
+      return this.attemptLogin(actor, envUsername, envPassword);
+    }
     return mongooseClient.execute(() => systemConfig()
-      .then((systemConfig: SystemConfig) => {
-        const username = systemConfig?.national?.walksManager?.userName;
-        const password = systemConfig?.national?.walksManager?.password;
-        return actor.attemptsTo(
-          Check.whether(WalksPageElements.createMenuDropdown, isPresent())
-            .andIfSo(Log.message("Session is already logged in so no need to login again"))
-            .otherwise(
-              Wait.until(WalksPageElements.authHeader, isVisible()),
-              Wait.until(WalksPageElements.userName, isClickable()),
-              Enter.theValue(username).into(WalksPageElements.userName),
-              Enter.theValue(Masked.valueOf(password)).into(WalksPageElements.password),
-              ClickWhenReady.on(WalksPageElements.loginSubmitButton),
-              Wait.until(AuthErrorCookieBannerOrCreateMenuDropdown.isDisplayed(), equals(true)),
-              Accept.cookieBannerIfVisible(),
-              Check.whether(WalksPageElements.createMenuDropdown, isVisible())
-                .andIfSo(Ensure.that(Text.of(WalksPageElements.createMenuDropdown), equals("Create"))),
-              Check.whether(WalksPageElements.authErrorMessage, isVisible())
-                .andIfSo(Ensure.that(Text.of(WalksPageElements.authErrorMessage), equals("")))));
-      }));
+      .then((systemConfig: SystemConfig) => this.attemptLogin(
+        actor,
+        systemConfig?.national?.walksManager?.userName,
+        systemConfig?.national?.walksManager?.password
+      )));
+  }
+
+  private attemptLogin(actor: PerformsActivities & AnswersQuestions, username: string, password: string): Promise<void> {
+    return actor.attemptsTo(
+      Check.whether(WalksPageElements.createMenuDropdown, isPresent())
+        .andIfSo(Log.message("Session is already logged in so no need to login again"))
+        .otherwise(
+          Wait.until(WalksPageElements.authHeader, isVisible()),
+          Wait.until(WalksPageElements.userName, isClickable()),
+          Enter.theValue(username).into(WalksPageElements.userName),
+          Enter.theValue(Masked.valueOf(password)).into(WalksPageElements.password),
+          ClickWhenReady.on(WalksPageElements.loginSubmitButton),
+          Wait.until(AuthErrorCookieBannerOrCreateMenuDropdown.isDisplayed(), equals(true)),
+          Accept.cookieBannerIfVisible(),
+          Check.whether(WalksPageElements.createMenuDropdown, isVisible())
+            .andIfSo(Ensure.that(Text.of(WalksPageElements.createMenuDropdown), equals("Create"))),
+          Check.whether(WalksPageElements.authErrorMessage, isVisible())
+            .andIfSo(Ensure.that(Text.of(WalksPageElements.authErrorMessage), equals("")))));
   }
 
 }

@@ -1,0 +1,132 @@
+name: Build and Deploy Ramblers Upload Worker (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Existing ngx-ramblers image tag to deploy (e.g. a run_number from the main workflow). Leave blank to build a fresh worker-${run_id} image."
+        required: false
+        default: ""
+        type: string
+
+env:
+  NODE_VERSION: "24.14.0"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      chrome_version: ${{ steps.vars.outputs.chrome_version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install root dependencies
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+
+      - name: Install server dependencies
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        working-directory: ./server
+
+      - name: Resolve build-time variables from database
+        id: vars
+        env:
+          ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+        run: ./server/node_modules/.bin/tsx server/deploy/resolve-build-time-vars.ts
+
+  test:
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install root dependencies
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+
+      - name: Install server dependencies
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        working-directory: ./server
+
+      - name: Build Angular shared model surface
+        run: npx ng build --project ngx-ramblers --configuration development
+
+      - name: Build server
+        run: npm run build
+        working-directory: ./server
+
+      - name: Run focused worker tests
+        run: |
+          ./server/node_modules/.bin/tsx ./server/node_modules/mocha/bin/mocha \
+            server/lib/ramblers/ramblers-upload-job-builder.spec.ts \
+            server/lib/ramblers/ramblers-upload-queue.spec.ts \
+            server/lib/ramblers/ramblers-upload-worker-crypto.spec.ts \
+            server/lib/ramblers/ramblers-upload-session-registry.spec.ts
+
+  build-and-deploy:
+    needs: [resolve, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install root dependencies
+        if: github.event.inputs.image_tag == ''
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+
+      - name: Install server dependencies
+        if: github.event.inputs.image_tag == ''
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        working-directory: ./server
+
+      - name: Log in to Docker Hub
+        if: github.event.inputs.image_tag == ''
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
+
+      - name: Build worker image
+        if: github.event.inputs.image_tag == ''
+        run: docker build . --build-arg CHROME_VERSION=${{ needs.resolve.outputs.chrome_version }} --file Dockerfile --tag ngx-ramblers-worker:${{ github.run_id }}
+
+      - name: Tag and push worker image
+        if: github.event.inputs.image_tag == ''
+        run: |
+          docker tag ngx-ramblers-worker:${{ github.run_id }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:worker-${{ github.run_id }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:worker-${{ github.run_id }}
+
+      - name: Install Flyctl
+        run: |
+          curl -fsSL https://fly.io/install.sh | FLYCTL_INSTALL="$HOME/.fly" sh
+          echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
+
+      - name: Install ts-node
+        run: npm install -g ts-node
+
+      - name: Deploy worker image
+        env:
+          ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+          RAMBLERS_UPLOAD_WORKER_IMAGE_REPOSITORY: ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers
+        run: |
+          IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+          if [ -z "$IMAGE_TAG" ]; then
+            IMAGE_TAG="worker-${{ github.run_id }}"
+          fi
+          ts-node server/deploy/deploy-ramblers-upload-worker.ts --image-tag "$IMAGE_TAG"

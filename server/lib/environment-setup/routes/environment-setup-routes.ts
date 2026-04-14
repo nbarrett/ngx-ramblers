@@ -27,15 +27,11 @@ import { listTemplates } from "../../brevo/templates/template-management";
 import { seedBrevoTemplatesFromLocal } from "../../brevo/templates/template-seeding";
 import { listDnsRecords } from "../../cloudflare/cloudflare-dns";
 import { appIpAddresses } from "../../fly/fly-certificates";
-import { syncDatabaseToGitHub, transformDatabaseToDeployConfig } from "../../cli/commands/github";
-import { execSync } from "child_process";
-import { DeploymentConfig } from "../../../deploy/types";
 import { booleanOf } from "../../shared/string-utils";
 import * as systemConfig from "../../config/system-config";
 import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { ADMIN_SET_PASSWORD_PATH } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { keys } from "es-toolkit/compat";
-import { sortBy } from "../../../../projects/ngx-ramblers/src/app/functions/arrays";
 import {
   baseDomainFrom,
   connectToEnvironmentMongo,
@@ -939,91 +935,6 @@ router.post("/admin-password-reset/:environmentName", async (req: Request, res: 
     }
     errorDebugLog("Error generating admin password reset:", error.message);
     res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-router.get("/github/status", async (req: Request, res: Response) => {
-  if (!validateSetupAccess(req, res)) return;
-
-  try {
-    const dbConfig = await configuredEnvironments();
-    const dbEnvironments = dbConfig.environments || [];
-    const environmentCount = dbEnvironments.length;
-    const expectedConfig = transformDatabaseToDeployConfig(dbConfig);
-    const hasLastPushedConfig = !!process.env.CONFIGS_JSON;
-    const secretConfig: DeploymentConfig = hasLastPushedConfig
-      ? JSON.parse(process.env.CONFIGS_JSON)
-      : expectedConfig;
-
-    const secretByName = new Map(secretConfig.environments.map(e => [e.name, e]));
-    const secretByAppName = new Map(secretConfig.environments.map(e => [e.appName, e]));
-    const matchedSecretAppNames = new Set<string>();
-
-    const reconciliation: { name: string; inConfigsJson: boolean; inDatabase: boolean; differences: string[] }[] = [];
-
-    dbEnvironments.forEach(dbEnv => {
-      let secretEnv = secretByName.get(dbEnv.environment) || null;
-      if (!secretEnv) {
-        const candidateAppNames = dbEnv.flyio?.appName
-          ? [dbEnv.flyio.appName]
-          : [dbEnv.environment, `ngx-ramblers-${dbEnv.environment}`];
-        const matchedAppName = candidateAppNames.find(n => secretByAppName.has(n));
-        secretEnv = matchedAppName ? secretByAppName.get(matchedAppName) : null;
-      }
-
-      if (secretEnv && !matchedSecretAppNames.has(secretEnv.appName)) {
-        matchedSecretAppNames.add(secretEnv.appName);
-        const differences: string[] = [];
-        const dbMemory = dbEnv.flyio?.memory || FLYIO_DEFAULTS.MEMORY;
-        const dbScaleCount = dbEnv.flyio?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT;
-        const dbOrganisation = dbEnv.flyio?.organisation || FLYIO_DEFAULTS.ORGANISATION;
-        if (dbMemory !== secretEnv.memory) differences.push(`memory: ${secretEnv.memory} → ${dbMemory}`);
-        if (dbScaleCount !== secretEnv.scaleCount) differences.push(`scaleCount: ${secretEnv.scaleCount} → ${dbScaleCount}`);
-        if (dbOrganisation !== secretEnv.organisation) differences.push(`organisation: ${secretEnv.organisation} → ${dbOrganisation}`);
-        reconciliation.push({ name: secretEnv.name, inConfigsJson: true, inDatabase: true, differences });
-      } else if (!secretEnv) {
-        reconciliation.push({ name: dbEnv.environment, inConfigsJson: false, inDatabase: true, differences: [] });
-      }
-    });
-
-    secretConfig.environments.forEach(secretEnv => {
-      if (!matchedSecretAppNames.has(secretEnv.appName)) {
-        reconciliation.push({ name: secretEnv.name, inConfigsJson: true, inDatabase: false, differences: [] });
-      }
-    });
-
-    reconciliation.sort(sortBy("name"));
-    const isUpToDate = hasLastPushedConfig
-      ? reconciliation.every(e => e.inDatabase && e.inConfigsJson && e.differences.length === 0)
-      : false;
-
-    try {
-      const output = execSync("gh api repos/nbarrett/ngx-ramblers/actions/secrets/CONFIGS_JSON", {
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "pipe"]
-      });
-      const secretUpdatedAt = JSON.parse(output).updated_at;
-      res.json({secretUpdatedAt, environmentCount, isUpToDate, reconciliation});
-    } catch (ghError) {
-      res.json({ secretUpdatedAt: null, environmentCount, isUpToDate, reconciliation,
-                 error: `Unable to fetch GitHub secret status: ${ghError.message}` });
-    }
-  } catch (error) {
-    errorDebugLog("Error fetching GitHub secret status:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post("/github/push", async (req: Request, res: Response) => {
-  if (!validateSetupAccess(req, res)) return;
-
-  try {
-    const result = await syncDatabaseToGitHub();
-    process.env.CONFIGS_JSON = result.configJson;
-    res.json({ environmentCount: result.environmentCount });
-  } catch (error) {
-    errorDebugLog("Error pushing to GitHub:", error);
-    res.status(500).json({ error: error.message });
   }
 });
 

@@ -2,6 +2,7 @@ import { AwsInfo, AwsUploadErrorResponse, ServerFileNameData } from "../../../pr
 import path from "path";
 import { isUndefined } from "es-toolkit/compat";
 import { generateUid, uidFormat } from "../shared/string-utils";
+import { contentTypeForExtension } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 
 export function isAwsUploadErrorResponse(response: AwsInfo | AwsUploadErrorResponse): response is AwsUploadErrorResponse {
   return !isUndefined((response as AwsUploadErrorResponse)?.error);
@@ -13,26 +14,7 @@ export function extensionFrom(name: string): string {
 }
 
 export function contentTypeFrom(fileName: string): string {
-  const extension = extensionFrom(fileName);
-  if ([".jpg", ".jpeg"].includes(extension)) {
-    return "image/jpeg";
-  } else if ([".png", ".x-png"].includes(extension)) {
-    return "image/png";
-  } else if ([".svg"].includes(extension)) {
-    return "image/svg+xml";
-  } else if ([".pdf"].includes(extension)) {
-    return "application/pdf";
-  } else if ([".doc", ".docx", ".dot"].includes(extension)) {
-    return "application/msword";
-  } else if ([".gpx"].includes(extension)) {
-    return "application/gpx+xml";
-  } else if ([".zip"].includes(extension)) {
-    return "application/zip";
-  } else if ([".json", ".geojson"].includes(extension)) {
-    return "application/json";
-  } else {
-    return "application/octet-stream";
-  }
+  return contentTypeForExtension(path.extname(fileName));
 }
 
 export function generateAwsFileName(originalFileName: string, preserveIfGuid: boolean = true): string {

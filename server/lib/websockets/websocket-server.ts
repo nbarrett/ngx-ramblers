@@ -8,11 +8,12 @@ import {
   EventType,
   MappedCloseMessage,
   MessageHandlers,
-  WebSocketInstance,
+  MessageType,
   WebSocketRequest
 } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { RamblersWalksUploadRequest } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
-import { uploadWalks } from "../ramblers/ramblers-upload-walks";
+import { handleRamblersWalksUpload } from "../ramblers/ramblers-upload-websocket-handler";
+import { cancelLocalRamblersUpload } from "../ramblers/ramblers-upload-dispatcher";
 import { humanFileSize } from "../../../projects/ngx-ramblers/src/app/functions/file-utils";
 import { mapStatusCode } from "../../../projects/ngx-ramblers/src/app/functions/websockets";
 import { processTestStepEvent } from "../ramblers/process-test-step-event";
@@ -27,12 +28,18 @@ import { handleExternalAlbumFetch, handleExternalAlbumImport, handleExternalUser
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
-const clientWebSocketInstance: WebSocketInstance = {instance: null};
 const messageHandlers: MessageHandlers = {
-  [EventType.RAMBLERS_WALKS_UPLOAD]: (ws: WebSocket, data: RamblersWalksUploadRequest) => uploadWalks(ws, data),
+  [EventType.RAMBLERS_WALKS_UPLOAD]: (ws: WebSocket, data: RamblersWalksUploadRequest) => handleRamblersWalksUpload(ws, data),
+  [EventType.RAMBLERS_WALKS_UPLOAD_CANCEL]: (ws: WebSocket) => {
+    const result = cancelLocalRamblersUpload();
+    ws.send(JSON.stringify({
+      type: MessageType.PROGRESS,
+      data: { cancelled: true, ...result }
+    }));
+  },
   [EventType.RESIZE_SAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeSavedImages(ws, data),
   [EventType.RESIZE_UNSAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeUnsavedImages(ws, data),
-  [EventType.TEST_STEP_REPORTER]: (ws: WebSocket, data: string) => processTestStepEvent(clientWebSocketInstance.instance || ws, data),
+  [EventType.TEST_STEP_REPORTER]: (ws: WebSocket, data: string) => processTestStepEvent(ws, data),
   [EventType.SITE_MIGRATION]: async (ws: WebSocket, data: any) => handleSiteMigration(ws, data),
   [EventType.BACKUP_RESTORE]: async (ws: WebSocket, data: any) => handleBackupRestoreWebSocket(ws, data),
   [EventType.BACKUP_EVENTS]: async (ws: WebSocket, data: any) => handleBackupEventsWebSocket(ws, data),
@@ -85,9 +92,6 @@ export function createWebSocketServer(server: Server, port: number): void {
       try {
         const request: WebSocketRequest = JSON.parse(message);
         const handler = messageHandlers[request.type];
-        if (request.type !== EventType.TEST_STEP_REPORTER) {
-          clientWebSocketInstance.instance = ws;
-        }
         if (handler) {
           if (request.type !== EventType.PING) {
             debugLog(`✅ Message received of size: ${humanFileSize(message.length)} for type: ${request.type}`);

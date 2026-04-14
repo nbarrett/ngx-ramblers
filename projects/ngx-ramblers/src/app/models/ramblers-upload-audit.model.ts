@@ -20,6 +20,8 @@ export interface RamblersUploadAudit extends Identifiable {
   record?: number;
   fileName?: string;
   errorResponse?: any;
+  reportKeyPrefix?: string;
+  reportBucket?: string;
 }
 
 export interface RamblersUploadAuditApiResponse extends ApiResponse {
@@ -79,6 +81,7 @@ export interface DomainEventData {
 }
 
 export interface CurrentUploadSession {
+  jobId?: string;
   logStandardOut: boolean;
   record: number;
   fileName: string;

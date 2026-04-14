@@ -4,17 +4,18 @@ import {
   createRuntimeConfig,
   deleteVolumeIfExists,
   flyTomlAbsolutePath,
-  readConfigFile,
   runCommand,
   runCommandWithRetry
 } from "../lib/fly/fly-commands";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { DeploymentConfig, EnvironmentConfig, RuntimeConfig } from "./types";
+import { DeploymentConfig, EnvironmentConfig, FLYIO_DEFAULTS, RuntimeConfig } from "./types";
 import { pluraliseWithCount } from "../lib/shared/string-utils";
 import { envConfig } from "../lib/env-config/env-config";
 import { buildSecretsContent, loadSecretsForEnvironmentFromDatabase } from "../lib/shared/secrets";
+import { configuredEnvironments } from "../lib/environments/environments-config";
+import { EnvironmentsConfig } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
 
 const debugLog = debug(envConfig.logNamespace("deploy-environments"));
 debugLog.enabled = true;
@@ -25,10 +26,32 @@ if (config.targetEnvironments.length > 0) {
   debugLog("Deploying to all environments");
 }
 
-deployToEnvironments(config.configFilePath, config.targetEnvironments).catch(error => {
+deployToEnvironments(config.targetEnvironments).then(() => process.exit(0)).catch(error => {
   debugLog("Deployment failed:", error);
   process.exit(1);
 });
+
+function buildDeploymentConfig(dbConfig: EnvironmentsConfig): DeploymentConfig {
+  const environments = (dbConfig?.environments || []).map(env => ({
+    name: env.environment,
+    apiKey: env.flyio?.apiKey || "",
+    appName: env.flyio?.appName || `ngx-ramblers-${env.environment}`,
+    memory: env.flyio?.memory || FLYIO_DEFAULTS.MEMORY,
+    scaleCount: env.flyio?.scaleCount ?? FLYIO_DEFAULTS.SCALE_COUNT,
+    organisation: env.flyio?.organisation || FLYIO_DEFAULTS.ORGANISATION,
+    mongo: env.mongo ? {
+      cluster: env.mongo.cluster || "",
+      db: env.mongo.db || "",
+      username: env.mongo.username || "",
+      password: env.mongo.password || ""
+    } : undefined
+  }));
+  return {
+    environments,
+    dockerImage: "nbarrett36/ngx-ramblers:latest",
+    region: "lhr"
+  };
+}
 
 function imageTagFromArg(): string {
   const tagArg = process.argv.find(arg => arg.startsWith("--image-tag="));
@@ -105,8 +128,12 @@ async function importSecrets(environmentName: string, appName: string): Promise<
   }
 }
 
-async function deployToEnvironments(configFilePath: string, environmentsFilter: string[]): Promise<void> {
-  const config: DeploymentConfig = readConfigFile(configFilePath);
+async function deployToEnvironments(environmentsFilter: string[]): Promise<void> {
+  if (process.env.ADMIN_MONGODB_URI) {
+    process.env.MONGODB_URI = process.env.ADMIN_MONGODB_URI;
+  }
+  const dbConfig = await configuredEnvironments();
+  const config: DeploymentConfig = buildDeploymentConfig(dbConfig);
   const imageTag = imageTagFromArg();
   if (imageTag) {
     const [repo] = config.dockerImage.split(":");

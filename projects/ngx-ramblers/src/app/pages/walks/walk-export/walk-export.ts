@@ -130,11 +130,19 @@ import { ServerDownloadStatusService } from "../../../services/walks/download-st
             <div class="row">
               @if (!display.walkPopulationWalksManager()) {
                 <div class="col mb-2">
-                  <input type="submit"
-                         [value]="uploadButtonLabel()"
-                         (click)="uploadToRamblers()"
-                         [disabled]="newActionsDisabled()"
-                         class="btn btn-primary w-100"/>
+                  @if (exportInProgress) {
+                    <button type="button"
+                            (click)="cancelActiveUpload()"
+                            class="btn btn-danger w-100">
+                      Cancel upload
+                    </button>
+                  } @else {
+                    <input type="submit"
+                           [value]="uploadButtonLabel()"
+                           (click)="uploadToRamblers()"
+                           [disabled]="newActionsDisabled()"
+                           class="btn btn-primary w-100"/>
+                  }
                 </div>
                 <div class="col mb-2">
                   <input type="submit"
@@ -310,17 +318,24 @@ import { ServerDownloadStatusService } from "../../../services/walks/download-st
                 </div>
                 <div class="col-12">
                   <div class="row">
-                    <div class="col-12 col-sm-6 mb-2">
-                      <input type="submit" value="Last Import Report" (click)="navigateToLastReport($event)"
-                             title="View last import report"
-                             [disabled]="exportInProgress"
-                             class="btn btn-primary w-100"/>
-                    </div>
-                    <div class="col-12 col-sm-6 mb-2">
-                      <input type="submit" value="Back To Walks Admin" (click)="navigateBackToWalksAdmin()"
-                             title="Return to walks admin"
-                             class="btn btn-primary w-100"/>
-                    </div>
+                    @if (selectedSessionReportAudit) {
+                      <div class="col-12 col-sm-6 mb-2">
+                        <input type="submit" value="View Report" (click)="openReport(selectedSessionReportAudit, $event)"
+                               title="View Serenity report for this session"
+                               class="btn btn-primary w-100"/>
+                      </div>
+                      <div class="col-12 col-sm-6 mb-2">
+                        <input type="submit" value="Back To Walks Admin" (click)="navigateBackToWalksAdmin()"
+                               title="Return to walks admin"
+                               class="btn btn-primary w-100"/>
+                      </div>
+                    } @else {
+                      <div class="col-12 mb-2">
+                        <input type="submit" value="Back To Walks Admin" (click)="navigateBackToWalksAdmin()"
+                               title="Return to walks admin"
+                               class="btn btn-primary w-100"/>
+                      </div>
+                    }
                   </div>
                 </div>
               </div>
@@ -506,6 +521,7 @@ export class WalkExport implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   public audits: RamblersUploadAudit[];
   public filteredAudits: RamblersUploadAudit[];
+  public selectedSessionReportAudit: RamblersUploadAudit | null = null;
   private readonly maxAuditRows = 500;
   public walksForExport: WalkExportData[] = [];
   public fileName: FileUploadSummary;
@@ -674,6 +690,16 @@ export class WalkExport implements OnInit, OnDestroy {
       });
       this.ramblersWalksAndEventsService.notifyWalkUploadStarted(this.walkExportNotifier, ramblersWalksUploadRequest);
       this.selectTab(WalkExportTab.WALK_UPLOAD_AUDIT);
+    });
+  }
+
+  cancelActiveUpload(): void {
+    this.logger.info("cancelActiveUpload invoked");
+    this.webSocketClientService.sendMessage(EventType.RAMBLERS_WALKS_UPLOAD_CANCEL, {});
+    this.exportInProgress = false;
+    this.walkExportNotifier.warning({
+      title: "Upload cancelled",
+      message: "Requested cancellation of the active Ramblers walks upload"
     });
   }
 
@@ -869,6 +895,7 @@ export class WalkExport implements OnInit, OnDestroy {
     }
     this.logger.off("applyFilter:filtered:", this.filteredAudits.length, "unfiltered:", this.audits.length);
     this.filteredAudits = this.filteredAudits.slice(0, this.maxAuditRows);
+    this.selectedSessionReportAudit = (this.audits || []).find(audit => !!audit.reportKeyPrefix) || null;
   }
 
   exportableWalks(): WalkExportData[] {
@@ -879,8 +906,12 @@ export class WalkExport implements OnInit, OnDestroy {
     this.location.back();
   }
 
-  navigateToLastReport(event) {
-    this.urlService.navigateToUrl("reports/target/site/serenity/index.html", event);
+  openReport(audit: RamblersUploadAudit, event: MouseEvent) {
+    if (!audit.reportKeyPrefix) {
+      return;
+    }
+    const keyPrefix = audit.reportKeyPrefix.replace(/^\/+|\/+$/g, "");
+    this.urlService.navigateToUrl(`api/aws/s3/${keyPrefix}/index.html`, event);
   }
 
   populateWalkExport(walksForExport: WalkExportData[]): WalkExportData[] {

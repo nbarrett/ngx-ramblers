@@ -33,8 +33,7 @@ export enum EnvironmentSettingsSubTab {
   ALL = "all",
   GLOBAL = "global",
   ENVIRONMENTS = "environments",
-  TOOLS = "tools",
-  GITHUB = "github"
+  TOOLS = "tools"
 }
 
 export enum MapsSubTab {

@@ -34,6 +34,50 @@ export interface FileTypeAttributes {
   cropperFormat?: OutputFormat;
 }
 
+export const DEFAULT_CONTENT_TYPE = "application/octet-stream";
+
+export interface FileContentTypeMapping {
+  extensions: string[];
+  contentType: string;
+}
+
+export const fileContentTypeMappings: FileContentTypeMapping[] = [
+  { extensions: ["jpeg", "jpg"], contentType: IMAGE_JPEG },
+  { extensions: ["png", "x-png"], contentType: IMAGE_PNG },
+  { extensions: ["svg"], contentType: IMAGE_SVG },
+  { extensions: ["gif"], contentType: "image/gif" },
+  { extensions: ["webp"], contentType: IMAGE_WEBP },
+  { extensions: ["heic"], contentType: IMAGE_HEIC },
+  { extensions: ["ico"], contentType: "image/x-icon" },
+  { extensions: ["bmp"], contentType: "image/bmp" },
+  { extensions: ["html", "htm"], contentType: "text/html; charset=utf-8" },
+  { extensions: ["css"], contentType: "text/css; charset=utf-8" },
+  { extensions: ["js", "mjs"], contentType: "application/javascript; charset=utf-8" },
+  { extensions: ["xml"], contentType: "application/xml; charset=utf-8" },
+  { extensions: ["txt"], contentType: "text/plain; charset=utf-8" },
+  { extensions: ["csv"], contentType: "text/csv; charset=utf-8" },
+  { extensions: ["md"], contentType: "text/markdown; charset=utf-8" },
+  { extensions: ["woff"], contentType: "font/woff" },
+  { extensions: ["woff2"], contentType: "font/woff2" },
+  { extensions: ["ttf"], contentType: "font/ttf" },
+  { extensions: ["otf"], contentType: "font/otf" },
+  { extensions: ["eot"], contentType: "application/vnd.ms-fontobject" },
+  { extensions: ["map"], contentType: "application/json; charset=utf-8" },
+  { extensions: ["gz"], contentType: "application/gzip" },
+  { extensions: ["tar"], contentType: "application/x-tar" },
+  { extensions: ["pdf"], contentType: "application/pdf" },
+  { extensions: ["doc", "docx", "dot"], contentType: "application/msword" },
+  { extensions: ["gpx"], contentType: "application/gpx+xml" },
+  { extensions: ["zip"], contentType: "application/zip" },
+  { extensions: ["json", "geojson"], contentType: "application/json" }
+];
+
+export function contentTypeForExtension(extension: string): string {
+  const normalised = extension.startsWith(".") ? extension.slice(1).toLowerCase() : extension.toLowerCase();
+  const mapping = fileContentTypeMappings.find(entry => entry.extensions.includes(normalised));
+  return mapping?.contentType || DEFAULT_CONTENT_TYPE;
+}
+
 export const fileTypeAttributes: FileTypeAttributes[] = [
   {
     key: FileType.JPEG,
