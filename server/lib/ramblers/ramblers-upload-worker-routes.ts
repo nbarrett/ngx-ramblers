@@ -116,14 +116,18 @@ router.post("/progress", async (req: Request, res: Response) => {
     }
 
     activateRamblersUploadSession(request.jobId);
-    await auditNotifier.sendAudit(session.ws, {
-      messageType: MessageType.PROGRESS,
-      auditMessage: request.type === RamblersUploadWorkerEventType.TEST_STEP ? JSON.parse(request.payload) : request.payload,
-      parserFunction: request.type === RamblersUploadWorkerEventType.TEST_STEP
-        ? auditParser.parseTestStepEvent
-        : auditParser.parseStandardOut,
-      status: Status.INFO
-    }, request.jobId);
+    if (request.type === RamblersUploadWorkerEventType.LIFECYCLE) {
+      await auditNotifier.recordLifecycleEvent(request.jobId, request.payload);
+    } else {
+      await auditNotifier.sendAudit(session.ws, {
+        messageType: MessageType.PROGRESS,
+        auditMessage: request.type === RamblersUploadWorkerEventType.TEST_STEP ? JSON.parse(request.payload) : request.payload,
+        parserFunction: request.type === RamblersUploadWorkerEventType.TEST_STEP
+          ? auditParser.parseTestStepEvent
+          : auditParser.parseStandardOut,
+        status: Status.INFO
+      }, request.jobId);
+    }
     res.json({ success: true });
   } catch (error) {
     debugLog("POST /progress error for jobId:", incomingJobId, "error:", (error as Error).message);

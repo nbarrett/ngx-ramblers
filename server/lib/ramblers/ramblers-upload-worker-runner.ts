@@ -1,12 +1,12 @@
 import { spawn } from "child_process";
 import debug from "debug";
+import AdmZip from "adm-zip";
 import fs from "fs";
 import path from "path";
-import { S3Client } from "@aws-sdk/client-s3";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import * as stringDecoder from "string_decoder";
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../env-config/environment-model";
-import { uploadDirectoryToS3 } from "../aws/s3-utils";
 import { RamblersUploadJob } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-job.model";
 import {
   RamblersUploadCredentials,
@@ -50,12 +50,41 @@ function serenityReportLocalPath(): string {
   return path.resolve(process.cwd(), "target/site/serenity");
 }
 
-async function uploadSerenityReportToS3(jobId: string, reportUpload: RamblersUploadWorkerReportUploadConfig, awsCredentials: RamblersUploadWorkerAwsCredentials): Promise<boolean> {
+function serenityReportArchiveKey(keyPrefix: string): string {
+  return `${keyPrefix}.zip`;
+}
+
+function countFilesInDirectory(directoryPath: string): number {
+  return fs.readdirSync(directoryPath).reduce((count, entry) => {
+    const entryPath = path.join(directoryPath, entry);
+    const stats = fs.statSync(entryPath);
+    if (stats.isDirectory()) {
+      return count + countFilesInDirectory(entryPath);
+    }
+    return count + 1;
+  }, 0);
+}
+
+function archiveSerenityReport(reportPath: string): Buffer {
+  const archive = new AdmZip();
+  archive.addLocalFolder(reportPath);
+  return archive.toBuffer();
+}
+
+async function uploadSerenityReportToS3(
+  jobId: string,
+  reportUpload: RamblersUploadWorkerReportUploadConfig,
+  awsCredentials: RamblersUploadWorkerAwsCredentials,
+  callback: RamblersUploadWorkerCallbackConfig,
+  sharedSecret: string
+): Promise<boolean> {
   const reportPath = serenityReportLocalPath();
   if (!fs.existsSync(reportPath)) {
     debugLog("serenity report directory does not exist at:", reportPath, "skipping S3 upload for jobId:", jobId);
     return false;
   }
+  const totalFiles = countFilesInDirectory(reportPath);
+  const archiveKey = serenityReportArchiveKey(reportUpload.keyPrefix);
 
   const client = new S3Client({
     region: reportUpload.region,
@@ -65,20 +94,34 @@ async function uploadSerenityReportToS3(jobId: string, reportUpload: RamblersUpl
     }
   });
 
-  let fileCount = 0;
   const startedAt = Date.now();
   try {
-    await uploadDirectoryToS3(
-      client,
-      reportPath,
-      reportUpload.bucket,
-      reportUpload.keyPrefix,
-      () => { fileCount += 1; }
-    );
-    debugLog("uploaded serenity report to S3 for jobId:", jobId, "bucket:", reportUpload.bucket, "prefix:", reportUpload.keyPrefix, "files:", fileCount, "elapsedMs:", Date.now() - startedAt);
+    await safePostProgress(callback, sharedSecret, {
+      jobId,
+      type: RamblersUploadWorkerEventType.LIFECYCLE,
+      payload: `Serenity report archive upload to S3 starting: ${totalFiles} files to s3://${reportUpload.bucket}/${archiveKey}`
+    });
+    const archiveBuffer = archiveSerenityReport(reportPath);
+    await client.send(new PutObjectCommand({
+      Bucket: reportUpload.bucket,
+      Key: archiveKey,
+      Body: archiveBuffer,
+      ContentType: "application/zip"
+    }));
+    await safePostProgress(callback, sharedSecret, {
+      jobId,
+      type: RamblersUploadWorkerEventType.LIFECYCLE,
+      payload: `Serenity report archive upload to S3 complete: ${totalFiles} files compressed into ${archiveBuffer.length} bytes in ${Date.now() - startedAt} ms`
+    });
+    debugLog("uploaded serenity report archive to S3 for jobId:", jobId, "bucket:", reportUpload.bucket, "key:", archiveKey, "files:", totalFiles, "archiveBytes:", archiveBuffer.length, "elapsedMs:", Date.now() - startedAt);
     return true;
   } catch (error) {
-    debugLog("failed to upload serenity report to S3 for jobId:", jobId, "error:", (error as Error).message);
+    await safePostProgress(callback, sharedSecret, {
+      jobId,
+      type: RamblersUploadWorkerEventType.LIFECYCLE,
+      payload: `Serenity report archive upload to S3 failed for ${totalFiles} files: ${(error as Error).message}`
+    });
+    debugLog("failed to upload serenity report archive to S3 for jobId:", jobId, "key:", archiveKey, "error:", (error as Error).message);
     return false;
   } finally {
     client.destroy();
@@ -98,6 +141,11 @@ export async function executeRamblersUploadJobOnWorker(
   process.env[Environment.RAMBLERS_FEATURE] = job.data.feature;
   process.env[Environment.RAMBLERS_USERNAME] = credentials.userName;
   process.env[Environment.RAMBLERS_PASSWORD] = credentials.password;
+  process.env[Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_BASE_URL] = callback.baseUrl;
+  process.env[Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_PROGRESS_PATH] = callback.progressPath;
+  process.env[Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_RESULT_PATH] = callback.resultPath;
+  process.env[Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_SECRET] = sharedSecret;
+  process.env[Environment.RAMBLERS_UPLOAD_WORKER_JOB_ID] = job.jobId;
   setRemoteRamblersUploadExecutionState({
     callback,
     jobId: job.jobId,
@@ -123,8 +171,26 @@ export async function executeRamblersUploadJobOnWorker(
       });
     });
 
+    let reportStartAnnounced = false;
     subprocess.stderr.on("data", data => {
-      debugLog("worker stderr", decoder.write(data));
+      const text = decoder.write(data);
+      debugLog("worker stderr", text);
+      if (!reportStartAnnounced && text.includes("[report]")) {
+        reportStartAnnounced = true;
+        const state = remoteRamblersUploadExecutionState();
+        if (state) {
+          void safePostProgress(state.callback, state.sharedSecret, {
+            jobId: state.jobId,
+            type: RamblersUploadWorkerEventType.LIFECYCLE,
+            payload: "Scenario execution complete"
+          });
+          void safePostProgress(state.callback, state.sharedSecret, {
+            jobId: state.jobId,
+            type: RamblersUploadWorkerEventType.LIFECYCLE,
+            payload: "Serenity report generation starting"
+          });
+        }
+      }
     });
 
     subprocess.on("error", error => {
@@ -165,7 +231,12 @@ async function finishJob(
   let reportKeyPrefix: string | undefined;
   let reportBucket: string | undefined;
   if (reportUpload && awsCredentials) {
-    const uploaded = await uploadSerenityReportToS3(job.jobId, reportUpload, awsCredentials);
+    await safePostProgress(callback, sharedSecret, {
+      jobId: job.jobId,
+      type: RamblersUploadWorkerEventType.LIFECYCLE,
+      payload: "Serenity report generation complete, uploading to S3"
+    });
+    const uploaded = await uploadSerenityReportToS3(job.jobId, reportUpload, awsCredentials, callback, sharedSecret);
     if (uploaded) {
       reportKeyPrefix = reportUpload.keyPrefix;
       reportBucket = reportUpload.bucket;

@@ -67,6 +67,30 @@ export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadPara
   }).catch(error => reportErrorAndClose(error, ws));
 }
 
+export async function recordLifecycleEvent(jobId: string, message: string): Promise<void> {
+  const session = currentRamblersUploadSession(jobId);
+  if (!session) {
+    debugLog("recordLifecycleEvent: no session for jobId:", jobId, "— skipping");
+    return;
+  }
+  const nextRecord = session.record + 1;
+  updateRamblersUploadSession(session.jobId, { record: nextRecord });
+  const audit = await mongooseClient.create<RamblersUploadAudit>(ramblersUploadAudit, {
+    auditTime: dateTimeNowAsValue(),
+    fileName: session.fileName,
+    record: nextRecord,
+    type: AuditType.SUMMARY,
+    status: Status.SUCCESS,
+    message
+  }, debugLog);
+  if (session.ws && session.ws.readyState === session.ws.OPEN) {
+    session.ws.send(JSON.stringify({
+      type: MessageType.PROGRESS,
+      data: { audits: [audit] }
+    }));
+  }
+}
+
 export async function recordReportLocation(jobId: string, bucket: string, keyPrefix: string): Promise<void> {
   const session = currentRamblersUploadSession(jobId);
   if (!session) {
@@ -75,16 +99,22 @@ export async function recordReportLocation(jobId: string, bucket: string, keyPre
   }
   const nextRecord = session.record + 1;
   updateRamblersUploadSession(session.jobId, { record: nextRecord });
-  await mongooseClient.create<RamblersUploadAudit>(ramblersUploadAudit, {
+  const reportAudit = await mongooseClient.create<RamblersUploadAudit>(ramblersUploadAudit, {
     auditTime: dateTimeNowAsValue(),
     fileName: session.fileName,
     record: nextRecord,
     type: AuditType.SUMMARY,
-    status: Status.INFO,
-    message: `Serenity report stored at s3://${bucket}/${keyPrefix}`,
+    status: Status.SUCCESS,
+    message: `Serenity report archive stored at s3://${bucket}/${keyPrefix}.zip`,
     reportKeyPrefix: keyPrefix,
     reportBucket: bucket
   }, debugLog);
+  if (session.ws && session.ws.readyState === session.ws.OPEN) {
+    session.ws.send(JSON.stringify({
+      type: MessageType.PROGRESS,
+      data: { audits: [reportAudit] }
+    }));
+  }
 }
 
 export function reportErrorAndClose(error, ws: WebSocket) {

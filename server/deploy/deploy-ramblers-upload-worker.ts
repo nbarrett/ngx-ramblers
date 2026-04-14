@@ -2,6 +2,7 @@ import debug from "debug";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { entries } from "../../projects/ngx-ramblers/src/app/functions/object-utils";
 import { envConfig } from "../lib/env-config/env-config";
 import { configuredEnvironments } from "../lib/environments/environments-config";
 import { FLYIO_DEFAULTS } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
@@ -35,7 +36,7 @@ async function deployRamblersUploadWorker(): Promise<void> {
     process.env.FLY_API_TOKEN = workerConfig.apiKey;
   }
 
-  const imageRepository = process.env.RAMBLERS_UPLOAD_WORKER_IMAGE_REPOSITORY || "nbarrett/ngx-ramblers";
+  const imageRepository = process.env.RAMBLERS_UPLOAD_WORKER_IMAGE_REPOSITORY || "nbarrett36/ngx-ramblers";
   const scaleCount = workerConfig.scaleCount ?? FLYIO_DEFAULTS.SCALE_COUNT;
   const memory = workerConfig.memory || FLYIO_DEFAULTS.MEMORY;
   const imageTag = imageTagFromArg();
@@ -46,7 +47,7 @@ async function deployRamblersUploadWorker(): Promise<void> {
     throw new Error(`Worker Fly config not found at ${flyTomlPath}`);
   }
 
-  importWorkerSecrets(workerConfig.appName, workerConfig.sharedSecret, workerConfig.encryptionKey);
+  importWorkerSecrets(workerConfig.appName, dbConfig.secrets, workerConfig.sharedSecret, workerConfig.encryptionKey);
   runCommand(`flyctl config validate --config ${flyTomlPath} --app ${workerConfig.appName}`);
   runCommand(`flyctl deploy --app ${workerConfig.appName} --config ${flyTomlPath} --image ${image} --strategy rolling --wait-timeout 600`);
   runCommand(`flyctl scale count ${scaleCount} --app ${workerConfig.appName} --yes`);
@@ -54,20 +55,37 @@ async function deployRamblersUploadWorker(): Promise<void> {
   debugLog(`Deployed Ramblers upload worker ${workerConfig.appName} with image ${image}`);
 }
 
-function importWorkerSecrets(appName: string, sharedSecret: string | undefined, encryptionKey: string | undefined): void {
-  if (!sharedSecret && !encryptionKey) {
-    debugLog("No worker secrets in database (sharedSecret/encryptionKey blank), skipping worker secrets import");
+function importWorkerSecrets(
+  appName: string,
+  globalSecrets: Record<string, string> | undefined,
+  sharedSecret: string | undefined,
+  encryptionKey: string | undefined
+): void {
+  const secrets: Record<string, string> = {};
+
+  if (globalSecrets) {
+    entries(globalSecrets).forEach(([key, value]) => {
+      if (value) {
+        secrets[key] = value;
+      }
+    });
+  }
+
+  if (sharedSecret) {
+    secrets.RAMBLERS_UPLOAD_WORKER_SHARED_SECRET = sharedSecret;
+  }
+
+  if (encryptionKey) {
+    secrets.RAMBLERS_UPLOAD_WORKER_ENCRYPTION_KEY = encryptionKey;
+  }
+
+  if (entries(secrets).length === 0) {
+    debugLog("No global or worker secrets in database, skipping worker secrets import");
     return;
   }
 
   const tempFile = path.join(os.tmpdir(), `ramblers-upload-worker-secrets-${Date.now()}.env`);
-  const lines: string[] = [];
-  if (sharedSecret) {
-    lines.push(`RAMBLERS_UPLOAD_WORKER_SHARED_SECRET=${sharedSecret}`);
-  }
-  if (encryptionKey) {
-    lines.push(`RAMBLERS_UPLOAD_WORKER_ENCRYPTION_KEY=${encryptionKey}`);
-  }
+  const lines = entries(secrets).map(([key, value]) => `${key}=${value}`);
 
   try {
     fs.writeFileSync(tempFile, lines.join("\n"), { encoding: "utf-8" });

@@ -1,5 +1,5 @@
-import { Browser, Page } from "puppeteer";
-import { launchBrowser as sharedLaunchBrowser } from "./puppeteer-utils";
+import { Browser, Page } from "playwright";
+import { launchBrowser as sharedLaunchBrowser } from "./browser-utils";
 import { PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import {
   AlbumView,
@@ -49,7 +49,7 @@ const awsConfig: AWSConfig = queryAWSConfig();
 
 type Ctx = {
   config: SiteMigrationConfig;
-  browser: Browser;
+  browser: Browser | null;
   templateCache: Map<string, PageContent | null>;
 };
 
@@ -173,17 +173,17 @@ async function scrapePageLinks(ctx: Ctx): Promise<PageLink[]> {
   debugLog(`✅ Scraping page links from ${ctx.config.baseUrl}`);
   const page = await createPage(ctx);
   try {
-    const response = await page.goto(ctx.config.baseUrl, {waitUntil: "networkidle2", timeout: 30000});
+    const response = await page.goto(ctx.config.baseUrl, {waitUntil: "networkidle", timeout: 30000});
     if (response && !response.ok()) {
       debugLog(`❌ Failed to load ${ctx.config.baseUrl}: Status ${response.status()}`);
       return [];
     }
-    const pageLinks: PageLink[] = await page.evaluate(function pageLinksEval(baseUrl: string, menuSelector: string) {
+    const pageLinks: PageLink[] = await page.evaluate(({baseUrl, menuSelector}: {baseUrl: string; menuSelector: string}): PageLink[] => {
       const links = Array.from(document.querySelectorAll(menuSelector))
-        .filter((a: HTMLAnchorElement) => a.href.startsWith(baseUrl))
-        .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
+        .filter((a): a is HTMLAnchorElement => a instanceof HTMLAnchorElement && a.href.startsWith(baseUrl))
+        .map((a) => ({path: a.href, title: a.textContent!.trim()}));
       return [...new Set(links.map(l => JSON.stringify(l)))].map(l => JSON.parse(l));
-    }, ctx.config.baseUrl, ctx.config.menuSelector);
+    }, {baseUrl: ctx.config.baseUrl, menuSelector: ctx.config.menuSelector});
     if (!pageLinks.some(link => link.path === ctx.config.baseUrl)) {
       pageLinks.unshift({path: ctx.config.baseUrl, title: "Home"});
     }
@@ -201,7 +201,7 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
   const page = await createPage(ctx);
   try {
     debugLog(`✅ Scraping ${pageLink.path}`);
-    const response = await page.goto(pageLink.path, {waitUntil: "networkidle2", timeout: 30000});
+    const response = await page.goto(pageLink.path, {waitUntil: "networkidle", timeout: 30000});
     if (response && !response.ok()) {
       debugLog(`❌ Failed to load ${pageLink.path}: Status ${response.status()}`);
       return {path: pageLink.path, title: pageLink.title, segments: []};
@@ -209,14 +209,14 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
     const {
       html,
       images
-    } = await page.evaluate(function scrapeContentEval(contentSelector: string, excludeSelectors: string[]) {
+    } = await page.evaluate(({contentSelector, excludeSelectors}: {contentSelector: string; excludeSelectors: string[]}): {html: string; images: ScrapedImage[]} => {
       const node = document.querySelector(contentSelector) || document.body;
-      const selectors = isArray(excludeSelectors) ? excludeSelectors : [];
+      const selectors = Array.isArray(excludeSelectors) ? excludeSelectors : [];
       selectors.forEach(sel => {
         try {
           node.querySelectorAll(sel).forEach(n => n.remove());
         } catch (e) {
-          debugLog(`   Invalid selector:`, sel, "error:", e);
+          console.warn("Invalid selector:", sel, e);
         }
       });
       Array.from(node.querySelectorAll("img")).forEach(img => {
@@ -229,7 +229,7 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
         alt: img.alt || ""
       }));
       return {html, images};
-    }, ctx.config.contentSelector, exclusions.coerceList(ctx.config.excludeSelectors));
+    }, {contentSelector: ctx.config.contentSelector, excludeSelectors: exclusions.coerceList(ctx.config.excludeSelectors)});
     let markdown = turndownService.turndown(html);
     markdown = exclusions.applyTextExclusions(markdown, {
       excludeTextPatterns: ctx.config.excludeTextPatterns,
@@ -487,17 +487,17 @@ async function scrapeGalleryLinks(ctx: Ctx): Promise<PageLink[]> {
   const pageUrl = `${ctx.config.baseUrl}/${ctx.config.galleryPath}`;
   debugLog(`✅ Scraping gallery index at ${pageUrl}`);
   try {
-    const response = await page.goto(pageUrl, {waitUntil: "networkidle2", timeout: 30000});
+    const response = await page.goto(pageUrl, {waitUntil: "networkidle", timeout: 30000});
     if (response && !response.ok()) {
       debugLog(`❌ Failed to load ${pageUrl}: Status ${response.status()}`);
       return [];
     }
-    const galleryLinks = await page.evaluate(function galleryLinksEval(gallerySelector: string, imagePath: string) {
+    const galleryLinks: PageLink[] = await page.evaluate(({gallerySelector, imagePath}: {gallerySelector: string; imagePath: string}): PageLink[] => {
       const links = Array.from(document.querySelectorAll(gallerySelector))
-        .filter((a: HTMLAnchorElement) => a.href.startsWith(`${location.origin}/${imagePath}/`) && a.textContent?.trim())
-        .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
+        .filter((a): a is HTMLAnchorElement => a instanceof HTMLAnchorElement && a.href.startsWith(`${location.origin}/${imagePath}/`) && !!a.textContent?.trim())
+        .map((a) => ({path: a.href, title: a.textContent!.trim()}));
       return [...new Set(links.map(l => JSON.stringify(l)))].map(l => JSON.parse(l));
-    }, ctx.config.gallerySelector, ctx.config.galleryImagePath);
+    }, {gallerySelector: ctx.config.gallerySelector, imagePath: ctx.config.galleryImagePath});
     debugLog(`✅ Found ${pluraliseWithCount(galleryLinks.length, "gallery link")}:`, galleryLinks);
     progress(`Found ${pluraliseWithCount(galleryLinks.length, "gallery link")}`);
     return galleryLinks;
@@ -514,15 +514,15 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
   const page = await createPage(ctx);
   debugLog(`✅ Scraping gallery ${albumLink.path}`);
   try {
-    const response = await page.goto(albumLink.path, {waitUntil: "networkidle2", timeout: 60000});
+    const response = await page.goto(albumLink.path, {waitUntil: "networkidle", timeout: 60000});
     if (response && !response.ok()) {
       debugLog(`❌ Failed to load ${albumLink.path}: Status ${response.status()}`);
       return null;
     }
-    const images = await page.evaluate(function imagesEval(contentSelector: string) {
+    const images: ScrapedImage[] = await page.evaluate((contentSelector: string): ScrapedImage[] => {
       const contentNode = document.querySelector(contentSelector) || document.body;
       const imageNodes = contentNode.querySelectorAll("img");
-      return Array.from(imageNodes).map((img: HTMLImageElement) => ({
+      return Array.from(imageNodes).map((img) => ({
         src: img.src,
         alt: img.alt
       })).filter(item => item.alt !== "logo");
@@ -633,7 +633,7 @@ async function scrapeParentPageLinks(ctx: Ctx, parentPageConfig: ParentPageConfi
   debugLog(`✅ Scraping parent page links from ${parentUrl}`);
   progress(`Scraping parent page links from ${parentUrl}`);
   try {
-    const response = await page.goto(parentUrl, {waitUntil: "networkidle2", timeout: 30000});
+    const response = await page.goto(parentUrl, {waitUntil: "networkidle", timeout: 30000});
     if (response && !response.ok()) {
       debugLog(`❌ Failed to load ${parentUrl}: Status ${response.status()}`);
       progress(`Failed to load ${parentUrl}: Status ${response.status()}`);
@@ -644,33 +644,36 @@ async function scrapeParentPageLinks(ctx: Ctx, parentPageConfig: ParentPageConfi
     const pathPrefix = (parentPageConfig.pathPrefix || "").replace(/^\/+|\/+$/g, "");
     const contentSelector = ctx.config.contentSelector;
     const parentPathPrefix = new URL(parentUrl).pathname.replace(/\/index\.[a-zA-Z0-9]+$/, "").replace(/^\/+|\/+$/g, "");
-    const childLinks: PageLink[] = await page.evaluate(function childLinksEval(selector: string, base: string, prefix: string, contentSelectorString: string, parentPath: string) {
-      const collectedAnchors: Element[] = [];
-      if (selector && selector.length > 0) {
-        collectedAnchors.push(...Array.from(document.querySelectorAll(selector)));
-      } else {
-        const containers = contentSelectorString ? Array.from(document.querySelectorAll(contentSelectorString)) : [document.body];
-        containers.forEach(container => collectedAnchors.push(...Array.from(container.querySelectorAll("a"))));
-      }
-      let anchors: HTMLAnchorElement[] = collectedAnchors.filter((el): el is HTMLAnchorElement => el instanceof HTMLAnchorElement);
-      if (anchors.length === 0 && parentPath) {
-        anchors = Array.from(document.querySelectorAll("a")).filter((a: HTMLAnchorElement) => a.href.startsWith(location.origin) && new URL(a.href).pathname.startsWith(`/${parentPath}`));
-      }
-      const unique = new Map<string, { path: string; title: string; contentPath: string }>();
-      anchors.forEach(element => {
-        const href = element.href;
-        const text = element.textContent ? element.textContent.trim() : "";
-        if (!href || !text) return;
-        if (!href.startsWith(base)) return;
-        if (href.includes("#")) return;
-        const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-        if (!slug) return;
-        const contentPath = prefix ? `${prefix}/${slug}` : slug;
-        const key = `${href}|${contentPath}`;
-        if (!unique.has(key)) unique.set(key, {path: href, title: text, contentPath});
-      });
-      return Array.from(unique.values());
-    }, linkSelector, baseUrl, pathPrefix, contentSelector, parentPathPrefix);
+    const childLinks: PageLink[] = await page.evaluate(
+      ({selector, base, prefix, contentSelectorString, parentPath}: {selector: string | null; base: string; prefix: string; contentSelectorString: string; parentPath: string}): PageLink[] => {
+        const collectedAnchors: Element[] = [];
+        if (selector && selector.length > 0) {
+          collectedAnchors.push(...Array.from(document.querySelectorAll(selector)));
+        } else {
+          const containers = contentSelectorString ? Array.from(document.querySelectorAll(contentSelectorString)) : [document.body];
+          containers.forEach(container => collectedAnchors.push(...Array.from(container.querySelectorAll("a"))));
+        }
+        let anchors: HTMLAnchorElement[] = collectedAnchors.filter((el): el is HTMLAnchorElement => el instanceof HTMLAnchorElement);
+        if (anchors.length === 0 && parentPath) {
+          anchors = Array.from(document.querySelectorAll("a")).filter((a): a is HTMLAnchorElement => a instanceof HTMLAnchorElement && a.href.startsWith(location.origin) && new URL(a.href).pathname.startsWith(`/${parentPath}`));
+        }
+        const unique = new Map<string, { path: string; title: string; contentPath: string }>();
+        anchors.forEach(element => {
+          const href = element.href;
+          const text = element.textContent ? element.textContent.trim() : "";
+          if (!href || !text) return;
+          if (!href.startsWith(base)) return;
+          if (href.includes("#")) return;
+          const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+          if (!slug) return;
+          const contentPath = prefix ? `${prefix}/${slug}` : slug;
+          const key = `${href}|${contentPath}`;
+          if (!unique.has(key)) unique.set(key, {path: href, title: text, contentPath});
+        });
+        return Array.from(unique.values());
+      },
+      {selector: linkSelector, base: baseUrl, prefix: pathPrefix, contentSelectorString: contentSelector, parentPath: parentPathPrefix}
+    );
     debugLog(`✅ Scraped ${pluraliseWithCount(childLinks.length, "child link")} from ${parentUrl}:`, childLinks);
     if (childLinks.length === 0) progress(`No child links found at ${parentUrl}`);
     else progress(`Found ${pluraliseWithCount(childLinks.length, "child link")} at ${parentUrl}`);

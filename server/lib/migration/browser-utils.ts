@@ -1,11 +1,11 @@
-import puppeteer, { Browser } from "puppeteer";
+import { Browser, chromium } from "playwright";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 
-const debugLog = debug(envConfig.logNamespace("puppeteer-utils"));
+const debugLog = debug(envConfig.logNamespace("browser-utils"));
 
 export async function launchBrowser(): Promise<Browser> {
-  return puppeteer.launch({
+  return chromium.launch({
     headless: true,
     args: [
       "--no-sandbox",
@@ -36,4 +36,3 @@ export function deriveBaseUrl(pageUrl: string, docBaseHref?: string): string {
     return pageUrl.endsWith("/") ? pageUrl : `${pageUrl}/`;
   }
 }
-

@@ -23,6 +23,9 @@ export class WalksPageElements {
   public static createMenuDropdown = PageElement.located(By.id("walks_manager_create"))
     .describedAs("create menu dropdown");
 
+  public static loggedInWalksManagerPage = PageElement.located(By.css("body.user-logged-in.path-node.page-node-type-walks-manager-homepage"))
+    .describedAs("logged in walks manager page");
+
   public static authHeader = PageElement.located(By.css(".auth0-lock-header-welcome"))
     .describedAs("auth header Frame");
 
@@ -50,19 +53,19 @@ export class WalksPageElements {
   public static selectAll = PageElement.located(By.css("th.select-all input"))
     .describedAs("select all walks button");
 
-  public static deleteSelected = PageElement.located(By.css("input[value=Delete][name=op]"))
+  public static deleteSelected = PageElement.located(By.css("#vbo-action-form-wrapper input[data-vbo='vbo-action'][value='Delete']"))
     .describedAs("delete selected walks button");
 
-  public static unPublishSelected = PageElement.located(By.css("input[value=Unpublish][name=op]"))
+  public static unPublishSelected = PageElement.located(By.css("#vbo-action-form-wrapper input[data-vbo='vbo-action'][value='Unpublish']"))
     .describedAs("Unpublish selected walks button");
 
-  public static publishSelected = PageElement.located(By.css("input[value=Publish][name=op]"))
+  public static publishSelected = PageElement.located(By.css("#vbo-action-form-wrapper input[data-vbo='vbo-action'][value='Publish']"))
     .describedAs("Publish selected walks button");
 
   public static cancelSelected = PageElement.located(By.id("ramled_vbo_cancel_open"))
     .describedAs("Cancel selected walks button");
 
-  public static uncancelSelected = PageElement.located(By.css("input[value=Uncancel][name=op]"))
+  public static uncancelSelected = PageElement.located(By.css("#vbo-action-form-wrapper input[data-vbo='vbo-action'][value='Uncancel']"))
     .describedAs("Uncancel selected walks button");
 
   public static cancelModal = PageElement.located(By.id("ramled_vbo_cancel"))

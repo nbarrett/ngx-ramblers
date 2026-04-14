@@ -1,4 +1,4 @@
-import { inject, Injectable } from "@angular/core";
+import { inject, Injectable, NgZone } from "@angular/core";
 import { Observable, Subject } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -17,6 +17,7 @@ export class WebSocketClientService {
   private logger: Logger = inject(LoggerFactory).createLogger("WebSocketClientService", NgxLoggerLevel.DEBUG);
   private urlService = inject(UrlService);
   private numberUtilsService = inject(NumberUtilsService);
+  private ngZone = inject(NgZone);
   private pingInterval: any;
   private reconnectTimer: any;
   private reconnectDelayMs = 2000;
@@ -33,38 +34,46 @@ export class WebSocketClientService {
       this.socket = new WebSocket(url);
       this.logger.info(`created at: ${url}`);
       this.socket.onopen = () => {
-        const openMessage = `onopen event to ${url}`;
-        this.logger.info(openMessage);
-        this.startPingInterval();
-        this.clearReconnect();
-        this.reconnectDelayMs = 2000;
-        resolve(openMessage);
+        this.ngZone.run(() => {
+          const openMessage = `onopen event to ${url}`;
+          this.logger.info(openMessage);
+          this.startPingInterval();
+          this.clearReconnect();
+          this.reconnectDelayMs = 2000;
+          resolve(openMessage);
+        });
       };
       this.socket.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        this.logger.info(`onmessage received:`, event, "message:", message);
-        if (this.subjects[message.type]) {
-          this.subjects[message.type].next(message.data);
-        }
+        this.ngZone.run(() => {
+          const message = JSON.parse(event.data);
+          this.logger.info(`onmessage received:`, event, "message:", message);
+          if (this.subjects[message.type]) {
+            this.subjects[message.type].next(message.data);
+          }
+        });
       };
       this.socket.onclose = (closeEvent: CloseEvent) => {
-        const code = closeEvent.code;
-        const mappedCloseMessage: MappedCloseMessage = mapStatusCode(code);
-        this.stopPingInterval();
-        if (mappedCloseMessage.success) {
-          this.logger.info(`onclose event occurred with allowable status code:`, mappedCloseMessage);
-        } else if (mappedCloseMessage.transient) {
-          this.logger.info(`onclose transient event, will reconnect:`, mappedCloseMessage);
-        } else {
-          this.logger.error(`onclose event occurred with error:`, closeEvent);
-          this.subjects[MessageType.ERROR].next(mappedCloseMessage);
-        }
-        this.scheduleReconnect();
+        this.ngZone.run(() => {
+          const code = closeEvent.code;
+          const mappedCloseMessage: MappedCloseMessage = mapStatusCode(code);
+          this.stopPingInterval();
+          if (mappedCloseMessage.success) {
+            this.logger.info(`onclose event occurred with allowable status code:`, mappedCloseMessage);
+          } else if (mappedCloseMessage.transient) {
+            this.logger.info(`onclose transient event, will reconnect:`, mappedCloseMessage);
+          } else {
+            this.logger.error(`onclose event occurred with error:`, closeEvent);
+            this.subjects[MessageType.ERROR].next(mappedCloseMessage);
+          }
+          this.scheduleReconnect();
+        });
       };
       this.socket.onerror = (error) => {
-        this.logger.error(`onerror event occurred:`, error);
-        this.scheduleReconnect();
-        reject(error);
+        this.ngZone.run(() => {
+          this.logger.error(`onerror event occurred:`, error);
+          this.scheduleReconnect();
+          reject(error);
+        });
       };
     });
   }

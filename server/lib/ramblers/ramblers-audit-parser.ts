@@ -11,7 +11,31 @@ import { dateTimeInTimezone, dateTimeNowAsValue } from "../shared/dates";
 
 const errorIcons = ["⨯", "✗", "✖"];
 const successIcons = ["✓", "✓", "✓"];
-const ansiTokens = ["\u001b[35;1", "\x1B[0m", "\x1B[35;1m", "\x1B[35m", "\x1B[32m", "\x1B[39m", "[31m", "[39m", "[31m"];
+const ansiTokens = [
+  "\u001b[35;1",
+  "\x1B[0m",
+  "\x1B[1m",
+  "\x1B[2m",
+  "\x1B[22m",
+  "\x1B[33m",
+  "\x1B[35;1m",
+  "\x1B[35m",
+  "\x1B[37m",
+  "\x1B[32m",
+  "\x1B[39m",
+  "[31m",
+  "[33m",
+  "[37m",
+  "[39m",
+  "[1m",
+  "[2m",
+  "[22m",
+  "[31m",
+  "[33m",
+  "[37m"
+];
+const ansiEscapeRegex = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
+const bareAnsiTailRegex = /\[[0-9;]*m/g;
 const npmErrorTokens = ["ERR!", "Error:", "failed"];
 const logNamespace: string = "ramblers:ramblers-audit-parser";
 const debugLog = debug(envConfig.logNamespace(logNamespace));
@@ -35,7 +59,12 @@ export function trimTokensFrom(input: string, tokens: string[]) {
 }
 
 function removeTokensFromMessage(auditMessage: string): string {
-  return trimTokensFrom(auditMessage, successIcons.concat(errorIcons).concat(ansiTokens));
+  return trimTokensFrom(
+    auditMessage
+      .replace(ansiEscapeRegex, "")
+      .replace(bareAnsiTailRegex, ""),
+    successIcons.concat(errorIcons).concat(ansiTokens)
+  );
 }
 
 function toStatusFromNpmMessage(auditMessageItem: string): Status {
@@ -70,15 +99,28 @@ const noiseIndicators = [
   "SERENITY COMMAND LINE",
   "> serenity-bdd",
   "> ngx-ramblers@",
+  "> playwright",
   "(Use `node --trace-deprecation",
   "Script '",
   "Failed with exit code",
-  "@serenity-js/webdriverio",
-  "-------------------------------"
+  "Succeeded with exit code 0 as all scripts passed",
+  "@playwright/test",
+  "@serenity-js/playwright-test",
+  "@serenity-js/playwright",
+  "Running 1 test using 1 worker",
+  "-------------------------------",
+  "Execution Summary",
+  "Scenarios:",
+  "Real time:",
+  "Total time:",
+  "1 passed",
+  "> mkdir -p target/site/archive",
+  "============================================================"
 ];
 
 function isNoiseLine(auditMessageItem: string): boolean {
-  return noiseIndicators.some(indicator => auditMessageItem.includes(indicator));
+  return noiseIndicators.some(indicator => auditMessageItem.includes(indicator))
+    || /^=+$/.test(removeTokensFromMessage(auditMessageItem).replace(/\s/g, ""));
 }
 
 export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudit[] {
