@@ -5,6 +5,7 @@ import { RamblersUploadAudit } from "./ramblers-upload-audit.model";
 export enum RamblersUploadWorkerEventType {
   STANDARD_OUT = "standard-out",
   TEST_STEP = "test-step",
+  LIFECYCLE = "lifecycle",
   COMPLETE = "complete",
   ERROR = "error"
 }
@@ -48,7 +49,7 @@ export interface RamblersUploadWorkerJobResponse {
 
 export interface RamblersUploadWorkerProgressCallbackRequest {
   jobId: string;
-  type: RamblersUploadWorkerEventType.STANDARD_OUT | RamblersUploadWorkerEventType.TEST_STEP;
+  type: RamblersUploadWorkerEventType.STANDARD_OUT | RamblersUploadWorkerEventType.TEST_STEP | RamblersUploadWorkerEventType.LIFECYCLE;
   payload: string;
 }
 

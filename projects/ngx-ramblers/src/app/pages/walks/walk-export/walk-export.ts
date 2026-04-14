@@ -1,5 +1,5 @@
 import { Location } from "@angular/common";
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCheckCircle, faEnvelope, faExclamationCircle, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { isString, map, values } from "es-toolkit/compat";
@@ -56,6 +56,8 @@ import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.mod
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pipe";
 import { ServerDownloadStatusService } from "../../../services/walks/download-status.service";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 
 @Component({
   selector: "app-walk-export",
@@ -519,6 +521,8 @@ export class WalkExport implements OnInit, OnDestroy {
   private downloadStatusService = inject(ServerDownloadStatusService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  private changeDetectorRef = inject(ChangeDetectorRef);
   public audits: RamblersUploadAudit[];
   public filteredAudits: RamblersUploadAudit[];
   public selectedSessionReportAudit: RamblersUploadAudit | null = null;
@@ -551,6 +555,7 @@ export class WalkExport implements OnInit, OnDestroy {
   private sessionDurations: { [fileName: string]: string } = {};
   private deletionsCleared = false;
   private actionableMap: { [id: string]: boolean } = {};
+  private auditRefreshIntervalId: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -580,10 +585,12 @@ export class WalkExport implements OnInit, OnDestroy {
     this.subscriptions.push(this.webSocketClientService.receiveMessages<RamblersUploadAuditProgressResponse>(MessageType.PROGRESS).subscribe(async (progressResponse: RamblersUploadAuditProgressResponse) => {
       this.logger.info("Progress response received:", progressResponse);
       if (progressResponse?.audits?.length > 0) {
+        this.startAuditRefreshLoop();
         this.logger.info("Progress response received:", progressResponse.audits);
         this.audits = (this.audits.concat(progressResponse?.audits)).sort(sortBy("-auditTime", "-record"));
         this.applyFilter();
         this.updateCurrentSessionDurationLabel();
+        this.changeDetectorRef.detectChanges();
         this.auditNotifier.warning(`Total of ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")} - ${this.stringUtils.pluraliseWithCount(progressResponse.audits.length, "audit record")} just received`);
         if (!this.postActionRefreshed && this.audits.some(a => a.type === AuditType.SUMMARY && a.status === Status.SUCCESS)) {
           this.postActionRefreshed = true;
@@ -594,6 +601,8 @@ export class WalkExport implements OnInit, OnDestroy {
             await this.showAvailableWalkExports();
             await this.populateWalksDownloadFileContents();
             this.updateExportStatusMessage();
+            this.broadcastService.broadcast(NamedEvent.named(NamedEventType.REFRESH));
+            this.changeDetectorRef.detectChanges();
           } catch {}
         }
       }
@@ -603,11 +612,13 @@ export class WalkExport implements OnInit, OnDestroy {
         const lastSummarySuccess = this.audits?.some(a => a.type === AuditType.SUMMARY && a.status === Status.SUCCESS);
         const transient = !!(error as any)?.transient;
         this.exportInProgress = false;
+        this.stopAuditRefreshLoop();
         if (lastSummarySuccess || transient) {
           try {
             await this.refreshAuditForCurrentSession();
             this.applyFilter();
             this.updateCurrentSessionDurationLabel();
+            this.changeDetectorRef.detectChanges();
             if (!lastSummarySuccess) {
               this.auditNotifier.warning({title: "Connection Restored", message: "WebSocket reconnected; audit refreshed"});
             }
@@ -625,6 +636,7 @@ export class WalkExport implements OnInit, OnDestroy {
     ;
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.COMPLETE).subscribe(async (message: ApiResponse) => {
         this.exportInProgress = false;
+      this.stopAuditRefreshLoop();
       const hasCompletionErrors = this.audits.filter(item =>
         item.status === Status.ERROR &&
         item.type === AuditType.SUMMARY
@@ -637,6 +649,8 @@ export class WalkExport implements OnInit, OnDestroy {
           } catch {}
         }
         await this.renderInitialView();
+        this.broadcastService.broadcast(NamedEvent.named(NamedEventType.REFRESH));
+        this.changeDetectorRef.detectChanges();
       })
     );
   }
@@ -650,6 +664,7 @@ export class WalkExport implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.stopAuditRefreshLoop();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
@@ -669,7 +684,9 @@ export class WalkExport implements OnInit, OnDestroy {
     this.logger.debug("Refreshing audit trail for file", this.fileName, "count =", this.audits.length);
     this.audits = [];
     this.exportInProgress = true;
+    this.startAuditRefreshLoop();
     this.deletionsCleared = false;
+    this.postActionRefreshed = false;
     this.downloadConflict = { allowed: true };
 
     const ramblersWalksUploadRequest: RamblersWalksUploadRequest = await this.ramblersWalksAndEventsService.createWalksUploadRequest(this.walksForExport);
@@ -833,6 +850,9 @@ export class WalkExport implements OnInit, OnDestroy {
   }
 
   refreshAuditForCurrentSession() {
+    if (!this.fileName?.fileName) {
+      return Promise.resolve();
+    }
     this.logger.info("filename changed to", this.fileName);
     this.walkExportNotifier.setBusy();
     return this.ramblersUploadAuditService.all({
@@ -851,6 +871,27 @@ export class WalkExport implements OnInit, OnDestroy {
     });
   }
 
+  private startAuditRefreshLoop(): void {
+    if (this.auditRefreshIntervalId || !this.exportInProgress) {
+      return;
+    }
+
+    this.auditRefreshIntervalId = setInterval(() => {
+      if (!this.exportInProgress || !this.fileName?.fileName) {
+        this.stopAuditRefreshLoop();
+      } else {
+        void this.refreshAuditForCurrentSession();
+      }
+    }, 2000);
+  }
+
+  private stopAuditRefreshLoop(): void {
+    if (this.auditRefreshIntervalId) {
+      clearInterval(this.auditRefreshIntervalId);
+      this.auditRefreshIntervalId = null;
+    }
+  }
+
   private updateCurrentSessionDurationLabel(): void {
     if (!this.fileName?.fileName || !this.audits?.length) {
       return;
@@ -866,18 +907,11 @@ export class WalkExport implements OnInit, OnDestroy {
       return this.showDetail || [Status.COMPLETE, Status.ERROR, Status.SUCCESS].includes(auditItem.status);
     });
     const timeSorted = this.filteredAudits.slice().sort(sortBy("-auditTime", "-record"));
-    const allChrono = this.audits.slice().sort(sortBy("-auditTime", "-record"));
-    const lastAudit = allChrono[0];
-    const firstAudit = allChrono[allChrono.length - 1];
     if (this.showDetail) {
       const durations = new Map<string, number>();
       timeSorted.forEach((audit, index) => {
-        if (audit.type === AuditType.SUMMARY) {
-          durations.set(audit.id, Math.max(0, (lastAudit?.auditTime || 0) - (firstAudit?.auditTime || 0)));
-        } else {
-          const previous = timeSorted[index + 1];
-          durations.set(audit.id, Math.max(0, (audit?.auditTime || 0) - (previous?.auditTime || 0)));
-        }
+        const previous = timeSorted[index + 1];
+        durations.set(audit.id, Math.max(0, (audit?.auditTime || 0) - (previous?.auditTime || 0)));
       });
       this.filteredAudits = this.filteredAudits.map(a => ({...a, durationMs: durations.get(a.id) || 0} as any));
     }
@@ -907,11 +941,12 @@ export class WalkExport implements OnInit, OnDestroy {
   }
 
   openReport(audit: RamblersUploadAudit, event: MouseEvent) {
-    if (!audit.reportKeyPrefix) {
+    if (!audit.reportKeyPrefix || !audit.reportBucket) {
       return;
     }
+    const bucket = audit.reportBucket.replace(/^\/+|\/+$/g, "");
     const keyPrefix = audit.reportKeyPrefix.replace(/^\/+|\/+$/g, "");
-    this.urlService.navigateToUrl(`api/aws/s3/${keyPrefix}/index.html`, event);
+    this.urlService.navigateToUrl(`api/aws/report/${bucket}/${keyPrefix}/_/index.html`, event);
   }
 
   populateWalkExport(walksForExport: WalkExportData[]): WalkExportData[] {
@@ -1128,17 +1163,14 @@ export class WalkExport implements OnInit, OnDestroy {
 
 
   timing(audit: RamblersUploadAudit): string {
-    const summary = audit.type === AuditType.SUMMARY;
+    const durationMs = (audit as any)?.durationMs;
+    if (durationMs || durationMs === 0) {
+      return this.dateUtils.formatDuration(0, durationMs);
+    }
     const chronologicalAll = this.audits.slice().sort(sortBy("-auditTime", "-record"));
     const currentIndex = chronologicalAll.findIndex(item => item.id === audit.id);
-    const latest = chronologicalAll[0]?.auditTime;
-    const earliest = chronologicalAll[chronologicalAll.length - 1]?.auditTime;
-    if (summary) {
-      return this.dateUtils.formatDuration(earliest, latest);
-    } else {
-      const previousAudit = chronologicalAll?.[currentIndex + 1];
-      return this.dateUtils.formatDuration(previousAudit?.auditTime, audit?.auditTime);
-    }
+    const previousAudit = chronologicalAll?.[currentIndex + 1];
+    return this.dateUtils.formatDuration(previousAudit?.auditTime, audit?.auditTime);
   }
 
   selectTab(tab: WalkExportTab): void {

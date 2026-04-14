@@ -44,7 +44,7 @@ async function resolveWorkerFiles(repoRoot: string): Promise<string[]> {
     "fly.worker.toml",
     "server/package.json",
     "server/package-lock.json",
-    "server/wdio.conf.ts",
+    "server/playwright.config.ts",
     "server/deploy/deploy-ramblers-upload-worker.ts",
     "server/deploy/detect-worker-changes.ts",
     ".github/workflows/build-push-and-deploy-ngx-ramblers-docker-image.yml",

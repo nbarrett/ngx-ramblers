@@ -6,6 +6,11 @@
 non-vcs/
 .git/
 node_modules/
+server/node_modules/
+cli-output/
+target/
+ts-gen/
+dist/
 server/target/
 server/ts-gen/
 server/test-data/

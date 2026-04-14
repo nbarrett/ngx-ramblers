@@ -18,11 +18,15 @@ export class AuthErrorCookieBannerOrCreateMenuDropdown extends Question<Promise<
   async answeredBy(actor: UsesAbilities & AnswersQuestions): Promise<boolean> {
     const authErrorMessageDisplayed = await actor.answer(Visibility.of(WalksPageElements.authErrorMessage));
     const cookieBannerContainerDisplayed = await actor.answer(Visibility.of(WalksPageElements.cookieBannerContainer));
+    const loggedInWalksManagerPageDisplayed = await actor.answer(Visibility.of(WalksPageElements.loggedInWalksManagerPage));
     if (authErrorMessageDisplayed) {
       debugLog("Auth error message is displayed");
       return true;
     } else if (cookieBannerContainerDisplayed) {
       debugLog("Cookie Banner Container is displayed");
+      return true;
+    } else if (loggedInWalksManagerPageDisplayed) {
+      debugLog("Logged in walks manager page is displayed");
       return true;
     } else {
       const createMenuVisible = await actor.answer(Visibility.of(WalksPageElements.createMenuDropdown));

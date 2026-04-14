@@ -72,10 +72,10 @@ export async function executeRamblersUploadJob(ws: WebSocket, job: RamblersUploa
   auditNotifier.sendAudit(ws, {
     messageType: MessageType.PROGRESS,
     status: Status.INFO,
-    auditMessage: `CHROME_BIN=${process.env[Environment.CHROME_BIN] || "not set"} CHROMEDRIVER_PATH=${process.env[Environment.CHROMEDRIVER_PATH] || "not set"} CHROME_VERSION=${process.env[Environment.CHROME_VERSION] || "not set"}`,
+    auditMessage: `PLAYWRIGHT_HEADLESS=${process.env.PLAYWRIGHT_HEADLESS || "default"} BASE_URL=${process.env[Environment.BASE_URL] || "not set"} CHROME_VERSION=${process.env[Environment.CHROME_VERSION] || "not set"}`,
     parserFunction: auditParser.parseStandardOut
   }, job.jobId);
-  debugLog("spawning serenity process with ChromeDriver:", process.env[Environment.CHROMEDRIVER_PATH], "Chrome:", process.env[Environment.CHROME_VERSION]);
+  debugLog("spawning serenity process with Playwright for baseUrl:", process.env[Environment.BASE_URL], "Chrome version hint:", process.env[Environment.CHROME_VERSION]);
   const subprocess = spawn("npm", ["run", "serenity"], {
     detached: true,
     stdio: ["pipe", "pipe", "pipe", "ipc"],

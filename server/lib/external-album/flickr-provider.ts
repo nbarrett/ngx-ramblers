@@ -20,7 +20,8 @@ import {
   ParsedAlbumUrl,
   ProviderProgressCallback
 } from "./external-album-provider";
-import { launchBrowser } from "../migration/serenity-utils";
+import { Browser, Page } from "playwright";
+import { launchBrowser } from "../migration/browser-utils";
 import { entries } from "../../../projects/ngx-ramblers/src/app/functions/object-utils";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { Environment } from "../env-config/environment-model";
@@ -219,7 +220,7 @@ function transformScrapedPhoto(photo: FlickrScrapedPhotoData): ExternalPhoto {
   };
 }
 
-async function dismissCookieConsent(browser: WebdriverIO.Browser): Promise<void> {
+async function dismissCookieConsent(page: Page): Promise<void> {
   try {
     const iframeSelectors = [
       "iframe[src*='consent']",
@@ -228,45 +229,36 @@ async function dismissCookieConsent(browser: WebdriverIO.Browser): Promise<void>
       "iframe[title*='consent']"
     ];
 
-    let consentFrame = null;
-    await iframeSelectors.reduce(async (previousPromise, selector) => {
-      await previousPromise;
-      if (!consentFrame) {
-        const frame = await browser.$(selector);
-        if (await frame.isExisting()) {
-          consentFrame = frame;
+    const acceptSelectors = [
+      "a.call[data-choice='agree']",
+      "button[data-choice='agree']",
+      ".acceptAllButtonLowerCenter",
+      ".acceptAllButton",
+      "#consent_agree_button",
+      "a.acceptAllButton",
+      "button.acceptAllButton",
+      "a[class*='agree']",
+      "button[class*='agree']",
+      "a.primary",
+      "button.primary"
+    ];
+
+    for (const iframeSelector of iframeSelectors) {
+      const iframeCount = await page.locator(iframeSelector).count();
+      if (iframeCount === 0) {
+        continue;
+      }
+      debugLog("dismissCookieConsent: found consent iframe", iframeSelector);
+      const frame = page.frameLocator(iframeSelector);
+      for (const selector of acceptSelectors) {
+        const button = frame.locator(selector).first();
+        if (await button.count() > 0 && await button.isVisible().catch(() => false)) {
+          debugLog("dismissCookieConsent: clicking", selector);
+          await button.click({ timeout: 2000 }).catch(error => {
+            debugLog("dismissCookieConsent: click failed for", selector, error);
+          });
         }
       }
-    }, Promise.resolve());
-
-    if (consentFrame) {
-      debugLog("dismissCookieConsent: found consent iframe, switching to it");
-      await browser.switchToFrame(consentFrame);
-
-      const acceptSelectors = [
-        "a.call[data-choice='agree']",
-        "button[data-choice='agree']",
-        ".acceptAllButtonLowerCenter",
-        ".acceptAllButton",
-        "#consent_agree_button",
-        "a.acceptAllButton",
-        "button.acceptAllButton",
-        "a[class*='agree']",
-        "button[class*='agree']",
-        "a.primary",
-        "button.primary"
-      ];
-
-      await acceptSelectors.reduce(async (previousPromise, selector) => {
-        await previousPromise;
-        const button = await browser.$(selector);
-        if (await button.isExisting() && await button.isClickable()) {
-          debugLog("dismissCookieConsent: clicking", selector);
-          await button.click();
-        }
-      }, Promise.resolve());
-
-      await browser.switchToParentFrame();
       debugLog("dismissCookieConsent: consent dismissed via iframe");
       return;
     }
@@ -279,22 +271,17 @@ async function dismissCookieConsent(browser: WebdriverIO.Browser): Promise<void>
       "#accept-cookies"
     ];
 
-    await directButtonSelectors.reduce(async (previousPromise, selector) => {
-      await previousPromise;
-      const button = await browser.$(selector);
-      if (await button.isExisting() && await button.isClickable()) {
+    for (const selector of directButtonSelectors) {
+      const button = page.locator(selector).first();
+      if (await button.count() > 0 && await button.isVisible().catch(() => false)) {
         debugLog("dismissCookieConsent: clicking direct button", selector);
-        await button.click();
+        await button.click({ timeout: 2000 }).catch(error => {
+          debugLog("dismissCookieConsent: direct click failed for", selector, error);
+        });
       }
-    }, Promise.resolve());
-
+    }
   } catch (e) {
     debugLog("dismissCookieConsent: error dismissing consent (continuing anyway):", e);
-    try {
-      await browser.switchToParentFrame();
-    } catch (_) {
-      debugLog("dismissCookieConsent: failed to switch back to parent frame");
-    }
   }
 }
 
@@ -592,42 +579,38 @@ async function scrapeAlbumPage(
 async function scrapeUserAlbumsPage(userId: string): Promise<FlickrScrapedUserAlbumsData> {
   const url = `https://www.flickr.com/photos/${userId}/albums`;
   debugLog("scrapeUserAlbumsPage: launching browser for", url);
-  let browser: WebdriverIO.Browser | null = null;
+  let browser: Browser | null = null;
 
   try {
     browser = await launchBrowser();
+    const page = await browser.newPage();
     debugLog("scrapeUserAlbumsPage: navigating to", url);
-    await browser.url(url);
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-    await browser.waitUntil(async () => {
-      const state = await browser!.execute(() => document.readyState);
-      return state === "complete" || state === "interactive";
-    }, { timeout: 60000, timeoutMsg: "Page did not load within 60 seconds" });
+    await page.waitForFunction(
+      () => document.querySelectorAll("a[href*='/albums/'], a[href*='/sets/']").length > 0
+        || document.querySelectorAll("script").length > 5,
+      null,
+      { timeout: 10000 }
+    ).catch(() => {
+      debugLog("scrapeUserAlbumsPage: albums not detected before consent");
+    });
 
-    await browser.waitUntil(async () => {
-      const hasAlbums = await browser!.execute(() =>
-        document.querySelectorAll("a[href*='/albums/'], a[href*='/sets/']").length > 0 ||
-        document.querySelectorAll("script").length > 5
-      );
-      return hasAlbums;
-    }, { timeout: 10000 });
+    await dismissCookieConsent(page);
 
-    await dismissCookieConsent(browser);
-
-    await browser.waitUntil(async () => {
-      const hasAlbums = await browser!.execute(() =>
-        document.querySelectorAll("a[href*='/albums/'], a[href*='/sets/']").length > 0 ||
-        document.querySelectorAll("script").length > 5
-      );
-      return hasAlbums;
-    }, { timeout: 10000 }).catch(() => {
+    await page.waitForFunction(
+      () => document.querySelectorAll("a[href*='/albums/'], a[href*='/sets/']").length > 0
+        || document.querySelectorAll("script").length > 5,
+      null,
+      { timeout: 10000 }
+    ).catch(() => {
       debugLog("scrapeUserAlbumsPage: albums not detected after consent");
     });
 
-    const pageHtml = await browser.getPageSource();
+    const pageHtml = await page.content();
     await saveHtmlSnapshot("user-albums", url, pageHtml);
 
-    const userAlbumsData = await browser.execute((userIdParam: string): FlickrScrapedUserAlbumsData | null => {
+    const userAlbumsData = await page.evaluate((userIdParam: string): FlickrScrapedUserAlbumsData | null => {
       try {
         const scripts = document.querySelectorAll("script");
 
@@ -774,8 +757,8 @@ async function scrapeUserAlbumsPage(userId: string): Promise<FlickrScrapedUserAl
   } finally {
     if (browser) {
       try {
-        await browser.deleteSession();
-        debugLog("scrapeUserAlbumsPage: browser session closed");
+        await browser.close();
+        debugLog("scrapeUserAlbumsPage: browser closed");
       } catch (e) {
         debugLog("scrapeUserAlbumsPage: failed to close browser:", e);
       }

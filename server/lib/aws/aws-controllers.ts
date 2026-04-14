@@ -1,4 +1,5 @@
 import * as AWS from "@aws-sdk/client-s3";
+import AdmZip from "adm-zip";
 import { GetObjectCommand, GetObjectRequest, S3 } from "@aws-sdk/client-s3";
 import { ListObjectsV2CommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsV2Command";
 import { ListObjectsCommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsCommand";
@@ -50,6 +51,7 @@ const s3Config = createLazyGetter<AWSConfig>(() => {
 });
 
 const s3 = createLazyGetter<S3>(() => new AWS.S3(s3Config()));
+const reportExtractionPromises = new Map<string, Promise<string>>();
 
 export function queryAWSConfig(): AWSConfig {
   return s3Config();
@@ -97,7 +99,7 @@ export async function listPrefixes(req: Request, res: Response) {
   }
 }
 
-export async function getObject(req: Request, res: Response) {
+export async function objectData(req: Request, res: Response) {
   const options = optionsFrom(req);
   const getObjectCommand = new GetObjectCommand(options);
   try {
@@ -117,6 +119,51 @@ export async function getObject(req: Request, res: Response) {
     res.status(500).send(err);
   }
 }
+}
+
+export async function reportObject(req: Request, res: Response) {
+  const bucket = req.params.bucket;
+  const requestedKey = (req.params[0] || "").replace(/^\/+/, "");
+  const splitMarker = "/_/";
+  const splitIndex = requestedKey.indexOf(splitMarker);
+
+  if (!bucket || splitIndex < 0) {
+    res.status(400).send({ error: "Invalid report request" });
+    return;
+  }
+
+  const reportKeyPrefix = requestedKey.slice(0, splitIndex).replace(/^\/+|\/+$/g, "");
+  const relativePath = requestedKey.slice(splitIndex + splitMarker.length).replace(/^\/+/, "") || "index.html";
+
+  if (!reportKeyPrefix || !relativePath) {
+    res.status(400).send({ error: "Invalid report request" });
+    return;
+  }
+
+  try {
+    const extractedDir = await ensureExtractedReportDirectory(bucket, reportKeyPrefix);
+    const resolvedRoot = path.resolve(extractedDir);
+    const resolvedPath = path.resolve(extractedDir, relativePath);
+
+    if (!resolvedPath.startsWith(`${resolvedRoot}${path.sep}`) && resolvedPath !== resolvedRoot) {
+      res.status(400).send({ error: "Invalid report path" });
+      return;
+    }
+
+    if (!fs.existsSync(resolvedPath) || fs.statSync(resolvedPath).isDirectory()) {
+      res.status(404).send({ error: "Report asset not found", key: relativePath });
+      return;
+    }
+
+    res.sendFile(resolvedPath);
+  } catch (error) {
+    debugLog("failed serving report object for bucket:", bucket, "prefix:", reportKeyPrefix, "error:", (error as Error).message);
+    if ((error as Error & { name?: string }).name === "NoSuchKey") {
+      res.status(404).send({ error: "Report archive not found", key: `${reportKeyPrefix}.zip` });
+    } else {
+      res.status(500).send(error);
+    }
+  }
 }
 
 export function getConfig(req: Request, res: Response) {
@@ -181,6 +228,66 @@ function expiryTime() {
 function optionsFrom(req: Request): GetObjectRequest {
   const key = `${req.params.bucket}${req.params[0]}`;
   return {Bucket: s3Config().bucket, Key: key};
+}
+
+async function ensureExtractedReportDirectory(bucket: string, reportKeyPrefix: string): Promise<string> {
+  const cacheKey = `${bucket}:${reportKeyPrefix}`;
+  const existingPromise = reportExtractionPromises.get(cacheKey);
+
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const extractionPromise = extractReportArchive(bucket, reportKeyPrefix)
+    .finally(() => {
+      reportExtractionPromises.delete(cacheKey);
+    });
+
+  reportExtractionPromises.set(cacheKey, extractionPromise);
+  return extractionPromise;
+}
+
+async function extractReportArchive(bucket: string, reportKeyPrefix: string): Promise<string> {
+  const baseCacheDir = path.resolve("target/report-cache");
+  const cacheHash = crypto.createHash("sha1").update(`${bucket}:${reportKeyPrefix}`).digest("hex");
+  const extractionDir = path.join(baseCacheDir, cacheHash);
+  const readyMarker = path.join(extractionDir, ".ready");
+
+  if (fs.existsSync(readyMarker)) {
+    return extractionDir;
+  }
+
+  await fs.promises.rm(extractionDir, { recursive: true, force: true });
+  await fs.promises.mkdir(extractionDir, { recursive: true });
+
+  const archiveBuffer = await reportArchiveBuffer(bucket, `${reportKeyPrefix}.zip`);
+  const archive = new AdmZip(archiveBuffer);
+  archive.extractAllTo(extractionDir, true);
+  await fs.promises.writeFile(readyMarker, dateTimeNow().toISO() || "ready", "utf8");
+  return extractionDir;
+}
+
+async function reportArchiveBuffer(bucket: string, key: string): Promise<Buffer> {
+  const response: any = await s3().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  return streamToBuffer(response.Body);
+}
+
+async function streamToBuffer(body: any): Promise<Buffer> {
+  if (Buffer.isBuffer(body)) {
+    return body;
+  } else if (body?.transformToByteArray) {
+    const bytes = await body.transformToByteArray();
+    return Buffer.from(bytes);
+  }
+
+  return new Promise<Buffer>((resolve, reject) => {
+    const chunks: Uint8Array[] = [];
+    body.on("data", (chunk: Buffer | Uint8Array | string) => {
+      chunks.push(Buffer.isBuffer(chunk) ? new Uint8Array(chunk) : new Uint8Array(Buffer.from(chunk)));
+    });
+    body.on("error", reject);
+    body.on("end", () => resolve(Buffer.concat(chunks)));
+  });
 }
 
 async function getObjectAsBase64(req: Request, res: Response) {

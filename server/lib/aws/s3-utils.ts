@@ -40,32 +40,72 @@ function contentTypeFor(fileName: string): string {
   return CONTENT_TYPE_BY_EXTENSION[ext] || "application/octet-stream";
 }
 
+interface S3UploadItem {
+  localPath: string;
+  key: string;
+  contentType: string;
+  entry: string;
+}
+
+async function collectUploadItems(localDir: string, prefix: string): Promise<S3UploadItem[]> {
+  const entries = await fs.readdir(localDir);
+  const nested = await Promise.all(entries.map(async (entry): Promise<S3UploadItem[]> => {
+    const localPath = path.join(localDir, entry);
+    const stat = await fs.stat(localPath);
+    const key = path.join(prefix, entry).replace(/\\/g, "/");
+    if (stat.isDirectory()) {
+      return collectUploadItems(localPath, key);
+    }
+    return [{ localPath, key, contentType: contentTypeFor(entry), entry }];
+  }));
+  return nested.flat();
+}
+
 export async function uploadDirectoryToS3(
   s3: S3Client,
   localDir: string,
   bucket: string,
   prefix: string,
-  onFileUploaded?: S3UploadProgressCallback
+  onFileUploaded?: S3UploadProgressCallback,
+  concurrency: number = 20
 ): Promise<void> {
-  const entries = await fs.readdir(localDir);
-  for (const entry of entries) {
-    const localPath = path.join(localDir, entry);
-    const stat = await fs.stat(localPath);
-    const key = path.join(prefix, entry).replace(/\\/g, "/");
+  const items = await collectUploadItems(localDir, prefix);
+  const effectiveConcurrency = Math.max(1, concurrency);
+  const state: { nextIndex: number; firstError: unknown } = { nextIndex: 0, firstError: undefined };
 
-    if (stat.isDirectory()) {
-      await uploadDirectoryToS3(s3, localPath, bucket, key, onFileUploaded);
-    } else {
-      const fileContent = await fs.readFile(localPath);
-      await s3.send(new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: fileContent,
-        ContentType: contentTypeFor(entry)
-      }));
-      if (onFileUploaded) {
-        await onFileUploaded(bucket, key);
-      }
+  const uploadOne = async (item: S3UploadItem): Promise<void> => {
+    const fileContent = await fs.readFile(item.localPath);
+    await s3.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: item.key,
+      Body: fileContent,
+      ContentType: item.contentType
+    }));
+    if (onFileUploaded) {
+      await onFileUploaded(bucket, item.key);
     }
+  };
+
+  const worker = async (): Promise<void> => {
+    const index = state.nextIndex++;
+    if (state.firstError !== undefined || index >= items.length) {
+      return;
+    }
+    try {
+      await uploadOne(items[index]);
+    } catch (error) {
+      if (state.firstError === undefined) {
+        state.firstError = error;
+      }
+      return;
+    }
+    return worker();
+  };
+
+  const workerCount = Math.min(effectiveConcurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  if (state.firstError !== undefined) {
+    throw state.firstError;
   }
 }

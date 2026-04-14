@@ -1,7 +1,6 @@
 import { Task, Wait } from "@serenity-js/core";
 import { WalksPageElements } from "../../../ui/ramblers/walks-page-elements";
 import { RequestParameterExtractor } from "../common/request-parameter-extractor";
-import { Enter } from "@serenity-js/web";
 import { pluralise, pluraliseWithCount } from "../../../../../shared/string-utils";
 import { ClickWhenReady } from "../../common/click-when-ready";
 import { Log } from "../common/log";
@@ -10,6 +9,7 @@ import {
 } from "../../../questions/ramblers/error-alert-is-displayed-or-success-alert-has-message";
 import { equals } from "@serenity-js/assertions";
 import { Accept } from "../common/accept-cookie-prompt";
+import { SetFileInput } from "../../common/set-file-input";
 
 export class UploadWalks {
 
@@ -34,7 +34,7 @@ export class UploadWalksSpecifiedWalks {
       ClickWhenReady.on(WalksPageElements.uploadAWalksCSV),
       Accept.forceDismissCookieBanners(),
       Accept.cookieBannerIfVisible(),
-      Enter.theValue(fileName).into(WalksPageElements.chooseFilesButton),
+      SetFileInput.to(fileName).from(WalksPageElements.chooseFilesButton),
       Accept.forceDismissCookieBanners(),
       ClickWhenReady.on(WalksPageElements.uploadWalksButton),
       Wait.until(ErrorAlertIsDisplayedOrSuccessAlertHasMessage.including(message), equals(true)));

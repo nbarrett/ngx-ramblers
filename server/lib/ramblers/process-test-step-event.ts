@@ -24,6 +24,22 @@ export async function processTestStepEvent(ws: WebSocket, data: string): Promise
     const testStepEventWithFinished: DomainEventDataWithFinished = JSON.parse(data);
     const testStepEvent: DomainEventData = testStepEventWithFinished.eventData;
     const remoteExecutionState = remoteRamblersUploadExecutionState();
+    const localSession = currentRamblersUploadSession(remoteExecutionState?.jobId);
+
+    if (localSession) {
+      if (testStepEvent.finished && !localSession.logStandardOut) {
+        auditNotifier.toggleStandardOutLogging(true, localSession.jobId);
+      } else if (localSession.logStandardOut) {
+        auditNotifier.toggleStandardOutLogging(false, localSession.jobId);
+      }
+
+      await auditNotifier.sendAudit(localSession.ws, {
+        messageType: MessageType.PROGRESS,
+        auditMessage: testStepEvent,
+        parserFunction: auditParser.parseTestStepEvent
+      }, localSession.jobId);
+      return;
+    }
 
     if (remoteExecutionState) {
       if (testStepEvent.finished && !remoteExecutionState.logStandardOut) {

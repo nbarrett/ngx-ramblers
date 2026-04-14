@@ -1,3 +1,5 @@
+import type { Browser } from "playwright";
+
 export interface BaseHrefResult {
   baseHref: string | null;
 }
@@ -8,7 +10,7 @@ export interface HtmlFetchResult {
 }
 
 export interface BrowserContext {
-  browser: WebdriverIO.Browser;
+  browser: Browser;
 }
 
 export enum ExtractedContentKind {

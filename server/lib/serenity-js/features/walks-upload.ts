@@ -1,4 +1,4 @@
-import { actorCalled, Check, engage } from "@serenity-js/core";
+import { Check } from "@serenity-js/core";
 import { Navigate } from "@serenity-js/web";
 import { equals } from "@serenity-js/assertions";
 import { Start } from "../screenplay/tasks/common/start";
@@ -10,8 +10,7 @@ import { Publish } from "../screenplay/tasks/ramblers/walks/publish";
 import { Unpublish } from "../screenplay/tasks/ramblers/walks/unpublish";
 import { UploadWalks } from "../screenplay/tasks/ramblers/walks/upload-walks";
 import { SelectWalks } from "../screenplay/tasks/ramblers/walks/select-walks";
-import { Actors } from "./config/actors";
-import { after, beforeEach, describe, it } from "mocha";
+import { afterEach, describe, it } from "@serenity-js/playwright-test";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { dateTimeNow } from "../../shared/dates";
@@ -27,20 +26,16 @@ const actor = "Walks Admin";
 debugLog("About to run Walks Upload scenario for", actor);
 
 describe("Walks Upload", () => {
-  beforeEach(() => {
-    debugLog("Engaging actors");
-    engage(new Actors());
+  afterEach(async ({ actorCalled }) => {
+    await actorCalled(actor).attemptsTo(SaveBrowserSource.toFile("after-all.html"));
   });
 
-  after(() => {
-    actorCalled(actor).attemptsTo(SaveBrowserSource.toFile("after-all.html"));
-  });
-
-  it(`Walks Upload to Ramblers Walks Manager`, () => {
+  it(`Walks Upload to Ramblers Walks Manager`, async ({ actorCalled }) => {
     const today = dateTimeNow().startOf("day").toFormat(DateFormat.WALKS_MANAGER_API);
     const params = RequestParameterExtractor.extract();
+    const walksAdmin = actorCalled(actor);
 
-    return actorCalled(actor).attemptsTo(
+    await walksAdmin.attemptsTo(
       Start.onWalksAndEventsManager(),
       Login.toRamblers(),
       Navigate.to(`https://walks-manager.ramblers.org.uk/walks-manager/all-walks-events?search=&items_per_page=All&d[min]=${today}&d[max]=&rauid=all`),

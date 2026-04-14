@@ -1,5 +1,4 @@
-import { beforeEach, describe, it } from "mocha";
-import { actorCalled } from "@serenity-js/core";
+import { describe, it, test } from "@serenity-js/playwright-test";
 import { Click } from "@serenity-js/web";
 import { Contact } from "../screenplay/questions/ramblers/contact-listing";
 import { Start } from "../screenplay/tasks/common/start";
@@ -12,49 +11,58 @@ import { SummariseContacts } from "../screenplay/tasks/ramblers/contacts/summari
 import { ContactsTargets } from "../screenplay/ui/ramblers/contacts-targets";
 
 describe("Ramblers contacts", function () {
-  this.timeout(900 * 1000);
-  const actor = actorCalled("nick");
-
-  beforeEach(() =>
-    actor.attemptsTo(
-      Start.onContacts(),
-      Login.toRamblers()));
+  test.describe.configure({ timeout: 900 * 1000 });
 
   describe("Contacts listing", () => {
     const allContacts = [];
-    it("allows scraping of all content", () => actor.attemptsTo(
-      ListContacts.andAppendTo(allContacts),
-      Click.on(ContactsTargets.page2),
-      WaitFor.ramblersToFinishProcessing(),
-      ListContacts.andAppendTo(allContacts),
-      Click.on(ContactsTargets.page3),
-      WaitFor.ramblersToFinishProcessing(),
-      ListContacts.andAppendTo(allContacts),
-      SummariseContacts.toFile(allContacts),
-    ));
+    it("allows scraping of all content", async ({ actorCalled }) => {
+      const actor = actorCalled("nick");
+      await actor.attemptsTo(
+        Start.onContacts(),
+        Login.toRamblers(),
+        ListContacts.andAppendTo(allContacts),
+        Click.on(ContactsTargets.page2),
+        WaitFor.ramblersToFinishProcessing(),
+        ListContacts.andAppendTo(allContacts),
+        Click.on(ContactsTargets.page3),
+        WaitFor.ramblersToFinishProcessing(),
+        ListContacts.andAppendTo(allContacts),
+        SummariseContacts.toFile(allContacts),
+      );
+    });
 
   });
 
   describe("Contacts individual creation", () => {
-    it("allows creation of a single contact", () => actor.attemptsTo(
-      CreateContact.usingData(new Contact("Person", "Surname", "Person C", "SurnamePerson@hotmail.com", "9999999 99999")),
-    ));
+    it("allows creation of a single contact", async ({ actorCalled }) => {
+      const actor = actorCalled("nick");
+      await actor.attemptsTo(
+        Start.onContacts(),
+        Login.toRamblers(),
+        CreateContact.usingData(new Contact("Person", "Surname", "Person C", "SurnamePerson@hotmail.com", "9999999 99999")),
+      );
+    });
 
   });
 
   describe("Contacts bulk creation", () => {
-    it("allows creation of a single contact", () => actor.attemptsTo(
-      Click.on(ContactsTargets.addContact),
-      CreateContacts.usingData([
-        {
-          firstName: "FirstName",
-          lastName: "LastName",
-          displayName: "FirstName L",
-          email: "FirstNameLastName@hotmail.com",
-          contactNumber: "9999999 99999"
-        },
-      ]),
-    ));
+    it("allows creation of a single contact", async ({ actorCalled }) => {
+      const actor = actorCalled("nick");
+      await actor.attemptsTo(
+        Start.onContacts(),
+        Login.toRamblers(),
+        Click.on(ContactsTargets.addContact),
+        CreateContacts.usingData([
+          {
+            firstName: "FirstName",
+            lastName: "LastName",
+            displayName: "FirstName L",
+            email: "FirstNameLastName@hotmail.com",
+            contactNumber: "9999999 99999"
+          },
+        ]),
+      );
+    });
 
   });
 });
