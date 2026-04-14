@@ -65,7 +65,7 @@ export const envConfig = {
   env,
   mongo,
   server: {
-    listenPort: 5001,
+    listenPort: +(process.env.PORT || 5001),
     staticUrl: "/",
     uploadDir: "/tmp/uploads",
   },

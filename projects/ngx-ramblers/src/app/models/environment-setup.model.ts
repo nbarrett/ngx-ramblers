@@ -232,25 +232,6 @@ export interface ResumeEnvironmentResponse extends ApiResponse {
   message?: string;
 }
 
-export interface GitHubEnvironmentDiff {
-  name: string;
-  inConfigsJson: boolean;
-  inDatabase: boolean;
-  differences: string[];
-}
-
-export interface GitHubSecretStatus {
-  secretUpdatedAt: string;
-  environmentCount: number;
-  isUpToDate: boolean;
-  reconciliation: GitHubEnvironmentDiff[];
-  error?: string;
-}
-
-export interface GitHubPushResponse {
-  environmentCount: number;
-}
-
 export enum EnvironmentSetupStepperKey {
   RAMBLERS_SELECTION = "ramblers",
   SERVICES_CONFIG = "services",

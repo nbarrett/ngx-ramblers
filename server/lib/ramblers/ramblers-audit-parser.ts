@@ -54,7 +54,31 @@ function toStatusFromIcon(auditMessageItem: string): Status {
 }
 
 function splitIntoItems(auditMessage: string) {
-  return auditMessage.split(/\[(?:serenity-run-[^\]]*|0-0)]/).map(item => item.trim());
+  return auditMessage
+    .split(/\[(?:serenity-run-[^\]]*|serenity-run|0-0|failsafe|report)]/)
+    .map(item => item.trim());
+}
+
+const noiseIndicators = [
+  "undefined undefined undefined",
+  "DeprecationWarning",
+  "mongodb+srv://",
+  "env-config using environment variable",
+  "Spawning: ",
+  "Loading test outcomes",
+  "Writing aggregated report",
+  "SERENITY COMMAND LINE",
+  "> serenity-bdd",
+  "> ngx-ramblers@",
+  "(Use `node --trace-deprecation",
+  "Script '",
+  "Failed with exit code",
+  "@serenity-js/webdriverio",
+  "-------------------------------"
+];
+
+function isNoiseLine(auditMessageItem: string): boolean {
+  return noiseIndicators.some(indicator => auditMessageItem.includes(indicator));
 }
 
 export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudit[] {
@@ -65,6 +89,7 @@ export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudi
       || isEmpty(auditMessageItem)
       || isUndefined(auditMessageItem)
       || auditMessageItem.length <= 2
+      || isNoiseLine(auditMessageItem)
       || anyMatch(auditMessageItem, [envConfig.logNamespace(logNamespace), "SceneTagged", "ActivityStarts", "[report]"]);
     debugLog("parseStandardOut:auditMessageItem:", auditMessageItems.indexOf(auditMessageItem) + 1, "of", auditMessageItems.length, "messageItemIgnored:", messageItemIgnored, "data:", auditMessageItem);
     if (messageItemIgnored) {

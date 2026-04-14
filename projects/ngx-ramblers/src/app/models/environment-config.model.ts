@@ -42,11 +42,22 @@ export interface EnvironmentConfig {
   secrets?: Record<string, string>;
 }
 
+export interface UploadWorkerConfig {
+  appName?: string;
+  sharedSecret?: string;
+  encryptionKey?: string;
+  memory?: string;
+  scaleCount?: number;
+  apiKey?: string;
+}
+
 export interface EnvironmentsConfig {
   environments?: EnvironmentConfig[];
   aws?: AwsConfig;
   cloudflare?: CloudflareConfig;
   secrets?: Record<string, string>;
+  uploadWorker?: UploadWorkerConfig;
+  autoDeployTarget?: string;
 }
 
 export const FLYIO_DEFAULTS = {
@@ -101,6 +112,17 @@ export function createEmptyPerEnvironmentCloudflareConfig(): PerEnvironmentCloud
     accountId: "",
     apiToken: "",
     zoneId: ""
+  };
+}
+
+export function createDefaultUploadWorkerConfig(): UploadWorkerConfig {
+  return {
+    appName: "",
+    sharedSecret: "",
+    encryptionKey: "",
+    memory: FLYIO_DEFAULTS.MEMORY,
+    scaleCount: FLYIO_DEFAULTS.SCALE_COUNT,
+    apiKey: ""
   };
 }
 

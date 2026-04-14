@@ -9,8 +9,6 @@ import {
   EnvironmentSetupRequest,
   EnvironmentStatus,
   ExistingEnvironmentsResponse,
-  GitHubPushResponse,
-  GitHubSecretStatus,
   GroupsByAreaResponse,
   MongoClusterInfo,
   MongoDbConfig,
@@ -268,21 +266,4 @@ export class EnvironmentSetupService {
     return response as unknown as { success: boolean; message: string; hostname?: string };
   }
 
-  async githubStatus(): Promise<GitHubSecretStatus> {
-    const response = await this.commonDataService.responseFrom(
-      this.logger,
-      this.http.get<ApiResponse>(`${this.BASE_URL}/github/status`, this.opts),
-      this.notifications
-    );
-    return response as unknown as GitHubSecretStatus;
-  }
-
-  async pushToGitHub(): Promise<GitHubPushResponse> {
-    const response = await this.commonDataService.responseFrom(
-      this.logger,
-      this.http.post<ApiResponse>(`${this.BASE_URL}/github/push`, {}, this.opts),
-      this.notifications
-    );
-    return response as unknown as GitHubPushResponse;
-  }
 }

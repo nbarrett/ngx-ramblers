@@ -21,6 +21,10 @@ function isTmuxAvailable(): boolean {
 function openWithTmux(config: LogViewerConfig): Promise<void> {
   spawnSync("tmux", ["split-window", "-h", "tail", "-f", config.backendLogPath]);
 
+  if (config.workerLogPath) {
+    spawnSync("tmux", ["split-window", "-v", "-t", ".", "tail", "-f", config.workerLogPath]);
+  }
+
   const tail = spawn("tail", ["-f", config.frontendLogPath], {
     stdio: "inherit"
   });
@@ -31,12 +35,20 @@ function openWithTmux(config: LogViewerConfig): Promise<void> {
 }
 
 function openWithIterm(config: LogViewerConfig): Promise<void> {
+  const workerSplit = config.workerLogPath
+    ? `
+        set workerSession to (split horizontally with default profile)
+        tell workerSession
+          write text "exec tail -f '${config.workerLogPath}'"
+        end tell`
+    : "";
+
   const script = `
     tell application "iTerm2"
       tell current session of current window
         set backendSession to (split vertically with default profile)
         tell backendSession
-          write text "exec tail -f '${config.backendLogPath}'"
+          write text "exec tail -f '${config.backendLogPath}'"${workerSplit}
         end tell
       end tell
     end tell
@@ -45,6 +57,9 @@ function openWithIterm(config: LogViewerConfig): Promise<void> {
 
   const killSplitPane = () => {
     spawnSync("pkill", ["-f", `tail -f ${config.backendLogPath}`], { stdio: "ignore" });
+    if (config.workerLogPath) {
+      spawnSync("pkill", ["-f", `tail -f ${config.workerLogPath}`], { stdio: "ignore" });
+    }
   };
 
   process.on("SIGINT", killSplitPane);
@@ -64,13 +79,23 @@ function openWithIterm(config: LogViewerConfig): Promise<void> {
 }
 
 function openWithTerminalApp(config: LogViewerConfig): Promise<void> {
-  const script = `
+  const backendScript = `
     tell application "Terminal"
       activate
       do script "tail -f '${config.backendLogPath}'"
     end tell
   `;
-  spawnSync("osascript", ["-e", script]);
+  spawnSync("osascript", ["-e", backendScript]);
+
+  if (config.workerLogPath) {
+    const workerScript = `
+      tell application "Terminal"
+        activate
+        do script "tail -f '${config.workerLogPath}'"
+      end tell
+    `;
+    spawnSync("osascript", ["-e", workerScript]);
+  }
 
   const tail = spawn("tail", ["-f", config.frontendLogPath], {
     stdio: "inherit"

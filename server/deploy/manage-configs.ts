@@ -409,21 +409,6 @@ async function deployNewEnvironment(config: RuntimeConfig, newEnvConfig: NewEnvi
 
   configureEnvironment(newEnvConfig, readConfigFile(config.configFilePath));
   debugLog(`Configured environment ${newEnvConfig.appName}`);
-
-  updateGitHubSecret(config.configFilePath);
-}
-
-function updateGitHubSecret(configFilePath: string): void {
-  debugLog("Updating GitHub CONFIGS_JSON secret...");
-  try {
-    const configContent = fs.readFileSync(configFilePath, "utf-8");
-    const escapedContent = configContent.replace(/'/g, "'\\''");
-    runCommand(`gh secret set CONFIGS_JSON --body '${escapedContent}'`, false, true);
-    debugLog("Successfully updated GitHub CONFIGS_JSON secret");
-  } catch (error) {
-    debugLog(`Warning: Failed to update GitHub secret: ${error}. You may need to update it manually.`);
-    debugLog("To update manually, copy the contents of configs.json to the CONFIGS_JSON GitHub secret.");
-  }
 }
 
 async function main(): Promise<void> {

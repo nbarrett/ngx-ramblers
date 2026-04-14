@@ -36,6 +36,8 @@
     "serenity-bdd-update": "serenity-bdd update --ignoreSSL",
     "serenity-run": "wdio run ./wdio.conf.ts",
     "server": "node --optimize_for_size --max_old_space_size=460 ts-gen/server/lib/server",
+    "worker-server": "node --optimize_for_size --max_old_space_size=460 ts-gen/server/lib/ramblers/ramblers-upload-worker-server",
+    "worker-server-live": "node --import tsx --watch-path=lib lib/ramblers/ramblers-upload-worker-server",
     "server-live": "node --import tsx --watch-path=lib lib/server",
     "test": "failsafe serenity report",
     "tsc": "tsc --project ./tsconfig.json",
@@ -153,6 +155,7 @@
     "npm": "11.9.0"
   },
   "devDependencies": {
-    "@types/node-cron": "3.0.11"
+    "@types/node-cron": "3.0.11",
+    "madge": "8.0.0"
   }
 }

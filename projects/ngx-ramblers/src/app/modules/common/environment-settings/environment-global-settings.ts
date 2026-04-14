@@ -5,7 +5,7 @@ import { faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
 import { SecretInputComponent } from "../secret-input/secret-input.component";
 import { SecretsEditor } from "../secrets-editor/secrets-editor";
 import { CloudflareUrlInputComponent, CloudflareUrlParseResult } from "../cloudflare-url-input/cloudflare-url-input";
-import { EnvironmentsConfig } from "../../../models/environment-config.model";
+import { createDefaultUploadWorkerConfig, EnvironmentsConfig } from "../../../models/environment-config.model";
 import { InputSize } from "../../../models/ui-size.model";
 
 @Component({
@@ -146,6 +146,83 @@ import { InputSize } from "../../../models/ui-size.model";
         (secretsChange)="config.secrets = $event"
         namePrefix="global">
       </app-secrets-editor>
+    </div>
+    <div class="row thumbnail-heading-frame mb-5">
+      <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
+        <img src="assets/icons/fly-logo.svg" alt="Fly.io" style="height: 26px;" onerror="this.style.display='none'">
+        <span>Upload Worker Configuration</span>
+        @if (config.uploadWorker?.appName) {
+          <a href="https://fly.io/apps/{{ config.uploadWorker.appName }}"
+             target="_blank"
+             class="btn btn-sm btn-outline-secondary ms-auto">
+            <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+            Fly Dashboard
+          </a>
+        }
+      </div>
+      <small class="form-text text-muted mb-3">
+        Shared Serenity upload worker deployed as a separate Fly.io app. Saving this
+        configuration automatically updates the worker secrets on all environments that
+        use the worker. Secrets are synced to GitHub alongside CONFIGS_JSON when you
+        push from the GitHub Secrets tab.
+      </small>
+      <div class="row">
+        <div class="col-md-6 mb-2">
+          <label class="form-label">App Name</label>
+          <input type="text"
+                 class="form-control"
+                 [(ngModel)]="config.uploadWorker.appName"
+                 name="workerAppName"
+                 placeholder="e.g. ngx-ramblers-upload-worker">
+          @if (config.uploadWorker?.appName) {
+            <small class="form-text text-muted">URL: https://{{ config.uploadWorker.appName }}.fly.dev</small>
+          }
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label">Fly Deploy Token</label>
+          <app-secret-input
+            [(ngModel)]="config.uploadWorker.apiKey"
+            name="workerApiKey"
+            [size]="InputSize.SM">
+          </app-secret-input>
+          <small class="form-text text-muted">If blank, the staging environment's Fly API key is used instead</small>
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label">Shared Secret (HMAC)</label>
+          <app-secret-input
+            [(ngModel)]="config.uploadWorker.sharedSecret"
+            name="workerSharedSecret"
+            [size]="InputSize.SM">
+          </app-secret-input>
+          <small class="form-text text-muted">Used to sign requests between the environment and the worker</small>
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label">Encryption Key (AES)</label>
+          <app-secret-input
+            [(ngModel)]="config.uploadWorker.encryptionKey"
+            name="workerEncryptionKey"
+            [size]="InputSize.SM">
+          </app-secret-input>
+          <small class="form-text text-muted">Used to encrypt credentials sent to the worker</small>
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label">Memory</label>
+          <input type="text"
+                 class="form-control"
+                 [(ngModel)]="config.uploadWorker.memory"
+                 name="workerMemory"
+                 placeholder="e.g. 1024mb">
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label">Scale Count</label>
+          <input type="number"
+                 class="form-control"
+                 [(ngModel)]="config.uploadWorker.scaleCount"
+                 name="workerScaleCount"
+                 min="0"
+                 placeholder="e.g. 1">
+        </div>
+      </div>
     </div>
   `
 })

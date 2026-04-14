@@ -8,10 +8,38 @@ on:
 
 env:
   NODE_VERSION: '24.14.0'
-  CHROME_VERSION: ${{ vars.CHROME_VERSION || secrets.CHROME_VERSION }}
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      chrome_version: ${{ steps.vars.outputs.chrome_version }}
+      auto_deploy_target: ${{ steps.vars.outputs.auto_deploy_target }}
+      auto_deploy_app_name: ${{ steps.vars.outputs.auto_deploy_app_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install root dependencies
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+
+      - name: Install server dependencies
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        working-directory: ./server
+
+      - name: Resolve build-time variables from database
+        id: vars
+        env:
+          ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+        run: ./server/node_modules/.bin/tsx server/deploy/resolve-build-time-vars.ts
+
   test:
+    needs: resolve
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -35,7 +63,7 @@ jobs:
       - name: Setup Chrome for headless tests
         uses: browser-actions/setup-chrome@v2
         with:
-          chrome-version: ${{ env.CHROME_VERSION }}
+          chrome-version: ${{ needs.resolve.outputs.chrome_version }}
 
       - name: Export CHROME_BIN for Karma
         run: echo "CHROME_BIN=$CHROME_PATH" >> $GITHUB_ENV
@@ -50,7 +78,7 @@ jobs:
         run: npm run test:server
 
   deploy:
-    needs: test
+    needs: [resolve, test]
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-group
@@ -73,14 +101,12 @@ jobs:
         run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
         working-directory: ./server
 
-      - name: Create configs directory
-        run: mkdir -p non-vcs/fly-io
-
-      - name: Create configs.json from secrets
+      - name: Detect worker-relevant changes
+        id: worker-changes
         env:
-          CONFIGS_JSON: ${{ secrets.CONFIGS_JSON }}
-        run: |
-          echo "$CONFIGS_JSON" > non-vcs/fly-io/configs.json
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: ./server/node_modules/.bin/tsx server/deploy/detect-worker-changes.ts
 
       - name: Install ts-node
         run: npm install -g ts-node
@@ -92,7 +118,7 @@ jobs:
         run: echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
 
       - name: Build the Docker image
-        run: docker build . --build-arg CHROME_VERSION=${{ env.CHROME_VERSION }} --file Dockerfile --tag ngx-ramblers:${{ github.run_number }}
+        run: docker build . --build-arg CHROME_VERSION=${{ needs.resolve.outputs.chrome_version }} --file Dockerfile --tag ngx-ramblers:${{ github.run_number }}
 
       - name: Tag the Docker image (latest)
         if: github.ref_name == 'main'
@@ -119,10 +145,18 @@ jobs:
       - name: Deploy image ngx-ramblers:${{ github.run_number }} to fly.io
         timeout-minutes: 15
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
         run: |
-          ts-node server/deploy/deploy-to-environments.ts --environment "${{ secrets.APP_NAME }}" --image-tag "${{ github.run_number }}"
+          ts-node server/deploy/deploy-to-environments.ts --environment "${{ needs.resolve.outputs.auto_deploy_target }}" --image-tag "${{ github.run_number }}"
+
+      - name: Deploy Ramblers upload worker
+        if: github.event_name == 'push' && steps.worker-changes.outputs.worker == 'true'
+        timeout-minutes: 15
+        env:
+          ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
+          RAMBLERS_UPLOAD_WORKER_IMAGE_REPOSITORY: ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers
+        run: |
+          ts-node server/deploy/deploy-ramblers-upload-worker.ts --image-tag "${{ github.run_number }}"
 
       - name: Generate Release Notes
         if: github.ref_name == 'main' && github.event_name == 'push'
@@ -139,7 +173,3 @@ jobs:
             echo "Generating release notes for commits since $PREV_SHA"
             npm run release-notes -- --since "$PREV_SHA" --build-number ${{ github.run_number }} --include-unassigned
           fi
-
-      - name: Cleanup sensitive files
-        if: always()
-        run: rm -f non-vcs/fly-io/configs.json

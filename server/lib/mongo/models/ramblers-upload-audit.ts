@@ -10,4 +10,6 @@ export const ramblersUploadAudit: mongoose.Model<RamblersUploadAudit> = ensureMo
     message: {type: String},
     status: {type: String},
     type: {type: String},
+    reportKeyPrefix: {type: String},
+    reportBucket: {type: String},
   }, {collection: "ramblersUploadAudit"}));

@@ -27,27 +27,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Create configs directory
-        run: mkdir -p non-vcs/fly-io
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: Create configs.json from secrets
+      - name: Install root dependencies
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+
+      - name: Install server dependencies
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        working-directory: ./server
+
+      - name: Resolve environment matrix from database
+        id: set-matrix
         env:
-          CONFIGS_JSON: ${{ secrets.CONFIGS_JSON }}
-        run: |
-          echo "$CONFIGS_JSON" > non-vcs/fly-io/configs.json
-
-      - id: set-matrix
+          ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
         run: |
           if [ "${{ github.event.inputs.environments }}" = "all" ]; then
-            jq -c '[.environments[].name]' non-vcs/fly-io/configs.json > envs.json
+            MATRIX=$(./server/node_modules/.bin/tsx server/deploy/list-environment-names.ts 2>/dev/null | tail -n 1)
           else
-            echo '["'${{ github.event.inputs.environments }}'"]' | sed 's/ /","/g' > envs.json
+            MATRIX='["'$(echo "${{ github.event.inputs.environments }}" | sed 's/ /","/g')'"]'
           fi
-          echo "matrix=$(cat envs.json)" >> $GITHUB_OUTPUT
-
-      - name: Cleanup sensitive files
-        if: always()
-        run: rm -f non-vcs/fly-io/configs.json
+          echo "Matrix: $MATRIX"
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
   deploy:
     needs: set-environments
@@ -74,15 +77,6 @@ jobs:
         run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
         working-directory: ./server
 
-      - name: Create configs directory
-        run: mkdir -p non-vcs/fly-io
-
-      - name: Create configs.json from secrets
-        env:
-          CONFIGS_JSON: ${{ secrets.CONFIGS_JSON }}
-        run: |
-          echo "$CONFIGS_JSON" > non-vcs/fly-io/configs.json
-
       - name: Install ts-node
         run: npm install -g ts-node
 
@@ -105,11 +99,7 @@ jobs:
 
       - name: Deploy to ${{ matrix.environment }}
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
         run: |
           ts-node server/deploy/deploy-to-environments.ts --environment "${{ matrix.environment }}" --image-tag "${{ github.event.inputs.image_tag }}"
 
-      - name: Cleanup sensitive files
-        if: always()
-        run: rm -f non-vcs/fly-io/configs.json
