@@ -1,7 +1,7 @@
 import { PerformsActivities, Task } from "@serenity-js/core";
 import { WalkRequestParameters } from "../../../../models/walk-request-parameters";
 import { Log } from "./log";
-import { Environment } from "../../../../../env-config/environment-model";
+import { Environment } from "../../../../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { WalkUploadMetadata } from "../../../../../models/walk-upload-metadata";
 import fs from "fs";
 

@@ -4,7 +4,7 @@ import inquirer from "inquirer";
 import { execSync } from "child_process";
 import * as cms from "./cms-client.js";
 import { findWorkflowRunByCommit } from "./github-client.js";
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { envConfig } from "../env-config/env-config";
 import { GitHubTokenProvider } from "../shared/github-token-provider.js";
 import { pluraliseWithCount } from "../shared/string-utils";

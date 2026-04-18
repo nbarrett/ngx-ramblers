@@ -114,7 +114,6 @@ const noiseIndicators = [
   "Real time:",
   "Total time:",
   "1 passed",
-  "> mkdir -p target/site/archive",
   "============================================================"
 ];
 

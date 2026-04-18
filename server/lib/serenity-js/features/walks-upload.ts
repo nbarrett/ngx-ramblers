@@ -1,5 +1,5 @@
 import { Check } from "@serenity-js/core";
-import { Navigate } from "@serenity-js/web";
+import { NavigateWithDomLoaded } from "../screenplay/tasks/common/navigate-with-dom-loaded";
 import { equals } from "@serenity-js/assertions";
 import { Start } from "../screenplay/tasks/common/start";
 import { Login } from "../screenplay/tasks/ramblers/common/login";
@@ -38,7 +38,7 @@ describe("Walks Upload", () => {
     await walksAdmin.attemptsTo(
       Start.onWalksAndEventsManager(),
       Login.toRamblers(),
-      Navigate.to(`https://walks-manager.ramblers.org.uk/walks-manager/all-walks-events?search=&items_per_page=All&d[min]=${today}&d[max]=&rauid=all`),
+      NavigateWithDomLoaded.to(`https://walks-manager.ramblers.org.uk/walks-manager/all-walks-events?search=&items_per_page=All&d[min]=${today}&d[max]=&rauid=all`),
       Check.whether(RequestParameters.hasWalkUploads(), equals(true))
         .andIfSo(
           SelectWalks.byDateAndTitle(params.walkUploads),

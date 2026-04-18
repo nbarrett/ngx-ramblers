@@ -5,9 +5,6 @@ import { first, isEmpty, isUndefined, last, tail } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PathSegment } from "../models/content-text.model";
 import {
-  BASE64_PREFIX_HEIC,
-  BASE64_PREFIX_JPEG,
-  BASE64_PREFIX_PNG,
   ContentMetadata,
   ContentMetadataItem,
   HasEventId,
@@ -369,7 +366,7 @@ export class UrlService {
   }
 
   isBase64Image(url: string): boolean {
-    return [BASE64_PREFIX_HEIC, BASE64_PREFIX_JPEG, BASE64_PREFIX_PNG].some(prefix => url?.startsWith(prefix));
+    return !!url && url.startsWith("data:");
   }
 
   reformatLocalHref(url: string): string {

@@ -5,9 +5,9 @@ import {
   encryptRamblersUploadPayload,
   signRamblersUploadBody,
   verifyRamblersUploadSignature
-} from "./ramblers-upload-worker-crypto";
+} from "./integration-worker-crypto";
 
-describe("ramblersUploadWorkerCrypto", () => {
+describe("integrationWorkerCrypto", () => {
   it("encrypts and decrypts upload credentials", () => {
     const secret = "worker-secret";
     const credentials = {

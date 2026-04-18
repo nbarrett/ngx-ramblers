@@ -58,11 +58,20 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
 import { ServerDownloadStatusService } from "../../../services/walks/download-status.service";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
+import { StoredValue } from "../../../models/ui-actions";
+import { SortDirection } from "../../../models/sort.model";
+
+const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
+  [StoredValue.STATUS]: "status",
+  [StoredValue.AUDIT_TIME]: "auditTime",
+  [StoredValue.DURATION]: "durationMs",
+  [StoredValue.AUDIT_MESSAGE]: "message"
+};
 
 @Component({
   selector: "app-walk-export",
   template: `
-    <app-page>
+    <app-page pageTitle="Walk Exports">
       <tabset class="custom-tabset">
         <tab [active]="activeTabId === WalkExportTab.WALK_UPLOAD_SELECTION"
              (selectTab)="selectTab(WalkExportTab.WALK_UPLOAD_SELECTION)" heading="Walk upload selection">
@@ -200,7 +209,8 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
                             <div class="row g-0">
                               <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
                                    class="col-sm-6 nowrap">
-                                <fa-icon title tooltip="contact walk leader {{walkExport.displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
+                                <fa-icon title
+                                         tooltip="contact walk leader {{walkExport.displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
                                          [icon]="faEnvelope"
                                          class="fa-icon me-1"/>
                                 <a content
@@ -322,7 +332,8 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
                   <div class="row">
                     @if (selectedSessionReportAudit) {
                       <div class="col-12 col-sm-6 mb-2">
-                        <input type="submit" value="View Report" (click)="openReport(selectedSessionReportAudit, $event)"
+                        <input type="submit" value="View Report"
+                               (click)="openReport(selectedSessionReportAudit, $event)"
                                title="View Serenity report for this session"
                                class="btn btn-primary w-100"/>
                       </div>
@@ -349,24 +360,24 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
                     <table class="round styled-table table-striped table-hover table-sm table-pointer">
                       <thead>
                       <tr>
-                        <th (click)="sortAuditsBy('status')"><span class="nowrap">Status
-                          @if (auditSortField === 'status') {
-                            <span class="sorting-header">{{ auditSortDirection }}</span>
+                        <th (click)="sortAuditsBy(StoredValue.STATUS)"><span class="nowrap">Status
+                          @if (auditSortField === StoredValue.STATUS) {
+                            <span class="sorting-header">{{ sortIndicator() }}</span>
                           }</span>
                         </th>
-                        <th (click)="sortAuditsBy('auditTime')"><span class="nowrap">Time
-                          @if (auditSortField === 'auditTime') {
-                            <span class="sorting-header">{{ auditSortDirection }}</span>
+                        <th (click)="sortAuditsBy(StoredValue.AUDIT_TIME)"><span class="nowrap">Time
+                          @if (auditSortField === StoredValue.AUDIT_TIME) {
+                            <span class="sorting-header">{{ sortIndicator() }}</span>
                           }</span>
                         </th>
-                        <th (click)="sortAuditsBy('durationMs')"><span class="nowrap">Duration
-                          @if (auditSortField === 'durationMs') {
-                            <span class="sorting-header">{{ auditSortDirection }}</span>
+                        <th (click)="sortAuditsBy(StoredValue.DURATION)"><span class="nowrap">Duration
+                          @if (auditSortField === StoredValue.DURATION) {
+                            <span class="sorting-header">{{ sortIndicator() }}</span>
                           }</span>
                         </th>
-                        <th (click)="sortAuditsBy('message')"><span class="nowrap">Audit Message
-                          @if (auditSortField === 'message') {
-                            <span class="sorting-header">{{ auditSortDirection }}</span>
+                        <th (click)="sortAuditsBy(StoredValue.AUDIT_MESSAGE)"><span class="nowrap">Audit Message
+                          @if (auditSortField === StoredValue.AUDIT_MESSAGE) {
+                            <span class="sorting-header">{{ sortIndicator() }}</span>
                           }</span>
                         </th>
                       </tr>
@@ -547,9 +558,9 @@ export class WalkExport implements OnInit, OnDestroy {
   downloadConflict: DownloadConflictResponse = { allowed: true };
   activeTabId = WalkExportTab.WALK_UPLOAD_SELECTION;
   private pendingSessionParam: string | null = null;
-  public auditSortField = "auditTime";
-  public auditSortDirection = DESCENDING;
-  private auditReverseSort = true;
+  protected readonly StoredValue = StoredValue;
+  public auditSortField: StoredValue = StoredValue.AUDIT_TIME;
+  public auditSortOrder: SortDirection = SortDirection.DESC;
   public confirmOverrideRequested = false;
   public confirmCancelRequested = false;
   private sessionDurations: { [fileName: string]: string } = {};
@@ -564,11 +575,19 @@ export class WalkExport implements OnInit, OnDestroy {
     this.auditNotifier = this.notifierService.createAlertInstance(this.auditTarget);
 
     this.subscriptions.push(this.route.queryParams.subscribe(params => {
-      const tabParam = params["tab"];
+      const tabParam = params[StoredValue.TAB];
       if (tabParam && values(WalkExportTab).includes(tabParam)) {
         this.activeTabId = tabParam as WalkExportTab;
       }
       this.pendingSessionParam = params["session"];
+      const sortParam = params[StoredValue.SORT];
+      if (sortParam && AUDIT_SORT_FIELD_MAPPING[sortParam]) {
+        this.auditSortField = sortParam as StoredValue;
+      }
+      const sortOrderParam = params[StoredValue.SORT_ORDER];
+      if (sortOrderParam === SortDirection.ASC || sortOrderParam === SortDirection.DESC) {
+        this.auditSortOrder = sortOrderParam as SortDirection;
+      }
     }));
     this.systemConfigService.events().subscribe(async (_unused: SystemConfig) => {
       if (this.display.walkPopulationWalksManager()) {
@@ -907,17 +926,19 @@ export class WalkExport implements OnInit, OnDestroy {
       return this.showDetail || [Status.COMPLETE, Status.ERROR, Status.SUCCESS].includes(auditItem.status);
     });
     const timeSorted = this.filteredAudits.slice().sort(sortBy("-auditTime", "-record"));
-    if (this.showDetail) {
-      const durations = new Map<string, number>();
-      timeSorted.forEach((audit, index) => {
-        const previous = timeSorted[index + 1];
-        durations.set(audit.id, Math.max(0, (audit?.auditTime || 0) - (previous?.auditTime || 0)));
-      });
-      this.filteredAudits = this.filteredAudits.map(a => ({...a, durationMs: durations.get(a.id) || 0} as any));
-    }
-    const direction = this.auditSortDirection === ASCENDING ? "" : "-";
-    const primary = `${direction}${this.auditSortField}`;
-    if (this.auditSortField === "auditTime") {
+    const durations = new Map<string, number>();
+    timeSorted.forEach((audit, index) => {
+      const previous = timeSorted[index + 1];
+      const thisTime = audit?.auditTime;
+      const prevTime = previous?.auditTime;
+      const delta = (prevTime && thisTime) ? Math.max(0, thisTime - prevTime) : 0;
+      durations.set(audit.id, delta);
+    });
+    this.filteredAudits = this.filteredAudits.map(a => ({...a, durationMs: durations.get(a.id) ?? 0} as any));
+    const direction = this.auditSortOrder === SortDirection.ASC ? "" : "-";
+    const internalField = AUDIT_SORT_FIELD_MAPPING[this.auditSortField];
+    const primary = `${direction}${internalField}`;
+    if (this.auditSortField === StoredValue.AUDIT_TIME) {
       this.filteredAudits = this.filteredAudits.sort(sortBy(primary, `${direction}record`));
     } else {
       this.filteredAudits = this.filteredAudits.sort(sortBy(primary));
@@ -1179,15 +1200,19 @@ export class WalkExport implements OnInit, OnDestroy {
     this.updateUrl();
   }
 
-  sortAuditsBy(field: string): void {
+  sortAuditsBy(field: StoredValue): void {
     if (this.auditSortField === field) {
-      this.auditReverseSort = !this.auditReverseSort;
+      this.auditSortOrder = this.auditSortOrder === SortDirection.ASC ? SortDirection.DESC : SortDirection.ASC;
     } else {
-      this.auditReverseSort = this.auditSortDirection === DESCENDING;
+      this.auditSortField = field;
+      this.auditSortOrder = SortDirection.DESC;
     }
-    this.auditSortField = field;
-    this.auditSortDirection = this.auditReverseSort ? DESCENDING : ASCENDING;
     this.applyFilter();
+    this.updateUrl();
+  }
+
+  sortIndicator(): string {
+    return this.auditSortOrder === SortDirection.ASC ? ASCENDING : DESCENDING;
   }
 
   onSessionChange(): void {
@@ -1196,7 +1221,11 @@ export class WalkExport implements OnInit, OnDestroy {
   }
 
   private updateUrl(): void {
-    const queryParams: any = { tab: this.activeTabId };
+    const queryParams: any = {
+      tab: this.activeTabId,
+      [StoredValue.SORT]: this.auditSortField,
+      [StoredValue.SORT_ORDER]: this.auditSortOrder
+    };
     if (this.fileName?.fileName) {
       queryParams.session = this.sessionToUrlParam(this.fileName.fileName);
     }

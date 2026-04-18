@@ -5,7 +5,7 @@ config({ path: resolveServerPath(".env") });
 
 import debug from "debug";
 import { booleanOf } from "../shared/string-utils";
-import { Environment } from "./environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { env, environmentVariable, isProduction, logNamespace } from "./env-core";
 
 const debugLog = debug(logNamespace("env-config"));

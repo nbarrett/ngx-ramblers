@@ -10,12 +10,13 @@ import errorHandler from "errorhandler";
 import { Server } from "node:http";
 import { envConfig } from "../env-config/env-config";
 import { health } from "../health/health";
-import { createRamblersUploadWorkerWebSocketServer } from "./ramblers-upload-worker-websocket-server";
-import { ramblersUploadWorkerRoutes } from "./ramblers-upload-worker-routes";
+import { integrationWorkerRoutes } from "./integration-worker-routes";
+import { integrationWorkerBrowserRoutes } from "./integration-worker-browser-routes";
+import { integrationWorkerMigrationRoutes } from "./integration-worker-migration-routes";
 
 install();
 
-const debugLog = debug(envConfig.logNamespace("ramblers-upload-worker-server"));
+const debugLog = debug(envConfig.logNamespace("integration-worker-server"));
 debugLog.enabled = true;
 const port: number = +envConfig.server.listenPort;
 const app = express();
@@ -42,20 +43,24 @@ app.use((req, res, next) => {
 });
 app.get("/", (req, res) => {
   res.json({
-    service: "ngx-ramblers-upload-worker",
-    description: "Machine-to-machine Serenity upload worker for the Ramblers walks upload flow. No browser interface.",
+    service: "ngx-ramblers-integration-worker",
+    description: "Machine-to-machine integration worker. Handles Ramblers walks upload jobs and synchronous browser operations (HTML fetch, Flickr scraping, migration scrapes).",
     environment: envConfig.env,
     endpoints: {
       health: { method: "GET", path: "/api/health" },
-      submitJob: { method: "POST", path: "/api/ramblers-upload-worker/jobs" },
-      progressCallback: { method: "POST", path: "/api/ramblers-upload-worker/progress" },
-      resultCallback: { method: "POST", path: "/api/ramblers-upload-worker/result" }
+      submitJob: { method: "POST", path: "/api/integration-worker/jobs" },
+      progressCallback: { method: "POST", path: "/api/integration-worker/progress" },
+      resultCallback: { method: "POST", path: "/api/integration-worker/result" },
+      htmlFetch: { method: "POST", path: "/api/integration-worker/browser/html-fetch" },
+      flickrUserAlbums: { method: "POST", path: "/api/integration-worker/browser/flickr-user-albums" }
     },
     documentation: "https://www.ngx-ramblers.org.uk/how-to/technical-articles/2026-04-12-secrets-deployment-and-cloudflare-config"
   });
 });
 app.get("/api/health", health);
-app.use("/api/ramblers-upload-worker", ramblersUploadWorkerRoutes);
+app.use("/api/integration-worker", integrationWorkerRoutes);
+app.use("/api/integration-worker/browser", integrationWorkerBrowserRoutes);
+app.use("/api/integration-worker/migration", integrationWorkerMigrationRoutes);
 
 if (app.get("env") === "dev") {
   app.use(errorHandler());
@@ -70,7 +75,6 @@ async function startServer(): Promise<void> {
     server.timeout = 600000;
     server.keepAliveTimeout = 610000;
     server.headersTimeout = 620000;
-    createRamblersUploadWorkerWebSocketServer(server, port);
   } catch (error) {
     debugLog("Failed to start Ramblers upload worker server:", error);
     process.exit(1);

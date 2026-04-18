@@ -226,7 +226,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
 
     private async calculateImageTypeAttributes(): Promise<void> {
         const initialFileAttributes = this.fileUtils.fileTypeAttributesForFile(this?.originalFile);
-        if (initialFileAttributes.key === FileType.HEIC) {
+        if (initialFileAttributes?.key === FileType.HEIC) {
             const heicBase64File: Base64File = await this.fileUtils.loadBase64ImageFromFile(this?.originalFile);
             const checkedImage = await this.fileUtils.convertHEICFile(heicBase64File);
             const jpegBase64File = checkedImage.file;
@@ -239,7 +239,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
         this.logger.info("calculateImageTypeAttributes:originalFile:", this?.originalFile, "fileTypeAttributes:", this.fileTypeAttributes);
         if (!this.fileTypeAttributes?.croppable) {
             const base64File: Base64File = await this.fileUtils.loadBase64ImageFromFile(this?.originalFile);
-            this.croppedFile = this.fileUtils.awsFileData(this.preloadImage, base64File.base64Content, this.originalFile);
+            this.croppedFile = this.fileUtils.awsFileData(this.preloadImage || this.originalFile?.name, base64File.base64Content, this.originalFile);
             this.imageChange.emit(this.croppedFile);
             this.logger.info("calculateImageTypeAttributes:fileExtension", this.fileTypeAttributes?.contentType, "is not croppable so auto-generating and imageChange.emit(croppedFile):", this.croppedFile);
         }
@@ -254,7 +254,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
             this.logger.warn("imageCropped called but event.base64 is not set, ignoring");
             return;
         }
-        const awsFileData: AwsFileData = this.fileUtils.awsFileData(this.preloadImage, event.base64, this.originalFile);
+        const awsFileData: AwsFileData = this.fileUtils.awsFileData(this.preloadImage || this.originalFile?.name, event.base64, this.originalFile);
         this.croppedFile = awsFileData;
         this.logger.info("imageCropped:quality,", this.imageQuality, "original size,", this.originalFile.size, this.originalSize(), "croppedFile size", this.croppedFile.file.size, "croppedSize:", this.croppedSize());
         this.imageChange.emit(awsFileData);
@@ -620,7 +620,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     }
 
     updateActionDisabled(): void {
-        const actionDisabled = (!!this.action) || !this.fileTypeAttributes?.croppable || !this.croppedFile;
+        const actionDisabled = (!!this.action) || !this.croppedFile;
         this.logger.info("actionDisabled:action:", this.action, "fileNameData:", this.fileNameData, "croppedFile:", this.croppedFile, "croppable:", this.fileTypeAttributes?.croppable, "actionDisabled->", actionDisabled);
         this.actionDisabled = actionDisabled;
     }

@@ -45,7 +45,8 @@ const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 debugLog.enabled = true;
 const turndownService = createTurndownService();
 const s3 = new S3({});
-const awsConfig: AWSConfig = queryAWSConfig();
+let cachedAwsConfig: AWSConfig | undefined;
+const awsConfig = (): AWSConfig => cachedAwsConfig ?? (cachedAwsConfig = queryAWSConfig());
 
 type Ctx = {
   config: SiteMigrationConfig;
@@ -211,6 +212,7 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
       images
     } = await page.evaluate(({contentSelector, excludeSelectors}: {contentSelector: string; excludeSelectors: string[]}): {html: string; images: ScrapedImage[]} => {
       const node = document.querySelector(contentSelector) || document.body;
+      // eslint-disable-next-line no-restricted-syntax -- page.evaluate runs in the browser; es-toolkit is not available
       const selectors = Array.isArray(excludeSelectors) ? excludeSelectors : [];
       selectors.forEach(sel => {
         try {
@@ -316,7 +318,7 @@ async function uploadImageToS3(ctx: Ctx, img: ScrapedImage): Promise<string> {
     const awsFileName = `${RootFolder.siteContent}/${fileName}`;
     debugLog(`✅ Uploading image ${img.src} to S3 as ${awsFileName}`);
     await s3.send(new PutObjectCommand({
-      Bucket: awsConfig.bucket,
+      Bucket: awsConfig().bucket,
       Key: fileName,
       Body: buffer,
       ContentType: contentTypeFrom(img.src),

@@ -1,4 +1,4 @@
-import { Environment } from "./environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 
 export function environmentVariable(environmentVariable: Environment): string | undefined {
   return process.env[environmentVariable];

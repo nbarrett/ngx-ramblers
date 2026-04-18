@@ -6,7 +6,7 @@ import net from "net";
 import path from "path";
 import fs from "fs";
 import { configuredEnvironments, findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
-import { Environment } from "../../env-config/environment-model";
+import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { ensureRequiredSecrets, loadSecretsWithFallback, REQUIRED_SECRETS, secretsExist } from "../../shared/secrets";
 import { keys } from "es-toolkit/compat";
 import { log } from "../cli-logger";
@@ -115,19 +115,19 @@ function readServerEnvValue(key: string): string | null {
 }
 
 function readWorkerUrlFromServerEnv(): string | null {
-  return readServerEnvValue(Environment.RAMBLERS_UPLOAD_WORKER_URL);
+  return readServerEnvValue(Environment.INTEGRATION_WORKER_URL);
 }
 
 const SERVER_ENV_OVERRIDE_KEYS: Environment[] = [
-  Environment.RAMBLERS_UPLOAD_WORKER_URL,
-  Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_BASE_URL,
-  Environment.RAMBLERS_UPLOAD_WORKER_SHARED_SECRET,
-  Environment.RAMBLERS_UPLOAD_WORKER_ENCRYPTION_KEY
+  Environment.INTEGRATION_WORKER_URL,
+  Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL,
+  Environment.INTEGRATION_WORKER_SHARED_SECRET,
+  Environment.INTEGRATION_WORKER_ENCRYPTION_KEY
 ];
 
 function isSecretKey(key: Environment): boolean {
-  return key === Environment.RAMBLERS_UPLOAD_WORKER_SHARED_SECRET
-    || key === Environment.RAMBLERS_UPLOAD_WORKER_ENCRYPTION_KEY;
+  return key === Environment.INTEGRATION_WORKER_SHARED_SECRET
+    || key === Environment.INTEGRATION_WORKER_ENCRYPTION_KEY;
 }
 
 function displayOverrideValue(value: string): string {
@@ -529,7 +529,7 @@ function resolveLatestLogPath(logDir: string, prefix: string): string | null {
   return path.join(logDir, latest.name);
 }
 
-const WORKER_IMAGE_TAG = "ngx-worker:local";
+const WORKER_IMAGE_TAG = "ngx-integration-worker:local";
 const WORKER_CONTAINER_NAME = "ngx-worker-local";
 const WORKER_ENV_KEYS: string[] = [
   Environment.NODE_ENV,
@@ -547,11 +547,11 @@ const WORKER_ENV_KEYS: string[] = [
   Environment.RAMBLERS_PASSWORD,
   Environment.RAMBLERS_FEATURE,
   Environment.RAMBLERS_METADATA_FILE,
-  Environment.RAMBLERS_UPLOAD_WORKER_SHARED_SECRET,
-  Environment.RAMBLERS_UPLOAD_WORKER_ENCRYPTION_KEY,
-  Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_BASE_URL,
-  Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_SECRET,
-  Environment.RAMBLERS_UPLOAD_WORKER_APP_NAME,
+  Environment.INTEGRATION_WORKER_SHARED_SECRET,
+  Environment.INTEGRATION_WORKER_ENCRYPTION_KEY,
+  Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL,
+  Environment.INTEGRATION_WORKER_CALLBACK_SECRET,
+  Environment.INTEGRATION_WORKER_APP_NAME,
   Environment.CMS_URL,
   Environment.CMS_USERNAME,
   Environment.CMS_PASSWORD
@@ -710,11 +710,11 @@ function startWorkerContainer(
     "--add-host=host.docker.internal:host-gateway"
   ];
   const containerEnv: Record<string, string> = {
-    NODE_ENV: workerEnv.NODE_ENV || "development",
+    [Environment.NODE_ENV]: workerEnv[Environment.NODE_ENV] || "development",
     PORT: "5001",
-    DEBUG: workerEnv.DEBUG || "ngx-ramblers:*",
-    DEBUG_COLORS: "true",
-    RAMBLERS_UPLOAD_WORKER_CALLBACK_BASE_URL: `http://host.docker.internal:${backendPort}`
+    [Environment.DEBUG]: workerEnv[Environment.DEBUG] || "ngx-ramblers:*",
+    [Environment.DEBUG_COLORS]: "true",
+    [Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL]: `http://host.docker.internal:${backendPort}`
   };
   for (const key of WORKER_ENV_KEYS) {
     const value = workerEnv[key];
@@ -812,7 +812,7 @@ async function runDev(config: LocalRunConfig): Promise<void> {
   const env = buildEnvironmentVariables(completeSecrets, "dev", config.port, s3BucketOverride);
 
   const configuredWorkerUrl = (
-    env.RAMBLERS_UPLOAD_WORKER_URL
+    env[Environment.INTEGRATION_WORKER_URL]
     || readWorkerUrlFromServerEnv()
     || ""
   ).trim();
@@ -820,7 +820,10 @@ async function runDev(config: LocalRunConfig): Promise<void> {
     || configuredWorkerUrl.includes("localhost")
     || configuredWorkerUrl.includes("127.0.0.1");
 
-  const forceInProcessWorker = env.PLAYWRIGHT_HEADLESS === "false";
+  if (config.headless === false) {
+    env[Environment.PLAYWRIGHT_HEADLESS] = "false";
+  }
+  const forceInProcessWorker = env[Environment.PLAYWRIGHT_HEADLESS] === "false";
 
   if (spawnLocalWorker) {
     await clearPortForLocalRun(workerPort, "Worker");
@@ -832,7 +835,7 @@ async function runDev(config: LocalRunConfig): Promise<void> {
   }
 
   if (useDockerWorker) {
-    env.RAMBLERS_UPLOAD_WORKER_CALLBACK_BASE_URL = `http://host.docker.internal:${config.port}`;
+    env[Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL] = `http://host.docker.internal:${config.port}`;
   }
 
   const workerEnv: NodeJS.ProcessEnv = { ...env, PORT: String(workerPort) };
@@ -1157,7 +1160,8 @@ export function createLocalCommand(): Command {
     .option("--log-dir <dir>", "Directory to write frontend.log and backend.log")
     .option("--log-timestamp", "Add timestamp to log filenames")
     .option("--no-log-viewer", "Disable built-in log viewer and stream to stdout")
-    .option("--no-docker-worker", "Run the upload worker as a local Node process instead of a Docker container")
+    .option("--no-docker-worker", "Run the integration worker as a local Node process instead of a Docker container")
+    .option("--no-headless", "Run the worker's browser headed (visible); implies --no-docker-worker")
     .action(async (environment, options) => {
       try {
         const environmentName = environment || await (async () => {
@@ -1169,7 +1173,8 @@ export function createLocalCommand(): Command {
         }
         const port = parseInt(options.port, 10);
         const logViewer = options.logViewer !== false;
-        const dockerWorker = options.dockerWorker !== false;
+        const headless = options.headless !== false;
+        const dockerWorker = options.dockerWorker !== false && headless;
 
         const config = ensureLogDir(
           {
@@ -1180,7 +1185,8 @@ export function createLocalCommand(): Command {
             logTimestamp: options.logTimestamp || false,
             logViewer,
             s3BucketOverride: options.s3Bucket || null,
-            dockerWorker
+            dockerWorker,
+            headless
           },
           logViewer
         );
@@ -1193,7 +1199,8 @@ export function createLocalCommand(): Command {
           logTimestamp: config.logTimestamp,
           logViewer: config.logViewer,
           s3BucketOverride: config.s3BucketOverride,
-          dockerWorker: config.dockerWorker
+          dockerWorker: config.dockerWorker,
+          headless: config.headless
         });
       } catch (error) {
         log("Error: %s", error.message);

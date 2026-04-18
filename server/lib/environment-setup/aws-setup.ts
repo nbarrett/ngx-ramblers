@@ -21,7 +21,7 @@ import {
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { AssetToCopy, AwsAdminConfig, AwsCustomerCredentials, CopyAssetsResult, ValidationResult } from "./types";
 import { AWS_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";

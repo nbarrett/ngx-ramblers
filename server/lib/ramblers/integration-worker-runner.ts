@@ -6,31 +6,31 @@ import path from "path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import * as stringDecoder from "string_decoder";
 import { envConfig } from "../env-config/env-config";
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { RamblersUploadJob } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-job.model";
 import {
   RamblersUploadCredentials,
-  RamblersUploadWorkerAwsCredentials,
-  RamblersUploadWorkerCallbackConfig,
-  RamblersUploadWorkerEventType,
-  RamblersUploadWorkerProgressCallbackRequest,
-  RamblersUploadWorkerReportUploadConfig,
-  RamblersUploadWorkerResultCallbackRequest
-} from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-worker.model";
+  IntegrationWorkerAwsCredentials,
+  IntegrationWorkerCallbackConfig,
+  IntegrationWorkerEventType,
+  IntegrationWorkerProgressCallbackRequest,
+  IntegrationWorkerReportUploadConfig,
+  IntegrationWorkerResultCallbackRequest
+} from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { prepareRamblersUploadJobFiles } from "./ramblers-upload-job-files";
 import {
   clearRemoteRamblersUploadExecutionState,
   remoteRamblersUploadExecutionState,
   setRemoteRamblersUploadExecutionState
-} from "./ramblers-upload-worker-execution-state";
-import { postRamblersUploadProgressCallback, postRamblersUploadResultCallback } from "./ramblers-upload-worker-callback-client";
+} from "./integration-worker-execution-state";
+import { postRamblersUploadProgressCallback, postRamblersUploadResultCallback } from "./integration-worker-callback-client";
 import { Status } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
 
-const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-upload-worker-runner"));
+const debugLog: debug.Debugger = debug(envConfig.logNamespace("integration-worker-runner"));
 debugLog.enabled = true;
 const decoder = new stringDecoder.StringDecoder("utf8");
 
-async function safePostProgress(callback: RamblersUploadWorkerCallbackConfig, sharedSecret: string, payload: RamblersUploadWorkerProgressCallbackRequest): Promise<void> {
+async function safePostProgress(callback: IntegrationWorkerCallbackConfig, sharedSecret: string, payload: IntegrationWorkerProgressCallbackRequest): Promise<void> {
   try {
     await postRamblersUploadProgressCallback(callback, sharedSecret, payload);
   } catch (error) {
@@ -38,7 +38,7 @@ async function safePostProgress(callback: RamblersUploadWorkerCallbackConfig, sh
   }
 }
 
-async function safePostResult(callback: RamblersUploadWorkerCallbackConfig, sharedSecret: string, payload: RamblersUploadWorkerResultCallbackRequest): Promise<void> {
+async function safePostResult(callback: IntegrationWorkerCallbackConfig, sharedSecret: string, payload: IntegrationWorkerResultCallbackRequest): Promise<void> {
   try {
     await postRamblersUploadResultCallback(callback, sharedSecret, payload);
   } catch (error) {
@@ -48,6 +48,10 @@ async function safePostResult(callback: RamblersUploadWorkerCallbackConfig, shar
 
 function serenityReportLocalPath(): string {
   return path.resolve(process.cwd(), "target/site/serenity");
+}
+
+function playwrightReportLocalPath(): string {
+  return path.resolve(process.cwd(), "target/site/playwright");
 }
 
 function serenityReportArchiveKey(keyPrefix: string): string {
@@ -65,25 +69,30 @@ function countFilesInDirectory(directoryPath: string): number {
   }, 0);
 }
 
-function archiveSerenityReport(reportPath: string): Buffer {
+function archiveTestReports(serenityPath: string, playwrightPath: string): Buffer {
   const archive = new AdmZip();
-  archive.addLocalFolder(reportPath);
+  archive.addLocalFolder(serenityPath);
+  if (fs.existsSync(playwrightPath)) {
+    archive.addLocalFolder(playwrightPath, "playwright");
+  }
   return archive.toBuffer();
 }
 
 async function uploadSerenityReportToS3(
   jobId: string,
-  reportUpload: RamblersUploadWorkerReportUploadConfig,
-  awsCredentials: RamblersUploadWorkerAwsCredentials,
-  callback: RamblersUploadWorkerCallbackConfig,
+  reportUpload: IntegrationWorkerReportUploadConfig,
+  awsCredentials: IntegrationWorkerAwsCredentials,
+  callback: IntegrationWorkerCallbackConfig,
   sharedSecret: string
 ): Promise<boolean> {
-  const reportPath = serenityReportLocalPath();
-  if (!fs.existsSync(reportPath)) {
-    debugLog("serenity report directory does not exist at:", reportPath, "skipping S3 upload for jobId:", jobId);
+  const serenityPath = serenityReportLocalPath();
+  const playwrightPath = playwrightReportLocalPath();
+  if (!fs.existsSync(serenityPath)) {
+    debugLog("serenity report directory does not exist at:", serenityPath, "skipping S3 upload for jobId:", jobId);
     return false;
   }
-  const totalFiles = countFilesInDirectory(reportPath);
+  const playwrightIncluded = fs.existsSync(playwrightPath);
+  const totalFiles = countFilesInDirectory(serenityPath) + (playwrightIncluded ? countFilesInDirectory(playwrightPath) : 0);
   const archiveKey = serenityReportArchiveKey(reportUpload.keyPrefix);
 
   const client = new S3Client({
@@ -98,30 +107,39 @@ async function uploadSerenityReportToS3(
   try {
     await safePostProgress(callback, sharedSecret, {
       jobId,
-      type: RamblersUploadWorkerEventType.LIFECYCLE,
-      payload: `Serenity report archive upload to S3 starting: ${totalFiles} files to s3://${reportUpload.bucket}/${archiveKey}`
+      type: IntegrationWorkerEventType.LIFECYCLE,
+      payload: `Test report archive upload to S3 starting: ${totalFiles} files to s3://${reportUpload.bucket}/${archiveKey}${playwrightIncluded ? " (including Playwright artifacts)" : ""}`
     });
-    const archiveBuffer = archiveSerenityReport(reportPath);
+    const zipStart = Date.now();
+    const archiveBuffer = archiveTestReports(serenityPath, playwrightPath);
+    const zipElapsed = Date.now() - zipStart;
+    await safePostProgress(callback, sharedSecret, {
+      jobId,
+      type: IntegrationWorkerEventType.LIFECYCLE,
+      payload: `Test report archive built: ${totalFiles} files compressed into ${archiveBuffer.length} bytes in ${zipElapsed} ms; starting S3 PUT`
+    });
+    const putStart = Date.now();
     await client.send(new PutObjectCommand({
       Bucket: reportUpload.bucket,
       Key: archiveKey,
       Body: archiveBuffer,
       ContentType: "application/zip"
     }));
+    const putElapsed = Date.now() - putStart;
     await safePostProgress(callback, sharedSecret, {
       jobId,
-      type: RamblersUploadWorkerEventType.LIFECYCLE,
-      payload: `Serenity report archive upload to S3 complete: ${totalFiles} files compressed into ${archiveBuffer.length} bytes in ${Date.now() - startedAt} ms`
+      type: IntegrationWorkerEventType.LIFECYCLE,
+      payload: `Test report archive upload to S3 complete: zip ${zipElapsed} ms, PUT ${putElapsed} ms, total ${Date.now() - startedAt} ms`
     });
-    debugLog("uploaded serenity report archive to S3 for jobId:", jobId, "bucket:", reportUpload.bucket, "key:", archiveKey, "files:", totalFiles, "archiveBytes:", archiveBuffer.length, "elapsedMs:", Date.now() - startedAt);
+    debugLog("uploaded test report archive to S3 for jobId:", jobId, "bucket:", reportUpload.bucket, "key:", archiveKey, "files:", totalFiles, "archiveBytes:", archiveBuffer.length, "zipMs:", zipElapsed, "putMs:", putElapsed, "elapsedMs:", Date.now() - startedAt);
     return true;
   } catch (error) {
     await safePostProgress(callback, sharedSecret, {
       jobId,
-      type: RamblersUploadWorkerEventType.LIFECYCLE,
-      payload: `Serenity report archive upload to S3 failed for ${totalFiles} files: ${(error as Error).message}`
+      type: IntegrationWorkerEventType.LIFECYCLE,
+      payload: `Test report archive upload to S3 failed for ${totalFiles} files: ${(error as Error).message}`
     });
-    debugLog("failed to upload serenity report archive to S3 for jobId:", jobId, "key:", archiveKey, "error:", (error as Error).message);
+    debugLog("failed to upload test report archive to S3 for jobId:", jobId, "key:", archiveKey, "error:", (error as Error).message);
     return false;
   } finally {
     client.destroy();
@@ -131,21 +149,21 @@ async function uploadSerenityReportToS3(
 export async function executeRamblersUploadJobOnWorker(
   job: RamblersUploadJob,
   credentials: RamblersUploadCredentials,
-  callback: RamblersUploadWorkerCallbackConfig,
+  callback: IntegrationWorkerCallbackConfig,
   sharedSecret: string,
-  reportUpload?: RamblersUploadWorkerReportUploadConfig,
-  awsCredentials?: RamblersUploadWorkerAwsCredentials
+  reportUpload?: IntegrationWorkerReportUploadConfig,
+  awsCredentials?: IntegrationWorkerAwsCredentials
 ): Promise<void> {
   const preparedFiles = prepareRamblersUploadJobFiles(job);
   process.env[Environment.RAMBLERS_METADATA_FILE] = preparedFiles.metadataPath;
   process.env[Environment.RAMBLERS_FEATURE] = job.data.feature;
   process.env[Environment.RAMBLERS_USERNAME] = credentials.userName;
   process.env[Environment.RAMBLERS_PASSWORD] = credentials.password;
-  process.env[Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_BASE_URL] = callback.baseUrl;
-  process.env[Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_PROGRESS_PATH] = callback.progressPath;
-  process.env[Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_RESULT_PATH] = callback.resultPath;
-  process.env[Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_SECRET] = sharedSecret;
-  process.env[Environment.RAMBLERS_UPLOAD_WORKER_JOB_ID] = job.jobId;
+  process.env[Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL] = callback.baseUrl;
+  process.env[Environment.INTEGRATION_WORKER_CALLBACK_PROGRESS_PATH] = callback.progressPath;
+  process.env[Environment.INTEGRATION_WORKER_CALLBACK_RESULT_PATH] = callback.resultPath;
+  process.env[Environment.INTEGRATION_WORKER_CALLBACK_SECRET] = sharedSecret;
+  process.env[Environment.INTEGRATION_WORKER_JOB_ID] = job.jobId;
   setRemoteRamblersUploadExecutionState({
     callback,
     jobId: job.jobId,
@@ -166,7 +184,7 @@ export async function executeRamblersUploadJobOnWorker(
       const payload = decoder.write(data);
       void safePostProgress(state.callback, state.sharedSecret, {
         jobId: state.jobId,
-        type: RamblersUploadWorkerEventType.STANDARD_OUT,
+        type: IntegrationWorkerEventType.STANDARD_OUT,
         payload
       });
     });
@@ -181,12 +199,12 @@ export async function executeRamblersUploadJobOnWorker(
         if (state) {
           void safePostProgress(state.callback, state.sharedSecret, {
             jobId: state.jobId,
-            type: RamblersUploadWorkerEventType.LIFECYCLE,
+            type: IntegrationWorkerEventType.LIFECYCLE,
             payload: "Scenario execution complete"
           });
           void safePostProgress(state.callback, state.sharedSecret, {
             jobId: state.jobId,
-            type: RamblersUploadWorkerEventType.LIFECYCLE,
+            type: IntegrationWorkerEventType.LIFECYCLE,
             payload: "Serenity report generation starting"
           });
         }
@@ -194,7 +212,7 @@ export async function executeRamblersUploadJobOnWorker(
     });
 
     subprocess.on("error", error => {
-      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, RamblersUploadWorkerEventType.ERROR, Status.ERROR, error.message)
+      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, IntegrationWorkerEventType.ERROR, Status.ERROR, error.message)
         .finally(() => {
           clearRemoteRamblersUploadExecutionState();
           reject(error);
@@ -203,7 +221,7 @@ export async function executeRamblersUploadJobOnWorker(
 
     subprocess.on("exit", code => {
       const status = code === 0 ? Status.SUCCESS : Status.ERROR;
-      const type = code === 0 ? RamblersUploadWorkerEventType.COMPLETE : RamblersUploadWorkerEventType.ERROR;
+      const type = code === 0 ? IntegrationWorkerEventType.COMPLETE : IntegrationWorkerEventType.ERROR;
       const payload = `Upload completed with ${status} for ${job.data.fileName}${code === 0 ? "" : ` with code ${code}`}`;
       void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, type, status, payload)
         .finally(() => {
@@ -220,11 +238,11 @@ export async function executeRamblersUploadJobOnWorker(
 
 async function finishJob(
   job: RamblersUploadJob,
-  callback: RamblersUploadWorkerCallbackConfig,
+  callback: IntegrationWorkerCallbackConfig,
   sharedSecret: string,
-  reportUpload: RamblersUploadWorkerReportUploadConfig | undefined,
-  awsCredentials: RamblersUploadWorkerAwsCredentials | undefined,
-  type: RamblersUploadWorkerEventType.COMPLETE | RamblersUploadWorkerEventType.ERROR,
+  reportUpload: IntegrationWorkerReportUploadConfig | undefined,
+  awsCredentials: IntegrationWorkerAwsCredentials | undefined,
+  type: IntegrationWorkerEventType.COMPLETE | IntegrationWorkerEventType.ERROR,
   status: string,
   payload: string
 ): Promise<void> {
@@ -233,7 +251,7 @@ async function finishJob(
   if (reportUpload && awsCredentials) {
     await safePostProgress(callback, sharedSecret, {
       jobId: job.jobId,
-      type: RamblersUploadWorkerEventType.LIFECYCLE,
+      type: IntegrationWorkerEventType.LIFECYCLE,
       payload: "Serenity report generation complete, uploading to S3"
     });
     const uploaded = await uploadSerenityReportToS3(job.jobId, reportUpload, awsCredentials, callback, sharedSecret);

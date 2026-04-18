@@ -71,7 +71,7 @@ jobs:
           ./server/node_modules/.bin/tsx ./server/node_modules/mocha/bin/mocha \
             server/lib/ramblers/ramblers-upload-job-builder.spec.ts \
             server/lib/ramblers/ramblers-upload-queue.spec.ts \
-            server/lib/ramblers/ramblers-upload-worker-crypto.spec.ts \
+            server/lib/ramblers/integration-worker-crypto.spec.ts \
             server/lib/ramblers/ramblers-upload-session-registry.spec.ts
 
   build-and-deploy:
@@ -102,13 +102,13 @@ jobs:
 
       - name: Build worker image
         if: github.event.inputs.image_tag == ''
-        run: docker build . --build-arg CHROME_VERSION=${{ needs.resolve.outputs.chrome_version }} --file Dockerfile --target worker --tag ngx-ramblers-worker:${{ github.run_id }}
+        run: docker build . --build-arg CHROME_VERSION=${{ needs.resolve.outputs.chrome_version }} --file Dockerfile --target worker --tag ngx-ramblers-integration-worker:${{ github.run_id }}
 
       - name: Tag and push worker image
         if: github.event.inputs.image_tag == ''
         run: |
-          docker tag ngx-ramblers-worker:${{ github.run_id }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:worker-${{ github.run_id }}
-          docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:worker-${{ github.run_id }}
+          docker tag ngx-ramblers-integration-worker:${{ github.run_id }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:integration-worker-${{ github.run_id }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:integration-worker-${{ github.run_id }}
 
       - name: Install Flyctl
         run: |
@@ -121,10 +121,10 @@ jobs:
       - name: Deploy worker image
         env:
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
-          RAMBLERS_UPLOAD_WORKER_IMAGE_REPOSITORY: ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers
+          INTEGRATION_WORKER_IMAGE_REPOSITORY: ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers
         run: |
           IMAGE_TAG="${{ github.event.inputs.image_tag }}"
           if [ -z "$IMAGE_TAG" ]; then
-            IMAGE_TAG="worker-${{ github.run_id }}"
+            IMAGE_TAG="integration-worker-${{ github.run_id }}"
           fi
-          ts-node server/deploy/deploy-ramblers-upload-worker.ts --image-tag "$IMAGE_TAG"
+          ts-node server/deploy/deploy-integration-worker.ts --image-tag "$IMAGE_TAG"

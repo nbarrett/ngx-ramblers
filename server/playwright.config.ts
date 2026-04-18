@@ -1,8 +1,7 @@
 import { defineConfig } from "@playwright/test";
 import type { SerenityFixtures, SerenityWorkerFixtures } from "@serenity-js/playwright-test";
 import { ConsoleReporter } from "@serenity-js/console-reporter";
-import { DomainEventPublisher } from "./lib/serenity-js/screenplay/crew/DomainEventPublisher";
-import { Environment } from "./lib/env-config/environment-model";
+import { Environment } from "../projects/ngx-ramblers/src/app/models/environment.model";
 import { DEFAULT_WAIT_TIMEOUT } from "./lib/serenity-js/config/serenity-timeouts";
 
 const featuresDirectory = "./lib/serenity-js/features";
@@ -23,17 +22,17 @@ export default defineConfig<SerenityFixtures, SerenityWorkerFixtures>({
     ["@serenity-js/playwright-test", {
       crew: [
         ConsoleReporter.forDarkTerminals(),
-        DomainEventPublisher.withDefaults(),
         ["@serenity-js/serenity-bdd", { specDirectory: featuresDirectory }],
         ["@serenity-js/web:Photographer", { strategy: "TakePhotosOfFailures" }],
         ["@serenity-js/core:ArtifactArchiver", { outputDirectory }]
       ]
     }],
+    ["./lib/serenity-js/reporters/realtime-step-reporter.ts"],
     ["list"]
   ],
   use: {
     acceptDownloads: true,
-    actionTimeout: 20_000,
+    actionTimeout: DEFAULT_WAIT_TIMEOUT.inMilliseconds(),
     baseURL: process.env[Environment.BASE_URL],
     cueTimeout: DEFAULT_WAIT_TIMEOUT,
     interactionTimeout: DEFAULT_WAIT_TIMEOUT,

@@ -17,6 +17,7 @@ export interface LocalRunConfig {
   logViewer: boolean;
   s3BucketOverride: string | null;
   dockerWorker?: boolean;
+  headless?: boolean;
 }
 
 export interface RunningProcess {

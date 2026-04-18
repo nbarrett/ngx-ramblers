@@ -27,6 +27,20 @@ import {
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = false;
 
+const sessionWriteChains = new Map<string, Promise<unknown>>();
+
+function serialiseSessionWrite<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
+  const previous = sessionWriteChains.get(jobId) || Promise.resolve();
+  const next = previous.catch(() => undefined).then(fn);
+  sessionWriteChains.set(jobId, next.catch(() => undefined));
+  next.finally(() => {
+    if (sessionWriteChains.get(jobId) === next || sessionWriteChains.get(jobId) === next.catch(() => undefined)) {
+      sessionWriteChains.delete(jobId);
+    }
+  });
+  return next;
+}
+
 export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadParams<T>, jobId?: string) {
   const session = currentRamblersUploadSession(jobId);
 
@@ -34,37 +48,48 @@ export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadPara
     throw new Error(`No active upload session found for audit publication${jobId ? ` (${jobId})` : ""}`);
   }
 
-  return Promise.all(props.parserFunction(props.auditMessage, props.status).map((uploadAudit: ParsedRamblersUploadAudit) => {
-    if (uploadAudit.audit) {
+  return serialiseSessionWrite(session.jobId, async () => {
+    const parsedAudits = props.parserFunction(props.auditMessage, props.status);
+    const unfilteredAuditRecords = [] as (RamblersUploadAudit | null)[];
+    for (const uploadAudit of parsedAudits) {
+      if (!uploadAudit.audit) {
+        unfilteredAuditRecords.push(null);
+        continue;
+      }
       const nextRecord = session.record + 1;
       updateRamblersUploadSession(session.jobId, { record: nextRecord });
       const data = uploadAudit.data;
-      return mongooseClient.create<RamblersUploadAudit>(ramblersUploadAudit, {
-        auditTime: data.auditTime || dateTimeNowAsValue(),
+      const auditTime = Number.isFinite(data.auditTime as number) && data.auditTime
+        ? (data.auditTime as number)
+        : dateTimeNowAsValue();
+      const created = await mongooseClient.create<RamblersUploadAudit>(ramblersUploadAudit, {
+        auditTime,
         fileName: session.fileName,
         record: nextRecord,
         type: data.type,
         status: data.status,
         message: data.message,
       }, debugLog);
-    } else {
-      return Promise.resolve(null);
+      unfilteredAuditRecords.push(created);
     }
-  })).then((unfilteredAuditRecords: any[]) => {
-    const audits: RamblersUploadAudit[] = unfilteredAuditRecords.filter(item => item);
+    const audits: RamblersUploadAudit[] = unfilteredAuditRecords.filter((item): item is RamblersUploadAudit => item !== null);
     const response: RamblersUploadAuditProgressResponse = {audits};
-    const publishedData = JSON.stringify({
-      type: props.messageType,
-      data: response
-    });
-    ws.send(publishedData);
-    debugLog("📣 published data:", publishedData);
+    try {
+      ws.send(JSON.stringify({ type: props.messageType, data: response }));
+    } catch (wsError) {
+      debugLog("sendAudit ws.send failed:", (wsError as Error).message);
+    }
     if (props.messageType === MessageType.COMPLETE) {
-      ws.close();
+      try {
+        ws.close();
+      } catch { }
       completeRamblersUploadSession(session.jobId);
     }
     return response;
-  }).catch(error => reportErrorAndClose(error, ws));
+  }).catch(error => {
+    reportErrorAndClose(error, ws);
+    return { audits: [] } as RamblersUploadAuditProgressResponse;
+  });
 }
 
 export async function recordLifecycleEvent(jobId: string, message: string): Promise<void> {

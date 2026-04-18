@@ -2,7 +2,7 @@ import debug from "debug";
 import { ConfigDocument, ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CloudflareConfig, EnvironmentsConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { envConfig } from "../env-config/env-config";
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { NonSensitiveCloudflareConfig } from "./cloudflare.model";
 import { decryptCloudflareConfig } from "./cloudflare-crypto";
 import { systemConfig } from "../config/system-config";

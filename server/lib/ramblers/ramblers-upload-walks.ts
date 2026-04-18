@@ -11,10 +11,10 @@ import * as stringDecoder from "string_decoder";
 import { stringify } from "csv-stringify/sync";
 import { downloadStatusManager } from "./download-status-manager";
 import { ServerDownloadStatusType } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { WalkUploadMetadata } from "../models/walk-upload-metadata";
 import { RamblersUploadJob } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-job.model";
-import { RamblersUploadCredentials } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-worker.model";
+import { RamblersUploadCredentials } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = true;
@@ -72,7 +72,7 @@ export async function executeRamblersUploadJob(ws: WebSocket, job: RamblersUploa
   auditNotifier.sendAudit(ws, {
     messageType: MessageType.PROGRESS,
     status: Status.INFO,
-    auditMessage: `PLAYWRIGHT_HEADLESS=${process.env.PLAYWRIGHT_HEADLESS || "default"} BASE_URL=${process.env[Environment.BASE_URL] || "not set"} CHROME_VERSION=${process.env[Environment.CHROME_VERSION] || "not set"}`,
+    auditMessage: `PLAYWRIGHT_HEADLESS=${process.env[Environment.PLAYWRIGHT_HEADLESS] || "default"} BASE_URL=${process.env[Environment.BASE_URL] || "not set"} CHROME_VERSION=${process.env[Environment.CHROME_VERSION] || "not set"}`,
     parserFunction: auditParser.parseStandardOut
   }, job.jobId);
   debugLog("spawning serenity process with Playwright for baseUrl:", process.env[Environment.BASE_URL], "Chrome version hint:", process.env[Environment.CHROME_VERSION]);

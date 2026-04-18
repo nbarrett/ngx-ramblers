@@ -300,7 +300,8 @@ export class FileUtilsService {
   }
 
   fileTypeAttributesForFile(file: File): FileTypeAttributes {
-    return fileTypeAttributes.find(fileTypeAttributes => fileTypeAttributes.contentType === file.type);
+    return fileTypeAttributes.find(fileTypeAttributes => fileTypeAttributes.contentType === file?.type)
+      ?? (file?.name ? this.fileTypeAttributesForName(file.name) : undefined);
   }
 
   altFrom(alt: string, url: string): string {

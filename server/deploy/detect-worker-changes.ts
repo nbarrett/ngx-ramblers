@@ -12,7 +12,7 @@ interface DetectResult {
 }
 
 async function resolveWorkerFiles(repoRoot: string): Promise<string[]> {
-  const entry = "server/lib/ramblers/ramblers-upload-worker-server.ts";
+  const entry = "server/lib/ramblers/integration-worker-server.ts";
   const entryAbs = path.resolve(repoRoot, entry);
   const entryDir = path.dirname(entryAbs);
 
@@ -41,14 +41,14 @@ async function resolveWorkerFiles(repoRoot: string): Promise<string[]> {
 
   [
     "Dockerfile",
-    "fly.worker.toml",
+    "fly.integration-worker.toml",
     "server/package.json",
     "server/package-lock.json",
     "server/playwright.config.ts",
-    "server/deploy/deploy-ramblers-upload-worker.ts",
+    "server/deploy/deploy-integration-worker.ts",
     "server/deploy/detect-worker-changes.ts",
     ".github/workflows/build-push-and-deploy-ngx-ramblers-docker-image.yml",
-    ".github/workflows/build-and-deploy-ramblers-upload-worker.yml"
+    ".github/workflows/build-and-deploy-integration-worker.yml"
   ].forEach(s => resolved.add(s));
 
   return Array.from(resolved).sort();

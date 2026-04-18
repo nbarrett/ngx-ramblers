@@ -1,4 +1,4 @@
-app = "ngx-ramblers-upload-worker"
+app = "ngx-ramblers-integration-worker"
 primary_region = "lhr"
 
 [processes]

@@ -50,14 +50,15 @@ import { bookingRoutes } from "./mongo/routes/booking";
 import { contactInteractionRoutes } from "./mongo/routes/contact-interaction";
 import { configureLogging } from "./logging/logging";
 import { downloadStatusRoutes } from "./ramblers/download-status-routes";
-import { ramblersUploadWorkerRoutes } from "./ramblers/ramblers-upload-worker-routes";
+import { integrationWorkerRoutes } from "./ramblers/integration-worker-routes";
+import { integrationWorkerMigrationCallbackRoutes } from "./ramblers/integration-worker-migration-callback-routes";
 import { geoJsonRoutes } from "./geojson/geojson-routes";
 import { regions } from "./geojson/regions";
 import { parishRoutes } from "./parishes/parish-routes";
 import { parishAllocationRoutes } from "./mongo/routes/parish-allocation";
 import { migrationRunner } from "./mongo/migrations/migrations-runner";
 import { resolveClientPath } from "./shared/path-utils";
-import { Environment } from "./env-config/environment-model";
+import { Environment } from "../../projects/ngx-ramblers/src/app/models/environment.model";
 import { mapRouteRoutes } from "./map-routes/map-route-routes";
 import { spatialFeaturesController } from "./map-routes/spatial-features-controller";
 import { scheduleWalksManagerSync } from "./cron/walks-manager-sync-job";
@@ -104,7 +105,8 @@ app.get("/api/regions", regions);
 app.use("/api/parishes", parishRoutes);
 app.use("/api/download-status", downloadStatusRoutes);
 app.use("/api/ramblers", ramblersRoutes);
-app.use("/api/ramblers-upload-worker", ramblersUploadWorkerRoutes);
+app.use("/api/integration-worker", integrationWorkerRoutes);
+app.use("/api/integration-worker/migration", integrationWorkerMigrationCallbackRoutes);
 app.use("/api/routes", mapRouteRoutes);
 app.use(spatialFeaturesController);
 app.use("/api/aws", awsRoutes);
@@ -195,11 +197,11 @@ async function startServer() {
     server.headersTimeout = 620000;
     debugLog(`⏱️ Server timeouts configured: timeout=${server.timeout}ms, keepAliveTimeout=${server.keepAliveTimeout}ms, headersTimeout=${server.headersTimeout}ms`);
 
-    const workerUrl = envConfig.value(Environment.RAMBLERS_UPLOAD_WORKER_URL);
+    const workerUrl = envConfig.value(Environment.INTEGRATION_WORKER_URL);
     if (workerUrl) {
       debugLog(`📦 Ramblers walks uploads will route to remote worker at ${workerUrl}`);
     } else {
-      debugLog("📦 Ramblers walks uploads will run in-process (no RAMBLERS_UPLOAD_WORKER_URL set)");
+      debugLog("📦 Ramblers walks uploads will run in-process (no INTEGRATION_WORKER_URL set)");
     }
 
     createWebSocketServer(server, port);
