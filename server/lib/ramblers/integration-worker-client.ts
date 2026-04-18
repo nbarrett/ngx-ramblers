@@ -1,26 +1,26 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import {
   RamblersUploadCredentials,
-  RamblersUploadWorkerAwsCredentials,
-  RamblersUploadWorkerJobRequest,
-  RamblersUploadWorkerJobResponse
-} from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-worker.model";
+  IntegrationWorkerAwsCredentials,
+  IntegrationWorkerJobRequest,
+  IntegrationWorkerJobResponse
+} from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { RamblersUploadJob } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-job.model";
-import { encryptRamblersUploadPayload, signRamblersUploadBody } from "./ramblers-upload-worker-crypto";
+import { encryptRamblersUploadPayload, signRamblersUploadBody } from "./integration-worker-crypto";
 
-const debugLog = debug(envConfig.logNamespace("ramblers-upload-worker-client"));
+const debugLog = debug(envConfig.logNamespace("integration-worker-client"));
 debugLog.enabled = true;
 
-export async function submitRamblersUploadJobToWorker(job: RamblersUploadJob, credentials: RamblersUploadCredentials): Promise<RamblersUploadWorkerJobResponse> {
-  const workerUrl = requiredValue(Environment.RAMBLERS_UPLOAD_WORKER_URL);
-  const encryptionKey = requiredValue(Environment.RAMBLERS_UPLOAD_WORKER_ENCRYPTION_KEY);
-  const sharedSecret = requiredValue(Environment.RAMBLERS_UPLOAD_WORKER_SHARED_SECRET);
-  const callbackBaseUrl = envConfig.value(Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_BASE_URL) || envConfig.value(Environment.BASE_URL);
+export async function submitRamblersUploadJobToWorker(job: RamblersUploadJob, credentials: RamblersUploadCredentials): Promise<IntegrationWorkerJobResponse> {
+  const workerUrl = requiredValue(Environment.INTEGRATION_WORKER_URL);
+  const encryptionKey = requiredValue(Environment.INTEGRATION_WORKER_ENCRYPTION_KEY);
+  const sharedSecret = requiredValue(Environment.INTEGRATION_WORKER_SHARED_SECRET);
+  const callbackBaseUrl = envConfig.value(Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL) || envConfig.value(Environment.BASE_URL);
 
   if (!callbackBaseUrl) {
-    throw new Error(`Environment variable '${Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_BASE_URL}' or '${Environment.BASE_URL}' must be set`);
+    throw new Error(`Environment variable '${Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL}' or '${Environment.BASE_URL}' must be set`);
   }
 
   const awsBucket = envConfig.value(Environment.AWS_BUCKET);
@@ -31,11 +31,11 @@ export async function submitRamblersUploadJobToWorker(job: RamblersUploadJob, cr
 
   const reportKeyPrefix = `ramblers-upload-reports/${job.data.fileName.replace(/\.csv$/, "")}`;
 
-  const request: RamblersUploadWorkerJobRequest = {
+  const request: IntegrationWorkerJobRequest = {
     job,
     encryptedCredentials: encryptRamblersUploadPayload(credentials, encryptionKey),
     encryptedReportUploadCredentials: reportUploadAvailable
-      ? encryptRamblersUploadPayload<RamblersUploadWorkerAwsCredentials>({
+      ? encryptRamblersUploadPayload<IntegrationWorkerAwsCredentials>({
         accessKeyId: awsAccessKeyId,
         secretAccessKey: awsSecretAccessKey
       }, encryptionKey)
@@ -45,8 +45,8 @@ export async function submitRamblersUploadJobToWorker(job: RamblersUploadJob, cr
       : undefined,
     callback: {
       baseUrl: callbackBaseUrl,
-      progressPath: "/api/ramblers-upload-worker/progress",
-      resultPath: "/api/ramblers-upload-worker/result"
+      progressPath: "/api/integration-worker/progress",
+      resultPath: "/api/integration-worker/result"
     }
   };
   const body = JSON.stringify(request);
@@ -55,7 +55,7 @@ export async function submitRamblersUploadJobToWorker(job: RamblersUploadJob, cr
   const submissionStart = Date.now();
   let response: Awaited<ReturnType<typeof fetch>>;
   try {
-    response = await fetch(`${workerUrl}/api/ramblers-upload-worker/jobs`, {
+    response = await fetch(`${workerUrl}/api/integration-worker/jobs`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -75,7 +75,7 @@ export async function submitRamblersUploadJobToWorker(job: RamblersUploadJob, cr
     throw new Error(`Worker submission failed with status ${response.status}: ${responseBody}`);
   }
 
-  const parsed = await response.json() as RamblersUploadWorkerJobResponse;
+  const parsed = await response.json() as IntegrationWorkerJobResponse;
   debugLog("submitRamblersUploadJobToWorker: parsed response for jobId:", job.jobId, "queued:", parsed.queued, "queuePosition:", parsed.queuePosition, "activeJobId:", parsed.activeJobId);
   return parsed;
 }

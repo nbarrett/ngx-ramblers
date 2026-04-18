@@ -8,10 +8,12 @@ export const RECENT_PHOTOS: ImageTag = {key: 0, sortIndex: 0, subject: "Recent P
 export const ALL_PHOTOS: ImageTag = {key: -1, sortIndex: -1, subject: "All Photos"};
 export const S3_BASE_URL = "api/aws/s3";
 export const S3_METADATA_URL = "api/aws/metadata/list-objects";
+export const BASE64_PREFIX_GIF = "data:image/gif;base64";
 export const BASE64_PREFIX_HEIC = "data:image/heic;base64";
 export const BASE64_PREFIX_JPEG = "data:image/jpeg;base64";
 export const BASE64_PREFIX_PNG = "data:image/png;base64";
 export const BASE64_PREFIX_WEBP = "data:image/webp;base64";
+export const IMAGE_GIF = "image/gif";
 export const IMAGE_HEIC = "image/heic";
 export const IMAGE_JPEG = "image/jpeg";
 export const IMAGE_PNG = "image/png";
@@ -23,6 +25,7 @@ export enum FileType {
   WEBP = "WEBP",
   SVG = "SVG",
   HEIC = "HEIC",
+  GIF = "GIF",
 }
 
 export interface FileTypeAttributes {
@@ -45,7 +48,7 @@ export const fileContentTypeMappings: FileContentTypeMapping[] = [
   { extensions: ["jpeg", "jpg"], contentType: IMAGE_JPEG },
   { extensions: ["png", "x-png"], contentType: IMAGE_PNG },
   { extensions: ["svg"], contentType: IMAGE_SVG },
-  { extensions: ["gif"], contentType: "image/gif" },
+  { extensions: ["gif"], contentType: IMAGE_GIF },
   { extensions: ["webp"], contentType: IMAGE_WEBP },
   { extensions: ["heic"], contentType: IMAGE_HEIC },
   { extensions: ["ico"], contentType: "image/x-icon" },
@@ -117,6 +120,13 @@ export const fileTypeAttributes: FileTypeAttributes[] = [
     base64Prefix: BASE64_PREFIX_WEBP,
     croppable: true,
     cropperFormat: "webp"
+  },
+  {
+    key: FileType.GIF,
+    contentType: IMAGE_GIF,
+    fileExtensions: ["gif"],
+    base64Prefix: BASE64_PREFIX_GIF,
+    croppable: false
   }];
 
 export interface ContentMetadata extends Identifiable {

@@ -13,7 +13,7 @@ import { createBackupCommand } from "./commands/backup";
 import { createLocksCommand } from "./commands/locks";
 import { createMigrateCommand } from "./commands/migrate";
 import { createSubdomainCommand } from "./commands/subdomain";
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("cli"));

@@ -1,4 +1,6 @@
+import debug from "debug";
 import WebSocket from "ws";
+import crypto from "crypto";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import * as configController from "../mongo/controllers/config";
@@ -6,55 +8,32 @@ import {
   MigrationConfig,
   SiteMigrationConfig
 } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
-import { pluraliseWithCount } from "../shared/string-utils";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
-import { setErrorSender, setProgressSender } from "./migration-progress";
-import { migrateStaticSite } from "./migrate-static-site-engine";
 import * as mongooseClient from "../mongo/mongoose-client";
 import { migrationHistory } from "../mongo/models/migration-history";
-import { isString } from "es-toolkit/compat";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { envConfig } from "../env-config/env-config";
+import { submitMigrationJobToIntegrationWorker } from "../ramblers/integration-worker-browser-client";
+import { completeMigrationSession, registerMigrationSession } from "./migration-session-registry";
+
+const debugLog = debug(envConfig.logNamespace("site-migration-ws-handler"));
+debugLog.enabled = true;
 
 export async function handleSiteMigration(ws: WebSocket, data: any): Promise<void> {
+  let jobId: string | null = null;
   try {
-    const history = await mongooseClient.create<any>(migrationHistory as any, {
-      createdDate: dateTimeNowAsValue(),
-      siteIdentifier: data?.siteName,
-      siteName: data?.siteName,
-      persistData: `${data?.persistData}` === "true" || data?.persistData === true,
-      uploadTos3: `${data?.uploadTos3}` === "true" || data?.uploadTos3 === true,
-      status: "running",
-      auditLog: []
-    });
-    const recordProgress = async (payload: any, status: string = "info") => {
-      try {
-        const message = payload?.message || (isString(payload) ? payload : `[${status}]`);
-        const log = { time: dateTimeNowAsValue(), status, message };
-        await mongooseClient.upsert<any>(migrationHistory as any, { _id: (history as any).id }, { ...history, auditLog: [...(history as any).auditLog, log] } as any);
-        (history as any).auditLog.push(log);
-      } catch (e) {
-      }
-    };
-    setProgressSender((data: any) => {
-      ws.send(JSON.stringify({ type: MessageType.PROGRESS, data }));
-      recordProgress(data, "info");
-    });
-    setErrorSender((data: any) => {
-      ws.send(JSON.stringify({ type: MessageType.ERROR, data }));
-      recordProgress(data, "error");
-    });
-    const siteName = data?.siteName;
     const persistData = `${data?.persistData}` === "true" || data?.persistData === true;
     const uploadTos3 = `${data?.uploadTos3}` === "true" || data?.uploadTos3 === true;
+    const siteName = data?.siteName;
     const siteConfigOverride = data?.siteConfig as SiteMigrationConfig | undefined;
-    if (!siteName) {
+
+    if (!siteName && !siteConfigOverride) {
       ws.send(JSON.stringify({ type: MessageType.ERROR, data: { action: ApiAction.QUERY, message: "Site name is required" } }));
       return;
     }
-    let siteConfig: SiteMigrationConfig;
-    if (siteConfigOverride) {
-      siteConfig = siteConfigOverride;
-    } else {
+
+    let siteConfig: SiteMigrationConfig | undefined = siteConfigOverride;
+    if (!siteConfig) {
       const configDocument = await configController.queryKey(ConfigKey.MIGRATION);
       const migrationConfig: MigrationConfig = configDocument?.value;
       if (!migrationConfig?.sites) {
@@ -71,7 +50,27 @@ export async function handleSiteMigration(ws: WebSocket, data: any): Promise<voi
       ws.send(JSON.stringify({ type: MessageType.ERROR, data: { action: ApiAction.QUERY, message: `Site configuration is disabled for: ${siteName}` } }));
       return;
     }
-    const historyRef = { id: (history as any).id, createdDate: (history as any).createdDate, status: "running" };
+
+    const history = await mongooseClient.create<any>(migrationHistory as any, {
+      createdDate: dateTimeNowAsValue(),
+      siteIdentifier: siteConfig.siteIdentifier,
+      siteName: siteConfig.name,
+      persistData,
+      uploadTos3,
+      status: "running",
+      auditLog: []
+    });
+
+    jobId = crypto.randomUUID();
+    registerMigrationSession({
+      jobId,
+      ws,
+      siteIdentifier: siteConfig.siteIdentifier,
+      siteName: siteConfig.name,
+      historyId: (history as any).id,
+      startedAt: Date.now()
+    });
+
     const historyLite = {
       id: (history as any).id,
       createdDate: (history as any).createdDate,
@@ -80,28 +79,22 @@ export async function handleSiteMigration(ws: WebSocket, data: any): Promise<voi
       siteName: siteConfig.name,
       auditLog: []
     } as any;
-    ws.send(JSON.stringify({ type: MessageType.PROGRESS, data: { message: `Migration started for ${siteConfig.name}`, historyRef, history: historyLite } }));
-    const result = await migrateStaticSite({ ...siteConfig, persistData, uploadTos3 });
-    const startMsg = { message: `Starting migration for ${siteConfig.siteIdentifier}` };
-    ws.send(JSON.stringify({ type: MessageType.PROGRESS, data: startMsg }));
-    await recordProgress(startMsg, "info");
-    const summary = `✅ ${siteConfig.siteIdentifier} migration complete: ${pluraliseWithCount(result.pageContents.length, "page")} and ${pluraliseWithCount(result.contentTextItems.length, "content text item")} were migrated, plus ${pluraliseWithCount(result.albums.length, "album")}`;
-    ws.send(JSON.stringify({ type: MessageType.COMPLETE, data: { action: ApiAction.UPDATE, response: summary, pageContents: result.pageContents, contentTextItems: result.contentTextItems, albums: result.albums } }));
+    ws.send(JSON.stringify({ type: MessageType.PROGRESS, data: { message: `Migration started for ${siteConfig.name}`, historyRef: { id: (history as any).id, createdDate: (history as any).createdDate, status: "running" }, history: historyLite } }));
+
     try {
-      await mongooseClient.upsert<any>(migrationHistory as any, { _id: (history as any).id }, {
-        ...history,
-        completedDate: dateTimeNowAsValue(),
-        status: "success",
-        summary,
-        auditLog: (history as any).auditLog
-      } as any);
-    } catch (e) {
+      await submitMigrationJobToIntegrationWorker(jobId, siteConfig, persistData, uploadTos3);
+      debugLog("migration job submitted jobId:", jobId, "siteIdentifier:", siteConfig.siteIdentifier);
+    } catch (submitError) {
+      completeMigrationSession(jobId);
+      jobId = null;
+      throw submitError;
     }
   } catch (error) {
-    const message = error?.message || "Migration failed";
+    const message = (error as Error)?.message || "Migration failed";
+    debugLog("handleSiteMigration error:", message);
     ws.send(JSON.stringify({ type: MessageType.ERROR, data: { message } }));
-  } finally {
-    setProgressSender(null);
-    setErrorSender(null);
+    if (jobId) {
+      completeMigrationSession(jobId);
+    }
   }
 }

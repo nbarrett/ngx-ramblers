@@ -91,7 +91,7 @@ COPY .npmrc ./
 COPY angular.json ./
 COPY ts*.json ./
 COPY fly.toml ./
-COPY fly.worker.toml ./
+COPY fly.integration-worker.toml ./
 COPY tools /usr/src/app/tools
 
 COPY projects/ngx-ramblers /usr/src/app/projects/ngx-ramblers

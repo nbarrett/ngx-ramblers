@@ -1,7 +1,7 @@
 import debug from "debug";
 import express, { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { booleanOf } from "../shared/string-utils";
 import * as authConfig from "../auth/auth-config";
 import { crossEnvironmentHealth } from "./cross-environment-health";

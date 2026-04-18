@@ -23,6 +23,7 @@ import { SectionToggle, SectionToggleTab } from "../../../shared/components/sect
 import { EnvironmentGlobalSettings } from "./environment-global-settings";
 import { EnvironmentPerEnvSettings } from "./environment-per-env-settings";
 import { EnvironmentConfigTools } from "./environment-config-tools";
+import { Environment } from "../../../models/environment.model";
 
 @Component({
   selector: "app-environment-settings",
@@ -182,16 +183,16 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
     }
     const workerUrl = `https://${uploadWorker.appName}.fly.dev`;
     return environments.map(env => {
-      if (!env.secrets?.RAMBLERS_UPLOAD_WORKER_URL) {
+      if (!env.secrets?.[Environment.INTEGRATION_WORKER_URL]) {
         return env;
       }
       return {
         ...env,
         secrets: {
           ...env.secrets,
-          RAMBLERS_UPLOAD_WORKER_URL: workerUrl,
-          RAMBLERS_UPLOAD_WORKER_SHARED_SECRET: uploadWorker.sharedSecret || "",
-          RAMBLERS_UPLOAD_WORKER_ENCRYPTION_KEY: uploadWorker.encryptionKey || ""
+          [Environment.INTEGRATION_WORKER_URL]: workerUrl,
+          [Environment.INTEGRATION_WORKER_SHARED_SECRET]: uploadWorker.sharedSecret || "",
+          [Environment.INTEGRATION_WORKER_ENCRYPTION_KEY]: uploadWorker.encryptionKey || ""
         }
       };
     });

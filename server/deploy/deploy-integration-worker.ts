@@ -4,21 +4,22 @@ import os from "os";
 import path from "path";
 import { entries } from "../../projects/ngx-ramblers/src/app/functions/object-utils";
 import { envConfig } from "../lib/env-config/env-config";
+import { Environment } from "../../projects/ngx-ramblers/src/app/models/environment.model";
 import { configuredEnvironments } from "../lib/environments/environments-config";
 import { FLYIO_DEFAULTS } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { runCommand } from "../lib/fly/fly-commands";
 
-const debugLog = debug(envConfig.logNamespace("deploy-ramblers-upload-worker"));
+const debugLog = debug(envConfig.logNamespace("deploy-integration-worker"));
 debugLog.enabled = true;
 
-void deployRamblersUploadWorker().then(() => process.exit(0)).catch(error => {
+void deployIntegrationWorker().then(() => process.exit(0)).catch(error => {
   debugLog("Ramblers upload worker deployment failed:", error);
   process.exit(1);
 });
 
-async function deployRamblersUploadWorker(): Promise<void> {
-  if (process.env.ADMIN_MONGODB_URI) {
-    process.env.MONGODB_URI = process.env.ADMIN_MONGODB_URI;
+async function deployIntegrationWorker(): Promise<void> {
+  if (process.env[Environment.ADMIN_MONGODB_URI]) {
+    process.env[Environment.MONGODB_URI] = process.env[Environment.ADMIN_MONGODB_URI];
   }
 
   const dbConfig = await configuredEnvironments();
@@ -33,15 +34,15 @@ async function deployRamblersUploadWorker(): Promise<void> {
   }
 
   if (workerConfig.apiKey) {
-    process.env.FLY_API_TOKEN = workerConfig.apiKey;
+    process.env[Environment.FLY_API_TOKEN] = workerConfig.apiKey;
   }
 
-  const imageRepository = process.env.RAMBLERS_UPLOAD_WORKER_IMAGE_REPOSITORY || "nbarrett36/ngx-ramblers";
+  const imageRepository = process.env[Environment.INTEGRATION_WORKER_IMAGE_REPOSITORY] || "nbarrett36/ngx-ramblers";
   const scaleCount = workerConfig.scaleCount ?? FLYIO_DEFAULTS.SCALE_COUNT;
   const memory = workerConfig.memory || FLYIO_DEFAULTS.MEMORY;
   const imageTag = imageTagFromArg();
   const image = `${imageRepository}:${imageTag}`;
-  const flyTomlPath = path.resolve(__dirname, "../../fly.worker.toml");
+  const flyTomlPath = path.resolve(__dirname, "../../fly.integration-worker.toml");
 
   if (!fs.existsSync(flyTomlPath)) {
     throw new Error(`Worker Fly config not found at ${flyTomlPath}`);
@@ -72,11 +73,11 @@ function importWorkerSecrets(
   }
 
   if (sharedSecret) {
-    secrets.RAMBLERS_UPLOAD_WORKER_SHARED_SECRET = sharedSecret;
+    secrets[Environment.INTEGRATION_WORKER_SHARED_SECRET] = sharedSecret;
   }
 
   if (encryptionKey) {
-    secrets.RAMBLERS_UPLOAD_WORKER_ENCRYPTION_KEY = encryptionKey;
+    secrets[Environment.INTEGRATION_WORKER_ENCRYPTION_KEY] = encryptionKey;
   }
 
   if (entries(secrets).length === 0) {
@@ -84,7 +85,7 @@ function importWorkerSecrets(
     return;
   }
 
-  const tempFile = path.join(os.tmpdir(), `ramblers-upload-worker-secrets-${Date.now()}.env`);
+  const tempFile = path.join(os.tmpdir(), `integration-worker-secrets-${Date.now()}.env`);
   const lines = entries(secrets).map(([key, value]) => `${key}=${value}`);
 
   try {

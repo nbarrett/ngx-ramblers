@@ -3,7 +3,7 @@ import fs from "fs";
 import debug from "debug";
 import { execSync, spawn, ChildProcess } from "child_process";
 import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation } from "../../deploy/types";
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { resolveClientPath } from "../shared/path-utils";
 import { configsJsonPath } from "../shared/configs-json";
 import { envConfig } from "../env-config/env-config";

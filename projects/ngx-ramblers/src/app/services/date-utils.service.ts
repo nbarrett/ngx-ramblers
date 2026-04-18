@@ -232,9 +232,7 @@ export class DateUtilsService {
     if (isNumber(fromTime) && isNumber(toTime)) {
       const duration = Duration.fromMillis(toTime - fromTime);
       const seconds = duration.as("seconds");
-      if (!fromTime || !toTime) {
-        return "0 secs";
-      } else if (seconds < 1) {
+      if (seconds < 1) {
         return `${(seconds * 1000)} ms`;
       } else if (seconds < 60) {
         return `${seconds.toFixed(0)} secs`;

@@ -1,10 +1,10 @@
 import express from "express";
-import { deriveBaseUrl as derivePlainBaseUrl, launchBrowser as launchPlainBrowser } from "./browser-utils";
+import { deriveBaseUrl as derivePlainBaseUrl } from "./browser-utils";
+import { fetchHtmlViaIntegrationWorker } from "../ramblers/integration-worker-browser-client";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { htmlToMarkdown } from "./turndown-service-factory";
 import { buildHtmlPastePreview, buildMarkdownPastePreview } from "./html-paste-preview";
-import { BaseHrefResult } from "./migration-types";
 import { isString } from "es-toolkit/compat";
 import { parseVenueFromHtml } from "../venue/venue-parser";
 
@@ -95,20 +95,12 @@ router.post("/html-from-url", async (req, res) => {
       return res.status(400).json({ error: "Unsupported protocol" });
     }
 
-    let browser: Awaited<ReturnType<typeof launchPlainBrowser>> | null = null;
     try {
-      browser = await launchPlainBrowser();
-      const page = await browser.newPage();
-      await page.goto(parsed.toString(), {waitUntil: "domcontentloaded", timeout: 60000});
-      const html = await page.content();
-      const baseHrefResult = await page.evaluate((): BaseHrefResult => {
-        const el = document.querySelector("base[href]") as HTMLBaseElement | null;
-        return {baseHref: el?.getAttribute("href") || null};
-      });
-      const baseUrl = derivePlainBaseUrl(page.url(), baseHrefResult.baseHref || undefined);
-      return res.json({html, baseUrl});
+      const { html, finalUrl, baseHref } = await fetchHtmlViaIntegrationWorker(parsed.toString());
+      const baseUrl = derivePlainBaseUrl(finalUrl, baseHref || undefined);
+      return res.json({ html, baseUrl });
     } catch (e) {
-      debugLog("Playwright fetch failed, falling back to fetch:", e);
+      debugLog("Integration-worker fetch failed, falling back to plain fetch:", e);
       const response = await fetch(parsed.toString(), { redirect: "follow" });
       if (!response.ok) {
         return res.status(response.status).json({ error: `Failed to fetch URL: ${response.statusText}` });
@@ -116,14 +108,6 @@ router.post("/html-from-url", async (req, res) => {
       const html = await response.text();
       const baseUrl = derivePlainBaseUrl(parsed.toString());
       return res.json({ html, baseUrl });
-    } finally {
-      if (browser) {
-        try {
-          await browser.close();
-        } catch (e) {
-          debugLog("Failed to close browser:", e instanceof Error ? e.message : String(e));
-        }
-      }
     }
   } catch (error) {
     debugLog("Error fetching HTML from URL:", error);
@@ -193,27 +177,16 @@ function sortLinksByPriority(links: string[]): string[] {
 }
 
 async function fetchHtmlFromUrl(urlString: string): Promise<string> {
-  let browser: Awaited<ReturnType<typeof launchPlainBrowser>> | null = null;
   try {
-    browser = await launchPlainBrowser();
-    const page = await browser.newPage();
-    await page.goto(urlString, {waitUntil: "domcontentloaded", timeout: 60000});
-    return await page.content();
+    const { html } = await fetchHtmlViaIntegrationWorker(urlString);
+    return html;
   } catch (e) {
-    debugLog("Playwright fetch failed, falling back to fetch:", e);
+    debugLog("Integration-worker fetch failed, falling back to plain fetch:", e);
     const response = await fetch(urlString, { redirect: "follow" });
     if (!response.ok) {
       throw new Error(`Failed to fetch URL: ${response.statusText}`);
     }
-    return await response.text();
-  } finally {
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (e) {
-        debugLog("Failed to close browser:", e instanceof Error ? e.message : String(e));
-      }
-    }
+    return response.text();
   }
 }
 
@@ -331,24 +304,13 @@ router.post("/search-venue-website", async (req, res) => {
     const searchQuery = encodeURIComponent(`${query.trim()} official website`);
     const searchUrl = `https://www.google.com/search?q=${searchQuery}`;
 
-    let browser: Awaited<ReturnType<typeof launchPlainBrowser>> | null = null;
     let html: string;
     try {
-      browser = await launchPlainBrowser();
-      const page = await browser.newPage();
-      await page.goto(searchUrl, {waitUntil: "domcontentloaded", timeout: 30000});
-      html = await page.content();
+      const result = await fetchHtmlViaIntegrationWorker(searchUrl, "domcontentloaded", 30000);
+      html = result.html;
     } catch (e) {
-      debugLog("search-venue-website: browser fetch failed:", e);
+      debugLog("search-venue-website: integration-worker fetch failed:", e);
       return res.json({ url: null });
-    } finally {
-      if (browser) {
-        try {
-          await browser.close();
-        } catch (e) {
-          debugLog("Failed to close browser:", e);
-        }
-      }
     }
 
     const urlPattern = /<a[^>]+href="(https?:\/\/(?!www\.google|google|webcache|translate\.google)[^"]+)"[^>]*>/gi;

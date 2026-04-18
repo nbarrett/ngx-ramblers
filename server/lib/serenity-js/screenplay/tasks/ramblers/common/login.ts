@@ -11,7 +11,7 @@ import {
   AuthErrorCookieBannerOrCreateMenuDropdown
 } from "../../../questions/ramblers/auth-error-cookie-banner-or-create-menu-dropdown";
 import { Accept } from "./accept-cookie-prompt";
-import { Environment } from "../../../../../env-config/environment-model";
+import { Environment } from "../../../../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { DEFAULT_WAIT_TIMEOUT } from "../../../../config/serenity-timeouts";
 
 export class Login extends Task {

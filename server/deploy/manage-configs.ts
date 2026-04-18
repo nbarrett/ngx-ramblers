@@ -18,7 +18,7 @@ import {
   RuntimeConfig,
   SecretsConfig
 } from "./types";
-import { Environment } from "../lib/env-config/environment-model";
+import { Environment } from "../../projects/ngx-ramblers/src/app/models/environment.model";
 import { envConfig } from "../lib/env-config/env-config";
 import { keys } from "es-toolkit/compat";
 import { configuredChromeVersion } from "../lib/shared/chrome-version";

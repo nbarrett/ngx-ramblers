@@ -7,13 +7,13 @@ import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/webso
 import * as auditParser from "./ramblers-audit-parser";
 import { Status } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
 import { envConfig } from "../env-config/env-config";
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { systemConfig } from "../config/system-config";
-import { submitRamblersUploadJobToWorker } from "./ramblers-upload-worker-client";
+import { submitRamblersUploadJobToWorker } from "./integration-worker-client";
 import { RamblersUploadQueueItem } from "../models/ramblers-upload-execution.model";
 import { executeRamblersUploadJob } from "./ramblers-upload-walks";
 import { RamblersUploadQueue } from "./ramblers-upload-queue";
-import { RamblersUploadCredentials } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-worker.model";
+import { RamblersUploadCredentials } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 
 const debugLog = debug(envConfig.logNamespace("ramblers-upload-dispatcher"));
 debugLog.enabled = true;
@@ -51,7 +51,7 @@ export async function dispatchRamblersWalksUpload(ws: WebSocket, request: Ramble
     debugLog("job built", job.jobId, "feature:", job.data.feature);
     registerUploadStart(job.data.fileName, ws, job.jobId);
 
-    const workerUrl = envConfig.value(Environment.RAMBLERS_UPLOAD_WORKER_URL);
+    const workerUrl = envConfig.value(Environment.INTEGRATION_WORKER_URL);
     if (workerUrl) {
       debugLog("routing to REMOTE worker at", workerUrl, "for job", job.jobId);
       const credentials = await queryRamblersUploadCredentials();

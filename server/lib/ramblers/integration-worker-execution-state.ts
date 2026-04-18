@@ -1,7 +1,7 @@
-import { RamblersUploadWorkerCallbackConfig } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-worker.model";
+import { IntegrationWorkerCallbackConfig } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 
 interface RemoteExecutionState {
-  callback: RamblersUploadWorkerCallbackConfig;
+  callback: IntegrationWorkerCallbackConfig;
   jobId: string;
   logStandardOut: boolean;
   sharedSecret: string;

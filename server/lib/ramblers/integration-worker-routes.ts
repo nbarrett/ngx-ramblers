@@ -1,25 +1,25 @@
 import debug from "debug";
 import { isString } from "es-toolkit/compat";
 import express, { Request, Response } from "express";
-import { verifyRamblersUploadSignature, decryptRamblersUploadPayload } from "./ramblers-upload-worker-crypto";
+import { verifyRamblersUploadSignature, decryptRamblersUploadPayload } from "./integration-worker-crypto";
 import { envConfig } from "../env-config/env-config";
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import {
   RamblersUploadCredentials,
-  RamblersUploadWorkerAwsCredentials,
-  RamblersUploadWorkerEventType,
-  RamblersUploadWorkerJobRequest,
-  RamblersUploadWorkerProgressCallbackRequest,
-  RamblersUploadWorkerResultCallbackRequest
-} from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-worker.model";
-import { executeRamblersUploadJobOnWorker } from "./ramblers-upload-worker-runner";
+  IntegrationWorkerAwsCredentials,
+  IntegrationWorkerEventType,
+  IntegrationWorkerJobRequest,
+  IntegrationWorkerProgressCallbackRequest,
+  IntegrationWorkerResultCallbackRequest
+} from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
+import { executeRamblersUploadJobOnWorker } from "./integration-worker-runner";
 import * as auditNotifier from "./ramblers-upload-audit-notifier";
 import * as auditParser from "./ramblers-audit-parser";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { Status } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
 import { activateRamblersUploadSession, currentRamblersUploadSession } from "./ramblers-upload-session-registry";
 
-const debugLog = debug(envConfig.logNamespace("ramblers-upload-worker-routes"));
+const debugLog = debug(envConfig.logNamespace("integration-worker-routes"));
 debugLog.enabled = true;
 
 const router = express.Router();
@@ -28,26 +28,26 @@ let activeJobId: string | null = null;
 
 interface QueuedWorkerJob {
   credentials: RamblersUploadCredentials;
-  reportUploadCredentials?: RamblersUploadWorkerAwsCredentials;
-  request: RamblersUploadWorkerJobRequest;
+  reportUploadCredentials?: IntegrationWorkerAwsCredentials;
+  request: IntegrationWorkerJobRequest;
 }
 
 router.post("/jobs", async (req: Request, res: Response) => {
-  const incomingJobId = (req.body as RamblersUploadWorkerJobRequest | undefined)?.job?.jobId;
+  const incomingJobId = (req.body as IntegrationWorkerJobRequest | undefined)?.job?.jobId;
   debugLog("POST /jobs received: jobId:", incomingJobId, "activeJobId:", activeJobId, "queueDepth:", queuedJobs.length);
   try {
-    if (!requestIsSigned(req, requiredValue(Environment.RAMBLERS_UPLOAD_WORKER_SHARED_SECRET))) {
+    if (!requestIsSigned(req, requiredValue(Environment.INTEGRATION_WORKER_SHARED_SECRET))) {
       debugLog("POST /jobs rejected: invalid signature for jobId:", incomingJobId);
       res.status(401).json({ error: "Invalid upload worker request signature" });
       return;
     }
 
-    const request: RamblersUploadWorkerJobRequest = req.body;
+    const request: IntegrationWorkerJobRequest = req.body;
     let credentials: RamblersUploadCredentials;
     try {
       credentials = decryptRamblersUploadPayload<RamblersUploadCredentials>(
         request.encryptedCredentials,
-        requiredValue(Environment.RAMBLERS_UPLOAD_WORKER_ENCRYPTION_KEY)
+        requiredValue(Environment.INTEGRATION_WORKER_ENCRYPTION_KEY)
       );
       debugLog("POST /jobs decrypted credentials ok for jobId:", request.job.jobId, "userName present:", !!credentials?.userName, "password present:", !!credentials?.password);
     } catch (error) {
@@ -55,12 +55,12 @@ router.post("/jobs", async (req: Request, res: Response) => {
       throw error;
     }
 
-    let reportUploadCredentials: RamblersUploadWorkerAwsCredentials | undefined;
+    let reportUploadCredentials: IntegrationWorkerAwsCredentials | undefined;
     if (request.encryptedReportUploadCredentials) {
       try {
-        reportUploadCredentials = decryptRamblersUploadPayload<RamblersUploadWorkerAwsCredentials>(
+        reportUploadCredentials = decryptRamblersUploadPayload<IntegrationWorkerAwsCredentials>(
           request.encryptedReportUploadCredentials,
-          requiredValue(Environment.RAMBLERS_UPLOAD_WORKER_ENCRYPTION_KEY)
+          requiredValue(Environment.INTEGRATION_WORKER_ENCRYPTION_KEY)
         );
         debugLog("POST /jobs decrypted report upload credentials ok for jobId:", request.job.jobId, "accessKeyId present:", !!reportUploadCredentials?.accessKeyId);
       } catch (error) {
@@ -96,8 +96,8 @@ router.post("/jobs", async (req: Request, res: Response) => {
 });
 
 router.post("/progress", async (req: Request, res: Response) => {
-  const incomingJobId = (req.body as RamblersUploadWorkerProgressCallbackRequest | undefined)?.jobId;
-  const incomingType = (req.body as RamblersUploadWorkerProgressCallbackRequest | undefined)?.type;
+  const incomingJobId = (req.body as IntegrationWorkerProgressCallbackRequest | undefined)?.jobId;
+  const incomingType = (req.body as IntegrationWorkerProgressCallbackRequest | undefined)?.type;
   debugLog("POST /progress received: jobId:", incomingJobId, "type:", incomingType);
   try {
     if (!requestIsSigned(req, callbackSecret())) {
@@ -106,7 +106,7 @@ router.post("/progress", async (req: Request, res: Response) => {
       return;
     }
 
-    const request: RamblersUploadWorkerProgressCallbackRequest = req.body;
+    const request: IntegrationWorkerProgressCallbackRequest = req.body;
     const session = currentRamblersUploadSession(request.jobId);
 
     if (!session) {
@@ -116,19 +116,32 @@ router.post("/progress", async (req: Request, res: Response) => {
     }
 
     activateRamblersUploadSession(request.jobId);
-    if (request.type === RamblersUploadWorkerEventType.LIFECYCLE) {
-      await auditNotifier.recordLifecycleEvent(request.jobId, request.payload);
-    } else {
-      await auditNotifier.sendAudit(session.ws, {
-        messageType: MessageType.PROGRESS,
-        auditMessage: request.type === RamblersUploadWorkerEventType.TEST_STEP ? JSON.parse(request.payload) : request.payload,
-        parserFunction: request.type === RamblersUploadWorkerEventType.TEST_STEP
-          ? auditParser.parseTestStepEvent
-          : auditParser.parseStandardOut,
-        status: Status.INFO
-      }, request.jobId);
-    }
     res.json({ success: true });
+    if (request.type === IntegrationWorkerEventType.LIFECYCLE) {
+      void auditNotifier.recordLifecycleEvent(request.jobId, request.payload).catch(error => {
+        debugLog("recordLifecycleEvent failed jobId:", request.jobId, "error:", (error as Error).message);
+      });
+    } else if (request.type === IntegrationWorkerEventType.TEST_STEP) {
+      const envelope = JSON.parse(request.payload);
+      const testStepEvent = envelope?.eventData ?? envelope;
+      void auditNotifier.sendAudit(session.ws, {
+        messageType: MessageType.PROGRESS,
+        auditMessage: testStepEvent,
+        parserFunction: auditParser.parseTestStepEvent,
+        status: Status.INFO
+      }, request.jobId).catch(error => {
+        debugLog("test-step sendAudit failed jobId:", request.jobId, "error:", (error as Error).message);
+      });
+    } else {
+      void auditNotifier.sendAudit(session.ws, {
+        messageType: MessageType.PROGRESS,
+        auditMessage: request.payload,
+        parserFunction: auditParser.parseStandardOut,
+        status: Status.INFO
+      }, request.jobId).catch(error => {
+        debugLog("standard-out sendAudit failed jobId:", request.jobId, "error:", (error as Error).message);
+      });
+    }
   } catch (error) {
     debugLog("POST /progress error for jobId:", incomingJobId, "error:", (error as Error).message);
     res.status(500).json({ error: (error as Error).message });
@@ -136,8 +149,8 @@ router.post("/progress", async (req: Request, res: Response) => {
 });
 
 router.post("/result", async (req: Request, res: Response) => {
-  const incomingJobId = (req.body as RamblersUploadWorkerResultCallbackRequest | undefined)?.jobId;
-  const incomingStatus = (req.body as RamblersUploadWorkerResultCallbackRequest | undefined)?.status;
+  const incomingJobId = (req.body as IntegrationWorkerResultCallbackRequest | undefined)?.jobId;
+  const incomingStatus = (req.body as IntegrationWorkerResultCallbackRequest | undefined)?.status;
   debugLog("POST /result received: jobId:", incomingJobId, "status:", incomingStatus);
   try {
     if (!requestIsSigned(req, callbackSecret())) {
@@ -146,7 +159,7 @@ router.post("/result", async (req: Request, res: Response) => {
       return;
     }
 
-    const request: RamblersUploadWorkerResultCallbackRequest = req.body;
+    const request: IntegrationWorkerResultCallbackRequest = req.body;
     const session = currentRamblersUploadSession(request.jobId);
 
     if (!session) {
@@ -173,7 +186,7 @@ router.post("/result", async (req: Request, res: Response) => {
   }
 });
 
-export const ramblersUploadWorkerRoutes = router;
+export const integrationWorkerRoutes = router;
 
 async function executeWorkerJob(queuedJob: QueuedWorkerJob): Promise<void> {
   const jobId = queuedJob.request.job.jobId;
@@ -218,8 +231,8 @@ async function runNextQueuedWorkerJob(): Promise<void> {
 }
 
 function callbackSecret(): string {
-  return envConfig.value(Environment.RAMBLERS_UPLOAD_WORKER_CALLBACK_SECRET)
-    || requiredValue(Environment.RAMBLERS_UPLOAD_WORKER_SHARED_SECRET);
+  return envConfig.value(Environment.INTEGRATION_WORKER_CALLBACK_SECRET)
+    || requiredValue(Environment.INTEGRATION_WORKER_SHARED_SECRET);
 }
 
 function requestIsSigned(req: Request, secret: string): boolean {

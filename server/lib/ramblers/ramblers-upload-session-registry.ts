@@ -31,9 +31,8 @@ export function updateRamblersUploadSession(jobId: string, update: Partial<Curre
     return null;
   }
 
-  const updated = { ...current, ...update };
-  uploadSessions.set(jobId, updated);
-  return updated;
+  Object.assign(current, update);
+  return current;
 }
 
 export function completeRamblersUploadSession(jobId: string): void {

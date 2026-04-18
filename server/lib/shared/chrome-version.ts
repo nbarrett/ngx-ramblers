@@ -1,4 +1,4 @@
-import { Environment } from "../env-config/environment-model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 
 export const DEFAULT_CHROME_VERSION = "146";
 

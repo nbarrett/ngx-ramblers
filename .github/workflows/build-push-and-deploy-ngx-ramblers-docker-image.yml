@@ -136,15 +136,15 @@ jobs:
 
       - name: Build the worker Docker image (Serenity/JS base)
         if: github.event_name == 'push' && steps.worker-changes.outputs.worker == 'true'
-        run: docker build . --build-arg CHROME_VERSION=${{ needs.resolve.outputs.chrome_version }} --file Dockerfile --target worker --tag ngx-ramblers-worker:${{ github.run_number }}
+        run: docker build . --build-arg CHROME_VERSION=${{ needs.resolve.outputs.chrome_version }} --file Dockerfile --target worker --tag ngx-ramblers-integration-worker:${{ github.run_number }}
 
-      - name: Tag the worker Docker image (worker-${{ github.run_number }})
+      - name: Tag the worker Docker image (integration-worker-${{ github.run_number }})
         if: github.event_name == 'push' && steps.worker-changes.outputs.worker == 'true'
-        run: docker tag ngx-ramblers-worker:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:worker-${{ github.run_number }}
+        run: docker tag ngx-ramblers-integration-worker:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:integration-worker-${{ github.run_number }}
 
-      - name: Push the worker Docker image to Docker Hub (worker-${{ github.run_number }})
+      - name: Push the worker Docker image to Docker Hub (integration-worker-${{ github.run_number }})
         if: github.event_name == 'push' && steps.worker-changes.outputs.worker == 'true'
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:worker-${{ github.run_number }}
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:integration-worker-${{ github.run_number }}
 
       - name: Install Flyctl
         run: |
@@ -166,9 +166,9 @@ jobs:
         timeout-minutes: 15
         env:
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
-          RAMBLERS_UPLOAD_WORKER_IMAGE_REPOSITORY: ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers
+          INTEGRATION_WORKER_IMAGE_REPOSITORY: ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers
         run: |
-          ts-node server/deploy/deploy-ramblers-upload-worker.ts --image-tag "worker-${{ github.run_number }}"
+          ts-node server/deploy/deploy-integration-worker.ts --image-tag "integration-worker-${{ github.run_number }}"
 
       - name: Generate Release Notes
         if: github.ref_name == 'main' && github.event_name == 'push'

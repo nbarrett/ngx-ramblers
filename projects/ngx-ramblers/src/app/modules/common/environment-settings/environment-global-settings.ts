@@ -173,7 +173,7 @@ import { InputSize } from "../../../models/ui-size.model";
                  class="form-control"
                  [(ngModel)]="config.uploadWorker.appName"
                  name="workerAppName"
-                 placeholder="e.g. ngx-ramblers-upload-worker">
+                 placeholder="e.g. ngx-ramblers-integration-worker">
           @if (config.uploadWorker?.appName) {
             <small class="form-text text-muted">URL: https://{{ config.uploadWorker.appName }}.fly.dev</small>
           }
