@@ -90,7 +90,7 @@ function attendeeListMarkdown(attendees: BookingAttendee[]): string {
   if (!attendees?.length) {
     return "";
   }
-  return attendees.map(a => `- ${a.displayName} (${a.email})`).join("\n");
+  return attendees.map(attendee => attendee.email ? `- ${attendee.displayName} (${attendee.email})` : `- ${attendee.displayName}`).join("\n");
 }
 
 function formatEventDateTime(startDateTime: string): string {

@@ -1,7 +1,7 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { BookingConfig } from "../../../projects/ngx-ramblers/src/app/models/booking-config.model";
+import { BookingConfig, BookingScope } from "../../../projects/ngx-ramblers/src/app/models/booking-config.model";
 import { WalksConfig } from "../../../projects/ngx-ramblers/src/app/models/walks-config.model";
 import { queryKey } from "../mongo/controllers/config";
 
@@ -15,6 +15,7 @@ function mergeWithLegacyBookingConfig(config: BookingConfig | null, walksConfig:
   }
   return {
     enabled: config?.enabled ?? legacyConfig?.enabled ?? false,
+    scope: config?.scope ?? legacyConfig?.scope ?? BookingScope.ALL_EVENTS,
     enabledForEventTypes: config?.enabledForEventTypes?.length > 0
       ? config.enabledForEventTypes
       : legacyConfig?.enabledForEventTypes?.length > 0
@@ -24,7 +25,8 @@ function mergeWithLegacyBookingConfig(config: BookingConfig | null, walksConfig:
     defaultMaxGroupSize: config?.defaultMaxGroupSize || legacyConfig?.defaultMaxGroupSize || 3,
     defaultMemberPriorityDays: config?.defaultMemberPriorityDays || legacyConfig?.defaultMemberPriorityDays || 0,
     emailTemplates: config?.emailTemplates || null,
-    reminderDaysBefore: config?.reminderDaysBefore || null
+    reminderDaysBefore: config?.reminderDaysBefore || null,
+    templatesIncludeSalutation: config?.templatesIncludeSalutation ?? legacyConfig?.templatesIncludeSalutation ?? true
   };
 }
 

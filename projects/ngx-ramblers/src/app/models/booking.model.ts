@@ -1,5 +1,6 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { ContactDetails } from "./group-event.model";
+import { EmailAddress, NotificationConfig } from "./mail.model";
 import { RamblersEventType } from "./ramblers-walks-manager";
 
 export enum BookingStatus {
@@ -8,7 +9,22 @@ export enum BookingStatus {
   WAITLISTED = "waitlisted"
 }
 
-export type BookingAttendee = Partial<ContactDetails> & Pick<ContactDetails, "displayName" | "email">;
+export enum BookingFormMode {
+  BOOK = "book",
+  CANCEL = "cancel"
+}
+
+export enum ContactDetailField {
+  DISPLAY_NAME = "displayName",
+  EMAIL = "email",
+  PHONE = "phone"
+}
+
+export type BookingAttendee = Omit<Partial<ContactDetails>, ContactDetailField> & {
+  displayName: string;
+  email?: string | null;
+  phone?: string | null;
+};
 
 export interface Booking extends Identifiable {
   eventIds: string[];
@@ -61,6 +77,12 @@ export interface BookingSummaryRow {
   maxCapacity: number;
   eventType?: RamblersEventType;
   eventSelectorLabel?: string;
+  eventSlug?: string;
+  eventStartDateTime?: string;
+  groupName?: string;
+  groupCode?: string;
+  bookable?: boolean;
+  upcoming?: boolean;
   orphaned?: boolean;
 }
 
@@ -99,6 +121,26 @@ export interface BookingAttendeeListResponse {
   eventId: string;
   attendees: BookingAttendee[];
   totalBookings: number;
+}
+
+export interface BookingReminderDispatch {
+  eventId: string;
+  eventTitle: string;
+  sentCount: number;
+  alreadySentCount: number;
+  skippedCount: number;
+}
+
+export interface BookingEmailBuild {
+  notifConfig: NotificationConfig;
+  sender: EmailAddress;
+  replyTo: EmailAddress;
+  to: EmailAddress[];
+  bcc: EmailAddress[];
+  subject: string;
+  bodyContent: string;
+  params: any;
+  templateId: number;
 }
 
 export const DEFAULT_MAX_GROUP_SIZE = 3;

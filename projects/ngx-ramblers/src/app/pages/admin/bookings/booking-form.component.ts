@@ -2,8 +2,8 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { bookingEnabledForEventType } from "../../../models/booking-config.model";
-import { Booking, BookingAttendee, BookingCapacity, DEFAULT_MAX_GROUP_SIZE } from "../../../models/booking.model";
+import { bookingEnabledForEvent, effectiveMaxCapacityForEvent } from "../../../models/booking-config.model";
+import { Booking, BookingAttendee, BookingCapacity, BookingFormMode, DEFAULT_MAX_GROUP_SIZE } from "../../../models/booking.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { BookingService } from "../../../services/booking.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -41,7 +41,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                   If the event fills up, member bookings may take priority over non-member bookings.
                 </div>
               }
-              @if (mode === "book") {
+              @if (mode === BookingFormMode.BOOK) {
                 @if (bookingSubmitted) {
                   <div class="alert alert-success mb-0">
                     <fa-icon [icon]="faCheckCircle" class="ms-1 me-2"></fa-icon>
@@ -78,11 +78,13 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                                  [(ngModel)]="attendees[attendeeIndex].displayName"
                                  [required]="attendeeIndex === 0"
                                  placeholder="Full name">
-                          <input class="form-control attendee-field" type="email"
-                                 [name]="'attendee-email-' + attendeeIndex"
-                                 [(ngModel)]="attendees[attendeeIndex].email"
-                                 [required]="attendeeIndex === 0"
-                                 placeholder="email@example.com">
+                          @if (attendeeIndex === 0) {
+                            <input class="form-control attendee-field" type="email"
+                                   [name]="'attendee-email-' + attendeeIndex"
+                                   [(ngModel)]="attendees[attendeeIndex].email"
+                                   [required]="true"
+                                   placeholder="email@example.com">
+                          }
                           <input class="form-control attendee-field" type="tel"
                                  [name]="'attendee-phone-' + attendeeIndex"
                                  [(ngModel)]="attendees[attendeeIndex].phone"
@@ -121,11 +123,11 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                   </form>
                 }
               }
-              @if (mode === "cancel") {
+              @if (mode === BookingFormMode.CANCEL) {
                 @if (cancellationConfirmed) {
                   <div class="alert alert-success mb-0">
                     <fa-icon [icon]="faCheckCircle" class="ms-1 me-2"></fa-icon>
-                    <strong>Booking cancelled</strong> — your places have been released.
+                    <strong>Booking cancelled</strong> — all your places have been released.
                   </div>
                 } @else {
                   <form (ngSubmit)="lookupBookings()" #lookupForm="ngForm">
@@ -178,18 +180,18 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                   }
                 }
               }
-              @if (mode === "book" && capacity?.totalBooked > 0) {
+              @if (mode === BookingFormMode.BOOK && capacity?.totalBooked > 0) {
                 <div class="mt-3">
                   <button type="button" class="btn btn-link btn-sm p-0 text-muted"
-                          (click)="switchMode('cancel')">
+                          (click)="switchMode(BookingFormMode.CANCEL)">
                     Need to cancel a booking?
                   </button>
                 </div>
               }
-              @if (mode === "cancel") {
+              @if (mode === BookingFormMode.CANCEL) {
                 <div class="mt-3">
                   <button type="button" class="btn btn-link btn-sm p-0 text-muted"
-                          (click)="switchMode('book')">
+                          (click)="switchMode(BookingFormMode.BOOK)">
                     Back to booking
                   </button>
                 </div>
@@ -259,8 +261,9 @@ export class BookingFormComponent implements OnInit, OnDestroy {
   notifyTarget: AlertTarget = {};
   notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
 
-  mode: "book" | "cancel" = "book";
-  attendees: BookingAttendee[] = [{displayName: "", email: ""}];
+  mode: BookingFormMode = BookingFormMode.BOOK;
+  protected readonly BookingFormMode = BookingFormMode;
+  attendees: BookingAttendee[] = [{displayName: "", email: "", phone: ""}];
   submitting = false;
   bookingSubmitted = false;
   lastBooking: Booking;
@@ -297,8 +300,8 @@ export class BookingFormComponent implements OnInit, OnDestroy {
       return;
     }
     const bookingSettings = this.bookingConfigService.bookingConfig();
-    const maxCapacity = event?.fields?.maxCapacity || bookingSettings?.defaultMaxCapacity || 0;
-    this.bookingEnabled = bookingEnabledForEventType(bookingSettings, event?.groupEvent?.item_type) && maxCapacity > 0;
+    const maxCapacity = effectiveMaxCapacityForEvent(bookingSettings, event);
+    this.bookingEnabled = bookingEnabledForEvent(bookingSettings, event);
     if (this.bookingEnabled) {
       this.capacity = this.capacity || {
         eventIds: [event.id],
@@ -317,7 +320,7 @@ export class BookingFormComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
-  switchMode(newMode: "book" | "cancel") {
+  switchMode(newMode: BookingFormMode) {
     this.mode = newMode;
     this.notify.hide();
     this.lookedUpBookings = [];
@@ -327,7 +330,7 @@ export class BookingFormComponent implements OnInit, OnDestroy {
 
   addAttendee() {
     if (this.attendees.length < this.maxGroupSize) {
-      this.attendees = [...this.attendees, {displayName: "", email: ""}];
+      this.attendees = [...this.attendees, {displayName: "", email: null, phone: ""}];
     }
   }
 
@@ -368,9 +371,18 @@ export class BookingFormComponent implements OnInit, OnDestroy {
 
   async submitBooking() {
     this.submitting = true;
-    const filledAttendees = this.attendees.filter(a => a.displayName?.trim()?.length > 0 && a.email?.trim()?.length > 0);
+    const filledAttendees = this.attendees.filter((attendee, attendeeIndex) => {
+      const hasName = attendee.displayName?.trim()?.length > 0;
+      const hasEmail = attendee.email?.trim()?.length > 0;
+      return attendeeIndex === 0 ? hasName && hasEmail : hasName;
+    });
     if (filledAttendees.length === 0) {
       this.notify.error({title: "Booking failed", message: "Please enter at least one attendee name and email"});
+      this.submitting = false;
+      return;
+    }
+    if (!filledAttendees[0]?.email?.trim()) {
+      this.notify.error({title: "Booking failed", message: "Please enter an email address for the first attendee"});
       this.submitting = false;
       return;
     }

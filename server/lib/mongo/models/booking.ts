@@ -5,7 +5,7 @@ import { Booking, BookingStatus } from "../../../../projects/ngx-ramblers/src/ap
 
 const attendeeSchema = new mongoose.Schema({
   displayName: {type: String, required: true},
-  email: {type: String, required: true},
+  email: {type: String},
   contactId: {type: String},
   memberId: {type: String},
   phone: {type: String}

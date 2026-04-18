@@ -125,8 +125,18 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                     </div>
                     <div class="row align-items-center mt-2">
                       <div class="col-auto">
+                        <div class="form-check mb-2">
+                          <input [(ngModel)]="groupEvent.fields.bookingsEnabled"
+                                 [disabled]="!display.allow.edits"
+                                 type="checkbox"
+                                 class="form-check-input"
+                                 id="event-bookings-enabled">
+                          <label class="form-check-label" for="event-bookings-enabled">Bookings enabled for this event</label>
+                        </div>
+                      </div>
+                      <div class="col-auto">
                         <div class="form-group">
-                          <label for="event-max-capacity">Max Capacity (leave blank to disable bookings)</label>
+                          <label for="event-max-capacity">Max Capacity</label>
                           <input [(ngModel)]="groupEvent.fields.maxCapacity"
                                  [disabled]="!display.allow.edits"
                                  type="number" min="1"
