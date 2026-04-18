@@ -1,3 +1,17 @@
+export const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
+
+export const cloudflareApi = {
+  base: CLOUDFLARE_API_BASE,
+  zones: (params = "") => `${CLOUDFLARE_API_BASE}/zones${params ? `?${params}` : ""}`,
+  zoneDnsRecords: (zoneId: string, params = "") => `${CLOUDFLARE_API_BASE}/zones/${zoneId}/dns_records${params ? `?${params}` : ""}`,
+  zoneDnsRecord: (zoneId: string, recordId: string) => `${CLOUDFLARE_API_BASE}/zones/${zoneId}/dns_records/${recordId}`,
+  verifyToken: () => `${CLOUDFLARE_API_BASE}/user/tokens/verify`,
+  accountEmailDestinationAddresses: (accountId: string) => `${CLOUDFLARE_API_BASE}/accounts/${accountId}/email/routing/addresses`,
+  zoneEmailRoutingRules: (zoneId: string) => `${CLOUDFLARE_API_BASE}/zones/${zoneId}/email/routing/rules`,
+  accountWorkersScripts: (accountId: string) => `${CLOUDFLARE_API_BASE}/accounts/${accountId}/workers/scripts`,
+  graphql: () => `${CLOUDFLARE_API_BASE}/graphql`
+};
+
 export interface CloudflareDnsConfig {
   apiToken: string;
   zoneId: string;
@@ -48,4 +62,10 @@ export interface MxRecordStatus {
   allPresent: boolean;
   expectedRecords: MxRecordDetail[];
   existingRecords: DnsRecordResult[];
+}
+
+export interface CloudflareZone {
+  id: string;
+  name: string;
+  status: string;
 }

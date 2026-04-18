@@ -33,12 +33,27 @@ export interface PerEnvironmentCloudflareConfig {
   zoneId?: string;
 }
 
+export enum CustomDomainStatus {
+  PENDING = "pending",
+  ATTACHED = "attached",
+  FAILED = "failed"
+}
+
+export interface CustomDomainEntry {
+  hostname: string;
+  addedAt: number;
+  status: CustomDomainStatus;
+  zoneId?: string;
+  message?: string;
+}
+
 export interface EnvironmentConfig {
   environment: string;
   aws?: AwsConfig;
   mongo?: MongoConfig;
   flyio?: FlyioConfig;
   cloudflare?: PerEnvironmentCloudflareConfig;
+  customDomains?: CustomDomainEntry[];
   secrets?: Record<string, string>;
 }
 

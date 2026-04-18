@@ -1,6 +1,6 @@
 import { ApiResponse } from "./api-response.model";
 import { RamblersGroupsApiResponse } from "./ramblers-walks-manager";
-import { AWS_DEFAULTS, FLYIO_DEFAULTS } from "./environment-config.model";
+import { AWS_DEFAULTS, CustomDomainEntry, FLYIO_DEFAULTS } from "./environment-config.model";
 import { RootFolder } from "./system.model";
 
 export interface EnvironmentSetupRequest {
@@ -216,6 +216,15 @@ export interface ExistingEnvironment {
   scaleCount: number;
   organisation?: string;
   hasApiKey: boolean;
+  customDomains?: CustomDomainEntry[];
+}
+
+export interface CustomDomainResponse {
+  success: boolean;
+  message: string;
+  hostname?: string;
+  entry?: CustomDomainEntry;
+  logs?: string[];
 }
 
 export interface ExistingEnvironmentsResponse extends ApiResponse {
@@ -462,7 +471,7 @@ export enum CloneType {
 }
 
 export enum ManageAction {
-  RESUME = "resume",
+  MODIFY = "modify",
   DESTROY = "destroy"
 }
 

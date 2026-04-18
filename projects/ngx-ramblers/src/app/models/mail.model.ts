@@ -897,6 +897,20 @@ export interface DomainAuthenticationResult {
   brevoDomainsUrl?: string;
 }
 
+export interface SenderRewriteSummary {
+  oldDomain: string;
+  newDomain: string;
+  rewritten: { oldEmail: string; newEmail: string; newSenderId?: number }[];
+  skipped: { email: string; reason: string }[];
+  failed: { email: string; error: string }[];
+}
+
+export interface SwitchSendingDomainResponse {
+  logs: string[];
+  domain: DomainAuthenticationResult;
+  rewrite: SenderRewriteSummary;
+}
+
 export function extractOverrideKeys(html: string): string[] {
   const matches = html.match(/\{\{override\.([A-Z_]+)\}\}/g) || [];
   return [...new Set(matches.map(m => m.replace(/\{\{override\.|\}\}/g, "")))];

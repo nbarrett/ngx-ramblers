@@ -28,6 +28,7 @@ import {
   SendCampaignRequest,
   Sender,
   SendersResponse,
+  SwitchSendingDomainResponse,
   ForgotPasswordEmailRequest,
   ForgotPasswordEmailResponse,
   SendSmtpEmailRequest,
@@ -221,6 +222,11 @@ export class MailService {
   async authenticateDomain(domainName: string): Promise<DomainAuthenticationResult> {
     this.logger.info("authenticateDomain:", domainName);
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/domains/authenticate`, {}, {params: {domainName}}))).response;
+  }
+
+  async switchSendingDomain(payload: { newHostname: string; oldHostname?: string; rewriteSenders?: boolean }): Promise<SwitchSendingDomainResponse> {
+    this.logger.info("switchSendingDomain:", payload);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/domains/switch`, payload))).response as unknown as SwitchSendingDomainResponse;
   }
 
   async deleteDomain(domainName: string): Promise<void> {

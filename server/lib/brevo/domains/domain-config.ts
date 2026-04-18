@@ -11,8 +11,17 @@ debugLog.enabled = false;
 export async function domainConfigRoute(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const domainName = req.query.domainName as string;
-    const config = await domainConfiguration(domainName);
-    successfulResponse({req, res, response: config, messageType, debugLog});
+    try {
+      const config = await domainConfiguration(domainName);
+      successfulResponse({req, res, response: config, messageType, debugLog});
+    } catch (error) {
+      const statusCode = error?.response?.statusCode ?? error?.statusCode;
+      if (statusCode === 404) {
+        successfulResponse({req, res, response: null, messageType, debugLog});
+        return;
+      }
+      throw error;
+    }
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }

@@ -10,7 +10,7 @@ import {
   listEmailRoutingRules,
   updateEmailRoutingRule
 } from "./cloudflare-email-routing";
-import { createDnsRecord, listDnsRecords } from "./cloudflare-dns";
+import { createDnsRecord, listDnsRecords, zoneForHostname } from "./cloudflare-dns";
 import { MxRecordStatus } from "./cloudflare.model";
 import {
   createDestinationAddress,
@@ -322,7 +322,12 @@ router.get("/mx-records", authConfig.authenticate(), async (req: Request, res: R
 
     const cloudflareConfig = await configuredCloudflare();
     const subdomain = nsConfig.baseDomain;
-    const existingRecords = await listDnsRecords({apiToken: cloudflareConfig.apiToken, zoneId: cloudflareConfig.zoneId}, subdomain, "MX");
+    const zone = await zoneForHostname(cloudflareConfig.apiToken, subdomain);
+    if (!zone) {
+      res.status(400).json({request: {messageType}, error: {message: `No Cloudflare zone found for ${subdomain}. Add the zone in Cloudflare first.`}});
+      return;
+    }
+    const existingRecords = await listDnsRecords({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, subdomain, "MX");
 
     const expectedRecords = REQUIRED_MX_RECORDS.map(mx => ({
       content: mx.content,
@@ -354,7 +359,12 @@ router.post("/mx-records", authConfig.authenticate(), async (req: Request, res: 
 
     const cloudflareConfig = await configuredCloudflare();
     const subdomain = nsConfig.baseDomain;
-    const dnsConfig = {apiToken: cloudflareConfig.apiToken, zoneId: cloudflareConfig.zoneId};
+    const zone = await zoneForHostname(cloudflareConfig.apiToken, subdomain);
+    if (!zone) {
+      res.status(400).json({request: {messageType}, error: {message: `No Cloudflare zone found for ${subdomain}. Add the zone in Cloudflare first.`}});
+      return;
+    }
+    const dnsConfig = {apiToken: cloudflareConfig.apiToken, zoneId: zone.id};
     const existingRecords = await listDnsRecords(dnsConfig, subdomain, "MX");
 
     const created: string[] = [];

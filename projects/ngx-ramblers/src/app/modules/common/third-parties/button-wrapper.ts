@@ -9,16 +9,22 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
     selector: "app-button-wrapper",
+    styles: [`
+    .is-disabled
+      opacity: 0.65
+    .is-disabled-text
+      opacity: 0.65
+  `],
     template: `
     <div [tooltip]="showTooltip? (disabled ? 'Not available to ' : 'Click to ') + title : null" placement="auto"
          (click)="blockClick($event)"
-         [ngClass]="{'btn btn-primary d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap': button, 'not-allowed disabled': disabled || loading, 'pointer': !disabled && !loading}">
+         [ngClass]="{'btn btn-primary d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap': button, 'not-allowed is-disabled': disabled || loading, 'pointer': !disabled && !loading}">
       @if (loading) {
         <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
       } @else {
         <ng-content/>
       }
-      <div [ngClass]="{'disabled': disabled || loading}">{{ title }}</div>
+      <div [ngClass]="{'is-disabled-text': disabled || loading}">{{ title }}</div>
     </div>`,
     imports: [TooltipDirective, NgClass, FontAwesomeModule]
 })

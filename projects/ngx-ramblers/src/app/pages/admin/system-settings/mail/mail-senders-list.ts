@@ -22,7 +22,7 @@ import { MailMessagingService } from "../../../../services/mail/mail-messaging.s
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { CommitteeMember } from "../../../../models/committee.model";
-import { BrevoDomainConfiguration, DomainAuthenticationResult, Sender, SenderSortField, SendersResponse } from "../../../../models/mail.model";
+import { BrevoDomainConfiguration, DomainAuthenticationResult, Sender, SenderSortField, SendersResponse, SwitchSendingDomainResponse } from "../../../../models/mail.model";
 import { MxRecordStatus } from "../../../../models/cloudflare-email-routing.model";
 import { ALERT_ERROR } from "../../../../models/alert-target.model";
 import { StringUtilsService } from "../../../../services/string-utils.service";
@@ -33,6 +33,7 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { SessionLogsComponent } from "../../../../shared/components/session-logs";
 
 @Component({
   selector: "app-mail-senders-list",
@@ -122,6 +123,47 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
           </div>
         }
       </div>
+      @if (domainMismatch()) {
+        <div class="row mb-3">
+          <div class="col-md-12">
+            <div class="alert alert-warning mb-2">
+              <div class="d-flex align-items-start gap-3">
+                <fa-icon [icon]="faExclamationTriangle" class="mt-1"></fa-icon>
+                <div class="flex-grow-1">
+                  <strong>Sending domain does not match site URL.</strong>
+                  Brevo is authenticated for <code>{{ baseDomain }}</code> but this site's canonical URL is <code>{{ canonicalHost }}</code>.
+                  Switching will re-authenticate <code>{{ canonicalHost }}</code> in Brevo, create the required DKIM/SPF records in Cloudflare, and rewrite every sender from <code>&#64;{{ baseDomain }}</code> to <code>&#64;{{ canonicalHost }}</code>.
+                </div>
+                <button class="btn btn-danger" [disabled]="switching" (click)="switchSendingDomain()"
+                        tooltip="Re-authenticate Brevo and rewrite senders">
+                  @if (switching) {
+                    <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Switching...
+                  } @else {
+                    Switch sending domain to {{ canonicalHost }}
+                  }
+                </button>
+              </div>
+            </div>
+            @if (switchError) {
+              <div class="alert alert-danger mb-2">
+                <fa-icon [icon]="ALERT_ERROR.icon" class="me-2"></fa-icon>{{ switchError }}
+              </div>
+            }
+            @if (switchResult) {
+              <div class="alert alert-success mb-2">
+                <fa-icon [icon]="faCheck" class="me-2"></fa-icon>
+                <strong>Done.</strong>
+                Rewrote {{ switchResult.rewrite.rewritten.length }},
+                skipped {{ switchResult.rewrite.skipped.length }},
+                failed {{ switchResult.rewrite.failed.length }}.
+              </div>
+            }
+            @if (switchLogs.length) {
+              <app-session-logs [messages]="switchLogs"></app-session-logs>
+            }
+          </div>
+        </div>
+      }
       @if (baseDomain) {
         <div class="row mb-3">
           <div class="col-md-12">
@@ -353,7 +395,7 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
         </table>
       </div>
     </div>`,
-  imports: [FormsModule, BrevoButtonComponent, FontAwesomeModule, TooltipDirective, MarkdownEditorComponent]
+  imports: [FormsModule, BrevoButtonComponent, FontAwesomeModule, TooltipDirective, MarkdownEditorComponent, SessionLogsComponent]
 })
 export class MailSendersListComponent implements OnInit, OnDestroy {
 
@@ -398,6 +440,11 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
   public mxRecordLoading = false;
   public mxRecordCreating = false;
   public mxRecordError: string | null = null;
+  public canonicalHost: string;
+  public switching = false;
+  public switchLogs: string[] = [];
+  public switchError: string;
+  public switchResult: SwitchSendingDomainResponse | null = null;
 
   async ngOnInit() {
     this.subscriptions.push(
@@ -422,6 +469,7 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
     );
     this.subscriptions.push(
       this.mailMessagingService.events().subscribe(async mailMessagingConfig => {
+        this.canonicalHost = this.hostOf(mailMessagingConfig?.group?.href);
         if (mailMessagingConfig.brevo.accountError) {
           this.logger.info("Brevo account not configured — skipping senders and domain status");
           this.loading = false;
@@ -579,6 +627,53 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
 
   senderDomainMismatch(sender: Sender): boolean {
     return this.baseDomain && sender.email && !sender.email.endsWith(`@${this.baseDomain}`);
+  }
+
+  private hostOf(urlOrHost: string | undefined): string {
+    const trimmed = (urlOrHost || "").trim();
+    if (!trimmed) return "";
+    try {
+      return new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`).host.toLowerCase();
+    } catch {
+      return trimmed.replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
+    }
+  }
+
+  domainMismatch(): boolean {
+    return !!(this.canonicalHost && this.baseDomain && this.canonicalHost !== this.baseDomain);
+  }
+
+  async switchSendingDomain(): Promise<void> {
+    if (!this.domainMismatch()) return;
+    this.switching = true;
+    this.switchError = null;
+    this.switchResult = null;
+    this.switchLogs = [`Switching sending domain from ${this.baseDomain} to ${this.canonicalHost}...`];
+    try {
+      const result = await this.mailService.switchSendingDomain({
+        newHostname: this.canonicalHost,
+        oldHostname: this.baseDomain,
+        rewriteSenders: true
+      });
+      this.switchResult = result;
+      if (result?.logs?.length) {
+        this.switchLogs = [...this.switchLogs, ...result.logs];
+      }
+      this.baseDomain = this.canonicalHost;
+      await this.loadDomainStatus();
+      await this.loadMxRecordStatus();
+      await this.loadSenders();
+    } catch (error) {
+      this.switchError = this.stringUtilsService.stringify(error);
+      this.logger.error("Failed to switch sending domain:", error);
+      const errorLogs = error?.error?.logs as string[] | undefined;
+      if (errorLogs?.length) {
+        this.switchLogs = [...this.switchLogs, ...errorLogs];
+      }
+      this.switchLogs = [...this.switchLogs, `Error: ${this.switchError}`];
+    } finally {
+      this.switching = false;
+    }
   }
 
   async authenticateDomain(): Promise<void> {
