@@ -1,6 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { uniq } from "es-toolkit/compat";
+import { isString, uniq, uniqBy } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DataQueryOptions } from "../models/api-request.model";
 import { AlbumPath, PageContent, PageContentApiResponse } from "../models/content-text.model";
@@ -9,7 +9,6 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { MemberLoginService } from "./member/member-login.service";
 import { PageContentActionsService } from "./page-content-actions.service";
 import { sortBy } from "../functions/arrays";
-import { uniqBy } from "es-toolkit/compat";
 import { fieldContainsValue } from "../functions/mongo";
 
 @Injectable({
@@ -52,17 +51,23 @@ export class PageContentService {
   }
 
   async allAlbumIndexParents(childPath: string): Promise<PageContent[]> {
-    const dataQueryOptions: DataQueryOptions = {criteria: {"rows.albumIndex.contentPaths.stringMatch": "starts-with"}};
-    const params = this.commonDataService.toHttpParams(dataQueryOptions);
-    const apiResponse = await this.http.get<{ response: PageContent[] }>(`${this.BASE_URL}/all`, {params}).toPromise();
-    const allAlbumIndexPages = apiResponse.response as PageContent[];
-    return allAlbumIndexPages.filter(page =>
-      page.rows?.some(row =>
-        (row as any).albumIndex?.contentPaths?.some((cp: any) =>
-          cp.stringMatch === "starts-with" && childPath.startsWith(cp.contentPath)
+    if (!childPath) {
+      return [];
+    } else {
+      const dataQueryOptions: DataQueryOptions = {criteria: {"rows.albumIndex.contentPaths.stringMatch": "starts-with"}};
+      const params = this.commonDataService.toHttpParams(dataQueryOptions);
+      const apiResponse = await this.http.get<{
+        response: PageContent[]
+      }>(`${this.BASE_URL}/all`, {params}).toPromise();
+      const allAlbumIndexPages = apiResponse.response as PageContent[];
+      return allAlbumIndexPages.filter(page =>
+        page.rows?.some(row =>
+          (row as any).albumIndex?.contentPaths?.some((cp: any) =>
+            cp.stringMatch === "starts-with" && isString(cp.contentPath) && childPath.startsWith(cp.contentPath)
+          )
         )
-      )
-    );
+      );
+    }
   }
 
   async findByPath(path: string): Promise<PageContent> {

@@ -12,6 +12,22 @@ debugLog.enabled = true;
 
 const router = express.Router();
 
+const BROWSER_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+const BROWSER_VIEWPORT = { width: 1440, height: 900 };
+
+async function newBrowserPage(browser: Browser): Promise<Page> {
+  const context = await browser.newContext({
+    userAgent: BROWSER_USER_AGENT,
+    viewport: BROWSER_VIEWPORT,
+    locale: "en-GB",
+    timezoneId: "Europe/London",
+    extraHTTPHeaders: {
+      "accept-language": "en-GB,en;q=0.9"
+    }
+  });
+  return context.newPage();
+}
+
 interface HtmlFetchRequest {
   url: string;
   timeoutMs?: number;
@@ -44,7 +60,7 @@ router.post("/html-fetch", async (req: Request, res: Response) => {
   let browser: Browser | null = null;
   try {
     browser = await launchHeadlessChromium();
-    const page = await browser.newPage();
+    const page = await newBrowserPage(browser);
     await page.goto(url, { waitUntil, timeout: timeoutMs });
     const html = await page.content();
     const baseHref = await page.evaluate(() => {
@@ -76,7 +92,7 @@ router.post("/flickr-user-albums", async (req: Request, res: Response) => {
   let browser: Browser | null = null;
   try {
     browser = await launchHeadlessChromium();
-    const page = await browser.newPage();
+    const page = await newBrowserPage(browser);
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
     await page.waitForFunction(
