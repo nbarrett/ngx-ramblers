@@ -4,10 +4,25 @@ import { AppIpAddresses, CertificateInfo, FlyConfig } from "./fly.model";
 
 const debugLog = debug(envConfig.logNamespace("fly:certificates"));
 
+interface GraphQLIssuedCertificate {
+  type: string;
+  expiresAt: string;
+}
+
+interface GraphQLIssuedCertificateConnection {
+  nodes: GraphQLIssuedCertificate[];
+}
+
 interface GraphQLCertNode {
   hostname: string;
   clientStatus: string;
-  issued: { nodes: { type: string; expiresAt: string }[] };
+  dnsValidationHostname?: string;
+  dnsValidationTarget?: string;
+  dnsValidationInstructions?: string;
+  acmeDnsConfigured?: boolean;
+  acmeAlpnConfigured?: boolean;
+  configured?: boolean;
+  issued: GraphQLIssuedCertificateConnection;
 }
 
 interface GraphQLCertsResponse {
@@ -182,6 +197,12 @@ export async function queryCertificates(config: FlyConfig): Promise<CertificateI
           nodes {
             hostname
             clientStatus
+            dnsValidationHostname
+            dnsValidationTarget
+            dnsValidationInstructions
+            acmeDnsConfigured
+            acmeAlpnConfigured
+            configured
             issued {
               nodes {
                 type
@@ -203,6 +224,12 @@ export async function queryCertificates(config: FlyConfig): Promise<CertificateI
   return data.app.certificates.nodes.map(cert => ({
     hostname: cert.hostname,
     clientStatus: cert.clientStatus,
+    dnsValidationHostname: cert.dnsValidationHostname,
+    dnsValidationTarget: cert.dnsValidationTarget,
+    dnsValidationInstructions: cert.dnsValidationInstructions,
+    acmeDnsConfigured: cert.acmeDnsConfigured,
+    acmeAlpnConfigured: cert.acmeAlpnConfigured,
+    configured: cert.configured,
     issued: cert.issued.nodes
   }));
 }

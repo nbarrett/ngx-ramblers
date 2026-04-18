@@ -19,7 +19,13 @@ import { configuredEnvironments, findEnvironmentFromDatabase } from "../../envir
 import { buildMongoUri, extractClusterFromUri, extractUsernameFromUri } from "../../shared/mongodb-uri";
 import { resumeEnvironment } from "../../cli/commands/environment";
 import { destroyEnvironment } from "../../cli/commands/destroy";
-import { setupSubdomainForEnvironment } from "../../cli/commands/subdomain";
+import {
+  addCustomDomainForEnvironment,
+  checkCustomDomainStatus,
+  removeCustomDomainForEnvironment,
+  removeSubdomainForEnvironment,
+  setupSubdomainForEnvironment
+} from "../../cli/commands/subdomain";
 import { configuredBrevo } from "../../brevo/brevo-config";
 import { authenticateSendingDomain } from "../../brevo/domains/domain-authentication";
 import { findDomainByName } from "../../brevo/domains/domain-management";
@@ -470,7 +476,8 @@ router.get("/existing-environments", async (req: Request, res: Response) => {
       memory: env.flyio?.memory || FLYIO_DEFAULTS.MEMORY,
       scaleCount: env.flyio?.scaleCount || FLYIO_DEFAULTS.SCALE_COUNT,
       organisation: env.flyio?.organisation || FLYIO_DEFAULTS.ORGANISATION,
-      hasApiKey: Boolean(env.flyio?.apiKey)
+      hasApiKey: Boolean(env.flyio?.apiKey),
+      customDomains: env.customDomains || []
     }));
     debugLog("Returning existing environments from MongoDB:", environments.length);
     res.json({ environments });
@@ -742,6 +749,130 @@ router.post("/setup-subdomain/:environmentName", async (req: Request, res: Respo
   }
 });
 
+router.post("/remove-subdomain/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    debugLog("Remove NGX subdomain request received for:", environmentName);
+
+    await loadEnvironmentContext(environmentName);
+    const result = await removeSubdomainForEnvironment(environmentName);
+
+    res.json({
+      success: true,
+      message: `NGX subdomain ${result.hostname} removed`,
+      hostname: result.hostname,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error removing NGX subdomain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/add-custom-domain/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    const { hostname } = req.body || {};
+    debugLog("Add custom domain request received for:", environmentName, hostname);
+
+    if (!hostname) {
+      res.status(400).json({ success: false, message: "hostname is required" });
+      return;
+    }
+
+    await loadEnvironmentContext(environmentName);
+    const result = await addCustomDomainForEnvironment(environmentName, hostname);
+
+    res.json({
+      success: true,
+      message: `Custom domain ${result.hostname} attached`,
+      hostname: result.hostname,
+      entry: result.entry,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error adding custom domain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/remove-custom-domain/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    const { hostname } = req.body || {};
+    debugLog("Remove custom domain request received for:", environmentName, hostname);
+
+    if (!hostname) {
+      res.status(400).json({ success: false, message: "hostname is required" });
+      return;
+    }
+
+    await loadEnvironmentContext(environmentName);
+    const result = await removeCustomDomainForEnvironment(environmentName, hostname);
+
+    res.json({
+      success: true,
+      message: `Custom domain ${result.hostname} removed`,
+      hostname: result.hostname,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error removing custom domain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/check-custom-domain/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    const { hostname } = req.body || {};
+    debugLog("Check custom domain request received for:", environmentName, hostname);
+
+    if (!hostname) {
+      res.status(400).json({ success: false, message: "hostname is required" });
+      return;
+    }
+
+    await loadEnvironmentContext(environmentName);
+    const result = await checkCustomDomainStatus(environmentName, hostname);
+
+    res.json({
+      success: true,
+      message: result.entry?.message || "Status checked",
+      hostname: result.hostname,
+      entry: result.entry,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error checking custom domain:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 router.post("/authenticate-brevo-domain/:environmentName", async (req: Request, res: Response) => {
   if (!validateSetupAccess(req, res)) return;
 
@@ -822,15 +953,13 @@ router.post("/seed-notification-configs/:environmentName", async (req: Request, 
 
       const membersCollection = db.collection("members");
       const adminMember = await membersCollection.findOne({ memberAdmin: true });
-      let rolesAssigned = 0;
-      if (adminMember?.firstName && adminMember?.lastName && adminMember?.email) {
-        const result = await assignAdminToCommitteeRoles(db, {
-          firstName: adminMember.firstName,
-          lastName: adminMember.lastName,
-          email: adminMember.email
-        });
-        rolesAssigned = result.assignedCount;
-      }
+      const rolesAssigned = adminMember?.firstName && adminMember?.lastName && adminMember?.email
+        ? (await assignAdminToCommitteeRoles(db, {
+            firstName: adminMember.firstName,
+            lastName: adminMember.lastName,
+            email: adminMember.email
+          })).assignedCount
+        : 0;
 
       debugLog(`Notification configs: seeded ${seededCount}, skipped ${skippedCount}, wired ${wiredCount}, roles assigned ${rolesAssigned}`);
       res.json({

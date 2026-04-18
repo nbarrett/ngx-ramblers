@@ -1,5 +1,6 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 
+import { DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { Subscription } from "rxjs";
 import { sortBy } from "../../../functions/arrays";
@@ -10,6 +11,7 @@ import {
   faCog,
   faExclamationCircle,
   faExclamationTriangle,
+  faGlobe,
   faKey,
   faPlus,
   faRedo,
@@ -17,25 +19,64 @@ import {
   faTrash
 } from "@fortawesome/free-solid-svg-icons";
 import { NgSelectComponent } from "@ng-select/ng-select";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { EnvironmentSetupService } from "../../../services/environment-setup/environment-setup.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { EnvironmentStatus, ExistingEnvironment, OperationInProgress } from "../../../models/environment-setup.model";
+import { EnvironmentStatus, ExistingEnvironment, ManageAction, OperationInProgress } from "../../../models/environment-setup.model";
+import { CustomDomainEntry, CustomDomainStatus } from "../../../models/environment-config.model";
 import { EventType, MessageType } from "../../../models/websocket.model";
 import { SessionLogsComponent } from "../../../shared/components/session-logs";
 
 @Component({
   selector: "app-environment-management",
   standalone: true,
-  imports: [FormsModule, FontAwesomeModule, NgSelectComponent, SessionLogsComponent],
+  imports: [DatePipe, FormsModule, FontAwesomeModule, NgSelectComponent, SessionLogsComponent, TooltipDirective],
   styles: [`
     :host
       display: block
 
     :host ::ng-deep .alert
       padding: 1rem
+
+    :host ::ng-deep .custom-domains-table th.col-hostname,
+    :host ::ng-deep .custom-domains-table td.col-hostname
+      min-width: 280px
+      white-space: nowrap
+
+    :host ::ng-deep .custom-domains-table th.col-status,
+    :host ::ng-deep .custom-domains-table td.col-status
+      min-width: 220px
+
+    :host ::ng-deep .custom-domains-table th.col-added,
+    :host ::ng-deep .custom-domains-table td.col-added
+      width: 130px
+      white-space: nowrap
+
+    :host ::ng-deep .custom-domains-table th.col-actions,
+    :host ::ng-deep .custom-domains-table td.col-actions
+      width: 90px
+      white-space: nowrap
+
+    :host ::ng-deep .custom-domains-table .btn.icon-only
+      width: 32px
+      height: 32px
+      padding: 0
+      display: inline-flex
+      align-items: center
+      justify-content: center
+
+    :host ::ng-deep .custom-domains-table tbody tr:last-child td
+      border-bottom: 0
+
+    :host ::ng-deep .custom-domains-table .domain-status-detail
+      line-height: 1.3
+      word-break: break-word
+
+    :host ::ng-deep .custom-domains-table .fa-icon-globe
+      color: var(--ramblers-colour-mintcake)
   `],
   template: `
     @if (!enabled) {
@@ -45,7 +86,7 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
         Please use the CLI or staging environment.
       </div>
     } @else {
-      @if (existingEnvironments.length === 0 && !loading) {
+      @if (existingEnvironments.length === 0) {
         <div class="alert alert-warning">
           <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
           No environments configured yet. Add environments in the Settings tab first.
@@ -247,39 +288,121 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                   <strong>Action:</strong>
                   <div class="form-check mt-2">
                     <input class="form-check-input" type="radio" name="manageAction" id="actionModify"
-                           value="modify" [(ngModel)]="manageAction">
+                           [value]="ManageAction.MODIFY" [(ngModel)]="manageAction">
                     <label class="form-check-label" for="actionModify">
                       <fa-icon [icon]="faCog" class="me-1"></fa-icon> Modify Environment
                     </label>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="manageAction" id="actionDestroy"
-                           value="destroy" [(ngModel)]="manageAction">
+                           [value]="ManageAction.DESTROY" [(ngModel)]="manageAction">
                     <label class="form-check-label text-danger" for="actionDestroy">
                       <fa-icon [icon]="faTrash" class="me-1"></fa-icon> Destroy Environment
                     </label>
                   </div>
                 </div>
               </div>
-              @if (manageAction === 'modify') {
-                <div class="row mt-3">
-                  <div class="col-md-12 d-flex gap-2 align-items-start">
-                    <button class="btn btn-primary" (click)="resumeSetup()"
-                            [disabled]="operationBusy">
-                      @if (resuming) {
-                        <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
-                      }
-                      Modify Environment
-                    </button>
-                    <button class="btn btn-outline-secondary" (click)="generateAdminPasswordReset()"
-                            [disabled]="operationBusy || generatingPasswordReset">
-                      @if (generatingPasswordReset) {
-                        <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
-                      } @else {
-                        <fa-icon [icon]="faKey" class="me-1"></fa-icon>
-                      }
-                      Reset Admin Password
-                    </button>
+              @if (manageAction === ManageAction.MODIFY) {
+                <div class="row thumbnail-heading-frame mt-3">
+                  <div class="thumbnail-heading">Custom Domains</div>
+                  <div class="col-md-12">
+                    <div class="d-flex gap-2 align-items-start flex-wrap">
+                      <input type="text" class="form-control" style="max-width: 320px;"
+                             placeholder="Enter full domain name (apex or subdomain)"
+                             [(ngModel)]="customDomainHostname"
+                             [disabled]="operationBusy || customDomainBusy">
+                      <button class="btn btn-primary" (click)="addCustomDomain()"
+                              [disabled]="operationBusy || customDomainBusy || !customDomainHostname">
+                        @if (customDomainBusy && !removingDomainHostname && !checkingDomainHostname) {
+                          <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                        } @else {
+                          <fa-icon [icon]="faPlus" class="me-1"></fa-icon>
+                        }
+                        Add Custom Domain
+                      </button>
+                    </div>
+                    @if (shouldShowAlsoAttachWwwOption()) {
+                      <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="alsoAttachWww"
+                               [(ngModel)]="alsoAttachWww"
+                               [disabled]="operationBusy || customDomainBusy">
+                        <label class="form-check-label small" for="alsoAttachWww">
+                          Also attach the <code>www.</code> variant (CNAME to Fly app)
+                        </label>
+                      </div>
+                    }
+                    @if (customDomainError) {
+                      <div class="alert alert-danger mt-3 mb-0">
+                        <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                        {{ customDomainError }}
+                      </div>
+                    }
+                    @if (customDomainMessages.length > 0) {
+                      <div class="mt-3">
+                        <app-session-logs [messages]="customDomainMessages"></app-session-logs>
+                      </div>
+                    }
+                    @if (customDomains().length > 0) {
+                      <div class="table-responsive mt-3">
+                        <table class="table table-sm align-middle mb-0 custom-domains-table">
+                          <thead>
+                            <tr>
+                              <th scope="col" class="col-hostname">Hostname</th>
+                              <th scope="col" class="col-status">Status</th>
+                              <th scope="col" class="col-added">Added</th>
+                              <th scope="col" class="text-end col-actions">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (domain of customDomains(); track domain.hostname) {
+                              <tr>
+                                <td class="col-hostname">
+                                  <fa-icon [icon]="faGlobe" class="me-2 fa-icon-globe"></fa-icon>
+                                  <a [href]="'https://' + domain.hostname" target="_blank">{{ domain.hostname }}</a>
+                                </td>
+                                <td class="col-status">
+                                  <div>
+                                    <span class="badge" [class]="domainBadgeClass(domain.status)">{{ domainStatusLabel(domain.status) }}</span>
+                                  </div>
+                                  @if (domain.message && domain.message !== domain.status) {
+                                    <div class="small text-muted mt-1 domain-status-detail">{{ domain.message }}</div>
+                                  }
+                                </td>
+                                <td class="col-added">{{ domain.addedAt ? (domain.addedAt | date:"short") : "" }}</td>
+                                <td class="text-end col-actions">
+                                  <div class="d-inline-flex gap-1">
+                                    <button class="btn btn-sm btn-outline-secondary icon-only"
+                                            (click)="checkCustomDomain(domain)"
+                                            [disabled]="operationBusy || customDomainBusy"
+                                            tooltip="Check &amp; reconcile DNS/cert"
+                                            container="body"
+                                            aria-label="Check">
+                                      @if (checkingDomainHostname === domain.hostname) {
+                                        <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
+                                      } @else {
+                                        <fa-icon [icon]="faRedo"></fa-icon>
+                                      }
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger icon-only"
+                                            (click)="removeCustomDomain(domain)"
+                                            [disabled]="operationBusy || customDomainBusy"
+                                            tooltip="Remove custom domain"
+                                            container="body"
+                                            aria-label="Remove">
+                                      @if (removingDomainHostname === domain.hostname) {
+                                        <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
+                                      } @else {
+                                        <fa-icon [icon]="faTrash"></fa-icon>
+                                      }
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    }
                   </div>
                 </div>
                 @if (passwordResetResult) {
@@ -300,8 +423,56 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                     </div>
                   </div>
                 }
+                <div class="row mt-3">
+                  <div class="col-md-12 d-flex gap-2 align-items-start flex-wrap">
+                    <button class="btn btn-primary" (click)="resumeSetup()"
+                            [disabled]="operationBusy">
+                      @if (resuming) {
+                        <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                      }
+                      Modify Environment
+                    </button>
+                    <button class="btn btn-outline-secondary" (click)="generateAdminPasswordReset()"
+                            [disabled]="operationBusy || generatingPasswordReset">
+                      @if (generatingPasswordReset) {
+                        <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                      } @else {
+                        <fa-icon [icon]="faKey" class="me-1"></fa-icon>
+                      }
+                      Reset Admin Password
+                    </button>
+                    @if (canRemoveNgxSubdomain()) {
+                      <button class="btn btn-danger" (click)="requestRemoveNgxSubdomain()"
+                              [disabled]="operationBusy || removingNgxSubdomain || removeNgxSubdomainConfirming"
+                              tooltip="Delete the <env>.ngx-ramblers.org.uk DNS records and Fly cert"
+                              container="body">
+                        @if (removingNgxSubdomain) {
+                          <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                        } @else {
+                          <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
+                        }
+                        Remove NGX Subdomain
+                      </button>
+                    }
+                  </div>
+                  @if (removeNgxSubdomainConfirming) {
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between mt-3 mb-0">
+                      <span>
+                        <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                        <strong>Remove the NGX subdomain ({{ selectedExistingEnv.name }}.ngx-ramblers.org.uk)?</strong>
+                        This deletes its DNS records and Fly certificate. The app will only be reachable via its attached custom domain(s).
+                      </span>
+                      <div class="btn-group btn-group-sm ms-3">
+                        <button type="button" class="btn btn-danger" [disabled]="removingNgxSubdomain"
+                                (click)="confirmRemoveNgxSubdomain()">Remove</button>
+                        <button type="button" class="btn btn-outline-secondary"
+                                (click)="cancelRemoveNgxSubdomain()">Cancel</button>
+                      </div>
+                    </div>
+                  }
+                </div>
               }
-              @if (manageAction === 'destroy') {
+              @if (manageAction === ManageAction.DESTROY) {
                 <div class="row mt-3">
                   <div class="col-md-12">
                     <div class="alert alert-danger">
@@ -377,7 +548,8 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   existingEnvironments: ExistingEnvironment[] = [];
   selectedExistingEnv: ExistingEnvironment | null = null;
   operationInProgress = OperationInProgress.NONE;
-  manageAction: "modify" | "destroy" = "modify";
+  manageAction: ManageAction = ManageAction.MODIFY;
+  protected readonly ManageAction = ManageAction;
   envStatus: EnvironmentStatus | null = null;
 
   resumeOptions = {
@@ -401,11 +573,22 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
 
   passwordResetResult: { resetUrl?: string; flyResetUrl?: string; userName?: string; email?: string } | null = null;
   generatingPasswordReset = false;
+  removingNgxSubdomain = false;
+  removeNgxSubdomainConfirming = false;
+
+  customDomainHostname = "";
+  customDomainBusy = false;
+  customDomainError: string | null = null;
+  customDomainMessages: string[] = [];
+  removingDomainHostname: string | null = null;
+  checkingDomainHostname: string | null = null;
+  alsoAttachWww = true;
 
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faCog = faCog;
   protected readonly faExclamationCircle = faExclamationCircle;
   protected readonly faExclamationTriangle = faExclamationTriangle;
+  protected readonly faGlobe = faGlobe;
   protected readonly faKey = faKey;
   protected readonly faPlus = faPlus;
   protected readonly faRedo = faRedo;
@@ -555,8 +738,159 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     this.destroyComplete = false;
     this.destroyError = null;
     this.passwordResetResult = null;
-    this.manageAction = "modify";
+    this.manageAction = ManageAction.MODIFY;
     this.envStatus = null;
+    this.customDomainHostname = "";
+    this.customDomainMessages = [];
+    this.customDomainError = null;
+    this.removingDomainHostname = null;
+    this.checkingDomainHostname = null;
+    this.alsoAttachWww = true;
+  }
+
+  customDomains(): CustomDomainEntry[] {
+    return this.selectedExistingEnv?.customDomains || [];
+  }
+
+  domainBadgeClass(status: CustomDomainStatus | string | undefined): string {
+    if (status === CustomDomainStatus.ATTACHED) {
+      return "bg-success";
+    }
+    if (status === CustomDomainStatus.FAILED) {
+      return "bg-danger";
+    }
+    return "bg-warning text-dark";
+  }
+
+  domainStatusLabel(status: CustomDomainStatus | string | undefined): string {
+    if (status === CustomDomainStatus.ATTACHED) return "Attached";
+    if (status === CustomDomainStatus.FAILED) return "Failed";
+    return "Awaiting configuration";
+  }
+
+  async addCustomDomain(): Promise<void> {
+    if (!this.selectedExistingEnv) {
+      this.notify.warning({ title: "No Environment Selected", message: "Please select an environment first" });
+      return;
+    }
+    const hostname = this.normaliseHostname(this.customDomainHostname);
+    if (!hostname) {
+      this.customDomainError = "Enter a hostname to add";
+      return;
+    }
+    this.customDomainBusy = true;
+    this.customDomainError = null;
+    this.customDomainMessages = [`Attaching custom domain: ${hostname}`];
+    const queue = [hostname];
+    if (this.shouldAttachWwwFor(hostname)) {
+      queue.push(`www.${hostname}`);
+    }
+    try {
+      for (const target of queue) {
+        if (target !== hostname) {
+          this.customDomainMessages.push(`Attaching companion domain: ${target}`);
+        }
+        const response = await this.environmentSetupService.addCustomDomain(this.selectedExistingEnv.name, target);
+        if (response.success) {
+          this.appendLogs(response.logs, response.message || `Custom domain ${response.hostname} attached`);
+        } else {
+          this.customDomainError = response.message || "Custom domain add failed";
+          this.appendLogs(response.logs, `Error: ${this.customDomainError}`);
+          break;
+        }
+      }
+      if (!this.customDomainError) {
+        this.customDomainHostname = "";
+      }
+      await this.refreshSelectedEnvironment();
+    } catch (error) {
+      this.customDomainError = this.extractErrorDetail(error);
+      this.appendLogs(error?.error?.logs, `Error: ${this.customDomainError}`);
+      this.logger.error("Add custom domain failed:", error);
+    } finally {
+      this.customDomainBusy = false;
+    }
+  }
+
+  private normaliseHostname(input: string | null | undefined): string {
+    return (input || "").trim().toLowerCase().replace(/\.$/, "").replace(/^https?:\/\//, "");
+  }
+
+  shouldShowAlsoAttachWwwOption(): boolean {
+    const normalised = this.normaliseHostname(this.customDomainHostname);
+    return !!normalised && !normalised.startsWith("www.") && normalised.split(".").length >= 2;
+  }
+
+  private shouldAttachWwwFor(hostname: string): boolean {
+    return this.alsoAttachWww && !hostname.startsWith("www.") && hostname.split(".").length >= 2;
+  }
+
+  async removeCustomDomain(domain: CustomDomainEntry): Promise<void> {
+    if (!this.selectedExistingEnv) return;
+    this.customDomainBusy = true;
+    this.removingDomainHostname = domain.hostname;
+    this.customDomainError = null;
+    this.customDomainMessages = [`Removing custom domain: ${domain.hostname}`];
+    try {
+      const response = await this.environmentSetupService.removeCustomDomain(this.selectedExistingEnv.name, domain.hostname);
+      if (response.success) {
+        this.appendLogs(response.logs, response.message || `Custom domain ${domain.hostname} removed`);
+        await this.refreshSelectedEnvironment();
+      } else {
+        this.customDomainError = response.message || "Custom domain remove failed";
+        this.appendLogs(response.logs, `Error: ${this.customDomainError}`);
+      }
+    } catch (error) {
+      this.customDomainError = this.extractErrorDetail(error);
+      this.appendLogs(error?.error?.logs, `Error: ${this.customDomainError}`);
+      this.logger.error("Remove custom domain failed:", error);
+    } finally {
+      this.customDomainBusy = false;
+      this.removingDomainHostname = null;
+    }
+  }
+
+  async checkCustomDomain(domain: CustomDomainEntry): Promise<void> {
+    if (!this.selectedExistingEnv) return;
+    this.customDomainBusy = true;
+    this.checkingDomainHostname = domain.hostname;
+    this.customDomainError = null;
+    this.customDomainMessages = [`Checking custom domain: ${domain.hostname}`];
+    try {
+      const response = await this.environmentSetupService.checkCustomDomain(this.selectedExistingEnv.name, domain.hostname);
+      if (response.success) {
+        this.appendLogs(response.logs, response.message || `Status checked for ${domain.hostname}`);
+        await this.refreshSelectedEnvironment();
+      } else {
+        this.customDomainError = response.message || "Status check failed";
+        this.appendLogs(response.logs, `Error: ${this.customDomainError}`);
+      }
+    } catch (error) {
+      this.customDomainError = this.extractErrorDetail(error);
+      this.appendLogs(error?.error?.logs, `Error: ${this.customDomainError}`);
+      this.logger.error("Check custom domain failed:", error);
+    } finally {
+      this.customDomainBusy = false;
+      this.checkingDomainHostname = null;
+    }
+  }
+
+  private appendLogs(logs: string[] | undefined, fallback: string): void {
+    if (logs && logs.length > 0) {
+      this.customDomainMessages = [...this.customDomainMessages, ...logs];
+    } else {
+      this.customDomainMessages.push(fallback);
+    }
+  }
+
+  private async refreshSelectedEnvironment(): Promise<void> {
+    if (!this.selectedExistingEnv) return;
+    const currentName = this.selectedExistingEnv.name;
+    await this.loadExistingEnvironments();
+    const refreshed = this.existingEnvironments.find(env => env.name === currentName) || null;
+    if (refreshed) {
+      this.selectedExistingEnv = refreshed;
+    }
   }
 
   async resumeSetup(): Promise<void> {
@@ -752,6 +1086,46 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
       this.notify.error({ title: "Error", message: this.destroyError });
     } finally {
       this.operationInProgress = OperationInProgress.NONE;
+    }
+  }
+
+  canRemoveNgxSubdomain(): boolean {
+    if (!this.selectedExistingEnv || !this.envStatus?.subdomainConfigured) return false;
+    return this.customDomains().some(domain => domain.status === CustomDomainStatus.ATTACHED);
+  }
+
+  requestRemoveNgxSubdomain(): void {
+    if (!this.selectedExistingEnv) return;
+    this.removeNgxSubdomainConfirming = true;
+  }
+
+  cancelRemoveNgxSubdomain(): void {
+    this.removeNgxSubdomainConfirming = false;
+  }
+
+  async confirmRemoveNgxSubdomain(): Promise<void> {
+    if (!this.selectedExistingEnv) return;
+    this.removeNgxSubdomainConfirming = false;
+    this.removingNgxSubdomain = true;
+    this.progressMessages = [`Removing NGX subdomain for ${this.selectedExistingEnv.name}...`];
+    try {
+      const response = await this.environmentSetupService.removeSubdomain(this.selectedExistingEnv.name);
+      if (response.logs?.length) {
+        this.progressMessages = [...this.progressMessages, ...response.logs];
+      } else {
+        this.progressMessages.push(response.message || "NGX subdomain removed");
+      }
+      if (response.success) {
+        await this.probeEnvironmentStatus(this.selectedExistingEnv.name);
+      } else {
+        this.setupError = response.message || "Failed to remove NGX subdomain";
+      }
+    } catch (error) {
+      this.setupError = this.extractErrorDetail(error);
+      this.progressMessages.push(`Error: ${this.setupError}`);
+      this.logger.error("Remove NGX subdomain failed:", error);
+    } finally {
+      this.removingNgxSubdomain = false;
     }
   }
 

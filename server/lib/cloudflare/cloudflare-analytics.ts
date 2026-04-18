@@ -8,13 +8,14 @@ import {
   WorkerLogsRequest
 } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
 import { envConfig } from "../env-config/env-config";
+import { cloudflareApi } from "./cloudflare.model";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:analytics"));
 debugLog.enabled = true;
 const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("cloudflare:analytics"));
 errorDebugLog.enabled = true;
 
-const GRAPHQL_URL = "https://api.cloudflare.com/client/v4/graphql";
+const GRAPHQL_URL = cloudflareApi.graphql();
 
 function humaniseStatus(status: string): string {
   if (!status) {

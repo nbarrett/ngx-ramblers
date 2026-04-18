@@ -1,7 +1,7 @@
 import debug from "debug";
 import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { EmailWorkerScript } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
-import { CloudflareResponse } from "./cloudflare.model";
+import { cloudflareApi, CloudflareResponse } from "./cloudflare.model";
 import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:email-workers"));
@@ -10,7 +10,7 @@ const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("cloudflare:email-
 errorDebugLog.enabled = true;
 
 function accountBaseUrl(accountId: string): string {
-  return `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts`;
+  return cloudflareApi.accountWorkersScripts(accountId);
 }
 
 function headers(apiToken: string): Record<string, string> {

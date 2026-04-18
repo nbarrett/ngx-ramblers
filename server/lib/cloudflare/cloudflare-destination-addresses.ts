@@ -2,6 +2,7 @@ import debug from "debug";
 import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { DestinationAddress } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
 import { envConfig } from "../env-config/env-config";
+import { cloudflareApi } from "./cloudflare.model";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:destination-addresses"));
 debugLog.enabled = true;
@@ -27,7 +28,7 @@ interface CloudflareSingleResponse<T> {
 }
 
 function baseUrl(accountId: string): string {
-  return `https://api.cloudflare.com/client/v4/accounts/${accountId}/email/routing/addresses`;
+  return cloudflareApi.accountEmailDestinationAddresses(accountId);
 }
 
 function headers(apiToken: string): Record<string, string> {

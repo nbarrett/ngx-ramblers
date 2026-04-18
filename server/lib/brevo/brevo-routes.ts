@@ -32,6 +32,7 @@ import { domainsList } from "./domains/domains-list";
 import { registerDomainRoute } from "./domains/register-domain";
 import { domainConfigRoute } from "./domains/domain-config";
 import { authenticateDomainRoute } from "./domains/authenticate-domain-route";
+import { switchDomainRoute } from "./domains/switch-domain-route";
 import { deleteDomainRoute } from "./domains/delete-domain";
 import * as authConfig from "../auth/auth-config";
 
@@ -70,5 +71,6 @@ router.get("/domains", authConfig.authenticate(), domainsList);
 router.post("/domains/register", authConfig.authenticate(), registerDomainRoute);
 router.get("/domains/configuration", authConfig.authenticate(), domainConfigRoute);
 router.post("/domains/authenticate", authConfig.authenticate(), authenticateDomainRoute);
+router.post("/domains/switch", authConfig.authenticate(), switchDomainRoute);
 router.delete("/domains/delete", authConfig.authenticate(), deleteDomainRoute);
 export const brevoRoutes = router;

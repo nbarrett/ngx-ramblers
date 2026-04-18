@@ -5,6 +5,7 @@ import { Observable, Subject } from "rxjs";
 import { ApiResponse } from "../../models/api-response.model";
 import {
   CreateEnvironmentResponse,
+  CustomDomainResponse,
   EnvironmentDefaults,
   EnvironmentSetupRequest,
   EnvironmentStatus,
@@ -264,6 +265,42 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as { success: boolean; message: string; hostname?: string };
+  }
+
+  async removeSubdomain(environmentName: string): Promise<{ success: boolean; message: string; hostname?: string; logs?: string[] }> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/remove-subdomain/${environmentName}`, {}, this.opts),
+      this.notifications
+    );
+    return response as unknown as { success: boolean; message: string; hostname?: string; logs?: string[] };
+  }
+
+  async addCustomDomain(environmentName: string, hostname: string): Promise<CustomDomainResponse> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/add-custom-domain/${environmentName}`, {hostname}, this.opts),
+      this.notifications
+    );
+    return response as unknown as CustomDomainResponse;
+  }
+
+  async removeCustomDomain(environmentName: string, hostname: string): Promise<CustomDomainResponse> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/remove-custom-domain/${environmentName}`, {hostname}, this.opts),
+      this.notifications
+    );
+    return response as unknown as CustomDomainResponse;
+  }
+
+  async checkCustomDomain(environmentName: string, hostname: string): Promise<CustomDomainResponse> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/check-custom-domain/${environmentName}`, {hostname}, this.opts),
+      this.notifications
+    );
+    return response as unknown as CustomDomainResponse;
   }
 
 }
