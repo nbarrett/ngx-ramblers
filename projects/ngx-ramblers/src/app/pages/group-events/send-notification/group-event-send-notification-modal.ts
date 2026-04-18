@@ -1,5 +1,4 @@
 import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
-import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -36,6 +35,7 @@ import { first } from "es-toolkit/compat";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { isUndefined, set } from "es-toolkit/compat";
 import { get } from "es-toolkit/compat";
+import { EmailPreviewComponent } from "../../../modules/common/email-preview/email-preview.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NotificationConfigSelectorComponent } from "../../admin/system-settings/mail/notification-config-selector";
 import { FormsModule } from "@angular/forms";
@@ -377,29 +377,14 @@ import { cloneDeep } from "es-toolkit/compat";
           </tab>
           <tab heading="Preview" (selectTab)="refreshPreview()">
             <div class="img-thumbnail thumbnail-admin-edit">
-              <div id="preview" class="print-preview" style="height:auto;overflow:visible;">
-                <div #notificationContent class="d-none">
-                  <app-committee-notification-ramblers-message-item
-                    [notificationItem]="toNotificationItemFromNotification(latestNotification)">
-                    <app-group-event-notification-details [members]="toMembers()" [groupEvent]="groupEvent"
-                      [mailMessagingConfig]="mailMessagingConfig"/>
-                  </app-committee-notification-ramblers-message-item>
-                </div>
-                @if (previewLoading) {
-                  <div class="p-3">Rendering preview...</div>
-                } @else if (previewError) {
-                  <div class="alert alert-warning m-3">{{ previewError }}</div>
-                } @else if (previewUrl) {
-                  <iframe
-                    #previewFrame
-                    title="Email preview"
-                    scrolling="yes"
-                    sandbox="allow-popups allow-popups-to-escape-sandbox"
-                    (load)="resizePreviewFrame()"
-                    [src]="previewUrl"
-                    style="display:block;width:100%;height:70vh;border:0;background:#f3f3f3;"></iframe>
-                }
+              <div #notificationContent class="d-none">
+                <app-committee-notification-ramblers-message-item
+                  [notificationItem]="toNotificationItemFromNotification(latestNotification)">
+                  <app-group-event-notification-details [members]="toMembers()" [groupEvent]="groupEvent"
+                    [mailMessagingConfig]="mailMessagingConfig"/>
+                </app-committee-notification-ramblers-message-item>
               </div>
+              <app-email-preview #emailPreview/>
             </div>
           </tab>
         </tabset>
@@ -438,7 +423,7 @@ import { cloneDeep } from "es-toolkit/compat";
     </div>
     </div>
     }`,
-    imports: [TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, CommitteeNotificationRamblersMessageItemComponent, GroupEventNotificationDetails, FontAwesomeModule, CreateOrAmendSenderComponent, BrevoButtonComponent, NotificationDirective, TitleCasePipe]
+    imports: [TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, CommitteeNotificationRamblersMessageItemComponent, GroupEventNotificationDetails, FontAwesomeModule, CreateOrAmendSenderComponent, BrevoButtonComponent, NotificationDirective, TitleCasePipe, EmailPreviewComponent]
 })
 export class GroupEventSendNotificationModal implements OnInit, OnDestroy {
 
@@ -449,7 +434,6 @@ export class GroupEventSendNotificationModal implements OnInit, OnDestroy {
   private fullNameWithAlias = inject(FullNameWithAliasPipe);
   protected mailMessagingService = inject(MailMessagingService);
   protected mailService = inject(MailService);
-  private sanitizer = inject(DomSanitizer);
   private systemConfigService = inject(SystemConfigService);
   stringUtils = inject(StringUtilsService);
   display = inject(GroupEventDisplayService);
@@ -460,7 +444,7 @@ export class GroupEventSendNotificationModal implements OnInit, OnDestroy {
   bsModalRef = inject(BsModalRef);
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   @ViewChild("notificationContent") notificationContent: ElementRef;
-  @ViewChild("previewFrame") previewFrame: ElementRef<HTMLIFrameElement>;
+  @ViewChild("emailPreview") emailPreview: EmailPreviewComponent;
   public segmentEditingSupported = false;
   public groupEvent: ExtendedGroupEvent;
   private notify: AlertInstance;
@@ -478,14 +462,6 @@ export class GroupEventSendNotificationModal implements OnInit, OnDestroy {
   protected readonly ADDRESSEE_CONTACT_FIRST_NAME = ADDRESSEE_CONTACT_FIRST_NAME;
   protected senderExists = false;
   public latestNotification: Notification;
-  public previewHtml: string | null = null;
-  public previewUrl: SafeResourceUrl | null = null;
-  public previewHeight = 1600;
-  public previewLoading = false;
-  public previewError: string | null = null;
-  private previewObjectUrl: string | null = null;
-  private previewResizeObserver: ResizeObserver | null = null;
-  private previewMutationObserver: MutationObserver | null = null;
   async ngOnInit() {
     this.logger.info("ngOnInit", this.groupEvent, "memberFilterSelections:", this.display.memberFilterSelections);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget, NgxLoggerLevel.ERROR);
@@ -505,8 +481,6 @@ export class GroupEventSendNotificationModal implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.clearPreviewObservers();
-    this.clearPreviewObjectUrl();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
@@ -745,29 +719,12 @@ export class GroupEventSendNotificationModal implements OnInit, OnDestroy {
 
   async refreshPreview() {
     if (!this.latestNotification?.content?.notificationConfig?.templateId) {
-      this.previewHtml = null;
-      this.previewUrl = null;
-      this.previewError = "Choose a Brevo template to render the preview.";
+      this.emailPreview?.showError("Choose a Brevo template to render the preview.");
       return;
     }
-    this.previewLoading = true;
-    this.previewError = null;
-    try {
-      const bodyContent = this.generateNotificationHTML();
-      const request = await this.previewRequest(bodyContent);
-      const response = await this.mailService.renderTemplate(request);
-      this.clearPreviewObservers();
-      this.previewHeight = 1600;
-      this.previewHtml = response.htmlContent;
-      this.previewUrl = this.toPreviewUrl(response.htmlContent);
-    } catch (error) {
-      this.previewHtml = null;
-      this.previewUrl = null;
-      this.previewError = "Preview could not be rendered.";
-      this.logger.error("refreshPreview failed", error);
-    } finally {
-      this.previewLoading = false;
-    }
+    const bodyContent = this.generateNotificationHTML();
+    const request = await this.previewRequest(bodyContent);
+    await this.emailPreview?.render(request);
   }
 
   private async previewRequest(bodyContent: string): Promise<TemplateRenderRequest> {
@@ -789,57 +746,6 @@ export class GroupEventSendNotificationModal implements OnInit, OnDestroy {
         this.latestNotification?.content?.addresseeType
       )
     };
-  }
-
-  private toPreviewUrl(html: string): SafeResourceUrl {
-    this.clearPreviewObjectUrl();
-    this.previewObjectUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-    return this.sanitizer.bypassSecurityTrustResourceUrl(this.previewObjectUrl);
-  }
-
-  private clearPreviewObjectUrl() {
-    if (this.previewObjectUrl) {
-      URL.revokeObjectURL(this.previewObjectUrl);
-      this.previewObjectUrl = null;
-    }
-  }
-
-  private clearPreviewObservers() {
-    this.previewResizeObserver?.disconnect();
-    this.previewResizeObserver = null;
-    this.previewMutationObserver?.disconnect();
-    this.previewMutationObserver = null;
-  }
-
-  resizePreviewFrame() {
-    const doc = this.previewFrame?.nativeElement?.contentDocument;
-    const applyHeight = () => {
-      if (doc?.documentElement && doc?.body) {
-        doc.documentElement.style.overflow = "hidden";
-        doc.body.style.overflow = "hidden";
-      }
-      const nextHeight = Math.max(
-        doc?.body?.scrollHeight || 0,
-        doc?.body?.offsetHeight || 0,
-        doc?.documentElement?.scrollHeight || 0,
-        doc?.documentElement?.offsetHeight || 0,
-        1600
-      );
-      this.previewHeight = nextHeight;
-      return nextHeight;
-    };
-    this.clearPreviewObservers();
-    if (doc?.body && !isUndefined(ResizeObserver)) {
-      this.previewResizeObserver = new ResizeObserver(() => applyHeight());
-      this.previewResizeObserver.observe(doc.body);
-      this.previewResizeObserver.observe(doc.documentElement);
-    }
-    if (doc?.body && !isUndefined(MutationObserver)) {
-      this.previewMutationObserver = new MutationObserver(() => applyHeight());
-      this.previewMutationObserver.observe(doc.body, { childList: true, subtree: true, attributes: true, characterData: true });
-    }
-    doc?.querySelectorAll("img").forEach(image => image.addEventListener("load", applyHeight, { once: true }));
-    window.setTimeout(applyHeight, 0);
   }
 
   runCampaignCreationAndSendWorkflow(createAsDraft?: boolean) {

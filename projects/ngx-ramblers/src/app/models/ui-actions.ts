@@ -46,6 +46,8 @@ export enum StoredValue {
   DURATION = "duration",
   EDIT = "edit",
   EDIT_SITE = "edit-site",
+  EMAIL_TYPE = "email-type",
+  EVENT_ID = "event-id",
   FACILITIES = "facilities",
   FREE_ONLY = "free-only",
   GROUP_AREA_COLORS = "group-area-colors",

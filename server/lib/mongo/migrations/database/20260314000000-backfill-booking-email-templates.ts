@@ -108,7 +108,8 @@ const DEFAULT_BOOKING_VALUE = {
   defaultMaxGroupSize: 3,
   defaultMemberPriorityDays: 0,
   emailTemplates: DEFAULT_TEMPLATES,
-  reminderDaysBefore: 0
+  reminderDaysBefore: 0,
+  templatesIncludeSalutation: true
 };
 
 export async function up(db: Db) {

@@ -1,6 +1,12 @@
 import { booking } from "../models/booking";
 import * as crudController from "./crud-controller";
-import { Booking, BookingCancelRequest, BookingCreateRequest, BookingStatus } from "../../../../projects/ngx-ramblers/src/app/models/booking.model";
+import {
+  Booking,
+  BookingCancelRequest,
+  BookingCreateRequest,
+  BookingReminderDispatch,
+  BookingStatus
+} from "../../../../projects/ngx-ramblers/src/app/models/booking.model";
 import { Request, Response } from "express";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
@@ -13,8 +19,11 @@ import {
   sendBookingWaitlistedEmail,
   sendBookingRestoredEmail
 } from "../../brevo/transactional-mail/send-booking-email";
-import { BookingConfig, bookingEnabledForEventType } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
+import { BookingConfig, BookingEmailType, bookingEnabledForEvent, effectiveMaxCapacityForEvent } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
 import { loadBookingConfig } from "../../config/booking-config";
+import { sendEmailsByTypeForEvent, sendReminderEmailsForEvent } from "../../cron/booking-reminder-job";
+import { buildBookingEmailRequest } from "../../brevo/transactional-mail/send-booking-email";
+import { values } from "es-toolkit/compat";
 
 const controller = crudController.create<Booking>(booking);
 const debugLog = debug(envConfig.logNamespace("booking"));
@@ -23,7 +32,27 @@ debugLog.enabled = true;
 function normalisedAttendeeEmails(bookingData: Booking): string[] {
   return (bookingData.attendees || [])
     .map(attendee => attendee.email?.trim()?.toLowerCase())
-    .filter(email => !!email);
+    .filter((email): email is string => !!email);
+}
+
+function bookingAttendeeEmail(attendee: Booking["attendees"][number] | null | undefined): string | null {
+  return attendee.email?.trim()?.toLowerCase() || null;
+}
+
+function bookingHasPrimaryAttendeeWithEmail(bookingData: Booking): boolean {
+  return !!bookingAttendeeEmail(bookingData.attendees?.[0]);
+}
+
+function normaliseBookingAttendees(bookingData: Booking): Booking {
+  return {
+    ...bookingData,
+    attendees: (bookingData.attendees || []).map(attendee => ({
+      ...attendee,
+      email: attendee.email?.trim() || null,
+      phone: attendee.phone?.trim() || null,
+      displayName: attendee.displayName?.trim() || ""
+    })).filter(attendee => attendee.displayName)
+  };
 }
 
 async function existingDuplicateBookingEmails(eventId: string, bookingData: Booking): Promise<string[]> {
@@ -38,6 +67,7 @@ async function existingDuplicateBookingEmails(eventId: string, bookingData: Book
   });
   const duplicateEmails = existingBookings
     .flatMap(existingBooking => existingBooking.attendees.map(attendee => attendee.email?.trim()?.toLowerCase()))
+    .filter((email): email is string => !!email)
     .filter(email => attendeeEmails.includes(email));
   return [...new Set(duplicateEmails)];
 }
@@ -51,7 +81,7 @@ export const findById = controller.findById;
 export async function create(req: Request, res: Response) {
   try {
     const bookingRequest: BookingCreateRequest = req.body?.booking ? req.body : {booking: req.body, eventLink: null};
-    const bookingData: Booking = bookingRequest.booking;
+    const bookingData: Booking = normaliseBookingAttendees(bookingRequest.booking);
     const eventLink = bookingRequest.eventLink;
     const eventId = bookingData.eventIds?.[0];
     const isAuthenticated = !!(req as any).user;
@@ -60,8 +90,12 @@ export async function create(req: Request, res: Response) {
     if (eventId) {
       const event = await extendedGroupEvent.findById(eventId).lean().then(doc => doc ? transforms.toObjectWithId(doc) : null);
       const bookingConfig = await loadBookingConfig();
-      if (!bookingEnabledForEventType(bookingConfig, event?.groupEvent?.item_type)) {
-        res.status(400).json({error: "Booking is not enabled for this event type."});
+      if (!bookingEnabledForEvent(bookingConfig, event)) {
+        res.status(400).json({error: "Booking is not enabled for this event."});
+        return;
+      }
+      if (!bookingHasPrimaryAttendeeWithEmail(bookingData)) {
+        res.status(400).json({error: "Please enter an email address for the first attendee."});
         return;
       }
       const duplicateEmails = await existingDuplicateBookingEmails(eventId, bookingData);
@@ -69,7 +103,7 @@ export async function create(req: Request, res: Response) {
         res.status(400).json({error: `A booking already exists for ${duplicateEmails.join(", ")} on this event.`});
         return;
       }
-      const maxCapacity = event?.fields?.maxCapacity || bookingConfig?.defaultMaxCapacity || 0;
+      const maxCapacity = effectiveMaxCapacityForEvent(bookingConfig, event);
 
       if (maxCapacity) {
         const activeBookings = await booking.find({eventIds: eventId, status: BookingStatus.ACTIVE});
@@ -201,9 +235,7 @@ export async function cancel(req: Request, res: Response) {
       res.status(404).json({error: "Booking not found"});
       return;
     }
-    const hasMatchingAttendee = existingBooking.attendees.some(
-      a => a.email.toLowerCase() === email.toLowerCase()
-    );
+    const hasMatchingAttendee = existingBooking.attendees.some(attendee => bookingAttendeeEmail(attendee) === email.toLowerCase());
     if (!hasMatchingAttendee) {
       res.status(403).json({error: "Email does not match any attendee in this booking"});
       return;
@@ -298,10 +330,13 @@ export async function attendeesForEvent(req: Request, res: Response) {
   try {
     const eventId = req.params.eventId;
     const bookings = await booking.find({eventIds: eventId, status: BookingStatus.ACTIVE});
-    const allAttendees = bookings.flatMap(b => b.attendees);
+    const allAttendees = bookings.flatMap(b => b.attendees).filter(attendee => !!bookingAttendeeEmail(attendee));
     const seen = new Set<string>();
     const uniqueAttendees = allAttendees.filter(a => {
-      const key = a.email.toLowerCase();
+      const key = bookingAttendeeEmail(a);
+      if (!key) {
+        return false;
+      }
       if (seen.has(key)) {
         return false;
       }
@@ -318,6 +353,95 @@ export async function attendeesForEvent(req: Request, res: Response) {
   } catch (error) {
     debugLog("attendeesForEvent error:", error);
     res.status(500).json({error: "Failed to retrieve attendees"});
+  }
+}
+
+function parseEmailType(value: string): BookingEmailType | null {
+  const match = values(BookingEmailType).find(type => type === value);
+  return match as BookingEmailType || null;
+}
+
+export async function sendEmailsByType(req: Request, res: Response) {
+  try {
+    const eventId = req.params.eventId;
+    const emailType = parseEmailType(req.params.emailType);
+    if (!eventId) {
+      res.status(400).json({error: "Event id is required"});
+      return;
+    }
+    if (!emailType) {
+      res.status(400).json({error: "Valid email type is required"});
+      return;
+    }
+    const dispatch: BookingReminderDispatch = await sendEmailsByTypeForEvent(eventId, emailType);
+    res.json({request: {eventId, emailType}, response: dispatch});
+  } catch (error) {
+    debugLog("sendEmailsByType error:", error);
+    res.status(500).json({error: "Failed to send booking emails"});
+  }
+}
+
+export async function previewEmail(req: Request, res: Response) {
+  try {
+    const eventId = req.params.eventId;
+    const emailType = parseEmailType(req.params.emailType);
+    if (!eventId) {
+      res.status(400).json({error: "Event id is required"});
+      return;
+    }
+    if (!emailType) {
+      res.status(400).json({error: "Valid email type is required"});
+      return;
+    }
+
+    const event = await extendedGroupEvent.findById(eventId).lean().then(doc => doc ? transforms.toObjectWithId(doc) : null);
+    if (!event) {
+      res.status(404).json({error: "Event not found"});
+      return;
+    }
+
+    const sampleBooking = await booking.findOne({eventIds: eventId}).lean()
+      .then(doc => doc ? transforms.toObjectWithId(doc) : null);
+    const previewBooking: Booking = sampleBooking || {
+      eventIds: [eventId],
+      attendees: [{displayName: "Sample Attendee", email: "attendee@example.com"}],
+      status: BookingStatus.ACTIVE
+    } as Booking;
+
+    const build = await buildBookingEmailRequest(emailType, previewBooking, event, null);
+    if (!build) {
+      res.status(400).json({error: "Unable to build preview - notification config missing"});
+      return;
+    }
+
+    res.json({
+      request: {eventId, emailType},
+      response: {
+        templateId: build.templateId,
+        htmlContent: build.bodyContent,
+        params: build.params,
+        subject: build.subject
+      }
+    });
+  } catch (error) {
+    debugLog("previewEmail error:", error);
+    res.status(500).json({error: "Failed to build booking email preview"});
+  }
+}
+
+export async function sendReminders(req: Request, res: Response) {
+  try {
+    const eventId = req.params.eventId;
+    if (!eventId) {
+      res.status(400).json({error: "Event id is required"});
+      return;
+    }
+
+    const reminderDispatch: BookingReminderDispatch = await sendReminderEmailsForEvent(eventId);
+    res.json({request: {eventId}, response: reminderDispatch});
+  } catch (error) {
+    debugLog("sendReminders error:", error);
+    res.status(500).json({error: "Failed to send booking reminders"});
   }
 }
 

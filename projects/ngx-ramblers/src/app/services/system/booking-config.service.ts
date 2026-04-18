@@ -3,7 +3,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
-import { BookingConfig, BOOKING_EVENT_TYPES } from "../../models/booking-config.model";
+import { BookingConfig, BookingScope, BOOKING_EVENT_TYPES } from "../../models/booking-config.model";
 import { ConfigKey } from "../../models/config.model";
 import { WalksConfig } from "../../models/walks-config.model";
 import { BroadcastService } from "../broadcast-service";
@@ -77,6 +77,7 @@ export class BookingConfigService {
     return {
       ...merged,
       enabled: config?.enabled ?? legacyConfig?.enabled ?? defaults.enabled,
+      scope: config?.scope ?? legacyConfig?.scope ?? defaults.scope,
       defaultMaxCapacity: config?.defaultMaxCapacity || legacyConfig?.defaultMaxCapacity || defaults.defaultMaxCapacity,
       defaultMaxGroupSize: config?.defaultMaxGroupSize || legacyConfig?.defaultMaxGroupSize || defaults.defaultMaxGroupSize,
       defaultMemberPriorityDays: config?.defaultMemberPriorityDays || legacyConfig?.defaultMemberPriorityDays || defaults.defaultMemberPriorityDays,
@@ -91,10 +92,12 @@ export class BookingConfigService {
   default(): BookingConfig {
     return {
       enabled: false,
+      scope: BookingScope.ALL_EVENTS,
       enabledForEventTypes: BOOKING_EVENT_TYPES,
       defaultMaxCapacity: 0,
       defaultMaxGroupSize: 3,
-      defaultMemberPriorityDays: 0
+      defaultMemberPriorityDays: 0,
+      templatesIncludeSalutation: true
     };
   }
 }

@@ -1,10 +1,8 @@
 import { Location } from "@angular/common";
 import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
-import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { isUndefined } from "es-toolkit/compat";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { RouteParam } from "../../../models/content-text.model";
 import {
@@ -66,6 +64,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
 import { TitleCasePipe } from "@angular/common";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
+import { EmailPreviewComponent } from "../../../modules/common/email-preview/email-preview.component";
 
 @Component({
     selector: "app-committee-send-notification",
@@ -441,28 +440,13 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                 </tab>
                 <tab heading="Preview" (selectTab)="refreshPreview()">
                   <div class="img-thumbnail thumbnail-admin-edit">
-                    <div class="print-preview" style="height:auto;overflow:visible;">
-                      <div #notificationContent class="d-none">
-                        <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
-                                                            [notification]="notification"
-                                                            [sourcePagePath]="sourcePagePath"
-                                                            [sourcePageTitle]="sourcePageTitle"/>
-                      </div>
-                      @if (previewLoading) {
-                        <div class="p-3">Rendering preview...</div>
-                      } @else if (previewError) {
-                        <div class="alert alert-warning m-3">{{ previewError }}</div>
-                      } @else if (previewUrl) {
-                        <iframe
-                          #previewFrame
-                          title="Email preview"
-                          scrolling="yes"
-                          sandbox="allow-popups allow-popups-to-escape-sandbox"
-                          (load)="resizePreviewFrame()"
-                          [src]="previewUrl"
-                          style="display:block;width:100%;height:70vh;border:0;background:#f3f3f3;"></iframe>
-                      }
+                    <div #notificationContent class="d-none">
+                      <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
+                                                          [notification]="notification"
+                                                          [sourcePagePath]="sourcePagePath"
+                                                          [sourcePageTitle]="sourcePageTitle"/>
                     </div>
+                    <app-email-preview #emailPreview/>
                   </div>
                 </tab>
               </tabset>
@@ -494,7 +478,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
           <ng-template app-notification-directive/>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, MarkdownComponent, DatePicker, LinkComponent, SenderRepliesAndSignoff, CommitteeRoleMultiSelectComponent, CommitteeNotificationDetailsComponent, FontAwesomeModule, BrevoButtonComponent, NotificationDirective, TitleCasePipe, DisplayDatePipe]
+  imports: [PageComponent, TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, MarkdownComponent, DatePicker, LinkComponent, SenderRepliesAndSignoff, CommitteeRoleMultiSelectComponent, CommitteeNotificationDetailsComponent, FontAwesomeModule, BrevoButtonComponent, NotificationDirective, TitleCasePipe, DisplayDatePipe, EmailPreviewComponent]
 })
 export class CommitteeSendNotification implements OnInit, OnDestroy {
 
@@ -504,7 +488,6 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
   private memberLoginService = inject(MemberLoginService);
   private committeeQueryService = inject(CommitteeQueryService);
   private mailService = inject(MailService);
-  private sanitizer = inject(DomSanitizer);
   protected mailMessagingService = inject(MailMessagingService);
   private notifierService = inject(NotifierService);
   display = inject(CommitteeDisplayService);
@@ -519,7 +502,7 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
   private urlService = inject(UrlService);
   protected dateUtils = inject(DateUtilsService);
   @ViewChild("notificationContent") notificationContent: ElementRef;
-  @ViewChild("previewFrame") previewFrame: ElementRef<HTMLIFrameElement>;
+  @ViewChild("emailPreview") emailPreview: EmailPreviewComponent;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   public segmentEditingSupported = false;
   public committeeFile: CommitteeFile;
@@ -539,14 +522,6 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
   public notificationConfigListing: NotificationConfigListing;
   public senderExists: boolean;
   public notificationConfigs: NotificationConfig[] = [];
-  public previewHtml: string | null = null;
-  public previewUrl: SafeResourceUrl | null = null;
-  public previewHeight = 1600;
-  public previewLoading = false;
-  public previewError: string | null = null;
-  private previewObjectUrl: string | null = null;
-  private previewResizeObserver: ResizeObserver | null = null;
-  private previewMutationObserver: MutationObserver | null = null;
   protected readonly addresseeFirstName = ADDRESSEE_CONTACT_FIRST_NAME;
   faArrowLeft = faArrowLeft;
 
@@ -631,8 +606,6 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.clearPreviewObservers();
-    this.clearPreviewObjectUrl();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
@@ -833,29 +806,12 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
 
   async refreshPreview() {
     if (!this.notification?.content?.notificationConfig?.templateId) {
-      this.previewHtml = null;
-      this.previewUrl = null;
-      this.previewError = "Choose a Brevo template to render the preview.";
+      this.emailPreview?.showError("Choose a Brevo template to render the preview.");
       return;
     }
-    this.previewLoading = true;
-    this.previewError = null;
-    try {
-      const bodyContent = this.generateNotificationHTML();
-      const request = await this.previewRequest(bodyContent);
-      const response = await this.mailService.renderTemplate(request);
-      this.clearPreviewObservers();
-      this.previewHeight = 1600;
-      this.previewHtml = response.htmlContent;
-      this.previewUrl = this.toPreviewUrl(response.htmlContent);
-    } catch (error) {
-      this.previewHtml = null;
-      this.previewUrl = null;
-      this.previewError = "Preview could not be rendered.";
-      this.logger.error("refreshPreview failed", error);
-    } finally {
-      this.previewLoading = false;
-    }
+    const bodyContent = this.generateNotificationHTML();
+    const request = await this.previewRequest(bodyContent);
+    await this.emailPreview?.render(request);
   }
 
   private async previewRequest(bodyContent: string): Promise<TemplateRenderRequest> {
@@ -876,57 +832,6 @@ export class CommitteeSendNotification implements OnInit, OnDestroy {
         this.notification.content.addresseeType
       )
     };
-  }
-
-  private toPreviewUrl(html: string): SafeResourceUrl {
-    this.clearPreviewObjectUrl();
-    this.previewObjectUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-    return this.sanitizer.bypassSecurityTrustResourceUrl(this.previewObjectUrl);
-  }
-
-  private clearPreviewObjectUrl() {
-    if (this.previewObjectUrl) {
-      URL.revokeObjectURL(this.previewObjectUrl);
-      this.previewObjectUrl = null;
-    }
-  }
-
-  private clearPreviewObservers() {
-    this.previewResizeObserver?.disconnect();
-    this.previewResizeObserver = null;
-    this.previewMutationObserver?.disconnect();
-    this.previewMutationObserver = null;
-  }
-
-  resizePreviewFrame() {
-    const doc = this.previewFrame?.nativeElement?.contentDocument;
-    const applyHeight = () => {
-      if (doc?.documentElement && doc?.body) {
-        doc.documentElement.style.overflow = "hidden";
-        doc.body.style.overflow = "hidden";
-      }
-      const nextHeight = Math.max(
-        doc?.body?.scrollHeight || 0,
-        doc?.body?.offsetHeight || 0,
-        doc?.documentElement?.scrollHeight || 0,
-        doc?.documentElement?.offsetHeight || 0,
-        1600
-      );
-      this.previewHeight = nextHeight;
-      return nextHeight;
-    };
-    this.clearPreviewObservers();
-    if (doc?.body && !isUndefined(ResizeObserver)) {
-      this.previewResizeObserver = new ResizeObserver(() => applyHeight());
-      this.previewResizeObserver.observe(doc.body);
-      this.previewResizeObserver.observe(doc.documentElement);
-    }
-    if (doc?.body && !isUndefined(MutationObserver)) {
-      this.previewMutationObserver = new MutationObserver(() => applyHeight());
-      this.previewMutationObserver.observe(doc.body, { childList: true, subtree: true, attributes: true, characterData: true });
-    }
-    doc?.querySelectorAll("img").forEach(image => image.addEventListener("load", applyHeight, { once: true }));
-    window.setTimeout(applyHeight, 0);
   }
 
   completeInMailSystem() {

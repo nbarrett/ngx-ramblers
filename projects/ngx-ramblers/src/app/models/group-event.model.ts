@@ -97,6 +97,7 @@ export interface ExtendedFields {
   maxCapacity?: number;
   maxGroupSize?: number;
   memberPriorityDays?: number;
+  bookingsEnabled?: boolean;
   bookingEmailOverrides?: BookingEmailOverrides;
 }
 

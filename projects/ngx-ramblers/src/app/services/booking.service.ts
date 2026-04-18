@@ -10,8 +10,11 @@ import {
   BookingCancelRequest,
   BookingCapacityResponse,
   BookingCreateRequest,
-  BookingEligibility
+  BookingEligibility,
+  BookingReminderDispatch
 } from "../models/booking.model";
+import { BookingEmailType } from "../models/booking-config.model";
+import { TemplateRenderRequest } from "../models/mail.model";
 import { CommonDataService } from "./common-data-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 
@@ -88,6 +91,24 @@ export class BookingService {
   async attendeesForEvent(eventId: string): Promise<BookingAttendeeListResponse> {
     this.logger.debug("attendeesForEvent:eventId", eventId);
     const apiResponse = await firstValueFrom(this.http.get<{response: BookingAttendeeListResponse}>(`${this.BASE_URL}/attendees/${eventId}`));
+    return apiResponse.response;
+  }
+
+  async sendReminders(eventId: string): Promise<BookingReminderDispatch> {
+    this.logger.debug("sendReminders:eventId", eventId);
+    const apiResponse = await firstValueFrom(this.http.post<{response: BookingReminderDispatch}>(`${this.BASE_URL}/send-reminders/${eventId}`, {}));
+    return apiResponse.response;
+  }
+
+  async sendEmailsByType(eventId: string, emailType: BookingEmailType): Promise<BookingReminderDispatch> {
+    this.logger.debug("sendEmailsByType:eventId", eventId, "emailType", emailType);
+    const apiResponse = await firstValueFrom(this.http.post<{response: BookingReminderDispatch}>(`${this.BASE_URL}/send-emails/${emailType}/${eventId}`, {}));
+    return apiResponse.response;
+  }
+
+  async previewEmail(eventId: string, emailType: BookingEmailType): Promise<TemplateRenderRequest> {
+    this.logger.debug("previewEmail:eventId", eventId, "emailType", emailType);
+    const apiResponse = await firstValueFrom(this.http.get<{response: TemplateRenderRequest}>(`${this.BASE_URL}/preview-email/${emailType}/${eventId}`));
     return apiResponse.response;
   }
 

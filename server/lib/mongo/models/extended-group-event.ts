@@ -110,6 +110,7 @@ const fields = new Schema({
   maxCapacity: {type: Number},
   maxGroupSize: {type: Number},
   memberPriorityDays: {type: Number},
+  bookingsEnabled: {type: Boolean},
   bookingEmailOverrides: new Schema({
     confirmation: {type: String},
     cancellation: {type: String},
