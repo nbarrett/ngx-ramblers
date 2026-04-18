@@ -103,6 +103,10 @@ export function buildSecretsFromDatabaseConfig(
     });
   }
 
+  if (!secrets.INTEGRATION_WORKER_CALLBACK_BASE_URL && envConfig.flyio?.appName) {
+    secrets.INTEGRATION_WORKER_CALLBACK_BASE_URL = `https://${envConfig.flyio.appName}.fly.dev`;
+  }
+
   if (globalConfig?.cloudflare) {
     const encryptionKey = secrets.ENVIRONMENT_SETUP_API_KEY || globalConfig.secrets?.ENVIRONMENT_SETUP_API_KEY;
     if (encryptionKey) {

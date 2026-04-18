@@ -8,10 +8,6 @@ import { envConfig } from "../../../../env-config/env-config";
 const debugLog = debug(envConfig.logNamespace("navigate-with-dom-loaded"));
 debugLog.enabled = true;
 
-// Serenity's Navigate.to uses Playwright's default waitUntil: "load", which requires every
-// subresource (iframes, analytics, fonts) to finish. On fly's egress, one slow third-party can
-// stall the whole navigation past the test-level timeout. This variant returns once the DOM is
-// parsed; any downstream Wait.until(element, isVisible()) still guards on the elements we need.
 export class NavigateWithDomLoaded extends Interaction {
 
   static to(url: string): NavigateWithDomLoaded {
