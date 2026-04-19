@@ -23,6 +23,11 @@ import { EventsHeader } from "./events-header";
 import { FormsModule } from "@angular/forms";
 import { EventCardsList } from "./event-cards-list";
 import { EventsFull } from "./events-full";
+import { PaginationComponent } from "ngx-bootstrap/pagination";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { NgTemplateOutlet } from "@angular/common";
+import { WalksConfig } from "../../../models/walks-config.model";
+import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { EventQueryParameters, RamblersEventType } from "../../../models/ramblers-walks-manager";
@@ -46,15 +51,33 @@ import { isMongoId } from "../../../services/mongo-utils";
         <app-event-cards-list [eventsData]="eventsData"
                               [notifyTarget]="notifyTarget"
                               [currentPageFilteredEvents]="currentPageFilteredEvents"/>
+        @if (showRepeatedPagination()) {
+          <div class="d-flex flex-column flex-md-row events-header-full-width mt-3">
+            <pagination class="rounded" [boundaryLinks]="true" [rotate]="true" [maxSize]="5"
+                        [itemsPerPage]="pageSize"
+                        [totalItems]="extendedGroupEvents?.length" [(ngModel)]="pageNumber"
+                        (pageChanged)="pageChanged($event)"/>
+            @if ((!eventsData || eventsData?.allow?.alert) && notifyTarget.showAlert) {
+              <div class="form-group mb-0 flex-grow-1 mt-md-0">
+                <div class="alert {{notifyTarget.alertClass}}">
+                  <fa-icon [icon]="notifyTarget.alert.icon"/>
+                  <strong>{{ notifyTarget.alertTitle }}</strong>
+                  {{ notifyTarget.alertMessage }}
+                </div>
+              </div>
+            }
+          </div>
+        }
       }
     `,
   styleUrls: ["../../../pages/group-events/home/group-event-home.sass"],
-  imports: [EventsHeader, FormsModule, EventCardsList, EventsFull]
+  imports: [EventsHeader, FormsModule, EventCardsList, EventsFull, PaginationComponent, FontAwesomeModule, NgTemplateOutlet]
 })
 export class Events implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("Events", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
+  private walksConfigService = inject(WalksConfigService);
   pageService = inject(PageService);
   private stringUtils = inject(StringUtilsService);
   private searchFilterPipe = inject(SearchFilterPipe);
@@ -75,13 +98,14 @@ export class Events implements OnInit, OnDestroy {
     selectType: FilterCriteria.FUTURE_EVENTS,
     quickSearch: ""
   };
-  private pageSize = 8;
+  public pageSize = 8;
   public pageNumber = 1;
   public pageCount: number;
   public pages: number[] = [];
   public extendedGroupEvents: ExtendedGroupEvent[] = [];
   public filteredExtendedGroupEvents: ExtendedGroupEvent[] = [];
   public currentPageFilteredEvents: ExtendedGroupEvent[] = this.filteredExtendedGroupEvents;
+  public walksConfig: WalksConfig;
   @Input() rowIndex: number;
   @Input() eventsData: EventsData;
 
@@ -95,6 +119,8 @@ export class Events implements OnInit, OnDestroy {
       });
       this.refreshEvents();
     });
+    this.walksConfig = this.walksConfigService.walksConfig() ?? this.walksConfigService.default();
+    this.subscriptions.push(this.walksConfigService.events().subscribe(config => this.walksConfig = config));
     this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshEvents());
     this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilterToGroupEvents(searchTerm));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
@@ -274,6 +300,13 @@ export class Events implements OnInit, OnDestroy {
   pageChanged(event: PageChangedEvent): void {
     this.logger.info("event:", event);
     this.goToPage(event.page);
+  }
+
+  showRepeatedPagination(): boolean {
+    return this.pages.length > 1
+      && (!this.eventsData || this.eventsData?.allow?.pagination !== false)
+      && this.walksConfig?.showRepeatedPagination !== false
+      && this.currentPageFilteredEvents.length >= this.pageSize;
   }
 
   goToPage(pageNumber) {

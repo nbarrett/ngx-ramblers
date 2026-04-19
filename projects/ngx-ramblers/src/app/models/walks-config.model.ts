@@ -3,6 +3,7 @@ export interface WalksConfig {
   requireRiskAssessment: boolean;
   requireFinishTime: boolean;
   requireWalkLeaderDisplayName: boolean;
+  showRepeatedPagination?: boolean;
 }
 
 export enum WalkConfigTab {

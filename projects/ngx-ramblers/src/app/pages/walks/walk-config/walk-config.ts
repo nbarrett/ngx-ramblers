@@ -75,6 +75,13 @@ import {
                              id="require-walk-leader-display-name">
                       <label class="form-check-label" for="require-walk-leader-display-name">Require walk leader display name to be entered</label>
                     </div>
+                    <div class="form-check mb-2">
+                      <input [(ngModel)]="walksConfig.showRepeatedPagination"
+                             type="checkbox"
+                             class="form-check-input"
+                             id="show-repeated-pagination">
+                      <label class="form-check-label" for="show-repeated-pagination">Repeat the pagination row below the event list when the current page is full (helps mobile users after a long scroll)</label>
+                    </div>
                   </div>
                 }
               </div>
