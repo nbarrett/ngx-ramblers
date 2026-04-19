@@ -93,6 +93,7 @@ export interface BannerConfig {
   updatedAt?: number;
   updatedBy?: string;
   fileNameData?: ServerFileNameData;
+  bannerHeight?: number | null;
 }
 
 export interface BannerConfigApiResponse extends ApiResponse {

@@ -31,6 +31,7 @@ export enum StoredValue {
   AUDIT_MESSAGE = "audit-message",
   AUDIT_TIME = "audit-time",
   AUTH_TOKEN = "auth-token",
+  BANNER = "banner",
   CANCELLED = "cancelled",
   CAROUSEL = "carousel",
   CHART_TYPE = "agm-stats-chart-type",

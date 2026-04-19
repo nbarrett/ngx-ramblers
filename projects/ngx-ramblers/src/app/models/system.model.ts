@@ -2,7 +2,7 @@ import { Link } from "./page.model";
 import { HasClass, HasColour } from "./banner-configuration.model";
 import { GoogleMapsConfig, WalkListView } from "./walk.model";
 import { HasStyles } from "./content-text.model";
-import { ImageCropperPosition } from "./image-cropper.model";
+import { FocalPoint, ImageCropperPosition } from "./image-cropper.model";
 
 export { GoogleMapsConfig };
 
@@ -301,6 +301,7 @@ export interface Image {
   width: number;
   padding: number;
   cropperPosition?: ImageCropperPosition | null;
+  focalPoint?: FocalPoint | null;
 }
 
 export enum RootFolder {
