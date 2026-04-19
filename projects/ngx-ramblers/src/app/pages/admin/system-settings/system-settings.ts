@@ -286,16 +286,30 @@ import { FooterLinkSetting } from "./footer-link-setting";
                       <div class="thumbnail-heading">Column 4: Download Links</div>
                       <div class="col-sm-12">
                         <div class="form-group">
-                          <label for="area-long-name">Apple</label>
+                          <label for="app-download-apple-url">Apple</label>
                           <input [(ngModel)]="config.footer.appDownloads.apple"
-                                 id="area-long-name"
+                                 id="app-download-apple-url"
                                  class="form-control input-sm">
+                          <div class="form-check mt-2">
+                            <input [(ngModel)]="config.footer.appDownloads.appleShowInFooter"
+                                   type="checkbox" class="form-check-input"
+                                   id="app-download-apple-show-in-footer">
+                            <label class="form-check-label"
+                                   for="app-download-apple-show-in-footer">Show in footer</label>
+                          </div>
                         </div>
                         <div class="form-group">
-                          <label for="area-short-name">Google</label>
+                          <label for="app-download-google-url">Google</label>
                           <input [(ngModel)]="config.footer.appDownloads.google"
-                                 id="area-short-name"
+                                 id="app-download-google-url"
                                  class="form-control input-sm">
+                          <div class="form-check mt-2">
+                            <input [(ngModel)]="config.footer.appDownloads.googleShowInFooter"
+                                   type="checkbox" class="form-check-input"
+                                   id="app-download-google-show-in-footer">
+                            <label class="form-check-label"
+                                   for="app-download-google-show-in-footer">Show in footer</label>
+                          </div>
                         </div>
                       </div>
                     </div>
