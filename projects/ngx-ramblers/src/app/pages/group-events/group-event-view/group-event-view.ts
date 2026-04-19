@@ -57,6 +57,7 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
           </div>
           <div class="row">
             <div class="col-sm-6">
+              @if (display.showSocialRelatedLinks()) {
               <div class="event-panel rounded">
                 <h1>Location and Links</h1>
                 <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
@@ -124,6 +125,7 @@ import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
                   </div>
                 }
               </div>
+              }
             </div>
             <div class="col-sm-6">
               <app-event-leader [groupEvent]="groupEvent"/>

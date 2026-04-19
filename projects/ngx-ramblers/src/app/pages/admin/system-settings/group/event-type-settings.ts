@@ -14,6 +14,7 @@ interface EventTypeFieldMapping {
   population: keyof Organisation;
   detailsPublic: keyof Organisation;
   showOnRamblersLink: keyof Organisation;
+  showRelatedLinks: keyof Organisation;
   contactMethod: keyof Organisation;
   contactDirect: keyof Organisation;
   contactRole: keyof Organisation;
@@ -27,6 +28,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
     population: "walkPopulation",
     detailsPublic: "walkContactDetailsPublic",
     showOnRamblersLink: "showWalkOnRamblersLink",
+    showRelatedLinks: "showWalkRelatedLinks",
     contactMethod: "groupWalkContactMethod",
     contactDirect: "groupWalkContactDirect",
     contactRole: "groupWalkContactRole",
@@ -38,6 +40,7 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
     population: "socialEventPopulation",
     detailsPublic: "socialDetailsPublic",
     showOnRamblersLink: "showSocialOnRamblersLink",
+    showRelatedLinks: "showSocialRelatedLinks",
     contactMethod: "groupEventContactMethod",
     contactDirect: "groupEventContactDirect",
     contactRole: "groupEventContactRole",
@@ -78,6 +81,33 @@ const FIELD_MAPPINGS: Record<string, EventTypeFieldMapping> = {
       </div>
     </div>
     <div class="form-group">
+      <div class="form-check">
+        <input [(ngModel)]="group[fields.showRelatedLinks]"
+               type="checkbox" class="form-check-input"
+               [id]="idFor('show-related-links')">
+        <label class="form-check-label"
+               [for]="idFor('show-related-links')">Show "Related Links" Box on {{ eventTypeTitle }} Pages</label>
+      </div>
+    </div>
+    @if (eventType === RamblersEventType.GROUP_WALK) {
+      <div class="form-group">
+        <div class="form-check">
+          <input [(ngModel)]="group.showWalkShareInHeader"
+                 type="checkbox" class="form-check-input"
+                 [id]="idFor('show-share-in-header')">
+          <label class="form-check-label"
+                 [for]="idFor('show-share-in-header')">Show "Share" Row in {{ eventTypeTitle }} Leader Panel</label>
+        </div>
+      </div>
+    } @else {
+      <div class="form-group invisible" aria-hidden="true">
+        <div class="form-check">
+          <input type="checkbox" class="form-check-input" tabindex="-1">
+          <label class="form-check-label">&nbsp;</label>
+        </div>
+      </div>
+    }
+    <div class="form-group">
       <label [for]="idFor('contact-method')">{{ eventTypeTitle }} Contact Method</label>
       <select [(ngModel)]="group[fields.contactMethod]"
               class="form-control input-sm" [id]="idFor('contact-method')">
@@ -117,6 +147,7 @@ export class EventTypeSettingsComponent implements OnInit {
   populationMethods: KeyValue<string>[] = enumKeyValues(EventPopulation);
   eventLeaderContactMethods: KeyValue<string>[] = enumKeyValues(EventLeaderContactMethod);
   contactUsValue = EventLeaderContactMethod.CONTACT_US;
+  protected readonly RamblersEventType = RamblersEventType;
   committeeRoles: CommitteeMember[] = [];
 
   @Input() config: SystemConfig;
@@ -152,6 +183,9 @@ export class EventTypeSettingsComponent implements OnInit {
     }
     if (this.group[this.fields.showOnRamblersLink] === null || this.group[this.fields.showOnRamblersLink] === undefined) {
       (this.group as any)[this.fields.showOnRamblersLink] = true;
+    }
+    if (this.group[this.fields.showRelatedLinks] === null || this.group[this.fields.showRelatedLinks] === undefined) {
+      (this.group as any)[this.fields.showRelatedLinks] = true;
     }
   }
 }

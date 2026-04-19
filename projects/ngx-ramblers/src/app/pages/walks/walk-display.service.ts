@@ -464,6 +464,14 @@ export class WalkDisplayService {
     return this.group?.showWalkOnRamblersLink !== false;
   }
 
+  showWalkRelatedLinks(): boolean {
+    return this.group?.showWalkRelatedLinks !== false;
+  }
+
+  showWalkShareInHeader(): boolean {
+    return this.group?.showWalkShareInHeader === true;
+  }
+
   isContactUsContact(event?: ExtendedGroupEvent): boolean {
     return this.eventContactService.isContactUsContact(event);
   }

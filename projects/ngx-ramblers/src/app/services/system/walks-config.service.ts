@@ -67,7 +67,13 @@ export class WalksConfigService {
       requireRiskAssessment: true,
       requireFinishTime: true,
       requireWalkLeaderDisplayName: true,
-      showRepeatedPagination: true
+      showRepeatedPagination: true,
+      relatedLinkShowOnRamblers: true,
+      relatedLinkShowThisWalk: true,
+      relatedLinkShowMeetup: true,
+      relatedLinkShowOsMaps: true,
+      relatedLinkShowWhat3words: true,
+      relatedLinkShowVenue: true
     };
   };
 

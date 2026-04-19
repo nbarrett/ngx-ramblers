@@ -167,9 +167,12 @@ export interface Organisation extends Group {
   socialEventPopulation: EventPopulation;
   walkContactDetailsPublic: boolean;
   showWalkOnRamblersLink: boolean;
+  showWalkRelatedLinks?: boolean;
+  showWalkShareInHeader?: boolean;
   allowSwitchWalkView: boolean;
   socialDetailsPublic: boolean;
   showSocialOnRamblersLink: boolean;
+  showSocialRelatedLinks?: boolean;
   walkLeaderContactMethod?: EventLeaderContactMethod;
   walkLeaderContactDirect?: boolean;
   walkLeaderContactRole?: string;
