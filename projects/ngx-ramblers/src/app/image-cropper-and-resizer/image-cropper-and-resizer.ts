@@ -78,7 +78,7 @@ import { ClipboardService } from "../services/clipboard.service";
 })
 
 export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, OnDestroy {
-    private logger: Logger = inject(LoggerFactory).createLogger("ImageCropperAndResizerComponent", NgxLoggerLevel.INFO);
+    private logger: Logger = inject(LoggerFactory).createLogger("ImageCropperAndResizerComponent", NgxLoggerLevel.ERROR);
     private broadcastService = inject<BroadcastService<Base64File[]>>(BroadcastService);
     private numberUtils = inject(NumberUtilsService);
     private fileUploadService = inject(FileUploadService);
@@ -671,22 +671,10 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
         const size = this.originalImageData?.size;
         if (this.cropperPosition) {
             this.resolvedCropperPosition = this.cropperPositionFromPercent(this.cropperPosition, size);
-        } else if (this.validCropperSize(size)) {
-            this.resolvedCropperPosition = this.defaultCropperPosition(size);
         } else {
             this.resolvedCropperPosition = null;
         }
         this.logger.info("updateResolvedCropperPosition - cropperPosition:", this.cropperPosition, "imageSize:", size, "resolvedCropperPosition:", this.resolvedCropperPosition);
-    }
-
-    private defaultCropperPosition(size: Dimensions): CropperPosition {
-        const inset = Math.max(8, Math.round(Math.min(size.width, size.height) * 0.015));
-        return {
-            x1: inset,
-            y1: inset,
-            x2: Math.max(inset + 10, size.width - inset),
-            y2: Math.max(inset + 10, size.height - inset)
-        };
     }
 
     private cropperPositionFromPercent(position: ImageCropperPosition, size: Dimensions): CropperPosition | null {

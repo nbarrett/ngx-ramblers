@@ -1,6 +1,7 @@
 import { NgxCaptureService } from "ngx-capture";
 import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
-import { range } from "es-toolkit";
+import { ActivatedRoute, Router } from "@angular/router";
+import { kebabCase, range } from "es-toolkit";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../auth/auth.service";
@@ -24,10 +25,11 @@ import { enumKeyValues, KeyValue } from "../../functions/enums";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { MemberService } from "../../services/member/member.service";
+import { NumberUtilsService } from "../../services/number-utils.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { UrlService } from "../../services/url.service";
-import { faTableCells } from "@fortawesome/free-solid-svg-icons";
+import { faSpinner, faTableCells } from "@fortawesome/free-solid-svg-icons";
 import { tap } from "rxjs/operators";
 import { HttpErrorResponse } from "@angular/common/http";
 import { FileUploader } from "ng2-file-upload";
@@ -36,20 +38,23 @@ import { AlertInstance, NotifierService } from "../../services/notifier.service"
 import { AlertTarget } from "../../models/alert-target.model";
 import { FileUtilsService } from "../../file-utils.service";
 import { IMAGE_JPEG } from "../../models/content-metadata.model";
-import { cloneDeep } from "es-toolkit/compat";
-import { isEqual } from "es-toolkit/compat";
+import { cloneDeep, isEqual } from "es-toolkit/compat";
 import { PageComponent } from "../../page/page.component";
 import { FormsModule } from "@angular/forms";
-import { BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective } from "ngx-bootstrap/dropdown";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { ButtonCheckboxDirective } from "ngx-bootstrap/buttons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { CollapseDirective } from "ngx-bootstrap/collapse";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BannerImageSelectorComponent } from "./banner-image-selector.component";
 import { BannerTitleConfigComponent } from "./banner-title-config.component";
 import { ColourSelectorComponent } from "./colour-selector";
 import { ImageCropperAndResizerComponent } from "../../image-cropper-and-resizer/image-cropper-and-resizer";
 import { BannerPapercutOutputComponent } from "./banner-papercut-output.component";
 import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-lines-output";
+import { FocalPointPickerComponent } from "../../modules/common/focal-point-picker/focal-point-picker";
+import { FocalPoint } from "../../models/image-cropper.model";
+import { StoredValue } from "../../models/ui-actions";
 
 @Component({
     selector: "app-banner",
@@ -61,7 +66,8 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
           <label for="banner-lookup">Select a saved banner</label>
           <select class="form-control input-sm"
             id="banner-lookup"
-            [(ngModel)]="editableBanner" (ngModelChange)="bannerSelected($event)">
+            [(ngModel)]="editableBanner" (ngModelChange)="bannerSelected($event)"
+            [compareWith]="compareBanners">
             @for (banner of banners; track banner.id) {
               <option
                 [ngValue]="banner">{{ toBannerInformation(banner) }}
@@ -93,11 +99,23 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
           type="button">{{ isCollapsed ? 'Edit' : 'Close Edit' }}
         </button>
         @if (allowContentEdits) {
-          @if (!bannerPhotoEditActive) {
+          @if (!bannerPhotoEditActive && !bannerSavedImageEditActive) {
             <button [disabled]="saving" class="btn btn-primary ms-1" type="button"
               (click)="editPhoto()">Edit
               Photo
             </button>
+            @if (editableBanner?.fileNameData?.awsFileName) {
+              <button [disabled]="saving" class="btn btn-primary ms-1" type="button"
+                (click)="editSavedImage()">Edit Saved Image
+              </button>
+            } @else {
+              <button class="btn btn-secondary ms-1" type="button" disabled
+                tooltip="Image needs to be saved before it can be cropped and resized">Not Saved Yet
+              </button>
+            }
+          }
+          @if (editableBanner?.fileNameData?.awsFileName) {
+            <img [src]="savedImageSrc()" class="d-none" (load)="onSavedImageLoad($event)" alt=""/>
           }
           <button (click)="duplicate()" [disabled]="saving" class="btn btn-primary ms-1"
             type="button">Duplicate
@@ -121,12 +139,21 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
         <button class="btn btn-primary ms-1" [(ngModel)]="imageDisplay.saved" [class.active]="imageDisplay.saved"
           btnCheckbox tabindex="0" name="saved" role="button">Saved
         </button>
+        @if (editableBanner?.fileNameData?.awsFileName && savedImageSummary()) {
+          <div class="row mt-2">
+            <div class="col-sm-12 small text-muted">{{ savedImageSummary() }}</div>
+          </div>
+        }
         <div class="mt-3">
           @if (notifyTarget.showAlert) {
             <div class="row">
               <div class="col-sm-12">
                 <div class="alert {{notifyTarget.alertClass}}">
-                  <fa-icon [icon]="notifyTarget.alert.icon"/>
+                  @if (notifyTarget.busy) {
+                    <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>
+                  } @else {
+                    <fa-icon [icon]="notifyTarget.alert.icon"/>
+                  }
                   @if (notifyTarget.alertTitle) {
                     <strong
                       >
@@ -215,6 +242,26 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
                       <div class="col-sm-6">
                         <app-colour-selector [itemWithClassOrColour]="editableBanner.banner?.text"/>
                       </div>
+                      @if (editableBanner?.banner?.photo?.image?.awsFileName && !bannerPhotoEditActive && !bannerSavedImageEditActive) {
+                        <div class="col-sm-12 mt-4">
+                          <label class="form-label">Photo focal point</label>
+                          <div class="small text-muted mb-2">Click or drag on the image to set the focus point. Use mouse wheel or slider to zoom. Drag the bottom handle to set the photo height.
+                            @if (photoNaturalWidth && photoNaturalHeight) {
+                              Source image: {{ photoNaturalWidth }} × {{ photoNaturalHeight }} px.
+                            }
+                          </div>
+                          <img [src]="photoImageSrc()" class="d-none" (load)="onPhotoImageLoad($event)"/>
+                          <app-focal-point-picker
+                            [imageSrc]="photoImageSrc()"
+                            [focalPoint]="editableBanner.banner.photo.image.focalPoint || defaultFocalPoint"
+                            [height]="editableBanner.bannerHeight || defaultBannerHeight"
+                            [resizable]="true"
+                            [minHeight]="200"
+                            [maxHeight]="900"
+                            (focalPointChange)="bannerPhotoFocalPointChange($event)"
+                            (heightChange)="bannerPreviewHeightChange($event)"/>
+                        </div>
+                      }
                       <div class="col-sm-12 mt-4">
                         @if (bannerPhotoEditActive) {
                           <app-image-cropper-and-resizer
@@ -236,11 +283,32 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
               </div>
             </div>
           </div>
+          @if (bannerSavedImageEditActive) {
+            <div class="mt-3">
+              <label class="form-label">Edit saved banner image</label>
+              <div class="small text-muted mb-2">
+                @if (savedImageNaturalWidth && savedImageNaturalHeight) {
+                  Source image: {{ savedImageNaturalWidth }} × {{ savedImageNaturalHeight }} px.
+                }
+              </div>
+              <img [src]="savedImageSrc()" class="d-none" (load)="onSavedImageLoad($event)"/>
+              <app-image-cropper-and-resizer
+                [rootFolder]="bannerPhotos"
+                [preloadImage]="preLoadSavedImage()"
+                nonDestructive
+                (imageChange)="savedImageChange($event)"
+                (quit)="exitSavedImageEdit()"
+                (apply)="exitSavedImageEdit()"
+                (save)="savedImagedSaved($event)">
+              </app-image-cropper-and-resizer>
+            </div>
+          }
           @if (imageDisplay.editable) {
             <div #bannerImage class="show-border">
               @if (isPapercutBanner()) {
                 <app-papercut-output [banner]="editableBanner.banner"
-                  [tempImage]="bannerPhotoAwsFileData?.image"/>
+                  [tempImage]="bannerPhotoAwsFileData?.image"
+                  [bannerHeight]="editableBanner.bannerHeight"/>
               }
               @if (isLogoAndTextLines()) {
                 <app-banner-logo-and-text-lines-output
@@ -249,14 +317,15 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
             </div>
           }
           @if (editableBanner?.fileNameData && imageDisplay.saved) {
-            <div class="row w-100 mx-0 mt-2">
-              <img class="card-img"
-                [src]="urlService.imageSource(editableBanner.fileNameData.rootFolder + '/' + editableBanner.fileNameData.awsFileName)">
-              </div>
-            }
+            <div class="mt-2">
+              <img class="d-block w-100"
+                [src]="savedImageSrc()"
+                (load)="onSavedImageLoad($event)">
+            </div>
+          }
           </div>
         </app-page>`,
-    imports: [PageComponent, FormsModule, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, ButtonCheckboxDirective, FontAwesomeModule, CollapseDirective, BannerImageSelectorComponent, BannerTitleConfigComponent, ColourSelectorComponent, ImageCropperAndResizerComponent, BannerPapercutOutputComponent, BannerLogoAndTextLinesOutputComponent]
+    imports: [PageComponent, FormsModule, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, ButtonCheckboxDirective, FontAwesomeModule, CollapseDirective, BannerImageSelectorComponent, BannerTitleConfigComponent, ColourSelectorComponent, ImageCropperAndResizerComponent, BannerPapercutOutputComponent, BannerLogoAndTextLinesOutputComponent, FocalPointPickerComponent, TooltipDirective]
 })
 
 export class BannerComponent implements OnInit, OnDestroy {
@@ -272,10 +341,12 @@ export class BannerComponent implements OnInit, OnDestroy {
   private bannerConfigService: BannerConfigService = inject(BannerConfigService);
   private systemConfigService: SystemConfigService = inject(SystemConfigService);
   private dateUtils: DateUtilsService = inject(DateUtilsService);
+  private router: Router = inject(Router);
+  private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   private fileUtils: FileUtilsService = inject(FileUtilsService);
+  private numberUtils: NumberUtilsService = inject(NumberUtilsService);
   public urlService: UrlService = inject(UrlService);
-  loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger(BannerComponent, NgxLoggerLevel.ERROR);
+  private logger = inject(LoggerFactory).createLogger("BannerComponent", NgxLoggerLevel.ERROR);
   public bannerPhotos: RootFolder = RootFolder.bannerPhotos;
   public allowContentEdits: boolean;
   public config: SystemConfig;
@@ -294,6 +365,7 @@ export class BannerComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   public uploader: FileUploader;
   protected readonly faTableCells = faTableCells;
+  protected readonly faSpinner = faSpinner;
   public notifyTarget: AlertTarget = {};
   public notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   imageDisplay: { editable?: boolean; saved?: boolean } = {editable: true, saved: false};
@@ -327,7 +399,16 @@ export class BannerComponent implements OnInit, OnDestroy {
             this.uploader.clearQueue();
             this.logger.info("bannerConfigSaveResponse:", bannerConfigSaveResponse);
             this.notify.hide();
+            const existingIndex = this.banners.findIndex(b => b.id && b.id === bannerConfigSaveResponse.id);
+            if (existingIndex >= 0) {
+              this.banners[existingIndex] = bannerConfigSaveResponse;
+            } else {
+              this.banners = [bannerConfigSaveResponse, ...this.banners];
+            }
             this.bannerSelected(bannerConfigSaveResponse);
+            this.savedImageVersion = Date.now();
+            this.savedImageBytesSrc = null;
+            this.imageDisplay.saved = true;
           } else {
             this.notify.warning({
               title: "File upload failed",
@@ -384,6 +465,132 @@ export class BannerComponent implements OnInit, OnDestroy {
     }
   }
 
+  bannerPhotoFocalPointChange(focalPoint: FocalPoint) {
+    const background = this.editablePapercutBackgroundBanner();
+    if (background?.photo?.image) {
+      background.photo.image.focalPoint = focalPoint || null;
+      this.logger.debug("bannerPhotoFocalPointChange:", focalPoint);
+    }
+  }
+
+  photoImageSrc(): string {
+    const banner = this.editableBanner?.banner as PapercutBackgroundBanner;
+    return this.urlService.imageSource(banner?.photo?.image?.awsFileName, true);
+  }
+
+  defaultFocalPoint: FocalPoint = { x: 50, y: 50, zoom: 1 };
+  defaultBannerHeight: number = 400;
+  public bannerSavedImageEditActive: boolean;
+  public bannerSavedImageAwsFileData: AwsFileData;
+  public photoNaturalWidth: number;
+  public photoNaturalHeight: number;
+  public savedImageNaturalWidth: number;
+  public savedImageNaturalHeight: number;
+  public savedImageBytes: number;
+  private savedImageBytesSrc: string;
+
+  onPhotoImageLoad(event: Event) {
+    const img = event.target as HTMLImageElement;
+    this.photoNaturalWidth = img?.naturalWidth || null;
+    this.photoNaturalHeight = img?.naturalHeight || null;
+    this.logger.debug("photo natural size:", this.photoNaturalWidth, "x", this.photoNaturalHeight);
+  }
+
+  onSavedImageLoad(event: Event) {
+    const img = event.target as HTMLImageElement;
+    this.savedImageNaturalWidth = img?.naturalWidth || null;
+    this.savedImageNaturalHeight = img?.naturalHeight || null;
+    this.logger.debug("saved image natural size:", this.savedImageNaturalWidth, "x", this.savedImageNaturalHeight);
+    this.refreshSavedImageBytes();
+  }
+
+  private async refreshSavedImageBytes() {
+    const src = this.savedImageSrc();
+    if (!src || src === this.savedImageBytesSrc) {
+      return;
+    }
+    this.savedImageBytesSrc = src;
+    try {
+      const response = await fetch(src, {cache: "force-cache"});
+      const blob = await response.blob();
+      this.savedImageBytes = blob.size;
+      this.logger.debug("saved image bytes:", this.savedImageBytes, "for", src);
+    } catch (error) {
+      this.logger.debug("refreshSavedImageBytes failed:", error);
+      this.savedImageBytes = null;
+    }
+  }
+
+  savedImageSummary(): string {
+    if (!this.savedImageNaturalWidth || !this.savedImageNaturalHeight) {
+      return null;
+    }
+    const dimensions = `${this.savedImageNaturalWidth} × ${this.savedImageNaturalHeight} px`;
+    const size = this.savedImageBytes ? `, ${this.numberUtils.humanFileSize(this.savedImageBytes)}` : "";
+    return `Saved image: ${dimensions}${size}.`;
+  }
+
+  editSavedImage() {
+    this.isCollapsed = false;
+    this.bannerSavedImageEditActive = true;
+  }
+
+  exitSavedImageEdit() {
+    this.bannerSavedImageAwsFileData = null;
+    this.bannerSavedImageEditActive = false;
+  }
+
+  preLoadSavedImage(): string {
+    if (this.bannerSavedImageAwsFileData?.image) {
+      return this.bannerSavedImageAwsFileData.image;
+    }
+    if (this.bannerSavedImageEditActive && this.editableBanner?.fileNameData) {
+      return this.editableBanner.fileNameData.rootFolder + "/" + this.editableBanner.fileNameData.awsFileName;
+    }
+    return null;
+  }
+
+  savedImageChange(awsFileData: AwsFileData) {
+    this.bannerSavedImageAwsFileData = awsFileData;
+  }
+
+  async savedImagedSaved(awsFileData: AwsFileData) {
+    if (this.editableBanner?.fileNameData) {
+      const rootFolder = this.editableBanner.fileNameData.rootFolder;
+      const prefix = rootFolder ? `${rootFolder}/` : "";
+      const awsFileName = prefix && awsFileData.awsFileName?.startsWith(prefix)
+        ? awsFileData.awsFileName.substring(prefix.length)
+        : awsFileData.awsFileName;
+      this.editableBanner.fileNameData = {
+        ...this.editableBanner.fileNameData,
+        awsFileName
+      };
+      this.updateAudit();
+      const saved = await this.saveBanner();
+      this.bannerSelected(saved);
+      this.savedImageVersion = Date.now();
+      this.savedImageBytesSrc = null;
+      this.imageDisplay.saved = true;
+    }
+    this.exitSavedImageEdit();
+  }
+
+  public savedImageVersion: number = Date.now();
+
+  savedImageSrc(): string {
+    if (!this.editableBanner?.fileNameData) {
+      return null;
+    }
+    const fileName = this.editableBanner.fileNameData.rootFolder + "/" + this.editableBanner.fileNameData.awsFileName;
+    const base = this.urlService.imageSource(fileName, true);
+    return `${base}?v=${this.savedImageVersion}`;
+  }
+
+  bannerPreviewHeightChange(height: number) {
+    this.editableBanner.bannerHeight = height || null;
+    this.logger.debug("bannerPreviewHeightChange:", height);
+  }
+
   private editablePapercutBackgroundBanner(): PapercutBackgroundBanner {
     const background: PapercutBackgroundBanner = this.editableBanner.banner as PapercutBackgroundBanner;
     if (!background?.photo?.image) {
@@ -407,10 +614,13 @@ export class BannerComponent implements OnInit, OnDestroy {
   }
 
   private selectFirstItem() {
-    if (this.banners.length > 0) {
-      this.editableBanner = this.normaliseBanner(this.banners[0]);
-      this.bannerSelected(this.editableBanner);
+    if (this.banners.length === 0) {
+      return;
     }
+    if (this.syncBannerSelectionFromUrl()) {
+      return;
+    }
+    this.bannerSelected(this.banners[0]);
   }
 
   create(defaultContent: BannerConfig) {
@@ -528,7 +738,7 @@ export class BannerComponent implements OnInit, OnDestroy {
     this.notify.success({
       title: "Banners",
       message: "Saving image for " + this.editableBanner.name
-    });
+    }, true);
     if (this.bannerImage?.nativeElement) {
       this.logger.info("saving editableBanner:", this.editableBanner);
       this.captureService.getImage(this.bannerImage?.nativeElement, true)
@@ -577,17 +787,38 @@ export class BannerComponent implements OnInit, OnDestroy {
 
   bannerSelected(bannerConfig: BannerConfig) {
     this.logger.info("bannerSelected:", bannerConfig);
-    this.editableBanner = this.normaliseBanner(bannerConfig);
-    this.lastSavedBanner = cloneDeep(bannerConfig);
+    const matchInList = bannerConfig?.id ? this.banners.find(b => b.id === bannerConfig.id) : null;
+    const target = matchInList || bannerConfig;
+    this.editableBanner = this.normaliseBanner(target);
+    this.lastSavedBanner = cloneDeep(target);
+    this.savedImageNaturalWidth = null;
+    this.savedImageNaturalHeight = null;
+    this.savedImageBytes = null;
+    this.savedImageBytesSrc = null;
+    const slug = this.bannerSlug(target);
+    if (slug) {
+      this.router.navigate([], {
+        relativeTo: this.activatedRoute,
+        queryParams: {[StoredValue.BANNER]: slug},
+        queryParamsHandling: "merge"
+      });
+    }
   }
 
   private normaliseBanner(bannerConfig: BannerConfig): BannerConfig {
-    if (!bannerConfig || bannerConfig.bannerType !== BannerType.LOGO_AND_TEXT_LINES) {
+    if (!bannerConfig) {
       return bannerConfig;
     }
-    const banner = bannerConfig.banner as LogoAndTextLinesBanner;
-    banner.line1 = ensureTitleLine(banner.line1 || null);
-    banner.line2 = ensureTitleLine(banner.line2 || null);
+    if (bannerConfig.fileNameData?.rootFolder && bannerConfig.fileNameData?.awsFileName) {
+      const prefix = `${bannerConfig.fileNameData.rootFolder}/`;
+      const stripPrefixes = (name: string): string => name.startsWith(prefix) ? stripPrefixes(name.substring(prefix.length)) : name;
+      bannerConfig.fileNameData.awsFileName = stripPrefixes(bannerConfig.fileNameData.awsFileName);
+    }
+    if (bannerConfig.bannerType === BannerType.LOGO_AND_TEXT_LINES) {
+      const banner = bannerConfig.banner as LogoAndTextLinesBanner;
+      banner.line1 = ensureTitleLine(banner.line1 || null);
+      banner.line2 = ensureTitleLine(banner.line2 || null);
+    }
     return bannerConfig;
   }
 
@@ -630,6 +861,36 @@ export class BannerComponent implements OnInit, OnDestroy {
   }
 
   pageTitle() {
-    return "Banners (" + (this.banners?.length || 0) + " saved)";
+    const total = this.banners?.length || 0;
+    if (!this.editableBanner || total === 0) {
+      return `Banners - 0 of ${total}`;
+    }
+    const index = this.banners.findIndex(b => b.id && b.id === this.editableBanner.id);
+    const ordinal = index >= 0 ? index + 1 : 1;
+    return `Banners - ${ordinal} of ${total}`;
+  }
+
+  bannerSlug(bannerConfig: BannerConfig): string {
+    return bannerConfig?.name ? kebabCase(bannerConfig.name) : (bannerConfig?.id || "");
+  }
+
+  compareBanners = (a: BannerConfig, b: BannerConfig): boolean => {
+    if (!a || !b) {
+      return a === b;
+    }
+    return a === b || (!!a.id && a.id === b.id);
+  };
+
+  private syncBannerSelectionFromUrl() {
+    const slug = this.activatedRoute.snapshot.queryParams[StoredValue.BANNER];
+    if (!slug || !this.banners?.length) {
+      return false;
+    }
+    const match = this.banners.find(b => this.bannerSlug(b) === slug);
+    if (match && match !== this.editableBanner) {
+      this.bannerSelected(match);
+      return true;
+    }
+    return false;
   }
 }

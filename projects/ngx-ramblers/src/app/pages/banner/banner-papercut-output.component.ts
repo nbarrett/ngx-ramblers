@@ -14,11 +14,11 @@ import { cropperTransformStyles } from "../../functions/image-cropper-styles";
     template: `
     <div class="d-flex flex-column flex-md-row position-relative">
       <div class="wrapper w-100 position-relative" [ngStyle]="paperCutWrapperStyles()">
-        <img class="crop"
-          [src]="urlService.imageSource(this.tempImage || banner?.photo?.image?.awsFileName)"
-          (load)="setPaperCutImageHeight()"
-          [ngStyle]="paperCutPhotoStyles()"/><img/>
+        <div class="crop"
+          [style.background-image]="paperCutPhotoBackgroundImage()"
+          [ngStyle]="paperCutPhotoStyles()"></div>
           <img class="h-100 position-absolute" #paperCutImage
+            (load)="setPaperCutImageHeight()"
             [src]="urlService.resourceRelativePathForAWSFileName(banner?.background?.image?.awsFileName)">
         </div>
         <div class="row position-md-absolute w-100 h-100 align-items-center">
@@ -53,11 +53,13 @@ export class BannerPapercutOutputComponent implements OnInit {
 
   @Input() public tempImage: string;
 
+  @Input() public bannerHeight: number | null;
+
   @ViewChild("paperCutImage") paperCutImage: ElementRef<HTMLImageElement>;
   public paperCutImageHeight: number;
 
-  @HostListener("window:resize", ["$event"])
-  onResize(event) {
+  @HostListener("window:resize")
+  onResize() {
     this.setPaperCutImageHeight();
   }
 
@@ -72,15 +74,36 @@ export class BannerPapercutOutputComponent implements OnInit {
   }
 
   paperCutWrapperStyles(): any {
-    return {"overflow": "hidden"};
+    const styles: any = {"overflow": "hidden"};
+    if (this.bannerHeight) {
+      styles["height.px"] = this.bannerHeight;
+      styles["padding-bottom"] = "0";
+    }
+    return styles;
   }
 
   paperCutPhotoStyles(): any {
+    const focalPoint = this.banner?.photo?.image?.focalPoint;
     const styles: any = {
       "height.px": this.paperCutImageHeight,
-      "width.px": this.banner?.background?.image?.width
+      "width.px": this.banner?.background?.image?.width,
+      "background-size": "cover",
+      "background-position": focalPoint ? `${focalPoint.x}% ${focalPoint.y}%` : "center",
+      "background-repeat": "no-repeat"
     };
+    if (focalPoint) {
+      const zoom = focalPoint.zoom ?? 1;
+      if (zoom > 1) {
+        styles["background-size"] = `${100 * zoom}% auto`;
+      }
+      return styles;
+    }
     return {...styles, ...cropperTransformStyles(this.banner?.photo?.image?.cropperPosition || null)};
+  }
+
+  paperCutPhotoBackgroundImage(): string {
+    const src = this.urlService.imageSource(this.tempImage || this.banner?.photo?.image?.awsFileName, true);
+    return src ? `url('${src}')` : "none";
   }
 
 }
