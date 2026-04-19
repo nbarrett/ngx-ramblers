@@ -1,11 +1,11 @@
 import { Location } from "@angular/common";
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faGear } from "@fortawesome/free-solid-svg-icons";
+import { faGear, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { first, kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { ActivatedRoute, Router } from "@angular/router";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
@@ -153,6 +153,106 @@ import {
                 }
               </div>
             </tab>
+            <tab [active]="tabActive(WalkConfigTab.WALK_VIEW)"
+                 (selectTab)="selectTab(WalkConfigTab.WALK_VIEW)"
+                 [heading]="WalkConfigTab.WALK_VIEW">
+              <div class="img-thumbnail thumbnail-admin-edit">
+                @if (walksConfig) {
+                  <div class="mb-3">
+                    <h4 class="mb-2">Related Links box</h4>
+                    <div markdown class="list-arrow mb-3">
+                      <ul>
+                        <li>Choose which links appear inside the Related Links box on individual walk pages.</li>
+                        <li>The Related Links box itself can be hidden per event type in <a routerLink="/admin/system-settings" [queryParams]="{tab: 'area-group'}"><strong>Admin &gt; System Settings &gt; Group / Area Configuration</strong></a>.</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.relatedLinkShowOnRamblers"
+                               type="checkbox" class="form-check-input"
+                               id="related-link-show-on-ramblers">
+                        <label class="form-check-label" for="related-link-show-on-ramblers">On Ramblers</label>
+                      </div>
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.relatedLinkShowThisWalk"
+                               type="checkbox" class="form-check-input"
+                               id="related-link-show-this-walk">
+                        <label class="form-check-label" for="related-link-show-this-walk">Share this walk</label>
+                      </div>
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.relatedLinkShowMeetup"
+                               type="checkbox" class="form-check-input"
+                               id="related-link-show-meetup">
+                        <label class="form-check-label" for="related-link-show-meetup">Meetup</label>
+                      </div>
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.relatedLinkShowOsMaps"
+                               type="checkbox" class="form-check-input"
+                               id="related-link-show-os-maps">
+                        <label class="form-check-label" for="related-link-show-os-maps">OS Maps</label>
+                      </div>
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.relatedLinkShowWhat3words"
+                               type="checkbox" class="form-check-input"
+                               id="related-link-show-what3words">
+                        <label class="form-check-label" for="related-link-show-what3words">what3words</label>
+                      </div>
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.relatedLinkShowVenue"
+                               type="checkbox" class="form-check-input"
+                               id="related-link-show-venue">
+                        <label class="form-check-label" for="related-link-show-venue">Venue</label>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="related-links-preview event-panel rounded event-panel-inner">
+                        <h1>Related Links</h1>
+                        <div class="row">
+                          @if (walksConfig.relatedLinkShowOnRamblers !== false) {
+                            <div class="col-sm-12 preview-row d-flex align-items-center gap-2">
+                              <img class="related-links-ramblers-image" src="favicon.ico" alt="On Ramblers"/>
+                              <span>On Ramblers</span>
+                            </div>
+                          }
+                          @if (walksConfig.relatedLinkShowThisWalk !== false) {
+                            <div class="col-sm-12 preview-row d-flex align-items-center gap-2">
+                              <fa-icon [icon]="faShareNodes" class="fa-icon"></fa-icon>
+                              <span>Share this walk</span>
+                            </div>
+                          }
+                          @if (walksConfig.relatedLinkShowMeetup !== false) {
+                            <div class="col-sm-12 preview-row d-flex align-items-center gap-2">
+                              <img class="related-links-image" src="/assets/images/local/meetup.ico" alt="View event on Meetup"/>
+                              <span>View event on Meetup</span>
+                            </div>
+                          }
+                          @if (walksConfig.relatedLinkShowOsMaps !== false) {
+                            <div class="col-sm-12 preview-row d-flex align-items-center gap-2">
+                              <img class="related-links-image" src="/assets/images/local/ordnance-survey.png" alt="View map on OS Maps"/>
+                              <span>View map on OS Maps</span>
+                            </div>
+                          }
+                          @if (walksConfig.relatedLinkShowWhat3words !== false) {
+                            <div class="col-sm-12 preview-row d-flex align-items-center gap-2">
+                              <img class="w3w-image" src="/assets/images/local/w3w.png" alt="View start location in what3words"/>
+                              <span>View start location in what3words</span>
+                            </div>
+                          }
+                          @if (walksConfig.relatedLinkShowVenue !== false) {
+                            <div class="col-sm-12 preview-row d-flex align-items-center gap-2">
+                              <fa-icon [icon]="faGear" class="fa-icon"></fa-icon>
+                              <span>Venue: Sample Venue</span>
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </tab>
           </tabset>
           <div class="form-group">
             @if (notifyTarget.showAlert) {
@@ -175,7 +275,7 @@ import {
     </app-page>
   `,
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, MarkdownEditorComponent, MarkdownComponent, WalkMeetupConfigParametersComponent]
+  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, MarkdownEditorComponent, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink]
 })
 export class WalkConfigComponent implements OnInit, OnDestroy {
 
@@ -197,6 +297,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   public meetupConfig: MeetupConfig;
   public walksConfig: WalksConfig;
   faGear = faGear;
+  faShareNodes = faShareNodes;
   private tab: WalkConfigTab = WalkConfigTab.GENERAL;
   private subscriptions: Subscription[] = [];
 

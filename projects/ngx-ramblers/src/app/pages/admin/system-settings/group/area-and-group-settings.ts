@@ -19,6 +19,7 @@ import { ALERT_WARNING } from "../../../../models/alert-target.model";
 import { EM_DASH } from "../../../../models/content-text.model";
 import { HttpClient } from "@angular/common/http";
 import { EventTypeSettingsComponent } from "./event-type-settings";
+import { RouterLink } from "@angular/router";
 
 @Component({
   selector: "[app-area-and-group-settings]",
@@ -154,6 +155,7 @@ import { EventTypeSettingsComponent } from "./event-type-settings";
     <div class="row thumbnail-heading-frame mt-3">
       <div class="thumbnail-heading">Event Configuration</div>
       <div class="col-sm-12">
+        <p class="mb-3">Per-link toggles for the Related Links box live in <a routerLink="/walks/admin/config" [queryParams]="{tab: 'walk-view'}"><strong>Admin &gt; Walks &gt; Walk Configuration &gt; Walk View</strong></a>.</p>
         <div class="row">
           <div class="col-md-6">
             <app-event-type-settings [config]="config" [eventType]="RamblersEventType.GROUP_WALK"/>
@@ -189,7 +191,7 @@ import { EventTypeSettingsComponent } from "./event-type-settings";
       </div>
     </div>
     </div>`,
-  imports: [UiSwitchModule, NgSelectComponent, StatusIconComponent, AlertComponent, FontAwesomeModule, EventTypeSettingsComponent]
+  imports: [UiSwitchModule, NgSelectComponent, StatusIconComponent, AlertComponent, FontAwesomeModule, EventTypeSettingsComponent, RouterLink]
 })
 export class AreaAndGroupSettingsComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupSettingsComponent", NgxLoggerLevel.ERROR);

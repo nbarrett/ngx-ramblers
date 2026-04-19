@@ -61,6 +61,7 @@ jobs:
       matrix:
         environment: ${{ fromJson(needs.set-environments.outputs.matrix) }}
     name: Deploy to ${{ matrix.environment }}
+    environment: ${{ matrix.environment }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

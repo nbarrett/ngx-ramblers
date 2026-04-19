@@ -10,52 +10,64 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
 import { EventLeaderContactLinkComponent } from "./event-leader-contact-link";
 import { EventLeaderPhoneLinkComponent } from "./event-leader-phone-link";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { WalkShareRowComponent } from "./walk-share-row";
 
 @Component({
     selector: "app-event-leader",
     template: `
     <div class="event-panel rounded event-panel-inner">
       <app-event-group [displayedWalk]="displayedWalk" [groupEvent]="groupEvent"/>
-      <h1>{{ heading() }}</h1>
-      <div>
-        <div class="row">
-          @if (resolvedEvent()?.fields?.contactDetails?.email) {
-            <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-              <app-copy-icon [icon]="faEnvelope" title
-                             [disabled]="display.isContactUsContact(resolvedEvent())"
-                             [value]="resolvedEvent()?.fields?.contactDetails?.email"
-                             [elementName]="'email address for '+ resolvedEvent()?.fields?.contactDetails?.displayName"/>
-              <div content>
-                <app-event-leader-contact-link [walk]="resolvedEvent()" fallbackLabel="Contact Via Ramblers"/>
-              </div>
-            </div>
-          }
-          @if (display.walkContactDetailsPublic()) {
-            @if (resolvedEvent()?.fields?.contactDetails?.phone) {
+      <div class="row">
+        <div class="col-md-6">
+          <h1>{{ heading() }}</h1>
+          <div class="row">
+            @if (resolvedEvent()?.fields?.contactDetails?.email) {
               <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                <app-copy-icon [icon]="faPhone" title [value]="resolvedEvent()?.fields?.contactDetails?.phone"
-                               [elementName]="'mobile number for '+ resolvedEvent()?.fields?.contactDetails?.displayName "/>
+                <app-copy-icon [icon]="faEnvelope" title
+                               [disabled]="display.isContactUsContact(resolvedEvent())"
+                               [value]="resolvedEvent()?.fields?.contactDetails?.email"
+                               [elementName]="'email address for '+ resolvedEvent()?.fields?.contactDetails?.displayName"/>
                 <div content>
-                  <app-event-leader-phone-link
-                    [phone]="resolvedEvent()?.fields?.contactDetails?.phone"
-                    [displayName]="resolvedEvent()?.fields?.contactDetails?.displayName"/>
-                </div>
-              </div>
-            } @else if (!resolvedEvent()?.fields?.contactDetails?.email) {
-              <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                <app-copy-icon [icon]="faPersonWalking" title
-                               [value]="resolvedEvent()?.fields?.contactDetails?.displayName"
-                               [elementName]="'walk leader '+ resolvedEvent()?.fields?.contactDetails?.displayName"/>
-                <div content>
-                  {{ resolvedEvent()?.fields?.contactDetails?.displayName }}
+                  <app-event-leader-contact-link [walk]="resolvedEvent()" fallbackLabel="Contact Via Ramblers"/>
                 </div>
               </div>
             }
-          }
+            @if (display.walkContactDetailsPublic()) {
+              @if (resolvedEvent()?.fields?.contactDetails?.phone) {
+                <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+                  <app-copy-icon [icon]="faPhone" title [value]="resolvedEvent()?.fields?.contactDetails?.phone"
+                                 [elementName]="'mobile number for '+ resolvedEvent()?.fields?.contactDetails?.displayName "/>
+                  <div content>
+                    <app-event-leader-phone-link
+                      [phone]="resolvedEvent()?.fields?.contactDetails?.phone"
+                      [displayName]="resolvedEvent()?.fields?.contactDetails?.displayName"/>
+                  </div>
+                </div>
+              } @else if (!resolvedEvent()?.fields?.contactDetails?.email) {
+                <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+                  <app-copy-icon [icon]="faPersonWalking" title
+                                 [value]="resolvedEvent()?.fields?.contactDetails?.displayName"
+                                 [elementName]="'walk leader '+ resolvedEvent()?.fields?.contactDetails?.displayName"/>
+                  <div content>
+                    {{ resolvedEvent()?.fields?.contactDetails?.displayName }}
+                  </div>
+                </div>
+              }
+            }
+          </div>
         </div>
+        @if (display.showWalkShareInHeader() && displayedWalk?.walkLink) {
+          <div class="col-md-6">
+            <h1>Sharing</h1>
+            <div class="row">
+              <app-walk-share-row [displayedWalk]="displayedWalk"
+                                  [label]="'Share this ' + display.eventTypeTitle(resolvedEvent())"/>
+            </div>
+          </div>
+        }
       </div>
     </div>`,
-  imports: [EventGroupComponent, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent]
+  imports: [EventGroupComponent, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent, WalkShareRowComponent]
 })
 
 export class EventLeaderComponent {

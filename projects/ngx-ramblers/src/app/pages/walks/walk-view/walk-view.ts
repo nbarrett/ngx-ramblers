@@ -109,7 +109,7 @@ import { BookingFormComponent } from "../../admin/bookings/booking-form.componen
             @if (displayedWalk?.hasFeatures) {
               <app-walk-features [extendedGroupEvent]="displayedWalk?.walk"/>
             }
-            @if (displayLinks) {
+            @if (displayLinks && display.showWalkRelatedLinks()) {
               <div class="event-panel rounded event-panel-inner">
                 <h1>Related Links</h1>
                 <div class="row">

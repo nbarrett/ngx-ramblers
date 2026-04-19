@@ -244,4 +244,8 @@ export class GroupEventDisplayService {
     return this.group?.showSocialOnRamblersLink !== false;
   }
 
+  public showSocialRelatedLinks(): boolean {
+    return this.group?.showSocialRelatedLinks !== false;
+  }
+
 }
