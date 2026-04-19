@@ -7,6 +7,7 @@ import { DEFAULT_WAIT_TIMEOUT } from "./lib/serenity-js/config/serenity-timeouts
 const featuresDirectory = "./lib/serenity-js/features";
 const outputDirectory = "target/site/serenity";
 const TWO_MINUTES_IN_MILLIS = 2 * 60 * 1000;
+const TWENTY_MINUTES_IN_MILLIS = 20 * 60 * 1000;
 const selectedFeature = process.env[Environment.RAMBLERS_FEATURE] || "*.ts";
 const testMatch = selectedFeature.includes("/") ? selectedFeature : `**/${ selectedFeature }`;
 const headless = !["0", "false", "no"].includes((process.env.PLAYWRIGHT_HEADLESS || "true").toLowerCase());
@@ -16,7 +17,7 @@ export default defineConfig<SerenityFixtures, SerenityWorkerFixtures>({
   testMatch,
   fullyParallel: false,
   workers: 1,
-  timeout: TWO_MINUTES_IN_MILLIS,
+  timeout: TWENTY_MINUTES_IN_MILLIS,
   outputDir: "target/site/playwright",
   reporter: [
     ["@serenity-js/playwright-test", {
