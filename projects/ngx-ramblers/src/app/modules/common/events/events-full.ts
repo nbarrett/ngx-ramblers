@@ -30,6 +30,8 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { asNumber } from "../../../functions/numbers";
 import { quickSearchCriteria } from "../../../functions/walks/quick-search";
 import { UiActionsService } from "../../../services/ui-actions.service";
+import { WalksConfig } from "../../../models/walks-config.model";
+import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { WalkSearch } from "../../../pages/walks/walk-search/walk-search";
 import { WalkCardListComponent } from "../../../pages/walks/walk-view/walk-card-list";
@@ -40,7 +42,7 @@ import { AdvancedSearchCriteria, DEFAULT_FILTER_PARAMETERS, FilterParameters, Fi
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { InputSource } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
-import { JsonPipe } from "@angular/common";
+import { JsonPipe, NgTemplateOutlet } from "@angular/common";
 import { DataQueryOptions, FilterCriteria, SortOrder } from "../../../models/api-request.model";
 import { MAP_VIEW_SELECT } from "../../../models/map.model";
 import { buildAdvancedSearchCriteria } from "../../../functions/walks/advanced-search-criteria-builder";
@@ -91,13 +93,7 @@ import { environment } from "../../../../environments/environment";
             </div>
           </div>
           @if (walkListView !== WalkListView.MAP && pageCount > 1) {
-            <div class="d-flex align-items-center mt-0 mt-md-0 me-2 flex-shrink-0"
-                 [class.cards-view-spacing]="walkListView === WalkListView.CARDS">
-              <pagination class="pagination rounded mb-0" [boundaryLinks]=true [rotate]="true"
-                          [maxSize]="maxSize()"
-                          [totalItems]="paginationTotalItems" [(ngModel)]="pageNumber"
-                          (pageChanged)="pageChanged($event)"/>
-            </div>
+            <ng-container *ngTemplateOutlet="paginationControls"/>
           }
         </app-walks-search>
         @if (showDiagnostics) {
@@ -119,17 +115,41 @@ import { environment } from "../../../../environments/environment";
         @if (!walkListView || walkListView === WalkListView.TABLE) {
           <app-event-table-view [currentPageEvents]="currentPageWalks"/>
         }
+        @if (showRepeatedPagination()) {
+          <div class="d-flex full-width-pagination align-items-center gap-2 flex-wrap mt-3">
+            <ng-container *ngTemplateOutlet="paginationControls"/>
+            @if (notifyTarget.showAlert) {
+              <div class="alert-wrapper flex-grow-1">
+                <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center">
+                  <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
+                  <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
+                  <span class="ms-1">{{ notifyTarget.alertMessage }}</span>
+                </div>
+              </div>
+            }
+          </div>
+        }
       </div>
     </div>
+    <ng-template #paginationControls>
+      <div class="d-flex align-items-center flex-shrink-0"
+           [class.cards-view-spacing]="walkListView === WalkListView.CARDS">
+        <pagination class="pagination rounded mb-0" [boundaryLinks]=true [rotate]="true"
+                    [maxSize]="maxSize()"
+                    [totalItems]="paginationTotalItems" [(ngModel)]="pageNumber"
+                    (pageChanged)="pageChanged($event)"/>
+      </div>
+    </ng-template>
   `,
   imports: [WalkSearch, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective,
-    PaginationComponent, FormsModule, WalkCardListComponent, WalksMapView, WalkViewComponent, EventTableView, JsonPipe]
+    PaginationComponent, FormsModule, WalkCardListComponent, WalksMapView, WalkViewComponent, EventTableView, JsonPipe, NgTemplateOutlet]
 })
 export class EventsFull implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("EventsFull", NgxLoggerLevel.ERROR);
   private uiActionsService = inject(UiActionsService);
   private systemConfigService = inject(SystemConfigService);
+  private walksConfigService = inject(WalksConfigService);
   googleMapsService = inject(GoogleMapsService);
   private authService = inject(AuthService);
   memberLoginService = inject(MemberLoginService);
@@ -176,6 +196,7 @@ export class EventsFull implements OnInit, OnDestroy {
   public showDiagnostics = false;
   private defaultWalkListView: WalkListView = WalkListView.CARDS;
   private selectedPresetLabel: string | undefined;
+  public walksConfig: WalksConfig;
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -241,6 +262,8 @@ export class EventsFull implements OnInit, OnDestroy {
       this.defaultWalkListView = systemConfig.group.defaultWalkListView;
       this.updateViewAndPagination(this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, systemConfig.group.defaultWalkListView) as WalkListView);
     }));
+    this.walksConfig = this.walksConfigService.walksConfig() ?? this.walksConfigService.default();
+    this.subscriptions.push(this.walksConfigService.events().subscribe(config => this.walksConfig = config));
     this.broadcastService.on(NamedEventType.SYSTEM_CONFIG_LOADED, () => this.refreshEvents(NamedEventType.SYSTEM_CONFIG_LOADED));
     this.broadcastService.on(NamedEventType.WALK_SLOTS_CREATED, () => this.refreshEvents(NamedEventType.WALK_SLOTS_CREATED));
     this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshEvents(NamedEventType.REFRESH));
@@ -277,6 +300,13 @@ export class EventsFull implements OnInit, OnDestroy {
 
   maxSize(): number {
     return window.innerWidth <= DeviceSize.MEDIUM ? 3 : 5;
+  }
+
+  showRepeatedPagination(): boolean {
+    return this.walkListView !== WalkListView.MAP
+      && this.pageCount > 1
+      && this.walksConfig?.showRepeatedPagination !== false
+      && this.currentPageWalks.length >= this.pageSize;
   }
 
   applyFilter(searchTerm?: NamedEvent<string>): void {

@@ -66,7 +66,8 @@ export class WalksConfigService {
       milesPerHour: 2.13,
       requireRiskAssessment: true,
       requireFinishTime: true,
-      requireWalkLeaderDisplayName: true
+      requireWalkLeaderDisplayName: true,
+      showRepeatedPagination: true
     };
   };
 
