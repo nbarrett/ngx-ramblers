@@ -214,6 +214,8 @@ export interface Footer {
   appDownloads: {
     google: string | Link;
     apple: string | Link;
+    googleShowInFooter?: boolean;
+    appleShowInFooter?: boolean;
   };
 }
 

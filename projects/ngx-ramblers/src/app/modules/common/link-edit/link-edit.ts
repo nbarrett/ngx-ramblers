@@ -4,6 +4,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AccessLevel } from "../../../models/member-resource.model";
 import { Link } from "../../../models/page.model";
 import { move } from "../../../functions/arrays";
+import { isUndefined } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -81,6 +82,9 @@ export class LinkEditComponent implements OnInit {
   }
 
   ngOnInit() {
+    if (this.link && isUndefined(this.link.accessLevel)) {
+      this.link.accessLevel = AccessLevel.PUBLIC;
+    }
     this.logger.debug("constructed", this.uniqueId, "instance with link:", this.link);
   }
 

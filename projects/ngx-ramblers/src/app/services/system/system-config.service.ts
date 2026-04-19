@@ -186,6 +186,13 @@ export class SystemConfigService {
     } else if (!config.footer.appDownloads) {
       config.footer.appDownloads = this.appDownloadsDefaults();
       this.logger.info("config.footer.appDownloads initialised as:", config.footer.appDownloads);
+    } else {
+      if (config.footer.appDownloads.appleShowInFooter === undefined) {
+        config.footer.appDownloads.appleShowInFooter = !!config.footer.appDownloads.apple;
+      }
+      if (config.footer.appDownloads.googleShowInFooter === undefined) {
+        config.footer.appDownloads.googleShowInFooter = !!config.footer.appDownloads.google;
+      }
     }
     if (externalSystemsMigrate || facebookMigrate || instagramMigrate || meetupMigrate || youtubeMigrate || twitterMigrate || linkedInMigrate || !isEqual(preMigrationConfig, config)) {
       this.logger.info("Applying in-memory migration only (no save during app bootstrap)", config);

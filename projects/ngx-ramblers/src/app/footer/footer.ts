@@ -27,7 +27,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                       <app-social-media-links/>
                     </div>
                   </div>
-                  <div class="col-sm-4 col-lg-3 col-12">
+                  <div [class]="extraColumnClasses">
                     <ul class="custom-nav list-unstyled text-center text-nowrap mb-5">
                       <p class="h5 mb-3 mb-lg-5 text-green">Quick links</p>
                       @for (link of footer?.quickLinks; track link) {
@@ -36,7 +36,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                         }
                       </ul>
                     </div>
-                    <div class="col-sm-4 col-lg-3 col-12">
+                    <div [class]="extraColumnClasses">
                       <ul class="custom-nav list-unstyled text-center text-nowrap mb-5">
                         <p class="h5 mb-3 mb-lg-5 text-green">Legals</p>
                         @for (link of footer?.legals; track link) {
@@ -46,30 +46,32 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                         }
                       </ul>
                     </div>
-                    <div class="col-sm-4 col-lg-3 col-12">
-                      <ul class="custom-nav list-unstyled text-center text-nowrap mb-5">
-                        <p class="h5 mb-3 mb-lg-5 text-green">Download the app</p>
-                        @if (footer.appDownloads.apple) {
+                    @if (appDownloadColumnVisible) {
+                      <div [class]="extraColumnClasses">
+                        <ul class="custom-nav list-unstyled text-center text-nowrap mb-5">
+                          <p class="h5 mb-3 mb-lg-5 text-green">Download the app</p>
+                          @if (appleVisible) {
+                            <li placement="left"
+                              tooltip="Download the Ramblers app on the Apple App Store (opens a new browser tab)">
+                            <a [href]="footer.appDownloads.apple"
+                              target="_blank" class="brand-badge"><img
+                              alt="Download the Ramblers app on the Apple App Store (opens a new browser tab)"
+                            src="/assets/images/local/apple-badge.svg" class="app-download-image"></a>
+                          </li>
+                        }
+                        @if (googleVisible) {
                           <li placement="left"
-                            tooltip="Download the Ramblers app on the Apple App Store (opens a new browser tab)">
-                          <a [href]="footer.appDownloads.apple"
-                            target="_blank" class="brand-badge"><img
-                            alt="Download the Ramblers app on the Apple App Store (opens a new browser tab)"
-                          src="/assets/images/local/apple-badge.svg" class="app-download-image"></a>
-                        </li>
-                      }
-                      @if (footer.appDownloads.google) {
-                        <li placement="left"
-                          tooltip="Download the Ramblers app on Google Play (opens a new browser tab)">
-                          <a [href]="footer.appDownloads.google"
-                            class="brand-badge"><img
-                            alt="Download the Ramblers app on Google Play (opens a new browser tab)"
-                            src="/assets/images/local/google-play-badge.png" class="app-download-image">
-                          </a>
-                        </li>
-                      }
-                    </ul>
-                  </div>
+                            tooltip="Download the Ramblers app on Google Play (opens a new browser tab)">
+                            <a [href]="footer.appDownloads.google"
+                              class="brand-badge"><img
+                              alt="Download the Ramblers app on Google Play (opens a new browser tab)"
+                              src="/assets/images/local/google-play-badge.png" class="app-download-image">
+                            </a>
+                          </li>
+                        }
+                      </ul>
+                    </div>
+                  }
                 </div>
                 <div class="row logo-row-top pt-4 flex-column-reverse flex-md-row">
                   <div class="col">
@@ -119,5 +121,24 @@ export class FooterComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  get appleVisible(): boolean {
+    return !!this.footer?.appDownloads?.apple && this.footer?.appDownloads?.appleShowInFooter !== false;
+  }
+
+  get googleVisible(): boolean {
+    return !!this.footer?.appDownloads?.google && this.footer?.appDownloads?.googleShowInFooter !== false;
+  }
+
+  get appDownloadColumnVisible(): boolean {
+    return this.appleVisible || this.googleVisible;
+  }
+
+  get extraColumnClasses(): string {
+    const extras = 2 + (this.appDownloadColumnVisible ? 1 : 0);
+    if (extras === 3) {
+      return "col-sm-4 col-lg-3 col-12";
+    }
+    return "col-sm-6 col-lg col-12";
+  }
 
 }
