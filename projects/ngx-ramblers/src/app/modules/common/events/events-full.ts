@@ -136,7 +136,7 @@ import { environment } from "../../../../environments/environment";
            [class.cards-view-spacing]="walkListView === WalkListView.CARDS">
         <pagination class="pagination rounded mb-0" [boundaryLinks]=true [rotate]="true"
                     [maxSize]="maxSize()"
-                    [totalItems]="paginationTotalItems" [(ngModel)]="pageNumber"
+                    [totalItems]="paginationTotalItems" [itemsPerPage]="pageSize" [(ngModel)]="pageNumber"
                     (pageChanged)="pageChanged($event)"/>
       </div>
     </ng-template>
@@ -177,7 +177,7 @@ export class EventsFull implements OnInit, OnDestroy {
   public filterParameters: FilterParameters = DEFAULT_FILTER_PARAMETERS();
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private pageSize = 10;
+  public pageSize = 10;
   public pageNumber = 1;
   public pageCount = 0;
   public pages: number[] = [];
