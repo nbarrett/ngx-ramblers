@@ -9,6 +9,10 @@ on:
 env:
   NODE_VERSION: '24.14.0'
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+permissions:
+  contents: write
+
 jobs:
   resolve:
     runs-on: ubuntu-latest
@@ -169,6 +173,10 @@ jobs:
           INTEGRATION_WORKER_IMAGE_REPOSITORY: ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers
         run: |
           ts-node server/deploy/deploy-integration-worker.ts --image-tag "integration-worker-${{ github.run_number }}"
+
+      - name: Advance worker-deployed ref after successful deploy
+        if: github.event_name == 'push' && steps.worker-changes.outputs.worker == 'true'
+        run: git push --force origin HEAD:refs/heads/worker-deployed
 
       - name: Generate Release Notes
         if: github.ref_name == 'main' && github.event_name == 'push'

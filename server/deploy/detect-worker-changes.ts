@@ -4,11 +4,20 @@ import madge from "madge";
 import path from "path";
 import { keys } from "es-toolkit/compat";
 
+const DEPLOYED_REF_REMOTE = "refs/remotes/origin/worker-deployed";
+const DEPLOYED_REF_REMOTE_SOURCE = "refs/heads/worker-deployed";
+
+enum BaseSource {
+  WORKER_DEPLOYED = "worker-deployed",
+  FALLBACK_PARENT = "fallback-parent"
+}
+
 interface DetectResult {
   worker: boolean;
   changedFiles: string[];
-  workerFiles: string[];
-  beforeRef: string;
+  workerFileCount: number;
+  baseRef: string;
+  baseSource: BaseSource;
 }
 
 async function resolveWorkerFiles(repoRoot: string): Promise<string[]> {
@@ -54,29 +63,25 @@ async function resolveWorkerFiles(repoRoot: string): Promise<string[]> {
   return Array.from(resolved).sort();
 }
 
-function resolveBeforeRef(beforeInput: string | undefined): string {
-  const zeros = "0000000000000000000000000000000000000000";
-  if (!beforeInput || beforeInput === zeros) {
-    return "HEAD~1";
-  }
+function tryExec(command: string): string | null {
   try {
-    execSync(`git cat-file -e ${beforeInput}^{commit}`, { stdio: "ignore" });
-    return beforeInput;
+    return execSync(command, { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
-    try {
-      execSync(`git fetch --no-tags --quiet origin ${beforeInput}`, { stdio: "ignore" });
-      execSync(`git cat-file -e ${beforeInput}^{commit}`, { stdio: "ignore" });
-      return beforeInput;
-    } catch {
-      return "HEAD~1";
-    }
+    return null;
   }
 }
 
-function diffChangedFiles(beforeRef: string, afterRef: string): string[] {
-  const output = execSync(`git diff --name-only ${beforeRef} ${afterRef}`, {
-    encoding: "utf-8"
-  });
+function resolveBaseRef(): { ref: string; source: BaseSource } {
+  tryExec(`git fetch --no-tags --quiet origin ${DEPLOYED_REF_REMOTE_SOURCE}:${DEPLOYED_REF_REMOTE}`);
+  const sha = tryExec(`git rev-parse --verify --quiet ${DEPLOYED_REF_REMOTE}^{commit}`);
+  if (sha) {
+    return { ref: sha, source: BaseSource.WORKER_DEPLOYED };
+  }
+  return { ref: "HEAD~1", source: BaseSource.FALLBACK_PARENT };
+}
+
+function diffChangedFiles(baseRef: string, afterRef: string): string[] {
+  const output = execSync(`git diff --name-only ${baseRef} ${afterRef}`, { encoding: "utf-8" });
   return output.split("\n").filter(line => line.length > 0);
 }
 
@@ -87,26 +92,32 @@ async function detect(): Promise<DetectResult> {
   const workerFiles = await resolveWorkerFiles(repoRoot);
   const workerFileSet = new Set(workerFiles);
 
-  const beforeRef = resolveBeforeRef(process.env.GITHUB_EVENT_BEFORE);
+  const { ref: baseRef, source: baseSource } = resolveBaseRef();
   const afterRef = process.env.GITHUB_SHA || "HEAD";
 
   console.error(`Worker depends on ${workerFiles.length} files`);
-  console.error(`Comparing ${beforeRef}..${afterRef}`);
+  console.error(`Comparing ${baseRef} (${baseSource}) .. ${afterRef}`);
 
-  const changedAll = diffChangedFiles(beforeRef, afterRef);
+  const changedAll = diffChangedFiles(baseRef, afterRef);
   const changedFiles = changedAll.filter(f => workerFileSet.has(f));
 
-  return { worker: changedFiles.length > 0, changedFiles, workerFiles, beforeRef };
+  return {
+    worker: changedFiles.length > 0,
+    changedFiles,
+    workerFileCount: workerFiles.length,
+    baseRef,
+    baseSource
+  };
 }
 
 async function main(): Promise<void> {
   const result = await detect();
 
   if (result.worker) {
-    console.error("Worker-relevant files changed:");
+    console.error(`Worker-relevant files changed since ${result.baseSource === BaseSource.WORKER_DEPLOYED ? "last deploy" : "previous commit (no worker-deployed ref yet)"}:`);
     result.changedFiles.forEach(f => console.error(`  ${f}`));
   } else {
-    console.error("No worker-relevant files changed");
+    console.error(`No worker-relevant files changed since ${result.baseSource === BaseSource.WORKER_DEPLOYED ? "last deploy" : "previous commit"}`);
   }
 
   const githubOutput = process.env.GITHUB_OUTPUT;
