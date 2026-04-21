@@ -47,6 +47,7 @@ import { isMongoId } from "../../../services/mongo-utils";
       } @else {
         <app-events-header [totalItems]="extendedGroupEvents?.length" [filterParameters]="filterParameters" [currentPageFilteredEvents]="currentPageFilteredEvents"
                            [notifyTarget]="notifyTarget" [eventsData]="eventsData" [pageNumber]="pageNumber"
+                           [itemsPerPage]="pageSize"
                            (pageChanged)="pageChanged($event)"/>
         <app-event-cards-list [eventsData]="eventsData"
                               [notifyTarget]="notifyTarget"

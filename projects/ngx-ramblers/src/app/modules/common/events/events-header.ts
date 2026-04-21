@@ -29,7 +29,7 @@ import { PageService } from "../../../services/page.service";
   <div class="d-flex flex-column flex-md-row events-header-full-width">
     @if (showPagination && (!eventsData || eventsData?.allow?.pagination)) {
       <pagination class="rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
-                  [totalItems]="totalItems" [(ngModel)]="pageNumber"
+                  [totalItems]="totalItems" [itemsPerPage]="itemsPerPage" [(ngModel)]="pageNumber"
                   (pageChanged)="pageChanged.emit($event)"/>
     }
     <div class="form-group mb-0 flex-grow-1 mt-md-0">
@@ -131,6 +131,7 @@ export class EventsHeader implements OnInit, OnDestroy {
   @Input() public currentPageFilteredEvents!: ExtendedGroupEvent[];
   @Input() public pageNumber!: number;
   @Input() totalItems!: number;
+  @Input() itemsPerPage = 10;
 
   showSearchAndFilter(): boolean {
     return !this.eventsData || this.eventsData?.allow?.advancedSearch;
