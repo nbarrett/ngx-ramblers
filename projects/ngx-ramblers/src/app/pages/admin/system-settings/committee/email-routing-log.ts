@@ -69,6 +69,13 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
                   }
                 </span>
               </th>
+              <th class="sortable-header" (click)="sortEmailLogsBy('subject')">
+                <span class="nowrap">Subject
+                  @if (emailLogSortField === 'subject') {
+                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
+                  }
+                </span>
+              </th>
               <th class="sortable-header" (click)="sortEmailLogsBy('status')">
                 <span class="nowrap">Status
                   @if (emailLogSortField === 'status') {
@@ -112,6 +119,7 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
                 <td class="small text-nowrap">{{ log.datetime | displayDateAbbreviatedTime }}</td>
                 <td class="small">{{ log.from }}</td>
                 <td class="small">{{ log.to }}</td>
+                <td class="small">{{ log.subject }}</td>
                 <td><span [class]="statusBadgeClass(log.status)">{{ log.status }}</span></td>
                 <td>@if (log.spf) {<span [class]="authBadgeClass(log.spf)">{{ log.spf }}</span>}</td>
                 <td>@if (log.dkim) {<span [class]="authBadgeClass(log.dkim)">{{ log.dkim }}</span>}</td>
@@ -120,7 +128,7 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
               </tr>
               @if (authSummary(log)) {
                 <tr>
-                  <td colspan="8" class="small text-muted border-0 pt-0 pb-2">{{ authSummary(log) }}</td>
+                  <td colspan="9" class="small text-muted border-0 pt-0 pb-2">{{ authSummary(log) }}</td>
                 </tr>
               }
             </tbody>

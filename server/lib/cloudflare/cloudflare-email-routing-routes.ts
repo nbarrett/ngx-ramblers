@@ -20,16 +20,22 @@ import {
 import {
   deleteWorkerScript,
   fetchWorkerScriptContent,
+  firstDifference,
   generateWorkerScript,
   listWorkerScripts,
   parseRecipientsFromScript,
+  parseWorkerScriptInfo,
+  scriptsMatchIgnoringWhitespace,
   uploadWorkerScript,
+  uploadWorkerSecret,
   workerScriptName
 } from "./cloudflare-email-workers";
+import { ensureInboundWebhookConfigured } from "../brevo/inbound-webhook-config";
 import { queryEmailRoutingLogs, queryWorkerInvocationLogs } from "./cloudflare-analytics";
 import {
   CreateOrUpdateEmailRouteRequest,
   CreateOrUpdateWorkerRequest,
+  EmailForwardingMode,
   EmailRoutingLogsRequest,
   EmailRoutingMatcherType,
   EmailRoutingMatcherField,
@@ -192,23 +198,77 @@ router.get("/workers/:scriptName/recipients", authConfig.authenticate(), async (
   }
 });
 
+router.get("/workers/:scriptName/info", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    const cloudflareConfig = await configuredCloudflare();
+    const scriptContent = await fetchWorkerScriptContent(cloudflareConfig, req.params.scriptName);
+    const info = parseWorkerScriptInfo(scriptContent);
+
+    let upToDate: boolean | undefined;
+    const roleEmail = req.query.roleEmail as string | undefined;
+    const roleName = req.query.roleName as string | undefined;
+    if (roleEmail) {
+      let webhookUrl: string | undefined;
+      if (info.forwardingMode === EmailForwardingMode.BREVO_RESEND) {
+        const inboundConfig = await ensureInboundWebhookConfigured();
+        webhookUrl = inboundConfig.webhookUrl;
+      }
+      const expected = generateWorkerScript(info.recipients, info.forwardingMode, {
+        roleEmail,
+        roleName: roleName || "",
+        webhookUrl
+      });
+      upToDate = scriptsMatchIgnoringWhitespace(expected, scriptContent);
+      if (!upToDate) {
+        const diff = firstDifference(expected, scriptContent);
+        debugLog("Worker drift detected for %s. First diff at idx %d\n  expected[..]: %s\n  deployed[..]: %s",
+          req.params.scriptName, diff?.index, diff?.aAround, diff?.bAround);
+      }
+    }
+
+    res.json({request: {messageType}, response: {...info, upToDate}});
+  } catch (error) {
+    errorDebugLog("Error fetching worker info:", error.message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
 router.post("/workers", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
     const cloudflareConfig = await configuredCloudflare();
     const nsConfig = await nonSensitiveCloudflareConfig();
     const request: CreateOrUpdateWorkerRequest = req.body;
+    const forwardingMode = request.forwardingMode || EmailForwardingMode.CLOUDFLARE_FORWARD;
     const scriptName = workerScriptName(nsConfig.baseDomain, request.roleType);
-    const scriptContent = generateWorkerScript(request.recipients);
+
+    let webhookUrl: string | undefined;
+    let inboundWebhookSecret: string | undefined;
+    if (forwardingMode === EmailForwardingMode.BREVO_RESEND) {
+      const inboundConfig = await ensureInboundWebhookConfigured();
+      webhookUrl = inboundConfig.webhookUrl;
+      inboundWebhookSecret = inboundConfig.secret;
+    }
+
+    const scriptContent = generateWorkerScript(request.recipients, forwardingMode, {
+      roleEmail: request.roleEmail,
+      roleName: request.roleName,
+      webhookUrl
+    });
 
     await uploadWorkerScript(cloudflareConfig, scriptName, scriptContent);
+
+    if (forwardingMode === EmailForwardingMode.BREVO_RESEND && inboundWebhookSecret) {
+      await uploadWorkerSecret(cloudflareConfig, scriptName, "NGX_INBOUND_SECRET", inboundWebhookSecret);
+    }
 
     const rules = await listEmailRoutingRules(cloudflareConfig);
     const existingRule = rules.find(rule =>
       rule.matchers?.some(m => m.type === EmailRoutingMatcherType.LITERAL && m.field === EmailRoutingMatcherField.TO && m.value === request.roleEmail)
     );
 
+    const modeLabel = forwardingMode === EmailForwardingMode.BREVO_RESEND ? "Brevo re-send" : "Worker forward";
     const workerRule = {
-      name: `Worker forward ${request.roleName} (${request.recipients.length} recipients)`,
+      name: `${modeLabel} ${request.roleName} (${request.recipients.length} recipients)`,
       enabled: request.enabled,
       matchers: [{type: EmailRoutingMatcherType.LITERAL, field: EmailRoutingMatcherField.TO, value: request.roleEmail}],
       actions: [{type: EmailRoutingActionType.WORKER, value: [scriptName]}]
@@ -220,7 +280,7 @@ router.post("/workers", authConfig.authenticate(), async (req: Request, res: Res
       await createEmailRoutingRule(cloudflareConfig, workerRule);
     }
 
-    res.json({request: {messageType}, response: {scriptName, recipients: request.recipients}});
+    res.json({request: {messageType}, response: {scriptName, recipients: request.recipients, forwardingMode}});
   } catch (error) {
     errorDebugLog("Error creating/updating worker:", error.message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});

@@ -14,7 +14,8 @@ import {
   MxRecordStatus,
   NonSensitiveCloudflareConfig,
   WorkerInvocationSummary,
-  WorkerLogsRequest
+  WorkerLogsRequest,
+  WorkerScriptRecipientsInfo
 } from "../../models/cloudflare-email-routing.model";
 import { extractErrorMessage } from "../../functions/strings";
 import { CommonDataService } from "../common-data-service";
@@ -182,6 +183,13 @@ export class CloudflareEmailRoutingService {
 
   async queryWorkerRecipients(scriptName: string): Promise<string[]> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/workers/${scriptName}/recipients`))).response;
+  }
+
+  async queryWorkerInfo(scriptName: string, context?: { roleEmail: string; roleName: string }): Promise<WorkerScriptRecipientsInfo> {
+    const params = context
+      ? `?roleEmail=${encodeURIComponent(context.roleEmail)}&roleName=${encodeURIComponent(context.roleName)}`
+      : "";
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/workers/${scriptName}/info${params}`))).response;
   }
 
   async createOrUpdateWorker(request: CreateOrUpdateWorkerRequest): Promise<any> {

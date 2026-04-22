@@ -134,12 +134,24 @@ export interface EmailWorkerScript {
   created_on?: string;
 }
 
+export enum EmailForwardingMode {
+  CLOUDFLARE_FORWARD = "cloudflare-forward",
+  BREVO_RESEND = "brevo-resend"
+}
+
 export interface CreateOrUpdateWorkerRequest {
   roleType: string;
   roleEmail: string;
   roleName: string;
   recipients: string[];
   enabled: boolean;
+  forwardingMode?: EmailForwardingMode;
+}
+
+export interface WorkerScriptRecipientsInfo {
+  recipients: string[];
+  forwardingMode: EmailForwardingMode;
+  upToDate?: boolean;
 }
 
 export enum EmailRoutingLogStatus {
@@ -163,6 +175,7 @@ export interface EmailRoutingLogEntry {
   sessionId: string;
   from: string;
   to: string;
+  subject: string;
   status: string;
   spf: string;
   dkim: string;
