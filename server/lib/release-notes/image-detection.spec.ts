@@ -29,6 +29,26 @@ describe("image-detection", () => {
       expect(textHasImage(undefined)).toBe(false);
       expect(textHasImage(123)).toBe(false);
     });
+
+    it("ignores markdown image syntax inside inline code spans", () => {
+      // Regression: 2026-04-20 release note quoted `![](url)` in prose describing
+      // migration syntax, which was being picked up as a real image.
+      expect(textHasImage("image references (`<img src>`, `![](url)`) and link refs")).toBe(false);
+    });
+
+    it("ignores markdown image syntax inside fenced code blocks", () => {
+      const text = "Here is an example:\n\n```markdown\n![alt](x.png)\n```\n\nEnd";
+      expect(textHasImage(text)).toBe(false);
+    });
+
+    it("ignores HTML img tags inside inline code spans", () => {
+      expect(textHasImage("Use `<img src=\"foo.png\">` to embed an image")).toBe(false);
+    });
+
+    it("still detects a real markdown image alongside a code span example", () => {
+      const text = "The syntax is `![](url)` — example: ![real](site-content/a.jpg)";
+      expect(textHasImage(text)).toBe(true);
+    });
   });
 
   describe("carouselHasContent", () => {

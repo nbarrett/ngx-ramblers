@@ -9,11 +9,23 @@
 import { isArray, isObject, isString } from "es-toolkit/compat";
 
 const MARKDOWN_IMAGE_REGEX = /!\[[^\]]*]\([^)]+\)/;
-const HTML_IMAGE_REGEX = /<img\b[^>]*\bsrc\s*=/i;
+const HTML_IMAGE_REGEX = /<img\b[^>]*\bsrc\s*=\s*["'][^"']+["']/i;
+const FENCED_CODE_BLOCK_REGEX = /```[\s\S]*?```/g;
+const INDENTED_CODE_BLOCK_REGEX = /(^|\n)( {4,}|\t)[^\n]*/g;
+const INLINE_CODE_SPAN_REGEX = /`+[^`\n]*`+/g;
+
+function stripCode(text: string): string {
+  return text
+    .replace(FENCED_CODE_BLOCK_REGEX, "")
+    .replace(INDENTED_CODE_BLOCK_REGEX, "")
+    .replace(INLINE_CODE_SPAN_REGEX, "");
+}
 
 export function textHasImage(text: unknown): boolean {
   if (!isString(text) || !text) return false;
-  return MARKDOWN_IMAGE_REGEX.test(text) || HTML_IMAGE_REGEX.test(text);
+  const stripped = stripCode(text);
+  if (!stripped) return false;
+  return MARKDOWN_IMAGE_REGEX.test(stripped) || HTML_IMAGE_REGEX.test(stripped);
 }
 
 /**
