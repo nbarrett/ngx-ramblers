@@ -80,6 +80,10 @@ export class MailLinkService {
     return `${this.config.baseUrl}/settings/keys/api`;
   }
 
+  public smtpKeysView() {
+    return `${this.config.baseUrl}/settings/keys/smtp`;
+  }
+
   public openUrl(url: string, target?: string): void {
     window.open(url, target || "_blank");
   }

@@ -156,6 +156,33 @@ import { InputSize } from "../../../../models/ui-size.model";
                           [title]="'View'"/>
                         </div>
                       </div>
+                      <div class="form-group">
+                        <label for="smtp-user">SMTP Login</label>
+                        <div class="input-group">
+                          <input [(ngModel)]="mailMessagingConfig.mailConfig.smtpUser" type="text"
+                            class="form-control input-sm" id="smtp-user"
+                            autocomplete="off"
+                            placeholder="Brevo SMTP login (your Brevo account email, used to relay raw MIME for shared-inbox forwarding)">
+                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                            (click)="mailLinkService.openUrl(mailLinkService.smtpKeysView())"
+                          [title]="'View'"/>
+                        </div>
+                      </div>
+                      <div class="form-group">
+                        <label for="smtp-password">SMTP Key</label>
+                        <div class="input-group">
+                          <app-secret-input
+                            [(ngModel)]="mailMessagingConfig.mailConfig.smtpPassword"
+                            id="smtp-password"
+                            [size]="InputSize.SM"
+                            autocomplete="off"
+                            [ignorePasswordManagers]="true"
+                            placeholder="Brevo SMTP key (separate from the API Key above)"/>
+                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                            (click)="mailLinkService.openUrl(mailLinkService.smtpKeysView())"
+                          [title]="'View'"/>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   @if (pendingApiKeyValidation) {

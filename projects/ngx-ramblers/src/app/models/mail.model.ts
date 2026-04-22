@@ -191,7 +191,9 @@ export interface MergeFields {
 export const BREVO_DEFAULTS = {
   BASE_URL: "https://app.brevo.com",
   MY_BASE_URL: "https://my.brevo.com",
-  EDITOR_URL: "https://editor-app.brevo.com"
+  EDITOR_URL: "https://editor-app.brevo.com",
+  SMTP_SERVER: "smtp-relay.brevo.com",
+  SMTP_PORT: 587
 } as const;
 
 export interface MailConfig extends BuiltInProcessMappings {
@@ -203,6 +205,11 @@ export interface MailConfig extends BuiltInProcessMappings {
   allowSendCampaign: boolean;
   allowSendTransactional: boolean;
   listSettings: ListSetting[];
+  smtpServer?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPassword?: string;
+  inboundWebhookSecret?: string;
 }
 
 export interface BuiltInProcessMappings {

@@ -44,6 +44,7 @@ interface EmailRoutingGraphQLData {
         sessionId: string;
         from: string;
         to: string;
+        subject: string;
         status: string;
         spf: string;
         dkim: string;
@@ -95,6 +96,7 @@ export async function queryEmailRoutingLogs(cloudflareConfig: CloudflareConfig, 
         sessionId
         from
         to
+        subject
         status
         spf
         dkim
@@ -136,6 +138,7 @@ export async function queryEmailRoutingLogs(cloudflareConfig: CloudflareConfig, 
     sessionId: entry.sessionId,
     from: entry.from,
     to: entry.to,
+    subject: entry.subject,
     status: humaniseStatus(entry.status),
     spf: entry.spf,
     dkim: entry.dkim,

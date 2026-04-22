@@ -28,6 +28,8 @@ const sensitiveKeys = new Set([
   "userName",
   "uri",
   "secretKey",
+  "smtpPassword",
+  "inboundWebhookSecret",
 ]);
 
 enum ConfigAccess {

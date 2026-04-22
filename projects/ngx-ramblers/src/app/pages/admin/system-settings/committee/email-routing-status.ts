@@ -1,12 +1,13 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { CommitteeMember } from "../../../../models/committee.model";
+import { CommitteeMember, RoleType } from "../../../../models/committee.model";
 import { ALERT_ERROR, ALERT_SUCCESS, ALERT_WARNING } from "../../../../models/alert-target.model";
 import {
   DestinationAddress,
   DestinationVerificationDetail,
   DestinationVerificationStatus,
+  EmailForwardingMode,
   EmailRouteType,
   EmailRoutingActionType,
   EmailRoutingMatcherField,
@@ -15,6 +16,7 @@ import {
   EmailRoutingStatus,
   NonSensitiveCloudflareConfig
 } from "../../../../models/cloudflare-email-routing.model";
+import { FormsModule } from "@angular/forms";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -145,50 +147,95 @@ enum WorkerAction {
         }
       }
       @if (isMultiRecipient()) {
-        @if (showRecipientStatus && status.destinationVerificationStatuses?.length) {
-          <h6 class="section-heading">Recipient Verification</h6>
-          <div class="mb-2">
-            <label class="control-label mb-1">Per-recipient verification status</label>
-            <ul class="list-group">
-              @for (detail of status.destinationVerificationStatuses; track detail.email) {
-                <li class="list-group-item d-flex justify-content-between align-items-center py-1">
-                  <span>{{ detail.email }}</span>
-                  @switch (detail.status) {
-                    @case (DestinationVerificationStatus.VERIFIED) {
-                      <span class="badge text-style-sunset">Verified</span>
-                    }
-                    @case (DestinationVerificationStatus.PENDING) {
-                      <app-cloudflare-button [disabled]="apiRequestPending" [loading]="apiRequestPending" button
-                        (click)="resendVerificationFor(detail.email)"
-                        title="Resend">
-                        <span class="badge bg-warning">Pending</span>
-                      </app-cloudflare-button>
-                    }
-                    @case (DestinationVerificationStatus.NOT_REGISTERED) {
-                      <app-cloudflare-button [disabled]="apiRequestPending" [loading]="apiRequestPending" button
-                        (click)="registerDestinationFor(detail.email)"
-                        title="Register">
-                        <span class="badge bg-warning">Not Registered</span>
-                      </app-cloudflare-button>
-                    }
+        <div class="d-flex align-items-start mb-3">
+          <alert type="success" class="flex-grow-1 mb-0">
+            <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
+            <strong class="ms-2">Shared inbox</strong>
+            <span class="ms-2">
+              <strong>{{ status.roleEmail }}</strong>
+              <span class="mx-1">&rarr;</span>
+              the {{ memberEmailsInternal?.length }} {{ recipientNoun() }} above. Pick a delivery method below.
+            </span>
+          </alert>
+        </div>
+        @if (showRecipientStatus && unverifiedRecipients().length > 0) {
+          <div class="d-flex align-items-start mb-3">
+            <alert type="warning" class="flex-grow-1 mb-0">
+              <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+              <strong class="ms-2">{{ unverifiedRecipients().length }} of {{ memberEmailsInternal?.length }} {{ recipientNoun() }} need verification</strong>
+              <span class="ms-2">Click each one to register or resend. Worker deployment is blocked until all are verified.</span>
+              <div class="mt-2 d-flex flex-wrap gap-2">
+                @for (detail of unverifiedRecipients(); track detail.email) {
+                  @if (detail.status === DestinationVerificationStatus.PENDING) {
+                    <button type="button" class="badge badge-action badge-action-attn"
+                      [disabled]="apiRequestPending"
+                      (click)="resendVerificationFor(detail.email)">
+                      {{ detail.email }} &mdash; Pending (click to resend)
+                    </button>
+                  } @else {
+                    <button type="button" class="badge badge-action badge-action-attn"
+                      [disabled]="apiRequestPending"
+                      (click)="registerDestinationFor(detail.email)">
+                      {{ detail.email }} &mdash; Not registered (click to verify)
+                    </button>
                   }
-                </li>
-              }
-            </ul>
+                }
+              </div>
+            </alert>
           </div>
         }
-        <h6 class="section-heading">Email Routing</h6>
-        @if (status.routeType === EmailRouteType.WORKER) {
-          <h6 class="section-heading">Multi-recipient Forwarding
-            @if (status.workerScriptName) {
-              ({{ status.workerScriptName }})
+        <h6 class="section-heading">Delivery method</h6>
+        <div class="mb-2">
+          <label class="control-label d-block mb-1">
+            How mail to <strong>{{ status.roleEmail }}</strong> is delivered to each {{ recipientNounSingular() }}
+          </label>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" [id]="modeInputId('cf')"
+              name="forwardingMode-{{committeeMemberInternal?.type}}"
+              [value]="EmailForwardingMode.CLOUDFLARE_FORWARD"
+              [(ngModel)]="forwardingMode"
+              [disabled]="apiRequestPending">
+            <label class="form-check-label" [attr.for]="modeInputId('cf')">Cloudflare forward</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" [id]="modeInputId('brevo')"
+              name="forwardingMode-{{committeeMemberInternal?.type}}"
+              [value]="EmailForwardingMode.BREVO_RESEND"
+              [(ngModel)]="forwardingMode"
+              [disabled]="apiRequestPending">
+            <label class="form-check-label" [attr.for]="modeInputId('brevo')">Brevo re-send (authenticated)</label>
+          </div>
+          <div class="small text-muted mt-1">
+            @if (forwardingMode === EmailForwardingMode.BREVO_RESEND) {
+              Recommended. Each message is re-sent from <strong>{{ status.roleEmail }}</strong> in a form that mail providers trust, so it's less likely to land in {{ recipientNounSingular() }} spam folders. Replies still go back to whoever originally sent the message.
+            } @else {
+              The original message is passed on as-is. Simpler, but some mail providers treat forwarded mail as suspicious and may filter it to spam.
             }
-          </h6>
+          </div>
+          @if (modeChangedFromDeployed() || deployedScriptIsOutOfDate) {
+            <div class="d-flex align-items-center mt-2">
+              <app-cloudflare-button [disabled]="updateWorkerDisabled()" [loading]="workerAction === WorkerAction.UPDATE" button
+                (click)="updateWorker()"
+                [title]="modeChangedFromDeployed() ? 'Apply delivery method change' : 'Redeploy Worker with latest code'"></app-cloudflare-button>
+              <span class="small text-muted ms-2">
+                @if (modeChangedFromDeployed()) {
+                  Currently live: {{ deployedModeLabel() }}. Click to switch.
+                } @else {
+                  Worker code is out of date &mdash; click to redeploy.
+                }
+              </span>
+            </div>
+          }
+        </div>
+        @if (status.routeType === EmailRouteType.WORKER) {
           <div class="d-flex align-items-start mb-2">
             <alert type="success" class="flex-grow-1 mb-0">
               <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
-              <strong class="ms-2">Forwarding Active</strong>
-              <span class="ms-2">Forwarding to {{ memberEmailsInternal?.length }} recipients</span>
+              <strong class="ms-2">Active</strong>
+              <span class="ms-2">Mail to <strong>{{ status.roleEmail }}</strong> is delivered to {{ memberEmailsInternal?.length }} {{ recipientNoun() }} via {{ deployedModeLabel() }}.</span>
+              @if (status.workerScriptName) {
+                <span class="small text-muted ms-2">({{ status.workerScriptName }})</span>
+              }
             </alert>
             <app-cloudflare-button class="ms-2 mt-1" [disabled]="updateWorkerDisabled()" [loading]="workerAction === WorkerAction.UPDATE" button
               (click)="updateWorker()"
@@ -202,36 +249,13 @@ enum WorkerAction {
           }
         }
         @if (status.routeType !== EmailRouteType.WORKER && memberEmailsInternal?.length > 1) {
-          <h6 class="section-heading">Multi-recipient Forwarding</h6>
           <div class="d-flex align-items-start mb-2">
             <alert type="warning" class="flex-grow-1 mb-0">
               <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-              <strong class="ms-2">Forwarding Not Set Up</strong>
-              <span class="ms-2">{{ memberEmailsInternal?.length }} recipients configured but no worker is deployed yet</span>
+              <strong class="ms-2">Not yet active</strong>
+              <span class="ms-2">{{ memberEmailsInternal?.length }} {{ recipientNoun() }} configured &mdash; mail to <strong>{{ status.roleEmail }}</strong> won't be delivered until the Worker is deployed.</span>
               @if (loadingStatus) {
                 <div class="mt-2 small text-muted">Loading recipient verification status...</div>
-              } @else if (status.destinationVerificationStatuses?.length) {
-                <div class="mt-2 d-flex flex-wrap gap-2">
-                  @for (detail of status.destinationVerificationStatuses; track detail.email) {
-                    @if (detail.status === DestinationVerificationStatus.VERIFIED) {
-                      <span class="badge text-style-sunset">
-                        {{ detail.email }} — Verified
-                      </span>
-                    } @else if (detail.status === DestinationVerificationStatus.PENDING) {
-                      <button type="button" class="badge badge-action badge-action-attn"
-                        [disabled]="apiRequestPending"
-                        (click)="resendVerificationFor(detail.email)">
-                        {{ detail.email }} — Pending (click to resend)
-                      </button>
-                    } @else {
-                      <button type="button" class="badge badge-action badge-action-attn"
-                        [disabled]="apiRequestPending"
-                        (click)="registerDestinationFor(detail.email)">
-                        {{ detail.email }} — Not registered (click to verify)
-                      </button>
-                    }
-                  }
-                </div>
               }
             </alert>
             <app-cloudflare-button class="ms-2 mt-1" [disabled]="workerButtonDisabled()" [loading]="workerAction === WorkerAction.DEPLOY" button
@@ -239,7 +263,7 @@ enum WorkerAction {
               title="Deploy Worker"></app-cloudflare-button>
           </div>
           @if (workerButtonDisabled() && !apiRequestPending) {
-            <div class="small text-muted">All recipients must be verified before a worker can be deployed</div>
+            <div class="small text-muted">Every {{ recipientNounSingular() }} must be verified before the Worker can be deployed.</div>
           }
         }
       }
@@ -276,7 +300,7 @@ enum WorkerAction {
       .badge-action-attn
         background: #c05711
     `],
-    imports: [AlertComponent, FontAwesomeModule, CloudflareButton]
+    imports: [AlertComponent, FontAwesomeModule, CloudflareButton, FormsModule]
 })
 export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("EmailRoutingStatusComponent", NgxLoggerLevel.ERROR);
@@ -289,7 +313,6 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   protected readonly WorkerAction = WorkerAction;
   public workerAction: WorkerAction | null = null;
   public loadingStatus = false;
-  public workerNeedsUpdate = false;
   private lastAppliedRecipients: string[] = [];
   baseDomain = "";
   private rules: EmailRoutingRule[] = [];
@@ -303,6 +326,10 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected readonly EmailRouteType = EmailRouteType;
   protected readonly DestinationVerificationStatus = DestinationVerificationStatus;
+  protected readonly EmailForwardingMode = EmailForwardingMode;
+  public forwardingMode: EmailForwardingMode = EmailForwardingMode.CLOUDFLARE_FORWARD;
+  public deployedForwardingMode: EmailForwardingMode | null = null;
+  public deployedScriptIsOutOfDate = false;
 
   @Input() memberEmail: string;
   @Input() showRecipientStatus = true;
@@ -355,6 +382,8 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
       this.rules = rules;
       this.catchAllRuleInternal = catchAll;
       this.destinationAddresses = destinationAddresses;
+      this.refreshStatus();
+      await this.loadDeployedMode();
       this.refreshStatus();
     } catch (err) {
       this.logger.error("Failed to load email routing rules:", err);
@@ -445,9 +474,22 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
     if (this.status?.routeType === EmailRouteType.WORKER && this.lastAppliedRecipients.length === 0) {
       this.lastAppliedRecipients = this.normalisedRecipients(this.memberEmailsInternal);
     }
-    this.workerNeedsUpdate = this.status?.routeType === EmailRouteType.WORKER
-      && this.recipientsChangedFromWorker(this.memberEmailsInternal, this.lastAppliedRecipients);
     this.logger.info("refreshStatus:", this.status);
+  }
+
+  modeChangedFromDeployed(): boolean {
+    return this.status?.routeType === EmailRouteType.WORKER
+      && this.deployedForwardingMode !== null
+      && this.deployedForwardingMode !== this.forwardingMode;
+  }
+
+  recipientsChangedFromDeployed(): boolean {
+    return this.status?.routeType === EmailRouteType.WORKER
+      && this.recipientsChangedFromWorker(this.memberEmailsInternal, this.lastAppliedRecipients);
+  }
+
+  workerNeedsUpdate(): boolean {
+    return this.modeChangedFromDeployed() || this.recipientsChangedFromDeployed() || this.deployedScriptIsOutOfDate;
   }
 
   destinationMatches(): boolean {
@@ -474,17 +516,25 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   }
 
   updateWorkerDisabled(): boolean {
-    return this.workerButtonDisabled() || !this.workerNeedsUpdate;
+    return this.workerButtonDisabled() || !this.workerNeedsUpdate();
   }
 
   workerUpdateHint(): string | null {
-    if (!this.workerNeedsUpdate || this.apiRequestPending) {
+    if (!this.workerNeedsUpdate() || this.apiRequestPending) {
       return null;
     }
-    if (this.allRecipientsVerified()) {
-      return "Recipients changed. Click Update Worker to apply.";
+    let subject: string;
+    if (this.modeChangedFromDeployed()) {
+      subject = "Delivery method changed";
+    } else if (this.recipientsChangedFromDeployed()) {
+      subject = "Recipients changed";
+    } else {
+      subject = "Worker code is out of date";
     }
-    return "Recipients changed. Verify all recipients to enable updating the worker.";
+    if (this.allRecipientsVerified()) {
+      return `${subject}. Click Update Worker to apply.`;
+    }
+    return `${subject}. Verify all recipients to enable updating the worker.`;
   }
 
   async createWorker() {
@@ -510,6 +560,7 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
       this.apiRequestPending = false;
       this.workerAction = null;
       this.lastAppliedRecipients = [];
+      this.deployedForwardingMode = null;
     }
   }
 
@@ -529,15 +580,67 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
         roleEmail: this.status.roleEmail,
         roleName: this.committeeMemberInternal.description,
         recipients: this.memberEmailsInternal,
-        enabled: true
+        enabled: true,
+        forwardingMode: this.forwardingMode
       });
       this.lastAppliedRecipients = this.normalisedRecipients(this.memberEmailsInternal);
+      this.deployedForwardingMode = this.forwardingMode;
+      this.deployedScriptIsOutOfDate = false;
       await this.reloadRules();
     } catch (err) {
       this.error = err;
     } finally {
       this.apiRequestPending = false;
       this.workerAction = null;
+    }
+  }
+
+  modeInputId(suffix: string): string {
+    return `forwarding-mode-${this.committeeMemberInternal?.type || "role"}-${suffix}`;
+  }
+
+  deployedModeLabel(): string {
+    if (this.deployedForwardingMode === EmailForwardingMode.BREVO_RESEND) {
+      return "Brevo re-send";
+    }
+    return "Cloudflare forward";
+  }
+
+  recipientNoun(): string {
+    const count = this.memberEmailsInternal?.length || 0;
+    if (this.committeeMemberInternal?.roleType === RoleType.COMMITTEE_MEMBER) {
+      return count === 1 ? "committee member" : "committee members";
+    }
+    return count === 1 ? "recipient" : "recipients";
+  }
+
+  recipientNounSingular(): string {
+    if (this.committeeMemberInternal?.roleType === RoleType.COMMITTEE_MEMBER) {
+      return "committee member";
+    }
+    return "recipient";
+  }
+
+  unverifiedRecipients(): DestinationVerificationDetail[] {
+    return this.status?.destinationVerificationStatuses?.filter(d => d.status !== DestinationVerificationStatus.VERIFIED) || [];
+  }
+
+  private async loadDeployedMode() {
+    if (this.status?.routeType !== EmailRouteType.WORKER || !this.status?.workerScriptName) {
+      this.deployedForwardingMode = null;
+      this.deployedScriptIsOutOfDate = false;
+      return;
+    }
+    try {
+      const info = await this.cloudflareEmailRoutingService.queryWorkerInfo(this.status.workerScriptName, {
+        roleEmail: this.status.roleEmail,
+        roleName: this.committeeMemberInternal?.description || ""
+      });
+      this.deployedForwardingMode = info.forwardingMode;
+      this.forwardingMode = info.forwardingMode;
+      this.deployedScriptIsOutOfDate = info.upToDate === false;
+    } catch (err) {
+      this.logger.error("Failed to load deployed worker mode:", err);
     }
   }
 
@@ -700,6 +803,8 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
       this.rules = rules;
       this.catchAllRuleInternal = catchAll;
       this.destinationAddresses = destinationAddresses;
+      this.refreshStatus();
+      await this.loadDeployedMode();
       this.refreshStatus();
     } finally {
       this.loadingStatus = false;
