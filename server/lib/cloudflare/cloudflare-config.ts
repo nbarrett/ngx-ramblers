@@ -7,6 +7,7 @@ import { NonSensitiveCloudflareConfig } from "./cloudflare.model";
 import { decryptCloudflareConfig } from "./cloudflare-crypto";
 import { systemConfig } from "../config/system-config";
 import * as config from "../mongo/controllers/config";
+import { apexHost } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare-config"));
 debugLog.enabled = true;
@@ -48,8 +49,7 @@ async function baseDomainFromSystemConfig(): Promise<string> {
   try {
     const sysConfig = await systemConfig();
     if (sysConfig?.group?.href) {
-      const hostname = new URL(sysConfig.group.href).hostname;
-      return hostname.replace(/^www\./, "");
+      return apexHost(new URL(sysConfig.group.href).hostname);
     }
   } catch (err) {
     debugLog("Could not derive baseDomain from system config:", err.message);

@@ -18,12 +18,13 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { MailService } from "../../../../services/mail/mail.service";
+import { apexHost } from "../../../../functions/hosts";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { CommitteeMember } from "../../../../models/committee.model";
 import { BrevoDomainConfiguration, DomainAuthenticationResult, Sender, SenderSortField, SendersResponse, SwitchSendingDomainResponse } from "../../../../models/mail.model";
-import { MxRecordStatus } from "../../../../models/cloudflare-email-routing.model";
+import { EmailAuthRecordsStatus, MxRecordStatus } from "../../../../models/cloudflare-email-routing.model";
 import { ALERT_ERROR } from "../../../../models/alert-target.model";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { SortDirection } from "../../../../models/sort.model";
@@ -205,6 +206,105 @@ import { SessionLogsComponent } from "../../../../shared/components/session-logs
         <div class="row mb-3">
           <div class="col-md-12">
             <div class="d-flex align-items-center gap-3 p-2 border rounded bg-light">
+              <fa-icon [icon]="faShieldAlt" class="fa-icon"></fa-icon>
+              <div class="flex-grow-1">
+                <strong>Email Authentication (SPF &amp; DMARC):</strong> {{ baseDomain }}
+                @if (authRecordsLoading) {
+                  <fa-icon [icon]="faSpinner" animation="spin" class="ms-2"></fa-icon>
+                } @else if (authRecordsStatus) {
+                  @if (authRecordsStatus.spf.allPresent) {
+                    <span class="badge bg-success ms-2">SPF OK</span>
+                  } @else if (authRecordsStatus.spf.multiple) {
+                    <span class="badge bg-danger ms-2">SPF has multiple records</span>
+                  } @else if (authRecordsStatus.spf.present) {
+                    <span class="badge bg-warning ms-2">SPF missing includes</span>
+                  } @else {
+                    <span class="badge bg-danger ms-2">SPF absent</span>
+                  }
+                  @if (authRecordsStatus.dmarc.present) {
+                    <span class="badge bg-success ms-2">DMARC {{ authRecordsStatus.dmarc.policy || "present" }}</span>
+                  } @else {
+                    <span class="badge bg-warning ms-2">DMARC absent</span>
+                  }
+                }
+              </div>
+              @if (authRecordsStatus && authRecordsFixable()) {
+                <button class="btn btn-sm btn-primary text-nowrap flex-shrink-0" [disabled]="authRecordsCreating || authRecordsStatus.spf.multiple"
+                        [tooltip]="authRecordsStatus.spf.multiple ? 'Consolidate multiple SPF records in Cloudflare first' : ''"
+                        (click)="ensureAuthRecords()">
+                  @if (authRecordsCreating) {
+                    <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Updating...
+                  } @else {
+                    <fa-icon [icon]="faPlus" class="me-1"></fa-icon>Fix Auth Records
+                  }
+                </button>
+              }
+            </div>
+            @if (authRecordsStatus) {
+              <div class="mt-2">
+                <table class="table table-sm table-bordered mb-0">
+                  <thead>
+                    <tr>
+                      <th style="width: 80px">Type</th>
+                      <th>Expected / Current</th>
+                      <th style="width: 120px" class="text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>SPF</td>
+                      <td class="small">
+                        @if (authRecordsStatus.spf.present) {
+                          <div>{{ authRecordsStatus.spf.rawContent }}</div>
+                          @if (authRecordsStatus.spf.missingIncludes.length) {
+                            <div class="text-danger mt-1">Missing includes: {{ authRecordsStatus.spf.missingIncludes.join(", ") }}</div>
+                          }
+                        } @else {
+                          <span class="text-muted">No v=spf1 record on {{ baseDomain }}. Will create: v=spf1 include:_spf.mx.cloudflare.net include:spf.brevo.com ~all</span>
+                        }
+                      </td>
+                      <td class="text-center">
+                        @if (authRecordsStatus.spf.allPresent) {
+                          <fa-icon [icon]="faCheck" class="text-success"></fa-icon>
+                        } @else {
+                          <fa-icon [icon]="faClose" class="text-danger"></fa-icon>
+                        }
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>DMARC</td>
+                      <td class="small">
+                        @if (authRecordsStatus.dmarc.present) {
+                          <div>{{ authRecordsStatus.dmarc.rawContent }}</div>
+                        } @else {
+                          <span class="text-muted">No DMARC record on {{ authRecordsStatus.dmarc.dmarcHostname }}. Will create: v=DMARC1; p=none; (monitoring only)</span>
+                        }
+                      </td>
+                      <td class="text-center">
+                        @if (authRecordsStatus.dmarc.present) {
+                          <fa-icon [icon]="faCheck" class="text-success"></fa-icon>
+                        } @else {
+                          <fa-icon [icon]="faClose" class="text-danger"></fa-icon>
+                        }
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            }
+            @if (authRecordsError) {
+              <div class="alert alert-danger mt-2 mb-0">
+                <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                {{ authRecordsError }}
+              </div>
+            }
+          </div>
+        </div>
+      }
+      @if (baseDomain) {
+        <div class="row mb-3">
+          <div class="col-md-12">
+            <div class="d-flex align-items-center gap-3 p-2 border rounded bg-light">
               <fa-icon [icon]="faEnvelope" class="fa-icon"></fa-icon>
               <div class="flex-grow-1">
                 <strong>MX Records:</strong> {{ baseDomain }}
@@ -219,7 +319,7 @@ import { SessionLogsComponent } from "../../../../shared/components/session-logs
                 }
               </div>
               @if (mxRecordStatus && !mxRecordStatus.allPresent) {
-                <button class="btn btn-sm btn-primary" [disabled]="mxRecordCreating" (click)="createMissingMxRecords()">
+                <button class="btn btn-sm btn-primary text-nowrap flex-shrink-0" [disabled]="mxRecordCreating" (click)="createMissingMxRecords()">
                   @if (mxRecordCreating) {
                     <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Creating...
                   } @else {
@@ -440,6 +540,10 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
   public mxRecordLoading = false;
   public mxRecordCreating = false;
   public mxRecordError: string | null = null;
+  public authRecordsStatus: EmailAuthRecordsStatus | null = null;
+  public authRecordsLoading = false;
+  public authRecordsCreating = false;
+  public authRecordsError: string | null = null;
   public canonicalHost: string;
   public switching = false;
   public switchLogs: string[] = [];
@@ -481,6 +585,7 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
           if (this.baseDomain) {
             await this.loadDomainStatus();
             await this.loadMxRecordStatus();
+            await this.loadAuthRecordsStatus();
           }
         } catch (err) {
           this.logger.warn("Could not load cloudflare config for domain validation:", err);
@@ -614,7 +719,7 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
       this.cancelDelete();
       await this.loadSenders();
     } catch (error) {
-      this.errorMessage = error?.error?.error || error?.message || "Failed to delete sender";
+      this.errorMessage = this.stringUtilsService.stringify(error) || "Failed to delete sender";
       this.logger.error("Failed to delete sender:", error);
     } finally {
       this.deleting = false;
@@ -640,7 +745,7 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
   }
 
   domainMismatch(): boolean {
-    return !!(this.canonicalHost && this.baseDomain && this.canonicalHost !== this.baseDomain);
+    return !!(this.canonicalHost && this.baseDomain && apexHost(this.canonicalHost) !== apexHost(this.baseDomain));
   }
 
   async switchSendingDomain(): Promise<void> {
@@ -662,6 +767,7 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
       this.baseDomain = this.canonicalHost;
       await this.loadDomainStatus();
       await this.loadMxRecordStatus();
+      await this.loadAuthRecordsStatus();
       await this.loadSenders();
     } catch (error) {
       this.switchError = this.stringUtilsService.stringify(error);
@@ -727,6 +833,40 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
     }
   }
 
+  private async loadAuthRecordsStatus(): Promise<void> {
+    this.authRecordsLoading = true;
+    this.authRecordsError = null;
+    try {
+      this.authRecordsStatus = await this.cloudflareEmailRoutingService.queryEmailAuthRecords();
+      this.logger.info("Email auth records status:", this.authRecordsStatus);
+    } catch (err) {
+      this.logger.warn("Could not load email auth records status:", err);
+      this.authRecordsError = this.stringUtilsService.stringify(err);
+    } finally {
+      this.authRecordsLoading = false;
+    }
+  }
+
+  authRecordsFixable(): boolean {
+    const status = this.authRecordsStatus;
+    if (!status) return false;
+    return !status.spf.allPresent || !status.dmarc.present;
+  }
+
+  async ensureAuthRecords(): Promise<void> {
+    this.authRecordsCreating = true;
+    this.authRecordsError = null;
+    try {
+      this.authRecordsStatus = await this.cloudflareEmailRoutingService.ensureEmailAuthRecords();
+      this.logger.info("Email auth records ensured, status:", this.authRecordsStatus);
+    } catch (err) {
+      this.logger.error("Failed to ensure email auth records:", err);
+      this.authRecordsError = this.stringUtilsService.stringify(err);
+    } finally {
+      this.authRecordsCreating = false;
+    }
+  }
+
   private async loadSenders() {
     this.loading = true;
     this.errorMessage = null;
@@ -735,7 +875,7 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
       this.senders = response?.senders || [];
       this.logger.info("loaded senders:", this.senders);
     } catch (error) {
-      this.errorMessage = error?.error?.error || error?.message || "Failed to load senders";
+      this.errorMessage = this.stringUtilsService.stringify(error) || "Failed to load senders";
       this.logger.error("Failed to load senders:", error);
     } finally {
       this.loading = false;

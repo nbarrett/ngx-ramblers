@@ -7,11 +7,23 @@ import { CreateSmtpEmail, SendSmtpEmail } from "@getbrevo/brevo";
 import { handleError, performTemplateSubstitution, successfulResponse } from "../common/messages";
 import * as http from "http";
 import { SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { htmlToPlainText } from "../../shared/string-utils";
+import { keys } from "es-toolkit/compat";
 
 const messageType = "brevo:send-transactional-mail";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 
 debugLog.enabled = false;
+
+function mergeHeaders(existing: object | undefined, emailRequest: SendSmtpEmailRequest): object | undefined {
+  const merged: Record<string, any> = {...(existing as Record<string, any> || {})};
+  const replyToEmail = emailRequest.replyTo?.email;
+  const hasListUnsubscribe = keys(merged).some(key => key.toLowerCase() === "list-unsubscribe");
+  if (!hasListUnsubscribe && replyToEmail) {
+    merged["List-Unsubscribe"] = `<mailto:${replyToEmail}?subject=unsubscribe>`;
+  }
+  return keys(merged).length ? merged : undefined;
+}
 
 export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailRequest,
                                                     transactionalDebugLog: debug.Debugger): Promise<{
@@ -30,9 +42,15 @@ export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailR
     sendSmtpEmail.bcc = bcc;
   }
   sendSmtpEmail.replyTo = emailRequest.replyTo;
-  sendSmtpEmail.headers = emailRequest.headers;
+  sendSmtpEmail.headers = mergeHeaders(emailRequest.headers, emailRequest);
   sendSmtpEmail.params = emailRequest.params;
   await performTemplateSubstitution(emailRequest, sendSmtpEmail, transactionalDebugLog);
+  if (sendSmtpEmail.htmlContent && !sendSmtpEmail.textContent) {
+    const textContent = htmlToPlainText(sendSmtpEmail.htmlContent);
+    if (textContent) {
+      sendSmtpEmail.textContent = textContent;
+    }
+  }
   transactionalDebugLog("About to send mail with supplied sendSmtpEmail:", sendSmtpEmail);
   return apiInstance.sendTransacEmail(sendSmtpEmail);
 }

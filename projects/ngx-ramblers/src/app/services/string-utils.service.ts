@@ -58,9 +58,17 @@ StringUtilsService {
     if (extractedMessage instanceof TypeError || extractedMessage instanceof Error) {
       returnValue = extractedMessage.toString();
     } else if (extractedMessage instanceof HttpErrorResponse) {
-      const messageToStringify = {message: extractedMessage.message, error: extractedMessage.error};
-      this.logger.error("error is instanceof HttpErrorResponse:extractedMessage:", extractedMessage, "messageToStringify:", messageToStringify);
-      returnValue = extractedMessage.statusText + " - " + this.stringifyObject(messageToStringify);
+      const nestedMessage = extractedMessage.error?.error?.message;
+      if (nestedMessage) {
+        returnValue = `${extractedMessage.statusText} - ${nestedMessage}`;
+      } else {
+        const messageToStringify = {message: extractedMessage.message, error: extractedMessage.error};
+        this.logger.error("error is instanceof HttpErrorResponse:extractedMessage:", extractedMessage, "messageToStringify:", messageToStringify);
+        returnValue = extractedMessage.statusText + " - " + this.stringifyObject(messageToStringify);
+      }
+    } else if (extractedMessage?.response instanceof HttpErrorResponse) {
+      const prefix = extractedMessage.message ? `${extractedMessage.message}: ` : "";
+      returnValue = prefix + this.stringify(extractedMessage.response);
     } else if (extractedMessage?.error?.message) {
       returnValue = extractedMessage?.error?.message + (extractedMessage?.error?.error ? " - " + extractedMessage?.error?.error : "");
     } else if (extractedMessage?.error?.errmsg) {
