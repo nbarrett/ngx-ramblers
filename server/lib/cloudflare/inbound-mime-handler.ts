@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import debug from "debug";
-import express, { Request, Response } from "express";
+import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import { configuredBrevo } from "../brevo/brevo-config";
 import { relayRawMime } from "../brevo/smtp-relay";
@@ -10,8 +10,6 @@ const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
 const errorDebugLog = debug("ERROR:" + envConfig.logNamespace(messageType));
 errorDebugLog.enabled = true;
-
-const router = express.Router();
 
 interface InboundMimePayload {
   rawMimeBase64: string;
@@ -128,8 +126,13 @@ function escapeMimeDisplayName(name: string): string {
   return `=?UTF-8?B?${encoded}?=`;
 }
 
-router.post("/inbound-mime", express.text({ type: "application/json", limit: "30mb" }), async (req: Request, res: Response) => {
-  const rawBody = req.body as string;
+export async function handleInboundMime(req: Request, res: Response): Promise<void> {
+  const rawBody = (req as Request & { rawBody?: string }).rawBody;
+  if (!rawBody) {
+    errorDebugLog("rawBody missing on request; bodyParser.json verify may not be configured");
+    res.status(500).json({ request: { messageType }, error: { message: "Raw body not captured" } });
+    return;
+  }
   try {
     const brevo = await configuredBrevo();
     const secret = brevo.inboundWebhookSecret;
@@ -194,6 +197,4 @@ router.post("/inbound-mime", express.text({ type: "application/json", limit: "30
     errorDebugLog("Unhandled inbound-mime error: %s", message);
     res.status(500).json({ request: { messageType }, error: { message } });
   }
-});
-
-export const inboundMimeRoutes = router;
+}

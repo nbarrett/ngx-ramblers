@@ -9,7 +9,7 @@
     "clean": "rimraf target/site/serenity",
     "clean-node": "rm -rf node_modules",
     "clean-ts": "rimraf ts-gen",
-    "copy-assets": "cp -r lib/geojson ts-gen/server/lib/ && cp lib/mongo/migrations/README.md ts-gen/server/lib/mongo/migrations/database/",
+    "copy-assets": "cp -r lib/geojson ts-gen/server/lib/ && cp lib/mongo/migrations/README.md ts-gen/server/lib/mongo/migrations/database/ && cp lib/cloudflare/worker-templates/*.template.ts ts-gen/server/lib/cloudflare/worker-templates/",
     "deploy": "ts-node deploy/deploy-to-environments.ts",
     "cli": "tsx lib/cli/index.ts",
     "manage-configs": "ts-node deploy/manage-configs.ts",

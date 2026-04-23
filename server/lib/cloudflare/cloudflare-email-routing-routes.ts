@@ -31,6 +31,7 @@ import {
   workerScriptName
 } from "./cloudflare-email-workers";
 import { ensureInboundWebhookConfigured } from "../brevo/inbound-webhook-config";
+import { handleInboundMime } from "./inbound-mime-handler";
 import { queryEmailRoutingLogs, queryWorkerInvocationLogs } from "./cloudflare-analytics";
 import {
   CreateOrUpdateEmailRouteRequest,
@@ -152,10 +153,28 @@ router.post("/destination-addresses", authConfig.authenticate(), async (req: Req
   try {
     const cloudflareConfig = await configuredCloudflare();
     const {email} = req.body;
+    const normalisedEmail = String(email || "").trim().toLowerCase();
+    const existing = (await listDestinationAddresses(cloudflareConfig))
+      .find(a => a.email?.trim().toLowerCase() === normalisedEmail);
+    if (existing) {
+      debugLog("Destination address %s already exists (id=%s, verified=%s) - skipping create", normalisedEmail, existing.id, Boolean(existing.verified));
+      res.json({request: {messageType}, response: existing});
+      return;
+    }
     const address = await createDestinationAddress(cloudflareConfig, email);
     res.json({request: {messageType}, response: address});
   } catch (error) {
     errorDebugLog("Error creating destination address:", error.message);
+    if (/verification email has been sent too recently/i.test(error.message || "")) {
+      res.status(429).json({
+        request: {messageType},
+        error: {
+          code: "RateLimited",
+          message: "Cloudflare sent a verification email to this address too recently. Ask the recipient to check their inbox for the verification link, then try again in a few minutes."
+        }
+      });
+      return;
+    }
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });
@@ -460,5 +479,7 @@ router.post("/mx-records", authConfig.authenticate(), async (req: Request, res: 
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });
+
+router.post("/inbound-mime", handleInboundMime);
 
 export const cloudflareEmailRoutingRoutes = router;
