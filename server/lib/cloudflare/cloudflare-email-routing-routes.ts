@@ -13,6 +13,10 @@ import {
 import { createDnsRecord, listDnsRecords, zoneForHostname } from "./cloudflare-dns";
 import { MxRecordStatus } from "./cloudflare.model";
 import {
+  ensureEmailAuthRecords,
+  queryEmailAuthStatus
+} from "./cloudflare-email-auth-records";
+import {
   createDestinationAddress,
   deleteDestinationAddress,
   listDestinationAddresses
@@ -32,6 +36,7 @@ import {
 } from "./cloudflare-email-workers";
 import { ensureInboundWebhookConfigured } from "../brevo/inbound-webhook-config";
 import { handleInboundMime } from "./inbound-mime-handler";
+import { errorResponse } from "../shared/error-response";
 import { queryEmailRoutingLogs, queryWorkerInvocationLogs } from "./cloudflare-analytics";
 import {
   CreateOrUpdateEmailRouteRequest,
@@ -51,13 +56,6 @@ const errorDebugLog = debug("ERROR:" + envConfig.logNamespace(messageType));
 errorDebugLog.enabled = true;
 
 const router = express.Router();
-
-function errorResponse(error: any) {
-  if (error instanceof Error) {
-    return {code: error.name, message: error.message};
-  }
-  return {message: String(error)};
-}
 
 router.get("/config", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
@@ -481,5 +479,49 @@ router.post("/mx-records", authConfig.authenticate(), async (req: Request, res: 
 });
 
 router.post("/inbound-mime", handleInboundMime);
+
+router.get("/auth-records", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    const nsConfig = await nonSensitiveCloudflareConfig();
+    if (!nsConfig.configured || !nsConfig.baseDomain) {
+      res.status(400).json({request: {messageType}, error: {message: "Cloudflare not configured or baseDomain not available"}});
+      return;
+    }
+    const cloudflareConfig = await configuredCloudflare();
+    const domain = nsConfig.baseDomain;
+    const zone = await zoneForHostname(cloudflareConfig.apiToken, domain);
+    if (!zone) {
+      res.status(400).json({request: {messageType}, error: {message: `No Cloudflare zone found for ${domain}. Add the zone in Cloudflare first.`}});
+      return;
+    }
+    const status = await queryEmailAuthStatus({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, domain);
+    res.json({request: {messageType}, response: status});
+  } catch (error) {
+    errorDebugLog("Error fetching email auth record status:", error.message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+router.post("/auth-records", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    const nsConfig = await nonSensitiveCloudflareConfig();
+    if (!nsConfig.configured || !nsConfig.baseDomain) {
+      res.status(400).json({request: {messageType}, error: {message: "Cloudflare not configured or baseDomain not available"}});
+      return;
+    }
+    const cloudflareConfig = await configuredCloudflare();
+    const domain = nsConfig.baseDomain;
+    const zone = await zoneForHostname(cloudflareConfig.apiToken, domain);
+    if (!zone) {
+      res.status(400).json({request: {messageType}, error: {message: `No Cloudflare zone found for ${domain}. Add the zone in Cloudflare first.`}});
+      return;
+    }
+    const status = await ensureEmailAuthRecords({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, domain);
+    res.json({request: {messageType}, response: status});
+  } catch (error) {
+    errorDebugLog("Error ensuring email auth records:", error.message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
 
 export const cloudflareEmailRoutingRoutes = router;

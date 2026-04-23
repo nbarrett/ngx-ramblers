@@ -7,6 +7,7 @@ import {
   CreateOrUpdateEmailRouteRequest,
   CreateOrUpdateWorkerRequest,
   DestinationAddress,
+  EmailAuthRecordsStatus,
   EmailRoutingLogEntry,
   EmailRoutingLogsRequest,
   EmailRoutingRule,
@@ -227,6 +228,14 @@ export class CloudflareEmailRoutingService {
 
   async createMissingMxRecords(): Promise<MxRecordStatus> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/mx-records`, {}))).response;
+  }
+
+  async queryEmailAuthRecords(): Promise<EmailAuthRecordsStatus> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/auth-records`))).response;
+  }
+
+  async ensureEmailAuthRecords(): Promise<EmailAuthRecordsStatus> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/auth-records`, {}))).response;
   }
 
   invalidateCache() {

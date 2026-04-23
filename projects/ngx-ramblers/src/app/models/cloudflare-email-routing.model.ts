@@ -127,6 +127,32 @@ export interface MxRecordStatus {
   existingRecords: MxExistingRecord[];
 }
 
+export interface SpfRecordStatus {
+  domain: string;
+  present: boolean;
+  multiple: boolean;
+  rawContent: string | null;
+  existingIncludes: string[];
+  missingIncludes: string[];
+  allPresent: boolean;
+  recordId: string | null;
+}
+
+export interface DmarcRecordStatus {
+  domain: string;
+  dmarcHostname: string;
+  present: boolean;
+  rawContent: string | null;
+  policy: string | null;
+  recordId: string | null;
+}
+
+export interface EmailAuthRecordsStatus {
+  domain: string;
+  spf: SpfRecordStatus;
+  dmarc: DmarcRecordStatus;
+}
+
 export interface EmailWorkerScript {
   id: string;
   etag?: string;

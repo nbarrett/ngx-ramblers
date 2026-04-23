@@ -17,6 +17,7 @@ import { KeyValue } from "../../../../projects/ngx-ramblers/src/app/functions/en
 import { extractParametersFrom } from "../../../../projects/ngx-ramblers/src/app/common/mail-parameters";
 import { replaceAll } from "../../shared/string-utils";
 import { ramblersEmailLayout } from "../templates/ramblers-email-layout";
+import { errorResponse } from "../../shared/error-response";
 
 function valueAtPath(source: Record<string, any>, path: string): any {
   return path.split(".").reduce((value, key) => value?.[key], source);
@@ -51,10 +52,10 @@ export function stripFroalaArtefacts(html: string): string {
 export function collapseFroalaPlaceholderSpans(html: string): string {
   return html
     .replace(/<span\s+class="placeholder rte-personalized-node fr-deletable"[^>]*>([^<]*)<\/span>\u200b?/g, "$1")
-    .replace(/<span[^>]*>\s*(\{\{\s*override\.[A-Z_]+\s*\}\})\s*<\/span>/g, "$1");
+    .replace(/<span[^>]*>\s*(\{\{\s*override\.[A-Z_]+\s*}})\s*<\/span>/g, "$1");
 }
 
-const MERGE_FIELD_REGEX = /\{\{\s*params\.[a-zA-Z]+\.[A-Z_]+\s*\}\}/g;
+const MERGE_FIELD_REGEX = /\{\{\s*params\.[a-zA-Z]+\.[A-Z_]+\s*}}/g;
 
 function wrapToken(token: string): string {
   return `<span class="placeholder rte-personalized-node fr-deletable" contenteditable="false">${token}</span>`;
@@ -181,7 +182,7 @@ export function successfulResponse(successfulResponse: SuccessfulResponse) {
   });
 }
 
-export function handleError(req: Request, res: Response, messageType: string, debugLog: any, error: HttpError) {
+export function handleError(req: Request, res: Response, messageType: string, debugLog: any, error: unknown) {
   const priorDebugValue = debugLog.enabled;
   debugLog.enabled = true;
   if (error instanceof HttpError) {
@@ -189,7 +190,7 @@ export function handleError(req: Request, res: Response, messageType: string, de
     res.status(error.statusCode).json({request: {messageType}, error: error.body});
   } else {
     debugLog(messageType, "API call failed with non-HttpError: body", error);
-    res.status(500).json({request: {messageType}, error});
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
   debugLog.enabled = priorDebugValue;
 }

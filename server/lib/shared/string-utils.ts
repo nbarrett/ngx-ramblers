@@ -142,3 +142,41 @@ export function uniqueCommaDelimitedList(...values: (string | null | undefined)[
       .filter(item => item.length > 0)
   )).join(",");
 }
+
+const HTML_ENTITY_MAP: Record<string, string> = {
+  "&nbsp;": " ",
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": "\"",
+  "&#39;": "'",
+  "&apos;": "'"
+};
+
+export function htmlToPlainText(html: string): string {
+  if (!html) {
+    return "";
+  }
+  const withLinkTargets = html.replace(/<a\b[^>]*\bhref=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi, (_match, _q, href, inner) => {
+    const innerText = inner.replace(/<[^>]+>/g, "").trim();
+    if (!innerText) return href;
+    if (innerText === href) return href;
+    return `${innerText} (${href})`;
+  });
+  const blockBreaks = withLinkTargets
+    .replace(/<\s*(br)\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|tr|h[1-6])\s*>/gi, "\n")
+    .replace(/<\s*(hr)\s*\/?>/gi, "\n---\n")
+    .replace(/<\s*li\b[^>]*>/gi, "- ");
+  const stripped = blockBreaks.replace(/<[^>]+>/g, "");
+  const decoded = Object.entries(HTML_ENTITY_MAP).reduce(
+    (text, [entity, replacement]) => text.split(entity).join(replacement),
+    stripped
+  ).replace(/&#(\d+);/g, (_m, code) => String.fromCharCode(parseInt(code, 10)));
+  return decoded
+    .split("\n")
+    .map(line => line.replace(/[ \t]+/g, " ").trim())
+    .filter((line, index, all) => !(line === "" && all[index - 1] === ""))
+    .join("\n")
+    .trim();
+}

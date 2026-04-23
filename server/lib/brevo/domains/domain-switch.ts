@@ -2,7 +2,7 @@ import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { CloudflareDnsConfig } from "../../cloudflare/cloudflare.model";
 import { zoneForHostname } from "../../cloudflare/cloudflare-dns";
-import { environmentsConfigFromDatabase } from "../../environments/environments-config";
+import { configuredCloudflare } from "../../cloudflare/cloudflare-config";
 import { authenticateSendingDomain } from "./domain-authentication";
 import { configuredBrevo } from "../brevo-config";
 import { listBrevoSenders } from "../senders/senders";
@@ -38,11 +38,7 @@ function hostOf(urlOrHost: string): string {
 }
 
 async function resolveCloudflareConfigFor(step: (msg: string) => void, hostname: string): Promise<{ cfDnsConfig: CloudflareDnsConfig; zoneName: string }> {
-  const environmentsConfig = await environmentsConfigFromDatabase();
-  const apiToken = environmentsConfig?.cloudflare?.apiToken;
-  if (!apiToken) {
-    throw new Error("Cloudflare API token not configured in environments config");
-  }
+  const { apiToken } = await configuredCloudflare();
   step(`Resolving Cloudflare zone for ${hostname}...`);
   const zone = await zoneForHostname(apiToken, hostname);
   if (!zone) {

@@ -22,6 +22,7 @@ import {
 } from "./aws-setup";
 import { initialiseDatabase, validateMongoConnection } from "./database-initialiser";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { apexHost } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
 import { uid } from "rand-token";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
@@ -388,7 +389,7 @@ export async function createEnvironment(
 
     if (request.options.authenticateBrevoDomain && request.serviceConfigs.brevo.apiKey && (request.ramblersInfo.groupUrl || baseDomain)) {
       const hostnameFromGroupUrl = request.ramblersInfo.groupUrl
-        ? new URL(request.ramblersInfo.groupUrl).hostname.replace(/^www\./, "")
+        ? apexHost(new URL(request.ramblersInfo.groupUrl).hostname)
         : "";
       const domainName = baseDomain || hostnameFromGroupUrl;
       reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, "running", `Authenticating domain ${domainName}`);

@@ -5,6 +5,7 @@ import * as http from "http";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
 import { systemConfig } from "../../config/system-config";
+import { apexHost } from "../../../../projects/ngx-ramblers/src/app/functions/hosts";
 import {
   CreateTemplateRequest,
   CreateTemplateResponse,
@@ -41,7 +42,7 @@ async function preferredSenderDomain(): Promise<string | null> {
     if (!href) {
       return null;
     }
-    return new URL(href).hostname.replace(/^www\./, "");
+    return apexHost(new URL(href).hostname);
   } catch (error) {
     debugLog("preferredSenderDomain: unable to derive domain", error);
     return null;
