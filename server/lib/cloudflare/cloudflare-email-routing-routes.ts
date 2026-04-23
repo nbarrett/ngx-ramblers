@@ -31,6 +31,7 @@ import {
   workerScriptName
 } from "./cloudflare-email-workers";
 import { ensureInboundWebhookConfigured } from "../brevo/inbound-webhook-config";
+import { handleInboundMime } from "./inbound-mime-handler";
 import { queryEmailRoutingLogs, queryWorkerInvocationLogs } from "./cloudflare-analytics";
 import {
   CreateOrUpdateEmailRouteRequest,
@@ -460,5 +461,7 @@ router.post("/mx-records", authConfig.authenticate(), async (req: Request, res: 
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });
+
+router.post("/inbound-mime", handleInboundMime);
 
 export const cloudflareEmailRoutingRoutes = router;

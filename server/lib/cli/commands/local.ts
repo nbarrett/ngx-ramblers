@@ -1043,9 +1043,10 @@ async function runProd(config: LocalRunConfig): Promise<void> {
   log("========================================\n");
 
   log("Building frontend...");
+  const { NODE_OPTIONS: _runtimeNodeOptions, NODE_ENV: _runtimeNodeEnv, ...buildEnv } = env;
   const buildProcess = spawn("npm", ["run", "build"], {
     cwd: PROJECT_ROOT,
-    env,
+    env: buildEnv,
     stdio: ["inherit", "pipe", "pipe"]
   });
 
