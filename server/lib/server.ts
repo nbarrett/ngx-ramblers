@@ -46,7 +46,6 @@ import { extendedGroupEventRoutes } from "./mongo/routes/extended-group-event";
 import { venueRoutes } from "./mongo/routes/venue";
 import { environmentSetupRoutes } from "./environment-setup/routes/environment-setup-routes";
 import { cloudflareEmailRoutingRoutes } from "./cloudflare/cloudflare-email-routing-routes";
-import { inboundMimeRoutes } from "./cloudflare/inbound-mime-routes";
 import { bookingRoutes } from "./mongo/routes/booking";
 import { contactInteractionRoutes } from "./mongo/routes/contact-interaction";
 import { configureLogging } from "./logging/logging";
@@ -93,7 +92,10 @@ if (fs.existsSync(faviconPath)) {
   app.use(favicon(faviconPath));
 }
 app.use(methodOverride());
-app.use(bodyParser.json({limit: "50mb"}));
+app.use(bodyParser.json({
+  limit: "50mb",
+  verify: (req, _res, buf) => { (req as { rawBody?: string }).rawBody = buf.toString("utf-8"); }
+}));
 app.use(bodyParser.urlencoded({limit: "50mb", extended: true}));
 app.use(passport.initialize());
 app.use(passport.session());
@@ -150,7 +152,6 @@ app.use("/api/database/group-event", extendedGroupEventRoutes);
 app.use("/api/database/migrations", migrationsRoutes);
 app.use("/api/database/venues", venueRoutes);
 app.use("/api/cloudflare/email-routing", cloudflareEmailRoutingRoutes);
-app.use("/api/cloudflare/email-routing", inboundMimeRoutes);
 app.use("/api/environment-setup", environmentSetupRoutes);
 if (fs.existsSync(distFolder)) {
   app.use("/", express.static(distFolder));
