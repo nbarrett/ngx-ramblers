@@ -25,6 +25,8 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { EventDefaultsService } from "../../../services/event-defaults.service";
+import { ExtendedFields, GroupEvent } from "../../../models/group-event.model";
 
 @Component({
   selector: "app-walk-edit-copy-from",
@@ -154,6 +156,7 @@ export class WalkEditCopyFromComponent {
   private walkEventService = inject(GroupEventService);
   private displayDate = inject(DisplayDatePipe);
   private memberLoginService = inject(MemberLoginService);
+  private eventDefaultsService = inject(EventDefaultsService);
   protected readonly WalkCopyOption = WalkCopyOption;
 
   async ngOnInit() {
@@ -241,8 +244,8 @@ export class WalkEditCopyFromComponent {
         delete copyFromEvent.groupEvent.start_date_time;
         delete copyFromEvent.groupEvent.external_url;
         delete copyFromEvent.groupEvent.end_date_time;
+        delete copyFromEvent.groupEvent.status;
         delete copyFromEvent.fields.migratedFromId;
-        delete copyFromEvent.fields.contactDetails;
         copyFromEvent.fields.links = [];
         copyFromEvent.fields.riskAssessment = [];
         copyFromEvent.groupEvent.url = await this.walksAndEventsService.urlFromTitle(copyFromEvent.groupEvent.title);
@@ -250,6 +253,7 @@ export class WalkEditCopyFromComponent {
         const targetFields = this.displayedWalk.walk?.fields;
         const sourceGroupEvent = copyFromEvent.groupEvent;
         const targetGroupEvent = this.displayedWalk.walk?.groupEvent;
+        const draftLeaderMemberId = targetFields?.contactDetails?.memberId ?? null;
         const fields = {
           ...targetFields,
           ...sourceFields
@@ -258,6 +262,7 @@ export class WalkEditCopyFromComponent {
           ...targetGroupEvent,
           ...sourceGroupEvent
         };
+        this.rebuildLeaderIdentity(fields, groupEvent, draftLeaderMemberId);
         this.displayedWalk.walk = {
           ...this.displayedWalk.walk,
           groupEvent,
@@ -285,6 +290,32 @@ export class WalkEditCopyFromComponent {
         title: "Failed to copy walk details",
         message: "An error occurred while copying the walk. Please try again."
       });
+    }
+  }
+
+  private rebuildLeaderIdentity(fields: ExtendedFields, groupEvent: GroupEvent, memberId: string | null) {
+    const leader = memberId ? this.display.members.find(member => member.id === memberId) : null;
+    if (leader) {
+      const contactId = leader.contactId ?? null;
+      fields.contactDetails = {
+        memberId: leader.id,
+        contactId,
+        displayName: leader.displayName ?? null,
+        email: leader.email ?? null,
+        phone: leader.mobileNumber ?? null
+      };
+      fields.publishing = {
+        meetup: {publish: fields.publishing?.meetup?.publish ?? false, contactName: null},
+        ramblers: {publish: fields.publishing?.ramblers?.publish ?? true, contactName: contactId}
+      };
+      groupEvent.walk_leader = this.eventDefaultsService.memberToContact(leader);
+    } else {
+      fields.contactDetails = this.eventDefaultsService.defaultContactDetails();
+      fields.publishing = {
+        meetup: {publish: false, contactName: null},
+        ramblers: {publish: true, contactName: null}
+      };
+      groupEvent.walk_leader = null;
     }
   }
 
