@@ -153,11 +153,23 @@ app.use("/api/database/migrations", migrationsRoutes);
 app.use("/api/database/venues", venueRoutes);
 app.use("/api/cloudflare/email-routing", cloudflareEmailRoutingRoutes);
 app.use("/api/environment-setup", environmentSetupRoutes);
+const staticAssetExtensions = /\.(js|mjs|css|map|wasm|json|ico|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|eot|txt|xml)$/i;
 if (fs.existsSync(distFolder)) {
-  app.use("/", express.static(distFolder));
+  app.use("/", express.static(distFolder, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith("index.html")) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      }
+    }
+  }));
   app.use((req, res, next) => {
+    if (staticAssetExtensions.test(req.path)) {
+      res.status(404).send(`Asset not found: ${req.path}`);
+      return;
+    }
     const indexPath = path.join(distFolder, "index.html");
     if (fs.existsSync(indexPath)) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.sendFile(indexPath);
     } else {
       debugLog("⚠️ index.html not found in", distFolder, "— likely running in dev before build.");
