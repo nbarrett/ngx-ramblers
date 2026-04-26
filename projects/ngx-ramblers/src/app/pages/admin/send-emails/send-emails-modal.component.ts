@@ -185,11 +185,11 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
                                 [groupValue]="groupValue"
                                 [multiple]="true"
                                 (click)="selectClick(select)"
-                                [closeOnSelect]="true"
+                                [closeOnSelect]="false"
                                 (change)="onChange($event)"
                                 [(ngModel)]="selectedMemberIds">
                                 <ng-template ng-optgroup-tmp let-item="item">
-                                  <span class="group-header">{{ item.name }} members </span>
+                                  <span class="group-header">{{ groupHeaderLabel(item.name) }} </span>
                                   <span class="ms-1 badge bg-secondary badge-group">{{ groupedCount(item) }}</span>
                                 </ng-template>
                               </ng-select>
@@ -377,6 +377,10 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     return item?.total ?? item?.children?.length ?? item?.items?.length ?? 0;
   }
 
+  groupHeaderLabel(name: string): string {
+    return name?.includes("members") ? name : `${name} members`;
+  }
+
   emailConfigChanged(notificationConfig: NotificationConfig) {
     this.notificationConfig = notificationConfig;
     this.ensureMonthsInPast(notificationConfig);
@@ -496,7 +500,13 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
 
   renderCreatedInformation(member: Member): MemberFilterSelection {
     const disabled = !member.email;
-    const memberGrouping = disabled ? "no email address" : member.membershipExpiryDate < this.dateUtils.dateTimeNowNoTime().toMillis() ? "expired" : "active";
+    const expired = !disabled && member.membershipExpiryDate < this.dateUtils.dateTimeNowNoTime().toMillis();
+    const consentText = member.emailMarketingConsent ? "consent given" : "consent not given";
+    const memberGrouping = disabled
+      ? "no email address"
+      : expired
+        ? "expired"
+        : `active members, ${consentText}`;
     const memberInformation = `${this.fullNameWithAliasPipe.transform(member)} (created ${this.dateUtils.displayDate(member.createdDate) || "not known"})`;
     return {id: member.id, member, memberInformation, memberGrouping, disabled};
   }

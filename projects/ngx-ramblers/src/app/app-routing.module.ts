@@ -2,7 +2,7 @@ import { inject, NgModule } from "@angular/core";
 import { NoPreloading, RouterModule, Routes } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
-import { hasDynamicPath, hasEditSubPath, hasSendNotificationPath, hasTrailingEditPath, hasTrailingNewPath, hasViewSubPath } from "./services/path-matchers";
+import { hasDynamicPath, hasEditSubPath, hasSendNotificationPath, hasTrailingEditPath, hasTrailingNewPath, hasUnsubscribePath, hasViewSubPath } from "./services/path-matchers";
 import { contactUsGuard } from "./pages/contact-us/contact-us.guard";
 import { AreaExistsGuard } from "./guards/area-exists-guard";
 import { CommitteeAuthGuard } from "./guards/committee-auth-guard";
@@ -52,6 +52,11 @@ const routes: Routes = [
     path: "logout", loadComponent: () => import("./logout/logout.component")
       .then(m => m.LogoutComponent),
     canActivate: [SystemHealthyGuard]
+  },
+  {
+    matcher: hasUnsubscribePath,
+    loadComponent: () => import("./pages/unsubscribe/unsubscribe.component")
+      .then(m => m.UnsubscribeComponent)
   },
   {
     path: "fragments",

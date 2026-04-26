@@ -408,6 +408,7 @@
           <tab app-mail-subscription-settings heading="Brevo" [member]="member" [members]="members"
                [mailMessagingConfig]="mailMessagingConfig" [systemConfig]="systemConfig"
                [mailListAudits]="mailListAudits"
+               (unsubscribesRequested)="goToUnsubscribesPage()"
           />
         }
         <tab heading="Audit">
@@ -489,8 +490,22 @@
         <tab heading="Member Raw Data">
           <div class="img-thumbnail thumbnail-admin-edit">
             <div class="row">
-              <div class="col col-sm-12"></div>
-              <pre>{{ member | json }}</pre>
+              <div class="col col-sm-12 d-flex align-items-center mb-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        [tooltip]="rawMemberDataVisible ? 'Hide raw member document' : 'Show raw member document'"
+                        (click)="rawMemberDataVisible = !rawMemberDataVisible">
+                  <fa-icon [icon]="rawMemberDataVisible ? faEyeSlash : faEye"></fa-icon>
+                  <span class="ms-2">{{ rawMemberDataVisible ? 'Hide raw data' : 'Show raw data' }}</span>
+                </button>
+                @if (!rawMemberDataVisible) {
+                  <span class="text-muted small ms-3">
+                    The raw member document is hidden by default — it shows the unfiltered MongoDB record (including non-display fields). Reveal only when needed.
+                  </span>
+                }
+              </div>
+              @if (rawMemberDataVisible) {
+                <pre>{{ member | json }}</pre>
+              }
             </div>
           </div>
         </tab>

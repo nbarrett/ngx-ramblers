@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom } from "rxjs";
+import { pickBy } from "es-toolkit/compat";
 import { ApiResponse } from "../../models/api-response.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -44,8 +45,14 @@ import {
   BrevoDomainInfo,
   BrevoDomainConfiguration,
   DomainRegistrationResult,
-  DomainAuthenticationResult
+  DomainAuthenticationResult,
+  BlockedContactsRequest,
+  BlockedContactsResponse,
+  ClearAllBlocklistResult,
+  UnsubscribeActivityResponse,
+  UnsubscribeHistoryEntry
 } from "../../models/mail.model";
+import { SortDirection } from "../../models/sort.model";
 
 @Injectable({
   providedIn: "root"
@@ -232,6 +239,33 @@ export class MailService {
   async deleteDomain(domainName: string): Promise<void> {
     this.logger.info("deleteDomain:", domainName);
     return (await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/domains/delete`, {params: {domainName}}))).response;
+  }
+
+  async queryUnsubscribes(request?: BlockedContactsRequest): Promise<BlockedContactsResponse> {
+    this.logger.info("queryUnsubscribes:", request);
+    const params = this.commonDataService.toHttpParams(pickBy(request || {}, value => value !== undefined && value !== null && value !== ""));
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/unsubscribes`, {params}))).response;
+  }
+
+  async removeFromBlocklist(email: string): Promise<{ email: string; removed: boolean }> {
+    this.logger.info("removeFromBlocklist:", email);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/unsubscribes/${encodeURIComponent(email)}`))).response as unknown as { email: string; removed: boolean };
+  }
+
+  async clearAllBlocklist(): Promise<ClearAllBlocklistResult> {
+    this.logger.info("clearAllBlocklist");
+    return (await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/unsubscribes`))).response as unknown as ClearAllBlocklistResult;
+  }
+
+  async queryUnsubscribeActivity(request?: { limit?: number; offset?: number; sort?: SortDirection; startDate?: string; endDate?: string }): Promise<UnsubscribeActivityResponse> {
+    this.logger.info("queryUnsubscribeActivity:", request);
+    const params = this.commonDataService.toHttpParams(pickBy(request || {}, value => value !== undefined && value !== null));
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/unsubscribes/activity`, {params}))).response;
+  }
+
+  async queryUnsubscribeHistory(): Promise<UnsubscribeHistoryEntry[]> {
+    this.logger.info("queryUnsubscribeHistory");
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/unsubscribes/history`))).response as unknown as UnsubscribeHistoryEntry[];
   }
 
 }

@@ -130,7 +130,7 @@ function postFooter(): string {
       <tr>
         <td style="color: #606060; font-family: ${T.fontFamily}; font-size: 11px; line-height: 1.5; text-align: center;">
           Sent to <a href="mailto:{{params.memberMergeFields.EMAIL}}" style="color: #404040;">{{params.memberMergeFields.EMAIL}}</a><br>
-          <a href="{{ unsubscribe }}" style="color: #404040; text-decoration: underline;">Unsubscribe</a><br>
+          <a href="{{params.memberMergeFields.UNSUBSCRIBE_URL}}" style="color: #404040; text-decoration: underline;">Unsubscribe</a><br>
           {{params.systemMergeFields.APP_LONGNAME}} · {{params.accountMergeFields.STREET}} · {{params.accountMergeFields.TOWN}}
         </td>
       </tr>

@@ -179,7 +179,7 @@ import { EmailPreviewComponent } from "../../../modules/common/email-preview/ema
                                          [groupBy]="groupBy"
                                          [groupValue]="groupValue"
                                          [multiple]="true"
-                                         [closeOnSelect]="true"
+                                         [closeOnSelect]="false"
                                          (change)="onChange()"
                                          [(ngModel)]="notification.content.selectedMemberIds">
                                 <ng-template ng-optgroup-tmp let-item="item">

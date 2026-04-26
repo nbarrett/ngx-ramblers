@@ -1,5 +1,6 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faPaste, faSort, faSortDown, faSortUp } from "@fortawesome/free-solid-svg-icons";
+import { Router } from "@angular/router";
+import { faEye, faEyeSlash, faPaste, faSort, faSortDown, faSortUp } from "@fortawesome/free-solid-svg-icons";
 import { omit } from "es-toolkit/compat";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -81,6 +82,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private deletedMemberService = inject(DeletedMemberService);
   protected dateUtils = inject(DateUtilsService);
   bsModalRef = inject(BsModalRef);
+  private router = inject(Router);
   public systemConfig: SystemConfig;
   public mailMessagingConfig: MailMessagingConfig;
   private notify: AlertInstance;
@@ -103,6 +105,9 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   public mailchimpConfig: MailchimpConfig;
   private subscriptions: Subscription[] = [];
   public readonly faPaste = faPaste;
+  protected readonly faEye = faEye;
+  protected readonly faEyeSlash = faEyeSlash;
+  protected rawMemberDataVisible = false;
   protected readonly faSort = faSort;
   protected readonly faSortUp = faSortUp;
   protected readonly faSortDown = faSortDown;
@@ -240,6 +245,11 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
 
   close() {
     this.bsModalRef.hide();
+  }
+
+  goToUnsubscribesPage() {
+    this.bsModalRef.hide();
+    this.router.navigate(["/admin/mail-settings"], { queryParams: { tab: "unsubscribes" } });
   }
 
   onMembershipDateChange(dateValue: DateValue) {

@@ -30,6 +30,7 @@ const sensitiveKeys = new Set([
   "secretKey",
   "smtpPassword",
   "inboundWebhookSecret",
+  "brevoEventsWebhookSecret",
 ]);
 
 enum ConfigAccess {

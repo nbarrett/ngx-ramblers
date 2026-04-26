@@ -12,7 +12,8 @@ export enum MailSettingsTab {
   BUILT_IN_PROCESS_MAPPINGS = "Built-in Process Mappings",
   MAIL_API_SETTINGS = "Mail API Settings",
   MAIL_LIST_SETTINGS = "Mail List Settings",
-  SENDERS = "Senders"
+  SENDERS = "Senders",
+  UNSUBSCRIBES = "Unsubscribes"
 }
 
 export interface NotificationSubject {
@@ -119,6 +120,7 @@ export interface SendSmtpEmailRequest extends EmailRequest {
   bcc?: EmailAddress[];
   cc?: EmailAddress[];
   replyTo?: EmailAddress;
+  listId?: number;
 }
 
 export interface SendCampaignRequest {
@@ -177,6 +179,7 @@ export interface AccountMergeFields {
 
 export interface MemberMergeFields extends MergeFields {
   FULL_NAME: string;
+  UNSUBSCRIBE_URL?: string;
 }
 export interface MergeFields {
   EMAIL: string;
@@ -210,6 +213,8 @@ export interface MailConfig extends BuiltInProcessMappings {
   smtpUser?: string;
   smtpPassword?: string;
   inboundWebhookSecret?: string;
+  brevoEventsWebhookSecret?: string;
+  unsubscribeTokenSecret?: string;
 }
 
 export interface BuiltInProcessMappings {
@@ -665,6 +670,163 @@ export enum SenderSortField {
   ACTIVE = "active"
 }
 
+export enum BlockedContactReasonCode {
+  UNSUBSCRIBED_VIA_MA = "unsubscribedViaMA",
+  UNSUBSCRIBED_VIA_EMAIL = "unsubscribedViaEmail",
+  UNSUBSCRIBED_VIA_API = "unsubscribedViaApi",
+  ADMIN_BLOCKED = "adminBlocked",
+  HARD_BOUNCE = "hardBounce",
+  CONTACT_FLAGGED_AS_SPAM = "contactFlaggedAsSpam"
+}
+
+export const BLOCKED_CONTACT_REASON_LABELS: Record<string, string> = {
+  [BlockedContactReasonCode.UNSUBSCRIBED_VIA_MA]: "Unsubscribed via marketing automation",
+  [BlockedContactReasonCode.UNSUBSCRIBED_VIA_EMAIL]: "Unsubscribed via email link",
+  [BlockedContactReasonCode.UNSUBSCRIBED_VIA_API]: "Unsubscribed via API",
+  [BlockedContactReasonCode.ADMIN_BLOCKED]: "Blocked by admin",
+  [BlockedContactReasonCode.HARD_BOUNCE]: "Hard bounce",
+  [BlockedContactReasonCode.CONTACT_FLAGGED_AS_SPAM]: "Flagged as spam"
+};
+
+export interface BlockedContactReason {
+  code?: BlockedContactReasonCode | string;
+  message?: string;
+}
+
+export interface BlockedContactMemberMatch {
+  id: string;
+  membershipNumber?: string;
+  displayName?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+export enum SalesforceWritebackStatus {
+  NOT_APPLICABLE = "not-applicable",
+  PENDING = "pending",
+  SYNCED = "synced",
+  FAILED = "failed"
+}
+
+export enum MailListAuditListType {
+  USER_INITIATED = "user-initiated",
+  BREVO_BLOCKED = "brevo-blocked",
+  BREVO_BLOCKLIST_REMOVED = "brevo-blocklist-removed",
+  BREVO_BLOCKLIST_SELF_HEALED = "brevo-blocklist-self-healed",
+  BREVO_BLOCKLIST_CLEARED = "brevo-blocklist-cleared"
+}
+
+export enum MailListAuditSource {
+  BRANDED_UNSUBSCRIBE = "branded-unsubscribe",
+  BRANDED_UNSUBSCRIBE_FEEDBACK = "branded-unsubscribe-feedback",
+  BREVO_UNSUBSCRIBES_SYNC = "brevo-unsubscribes-sync",
+  BREVO_EVENTS_WEBHOOK = "brevo-events-webhook"
+}
+
+export interface UnsubscribeFeedback {
+  reason: string;
+  comment?: string;
+  recordedAt?: string;
+}
+
+export interface BlockedContact {
+  email: string;
+  senderEmail: string;
+  reason: BlockedContactReason;
+  blockedAt: string;
+  listIds?: number[];
+  emailBlocked?: boolean;
+  brevoContactId?: number;
+  matchedMember?: BlockedContactMemberMatch;
+  unsubscribeFeedback?: UnsubscribeFeedback;
+  salesforceWriteback?: {
+    status: SalesforceWritebackStatus;
+    updatedAt?: string;
+    message?: string;
+  };
+}
+
+export const UNSUBSCRIBE_FEEDBACK_REASON_LABELS: Record<string, string> = {
+  "too-many-emails": "I receive too many emails",
+  "not-relevant": "The content isn't relevant to me",
+  "no-longer-interested": "I'm no longer interested",
+  "moved-away": "I've moved away from the area",
+  "never-signed-up": "I never signed up for these emails",
+  "other": "Other"
+};
+
+export interface BlockedContactsResponse {
+  count: number;
+  contacts: BlockedContact[];
+}
+
+export interface ClearAllBlocklistResult {
+  brevoFound: number;
+  brevoCleared: number;
+  brevoFailed: number;
+  localCleared: number;
+  errors: { email: string; message: string }[];
+}
+
+export interface UnsubscribeActivity {
+  memberId?: string;
+  email: string;
+  displayName?: string;
+  firstName?: string;
+  lastName?: string;
+  membershipNumber?: string;
+  listId: number;
+  listName?: string;
+  unsubscribedAt: string;
+  reason?: string;
+  comment?: string;
+}
+
+export interface UnsubscribeActivityResponse {
+  count: number;
+  activity: UnsubscribeActivity[];
+}
+
+export interface UnsubscribeHistoryEntry {
+  memberId: string;
+  listIds: number[];
+}
+
+export interface MatchedMemberSubscriptions {
+  memberId: string;
+  subscriptions: { id: number; subscribed: boolean }[];
+}
+
+export interface UnsubscribeConfirmResponse {
+  email: string;
+  unsubscribed: boolean;
+  memberMatched: boolean;
+  listId?: number;
+  listName?: string;
+}
+
+export interface UnsubscribeFeedbackResponse {
+  recorded: boolean;
+}
+
+export interface BlockedContactsRequest {
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  offset?: number;
+  senders?: string[];
+  sort?: SortDirection;
+}
+
+export enum UnsubscribeSortField {
+  EMAIL = "email",
+  SENDER_EMAIL = "senderEmail",
+  REASON_CODE = "reasonCode",
+  BLOCKED_AT = "blockedAt",
+  NAME = "name",
+  LIST_NAME = "listName"
+}
+
 export interface CreateSenderResponse extends Identifiable {
   spfError: boolean;
   dkimError: boolean;
@@ -919,8 +1081,8 @@ export interface SwitchSendingDomainResponse {
 }
 
 export function extractOverrideKeys(html: string): string[] {
-  const matches = html.match(/\{\{override\.([A-Z_]+)\}\}/g) || [];
-  return [...new Set(matches.map(m => m.replace(/\{\{override\.|\}\}/g, "")))];
+  const matches = html.match(/\{\{override\.([A-Z_]+)}}/g) || [];
+  return [...new Set(matches.map(m => m.replace(/\{\{override\.|}}/g, "")))];
 }
 
 export function overrideKeyToLabel(key: string): string {

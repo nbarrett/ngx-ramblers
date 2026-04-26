@@ -114,6 +114,16 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   landlineTelephone?: string;
   emailMarketingConsent?: boolean;
   emailPermissionLastUpdated?: number;
+  emailBlock?: MemberEmailBlock;
+}
+
+export interface MemberEmailBlock {
+  reasonCode: string;
+  reasonMessage?: string;
+  senderEmail?: string;
+  blockedAt: number;
+  syncedAt: number;
+  source?: string;
 }
 
 export interface MemberWithLabel extends Member, HasNgSelectAttributes {

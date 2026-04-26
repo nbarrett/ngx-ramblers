@@ -35,6 +35,7 @@ import { NgClass, NgStyle } from "@angular/common";
 import { MailListEditorComponent } from "./list-editor";
 import { MailListSettingsComponent } from "./mail-list-settings";
 import { MailSendersListComponent } from "./mail-senders-list";
+import { MailUnsubscribesListComponent } from "./mail-unsubscribes-list";
 import { faExclamationTriangle, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
@@ -349,6 +350,13 @@ import { InputSize } from "../../../../models/ui-size.model";
                   <app-mail-senders-list/>
                 </div>
               </tab>
+              <tab [active]="tabActive(MailSettingsTab.UNSUBSCRIBES)"
+                (selectTab)="selectTab(MailSettingsTab.UNSUBSCRIBES)"
+                [heading]="MailSettingsTab.UNSUBSCRIBES">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <app-mail-unsubscribes-list/>
+                </div>
+              </tab>
             </tabset>
           </div>
           <div class="col-sm-12">
@@ -360,7 +368,7 @@ import { InputSize } from "../../../../models/ui-size.model";
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, FontAwesomeModule, NgClass, SecretInputComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailUnsubscribesListComponent, FontAwesomeModule, NgClass, SecretInputComponent]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];

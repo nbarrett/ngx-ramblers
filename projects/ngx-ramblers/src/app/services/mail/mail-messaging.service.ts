@@ -366,6 +366,7 @@ export class MailMessagingService {
       to,
       sender,
       replyTo,
+      listId: createSendSmtpEmailRequest.notificationConfig.defaultListId,
       params: this.createSendSmtpEmailParams(
         createSendSmtpEmailRequest.notificationConfig.signOffRoles,
         createSendSmtpEmailRequest.notificationDirective,
@@ -429,14 +430,15 @@ export class MailMessagingService {
   }
 
   toSystemMergeFields(member: Member): SystemMergeFields {
+    const appUrl = this.urlService.baseUrl();
     return {
       FACEBOOK_URL: this.mailMessagingConfig?.externalSystems?.facebook?.groupUrl,
       INSTAGRAM_URL: this.mailMessagingConfig?.externalSystems?.instagram?.groupUrl,
       TWITTER_URL: this.mailMessagingConfig?.externalSystems?.twitter?.groupUrl,
       APP_SHORTNAME: this.mailMessagingConfig.group?.shortName,
       APP_LONGNAME: this.mailMessagingConfig.group?.longName,
-      APP_URL: this.mailMessagingConfig.group?.href,
-      PW_RESET_LINK: member?.passwordResetId ? `${this.mailMessagingConfig.group?.href}/${ADMIN_SET_PASSWORD_PATH}/${member?.passwordResetId}` : null
+      APP_URL: appUrl,
+      PW_RESET_LINK: member?.passwordResetId ? `${appUrl}/${ADMIN_SET_PASSWORD_PATH}/${member?.passwordResetId}` : null
     };
   }
 
@@ -554,6 +556,9 @@ export class MailMessagingService {
   }
 
   public subscribed(listSetting: ListSetting, member: Member): boolean {
+    if (member?.emailBlock) {
+      return false;
+    }
     return listSetting?.autoSubscribeNewMembers && (listSetting?.requiresMemberEmailMarketingConsent ? member?.emailMarketingConsent : true) && !!(member.email);
   }
 

@@ -215,7 +215,7 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                         </div>
                       }
                       @if (uploadSession) {
-                        <div class="row quick-search d-flex">
+                        <div class="row quick-search d-flex align-items-end flex-nowrap">
                           <div class="col">
                             <div class="input-group">
                               <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
@@ -227,8 +227,8 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                             </div>
                           </div>
                           <div class="col-auto">
-                            <div class="d-inline-flex align-items-center flex-wrap">
-                              <label class="inline-label nowrap" for="filter-upload-sessions">Uploaded at:</label>
+                            <div class="input-group">
+                              <label class="input-group-text" for="filter-upload-sessions">Uploaded at:</label>
                               <select class="form-control input-sm" id="filter-upload-sessions"
                                       [(ngModel)]="uploadSession"
                                       (ngModelChange)="uploadSessionChanged()">
@@ -240,9 +240,9 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                               </select>
                             </div>
                           </div>
-                          <div class="col">
-                            <div class="d-inline-flex align-items-center flex-wrap float-end">
-                              <label class="inline-label nowrap" for="filter-by-audit-status">Member Action:</label>
+                          <div class="col-auto ms-auto">
+                            <div class="input-group">
+                              <label class="input-group-text" for="filter-by-audit-status">Member Action:</label>
                               <select class="form-control input-sm"
                                       [(ngModel)]="filters.memberUpdateAudit.query"
                                       (ngModelChange)="uploadSessionChanged()"
