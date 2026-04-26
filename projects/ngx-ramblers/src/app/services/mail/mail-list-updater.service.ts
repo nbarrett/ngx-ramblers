@@ -187,7 +187,7 @@ export class MailListUpdaterService {
     }
   }
 
-  private contactDetails(contactRequest: CreateContactRequestWithObjectAttributes) {
+  private contactDetails(contactRequest: CreateContactRequest) {
     return this.stringUtils.stringifyObject(omit(contactRequest, "extId"));
   }
 
@@ -243,7 +243,12 @@ export class MailListUpdaterService {
           const member = members.find((member) => this.cleanEmail(member?.email) === this.cleanEmail(contactCreatedResponse?.id));
           if (member && contactCreatedResponse?.responseBody?.id) {
             member.mail.id = contactCreatedResponse.responseBody.id;
-            this.pendingMailListAudits.push(this.mailListAuditService.createMailListAudit("Contact created in Brevo", AuditStatus.info, member.id, null));
+            const matchingRequest = createContactRequests.find(request => request.extId === member.id);
+            const auditMessage = matchingRequest
+              ? `Contact created in Brevo: ${this.contactDetails(matchingRequest)}`
+              : "Contact created in Brevo";
+            const auditListId = matchingRequest ? first(matchingRequest.listIds) : null;
+            this.pendingMailListAudits.push(this.mailListAuditService.createMailListAudit(auditMessage, AuditStatus.info, member.id, auditListId));
             return member;
           }
         }).filter(member => member);
@@ -401,7 +406,8 @@ export class MailListUpdaterService {
     return {
       email: this.cleanEmail(member.email),
       extId: member.id,
-      attributes: {FIRSTNAME: member.firstName, LASTNAME: member.lastName}
+      attributes: {FIRSTNAME: member.firstName, LASTNAME: member.lastName},
+      listIds: this.subscribedListIds(member)
     };
   }
 

@@ -34,8 +34,9 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
-import { ListInfo, MailMessagingConfig } from "../../../models/mail.model";
+import { ListInfo, MailMessagingConfig, UnsubscribeHistoryEntry } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { MailService } from "../../../services/mail/mail.service";
 import { uniq } from "es-toolkit/compat";
 import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
@@ -76,6 +77,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private searchFilterPipe = inject(SearchFilterPipe);
   private modalService = inject(BsModalService);
   private mailMessagingService = inject(MailMessagingService);
+  private mailService = inject(MailService);
   private notifierService = inject(NotifierService);
   private systemConfigService = inject(SystemConfigService);
   private memberBulkDeleteService = inject(MemberBulkDeleteService);
@@ -97,6 +99,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private today: number;
   public members: Member[] = [];
   public bulkDeleteMarkedMemberIds: string[] = [];
+  private unsubscribeHistoryByMemberId = new Map<string, Set<number>>();
   public quickSearch = "";
   public memberFilter: MemberTableFilter;
   filters: any;
@@ -112,12 +115,19 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private storedSortField = "";
   private storedSortDescending = false;
   private storedSortParamField = "";
+  private pendingMembershipNumberToOpen: string | null = null;
+  private lastOpenedMembershipNumber: string | null = null;
 
   async ngOnInit() {
     this.subscriptions.push(this.route.queryParamMap.subscribe(params => {
       const searchParam = params.get(this.stringUtilsService.kebabCase(StoredValue.SEARCH));
       const sortFieldParam = params.get(this.stringUtilsService.kebabCase(StoredValue.SORT));
       const sortOrderParam = params.get(this.stringUtilsService.kebabCase(StoredValue.SORT_ORDER));
+      const membershipNumberParam = params.get(this.stringUtilsService.kebabCase(StoredValue.MEMBER_ID));
+      if (membershipNumberParam && membershipNumberParam !== this.lastOpenedMembershipNumber) {
+        this.pendingMembershipNumberToOpen = membershipNumberParam;
+        this.openPendingMemberIfReady();
+      }
       if (!isNull(searchParam)) {
         this.quickSearch = searchParam;
         this.uiActionsService.saveValueFor(StoredValue.SEARCH, this.quickSearch);
@@ -150,12 +160,14 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.memberLoginService.showLoginPromptWithRouteParameter("expenseId");
     this.logger.off("this.memberFilter:", this.memberFilter);
     this.latestMemberBulkLoadAudit = await this.memberBulkLoadAuditService.findLatestBulkLoadAudit();
+    this.refreshUnsubscribeHistory();
     this.subscriptions.push(this.memberService.changeNotifications().subscribe(apiResponse => {
       if (apiResponse.error) {
         this.logger.warn("received error:", apiResponse.error);
       } else {
         this.members = this.apiResponseProcessor.processResponse(this.apiResponseProcessorLogger, this.members, apiResponse);
         this.applyFilterToMembers();
+        this.openPendingMemberIfReady();
       }
     }));
     this.subscriptions.push(this.memberService.deletionNotifications().subscribe(apiResponse => {
@@ -224,6 +236,16 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
         filter: (member: Member) => !member.emailMarketingConsent && this.mailListUpdaterService.memberSubscribedToAnyList(member)
       },
       {
+        title: "Blocked from receiving email",
+        group: "From Ramblers Supplied Data",
+        filter: (member: Member) => !!member.emailBlock
+      },
+      {
+        title: "Unsubscribed from a list (was on, now off)",
+        group: "From Ramblers Supplied Data",
+        filter: (member: Member) => this.memberHasUnsubscribeHistoryAndIsOff(member)
+      },
+      {
         title: "Password Expired", group: "Other Settings", filter: (member: Member) => member.expiredPassword
       },
       {
@@ -280,6 +302,36 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     return this.walkLeaders.includes(member.id) || this.walkLeaders.includes(member.displayName);
   }
 
+  private async refreshUnsubscribeHistory(): Promise<void> {
+    try {
+      const entries: UnsubscribeHistoryEntry[] = await this.mailService.queryUnsubscribeHistory();
+      this.unsubscribeHistoryByMemberId.clear();
+      entries.forEach(entry => {
+        this.unsubscribeHistoryByMemberId.set(entry.memberId, new Set(entry.listIds));
+      });
+      if (this.memberFilter?.selectedFilter?.title === "Unsubscribed from a list (was on, now off)") {
+        this.applyFilterToMembers();
+      }
+    } catch (error) {
+      this.logger.error("refreshUnsubscribeHistory:failed", error);
+    }
+  }
+
+  memberHasUnsubscribeHistoryAndIsOff(member: Member): boolean {
+    const listIds = this.unsubscribeHistoryByMemberId.get(member.id);
+    if (!listIds || listIds.size === 0) return false;
+    const subscriptions = member.mail?.subscriptions || [];
+    const currentlySubscribedIds = new Set(subscriptions.filter(sub => sub.subscribed).map(sub => sub.id));
+    for (const listId of listIds) {
+      if (listId === 0) {
+        if (currentlySubscribedIds.size === 0) return true;
+        continue;
+      }
+      if (!currentlySubscribedIds.has(listId)) return true;
+    }
+    return false;
+  }
+
   onSearchChange(searchEntry: string) {
     this.logger.off("received searchEntry:" + searchEntry);
     this.searchChangeObservable.next(searchEntry);
@@ -297,6 +349,22 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       this.notify.clearBusy();
       this.persistFilters();
     }
+  }
+
+  private openPendingMemberIfReady(): void {
+    if (!this.pendingMembershipNumberToOpen || this.members.length === 0) return;
+    const target = this.members.find(candidate => candidate.membershipNumber === this.pendingMembershipNumberToOpen);
+    this.pendingMembershipNumberToOpen = null;
+    if (!target) {
+      this.logger.warn("openPendingMemberIfReady: no member with membershipNumber", this.pendingMembershipNumberToOpen);
+      return;
+    }
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { [this.stringUtilsService.kebabCase(StoredValue.MEMBER_ID)]: null },
+      queryParamsHandling: "merge"
+    });
+    this.showMemberDialog(target, EditMode.EDIT);
   }
 
   showMemberDialog(member: Member, editMode: EditMode) {

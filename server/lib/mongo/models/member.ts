@@ -81,6 +81,14 @@ const memberSchema = new mongoose.Schema({
   landlineTelephone: {type: String},
   emailMarketingConsent: {type: Boolean},
   emailPermissionLastUpdated: {type: Number},
+  emailBlock: {
+    reasonCode: {type: String},
+    reasonMessage: {type: String},
+    senderEmail: {type: String},
+    blockedAt: {type: Number},
+    syncedAt: {type: Number},
+    source: {type: String}
+  },
 }, {collection: "members"});
 
 memberSchema.plugin(uniqueValidator);

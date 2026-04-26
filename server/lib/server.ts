@@ -63,6 +63,7 @@ import { mapRouteRoutes } from "./map-routes/map-route-routes";
 import { spatialFeaturesController } from "./map-routes/spatial-features-controller";
 import { scheduleWalksManagerSync } from "./cron/walks-manager-sync-job";
 import { scheduleBookingReminders } from "./cron/booking-reminder-job";
+import { scheduleBrevoUnsubscribesSync } from "./cron/brevo-unsubscribes-sync-job";
 import bodyParser from "body-parser";
 import compression from "compression";
 import errorHandler from "errorhandler";
@@ -239,6 +240,10 @@ async function startServer() {
 
       scheduleBookingReminders().catch(error => {
         debugLog("❌ Failed to schedule booking reminders:", error);
+      });
+
+      scheduleBrevoUnsubscribesSync().catch(error => {
+        debugLog("❌ Failed to schedule Brevo unsubscribes sync:", error);
       });
     }).catch(error => {
       debugLog("❌ MongoDB connection failed:", error);

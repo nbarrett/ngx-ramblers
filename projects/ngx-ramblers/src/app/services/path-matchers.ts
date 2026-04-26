@@ -97,6 +97,14 @@ export function hasSendNotificationPath(urlSegments: UrlSegment[]): UrlMatchResu
   }
 }
 
+export function hasUnsubscribePath(urlSegments: UrlSegment[]): UrlMatchResult {
+  if (urlSegments.length >= 1 && last(urlSegments).path === "unsubscribe") {
+    return { consumed: urlSegments, posParams: {} };
+  } else {
+    return null;
+  }
+}
+
 export function hasViewSubPath(urlSegments: UrlSegment[]): UrlMatchResult {
   if (urlSegments.length >= 3 && urlSegments[urlSegments.length - 2].path === PathSegment.VIEW) {
     return {

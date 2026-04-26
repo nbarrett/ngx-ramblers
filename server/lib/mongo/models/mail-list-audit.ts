@@ -5,6 +5,7 @@ import { MailListAudit } from "../../../../projects/ngx-ramblers/src/app/models/
 
 const schema = new mongoose.Schema({
   memberId: {type: String},
+  listId: {type: Number},
   createdBy: {type: String},
   listType: {type: String},
   timestamp: {type: Number},

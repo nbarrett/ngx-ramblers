@@ -1,10 +1,13 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
+import { faBan } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { Member } from "../../../models/member.model";
+import { Member, MemberEmailBlock } from "../../../models/member.model";
 import {
+  BLOCKED_CONTACT_REASON_LABELS,
   ListInfo,
   ListSetting,
   MailListAudit,
@@ -26,6 +29,15 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
     selector: "[app-mail-subscription-settings]",
     template: `
     <div class="img-thumbnail thumbnail-admin-edit">
+      @if (member?.emailBlock; as block) {
+        <div class="alert alert-warning small mb-3 d-flex align-items-center">
+          <fa-icon [icon]="faBan" class="me-2"></fa-icon>
+          <span>
+            <strong>{{ blockedTitle() }}</strong> &mdash; {{ blockReasonLabel(block) }}, {{ formatBlockDate(block.blockedAt) }}.
+            Re-enable via <a href="javascript:void(0)" (click)="goToUnsubscribes($event)">Mail Settings &rarr; Unsubscribes</a>.
+          </span>
+        </div>
+      }
       @if (member) {
         <div class="row">
           <div class="col-sm-12">
@@ -82,7 +94,7 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                   <tr>
                     <td>{{ mailListAudit.timestamp | displayDateAndTime }}</td>
                     <td>{{ mailListAudit.createdBy | memberIdToFullName : members }}</td>
-                    <td>{{ mailListAudit.audit }}
+                    <td>{{ stringUtils.stringifyObject(mailListAudit.audit) }}
                     </td>
                   </tr>
                 }
@@ -91,7 +103,7 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
           </div>
         </div>
       </div>`,
-    imports: [MailSubscriptionSettingComponent, BrevoButtonComponent, DisplayDateAndTimePipe, DisplayDatePipe, FullNameWithAliasPipe, MemberIdToFullNamePipe]
+    imports: [MailSubscriptionSettingComponent, BrevoButtonComponent, DisplayDateAndTimePipe, DisplayDatePipe, FullNameWithAliasPipe, MemberIdToFullNamePipe, FontAwesomeModule]
 })
 export class MailSubscriptionSettingsComponent implements OnInit {
 
@@ -100,6 +112,7 @@ export class MailSubscriptionSettingsComponent implements OnInit {
   mailLinkService = inject(MailLinkService);
   protected mailMessagingService = inject(MailMessagingService);
   protected dateUtils = inject(DateUtilsService);
+  @Output() unsubscribesRequested = new EventEmitter<void>();
   public member: Member;
   public systemConfig: SystemConfig;
   public mailMessagingConfig: MailMessagingConfig;
@@ -120,12 +133,34 @@ export class MailSubscriptionSettingsComponent implements OnInit {
   @Input() public mailListAudits: MailListAudit[];
   @Input() public members: Member[];
 
+  protected readonly faBan = faBan;
+
   ngOnInit() {
     this.initialiseSubscriptions();
   }
 
   viewBrevoContact(id: number) {
     return id ? window.open(`${this.mailLinkService.contactView(id)}`) : null;
+  }
+
+  blockReasonLabel(block: MemberEmailBlock): string {
+    if (!block?.reasonCode) return "Unknown reason";
+    return BLOCKED_CONTACT_REASON_LABELS[block.reasonCode] || block.reasonCode;
+  }
+
+  blockedTitle(): string {
+    return this.member?.mail?.id ? "Blocked in Brevo" : "Blocked locally";
+  }
+
+  goToUnsubscribes(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.unsubscribesRequested.emit();
+  }
+
+  formatBlockDate(timestamp: number | undefined): string {
+    if (!timestamp) return "unknown date";
+    return this.dateUtils.displayDateAbbreviatedTime(timestamp) || "unknown date";
   }
 
   linkTitle() {
