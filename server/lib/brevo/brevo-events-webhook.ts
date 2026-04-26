@@ -2,6 +2,7 @@ import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
 import http from "http";
 import { Request, Response } from "express";
+import { isNumber, isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "./common/messages";
 import { envConfig } from "../env-config/env-config";
 import { configuredBrevo } from "./brevo-config";
@@ -51,10 +52,10 @@ function reasonToAuditStatus(code: BlockedContactReasonCode): AuditStatus {
 }
 
 function tsToMillis(ts: number | string | undefined): number {
-  if (typeof ts === "number" && Number.isFinite(ts)) {
+  if (isNumber(ts) && Number.isFinite(ts)) {
     return ts < 1e12 ? ts * 1000 : ts;
   }
-  if (typeof ts === "string") {
+  if (isString(ts)) {
     const parsed = Date.parse(ts);
     if (Number.isFinite(parsed)) return parsed;
   }

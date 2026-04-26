@@ -2,10 +2,11 @@ import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
 import { Request, Response } from "express";
 import http from "http";
-import { isArray, isNumber, isString } from "es-toolkit/compat";
+import { isArray, isNumber, isString, keys } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { dateTimeFromMillis } from "../../shared/dates";
 import { createBottleneckWithRatePerSecond } from "../common/rate-limiting";
 import { member } from "../../mongo/models/member";
 import { mailListAudit } from "../../mongo/models/mail-list-audit";
@@ -180,7 +181,7 @@ async function enrichWithContactInfo(
         ...contact,
         listIds: body.listIds || [],
         emailBlocked: !!body.emailBlacklisted,
-        brevoContactId: typeof body.id === "number" ? body.id : undefined
+        brevoContactId: isNumber(body.id) ? body.id : undefined
       };
     } catch (error: any) {
       debugLog("enrichWithContactInfo:lookup-failed", contact.email, error?.response?.statusCode || error?.message || error);
@@ -317,12 +318,12 @@ async function selfHealMemberEmailBlocks(
 }
 
 function isoOrUndefined(value: number | string | undefined): string | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return new Date(value).toISOString();
+  if (isNumber(value) && Number.isFinite(value)) {
+    return dateTimeFromMillis(value).toISO() ?? undefined;
   }
-  if (typeof value === "string" && value) {
+  if (isString(value) && value) {
     const parsed = Date.parse(value);
-    return Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined;
+    return Number.isFinite(parsed) ? (dateTimeFromMillis(parsed).toISO() ?? undefined) : undefined;
   }
   return undefined;
 }
@@ -352,7 +353,7 @@ async function fetchLocalOnlyBlockedContacts(
   if (startMs !== undefined) blockedAtRange.$gte = startMs;
   if (endMs !== undefined) blockedAtRange.$lte = endMs;
   const query: any = { emailBlock: { $exists: true } };
-  if (Object.keys(blockedAtRange).length > 0) query["emailBlock.blockedAt"] = blockedAtRange;
+  if (keys(blockedAtRange).length > 0) query["emailBlock.blockedAt"] = blockedAtRange;
   if (senders && senders.length > 0) query["emailBlock.senderEmail"] = { $in: senders };
   let candidates: any[];
   try {
@@ -412,13 +413,13 @@ async function attachUnsubscribeFeedback(contacts: BlockedContact[]): Promise<Bl
   const latestByMember = new Map<string, { reason?: string; comment?: string; recordedAt?: string }>();
   for (const row of feedbackRows) {
     if (latestByMember.has(row.memberId)) continue;
-    const audit = row.audit;
-    const reason = (audit && typeof audit === "object" && typeof audit.reason === "string") ? audit.reason : undefined;
+    const audit: any = row.audit;
+    const reason = (audit && isString(audit.reason)) ? audit.reason : undefined;
     if (!reason) continue;
-    const comment = (audit && typeof audit === "object" && typeof audit.comment === "string" && audit.comment.length > 0)
+    const comment = (audit && isString(audit.comment) && audit.comment.length > 0)
       ? audit.comment
       : undefined;
-    const recordedAt = Number.isFinite(row.timestamp) ? new Date(row.timestamp).toISOString() : undefined;
+    const recordedAt = Number.isFinite(row.timestamp) ? (dateTimeFromMillis(row.timestamp).toISO() ?? undefined) : undefined;
     latestByMember.set(row.memberId, { reason, comment, recordedAt });
   }
   if (latestByMember.size === 0) return contacts;
@@ -779,9 +780,9 @@ export async function unsubscribeActivity(req: Request, res: Response): Promise<
         if (!acc || delta < acc.delta) return { row: candidate, delta };
         return acc;
       }, null);
-      const feedbackAudit = closest?.row?.audit;
-      const reason = (feedbackAudit && typeof feedbackAudit === "object" && typeof feedbackAudit.reason === "string") ? feedbackAudit.reason : undefined;
-      const comment = (feedbackAudit && typeof feedbackAudit === "object" && typeof feedbackAudit.comment === "string" && feedbackAudit.comment.length > 0) ? feedbackAudit.comment : undefined;
+      const feedbackAudit: any = closest?.row?.audit;
+      const reason = (feedbackAudit && isString(feedbackAudit.reason)) ? feedbackAudit.reason : undefined;
+      const comment = (feedbackAudit && isString(feedbackAudit.comment) && feedbackAudit.comment.length > 0) ? feedbackAudit.comment : undefined;
       const listId = Number.isFinite(row.listId) ? row.listId : 0;
       const listName = listId > 0 ? listNamesById.get(listId) : undefined;
       return {
@@ -793,7 +794,7 @@ export async function unsubscribeActivity(req: Request, res: Response): Promise<
         membershipNumber: memberDoc?.membershipNumber,
         listId,
         listName,
-        unsubscribedAt: row.timestamp ? new Date(row.timestamp).toISOString() : "",
+        unsubscribedAt: row.timestamp ? (dateTimeFromMillis(row.timestamp).toISO() ?? "") : "",
         reason,
         comment
       };

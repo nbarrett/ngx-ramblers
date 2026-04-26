@@ -1,7 +1,7 @@
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
 import { Request, Response } from "express";
-import { isString } from "es-toolkit/compat";
+import { isNumber, isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
@@ -196,7 +196,7 @@ export async function confirmUnsubscribe(req: Request, res: Response): Promise<v
     const listId = Number.isFinite(decoded.listId) ? decoded.listId : undefined;
     const matched = await findMember(email);
     let listName: string | undefined;
-    if (typeof listId === "number") {
+    if (isNumber(listId)) {
       await removeContactFromBrevoList(email, listId);
       listName = await lookupListName(listId);
       if (matched) {
