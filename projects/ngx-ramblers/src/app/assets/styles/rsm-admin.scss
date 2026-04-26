@@ -1,0 +1,566 @@
+@import "./colours";
+
+$rsm-bg: rgb(248, 249, 248);
+$rsm-panel: $ramblers-colour-cloudy;
+$rsm-border: rgb(225, 225, 225);
+$rsm-text: $ramblers-colour-black;
+$rsm-muted: rgb(110, 112, 115);
+$rsm-mintcake-light-strong: rgba(175, 226, 194, 0.3);
+
+$rsm-breakpoint-tablet: 768px;
+$rsm-breakpoint-mobile: 576px;
+
+.rsm-admin-page {
+  background: $rsm-bg;
+  color: $rsm-text;
+  padding: 24px 28px;
+  border-radius: 8px;
+
+  h1, h2, h3 {
+    color: $ramblers-colour-granite;
+  }
+
+  a {
+    color: $ramblers-colour-granite;
+    text-decoration: underline;
+
+    &:hover {
+      color: $ramblers-colour-mintcake-hover;
+    }
+  }
+
+  .rsm-page-head {
+    margin: 0 0 24px;
+    padding: 0 0 12px;
+    border-bottom: 1px solid $rsm-border;
+
+    h1, h2 {
+      margin: 0 0 6px;
+    }
+
+    p {
+      margin: 0;
+      color: $rsm-muted;
+    }
+  }
+
+  .rsm-panel {
+    background: $rsm-panel;
+    border: 1px solid $rsm-border;
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+
+    & + .rsm-panel {
+      margin-top: 0;
+    }
+
+    h3 {
+      margin-top: 0;
+      font-size: 1.05rem;
+    }
+  }
+
+  @media (max-width: $rsm-breakpoint-mobile) {
+    padding: 16px 14px;
+  }
+}
+
+.rsm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+
+  > .rsm-toolbar-grow {
+    flex: 1 1 auto;
+    min-width: 200px;
+  }
+
+  @media (max-width: $rsm-breakpoint-mobile) {
+    flex-direction: column;
+    align-items: stretch;
+
+    > * {
+      width: 100%;
+    }
+  }
+}
+
+.rsm-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 0.92rem;
+  background: $rsm-panel;
+
+  th, td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid $rsm-border;
+    vertical-align: middle;
+  }
+
+  th {
+    color: $rsm-muted;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: transparent;
+  }
+
+  tbody tr:hover {
+    background: $rsm-mintcake-light-strong;
+  }
+
+  .rsm-row-revoked td {
+    color: $rsm-muted;
+    text-decoration: line-through;
+  }
+}
+
+.rsm-table-responsive {
+  width: 100%;
+
+  @media (max-width: $rsm-breakpoint-mobile) {
+    .rsm-admin-table {
+      thead {
+        display: none;
+      }
+
+      tbody, tr {
+        display: block;
+        width: 100%;
+      }
+
+      tr {
+        background: $rsm-panel;
+        border: 1px solid $rsm-border;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        padding: 10px 12px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      }
+
+      td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 6px 0;
+        border-bottom: 1px solid $rsm-border;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        &::before {
+          content: attr(data-label);
+          font-weight: 600;
+          font-size: 0.78rem;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: $rsm-muted;
+          flex: 0 0 40%;
+        }
+
+        &.rsm-cell-actions {
+          justify-content: flex-end;
+
+          &::before {
+            display: none;
+          }
+        }
+      }
+    }
+  }
+}
+
+.rsm-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 2px solid $rsm-border;
+  margin: 0 0 22px;
+
+  .rsm-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 10px 18px;
+    margin-bottom: -2px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: $rsm-muted;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    border-radius: 4px 4px 0 0;
+
+    &:hover {
+      color: $ramblers-colour-granite;
+      background: $rsm-mintcake-light-strong;
+    }
+
+    &[aria-selected="true"], &.rsm-tab-active {
+      color: $ramblers-colour-granite;
+      border-bottom-color: $ramblers-colour-sunrise;
+      background: transparent;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $ramblers-colour-sunrise;
+      outline-offset: 2px;
+    }
+  }
+
+  @media (max-width: $rsm-breakpoint-mobile) {
+    .rsm-tab {
+      padding: 8px 12px;
+      font-size: 0.9rem;
+    }
+  }
+}
+
+.rsm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--btn-min-height, 40px);
+  padding: var(--btn-pad-y, 0.5rem) var(--btn-pad-x, 1rem);
+  border: 1px solid transparent;
+  border-radius: var(--radius-1, 4px);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border 0.15s;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:disabled, &[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+
+    &:hover {
+      background: inherit;
+      border-color: inherit;
+    }
+  }
+}
+
+.rsm-btn-cta {
+  @extend .rsm-btn;
+  background: $ramblers-colour-sunrise;
+  color: $ramblers-colour-granite;
+  border-color: $ramblers-colour-sunrise;
+
+  &:hover {
+    background: $ramblers-colour-sunrise-hover-background;
+    border-color: $ramblers-colour-sunrise-hover-border;
+    color: $ramblers-colour-granite;
+    text-decoration: none;
+  }
+}
+
+.rsm-btn-ghost {
+  @extend .rsm-btn;
+  background: transparent;
+  color: $ramblers-colour-granite;
+  border-color: $rsm-border;
+
+  &:hover {
+    background: $rsm-mintcake-light-strong;
+    border-color: $ramblers-colour-mintcake;
+    color: $ramblers-colour-granite;
+    text-decoration: none;
+  }
+}
+
+.rsm-btn-danger {
+  @extend .rsm-btn;
+  background: transparent;
+  color: $ramblers-colour-sunset;
+  border-color: $ramblers-colour-rosycheeks;
+
+  &:hover {
+    background: rgba(240, 128, 80, 0.1);
+    border-color: $ramblers-colour-sunset;
+    color: $ramblers-colour-sunset;
+    text-decoration: none;
+  }
+}
+
+.rsm-btn-small {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
+.rsm-form {
+  accent-color: $ramblers-colour-sunrise;
+
+  label {
+    display: block;
+    margin-bottom: 12px;
+    font-size: 0.92rem;
+    color: $ramblers-colour-granite;
+    font-weight: 600;
+  }
+
+  input:not([type="radio"]):not([type="checkbox"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 8px 10px;
+    border: 1px solid $rsm-border;
+    border-radius: 4px;
+    font: inherit;
+    font-weight: 400;
+    color: $rsm-text;
+    background: $rsm-panel;
+
+    &:focus {
+      outline: none;
+      border-color: $ramblers-colour-mintcake-hover;
+      box-shadow: 0 0 0 2px $rsm-mintcake-light-strong;
+    }
+
+    &::placeholder {
+      color: $disabled-color;
+      font-style: italic;
+      font-weight: 400;
+      opacity: 1;
+    }
+  }
+}
+
+.rsm-form-inline {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+
+  label {
+    margin-bottom: 0;
+    flex: 1 1 180px;
+  }
+}
+
+.rsm-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+
+  @media (max-width: $rsm-breakpoint-mobile) {
+    justify-content: stretch;
+
+    > .rsm-btn,
+    > .rsm-btn-cta,
+    > .rsm-btn-ghost,
+    > .rsm-btn-danger {
+      flex: 1 1 auto;
+      text-align: center;
+    }
+  }
+}
+
+.rsm-chip {
+  display: inline-block;
+  margin-left: 8px;
+  background: $rsm-mintcake-light-strong;
+  color: $ramblers-colour-granite;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}
+
+.rsm-muted {
+  color: $rsm-muted;
+  font-size: 0.92rem;
+}
+
+.rsm-error {
+  color: $ramblers-colour-sunset;
+  background: rgba(240, 128, 80, 0.08);
+  padding: 10px 14px;
+  border-radius: 4px;
+  margin-top: 12px;
+  font-size: 0.92rem;
+}
+
+.rsm-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+
+  @media (max-width: $rsm-breakpoint-mobile) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rsm-card {
+  background: $rsm-panel;
+  border: 1px solid $rsm-border;
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+  .rsm-card-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 0 0 6px;
+    color: $ramblers-colour-granite;
+  }
+
+  .rsm-card-meta {
+    font-size: 0.82rem;
+    color: $rsm-muted;
+    margin-bottom: 8px;
+  }
+
+  .rsm-card-body {
+    font-size: 0.92rem;
+    color: $rsm-text;
+  }
+
+  .rsm-card-actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+}
+
+app-page {
+  .admin-frame {
+    background: $rsm-panel;
+    border: 1px solid $rsm-border;
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 0 0 18px;
+    overflow: visible;
+    float: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+    @media (max-width: $rsm-breakpoint-mobile) {
+      padding: 14px 12px;
+    }
+  }
+
+  .admin-header-background {
+    background: transparent;
+    padding: 0;
+    margin-bottom: 14px;
+  }
+
+  .admin-header-container {
+    padding: 0;
+  }
+
+  .thumbnail-admin-edit {
+    background: $rsm-panel;
+    border: 1px solid $rsm-border;
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 0 0 18px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+    @media (max-width: $rsm-breakpoint-mobile) {
+      padding: 14px 12px;
+    }
+  }
+
+  table.tbl-green-g {
+    background-color: $rsm-panel;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+
+    th {
+      background-color: transparent;
+      color: $rsm-muted;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border-bottom: 1px solid $rsm-border;
+      padding: 10px 8px;
+    }
+
+    td {
+      background-color: $rsm-panel;
+      border-bottom: 1px solid $rsm-border;
+      color: $rsm-text;
+      padding: 10px 8px;
+    }
+
+    tbody tr:hover td {
+      background-color: $rsm-mintcake-light-strong;
+    }
+  }
+
+  .input-group .form-control,
+  .input-group .input-group-text {
+    border-color: $rsm-border;
+  }
+
+  .input-group .input-group-text {
+    background: transparent;
+    color: $rsm-muted;
+  }
+
+  > app-page,
+  > div > app-page {
+    display: block;
+  }
+
+  @media (max-width: $rsm-breakpoint-mobile) {
+    tabset > .nav-tabs {
+      flex-wrap: wrap;
+    }
+
+    .input-group {
+      flex-wrap: wrap;
+    }
+  }
+}
+
+app-page nav.nav-tabs,
+app-page tabset .nav-tabs {
+  border-bottom: 2px solid $rsm-border;
+  gap: 4px;
+  flex-wrap: wrap;
+
+  .nav-link {
+    color: $rsm-muted;
+    border: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 4px 4px 0 0;
+    margin-bottom: -2px;
+    font-weight: 600;
+    padding: 10px 18px;
+
+    &:hover {
+      color: $ramblers-colour-granite;
+      background: $rsm-mintcake-light-strong;
+      border-color: transparent transparent transparent transparent;
+      border-bottom-color: transparent;
+    }
+
+    &.active {
+      color: $ramblers-colour-granite;
+      background: transparent;
+      border-color: transparent transparent $ramblers-colour-sunrise transparent;
+    }
+  }
+}
