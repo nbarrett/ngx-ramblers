@@ -2,11 +2,12 @@ import { Component, inject, Input, OnDestroy, ViewChild, ViewEncapsulation } fro
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faPhone, faComment } from "@fortawesome/free-solid-svg-icons";
+import { faPhone, faComment, faCopy } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { WalkDisplayService } from "../walk-display.service";
 import { WalkLeaderPhoneAction } from "../../../models/system.model";
 import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import { ClipboardService } from "../../../services/clipboard.service";
 
 @Component({
   selector: "app-event-leader-phone-link",
@@ -42,13 +43,22 @@ import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
           (mouseenter)="showDropdown()" (mouseleave)="scheduleHide()">
         @for (action of display.phoneActions(); track action) {
           <li>
-            <a class="dropdown-item"
-               [href]="display.phoneActionHref(phone, action)"
-               [target]="action === whatsapp ? '_blank' : '_self'"
-               container="body" [tooltip]="display.phoneActionTooltip(displayName, phone, action)"
-               placement="left">
-              <fa-icon [icon]="iconFor(action)" class="fa-icon me-2"/>{{ display.phoneActionLabel(action) }}
-            </a>
+            @if (action === copy) {
+              <a class="dropdown-item" href="javascript:void(0)"
+                 (click)="copyToClipboard($event)"
+                 container="body" [tooltip]="display.phoneActionTooltip(displayName, phone, action)"
+                 placement="left">
+                <fa-icon [icon]="iconFor(action)" class="fa-icon me-2"/>{{ display.phoneActionLabel(action) }}
+              </a>
+            } @else {
+              <a class="dropdown-item"
+                 [href]="display.phoneActionHref(phone, action)"
+                 [target]="action === whatsapp ? '_blank' : '_self'"
+                 container="body" [tooltip]="display.phoneActionTooltip(displayName, phone, action)"
+                 placement="left">
+                <fa-icon [icon]="iconFor(action)" class="fa-icon me-2"/>{{ display.phoneActionLabel(action) }}
+              </a>
+            }
           </li>
         }
       </ul>
@@ -58,11 +68,14 @@ import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 export class EventLeaderPhoneLinkComponent implements OnDestroy {
 
   display = inject(WalkDisplayService);
+  private clipboardService = inject(ClipboardService);
 
   @Input() phone: string;
   @Input() displayName: string;
 
   protected readonly whatsapp = WalkLeaderPhoneAction.WHATSAPP;
+  protected readonly copy = WalkLeaderPhoneAction.COPY;
+  private showTimeout: ReturnType<typeof setTimeout>;
   private hideTimeout: ReturnType<typeof setTimeout>;
   @ViewChild("dropdownRef") dropdownRef: BsDropdownDirective;
 
@@ -71,22 +84,35 @@ export class EventLeaderPhoneLinkComponent implements OnDestroy {
       return faWhatsapp;
     } else if (action === WalkLeaderPhoneAction.SMS) {
       return faComment;
+    } else if (action === WalkLeaderPhoneAction.COPY) {
+      return faCopy;
     }
     return faPhone;
   }
 
+  copyToClipboard(event: MouseEvent) {
+    event.preventDefault();
+    this.clipboardService.copyToClipboard(this.phone);
+    this.dropdownRef?.hide();
+  }
+
   showDropdown() {
     clearTimeout(this.hideTimeout);
-    this.dropdownRef?.show();
+    clearTimeout(this.showTimeout);
+    this.showTimeout = setTimeout(() => {
+      this.dropdownRef?.show();
+    }, 350);
   }
 
   scheduleHide() {
+    clearTimeout(this.showTimeout);
     this.hideTimeout = setTimeout(() => {
       this.dropdownRef?.hide();
     }, 200);
   }
 
   ngOnDestroy() {
+    clearTimeout(this.showTimeout);
     clearTimeout(this.hideTimeout);
   }
 }

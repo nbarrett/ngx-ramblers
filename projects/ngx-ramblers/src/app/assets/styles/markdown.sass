@@ -78,19 +78,40 @@ blockquote
     max-width: 100%
     height: auto
 
-span[markdown]
+[markdown]
   table
-    border-collapse: collapse
+    border-collapse: separate
+    border-spacing: 0
     width: 100%
-    margin: 1rem 0
+    margin: 1.25rem 0
+    font-size: 1rem
+    border: 1px solid rgba(0, 0, 0, 0.14)
+    border-radius: 8px
+    overflow: hidden
 
     th, td
-      border: 1px solid rgba(0, 0, 0, 0.08)
-      padding: 0.5rem 0.75rem
+      border-bottom: 1px solid rgba(0, 0, 0, 0.10)
+      border-right: 1px solid rgba(0, 0, 0, 0.10)
+      padding: 0.7rem 0.95rem
       text-align: left
       vertical-align: top
 
+    tr td:last-child,
+    tr th:last-child
+      border-right: none
+
+    tr:last-child td
+      border-bottom: none
+
     thead th
-      background-color: rgba(0, 0, 0, 0.02)
+      background-color: rgba(0, 0, 0, 0.05)
       font-weight: 600
-      border-bottom: 1px solid rgba(0, 0, 0, 0.12)
+      color: rgba(0, 0, 0, 0.85)
+      letter-spacing: 0.01em
+      border-bottom: 1px solid rgba(0, 0, 0, 0.16)
+
+    tbody tr:nth-child(even) td
+      background-color: rgba(0, 0, 0, 0.025)
+
+    tbody tr:hover td
+      background-color: rgba(155, 200, 171, 0.16)

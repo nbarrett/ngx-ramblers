@@ -24,6 +24,7 @@
   overflow-x: auto
   -webkit-overflow-scrolling: touch
   --first-col-width: 110px
+  --second-col-width: 160px
 
   table
     margin-bottom: 0
@@ -34,15 +35,15 @@
     top: 0
     z-index: 20
     background-clip: padding-box
-    background-color: rgb(248, 249, 248)
+    background-color: var(--rsm-table-header-bg)
 
   .member-table-scroll thead th
     position: sticky
     top: 0
     z-index: 20
     box-shadow: 0 1px 0 rgba(0,0,0,0.05)
-    background-color: rgb(248, 249, 248)
-    color: $ramblers-colour-granite
+    background-color: var(--rsm-table-header-bg)
+    color: var(--rsm-table-header-text)
 
   .member-table-scroll thead th:nth-child(1)
     position: sticky
@@ -50,6 +51,13 @@
     z-index: 30
     width: var(--first-col-width)
     min-width: var(--first-col-width)
+
+  .member-table-scroll thead th:nth-child(2)
+    position: sticky
+    left: var(--first-col-width)
+    z-index: 30
+    width: var(--second-col-width)
+    min-width: var(--second-col-width)
     box-shadow: 1px 0 0 rgba(0,0,0,0.08), 0 1px 0 rgba(0,0,0,0.05)
 
   .member-table-scroll tbody td:nth-child(1)
@@ -58,8 +66,24 @@
     z-index: 15
     width: var(--first-col-width)
     min-width: var(--first-col-width)
-    background-color: $ramblers-colour-cloudy
+    background-color: var(--rsm-panel-bg)
+
+  .member-table-scroll tbody td:nth-child(2)
+    position: sticky
+    left: var(--first-col-width)
+    z-index: 15
+    width: var(--second-col-width)
+    min-width: var(--second-col-width)
+    background-color: var(--rsm-panel-bg)
     box-shadow: 1px 0 0 rgba(0,0,0,0.08)
+
+  .member-table-scroll tbody tr:nth-child(even) td:nth-child(1),
+  .member-table-scroll tbody tr:nth-child(even) td:nth-child(2)
+    background-color: var(--rsm-row-stripe)
+
+  .member-table-scroll tbody tr:hover td:nth-child(1),
+  .member-table-scroll tbody tr:hover td:nth-child(2)
+    background-color: var(--rsm-row-hover)
 
 @media (max-width: 575.98px)
   .member-table-scroll

@@ -158,7 +158,8 @@ export enum EventLeaderContactMethod {
 export enum WalkLeaderPhoneAction {
   TEL = "tel",
   SMS = "sms",
-  WHATSAPP = "whatsapp"
+  WHATSAPP = "whatsapp",
+  COPY = "copy"
 }
 
 export interface Organisation extends Group {

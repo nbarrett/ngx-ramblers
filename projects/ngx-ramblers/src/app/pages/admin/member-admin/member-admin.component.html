@@ -73,9 +73,9 @@
             }
           </div>
           @if (notifyTarget.showAlert) {
-            <div class="row mb-0">
+            <div class="row my-3">
               <div class="col-sm-12">
-                <div class="alert {{notifyTarget.alertClass}}">
+                <div class="alert {{notifyTarget.alertClass}} mb-0">
                   <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
                   @if (notifyTarget.alertTitle) {
                     <strong>
@@ -99,9 +99,6 @@
                 <th (click)="sortMembersBy('memberName')"><span class="nowrap">Member Name
                   @if (showMembersColumn('memberName')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
                 </span></th>
-                <th (click)="sortMembersBy('email')"><span class="nowrap">Email
-                  @if (showMembersColumn('email')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
-                </span></th>
                 <th (click)="sortMembersBy('mobileNumber')"><span class="nowrap">Mobile Number
                   @if (showMembersColumn('mobileNumber')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
                 </span></th>
@@ -111,7 +108,7 @@
                 <th (click)="sortMembersBy('membershipExpiryDate')"><span class="nowrap">Expiry Date
                   @if (showMembersColumn('membershipExpiryDate')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
                 </span></th>
-                <th class="switch-heading" (click)="sortMembersBy('receivedInLastBulkLoad')">
+                <th (click)="sortMembersBy('receivedInLastBulkLoad')">
                   <span class="nowrap">Last Bulk Load @if (showMembersColumn('receivedInLastBulkLoad')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
                   </span>
                 </th>
@@ -177,16 +174,21 @@
                                  [ngClass]="markedForDelete(member.id)?'member-delete-confirm':'member-delete'"></fa-icon>
                       </td>
                     }
-                    <td data-label="Member Name">{{ member | fullNameWithAlias }}</td>
-                    <td data-label="Email">@if (member.email) {
-                      <a class="small" [href]="'mailto:' + member.email" placement="right"
-                         tooltip="Click to email {{member | fullNameWithAlias}} at {{member.email}}">{{ member.email }}</a>
-                    }
+                    <td data-label="Member Name" class="nowrap">
+                      @if (member.email) {
+                        <app-contact-action-dropdown [actions]="emailActionsFor(member.email, member | fullNameWithAlias)">
+                          {{ member | fullNameWithAlias }}
+                        </app-contact-action-dropdown>
+                      } @else {
+                        {{ member | fullNameWithAlias }}
+                      }
                     </td>
                     <td data-label="Mobile">
-                      <a [href]="'tel: ' + member.mobileNumber">
-                      <span placement="right"
-                            tooltip="Click to ring {{member | fullNameWithAlias}} on {{member.mobileNumber}} (mobile devices only)">{{ member.mobileNumber }}</span></a>
+                      @if (member.mobileNumber) {
+                        <app-contact-action-dropdown [actions]="phoneActionsFor(member.mobileNumber, member | fullNameWithAlias)">
+                          {{ member.mobileNumber }}
+                        </app-contact-action-dropdown>
+                      }
                     </td>
                     <td data-label="Created" class="nowrap">{{ member.createdDate | displayDateNoDay }}</td>
                     <td data-label="Expiry" class="nowrap">

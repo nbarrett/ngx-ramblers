@@ -481,7 +481,7 @@ export class WalkDisplayService {
   }
 
   phoneActions(): WalkLeaderPhoneAction[] {
-    return [WalkLeaderPhoneAction.TEL, WalkLeaderPhoneAction.SMS, WalkLeaderPhoneAction.WHATSAPP];
+    return [WalkLeaderPhoneAction.TEL, WalkLeaderPhoneAction.SMS, WalkLeaderPhoneAction.WHATSAPP, WalkLeaderPhoneAction.COPY];
   }
 
   phoneActionHref(phone: string, action: WalkLeaderPhoneAction): string {
@@ -491,6 +491,8 @@ export class WalkDisplayService {
       return `https://wa.me/${international}`;
     } else if (action === WalkLeaderPhoneAction.SMS) {
       return `sms:${cleaned}`;
+    } else if (action === WalkLeaderPhoneAction.COPY) {
+      return null;
     }
     return `tel:${cleaned}`;
   }
@@ -500,6 +502,8 @@ export class WalkDisplayService {
       return "WhatsApp";
     } else if (action === WalkLeaderPhoneAction.SMS) {
       return "SMS";
+    } else if (action === WalkLeaderPhoneAction.COPY) {
+      return "Copy number";
     }
     return "Call";
   }
@@ -509,6 +513,8 @@ export class WalkDisplayService {
       return `Open WhatsApp chat with ${displayName} on ${phone}`;
     } else if (action === WalkLeaderPhoneAction.SMS) {
       return `Send an SMS to ${displayName} on ${phone}`;
+    } else if (action === WalkLeaderPhoneAction.COPY) {
+      return `Copy ${phone} to clipboard`;
     }
     return `Call ${displayName} on ${phone}`;
   }
