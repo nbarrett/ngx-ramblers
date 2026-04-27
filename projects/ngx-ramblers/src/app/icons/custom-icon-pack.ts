@@ -61,6 +61,11 @@ export const ngxIconPack = {
       width: 36,
       height: 24
     },
+    "mailman": {
+      body: "<path d=\"M4.5 5.5 L19.5 5.5 A2.5 2.5 0 0 1 22 8 L22 16 A2.5 2.5 0 0 1 19.5 18.5 L4.5 18.5 A2.5 2.5 0 0 1 2 16 L2 8 A2.5 2.5 0 0 1 4.5 5.5 Z\" fill=\"#1D4ED8\"/><path d=\"M3 8 L12 13.5 L21 8 L21 9.2 L12 14.7 L3 9.2 Z\" fill=\"#FFFFFF\"/>",
+      width: 24,
+      height: 24
+    },
     "user": {
       body: "<path d=\"M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z\" fill=\"#546E7A\"/>",
       width: 24,

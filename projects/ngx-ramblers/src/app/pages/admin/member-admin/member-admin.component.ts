@@ -42,7 +42,10 @@ import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { faSearch, faUserCheck, faUserXmark } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faEnvelope, faPhone, faComment, faSearch, faShareNodes, faUserCheck, faUserXmark } from "@fortawesome/free-solid-svg-icons";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { ContactAction, ContactActionDropdownComponent } from "../../../modules/common/contact-action-dropdown/contact-action-dropdown";
+import { ClipboardService } from "../../../services/clipboard.service";
 import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -62,7 +65,7 @@ import { MemberTerm } from "../../../models/member.model";
     selector: "app-member-admin",
     templateUrl: "./member-admin.component.html",
     styleUrls: ["./member-admin.component.sass"],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, TooltipDirective, SwitchIconComponent, TitleCasePipe, DisplayDateNoDayPipe, FullNameWithAliasPipe]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, TooltipDirective, SwitchIconComponent, TitleCasePipe, DisplayDateNoDayPipe, FullNameWithAliasPipe, ContactActionDropdownComponent]
 })
 export class MemberAdminComponent implements OnInit, OnDestroy {
 
@@ -91,6 +94,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private uiActionsService: UiActionsService = inject(UiActionsService);
+  private clipboardService = inject(ClipboardService);
   public mailchimpConfig: MailchimpConfig;
   protected mailMessagingConfig: MailMessagingConfig;
   private latestMemberBulkLoadAudit: MemberBulkLoadAudit;
@@ -111,6 +115,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   protected readonly faUserXmark = faUserXmark;
   protected readonly faSearch = faSearch;
   protected readonly faUserCheck = faUserCheck;
+  protected readonly faEnvelope = faEnvelope;
   protected readonly MemberTerm = MemberTerm;
   private storedSortField = "";
   private storedSortDescending = false;
@@ -605,5 +610,32 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       return brevoListMatch;
     }
     return paramField;
+  }
+
+  phoneActionsFor(phone: string, displayName: string): ContactAction[] {
+    const cleaned = phone?.replace(/\s/g, "");
+    const international = cleaned?.replace(/^\+/, "").replace(/^0/, "44");
+    return [
+      { label: "Call", icon: faPhone, tooltip: `Call ${displayName} on ${phone}`, href: `tel:${cleaned}` },
+      { label: "SMS", icon: faComment, tooltip: `Send an SMS to ${displayName} on ${phone}`, href: `sms:${cleaned}` },
+      { label: "WhatsApp", icon: faWhatsapp, tooltip: `Open WhatsApp chat with ${displayName} on ${phone}`, href: `https://wa.me/${international}`, target: "_blank" },
+      { label: "Copy number", icon: faCopy, tooltip: `Copy ${phone} to clipboard`, onClick: () => this.clipboardService.copyToClipboard(phone) }
+    ];
+  }
+
+  emailActionsFor(email: string, displayName: string): ContactAction[] {
+    const actions: ContactAction[] = [
+      { label: "Send email", icon: faEnvelope, tooltip: `Email ${displayName} at ${email}`, href: `mailto:${email}` },
+      { label: "Copy email", icon: faCopy, tooltip: `Copy ${email} to clipboard`, onClick: () => this.clipboardService.copyToClipboard(email) }
+    ];
+    if (navigator.share) {
+      actions.splice(1, 0, {
+        label: "Share",
+        icon: faShareNodes,
+        tooltip: `Share ${displayName}'s email`,
+        onClick: () => { void navigator.share({ title: displayName, text: email }); }
+      });
+    }
+    return actions;
   }
 }

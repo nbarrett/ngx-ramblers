@@ -1,20 +1,23 @@
 @import "./colours";
 
-$rsm-bg: rgb(248, 249, 248);
-$rsm-panel: $ramblers-colour-cloudy;
-$rsm-border: rgb(225, 225, 225);
-$rsm-text: $ramblers-colour-black;
-$rsm-muted: rgb(110, 112, 115);
-$rsm-mintcake-light-strong: rgba(175, 226, 194, 0.3);
+$rsm-bg: var(--rsm-page-bg);
+$rsm-panel: var(--rsm-panel-bg);
+$rsm-border: var(--rsm-border);
+$rsm-text: var(--rsm-text);
+$rsm-muted: var(--rsm-muted);
+$rsm-row-hover: var(--rsm-row-hover);
+$rsm-btn-ghost-hover-bg: var(--rsm-btn-ghost-hover-bg);
+$rsm-btn-ghost-hover-border: var(--rsm-btn-ghost-hover-border);
 
 $rsm-breakpoint-tablet: 768px;
 $rsm-breakpoint-mobile: 576px;
 
 .rsm-admin-page {
-  background: $rsm-bg;
-  color: $rsm-text;
-  padding: 24px 28px;
+  background: $rsm-panel;
+  border: 1px solid $rsm-border;
   border-radius: 8px;
+  padding: 14px 16px;
+  color: $rsm-text;
 
   h1, h2, h3 {
     color: $ramblers-colour-granite;
@@ -47,9 +50,10 @@ $rsm-breakpoint-mobile: 576px;
   .rsm-panel {
     background: $rsm-panel;
     border: 1px solid $rsm-border;
-    border-radius: 8px;
-    padding: 18px 22px;
+    border-radius: var(--rsm-panel-radius);
+    padding: var(--rsm-panel-padding);
     margin-bottom: 18px;
+    box-shadow: var(--rsm-panel-shadow);
 
     & + .rsm-panel {
       margin-top: 0;
@@ -59,10 +63,6 @@ $rsm-breakpoint-mobile: 576px;
       margin-top: 0;
       font-size: 1.05rem;
     }
-  }
-
-  @media (max-width: $rsm-breakpoint-mobile) {
-    padding: 16px 14px;
   }
 }
 
@@ -103,16 +103,18 @@ $rsm-breakpoint-mobile: 576px;
   }
 
   th {
-    color: $rsm-muted;
+    color: var(--rsm-table-header-text);
     font-weight: 600;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    background: transparent;
+    font-size: 0.88rem;
+    background: var(--rsm-table-header-bg);
+  }
+
+  tbody tr:nth-child(even) {
+    background: var(--rsm-row-stripe);
   }
 
   tbody tr:hover {
-    background: $rsm-mintcake-light-strong;
+    background: $rsm-row-hover;
   }
 
   .rsm-row-revoked td {
@@ -201,7 +203,7 @@ $rsm-breakpoint-mobile: 576px;
 
     &:hover {
       color: $ramblers-colour-granite;
-      background: $rsm-mintcake-light-strong;
+      background: $rsm-row-hover;
     }
 
     &[aria-selected="true"], &.rsm-tab-active {
@@ -272,8 +274,8 @@ $rsm-breakpoint-mobile: 576px;
   border-color: $rsm-border;
 
   &:hover {
-    background: $rsm-mintcake-light-strong;
-    border-color: $ramblers-colour-mintcake;
+    background: $rsm-btn-ghost-hover-bg;
+    border-color: $rsm-btn-ghost-hover-border;
     color: $ramblers-colour-granite;
     text-decoration: none;
   }
@@ -327,7 +329,7 @@ $rsm-breakpoint-mobile: 576px;
     &:focus {
       outline: none;
       border-color: $ramblers-colour-mintcake-hover;
-      box-shadow: 0 0 0 2px $rsm-mintcake-light-strong;
+      box-shadow: 0 0 0 2px $rsm-row-hover;
     }
 
     &::placeholder {
@@ -374,7 +376,7 @@ $rsm-breakpoint-mobile: 576px;
 .rsm-chip {
   display: inline-block;
   margin-left: 8px;
-  background: $rsm-mintcake-light-strong;
+  background: $rsm-row-hover;
   color: $ramblers-colour-granite;
   font-size: 0.7rem;
   font-weight: 600;
@@ -446,12 +448,12 @@ app-page {
   .admin-frame {
     background: $rsm-panel;
     border: 1px solid $rsm-border;
-    border-radius: 8px;
-    padding: 18px 22px;
+    border-radius: var(--rsm-panel-radius);
+    padding: var(--rsm-panel-padding);
     margin: 0 0 18px;
     overflow: visible;
     float: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    box-shadow: var(--rsm-panel-shadow);
 
     @media (max-width: $rsm-breakpoint-mobile) {
       padding: 14px 12px;
@@ -471,28 +473,27 @@ app-page {
   .thumbnail-admin-edit {
     background: $rsm-panel;
     border: 1px solid $rsm-border;
-    border-radius: 8px;
-    padding: 18px 22px;
+    border-radius: var(--rsm-panel-radius);
+    padding: var(--rsm-panel-padding);
     margin: 0 0 18px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    box-shadow: var(--rsm-panel-shadow);
 
     @media (max-width: $rsm-breakpoint-mobile) {
       padding: 14px 12px;
     }
   }
 
-  table.tbl-green-g {
+  table.tbl-green-g,
+  table.table {
     background-color: $rsm-panel;
     border-collapse: collapse;
     margin-bottom: 16px;
 
     th {
-      background-color: transparent;
-      color: $rsm-muted;
+      background-color: var(--rsm-table-header-bg);
+      color: var(--rsm-table-header-text);
       font-weight: 600;
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
+      font-size: 0.88rem;
       border-bottom: 1px solid $rsm-border;
       padding: 10px 8px;
     }
@@ -504,8 +505,12 @@ app-page {
       padding: 10px 8px;
     }
 
+    tbody tr:nth-child(even) td {
+      background-color: var(--rsm-row-stripe);
+    }
+
     tbody tr:hover td {
-      background-color: $rsm-mintcake-light-strong;
+      background-color: $rsm-row-hover;
     }
   }
 
@@ -552,7 +557,7 @@ app-page tabset .nav-tabs {
 
     &:hover {
       color: $ramblers-colour-granite;
-      background: $rsm-mintcake-light-strong;
+      background: $rsm-row-hover;
       border-color: transparent transparent transparent transparent;
       border-bottom-color: transparent;
     }

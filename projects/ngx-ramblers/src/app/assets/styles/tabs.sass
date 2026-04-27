@@ -1,17 +1,70 @@
 .custom-tabset
-  .nav-tabs > li.active > a,
-  .nav-tabs > li.active > a:active,
-  .nav-tabs > li.active > a:hover,
-  .nav-tabs > li.active > a:focus
-    color: $ramblers-colour-mintcake
-    background-color: $ramblers-colour-granite
-    border: 1px solid $ramblers-colour-granite
+  display: block
+  background: var(--rsm-panel-bg)
+  border: 1px solid var(--rsm-border)
+  border-radius: var(--rsm-panel-radius)
+  padding: var(--rsm-panel-padding)
+  box-shadow: var(--rsm-panel-shadow)
+  margin: 0 0 18px
+
+  .nav-tabs
+    border-bottom: 2px solid var(--rsm-border)
+    gap: 4px
+    flex-wrap: wrap
+    margin: 0 0 24px 0
+    padding: 0
 
   .nav-tabs > li > a,
+  .nav-tabs > li > a:link,
+  .nav-tabs > li > a:visited,
+  .nav-tabs > li > a:hover,
+  .nav-tabs > li > a:focus,
+  .nav-tabs > li > a:active
+    color: var(--rsm-muted)
+    background-color: transparent
+    border: none
+    border-bottom: 3px solid transparent
+    border-radius: 0
+    margin-bottom: -2px
+    padding: 8px 14px
+    font-weight: 600
+    text-decoration: none
+    transition: color 0.15s ease, border-color 0.15s ease
+    box-shadow: none
+    outline: none
+
   .nav-tabs > li > a:hover,
   .nav-tabs > li > a:focus
     color: $ramblers-colour-granite
-    background-color: #ddd
+    text-decoration: none
+
+  .nav-tabs > li.active > a,
+  .nav-tabs > li.active > a:link,
+  .nav-tabs > li.active > a:visited,
+  .nav-tabs > li.active > a:active,
+  .nav-tabs > li.active > a:hover,
+  .nav-tabs > li.active > a:focus
+    color: $ramblers-colour-granite
+    background-color: transparent
+    border: none
+    border-bottom: 3px solid $ramblers-colour-sunrise
+    text-decoration: none
+
+  > .tab-content
+    background: transparent
+    border: none
+    padding: 0
+    box-shadow: none
+    border-radius: 0
+
+  .tab-content .admin-frame,
+  .tab-content .thumbnail-admin-edit
+    background: transparent
+    border: none
+    padding: 0
+    margin: 0
+    box-shadow: none
+    border-radius: 0
 
   li
-    margin-right: 3px
+    margin-right: 0

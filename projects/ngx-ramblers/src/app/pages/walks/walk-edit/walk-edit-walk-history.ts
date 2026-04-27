@@ -33,11 +33,22 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
     .history-item:last-child
       border-bottom: none
 
+    .history-column-header
+      display: grid
+      grid-template-columns: 28px 190px 130px 200px 1fr
+      gap: 12px
+      padding: 10px 16px
+      background-color: var(--rsm-table-header-bg)
+      border-bottom: 1px solid var(--rsm-border)
+      font-size: 0.88rem
+      color: var(--rsm-table-header-text)
+      font-weight: 600
+
     .history-item:nth-child(odd)
-      background-color: #ffffff
+      background-color: var(--rsm-panel-bg)
 
     .history-item:nth-child(even)
-      background-color: #f8f9fa
+      background-color: var(--rsm-row-stripe)
 
     .history-item.expanded
       background-color: rgba(155, 200, 171, 0.15)
@@ -172,6 +183,13 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       </div>
       @if (walkEvents?.length > 0) {
         <div class="history-accordion">
+          <div class="history-column-header">
+            <div></div>
+            <div>Date</div>
+            <div>Member</div>
+            <div>Event Type</div>
+            <div>Notes</div>
+          </div>
           @for (event of walkEvents; track event.id; let idx = $index) {
             <div class="history-item" [class.expanded]="detailsOpen(event.id)">
               <div class="history-header" [class.clickable]="hasChangedItems(event)"
