@@ -1,7 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Observable, Subject } from "rxjs";
+import { firstValueFrom, Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { CommonDataService } from "../common-data-service";
 import { LoggerFactory } from "../logger-factory.service";
@@ -9,7 +9,6 @@ import { MailListAudit, MailListAuditApiResponse } from "../../models/mail.model
 import { AuditStatus } from "../../models/audit";
 import { DateUtilsService } from "../date-utils.service";
 import { MemberLoginService } from "../member/member-login.service";
-import { Member, MemberApiResponse } from "../../models/member.model";
 
 @Injectable({
   providedIn: "root"
@@ -63,6 +62,23 @@ export class MailListAuditService {
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.delete<MailListAuditApiResponse>(this.BASE_URL + "/" + memberUpdateAudit.id), this.notificationEvents);
     this.logger.debug("deleted", memberUpdateAudit, "received", apiResponse);
     return apiResponse.response as MailListAudit;
+  }
+
+  async deleteByMemberIds(memberIds: string[]): Promise<{ deleted: number }> {
+    if (!memberIds?.length) {
+      return { deleted: 0 };
+    }
+    this.logger.info("deleteByMemberIds:", memberIds.length, "memberIds");
+    const response = await firstValueFrom(this.http.post<{ deleted: number }>(`${this.BASE_URL}/delete-by-members`, { memberIds }));
+    this.logger.info("deleteByMemberIds:result", response);
+    return response;
+  }
+
+  async deleteOrphans(): Promise<{ deleted: number }> {
+    this.logger.info("deleteOrphans:requested");
+    const response = await firstValueFrom(this.http.post<{ deleted: number }>(`${this.BASE_URL}/delete-orphans`, {}));
+    this.logger.info("deleteOrphans:result", response);
+    return response;
   }
 
   createMailListAudit(audit: any, status: AuditStatus, memberId: string, listId: number): MailListAudit {

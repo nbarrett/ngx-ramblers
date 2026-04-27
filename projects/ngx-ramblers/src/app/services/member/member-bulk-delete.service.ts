@@ -6,6 +6,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberService } from "./member.service";
 import { DeletedMemberService } from "./deleted-member.service";
 import { MemberLoginService } from "./member-login.service";
+import { MailListAuditService } from "../mail/mail-list-audit.service";
 
 @Injectable({
   providedIn: "root"
@@ -16,6 +17,7 @@ export class MemberBulkDeleteService {
   private memberService = inject(MemberService);
   private deletedMemberService = inject(DeletedMemberService);
   private memberLoginService = inject(MemberLoginService);
+  private mailListAuditService = inject(MailListAuditService);
   private dateUtils = inject(DateUtilsService);
 
   async performBulkDelete(members: Member[], memberIds: string[]) {
@@ -23,6 +25,7 @@ export class MemberBulkDeleteService {
     const deletedBy: string = this.memberLoginService.loggedInMember().memberId;
     const membersToDelete: Member[] = members.filter(member => memberIds.includes(member.id));
     const deletedMemberResponses = await this.memberService.deleteAll(membersToDelete);
+    const deletedIds: string[] = deletedMemberResponses.filter(item => item.deleted).map(item => item.id);
     const deletedMemberRequests: DeletedMember[] = deletedMemberResponses
       .filter(item => item.deleted)
       .map(deletionResponse => ({
@@ -30,7 +33,15 @@ export class MemberBulkDeleteService {
         membershipNumber: members.find(member => member.id === deletionResponse.id)?.membershipNumber
     }));
     const deletedMembers = await this.deletedMemberService.createOrUpdateAll(deletedMemberRequests);
-    this.logger.info("confirmBulkDelete:deletedMemberRequests:", deletedMemberRequests, "deletedMembers:", deletedMembers);
+    const cascadeResult = await this.mailListAuditService.deleteByMemberIds(deletedIds).catch(error => {
+      this.logger.error("cascade mailListAudit deleteByMemberIds failed:", error);
+      return { deleted: 0 };
+    });
+    const orphanResult = await this.mailListAuditService.deleteOrphans().catch(error => {
+      this.logger.error("orphan mailListAudit sweep failed:", error);
+      return { deleted: 0 };
+    });
+    this.logger.info("confirmBulkDelete:deletedMemberRequests:", deletedMemberRequests, "deletedMembers:", deletedMembers, "cascadedAuditRows:", cascadeResult.deleted, "orphanAuditRows:", orphanResult.deleted);
     return deletedMembers;
   }
 }
