@@ -57,10 +57,8 @@ const ALL_SENDERS = "all";
   styles: [`
     .mode-toggle-anchor
       position: absolute
-      top: -16px
+      top: 12px
       right: 12px
-      background-color: white
-      padding: 0 6px
     .mode-toggle-anchor ::ng-deep .section-toggle
       margin-bottom: 0
     .table-container
@@ -93,6 +91,9 @@ const ALL_SENDERS = "all";
       white-space: nowrap
       overflow: hidden
       text-overflow: ellipsis
+    td.name-cell
+      vertical-align: middle
+      white-space: nowrap
     tr.no-hover,
     tr.no-hover:hover,
     tr.no-hover > td,
@@ -141,7 +142,7 @@ const ALL_SENDERS = "all";
       vertical-align: middle
   `],
   template: `
-    <div class="thumbnail-heading-frame" style="position: relative">
+    <div class="thumbnail-heading-frame" style="position: relative; margin-top: 24px">
       <div class="thumbnail-heading">Brevo Unsubscribes &amp; Blocked Contacts</div>
       <div class="mode-toggle-anchor">
         <app-section-toggle
@@ -157,14 +158,8 @@ const ALL_SENDERS = "all";
           {{ errorMessage }}
         </div>
       }
-      <div class="row">
-        <div class="col-sm-12 mb-3 mx-2">
-          <app-markdown-editor standalone category="admin" name="mail-settings-unsubscribes-help"
-                               description="Mail settings unsubscribes help"/>
-        </div>
-      </div>
       <div class="row mb-3 g-3">
-        <div class="col-sm-3">
+        <div class="col-sm-4">
           <label class="form-label">Search</label>
           <div class="input-group">
             <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
@@ -173,7 +168,7 @@ const ALL_SENDERS = "all";
                    placeholder="Contact or sender email...">
           </div>
         </div>
-        <div class="col-sm-3">
+        <div class="col-sm-4">
           <label for="reason-filter" class="form-label">Reason</label>
           <select id="reason-filter" class="form-select" [(ngModel)]="reasonFilter"
                   (ngModelChange)="updateQueryParams()">
@@ -183,7 +178,7 @@ const ALL_SENDERS = "all";
             }
           </select>
         </div>
-        <div class="col-sm-3">
+        <div class="col-sm-4">
           <label for="sender-filter" class="form-label">Sender</label>
           <select id="sender-filter" class="form-select" [(ngModel)]="senderFilter"
                   (ngModelChange)="onSenderFilterChange()">
@@ -192,19 +187,6 @@ const ALL_SENDERS = "all";
               <option [ngValue]="sender.email">{{ sender.name }} &lt;{{ sender.email }}&gt;</option>
             }
           </select>
-        </div>
-        <div class="col-sm-3">
-          <label class="form-label">Stats</label>
-          <div class="form-control-plaintext">
-            @if (loading) {
-              <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading unsubscribes...
-            } @else {
-              {{ filteredUnsubscribes().length }} of {{ unsubscribes.length }} shown
-              @if (totalCount > unsubscribes.length) {
-                (of {{ totalCount }} total)
-              }
-            }
-          </div>
         </div>
         <div class="col">
           <app-date-range-slider
@@ -249,6 +231,12 @@ const ALL_SENDERS = "all";
             </div>
           </div>
         }
+      </div>
+      <div class="row">
+        <div class="col-sm-12 mb-3 mx-2">
+          <app-markdown-editor standalone category="admin" name="mail-settings-unsubscribes-help"
+                               description="Mail settings unsubscribes help"/>
+        </div>
       </div>
       @if (mode === 'blocks') {
       <div class="table-responsive table-container">
@@ -301,7 +289,7 @@ const ALL_SENDERS = "all";
             } @else {
               @for (contact of filteredUnsubscribes(); track trackByContact($index, contact)) {
                 <tr>
-                  <td class="truncate">
+                  <td class="name-cell">
                     @if (contact.brevoContactId) {
                       <a [href]="mailLinkService.contactView(contact.brevoContactId)"
                          target="_blank"
