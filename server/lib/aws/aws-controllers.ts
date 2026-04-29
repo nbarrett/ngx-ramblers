@@ -109,7 +109,12 @@ export async function objectData(req: Request, res: Response) {
     if (logObject) {
       debugLog("got object", s3Item);
     }
-    res.writeHead(200, {"Content-Type": contentTypeFrom(options.Key)});
+    const headers: Record<string, string> = {"Content-Type": contentTypeFrom(options.Key)};
+    const downloadName = downloadFilenameFrom(req);
+    if (downloadName) {
+      headers["Content-Disposition"] = contentDispositionAttachment(downloadName);
+    }
+    res.writeHead(200, headers);
     s3Item.Body.pipe(res);
     debugLog("returned object command using options", options);
   } catch (err) {
@@ -247,6 +252,24 @@ function expiryTime() {
 function optionsFrom(req: Request): GetObjectRequest {
   const key = `${req.params.bucket}${req.params[0]}`;
   return {Bucket: s3Config().bucket, Key: key};
+}
+
+function downloadFilenameFrom(req: Request): string | null {
+  const raw = req.query?.download;
+  if (typeof raw !== "string") {
+    return null;
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return path.basename(trimmed);
+}
+
+function contentDispositionAttachment(filename: string): string {
+  const safe = filename.replace(/[\r\n"\\]/g, "_");
+  const encoded = encodeURIComponent(filename);
+  return `attachment; filename="${safe}"; filename*=UTF-8''${encoded}`;
 }
 
 async function ensureExtractedReportDirectory(bucket: string, reportKeyPrefix: string): Promise<string> {

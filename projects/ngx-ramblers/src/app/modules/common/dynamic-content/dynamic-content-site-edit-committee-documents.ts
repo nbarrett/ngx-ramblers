@@ -25,6 +25,18 @@ import { UrlService } from "../../../services/url.service";
   template: `
     @if (row?.committeeDocuments) {
       <div class="row align-items-end mb-3 d-flex">
+        <div class="col-md-12">
+          <div class="form-group">
+            <label [for]="'page-title-' + id">Page Title Override</label>
+            <input [(ngModel)]="row.committeeDocuments.pageTitle"
+                   (ngModelChange)="broadcastChange()"
+                   [id]="'page-title-' + id"
+                   type="text" class="form-control"
+                   placeholder="Leave blank to use the URL-derived default (e.g. 'Agm Meetings')"/>
+          </div>
+        </div>
+      </div>
+      <div class="row align-items-end mb-3 d-flex">
         <div class="col-md-9">
           <div class="form-group">
             <label [for]="'file-select-' + id">Committee Files

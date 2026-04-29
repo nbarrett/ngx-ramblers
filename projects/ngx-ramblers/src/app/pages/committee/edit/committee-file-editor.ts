@@ -24,20 +24,26 @@ import { DatePicker } from "../../../date-and-time/date-picker";
   template: `
     <div class="row mb-3">
       <div class="col-md-6">
-        <app-date-picker startOfDay [label]="'File or Event Date'"
-                         [size]="'md'"
-                         (change)="eventDateChanged($event)"
-                         [value]="eventDate">
-        </app-date-picker>
+        <div class="form-group">
+          <label for="event-date">File or Event Date</label>
+          <app-date-picker startOfDay
+                           id="event-date"
+                           [size]="'md'"
+                           (change)="eventDateChanged($event)"
+                           [value]="eventDate">
+          </app-date-picker>
+        </div>
       </div>
       <div class="col-md-6">
-        <label for="fileType">File Type</label>
-        <select [(ngModel)]="committeeFile.fileType" id="fileType" class="form-control input-md">
-          @for (fileType of display.fileTypes(); track fileType) {
-            <option [ngValue]="fileType.description"
-                    [textContent]="fileType.description">
-          }
-        </select>
+        <div class="form-group">
+          <label for="fileType">File Type</label>
+          <select [(ngModel)]="committeeFile.fileType" id="fileType" class="form-control input-md">
+            @for (fileType of display.fileTypes(); track fileType) {
+              <option [ngValue]="fileType.description"
+                      [textContent]="fileType.description">
+            }
+          </select>
+        </div>
       </div>
     </div>
     <div class="row">
