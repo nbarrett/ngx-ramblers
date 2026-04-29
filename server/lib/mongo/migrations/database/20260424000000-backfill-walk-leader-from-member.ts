@@ -59,11 +59,7 @@ export async function up(db: Db, client: MongoClient) {
   let skippedInvalidMemberId = 0;
 
   const cursor = walks.find(criteria, { projection: { "groupEvent.walk_leader": 1, "fields.contactDetails.memberId": 1 } });
-  while (await cursor.hasNext()) {
-    const walk = await cursor.next();
-    if (!walk) {
-      break;
-    }
+  for await (const walk of cursor) {
     processed++;
 
     const memberIdString: string | null = walk.fields?.contactDetails?.memberId ?? null;
