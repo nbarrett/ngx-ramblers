@@ -40,7 +40,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
           }
           <div class="card-body">
             <div class="card-title mb-4 d-flex align-items-center justify-content-between">
-              <h4 class="mb-0">Committee events for {{ pageTitle }}</h4>
+              <h4 class="mb-0">{{ headingText }}</h4>
               @if (display.allowAddCommitteeFile() && committeeDocumentsConfig?.showFileActions && !editingFile) {
                 <input (click)="addCommitteeFile()"
                        class="btn btn-primary btn-sm" title="Add new File" type="submit"
@@ -149,6 +149,7 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget = {};
   public imageSource: string;
   public pageTitle: string;
+  public headingText: string;
   public editingFile: CommitteeFile;
   public editingFileIsNew = false;
 
@@ -182,7 +183,13 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   private applyRowData(): void {
     this.pageTitle = this.pageService.pageSubtitle();
     this.imageSource = this.committeeDocumentsConfig?.imageSource;
+    this.refreshHeading();
     this.loadFiles();
+  }
+
+  private refreshHeading(): void {
+    const override = this.committeeDocumentsConfig?.pageTitle?.trim();
+    this.headingText = override || `Committee events for ${this.pageTitle}`;
   }
 
   ngOnDestroy(): void {
@@ -229,6 +236,7 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
       return;
     }
     this.pageTitle = last(targetPage.path.split("/"));
+    this.refreshHeading();
     this.logger.info("loadFilesFromFirstActionButton:using most recent child page:", targetPage.path);
     const committeeDocsRow = targetPage.rows.find(row => this.actions.isCommitteeDocuments(row));
     if (committeeDocsRow?.committeeDocuments) {

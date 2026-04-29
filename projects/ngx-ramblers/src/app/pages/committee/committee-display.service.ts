@@ -5,8 +5,8 @@ import { ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";
 import { CommitteeFile, GroupEventType, groupEventTypeFor } from "../../models/committee.model";
+import { EM_DASH_WITH_SPACES } from "../../models/content-text.model";
 import { Confirm } from "../../models/ui-actions";
-import { ValueOrDefaultPipe } from "../../pipes/value-or-default.pipe";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { CommitteeFileService } from "../../services/committee/committee-file.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
@@ -29,7 +29,6 @@ export class CommitteeDisplayService {
   private memberLoginService = inject(MemberLoginService);
   urlService = inject(UrlService);
   private stringUtils = inject(StringUtilsService);
-  private valueOrDefault = inject(ValueOrDefaultPipe);
   private dateUtils = inject(DateUtilsService);
   private committeeFileService = inject(CommitteeFileService);
   private contentMetadataService = inject(ContentMetadataService);
@@ -102,7 +101,11 @@ export class CommitteeDisplayService {
     } else if (this.urlService.isRemoteUrl(committeeFile?.fileNameData?.awsFileName)) {
       return committeeFile.fileNameData.awsFileName;
     } else {
-      return this.urlService.baseUrl() + "/" + this.committeeFileBaseUrl + "/" + committeeFile?.fileNameData?.awsFileName;
+      const baseUrl = this.urlService.baseUrl() + "/" + this.committeeFileBaseUrl + "/" + committeeFile?.fileNameData?.awsFileName;
+      const originalFileName = committeeFile?.fileNameData?.originalFileName;
+      return originalFileName
+        ? `${baseUrl}?download=${encodeURIComponent(originalFileName)}`
+        : baseUrl;
     }
   }
 
@@ -113,9 +116,12 @@ export class CommitteeDisplayService {
   }
 
   fileTitle(committeeFile: CommitteeFile) {
-    const title = this.valueOrDefault.transform(committeeFile?.fileNameData?.title, committeeFile?.fileNameData?.originalFileName, "");
-    const delimiter = title ? ` - ` : "";
-    return committeeFile ? `${this.dateUtils.asString(committeeFile?.eventDate, undefined, this.dateUtils.formats.displayDateTh)}${delimiter}${title}` : "";
+    if (!committeeFile) {
+      return "";
+    }
+    const title = committeeFile.fileNameData?.title || "";
+    const dateStr = this.dateUtils.asString(committeeFile.eventDate, undefined, this.dateUtils.formats.displayDateTh);
+    return title ? `${dateStr}${EM_DASH_WITH_SPACES}${title}` : dateStr;
   }
 
   fileExtensionIs(fileName, extensions: string[]) {

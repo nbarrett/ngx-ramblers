@@ -244,6 +244,7 @@ export interface CommitteeDocumentsData {
   showFileActions: boolean;
   sortDirection: SortDirection;
   imageSource?: string;
+  pageTitle?: string;
 }
 
 export interface PageContentRow extends HasColumnRange {
