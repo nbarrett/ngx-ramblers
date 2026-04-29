@@ -9,7 +9,7 @@ import debug from "debug";
 import { Request, Response } from "express";
 import * as fs from "fs";
 import * as https from "https";
-import { omit } from "es-toolkit/compat";
+import { isString, omit } from "es-toolkit/compat";
 import * as path from "path";
 import {
   S3Metadata,
@@ -256,7 +256,7 @@ function optionsFrom(req: Request): GetObjectRequest {
 
 function downloadFilenameFrom(req: Request): string | null {
   const raw = req.query?.download;
-  if (typeof raw !== "string") {
+  if (!isString(raw)) {
     return null;
   }
   const trimmed = raw.trim();
