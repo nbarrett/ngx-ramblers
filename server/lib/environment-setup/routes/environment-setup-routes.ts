@@ -313,6 +313,31 @@ router.get("/environment-details/:environmentName", async (req: Request, res: Re
     const { envConfigData, secrets } = await loadEnvironmentContext(environmentName);
     const brevoConfig = await configuredBrevo();
 
+    let ramblersInfoFromDb: { areaCode?: string; areaName?: string; groupCode?: string; groupName?: string } = {};
+    const needsRamblersInfoFallback = !secrets.secrets.RAMBLERS_GROUP_CODE
+      || !secrets.secrets.RAMBLERS_GROUP_NAME
+      || !secrets.secrets.RAMBLERS_AREA_CODE
+      || !secrets.secrets.RAMBLERS_AREA_NAME;
+    if (needsRamblersInfoFallback) {
+      try {
+        const { client, db } = await connectToEnvironmentMongo(envConfigData);
+        try {
+          const systemConfigDoc = await db.collection("config").findOne({ key: "system" });
+          const systemConfig: any = systemConfigDoc?.value;
+          ramblersInfoFromDb = {
+            groupCode: systemConfig?.group?.groupCode,
+            groupName: systemConfig?.group?.longName,
+            areaCode: systemConfig?.area?.shortName,
+            areaName: systemConfig?.area?.longName
+          };
+        } finally {
+          await client.close();
+        }
+      } catch (error) {
+        debugLog("Could not load Ramblers info from source DB systemConfig:", error.message);
+      }
+    }
+
     const details = {
       environmentBasics: {
         memory: envConfigData.flyio?.memory || FLYIO_DEFAULTS.MEMORY,
@@ -349,10 +374,10 @@ router.get("/environment-details/:environmentName", async (req: Request, res: Re
         }
       },
       ramblersInfo: {
-        areaCode: secrets.secrets.RAMBLERS_AREA_CODE || "",
-        areaName: secrets.secrets.RAMBLERS_AREA_NAME || "",
-        groupCode: secrets.secrets.RAMBLERS_GROUP_CODE || "",
-        groupName: secrets.secrets.RAMBLERS_GROUP_NAME || ""
+        areaCode: secrets.secrets.RAMBLERS_AREA_CODE || ramblersInfoFromDb.areaCode || "",
+        areaName: secrets.secrets.RAMBLERS_AREA_NAME || ramblersInfoFromDb.areaName || "",
+        groupCode: secrets.secrets.RAMBLERS_GROUP_CODE || ramblersInfoFromDb.groupCode || "",
+        groupName: secrets.secrets.RAMBLERS_GROUP_NAME || ramblersInfoFromDb.groupName || ""
       }
     };
 

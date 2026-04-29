@@ -128,9 +128,15 @@ export async function handleEnvironmentCreate(ws: WebSocket, data: EnvironmentCr
 
     sendProgress(ws, "Validation passed, starting environment creation...");
 
-    const result = await createEnvironment(request, progress => {
-      sendProgress(ws, `[${progress.status}] ${progress.step}${progress.message ? `: ${progress.message}` : ""}`);
-    });
+    const result = await createEnvironment(
+      request,
+      progress => {
+        sendProgress(ws, `[${progress.status}] ${progress.step}${progress.message ? `: ${progress.message}` : ""}`);
+      },
+      (line: string) => {
+        sendProgress(ws, `[deploy] ${line}`);
+      }
+    );
 
     sendComplete(ws, "Environment created successfully", {
       result: {
