@@ -94,7 +94,8 @@ export enum RoleType {
 export enum BuiltInRole {
   WALKS_CO_ORDINATOR = "WALKS_CO_ORDINATOR",
   SOCIAL_CO_ORDINATOR = "SOCIAL_CO_ORDINATOR",
-  TREASURER = "TREASURER"
+  TREASURER = "TREASURER",
+  CONTACT_US = "CONTACT_US"
 }
 
 export enum ForwardEmailTarget {
@@ -123,6 +124,10 @@ export interface CommitteeMember {
   forwardEmailTarget?: ForwardEmailTarget;
   forwardEmailCustom?: string;
   forwardEmailRecipients?: string[];
+  contactUsLabel?: string;
+  contactUsTarget?: ForwardEmailTarget;
+  contactUsCustom?: string;
+  contactUsRecipients?: string[];
 }
 
 export interface CommitteeRecipientOption {

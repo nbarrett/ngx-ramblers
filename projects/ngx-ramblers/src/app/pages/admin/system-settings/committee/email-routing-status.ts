@@ -9,13 +9,17 @@ import {
   DestinationVerificationStatus,
   EmailForwardingMode,
   EmailRouteType,
-  EmailRoutingActionType,
-  EmailRoutingMatcherField,
-  EmailRoutingMatcherType,
   EmailRoutingRule,
   EmailRoutingStatus,
   NonSensitiveCloudflareConfig
 } from "../../../../models/cloudflare-email-routing.model";
+import {
+  destinationVerificationStatusFor,
+  multiRecipientVerificationDetails,
+  resolveRouting,
+  RoutingResolution,
+  roleEmailFor
+} from "./email-routing-view-resolver";
 import { FormsModule } from "@angular/forms";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
@@ -29,6 +33,19 @@ enum WorkerAction {
   DEPLOY = "deploy",
   UPDATE = "update",
   DELETE = "delete"
+}
+
+function mapResolutionToRouteType(resolution: RoutingResolution): EmailRouteType {
+  switch (resolution) {
+    case RoutingResolution.WORKER:
+      return EmailRouteType.WORKER;
+    case RoutingResolution.DIRECT:
+      return EmailRouteType.DIRECT;
+    case RoutingResolution.CATCH_ALL:
+      return EmailRouteType.CATCH_ALL;
+    default:
+      return EmailRouteType.NONE;
+  }
 }
 
 @Component({
@@ -54,7 +71,7 @@ enum WorkerAction {
           </alert>
         </div>
       } @else if (!isMultiRecipient()) {
-        @if (verificationEmail() && status.destinationVerificationStatus === DestinationVerificationStatus.VERIFIED) {
+        @if (showStandaloneVerifiedAlert()) {
           <div class="d-flex align-items-center mb-2">
             <alert type="success" class="flex-grow-1 mb-0">
               <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
@@ -114,10 +131,10 @@ enum WorkerAction {
         }
         @if (memberEmail && status.routeType === EmailRouteType.CATCH_ALL && !catchAllDestinationMatches()) {
           <div class="d-flex align-items-center">
-            <alert type="success" class="flex-grow-1 mb-0">
-              <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
-              <strong class="ms-2">Routed via Catch-all</strong>
-              <span class="ms-2">Catch-all routing is enabled for {{ status.roleEmail }}.</span>
+            <alert type="warning" class="flex-grow-1 mb-0">
+              <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+              <strong class="ms-2">Direct rule not yet configured</strong>
+              <span class="ms-2">Create a direct rule to route <strong>{{ status.roleEmail }}</strong> &rarr; <strong>{{ memberEmail }}</strong>.</span>
             </alert>
             <app-cloudflare-button class="ms-2" [disabled]="forwardButtonDisabled()" [loading]="apiRequestPending" button
               (click)="createForward()"
@@ -315,7 +332,7 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   public loadingStatus = false;
   private lastAppliedRecipients: string[] = [];
   baseDomain = "";
-  private rules: EmailRoutingRule[] = [];
+  rules: EmailRoutingRule[] = [];
   private catchAllRuleInternal: EmailRoutingRule;
   private destinationAddresses: DestinationAddress[] = [];
   private subscriptions: Subscription[] = [];
@@ -356,7 +373,12 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.cloudflareEmailRoutingService.cloudflareConfigNotifications().subscribe((config: NonSensitiveCloudflareConfig) => {
         this.baseDomain = config?.baseDomain || "";
-        this.logger.info("baseDomain set to:", this.baseDomain);
+        this.refreshStatus();
+      })
+    );
+    this.subscriptions.push(
+      this.cloudflareEmailRoutingService.rulesNotifications().subscribe((rules: EmailRoutingRule[]) => {
+        this.rules = rules || [];
         this.refreshStatus();
       })
     );
@@ -382,11 +404,13 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
       this.rules = rules;
       this.catchAllRuleInternal = catchAll;
       this.destinationAddresses = destinationAddresses;
+      this.error = null;
       this.refreshStatus();
       await this.loadDeployedMode();
       this.refreshStatus();
     } catch (err) {
       this.logger.error("Failed to load email routing rules:", err);
+      this.error = err;
     } finally {
       this.loadingStatus = false;
     }
@@ -398,43 +422,32 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
     }
     const roleEmail = this.roleEmail();
     const destinationEmail = this.memberEmail;
-    const matchingRule = this.rules.find(rule =>
-      rule.matchers?.some(m => m.type === EmailRoutingMatcherType.LITERAL && m.field === EmailRoutingMatcherField.TO && m.value === roleEmail)
-    );
+    const resolved = resolveRouting({
+      roleEmail,
+      rules: this.rules,
+      catchAllRule: this.catchAllRuleInternal
+    });
+    const routeType = mapResolutionToRouteType(resolved.resolution);
 
-    if (matchingRule) {
-      const workerAction = matchingRule.actions?.find(a => a.type === EmailRoutingActionType.WORKER);
-      const forwardAction = matchingRule.actions?.find(a => a.type === EmailRoutingActionType.FORWARD);
-      if (workerAction) {
-        this.status = {
-          ruleExists: true,
-          rule: matchingRule,
-          roleEmail,
-          destinationEmail,
-          routeType: EmailRouteType.WORKER,
-          workerScriptName: workerAction.value?.[0] || null,
-          effectiveDestination: null
-        };
-      } else {
-        this.status = {
-          ruleExists: true,
-          rule: matchingRule,
-          roleEmail,
-          destinationEmail,
-          routeType: EmailRouteType.DIRECT,
-          effectiveDestination: forwardAction?.value?.[0] || null
-        };
-      }
-    } else if (this.catchAllRuleInternal?.enabled) {
-      const catchAllForwardAction = this.catchAllRuleInternal.actions?.find(a => a.type === EmailRoutingActionType.FORWARD);
+    if (resolved.resolution === RoutingResolution.WORKER || resolved.resolution === RoutingResolution.DIRECT) {
+      this.status = {
+        ruleExists: true,
+        rule: resolved.matchingRule,
+        roleEmail,
+        destinationEmail,
+        routeType,
+        workerScriptName: resolved.workerScriptName,
+        effectiveDestination: resolved.effectiveDestination
+      };
+    } else if (resolved.resolution === RoutingResolution.CATCH_ALL) {
       this.status = {
         ruleExists: false,
         rule: null,
         roleEmail,
         destinationEmail,
         catchAllRule: this.catchAllRuleInternal,
-        routeType: EmailRouteType.CATCH_ALL,
-        effectiveDestination: catchAllForwardAction?.value?.[0] || null
+        routeType,
+        effectiveDestination: resolved.effectiveDestination
       };
     } else {
       this.status = {
@@ -442,39 +455,27 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
         rule: null,
         roleEmail,
         destinationEmail,
-        routeType: EmailRouteType.NONE
+        routeType
       };
     }
 
     if (this.isMultiRecipient()) {
       this.status.destinationEmails = this.memberEmailsInternal;
-      this.status.destinationVerificationStatuses = this.memberEmailsInternal.map(email => {
-        const matchedAddress = this.destinationAddresses.find(addr => normaliseEmail(addr.email) === normaliseEmail(email));
-        if (matchedAddress) {
-          return {
-            email,
-            status: matchedAddress.verified ? DestinationVerificationStatus.VERIFIED : DestinationVerificationStatus.PENDING,
-            destinationAddress: matchedAddress
-          } as DestinationVerificationDetail;
-        }
-        return {email, status: DestinationVerificationStatus.NOT_REGISTERED} as DestinationVerificationDetail;
-      });
+      this.status.destinationVerificationStatuses = multiRecipientVerificationDetails(this.memberEmailsInternal, this.destinationAddresses);
     } else {
       const verificationEmail = this.verificationEmail();
+      const verificationStatus = destinationVerificationStatusFor(verificationEmail, this.destinationAddresses);
       const matchedAddress = this.destinationAddresses.find(addr => normaliseEmail(addr.email) === normaliseEmail(verificationEmail));
       if (matchedAddress) {
         this.status.destinationAddress = matchedAddress;
-        this.status.destinationVerificationStatus = matchedAddress.verified
-          ? DestinationVerificationStatus.VERIFIED
-          : DestinationVerificationStatus.PENDING;
-      } else if (verificationEmail) {
-        this.status.destinationVerificationStatus = DestinationVerificationStatus.NOT_REGISTERED;
+      }
+      if (verificationStatus) {
+        this.status.destinationVerificationStatus = verificationStatus;
       }
     }
     if (this.status?.routeType === EmailRouteType.WORKER && this.lastAppliedRecipients.length === 0) {
       this.lastAppliedRecipients = this.normalisedRecipients(this.memberEmailsInternal);
     }
-    this.logger.info("refreshStatus:", this.status);
   }
 
   modeChangedFromDeployed(): boolean {
@@ -493,18 +494,28 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   }
 
   destinationMatches(): boolean {
-    return this.status?.effectiveDestination === this.status?.destinationEmail;
+    return normaliseEmail(this.status?.effectiveDestination) === normaliseEmail(this.status?.destinationEmail);
   }
 
   catchAllDestinationMatches(): boolean {
-    return this.status?.effectiveDestination === this.memberEmail;
+    return normaliseEmail(this.status?.effectiveDestination) === normaliseEmail(this.memberEmail);
   }
 
   verificationEmail(): string {
-    if (this.status?.routeType === EmailRouteType.DIRECT || this.status?.routeType === EmailRouteType.CATCH_ALL) {
+    if (this.status?.routeType === EmailRouteType.DIRECT) {
       return this.status?.effectiveDestination || this.memberEmail;
     }
     return this.memberEmail;
+  }
+
+  showStandaloneVerifiedAlert(): boolean {
+    if (!this.verificationEmail() || this.status?.destinationVerificationStatus !== DestinationVerificationStatus.VERIFIED) {
+      return false;
+    }
+    if (this.status?.routeType === EmailRouteType.DIRECT || this.status?.routeType === EmailRouteType.CATCH_ALL) {
+      return false;
+    }
+    return true;
   }
 
   allRecipientsVerified(): boolean {
@@ -661,11 +672,7 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   }
 
   private roleEmail(): string {
-    const candidate = this.committeeMemberInternal?.email;
-    if (candidate && this.baseDomain && candidate.endsWith(`@${this.baseDomain}`)) {
-      return candidate;
-    }
-    return `${this.committeeMemberInternal.type}@${this.baseDomain}`;
+    return roleEmailFor(this.committeeMemberInternal, this.baseDomain) || "";
   }
 
   async createForward() {
