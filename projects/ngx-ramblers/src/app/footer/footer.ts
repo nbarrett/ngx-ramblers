@@ -111,8 +111,8 @@ export class FooterComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.logger.info("subscribing to systemConfigService events");
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => {
-      return this.footer = item.footer;
-      return this.national = item.national;
+      this.footer = item.footer;
+      this.national = item.national;
     }));
     this.year = this.dateUtils.currentYear();
   }

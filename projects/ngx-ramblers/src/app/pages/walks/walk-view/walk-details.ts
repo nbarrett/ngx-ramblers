@@ -104,7 +104,7 @@ import { enumValueForKey } from "../../../functions/enums";
               <div title>
                 <fa-icon [icon]="faRulerHorizontal" class="fa-icon me-1"/>
                 Distance
-                <strong class="ms-1">{{ distanceValidationService.walkDistances(displayedWalk.walk) }}</strong>
+                <strong class="ms-1 text-nowrap">{{ distanceValidationService.walkDistances(displayedWalk.walk) }}</strong>
               </div>
             </div>
           }
@@ -122,7 +122,7 @@ import { enumValueForKey } from "../../../functions/enums";
               <div title>
                 <fa-icon [icon]="faRulerVertical" class="fa-icon me-3"/>
                 Ascent
-                <strong class="ms-1">{{ ascentValidationService.walkAscents(displayedWalk.walk) }}</strong>
+                <strong class="ms-1 text-nowrap">{{ ascentValidationService.walkAscents(displayedWalk.walk) }}</strong>
               </div>
             </div>
           }
