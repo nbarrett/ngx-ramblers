@@ -1,6 +1,7 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
+import { ALERT_WARNING } from "../../../../models/alert-target.model";
 import {
   BuiltInRole,
   CommitteeMember,
@@ -150,6 +151,81 @@ export enum CommitteeMemberTab {
             </div>
           }
         </ng-template>
+        <ng-template #contactUsTargetControls let-label="label">
+          @if (committeeMember.contactUsTarget === ForwardEmailTarget.CUSTOM) {
+            <div class="col-sm-12">
+              <div class="row">
+                <div class="col-sm-6">
+                  <div class="form-group">
+                    <label for="contact-us-target-{{index}}" class="control-label">{{ label }}</label>
+                    <select class="form-control input-sm"
+                      [(ngModel)]="committeeMember.contactUsTarget"
+                      (ngModelChange)="contactUsTargetChanged()"
+                      [disabled]="committeeMember.vacant"
+                      id="contact-us-target-{{index}}">
+                      @for (target of contactUsTargets; track target.value) {
+                        <option [ngValue]="target.value">{{ contactUsTargetLabel(target.value) }}</option>
+                      }
+                    </select>
+                  </div>
+                </div>
+                <div class="col-sm-6">
+                  <div class="form-group">
+                    <label for="contact-us-custom-email-{{index}}" class="control-label">Custom email address</label>
+                    <input [(ngModel)]="committeeMember.contactUsCustom"
+                      [disabled]="committeeMember.vacant"
+                      id="contact-us-custom-email-{{index}}"
+                      [class.is-invalid]="committeeMember.contactUsCustom && !validEmail(committeeMember.contactUsCustom)"
+                      type="email" class="form-control">
+                    @if (committeeMember.contactUsCustom && !validEmail(committeeMember.contactUsCustom)) {
+                      <div class="invalid-feedback d-block">
+                        Please enter a valid email address
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          } @else {
+            <div class="col-sm-12">
+              <div class="form-group">
+                <label for="contact-us-target-{{index}}" class="control-label">{{ label }}</label>
+                <select class="form-control input-sm"
+                  [(ngModel)]="committeeMember.contactUsTarget"
+                  (ngModelChange)="contactUsTargetChanged()"
+                  [disabled]="committeeMember.vacant"
+                  id="contact-us-target-{{index}}">
+                  @for (target of contactUsTargets; track target.value) {
+                    <option [ngValue]="target.value">{{ contactUsTargetLabel(target.value) }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          }
+          @if (committeeMember.contactUsTarget === ForwardEmailTarget.MULTIPLE) {
+            <div class="col-sm-12 mt-2">
+              <label class="control-label">Recipients</label>
+              <ng-select
+                [items]="recipientEmailOptions"
+                [searchable]="true"
+                [clearable]="true"
+                [editableSearchTerm]="true"
+                [addTag]="tagRecipientEmail"
+                [multiple]="true"
+                [closeOnSelect]="true"
+                dropdownPosition="bottom"
+                [placeholder]="'Select one or more recipients'"
+                class="recipient-select"
+                bindLabel="label"
+                bindValue="email"
+                (open)="refreshRecipientEmailOptions()"
+                id="contact-us-recipients-{{index}}"
+                [(ngModel)]="committeeMember.contactUsRecipients"
+                (ngModelChange)="contactUsRecipientsChanged($event)">
+              </ng-select>
+            </div>
+          }
+        </ng-template>
         <app-section-toggle
           [tabs]="tabs"
           [(selectedTab)]="selectedTab"
@@ -159,16 +235,21 @@ export enum CommitteeMemberTab {
           @case (CommitteeMemberTab.ROLE_DETAILS) {
             <app-markdown-editor standalone category="admin" name="committee-role-details-help" description="Role details help"/>
             <hr/>
+            @if (isContactUsSystemRole()) {
+              <div class="alert alert-warning">
+                <strong>System role.</strong> This is the Contact Us system role used as the sender of contact-us emails. Its identity (Full Name, Role Description, Role Type) is locked to keep contact-us links working across the site. Configure where contact-us replies are routed via the Inbound Forwarding tab.
+              </div>
+            }
             <div class="row">
               <div class="col-sm-6">
-                <app-committee-member-lookup [disabled]="committeeMember.vacant" [committeeMember]="committeeMember"
+                <app-committee-member-lookup [disabled]="committeeMember.vacant || isContactUsSystemRole()" [committeeMember]="committeeMember"
                   (memberChange)="setOtherMemberFields($event)"/>
               </div>
               <div class="col-sm-6">
                 <div class="form-group">
                   <label for="committee-member-fullName-{{index}}"
                   class="control-label">Full Name</label>
-                  <input [(ngModel)]="committeeMember.fullName" [disabled]="committeeMember.vacant"
+                  <input [(ngModel)]="committeeMember.fullName" [disabled]="committeeMember.vacant || isContactUsSystemRole()"
                     (ngModelChange)="changeNameAndDescription()"
                     id="committee-member-fullName-{{index}}"
                          type="text" class="form-control">
@@ -181,6 +262,7 @@ export enum CommitteeMemberTab {
                   <label for="committee-member-description-{{index}}"
                          class="control-label">Role Description</label>
                   <input [(ngModel)]="committeeMember.description" (ngModelChange)="changeDescription()"
+                         [disabled]="isContactUsSystemRole()"
                          id="committee-member-description-{{index}}"
                     type="text" class="form-control">
                 </div>
@@ -192,6 +274,7 @@ export enum CommitteeMemberTab {
                   <label for="role-type-{{index}}">Role Type</label>
                   <select class="form-control input-sm"
                     [(ngModel)]="committeeMember.roleType"
+                    [disabled]="isContactUsSystemRole()"
                     id="role-type-{{index}}">
                     @for (type of roleTypes; track type.value) {
                       <option
@@ -206,6 +289,7 @@ export enum CommitteeMemberTab {
                   <label for="built-in-role-{{index}}">Maps to Built-in Role</label>
                   <select class="form-control input-sm"
                     [(ngModel)]="committeeMember.builtInRoleMapping"
+                    [disabled]="isContactUsSystemRole()"
                     id="built-in-role-{{index}}">
                     @for (type of builtInRoles; track type.value) {
                       <option
@@ -287,13 +371,39 @@ export enum CommitteeMemberTab {
             <app-markdown-editor standalone category="admin" name="committee-contact-us-help" description="Contact Us help"/>
             <hr/>
             <div class="row">
-              <ng-container *ngTemplateOutlet="forwardTargetControls; context: {label: 'Send Contact Us emails to'}"></ng-container>
-              @if (committeeMember.forwardEmailTarget === ForwardEmailTarget.MULTIPLE) {
-                <div class="col-sm-12 mt-3" app-email-routing-status
-                  [committeeMember]="committeeMember"
-                  [memberEmails]="committeeMember.forwardEmailRecipients || []"
-                  [forceMultiRecipient]="committeeMember.forwardEmailTarget === ForwardEmailTarget.MULTIPLE"></div>
-              }
+              <div class="col-sm-12 mb-3">
+                <div class="form-group">
+                  <label for="contact-us-label-{{index}}" class="control-label">Display name (override)</label>
+                  <input [(ngModel)]="committeeMember.contactUsLabel"
+                    [disabled]="committeeMember.vacant"
+                    id="contact-us-label-{{index}}"
+                    placeholder="Leave blank to use the role's full name"
+                    type="text" class="form-control">
+                  <small class="text-muted">Shown on the contact-us form ("Contact <em>{{ contactUsDisplayPreview() }}</em>") and as the recipient label on the email.</small>
+                </div>
+              </div>
+              <ng-container *ngTemplateOutlet="contactUsTargetControls; context: {label: 'Send contact-us submissions to'}"></ng-container>
+              <div class="col-sm-12 mt-3 alert alert-warning">
+                <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+                <strong class="ms-2 me-2">How this delivers:</strong>
+                @switch (effectiveContactUsTarget()) {
+                  @case (ForwardEmailTarget.CUSTOM) {
+                    <span>Brevo sends the message directly to <strong>{{ committeeMember.contactUsCustom || committeeMember.forwardEmailCustom || '(custom address)' }}</strong>. No Cloudflare rule required.</span>
+                  }
+                  @case (ForwardEmailTarget.MULTIPLE) {
+                    <span>Brevo sends the message directly to all configured recipients. No Cloudflare rule required.</span>
+                  }
+                  @case (ForwardEmailTarget.MEMBER_EMAIL) {
+                    <span>Brevo sends to the linked member's personal email. No Cloudflare rule required.</span>
+                  }
+                  @case (ForwardEmailTarget.NONE) {
+                    <span>Contact-us is disabled for this role. The form will refuse to submit.</span>
+                  }
+                  @default {
+                    <span>Falls back to the role's outbound address (will rely on any inbound Cloudflare rule to reach a real inbox).</span>
+                  }
+                }
+              </div>
               <div class="col-sm-12 mt-3">
                 <h6 class="section-heading">Contact Link</h6>
                 <div class="row">
@@ -346,16 +456,23 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private emailRoutingRules: EmailRoutingRule[] = [];
 
   get tabs(): CommitteeMemberTab[] {
-    const baseTabs = [
+    const baseTabs: CommitteeMemberTab[] = [
       CommitteeMemberTab.ROLE_DETAILS,
       CommitteeMemberTab.OUTBOUND_EMAIL,
-      CommitteeMemberTab.INBOUND_FORWARDING,
-      CommitteeMemberTab.CONTACT_US
+      CommitteeMemberTab.INBOUND_FORWARDING
     ];
+    if (!this.isContactUsSystemRole()) {
+      baseTabs.push(CommitteeMemberTab.CONTACT_US);
+    }
     if (this.cloudflareEmailRoutingService.emailForwardingAvailable()) {
       return [...baseTabs, CommitteeMemberTab.EMAIL_LOGS];
     }
     return baseTabs;
+  }
+
+  isContactUsSystemRole(): boolean {
+    return this.committeeMember?.roleType === RoleType.SYSTEM_ROLE
+      && this.committeeMember?.builtInRoleMapping === BuiltInRole.CONTACT_US;
   }
 
   @Input("committeeMember") set committeeMemberValue(committeeMember: CommitteeMember) {
@@ -372,6 +489,8 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   protected readonly RoleType = RoleType;
   protected readonly ForwardEmailTarget = ForwardEmailTarget;
   protected readonly EmailDerivation = EmailDerivation;
+  protected readonly BuiltInRole = BuiltInRole;
+  protected readonly ALERT_WARNING = ALERT_WARNING;
   baseDomain = "";
   private subscriptions: Subscription[] = [];
   recipientEmailOptions: CommitteeRecipientOption[] = [];
@@ -385,6 +504,12 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     {value: ForwardEmailTarget.CUSTOM, label: "Custom address"},
     {value: ForwardEmailTarget.MULTIPLE, label: "Multiple recipients"},
     {value: ForwardEmailTarget.NONE, label: "No forwarding"}
+  ];
+  contactUsTargets = [
+    {value: ForwardEmailTarget.MEMBER_EMAIL, label: "Linked member's personal email"},
+    {value: ForwardEmailTarget.CUSTOM, label: "Custom address"},
+    {value: ForwardEmailTarget.MULTIPLE, label: "Multiple recipients"},
+    {value: ForwardEmailTarget.NONE, label: "Disable contact-us for this role"}
   ];
 
   ngOnInit() {
@@ -656,6 +781,45 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     }
   }
 
+  contactUsTargetChanged() {
+    if (this.committeeMember.contactUsTarget === ForwardEmailTarget.MULTIPLE && !this.committeeMember.contactUsRecipients?.length) {
+      const currentEmail = this.committeeMember.contactUsCustom || this.memberPersonalEmail() || this.committeeMember.forwardEmailCustom;
+      if (currentEmail) {
+        this.committeeMember.contactUsRecipients = [currentEmail];
+      }
+    }
+  }
+
+  contactUsRecipientsChanged(recipients: string[]) {
+    this.refreshRecipientEmailOptions();
+    this.committeeMember.contactUsRecipients = [...(recipients || [])];
+  }
+
+  contactUsTargetLabel(target: ForwardEmailTarget): string {
+    const base = this.contactUsTargets.find(t => t.value === target);
+    const label = base?.label || "";
+    switch (target) {
+      case ForwardEmailTarget.MEMBER_EMAIL: {
+        const email = this.memberPersonalEmail();
+        return email ? `${label} (${email})` : `${label} (not linked)`;
+      }
+      case ForwardEmailTarget.CUSTOM: {
+        const email = this.committeeMember?.contactUsCustom;
+        return email ? `${label} (${email})` : label;
+      }
+      default:
+        return label;
+    }
+  }
+
+  contactUsDisplayPreview(): string {
+    return this.committeeMember?.contactUsLabel || this.committeeMember?.fullName || "(role name)";
+  }
+
+  effectiveContactUsTarget(): ForwardEmailTarget | undefined {
+    return this.committeeMember?.contactUsTarget ?? this.committeeMember?.forwardEmailTarget;
+  }
+
   importableWorkerName(): string | null {
     if (!this.baseDomain || !this.committeeMember?.type) {
       return null;
@@ -700,8 +864,9 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     if (!email) {
       return null;
     }
+    const normalisedEmail = normaliseEmail(email);
     const matchingRule = this.emailRoutingRules.find(rule =>
-      rule.matchers?.some(m => m.type === EmailRoutingMatcherType.LITERAL && m.field === EmailRoutingMatcherField.TO && m.value === email)
+      rule.matchers?.some(m => m.type === EmailRoutingMatcherType.LITERAL && m.field === EmailRoutingMatcherField.TO && normaliseEmail(m.value) === normalisedEmail)
     );
     const workerAction = matchingRule?.actions?.find(a => a.type === EmailRoutingActionType.WORKER);
     return workerAction?.value?.[0] || null;

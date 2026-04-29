@@ -49,8 +49,17 @@ export class CommitteeReferenceData {
   }
 
   committeeMemberForRole(role: string): CommitteeMember {
-    return this.committeeMembers().find(member => member.type === role)
-      || this.committeeMembers().find(member => this.roleMatch(member, role));
+    const exact = this.committeeMembers().find(member => member.type === role);
+    if (exact) {
+      return exact;
+    }
+    if (role === "enquiries") {
+      const aliased = this.committeeMembers().find(member => member.builtInRoleMapping === BuiltInRole.CONTACT_US);
+      if (aliased) {
+        return aliased;
+      }
+    }
+    return this.committeeMembers().find(member => this.roleMatch(member, role));
   }
 
   committeeMemberForBuiltInRole(builtInRole: BuiltInRole): CommitteeMember {

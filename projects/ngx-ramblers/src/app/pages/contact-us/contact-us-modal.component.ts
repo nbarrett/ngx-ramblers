@@ -14,7 +14,7 @@ import { AlertInstance, NotifierService } from "../../services/notifier.service"
 import { AlertTarget } from "../../models/alert-target.model";
 import { MailMessagingService } from "../../services/mail/mail-messaging.service";
 import { StringUtilsService } from "../../services/string-utils.service";
-import { NotificationConfig, SendSmtpEmailRequest } from "../../models/mail.model";
+import { EmailAddress, NotificationConfig, SendSmtpEmailRequest } from "../../models/mail.model";
 import { NotificationDirective } from "../../notifications/common/notification.directive";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { FirstAndLastName } from "../../models/member.model";
@@ -33,7 +33,7 @@ import { ContactInteractionStatus } from "../../models/booking.model";
     template: `
       <div class="modal-content">
         <div class="modal-header">
-          <h4 class="modal-title">Contact <em>{{ committeeMember?.fullName }}</em></h4>
+          <h4 class="modal-title">Contact <em>{{ contactDisplayName() }}</em></h4>
           <button type="button" class="close" (click)="close()">&times;</button>
         </div>
         <div class="modal-body">
@@ -258,6 +258,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.notificationConfig = this.mailMessagingService.queryNotificationConfig(this.notify, mailMessagingConfig, "contactUsNotificationConfigId");
       this.logger.info("initialising with notificationConfig:", this.notificationConfig);
+      this.rejectIfRoleIsSender();
     }));
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
@@ -285,7 +286,22 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
 
       this.contactFormDetails.subject = this.queryParams["subject"] || "Website Enquiry";
       this.logger.info("ngOnInit - queryParams:", this.queryParams, "bsModalRef:", this.bsModalRef, "committeeMember:", this.committeeMember);
+      this.rejectIfRoleIsSender();
     }));
+  }
+
+  private rejectIfRoleIsSender(): void {
+    if (this.committeeMemberOverride || !this.committeeMember || !this.notificationConfig?.senderRole) {
+      return;
+    }
+    if (this.committeeMember.type !== this.notificationConfig.senderRole) {
+      return;
+    }
+    this.notify.error({
+      title: "Contact form unavailable",
+      message: `The "${this.committeeMember.fullName}" role is the sender for contact-us emails on this site and can't also be a recipient. Ask the site admin to point this contact link at a different role.`
+    });
+    this.committeeMember = null;
   }
 
   ngAfterViewInit(): void {
@@ -335,7 +351,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
   sendEmail() {
     this.notify.success({
       title: "Sending Email",
-      message: `To ${this.committeeMember.fullName}...`
+      message: `To ${this.contactDisplayName()}...`
     });
     this.contactUsService.validateToken(this.validateTokenRequest)
       .then(() => this.sendInboundEmailRequest())
@@ -344,7 +360,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
       .then(() => {
         this.notify.success({
           title: "Email sent",
-          message: `Your message has been sent to ${this.committeeMember.fullName}.`
+          message: `Your message has been sent to ${this.contactDisplayName()}.`
         });
         this.logger.info("Email sent with params:", this.contactFormDetails);
         this.emailSent = true;
@@ -360,9 +376,10 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     this.logger.info("sendInboundEmailRequest:name:", name, "given:", this.committeeMember);
     const email = this.contactFormDetails.anonymous ? `noreply@${this.urlService.baseDomain()}` : this.contactFormDetails.email;
     const replyTo = {email, name: this.contactFormDetails.name};
-    const toAddress = this.committeeMemberOverride
-      ? {name: this.committeeMember.fullName, email: this.committeeMember.email}
-      : this.mailMessagingService.createBrevoAddress(this.committeeMember.type);
+    const to: EmailAddress[] = this.mailMessagingService.resolveContactRecipients(this.committeeMember);
+    if (to.length === 0) {
+      return Promise.reject(`No contact recipient is configured for ${this.contactDisplayName()}. Please get in touch via a different committee role.`);
+    }
     const emailRequest: SendSmtpEmailRequest = this.mailMessagingService.createEmailRequest({
       member: {email, firstName: name.firstName, lastName: name.lastName},
       notificationConfig: this.notificationConfig,
@@ -370,7 +387,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
       emailSubject: this.contactFormDetails.subject,
       bodyContent: this.inboundBodyContent(),
       sender: this.mailMessagingService.createBrevoAddress(this.notificationConfig.senderRole),
-      to: [toAddress],
+      to,
       replyTo,
     });
     this.logger.info("sendInboundEmailRequest:emailRequest:", emailRequest);
@@ -418,12 +435,16 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   contactIntro(): string {
-    const name = this.committeeMember?.fullName;
+    const name = this.contactDisplayName();
     const description = this.committeeMember?.description;
     if (name?.toLowerCase() === description?.toLowerCase() || !description) {
       return `our ${name} inbox`;
     }
     return `${name}, our ${description}`;
+  }
+
+  contactDisplayName(): string {
+    return this.committeeMember?.contactUsLabel || this.committeeMember?.fullName;
   }
 
   emailSendDisabled() {

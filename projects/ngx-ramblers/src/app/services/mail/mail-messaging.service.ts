@@ -16,8 +16,8 @@ import {
   MailConfig,
   MailMessagingConfig,
   MailSubscription,
-  MemberSelection,
   MemberMergeFields,
+  MemberSelection,
   NOTIFICATION_CONFIG_DEFAULTS,
   NotificationConfig,
   NotificationConfigListing,
@@ -27,7 +27,8 @@ import {
   SendSmtpEmailRequest,
   SystemMergeFields
 } from "../../models/mail.model";
-import { DEFAULT_ACCENT_COLOR, resolveAccentColor } from "../../models/email-accent-palette";
+import { CommitteeMember, ForwardEmailTarget } from "../../models/committee.model";
+import { resolveAccentColor } from "../../models/email-accent-palette";
 import { NotificationHost } from "../../models/notification-host.model";
 import { DateUtilsService } from "../date-utils.service";
 import { CommitteeConfigService } from "../committee/commitee-config.service";
@@ -445,6 +446,31 @@ export class MailMessagingService {
   public createBrevoAddress(role: string): EmailAddress {
     const committeeMember = this.mailMessagingConfig.committeeReferenceData.committeeMemberForRole(role);
     return {name: committeeMember?.fullName, email: committeeMember?.email};
+  }
+
+  public resolveContactRecipients(member: CommitteeMember): EmailAddress[] {
+    if (!member) {
+      return [];
+    }
+    const label = member.contactUsLabel || member.fullName;
+    const named = (email: string): EmailAddress => ({name: label, email});
+    const fallbackToRoleEmail = (): EmailAddress[] => member.email ? [named(member.email)] : [];
+    const target = member.contactUsTarget ?? member.forwardEmailTarget;
+    const custom = member.contactUsCustom ?? member.forwardEmailCustom;
+    const recipients = (member.contactUsRecipients ?? member.forwardEmailRecipients) || [];
+    switch (target) {
+      case ForwardEmailTarget.CUSTOM:
+        return custom ? [named(custom)] : fallbackToRoleEmail();
+      case ForwardEmailTarget.MULTIPLE: {
+        const filtered = recipients.filter(Boolean);
+        return filtered.length > 0 ? filtered.map(named) : fallbackToRoleEmail();
+      }
+      case ForwardEmailTarget.NONE:
+        return [];
+      case ForwardEmailTarget.MEMBER_EMAIL:
+      default:
+        return fallbackToRoleEmail();
+    }
   }
 
   public exampleEmailParams(): SendSmtpEmailParams {

@@ -707,19 +707,15 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
     const notificationConfigs = mailMessagingConfig?.notificationConfigs || [];
     const selectedConfigByCurrentValue = notificationConfigs.find(config => this.notificationConfigComparer(config, this.notificationConfig));
     if (selectedConfigByCurrentValue) {
-      this.logger.info("selected configuration from current value:", selectedConfigByCurrentValue);
       return selectedConfigByCurrentValue;
     }
     const selectedConfigByParam = this.configurationParam
       ? notificationConfigs.find(config => this.configSlug(config) === this.configurationParam)
       : null;
     if (selectedConfigByParam) {
-      this.logger.info("selected configuration from query param:", selectedConfigByParam);
       return selectedConfigByParam;
     }
-    const firstConfig = first(notificationConfigs);
-    this.logger.info("selected first configuration:", firstConfig);
-    return firstConfig;
+    return first(notificationConfigs);
   }
 
   private ensureNotificationConfigSelection(mailMessagingConfig: MailMessagingConfig) {
@@ -728,12 +724,8 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
       this.notificationConfig = null;
       return;
     }
-    if (this.notificationConfigComparer(this.notificationConfig, selectedConfig)) {
-      return;
-    }
     this.notificationConfig = selectedConfig;
     this.mailMessagingService.initialiseSubject(this.notificationConfig);
-    this.logger.info("ensured notificationConfig:", this.notificationConfig);
   }
 
   handleTemplateDropdown(item: BrevoDropdownItem) {
