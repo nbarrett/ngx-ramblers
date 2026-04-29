@@ -23,6 +23,8 @@ import {
   SetupProgress,
   ValidationResult
 } from "../../../models/environment-setup.model";
+import { FlyioMemory } from "../../../models/environment-config.model";
+import { enumKeyValues } from "../../../functions/enums";
 import { StoredValue } from "../../../models/ui-actions";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { AvailableArea, AvailableAreaWithLabel, SystemConfig } from "../../../models/system.model";
@@ -181,6 +183,32 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                       </div>
                                     }
                                     @if (cloneSourceEnv && !loadingCloneDetails) {
+                                      <div class="row mb-3">
+                                        <div class="col-md-6">
+                                          <div class="form-group">
+                                            <label for="clone-ramblers-api-key">Ramblers API Key</label>
+                                            <app-secret-input [(ngModel)]="request.serviceConfigs.ramblers.apiKey"
+                                                              id="clone-ramblers-api-key"
+                                                              placeholder="Enter your Ramblers API key"
+                                                              (ngModelChange)="apiKeyValid = null">
+                                            </app-secret-input>
+                                          </div>
+                                        </div>
+                                        <div class="col-md-6 d-flex align-items-end">
+                                          <button class="btn btn-primary mb-3" (click)="validateApiKey()"
+                                                  [disabled]="!request.serviceConfigs.ramblers.apiKey || apiKeyValidating">
+                                            @if (apiKeyValidating) {
+                                              <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
+                                            }
+                                            Validate API Key
+                                          </button>
+                                          @if (apiKeyValid !== null) {
+                                            <span class="ms-2 mb-3" [ngClass]="apiKeyValid ? 'text-success' : 'text-danger'">
+                                              {{ apiKeyValid ? 'Valid' : 'Invalid' }}
+                                            </span>
+                                          }
+                                        </div>
+                                      </div>
                                       @if (cloneType === CloneType.SAME_GROUP) {
                                         <div class="alert alert-success mb-3">
                                           <fa-icon [icon]="faCheckCircle" class="me-2"></fa-icon>
@@ -379,9 +407,13 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                            type="text" class="form-control" id="app-name">
                                   </div>
                                   <div class="col-md-2">
-                                    <label for="memory">Memory (MB)</label>
-                                    <input [(ngModel)]="request.environmentBasics.memory"
-                                           type="text" class="form-control" id="memory">
+                                    <label for="memory">Memory</label>
+                                    <select [(ngModel)]="request.environmentBasics.memory"
+                                            class="form-control" id="memory">
+                                      @for (option of memoryOptions; track option.key) {
+                                        <option [value]="option.value">{{ option.value }}</option>
+                                      }
+                                    </select>
                                   </div>
                                   <div class="col-md-2">
                                     <label for="scale">Instances</label>
@@ -639,7 +671,7 @@ import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/co
                                     <dt class="col-sm-4">App Name</dt>
                                     <dd class="col-sm-8">{{ request.environmentBasics.appName }}</dd>
                                     <dt class="col-sm-4">Memory</dt>
-                                    <dd class="col-sm-8">{{ request.environmentBasics.memory }}MB</dd>
+                                    <dd class="col-sm-8">{{ request.environmentBasics.memory }}</dd>
                                     <dt class="col-sm-4">Instances</dt>
                                     <dd class="col-sm-8">{{ request.environmentBasics.scaleCount }}</dd>
                                   </dl>
@@ -850,6 +882,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   stepperActiveIndex = 0;
   private brevoTemplatesOptionTouched = false;
   request: EnvironmentSetupRequest = createEmptySetupRequest();
+  protected readonly memoryOptions = enumKeyValues(FlyioMemory);
 
   apiKeyValid: boolean | null = null;
   apiKeyValidating = false;
@@ -1117,7 +1150,9 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       this.request.serviceConfigs.aws.region = details.serviceConfigs.aws.region;
       this.request.serviceConfigs.brevo.apiKey = details.serviceConfigs.brevo.apiKey;
       this.request.serviceConfigs.googleMaps.apiKey = details.serviceConfigs.googleMaps.apiKey;
-      this.request.serviceConfigs.ramblers.apiKey = details.serviceConfigs.ramblers.apiKey;
+      this.request.serviceConfigs.ramblers.apiKey = details.serviceConfigs.ramblers.apiKey
+        || this.systemConfig?.national?.walksManager?.apiKey
+        || "";
       this.request.serviceConfigs.flyio.personalAccessToken = details.serviceConfigs.flyio.personalAccessToken;
       this.request.environmentBasics.memory = details.environmentBasics.memory;
       this.request.environmentBasics.scaleCount = details.environmentBasics.scaleCount;
@@ -1137,7 +1172,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       }
       this.request.environmentBasics.environmentName = `${env.name}-copy`;
       this.updateAppName();
-      this.apiKeyValid = !!details.serviceConfigs.ramblers.apiKey;
+      this.apiKeyValid = !!this.request.serviceConfigs.ramblers.apiKey;
       this.logger.info("Pre-filled request from environment:", env.name);
     } catch (error) {
       this.logger.error("Failed to load environment details:", error);

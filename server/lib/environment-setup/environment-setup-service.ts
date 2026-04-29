@@ -36,7 +36,7 @@ import { connect as ensureMongoConnection } from "../mongo/mongoose-client";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
 import { secretsPath, writeSecretsFile } from "../shared/secrets";
 import { normaliseMemory } from "../shared/spelling";
-import { deployToFlyio as deployToFlyioCommand } from "../cli/commands/fly";
+import { DeployOutputCallback, deployToFlyio as deployToFlyioCommand } from "../cli/commands/fly";
 import { setupSubdomainForEnvironment } from "../cli/commands/subdomain";
 import { configuredEnvironments } from "../environments/environments-config";
 import { baseDomainFrom } from "./environment-context";
@@ -177,6 +177,18 @@ export async function validateSetupRequest(request: EnvironmentSetupRequest): Pr
     message: `Ramblers API Key: ${ramblersValidation.message}`
   });
 
+  if (!request.ramblersInfo.groupCode) {
+    results.push({
+      valid: false,
+      message: "Ramblers Group: group code is required (select an area and group, or pick a clone source that has one)"
+    });
+  } else {
+    results.push({
+      valid: true,
+      message: `Ramblers Group: ${request.ramblersInfo.groupName || request.ramblersInfo.groupCode}`
+    });
+  }
+
   const mongoUri = buildMongoUri(request);
   const mongoValidation = await validateMongoConnection({
     uri: mongoUri,
@@ -224,7 +236,8 @@ export async function validateSetupRequest(request: EnvironmentSetupRequest): Pr
 
 export async function createEnvironment(
   request: EnvironmentSetupRequest,
-  progressCallback?: ProgressCallback
+  progressCallback?: ProgressCallback,
+  onDeployOutput?: DeployOutputCallback
 ): Promise<EnvironmentSetupResult> {
   const sessionId = generateSessionId();
   const session: SetupSession = {
@@ -414,7 +427,10 @@ export async function createEnvironment(
           organisation: request.environmentBasics.organisation || "personal",
           secrets,
           apiKey: request.serviceConfigs.flyio?.personalAccessToken
-        }, progress => debugLog(`[${sessionId}] Fly.io: ${progress.step} - ${progress.status}`)
+        }, {
+          onProgress: progress => debugLog(`[${sessionId}] Fly.io: ${progress.step} - ${progress.status}`),
+          onDeployOutput
+        }
       );
       reportProgress(SetupStep.DEPLOY_APP, "completed", `Deployed ${request.environmentBasics.appName} to Fly.io`);
     } else {

@@ -75,8 +75,17 @@ export interface EnvironmentsConfig {
   autoDeployTarget?: string;
 }
 
+export enum FlyioMemory {
+  MB_256 = "256mb",
+  MB_512 = "512mb",
+  MB_1024 = "1024mb",
+  MB_2048 = "2048mb",
+  MB_4096 = "4096mb",
+  MB_8192 = "8192mb"
+}
+
 export const FLYIO_DEFAULTS = {
-  MEMORY: "512mb",
+  MEMORY: FlyioMemory.MB_512,
   SCALE_COUNT: 1,
   ORGANISATION: "personal"
 } as const;
