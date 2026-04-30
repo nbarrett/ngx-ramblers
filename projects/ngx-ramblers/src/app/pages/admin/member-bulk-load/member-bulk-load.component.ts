@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
-import { faEnvelopesBulk, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faEnvelopesBulk, faSearch, faCloudArrowDown, faCheckCircle, faTimesCircle } from "@fortawesome/free-solid-svg-icons";
 import { first } from "es-toolkit/compat";
 import { groupBy } from "es-toolkit/compat";
 import { map } from "es-toolkit/compat";
@@ -41,6 +41,9 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-modal.component";
+import { SalesforceConfig } from "../../../models/salesforce.model";
+import { SalesforceConfigService } from "../../../services/salesforce/salesforce-config.service";
+import { SalesforceSyncService } from "../../../services/salesforce/salesforce-sync.service";
 import { MailMessagingConfig } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
@@ -203,6 +206,62 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                   </div>
                 </div>
               </tab>
+              @if (salesforceConfig?.enabled) {
+                <tab heading="Sync from Salesforce">
+                  <div class="admin-frame round-except-top-left">
+                    <div class="admin-header-white-background rounded">
+                      <div class="row">
+                        <div class="col-md-12">
+                          <p class="form-text text-muted">
+                            Pulls member data straight from the Salesforce member API instead of an Insight Hub
+                            xlsx upload. The xlsx route on the New Upload tab still works and can be run alongside
+                            this; whichever sync runs last wins on overlapping records.
+                          </p>
+                          <ul class="list-arrow ms-0">
+                            <li><b>Incremental sync</b> uses the cursor recorded after the last successful run. Pick this for routine refreshes.</li>
+                            <li><b>Full sync</b> ignores the cursor and re-fetches the full member list. Use after a config change or when the cursor is suspect.</li>
+                          </ul>
+                          <button type="button"
+                                  class="btn btn-primary me-2"
+                                  [disabled]="salesforceSyncing"
+                                  (click)="triggerSalesforceSync(false)">
+                            <fa-icon [icon]="faCloudArrowDown" class="me-2"/>
+                            {{ salesforceSyncing && !lastSalesforceFullSync ? "Syncing..." : "Sync now (incremental)" }}
+                          </button>
+                          <button type="button"
+                                  class="btn btn-warning"
+                                  [disabled]="salesforceSyncing"
+                                  (click)="triggerSalesforceSync(true)">
+                            <fa-icon [icon]="faCloudArrowDown" class="me-2"/>
+                            {{ salesforceSyncing && lastSalesforceFullSync ? "Syncing..." : "Full sync" }}
+                          </button>
+                        </div>
+                      </div>
+                      @if (salesforceConfig?.lastSyncedAt) {
+                        <div class="row mt-3">
+                          <div class="col-md-12">
+                            <strong>Last Salesforce sync:</strong>
+                            {{ salesforceConfig.lastSyncedAt | displayDateAndTime }}
+                            @if (salesforceConfig.lastSyncCursor) {
+                              <span class="text-muted ms-2">cursor: {{ salesforceConfig.lastSyncCursor | displayDateAndTime }}</span>
+                            }
+                          </div>
+                        </div>
+                      }
+                      @if (salesforceSyncMessage) {
+                        <div class="row mt-3">
+                          <div class="col-md-12">
+                            <div class="alert {{ salesforceSyncError ? 'alert-danger' : 'alert-success' }}">
+                              <fa-icon [icon]="salesforceSyncError ? faTimesCircle : faCheckCircle" class="me-2"/>
+                              {{ salesforceSyncMessage }}
+                            </div>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </tab>
+              }
               <tab heading="Upload History">
                 <div class="admin-frame round-except-top-left">
                   <div class="admin-header-background rounded">
@@ -267,12 +326,12 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                               </tr>
                               </thead>
                               <tbody>
-                                @if (uploadSession?.files.archive) {
+                                @if (uploadSession?.files?.archive) {
                                   <tr>
                                     <td>Zip file:</td>
                                     <td>
                                       <app-link
-                                        name="{{uploadSession.files.archive}}"/>
+                                        name="{{uploadSession.files?.archive}}"/>
                                     </td>
                                   </tr>
                                 }
@@ -524,9 +583,19 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   public memberTabHeading: string;
   public auditTabHeading: string;
   public systemConfig: SystemConfig;
+  private salesforceConfigService = inject(SalesforceConfigService);
+  private salesforceSyncService = inject(SalesforceSyncService);
   private subscriptions: Subscription[] = [];
   faEnvelopesBulk = faEnvelopesBulk;
   faSearch = faSearch;
+  faCloudArrowDown = faCloudArrowDown;
+  faCheckCircle = faCheckCircle;
+  faTimesCircle = faTimesCircle;
+  salesforceConfig: SalesforceConfig | null = null;
+  salesforceSyncing = false;
+  lastSalesforceFullSync = false;
+  salesforceSyncMessage: string | null = null;
+  salesforceSyncError = false;
   protected readonly NO_CHANGES_OR_DIFFERENCES = NO_CHANGES_OR_DIFFERENCES;
 
   ngOnInit() {
@@ -542,6 +611,11 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       this.logger.info("subscribing to systemConfigService events:", systemConfig);
       this.systemConfig = systemConfig;
     }));
+    this.subscriptions.push(this.salesforceConfigService.events().subscribe(salesforceConfig => {
+      this.logger.info("subscribing to salesforceConfigService events:", salesforceConfig);
+      this.salesforceConfig = salesforceConfig;
+    }));
+    this.salesforceConfigService.refresh();
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       const tab = paramMap.get("tab");
       this.logger.debug("tab is", tab);
@@ -617,6 +691,54 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  async triggerSalesforceSync(fullSync: boolean) {
+    if (this.salesforceSyncing) {
+      return;
+    }
+    this.salesforceSyncing = true;
+    this.lastSalesforceFullSync = fullSync;
+    this.salesforceSyncMessage = null;
+    this.salesforceSyncError = false;
+    this.notify.setBusy();
+    try {
+      const apiResponse = await this.salesforceSyncService.sync(fullSync);
+      const audit = apiResponse?.response;
+      if (apiResponse?.error) {
+        this.salesforceSyncError = true;
+        this.salesforceSyncMessage = `Salesforce sync failed: ${apiResponse.error}`;
+        this.notify.error({title: "Salesforce sync failed", message: apiResponse.error});
+        if (audit) {
+          await this.memberBulkLoadAuditService.create(audit).catch(error => {
+            this.logger.error("audit-create-error", error);
+          });
+        }
+        return;
+      }
+      if (!audit) {
+        this.salesforceSyncError = true;
+        this.salesforceSyncMessage = "Salesforce sync returned no result.";
+        this.notify.error({title: "Salesforce sync failed", message: this.salesforceSyncMessage});
+        return;
+      }
+      await this.memberBulkLoadService.processResponse(this.mailMessagingConfig, this.systemConfig, audit, this.members, this.notify);
+      await this.refreshMemberBulkLoadAudit();
+      await this.refreshMemberUpdateAudit();
+      const validationSuccessful = await this.validateBulkUploadProcessing({action: null, request: null, response: audit});
+      await this.sendSubscriptionUpdates(validationSuccessful);
+      this.refreshMembers();
+      await this.salesforceConfigService.refresh();
+      this.salesforceSyncMessage = `Salesforce sync complete: processed ${audit.members.length} members.`;
+    } catch (error) {
+      this.logger.error("Salesforce sync error", error);
+      this.salesforceSyncError = true;
+      this.salesforceSyncMessage = `Salesforce sync failed: ${error instanceof Error ? error.message : String(error)}`;
+      this.notify.error({title: "Salesforce sync failed", message: this.salesforceSyncMessage});
+    } finally {
+      this.salesforceSyncing = false;
+      this.clearBusy();
+    }
   }
 
   private filterLists(searchTerm?: string) {

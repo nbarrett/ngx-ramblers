@@ -91,5 +91,7 @@ const memberSchema = new mongoose.Schema({
   },
 }, {collection: "members"});
 
+memberSchema.index({lastName: 1, firstName: 1, nameAlias: 1, title: 1}, {unique: true});
+
 memberSchema.plugin(uniqueValidator);
 export const member: Model<Member> = ensureModel<Member>("member", memberSchema);

@@ -798,6 +798,7 @@ export interface UnsubscribeHistoryEntry {
 
 export interface MatchedMemberSubscriptions {
   memberId: string;
+  membershipNumber?: string;
   subscriptions: { id: number; subscribed: boolean }[];
 }
 

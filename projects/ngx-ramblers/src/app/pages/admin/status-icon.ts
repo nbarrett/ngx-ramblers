@@ -7,10 +7,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 @Component({
   selector: "app-status-icon",
   template: `
-    <div class="d-inline-flex align-items-center flex-wrap">
+    <div class="d-inline-flex align-items-center">
       <fa-icon [icon]="icon.icon" [class]="icon.class"/>
       @if (!noLabel) {
-        <div class="ms-2">{{ stringUtils.asTitle(status) }}</div>
+        <span class="ms-2">{{ stringUtils.asTitle(status) }}</span>
       }
     </div>`,
   styleUrls: ["./member-bulk-load/member-bulk-load.component.sass", "./admin/admin.component.sass"],

@@ -10,6 +10,7 @@ export enum ConfigKey {
   MEETUP = "meetup",
   MIGRATION = "migration",
   RAMBLERS_AREAS_CACHE = "ramblers-areas-cache",
+  SALESFORCE = "salesforce",
   SYSTEM = "system",
   WALKS = "walks",
 }

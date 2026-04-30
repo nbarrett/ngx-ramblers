@@ -6,7 +6,7 @@ import { isArray, isNumber, isString, keys } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
-import { dateTimeFromMillis } from "../../shared/dates";
+import { dateTimeFromMillis, dateTimeNowAsValue } from "../../shared/dates";
 import { createBottleneckWithRatePerSecond } from "../common/rate-limiting";
 import { member } from "../../mongo/models/member";
 import { mailListAudit } from "../../mongo/models/mail-list-audit";
@@ -26,6 +26,7 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { SortDirection } from "../../../../projects/ngx-ramblers/src/app/models/sort.model";
 import { AuditStatus } from "../../../../projects/ngx-ramblers/src/app/models/audit";
+import { notifySalesforceFullyOptedOut } from "../../salesforce/salesforce-consent";
 
 const messageType = "brevo:unsubscribes";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -203,9 +204,9 @@ function reasonToAuditStatus(code: string | undefined): AuditStatus {
 }
 
 function blockedAtToTimestamp(blockedAt: string | undefined): number {
-  if (!blockedAt) return Date.now();
+  if (!blockedAt) return dateTimeNowAsValue();
   const parsed = Date.parse(blockedAt);
-  return Number.isFinite(parsed) ? parsed : Date.now();
+  return Number.isFinite(parsed) ? parsed : dateTimeNowAsValue();
 }
 
 function buildAuditMessage(contact: BlockedContact, listName: string | undefined): string {
@@ -299,7 +300,7 @@ async function selfHealMemberEmailBlocks(
         await mailListAudit.create({
           memberId,
           listId: 0,
-          timestamp: Date.now(),
+          timestamp: dateTimeNowAsValue(),
           createdBy: MailListAuditSource.BREVO_UNSUBSCRIBES_SYNC,
           listType: MailListAuditListType.BREVO_BLOCKLIST_SELF_HEALED,
           status: AuditStatus.info,
@@ -447,7 +448,7 @@ function compareBlockedAt(a: BlockedContact, b: BlockedContact, sort: "asc" | "d
 }
 
 async function persistMemberEmailBlocks(contacts: BlockedContact[]): Promise<void> {
-  const syncedAt = Date.now();
+  const syncedAt = dateTimeNowAsValue();
   for (const contact of contacts) {
     const memberId = contact.matchedMember?.id;
     if (!memberId) continue;
@@ -474,9 +475,44 @@ async function persistMemberEmailBlocks(contacts: BlockedContact[]): Promise<voi
         update.$set["mail.subscriptions"] = updatedSubscriptions;
       }
       await member.updateOne({ _id: memberId }, update);
+      const transitionedToBlocked = !memberDoc?.emailBlock;
+      if (transitionedToBlocked) {
+        await fireSalesforceConsentWriteback(memberDoc, emailBlock.reasonCode);
+      }
     } catch (error: any) {
       debugLog("persistMemberEmailBlocks:failed", memberId, error?.message || error);
     }
+  }
+}
+
+async function fireSalesforceConsentWriteback(memberDoc: any, reasonCode: string): Promise<void> {
+  const membershipNumber = memberDoc?.membershipNumber;
+  if (!membershipNumber) {
+    return;
+  }
+  const outcome = await notifySalesforceFullyOptedOut({
+    membershipNumber,
+    reason: reasonCode || "unsubscribe-link",
+  });
+  if (!outcome.attempted) {
+    return;
+  }
+  const memberId = memberDoc?._id?.toString() || memberDoc?.id;
+  const auditMessage = outcome.success
+    ? `Salesforce consent writeback succeeded (HTTP ${outcome.status}, ${outcome.latencyMs}ms)`
+    : `Salesforce consent writeback failed: ${outcome.errorCode || "UNKNOWN"} - ${outcome.errorMessage || "no detail"} (HTTP ${outcome.status || "n/a"}, ${outcome.latencyMs}ms)`;
+  try {
+    await mailListAudit.create({
+      memberId,
+      listId: 0,
+      timestamp: dateTimeNowAsValue(),
+      createdBy: MailListAuditSource.BREVO_UNSUBSCRIBES_SYNC,
+      listType: MailListAuditListType.BREVO_BLOCKLIST_SELF_HEALED,
+      status: outcome.success ? AuditStatus.info : AuditStatus.error,
+      audit: auditMessage,
+    });
+  } catch (auditError: any) {
+    debugLog("fireSalesforceConsentWriteback:audit-failed", memberId, auditError?.message || auditError);
   }
 }
 
@@ -526,7 +562,7 @@ export async function removeFromBlocklist(req: Request, res: Response): Promise<
         await mailListAudit.create({
           memberId,
           listId: 0,
-          timestamp: Date.now(),
+          timestamp: dateTimeNowAsValue(),
           createdBy: triggeredBy,
           listType: MailListAuditListType.BREVO_BLOCKLIST_REMOVED,
           status: AuditStatus.info,
@@ -607,7 +643,7 @@ export async function clearAllBlocklist(req: Request, res: Response): Promise<vo
         await mailListAudit.create({
           memberId,
           listId: 0,
-          timestamp: Date.now(),
+          timestamp: dateTimeNowAsValue(),
           createdBy: triggeredBy,
           listType: MailListAuditListType.BREVO_BLOCKLIST_CLEARED,
           status: AuditStatus.info,

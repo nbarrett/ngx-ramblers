@@ -52,6 +52,9 @@ import { FlickrSettings } from "./external/system-flickr-settings";
 import { SystemCloudflareSettingsComponent } from "./external/system-cloudflare-settings";
 import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
 import { FooterLinkSetting } from "./footer-link-setting";
+import { SalesforceSettings } from "./salesforce/salesforce-settings";
+import { SalesforceConfigService } from "../../../services/salesforce/salesforce-config.service";
+
 
 @Component({
     selector: "app-system-settings",
@@ -345,6 +348,9 @@ import { FooterLinkSetting } from "./footer-link-setting";
                         <app-system-os-maps-settings [config]="config"/>
                         <app-system-google-maps-settings [config]="config"/>
                     }
+                    @if (showSubTab(ExternalSystemsSubTab.SALESFORCE)) {
+                        <app-salesforce-settings/>
+                    }
                     @if (showSubTab(ExternalSystemsSubTab.CLOUDFLARE)) {
                         <app-system-cloudflare-settings/>
                     }
@@ -388,7 +394,7 @@ import { FooterLinkSetting } from "./footer-link-setting";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, FooterLinkSetting]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, FooterLinkSetting, SalesforceSettings]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -404,6 +410,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   public walksManagerSyncBusy = false;
   private memberService: MemberService = inject(MemberService);
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
+  private salesforceConfigService: SalesforceConfigService = inject(SalesforceConfigService);
   private notifierService: NotifierService = inject(NotifierService);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   private urlService: UrlService = inject(UrlService);
@@ -438,6 +445,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     {value: ExternalSystemsSubTab.MAIL, label: "Mail"},
     {value: ExternalSystemsSubTab.SOCIAL, label: "Social Media"},
     {value: ExternalSystemsSubTab.MAPS, label: "Maps"},
+    {value: ExternalSystemsSubTab.SALESFORCE, label: "Salesforce"},
     {value: ExternalSystemsSubTab.CLOUDFLARE, label: "Cloudflare"},
     {value: ExternalSystemsSubTab.SECURITY, label: "Security"}
   ];
@@ -445,6 +453,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.logger.info("constructed");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.salesforceConfigService.refresh();
     this.broadcastService.on(NamedEventType.DEFAULT_LOGO_CHANGED, (namedEvent: NamedEvent<string>) => {
       this.logger.debug("event received:", namedEvent);
       this.headerLogoChanged(namedEvent.data);
@@ -475,6 +484,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
 
   undoChanges() {
     this.systemConfigService.refresh();
+    this.salesforceConfigService.refresh();
   }
 
   ngOnDestroy(): void {
@@ -523,12 +533,17 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   async save() {
     this.logger.debug("saving config", this.config);
     await this.savePendingMembers();
-    this.systemConfigService.saveConfig(this.config)
+    await this.systemConfigService.saveConfig(this.config)
       .catch((error) => this.notify.error({title: "Error saving system config", message: error}));
+    if (this.salesforceConfigService.hasLoaded()) {
+      await this.salesforceConfigService.save(this.salesforceConfigService.cached())
+        .catch((error) => this.notify.error({title: "Error saving Salesforce config", message: error}));
+    }
   }
 
   cancel() {
     this.systemConfigService.refresh();
+    this.salesforceConfigService.refresh();
     this.urlService.navigateTo(["admin"]);
   }
 

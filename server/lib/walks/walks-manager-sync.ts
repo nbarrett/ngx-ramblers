@@ -14,6 +14,7 @@ import {
   InputSource
 } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { EventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { dateTimeFromIso, dateTimeFromJsDate, dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
 import { cacheEventsWithStats, cleanupDuplicatesByRamblersId } from "./walks-manager-cache";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
@@ -207,7 +208,7 @@ export async function syncWalksManagerData(
       debugLog(`Processing chunk: ${currentDate.toFormat(DateFormat.DISPLAY_DATE_FULL)} to ${chunkEnd.toFormat(DateFormat.DISPLAY_DATE_FULL)}`);
 
       const progressPercent = 5 + Math.round((processedMonths / totalMonths) * 85);
-      const progressMessage = `Syncing ${currentDate.toFormat("MMM yyyy")}`;
+      const progressMessage = `Syncing ${currentDate.toFormat(UIDateFormat.MONTH_YEAR_ABBREVIATED)}`;
       sendProgress(ws, progressPercent, progressMessage);
 
       try {

@@ -12,6 +12,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { capitalise, joinWithAnd, pluralise, pluraliseWithCount, splitOnDashSegments, textBeforeSeparators, truncateWithEllipsis } from "../shared/string-utils";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone } from "../shared/dates";
+import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
 const TYPE_TITLES: Record<string, string> = {
   feat: "New Features",
@@ -177,7 +178,7 @@ function formatDisplayDateString(dateStr: string): string | null {
   if (!formatted.isValid) {
     return iso;
   }
-  return formatted.toFormat("dd-MMM-yyyy");
+  return formatted.toFormat(UIDateFormat.DAY_MONTH_YEAR_DASHED_ZERO_PADDED);
 }
 
 export function generateMarkdown(data: ReleaseNotesData, githubRepo: string): string {

@@ -8,6 +8,7 @@ import { RamblersWalkSummary } from "../../../../models/ramblers-walk-summary";
 import debug from "debug";
 import { envConfig } from "../../../../../env-config/env-config";
 import { DateTime } from "luxon";
+import { UIDateFormat } from "../../../../../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
 const debugLog = debug(envConfig.logNamespace("SelectWalksByDateAndTitle"));
 debugLog.enabled = true;
@@ -25,19 +26,19 @@ const normalizeDate = (dateStr: string): string => {
 
   let parsed: DateTime | null = null;
 
-  parsed = DateTime.fromFormat(dateStr, "EEE, d MMM yyyy", { zone: "Europe/London" });
+  parsed = DateTime.fromFormat(dateStr, UIDateFormat.WEEKDAY_DAY_MONTH_YEAR_ABBREVIATED, { zone: "Europe/London" });
   if (parsed.isValid) {
-    return parsed.toFormat("yyyy-MM-dd");
+    return parsed.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
   }
 
-  parsed = DateTime.fromFormat(dateStr, "dd/MM/yyyy", { zone: "Europe/London" });
+  parsed = DateTime.fromFormat(dateStr, UIDateFormat.DAY_MONTH_YEAR_WITH_SLASHES, { zone: "Europe/London" });
   if (parsed.isValid) {
-    return parsed.toFormat("yyyy-MM-dd");
+    return parsed.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
   }
 
   parsed = DateTime.fromISO(dateStr, { zone: "Europe/London" });
   if (parsed.isValid) {
-    return parsed.toFormat("yyyy-MM-dd");
+    return parsed.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
   }
 
   debugLog(`Warning: Could not parse date "${dateStr}"`);
