@@ -285,4 +285,18 @@ describe("content-generator generateMarkdown commit body paragraphs", () => {
     expect(markdown).toContain("- bullet two");
     expect(markdown).toContain("example subject line");
   });
+
+  it("collapses a spaced-dash divider line into a single horizontal rule rather than expanding it into many empty bullets", () => {
+    const body = [
+      "Code fix - some/file.ts",
+      "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -",
+      "first body paragraph after the divider"
+    ].join("\n");
+
+    const data = createReleaseNotesData([makeCommit(body)], null, "owner/repo");
+    const markdown = generateMarkdown(data, "owner/repo");
+
+    expect(markdown).toContain("Code fix - some/file.ts\n---\nfirst body paragraph after the divider");
+    expect(markdown).not.toMatch(/(?:^|\n)- -(?:\n|$)/);
+  });
 });
