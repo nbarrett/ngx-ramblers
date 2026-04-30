@@ -3,6 +3,7 @@ import {
   configureEnvironment,
   createRuntimeConfig,
   deleteVolumeIfExists,
+  ensureScale,
   flyTomlAbsolutePath,
   runCommand,
   runCommandWithRetry
@@ -162,7 +163,6 @@ async function deployToEnvironments(environmentsFilter: string[]): Promise<void>
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
     await importSecrets(environmentConfig.name, environmentConfig.appName);
     await runCommandWithRetry(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling --wait-timeout 600`);
-    await runCommandWithRetry(`flyctl scale count ${environmentConfig.scaleCount} --app ${environmentConfig.appName} --yes`);
-    await runCommandWithRetry(`flyctl scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
+    await ensureScale(environmentConfig.appName, environmentConfig.scaleCount, environmentConfig.memory);
   }
 }
