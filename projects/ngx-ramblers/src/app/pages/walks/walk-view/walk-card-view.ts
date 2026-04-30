@@ -27,6 +27,7 @@ import { CardImageOrMap } from "../../../modules/common/card/image/card-image-or
 import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalking";
 import { EventLeaderContactLinkComponent } from "./event-leader-contact-link";
 import { EventLeaderPhoneLinkComponent } from "./event-leader-phone-link";
+import { EventGroupComponent } from "./event-group";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
 import { RouterLink } from "@angular/router";
 
@@ -82,6 +83,14 @@ import { RouterLink } from "@angular/router";
                      [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.groupEvent?.start_location?.postcode)"
                      target="_blank">
                 {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</a></dd>
+            </dl>
+          }
+          @if (displayedWalk?.walk?.groupEvent?.group_code) {
+            <dl (click)="ignoreClicks($event)" class="d-flex mb-1">
+              <dt class="font-weight-bold me-2">Group:</dt>
+              <dd>
+                <app-event-group [displayedWalk]="displayedWalk" [groupEvent]="displayedWalk?.walk" compact="true"/>
+              </dd>
             </dl>
           }
           @if (display.hasWalkLeader(displayedWalk.walk)) {
@@ -142,7 +151,7 @@ import { RouterLink } from "@angular/router";
       position: relative
       padding-bottom: 50px
   `],
-  imports: [WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe, DisplayTimePipe, CardImageOrMap, RouterLink, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent]
+  imports: [WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe, DisplayTimePipe, CardImageOrMap, RouterLink, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent, EventGroupComponent]
 })
 
 export class WalkCardViewComponent implements OnInit, OnDestroy {
