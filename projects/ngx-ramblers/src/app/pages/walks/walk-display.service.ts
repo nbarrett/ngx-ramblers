@@ -1,7 +1,7 @@
 import { Location } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
-import { ActivatedRoute, Router } from "@angular/router";
+import { Router } from "@angular/router";
 import { find, isEmpty, isNumber, isUndefined } from "es-toolkit/compat";
 import { PathSegment } from "../../models/content-text.model";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -60,7 +60,6 @@ export class WalkDisplayService {
   private location = inject(Location);
   private urlService = inject(UrlService);
   protected stringUtils = inject(StringUtilsService);
-  private route = inject(ActivatedRoute);
   private sanitiser = inject(DomSanitizer);
   private walkEventService = inject(GroupEventService);
   private walksReferenceService = inject(WalksReferenceService);
@@ -105,7 +104,14 @@ export class WalkDisplayService {
 
   public hasWalkLeader(walk: ExtendedGroupEvent): boolean {
     const contactDetails = walk?.fields?.contactDetails;
-    return !!contactDetails?.memberId || !!contactDetails?.displayName;
+    return !!contactDetails?.memberId || !!contactDetails?.displayName || this.hasRamblersContactChannel(walk);
+  }
+
+  private hasRamblersContactChannel(walk: ExtendedGroupEvent): boolean {
+    const contact = walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT
+      ? walk?.groupEvent?.event_organiser
+      : walk?.groupEvent?.walk_leader;
+    return !!contact?.has_email || !!contact?.email_form;
   }
 
   public memberEvents(): Observable<Member[]> {
@@ -213,13 +219,12 @@ export class WalkDisplayService {
     return this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
   }
 
-  editFullScreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
+  async editFullScreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
     this.logger.debug("editing walk fullscreen:", walk);
     this.viewReturnUrl = this.location.path();
-    return this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, this.walkSlug(walk)]).then(() => {
-      this.logger.debug("area is now", this.urlService.area());
-      return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
-    });
+    await this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, this.walkSlug(walk)]);
+    this.logger.debug("area is now", this.urlService.area());
+    return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
   }
 
   toggleExpandedViewFor(walk: ExtendedGroupEvent, toggleTo: WalkViewMode): ExpandedWalk {

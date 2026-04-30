@@ -45,18 +45,25 @@ export class EventGroupComponent implements OnInit {
       return;
     }
     const groupCode = resolved.group_code;
-    this.groupDisplayName = resolved.group_name ? `${resolved.group_name} (${groupCode})` : groupCode;
+    this.groupDisplayName = this.formatDisplayName(resolved.group_name, groupCode);
 
     this.ramblersWalksAndEventsService.groupNotifications().subscribe(item => {
       const matched = item.response?.find(g => g.group_code === groupCode);
       if (matched) {
         this.groupUrl = matched.url;
         if (!resolved.group_name && matched.name) {
-          this.groupDisplayName = `${matched.name} (${groupCode})`;
+          this.groupDisplayName = this.formatDisplayName(matched.name, groupCode);
         }
       }
       this.logger.info("group lookup for", groupCode, "matched:", matched);
     });
+  }
+
+  private formatDisplayName(name: string, groupCode: string): string {
+    if (!name) {
+      return groupCode;
+    }
+    return this.compact ? name : `${name} (${groupCode})`;
   }
 
   resolvedGroupEvent(): GroupEvent {
