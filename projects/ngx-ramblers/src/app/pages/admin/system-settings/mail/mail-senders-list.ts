@@ -316,6 +316,9 @@ import { SessionLogsComponent } from "../../../../shared/components/session-logs
                   } @else {
                     <span class="badge bg-danger ms-2">Missing MX records</span>
                   }
+                  @if (mxRecordStatus.extraRecords?.length) {
+                    <span class="badge bg-warning text-dark ms-2">{{ mxRecordStatus.extraRecords.length }} conflicting record{{ mxRecordStatus.extraRecords.length === 1 ? "" : "s" }}</span>
+                  }
                 }
               </div>
               @if (mxRecordStatus && !mxRecordStatus.allPresent) {
@@ -355,6 +358,44 @@ import { SessionLogsComponent } from "../../../../shared/components/session-logs
                   </tbody>
                 </table>
               </div>
+              @if (mxRecordStatus.extraRecords?.length) {
+                <div class="mt-2">
+                  <div class="small text-muted mb-1">
+                    The following MX records are present on {{ baseDomain }} but are not part of Cloudflare email routing. They will conflict with inbound delivery and should be removed unless intentional.
+                  </div>
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead>
+                      <tr>
+                        <th>MX Server</th>
+                        <th style="width: 100px">Priority</th>
+                        <th style="width: 110px" class="text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (record of mxRecordStatus.extraRecords; track record.id) {
+                        <tr>
+                          <td class="small">{{ record.content }}</td>
+                          <td>{{ record.priority ?? "" }}</td>
+                          <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                              <button class="btn btn-outline-danger"
+                                      tooltip="Delete MX record"
+                                      [disabled]="mxRecordDeletingId === record.id"
+                                      (click)="deleteExtraMxRecord(record.id)">
+                                @if (mxRecordDeletingId === record.id) {
+                                  <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
+                                } @else {
+                                  <fa-icon [icon]="faTrash"></fa-icon>
+                                }
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
             }
             @if (mxRecordError) {
               <div class="alert alert-danger mt-2 mb-0">
@@ -539,6 +580,7 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
   public mxRecordStatus: MxRecordStatus | null = null;
   public mxRecordLoading = false;
   public mxRecordCreating = false;
+  public mxRecordDeletingId: string | null = null;
   public mxRecordError: string | null = null;
   public authRecordsStatus: EmailAuthRecordsStatus | null = null;
   public authRecordsLoading = false;
@@ -830,6 +872,20 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
       this.mxRecordError = this.stringUtilsService.stringify(err);
     } finally {
       this.mxRecordCreating = false;
+    }
+  }
+
+  async deleteExtraMxRecord(recordId: string): Promise<void> {
+    this.mxRecordDeletingId = recordId;
+    this.mxRecordError = null;
+    try {
+      this.mxRecordStatus = await this.cloudflareEmailRoutingService.deleteMxRecord(recordId);
+      this.logger.info("MX record deleted, status:", this.mxRecordStatus);
+    } catch (err) {
+      this.logger.error("Failed to delete MX record:", err);
+      this.mxRecordError = this.stringUtilsService.stringify(err);
+    } finally {
+      this.mxRecordDeletingId = null;
     }
   }
 
