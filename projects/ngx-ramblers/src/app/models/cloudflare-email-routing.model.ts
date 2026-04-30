@@ -125,6 +125,7 @@ export interface MxRecordStatus {
   allPresent: boolean;
   expectedRecords: MxRecordDetail[];
   existingRecords: MxExistingRecord[];
+  extraRecords: MxExistingRecord[];
 }
 
 export interface SpfRecordStatus {

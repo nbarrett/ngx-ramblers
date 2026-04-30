@@ -62,6 +62,7 @@ export interface MxRecordStatus {
   allPresent: boolean;
   expectedRecords: MxRecordDetail[];
   existingRecords: DnsRecordResult[];
+  extraRecords: DnsRecordResult[];
 }
 
 export interface CloudflareZone {

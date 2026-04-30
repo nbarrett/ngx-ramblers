@@ -230,6 +230,10 @@ export class CloudflareEmailRoutingService {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/mx-records`, {}))).response;
   }
 
+  async deleteMxRecord(recordId: string): Promise<MxRecordStatus> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/mx-records/${recordId}`))).response;
+  }
+
   async queryEmailAuthRecords(): Promise<EmailAuthRecordsStatus> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/auth-records`))).response;
   }
