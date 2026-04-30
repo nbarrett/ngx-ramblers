@@ -320,6 +320,9 @@ function formatCommitBody(body: string): string {
 function formatBodyLine(line: string): string[] {
   if (line.startsWith("- ") || line.startsWith("* ")) {
     const stripped = line.replace(/^[-*]\s+/, "");
+    if (/^[-\s]*$/.test(stripped)) {
+      return ["---"];
+    }
     return splitOnDashSegments(stripped).map(segment => `- ${segment}`);
   }
   return [line];
