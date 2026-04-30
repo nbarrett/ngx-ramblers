@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import debug from "debug";
 import { execSync, spawn, ChildProcess } from "child_process";
+import { isArray } from "es-toolkit/compat";
 import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation } from "../../deploy/types";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { resolveClientPath } from "../shared/path-utils";
@@ -56,6 +57,82 @@ export async function runCommandWithRetry(command: string, attempts: number = 3,
     debugLog(`Attempt ${attempt}/${attempts} failed, retrying in ${backoffMs}ms: ${command}`);
     await sleep(backoffMs);
     return runCommandWithRetry(command, attempts, initialDelayMs, attempt + 1);
+  }
+}
+
+interface MachineSummary {
+  id: string;
+  state: string;
+  memoryMb: number;
+}
+
+const STABLE_STATE = "started";
+
+export function parseMemoryMb(spec: string): number {
+  const match = /^(\d+)\s*(mb|gb)?$/i.exec(spec.trim());
+  if (!match) {
+    throw new Error(`Cannot parse memory spec: ${spec}`);
+  }
+  const value = parseInt(match[1], 10);
+  const unit = (match[2] || "mb").toLowerCase();
+  return unit === "gb" ? value * 1024 : value;
+}
+
+export function listAppMachines(appName: string): MachineSummary[] {
+  try {
+    const output = execSync(`flyctl machines list -j --app ${appName}`, { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
+    const parsed = JSON.parse(output || "[]");
+    if (!isArray(parsed)) {
+      return [];
+    }
+    return parsed.map(machine => ({
+      id: machine?.id ?? "",
+      state: machine?.state ?? "",
+      memoryMb: machine?.config?.guest?.memory_mb ?? 0
+    }));
+  } catch (error) {
+    debugLog(`Failed to list machines for ${appName}, treating as empty:`, error);
+    return [];
+  }
+}
+
+export async function waitForStableMachines(appName: string, expectedCount: number, timeoutMs: number = 90000, pollIntervalMs: number = 3000): Promise<MachineSummary[]> {
+  const start = Date.now();
+  const isStable = (machines: MachineSummary[]) =>
+    machines.length === expectedCount && machines.every(machine => machine.state === STABLE_STATE);
+  const poll = async (): Promise<MachineSummary[]> => {
+    const machines = listAppMachines(appName);
+    if (isStable(machines)) {
+      return machines;
+    }
+    if (Date.now() - start >= timeoutMs) {
+      debugLog(`waitForStableMachines: timeout after ${timeoutMs}ms for ${appName}; proceeding. Current:`, machines.map(machine => `${machine.id}=${machine.state}/${machine.memoryMb}mb`));
+      return machines;
+    }
+    debugLog(`waitForStableMachines: ${appName} not yet stable (expected ${expectedCount} '${STABLE_STATE}', got ${machines.length} [${machines.map(machine => machine.state).join(",")}]) - polling again in ${pollIntervalMs}ms`);
+    await sleep(pollIntervalMs);
+    return poll();
+  };
+  return poll();
+}
+
+export async function ensureScale(appName: string, targetCount: number, memorySpec: string): Promise<void> {
+  const targetMemoryMb = parseMemoryMb(memorySpec);
+  const initial = listAppMachines(appName);
+  const countOk = initial.length === targetCount;
+  const memoryOk = initial.length > 0 && initial.every(machine => machine.memoryMb === targetMemoryMb);
+  if (countOk && memoryOk) {
+    debugLog(`Scale already at target for ${appName}: count=${targetCount}, memory=${targetMemoryMb}mb - skipping scale commands`);
+    return;
+  }
+  debugLog(`Scale change needed for ${appName}: target count=${targetCount} memory=${targetMemoryMb}mb; current ${initial.map(machine => `${machine.id}:${machine.state}/${machine.memoryMb}mb`).join(", ") || "(none)"}`);
+  await waitForStableMachines(appName, initial.length || targetCount);
+  if (!countOk) {
+    await runCommandWithRetry(`flyctl scale count ${targetCount} --app ${appName} --yes`);
+    await waitForStableMachines(appName, targetCount);
+  }
+  if (!memoryOk) {
+    await runCommandWithRetry(`flyctl scale memory ${targetMemoryMb} --app ${appName}`);
   }
 }
 
