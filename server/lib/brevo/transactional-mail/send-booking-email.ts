@@ -26,6 +26,7 @@ import { accountMergeFieldsFor } from "../account/account";
 import { loadBookingConfig } from "../../config/booking-config";
 import { kebabCase } from "es-toolkit/compat";
 import { dateTimeFromIso } from "../../shared/dates";
+import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
 export async function buildBookingEmailRequest(
   emailType: BookingEmailType,
@@ -175,7 +176,7 @@ function eventSlug(event: any): string {
   const title: string = event?.groupEvent?.title || "";
   const startDate: string = event?.groupEvent?.start_date_time || "";
   if (title) {
-    const datePart = startDate ? dateTimeFromIso(startDate).toFormat("yyyy-MM-dd") : "";
+    const datePart = startDate ? dateTimeFromIso(startDate).toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES) : "";
     const combined = datePart ? `${title} ${datePart}` : title;
     const slug = kebabCase(combined);
     if (slug) {

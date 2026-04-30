@@ -5,6 +5,7 @@ import { memberBulkLoadAudit } from "../models/member-bulk-load-audit";
 import { deletedMember } from "../models/deleted-member";
 import { EventField, GroupEventField, EventType, EventEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import {
@@ -824,7 +825,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     const walkId = walk._id?.toString() || walk.groupEvent?.id || "";
     const title = walk.groupEvent?.title || "";
     const startDate = walk.groupEvent?.start_date_time;
-    const dateStr = startDate ? dateTimeFromIso(startDate).toFormat("yyyy-MM-dd") : "";
+    const dateStr = startDate ? dateTimeFromIso(startDate).toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES) : "";
     const urlSlug = walk.groupEvent?.url
       || kebabCase([title, dateStr].filter(Boolean).join("-"))
       || walk.groupEvent?.id

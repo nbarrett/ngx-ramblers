@@ -16,6 +16,7 @@ import { AuditStatus } from "../../../../projects/ngx-ramblers/src/app/models/au
 import { buildUnsubscribeToken, contactUsParentSegment, verifyUnsubscribeToken } from "./unsubscribe-token";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
+import { notifySalesforceFullyOptedOut } from "../../salesforce/salesforce-consent";
 
 const messageType = "brevo:branded-unsubscribe";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -39,13 +40,22 @@ function readToken(req: Request): string {
 async function findMember(email: string): Promise<MatchedMemberSubscriptions | null> {
   const matchedMember = await member.findOne(
     { email: email.toLowerCase() },
-    { _id: 1, displayName: 1, mail: 1 }
+    { _id: 1, displayName: 1, mail: 1, membershipNumber: 1 }
   ).lean().exec() as any;
   if (!matchedMember) return null;
   return {
     memberId: matchedMember.id || matchedMember._id?.toString(),
+    membershipNumber: matchedMember?.membershipNumber,
     subscriptions: matchedMember?.mail?.subscriptions || []
   };
+}
+
+export function activeSubscribedCount(subs: Array<{ id: number; subscribed: boolean }>): number {
+  return subs.filter(sub => sub?.subscribed).length;
+}
+
+export function consentWritebackShouldFire(beforeCount: number, afterCount: number): boolean {
+  return beforeCount > 0 && afterCount === 0;
 }
 
 async function removeContactFromBrevoList(email: string, listId: number): Promise<void> {
@@ -145,6 +155,39 @@ async function writeLegacySoftGlobalAudit(memberId: string, email: string): Prom
   }
 }
 
+async function maybeWriteSalesforceConsent(matched: MatchedMemberSubscriptions, beforeSubscribedCount: number, email: string, reason: string): Promise<void> {
+  const memberDoc = await member.findById(matched.memberId).lean().exec() as any;
+  const afterSubscriptions: Array<{ id: number; subscribed: boolean }> = memberDoc?.mail?.subscriptions || [];
+  const afterSubscribedCount = activeSubscribedCount(afterSubscriptions);
+  if (!consentWritebackShouldFire(beforeSubscribedCount, afterSubscribedCount)) {
+    return;
+  }
+  const membershipNumber: string | undefined = memberDoc?.membershipNumber || matched.membershipNumber;
+  if (!membershipNumber) {
+    return;
+  }
+  const outcome = await notifySalesforceFullyOptedOut({ membershipNumber, reason });
+  if (!outcome.attempted) {
+    return;
+  }
+  const auditMessage = outcome.success
+    ? `Salesforce consent writeback succeeded after ${reason} (${email}, HTTP ${outcome.status}, ${outcome.latencyMs}ms)`
+    : `Salesforce consent writeback failed after ${reason} (${email}): ${outcome.errorCode || "UNKNOWN"} - ${outcome.errorMessage || "no detail"} (HTTP ${outcome.status || "n/a"}, ${outcome.latencyMs}ms)`;
+  try {
+    await mailListAudit.create({
+      memberId: matched.memberId,
+      listId: 0,
+      timestamp: dateTimeNowAsValue(),
+      createdBy: MailListAuditSource.BRANDED_UNSUBSCRIBE,
+      listType: MailListAuditListType.USER_INITIATED,
+      status: outcome.success ? AuditStatus.info : AuditStatus.error,
+      audit: auditMessage,
+    });
+  } catch (auditError: any) {
+    debugLog("maybeWriteSalesforceConsent:audit-failed", matched.memberId, auditError?.message || auditError);
+  }
+}
+
 async function writeFeedbackAudit(memberId: string, email: string, reason: string, comment: string | undefined): Promise<void> {
   const timestamp = dateTimeNowAsValue();
   const message = comment
@@ -196,6 +239,7 @@ export async function confirmUnsubscribe(req: Request, res: Response): Promise<v
     const email = decoded.email;
     const listId = Number.isFinite(decoded.listId) ? decoded.listId : undefined;
     const matched = await findMember(email);
+    const beforeSubscribedCount = matched ? activeSubscribedCount(matched.subscriptions) : 0;
     let listName: string | undefined;
     if (isNumber(listId)) {
       await removeContactFromBrevoList(email, listId);
@@ -203,10 +247,12 @@ export async function confirmUnsubscribe(req: Request, res: Response): Promise<v
       if (matched) {
         await flipLocalSubscription(matched, listId);
         await writeListUnsubscribeAudit(matched.memberId, email, listId, listName);
+        await maybeWriteSalesforceConsent(matched, beforeSubscribedCount, email, "branded-unsubscribe-list");
       }
     } else if (matched) {
       await flipAllLocalSubscriptions(matched);
       await writeLegacySoftGlobalAudit(matched.memberId, email);
+      await maybeWriteSalesforceConsent(matched, beforeSubscribedCount, email, "branded-unsubscribe-global");
     }
     successfulResponse({
       req,

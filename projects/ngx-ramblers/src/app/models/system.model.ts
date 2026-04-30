@@ -26,6 +26,7 @@ export enum ExternalSystemsSubTab {
   MAIL = "mail",
   SOCIAL = "social",
   MAPS = "maps",
+  SALESFORCE = "salesforce",
   CLOUDFLARE = "cloudflare",
   SECURITY = "security"
 }

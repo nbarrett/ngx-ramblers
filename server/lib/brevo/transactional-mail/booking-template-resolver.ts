@@ -4,6 +4,7 @@ import { BookingConfig, BookingEmailType } from "../../../../projects/ngx-ramble
 import { Booking, BookingAttendee } from "../../../../projects/ngx-ramblers/src/app/models/booking.model";
 import { renderMarkdownToHtml } from "../../shared/markdown-renderer";
 import { dateTimeFromIso } from "../../shared/dates";
+import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
 const debugLog = debug(envConfig.logNamespace("booking-template-resolver"));
 debugLog.enabled = false;
@@ -98,7 +99,7 @@ function formatEventDateTime(startDateTime: string): string {
     return "Date to be confirmed";
   }
   const dt = dateTimeFromIso(startDateTime);
-  return dt.toFormat("EEEE, d MMMM yyyy 'at' h:mm a");
+  return dt.toFormat(UIDateFormat.DISPLAY_DATE_AT_TIME);
 }
 
 function replacePlaceholders(template: string, placeholders: Record<string, string>): string {

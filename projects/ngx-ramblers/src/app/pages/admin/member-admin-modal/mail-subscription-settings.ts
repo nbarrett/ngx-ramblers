@@ -59,6 +59,20 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                   <span> This was last updated via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}.</span>
                 }</p>
               }
+              @if (hasGranularConsent()) {
+                <p class="mb-1"><strong>Granular consent (Salesforce):</strong></p>
+                <ul class="mb-2">
+                  @if (member.groupMarketingConsent !== undefined) {
+                    <li>Local group emails: {{ member.groupMarketingConsent ? "opted in" : "opted out" }}</li>
+                  }
+                  @if (member.areaMarketingConsent !== undefined) {
+                    <li>Area emails: {{ member.areaMarketingConsent ? "opted in" : "opted out" }}</li>
+                  }
+                  @if (member.otherMarketingConsent !== undefined) {
+                    <li>Other groups' emails: {{ member.otherMarketingConsent ? "opted in" : "opted out" }}</li>
+                  }
+                </ul>
+              }
             </div>
             <div class="col-sm-12 mb-3">
               @if (member?.mail?.subscriptions && mailMessagingConfig) {
@@ -165,6 +179,12 @@ export class MailSubscriptionSettingsComponent implements OnInit {
 
   linkTitle() {
     return this.member?.mail?.id ? "View contact details In Brevo" : "Contact not yet created in Brevo";
+  }
+
+  hasGranularConsent(): boolean {
+    return this.member?.groupMarketingConsent !== undefined
+      || this.member?.areaMarketingConsent !== undefined
+      || this.member?.otherMarketingConsent !== undefined;
   }
 
   private listSetting(list: ListInfo): ListSetting {

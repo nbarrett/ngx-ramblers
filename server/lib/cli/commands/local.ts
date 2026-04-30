@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import { configuredEnvironments, findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
 import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
+import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { ensureRequiredSecrets, loadSecretsWithFallback, REQUIRED_SECRETS, secretsExist } from "../../shared/secrets";
 import { keys } from "es-toolkit/compat";
 import { log } from "../cli-logger";
@@ -415,7 +416,7 @@ function buildLogTimestamp(logTimestamp: boolean): string | null {
   if (!logTimestamp) {
     return null;
   }
-  return dateTimeNow().toFormat("yyyyLLdd-HHmmss");
+  return dateTimeNow().toFormat(UIDateFormat.FILE_TIMESTAMP_COMPACT);
 }
 
 function applyLogTimestamp(filename: string, timestamp: string | null): string {

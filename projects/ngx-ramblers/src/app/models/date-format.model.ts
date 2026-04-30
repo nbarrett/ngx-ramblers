@@ -29,8 +29,11 @@ export enum UIDateFormat {
   YEAR_MONTH_DAY_WITH_DASHES = "yyyy-MM-dd",
   YEAR_MONTH_DAY_TIME_WITH_MINUTES = "yyyy-LL-dd HH:mm",
   YEAR_MONTH_DAY = "yyyyMMdd",
-  DATE_PICKER_INPUT = "ccc dd-MMM-yyyy",
-  DAY_MONTH_YEAR_ABBREVIATED_TIME = "dd MMM yyyy HH:mm"
+  DAY_MONTH_YEAR_ABBREVIATED_TIME = "dd MMM yyyy HH:mm",
+  DAY_MONTH_YEAR_DASHED_ZERO_PADDED = "dd-MMM-yyyy",
+  DISPLAY_DATE_AT_TIME = "cccc, d MMMM yyyy 'at' h:mm a",
+  FILE_TIMESTAMP_COMPACT = "yyyyMMdd-HHmmss",
+  WEEKDAY_DAY_MONTH_YEAR_ABBREVIATED = "ccc, d MMM yyyy"
 }
 
 export enum BsDatepickerFormat {

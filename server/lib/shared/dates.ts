@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
 export function dateTimeNowAsValue(): number {
   return dateTimeNow().toMillis();
@@ -33,4 +34,8 @@ export function clampMillisToEarliest(value: number, earliest?: number): number 
     return value;
   }
   return Math.max(value, earliest);
+}
+
+export function formatDateTime(dateTime: DateTime, format: UIDateFormat): string {
+  return dateTime.toFormat(format).replace(/\bAM\b/g, "am").replace(/\bPM\b/g, "pm");
 }

@@ -48,6 +48,7 @@ const configAccessPolicy: Record<ConfigKey, ConfigAccess> = {
   [ConfigKey.MEETUP]: ConfigAccess.PUBLIC_WITH_REDACTION,
   [ConfigKey.MIGRATION]: ConfigAccess.PUBLIC_WITH_REDACTION,
   [ConfigKey.RAMBLERS_AREAS_CACHE]: ConfigAccess.PUBLIC_WITH_REDACTION,
+  [ConfigKey.SALESFORCE]: ConfigAccess.ADMIN_ONLY,
   [ConfigKey.SYSTEM]: ConfigAccess.PUBLIC_WITH_REDACTION,
   [ConfigKey.WALKS]: ConfigAccess.PUBLIC_WITH_REDACTION,
 };

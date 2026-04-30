@@ -114,6 +114,9 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   landlineTelephone?: string;
   emailMarketingConsent?: boolean;
   emailPermissionLastUpdated?: number;
+  groupMarketingConsent?: boolean;
+  areaMarketingConsent?: boolean;
+  otherMarketingConsent?: boolean;
   emailBlock?: MemberEmailBlock;
 }
 
@@ -198,6 +201,9 @@ export interface RamblersMember extends HasEmailFirstAndLastName {
   landlineTelephone: string;
   emailMarketingConsent: string;
   emailPermissionLastUpdated: string;
+  groupMarketingConsent?: string;
+  areaMarketingConsent?: string;
+  otherMarketingConsent?: string;
 }
 
 export interface MemberBulkLoadAudit extends Auditable {
@@ -205,6 +211,7 @@ export interface MemberBulkLoadAudit extends Auditable {
     archive: string;
     data: string;
   };
+  source?: string;
   error?: string;
   auditLog: StatusMessage[];
   members: RamblersMember[];
