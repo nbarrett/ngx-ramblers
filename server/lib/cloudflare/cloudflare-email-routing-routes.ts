@@ -8,6 +8,7 @@ import {
   createEmailRoutingRule,
   deleteEmailRoutingRule,
   listEmailRoutingRules,
+  updateCatchAllRule,
   updateEmailRoutingRule
 } from "./cloudflare-email-routing";
 import { createDnsRecord, deleteDnsRecord, listDnsRecords, zoneForHostname } from "./cloudflare-dns";
@@ -36,9 +37,11 @@ import {
 } from "./cloudflare-email-workers";
 import { ensureInboundWebhookConfigured } from "../brevo/inbound-webhook-config";
 import { handleInboundMime } from "./inbound-mime-handler";
+import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { errorResponse } from "../shared/error-response";
 import { queryEmailRoutingLogs, queryWorkerInvocationLogs } from "./cloudflare-analytics";
 import {
+  CatchAllAction,
   CreateOrUpdateEmailRouteRequest,
   CreateOrUpdateWorkerRequest,
   EmailForwardingMode,
@@ -46,6 +49,7 @@ import {
   EmailRoutingMatcherType,
   EmailRoutingMatcherField,
   EmailRoutingActionType,
+  UpdateCatchAllRequest,
   WorkerLogsRequest
 } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
 
@@ -85,6 +89,111 @@ router.get("/rules/catch-all", authConfig.authenticate(), async (req: Request, r
     res.json({request: {messageType}, response: rule});
   } catch (error) {
     errorDebugLog("Error fetching catch-all rule:", error.message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+interface CatchAllRulePlan {
+  enabled: boolean;
+  actions: { type: EmailRoutingActionType; value: string[] }[];
+  nameSuffix: string;
+}
+
+async function planCatchAllRule(
+  action: CatchAllAction,
+  destinations: string[],
+  forwardingMode: EmailForwardingMode,
+  cloudflareConfig: CloudflareConfig,
+  catchAllScriptName: string,
+  baseDomain: string
+): Promise<CatchAllRulePlan | { error: string }> {
+  if (action === CatchAllAction.DISABLED) {
+    return {
+      enabled: false,
+      actions: [{type: EmailRoutingActionType.DROP, value: []}],
+      nameSuffix: "Disabled"
+    };
+  }
+  if (action === CatchAllAction.DROP) {
+    return {
+      enabled: true,
+      actions: [{type: EmailRoutingActionType.DROP, value: []}],
+      nameSuffix: "Drop"
+    };
+  }
+  if (action === CatchAllAction.FORWARD) {
+    if (destinations.length !== 1) {
+      return {error: "FORWARD action requires exactly one destination"};
+    }
+    return {
+      enabled: true,
+      actions: [{type: EmailRoutingActionType.FORWARD, value: [destinations[0]]}],
+      nameSuffix: `Forward to ${destinations[0]}`
+    };
+  }
+  if (action === CatchAllAction.WORKER) {
+    if (destinations.length === 0) {
+      return {error: "WORKER action requires at least one destination"};
+    }
+    const webhookContext = forwardingMode === EmailForwardingMode.BREVO_RESEND
+      ? await ensureInboundWebhookConfigured()
+      : null;
+    const scriptContent = generateWorkerScript(destinations, forwardingMode, {
+      roleEmail: `*@${baseDomain}`,
+      roleName: "catch-all",
+      webhookUrl: webhookContext?.webhookUrl
+    });
+    await uploadWorkerScript(cloudflareConfig, catchAllScriptName, scriptContent);
+    if (webhookContext?.secret) {
+      await uploadWorkerSecret(cloudflareConfig, catchAllScriptName, "NGX_INBOUND_SECRET", webhookContext.secret);
+    }
+    const modeLabel = forwardingMode === EmailForwardingMode.BREVO_RESEND ? "Brevo re-send" : "Worker forward";
+    return {
+      enabled: true,
+      actions: [{type: EmailRoutingActionType.WORKER, value: [catchAllScriptName]}],
+      nameSuffix: `${modeLabel} (${destinations.length} recipients)`
+    };
+  }
+  return {error: `Unknown catch-all action: ${action}`};
+}
+
+router.put("/rules/catch-all", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    const cloudflareConfig = await configuredCloudflare();
+    const nsConfig = await nonSensitiveCloudflareConfig();
+    const request: UpdateCatchAllRequest = req.body;
+    const destinations = (request.destinations || []).map(d => String(d || "").trim()).filter(Boolean);
+    const existingRule = await catchAllRule(cloudflareConfig);
+    const existingWorkerScript = existingRule?.actions?.find(a => a.type === EmailRoutingActionType.WORKER)?.value?.[0];
+    const sanitisedDomain = nsConfig.baseDomain?.replace(/\./g, "-") || "";
+    const catchAllScriptName = `email-fwd-${sanitisedDomain}-catch-all`;
+    const forwardingMode = request.forwardingMode || EmailForwardingMode.CLOUDFLARE_FORWARD;
+
+    const plan = await planCatchAllRule(request.action, destinations, forwardingMode, cloudflareConfig, catchAllScriptName, nsConfig.baseDomain || "");
+
+    if ("error" in plan) {
+      res.status(400).json({request: {messageType}, error: {message: plan.error}});
+      return;
+    }
+
+    const updated = await updateCatchAllRule(cloudflareConfig, {
+      name: `Catch-all - ${plan.nameSuffix}`,
+      enabled: plan.enabled,
+      matchers: [{type: EmailRoutingMatcherType.ALL}],
+      actions: plan.actions
+    });
+
+    if (existingWorkerScript && (request.action !== CatchAllAction.WORKER || existingWorkerScript !== catchAllScriptName)) {
+      try {
+        await deleteWorkerScript(cloudflareConfig, existingWorkerScript);
+      } catch (cleanupError) {
+        errorDebugLog("Failed to delete previous catch-all worker script", existingWorkerScript, ":", cleanupError.message);
+      }
+    }
+
+    res.json({request: {messageType}, response: updated});
+  } catch (error) {
+    errorDebugLog("Error updating catch-all rule:", error.message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });

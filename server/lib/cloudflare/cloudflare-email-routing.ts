@@ -100,6 +100,27 @@ export async function catchAllRule(cloudflareConfig: CloudflareConfig): Promise<
   return data.result;
 }
 
+export async function updateCatchAllRule(cloudflareConfig: CloudflareConfig, rule: EmailRoutingRule): Promise<EmailRoutingRule> {
+  const url = `${baseUrl(cloudflareConfig.zoneId)}/catch_all`;
+  debugLog("Updating catch-all rule for zone:", cloudflareConfig.zoneId);
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: headers(cloudflareConfig.apiToken),
+    body: JSON.stringify(rule)
+  });
+
+  const data: CloudflareResponse<EmailRoutingRule> = await response.json();
+
+  if (!data.success) {
+    const errorMsg = data.errors.map(e => e.message).join(", ");
+    throw new Error(`Failed to update catch-all rule: ${errorMsg}`);
+  }
+
+  debugLog("Catch-all rule updated");
+  return data.result;
+}
+
 export async function deleteEmailRoutingRule(cloudflareConfig: CloudflareConfig, ruleId: string): Promise<void> {
   const url = `${baseUrl(cloudflareConfig.zoneId)}/${ruleId}`;
   debugLog("Deleting email routing rule: %s", ruleId);

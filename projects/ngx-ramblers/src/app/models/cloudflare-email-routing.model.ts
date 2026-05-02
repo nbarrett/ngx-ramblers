@@ -84,6 +84,27 @@ export interface CreateOrUpdateEmailRouteRequest {
   useWorker?: boolean;
 }
 
+export enum CatchAllAction {
+  DISABLED = "disabled",
+  DROP = "drop",
+  FORWARD = "forward",
+  WORKER = "worker"
+}
+
+export interface UpdateCatchAllRequest {
+  action: CatchAllAction;
+  destinations?: string[];
+  forwardingMode?: EmailForwardingMode;
+}
+
+export interface CatchAllResolution {
+  action: CatchAllAction;
+  destinations: string[];
+  forwardingMode?: EmailForwardingMode;
+  workerScriptName?: string;
+  enabled: boolean;
+}
+
 export interface DestinationAddress {
   id: string;
   email: string;
@@ -104,6 +125,9 @@ export interface NonSensitiveCloudflareConfig {
   accountId?: string;
   zoneId?: string;
   baseDomain?: string;
+  cloudflareZoneBaseDomain?: string;
+  perEnvironmentDbZoneId?: string;
+  primaryHost?: string;
 }
 
 export interface MxRecordDetail {

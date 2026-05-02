@@ -29,6 +29,7 @@ import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/c
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
 import { enumKeyValues, KeyValue } from "../../../../functions/enums";
 import { normaliseEmail, toDotCase, validEmail } from "../../../../functions/strings";
+import { isHostUnderDomain } from "../../../../functions/hosts";
 import { sortBy } from "../../../../functions/arrays";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
@@ -358,6 +359,22 @@ export enum CommitteeMemberTab {
           @case (CommitteeMemberTab.INBOUND_FORWARDING) {
             <app-markdown-editor standalone category="admin" name="committee-inbound-forwarding-help" description="Inbound forwarding help"/>
             <hr/>
+            @if (showDomainMismatchWarning()) {
+              <div class="alert alert-warning">
+                <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+                <span class="ms-2">
+                  This site's domain (<strong>{{ primaryHost }}</strong>) is not under the Cloudflare zone configured for email routing (<strong>{{ cloudflareZoneBaseDomain }}</strong>). Any rule you create here will be written to the wrong zone and will not deliver mail. Set a per-environment <strong>Zone ID</strong> in Environment Management for this site and redeploy before configuring forwarding.
+                </span>
+              </div>
+            }
+            @if (showStaleDeployWarning()) {
+              <div class="alert alert-warning">
+                <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+                <span class="ms-2">
+                  A per-environment Zone ID has been set for this site but the running app still has the previous Cloudflare zone (<strong>{{ deployedZoneId }}</strong>) baked in. Redeploy this site to pick up the new zone (<strong>{{ perEnvironmentDbZoneId }}</strong>) before creating or editing forwarding rules.
+                </span>
+              </div>
+            }
             <div class="row">
               <ng-container *ngTemplateOutlet="forwardTargetControls; context: {label: 'Forward incoming emails to'}"></ng-container>
               <div class="col-sm-12 mt-3" app-email-routing-status
@@ -492,6 +509,10 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   protected readonly BuiltInRole = BuiltInRole;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   baseDomain = "";
+  primaryHost = "";
+  cloudflareZoneBaseDomain = "";
+  deployedZoneId = "";
+  perEnvironmentDbZoneId = "";
   private subscriptions: Subscription[] = [];
   recipientEmailOptions: CommitteeRecipientOption[] = [];
   private destinationAddresses: DestinationAddress[] = [];
@@ -521,6 +542,10 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.cloudflareEmailRoutingService.cloudflareConfigNotifications().subscribe((config: NonSensitiveCloudflareConfig) => {
         this.baseDomain = config?.baseDomain || "";
+        this.primaryHost = config?.primaryHost || "";
+        this.cloudflareZoneBaseDomain = config?.cloudflareZoneBaseDomain || "";
+        this.deployedZoneId = config?.zoneId || "";
+        this.perEnvironmentDbZoneId = config?.perEnvironmentDbZoneId || "";
         this.syncEmailDerivationFromEmail();
       })
     );
@@ -602,6 +627,20 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
 
   emailOnDomain(): boolean {
     return !this.baseDomain || this.committeeMember.email?.endsWith(`@${this.baseDomain}`);
+  }
+
+  showDomainMismatchWarning(): boolean {
+    if (!this.primaryHost || !this.cloudflareZoneBaseDomain) {
+      return false;
+    }
+    return !isHostUnderDomain(this.primaryHost, this.cloudflareZoneBaseDomain);
+  }
+
+  showStaleDeployWarning(): boolean {
+    if (!this.perEnvironmentDbZoneId || !this.deployedZoneId) {
+      return false;
+    }
+    return this.perEnvironmentDbZoneId !== this.deployedZoneId;
   }
 
   protected readonly validEmail = validEmail;

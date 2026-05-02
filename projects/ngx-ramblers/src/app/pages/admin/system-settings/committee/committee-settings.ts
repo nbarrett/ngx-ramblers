@@ -22,6 +22,7 @@ import {
   Notification
 } from "../../../../models/committee.model";
 import {
+  CatchAllAction,
   EmailForwardStatus,
   EmailRoutingActionType,
   EmailRoutingMatcherField,
@@ -191,6 +192,85 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                       </div>
                     </div>
                   </div>
+                  @if (cloudflareEmailRoutingService.emailForwardingAvailable() && baseDomain) {
+                    <div class="card mb-3">
+                      <div class="card-header d-flex justify-content-between align-items-center">
+                        <strong>Catch-all rule for *&commat;{{ baseDomain }}</strong>
+                        <span class="badge {{ catchAllStatusBadgeClass() }}">{{ catchAllStatusLabel() }}</span>
+                      </div>
+                      <div class="card-body">
+                        <p class="small text-muted mb-2">
+                          The catch-all decides what happens to mail sent to addresses on
+                          <strong>{{ baseDomain }}</strong> that don't match a specific role rule.
+                        </p>
+                        @if (!editingCatchAll) {
+                          <button class="btn btn-sm btn-outline-ramblers" type="button" (click)="startEditCatchAll()">Edit catch-all</button>
+                        } @else {
+                          <div class="row g-2">
+                            <div class="col-sm-4">
+                              <label class="form-label">Action</label>
+                              <select class="form-select form-select-sm" [(ngModel)]="catchAllDraftAction"
+                                      name="catch-all-action">
+                                <option [ngValue]="CatchAllAction.DISABLED">Disabled (no rule active)</option>
+                                <option [ngValue]="CatchAllAction.DROP">Drop (return undeliverable)</option>
+                                <option [ngValue]="CatchAllAction.FORWARD">Forward to one address</option>
+                                <option [ngValue]="CatchAllAction.WORKER">Forward to multiple addresses</option>
+                              </select>
+                            </div>
+                            @if (catchAllDraftAction === CatchAllAction.FORWARD) {
+                              <div class="col-sm-8">
+                                <label class="form-label">Destination email</label>
+                                <input type="email" class="form-control form-control-sm"
+                                       [(ngModel)]="catchAllDraftSingleDestination"
+                                       name="catch-all-destination"
+                                       placeholder="recipient@example.com">
+                              </div>
+                            }
+                            @if (catchAllDraftAction === CatchAllAction.WORKER) {
+                              <div class="col-sm-12 mt-2">
+                                <label class="form-label">Destination emails</label>
+                                @for (dest of catchAllDraftMultipleDestinations; track $index; let i = $index) {
+                                  <div class="input-group input-group-sm mb-1">
+                                    <input type="email" class="form-control"
+                                           [ngModel]="dest"
+                                           (ngModelChange)="updateMultipleDestination(i, $event)"
+                                           [name]="'catch-all-multi-' + i"
+                                           placeholder="recipient@example.com">
+                                    <button class="btn btn-outline-secondary" type="button"
+                                            (click)="removeMultipleDestination(i)" tooltip="Remove">
+                                      <fa-icon [icon]="faClose"></fa-icon>
+                                    </button>
+                                  </div>
+                                }
+                                <button class="btn btn-sm btn-outline-secondary" type="button"
+                                        (click)="addMultipleDestination()">
+                                  <fa-icon [icon]="faAdd" class="me-1"></fa-icon>Add destination
+                                </button>
+                              </div>
+                            }
+                            <div class="col-sm-12 mt-3 d-flex gap-2">
+                              <button class="btn btn-success btn-sm" type="button"
+                                      (click)="saveCatchAll()" [disabled]="catchAllSaving">
+                                {{ catchAllSaving ? "Saving..." : "Save catch-all" }}
+                              </button>
+                              <button class="btn btn-outline-secondary btn-sm" type="button"
+                                      (click)="cancelEditCatchAll()" [disabled]="catchAllSaving">
+                                Cancel
+                              </button>
+                            </div>
+                            @if (catchAllError) {
+                              <div class="col-sm-12 mt-2">
+                                <div class="alert alert-warning mb-0">
+                                  <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+                                  <span class="ms-2">{{ catchAllError }}</span>
+                                </div>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
                   @if (platformAdminEnabled && orphanedWorkerScripts.length) {
                     <div class="mb-3">
                       <h6 class="mb-2">Orphaned Cloudflare Workers</h6>
@@ -487,6 +567,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   protected readonly environmentSetupGlobalQueryParams = {tab: toKebabCase(EnvironmentSetupTab.SETTINGS), "sub-tab": EnvironmentSettingsSubTab.GLOBAL};
   protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly EmailForwardStatus = EmailForwardStatus;
+  protected readonly CatchAllAction = CatchAllAction;
   protected readonly faClose = faClose;
   protected readonly faAdd = faAdd;
   protected readonly faEdit = faEdit;
@@ -505,6 +586,12 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   sortDirection: SortDirection = SortDirection.ASC;
   emailRoutingRules: EmailRoutingRule[] = [];
   catchAllRule: EmailRoutingRule = null;
+  editingCatchAll = false;
+  catchAllDraftAction: CatchAllAction = CatchAllAction.DISABLED;
+  catchAllDraftSingleDestination = "";
+  catchAllDraftMultipleDestinations: string[] = [];
+  catchAllSaving = false;
+  catchAllError: string | null = null;
   workerScripts: EmailWorkerScript[] = [];
   workerDeletePending: string | null = null;
   baseDomain = "";
@@ -813,6 +900,124 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   catchAllDestination(): string {
     const forwardAction = this.catchAllRule?.actions?.find(a => a.type === EmailRoutingActionType.FORWARD);
     return forwardAction?.value?.[0] || null;
+  }
+
+  catchAllResolvedAction(): CatchAllAction {
+    if (!this.catchAllRule || !this.catchAllRule.enabled) {
+      return CatchAllAction.DISABLED;
+    }
+    const action = this.catchAllRule.actions?.[0];
+    if (action?.type === EmailRoutingActionType.FORWARD) {
+      return CatchAllAction.FORWARD;
+    }
+    if (action?.type === EmailRoutingActionType.WORKER) {
+      return CatchAllAction.WORKER;
+    }
+    return CatchAllAction.DROP;
+  }
+
+  catchAllStatusLabel(): string {
+    const resolved = this.catchAllResolvedAction();
+    switch (resolved) {
+      case CatchAllAction.FORWARD:
+        return `Forward -> ${this.catchAllDestination() || "?"}`;
+      case CatchAllAction.WORKER:
+        return "Multiple recipients (Worker)";
+      case CatchAllAction.DROP:
+        return "Drop";
+      case CatchAllAction.DISABLED:
+      default:
+        return "Disabled";
+    }
+  }
+
+  catchAllStatusBadgeClass(): string {
+    const resolved = this.catchAllResolvedAction();
+    if (resolved === CatchAllAction.FORWARD || resolved === CatchAllAction.WORKER) {
+      return "text-style-sunset";
+    }
+    if (resolved === CatchAllAction.DROP) {
+      return "bg-warning";
+    }
+    return "bg-secondary";
+  }
+
+  async startEditCatchAll(): Promise<void> {
+    this.editingCatchAll = true;
+    this.catchAllError = null;
+    this.catchAllDraftAction = this.catchAllResolvedAction();
+    const action = this.catchAllRule?.actions?.[0];
+    const isForward = action?.type === EmailRoutingActionType.FORWARD;
+    const isWorker = action?.type === EmailRoutingActionType.WORKER;
+    this.catchAllDraftSingleDestination = isForward ? (action.value?.[0] || "") : "";
+    if (isWorker) {
+      this.catchAllDraftMultipleDestinations = await this.recipientsForExistingCatchAllWorker();
+    } else {
+      this.catchAllDraftMultipleDestinations = [""];
+    }
+  }
+
+  cancelEditCatchAll(): void {
+    this.editingCatchAll = false;
+    this.catchAllError = null;
+    this.catchAllDraftSingleDestination = "";
+    this.catchAllDraftMultipleDestinations = [];
+  }
+
+  addMultipleDestination(): void {
+    this.catchAllDraftMultipleDestinations = [...this.catchAllDraftMultipleDestinations, ""];
+  }
+
+  removeMultipleDestination(index: number): void {
+    this.catchAllDraftMultipleDestinations = this.catchAllDraftMultipleDestinations.filter((_, i) => i !== index);
+  }
+
+  updateMultipleDestination(index: number, value: string): void {
+    this.catchAllDraftMultipleDestinations = this.catchAllDraftMultipleDestinations.map((existing, i) => i === index ? value : existing);
+  }
+
+  async saveCatchAll(): Promise<void> {
+    this.catchAllError = null;
+    this.catchAllSaving = true;
+    try {
+      const destinations = this.catchAllDraftAction === CatchAllAction.FORWARD
+        ? [this.catchAllDraftSingleDestination]
+        : this.catchAllDraftMultipleDestinations;
+      const cleaned = destinations.map(d => (d || "").trim()).filter(Boolean);
+      if (this.catchAllDraftAction === CatchAllAction.FORWARD && cleaned.length !== 1) {
+        this.catchAllError = "Enter a single destination email for the Forward action.";
+        return;
+      }
+      if (this.catchAllDraftAction === CatchAllAction.WORKER && cleaned.length === 0) {
+        this.catchAllError = "Add at least one destination email for the Multiple action.";
+        return;
+      }
+      await this.cloudflareEmailRoutingService.updateCatchAllRule({
+        action: this.catchAllDraftAction,
+        destinations: cleaned
+      });
+      this.editingCatchAll = false;
+    } catch (err) {
+      this.logger.error("Failed to save catch-all rule:", err);
+      this.catchAllError = (err && (err.message || err.error?.message)) || "Failed to save catch-all rule.";
+    } finally {
+      this.catchAllSaving = false;
+    }
+  }
+
+  private async recipientsForExistingCatchAllWorker(): Promise<string[]> {
+    const action = this.catchAllRule?.actions?.find(a => a.type === EmailRoutingActionType.WORKER);
+    const scriptName = action?.value?.[0];
+    if (!scriptName) {
+      return [""];
+    }
+    try {
+      const recipients = await this.cloudflareEmailRoutingService.queryWorkerRecipients(scriptName);
+      return recipients?.length ? [...recipients] : [""];
+    } catch (err) {
+      this.logger.error("Failed to load catch-all worker recipients for", scriptName, err);
+      return [""];
+    }
   }
 
   toggleEditRole(role: CommitteeMember) {
