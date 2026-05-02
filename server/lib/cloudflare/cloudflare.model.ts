@@ -49,6 +49,9 @@ export interface NonSensitiveCloudflareConfig {
   accountId?: string;
   zoneId?: string;
   baseDomain?: string;
+  cloudflareZoneBaseDomain?: string;
+  perEnvironmentDbZoneId?: string;
+  primaryHost?: string;
 }
 
 export interface MxRecordDetail {

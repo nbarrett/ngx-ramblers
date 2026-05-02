@@ -45,27 +45,56 @@ export async function configuredCloudflare(): Promise<CloudflareConfig> {
   throw new Error("No Cloudflare configuration found in env var or database");
 }
 
-async function baseDomainFromSystemConfig(): Promise<string> {
+async function primaryHostFromSystemConfig(): Promise<string | null> {
   try {
     const sysConfig = await systemConfig();
     if (sysConfig?.group?.href) {
       return apexHost(new URL(sysConfig.group.href).hostname);
     }
   } catch (err) {
-    debugLog("Could not derive baseDomain from system config:", err.message);
+    debugLog("Could not derive primary host from system config:", err.message);
   }
-  return "";
+  return null;
+}
+
+function runningEnvironmentName(): string | null {
+  const appName = envConfig.value(Environment.APP_NAME);
+  if (!appName) {
+    return null;
+  }
+  return appName.replace(/^ngx-ramblers-/, "");
+}
+
+async function perEnvironmentDbZoneIdForRunningApp(): Promise<string | null> {
+  const environmentName = runningEnvironmentName();
+  if (!environmentName) {
+    return null;
+  }
+  try {
+    const configDocument: ConfigDocument = await config.queryKey(ConfigKey.ENVIRONMENTS);
+    const environmentsConfig: EnvironmentsConfig = configDocument?.value;
+    const matched = environmentsConfig?.environments?.find(env => env.environment === environmentName);
+    return matched?.cloudflare?.zoneId || null;
+  } catch (err) {
+    debugLog("Could not look up per-environment Cloudflare zone id from database:", err.message);
+    return null;
+  }
 }
 
 export async function nonSensitiveCloudflareConfig(): Promise<NonSensitiveCloudflareConfig> {
   try {
     const cloudflareConfig = await configuredCloudflare();
-    const baseDomain = await baseDomainFromSystemConfig() || cloudflareConfig.baseDomain;
+    const primaryHost = await primaryHostFromSystemConfig();
+    const baseDomain = primaryHost || cloudflareConfig.baseDomain || "";
+    const perEnvironmentDbZoneId = await perEnvironmentDbZoneIdForRunningApp();
     return {
       configured: true,
       accountId: cloudflareConfig.accountId,
       zoneId: cloudflareConfig.zoneId,
-      baseDomain
+      baseDomain,
+      cloudflareZoneBaseDomain: cloudflareConfig.baseDomain || "",
+      primaryHost: primaryHost || "",
+      perEnvironmentDbZoneId: perEnvironmentDbZoneId || ""
     };
   } catch (err) {
     debugLog("Cloudflare not configured:", err.message);

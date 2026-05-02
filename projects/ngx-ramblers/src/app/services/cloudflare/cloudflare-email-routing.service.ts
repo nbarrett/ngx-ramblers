@@ -14,6 +14,7 @@ import {
   EmailWorkerScript,
   MxRecordStatus,
   NonSensitiveCloudflareConfig,
+  UpdateCatchAllRequest,
   WorkerInvocationSummary,
   WorkerLogsRequest,
   WorkerScriptRecipientsInfo
@@ -73,6 +74,14 @@ export class CloudflareEmailRoutingService {
       }
     }
     return this.catchAllSubject.value;
+  }
+
+  async updateCatchAllRule(request: UpdateCatchAllRequest): Promise<EmailRoutingRule> {
+    const rule: EmailRoutingRule = (await this.commonDataService.responseFrom(this.logger, this.http.put<ApiResponse>(`${this.BASE_URL}/rules/catch-all`, request))).response;
+    this.invalidateCache();
+    this.catchAllSubject.next(rule);
+    this.catchAllLoaded = true;
+    return rule;
   }
 
   async queryDestinationAddresses(): Promise<DestinationAddress[]> {
