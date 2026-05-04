@@ -2,7 +2,6 @@ import debug from "debug";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { envConfig } from "../env-config/env-config";
-import type { EnvironmentConfig } from "../../deploy/types";
 import type {
   BackupConfig,
   EnvironmentBackupConfig
@@ -80,33 +79,31 @@ function extractMongoConfig(mongoUri: string): { cluster: string; db: string; us
 }
 
 export async function initializeBackupConfig(): Promise<BackupConfig> {
-  const configsPath = path.resolve(__dirname, "../../../non-vcs/fly-io/configs.json");
   const secretsBasePath = path.resolve(__dirname, "../../../non-vcs/secrets");
 
   try {
-    const configsRaw = await fs.readFile(configsPath, "utf8");
-    const configsData = JSON.parse(configsRaw);
-    const environments: EnvironmentConfig[] = configsData.environments;
+    const envsConfigDoc = await config.queryKey(ConfigKey.ENVIRONMENTS);
+    const seedEnvironments: EnvironmentBackupConfig[] = envsConfigDoc?.value?.environments || [];
+
+    if (seedEnvironments.length === 0) {
+      debugLog("No environments found in database to enrich with secrets files");
+      return { environments: [] };
+    }
 
     const environmentBackupConfigs: EnvironmentBackupConfig[] = [];
 
-    for (const env of environments) {
-      const secretFileName = env.name === "staging"
+    for (const env of seedEnvironments) {
+      const appName = env.flyio?.appName || `ngx-ramblers-${env.environment}`;
+      const secretFileName = env.environment === "staging"
         ? "secrets.ngx-ramblers.env"
-        : `secrets.ngx-ramblers-${env.name}.env`;
+        : `secrets.${appName}.env`;
       const secretFilePath = path.join(secretsBasePath, secretFileName);
 
       const secrets = await parseEnvFile(secretFilePath);
 
       const envBackupConfig: EnvironmentBackupConfig = {
-        environment: env.name,
-        flyio: {
-          apiKey: env.apiKey,
-          appName: env.appName,
-          memory: env.memory,
-          scaleCount: env.scaleCount,
-          organisation: env.organisation
-        }
+        environment: env.environment,
+        flyio: env.flyio
       };
 
       if (secrets.AWS_BUCKET && secrets.AWS_REGION) {
@@ -116,6 +113,8 @@ export async function initializeBackupConfig(): Promise<BackupConfig> {
           accessKeyId: secrets.AWS_ACCESS_KEY_ID,
           secretAccessKey: secrets.AWS_SECRET_ACCESS_KEY
         };
+      } else if (env.aws) {
+        envBackupConfig.aws = env.aws;
       }
 
       if (secrets.MONGODB_URI) {
@@ -123,10 +122,12 @@ export async function initializeBackupConfig(): Promise<BackupConfig> {
         if (mongoConfig) {
           envBackupConfig.mongo = mongoConfig;
         }
+      } else if (env.mongo) {
+        envBackupConfig.mongo = env.mongo;
       }
 
       environmentBackupConfigs.push(envBackupConfig);
-      debugLog(`Initialized config for environment: ${env.name}`);
+      debugLog(`Initialized config for environment: ${env.environment}`);
     }
 
     const backupConfig: BackupConfig = {

@@ -600,8 +600,8 @@ router.delete("/destroy/:environmentName", async (req: Request, res: Response) =
 
   try {
     const { environmentName } = req.params;
-    const { skipFly, skipS3, skipDatabase, skipConfigs } = req.query;
-    debugLog("Destroy request received:", { environmentName, skipFly, skipS3, skipDatabase, skipConfigs });
+    const { skipFly, skipS3, skipDatabase } = req.query;
+    debugLog("Destroy request received:", { environmentName, skipFly, skipS3, skipDatabase });
 
     const envConfigData = await findEnvironmentFromDatabase(environmentName);
     if (!envConfigData) {
@@ -629,8 +629,7 @@ router.delete("/destroy/:environmentName", async (req: Request, res: Response) =
         database,
         skipFly: booleanOf(skipFly),
         skipS3: booleanOf(skipS3),
-        skipDatabase: booleanOf(skipDatabase),
-        skipConfigs: booleanOf(skipConfigs)
+        skipDatabase: booleanOf(skipDatabase)
       }, progress => debugLog(`Destroy: ${progress.step} - ${progress.status}: ${progress.message}`)
     );
 

@@ -3,13 +3,17 @@ import debug from "debug";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { flyTomlAbsolutePath, OutputCallback, readConfigFile, runCommand, runCommandStreaming } from "../../fly/fly-commands";
-import { loadSecretsForEnvironment, secretsPath, writeSecretsFile } from "../../shared/secrets";
-import { addOrUpdateEnvironment, configsJsonPath } from "../../shared/configs-json";
-import { findEnvironmentFromDatabase } from "../../environments/environments-config";
+import { flyTomlAbsolutePath, OutputCallback, runCommand, runCommandStreaming } from "../../fly/fly-commands";
+import { loadSecretsWithFallback, REQUIRED_SECRETS, writeSecretsFile } from "../../shared/secrets";
+import {
+  configuredEnvironments,
+  findEnvironmentFromDatabase,
+  upsertEnvironmentInDatabase
+} from "../../environments/environments-config";
 import { normaliseMemory } from "../../shared/spelling";
 import { DeployResult, FlyDeployConfig, ProgressCallback } from "../types";
-import { EnvironmentConfig, FLYIO_DEFAULTS } from "../../../deploy/types";
+import { FLYIO_DEFAULTS } from "../../../deploy/types";
+import { DEPLOYMENT_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { log } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
 import { keys } from "es-toolkit/compat";
@@ -27,6 +31,11 @@ function getFlyTomlPath(): string {
   return flyTomlPath;
 }
 
+async function dockerImageFromDatabase(): Promise<string> {
+  const dbConfig = await configuredEnvironments();
+  return dbConfig.dockerImage || DEPLOYMENT_DEFAULTS.DOCKER_IMAGE;
+}
+
 function setFlyApiToken(apiKey?: string): void {
   if (apiKey) {
     process.env.FLY_API_TOKEN = apiKey;
@@ -38,7 +47,7 @@ function checkFlyctlAuthentication(apiKey?: string): void {
   setFlyApiToken(apiKey);
 
   try {
-    const output = runCommand("flyctl auth whoami", true, true);
+    const output = runCommand("flyctl auth whoami", true);
     debugLog("Flyctl authenticated as:", output.trim());
   } catch (error) {
     const message = error?.message || String(error);
@@ -56,14 +65,9 @@ function checkFlyctlAuthentication(apiKey?: string): void {
   }
 }
 
-function generateAuthSecret(): string {
-  const output = runCommand("openssl rand -hex 16", true);
-  return output.trim();
-}
-
 async function generateFlyToken(appName: string): Promise<string> {
   try {
-    const tokenOutput = runCommand(`flyctl tokens create deploy --app ${appName} --expiry 0`, true, true);
+    const tokenOutput = runCommand(`flyctl tokens create deploy --app ${appName} --expiry 0`, true);
     const token = tokenOutput.trim();
     if (token && token.startsWith("FlyV1")) {
       return token;
@@ -78,7 +82,7 @@ async function generateFlyToken(appName: string): Promise<string> {
 
 async function queryAppConfig(appName: string): Promise<{ memory: string; count: number; hasMachines: boolean } | null> {
   try {
-    const output = runCommand(`flyctl scale show --app ${appName} --json`, true, true);
+    const output = runCommand(`flyctl scale show --app ${appName} --json`, true);
     const config = JSON.parse(output);
     const hasMachines = config.count > 0 || (config.processes && keys(config.processes).length > 0);
     return {
@@ -94,7 +98,7 @@ async function queryAppConfig(appName: string): Promise<{ memory: string; count:
 
 async function appExists(appName: string): Promise<boolean> {
   try {
-    runCommand(`flyctl scale show --app ${appName} --json`, true, true);
+    runCommand(`flyctl scale show --app ${appName} --json`, true);
     return true;
   } catch {
     return false;
@@ -138,15 +142,14 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
     report("Checking fly.io configuration");
     const flyTomlPath = getFlyTomlPath();
 
-    const deploymentConfig = readConfigFile(configsJsonPath());
-    const dockerImage = deploymentConfig.dockerImage;
+    const dockerImage = await dockerImageFromDatabase();
 
     const exists = await appExists(config.appName);
     let isNewlyCreated = false;
 
     if (!exists) {
       report(`Creating app ${config.appName}`);
-      runCommand(`flyctl apps create ${config.appName} --org ${config.organisation}`, true, true);
+      runCommand(`flyctl apps create ${config.appName} --org ${config.organisation}`, true);
       isNewlyCreated = true;
       report(`Created app ${config.appName}`);
     } else {
@@ -162,10 +165,9 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
       }
     }
 
-    const secretsFilePath = secretsPath(config.appName);
-    if (keys(config.secrets).length > 0) {
-      writeSecretsFile(secretsFilePath, config.secrets);
-      report("Wrote secrets file");
+    const missingRequiredSecrets = REQUIRED_SECRETS.filter(key => !config.secrets?.[key]);
+    if (missingRequiredSecrets.length > 0) {
+      throw new Error(`Cannot deploy ${config.appName}: missing required secrets [${missingRequiredSecrets.join(", ")}]. Persisted secrets must include every key in REQUIRED_SECRETS before a Fly app boot can succeed.`);
     }
 
     const currentConfig = await queryAppConfig(config.appName);
@@ -174,9 +176,15 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
     report("Validating fly.toml configuration");
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${config.appName}`);
 
-    if (fs.existsSync(secretsFilePath)) {
+    const tempSecretsPath = path.join(os.tmpdir(), `secrets-${config.appName}-${Date.now()}.env`);
+    try {
+      writeSecretsFile(tempSecretsPath, config.secrets);
       report("Importing secrets");
-      runCommand(`flyctl secrets import --app ${config.appName} < ${secretsFilePath}`);
+      runCommand(`flyctl secrets import --app ${config.appName} < ${tempSecretsPath}`);
+    } finally {
+      if (fs.existsSync(tempSecretsPath)) {
+        fs.unlinkSync(tempSecretsPath);
+      }
     }
 
     if (needsInitialDeploy) {
@@ -197,16 +205,17 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
       );
     }
 
-    const envConfigToSave: EnvironmentConfig = {
-      name: config.name,
-      apiKey,
-      appName: config.appName,
-      memory: normaliseMemory(config.memory),
-      scaleCount: config.scaleCount,
-      organisation: config.organisation
-    };
-    addOrUpdateEnvironment(envConfigToSave);
-    report("Updated configs.json");
+    await upsertEnvironmentInDatabase({
+      environment: config.name,
+      flyio: {
+        apiKey,
+        appName: config.appName,
+        memory: normaliseMemory(config.memory),
+        scaleCount: config.scaleCount,
+        organisation: config.organisation
+      }
+    });
+    report("Updated environment configuration in database");
 
     report("Deployment completed", "completed");
 
@@ -260,7 +269,7 @@ export function createFlyCommand(): Command {
           process.exit(1);
         }
         const envConfig = await findEnvironmentFromDatabase(name);
-        const secrets = envConfig ? loadSecretsForEnvironment(envConfig.appName).secrets : {};
+        const secrets = envConfig ? (await loadSecretsWithFallback(name, envConfig.appName)).secrets : {};
 
         const config: FlyDeployConfig = {
           name,

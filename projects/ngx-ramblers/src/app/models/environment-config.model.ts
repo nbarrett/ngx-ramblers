@@ -73,6 +73,8 @@ export interface EnvironmentsConfig {
   secrets?: Record<string, string>;
   uploadWorker?: UploadWorkerConfig;
   autoDeployTarget?: string;
+  dockerImage?: string;
+  region?: string;
 }
 
 export enum FlyioMemory {
@@ -88,6 +90,11 @@ export const FLYIO_DEFAULTS = {
   MEMORY: FlyioMemory.MB_512,
   SCALE_COUNT: 1,
   ORGANISATION: "personal"
+} as const;
+
+export const DEPLOYMENT_DEFAULTS = {
+  DOCKER_IMAGE: "nbarrett36/ngx-ramblers:latest",
+  REGION: "lhr"
 } as const;
 
 export const AWS_DEFAULTS = {

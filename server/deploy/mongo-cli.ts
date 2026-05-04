@@ -12,12 +12,11 @@ import { buildMongoUri } from "../lib/shared/mongodb-uri";
 import { isUndefined } from "es-toolkit/compat";
 import { uploadDirectoryToS3 } from "../lib/aws/s3-utils";
 import { cliLogger } from "../lib/cli/cli-logger";
+import { loadConfigs } from "./config-loader.js";
 
 async function main() {
   const program = new Command();
-  const configsPath: string = path.join(process.cwd(), "../non-vcs/fly-io/configs.json");
-  const configsRaw: string = await fs.readFile(configsPath, "utf8");
-  const configs: EnvironmentConfig[] = JSON.parse(configsRaw).environments;
+  const configs: EnvironmentConfig[] = await loadConfigs();
 
   const dumpBaseDir: string = path.join(process.cwd(), "../non-vcs/dump");
 

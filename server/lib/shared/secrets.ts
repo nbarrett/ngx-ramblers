@@ -193,7 +193,7 @@ export function updateSecretsFile(appName: string, newSecrets: Record<string, st
   debugLog("Updated secrets file with new keys:", keys(newSecrets));
 }
 
-export const REQUIRED_SECRETS = ["AUTH_SECRET", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "AWS_BUCKET", "MONGODB_URI"];
+export const REQUIRED_SECRETS = ["AUTH_SECRET", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "AWS_BUCKET", "MONGODB_URI", "NODE_ENV"];
 
 function fillFromLocalFile(appName: string, secrets: Record<string, string>): Record<string, string> {
   const missing = REQUIRED_SECRETS.filter(key => !secrets[key]);

@@ -6,7 +6,7 @@ import { entries } from "../../projects/ngx-ramblers/src/app/functions/object-ut
 import { envConfig } from "../lib/env-config/env-config";
 import { Environment } from "../../projects/ngx-ramblers/src/app/models/environment.model";
 import { configuredEnvironments } from "../lib/environments/environments-config";
-import { FLYIO_DEFAULTS } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { DEPLOYMENT_DEFAULTS, FLYIO_DEFAULTS } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { runCommand } from "../lib/fly/fly-commands";
 
 const debugLog = debug(envConfig.logNamespace("deploy-integration-worker"));
@@ -37,7 +37,7 @@ async function deployIntegrationWorker(): Promise<void> {
     process.env[Environment.FLY_API_TOKEN] = workerConfig.apiKey;
   }
 
-  const imageRepository = process.env[Environment.INTEGRATION_WORKER_IMAGE_REPOSITORY] || "nbarrett36/ngx-ramblers";
+  const imageRepository = process.env[Environment.INTEGRATION_WORKER_IMAGE_REPOSITORY] || DEPLOYMENT_DEFAULTS.DOCKER_IMAGE.split(":")[0];
   const scaleCount = workerConfig.scaleCount ?? FLYIO_DEFAULTS.SCALE_COUNT;
   const memory = workerConfig.memory || FLYIO_DEFAULTS.MEMORY;
   const imageTag = imageTagFromArg();
