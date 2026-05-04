@@ -41,7 +41,6 @@ export interface DeploymentConfig {
 
 export interface RuntimeConfig {
   currentDir: string;
-  configFilePath: string;
   targetEnvironments: string[];
 }
 

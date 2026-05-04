@@ -34,7 +34,6 @@ import { authenticateSendingDomain } from "../brevo/domains/domain-authenticatio
 import * as configController from "../mongo/controllers/config";
 import { connect as ensureMongoConnection } from "../mongo/mongoose-client";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
-import { secretsPath, writeSecretsFile } from "../shared/secrets";
 import { normaliseMemory } from "../shared/spelling";
 import { DeployOutputCallback, deployToFlyio as deployToFlyioCommand } from "../cli/commands/fly";
 import { setupSubdomainForEnvironment } from "../cli/commands/subdomain";
@@ -70,7 +69,8 @@ function buildMongoUri(request: EnvironmentSetupRequest): string {
 
 async function updateEnvironmentsConfig(
   request: EnvironmentSetupRequest,
-  awsCredentials: AwsCustomerCredentials
+  awsCredentials: AwsCustomerCredentials,
+  secrets: SecretsConfig
 ): Promise<void> {
   const newEnvConfig: EnvironmentConfig = {
     environment: request.environmentBasics.environmentName,
@@ -92,7 +92,8 @@ async function updateEnvironmentsConfig(
       memory: request.environmentBasics.memory,
       scaleCount: request.environmentBasics.scaleCount,
       organisation: request.environmentBasics.organisation || "personal"
-    }
+    },
+    secrets: { ...secrets }
   };
 
   try {
@@ -350,19 +351,12 @@ export async function createEnvironment(
 
     const secrets = buildSecretsConfig(request, awsCredentials, authSecret);
 
-    if (!request.options.skipFlyDeployment) {
-      reportProgress(SetupStep.WRITE_SECRETS_FILE, "running", "Writing secrets file");
-      const filePath = secretsPath(request.environmentBasics.appName);
-      writeSecretsFile(filePath, secrets);
-      reportProgress(SetupStep.WRITE_SECRETS_FILE, "completed", `Wrote ${filePath}`);
-    } else {
-      reportProgress(SetupStep.WRITE_SECRETS_FILE, "completed", "Skipped writing secrets file");
-    }
+    reportProgress(SetupStep.WRITE_SECRETS_FILE, "completed", "Secrets persisted to database (no local file)");
 
     reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "running", "Saving environment configuration");
     await ensureMongoConnection();
-    await updateEnvironmentsConfig(request, awsCredentials);
-    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "completed", "Environment configuration saved");
+    await updateEnvironmentsConfig(request, awsCredentials, secrets);
+    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "completed", "Environment configuration and secrets saved");
 
     reportProgress(SetupStep.INITIALISE_DATABASE, "running", "Initialising MongoDB database");
     const dbInitTimeout = 120000;

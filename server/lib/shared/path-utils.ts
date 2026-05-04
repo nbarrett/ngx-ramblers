@@ -1,28 +1,31 @@
+import * as fs from "fs";
 import * as path from "path";
 import debug from "debug";
-import { isProduction, logNamespace } from "../env-config/env-core";
+import { logNamespace } from "../env-config/env-core";
 
 const debugLog = debug(logNamespace("path-utils"));
 debugLog.enabled = false;
 
-export function navigateUpFromCurrentExecutionDirectory(): string {
-  return isProduction() ? "../../" : "";
+const PROJECT_ROOT_MARKER = "fly.toml";
+
+function findProjectRoot(): string {
+  let dir = __dirname;
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, PROJECT_ROOT_MARKER))) {
+      debugLog(`Found project root at ${dir} (via ${PROJECT_ROOT_MARKER})`);
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  throw new Error(`Could not locate project root from ${__dirname} - no ${PROJECT_ROOT_MARKER} found in any parent directory`);
 }
 
+const projectRoot = findProjectRoot();
+
 export function resolveClientPath(...pathSegments: string[]): string {
-  const path1 = __dirname;
-  const path2 = navigateUpFromCurrentExecutionDirectory();
-  const path3 = "../../../";
-  const resolvedPath = path.resolve(path1, path2, path3, ...pathSegments);
-  debugLog(`Resolved path from root for pathSegments: ${pathSegments.join(", ")} path1: ${path1} path2: ${path2} path3: ${path3} resolvedPath: ${resolvedPath}`);
-  return resolvedPath;
+  return path.resolve(projectRoot, ...pathSegments);
 }
 
 export function resolveServerPath(...pathSegments: string[]): string {
-  const path1 = __dirname;
-  const path2 = navigateUpFromCurrentExecutionDirectory();
-  const path3 = "../../";
-  const resolvedPath = path.resolve(path1, path2, path3, ...pathSegments);
-  debugLog(`Resolved server path for pathSegments: ${pathSegments.join(", ")} path1: ${path1} path2: ${path2} path3: ${path3} resolvedPath: ${resolvedPath}`);
-  return resolvedPath;
+  return path.resolve(projectRoot, "server", ...pathSegments);
 }

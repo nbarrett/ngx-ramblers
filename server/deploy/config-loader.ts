@@ -1,5 +1,3 @@
-import * as fs from "fs/promises";
-import * as path from "path";
 import type { EnvironmentConfig, MongoConfig } from "./types.js";
 import { FLYIO_DEFAULTS } from "./types.js";
 import type { AwsConfig } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
@@ -12,12 +10,6 @@ async function loadBackupConfigFromDB(): Promise<BackupConfig | null> {
   } catch {
     return null;
   }
-}
-
-async function loadConfigsFromFiles(): Promise<EnvironmentConfig[]> {
-  const configsPath = path.join(process.cwd(), "../non-vcs/fly-io/configs.json");
-  const configsRaw = await fs.readFile(configsPath, "utf8");
-  return JSON.parse(configsRaw).environments;
 }
 
 function transformBackupConfigToEnvironmentConfigs(backupConfig: BackupConfig): EnvironmentConfig[] {
@@ -48,7 +40,7 @@ export async function loadConfigs(): Promise<EnvironmentConfig[]> {
     return transformBackupConfigToEnvironmentConfigs(dbConfig);
   }
 
-  return await loadConfigsFromFiles();
+  throw new Error("No environments configuration found in database. Configure environments via /admin/environment-management before running deployment commands.");
 }
 
 export async function getAwsConfigForEnvironment(envName: string): Promise<AwsConfig | undefined> {

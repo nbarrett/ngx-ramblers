@@ -13,8 +13,7 @@ import {
   ListAttachedUserPoliciesCommand
 } from "@aws-sdk/client-iam";
 import { envConfig } from "../../env-config/env-config";
-import { removeEnvironment } from "../../shared/configs-json";
-import { findEnvironmentFromDatabase } from "../../environments/environments-config";
+import { findEnvironmentFromDatabase, removeEnvironmentFromDatabase } from "../../environments/environments-config";
 import { loadSecretsForEnvironment, secretsPath } from "../../shared/secrets";
 import { runCommand } from "../../fly/fly-commands";
 import { adminConfigFromEnvironment } from "../../environment-setup/aws-setup";
@@ -32,7 +31,6 @@ export interface DestroyConfig {
   skipFly?: boolean;
   skipS3?: boolean;
   skipDatabase?: boolean;
-  skipConfigs?: boolean;
 }
 
 export interface DestroyResult {
@@ -127,7 +125,7 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
   if (!config.skipFly) {
     try {
       setFlyApiToken(config.apiKey);
-      runCommand(`flyctl apps destroy ${config.appName} --yes`, true, true);
+      runCommand(`flyctl apps destroy ${config.appName} --yes`, true);
       report("fly.io app", true, `Deleted ${config.appName}`);
     } catch (error) {
       const notFound = error.message?.includes("Could not find App") || error.stderr?.includes("Could not find App");
@@ -236,25 +234,27 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
     }
   }
 
-  if (!config.skipConfigs) {
-    try {
-      removeEnvironment(config.name);
-      report("configs.json", true, "Removed environment entry");
-    } catch (error) {
-      report("configs.json", false, `Failed to remove: ${error.message}`);
+  try {
+    const removed = await removeEnvironmentFromDatabase(config.name);
+    if (removed) {
+      report("Environment config", true, "Removed environment entry from database");
+    } else {
+      report("Environment config", true, "No environment entry found in database (already removed)");
     }
+  } catch (error) {
+    report("Environment config", false, `Failed to remove from database: ${error.message}`);
+  }
 
-    try {
-      const secretsFilePath = secretsPath(config.appName);
-      if (fs.existsSync(secretsFilePath)) {
-        fs.unlinkSync(secretsFilePath);
-        report("Secrets file", true, "Deleted");
-      } else {
-        report("Secrets file", true, "Not found (already deleted)");
-      }
-    } catch (error) {
-      report("Secrets file", false, `Failed to delete: ${error.message}`);
+  try {
+    const secretsFilePath = secretsPath(config.appName);
+    if (fs.existsSync(secretsFilePath)) {
+      fs.unlinkSync(secretsFilePath);
+      report("Secrets file", true, "Deleted");
+    } else {
+      report("Secrets file", true, "Not found (already deleted)");
     }
+  } catch (error) {
+    report("Secrets file", false, `Failed to delete: ${error.message}`);
   }
 
   const allSucceeded = steps.every(s => s.success);
@@ -269,7 +269,6 @@ export function createDestroyCommand(): Command {
     .option("--skip-fly", "Skip fly.io app deletion")
     .option("--skip-s3", "Skip S3 bucket and IAM user deletion")
     .option("--skip-database", "Skip database collection clearing")
-    .option("--skip-configs", "Skip configs.json and secrets file deletion")
     .option("--yes", "Skip confirmation prompt")
     .action(async (name, options) => {
       try {
@@ -296,7 +295,7 @@ export function createDestroyCommand(): Command {
           if (database) {
             log(`   - Database collections in: ${database}`);
           }
-          log(`   - configs.json entry`);
+          log(`   - Environment entry in database`);
           log(`   - Secrets file\n`);
 
           const readline = await import("readline");
@@ -323,8 +322,7 @@ export function createDestroyCommand(): Command {
           database,
           skipFly: options.skipFly,
           skipS3: options.skipS3,
-          skipDatabase: options.skipDatabase,
-          skipConfigs: options.skipConfigs
+          skipDatabase: options.skipDatabase
         }, progress => {
           log(`[${progress.status}] ${progress.message}`);
         });

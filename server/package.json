@@ -12,7 +12,6 @@
     "copy-assets": "cp -r lib/geojson ts-gen/server/lib/ && cp lib/mongo/migrations/README.md ts-gen/server/lib/mongo/migrations/database/ && cp lib/cloudflare/worker-templates/*.template.ts ts-gen/server/lib/cloudflare/worker-templates/",
     "deploy": "ts-node deploy/deploy-to-environments.ts",
     "cli": "tsx lib/cli/index.ts",
-    "manage-configs": "ts-node deploy/manage-configs.ts",
     "mongo-cli": "tsx deploy/mongo-cli.ts",
     "mongo-cli:interactive": "tsx deploy/mongo-cli-interactive.ts",
     "mongo:backup": "tsx deploy/mongo-cli.ts backup",

@@ -1,6 +1,7 @@
 import debug from "debug";
 import { ConfigDocument, ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
+  EnvironmentConfig as DbEnvironmentConfig,
   EnvironmentsConfig,
   FLYIO_DEFAULTS
 } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
@@ -8,10 +9,7 @@ import { EnvironmentSummary } from "../../../projects/ngx-ramblers/src/app/model
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
 import { connect as connectToDatabase } from "../mongo/mongoose-client";
-import { initializeBackupConfig } from "../backup/config-initializer";
-import { confirm, handleQuit, isQuit } from "../cli/cli-prompt";
 import type { EnvironmentConfig as DeployEnvironmentConfig } from "../../deploy/types";
-import { cliLogger } from "../cli/cli-logger";
 
 const debugLog = debug(envConfig.logNamespace("environments-config"));
 debugLog.enabled = true;
@@ -35,53 +33,12 @@ async function loadFromDatabase(): Promise<EnvironmentsConfig | null> {
   }
 }
 
-async function loadFromFiles(): Promise<EnvironmentsConfig> {
-  debugLog("Loading environments from file-based initialization");
-  const initializedConfig = await initializeBackupConfig();
-  return {
-    environments: initializedConfig.environments?.map(env => ({
-      environment: env.environment,
-      aws: env.aws,
-      mongo: env.mongo,
-      flyio: env.flyio,
-      secrets: env.secrets
-    })) || [],
-    aws: initializedConfig.aws,
-    secrets: initializedConfig.secrets
-  };
-}
-
 export async function configuredEnvironments(): Promise<EnvironmentsConfig> {
   const dbConfig = await loadFromDatabase();
   if (dbConfig) {
     return dbConfig;
   }
-
-  debugLog("WARNING: No environments found in database - this is unusual and may indicate a problem");
-  cliLogger.log("\n⚠️  WARNING: Could not load environments from database.");
-  cliLogger.log("   This is unusual and may indicate a configuration or connection problem.");
-
-  if (!process.stdin.isTTY) {
-    cliLogger.log("   Non-interactive mode detected. Exiting without fallback.");
-    cliLogger.log("   Please check your database connection and configuration.\n");
-    process.exit(1);
-  }
-
-  cliLogger.log("   Would you like to fall back to the file-based configs.json?\n");
-
-  const result = await confirm("Fall back to file-based configuration?", false);
-
-  if (isQuit(result)) {
-    handleQuit();
-  }
-
-  if (result === true) {
-    debugLog("User approved fallback to file-based initialization");
-    return loadFromFiles();
-  }
-
-  cliLogger.log("\nExiting. Please check your database connection and configuration.");
-  process.exit(1);
+  throw new Error("No environments configuration found in database. Configure environments via /admin/environment-management before running deployment commands.");
 }
 
 export async function findEnvironmentFromDatabase(environmentName: string): Promise<DeployEnvironmentConfig | null> {
@@ -126,4 +83,33 @@ export async function listEnvironmentSummariesFromDatabase(): Promise<Environmen
 
 export async function environmentsConfigFromDatabase(): Promise<EnvironmentsConfig | null> {
   return loadFromDatabase();
+}
+
+export async function upsertEnvironmentInDatabase(envUpdate: DbEnvironmentConfig): Promise<void> {
+  await connectToDatabase(debugLog);
+  const existingDoc = await config.queryKey(ConfigKey.ENVIRONMENTS);
+  const existing: EnvironmentsConfig = existingDoc?.value || { environments: [] };
+  const environments = existing.environments || [];
+  const idx = environments.findIndex(e => e.environment === envUpdate.environment);
+  if (idx >= 0) {
+    environments[idx] = { ...environments[idx], ...envUpdate, flyio: { ...(environments[idx].flyio || {}), ...(envUpdate.flyio || {}) } };
+  } else {
+    environments.push(envUpdate);
+  }
+  await config.createOrUpdateKey(ConfigKey.ENVIRONMENTS, { ...existing, environments });
+  debugLog("Upserted environment in database:", envUpdate.environment);
+}
+
+export async function removeEnvironmentFromDatabase(environmentName: string): Promise<boolean> {
+  await connectToDatabase(debugLog);
+  const existingDoc = await config.queryKey(ConfigKey.ENVIRONMENTS);
+  const existing: EnvironmentsConfig = existingDoc?.value || { environments: [] };
+  const environments = (existing.environments || []).filter(e => e.environment !== environmentName);
+  if (environments.length === (existing.environments || []).length) {
+    debugLog("Environment not found for removal:", environmentName);
+    return false;
+  }
+  await config.createOrUpdateKey(ConfigKey.ENVIRONMENTS, { ...existing, environments });
+  debugLog("Removed environment from database:", environmentName);
+  return true;
 }

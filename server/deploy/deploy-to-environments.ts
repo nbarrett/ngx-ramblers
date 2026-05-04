@@ -16,7 +16,7 @@ import { pluraliseWithCount } from "../lib/shared/string-utils";
 import { envConfig } from "../lib/env-config/env-config";
 import { buildSecretsContent, loadSecretsForEnvironmentFromDatabase } from "../lib/shared/secrets";
 import { configuredEnvironments } from "../lib/environments/environments-config";
-import { EnvironmentsConfig } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { DEPLOYMENT_DEFAULTS, EnvironmentsConfig } from "../../projects/ngx-ramblers/src/app/models/environment-config.model";
 
 const debugLog = debug(envConfig.logNamespace("deploy-environments"));
 debugLog.enabled = true;
@@ -49,8 +49,8 @@ function buildDeploymentConfig(dbConfig: EnvironmentsConfig): DeploymentConfig {
   }));
   return {
     environments,
-    dockerImage: "nbarrett36/ngx-ramblers:latest",
-    region: "lhr"
+    dockerImage: dbConfig.dockerImage || DEPLOYMENT_DEFAULTS.DOCKER_IMAGE,
+    region: dbConfig.region || DEPLOYMENT_DEFAULTS.REGION
   };
 }
 

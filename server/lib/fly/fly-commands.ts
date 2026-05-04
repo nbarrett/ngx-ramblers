@@ -1,12 +1,10 @@
 import path from "path";
-import fs from "fs";
 import debug from "debug";
 import { execSync, spawn, ChildProcess } from "child_process";
 import { isArray } from "es-toolkit/compat";
 import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation } from "../../deploy/types";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { resolveClientPath } from "../shared/path-utils";
-import { configsJsonPath } from "../shared/configs-json";
 import { envConfig } from "../env-config/env-config";
 import { StreamingCommandResult } from "./fly.model";
 
@@ -20,27 +18,14 @@ export function flyTomlAbsolutePath() {
   return resolveClientPath("fly.toml");
 }
 
-export function readConfigFile(filePath: string): DeploymentConfig {
-  try {
-    const rawConfig = fs.readFileSync(filePath, "utf-8");
-    return JSON.parse(rawConfig) as DeploymentConfig;
-  } catch (error) {
-    debugLog(`Error reading or parsing config file: ${filePath}`, error);
-    process.exit(1);
-  }
-}
-
-export function runCommand(command: string, returnOutput: boolean = false, throwOnError: boolean = false): string {
+export function runCommand(command: string, returnOutput: boolean = false): string {
   try {
     debugLog(`Running command: ${command}`);
     const output = execSync(command, { stdio: returnOutput ? "pipe" : "inherit", encoding: "utf-8" });
     return output || "";
   } catch (error) {
     debugLog(`Error running command: ${command}`, error);
-    if (throwOnError) {
-      throw error;
-    }
-    process.exit(1);
+    throw error;
   }
 }
 
@@ -48,7 +33,7 @@ const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
 
 export async function runCommandWithRetry(command: string, attempts: number = 3, initialDelayMs: number = 2000, attempt: number = 1): Promise<void> {
   try {
-    runCommand(command, false, true);
+    runCommand(command);
   } catch (error) {
     if (attempt >= attempts) {
       throw error;
@@ -218,8 +203,7 @@ export function createRuntimeConfig(): RuntimeConfig {
   }, []);
 
   const currentDir = path.resolve(__dirname);
-  const configFilePath = configsJsonPath();
-  return {currentDir, configFilePath, targetEnvironments: filterEnvironments};
+  return {currentDir, targetEnvironments: filterEnvironments};
 }
 
 function findAttributeForIndex(outputLines: string[], columnHeading: string, header: string[]) {
@@ -264,7 +248,7 @@ function destroyMachineAttachedToVolume(appName: string, volumeName: string, mac
     runCommand(`flyctl machine destroy ${machineId} --app ${appName} --force`);
   } catch (error) {
     debugLog(`Failed to detach volume '${volumeName}' from machine '${machineId}':`, error);
-    process.exit(1);
+    throw new Error(`Failed to detach volume '${volumeName}' from machine '${machineId}': ${error.message || error}`);
   }
 }
 
@@ -286,7 +270,7 @@ export function deleteVolumeIfExists(appName: string, region: string): void {
       }
     } catch (error) {
       debugLog(`Failed to delete volume '${volumeInformation}': `, error);
-      process.exit(1);
+      throw new Error(`Failed to delete volume for app ${appName}: ${error.message || error}`);
     }
   }
 }
@@ -309,7 +293,7 @@ export function createVolumeIfNotExists(appName: string, volumeName: string, reg
         debugLog(`Volume '${existingVolume}' not found during deletion. Proceeding to recreate '${volumeName}'.`);
       } else {
         debugLog(`Failed to delete volume '${existingVolume}': ${error}.`);
-        process.exit(1);
+        throw new Error(`Failed to delete volume for app ${appName}: ${error.message || error}`);
       }
     }
     runCommand(`flyctl volumes create ${volumeName} --app ${appName} --region ${region}`);
