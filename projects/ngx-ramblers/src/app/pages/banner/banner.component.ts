@@ -607,10 +607,48 @@ export class BannerComponent implements OnInit, OnDestroy {
   private refreshData() {
     this.bannerConfigService.all().then((banners) => {
       this.logger.info("retrieved banners:", banners);
+      this.dumpBannerDiagnostics(banners);
       this.banners = banners.sort(sortBy("-createdAt"));
       this.notify.hide();
       this.selectFirstItem();
     });
+  }
+
+  private dumpBannerDiagnostics(banners: BannerConfig[]): void {
+    const summary = banners.map(b => {
+      const banner: any = b.banner || {};
+      const logo = banner.logo;
+      const photo = banner.photo;
+      const background = banner.background;
+      const text = banner.text;
+      const line1 = banner.line1;
+      const line2 = banner.line2;
+      return {
+        id: b.id,
+        name: b.name,
+        bannerType: b.bannerType,
+        bannerHeight: b.bannerHeight,
+        savedImage: b.fileNameData ? `${b.fileNameData.rootFolder}/${b.fileNameData.awsFileName}` : null,
+        logoShow: logo?.show,
+        logoColumns: logo?.columns,
+        logoPadding: logo?.image?.padding,
+        logoCropper: logo?.image?.cropperPosition,
+        logoFocalPoint: logo?.image?.focalPoint,
+        logoAwsFile: logo?.image?.awsFileName,
+        photoAwsFile: photo?.image?.awsFileName,
+        photoCropper: photo?.image?.cropperPosition,
+        photoFocalPoint: photo?.image?.focalPoint,
+        backgroundAwsFile: background?.image?.awsFileName,
+        textInclude: text?.include ?? text?.value !== undefined,
+        textValue: text?.value,
+        line1Include: line1?.include,
+        line1Parts: line1 ? [line1.part1?.value, line1.part2?.value, line1.part3?.value].filter(Boolean) : null,
+        line2Include: line2?.include,
+        line2Parts: line2 ? [line2.part1?.value, line2.part2?.value, line2.part3?.value].filter(Boolean) : null
+      };
+    });
+    this.logger.table("banner-diagnostics: " + banners.length + " banners", summary);
+    this.logger.debug("full configs:", JSON.parse(JSON.stringify(banners)));
   }
 
   private selectFirstItem() {

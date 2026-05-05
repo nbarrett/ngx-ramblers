@@ -3,7 +3,7 @@ import { CustomNGXLoggerService, INGXLoggerConfig, NGXLogger, NgxLoggerLevel } f
 import { isString } from "es-toolkit/compat";
 
 export class Logger {
-  constructor(private logger: NGXLogger, private className: string) {
+  constructor(private logger: NGXLogger, private className: string, private level: NgxLoggerLevel) {
   }
 
   private logPrefix() {
@@ -33,6 +33,13 @@ export class Logger {
   off(...additional: any[]) {
   }
 
+  table(label: string, rows: any) {
+    if (this.level <= NgxLoggerLevel.DEBUG) {
+      this.logger.debug(this.logPrefix(), label);
+      console.table(rows);
+    }
+  }
+
 }
 
 @Injectable({
@@ -45,7 +52,7 @@ export class LoggerFactory {
 
   createLogger<T extends InstanceType<any>>(classRef: T | string, loggerConfig: NgxLoggerLevel): Logger {
     const config: INGXLoggerConfig = {level: loggerConfig};
-    return new Logger(this.customLogger.create(config), isString(classRef) ? classRef : classRef["name"]);
+    return new Logger(this.customLogger.create(config), isString(classRef) ? classRef : classRef["name"], loggerConfig);
   }
 
 }

@@ -22,6 +22,24 @@ const cropperScale = (position: ImageCropperPosition): number => {
   return Math.max(scaleX, scaleY);
 };
 
+/**
+ * A cropperPosition is considered useful only if it would zoom the image by
+ * less than 3× in either dimension. Small top-left crops with extreme zoom
+ * factors (e.g. {x1:0, y1:0, x2:~28, y2:~28}) are usually leftovers from an
+ * unfinished cropper interaction where a placeholder selection was saved
+ * without adjustment; they paint a near-empty corner of the source image at a
+ * size that overflows the container. Treat them as "no crop" at render time
+ * so the image falls back to its natural fit.
+ */
+export const isUsefulCropperPosition = (position: ImageCropperPosition | null | undefined): boolean => {
+  if (!position) return false;
+  const cropWidth = cropperDimension(position.x2, position.x1);
+  const cropHeight = cropperDimension(position.y2, position.y1);
+  if (!cropWidth || !cropHeight) return false;
+  const scale = Math.max(100 / cropWidth, 100 / cropHeight);
+  return scale < 3;
+};
+
 export const cropperWrapperStyles = (heightPx: number, borderRadius: number, noBorderRadius: boolean): any => {
   const styles: any = {};
   styles["width"] = "100%";
@@ -39,7 +57,7 @@ export const cropperWrapperStyles = (heightPx: number, borderRadius: number, noB
 export const cropperImageStyles = (position: ImageCropperPosition, heightPx: number, debug?: CropperDebugOffsets): any => {
   const styles: any = {};
   styles["width"] = "100%";
-  if (!position) {
+  if (!position || !isUsefulCropperPosition(position)) {
     if (isNumber(heightPx)) {
       styles["height"] = "100%";
     }
@@ -62,7 +80,7 @@ export const cropperImageStyles = (position: ImageCropperPosition, heightPx: num
 };
 
 export const cropperTransformStyles = (position: ImageCropperPosition): any => {
-  if (!position) {
+  if (!isUsefulCropperPosition(position)) {
     return {};
   }
   const scale = cropperScale(position);
