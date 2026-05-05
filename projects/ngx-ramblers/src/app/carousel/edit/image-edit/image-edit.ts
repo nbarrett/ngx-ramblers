@@ -16,6 +16,8 @@ import {
   ImageTag,
   S3Metadata
 } from "../../../models/content-metadata.model";
+import { Tag } from "../../../models/tag.model";
+import { addTag } from "../../../functions/tags";
 import { DateValue } from "../../../models/date.model";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -188,9 +190,11 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                 </div>
               </div>
               <div class="form-group">
-                <app-tag-editor [tagsForImage]="item?.tags"
-                                [contentMetadataImageTags]="contentMetadataImageTags"
+                <app-tag-editor [tagsForItem]="item?.tags"
+                                [availableTags]="contentMetadataImageTags"
                                 [text]="item?.text"
+                                label="Image Tags"
+                                [addTag]="addImageTag"
                                 (tagsChange)="tagsChange($event)"/>
               </div>
               <div class="form-group">
@@ -367,13 +371,15 @@ export class ImageEditComponent implements OnInit {
     }
   }
 
-  tagsChange(imageTags: ImageTag[]) {
-    this.logger.debug("tagChange:imageTags", imageTags);
-    if (isArray(imageTags)) {
-      this.item.tags = imageTags.map(story => story.key);
+  addImageTag = (subject: string): ImageTag => addTag(this.contentMetadataImageTags, subject, (key, subject) => ({key, subject}));
+
+  tagsChange(tags: Tag[]) {
+    this.logger.debug("tagChange:tags", tags);
+    if (isArray(tags)) {
+      this.item.tags = tags.map(tag => tag.key);
       this.logger.debug("imageMetaDataItem now:", this.item);
     } else {
-      this.logger.debug("ignoring event", imageTags);
+      this.logger.debug("ignoring event", tags);
     }
     this.callImageChange();
   }

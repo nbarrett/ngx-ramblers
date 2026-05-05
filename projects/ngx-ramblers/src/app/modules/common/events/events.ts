@@ -34,6 +34,7 @@ import { EventQueryParameters, RamblersEventType } from "../../../models/rambler
 import { DateFilterParameters } from "../../../models/search.model";
 import { MongoSort } from "../../../models/mongo-models";
 import { EventField, GroupEventField, ID } from "../../../models/walk.model";
+import { tagCriteriaClauses } from "../../../functions/walks/event-tag-filter";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { enumValues } from "../../../functions/enums";
@@ -186,6 +187,13 @@ export class Events implements OnInit, OnDestroy {
   }
 
   criteria() {
+    const clauses = [this.dateOrEventIdsCriteria(), ...this.tagCriteria()].filter(clause => clause && Object.keys(clause).length > 0);
+    if (clauses.length === 0) return {};
+    if (clauses.length === 1) return clauses[0];
+    return {$and: clauses};
+  }
+
+  private dateOrEventIdsCriteria() {
     const {filterCriteria, fromDate, toDate, eventIds, savedCriteria} = this?.eventsData || {};
     const today = this.dateUtils.isoDateTimeStartOfDay();
     const hasEventIds = eventIds?.length > 0;
@@ -209,6 +217,11 @@ export class Events implements OnInit, OnDestroy {
       default:
         return {};
     }
+  }
+
+  private tagCriteria(): any[] {
+    const {tagsAny, tagsExclude} = this?.eventsData || {};
+    return tagCriteriaClauses(tagsAny, tagsExclude);
   }
 
   private resolveRelativeDate(dateRange?: { direction: DateDirection; duration: { days?: number; months?: number; years?: number } }): number | undefined {

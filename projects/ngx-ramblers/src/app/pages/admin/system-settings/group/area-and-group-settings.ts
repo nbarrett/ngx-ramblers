@@ -19,6 +19,7 @@ import { ALERT_WARNING } from "../../../../models/alert-target.model";
 import { EM_DASH } from "../../../../models/content-text.model";
 import { HttpClient } from "@angular/common/http";
 import { EventTypeSettingsComponent } from "./event-type-settings";
+import { TagManagerComponent } from "../../../tag/tag-manager.component";
 import { RouterLink } from "@angular/router";
 
 @Component({
@@ -190,8 +191,13 @@ import { RouterLink } from "@angular/router";
         </div>
       </div>
     </div>
+    <div class="img-thumbnail thumbnail-admin-edit mt-3">
+      <app-tag-manager [tags]="config.group.eventTags"
+                       heading="Event Tags"
+                       description="Define a vocabulary of tags that can be assigned to group events (e.g. <em>Holiday</em>, <em>Coach Trip</em>, <em>Working Party</em>). Tags can be referenced from the <strong>Events</strong> row on any page to filter the events list - for example a Holidays page can include only events tagged <em>Holiday</em>."/>
+    </div>
     </div>`,
-  imports: [UiSwitchModule, NgSelectComponent, StatusIconComponent, AlertComponent, FontAwesomeModule, EventTypeSettingsComponent, RouterLink]
+  imports: [UiSwitchModule, NgSelectComponent, StatusIconComponent, AlertComponent, FontAwesomeModule, EventTypeSettingsComponent, TagManagerComponent, RouterLink]
 })
 export class AreaAndGroupSettingsComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupSettingsComponent", NgxLoggerLevel.ERROR);
@@ -232,6 +238,9 @@ export class AreaAndGroupSettingsComponent implements OnInit {
     this.logger.info("constructed with:config:", this.config);
     if (!this.config.enableMigration) {
       this.config.enableMigration = { events: false };
+    }
+    if (!this.config.group.eventTags) {
+      this.config.group.eventTags = [];
     }
     if (!this.config.area.groupCode && this.config.group.groupCode) {
       this.config.area.groupCode = this.stringUtils.left(this.config.group.groupCode, 2);

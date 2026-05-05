@@ -3,6 +3,7 @@ import { HasClass, HasColour } from "./banner-configuration.model";
 import { GoogleMapsConfig, WalkListView } from "./walk.model";
 import { HasStyles } from "./content-text.model";
 import { FocalPoint, ImageCropperPosition } from "./image-cropper.model";
+import { Tag } from "./tag.model";
 
 export { GoogleMapsConfig };
 
@@ -186,6 +187,7 @@ export interface Organisation extends Group {
   walkLeaderPhoneAction?: WalkLeaderPhoneAction;
   shortName?: string;
   href?: string;
+  eventTags?: Tag[];
   pages: Link[];
   groups?: AreaGroup[];
   center?: [number, number];

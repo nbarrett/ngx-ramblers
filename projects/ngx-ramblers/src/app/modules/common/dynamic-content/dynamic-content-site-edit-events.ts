@@ -28,6 +28,11 @@ import { GroupEventSummary, GroupEventTypes } from "../../../models/committee.mo
 import { GroupEventSelectorComponent } from "../../../group-events-selector/group-event-selector";
 import { DateRange, DateRangeSlider } from "../../../components/date-range-slider/date-range-slider";
 import { DateTime } from "luxon";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { SystemConfig } from "../../../models/system.model";
+import { Subscription } from "rxjs";
+import { Tag } from "../../../models/tag.model";
+import { TagEditorComponent } from "../../../pages/tag/tag-editor.component";
 
 @Component({
   selector: "app-dynamic-content-site-edit-events",
@@ -260,10 +265,32 @@ import { DateTime } from "luxon";
             </div>
           </div>
         </div>
+        @if (eventTagsAvailable()) {
+          <div class="row align-items-end mb-3 d-flex">
+            <div class="col-md-6">
+              <div class="form-group">
+                <app-tag-editor [tagsForItem]="row.events.tagsAny || []"
+                                [availableTags]="config.group.eventTags"
+                                [text]="'tags-any-' + id"
+                                label="Include events with any of these tags"
+                                (tagsChange)="onTagsAnyChange($event)"/>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <app-tag-editor [tagsForItem]="row.events.tagsExclude || []"
+                                [availableTags]="config.group.eventTags"
+                                [text]="'tags-exclude-' + id"
+                                label="Exclude events with any of these tags"
+                                (tagsChange)="onTagsExcludeChange($event)"/>
+              </div>
+            </div>
+          </div>
+        }
       }
     }
     <app-events-row [row]="row" [rowIndex]="rowIndex"/>`,
-  imports: [FormsModule, EventsRow, DatePicker, NgSelectComponent, DynamicContentMaxColumnsEditorComponent, GroupEventSelectorComponent, DateRangeSlider]
+  imports: [FormsModule, EventsRow, DatePicker, NgSelectComponent, DynamicContentMaxColumnsEditorComponent, GroupEventSelectorComponent, DateRangeSlider, TagEditorComponent]
 })
 export class DynamicContentSiteEditEvents implements OnInit {
   public display: GroupEventDisplayService = inject(GroupEventDisplayService);
@@ -276,8 +303,11 @@ export class DynamicContentSiteEditEvents implements OnInit {
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   public actions: PageContentActionsService = inject(PageContentActionsService);
   protected dateUtils = inject(DateUtilsService);
+  private systemConfigService = inject(SystemConfigService);
   protected logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditEvents", NgxLoggerLevel.ERROR);
   public instance = this;
+  protected config?: SystemConfig;
+  private subscriptions: Subscription[] = [];
   @Input()
   public row: PageContentRow;
   @Input() rowIndex: number;
@@ -301,12 +331,27 @@ export class DynamicContentSiteEditEvents implements OnInit {
 
   async ngOnInit() {
     this.initialiseRowForEvents(this.row);
+    this.subscriptions.push(this.systemConfigService.events().subscribe(config => this.config = config));
     this.logger.info("ngOnInit:row:", this.row, "eventTypes:", this.eventTypes);
     this.id = this.numberUtils.generateUid();
   }
 
+  eventTagsAvailable(): boolean {
+    return (this.config?.group?.eventTags?.length ?? 0) > 0;
+  }
+
   async broadcastChange(): Promise<void> {
     this.broadcastService.broadcast(NamedEvent.named(NamedEventType.REFRESH));
+  }
+
+  onTagsAnyChange(tags: Tag[]) {
+    this.row.events.tagsAny = tags.map(tag => tag.key);
+    this.broadcastChange();
+  }
+
+  onTagsExcludeChange(tags: Tag[]) {
+    this.row.events.tagsExclude = tags.map(tag => tag.key);
+    this.broadcastChange();
   }
 
   onChange($event: any) {
