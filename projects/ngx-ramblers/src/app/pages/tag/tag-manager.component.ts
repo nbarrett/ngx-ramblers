@@ -1,13 +1,11 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
-import { faRemove } from "@fortawesome/free-solid-svg-icons";
+import { Component, inject, Input, OnChanges, SimpleChanges } from "@angular/core";
+import { faAdd, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { remove } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
-import { TagData } from "ngx-tagify";
-import { ContentMetadata, ImageTag } from "../../models/content-metadata.model";
-import { sortBy } from "../../functions/arrays";
-import { ImageTagDataService } from "../../services/image-tag-data-service";
+import { ImageTag } from "../../models/content-metadata.model";
+import { Tag } from "../../models/tag.model";
+import { tagsSorted, nextTagKey } from "../../functions/tags";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
-import { StringUtilsService } from "../../services/string-utils.service";
 import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -15,36 +13,51 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 @Component({
     selector: "app-tag-manager",
     template: `
-    @if (contentMetadata?.imageTags) {
-      <table class="styled-table table-responsive-sm table-pointer">
-        <thead>
-          <tr>
-            <th>Subject</th>
-            <th>Usages</th>
-            <th>Exclude From Recent</th>
-            <th>Sort Index</th>
-            <th>Delete</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (imageTag of contentMetadata.imageTags; track imageTag.key) {
+      @if (heading || description) {
+        <div class="row thumbnail-heading-frame">
+          @if (heading) {
+            <div class="thumbnail-heading">{{ heading }}</div>
+          }
+          @if (description) {
+            <div class="col-sm-12">
+              <p class="mb-3" [innerHTML]="description"></p>
+            </div>
+          }
+        </div>
+      }
+      @if (tags?.length) {
+        <table class="styled-table table-responsive-sm">
+          <thead>
             <tr>
-              <td><input [(ngModel)]="imageTag.subject"
-              type="text" class="form-control"></td>
-              <td>{{filesTaggedWith(imageTag)}}</td>
-              <td>
-                <div class="form-check">
-                  <input [ngModel]="imageTag.excludeFromRecent"
-                    type="checkbox" class="form-check-input" id="exclude-{{imageTag.key}}">
-                  <label class="form-check-label" (click)="toggleExcludeFromRecent(imageTag)" for="exclude-{{imageTag.key}}"></label></div>
-                </td>
-                <td><input [(ngModel)]="imageTag.sortIndex"
-                type="number" class="form-control"></td>
+              <th>Subject</th>
+              @if (usageCount) {<th>Usages</th>}
+              @if (imageMode) {<th>Exclude From Recent</th>}
+              <th>Sort Index</th>
+              <th>Delete</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (tag of tags; track tag.key) {
+              <tr>
+                <td><input [(ngModel)]="tag.subject" type="text" class="form-control" placeholder="Tag name"></td>
+                @if (usageCount) {
+                  <td>{{ usageCount(tag) }}</td>
+                }
+                @if (imageMode) {
+                  <td>
+                    <div class="form-check">
+                      <input [ngModel]="asImageTag(tag).excludeFromRecent"
+                             type="checkbox" class="form-check-input" id="exclude-{{tag.key}}">
+                      <label class="form-check-label" (click)="toggleExcludeFromRecent(tag)" for="exclude-{{tag.key}}"></label>
+                    </div>
+                  </td>
+                }
+                <td><input [(ngModel)]="tag.sortIndex" type="number" class="form-control"></td>
                 <td>
-                  @if (canDelete(imageTag)) {
-                    <div class="badge-button" (click)="remove(imageTag)"
-                      delay=500 [tooltip]="'Remove ' + imageTag.subject + ' tag'">
-                      <fa-icon [icon]="faRemove"></fa-icon>
+                  @if (canDelete(tag)) {
+                    <div class="badge-button" (click)="removeTag(tag)"
+                         delay="500" [tooltip]="'Remove ' + tag.subject + ' tag'">
+                      <fa-icon [icon]="faRemove"/>
                       <span>remove</span>
                     </div>
                   }
@@ -53,50 +66,57 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
             }
           </tbody>
         </table>
+      } @else {
+        <p class="fst-italic mb-3">No tags defined yet.</p>
       }
+      <div class="badge-button" (click)="addTag()">
+        <fa-icon [icon]="faAdd"/>
+        <span>add tag</span>
+      </div>
     `,
     imports: [FormsModule, TooltipDirective, FontAwesomeModule]
 })
-
-export class TagManagerComponent implements OnInit {
+export class TagManagerComponent implements OnChanges {
 
   private logger: Logger = inject(LoggerFactory).createLogger("TagManagerComponent", NgxLoggerLevel.ERROR);
-  stringUtils = inject(StringUtilsService);
-  private imageTagDataService = inject(ImageTagDataService);
 
-  @Input("contentMetadata") set acceptChangesFrom(contentMetadata: ContentMetadata) {
-    this.logger.debug("contentMetadata:", contentMetadata);
-    this.contentMetadata = contentMetadata;
-    this.contentMetadata.imageTags = this.contentMetadata.imageTags.sort(sortBy("sortIndex", "subject"));
-  }
+  @Input() tags: Tag[];
+  @Input() heading?: string;
+  @Input() description?: string;
+  @Input() imageMode = false;
+  @Input() usageCount?: (tag: Tag) => number;
 
-  public contentMetadata: ContentMetadata;
-  public id: string;
+  faAdd = faAdd;
   faRemove = faRemove;
 
-  ngOnInit() {
-    this.id = "image-tag-manager";
-    this.logger.info("ngOnInit:contentMetadata:", this.contentMetadata);
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes.tags && this.tags) {
+      this.tags = tagsSorted(this.tags);
+      this.logger.info("ngOnChanges:tags:", this.tags);
+    }
   }
 
-  onRemove(data: TagData[]) {
-    const stories: ImageTag[] = this.imageTagDataService.asImageTags(this.contentMetadata.imageTags, data.map(item => item.key));
-    this.logger.debug("onRemove tag data", data, "stories", stories, "contentMetadata:", this.contentMetadata);
+  asImageTag(tag: Tag): ImageTag {
+    return tag as ImageTag;
   }
 
-  remove(imageTag: ImageTag) {
-    remove(this.contentMetadata.imageTags, imageTag);
-  }
-
-  canDelete(imageTag: ImageTag): boolean {
-    return this.filesTaggedWith(imageTag) === 0;
-  }
-
-  protected filesTaggedWith(imageTag: ImageTag) {
-    return this.contentMetadata.files.filter(item => item.tags.includes(imageTag.key)).length;
-  }
-
-  toggleExcludeFromRecent(imageTag: ImageTag) {
+  toggleExcludeFromRecent(tag: Tag) {
+    const imageTag = tag as ImageTag;
     imageTag.excludeFromRecent = !imageTag.excludeFromRecent;
+  }
+
+  canDelete(tag: Tag): boolean {
+    return !this.usageCount || this.usageCount(tag) === 0;
+  }
+
+  addTag() {
+    const key = nextTagKey(this.tags);
+    const newTag: Tag = this.imageMode ? {key, subject: ""} as ImageTag : {key, sortIndex: key * 10, subject: ""};
+    this.tags.push(newTag);
+    this.logger.info("addTag:", newTag);
+  }
+
+  removeTag(tag: Tag) {
+    remove(this.tags, t => t.key === tag.key);
   }
 }

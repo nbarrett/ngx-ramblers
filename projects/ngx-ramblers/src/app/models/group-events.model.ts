@@ -44,4 +44,6 @@ export interface EventsData extends HasColumnRange {
   toDate?: number;
   dateRangeMode?: DateRangeMode;
   eventIds?: string[];
+  tagsAny?: number[];
+  tagsExclude?: number[];
 }

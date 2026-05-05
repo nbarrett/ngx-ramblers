@@ -117,7 +117,8 @@ const fields = new Schema({
     waitlisted: {type: String},
     restored: {type: String},
     reminder: {type: String}
-  }, {_id: false})
+  }, {_id: false}),
+  tags: [{type: Number}]
 }, {_id: false});
 
 const extendedGroupEventSchema = new Schema({

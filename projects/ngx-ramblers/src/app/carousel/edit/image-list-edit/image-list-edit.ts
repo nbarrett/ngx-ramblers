@@ -38,6 +38,7 @@ import {
   RECENT_PHOTOS,
   S3Metadata
 } from "../../../models/content-metadata.model";
+import { Tag } from "../../../models/tag.model";
 import { MemberResourcesPermissions } from "../../../models/member-resource.model";
 import { Confirm, StoredValue } from "../../../models/ui-actions";
 import { move, sortBy } from "../../../functions/arrays";
@@ -281,7 +282,9 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
         <div class="row mb-2">
           <div class="col-sm-12">
             <h6>Tag Management</h6>
-            <app-tag-manager [contentMetadata]="contentMetadata"/>
+            <app-tag-manager [tags]="contentMetadata.imageTags"
+                             [imageMode]="true"
+                             [usageCount]="filesTaggedWith"/>
           </div>
         </div>
       }
@@ -430,6 +433,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   public filterType: ImageFilterType;
   public uploader: FileUploader;
   public contentMetadata: ContentMetadata;
+  public filesTaggedWith = (tag: Tag): number => this.contentMetadata?.files?.filter(file => file.tags?.includes(tag.key)).length ?? 0;
   public s3Metadata: S3Metadata[] = [];
   public filteredFiles: ContentMetadataItem[] = [];
   public changedItems: ContentMetadataItem[] = [];

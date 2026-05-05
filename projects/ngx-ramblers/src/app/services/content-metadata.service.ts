@@ -20,6 +20,7 @@ import {
 } from "../models/content-metadata.model";
 import { SearchFilterPipe } from "../pipes/search-filter.pipe";
 import { sortBy } from "../functions/arrays";
+import { tagsSorted } from "../functions/tags";
 import { CommonDataService } from "./common-data-service";
 import { DateUtilsService } from "./date-utils.service";
 import { ImageDuplicatesService } from "./image-duplicates-service";
@@ -194,7 +195,7 @@ export class ContentMetadataService {
   }
 
   private excludeFromRecentKeys(imageTags: ImageTag[]): number[] {
-    return this.imageTagDataService.imageTagsSorted(imageTags).filter(tag => tag.excludeFromRecent).map(tag => tag.key);
+    return tagsSorted(imageTags).filter(tag => tag.excludeFromRecent).map(tag => tag.key);
   }
 
   private filterForLastItems(itemCount: number, imageTags: ImageTag[], showDuplicates: boolean, allSlides: ContentMetadataItem[], filterText: string, tag: ImageTag, duplicateImages: DuplicateImages) {

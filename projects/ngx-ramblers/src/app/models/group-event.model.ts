@@ -99,6 +99,7 @@ export interface ExtendedFields {
   memberPriorityDays?: number;
   bookingsEnabled?: boolean;
   bookingEmailOverrides?: BookingEmailOverrides;
+  tags?: number[];
 }
 
 export enum EventSource {

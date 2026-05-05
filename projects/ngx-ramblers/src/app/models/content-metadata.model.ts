@@ -3,6 +3,9 @@ import { RootFolder } from "./system.model";
 import { WithMongoId } from "./mongo-models";
 import { OutputFormat } from "ngx-image-cropper";
 import { ImageCropperPosition } from "./image-cropper.model";
+import { Tag } from "./tag.model";
+
+export type { Tag };
 
 export const RECENT_PHOTOS: ImageTag = {key: 0, sortIndex: 0, subject: "Recent Photos"};
 export const ALL_PHOTOS: ImageTag = {key: -1, sortIndex: -1, subject: "All Photos"};
@@ -201,10 +204,7 @@ export interface AllAndSelectedContentMetaData {
   contentMetadata: ContentMetadata;
 }
 
-export interface ImageTag {
-  key?: number;
-  sortIndex?: number;
-  subject: string;
+export interface ImageTag extends Tag {
   excludeFromRecent?: boolean;
 }
 

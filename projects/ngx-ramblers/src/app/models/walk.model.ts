@@ -333,6 +333,7 @@ export enum EventField {
   PUBLISHING_RAMBLERS_CONTACT_NAME = "fields.publishing.ramblers.contactName",
   PUBLISHING_RAMBLERS_PUBLISH = "fields.publishing.ramblers.publish",
   RISK_ASSESSMENT = "fields.riskAssessment",
+  TAGS = "fields.tags",
   VENUE = "fields.venue",
   VENUE_ADDRESS1 = "fields.venue.address1",
   VENUE_ADDRESS2 = "fields.venue.address2",

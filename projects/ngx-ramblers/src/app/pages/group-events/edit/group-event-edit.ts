@@ -41,6 +41,9 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 import { TimePicker } from "../../../date-and-time/time-picker";
 import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { Tag } from "../../../models/tag.model";
+import { addTag } from "../../../functions/tags";
+import { TagEditorComponent } from "../../tag/tag-editor.component";
 
 @Component({
     selector: "app-group-event-edit",
@@ -226,6 +229,20 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                         </div>
                       </div>
                     </div>
+                    @if (config?.group) {
+                      <div class="row">
+                        <div class="col-sm-12">
+                          <div class="form-group">
+                            <app-tag-editor [tagsForItem]="groupEvent.fields.tags || []"
+                                            [availableTags]="config.group.eventTags || []"
+                                            [text]="'event-' + (groupEvent.id || 'new')"
+                                            label="Tags"
+                                            [addTag]="addEventTag"
+                                            (tagsChange)="onEventTagsChange($event)"/>
+                          </div>
+                        </div>
+                      </div>
+                    }
                   </div>
                 </tab>
                 <tab heading="Organiser">
@@ -440,7 +457,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       </app-page>
     `,
     styleUrls: ["group-event-edit.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, DatePicker, FontAwesomeModule, MarkdownComponent, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, NgClass, FileUploadModule, NgStyle, FullNameWithAliasPipe, CopyIconComponent, EditGroupEventImagesComponent, TimePicker]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, DatePicker, FontAwesomeModule, MarkdownComponent, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, NgClass, FileUploadModule, NgStyle, FullNameWithAliasPipe, CopyIconComponent, EditGroupEventImagesComponent, TimePicker, TagEditorComponent]
 })
 export class GroupEventEdit implements OnInit, OnDestroy {
 
@@ -476,6 +493,19 @@ export class GroupEventEdit implements OnInit, OnDestroy {
   protected config: SystemConfig;
   protected showUrl = false;
   private endDateManuallySet = false;
+
+  addEventTag = (subject: string): Tag => {
+    if (!this.config.group.eventTags) {
+      this.config.group.eventTags = [];
+    }
+    const newTag = addTag(this.config.group.eventTags, subject, (key, subject) => ({key, subject}));
+    this.systemConfigService.saveConfig(this.config);
+    return newTag;
+  };
+
+  onEventTagsChange(tags: Tag[]) {
+    this.groupEvent.fields.tags = tags.map(tag => tag.key);
+  }
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
