@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import debug from "debug";
+import { isString } from "es-toolkit/compat";
 import { envConfig } from "../../env-config/env-config";
 import { dateTimeFromMillis, dateTimeNow } from "../../shared/dates";
 import { handleError, successfulResponse } from "../common/messages";
@@ -54,7 +55,7 @@ function describeBrevoError(error: any): string {
   const statusCode = error?.statusCode ?? error?.response?.statusCode;
   const body = error?.body ?? error?.response?.body;
   if (statusCode || body) {
-    const bodyText = typeof body === "string" ? body : body?.message ?? (body ? JSON.stringify(body) : "");
+    const bodyText = isString(body) ? body : body?.message ?? (body ? JSON.stringify(body) : "");
     return [statusCode ? `Brevo ${statusCode}` : "Brevo", bodyText].filter(Boolean).join(": ").trim();
   }
   return error?.message ?? String(error);

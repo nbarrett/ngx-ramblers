@@ -1,6 +1,7 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { range } from "es-toolkit";
+import { keys } from "es-toolkit/compat";
 import { PageChangedEvent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -187,7 +188,7 @@ export class Events implements OnInit, OnDestroy {
   }
 
   criteria() {
-    const clauses = [this.dateOrEventIdsCriteria(), ...this.tagCriteria()].filter(clause => clause && Object.keys(clause).length > 0);
+    const clauses = [this.dateOrEventIdsCriteria(), ...this.tagCriteria()].filter(clause => clause && keys(clause).length > 0);
     if (clauses.length === 0) return {};
     if (clauses.length === 1) return clauses[0];
     return {$and: clauses};
