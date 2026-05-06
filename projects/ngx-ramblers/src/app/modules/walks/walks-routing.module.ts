@@ -5,7 +5,9 @@ import { GroupEventAuthGuard } from "../../guards/group-event-auth-guard";
 import { WalksAuthGuard } from "../../guards/walks-auth-guard";
 import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard";
 import { PathSegment, RouteParam } from "../../models/content-text.model";
-import { hasTrailingEditPath, hasTrailingNewPath } from "../../services/path-matchers";
+import { hasEmailComposerPath, hasTrailingEditPath, hasTrailingNewPath } from "../../services/path-matchers";
+import { CommitteeAuthGuard } from "../../guards/committee-auth-guard";
+import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
 
 @NgModule({
   imports: [RouterModule.forChild([
@@ -86,6 +88,12 @@ import { hasTrailingEditPath, hasTrailingNewPath } from "../../services/path-mat
       loadComponent: () => import("../../pages/group-events/edit/group-event-edit")
         .then(m => m.GroupEventEdit),
       canActivate: [AreaExistsGuard, GroupEventAuthGuard]
+    },
+    {
+      matcher: hasEmailComposerPath,
+      loadComponent: () => import("../../pages/email-composer/email-composer")
+        .then(m => m.EmailComposer),
+      canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
     },
     {
       path: ":path",

@@ -1,5 +1,5 @@
 import { Member, MemberFilterSelection } from "./member.model";
-import { ListInfo, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
+import { ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
 import { ApiResponse } from "./api-response.model";
 import { GroupEventSummary, GroupEventsFilter } from "./committee.model";
 import { ExtendedGroupEvent } from "./group-event.model";
@@ -50,24 +50,17 @@ export enum BatchSendStatus {
   FAILED = "failed"
 }
 
-export enum RecipientPreFilterKey {
-  ALL_WITH_EMAIL = "all-with-email",
-  RECENTLY_ADDED = "recently-added",
-  EXPIRING_SOON = "expiring-soon",
-  WALK_LEADERS = "walk-leaders"
-}
-
 export interface RecipientPreFilter {
-  key: RecipientPreFilterKey;
+  key: MemberSelection | null;
   label: string;
   hint?: string;
 }
 
 export const RECIPIENT_PRE_FILTERS: RecipientPreFilter[] = [
-  { key: RecipientPreFilterKey.ALL_WITH_EMAIL, label: "All with email" },
-  { key: RecipientPreFilterKey.RECENTLY_ADDED, label: "Recently added" },
-  { key: RecipientPreFilterKey.EXPIRING_SOON, label: "Expiring soon" },
-  { key: RecipientPreFilterKey.WALK_LEADERS, label: "Walk leaders" }
+  { key: null, label: "All with email" },
+  { key: MemberSelection.RECENTLY_ADDED, label: "Recently added" },
+  { key: MemberSelection.EXPIRED_MEMBERS, label: "Expired members" },
+  { key: MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS, label: "Missing from last bulk load" }
 ];
 
 export interface ArticleBlockImage {
@@ -185,7 +178,7 @@ export interface EmailComposerState {
   selectedListId: number | null;
   narrowListId: number | null;
   selectedMemberIds: string[];
-  preFilterKey: RecipientPreFilterKey | null;
+  preFilterKey: MemberSelection | null;
   notificationConfig: NotificationConfig | null;
   notificationConfigListing: NotificationConfigListing | null;
   bannerId: string | null;
@@ -409,7 +402,7 @@ export function defaultEmailComposerState(): EmailComposerState {
     selectedListId: null,
     narrowListId: null,
     selectedMemberIds: [],
-    preFilterKey: RecipientPreFilterKey.ALL_WITH_EMAIL,
+    preFilterKey: null,
     notificationConfig: null,
     notificationConfigListing: null,
     bannerId: null,
@@ -443,8 +436,8 @@ export interface ComposerEmailRequestBuild {
 }
 
 export const EMAIL_COMPOSER_STEPS: EmailComposerStep[] = [
-  { key: EmailComposerStepKey.RECIPIENTS, label: "Recipients", hint: "Choose who receives this email" },
   { key: EmailComposerStepKey.TEMPLATE, label: "Sender & Template", hint: "Choose who it's from and the visual template" },
+  { key: EmailComposerStepKey.RECIPIENTS, label: "Recipients", hint: "Choose who receives this email" },
   { key: EmailComposerStepKey.COMPOSE, label: "Compose", hint: "Write the message and add article blocks" },
   { key: EmailComposerStepKey.EVENTS, label: "Events", hint: "Attach upcoming events or a single event" },
   { key: EmailComposerStepKey.REVIEW, label: "Preview & Review", hint: "Check the email before sending" },
