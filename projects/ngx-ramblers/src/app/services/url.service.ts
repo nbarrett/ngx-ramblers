@@ -340,6 +340,14 @@ export class UrlService {
     return `${this.baseUrl()}/${this.resourceRelativePathForAWSFileName(fileName)}`;
   }
 
+  absoluteUrlFor(url: string): string {
+    if (!url) return url;
+    if (this.isRemoteUrl(url) || url.startsWith("mailto:") || url.startsWith("tel:")) return url;
+    const base = this.baseUrl().replace(/\/$/, "");
+    const path = url.replace(/^\/+/, "");
+    return `${base}/${path}`;
+  }
+
   removeS3PrefixFrom(fileName: string): string {
     return fileName?.includes(S3_BASE_URL) ? fileName.replace(S3_BASE_URL, "") : fileName;
   }

@@ -29,7 +29,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
         <div class="col-sm-6">
           <div class="form-group">
             <label for="sender">Sender</label>
-            <select [(ngModel)]="notificationConfig.senderRole" (ngModelChange)="senderRoleChanged()"
+            <select [(ngModel)]="notificationConfig.senderRole" (ngModelChange)="senderRoleChanged(); rolesChanged.emit()"
               [class.is-invalid]="!notificationConfig.senderRole || !roleExists(notificationConfig.senderRole)"
               id="sender"
               class="form-control input-sm">
@@ -40,7 +40,12 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
               }
             </select>
             @if (notificationConfig.senderRole && !roleExists(notificationConfig.senderRole)) {
-              <div class="text-danger"><small>Role "{{ notificationConfig.senderRole }}" not found in committee</small></div>
+              <div class="text-danger">
+                <small>
+                  Role "{{ notificationConfig.senderRole }}" not found in committee
+                  - <a style="cursor: pointer" (click)="clearSenderRole()">fix it for me</a>
+                </small>
+              </div>
             }
           </div>
         </div>
@@ -49,7 +54,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
               <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
                 [label]="'BCC Roles'"
                 [roles]="notificationConfig.bccRoles"
-                (rolesChange)="this.notificationConfig.bccRoles = $event.roles;"/>
+                (rolesChange)="this.notificationConfig.bccRoles = $event.roles; rolesChanged.emit()"/>
           </div>
         }
         <div class="col-sm-6">
@@ -57,6 +62,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
             <label for="reply-to">Reply To</label>
             @if (notificationConfig) {
               <select [(ngModel)]="notificationConfig.replyToRole"
+                (ngModelChange)="rolesChanged.emit()"
                 [class.is-invalid]="!notificationConfig.replyToRole || !roleExists(notificationConfig.replyToRole)"
                 id="reply-to"
                 class="form-control input-sm">
@@ -67,7 +73,12 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
                 }
               </select>
               @if (notificationConfig.replyToRole && !roleExists(notificationConfig.replyToRole)) {
-                <div class="text-danger"><small>Role "{{ notificationConfig.replyToRole }}" not found in committee</small></div>
+                <div class="text-danger">
+                  <small>
+                    Role "{{ notificationConfig.replyToRole }}" not found in committee
+                    - <a style="cursor: pointer" (click)="clearReplyToRole()">fix it for me</a>
+                  </small>
+                </div>
               }
             }
           </div>
@@ -76,13 +87,16 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
           <div class="col-sm-6">
               <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
                 [label]="'Sign Off Email With Roles'"
-                [roles]="notificationConfig.signOffRoles"
-                (rolesChange)="this.notificationConfig.signOffRoles = $event.roles;"/>
+                [roles]="effectiveSignOffRoles()"
+                (rolesChange)="onSignOffRolesUpdated($event.roles)"/>
               @if (invalidSignOffRoles().length > 0) {
                 <div class="text-danger">
-                  @for (role of invalidSignOffRoles(); track role) {
-                    <small>Sign-off role "{{ role }}" not found in committee</small>
-                  }
+                  <small>
+                    @for (role of invalidSignOffRoles(); track role; let last = $last) {
+                      Sign-off role "{{ role }}" not found in committee@if (!last) { <span>; </span> }
+                    }
+                    - <a style="cursor: pointer" (click)="removeInvalidSignOffRoles()">fix it for me</a>
+                  </small>
                 </div>
               }
           </div>
@@ -115,6 +129,9 @@ export class SenderRepliesAndSignoff implements OnInit {
   public omitBcc: boolean;
   public allowSelectAllAsMe: boolean;
   @Output() senderExists: EventEmitter<boolean> = new EventEmitter();
+  @Output() rolesChanged: EventEmitter<void> = new EventEmitter();
+  @Input() signOffRolesOverride: string[] | null = null;
+  @Output() signOffRolesOverrideChange: EventEmitter<string[]> = new EventEmitter();
   private memberLoginService = inject(MemberLoginService);
 
   private notificationConfigInternal: NotificationConfig;
@@ -145,8 +162,99 @@ export class SenderRepliesAndSignoff implements OnInit {
   }
 
   invalidSignOffRoles(): string[] {
-    if (!this.notificationConfig?.signOffRoles || !this.mailMessagingConfig?.committeeReferenceData) return [];
-    return this.notificationConfig.signOffRoles.filter(role => !this.roleExists(role));
+    const source = this.signOffRolesSource();
+    if (!source || !this.mailMessagingConfig?.committeeReferenceData) return [];
+    return source.filter(role => !this.roleExists(role));
+  }
+
+  effectiveSignOffRoles(): string[] {
+    const source = this.signOffRolesSource() ?? [];
+    return this.overrideMode() ? this.stripVacantRoles(source) : source;
+  }
+
+  onSignOffRolesUpdated(roles: string[]): void {
+    const next = this.overrideMode() ? this.stripVacantRoles(roles ?? []) : (roles ?? []);
+    this.assignSignOffRoles(next);
+    this.rolesChanged.emit();
+  }
+
+  private overrideMode(): boolean {
+    return this.signOffRolesOverride !== null && this.signOffRolesOverride !== undefined;
+  }
+
+  private signOffRolesSource(): string[] | null {
+    if (this.signOffRolesOverride !== null && this.signOffRolesOverride !== undefined) {
+      return this.signOffRolesOverride;
+    }
+    return this.notificationConfig?.signOffRoles ?? null;
+  }
+
+  private assignSignOffRoles(roles: string[]): void {
+    if (this.signOffRolesOverride !== null && this.signOffRolesOverride !== undefined) {
+      this.signOffRolesOverride = roles;
+      this.signOffRolesOverrideChange.emit(roles);
+    } else if (this.notificationConfig) {
+      this.notificationConfig.signOffRoles = roles;
+    }
+  }
+
+  private stripVacantRoles(roles: string[]): string[] {
+    if (!roles?.length) return [];
+    const committeeMembers = this.mailMessagingConfig?.committeeReferenceData?.committeeMembers() ?? [];
+    return roles.filter(role => {
+      const member = committeeMembers.find(candidate => candidate.type === role);
+      if (!member) return true;
+      return this.isAssignableRole(member);
+    });
+  }
+
+  clearSenderRole(): void {
+    if (!this.notificationConfig) return;
+    this.notificationConfig.senderRole = this.bestRoleMatch(this.notificationConfig.senderRole);
+    this.senderRoleChanged();
+    this.rolesChanged.emit();
+  }
+
+  clearReplyToRole(): void {
+    if (!this.notificationConfig) return;
+    this.notificationConfig.replyToRole = this.bestRoleMatch(this.notificationConfig.replyToRole);
+    this.rolesChanged.emit();
+  }
+
+  private bestRoleMatch(badRole: string): string {
+    const committeeMembers = this.mailMessagingConfig?.committeeReferenceData?.committeeMembers() ?? [];
+    const needle = (badRole || "").toLowerCase().trim();
+    if (needle) {
+      const typeMatch = committeeMembers.find(member => {
+        const type = member.type?.toLowerCase() ?? "";
+        return type && (type.includes(needle) || needle.includes(type));
+      });
+      if (typeMatch) return typeMatch.type;
+      const descriptionMatch = committeeMembers.find(member => {
+        const description = member.description?.toLowerCase() ?? "";
+        return description && (description.includes(needle) || needle.includes(description));
+      });
+      if (descriptionMatch) return descriptionMatch.type;
+    }
+    return committeeMembers.find(member => this.isAssignableRole(member))?.type
+      ?? committeeMembers[0]?.type
+      ?? "";
+  }
+
+  removeInvalidSignOffRoles(): void {
+    const source = this.signOffRolesSource();
+    if (!source) return;
+    const replaced = source
+      .map(role => this.roleExists(role) ? role : this.bestRoleMatch(role))
+      .filter(role => !!role);
+    const seen = new Set<string>();
+    const deduped = replaced.filter(role => {
+      if (seen.has(role)) return false;
+      seen.add(role);
+      return true;
+    });
+    this.assignSignOffRoles(this.overrideMode() ? this.stripVacantRoles(deduped) : deduped);
+    this.rolesChanged.emit();
   }
 
   private handleNotificationConfigChange() {
@@ -169,9 +277,10 @@ export class SenderRepliesAndSignoff implements OnInit {
     this.notificationConfig.senderRole = primaryRole;
     this.notificationConfig.replyToRole = primaryRole;
     if (!this.omitSignOff) {
-      this.notificationConfig.signOffRoles = roles;
+      this.assignSignOffRoles(this.overrideMode() ? this.stripVacantRoles(roles) : roles);
     }
     this.senderRoleChanged();
+    this.rolesChanged.emit();
   }
 
   private rolesForLoggedInMember(): string[] {

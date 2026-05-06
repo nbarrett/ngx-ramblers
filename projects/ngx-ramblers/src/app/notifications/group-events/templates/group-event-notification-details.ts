@@ -77,7 +77,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                 </td>
               </tr>
             }
-            @if (latestNotification?.content?.replyTo.include) {
+            @if (latestNotification?.content?.replyTo.include && replyTo()?.email) {
               <tr>
                 <td style="border:1px solid lightgrey; font-weight: bold; padding: 6px">Send email replies to:</td>
                 <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
@@ -103,12 +103,6 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                 </td>
               </tr>
             }
-            <tr>
-              <td style="border:1px solid lightgrey; font-weight: bold; padding: 6px">View Event On Website:</td>
-              <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-                <app-link [area]="pageService.groupEventPage()?.href" id="{{stringUtils.lastItemFrom(groupEvent?.groupEvent?.url)}}" text="click here"></app-link>
-              </td>
-            </tr>
           </table>
         </div>
       }

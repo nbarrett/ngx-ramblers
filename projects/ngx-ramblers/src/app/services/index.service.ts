@@ -172,7 +172,7 @@ export class IndexService {
     for (const pageContentToRowsItem of pageContentToRows) {
       for (const row of pageContentToRowsItem.rows) {
         const href = pageContentToRowsItem.pageContent.path;
-        const title = this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(href)));
+        const title = this.stringUtils.asPathSegmentTitle(last(this.urlService.pathSegmentsForUrl(href)));
         const contentMetadata: ContentMetadata = albumMetadata.find(metadata => metadata.name === row.carousel.name);
         const coverImage = contentMetadata?.coverImage;
         const firstFile = first(contentMetadata?.files);
@@ -462,7 +462,7 @@ export class IndexService {
       }
 
       const titles = childCarouselRows.map(cr =>
-        cr.carousel?.title || this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(cr.pagePath)))
+        cr.carousel?.title || this.stringUtils.asPathSegmentTitle(last(this.urlService.pathSegmentsForUrl(cr.pagePath)))
       );
       const sortedTitles = this.sortColumns(titles.map(t => ({title: t}) as PageContentColumn), sortConfig).map(c => c.title);
       const contentText = this.summarizeTitles(sortedTitles) || column.contentText;
@@ -623,7 +623,7 @@ export class IndexService {
     const sortable = pages.map(page => {
       const carouselRow = (page.rows || []).find(r => this.actions.isCarouselOrAlbum(r));
       return {
-        title: carouselRow?.carousel?.title || this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(page.path))),
+        title: carouselRow?.carousel?.title || this.stringUtils.asPathSegmentTitle(last(this.urlService.pathSegmentsForUrl(page.path))),
         href: page.path,
         createdAt: carouselRow?.carousel?.createdAt
       } as PageContentColumn;

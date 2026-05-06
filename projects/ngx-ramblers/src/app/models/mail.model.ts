@@ -27,6 +27,8 @@ export interface NotificationConfigListing {
   includeWorkflowRelatedConfigs?: boolean;
   includeMemberSelections?: MemberSelection[];
   excludeMemberSelections?: MemberSelection[];
+  excludeConfigsWithPreSendActions?: boolean;
+  forceIncludeConfigIds?: string[];
 }
 
 export interface NotificationConfig extends Auditable, Identifiable {
@@ -47,6 +49,7 @@ export interface NotificationConfig extends Auditable, Identifiable {
   contentPreset?: string;
   help?: string;
   templateOverrides?: Record<string, string>;
+  defaultListing?: boolean;
 }
 
 export enum MemberSelection {
@@ -154,10 +157,11 @@ export interface SendSmtpEmailParams {
 
 export interface MessageMergeFields {
   subject: string;
-  SIGNOFF_NAMES: string;
   BANNER_IMAGE_SOURCE: string;
   ADDRESS_LINE: string;
   BODY_CONTENT?: string;
+  BODY_CONTENT_TOP?: string;
+  BODY_CONTENT_BOTTOM?: string;
   ACCENT_COLOR?: string;
 }
 

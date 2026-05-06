@@ -9,7 +9,7 @@ import { NamedEventType } from "../../../models/broadcast.model";
 import { CommitteeDocumentsData, PageContent, PageContentRow, PathSegment } from "../../../models/content-text.model";
 import { SortDirection } from "../../../models/sort.model";
 import { FALLBACK_MEDIA } from "../../../models/walk.model";
-import { ConfirmType } from "../../../models/ui-actions";
+import { ConfirmType, StoredValue } from "../../../models/ui-actions";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { CommitteeFileService } from "../../../services/committee/committee-file.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -353,9 +353,9 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
 
   sendNotification(committeeFile: CommitteeFile) {
     const slug = this.display.committeeFileSlug(committeeFile);
-    this.urlService.navigateTo([this.urlService.area(), PathSegment.SEND_NOTIFICATION], {
-      "committee-file": slug,
-      "source-page": this.urlService.urlPath()
+    this.urlService.navigateTo([...this.urlService.pathSegments(), PathSegment.EMAIL_COMPOSER], {
+      [StoredValue.EMAIL_COMMITTEE_FILE]: slug,
+      [StoredValue.EMAIL_SOURCE_PAGE]: this.urlService.urlPath()
     });
   }
 

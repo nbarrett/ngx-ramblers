@@ -12,7 +12,7 @@ import { faList, faTrash, faWarning } from "@fortawesome/free-solid-svg-icons";
 import { FormsModule, ReactiveFormsModule } from "@angular/forms";
 import { UiSwitchModule } from "ngx-ui-switch";
 import { PageContentService } from "../../../services/page-content.service";
-import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
+import { SiteLinkInputComponent } from "../../../modules/common/site-link-input/site-link-input";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -88,13 +88,9 @@ import { PageContentViewMode } from "../../../models/page-content-navigator.mode
                   </div>
                   <div class="col-auto flex-grow-1">
                     <form>
-                      <input id="move-or-copy-to-path"
-                             [typeahead]="pageContentService.siteLinks"
-                             name="destinationPath"
-                             autocomplete="nope"
-                             [typeaheadMinLength]="0"
-                             [(ngModel)]="content.path"
-                             type="text" class="form-control">
+                      <app-site-link-input inputId="move-or-copy-to-path"
+                                           [value]="content.path"
+                                           (valueChange)="content.path = $event"/>
                     </form>
                   </div>
                   <div class="col-auto">
@@ -146,7 +142,7 @@ import { PageContentViewMode } from "../../../models/page-content-navigator.mode
     FormsModule,
     ReactiveFormsModule,
     UiSwitchModule,
-    TypeaheadDirective,
+    SiteLinkInputComponent,
     AlertComponent,
     VisibilityObserverDirective
   ]

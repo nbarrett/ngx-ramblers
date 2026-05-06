@@ -10,10 +10,7 @@ import { NgSelectComponent } from "@ng-select/ng-select";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { CommitteeDocumentsRow } from "../committee-documents/committee-documents-row";
-import { CommitteeFileService } from "../../../services/committee/committee-file.service";
-import { CommitteeDisplayService } from "../../../pages/committee/committee-display.service";
-import { CommitteeFile } from "../../../models/committee.model";
-import { sortBy } from "../../../functions/arrays";
+import { CommitteeFileMultiSelectComponent } from "../committee-file-multi-select/committee-file-multi-select";
 import { ImageActionsDropdownComponent } from "./image-actions-dropdown";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
 import { AwsFileData } from "../../../models/aws-object.model";
@@ -42,18 +39,10 @@ import { UrlService } from "../../../services/url.service";
             <label [for]="'file-select-' + id">Committee Files
               ({{ row.committeeDocuments.fileIds?.length || 0 }} selected)
             </label>
-            <ng-select [id]="'file-select-' + id"
-                       [items]="availableFiles"
-                       [multiple]="true"
-                       [searchable]="true"
-                       [clearable]="true"
-                       dropdownPosition="bottom"
-                       bindLabel="label"
-                       bindValue="id"
-                       placeholder="Select committee files to display..."
-                       (ngModelChange)="fileIdsChanged($event)"
-                       [ngModel]="row.committeeDocuments.fileIds">
-            </ng-select>
+            <app-committee-file-multi-select [inputId]="'file-select-' + id"
+                                             placeholder="Select committee files to display..."
+                                             [value]="row.committeeDocuments.fileIds ?? []"
+                                             (valueChange)="fileIdsChanged($event)"/>
           </div>
         </div>
         <div class="col-md-3">
@@ -129,14 +118,12 @@ import { UrlService } from "../../../services/url.service";
       </div>
     }
     <app-committee-documents-row [row]="row" [rowIndex]="rowIndex"/>`,
-  imports: [FormsModule, NgSelectComponent, CommitteeDocumentsRow, ImageActionsDropdownComponent, ImageCropperAndResizerComponent]
+  imports: [FormsModule, NgSelectComponent, CommitteeDocumentsRow, ImageActionsDropdownComponent, ImageCropperAndResizerComponent, CommitteeFileMultiSelectComponent]
 })
 export class DynamicContentSiteEditCommitteeDocuments implements OnInit {
   public actions: PageContentActionsService = inject(PageContentActionsService);
   private numberUtils: NumberUtilsService = inject(NumberUtilsService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
-  private committeeFileService = inject(CommitteeFileService);
-  private display = inject(CommitteeDisplayService);
   private urlService = inject(UrlService);
   protected logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditCommitteeDocuments", NgxLoggerLevel.ERROR);
 
@@ -144,7 +131,6 @@ export class DynamicContentSiteEditCommitteeDocuments implements OnInit {
   @Input() rowIndex: number;
   id: string;
   editImageActive = false;
-  public availableFiles: { id: string; label: string }[] = [];
   sortDirectionValues: { value: SortDirection; title: string }[] = [
     {value: SortDirection.ASC, title: "Ascending"},
     {value: SortDirection.DESC, title: "Descending"}
@@ -153,15 +139,6 @@ export class DynamicContentSiteEditCommitteeDocuments implements OnInit {
   ngOnInit() {
     this.initialiseRowForCommitteeDocuments(this.row);
     this.id = this.numberUtils.generateUid();
-    this.committeeFileService.all().then((files: CommitteeFile[]) => {
-      this.availableFiles = files
-        .sort(sortBy("-eventDate"))
-        .map(file => ({
-          id: file.id,
-          label: `${file.fileType} - ${this.display.fileTitle(file)}`
-        }));
-      this.logger.info("availableFiles:", this.availableFiles.length);
-    });
   }
 
   broadcastChange(): void {

@@ -1,9 +1,8 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { cloneDeep } from "es-toolkit/compat";
-import { extend } from "es-toolkit/compat";
 import { sortBy } from "es-toolkit/compat";
 import { isNull } from "es-toolkit/compat";
-import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
+import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
@@ -29,7 +28,6 @@ import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-modal.component";
 import { ProfileService } from "../profile/profile.service";
-import { SendEmailsModalComponent } from "../send-emails/send-emails-modal.component";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
@@ -57,6 +55,8 @@ import { DisplayDateNoDayPipe } from "../../../pipes/display-date-no-day.pipe";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { ActivatedRoute, Router } from "@angular/router";
+import { UrlService } from "../../../services/url.service";
+import { PathSegment } from "../../../models/content-text.model";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { MemberTerm } from "../../../models/member.model";
 
@@ -93,6 +93,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private searchChangeObservable: Subject<string> = new Subject<string>();
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private urlService = inject(UrlService);
   private uiActionsService: UiActionsService = inject(UiActionsService);
   private clipboardService = inject(ClipboardService);
   public mailchimpConfig: MailchimpConfig;
@@ -392,26 +393,10 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
 
   showSendEmailsDialog() {
     this.notify.hide();
-    this.modalService.show(SendEmailsModalComponent, this.createModalOptions());
+    void this.urlService.navigateTo([...this.urlService.pathSegments(), PathSegment.EMAIL_COMPOSER]);
   }
 
-  private createModalOptions(initialState?: any): ModalOptions {
-    return {
-      class: "modal-xl",
-      animated: false,
-      backdrop: "static",
-      ignoreBackdropClick: false,
-      keyboard: true,
-      focus: true,
-      show: true,
-      initialState: extend({
-        latestMemberBulkLoadAudit: this.latestMemberBulkLoadAudit,
-        members: this.members
-      }, initialState)
-    };
-  }
-
-  applySortTo(field: string, filterSource: MemberTableFilter) {
+applySortTo(field: string, filterSource: MemberTableFilter) {
     this.logger.off("sorting by field", field, "current value of filterSource", filterSource);
     filterSource.sortField = field;
     filterSource.sortFunction = this.deriveSortFunction(field);

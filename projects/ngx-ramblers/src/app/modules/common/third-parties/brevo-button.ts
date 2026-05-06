@@ -6,6 +6,7 @@ import { ButtonWrapper } from "./button-wrapper";
 import { BrevoDropdownItem } from "../../../models/brevo-dropdown.model";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { NgClass } from "@angular/common";
+import { DockedTo } from "../../../models/docking.model";
 
 @Component({
     selector: "app-brevo-button",
@@ -31,7 +32,7 @@ import { NgClass } from "@angular/common";
     <div class="brevo-dropdown" [ngClass]="{'d-inline-block': dropdownItems?.length, 'dropdown-active': dropdownItems?.length}" dropdown [isDisabled]="disabled || loading">
       @if (dropdownItems?.length) {
         <div dropdownToggle>
-          <app-button-wrapper [disabled]="disabled" [loading]="loading" [button]="button" [showTooltip]="showTooltip" [title]="title">
+          <app-button-wrapper [disabled]="disabled" [loading]="loading" [button]="button" [showTooltip]="showTooltip" [title]="title" [dockedTo]="dockedTo">
             <img title class="image"
                  src="/assets/images/local/brevo.ico"
                  alt="{{title}}"/>
@@ -66,6 +67,7 @@ export class BrevoButtonComponent implements OnInit {
   public showTooltip: boolean;
   public title: string;
   public dropdownItems: BrevoDropdownItem[] = [];
+  @Input() dockedTo: DockedTo | null = null;
 
   @Input("title") set titleValue(value: string) {
     this.title = value;

@@ -19,6 +19,19 @@ export function hasDynamicPath(urlSegments: UrlSegment[]): UrlMatchResult {
   return returnMatch(urlSegments.length > 0, urlSegments);
 }
 
+export function hasEmailComposerPath(urlSegments: UrlSegment[]): UrlMatchResult {
+  if (urlSegments.length >= 1 && last(urlSegments).path === PathSegment.EMAIL_COMPOSER) {
+    return {
+      consumed: urlSegments,
+      posParams: urlSegments.length >= 2 ? {
+        [RouteParam.AREA]: urlSegments[urlSegments.length - 2]
+      } : {}
+    };
+  } else {
+    return null;
+  }
+}
+
 export function hasDynamicPathAndNonNumericLastPathSegment(urlSegments: UrlSegment[]): UrlMatchResult {
   const firstMatch = returnMatch(urlSegments.length > 0, urlSegments);
   if (firstMatch?.consumed && !hasNumericLastPathSegment(urlSegments)?.consumed) {

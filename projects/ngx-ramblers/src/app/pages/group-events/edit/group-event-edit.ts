@@ -3,8 +3,9 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faCopy, faEye, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep, first, isNull, isString } from "es-toolkit/compat";
 import { PathSegment } from "../../../models/content-text.model";
+import { StoredValue } from "../../../models/ui-actions";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
-import { BsModalService } from "ngx-bootstrap/modal";
+import { Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -18,9 +19,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
-import { GroupEventSendNotificationModal } from "../send-notification/group-event-send-notification-modal";
 import { GroupEventDisplayService } from "../group-event-display.service";
-import { PageService } from "../../../services/page.service";
 import { PageComponent } from "../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FormsModule } from "@angular/forms";
@@ -447,11 +446,10 @@ export class GroupEventEdit implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("GroupEventEdit", NgxLoggerLevel.ERROR);
   private fileUploadService = inject(FileUploadService);
-  private pageService = inject(PageService);
   display = inject(GroupEventDisplayService);
   private notifierService = inject(NotifierService);
   private memberService = inject(MemberService);
-  private modalService = inject(BsModalService);
+  private router = inject(Router);
   googleMapsService = inject(GoogleMapsService);
   private walksAndEventsService = inject(WalksAndEventsService);
   protected eventsMigrationService = inject(EventsMigrationService);
@@ -745,13 +743,10 @@ export class GroupEventEdit implements OnInit, OnDestroy {
   }
 
   sendGroupEventNotification() {
-    this.modalService.show(GroupEventSendNotificationModal, this.display.createModalOptions({
-      memberFilterSelections: this.display.memberFilterSelections,
-      groupEvent: this.groupEvent,
-      allow: this.display.allow,
-      confirm: this.display.confirm
-    }));
-    this.close();
+    const segments = this.urlService.pathSegments();
+    const lastSegment = segments[segments.length - 1];
+    const viewSegments = lastSegment === PathSegment.EDIT ? segments.slice(0, -1) : segments;
+    void this.urlService.navigateTo([...viewSegments, PathSegment.EMAIL_COMPOSER], { [StoredValue.EMAIL_EVENT]: this.groupEvent?.id });
   }
 
   inputDisabled() {

@@ -59,11 +59,11 @@ export class PageService {
   }
 
   public subtitleFrom(lastPathSegment: string) {
-    return this.stringUtils.asTitle(this.stringUtils.asWords(lastPathSegment));
+    return this.stringUtils.asPathSegmentTitle(lastPathSegment);
   }
 
   public titleFromPath(path: string): string {
-    return (path || "").split("/").filter(segment => segment.length > 0).map(segment => this.stringUtils.asTitle(this.stringUtils.asWords(segment))).join(" / ");
+    return (path || "").split("/").filter(segment => segment.length > 0).map(segment => this.stringUtils.asPathSegmentTitle(segment)).join(" / ");
   }
 
   contentDescription(anchor?: string): string {

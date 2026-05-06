@@ -47,8 +47,11 @@ export class MemberService {
     select: {
       committee: 1,
       contactId: 1,
+      createdDate: 1,
       displayName: 1,
       email: 1,
+      emailBlock: 1,
+      emailMarketingConsent: 1,
       fileAdmin: 1,
       financeAdmin: 1,
       firstName: 1,
@@ -57,10 +60,12 @@ export class MemberService {
       lastName: 1,
       mail: 1,
       mailchimpLists: 1,
+      membershipExpiryDate: 1,
       mobileNumber: 1,
       nameAlias: 1,
       socialMember: 1,
       treasuryAdmin: 1,
+      walkAdmin: 1,
       walkChangeNotifications: 1,
     }
   };

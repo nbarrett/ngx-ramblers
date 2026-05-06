@@ -352,22 +352,26 @@ h3 small
   margin-top: 1rem
   margin-bottom: 1rem
 
-.input-group .input-group-text:first-child
+// Restricted to direct children only (`>`) so the rules apply to plain
+// .btn / .input-group-text nodes inside an input-group, not to btns nested
+// inside wrapper components like app-brevo-button or app-button-wrapper.
+// Wrapper-component docking is handled in buttons.sass.
+.input-group > .input-group-text:first-child
   border-top-right-radius: 0 !important
   border-bottom-right-radius: 0 !important
 
-.input-group .btn:last-child
+.input-group > .btn:last-child
   border-top-left-radius: 0 !important
   border-bottom-left-radius: 0 !important
 
-.input-group .btn:first-child
+.input-group > .btn:first-child
   border-top-right-radius: 0 !important
   border-bottom-right-radius: 0 !important
 
-.input-group .btn:not(:first-child):not(:last-child)
+.input-group > .btn:not(:first-child):not(:last-child)
   border-radius: 0 !important
 
-.input-group .input-group-text:last-child
+.input-group > .input-group-text:last-child
   border-top-left-radius: 0 !important
   border-bottom-left-radius: 0 !important
 
@@ -379,7 +383,9 @@ h3 small
 .modal-header .close
   margin-left: auto !important
 
-.input-group .btn
+// Direct-child only - wrapper-nested btns (BrevoButton / ButtonWrapper) keep
+// their own sizing (`px-3 py-2` via the wrapper).
+.input-group > .btn
   min-width: 38px
   height: 38px
   padding: 0
@@ -387,7 +393,7 @@ h3 small
   align-items: center
   justify-content: center
 
-.input-group .form-control
+.input-group > .form-control
   height: 38px
 
 .input-group .input-group-text

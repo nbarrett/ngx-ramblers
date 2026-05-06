@@ -39,6 +39,7 @@ import {
   TemplateRenderResponse,
   TemplateDiffRequest,
   TemplateDiffResponse,
+  TemplateResponse,
   TemplateOptions,
   SnapshotTemplatesRequest,
   SnapshotTemplatesResponse,
@@ -184,6 +185,11 @@ export class MailService {
   async queryTemplates(templateOptions?: TemplateOptions): Promise<MailTemplates> {
     this.logger.info("template list templateOptions:", templateOptions);
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates`, templateOptions))).response;
+  }
+
+  async queryTemplateContent(templateId: number): Promise<TemplateResponse> {
+    this.logger.info("queryTemplateContent:", templateId);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/templates/${templateId}/content`))).response;
   }
 
   async querySegments(): Promise<MailTemplates> {

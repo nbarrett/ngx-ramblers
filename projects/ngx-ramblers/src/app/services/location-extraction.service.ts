@@ -50,7 +50,7 @@ export class LocationExtractionService {
       }
 
       if (!title) {
-        title = this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(href)));
+        title = this.stringUtils.asPathSegmentTitle(last(this.urlService.pathSegmentsForUrl(href)));
       }
 
       this.logger.info("Page:", title, "- location:", location ? "found" : "missing", "- imageSource:", imageSource);
