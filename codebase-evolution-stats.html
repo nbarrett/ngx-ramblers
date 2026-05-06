@@ -38,17 +38,17 @@
         }
 
         [data-theme="dark"] {
-            --bg-primary: #1a1a2e;
-            --bg-secondary: #16213e;
-            --bg-card: rgba(255,255,255,0.05);
-            --text-primary: #ffffff;
-            --text-secondary: #aaaaaa;
-            --text-muted: #888888;
-            --border-color: rgba(255,255,255,0.1);
-            --shadow: rgba(0,0,0,0.3);
-            --shadow-hover: rgba(0,217,255,0.2);
-            --accent: #00d9ff;
-            --accent-secondary: #00ff88;
+            --bg-primary: #18181b;
+            --bg-secondary: #27272a;
+            --bg-card: #27272a;
+            --text-primary: #fafafa;
+            --text-secondary: #d4d4d8;
+            --text-muted: #a1a1aa;
+            --border-color: #3f3f46;
+            --shadow: rgba(0,0,0,0.5);
+            --shadow-hover: rgba(0,0,0,0.7);
+            --accent: #fbbf24;
+            --accent-secondary: #34d399;
         }
         * {
             margin: 0;
@@ -68,6 +68,10 @@
             position: sticky;
             top: 0;
             z-index: 100;
+        }
+        [data-theme="dark"] .header {
+            background: #0a0a0c;
+            border-bottom: 1px solid #27272a;
         }
         .header-inner {
             display: flex;
@@ -103,6 +107,13 @@
         }
         .header-link:hover {
             background: var(--ramblers-sunrise-hover);
+        }
+        [data-theme="dark"] .header-link {
+            background: #fbbf24;
+            color: #18181b;
+        }
+        [data-theme="dark"] .header-link:hover {
+            background: #f59e0b;
         }
         .theme-toggle {
             background: rgba(255,255,255,0.08);
@@ -301,6 +312,9 @@
         .repo-card.angularjs::before { background: #dd1b16; }
         .repo-card.angular::before { background: #dd0031; }
         .repo-card.modern::before { background: var(--ramblers-mintcake); }
+        [data-theme="dark"] .repo-card.angularjs::before { background: #f87171; }
+        [data-theme="dark"] .repo-card.angular::before { background: #fb7185; }
+        [data-theme="dark"] .repo-card.modern::before { background: #34d399; }
         .repo-name {
             font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
             font-size: 1rem;
@@ -357,12 +371,15 @@
         .timeline-items::before {
             content: '';
             position: absolute;
-            left: 8px;
+            left: 9px;
             top: 0;
             bottom: 0;
-            width: 3px;
-            background: linear-gradient(180deg, #dd1b16, #dd0031, var(--ramblers-mintcake));
+            width: 4px;
+            background: linear-gradient(180deg, var(--ramblers-mintcake), #dd0031, #dd1b16);
             border-radius: 3px;
+        }
+        [data-theme="dark"] .timeline-items::before {
+            background: linear-gradient(180deg, #34d399, #fb7185, #f87171);
         }
         .timeline-item {
             position: relative;
@@ -386,6 +403,8 @@
         .timeline-item.angularjs::before { background: #dd1b16; }
         .timeline-item.angular::before { background: #dd0031; }
         .timeline-item.modern::before { background: var(--accent-secondary); }
+        [data-theme="dark"] .timeline-item.angularjs::before { background: #f87171; }
+        [data-theme="dark"] .timeline-item.angular::before { background: #fb7185; }
         .timeline-year {
             font-weight: 700;
             color: var(--text-primary);
@@ -404,12 +423,15 @@
         .growth-badge {
             display: inline-block;
             background: var(--accent);
-            color: #1a1a2e;
+            color: var(--ramblers-black);
             padding: 3px 10px;
             border-radius: 12px;
             font-weight: 700;
             font-size: 0.75rem;
             margin-left: 8px;
+        }
+        [data-theme="dark"] .growth-badge {
+            color: #18181b;
         }
         .insights-grid {
             display: grid;
@@ -507,19 +529,19 @@
 
         <div class="stats-hero">
             <div class="stat-card">
-                <div class="stat-value highlight">128,584</div>
+                <div class="stat-value highlight">190,611</div>
                 <div class="stat-label">Lines of Code</div>
-                <div class="stat-detail">January 2026</div>
+                <div class="stat-detail">May 2026</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">1,530</div>
+                <div class="stat-value">1,719</div>
                 <div class="stat-label">Total Commits</div>
                 <div class="stat-detail">Across all repos</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">961</div>
+                <div class="stat-value">1,307</div>
                 <div class="stat-label">TypeScript Files</div>
-                <div class="stat-detail">118,178 LOC</div>
+                <div class="stat-detail">190,611 LOC</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value highlight">13</div>
@@ -581,11 +603,11 @@
                     <div class="repo-period">Aug 2023 - Present</div>
                     <div class="repo-stats">
                         <div class="repo-stat">
-                            <div class="repo-stat-value">345</div>
+                            <div class="repo-stat-value">534</div>
                             <div class="repo-stat-label">Commits</div>
                         </div>
                         <div class="repo-stat">
-                            <div class="repo-stat-value">129K</div>
+                            <div class="repo-stat-value">191K</div>
                             <div class="repo-stat-label">Current LOC</div>
                         </div>
                     </div>
@@ -645,30 +667,15 @@
         <div class="section">
             <h3>Project Timeline</h3>
             <div class="timeline-items">
-                <div class="timeline-item angularjs">
-                    <div class="timeline-year">December 2013</div>
-                    <div class="timeline-title">Project Genesis <span class="growth-badge">ekwg</span></div>
-                    <div class="timeline-desc">Initial commit on December 13, 2013. East Kent Walking Group website built with AngularJS 1.x, vanilla JavaScript, and CSS.</div>
-                </div>
-                <div class="timeline-item angularjs">
-                    <div class="timeline-year">2014 - 2018</div>
-                    <div class="timeline-title">AngularJS Growth <span class="growth-badge">~21,000 LOC</span></div>
-                    <div class="timeline-desc">Five years of feature development. Peak activity in 2014 (370 commits). Added member management, photo albums, and social features.</div>
-                </div>
-                <div class="timeline-item angular">
-                    <div class="timeline-year">May 2019</div>
-                    <div class="timeline-title">Angular Migration <span class="growth-badge">ng-ekwg</span></div>
-                    <div class="timeline-desc">Migration from AngularJS to modern Angular with TypeScript. Hybrid approach during transition.</div>
-                </div>
-                <div class="timeline-item angular">
-                    <div class="timeline-year">2022</div>
-                    <div class="timeline-title">Angular 7/14 Complete <span class="growth-badge">41,223 LOC</span></div>
-                    <div class="timeline-desc">Full migration to Angular 7/14 with TypeScript and Sass. Serenity-js E2E testing integrated.</div>
+                <div class="timeline-item modern">
+                    <div class="timeline-year">May 2026</div>
+                    <div class="timeline-title">Salesforce + Email Composer Push <span class="growth-badge">190,611 LOC</span></div>
+                    <div class="timeline-desc">197 commits already in 2026 (matching the entire 2025 total in the first five months). Server doubled again to 58K lines on the back of the Salesforce API and email-composer work.</div>
                 </div>
                 <div class="timeline-item modern">
-                    <div class="timeline-year">August 2023</div>
-                    <div class="timeline-title">Ramblers Rebrand <span class="growth-badge">ngx-ramblers</span></div>
-                    <div class="timeline-desc">New repository for rebranded application with Angular 17+ and full-stack TypeScript migration.</div>
+                    <div class="timeline-year">March 2026</div>
+                    <div class="timeline-title">Node 24 LTS Baseline <span class="growth-badge">Platform</span></div>
+                    <div class="timeline-desc">Development, CI workflows, and container builds aligned on Node 24 LTS to keep the monorepo on the current supported runtime track.</div>
                 </div>
                 <div class="timeline-item modern">
                     <div class="timeline-year">January 2026</div>
@@ -676,9 +683,29 @@
                     <div class="timeline-desc">197 commits in 2025. Full TypeScript across client (98K) and server (29K). Server grew 5x since July 2024.</div>
                 </div>
                 <div class="timeline-item modern">
-                    <div class="timeline-year">March 2026</div>
-                    <div class="timeline-title">Node 24 LTS Baseline <span class="growth-badge">Platform</span></div>
-                    <div class="timeline-desc">Development, CI workflows, and container builds aligned on Node 24 LTS to keep the monorepo on the current supported runtime track.</div>
+                    <div class="timeline-year">August 2023</div>
+                    <div class="timeline-title">Ramblers Rebrand <span class="growth-badge">ngx-ramblers</span></div>
+                    <div class="timeline-desc">New repository for rebranded application with Angular 17+ and full-stack TypeScript migration.</div>
+                </div>
+                <div class="timeline-item angular">
+                    <div class="timeline-year">2022</div>
+                    <div class="timeline-title">Angular 7/14 Complete <span class="growth-badge">41,223 LOC</span></div>
+                    <div class="timeline-desc">Full migration to Angular 7/14 with TypeScript and Sass. Serenity-js E2E testing integrated.</div>
+                </div>
+                <div class="timeline-item angular">
+                    <div class="timeline-year">May 2019</div>
+                    <div class="timeline-title">Angular Migration <span class="growth-badge">ng-ekwg</span></div>
+                    <div class="timeline-desc">Migration from AngularJS to modern Angular with TypeScript. Hybrid approach during transition.</div>
+                </div>
+                <div class="timeline-item angularjs">
+                    <div class="timeline-year">2014 - 2018</div>
+                    <div class="timeline-title">AngularJS Growth <span class="growth-badge">~21,000 LOC</span></div>
+                    <div class="timeline-desc">Five years of feature development. Peak activity in 2014 (370 commits). Added member management, photo albums, and social features.</div>
+                </div>
+                <div class="timeline-item angularjs">
+                    <div class="timeline-year">December 2013</div>
+                    <div class="timeline-title">Project Genesis <span class="growth-badge">ekwg</span></div>
+                    <div class="timeline-desc">Initial commit on December 13, 2013. East Kent Walking Group website built with AngularJS 1.x, vanilla JavaScript, and CSS.</div>
                 </div>
             </div>
         </div>
@@ -687,24 +714,28 @@
             <h3>Key Insights</h3>
             <div class="insights-grid">
                 <div class="insight-card">
+                    <h4>From One Group to a Platform</h4>
+                    <p>What started as East Kent's local website in 2013 is now a turnkey CMS that any Ramblers group can adopt without writing a line of code. The same codebase powers Kent Area, Sevenoaks, Berkshire and a growing list of groups - one volunteer effort, many sites.</p>
+                </div>
+                <div class="insight-card">
                     <h4>13-Year Journey</h4>
-                    <p>From a humble AngularJS app in December 2013 to a modern 129K LOC TypeScript monorepo across three major repository transitions.</p>
+                    <p>From a humble AngularJS app in December 2013 to a modern 191K LOC TypeScript monorepo across three major repository transitions.</p>
                 </div>
                 <div class="insight-card">
-                    <h4>1,530 Commits</h4>
-                    <p>Consistent development: 750 in ekwg, 435 in ng-ekwg, 345 in ngx-ramblers. Peak years: 2014 (370) and 2025 (197).</p>
+                    <h4>1,719 Commits</h4>
+                    <p>Consistent development: 750 in ekwg, 435 in ng-ekwg, 534 in ngx-ramblers. Peak years: 2014 (370) and 2026 (197 in the first five months).</p>
                 </div>
                 <div class="insight-card">
-                    <h4>6x Code Growth</h4>
-                    <p>From ~21K LOC to 129K LOC. Most dramatic growth 2024-2026 where the codebase more than doubled (+122%).</p>
+                    <h4>9x Code Growth</h4>
+                    <p>From ~21K LOC to 191K LOC. Growth has accelerated since July 2024 - the codebase has more than tripled (+229%) in less than two years.</p>
                 </div>
                 <div class="insight-card">
                     <h4>Server Transformation</h4>
-                    <p>Server exploded from 6K to 29K lines (+369%) since July 2024. Complete JS to TypeScript migration.</p>
+                    <p>Server grew from 6K to 58K lines (+849%) since July 2024. Complete JS to TypeScript migration with a Salesforce API layer and email composer.</p>
                 </div>
                 <div class="insight-card">
                     <h4>Clean Code Philosophy</h4>
-                    <p>Only 823 comments across 118K TypeScript lines (0.7%). Self-documenting code with meaningful names.</p>
+                    <p>Only 990 comments across 191K TypeScript lines (0.5%). Self-documenting code with meaningful names.</p>
                 </div>
                 <div class="insight-card">
                     <h4>Technology Evolution</h4>
@@ -720,11 +751,12 @@
     </div>
 
     <footer class="footer">
-        NGX-Ramblers | Open-source framework for Ramblers Group and Area websites
+        NGX-Ramblers | Open-source framework for Ramblers Group and Area websites<br>
+        Snapshot generated 6 May 2026
     </footer>
 
     <script>
-        const chartColors = {
+        const LIGHT_PALETTE = {
             sunrise: 'rgb(249, 177, 4)',
             sunriseLight: 'rgba(249, 177, 4, 0.2)',
             mintcake: 'rgb(155, 200, 171)',
@@ -736,19 +768,48 @@
             angular: '#dd0031',
             grey: 'rgb(222, 226, 230)'
         };
+        const DARK_PALETTE = {
+            sunrise: '#fbbf24',
+            sunriseLight: 'rgba(251, 191, 36, 0.18)',
+            mintcake: '#34d399',
+            mintcakeLight: 'rgba(52, 211, 153, 0.18)',
+            granite: '#94a3b8',
+            rosycheeks: '#f472b6',
+            sunset: '#fb923c',
+            angularjs: '#f87171',
+            angular: '#fb7185',
+            grey: '#475569'
+        };
 
-        Chart.defaults.color = '#666';
-        Chart.defaults.borderColor = 'rgba(0,0,0,0.08)';
-        Chart.defaults.font.family = "'Open Sans', sans-serif";
+        let chartColors = LIGHT_PALETTE;
+        const charts = {};
 
-        new Chart(document.getElementById('growthChart'), {
+        function currentTheme() {
+            return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        }
+
+        function applyChartDefaults() {
+            const isDark = currentTheme() === 'dark';
+            Chart.defaults.color = isDark ? '#a1a1aa' : '#666';
+            Chart.defaults.borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+            Chart.defaults.font.family = "'Open Sans', sans-serif";
+        }
+
+        function buildCharts() {
+            chartColors = currentTheme() === 'dark' ? DARK_PALETTE : LIGHT_PALETTE;
+            applyChartDefaults();
+
+            Object.values(charts).forEach(chart => chart.destroy());
+            Object.keys(charts).forEach(key => delete charts[key]);
+
+            charts.growthChart = new Chart(document.getElementById('growthChart'), {
             type: 'line',
             data: {
-                labels: ['2013', '2014', '2019\nekwg final', '2022\nAngular 7/14', 'Jul 2024', 'Jan 2026'],
+                labels: ['2013', '2014', '2019\nekwg final', '2022\nAngular 7/14', 'Jul 2024', 'Jan 2026', 'May 2026'],
                 datasets: [
                     {
                         label: 'Total LOC',
-                        data: [2000, 8000, 22572, 41223, 57974, 128584],
+                        data: [2000, 8000, 22572, 41223, 57974, 128584, 190611],
                         borderColor: chartColors.sunrise,
                         backgroundColor: chartColors.sunriseLight,
                         fill: true,
@@ -760,7 +821,7 @@
                     },
                     {
                         label: 'Client',
-                        data: [1800, 7000, 19546, 35641, 50477, 98033],
+                        data: [1800, 7000, 19546, 35641, 50477, 98033, 130519],
                         borderColor: chartColors.mintcake,
                         backgroundColor: 'transparent',
                         tension: 0.4,
@@ -770,7 +831,7 @@
                     },
                     {
                         label: 'Server',
-                        data: [200, 1000, 1518, 4305, 6122, 28683],
+                        data: [200, 1000, 1518, 4305, 6122, 28683, 58134],
                         borderColor: chartColors.granite,
                         backgroundColor: 'transparent',
                         tension: 0.4,
@@ -800,7 +861,7 @@
             }
         });
 
-        new Chart(document.getElementById('commitsChart'), {
+            charts.commitsChart = new Chart(document.getElementById('commitsChart'), {
             type: 'bar',
             data: {
                 labels: ['2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'],
@@ -821,7 +882,7 @@
                     },
                     {
                         label: 'ngx-ramblers (Modern)',
-                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 99, 197, 8],
+                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 99, 197, 197],
                         backgroundColor: chartColors.mintcake,
                         borderWidth: 0,
                         borderRadius: 4
@@ -847,12 +908,12 @@
             }
         });
 
-        new Chart(document.getElementById('componentChart'), {
+            charts.componentChart = new Chart(document.getElementById('componentChart'), {
             type: 'doughnut',
             data: {
-                labels: ['Client (98K)', 'Server (29K)', 'Serenity E2E (2K)'],
+                labels: ['Client (131K)', 'Server (58K)', 'Serenity E2E (2K)'],
                 datasets: [{
-                    data: [98033, 28683, 1868],
+                    data: [130519, 58134, 1958],
                     backgroundColor: [chartColors.sunrise, chartColors.granite, chartColors.mintcake],
                     borderWidth: 0,
                     hoverOffset: 10
@@ -870,12 +931,12 @@
             }
         });
 
-        new Chart(document.getElementById('languageChart'), {
+            charts.languageChart = new Chart(document.getElementById('languageChart'), {
             type: 'doughnut',
             data: {
-                labels: ['TypeScript (118K)', 'Sass (4.5K)', 'HTML (3.7K)', 'Other (2.2K)'],
+                labels: ['TypeScript (191K)', 'Sass (5.4K)', 'HTML (3.1K)', 'Other (1.3K)'],
                 datasets: [{
-                    data: [118178, 4496, 3671, 2239],
+                    data: [190611, 5366, 3087, 1299],
                     backgroundColor: [chartColors.sunrise, chartColors.rosycheeks, chartColors.sunset, chartColors.grey],
                     borderWidth: 0,
                     hoverOffset: 10
@@ -893,21 +954,21 @@
             }
         });
 
-        new Chart(document.getElementById('techEvolutionChart'), {
+            charts.techEvolutionChart = new Chart(document.getElementById('techEvolutionChart'), {
             type: 'bar',
             data: {
                 labels: ['2013-2019\nAngularJS', '2019-2022\nAngular', '2022-2024\nAngular 7/14+', '2024-2026\nModern'],
                 datasets: [
                     {
                         label: 'JavaScript',
-                        data: [15000, 8000, 4000, 64],
+                        data: [15000, 8000, 4000, 0],
                         backgroundColor: chartColors.sunset,
                         borderWidth: 0,
                         borderRadius: 4
                     },
                     {
                         label: 'TypeScript',
-                        data: [0, 15000, 35000, 118178],
+                        data: [0, 15000, 35000, 190611],
                         backgroundColor: chartColors.sunrise,
                         borderWidth: 0,
                         borderRadius: 4
@@ -936,21 +997,21 @@
             }
         });
 
-        new Chart(document.getElementById('serverEvolutionChart'), {
+            charts.serverEvolutionChart = new Chart(document.getElementById('serverEvolutionChart'), {
             type: 'bar',
             data: {
-                labels: ['2019\nekwg', '2022\nng-ekwg', 'Jul 2024', 'Jan 2026'],
+                labels: ['2019\nekwg', '2022\nng-ekwg', 'Jul 2024', 'Jan 2026', 'May 2026'],
                 datasets: [
                     {
                         label: 'JavaScript',
-                        data: [1518, 3724, 757, 64],
+                        data: [1518, 3724, 757, 64, 0],
                         backgroundColor: chartColors.sunset,
                         borderWidth: 0,
                         borderRadius: 4
                     },
                     {
                         label: 'TypeScript',
-                        data: [0, 550, 5365, 28619],
+                        data: [0, 550, 5365, 28619, 58134],
                         backgroundColor: chartColors.sunrise,
                         borderWidth: 0,
                         borderRadius: 4
@@ -978,6 +1039,7 @@
                 }
             }
         });
+        }
 
         function toggleTheme() {
             const html = document.documentElement;
@@ -990,26 +1052,13 @@
                 icon.textContent = '☀️';
                 label.textContent = 'Light';
                 localStorage.setItem('theme', 'light');
-                updateChartColors('light');
             } else {
                 html.setAttribute('data-theme', 'dark');
                 icon.textContent = '🌙';
                 label.textContent = 'Dark';
                 localStorage.setItem('theme', 'dark');
-                updateChartColors('dark');
             }
-        }
-
-        function updateChartColors(theme) {
-            const isDark = theme === 'dark';
-            Chart.defaults.color = isDark ? '#888' : '#666';
-            Chart.defaults.borderColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
-
-            Chart.instances.forEach(chart => {
-                chart.options.scales.y.grid.color = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
-                chart.options.scales.x.grid.color = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
-                chart.update();
-            });
+            buildCharts();
         }
 
         (function initTheme() {
@@ -1023,6 +1072,7 @@
                 icon.textContent = '🌙';
                 label.textContent = 'Dark';
             }
+            buildCharts();
         })();
     </script>
 </body>
