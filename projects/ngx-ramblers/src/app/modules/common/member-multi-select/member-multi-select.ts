@@ -3,42 +3,41 @@ import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-se
 import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Member, MemberFilterSelection, SORT_BY_NAME } from "../../../models/member.model";
+import { isNumber } from "es-toolkit/compat";
+import { Member, MemberBulkLoadAudit, MemberFilterSelection, MemberTerm, SORT_BY_NAME } from "../../../models/member.model";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { RECIPIENT_PRE_FILTERS, RecipientFilterDecision, RecipientPreFilter, RecipientPreFilterKey } from "../../../models/email-composer.model";
+import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
+import { MemberSelection, NotificationConfig } from "../../../models/mail.model";
+import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
+import { RECIPIENT_PRE_FILTERS, RecipientFilterDecision, RecipientPreFilter } from "../../../models/email-composer.model";
 
 @Component({
   selector: "app-member-multi-select",
   imports: [FormsModule, NgSelectComponent, NgOptgroupTemplateDirective],
   template: `
-    <div class="row mb-2 align-items-center">
-      <div class="col">
-        <label class="me-2">Pre-filter:</label>
-        @for (filter of preFilters; track filter.key) {
-          <div class="form-check form-check-inline">
-            <input class="form-check-input"
-                   type="radio"
-                   [id]="'pre-filter-' + filter.key"
-                   name="member-pre-filter"
-                   [checked]="activePreFilterKey === filter.key"
-                   (click)="applyPreFilter(filter.key)">
-            <label class="form-check-label" [for]="'pre-filter-' + filter.key">{{ filter.label }}</label>
-          </div>
-        }
+    <div class="mb-2">
+      <label class="me-2">Pre-filter:</label>
+      @for (filter of preFilters; track filter.key) {
         <div class="form-check form-check-inline">
           <input class="form-check-input"
                  type="radio"
-                 id="pre-filter-clear"
+                 [id]="'pre-filter-' + (filter.key ?? 'all-with-email')"
                  name="member-pre-filter"
-                 [checked]="!activePreFilterKey"
-                 (click)="clear()">
-          <label class="form-check-label" for="pre-filter-clear">Clear and choose manually</label>
+                 [checked]="activePreFilterKey === filter.key"
+                 (click)="applyPreFilter(filter.key)">
+          <label class="form-check-label" [for]="'pre-filter-' + (filter.key ?? 'all-with-email')">{{ labelFor(filter) }}</label>
         </div>
-      </div>
-      <div class="col-auto">
-        <span class="text-muted small">{{ selectedCount() }} of {{ selectableMembers.length }} selected</span>
+      }
+      <div class="form-check form-check-inline">
+        <input class="form-check-input"
+               type="radio"
+               id="pre-filter-clear-manual"
+               name="member-pre-filter"
+               [checked]="manualMode"
+               (click)="clear()">
+        <label class="form-check-label" for="pre-filter-clear-manual">Clear and choose manually{{ EM_DASH_WITH_SPACES }}<strong>{{ selectedCount() }} of {{ selectableMembers.length }} selected</strong></label>
       </div>
     </div>
     <div class="row">
@@ -81,25 +80,31 @@ export class MemberMultiSelect implements OnChanges {
   protected fullNameWithAlias = inject(FullNameWithAliasPipe);
   private dateUtils = inject(DateUtilsService);
   private stringUtils = inject(StringUtilsService);
+  private bulkLoadAuditService = inject(MemberBulkLoadAuditService);
 
   @Input() members: Member[] = [];
   @Input() selectedIds: string[] = [];
-  @Input() preFilterKey: RecipientPreFilterKey | null = null;
+  @Input() preFilterKey: MemberSelection | null = null;
+  @Input() notificationConfig: NotificationConfig | null = null;
+  @Input() latestBulkLoadAudit: MemberBulkLoadAudit | null = null;
   @Input() requireConsent: boolean = false;
   @Output() selectedIdsChange = new EventEmitter<string[]>();
-  @Output() preFilterKeyChange = new EventEmitter<RecipientPreFilterKey | null>();
+  @Output() preFilterKeyChange = new EventEmitter<MemberSelection | null>();
 
   protected selectableMembers: MemberFilterSelection[] = [];
   protected filteredOutDecisions: RecipientFilterDecision[] = [];
-  protected activePreFilterKey: RecipientPreFilterKey | null = null;
+  protected activePreFilterKey: MemberSelection | null = null;
+  protected manualMode: boolean = false;
   protected readonly preFilters: RecipientPreFilter[] = RECIPIENT_PRE_FILTERS;
+  protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["members"] || changes["preFilterKey"] || changes["requireConsent"]) {
+    if (changes["members"] || changes["preFilterKey"] || changes["requireConsent"] || changes["notificationConfig"] || changes["latestBulkLoadAudit"]) {
       this.activePreFilterKey = this.preFilterKey;
+      this.manualMode = false;
       this.rebuildSelections();
       this.dropSelectedIdsNotInSelectablePool();
-      if (this.activePreFilterKey && (!this.selectedIds || this.selectedIds.length === 0)) {
+      if (!this.selectedIds || this.selectedIds.length === 0) {
         this.applyAutoSelection();
       }
     }
@@ -115,8 +120,9 @@ export class MemberMultiSelect implements OnChanges {
     }
   }
 
-  applyPreFilter(key: RecipientPreFilterKey): void {
+  applyPreFilter(key: MemberSelection | null): void {
     this.activePreFilterKey = key;
+    this.manualMode = false;
     this.preFilterKeyChange.emit(key);
     this.rebuildSelections();
     this.applyAutoSelection();
@@ -124,6 +130,7 @@ export class MemberMultiSelect implements OnChanges {
 
   clear(): void {
     this.activePreFilterKey = null;
+    this.manualMode = true;
     this.preFilterKeyChange.emit(null);
     this.selectedIds = [];
     this.selectedIdsChange.emit(this.selectedIds);
@@ -140,7 +147,6 @@ export class MemberMultiSelect implements OnChanges {
   }
 
   private applyAutoSelection(): void {
-    if (!this.activePreFilterKey) return;
     const selected = this.selectableMembers
       .filter(item => this.matchesPreFilter(item.member, this.activePreFilterKey))
       .map(item => item.id);
@@ -161,29 +167,62 @@ export class MemberMultiSelect implements OnChanges {
     return { member, filteredOut: false };
   }
 
-  private matchesPreFilter(member: Member, key: RecipientPreFilterKey | null): boolean {
-    if (!key) return false;
+  private matchesPreFilter(member: Member, key: MemberSelection | null): boolean {
     if (!member.email) return false;
+    if (!key) return true;
     switch (key) {
-      case RecipientPreFilterKey.ALL_WITH_EMAIL:
-        return !!member.email;
-      case RecipientPreFilterKey.RECENTLY_ADDED: {
-        const threeMonthsAgo = this.dateUtils.dateTimeNowNoTime().minus({ months: 3 }).toMillis();
-        return !!member.createdDate && member.createdDate >= threeMonthsAgo;
-      }
-      case RecipientPreFilterKey.EXPIRING_SOON: {
-        const now = this.dateUtils.dateTimeNowNoTime().toMillis();
-        const inOneMonth = this.dateUtils.dateTimeNowNoTime().plus({ months: 1 }).toMillis();
-        return !!member.membershipExpiryDate && member.membershipExpiryDate >= now && member.membershipExpiryDate <= inOneMonth;
-      }
-      case RecipientPreFilterKey.WALK_LEADERS:
-        return !!member.walkAdmin;
+      case MemberSelection.RECENTLY_ADDED:
+        return !!(member.groupMember && member.createdDate && member.createdDate >= this.filterDateMillis());
+      case MemberSelection.EXPIRED_MEMBERS:
+        return this.isExpiredMember(member);
+      case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS:
+        return !!(member.groupMember && member.membershipExpiryDate
+          && this.bulkLoadAuditService.receivedInBulkLoad(member, false, this.latestBulkLoadAudit));
       default:
         return false;
     }
   }
 
-  private toFilterSelection(member: Member, preFilterKey: RecipientPreFilterKey | null): MemberFilterSelection {
+  private isExpiredMember(member: Member): boolean {
+    const memberStatus = member.memberStatus?.toLowerCase();
+    const paymentPending = memberStatus === "payment pending";
+    const lifeMember = member.memberTerm === MemberTerm.LIFE;
+    const recentlyLoadedDate = this.dateUtils.dateTimeNowNoTime().minus({ months: 1 }).toMillis();
+    const recentlyLoaded = !!member.createdDate && member.createdDate >= recentlyLoadedDate;
+    if (!member.groupMember || !member.membershipExpiryDate || paymentPending || lifeMember || recentlyLoaded) return false;
+    const expirationExceeded = member.membershipExpiryDate < this.filterDateMillis();
+    const gracePeriodDate = recentlyLoadedDate;
+    const recentlyCreated = !!member.createdDate && member.createdDate >= gracePeriodDate;
+    const recentlyUpdated = !!member.updatedDate && member.updatedDate >= gracePeriodDate;
+    return expirationExceeded && !recentlyCreated && !recentlyUpdated;
+  }
+
+  private monthsInPast(): number {
+    const months = this.notificationConfig?.monthsInPast;
+    return isNumber(months) ? months : 1;
+  }
+
+  private filterDateMillis(): number {
+    return this.dateUtils.dateTimeNowNoTime().minus({ months: this.monthsInPast() }).toMillis();
+  }
+
+  protected labelFor(filter: RecipientPreFilter): string {
+    const months = this.monthsInPast();
+    switch (filter.key) {
+      case MemberSelection.RECENTLY_ADDED:
+        return `Added in last ${this.stringUtils.pluraliseWithCount(months, "month")}`;
+      case MemberSelection.EXPIRED_MEMBERS:
+        return `Expired (${this.stringUtils.pluraliseWithCount(months, "month")} past expiry)`;
+      case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS:
+        return this.latestBulkLoadAudit?.createdDate
+          ? `Missing from last bulk load (${this.dateUtils.displayDate(this.latestBulkLoadAudit.createdDate)})`
+          : filter.label;
+      default:
+        return filter.label;
+    }
+  }
+
+  private toFilterSelection(member: Member, preFilterKey: MemberSelection | null): MemberFilterSelection {
     const disabled = !member.email;
     const today = this.dateUtils.dateTimeNowNoTime().toMillis();
     const expired = !disabled && !!member.membershipExpiryDate && member.membershipExpiryDate < today;
@@ -199,18 +238,20 @@ export class MemberMultiSelect implements OnChanges {
     return `active members, ${consentLabel}`;
   }
 
-  private contextualSuffix(member: Member, preFilterKey: RecipientPreFilterKey | null, memberGrouping: string): string {
+  private contextualSuffix(member: Member, preFilterKey: MemberSelection | null, memberGrouping: string): string {
     switch (preFilterKey) {
-      case RecipientPreFilterKey.RECENTLY_ADDED:
+      case MemberSelection.RECENTLY_ADDED:
         return member.createdDate
           ? ` (created ${this.dateUtils.displayDate(member.createdDate)})`
           : ` (${memberGrouping})`;
-      case RecipientPreFilterKey.EXPIRING_SOON:
+      case MemberSelection.EXPIRED_MEMBERS:
         return member.membershipExpiryDate
-          ? ` (expires ${this.dateUtils.displayDate(member.membershipExpiryDate)})`
+          ? ` (expired ${this.dateUtils.displayDate(member.membershipExpiryDate)})`
           : ` (${memberGrouping})`;
-      case RecipientPreFilterKey.WALK_LEADERS:
-        return ` (walk admin)`;
+      case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS:
+        return member.membershipExpiryDate
+          ? ` (expiry ${this.dateUtils.displayDate(member.membershipExpiryDate)})`
+          : ` (${memberGrouping})`;
       default:
         return ` (${memberGrouping})`;
     }

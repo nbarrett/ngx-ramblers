@@ -4,7 +4,7 @@ import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { Subscription, timer } from "rxjs";
 import { switchMap } from "rxjs/operators";
-import { isArray, isString, kebabCase, values } from "es-toolkit/compat";
+import { isArray, isNumber, isString, kebabCase, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   faAddressCard,
@@ -41,7 +41,8 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../services/notifier.service";
 import { AlertTarget } from "../../models/alert-target.model";
 import { PageComponent } from "../../page/page.component";
-import { Member } from "../../models/member.model";
+import { Member, MemberBulkLoadAudit } from "../../models/member.model";
+import { MemberBulkLoadAuditService } from "../../services/member/member-bulk-load-audit.service";
 import {
   ADDRESSEE_OPTIONS,
   AddresseeType,
@@ -66,7 +67,6 @@ import {
   newMultiColumnFragment,
   EmailComposerContextSource,
   RecipientMode,
-  RecipientPreFilterKey,
   SECTION_DIVIDER_OPTIONS,
   SectionDividerStyle,
   SendingChannel,
@@ -77,6 +77,7 @@ import {
   CreateCampaignRequest,
   ListInfo,
   MailMessagingConfig,
+  MemberSelection,
   NotificationConfig,
   SendSmtpEmailParams,
   StatusMappedResponseSingleInput,
@@ -333,15 +334,15 @@ import { DateTime } from "luxon";
         }
         <div class="stepper-nav">
           @switch (stepperActiveTab) {
-            @case (EmailComposerStepKey.RECIPIENTS) {
+            @case (EmailComposerStepKey.TEMPLATE) {
               <button type="button" class="btn btn-primary" (click)="cancel()"><fa-icon [icon]="faXmark"/> Cancel</button>
-              <button type="button" class="btn btn-primary" (click)="goToStep(1)" [disabled]="!recipientsStepValid()" [title]="recipientsStepValidationMessage()">
+              <button type="button" class="btn btn-primary" (click)="goToStep(1)" [disabled]="!templateStepValid()" [title]="templateStepValidationMessage()">
                 Next <fa-icon [icon]="faArrowRight"/>
               </button>
             }
-            @case (EmailComposerStepKey.TEMPLATE) {
+            @case (EmailComposerStepKey.RECIPIENTS) {
               <button type="button" class="btn btn-primary" (click)="goToStep(0)"><fa-icon [icon]="faArrowLeft"/> Back</button>
-              <button type="button" class="btn btn-primary" (click)="goToStep(2)" [disabled]="!templateStepValid()" [title]="templateStepValidationMessage()">
+              <button type="button" class="btn btn-primary" (click)="goToStep(2)" [disabled]="!recipientsStepValid()" [title]="recipientsStepValidationMessage()">
                 Next <fa-icon [icon]="faArrowRight"/>
               </button>
             }
@@ -559,6 +560,8 @@ import { DateTime } from "luxon";
               [members]="candidateMembers()"
               [selectedIds]="state.selectedMemberIds"
               [preFilterKey]="state.preFilterKey"
+              [notificationConfig]="state.notificationConfig"
+              [latestBulkLoadAudit]="latestBulkLoadAudit"
               [requireConsent]="requiresConsent()"
               (selectedIdsChange)="onSelectedMemberIdsChange($event)"
               (preFilterKeyChange)="onPreFilterKeyChange($event)"/>
@@ -1298,6 +1301,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   private mailService = inject(MailService);
   private mailListUpdaterService = inject(MailListUpdaterService);
   private memberService = inject(MemberService);
+  private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
   private memberLoginService = inject(MemberLoginService);
   private systemConfigService = inject(SystemConfigService);
   protected stringUtils = inject(StringUtilsService);
@@ -1322,7 +1326,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   @ViewChild(NotificationDirective) notificationDirective!: NotificationDirective;
 
   protected state: EmailComposerState = defaultEmailComposerState();
-  protected stepperActiveTab: EmailComposerStepKey = EmailComposerStepKey.RECIPIENTS;
+  protected stepperActiveTab: EmailComposerStepKey = EmailComposerStepKey.TEMPLATE;
   protected previewRecipientIndex = 0;
   private autoPreviewPending = false;
   protected stepperSteps = EMAIL_COMPOSER_STEPS;
@@ -1336,6 +1340,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected committeeFileUrlError: string | null = null;
   protected committeeFileUrlAllowedIds: string[] | null = null;
   protected members: Member[] = [];
+  protected latestBulkLoadAudit: MemberBulkLoadAudit | null = null;
   protected senderExists = false;
   protected forcedConfigId: string | null = null;
   protected forcedConfigSlug: string | null = null;
@@ -1421,6 +1426,12 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.systemConfig = systemConfig;
     }));
     this.members = await this.memberService.publicFields(this.memberService.filterFor.GROUP_MEMBERS);
+    try {
+      this.latestBulkLoadAudit = await this.memberBulkLoadAuditService.findLatestBulkLoadAudit();
+    } catch (error) {
+      this.logger.warn("could not load latestBulkLoadAudit:", error);
+      this.latestBulkLoadAudit = null;
+    }
     await this.refreshDrafts();
   }
 
@@ -2070,8 +2081,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       }
     }
     const preFilter = queryParams.get(StoredValue.EMAIL_PRE_FILTER);
-    if (preFilter && values(RecipientPreFilterKey).includes(preFilter as RecipientPreFilterKey)) {
-      this.state.preFilterKey = preFilter as RecipientPreFilterKey;
+    if (preFilter && values(MemberSelection).includes(preFilter as MemberSelection)) {
+      this.state.preFilterKey = preFilter as MemberSelection;
     }
     const eventInclusion = queryParams.get(StoredValue.EMAIL_EVENT_INCLUSION);
     if (eventInclusion && values(EventInclusionMode).includes(eventInclusion as EventInclusionMode)) {
@@ -2453,7 +2464,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     return this.pathsEqual(this.dragHoverColumnPath, parentPath);
   }
 
-  onPreFilterKeyChange(key: RecipientPreFilterKey | null): void {
+  onPreFilterKeyChange(key: MemberSelection | null): void {
     this.state.preFilterKey = key;
     this.syncStateToUrl({ [StoredValue.EMAIL_PRE_FILTER]: key ?? null });
   }
@@ -2467,10 +2478,32 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.state.subject = config?.subject?.text ?? "";
     }
     this.state.signoffRoles = this.validSignoffRolesFor(config?.signOffRoles ?? []);
-    this.syncStateToUrl({ [StoredValue.EMAIL_CONFIG_ID]: this.configToSlug(config) });
+    this.applyRecipientDefaultsFrom(config);
+    this.syncStateToUrl({
+      [StoredValue.EMAIL_CONFIG_ID]: this.configToSlug(config),
+      [StoredValue.LIST_ID]: this.state.recipientMode === RecipientMode.ENTIRE_LIST ? this.state.selectedListId?.toString() ?? null : null,
+      [StoredValue.EMAIL_PRE_FILTER]: this.state.recipientMode === RecipientMode.SELECTED_MEMBERS ? this.state.preFilterKey ?? null : null,
+      [StoredValue.EMAIL_TYPE]: kebabCase(this.state.recipientMode)
+    });
     this.refreshTemplateContent();
     this.ensureFragmentOrder();
     this.maybeAutoRefreshPreview();
+  }
+
+  private applyRecipientDefaultsFrom(config: NotificationConfig | null): void {
+    if (!config) return;
+    if (config.defaultMemberSelection === MemberSelection.MAILING_LIST) {
+      this.state.recipientMode = RecipientMode.ENTIRE_LIST;
+      this.state.preFilterKey = null;
+      if (isNumber(config.defaultListId)) {
+        this.state.selectedListId = config.defaultListId;
+      }
+      this.state.selectedMemberIds = [];
+    } else {
+      this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+      this.state.preFilterKey = config.defaultMemberSelection ?? null;
+      this.state.selectedMemberIds = [];
+    }
   }
 
   protected async refreshTemplateContent(): Promise<void> {
@@ -2734,12 +2767,12 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   canAccessStep(stepKey: EmailComposerStepKey): boolean {
-    if (stepKey === EmailComposerStepKey.RECIPIENTS) return true;
-    if (stepKey === EmailComposerStepKey.TEMPLATE) return this.recipientsStepValid();
-    if (stepKey === EmailComposerStepKey.COMPOSE) return this.recipientsStepValid() && this.templateStepValid();
-    if (stepKey === EmailComposerStepKey.EVENTS) return this.recipientsStepValid() && this.templateStepValid() && this.composeStepValid();
-    if (stepKey === EmailComposerStepKey.REVIEW) return this.composeStepValid() && this.templateStepValid() && this.recipientsStepValid();
-    if (stepKey === EmailComposerStepKey.SEND) return this.composeStepValid() && this.templateStepValid() && this.recipientsStepValid();
+    if (stepKey === EmailComposerStepKey.TEMPLATE) return true;
+    if (stepKey === EmailComposerStepKey.RECIPIENTS) return this.templateStepValid();
+    if (stepKey === EmailComposerStepKey.COMPOSE) return this.templateStepValid() && this.recipientsStepValid();
+    if (stepKey === EmailComposerStepKey.EVENTS) return this.templateStepValid() && this.recipientsStepValid() && this.composeStepValid();
+    if (stepKey === EmailComposerStepKey.REVIEW) return this.templateStepValid() && this.recipientsStepValid() && this.composeStepValid();
+    if (stepKey === EmailComposerStepKey.SEND) return this.templateStepValid() && this.recipientsStepValid() && this.composeStepValid();
     return false;
   }
 

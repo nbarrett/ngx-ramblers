@@ -288,7 +288,17 @@ export class UrlService {
   }
 
   public isRemoteUrl(url: string): boolean {
-    return url?.startsWith("http");
+    if (!url?.startsWith("http")) return false;
+    return !this.isDevHostUrl(url);
+  }
+
+  public isDevHostUrl(url: string): boolean {
+    return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(url ?? "");
+  }
+
+  public stripDevHostPrefix(url: string): string {
+    if (!this.isDevHostUrl(url)) return url;
+    return url.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/+/i, "");
   }
 
   eventUrl(hasEventId: HasEventId) {

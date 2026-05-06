@@ -539,11 +539,12 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
         const trimmedImageSource = imageSource?.trim();
         if (!trimmedImageSource) {
             return null;
-        } else if (this.urlService.isRemoteUrl(trimmedImageSource) || this.urlService.isBase64Image(trimmedImageSource)) {
-            return trimmedImageSource;
-        } else {
-            return trimmedImageSource.replace(/^\/+/, "");
         }
+        const devStripped = this.urlService.stripDevHostPrefix(trimmedImageSource);
+        if (this.urlService.isRemoteUrl(devStripped) || this.urlService.isBase64Image(devStripped)) {
+            return devStripped;
+        }
+        return devStripped.replace(/^\/+/, "");
     }
 
     showAlertMessage(): boolean {
