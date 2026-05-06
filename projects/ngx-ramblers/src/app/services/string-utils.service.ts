@@ -148,11 +148,17 @@ StringUtilsService {
   }
 
   asTitle(str: string) {
-    return startCase(toLower(this.asWords(str)));
+    const titled = startCase(toLower(this.asWords(str)));
+    return titled.replace(/(\d+)\s+(St|Nd|Rd|Th)\b/g, (_, n, ord) => `${n}${ord.toLowerCase()}`);
   }
 
   asWords(str: string) {
     return words(str).join(" ");
+  }
+
+  asPathSegmentTitle(segment: string) {
+    const stripped = (segment || "").replace(/^\d{4}-\d{2}-\d{2}-/, "");
+    return this.asTitle(stripped);
   }
 
   pluraliseWithCount(count: number, singular: string, plural?: string) {

@@ -1,0 +1,481 @@
+@import "../../assets/styles/stepper.sass"
+
+.email-composer-fieldset
+  border: 1px solid #dee2e6
+  border-radius: 6px
+  padding: 14px 18px 16px
+  margin: 0 0 20px 0
+  > legend
+    float: none
+    display: block
+    width: auto
+    max-width: 100%
+    padding: 0 8px
+    font-size: 17px
+    font-weight: bold
+    margin-bottom: 0
+
+:host ::ng-deep .p-stepper
+  padding: 0
+  margin: 0
+
+:host ::ng-deep .p-stepper .p-steppanels
+  padding: 0
+  margin: 0
+
+:host ::ng-deep .p-stepper .p-steppanels .p-steppanel
+  display: block
+  margin: 0
+  border: none
+  padding: 0
+  background: transparent
+
+:host ::ng-deep .p-stepper .p-steplist
+  display: flex
+  flex-wrap: nowrap
+  gap: 8px
+  align-items: center
+  justify-content: flex-start
+  overflow: visible
+  padding: 0
+  margin: 0
+
+:host ::ng-deep .p-stepper .p-steplist .p-step
+  flex: 0 0 auto
+  width: auto
+  min-width: 0
+  max-width: 200px
+  padding: 0
+  margin: 0
+  justify-content: flex-start
+
+:host ::ng-deep .p-stepper .p-steplist .p-step .p-step-header
+  padding: 0
+  background: transparent
+  width: auto
+  justify-content: flex-start
+  text-align: left
+  white-space: normal
+
+:host ::ng-deep .p-stepper .p-steplist .p-stepper-separator
+  flex: 0 0 16px
+  width: 16px
+  min-width: 16px
+  height: 2px
+  margin-left: 3px
+  background: var(--stepper-border, #dfe7f3)
+
+.email-composer-section
+  padding: 8px 0
+
+.email-composer-section h3
+  margin-top: 0
+  margin-bottom: 20px
+  font-size: 1.25rem
+  color: #1f2933
+
+:host ::ng-deep .p-stepper .p-step-active .email-composer-step-number
+  background: $ramblers-colour-sunset
+  color: $ramblers-colour-cloudy
+  border-color: $ramblers-colour-sunset
+
+:host ::ng-deep .p-stepper .p-step-active .email-composer-step-label
+  color: var(--stepper-active)
+
+:host ::ng-deep .p-stepper .email-composer-step-label
+  white-space: nowrap
+
+.email-composer-validation-summary
+  background: #fff5f0
+  border: 1px solid $ramblers-colour-sunset
+  border-radius: 6px
+  padding: 12px 16px
+  margin-bottom: 16px
+
+.email-composer-validation-summary h5
+  margin: 0 0 8px 0
+  color: #9b2c2c
+  font-size: 14px
+  font-weight: 700
+
+.email-composer-validation-summary ul
+  margin: 0
+  padding-left: 0
+
+.email-composer-validation-summary li
+  font-size: 14px
+  line-height: 1.5
+  color: #9b2c2c
+  padding: 0 0 6px 22px
+  background-size: 14px
+  background-position: 0 4px
+
+.email-composer-list-count
+  margin-left: 6px
+  font-size: 0.85em
+  color: #6c757d
+  text-decoration: underline dotted
+  text-underline-offset: 2px
+
+.email-composer-divider-row
+  display: flex
+  align-items: center
+  gap: 12px
+  width: 100%
+
+.email-composer-divider-label
+  flex: 0 0 auto
+  min-width: 120px
+
+.email-composer-divider-preview
+  flex: 1 1 auto
+  border-top: 1px solid transparent
+  align-self: center
+
+:host ::ng-deep #section-divider .ng-value
+  display: block
+  width: 100%
+
+:host ::ng-deep #section-divider .ng-value-label
+  display: block
+  width: 100%
+
+:host ::ng-deep .email-composer-list-tooltip .tooltip-inner
+  max-width: 360px
+  text-align: left
+  white-space: normal
+
+.email-composer-section h4
+  margin-top: 24px
+  margin-bottom: 12px
+
+.email-composer-section .form-check
+  padding-top: 4px
+  padding-bottom: 4px
+
+.email-composer-section .form-check + .form-check
+  margin-top: 4px
+
+.email-composer-section label.form-label,
+.email-composer-section > label
+  margin-bottom: 8px
+  display: inline-block
+
+.email-composer-section .row
+  margin-top: 8px
+  margin-bottom: 16px
+
+.email-composer-section .row + .row
+  margin-top: 16px
+
+.email-composer-action-bar
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  justify-content: space-between
+  gap: 8px
+  padding: 8px 0
+  margin-bottom: 8px
+
+.email-composer-toolbar
+  display: flex
+  flex-wrap: wrap
+  gap: 8px
+  align-items: center
+
+.email-composer-action-bar .stepper-nav
+  margin-top: 0
+
+.email-composer-action-bar .stepper-nav .btn,
+.email-composer-action-bar .email-composer-toolbar .btn
+  min-height: 40px
+
+.email-composer-drafts-panel
+  border: 1px solid #dfe7f3
+  border-radius: 8px
+  padding: 12px 16px
+  margin-bottom: 16px
+  background: #fff
+
+.email-composer-draft-row
+  display: flex
+  justify-content: space-between
+  align-items: center
+  padding: 8px 12px
+  margin: 0 -12px
+  border-bottom: 1px solid #f0f4fa
+  border-radius: 4px
+
+.email-composer-draft-row:hover
+  background-color: #f1f3f5
+
+.email-composer-draft-row:last-child
+  border-bottom: none
+
+.email-composer-draft-meta
+  cursor: pointer
+  flex: 1 1 auto
+  padding-right: 12px
+
+.email-composer-pre-filter
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  gap: 16px
+  padding: 12px 0
+  margin-top: 8px
+
+.email-composer-pre-filter .form-check
+  margin: 0
+
+.email-composer-section,
+.email-composer-section h3,
+.email-composer-section h4
+  text-align: left
+  margin-left: 0
+
+.email-composer-section > h3,
+.email-composer-section > h4
+  padding-left: 0
+  margin-left: 0
+
+.email-composer-step-header
+  display: flex
+  align-items: center
+  gap: 12px
+
+.email-composer-step-number
+  width: 28px
+  height: 28px
+  border-radius: 50%
+  background-color: #e9ecef
+  color: #495057
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  font-weight: 600
+
+.email-composer-step-text
+  display: flex
+  flex-direction: column
+  white-space: normal
+  word-break: break-word
+  flex: 1
+  min-width: 0
+
+.email-composer-step-label
+  font-weight: 600
+  white-space: normal
+
+.email-composer-step-hint
+  font-size: 12px
+  color: #6c757d
+  white-space: normal
+  line-height: 1.3
+
+.stepper-nav
+  display: flex
+  gap: 8px
+  margin-top: 16px
+
+.stepper-nav .btn
+  min-height: 40px
+
+.stepper-nav-reason
+  text-align: right
+
+.composer-add-row
+  display: flex
+  gap: 6px
+  flex-wrap: wrap
+  margin-top: 12px
+
+.composer-add-row .btn,
+.email-composer-drafts-panel .btn,
+.fragment-row-header .btn,
+.composer-column-add .btn
+  font-size: 12px
+  padding: 4px 10px
+  min-height: 0
+  line-height: 1.3
+
+.fragment-list
+  display: flex
+  flex-direction: column
+  gap: 6px
+
+.fragment-row
+  background-color: #ffffff
+  border: 1px solid #ced4da
+  border-radius: 4px
+  position: relative
+  display: flex
+  flex-direction: column
+
+.fragment-row-hover-before,
+.fragment-row-hover-after
+  position: relative
+
+.fragment-row-hover-before::before
+  content: ""
+  position: absolute
+  top: -2px
+  left: 0
+  right: 0
+  height: 3px
+  background-color: #f29401
+
+.fragment-row-hover-after::after
+  content: ""
+  position: absolute
+  bottom: -2px
+  left: 0
+  right: 0
+  height: 3px
+  background-color: #f29401
+
+.fragment-row-header
+  display: flex
+  align-items: center
+  gap: 8px
+  padding: 8px 10px
+  cursor: grab
+  background-color: #f8f9fa
+  border-bottom: 1px solid #e9ecef
+
+.fragment-row-header:active
+  cursor: grabbing
+
+.fragment-handle
+  color: #6c757d
+  display: inline-flex
+  align-items: center
+
+.fragment-icon
+  display: inline-flex
+  align-items: center
+  color: #495057
+
+.fragment-meta
+  flex-grow: 1
+  min-width: 0
+  display: flex
+  flex-direction: column
+
+.fragment-label
+  font-weight: 600
+  font-size: 14px
+
+.fragment-preview
+  white-space: nowrap
+  overflow: hidden
+  text-overflow: ellipsis
+
+.fragment-divider-cell
+  border-top: 1px solid #e9ecef
+  padding: 6px 10px
+
+.fragment-divider-cell ::ng-deep ng-select
+  min-width: 0 !important
+
+.fragment-chevron
+  display: inline-flex
+  align-items: center
+  color: #6c757d
+  padding: 0 6px
+
+.fragment-row-header-clickable
+  cursor: pointer
+
+.fragment-row-body
+  border-top: 1px solid #e9ecef
+  padding: 12px
+
+.composer-multi-column-row
+  display: grid
+  gap: 12px
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))
+
+.composer-column
+  border: 1px dashed #ced4da
+  border-radius: 4px
+  padding: 8px
+  display: flex
+  flex-direction: column
+  gap: 6px
+  background-color: #fdfdfd
+
+.composer-column-hover
+  border-color: #f29401
+  background-color: #fff8eb
+
+.composer-column-heading
+  font-weight: 600
+
+.composer-column-tail
+  border: 1px dashed #adb5bd
+  border-radius: 4px
+  padding: 12px
+  text-align: center
+  color: #6c757d
+  font-size: 12px
+
+.composer-column-add
+  display: flex
+  justify-content: center
+  margin-top: 4px
+
+.fragment-list-tail
+  height: 12px
+
+.fragment-list-tail-hover
+  border-radius: 4px
+  background-color: rgba(242, 148, 1, 0.2)
+
+.fragment-template-frame
+  width: 100%
+  height: 360px
+  border: 1px solid #ced4da
+  border-radius: 4px
+  background-color: #fff
+
+.fragment-events-summary ul
+  margin: 0
+  padding-left: 0
+
+.event-row
+  display: flex
+  align-items: flex-start
+  gap: 12px
+
+.event-row .event-meta
+  flex: 1 1 auto
+  min-width: 0
+
+.event-row .event-image
+  flex: 0 0 200px
+  display: flex
+  flex-direction: column
+  align-items: stretch
+  gap: 4px
+
+.event-row .event-image img
+  max-width: 200px
+  max-height: 120px
+  object-fit: cover
+  border-radius: 4px
+
+.event-image-controls
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 4px
+
+.event-image-controls button
+  font-size: 11px
+  padding: 2px 6px
+  min-height: 0
+  line-height: 1.2
+
+.event-image-controls .small
+  font-size: 11px

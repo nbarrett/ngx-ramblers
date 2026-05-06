@@ -528,6 +528,7 @@ export enum BuiltInAnchor {
 
 export enum PathSegment {
   EDIT = "edit",
+  EMAIL_COMPOSER = "email-composer",
   NEW = "new",
   SEND_NOTIFICATION = "send-notification",
   VIEW = "view",

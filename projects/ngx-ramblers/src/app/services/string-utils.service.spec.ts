@@ -219,6 +219,30 @@ describe("StringUtilsService", () => {
       const result = service.asTitle("socialEvent");
       expect(result).toBe("Social Event");
     });
+
+    it("should keep ordinal suffixes attached to numbers", () => {
+      expect(service.asTitle("christmas-lunch-7th-december-2022")).toBe("Christmas Lunch 7th December 2022");
+      expect(service.asTitle("21st-birthday")).toBe("21st Birthday");
+      expect(service.asTitle("2nd-walk")).toBe("2nd Walk");
+      expect(service.asTitle("3rd-prize")).toBe("3rd Prize");
+    });
+  });
+
+  describe("asPathSegmentTitle", () => {
+    it("should strip leading YYYY-MM-DD- date prefix and title-case the rest", () => {
+      expect(service.asPathSegmentTitle("2022-12-24-christmas-lunch-7th-december-2022"))
+        .toBe("Christmas Lunch 7th December 2022");
+    });
+
+    it("should leave a segment without a date prefix unchanged", () => {
+      expect(service.asPathSegmentTitle("autumn-walking-weekend-2014"))
+        .toBe("Autumn Walking Weekend 2014");
+    });
+
+    it("should handle empty input", () => {
+      expect(service.asPathSegmentTitle("")).toBe("");
+      expect(service.asPathSegmentTitle(null as any)).toBe("");
+    });
   });
 
   describe("asWords", () => {

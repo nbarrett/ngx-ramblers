@@ -1,5 +1,9 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
-import { faQuestion } from "@fortawesome/free-solid-svg-icons";
+import { faQuestion, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { RouterLink } from "@angular/router";
+import { kebabCase } from "es-toolkit";
+import { StoredValue } from "../../../../models/ui-actions";
+import { DockedTo } from "../../../../models/docking.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { HelpInfo } from "../../../../models/member.model";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
@@ -14,6 +18,7 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MarkdownComponent } from "ngx-markdown";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
+import { ButtonWrapper } from "../../../../modules/common/third-parties/button-wrapper";
 
 @Component({
     selector: "app-notification-config-selector",
@@ -23,18 +28,30 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
         <div class="col-sm-12">
           <div class="form-group">
             <label for="contact-member">Email Type</label>
-            <select [compareWith]="notificationTypeConfigComparer" class="form-control input-sm"
-              [disabled]="busy"
-              [(ngModel)]="notificationConfig"
-              (ngModelChange)="emailConfigChanged.emit($event)">
-              @for (emailConfig of mailMessagingService.notificationConfigs(notificationConfigListing); track emailConfig.id) {
-                <option
-                  [ngValue]="emailConfig"
-                  class="form-control"
-                  id="contact-member">{{ emailConfig?.subject?.text }}
-                </option>
+            <div class="input-group">
+              <select [compareWith]="notificationTypeConfigComparer" class="form-control input-sm"
+                [disabled]="busy"
+                [(ngModel)]="notificationConfig"
+                (ngModelChange)="emailConfigChanged.emit($event)">
+                @for (emailConfig of mailMessagingService.notificationConfigs(notificationConfigListing); track emailConfig.id) {
+                  <option
+                    [ngValue]="emailConfig"
+                    class="form-control"
+                    id="contact-member">{{ emailConfig?.subject?.text }}
+                  </option>
+                }
+              </select>
+              @if (notificationConfig?.id) {
+                <a class="text-decoration-none"
+                   routerLink="/admin/mail-settings"
+                   [queryParams]="emailTypeQueryParams()"
+                   target="_blank">
+                  <app-button-wrapper button [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Settings'">
+                    <fa-icon [icon]="faPencil"/>
+                  </app-button-wrapper>
+                </a>
               }
-            </select>
+            </div>
           </div>
         </div>
         @if (helpAvailable) {
@@ -71,15 +88,27 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
         <div class="col-sm-12">
           <div class="form-group">
             <label for="banner-lookup">Banner Image</label>
-            <select class="form-control input-sm"
-              id="banner-lookup"
-              [(ngModel)]="notificationConfig.bannerId">
-              @for (banner of notificationConfigListing.mailMessagingConfig.banners; track banner.id) {
-                <option
-                  [ngValue]="banner.id">{{ toBannerInformation(banner) }}
-                </option>
+            <div class="input-group">
+              <select class="form-control input-sm"
+                id="banner-lookup"
+                [(ngModel)]="notificationConfig.bannerId">
+                @for (banner of notificationConfigListing.mailMessagingConfig.banners; track banner.id) {
+                  <option
+                    [ngValue]="banner.id">{{ toBannerInformation(banner) }}
+                  </option>
+                }
+              </select>
+              @if (selectedBannerSlug()) {
+                <a class="text-decoration-none"
+                   routerLink="/admin/banners"
+                   [queryParams]="bannerQueryParams()"
+                   target="_blank">
+                  <app-button-wrapper button [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Banner'">
+                    <fa-icon [icon]="faPencil"/>
+                  </app-button-wrapper>
+                </a>
               }
-            </select>
+            </div>
           </div>
         </div>
         @if (notificationConfig?.bannerId) {
@@ -103,6 +132,7 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
               </select>
               <app-brevo-button button [disabled]="!notificationConfig.templateId"
                 (click)="editTemplate(notificationConfig.templateId)"
+                [dockedTo]="DockedTo.RIGHT"
                 [title]="'View or Edit Template'"/>
             </div>
           </div>
@@ -110,7 +140,7 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
       </div>
     }
     `,
-    imports: [FormsModule, FontAwesomeModule, MarkdownComponent, BrevoButtonComponent]
+    imports: [FormsModule, FontAwesomeModule, MarkdownComponent, BrevoButtonComponent, ButtonWrapper, RouterLink]
 })
 
 export class NotificationConfigSelectorComponent implements OnInit {
@@ -125,6 +155,7 @@ export class NotificationConfigSelectorComponent implements OnInit {
   public includeWorkflowRelatedConfigs: boolean;
   public helpAvailable: boolean;
   faQuestion = faQuestion;
+  faPencil = faPencil;
 
   @Input("includeWorkflowRelatedConfigs") set includeWorkflowRelatedConfigsValue(includeWorkflowRelatedConfigs: boolean) {
     this.includeWorkflowRelatedConfigs = coerceBooleanProperty(includeWorkflowRelatedConfigs);
@@ -143,6 +174,7 @@ export class NotificationConfigSelectorComponent implements OnInit {
   @Output() emailConfigChanged: EventEmitter<NotificationConfig> = new EventEmitter();
 
   protected readonly first = first;
+  protected readonly DockedTo = DockedTo;
 
   ngOnInit() {
     this.logger.info("constructed notificationConfig", this.notificationConfig, "notificationConfigListing:", this.notificationConfigListing);
@@ -150,6 +182,29 @@ export class NotificationConfigSelectorComponent implements OnInit {
 
   notificationTypeConfigComparer(item1: NotificationConfig, item2: NotificationConfig): boolean {
     return item1?.id === item2?.id;
+  }
+
+  emailTypeQueryParams(): Record<string, string> {
+    return {
+      [StoredValue.TAB]: "email-configurations",
+      [StoredValue.CONFIGURATION]: this.notificationConfigSlug() ?? this.notificationConfig.id ?? ""
+    };
+  }
+
+  private notificationConfigSlug(): string | null {
+    const text = this.notificationConfig?.subject?.text || this.notificationConfig?.id;
+    return text ? kebabCase(text) : null;
+  }
+
+  bannerQueryParams(): Record<string, string> {
+    return { [StoredValue.BANNER]: this.selectedBannerSlug() ?? "" };
+  }
+
+  selectedBannerSlug(): string | null {
+    const bannerId = this.notificationConfig?.bannerId;
+    if (!bannerId) return null;
+    const banner = this.notificationConfigListing?.mailMessagingConfig?.banners?.find(item => item.id === bannerId);
+    return banner?.name ? kebabCase(banner.name) : null;
   }
 
   toBannerInformation(bannerConfig: BannerConfig) {

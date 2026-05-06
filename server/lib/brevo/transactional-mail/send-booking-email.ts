@@ -21,6 +21,8 @@ import { sendTransactionalEmailRequest } from "./send-transactional-mail";
 import { BookingEmailType, templatesIncludeSalutation } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
 import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { resolveBookingTemplate, subjectForType } from "./booking-template-resolver";
+import { signoffNamesHtml } from "./signoff-names";
+import { accountMergeFieldsFor } from "../account/account";
 import { loadBookingConfig } from "../../config/booking-config";
 import { kebabCase } from "es-toolkit/compat";
 import { dateTimeFromIso } from "../../shared/dates";
@@ -54,7 +56,7 @@ export async function buildBookingEmailRequest(
   const systemCfg: SystemConfig = systemConfigDoc?.value;
   const eventLink = publicEventLink(event, suppliedEventLink, systemCfg);
   const bookingConfig = await loadBookingConfig();
-  const bodyContent = resolveBookingTemplate(emailType, event, bookingRecord, eventLink, bookingConfig);
+  const renderedBody = resolveBookingTemplate(emailType, event, bookingRecord, eventLink, bookingConfig);
 
   const committeeConfigDoc = await config.queryKey(ConfigKey.COMMITTEE);
   const committeeCfg: CommitteeConfig = committeeConfigDoc?.value;
@@ -64,6 +66,8 @@ export async function buildBookingEmailRequest(
   const groupShortName = systemCfg?.group?.shortName || "";
   const groupLongName = systemCfg?.group?.longName || "";
   const committeeRoles = committeeCfg?.roles || [];
+  const signoffHtml = signoffNamesHtml(committeeRoles, notifConfig.signOffRoles);
+  const bodyContent = signoffHtml ? `${renderedBody}\n${signoffHtml}` : renderedBody;
 
   const sender: EmailAddress = emailAddressForRole(committeeRoles, notifConfig.senderRole);
   const replyTo: EmailAddress = emailAddressForRole(committeeRoles, notifConfig.replyToRole);
@@ -76,7 +80,6 @@ export async function buildBookingEmailRequest(
   const params = {
     messageMergeFields: {
       subject: null as string,
-      SIGNOFF_NAMES: signoffNamesHtml(committeeRoles, notifConfig.signOffRoles),
       BANNER_IMAGE_SOURCE: bannerImageSource(allBanners, notifConfig.bannerId, groupHref),
       ADDRESS_LINE: templatesIncludeSalutation(bookingConfig)
         ? ""
@@ -103,11 +106,7 @@ export async function buildBookingEmailRequest(
       TWITTER_URL: systemCfg?.externalSystems?.twitter?.groupUrl || "",
       INSTAGRAM_URL: systemCfg?.externalSystems?.instagram?.groupUrl || "",
     },
-    accountMergeFields: {
-      STREET: "",
-      POSTCODE: "",
-      TOWN: "",
-    },
+    accountMergeFields: await accountMergeFieldsFor(),
   };
 
   const subject = buildSubject(notifConfig, subjectForType(emailType, eventTitle), params);
@@ -151,17 +150,6 @@ function bannerImageSource(banners: BannerConfig[], bannerId: string, groupHref:
     return `${groupHref}/api/aws/s3/${selectedBanner.fileNameData.rootFolder}/${selectedBanner.fileNameData.awsFileName}`;
   }
   return "";
-}
-
-function signoffNamesHtml(committeeRoles: CommitteeMember[], signOffRoles: string[]): string {
-  if (!signOffRoles?.length) {
-    return "";
-  }
-  const names = signOffRoles
-    .map(role => committeeMemberForRole(committeeRoles, role))
-    .filter(committeeMember => committeeMember?.fullName)
-    .map(committeeMember => `<li>${committeeMember.fullName} (${committeeMember.description})</li>`);
-  return names.length > 0 ? `<ul>${names.join("")}</ul>` : "";
 }
 
 function buildSubject(notifConfig: NotificationConfig, subjectText: string, params: any): string {

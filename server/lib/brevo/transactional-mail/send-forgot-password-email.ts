@@ -27,6 +27,8 @@ import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/b
 import { banner } from "../../mongo/models/banner";
 import { notificationConfig } from "../../mongo/models/notification-config";
 import { normalisePostcode } from "../../addresses/shared";
+import { signoffNamesHtml } from "./signoff-names";
+import { accountMergeFieldsFor } from "../account/account";
 
 const messageType = "brevo:send-forgot-password-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -194,10 +196,10 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
   const params = {
     messageMergeFields: {
       subject: null as string,
-      SIGNOFF_NAMES: signoffNamesHtml(committeeRoles, notifConfig.signOffRoles),
       BANNER_IMAGE_SOURCE: bannerImage,
       ADDRESS_LINE: "Hi {{params.memberMergeFields.FNAME}},",
       BODY_CONTENT: "",
+      BODY_CONTENT_BOTTOM: signoffNamesHtml(committeeRoles, notifConfig.signOffRoles),
       ACCENT_COLOR: resolveAccentColor(notifConfig?.accentColor),
     },
     memberMergeFields: {
@@ -219,11 +221,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
       TWITTER_URL: systemCfg?.externalSystems?.twitter?.groupUrl || "",
       INSTAGRAM_URL: systemCfg?.externalSystems?.instagram?.groupUrl || "",
     },
-    accountMergeFields: {
-      STREET: "",
-      POSTCODE: "",
-      TOWN: "",
-    },
+    accountMergeFields: await accountMergeFieldsFor(),
   };
 
   const subject = buildSubject(notifConfig, params);
@@ -280,13 +278,3 @@ function resolveParameter(paramPath: string, params: any): string {
   return paramPath.split(".").reduce((obj, key) => obj?.[key], params) as string;
 }
 
-function signoffNamesHtml(committeeRoles: CommitteeMember[], signOffRoles: string[]): string {
-  if (!signOffRoles?.length) {
-    return "";
-  }
-  const names = signOffRoles
-    .map(role => committeeMemberForRole(committeeRoles, role))
-    .filter(committeeMember => committeeMember?.fullName)
-    .map(committeeMember => `<li>${committeeMember.fullName} (${committeeMember.description})</li>`);
-  return names.length > 0 ? `<ul>${names.join("")}</ul>` : "";
-}

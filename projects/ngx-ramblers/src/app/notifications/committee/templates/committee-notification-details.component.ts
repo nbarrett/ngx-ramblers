@@ -16,51 +16,43 @@ import { MarkdownComponent } from "ngx-markdown";
 import { CommitteeNotificationGroupEventMessageItemComponent } from "./committee-notification-group-event-message-item";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { dividerHtml, SectionDividerStyle } from "../../../models/email-composer.model";
+import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 
 @Component({
     selector: "app-committee-notification-details",
     template: `
 
-<app-committee-notification-ramblers-message-item
-  [notificationItem]="toNotificationItemFromNotification(notification)">
-  <div markdown [data]="notification.content.text.value"></div>
-  @if (notification?.content.includeDownloadInformation) {
-    <p>
-      <b>File type:</b>
-      <span>{{ committeeFile.fileType }}</span>
-      <br>
-        <b>Description:</b>
-        <span>{{ display.fileTitle(committeeFile) }}</span>
+@if (notification.content.title.include || notification.content.text.include || notification.content.includeDownloadInformation) {
+  <app-committee-notification-ramblers-message-item
+    [notificationItem]="toNotificationItemFromNotification(notification)">
+    @if (notification.content.text.include) {
+      <div markdown [data]="notification.content.text.value"></div>
+    }
+    @if (notification?.content.includeDownloadInformation) {
+      <p>
+        <b>File type:</b>
+        <span>{{ committeeFile.fileType }}</span>
+        <br>
+          <b>Description:</b>
+          <span>{{ display.fileTitle(committeeFile) }}</span>
+        </p>
+        <p>If you want to download this attachment you can click <a [href]="display.fileUrl(committeeFile)">here</a>,
+        alternatively
+        you can view or download it from our {{ group?.shortName }}
+        <a [href]="absolutePageUrl()">{{ sourcePageTitle || currentPageTitle() }} page</a>.
       </p>
-      <p>If you want to download this attachment you can click <a [href]="display.fileUrl(committeeFile)">here</a>,
-      alternatively
-      you can view or download it from our {{ group?.shortName }}
-      <a [href]="absolutePageUrl()">{{ sourcePageTitle || currentPageTitle() }} page</a>.
-    </p>
-  }
-</app-committee-notification-ramblers-message-item>
+    }
+  </app-committee-notification-ramblers-message-item>
+}
 
 @if (selectedGroupEvents().length > 0) {
   @for (event of selectedGroupEvents(); track event.id; let last = $last) {
     <app-committee-notification-ramblers-message-item [notificationItem]="toNotificationItem(event, notification)">
       <app-committee-notification-group-event-message-item [notification]="notification" [event]="event"/>
     </app-committee-notification-ramblers-message-item>
-    @if (!last) {
-      <table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;width:100%;" width="100%">
-        <tbody>
-        <tr>
-          <td style="padding: 10px 0 26px;">
-            <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;width:100%;" width="100%">
-              <tbody>
-              <tr>
-                <td style="border-top: 2px solid #f6b09d;">&nbsp;</td>
-              </tr>
-              </tbody>
-            </table>
-          </td>
-        </tr>
-        </tbody>
-      </table>
+    @if (!last && betweenEventsDividerHtml()) {
+      <div [innerHTML]="betweenEventsDividerHtml()"></div>
     }
   }
 }
@@ -95,9 +87,18 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
   public sourcePagePath: string;
   @Input()
   public sourcePageTitle: string;
+  @Input()
+  public betweenEventsDivider: SectionDividerStyle = SectionDividerStyle.NONE;
 
+  private sanitizer = inject(DomSanitizer);
   private subscriptions: Subscription[] = [];
   public group: Organisation;
+
+  betweenEventsDividerHtml(): SafeHtml | null {
+    const html = dividerHtml(this.betweenEventsDivider);
+    if (!html) return null;
+    return this.sanitizer.bypassSecurityTrustHtml(html);
+  }
 
   selectedGroupEvents(): GroupEventSummary[] {
     return this.notification.groupEvents.filter(item => item.selected);
@@ -144,8 +145,8 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
     return {
       callToAction: null,
       image: null,
-      subject: notification.content.title.value,
-      text: notification.content.text.value
+      subject: notification.content.title.include ? notification.content.title.value : "",
+      text: notification.content.text.include ? notification.content.text.value : ""
     };
   }
 }

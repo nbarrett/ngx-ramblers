@@ -122,7 +122,9 @@ export class CommitteeQueryService {
             contactPhone: event.fields?.contactDetails?.phone,
             contactEmail: event.fields?.contactDetails?.email,
             contactHref: this.contactHref(event.fields?.contactDetails?.email),
-            image: this.mediaQueryService.imageUrlFrom(event.groupEvent)
+            image: this.mediaQueryService.imageUrlFrom(event.groupEvent),
+            media: event.groupEvent?.media ?? [],
+            selectedMediaIndex: 0
           }))));
     }
     if (groupEventsFilter.includeCommitteeEvents) {

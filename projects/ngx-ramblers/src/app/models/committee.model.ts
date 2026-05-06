@@ -4,6 +4,7 @@ import { FileNameData } from "./aws-object.model";
 import { DateValue } from "./date.model";
 import { NotificationConfig } from "./mail.model";
 import { Link } from "./page.model";
+import { Media } from "./ramblers-walks-manager";
 
 export interface GroupEventType {
   eventType: string;
@@ -56,6 +57,8 @@ export interface CommitteeFileApiResponse extends ApiResponse {
 export interface GroupEventSummary extends Identifiable {
   ramblersEventType?: string;
   image?: string;
+  media?: Media[];
+  selectedMediaIndex?: number;
   slug: string;
   selected: boolean;
   eventType: GroupEventType;

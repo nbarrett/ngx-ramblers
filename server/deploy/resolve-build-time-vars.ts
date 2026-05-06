@@ -7,6 +7,14 @@ import { configuredEnvironments } from "../lib/environments/environments-config"
 const debugLog = debug(envConfig.logNamespace("resolve-build-time-vars"));
 debugLog.enabled = true;
 
+const PRE_MAIN_AUTO_DEPLOY_TARGET = "staging";
+
+function autoDeployTargetFrom(dbTarget: string | undefined): string | undefined {
+  if (dbTarget) return dbTarget;
+  if (process.env.GITHUB_REF_NAME === "pre-main") return PRE_MAIN_AUTO_DEPLOY_TARGET;
+  return undefined;
+}
+
 void resolveBuildTimeVars().then(() => process.exit(0)).catch(error => {
   debugLog("Failed to resolve build-time variables:", error);
   process.exit(1);
@@ -19,7 +27,7 @@ async function resolveBuildTimeVars(): Promise<void> {
 
   const dbConfig = await configuredEnvironments();
   const chromeVersion = dbConfig?.secrets?.CHROME_VERSION;
-  const autoDeployTarget = dbConfig?.autoDeployTarget;
+  const autoDeployTarget = autoDeployTargetFrom(dbConfig?.autoDeployTarget);
 
   if (!chromeVersion) {
     throw new Error("CHROME_VERSION is not set in the global secrets of the environments config document");

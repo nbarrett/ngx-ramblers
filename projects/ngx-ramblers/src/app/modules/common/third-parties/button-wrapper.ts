@@ -6,6 +6,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgClass } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { DockedTo } from "../../../models/docking.model";
 
 @Component({
     selector: "app-button-wrapper",
@@ -18,7 +19,13 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
     template: `
     <div [tooltip]="showTooltip? (disabled ? 'Not available to ' : 'Click to ') + title : null" placement="auto"
          (click)="blockClick($event)"
-         [ngClass]="{'btn btn-primary d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap': button, 'not-allowed is-disabled': disabled || loading, 'pointer': !disabled && !loading}">
+         [ngClass]="{
+           'btn btn-primary d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap': button,
+           'rounded-start-0': button && dockedTo === DockedTo.RIGHT,
+           'rounded-end-0': button && dockedTo === DockedTo.LEFT,
+           'not-allowed is-disabled': disabled || loading,
+           'pointer': !disabled && !loading
+         }">
       @if (loading) {
         <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
       } @else {
@@ -37,6 +44,8 @@ export class ButtonWrapper implements OnInit {
   public loading: boolean;
   public showTooltip: boolean;
   public title: string;
+  @Input() dockedTo: DockedTo | null = null;
+  protected readonly DockedTo = DockedTo;
   protected readonly faSpinner = faSpinner;
 
   @Input("title") set titleValue(value: string) {

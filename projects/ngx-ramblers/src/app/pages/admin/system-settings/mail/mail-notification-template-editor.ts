@@ -220,6 +220,19 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                     </div>
                   </div>
                 }
+                <div class="col-sm-12">
+                  <div class="form-check mb-2">
+                    <input type="checkbox"
+                           class="form-check-input"
+                           id="{{heading | kebabCase}-default-listing"
+                           [(ngModel)]="notificationConfig.defaultListing"
+                           (ngModelChange)="onDefaultListingChanged($event)">
+                    <label class="form-check-label"
+                           for="{{heading | kebabCase}-default-listing">
+                      Default email type - appears first in the composer's Email Type dropdown and is pre-selected when no other config is forced.
+                    </label>
+                  </div>
+                </div>
                 <ng-container>
                   <div class="col-sm-12">
                     <div class="form-group">
@@ -245,7 +258,8 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                 </ng-container>
                 <div class="col-sm-12">
                   <app-sender-replies-and-sign-off [mailMessagingConfig]="mailMessagingConfig"
-                                                   [notificationConfig]="notificationConfig"/>
+                                                   [notificationConfig]="notificationConfig"
+                                                   (rolesChanged)="refreshCachedState()"/>
                 </div>
                 <div class="col-sm-12">
                   <div class="form-group">
@@ -612,6 +626,13 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
     }
     this.removeFromNotificationConfigs(this.notificationConfig);
     this.notificationConfig = first(this.mailMessagingConfig.notificationConfigs);
+  }
+
+  protected onDefaultListingChanged(checked: boolean): void {
+    if (!checked) return;
+    this.mailMessagingConfig.notificationConfigs
+      .filter(config => config.id !== this.notificationConfig.id && config.defaultListing)
+      .forEach(config => config.defaultListing = false);
   }
 
   duplicateConfig() {

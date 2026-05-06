@@ -46,21 +46,9 @@ function banner(): string {
 </tr>`;
 }
 
-function accentDivider(): string {
-  return `<tr>
-  <td style="padding: 22px 30px 12px;">
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse; width: 100%;">
-      <tr>
-        <td style="border-top: ${T.dividerThickness} solid {{params.messageMergeFields.ACCENT_COLOR}};">&nbsp;</td>
-      </tr>
-    </table>
-  </td>
-</tr>`;
-}
-
 function bodySection(bodyContent: string): string {
   return `<tr>
-  <td class="email-body" style="padding: 30px; font-family: ${T.fontFamily}; font-size: ${T.bodyFontSize}; line-height: ${T.bodyLineHeight}; color: ${T.bodyColor};">
+  <td class="email-body" style="padding: 30px; font-family: ${T.fontFamily}; font-size: ${T.bodyFontSize}; line-height: ${T.bodyLineHeight}; color: ${T.bodyColor}; word-break: break-word; overflow-wrap: anywhere;">
     ${bodyContent}
   </td>
 </tr>`;
@@ -169,9 +157,7 @@ export function ramblersEmailLayout(bodyContent: string): string {
     <table role="presentation" class="email-container" align="center" cellpadding="0" cellspacing="0" width="${W}" style="max-width: ${W}px; margin: 0 auto; background-color: ${T.contentBg};">
       ${preHeader()}
       ${banner()}
-      ${accentDivider()}
       ${bodySection(bodyContent)}
-      ${accentDivider()}
       ${footer()}
       ${postFooter()}
     </table>

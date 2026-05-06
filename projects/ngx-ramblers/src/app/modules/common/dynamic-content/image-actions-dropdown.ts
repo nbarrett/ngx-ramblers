@@ -7,7 +7,7 @@ import { faImage } from "@fortawesome/free-solid-svg-icons";
   selector: "app-image-actions-dropdown",
   template: `
     <div class="btn-group" [class.w-100]="fullWidth" dropdown [container]="'body'">
-      <button aria-controls="dropdown-image-actions" class="dropdown-toggle badge-button border-0" [class.w-100]="fullWidth" dropdownToggle type="button">
+      <button aria-controls="dropdown-image-actions" class="dropdown-toggle {{buttonClass}}" [class.w-100]="fullWidth" dropdownToggle type="button">
         <fa-icon [icon]="faImage"></fa-icon>
         <span class="ms-2">Image Actions</span>
       </button>
@@ -36,6 +36,7 @@ import { faImage } from "@fortawesome/free-solid-svg-icons";
 export class ImageActionsDropdownComponent {
   @Input() fullWidth = false;
   @Input() hasImage = false;
+  @Input() buttonClass = "badge-button border-0";
   @Output() edit = new EventEmitter<void>();
   @Output() replace = new EventEmitter<void>();
   @Output() remove = new EventEmitter<void>();

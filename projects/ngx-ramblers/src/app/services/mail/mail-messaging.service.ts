@@ -131,7 +131,11 @@ export class MailMessagingService {
       const notificationConfigs = await this.notificationConfigService.all();
       this.logger.info("retrieved notificationConfigs:", notificationConfigs);
       const normalisedConfigs = this.normaliseNotificationConfigs(notificationConfigs);
-      this.mailMessagingConfig.notificationConfigs = normalisedConfigs.sort(sortBy("subject.text"));
+      this.mailMessagingConfig.notificationConfigs = normalisedConfigs.sort((a, b) => {
+        const defaultDelta = (b.defaultListing ? 1 : 0) - (a.defaultListing ? 1 : 0);
+        if (defaultDelta !== 0) return defaultDelta;
+        return (a.subject?.text ?? "").localeCompare(b.subject?.text ?? "");
+      });
       const message = `Found ${this.stringUtilsService.pluraliseWithCount(notificationConfigs.length, "Notification config")}`;
       return this.broadcastSuccess(configType, message);
     } catch (error) {
@@ -234,11 +238,16 @@ export class MailMessagingService {
   notificationConfigs(configListing: NotificationConfigListing): NotificationConfig[] {
     const mailConfig = configListing.mailMessagingConfig?.mailConfig;
     const workflowIds: string[] = this.workflowIdsFor(mailConfig);
+    const forceInclude = (item: NotificationConfig): boolean => {
+      const ids = configListing.forceIncludeConfigIds;
+      return !!ids && ids.length > 0 && ids.includes(item.id);
+    };
     const notificationConfigs = this.mailMessagingConfig.notificationConfigs
-      .filter(item => (configListing.includeWorkflowRelatedConfigs || !workflowIds.includes(item.id)))
-      .filter(item => !configListing.includeMemberSelections || configListing.includeMemberSelections.length === 0 || configListing.includeMemberSelections.includes(item.defaultMemberSelection))
-      .filter(item => !configListing.excludeMemberSelections || configListing.excludeMemberSelections.length === 0 || !configListing.excludeMemberSelections.includes(item.defaultMemberSelection));
-    this.logger.info("workflowIds:", workflowIds, "mailConfig:", mailConfig, "includeWorkflowRelatedConfigs:", configListing.includeWorkflowRelatedConfigs, "-> notificationConfigs:", notificationConfigs,);
+      .filter(item => forceInclude(item) || configListing.includeWorkflowRelatedConfigs || !workflowIds.includes(item.id))
+      .filter(item => forceInclude(item) || !configListing.excludeConfigsWithPreSendActions || !item.preSendActions || item.preSendActions.length === 0)
+      .filter(item => forceInclude(item) || !configListing.includeMemberSelections || configListing.includeMemberSelections.length === 0 || configListing.includeMemberSelections.includes(item.defaultMemberSelection))
+      .filter(item => forceInclude(item) || !configListing.excludeMemberSelections || configListing.excludeMemberSelections.length === 0 || !configListing.excludeMemberSelections.includes(item.defaultMemberSelection));
+    this.logger.info("workflowIds:", workflowIds, "mailConfig:", mailConfig, "includeWorkflowRelatedConfigs:", configListing.includeWorkflowRelatedConfigs, "excludeConfigsWithPreSendActions:", configListing.excludeConfigsWithPreSendActions, "forceIncludeConfigIds:", configListing.forceIncludeConfigIds, "-> notificationConfigs:", notificationConfigs);
     return notificationConfigs;
   }
 
@@ -362,6 +371,11 @@ export class MailMessagingService {
       name: this.fullNamePipe.transform(createSendSmtpEmailRequest.member)
     }];
     const replyTo: EmailAddress = createSendSmtpEmailRequest.replyTo || this.createBrevoAddress(createSendSmtpEmailRequest.notificationConfig.replyToRole);
+    const signoffRoles = createSendSmtpEmailRequest.notificationConfig.signOffRoles ?? [];
+    const signoffHtml = signoffRoles.length > 0 ? this.signoffNames(signoffRoles, createSendSmtpEmailRequest.notificationDirective) : "";
+    const bodyWithSignoff = signoffHtml
+      ? `${createSendSmtpEmailRequest.bodyContent ?? ""}\n${signoffHtml}`
+      : createSendSmtpEmailRequest.bodyContent;
     const emailRequest: SendSmtpEmailRequest = {
       subject: null,
       to,
@@ -369,12 +383,9 @@ export class MailMessagingService {
       replyTo,
       listId: createSendSmtpEmailRequest.notificationConfig.defaultListId,
       params: this.createSendSmtpEmailParams(
-        createSendSmtpEmailRequest.notificationConfig.signOffRoles,
-        createSendSmtpEmailRequest.notificationDirective,
         createSendSmtpEmailRequest.member,
         createSendSmtpEmailRequest.notificationConfig,
-        createSendSmtpEmailRequest.bodyContent,
-        true,
+        bodyWithSignoff,
         null,
         this.defaultTransactionalAddressLine
       ),
@@ -391,15 +402,16 @@ export class MailMessagingService {
     return emailRequest;
   }
 
-  public createSendSmtpEmailParams(signoffRoles: string[], notificationDirective: NotificationHost, member: Member, notificationConfig: NotificationConfig, bodyContent: string, includeSignOffNames: boolean, subject?: string, addresseeType?: string) {
+  public createSendSmtpEmailParams(member: Member, notificationConfig: NotificationConfig, bodyContent: string, subject?: string, addresseeType?: string, bodyContentTop?: string, bodyContentBottom?: string) {
     this.logger.info("createSendSmtpEmailParams:notificationConfig:", notificationConfig, "member:", member);
     const params = {
       messageMergeFields: {
         subject,
-        SIGNOFF_NAMES: includeSignOffNames ? this.signoffNames(signoffRoles, notificationDirective) : "",
         BANNER_IMAGE_SOURCE: this.bannerImageSource(notificationConfig, true),
-        ADDRESS_LINE: addresseeType || this.defaultTransactionalAddressLine,
+        ADDRESS_LINE: addresseeType ?? this.defaultTransactionalAddressLine,
         BODY_CONTENT: bodyContent,
+        BODY_CONTENT_TOP: bodyContentTop ?? "",
+        BODY_CONTENT_BOTTOM: bodyContentBottom ?? "",
         ACCENT_COLOR: resolveAccentColor(notificationConfig?.accentColor),
       },
       memberMergeFields: this.toMemberMergeVariables(member),
@@ -410,7 +422,7 @@ export class MailMessagingService {
     return params;
   }
 
-  private signoffNames(roles: string[], notificationDirective: NotificationHost): string {
+  public signoffNames(roles: string[], notificationDirective: NotificationHost): string {
     this.logger.info("signoffNames for roles:", roles);
     const componentAndData = new NotificationComponent<ContactUsComponent>(ContactUsComponent);
     if (notificationDirective?.viewContainerRef) {
@@ -478,8 +490,7 @@ export class MailMessagingService {
       messageMergeFields: {
         subject: "Example Email",
         BANNER_IMAGE_SOURCE: "Example Banner Image Source",
-        ADDRESS_LINE: this.defaultTransactionalAddressLine,
-        SIGNOFF_NAMES: "Example Signoff Names"
+        ADDRESS_LINE: this.defaultTransactionalAddressLine
       },
       memberMergeFields: this.toMemberMergeVariables(this.memberLoginService.loggedInMember()),
       systemMergeFields: this.toSystemMergeFields(this.memberLoginService.loggedInMember()),
@@ -489,14 +500,14 @@ export class MailMessagingService {
 
   public toMemberMergeVariables(member: Member): MemberMergeFields {
     return {
-      FULL_NAME: this.fullNamePipe.transform(member),
-      EMAIL: member?.email,
-      FNAME: member?.firstName,
-      LNAME: member?.lastName,
-      MEMBER_NUM: member?.membershipNumber,
-      MEMBER_EXP: this.dateUtils.displayDate(member?.membershipExpiryDate),
-      USERNAME: member?.userName,
-      PW_RESET: member?.passwordResetId || ""
+      FULL_NAME: this.fullNamePipe.transform(member) ?? "",
+      EMAIL: member?.email ?? "",
+      FNAME: member?.firstName ?? "",
+      LNAME: member?.lastName ?? "",
+      MEMBER_NUM: member?.membershipNumber ?? "",
+      MEMBER_EXP: this.dateUtils.displayDate(member?.membershipExpiryDate) ?? "",
+      USERNAME: member?.userName ?? "",
+      PW_RESET: member?.passwordResetId ?? ""
     };
   }
 

@@ -24,6 +24,7 @@ const notificationConfigSchema = new mongoose.Schema({
   contentPreset: {type: String},
   help: {type: String},
   templateOverrides: {type: Object},
+  defaultListing: {type: Boolean},
   createdAt: {type: Number},
   createdBy: {type: String},
   updatedAt: {type: Number},

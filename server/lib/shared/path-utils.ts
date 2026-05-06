@@ -8,16 +8,18 @@ debugLog.enabled = false;
 
 const PROJECT_ROOT_MARKER = "fly.toml";
 
-function findProjectRoot(): string {
-  let dir = __dirname;
-  while (dir !== path.dirname(dir)) {
-    if (fs.existsSync(path.join(dir, PROJECT_ROOT_MARKER))) {
-      debugLog(`Found project root at ${dir} (via ${PROJECT_ROOT_MARKER})`);
-      return dir;
-    }
-    dir = path.dirname(dir);
+function findProjectRootFrom(dir: string): string {
+  if (fs.existsSync(path.join(dir, PROJECT_ROOT_MARKER))) {
+    debugLog("Found project root at " + dir + " (via " + PROJECT_ROOT_MARKER + ")");
+    return dir;
   }
-  throw new Error(`Could not locate project root from ${__dirname} - no ${PROJECT_ROOT_MARKER} found in any parent directory`);
+  const parent = path.dirname(dir);
+  if (parent !== dir) return findProjectRootFrom(parent);
+  throw new Error("Could not locate project root from " + __dirname + " - no " + PROJECT_ROOT_MARKER + " found in any parent directory");
+}
+
+function findProjectRoot(): string {
+  return findProjectRootFrom(__dirname);
 }
 
 const projectRoot = findProjectRoot();

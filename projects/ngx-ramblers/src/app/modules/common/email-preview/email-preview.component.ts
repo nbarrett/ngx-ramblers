@@ -21,7 +21,7 @@ import { MailService } from "../../../services/mail/mail.service";
           #previewFrame
           title="Email preview"
           scrolling="yes"
-          sandbox="allow-popups allow-popups-to-escape-sandbox"
+          sandbox="allow-popups allow-popups-to-escape-sandbox allow-downloads"
           (load)="resize()"
           [src]="previewUrl"
           style="display:block;width:100%;height:70vh;border:0;background:#f3f3f3;"></iframe>

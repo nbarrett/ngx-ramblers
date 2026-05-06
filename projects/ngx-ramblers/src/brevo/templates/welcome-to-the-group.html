@@ -1,5 +1,6 @@
 <h3>{{params.messageMergeFields.subject}}</h3>
-<p>{{params.messageMergeFields.ADDRESS_LINE}}</p>
+{% if params.messageMergeFields.ADDRESS_LINE %}<p>{{params.messageMergeFields.ADDRESS_LINE}}</p>{% endif %}
+{{params.messageMergeFields.BODY_CONTENT_TOP}}
 <p>Welcome to {{params.systemMergeFields.APP_LONGNAME}}, or <a href="{{params.systemMergeFields.APP_URL}}" target="_blank" style="color: #c05711; text-decoration: underline;">{{params.systemMergeFields.APP_SHORTNAME}}</a> as we like to call it. We hope you'll join us soon on one of the many walks we've got planned and enjoy what the area has to offer on foot!</p>
 <p>Given that you've just joined us, we wanted to let you know a few things about the {{params.systemMergeFields.APP_SHORTNAME}} website and to confirm with you are happy to receive our walk and social event related emails that we periodically send out.</p>
 <h3>How can I find the {{params.systemMergeFields.APP_SHORTNAME}} site?</h3>
@@ -37,4 +38,4 @@
 <p>You will be able to remove yourself from our <strong>walks</strong>, <strong>social</strong> or <strong>general</strong> email lists at any point in the future by following the subscription links at the base of any email you receive. You will also be removed from the mailing list if you discontinue your Ramblers membership. All new members joining {{params.systemMergeFields.APP_SHORTNAME}} in the future, will also be asked for their agreement to receipt of emails. This ensures we comply with <a href="https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/" target="_blank" style="color: #c05711; text-decoration: underline;">GDPR legislation</a>.</p>
 <p>If you've already confirmed your preferences via the website since we've sent out this message then there's nothing more you need to do.</p>
 <p>Any queries about the above or anything else, please don't hesitate to contact us by clicking on the most suitable email link below:</p>
-<p>{{params.messageMergeFields.SIGNOFF_NAMES}}</p>
+{{params.messageMergeFields.BODY_CONTENT_BOTTOM}}

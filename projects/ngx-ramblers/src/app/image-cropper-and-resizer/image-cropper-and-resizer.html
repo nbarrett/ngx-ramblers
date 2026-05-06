@@ -251,11 +251,15 @@
     </div>
   }
   @if (!cropOnlyMode && wrapButtons) {
-    <div class="row g-0">
+    <div class="row row-cols-6 g-0">
       <ng-container *ngTemplateOutlet="buttonSet1"/>
+      @if (!nonDestructive || !allowPermanentSave) {
+        <div class="col pe-1 invisible" aria-hidden="true"></div>
+      }
     </div>
-    <div class="row g-0">
+    <div class="row row-cols-6 g-0">
       <ng-container *ngTemplateOutlet="buttonSet2"/>
+      <div class="col pe-1 invisible" aria-hidden="true"></div>
     </div>
   }
 }

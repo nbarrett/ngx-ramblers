@@ -1,5 +1,6 @@
 <h3>{{params.messageMergeFields.subject}}</h3>
-<p>{{params.messageMergeFields.ADDRESS_LINE}}</p>
+{% if params.messageMergeFields.ADDRESS_LINE %}<p>{{params.messageMergeFields.ADDRESS_LINE}}</p>{% endif %}
+{{params.messageMergeFields.BODY_CONTENT_TOP}}
 <p>Welcome to {{params.systemMergeFields.APP_LONGNAME}}!</p>
 <p>This is the first email sent to you via our website, using <a href="https://www.brevo.com" style="color: #c05711; text-decoration: underline;">Brevo</a>, the email automation system behind every <a href="https://www.ngx-ramblers.org.uk" style="color: #c05711; text-decoration: underline;">NGX-Ramblers</a> website.</p>
 <p>This email shows the kind of communication you can expect from our group, and includes important information about your login details.</p>
@@ -22,4 +23,4 @@
   <li><a href="{{params.systemMergeFields.APP_URL}}/admin/email-subscriptions" style="color: #c05711; text-decoration: underline;">Manage email subscriptions</a></li>
 </ul>
 <p>Any queries about the above or anything else, please don't hesitate to contact me.</p>
-<p>{{params.messageMergeFields.SIGNOFF_NAMES}}</p>
+{{params.messageMergeFields.BODY_CONTENT_BOTTOM}}

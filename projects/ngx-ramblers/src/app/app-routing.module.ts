@@ -2,7 +2,7 @@ import { inject, NgModule } from "@angular/core";
 import { NoPreloading, RouterModule, Routes } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
-import { hasDynamicPath, hasEditSubPath, hasSendNotificationPath, hasTrailingEditPath, hasTrailingNewPath, hasUnsubscribePath, hasViewSubPath } from "./services/path-matchers";
+import { hasDynamicPath, hasEditSubPath, hasEmailComposerPath, hasSendNotificationPath, hasTrailingEditPath, hasTrailingNewPath, hasUnsubscribePath, hasViewSubPath } from "./services/path-matchers";
 import { contactUsGuard } from "./pages/contact-us/contact-us.guard";
 import { AreaExistsGuard } from "./guards/area-exists-guard";
 import { CommitteeAuthGuard } from "./guards/committee-auth-guard";
@@ -65,8 +65,14 @@ const routes: Routes = [
   },
   {
     matcher: hasSendNotificationPath,
-    loadComponent: () => import("./pages/committee/send-notification/committee-send-notification")
-      .then(m => m.CommitteeSendNotification),
+    loadComponent: () => import("./pages/email-composer/email-composer")
+      .then(m => m.EmailComposer),
+    canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
+  },
+  {
+    matcher: hasEmailComposerPath,
+    loadComponent: () => import("./pages/email-composer/email-composer")
+      .then(m => m.EmailComposer),
     canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
   },
   {

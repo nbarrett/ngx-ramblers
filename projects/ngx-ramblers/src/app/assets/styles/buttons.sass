@@ -17,6 +17,24 @@
 .btn + .btn
   margin-left: var(--space-2)
 
+// Input-group docking for nested-button components (BrevoButton / ButtonWrapper).
+// Bootstrap's `.input-group > :not(:last-child)` rules reach the wrapper
+// element only, not the inner `.btn`, so the inner `.btn` keeps its full radii
+// and looks ungrouped. These rules pierce the wrapper so docking matches a
+// plain Bootstrap input-group button regardless of how the button is nested.
+.input-group > app-brevo-button:not(:last-child) .btn,
+.input-group > app-button-wrapper:not(:last-child) .btn,
+.input-group > a:not(:last-child) app-button-wrapper .btn
+  border-top-right-radius: 0
+  border-bottom-right-radius: 0
+
+.input-group > app-brevo-button:not(:first-child) .btn,
+.input-group > app-button-wrapper:not(:first-child) .btn,
+.input-group > a:not(:first-child) app-button-wrapper .btn
+  border-top-left-radius: 0
+  border-bottom-left-radius: 0
+  margin-left: -1px
+
 .btn-primary
   color: $ramblers-colour-black
   background-color: $ramblers-colour-sunrise

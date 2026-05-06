@@ -1,5 +1,6 @@
 <h3>{{params.messageMergeFields.subject}}</h3>
-<p>{{params.messageMergeFields.ADDRESS_LINE}}</p>
+{% if params.messageMergeFields.ADDRESS_LINE %}<p>{{params.messageMergeFields.ADDRESS_LINE}}</p>{% endif %}
+{{params.messageMergeFields.BODY_CONTENT_TOP}}
 <p>We've noticed that the Ramblers membership expiry date we have in our records for you has now passed, or Ramblers have stopped sending us your monthly member data. This email is therefore to notify you that we'll need to remove you from our mailing lists shortly in order to comply with GDPR regulations.</p>
 <p>For your information, the membership data we have on file for you is as follows:</p>
 <table style="border: 1px solid lightgrey; border-collapse: collapse; width: 100%;">
@@ -14,4 +15,4 @@
 </table>
 <p>If you intended for your {{params.systemMergeFields.APP_SHORTNAME}} membership to expire or be moved to another group, then no action needs to be taken by you. However, if you would like to renew your Ramblers membership or transfer your membership with another group back to {{params.systemMergeFields.APP_SHORTNAME}}, then please see the <a href="{{params.systemMergeFields.APP_URL}}/join-us" target="_blank" style="color: #c05711; text-decoration: underline;">join us</a> section on our website.</p>
 <p>If you have any questions please don't hesitate to email me using the address below.</p>
-<p>{{params.messageMergeFields.SIGNOFF_NAMES}}</p>
+{{params.messageMergeFields.BODY_CONTENT_BOTTOM}}

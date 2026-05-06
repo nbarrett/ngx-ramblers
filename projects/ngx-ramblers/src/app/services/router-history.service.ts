@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { NavigationEnd, Router } from "@angular/router";
+import { NavigationEnd, Params, Router } from "@angular/router";
 import { first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { filter } from "rxjs/operators";
@@ -41,10 +41,19 @@ export class RouterHistoryService {
         return match;
       });
     this.logger.debug("event:pageHistory", this.pageHistory, "lastPage ->", lastPage);
+    if (!lastPage) {
+      return;
+    }
+    const queryIndex = lastPage.indexOf("?");
+    const path = queryIndex >= 0 ? lastPage.substring(0, queryIndex) : lastPage;
+    const queryString = queryIndex >= 0 ? lastPage.substring(queryIndex + 1) : "";
+    const queryParams: Params | undefined = queryString
+      ? Object.fromEntries(new URLSearchParams(queryString))
+      : undefined;
     if (unconditionally) {
-      this.urlService.navigateUnconditionallyTo([lastPage]);
+      this.urlService.navigateUnconditionallyTo([path], queryParams);
     } else {
-      this.urlService.navigateTo([lastPage]);
+      this.urlService.navigateTo([path], queryParams);
     }
 
   }

@@ -33,6 +33,7 @@ import { ActionsDropdownComponent } from "../actions-dropdown/actions-dropdown";
 import { FALLBACK_MEDIA } from "../../../models/walk.model";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
+import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
 
 @Component({
     selector: "app-card-editor",
@@ -84,13 +85,11 @@ import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-rati
           <form class="form-group">
             <label class="form-label"
                    [for]="idFor('href')">Link</label>
-            <input [(ngModel)]="column.href"
-                   name="href"
-                   autocomplete="nope"
-                   (blur)="reformatHref($event)"
-                   [typeahead]="pageContentService.siteLinks"
-                   [id]="idFor('href')"
-                   class="form-control input-sm" placeholder="Enter href value">
+            <app-site-link-input cssClass="form-control input-sm"
+                                 [inputId]="idFor('href')"
+                                 placeholder="Enter href value"
+                                 [value]="column.href"
+                                 (valueChange)="column.href = $event"/>
           </form>
           <div class="form-group">
             <div class="form-check form-check-inline">
@@ -201,7 +200,7 @@ import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-rati
       border-bottom-left-radius: 0.375rem
       border-bottom-right-radius: 0.375rem
   `],
-  imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, AspectRatioSelectorComponent]
+  imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, AspectRatioSelectorComponent, SiteLinkInputComponent]
 })
 export class CardEditorComponent implements OnInit {
 
@@ -361,11 +360,6 @@ export class CardEditorComponent implements OnInit {
     } else {
       this.column.imageSource = null;
     }
-  }
-
-  reformatHref($event: any) {
-    this.logger.info("reformat:", $event, "this.column.href", this.column?.href);
-    this.column.href = this.urlService.reformatLocalHref(this.column?.href);
   }
 
   siteEditActive() {

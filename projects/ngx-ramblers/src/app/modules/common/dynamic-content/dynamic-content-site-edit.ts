@@ -70,7 +70,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { RouterLink } from "@angular/router";
 import { FormsModule } from "@angular/forms";
-import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
+import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
 import { FragmentSelectorComponent } from "./fragment-selector.component";
 import { RowSettingsCarouselComponent } from "./dynamic-content-site-edit-carousel-row";
 import { RowSettingsActionButtonsComponent } from "./dynamic-content-row-settings-action-buttons";
@@ -153,14 +153,10 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                 <form>
                   <label class="me-2" for="path">Content Path
                     <span>{{ contentPathReadOnly ? "(not editable as this content is part of internal page)" : "" }}</span></label>
-                  <input [disabled]="contentPathReadOnly" autocomplete="off"
-                         [typeahead]="pageContentService.siteLinks"
-                         (ngModelChange)="contentPathChange($event)"
-                         [typeaheadMinLength]="0" id="path"
-                         [ngModel]="pageContent.path"
-                         name="path"
-                         [ngModelOptions]="{standalone: true}"
-                         type="text" class="form-control">
+                  <app-site-link-input inputId="path"
+                                       [disabled]="contentPathReadOnly"
+                                       [value]="pageContent.path"
+                                       (valueChange)="contentPathChange($event)"/>
                 </form>
               </div>
             </div>
@@ -249,15 +245,10 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                             {{ action }}
                             {{ stringUtils.pluraliseWithCount(pageContentRowService.selectedRowCount(), "row") }}
                             to</label>
-                          <input id="move-or-copy-to-path"
-                                 [typeahead]="pageContentService.siteLinks"
-                                 name="destinationPath"
-                                 autocomplete="nope"
-                                 [typeaheadMinLength]="0"
-                                 [disabled]="!pageContentRowService.rowsSelected()"
-                                 (ngModelChange)="destinationPathLookupChange($event)"
-                                 [ngModel]="destinationPath"
-                                 type="text" class="form-control">
+                          <app-site-link-input inputId="move-or-copy-to-path"
+                                               [disabled]="!pageContentRowService.rowsSelected()"
+                                               [value]="destinationPath"
+                                               (valueChange)="destinationPathLookupChange($event)"/>
                         </form>
                       </div>
                       <div class="col-sm-4 col-md-2">
@@ -757,7 +748,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, MarkdownEditorComponent, TemplateSelectorComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, SiteLinkInputComponent, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, IndexSiteEdit, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditCommitteeDocuments, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, MarkdownEditorComponent, TemplateSelectorComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
