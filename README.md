@@ -14,7 +14,7 @@
 - An example of an area website is [here](https://www.kent.ngx-ramblers.org.uk).
 - Visit the [Project website](https://ngx-ramblers.org.uk/) and have a look around to find out more. The site acts as the documentation centre for the project as well as showing many example pages that show the kind of content you can create.
 - You may be interested to note that all the content you see on this site was created using [NGX-Ramblers](https://ngx-ramblers.org.uk/)!
-- Explore the [Codebase Evolution snapshot](https://rawcdn.githack.com/nbarrett/ngx-ramblers/main/codebase-evolution-stats.html) (or open `codebase-evolution-stats.html` locally) for interactive charts covering the 13-year development journey.
+- Explore the [Codebase Evolution snapshot](https://nbarrett.github.io/ngx-ramblers/codebase-evolution-stats.html) (or open `codebase-evolution-stats.html` locally) for interactive charts covering the 13-year development journey.
 - Development and CI now target Node.js `24.14.0` LTS.
 
 ## What does NGX-Ramblers do?
