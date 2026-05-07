@@ -18,7 +18,7 @@ import { listDelete } from "./lists/list-delete";
 import { contactsBatchUpdate } from "./contacts/contacts-batch-update";
 import { contactsDelete } from "./contacts/contact-delete";
 import { clearAllBlocklist, removeFromBlocklist, unsubscribeActivity, unsubscribeHistory, unsubscribes } from "./contacts/unsubscribes";
-import { confirmUnsubscribe, decodeUnsubscribeRequest, submitUnsubscribeFeedback } from "./contacts/branded-unsubscribe";
+import { confirmUnsubscribe, decodeUnsubscribeRequest, redirectFromList, submitUnsubscribeFeedback } from "./contacts/branded-unsubscribe";
 import { brevoEventsWebhook, brevoEventsWebhookConfig } from "./brevo-events-webhook";
 import { sendCampaign } from "./campaigns/send-campaign";
 import { createCampaign } from "./campaigns/create-campaign";
@@ -61,6 +61,7 @@ router.delete("/unsubscribes/:email", authConfig.authenticate(), removeFromBlock
 router.get("/unsubscribe/decode", decodeUnsubscribeRequest);
 router.post("/unsubscribe/confirm", confirmUnsubscribe);
 router.post("/unsubscribe/feedback", submitUnsubscribeFeedback);
+router.get("/unsubscribe/from-list", redirectFromList);
 router.post("/webhooks/brevo-events", brevoEventsWebhook);
 router.get("/webhooks/brevo-events/config", authConfig.authenticate(), brevoEventsWebhookConfig);
 router.get("/senders", authConfig.authenticate(), senders);

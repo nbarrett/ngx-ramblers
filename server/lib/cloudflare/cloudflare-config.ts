@@ -57,44 +57,16 @@ async function primaryHostFromSystemConfig(): Promise<string | null> {
   return null;
 }
 
-function runningEnvironmentName(): string | null {
-  const appName = envConfig.value(Environment.APP_NAME);
-  if (!appName) {
-    return null;
-  }
-  return appName.replace(/^ngx-ramblers-/, "");
-}
-
-async function perEnvironmentDbZoneIdForRunningApp(): Promise<string | null> {
-  const environmentName = runningEnvironmentName();
-  if (!environmentName) {
-    return null;
-  }
-  try {
-    const configDocument: ConfigDocument = await config.queryKey(ConfigKey.ENVIRONMENTS);
-    const environmentsConfig: EnvironmentsConfig = configDocument?.value;
-    const matched = environmentsConfig?.environments?.find(env => env.environment === environmentName);
-    return matched?.cloudflare?.zoneId || null;
-  } catch (err) {
-    debugLog("Could not look up per-environment Cloudflare zone id from database:", err.message);
-    return null;
-  }
-}
-
 export async function nonSensitiveCloudflareConfig(): Promise<NonSensitiveCloudflareConfig> {
   try {
     const cloudflareConfig = await configuredCloudflare();
     const primaryHost = await primaryHostFromSystemConfig();
     const baseDomain = primaryHost || cloudflareConfig.baseDomain || "";
-    const perEnvironmentDbZoneId = await perEnvironmentDbZoneIdForRunningApp();
     return {
       configured: true,
       accountId: cloudflareConfig.accountId,
       zoneId: cloudflareConfig.zoneId,
-      baseDomain,
-      cloudflareZoneBaseDomain: cloudflareConfig.baseDomain || "",
-      primaryHost: primaryHost || "",
-      perEnvironmentDbZoneId: perEnvironmentDbZoneId || ""
+      baseDomain
     };
   } catch (err) {
     debugLog("Cloudflare not configured:", err.message);

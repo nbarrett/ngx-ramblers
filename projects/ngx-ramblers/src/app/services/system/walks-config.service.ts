@@ -73,7 +73,8 @@ export class WalksConfigService {
       relatedLinkShowMeetup: true,
       relatedLinkShowOsMaps: true,
       relatedLinkShowWhat3words: true,
-      relatedLinkShowVenue: true
+      relatedLinkShowVenue: true,
+      relatedLinkShowGpx: true
     };
   };
 

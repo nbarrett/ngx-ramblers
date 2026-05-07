@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ViewChild } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCopy, faEye, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faEye, faRoute, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { RelatedLinkComponent } from "./related-link";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
@@ -19,6 +19,8 @@ import { Subscription } from "rxjs";
 import { NotifierService } from "../../../services/notifier.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { WalkShareService } from "../../../pages/walks/walk-share.service";
+import { UrlService } from "../../../services/url.service";
+import { FileNameData } from "../../../models/aws-object.model";
 
 @Component({
   selector: "app-related-links",
@@ -90,6 +92,17 @@ import { WalkShareService } from "../../../pages/walks/walk-share.service";
         </a>
       </div>
     }
+    @if (gpxDownloadUrl() && showLink('relatedLinkShowGpx')) {
+      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+           class="col-sm-12">
+        <fa-icon title [icon]="faRoute" class="fa-icon"></fa-icon>
+        <a content tooltip="Click to download the GPX route for this {{display.eventTypeTitle(displayedWalk.walk).toLowerCase()}}"
+           [href]="gpxDownloadUrl()"
+           [download]="gpxDownloadFileName()">
+          Download GPX route
+        </a>
+      </div>
+    }
     @if (displayedWalk?.walk?.groupEvent?.start_location?.w3w && showLink('relatedLinkShowWhat3words')) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
            class="col-sm-12">
@@ -150,6 +163,7 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   private walksConfigService = inject(WalksConfigService);
   private notifierService = inject(NotifierService);
   private walkShareService = inject(WalkShareService);
+  private urlService = inject(UrlService);
   @Input() displayedWalk: DisplayedWalk;
   @Input() walksConfigOverride?: WalksConfig;
   public links: Links = null;
@@ -162,6 +176,7 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   protected readonly faShareNodes = faShareNodes;
   protected readonly faEye = faEye;
   protected readonly faCopy = faCopy;
+  protected readonly faRoute = faRoute;
 
   ngOnInit(): void {
     this.refreshLinks();
@@ -217,5 +232,25 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
 
   copyLink(): Promise<void> {
     return this.walkShareService.copyLink(this.displayedWalk, this.notify);
+  }
+
+  gpxDownloadUrl(): string | undefined {
+    const gpxFile: FileNameData | undefined = this.displayedWalk?.walk?.fields?.gpxFile;
+    if (!gpxFile?.awsFileName) {
+      return undefined;
+    }
+    const rootFolder = (gpxFile as FileNameData & { rootFolder?: string }).rootFolder;
+    const filePath = rootFolder && !gpxFile.awsFileName.startsWith(`${rootFolder}/`)
+      ? `${rootFolder}/${gpxFile.awsFileName}`
+      : gpxFile.awsFileName;
+    if (this.urlService.isRemoteUrl(filePath)) {
+      return filePath;
+    }
+    return this.urlService.resourceRelativePathForAWSFileName(filePath) || undefined;
+  }
+
+  gpxDownloadFileName(): string {
+    const gpxFile: FileNameData | undefined = this.displayedWalk?.walk?.fields?.gpxFile;
+    return gpxFile?.originalFileName || gpxFile?.awsFileName || "route.gpx";
   }
 }
