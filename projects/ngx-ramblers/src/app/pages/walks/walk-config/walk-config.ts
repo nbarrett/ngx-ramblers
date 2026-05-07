@@ -1,6 +1,6 @@
 import { Location } from "@angular/common";
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faGear, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { faGear, faRoute, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { first, kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -205,6 +205,12 @@ import {
                                id="related-link-show-venue">
                         <label class="form-check-label" for="related-link-show-venue">Venue</label>
                       </div>
+                      <div class="form-check mb-2">
+                        <input [(ngModel)]="walksConfig.relatedLinkShowGpx"
+                               type="checkbox" class="form-check-input"
+                               id="related-link-show-gpx">
+                        <label class="form-check-label" for="related-link-show-gpx">Download GPX route</label>
+                      </div>
                     </div>
                     <div class="col-md-6">
                       <div class="related-links-preview event-panel rounded event-panel-inner">
@@ -244,6 +250,12 @@ import {
                             <div class="col-sm-12 preview-row d-flex align-items-center gap-2">
                               <fa-icon [icon]="faGear" class="fa-icon"></fa-icon>
                               <span>Venue: Sample Venue</span>
+                            </div>
+                          }
+                          @if (walksConfig.relatedLinkShowGpx !== false) {
+                            <div class="col-sm-12 preview-row d-flex align-items-center gap-2">
+                              <fa-icon [icon]="faRoute" class="fa-icon"></fa-icon>
+                              <span>Download GPX route</span>
                             </div>
                           }
                         </div>
@@ -298,6 +310,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   public walksConfig: WalksConfig;
   faGear = faGear;
   faShareNodes = faShareNodes;
+  faRoute = faRoute;
   private tab: WalkConfigTab = WalkConfigTab.GENERAL;
   private subscriptions: Subscription[] = [];
 

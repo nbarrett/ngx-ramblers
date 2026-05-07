@@ -75,7 +75,7 @@ export async function buildUnsubscribeToken(email: string, senderEmail?: string,
 const CONTACT_US_HREF_PATTERN = /^(contact[-_]?us|contact|get[-_]?in[-_]?touch)$/i;
 const CONTACT_US_TITLE_PATTERN = /(contact|get in touch)/i;
 
-async function contactUsParentSegment(): Promise<string | null> {
+export async function contactUsParentSegment(): Promise<string | null> {
   try {
     const sys = await systemConfig();
     const pages = sys?.group?.pages || [];

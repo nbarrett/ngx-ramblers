@@ -13,8 +13,9 @@ import {
   MatchedMemberSubscriptions
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { AuditStatus } from "../../../../projects/ngx-ramblers/src/app/models/audit";
-import { verifyUnsubscribeToken } from "./unsubscribe-token";
+import { buildUnsubscribeToken, contactUsParentSegment, verifyUnsubscribeToken } from "./unsubscribe-token";
 import { dateTimeNowAsValue } from "../../shared/dates";
+import { systemConfig } from "../../config/system-config";
 
 const messageType = "brevo:branded-unsubscribe";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -257,5 +258,49 @@ export async function submitUnsubscribeFeedback(req: Request, res: Response): Pr
     });
   } catch (error) {
     handleError(req, res, `${messageType}:feedback`, debugLog, error);
+  }
+}
+
+async function emailIsOnList(email: string, listId: number): Promise<boolean> {
+  try {
+    const brevoConfig = await configuredBrevo();
+    const contactsApi = new SibApiV3Sdk.ContactsApi();
+    contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
+    const response: any = await contactsApi.getContactInfo(email);
+    const listIds: number[] = response?.body?.listIds || [];
+    return listIds.includes(listId);
+  } catch (error: any) {
+    debugLog("emailIsOnList:lookup-failed", email, listId, error?.response?.statusCode || error?.message || error);
+    return false;
+  }
+}
+
+export async function redirectFromList(req: Request, res: Response): Promise<void> {
+  try {
+    const email = String(req.query.email || "").toLowerCase().trim();
+    const listIdRaw = Number(req.query.listId);
+    const listId = Number.isFinite(listIdRaw) ? listIdRaw : NaN;
+    const requestedRedirect = String(req.query.redirect || "").trim();
+    if (!email || !Number.isFinite(listId)) {
+      res.status(400).send("This unsubscribe link is incomplete or no longer valid.");
+      return;
+    }
+    if (!await emailIsOnList(email, listId)) {
+      res.status(400).send("This unsubscribe link is no longer valid - the email address is not on this list.");
+      return;
+    }
+    const sys = await systemConfig();
+    const groupHref = (sys?.group?.href || "").replace(/\/+$/, "");
+    if (!groupHref) {
+      res.status(500).send("Unsubscribe is not configured for this site.");
+      return;
+    }
+    const parent = await contactUsParentSegment();
+    const defaultPath = parent ? `/${parent}/unsubscribe` : "/unsubscribe";
+    const path = requestedRedirect && requestedRedirect.startsWith("/") ? requestedRedirect : defaultPath;
+    const token = await buildUnsubscribeToken(email, undefined, listId);
+    res.redirect(`${groupHref}${path}?t=${encodeURIComponent(token)}`);
+  } catch (error) {
+    handleError(req, res, `${messageType}:redirect-from-list`, debugLog, error);
   }
 }

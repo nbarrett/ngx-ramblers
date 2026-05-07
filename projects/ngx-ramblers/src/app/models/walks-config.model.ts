@@ -10,6 +10,7 @@ export interface WalksConfig {
   relatedLinkShowOsMaps?: boolean;
   relatedLinkShowWhat3words?: boolean;
   relatedLinkShowVenue?: boolean;
+  relatedLinkShowGpx?: boolean;
 }
 
 export enum WalkConfigTab {

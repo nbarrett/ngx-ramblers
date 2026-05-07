@@ -16,16 +16,32 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { omit } from "es-toolkit/compat";
 import { dateTimeNow } from "../../shared/dates";
+import { systemConfig } from "../../config/system-config";
+import { contactUsParentSegment } from "../contacts/unsubscribe-token";
 
 const messageType = "brevo:send-email-campaign";
 const debugLog = debug(envConfig.logNamespace(messageType));
 
 debugLog.enabled = false;
 
+async function injectCampaignUnsubscribeUrl(createCampaignRequest: CreateCampaignRequest): Promise<void> {
+  const memberMergeFields = createCampaignRequest.params?.memberMergeFields;
+  if (!memberMergeFields || memberMergeFields.UNSUBSCRIBE_URL) return;
+  const listId = createCampaignRequest.recipients?.listIds?.[0];
+  if (!Number.isFinite(listId)) return;
+  const sys = await systemConfig();
+  const groupHref = (sys?.group?.href || "").replace(/\/+$/, "");
+  if (!groupHref) return;
+  const parent = await contactUsParentSegment();
+  const path = parent ? `/${parent}/unsubscribe` : "/unsubscribe";
+  memberMergeFields.UNSUBSCRIBE_URL = `${groupHref}/api/mail/unsubscribe/from-list?email={{ contact.EMAIL }}&listId=${listId}&redirect=${encodeURIComponent(path)}`;
+}
+
 export async function createCampaign(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const brevoConfig = await configuredBrevo();
     const createCampaignRequest: CreateCampaignRequest = req.body;
+    await injectCampaignUnsubscribeUrl(createCampaignRequest);
     debugLog("Email campaign preparation 1/2 createCampaignRequest:", JSON.stringify(omit(createCampaignRequest, "htmlContent")));
     const apiInstance = new SibApiV3Sdk.EmailCampaignsApi();
     const createEmailCampaign: CreateEmailCampaign = new SibApiV3Sdk.CreateEmailCampaign();
@@ -38,7 +54,6 @@ export async function createCampaign(req: Request, res: Response, next: NextFunc
       createEmailCampaign.scheduledAt = scheduledAt;
     }
     createEmailCampaign.attachmentUrl = createCampaignRequest.attachmentUrl;
-    createEmailCampaign.footer = "If you wish to unsubscribe from our emails, click {here}";
     createEmailCampaign.header = "If you are not able to see this mail, click {here}";
     createEmailCampaign.inlineImageActivation = createCampaignRequest.inlineImageActivation;
     createEmailCampaign.mirrorActive = createCampaignRequest.mirrorActive;
