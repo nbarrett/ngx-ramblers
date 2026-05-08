@@ -29,8 +29,9 @@ async function injectCampaignUnsubscribeUrl(createCampaignRequest: CreateCampaig
   if (!memberMergeFields || memberMergeFields.UNSUBSCRIBE_URL) return;
   const listId = createCampaignRequest.recipients?.listIds?.[0];
   if (!Number.isFinite(listId)) return;
+  const requestAppUrl = createCampaignRequest.params?.systemMergeFields?.APP_URL;
   const sys = await systemConfig();
-  const groupHref = (sys?.group?.href || "").replace(/\/+$/, "");
+  const groupHref = (requestAppUrl || sys?.group?.href || "").replace(/\/+$/, "");
   if (!groupHref) return;
   const parent = await contactUsParentSegment();
   const path = parent ? `/${parent}/unsubscribe` : "/unsubscribe";
@@ -55,6 +56,7 @@ export async function createCampaign(req: Request, res: Response, next: NextFunc
     }
     createEmailCampaign.attachmentUrl = createCampaignRequest.attachmentUrl;
     createEmailCampaign.header = "If you are not able to see this mail, click {here}";
+    createEmailCampaign.footer = "<!--[if !mso]><!--><span style=\"display:none;visibility:hidden;font-size:0;line-height:0;color:transparent;height:0;width:0;overflow:hidden\" aria-hidden=\"true\">{unsubscribe}</span><!--<![endif]-->";
     createEmailCampaign.inlineImageActivation = createCampaignRequest.inlineImageActivation;
     createEmailCampaign.mirrorActive = createCampaignRequest.mirrorActive;
     createEmailCampaign.name = createCampaignRequest.name;

@@ -2494,6 +2494,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (!config) return;
     if (config.defaultMemberSelection === MemberSelection.MAILING_LIST) {
       this.state.recipientMode = RecipientMode.ENTIRE_LIST;
+      this.state.sendingChannel = SendingChannel.CAMPAIGN;
       this.state.preFilterKey = null;
       if (isNumber(config.defaultListId)) {
         this.state.selectedListId = config.defaultListId;
@@ -2501,6 +2502,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.state.selectedMemberIds = [];
     } else {
       this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+      this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
       this.state.preFilterKey = config.defaultMemberSelection ?? null;
       this.state.selectedMemberIds = [];
     }
