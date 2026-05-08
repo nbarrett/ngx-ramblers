@@ -299,7 +299,7 @@ export async function redirectFromList(req: Request, res: Response): Promise<voi
     const defaultPath = parent ? `/${parent}/unsubscribe` : "/unsubscribe";
     const path = requestedRedirect && requestedRedirect.startsWith("/") ? requestedRedirect : defaultPath;
     const token = await buildUnsubscribeToken(email, undefined, listId);
-    res.redirect(`${groupHref}${path}?t=${encodeURIComponent(token)}`);
+    res.redirect(`${path}?t=${encodeURIComponent(token)}`);
   } catch (error) {
     handleError(req, res, `${messageType}:redirect-from-list`, debugLog, error);
   }
