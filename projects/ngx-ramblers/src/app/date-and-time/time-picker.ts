@@ -16,6 +16,7 @@ import { NumberUtilsService } from "../services/number-utils.service";
     }
     <timepicker [showMeridian]=false
                 [disabled]="disabled"
+                [minuteStep]="5"
                 [(ngModel)]="time"
                 (ngModelChange)="onModelChange($event)"
                 [id]="id">
@@ -49,8 +50,10 @@ export class TimePicker {
 
   onModelChange(date: Date) {
     if (isDate(date)) {
-      date.setSeconds(0, 0);
-      const value: string = date ? this.dateUtils.isoDateTime(date) : null;
+      const roundedMinutes = Math.round(date.getMinutes() / 5) * 5;
+      date.setMinutes(roundedMinutes, 0, 0);
+      this.time = date;
+      const value: string = this.dateUtils.isoDateTime(date);
       this.logger.info("onModelChange:label", this.label, "date:", date, "of type", typeof date, "emitting value:", value);
       this.change.emit(value);
     } else {
