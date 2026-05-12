@@ -84,60 +84,62 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
           </div>
         </div>
       }
-      <div class="row">
-        <div class="col-sm-12">
-          <div class="form-group">
-            <label for="banner-lookup">Banner Image</label>
-            <div class="input-group">
-              <select class="form-control input-sm"
-                id="banner-lookup"
-                [(ngModel)]="notificationConfig.bannerId">
-                @for (banner of notificationConfigListing.mailMessagingConfig.banners; track banner.id) {
-                  <option
-                    [ngValue]="banner.id">{{ toBannerInformation(banner) }}
-                  </option>
+      @if (showBranding) {
+        <div class="row">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="banner-lookup">Banner Image</label>
+              <div class="input-group">
+                <select class="form-control input-sm"
+                  id="banner-lookup"
+                  [(ngModel)]="notificationConfig.bannerId">
+                  @for (banner of notificationConfigListing.mailMessagingConfig.banners; track banner.id) {
+                    <option
+                      [ngValue]="banner.id">{{ toBannerInformation(banner) }}
+                    </option>
+                  }
+                </select>
+                @if (selectedBannerSlug()) {
+                  <a class="text-decoration-none"
+                     routerLink="/admin/banners"
+                     [queryParams]="bannerQueryParams()"
+                     target="_blank">
+                    <app-button-wrapper button [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Banner'">
+                      <fa-icon [icon]="faPencil"/>
+                    </app-button-wrapper>
+                  </a>
                 }
-              </select>
-              @if (selectedBannerSlug()) {
-                <a class="text-decoration-none"
-                   routerLink="/admin/banners"
-                   [queryParams]="bannerQueryParams()"
-                   target="_blank">
-                  <app-button-wrapper button [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Banner'">
-                    <fa-icon [icon]="faPencil"/>
-                  </app-button-wrapper>
-                </a>
-              }
+              </div>
+            </div>
+          </div>
+          @if (notificationConfig?.bannerId) {
+            <div class="col-sm-12 mb-2">
+              <img class="card-img"
+                [src]="mailMessagingService.bannerImageSource(notificationConfig, false)">
+            </div>
+          }
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="template">Brevo Template</label>
+              <div class="input-group">
+                <select [(ngModel)]="notificationConfig.templateId"
+                  id="template"
+                  class="form-control input-sm">
+                  @for (template of notificationConfigListing?.mailMessagingConfig?.brevo?.mailTemplates?.templates; track template.id) {
+                    <option
+                      [ngValue]="template.id">{{ template.name }}
+                    </option>
+                  }
+                </select>
+                <app-brevo-button button [disabled]="!notificationConfig.templateId"
+                  (click)="editTemplate(notificationConfig.templateId)"
+                  [dockedTo]="DockedTo.RIGHT"
+                  [title]="'View or Edit Template'"/>
+              </div>
             </div>
           </div>
         </div>
-        @if (notificationConfig?.bannerId) {
-          <div class="col-sm-12 mb-2">
-            <img class="card-img"
-              [src]="mailMessagingService.bannerImageSource(notificationConfig, false)">
-          </div>
-        }
-        <div class="col-sm-12">
-          <div class="form-group">
-            <label for="template">Brevo Template</label>
-            <div class="input-group">
-              <select [(ngModel)]="notificationConfig.templateId"
-                id="template"
-                class="form-control input-sm">
-                @for (template of notificationConfigListing?.mailMessagingConfig?.brevo?.mailTemplates?.templates; track template.id) {
-                  <option
-                    [ngValue]="template.id">{{ template.name }}
-                  </option>
-                }
-              </select>
-              <app-brevo-button button [disabled]="!notificationConfig.templateId"
-                (click)="editTemplate(notificationConfig.templateId)"
-                [dockedTo]="DockedTo.RIGHT"
-                [title]="'View or Edit Template'"/>
-            </div>
-          </div>
-        </div>
-      </div>
+      }
     }
     `,
     imports: [FormsModule, FontAwesomeModule, MarkdownComponent, BrevoButtonComponent, ButtonWrapper, RouterLink]
@@ -171,6 +173,7 @@ export class NotificationConfigSelectorComponent implements OnInit {
 
   @Input() public notificationConfig: NotificationConfig;
   @Input() public notificationConfigListing: NotificationConfigListing;
+  @Input() public showBranding: boolean = true;
   @Output() emailConfigChanged: EventEmitter<NotificationConfig> = new EventEmitter();
 
   protected readonly first = first;

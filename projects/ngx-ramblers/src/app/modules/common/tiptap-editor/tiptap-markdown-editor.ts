@@ -249,6 +249,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   @Input() placeholder: string = "Start writing…";
   @Input() showMergeFields: boolean = false;
   @Output() valueChange = new EventEmitter<string>();
+  @Output() rawPaste = new EventEmitter<{ text: string; consume: () => void }>();
 
   protected editor: Editor | null = null;
   private pendingValue: string = "";
@@ -277,29 +278,39 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected readonly faRemoveFormat = faRemoveFormat;
 
   ngOnInit(): void {
+    const extensions: any[] = [
+      StarterKit,
+      Link.configure({ openOnClick: false, HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" } }),
+      Image.configure({ inline: false, allowBase64: false }),
+      Markdown,
+      Table.configure({ resizable: false, HTMLAttributes: { class: "tiptap-table" } }),
+      TableRow,
+      TableHeader,
+      TableCell
+    ];
     this.editor = new Editor({
-      extensions: [
-        StarterKit,
-        Link.configure({ openOnClick: false, HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" } }),
-        Image.configure({ inline: false, allowBase64: false }),
-        Table.configure({ resizable: false, HTMLAttributes: { class: "tiptap-table" } }),
-        TableRow,
-        TableHeader,
-        TableCell,
-        Markdown
-      ],
+      extensions,
       editorProps: {
         attributes: {
           "data-placeholder": this.placeholder ?? ""
         },
         handlePaste: (_view, event) => {
           const text = event.clipboardData?.getData("text/plain") ?? "";
+          if (text) {
+            let consumed = false;
+            this.rawPaste.emit({ text, consume: () => { consumed = true; } });
+            if (consumed) {
+              event.preventDefault();
+              return true;
+            }
+          }
           if (text && this.looksLikeMarkdown(text)) {
             event.preventDefault();
             const sanitised = this.sanitiseMarkdownForPaste(text);
             try {
               const html = this.pasteMarked.parse(sanitised, { async: false }) as string;
-              this.editor?.commands.insertContent(html);
+              const normalised = this.normaliseHtmlForInsert(html);
+              this.editor?.commands.insertContent(normalised);
             } catch (error) {
               this.logger.error("markdown paste failed, falling back to plain text:", error);
               this.editor?.commands.insertContent(sanitised);
@@ -356,6 +367,13 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     }
   }
 
+  private normaliseHtmlForInsert(html: string): string {
+    return html
+      .replace(/<\/?thead[^>]*>/gi, "")
+      .replace(/<\/?tbody[^>]*>/gi, "")
+      .replace(/>\s+</g, "><");
+  }
+
   private sanitiseMarkdownForPaste(text: string): string {
     let cleaned = text;
     if (cleaned.startsWith("---\n")) {
@@ -380,6 +398,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     if (/^> /m.test(text)) score += 2;
     if (/^```/m.test(text)) score += 2;
     if (/!\[[^\]]*\]\([^)]+\)/.test(text)) score += 2;
+    if (/^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/m.test(text)) score += 2;
     if (/\*\*\S[^*]*\S\*\*/.test(text)) score += 1;
     if (/`[^`\n]+`/.test(text)) score += 1;
     if (/\[[^\]]+\]\([^)]+\)/.test(text)) score += 1;
@@ -480,7 +499,8 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   onImageCropperSave(awsFileData: AwsFileData): void {
     if (!this.editor) return;
-    const src = this.urlService.imageSource(awsFileData.awsFileName, true);
+    const relative = this.urlService.resourceRelativePathForAWSFileName(awsFileData.awsFileName);
+    const src = `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${relative}`;
     if (this.replaceSelectedImageOnSave && this.imageSelected) {
       this.editor.chain().focus().updateAttributes("image", { src }).run();
     } else {
