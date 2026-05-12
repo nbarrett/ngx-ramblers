@@ -15,6 +15,16 @@
     font-weight: bold
     margin-bottom: 0
 
+.branding-mode-options
+  display: grid
+  grid-template-columns: 1fr 1fr
+  gap: 8px 24px
+  align-items: start
+
+.branding-mode-option
+  margin: 0
+
+
 :host ::ng-deep .p-stepper
   padding: 0
   margin: 0
@@ -35,35 +45,43 @@
   flex-wrap: nowrap
   gap: 8px
   align-items: center
-  justify-content: flex-start
+  justify-content: space-between
   overflow: visible
   padding: 0
   margin: 0
+  width: 100%
 
 :host ::ng-deep .p-stepper .p-steplist .p-step
-  flex: 0 0 auto
+  flex: 1 1 auto
   width: auto
-  min-width: 0
-  max-width: 200px
+  min-width: min-content
   padding: 0
   margin: 0
   justify-content: flex-start
+  position: relative
 
 :host ::ng-deep .p-stepper .p-steplist .p-step .p-step-header
   padding: 0
   background: transparent
-  width: auto
+  width: 100%
   justify-content: flex-start
   text-align: left
   white-space: normal
 
-:host ::ng-deep .p-stepper .p-steplist .p-stepper-separator
-  flex: 0 0 16px
-  width: 16px
-  min-width: 16px
+:host ::ng-deep .p-stepper .p-steplist .p-step:not(:last-of-type)::after
+  content: ''
+  position: absolute
+  top: 50%
+  left: 40px
+  right: -4px
   height: 2px
-  margin-left: 3px
   background: var(--stepper-border, #dfe7f3)
+  z-index: 0
+  pointer-events: none
+  transform: translateY(-50%)
+
+:host ::ng-deep .p-stepper .p-steplist .p-stepper-separator
+  display: none
 
 .email-composer-section
   padding: 8px 0
@@ -83,7 +101,10 @@
   color: var(--stepper-active)
 
 :host ::ng-deep .p-stepper .email-composer-step-label
-  white-space: nowrap
+  white-space: normal
+  word-break: normal
+  overflow-wrap: normal
+  line-height: 1.2
 
 .email-composer-validation-summary
   background: #fff5f0
@@ -175,20 +196,24 @@
   justify-content: space-between
   gap: 8px
   padding: 8px 0
-  margin-bottom: 8px
 
 .email-composer-toolbar
   display: flex
   flex-wrap: wrap
   gap: 8px
   align-items: center
+  margin: 0
 
 .email-composer-action-bar .stepper-nav
-  margin-top: 0
+  display: flex
+  flex-wrap: wrap
+  gap: 8px
+  margin: 0
 
 .email-composer-action-bar .stepper-nav .btn,
 .email-composer-action-bar .email-composer-toolbar .btn
   min-height: 40px
+  margin: 0
 
 .email-composer-drafts-panel
   border: 1px solid #dfe7f3
@@ -243,6 +268,8 @@
   display: flex
   align-items: center
   gap: 12px
+  position: relative
+  z-index: 1
 
 .email-composer-step-number
   width: 28px
@@ -254,14 +281,26 @@
   align-items: center
   justify-content: center
   font-weight: 600
+  position: relative
+  z-index: 2
+  flex-shrink: 0
 
 .email-composer-step-text
   display: flex
   flex-direction: column
   white-space: normal
-  word-break: break-word
-  flex: 1
-  min-width: 0
+  word-break: normal
+  overflow-wrap: normal
+  flex: 0 1 auto
+  min-width: min-content
+  position: relative
+  z-index: 2
+
+.email-composer-step-text > *
+  align-self: flex-start
+  background: #ffffff
+  padding: 0 6px
+  max-width: 100%
 
 .email-composer-step-label
   font-weight: 600
@@ -479,3 +518,99 @@
 
 .event-image-controls .small
   font-size: 11px
+
+// Mobile responsive adjustments ============================================
+
+@media (max-width: 768px)
+  .email-composer-section h3
+    font-size: 1.1rem
+    margin-bottom: 12px
+
+  .email-composer-fieldset
+    padding: 10px 12px 12px
+
+  :host ::ng-deep .p-stepper .p-steplist
+    overflow-x: auto
+    overflow-y: hidden
+    flex-wrap: nowrap
+    justify-content: flex-start
+    gap: 4px
+    -webkit-overflow-scrolling: touch
+    padding-bottom: 4px
+
+  :host ::ng-deep .p-stepper .p-steplist .p-step
+    flex: 0 0 auto
+    min-width: auto
+
+  :host ::ng-deep .p-stepper .p-steplist .p-step:not(.p-step-active) .email-composer-step-text
+    display: none
+
+  :host ::ng-deep .p-stepper .p-steplist .p-step.p-step-active .email-composer-step-text
+    max-width: 200px
+
+  :host ::ng-deep .p-stepper .p-steplist .p-step:not(:last-of-type)::after
+    left: 32px
+    right: -4px
+    top: 14px
+    transform: none
+
+  .email-composer-step-hint
+    font-size: 11px
+
+  .email-composer-action-bar
+    flex-direction: column
+    flex-wrap: nowrap
+    justify-content: flex-start
+    align-items: stretch
+    gap: 8px
+
+  .email-composer-toolbar
+    display: grid
+    grid-template-columns: 1fr 1fr
+    gap: 8px
+    width: 100%
+
+  .email-composer-toolbar .btn
+    width: 100%
+    min-height: 38px
+
+  .stepper-nav
+    display: grid
+    grid-template-columns: 1fr 1fr
+    gap: 8px
+    width: 100%
+    margin-top: 0
+
+  .stepper-nav .btn
+    width: 100%
+    min-height: 38px
+
+  .composer-add-row
+    flex-direction: column
+    align-items: stretch
+
+  .composer-add-row .btn
+    width: 100%
+
+  .branding-mode-options
+    grid-template-columns: 1fr
+    gap: 8px
+
+  .branding-mode-option
+    min-width: 0
+
+  .article-image-row
+    grid-template-columns: 1fr !important
+
+@media (max-width: 480px)
+  :host ::ng-deep .p-stepper .p-steplist .p-step.p-step-active .email-composer-step-text
+    max-width: 140px
+
+  .email-composer-step-label
+    font-size: 14px
+
+  .email-composer-toolbar
+    grid-template-columns: 1fr
+
+  .stepper-nav
+    grid-template-columns: 1fr

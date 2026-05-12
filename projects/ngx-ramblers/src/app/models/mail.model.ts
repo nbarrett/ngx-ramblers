@@ -97,6 +97,11 @@ export interface CreateSendSmtpEmailRequest {
   replyTo?: EmailAddress;
 }
 
+export enum BrandingMode {
+  BRANDED = "branded",
+  UNBRANDED = "unbranded"
+}
+
 export interface EmailRequest {
   sender: EmailAddress;
   subject: string;
@@ -105,6 +110,7 @@ export interface EmailRequest {
   templateId?: number;
   templateOverrides?: Record<string, string>;
   htmlContent?: string;
+  brandingMode?: BrandingMode;
 }
 
 export interface TemplateRenderRequest {
@@ -112,6 +118,7 @@ export interface TemplateRenderRequest {
   templateId?: number;
   templateOverrides?: Record<string, string>;
   htmlContent?: string;
+  brandingMode?: BrandingMode;
 }
 
 export interface TemplateRenderResponse {

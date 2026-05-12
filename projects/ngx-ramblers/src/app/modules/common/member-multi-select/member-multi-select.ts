@@ -25,7 +25,7 @@ import { RECIPIENT_PRE_FILTERS, RecipientFilterDecision, RecipientPreFilter } fr
                  type="radio"
                  [id]="'pre-filter-' + (filter.key ?? 'all-with-email')"
                  name="member-pre-filter"
-                 [checked]="activePreFilterKey === filter.key"
+                 [checked]="activePreFilterKey === filter.key && !manualMode"
                  (click)="applyPreFilter(filter.key)">
           <label class="form-check-label" [for]="'pre-filter-' + (filter.key ?? 'all-with-email')">{{ labelFor(filter) }}</label>
         </div>
@@ -88,6 +88,7 @@ export class MemberMultiSelect implements OnChanges {
   @Input() notificationConfig: NotificationConfig | null = null;
   @Input() latestBulkLoadAudit: MemberBulkLoadAudit | null = null;
   @Input() requireConsent: boolean = false;
+  @Input() autoFill: boolean = true;
   @Output() selectedIdsChange = new EventEmitter<string[]>();
   @Output() preFilterKeyChange = new EventEmitter<MemberSelection | null>();
 
@@ -101,10 +102,10 @@ export class MemberMultiSelect implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["members"] || changes["preFilterKey"] || changes["requireConsent"] || changes["notificationConfig"] || changes["latestBulkLoadAudit"]) {
       this.activePreFilterKey = this.preFilterKey;
-      this.manualMode = false;
+      this.manualMode = !this.autoFill;
       this.rebuildSelections();
       this.dropSelectedIdsNotInSelectablePool();
-      if (!this.selectedIds || this.selectedIds.length === 0) {
+      if (this.autoFill && (!this.selectedIds || this.selectedIds.length === 0)) {
         this.applyAutoSelection();
       }
     }

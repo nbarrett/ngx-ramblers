@@ -1,8 +1,9 @@
 import { Member, MemberFilterSelection } from "./member.model";
-import { ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
+import { BrandingMode, ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
 import { ApiResponse } from "./api-response.model";
 import { GroupEventSummary, GroupEventsFilter } from "./committee.model";
 import { ExtendedGroupEvent } from "./group-event.model";
+import { EM_DASH_WITH_SPACES } from "./content-text.model";
 
 export enum EmailComposerStepKey {
   RECIPIENTS = "recipients",
@@ -40,6 +41,13 @@ export enum SendingChannel {
   CAMPAIGN = "campaign",
   TRANSACTIONAL_BATCH = "transactional-batch"
 }
+
+export { BrandingMode };
+
+export const BRANDING_MODE_OPTIONS: { key: BrandingMode; label: string; hint: string }[] = [
+  { key: BrandingMode.BRANDED, label: "Branded", hint: `Full Ramblers template${EM_DASH_WITH_SPACES}banner, events, social links and footer` },
+  { key: BrandingMode.UNBRANDED, label: "Unbranded", hint: `Plain rich-text${EM_DASH_WITH_SPACES}reads like a personal note, good for committee replies and one-to-few correspondence` }
+];
 
 export enum BatchSendStatus {
   IDLE = "idle",
@@ -174,10 +182,12 @@ export interface EmailComposerContext {
 
 export interface EmailComposerState {
   context: EmailComposerContext;
+  brandingMode: BrandingMode;
   recipientMode: RecipientMode;
   selectedListId: number | null;
   narrowListId: number | null;
   selectedMemberIds: string[];
+  externalRecipients: ComposerExternalRecipient[];
   preFilterKey: MemberSelection | null;
   notificationConfig: NotificationConfig | null;
   notificationConfigListing: NotificationConfigListing | null;
@@ -273,7 +283,7 @@ export function newMultiColumnFragment(numColumns: number, dividerAfter: Section
   };
 }
 
-export function buildDefaultFragmentOrder(state: Pick<EmailComposerState, "articleBlocks" | "introDividerAfter" | "eventsDividerAfter" | "signoffDividerAfter" | "betweenArticlesDivider">, options?: { includeTemplateContent?: boolean }): ComposerFragment[] {
+export function buildDefaultFragmentOrder(state: Pick<EmailComposerState, "articleBlocks" | "introDividerAfter" | "eventsDividerAfter" | "signoffDividerAfter" | "betweenArticlesDivider">, options?: { includeTemplateContent?: boolean; unbranded?: boolean }): ComposerFragment[] {
   const above = (state.articleBlocks ?? [])
     .filter(b => b.position === ArticleBlockPosition.ABOVE_EVENTS)
     .sort((a, b) => a.order - b.order);
@@ -281,7 +291,10 @@ export function buildDefaultFragmentOrder(state: Pick<EmailComposerState, "artic
     .filter(b => b.position === ArticleBlockPosition.BELOW_EVENTS)
     .sort((a, b) => a.order - b.order);
   const order: ComposerFragment[] = [];
-  order.push({ kind: ComposerFragmentKind.INTRO, id: "intro", dividerAfter: state.introDividerAfter ?? SectionDividerStyle.THIN_YELLOW });
+  order.push({ kind: ComposerFragmentKind.INTRO, id: "intro", dividerAfter: state.introDividerAfter ?? SectionDividerStyle.NONE });
+  if (options?.unbranded) {
+    return order;
+  }
   if (options?.includeTemplateContent) {
     order.push({ kind: ComposerFragmentKind.TEMPLATE_CONTENT, id: "template-content", dividerAfter: SectionDividerStyle.THIN_YELLOW });
   }
@@ -306,8 +319,15 @@ export function buildDefaultFragmentOrder(state: Pick<EmailComposerState, "artic
   return order;
 }
 
+export interface ComposerExternalRecipient {
+  email: string;
+  name?: string;
+  existingId?: string;
+  saveForReuse?: boolean;
+}
+
 export interface BatchTransactionalSendRequest {
-  notificationConfigId: string;
+  notificationConfigId?: string;
   bannerId: string | null;
   subject: string;
   addresseeType: AddresseeType;
@@ -317,9 +337,11 @@ export interface BatchTransactionalSendRequest {
   htmlBodyBottom?: string;
   attachmentUrl?: string;
   memberIds: string[];
+  externalRecipients?: ComposerExternalRecipient[];
   senderRoleOverride?: string;
   replyToRoleOverride?: string;
   bccRolesOverride?: string[];
+  brandingMode?: BrandingMode;
 }
 
 export interface BatchSendProgressEntry {
@@ -398,10 +420,12 @@ export const MERGE_FIELD_HINTS: MemberMergeFieldHint[] = [
 export function defaultEmailComposerState(): EmailComposerState {
   return {
     context: { source: EmailComposerContextSource.ADMIN },
+    brandingMode: BrandingMode.BRANDED,
     recipientMode: RecipientMode.ENTIRE_LIST,
     selectedListId: null,
     narrowListId: null,
     selectedMemberIds: [],
+    externalRecipients: [],
     preFilterKey: null,
     notificationConfig: null,
     notificationConfigListing: null,

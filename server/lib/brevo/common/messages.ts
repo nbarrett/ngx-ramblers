@@ -3,6 +3,7 @@ import { CreateEmailCampaign, HttpError, SendSmtpEmail } from "@getbrevo/brevo";
 import debug from "debug";
 import http from "http";
 import {
+  BrandingMode,
   CreateCampaignRequest,
   extractOverrideKeys,
   overrideKeyToLabel,
@@ -17,6 +18,7 @@ import { KeyValue } from "../../../../projects/ngx-ramblers/src/app/functions/en
 import { extractParametersFrom } from "../../../../projects/ngx-ramblers/src/app/common/mail-parameters";
 import { replaceAll } from "../../shared/string-utils";
 import { ramblersEmailLayout } from "../templates/ramblers-email-layout";
+import { unbrandedEmailLayout } from "../templates/unbranded-email-layout";
 import { errorResponse } from "../../shared/error-response";
 
 function valueAtPath(source: Record<string, any>, path: string): any {
@@ -124,7 +126,17 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
   const priorDebugValue = debugLog.enabled;
   debugLog.enabled = false;
   try {
-    if (emailRequest.templateId) {
+    const isUnbranded = emailRequest.brandingMode === BrandingMode.UNBRANDED;
+    if (isUnbranded) {
+      debugLog("performing unbranded template substitution");
+      const wrappedHtml = unbrandedEmailLayout(emailRequest.htmlContent ?? "");
+      const parametersAndValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, true);
+      const substitutedHtmlContent: string = parametersAndValues.reduce(
+        (templateContent, keyValue) => replaceAll(keyValue.key, keyValue.value, templateContent) as string,
+        wrappedHtml,
+      );
+      sendSmtpEmail.htmlContent = inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, emailRequest.params));
+    } else if (emailRequest.templateId) {
       debugLog("performing template substitution in email content for templateId", emailRequest.templateId);
       const templateResponse: TemplateResponse = await queryTemplateContent(emailRequest.templateId);
       const sanitisedHtml = sanitiseBrevoTemplate(templateResponse.htmlContent);
