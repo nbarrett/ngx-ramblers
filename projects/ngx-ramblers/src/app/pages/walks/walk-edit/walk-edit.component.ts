@@ -111,7 +111,7 @@ import TurndownService from "turndown";
             [allowDetailView]="allowDetailView()"
             [notify]="notify"/>
         </tab>
-        @if (display.allowEdits(displayedWalk?.walk)) {
+        @if (display.allowEdits(displayedWalk?.walk) && walksConfig?.requireRiskAssessment) {
           <tab heading="{{WalkEditTab.RISK_ASSESSMENT}}"
                [active]="tabActive(WalkEditTab.RISK_ASSESSMENT)"
                (selectTab)="onTabSelect(WalkEditTab.RISK_ASSESSMENT)">
@@ -382,7 +382,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   public meetupConfig: MeetupConfig;
   public faPencil = faPencil;
   private subscriptions: Subscription[] = [];
-  private walksConfig: WalksConfig;
+  public walksConfig: WalksConfig;
   public options: any;
   public showGoogleMapsView = false;
   public rematchPreviewMessage: string | null = null;

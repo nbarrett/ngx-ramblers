@@ -520,7 +520,7 @@ export enum RelatedLinksTab {
 }
 
 export enum DetailsTab {
-  ROUTE = "Route",
   VENUE = "Venue",
+  ROUTE = "Route",
   ROUTE_AND_VENUE = "Route & Venue"
 }

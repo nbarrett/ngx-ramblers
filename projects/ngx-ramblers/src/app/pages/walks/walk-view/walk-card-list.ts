@@ -115,7 +115,7 @@ export class WalkCardListComponent implements OnInit, OnChanges, OnDestroy {
     if (changes.currentPageWalks && this.currentPageWalks?.length) {
       const firstDisplayedWalk = this.currentPageWalks[0];
       const firstWalk: ExtendedGroupEvent = firstDisplayedWalk.walk;
-      if (!this.display.awaitingLeader(firstWalk) && this.display.hasWalkLeader(firstWalk)) {
+      if (this.display.walkDetailsComplete(firstWalk)) {
         this.display.toggleExpandedViewFor(firstWalk, WalkViewMode.VIEW_SINGLE);
       }
       this.logger.info("currentPageWalks populated", this.currentPageWalks);

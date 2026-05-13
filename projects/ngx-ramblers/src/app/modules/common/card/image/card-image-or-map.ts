@@ -12,16 +12,39 @@ import { BasicMedia, RamblersEventType } from "../../../../models/ramblers-walks
 import { GroupEventDisplayService } from "../../../../pages/group-events/group-event-display.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { isEqual } from "es-toolkit/compat";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 
 @Component({
   selector: "app-card-image-or-map",
   template: `
-    @if (memberLoginService.allowWalkAdminEdits()) {
-      <input
-        id="walkAction-{{displayedWalk?.walk?.id}}" type="submit"
-        value="{{displayedWalk?.walkAccessMode?.caption}}"
-        (click)="display.edit(displayedWalk)"
-        class="btn btn-primary button-container">
+    @if (displayedWalk?.walkAccessMode?.walkWritable) {
+      @if (memberLoginService.allowWalkAdminEdits() && displayedWalk?.walkAccessMode?.initialiseWalkLeader) {
+        <div class="btn-group button-container" dropdown>
+          <button id="walkAction-{{displayedWalk?.walk?.id}}" type="button"
+                  class="btn btn-primary"
+                  (click)="display.edit(displayedWalk)">{{ displayedWalk?.walkAccessMode?.caption }}</button>
+          <button type="button"
+                  class="btn btn-primary dropdown-toggle dropdown-toggle-split"
+                  dropdownToggle
+                  aria-controls="walkAction-menu-{{displayedWalk?.walk?.id}}">
+            <span class="caret"></span>
+            <span class="visually-hidden">Toggle Dropdown</span>
+          </button>
+          <ul *dropdownMenu class="dropdown-menu"
+              id="walkAction-menu-{{displayedWalk?.walk?.id}}" role="menu">
+            <li role="menuitem">
+              <a role="button" class="dropdown-item"
+                 (click)="display.edit(displayedWalk, {bypassLeaderInit: true})">edit</a>
+            </li>
+          </ul>
+        </div>
+      } @else {
+        <input
+          id="walkAction-{{displayedWalk?.walk?.id}}" type="submit"
+          value="{{displayedWalk?.walkAccessMode?.caption}}"
+          (click)="display.edit(displayedWalk)"
+          class="btn btn-primary button-container">
+      }
     } @else {
       <a [href]="navigationUrl()"
          class="btn btn-primary button-container">view</a>
@@ -64,7 +87,7 @@ import { isEqual } from "es-toolkit/compat";
     }
   `,
   styleUrls: ["./card-image.sass"],
-  imports: [FontAwesomeModule, MapEditComponent]
+  imports: [FontAwesomeModule, MapEditComponent, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective]
 })
 export class CardImageOrMap implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CardImageOrMap", NgxLoggerLevel.ERROR);

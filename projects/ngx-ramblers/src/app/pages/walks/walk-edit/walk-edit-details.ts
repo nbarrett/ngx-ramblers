@@ -8,7 +8,7 @@ import { WalkDisplayService } from "../walk-display.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { cloneDeep, isString } from "es-toolkit/compat";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import { enumValueForKey, enumValues } from "../../../functions/enums";
+import { enumValueForKey } from "../../../functions/enums";
 import { DatePipe, DecimalPipe, JsonPipe } from "@angular/common";
 import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { WalkGpxService } from "../../../services/walks/walk-gpx.service";
@@ -288,7 +288,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
   protected readonly LocationType = LocationType;
   protected display = inject(WalkDisplayService);
   difficulties = this.display.difficulties();
-  tabs: DetailsTab[] = enumValues(DetailsTab);
+  tabs: DetailsTab[] = [DetailsTab.VENUE, DetailsTab.ROUTE, DetailsTab.ROUTE_AND_VENUE];
   selectedTab: DetailsTab = DetailsTab.ROUTE;
   protected readonly enumValueForKey = enumValueForKey;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
