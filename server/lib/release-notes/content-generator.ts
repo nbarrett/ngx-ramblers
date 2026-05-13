@@ -658,9 +658,10 @@ export function updateIndexPageContent(
  */
 export function refreshIndexPageContent(
   existingContent: PageContent,
-  options?: { allowUnassigned?: boolean }
+  options?: { allowUnassigned?: boolean; imageStatusByPath?: Map<string, boolean> }
 ): PageContent {
   const allowUnassigned = Boolean(options?.allowUnassigned);
+  const imageStatusByPath = options?.imageStatusByPath;
   if (!existingContent.rows || existingContent.rows.length === 0) {
     return existingContent;
   }
@@ -680,7 +681,10 @@ export function refreshIndexPageContent(
   const parsedEntries = entryLines
     .map(line => parseIndexLine(line))
     .filter((entry): entry is IndexEntry => Boolean(entry))
-    .filter(entry => allowUnassigned || !entry.path.endsWith("-other"));
+    .filter(entry => allowUnassigned || !entry.path.endsWith("-other"))
+    .map(entry => imageStatusByPath?.has(entry.path)
+      ? { ...entry, hasCamera: imageStatusByPath.get(entry.path)! }
+      : entry);
 
   const entries = new Map<string, IndexEntry>();
   for (const entry of parsedEntries) {

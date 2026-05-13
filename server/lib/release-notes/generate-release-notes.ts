@@ -16,6 +16,7 @@ import {
   generatePageContent,
   updateIndexPageContent
 } from "./content-generator.js";
+import { syncReleaseNotesIndexImages } from "./index-image-sync.js";
 import type { ConventionalCommit, GenerateOptions, ReleaseNotesConfig, ReleaseNotesData } from "./models.js";
 import { DEFAULT_CMS_BASE_URL } from "./models.js";
 import type { CMSAuth } from "./cms-client.js";
@@ -720,6 +721,9 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
     await generateMultipleReleaseNotes(groups, auth, configWithCreds, null, false, includeUnassigned);
     debugLog(`Generated ${pluraliseWithCount(groups.length, "release note")} for commit range`);
   }
+
+  debugLog("Syncing 📸 markers and for-humans index against current image content");
+  await syncReleaseNotesIndexImages(auth, { log: message => debugLog(message) });
 }
 
 async function commandLineMode(options: GenerateOptions, config: ReleaseNotesConfig): Promise<void> {
@@ -926,6 +930,11 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
     }
   } else {
     debugLog("No generation option specified. Use --latest, --all, --since, or --since-date");
+  }
+
+  if (auth && !options.dryRun) {
+    debugLog("Syncing 📸 markers and for-humans index against current image content");
+    await syncReleaseNotesIndexImages(auth, { log: message => debugLog(message) });
   }
 }
 
