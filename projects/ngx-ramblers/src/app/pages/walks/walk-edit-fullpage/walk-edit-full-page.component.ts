@@ -62,6 +62,10 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
             this.logger.info("found walk", walk);
             this.eventDefaultsService.migrateOldWalkData(walk);
             this.displayedWalk = this.display.toDisplayedWalk(walk);
+            const requestedMode = this.route.snapshot.queryParamMap.get("as");
+            if (requestedMode === WalksReferenceService.walkAccessModes.edit.caption && this.displayedWalk?.walkAccessMode?.walkWritable) {
+              this.displayedWalk.walkAccessMode = {...WalksReferenceService.walkAccessModes.edit, walkWritable: true};
+            }
             if (this.displayedWalk?.latestEventType) {
               this.setStatus(this.displayedWalk?.latestEventType.eventType);
             }

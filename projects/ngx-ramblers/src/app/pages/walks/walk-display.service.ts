@@ -1,7 +1,7 @@
 import { Location } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
-import { Router } from "@angular/router";
+import { Params, Router } from "@angular/router";
 import { find, isEmpty, isNumber, isUndefined } from "es-toolkit/compat";
 import { PathSegment } from "../../models/content-text.model";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -107,6 +107,11 @@ export class WalkDisplayService {
     return !!contactDetails?.memberId || !!contactDetails?.displayName || this.hasRamblersContactChannel(walk);
   }
 
+  public walkDetailsComplete(walk: ExtendedGroupEvent): boolean {
+    const eventType = this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
+    return !!eventType && eventType !== EventType.AWAITING_LEADER && eventType !== EventType.AWAITING_WALK_DETAILS;
+  }
+
   private hasRamblersContactChannel(walk: ExtendedGroupEvent): boolean {
     const contact = walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT
       ? walk?.groupEvent?.event_organiser
@@ -197,12 +202,13 @@ export class WalkDisplayService {
     }
   }
 
-  edit(walkDisplay: DisplayedWalk): void {
+  edit(walkDisplay: DisplayedWalk, options?: { bypassLeaderInit?: boolean }): void {
+    const queryParams = options?.bypassLeaderInit ? {as: WalksReferenceService.walkAccessModes.edit.caption} : undefined;
     if (walkDisplay?.walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
       const groupEventSlug = this.stringUtils.lastItemFrom(walkDisplay?.walk?.groupEvent?.url) || this.stringUtils.kebabCase(walkDisplay?.walk?.groupEvent?.title) || walkDisplay?.walk?.groupEvent?.id || walkDisplay?.walk?.id;
-      void this.urlService.navigateTo([this.groupEventArea(), groupEventSlug, PathSegment.EDIT]);
+      void this.urlService.navigateTo([this.groupEventArea(), groupEventSlug, PathSegment.EDIT], queryParams);
     } else {
-      void this.editFullScreen(walkDisplay.walk);
+      void this.editFullScreen(walkDisplay.walk, queryParams);
     }
   }
 
@@ -219,10 +225,10 @@ export class WalkDisplayService {
     return this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
   }
 
-  async editFullScreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
+  async editFullScreen(walk: ExtendedGroupEvent, queryParams?: Params): Promise<ExpandedWalk> {
     this.logger.debug("editing walk fullscreen:", walk);
     this.viewReturnUrl = this.location.path();
-    await this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, this.walkSlug(walk)]);
+    await this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, this.walkSlug(walk)], queryParams ? {queryParams} : undefined);
     this.logger.debug("area is now", this.urlService.area());
     return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
   }
@@ -269,19 +275,23 @@ export class WalkDisplayService {
   }
 
   toWalkAccessMode(walk: ExtendedGroupEvent): WalkAccessMode {
-    let returnValue = WalksReferenceService.walkAccessModes.view;
-    if (this.memberLoginService.memberLoggedIn()) {
-      if (this.loggedInMemberIsLeadingWalk(walk) || this.memberLoginService.allowWalkAdminEdits()) {
-        returnValue = {...WalksReferenceService.walkAccessModes.edit, walkWritable: true};
-      } else {
-        const walkEvent = this.walkEventService.latestEventWithStatusChange(walk);
-        if (walkEvent?.eventType === EventType.AWAITING_LEADER) {
-          returnValue = {...WalksReferenceService.walkAccessModes.lead, walkWritable: this.walkPopulationLocal()};
-        }
-      }
+    const accessMode = this.resolveWalkAccessMode(walk);
+    this.logger.debug("toWalkAccessMode:returnValue:", accessMode, "walk:", walk);
+    return accessMode;
+  }
+
+  private resolveWalkAccessMode(walk: ExtendedGroupEvent): WalkAccessMode {
+    if (!this.memberLoginService.memberLoggedIn()) {
+      return WalksReferenceService.walkAccessModes.view;
     }
-    this.logger.debug("toWalkAccessMode:returnValue:", returnValue, "walk:", walk);
-    return returnValue;
+    const eventType = this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
+    if (eventType === EventType.AWAITING_LEADER && this.walkPopulationLocal()) {
+      return {...WalksReferenceService.walkAccessModes.lead, walkWritable: true};
+    }
+    if (this.loggedInMemberIsLeadingWalk(walk) || this.memberLoginService.allowWalkAdminEdits()) {
+      return {...WalksReferenceService.walkAccessModes.edit, walkWritable: true};
+    }
+    return WalksReferenceService.walkAccessModes.view;
   }
 
   toDisplayedWalk(extendedGroupEvent: ExtendedGroupEvent): DisplayedWalk {
@@ -377,7 +387,7 @@ export class WalkDisplayService {
     const todayValue = this.dateUtils.dateTimeNowNoTime().toMillis();
     const isFutureOrToday = walkStartDate >= todayValue;
     const matchesNextWalkId = walk && (walk.id === this.nextWalkId || walk.groupEvent?.id === this.nextWalkId);
-    return isFutureOrToday && matchesNextWalkId;
+    return isFutureOrToday && matchesNextWalkId && this.walkDetailsComplete(walk);
   }
 
   refreshNextWalkId(): void {
