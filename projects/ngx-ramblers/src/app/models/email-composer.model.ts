@@ -49,6 +49,12 @@ export const BRANDING_MODE_OPTIONS: { key: BrandingMode; label: string; hint: st
   { key: BrandingMode.UNBRANDED, label: "Unbranded", hint: `Plain rich-text${EM_DASH_WITH_SPACES}reads like a personal note, good for committee replies and one-to-few correspondence` }
 ];
 
+export const UNBRANDED_LIST_SEND_WARNING_THRESHOLD = 3;
+export const UNBRANDED_HARD_CAP_RECIPIENTS = 50;
+export const UNBRANDED_LONG_BODY_CHAR_THRESHOLD = 800;
+export const REPLY_OR_FORWARD_SUBJECT_PATTERN = /^\s*(re|fwd?):/i;
+export const PROMOTIONAL_LANGUAGE_PATTERN = /\b(donat\w*|fundrais\w*|charity|charities|appeal|raise[sd]?\s+(?:money|funds)|raising\s+(?:money|funds)|sponsor\w*|volunteer\w*|register\s+now|sign\s+up|register\s+(?:here|today)|join\s+us|support\s+(?:our|the)|in\s+aid\s+of|proceeds)\b/i;
+
 export enum BatchSendStatus {
   IDLE = "idle",
   RUNNING = "running",
@@ -183,6 +189,7 @@ export interface EmailComposerContext {
 export interface EmailComposerState {
   context: EmailComposerContext;
   brandingMode: BrandingMode;
+  unbrandedSenderRoleType: string | null;
   recipientMode: RecipientMode;
   selectedListId: number | null;
   narrowListId: number | null;
@@ -238,7 +245,10 @@ const RECYCLED_TRACKING_HOST_PATTERNS = [
   /https?:\/\/[^\s"')<>]*\.sendibt2\.com\/[^\s"')<>]+/gi,
   /https?:\/\/[^\s"')<>]*\.sendinblue\.com\/[^\s"')<>]+/gi,
   /https?:\/\/[^\s"')<>]*\.brevo\.com\/tr\/[^\s"')<>]+/gi,
-  /https?:\/\/link\.mailinblue\.com\/[^\s"')<>]+/gi
+  /https?:\/\/link\.mailinblue\.com\/[^\s"')<>]+/gi,
+  /https?:\/\/[^\s"')<>]*\.list-manage\.com\/[^\s"')<>]+/gi,
+  /https?:\/\/mailchi\.mp\/[^\s"')<>]+/gi,
+  /https?:\/\/[^\s"')<>]*\.campaign-archive\.com\/[^\s"')<>]+/gi
 ];
 
 export function findRecycledTrackingUrls(content: string | null | undefined): string[] {
@@ -342,6 +352,7 @@ export interface BatchTransactionalSendRequest {
   replyToRoleOverride?: string;
   bccRolesOverride?: string[];
   brandingMode?: BrandingMode;
+  unbrandedSenderRoleType?: string;
 }
 
 export interface BatchSendProgressEntry {
@@ -421,6 +432,7 @@ export function defaultEmailComposerState(): EmailComposerState {
   return {
     context: { source: EmailComposerContextSource.ADMIN },
     brandingMode: BrandingMode.BRANDED,
+    unbrandedSenderRoleType: null,
     recipientMode: RecipientMode.ENTIRE_LIST,
     selectedListId: null,
     narrowListId: null,

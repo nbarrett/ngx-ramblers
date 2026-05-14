@@ -109,6 +109,8 @@ export class EmailCompositionsService {
     } : null;
     return {
       context: state.context ? { ...state.context } : null,
+      brandingMode: state.brandingMode,
+      unbrandedSenderRoleType: state.unbrandedSenderRoleType ?? null,
       recipientMode: state.recipientMode,
       selectedListId: state.selectedListId,
       narrowListId: state.narrowListId,

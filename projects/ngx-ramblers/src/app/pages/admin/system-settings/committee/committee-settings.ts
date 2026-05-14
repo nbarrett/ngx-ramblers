@@ -367,7 +367,13 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                           @for (role of filteredRoles; track $index) {
                             <tr [class.row-selected]="editingRoleOriginal === role || pendingDeleteRole === role"
                                 class="pointer" (click)="toggleEditRole(role)">
-                              <td>{{ role.fullName || '\u2014' }}</td>
+                              <td>
+                                {{ role.fullName || '\u2014' }}
+                                @if (isDuplicateMemberIdRole(role)) {
+                                  <span class="badge bg-warning ms-2"
+                                        [tooltip]="duplicateMemberIdTooltip(role)">Multiple role mappings</span>
+                                }
+                              </td>
                               <td class="small">{{ role.email || '\u2014' }}</td>
                               <td>{{ stringUtils.asTitle(role.roleType) }}</td>
                               <td>{{ role.description }}</td>
@@ -680,6 +686,21 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
   get vacantCount(): number {
     return this.committeeConfig?.roles?.filter(r => r.vacant).length || 0;
+  }
+
+  isDuplicateMemberIdRole(role: CommitteeMember): boolean {
+    if (!role.memberId) return false;
+    return (this.committeeConfig?.roles ?? []).filter(r => r.memberId === role.memberId).length > 1;
+  }
+
+  duplicateMemberIdTooltip(role: CommitteeMember): string {
+    if (!role.memberId) return "";
+    const otherRoles = (this.committeeConfig?.roles ?? [])
+      .filter(other => other !== role && other.memberId === role.memberId)
+      .map(other => other.description || this.stringUtils.asTitle(other.roleType));
+    if (otherRoles.length === 0) return "";
+    const memberLabel = role.fullName || "this member";
+    return `${memberLabel} is also assigned to: ${otherRoles.join(", ")}`;
   }
 
   get workerScriptsSorted(): EmailWorkerScript[] {

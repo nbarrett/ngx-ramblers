@@ -9,6 +9,7 @@ import { CreateOrAmendSenderComponent } from "./create-or-amend-sender";
 import { FormsModule } from "@angular/forms";
 import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi-select/committee-role-multi-select";
 import { MemberLoginService } from "../../../services/member/member-login.service";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 
 @Component({
     selector: "app-sender-replies-and-sign-off",
@@ -19,9 +20,30 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
       @if (allowSelectAllAsMe) {
         <div class="row mb-2">
           <div class="col-sm-12">
-            <button type="button" class="btn btn-primary btn-sm"
-              [disabled]="selectAllAsMeDisabled()"
-              (click)="selectAllAsMe()">Select All As Me</button>
+            @if (loggedInMemberRoles().length > 1) {
+              <div class="btn-group" dropdown>
+                <button type="button" class="btn btn-primary btn-sm dropdown-toggle" dropdownToggle
+                  [disabled]="selectAllAsMeDisabled()">
+                  Select All As Me <span class="caret"></span>
+                </button>
+                <ul *dropdownMenu class="dropdown-menu">
+                  @for (role of loggedInMemberRoles(); track role.type) {
+                    <li>
+                      <a class="dropdown-item" href="javascript:void(0)" (click)="selectAllAsMe(role.type)">
+                        {{ role.description || stringUtilsService.asTitle(role.roleType) }}
+                        @if (role.fullName) {
+                          <span class="text-muted small ms-1">- {{ role.fullName }}</span>
+                        }
+                      </a>
+                    </li>
+                  }
+                </ul>
+              </div>
+            } @else {
+              <button type="button" class="btn btn-primary btn-sm"
+                [disabled]="selectAllAsMeDisabled()"
+                (click)="selectAllAsMe()">Select All As Me</button>
+            }
           </div>
         </div>
       }
@@ -103,7 +125,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
         }
       </div>
     }`,
-    imports: [CreateOrAmendSenderComponent, FormsModule, CommitteeRoleMultiSelectComponent]
+    imports: [CreateOrAmendSenderComponent, FormsModule, CommitteeRoleMultiSelectComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective]
 })
 
 export class SenderRepliesAndSignoff implements OnInit {
@@ -266,9 +288,20 @@ export class SenderRepliesAndSignoff implements OnInit {
     return roles.length === 0;
   }
 
-  selectAllAsMe() {
+  loggedInMemberRoles(): CommitteeMember[] {
+    const roleTypes = this.rolesForLoggedInMember();
+    if (!roleTypes.length || !this.mailMessagingConfig?.committeeReferenceData) return [];
+    const committeeMembers = this.mailMessagingConfig.committeeReferenceData.committeeMembers();
+    return roleTypes
+      .map(type => committeeMembers.find(member => member.type === type))
+      .filter((member): member is CommitteeMember => !!member);
+  }
+
+  selectAllAsMe(preferredPrimaryRole?: string) {
     const roles = this.rolesForLoggedInMember();
-    const primaryRole = roles[0];
+    const primaryRole = preferredPrimaryRole && roles.includes(preferredPrimaryRole)
+      ? preferredPrimaryRole
+      : roles[0];
     this.logger.info("selectAllAsMe:roles:", roles, "primaryRole:", primaryRole);
     if (!primaryRole || !this.notificationConfig) {
       this.logger.info("selectAllAsMe:aborted due to missing primaryRole or notificationConfig");
@@ -277,7 +310,8 @@ export class SenderRepliesAndSignoff implements OnInit {
     this.notificationConfig.senderRole = primaryRole;
     this.notificationConfig.replyToRole = primaryRole;
     if (!this.omitSignOff) {
-      this.assignSignOffRoles(this.overrideMode() ? this.stripVacantRoles(roles) : roles);
+      const orderedRoles = [primaryRole, ...roles.filter(role => role !== primaryRole)];
+      this.assignSignOffRoles(this.overrideMode() ? this.stripVacantRoles(orderedRoles) : orderedRoles);
     }
     this.senderRoleChanged();
     this.rolesChanged.emit();

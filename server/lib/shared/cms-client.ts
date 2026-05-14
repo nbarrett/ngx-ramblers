@@ -4,6 +4,7 @@ import type { PageContent } from "../../../projects/ngx-ramblers/src/app/models/
 import type { AuthResponse } from "../../../projects/ngx-ramblers/src/app/models/auth-data.model";
 import { pluraliseWithCount } from "./string-utils";
 import { isArray, keys } from "es-toolkit/compat";
+import { DateTime } from "luxon";
 
 const debugLog = debug(envConfig.logNamespace("shared:cms-client"));
 debugLog.enabled = true;
@@ -262,8 +263,9 @@ export async function groupEventBySlug(baseUrl: string, slug: string): Promise<a
 }
 
 export async function groupEventsByDate(baseUrl: string, isoDate: string): Promise<any[]> {
-  const start = new Date(`${isoDate}T00:00:00+00:00`).toISOString().replace("Z", "+00:00");
-  const end = new Date(new Date(`${isoDate}T00:00:00+00:00`).getTime() + 24 * 60 * 60 * 1000).toISOString().replace("Z", "+00:00");
+  const startDt = DateTime.fromISO(`${isoDate}T00:00:00+00:00`, { setZone: true });
+  const start = startDt.toISO();
+  const end = startDt.plus({ days: 1 }).toISO();
   return groupEventsByCriteria(baseUrl, { "groupEvent.start_date_time": { $gte: start, $lt: end } });
 }
 
@@ -324,7 +326,7 @@ export async function uploadFileToS3(auth: CMSAuth, bytes: Buffer, filename: str
     throw new Error(`uploadFileToS3 failed: ${response.status} ${response.statusText} - ${errorText}`);
   }
   const data = await response.json();
-  const fromResponses = Array.isArray(data?.responses) ? data.responses[0]?.fileNameData?.awsFileName : undefined;
+  const fromResponses = isArray(data?.responses) ? data.responses[0]?.fileNameData?.awsFileName : undefined;
   const name = fromResponses || data.response?.fileNameData?.awsFileName || data.fileNameData?.awsFileName || data.awsFileName || data.fileName;
   if (!name) throw new Error(`uploadFileToS3: could not extract awsFileName from response: ${JSON.stringify(data).slice(0, 300)}`);
   return name;

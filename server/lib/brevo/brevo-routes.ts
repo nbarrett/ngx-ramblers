@@ -2,6 +2,7 @@ import express from "express";
 import { sendTransactionalMail } from "./transactional-mail/send-transactional-mail";
 import { batchTransactionalStatus, cancelBatchTransactional, startBatchTransactionalSend } from "./transactional-mail/batch-transactional-send";
 import { sendForgotPasswordEmail } from "./transactional-mail/send-forgot-password-email";
+import { resolveTrackingUrl } from "./transactional-mail/resolve-tracking-url";
 import { queryAccount } from "./account/account";
 import { queryTemplates } from "./templates/query-templates";
 import { listCreate } from "./lists/list-create";
@@ -73,6 +74,7 @@ router.post("/transactional/batch/start", authConfig.authenticate(), startBatchT
 router.get("/transactional/batch/:jobId", authConfig.authenticate(), batchTransactionalStatus);
 router.post("/transactional/batch/:jobId/cancel", authConfig.authenticate(), cancelBatchTransactional);
 router.post("/transactional/forgot-password", sendForgotPasswordEmail);
+router.post("/transactional/resolve-tracking-url", authConfig.authenticate(), resolveTrackingUrl);
 router.post("/campaign/create", authConfig.authenticate(), createCampaign);
 router.post("/campaign/send", authConfig.authenticate(), sendCampaign);
 router.get("/segments", authConfig.authenticate(), querySegments);

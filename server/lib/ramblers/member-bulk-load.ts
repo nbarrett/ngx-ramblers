@@ -165,18 +165,22 @@ export function uploadRamblersData(req, res) {
           return response;
         } else {
           const workbook = xlsx.readFile(uploadedWorkbook);
-          const ramblersSheet = first(workbook.SheetNames
-            .filter(function (sheet) {
-              debugLog("sheet", sheet);
-              return sheet.includes("Full List");
-            }));
-          debugLog("Importing data from workbook sheet", ramblersSheet);
+          workbook.SheetNames.forEach(sheet => debugLog("sheet", sheet));
+          const matchedSheet = workbook.SheetNames.find(sheet => sheet.includes("Full List"));
+          const ramblersSheet = matchedSheet ?? first(workbook.SheetNames);
+          debugLog("Importing data from workbook sheet", ramblersSheet, "(matched 'Full List':", !!matchedSheet, ")");
+          if (!ramblersSheet) {
+            debugAndError(`Excel workbook ${userFileName} contains no sheets`);
+            returnResponse();
+            return;
+          }
           const json = xlsx.utils.sheet_to_json(workbook.Sheets[ramblersSheet]);
           if (json.length > 0) {
             extractMemberDataFromArray(json, userFileName);
             return returnResponse();
           } else {
-            debugAndError(`Excel workbook ${userFileName} did not contain a sheet called [${ramblersSheet}] or no data rows were found in it`);
+            const availableSheets = workbook.SheetNames.map(name => `"${name}"`).join(", ") || "(none)";
+            debugAndError(`Excel workbook ${userFileName} sheet [${ramblersSheet}] contains no data rows. Available sheets: ${availableSheets}`);
             returnResponse();
           }
         }
