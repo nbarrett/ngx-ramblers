@@ -244,3 +244,88 @@ export async function fetchAllWalks(baseUrl: string): Promise<any[]> {
   debugLog(`Found ${walks.length} walks`);
   return walks;
 }
+
+export async function groupEventsByCriteria(baseUrl: string, criteria: any): Promise<any[]> {
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  const url = `${normalizedBaseUrl}/api/database/group-event/all?criteria=${encodeURIComponent(JSON.stringify(criteria))}`;
+  const response = await fetch(url, { headers: { "Content-Type": "application/json" } });
+  if (!response.ok) {
+    throw new Error(`groupEventsByCriteria failed: ${response.status} ${response.statusText}`);
+  }
+  const data = await response.json();
+  return data.response || data || [];
+}
+
+export async function groupEventBySlug(baseUrl: string, slug: string): Promise<any | null> {
+  const events = await groupEventsByCriteria(baseUrl, { "groupEvent.url": { $regex: slug, $options: "i" } });
+  return events[0] || null;
+}
+
+export async function groupEventsByDate(baseUrl: string, isoDate: string): Promise<any[]> {
+  const start = new Date(`${isoDate}T00:00:00+00:00`).toISOString().replace("Z", "+00:00");
+  const end = new Date(new Date(`${isoDate}T00:00:00+00:00`).getTime() + 24 * 60 * 60 * 1000).toISOString().replace("Z", "+00:00");
+  return groupEventsByCriteria(baseUrl, { "groupEvent.start_date_time": { $gte: start, $lt: end } });
+}
+
+export async function contentMetadataByName(auth: CMSAuth, name: string): Promise<any | null> {
+  const criteria = { name: { $eq: name } };
+  const url = `${auth.baseUrl}/api/database/content-metadata/all?criteria=${encodeURIComponent(JSON.stringify(criteria))}`;
+  const response = await fetch(url, { headers: authHeaders(auth) });
+  if (!response.ok) {
+    throw new Error(`contentMetadataByName failed: ${response.status} ${response.statusText}`);
+  }
+  const data = await response.json();
+  const records = data.response || data || [];
+  return records[0] || null;
+}
+
+export async function createOrUpdateContentMetadata(auth: CMSAuth, body: any): Promise<any> {
+  const existing = await contentMetadataByName(auth, body.name);
+  if (existing) {
+    const id = existing.id || existing._id;
+    const url = `${auth.baseUrl}/api/database/content-metadata/${id}`;
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: authHeaders(auth),
+      body: JSON.stringify({ ...body, id })
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`createOrUpdateContentMetadata PUT failed: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    const data = await response.json();
+    return data.response || data;
+  }
+  const response = await fetch(`${auth.baseUrl}/api/database/content-metadata`, {
+    method: "POST",
+    headers: authHeaders(auth),
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`createOrUpdateContentMetadata POST failed: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  return data.response || data;
+}
+
+export async function uploadFileToS3(auth: CMSAuth, bytes: Buffer, filename: string, rootFolder: string): Promise<string> {
+  const url = `${auth.baseUrl}/api/aws/s3/file-upload?root-folder=${encodeURIComponent(rootFolder)}`;
+  const form = new FormData();
+  const blob = new Blob([new Uint8Array(bytes)], { type: "image/jpeg" });
+  form.append("file", blob, filename);
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${auth.authToken}` },
+    body: form as any
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`uploadFileToS3 failed: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  const fromResponses = Array.isArray(data?.responses) ? data.responses[0]?.fileNameData?.awsFileName : undefined;
+  const name = fromResponses || data.response?.fileNameData?.awsFileName || data.fileNameData?.awsFileName || data.awsFileName || data.fileName;
+  if (!name) throw new Error(`uploadFileToS3: could not extract awsFileName from response: ${JSON.stringify(data).slice(0, 300)}`);
+  return name;
+}
