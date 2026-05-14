@@ -126,33 +126,6 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy {
         message: this.message
       });
     }
-    this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse) => {
-      this.logger.debug("subscribe:reset password", loginResponse);
-      if (loginResponse?.memberLoggedIn) {
-        if (!this.memberLoginService.loggedInMember().profileSettingsConfirmed) {
-          this.modalService.show(MailingPreferencesModalComponent, {
-            class: "modal-xl",
-            animated: false,
-            show: true,
-            initialState: {
-              memberId: this.memberLoginService.loggedInMember().memberId
-            }
-          });
-          this.bsModalRef.hide();
-        } else {
-          return this.urlService.navigateTo([]);
-        }
-        return true;
-      } else {
-        this.logger.debug("loginResponse", loginResponse);
-        this.notify.showContactUs(true);
-        this.notify.error({
-          continue: true,
-          title: "Reset password failed",
-          message: loginResponse?.alertMessage
-        });
-      }
-    }));
   }
 
   ngOnDestroy(): void {
@@ -188,17 +161,35 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy {
     });
     this.authService.resetPassword(this.userName, this.newPassword, this.newPasswordConfirm)
       .then((response) => {
-        this.logger.debug("reponse:", response);
-        if (response?.showResetPassword) {
+        this.logger.debug("response:", response);
+        if (response?.memberLoggedIn) {
+          if (!this.memberLoginService.loggedInMember().profileSettingsConfirmed) {
+            this.modalService.show(MailingPreferencesModalComponent, {
+              class: "modal-xl",
+              animated: false,
+              show: true,
+              initialState: {
+                memberId: this.memberLoginService.loggedInMember().memberId
+              }
+            });
+            this.bsModalRef.hide();
+          } else {
+            return this.close();
+          }
+        } else if (response?.showResetPassword) {
           this.notify.showContactUs(true);
           this.notify.error({
             title: "Reset password",
             message: response.alertMessage
           });
         } else {
-          return this.close();
+          this.notify.showContactUs(true);
+          this.notify.error({
+            continue: true,
+            title: "Reset password failed",
+            message: response?.alertMessage
+          });
         }
-
       })
       .catch((error) => this.notify.error(error));
   }
