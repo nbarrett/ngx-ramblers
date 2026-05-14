@@ -19,6 +19,7 @@ import { extractParametersFrom } from "../../../../projects/ngx-ramblers/src/app
 import { replaceAll } from "../../shared/string-utils";
 import { ramblersEmailLayout } from "../templates/ramblers-email-layout";
 import { unbrandedEmailLayout } from "../templates/unbranded-email-layout";
+import { readLocalTemplate } from "../templates/local-template-reader";
 import { errorResponse } from "../../shared/error-response";
 
 function valueAtPath(source: Record<string, any>, path: string): any {
@@ -120,6 +121,30 @@ export function inlineDefaultLinkStyles(html: string): string {
   });
 }
 
+export function renderBrandedTemplate(rawHtml: string,
+                                     params: any,
+                                     templateOverrides?: Record<string, string>): string {
+  const sanitisedHtml = sanitiseBrevoTemplate(rawHtml ?? "");
+  const overriddenHtml = applyTemplateOverrides(sanitisedHtml, templateOverrides);
+  const wrappedHtml = ramblersEmailLayout(overriddenHtml);
+  const parametersAndValues: KeyValue<any>[] = extractParametersFrom(params, true);
+  const substitutedHtmlContent: string = parametersAndValues.reduce(
+    (templateContent, keyValue) => replaceAll(keyValue.key, keyValue.value, templateContent) as string,
+    wrappedHtml,
+  );
+  return inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, params));
+}
+
+export function renderLocalBrandedTemplate(templateName: string,
+                                          params: any,
+                                          templateOverrides?: Record<string, string>): string {
+  const localHtml = readLocalTemplate(templateName);
+  if (!localHtml) {
+    throw new Error(`Local Brevo template "${templateName}" not found`);
+  }
+  return renderBrandedTemplate(localHtml, params, templateOverrides);
+}
+
 export async function performTemplateSubstitution(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest | TemplateRenderRequest,
                                                   sendSmtpEmail: SendSmtpEmail | CreateEmailCampaign,
                                                   debugLog: debug.Debugger): Promise<SendSmtpEmail | CreateEmailCampaign> {
@@ -139,19 +164,7 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
     } else if (emailRequest.templateId) {
       debugLog("performing template substitution in email content for templateId", emailRequest.templateId);
       const templateResponse: TemplateResponse = await queryTemplateContent(emailRequest.templateId);
-      const sanitisedHtml = sanitiseBrevoTemplate(templateResponse.htmlContent);
-      const overriddenHtml = applyTemplateOverrides(sanitisedHtml, emailRequest.templateOverrides);
-      const wrappedHtml = ramblersEmailLayout(overriddenHtml);
-      const parametersAndValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, true);
-      debugLog("parametersAndValues:", parametersAndValues);
-      const substitutedHtmlContent: string = parametersAndValues.reduce(
-        (templateContent, keyValue) => {
-          debugLog(`Replacing ${keyValue.key} with ${keyValue.value} in ${templateContent}`);
-          return replaceAll(keyValue.key, keyValue.value, templateContent) as string;
-        },
-        wrappedHtml,
-      );
-      const htmlContent = inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, emailRequest.params));
+      const htmlContent = renderBrandedTemplate(templateResponse?.htmlContent, emailRequest.params, emailRequest.templateOverrides);
       debugLog(`Setting final htmlContent to ${htmlContent}`);
       sendSmtpEmail.htmlContent = htmlContent;
     } else {

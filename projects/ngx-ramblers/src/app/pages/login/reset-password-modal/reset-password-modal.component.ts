@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -41,16 +41,18 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
               <div class="col col-sm-6">
                 <div class="form-group">
                   <label for="new-reset-password">New Password</label>
-                  <input [(ngModel)]="newPassword" type="password" class="form-control input-sm" id="new-reset-password"
-                         placeholder="Enter new password">
+                  <input #newPasswordInputRef [(ngModel)]="newPassword" type="password" class="form-control input-sm" id="new-reset-password"
+                         placeholder="Enter new password"
+                         (keyup.enter)="confirmPasswordInputRef.focus()">
                 </div>
               </div>
               <div class="col col-sm-6">
                 <div class="form-group">
                   <label for="new-reset-password-confirm">Confirm New Password</label>
-                  <input [(ngModel)]="newPasswordConfirm" type="password" class="form-control input-sm"
+                  <input #confirmPasswordInputRef [(ngModel)]="newPasswordConfirm" type="password" class="form-control input-sm"
                          id="new-reset-password-confirm"
-                         placeholder="Confirm new password">
+                         placeholder="Confirm new password"
+                         (keyup.enter)="submitIfReady()">
                 </div>
               </div>
             </div>
@@ -89,8 +91,9 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
     `,
     imports: [NgClass, FormsModule, FontAwesomeModule, ContactUsComponent]
 })
-export class ResetPasswordModalComponent implements OnInit, OnDestroy {
+export class ResetPasswordModalComponent implements OnInit, OnDestroy, AfterViewInit {
 
+  @ViewChild("newPasswordInputRef") newPasswordInputRef?: ElementRef<HTMLInputElement>;
   private logger: Logger = inject(LoggerFactory).createLogger("ResetPasswordModalComponent", NgxLoggerLevel.ERROR);
   bsModalRef = inject(BsModalRef);
   private modalService = inject(BsModalService);
@@ -126,6 +129,14 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy {
         message: this.message
       });
     }
+  }
+
+  ngAfterViewInit(): void {
+    queueMicrotask(() => this.newPasswordInputRef?.nativeElement?.focus());
+  }
+
+  submitIfReady(): void {
+    if (this.submittable()) this.resetPassword();
   }
 
   ngOnDestroy(): void {

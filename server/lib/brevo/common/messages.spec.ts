@@ -4,6 +4,7 @@ import {
   applyTemplateOverrides,
   collapseBlankLines,
   collapseFroalaPlaceholderSpans,
+  renderBrandedTemplate,
   sanitiseBrevoTemplate,
   wrapMergeFieldsAsFroalaPlaceholders
 } from "./messages";
@@ -136,6 +137,45 @@ describe("brevo messages", () => {
       const input = `<span class="placeholder rte-personalized-node fr-deletable" contenteditable="false">{{ params.systemMergeFields.APP_URL }}</span>`;
       const result = sanitiseBrevoTemplate(input);
       expect(result).toBe("{{params.systemMergeFields.APP_URL}}");
+    });
+  });
+
+  describe("renderBrandedTemplate", () => {
+
+    const paramsFor = (passwordResetLink: string) => ({
+      messageMergeFields: {
+        subject: "Reset your password",
+        BANNER_IMAGE_SOURCE: "",
+        ADDRESS_LINE: "Hi Jane,",
+        BODY_CONTENT_TOP: "",
+        BODY_CONTENT_BOTTOM: "",
+        ACCENT_COLOR: "#F9B104"
+      },
+      memberMergeFields: {
+        FULL_NAME: "Jane Doe", EMAIL: "jane@example.com", FNAME: "Jane", LNAME: "Doe",
+        MEMBER_NUM: "", MEMBER_EXP: "", USERNAME: "jane", PW_RESET: "abc-def-123"
+      },
+      systemMergeFields: {
+        APP_SHORTNAME: "EKWG", APP_LONGNAME: "East Kent Walking Group", APP_URL: "https://example.org.uk",
+        PW_RESET_LINK: passwordResetLink,
+        FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""
+      },
+      accountMergeFields: { STREET: "", POSTCODE: "", TOWN: "" }
+    });
+
+    it("substitutes PW_RESET_LINK inside an <a href> attribute", () => {
+      const template = `<p>To reset your password, click <a href="{{params.systemMergeFields.PW_RESET_LINK}}" target="_blank">Reset Your Password</a>.</p>`;
+      const passwordResetLink = "https://example.org.uk/admin/set-password/abc-def-123";
+      const result = renderBrandedTemplate(template, paramsFor(passwordResetLink));
+      expect(result).toContain(`href="${passwordResetLink}"`);
+      expect(result).not.toContain("{{params.systemMergeFields.PW_RESET_LINK}}");
+    });
+
+    it("substitutes the merge field even when surrounding the Froala-wrapped variant from the Brevo editor", () => {
+      const template = `<p>Click <a href="{{ params.systemMergeFields.PW_RESET_LINK }}">Reset</a>.</p>`;
+      const passwordResetLink = "https://example.org.uk/admin/set-password/abc-def-123";
+      const result = renderBrandedTemplate(template, paramsFor(passwordResetLink));
+      expect(result).toContain(`href="${passwordResetLink}"`);
     });
   });
 });

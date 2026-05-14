@@ -10,7 +10,7 @@ import * as transforms from "../../mongo/controllers/transforms";
 import * as stringUtils from "../../shared/string-utils";
 import * as config from "../../mongo/controllers/config";
 import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
-import { handleError, performTemplateSubstitution } from "../common/messages";
+import { handleError, renderLocalBrandedTemplate } from "../common/messages";
 import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import {
   EmailAddress,
@@ -177,7 +177,10 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
 
   debugLog("notificationConfig loaded - templateId:", notifConfig.templateId, "senderRole:", notifConfig.senderRole, "replyToRole:", notifConfig.replyToRole, "subject:", JSON.stringify(notifConfig.subject));
 
-  const groupHref = systemCfg?.group?.href || "";
+  const configuredHref = systemCfg?.group?.href?.trim();
+  const requestDerivedHref = `${req.protocol}://${req.get("host")}`;
+  const groupHref = (configuredHref || requestDerivedHref).replace(/\/+$/, "");
+  debugLog("resolved groupHref:", groupHref, "(configured:", configuredHref, "requestDerived:", requestDerivedHref, ")");
   const groupShortName = systemCfg?.group?.shortName || "";
   const groupLongName = systemCfg?.group?.longName || "";
   const committeeRoles = committeeCfg?.roles || [];
@@ -233,7 +236,6 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
     to,
     replyTo,
     params,
-    templateId: notifConfig.templateId,
   };
 
   debugLog("Sending forgot password email with request:", emailRequest);
@@ -247,8 +249,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
   sendSmtpEmail.to = emailRequest.to;
   sendSmtpEmail.replyTo = emailRequest.replyTo;
   sendSmtpEmail.params = emailRequest.params;
-
-  await performTemplateSubstitution(emailRequest, sendSmtpEmail, debugLog);
+  sendSmtpEmail.htmlContent = renderLocalBrandedTemplate("forgot-password", params);
 
   debugLog("About to send forgot password email:", sendSmtpEmail);
 
