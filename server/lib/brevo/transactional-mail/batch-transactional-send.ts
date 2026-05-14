@@ -21,12 +21,12 @@ import {
   AddresseeType,
   ComposerExternalRecipient
 } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
-import { BrandingMode } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { BrandingMode, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
-import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
+import { ADMIN_SET_PASSWORD_PATH, SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 import * as transforms from "../../mongo/controllers/transforms";
 import * as config from "../../mongo/controllers/config";
@@ -36,6 +36,7 @@ import { member as memberModel } from "../../mongo/models/member";
 import { recordSendUsage } from "../../mongo/controllers/external-recipient";
 import { randomUUID } from "crypto";
 import { accountMergeFieldsFor } from "../account/account";
+import { generatePasswordResetIdForMemberId } from "./send-forgot-password-email";
 
 interface AuthenticatedRequest extends Request {
   user?: { memberId?: string; userName?: string };
@@ -113,16 +114,20 @@ function memberMergeFields(member: Member, memberExpiry: string): SendSmtpEmailP
   };
 }
 
-function systemMergeFields(systemCfg: SystemConfig, groupHref: string): SendSmtpEmailParams["systemMergeFields"] {
+function systemMergeFields(systemCfg: SystemConfig, groupHref: string, passwordResetLink: string = ""): SendSmtpEmailParams["systemMergeFields"] {
   return {
     APP_SHORTNAME: systemCfg?.group?.shortName ?? "",
     APP_LONGNAME: systemCfg?.group?.longName ?? "",
     APP_URL: groupHref,
-    PW_RESET_LINK: "",
+    PW_RESET_LINK: passwordResetLink,
     FACEBOOK_URL: systemCfg?.externalSystems?.facebook?.groupUrl ?? "",
     TWITTER_URL: systemCfg?.externalSystems?.twitter?.groupUrl ?? "",
     INSTAGRAM_URL: systemCfg?.externalSystems?.instagram?.groupUrl ?? ""
   };
+}
+
+function passwordResetLinkFor(member: Member, groupHref: string): string {
+  return member.passwordResetId ? `${groupHref}/${ADMIN_SET_PASSWORD_PATH}/${member.passwordResetId}` : "";
 }
 
 function buildSubject(notifConfig: NotificationConfig, suppliedSubject: string, params: SendSmtpEmailParams): string {
@@ -157,6 +162,42 @@ function externalRecipientName(recipient: ComposerExternalRecipient): { full: st
   const first = parts[0] ?? "";
   const last = parts.slice(1).join(" ");
   return { full: trimmed, first, last };
+}
+
+interface ResolvedSenderAddresses {
+  sender: EmailAddress;
+  replyTo: EmailAddress;
+  bcc: EmailAddress[];
+}
+
+function resolveUnbrandedRole(request: BatchTransactionalSendRequest, committeeRoles: CommitteeMember[], currentMemberId: string | null): CommitteeMember | undefined {
+  if (!currentMemberId) return undefined;
+  const memberRoles = committeeRoles.filter(role => role.memberId === currentMemberId);
+  if (request.unbrandedSenderRoleType) {
+    return memberRoles.find(role => role.type === request.unbrandedSenderRoleType && !!role.email);
+  }
+  return memberRoles.find(role => !!role.email);
+}
+
+function resolveSenderAddresses(request: BatchTransactionalSendRequest, committeeRoles: CommitteeMember[], notifConfig: NotificationConfig | null, currentMemberId: string | null): ResolvedSenderAddresses | { error: string } {
+  if (request.brandingMode === BrandingMode.UNBRANDED) {
+    const role = resolveUnbrandedRole(request, committeeRoles, currentMemberId);
+    if (!role?.email) {
+      return { error: "Cannot send unbranded email - you are not linked to a committee role with a valid email on this site. Unbranded sends must come from a verified committee role address." };
+    }
+    const fromAddress: EmailAddress = { name: role.fullName ?? "", email: role.email };
+    return { sender: fromAddress, replyTo: fromAddress, bcc: [] };
+  }
+  const senderRole = request.senderRoleOverride || notifConfig!.senderRole;
+  const replyToRole = request.replyToRoleOverride || notifConfig!.replyToRole;
+  const bccRoles = request.bccRolesOverride?.length
+    ? request.bccRolesOverride
+    : (notifConfig!.bccRoles?.length > 0 ? notifConfig!.bccRoles : notifConfig!.ccRoles ?? []);
+  return {
+    sender: emailAddressForRole(committeeRoles, senderRole),
+    replyTo: emailAddressForRole(committeeRoles, replyToRole),
+    bcc: emailAddressesForRoles(committeeRoles, bccRoles)
+  };
 }
 
 function externalMemberMergeFields(recipient: ComposerExternalRecipient): SendSmtpEmailParams["memberMergeFields"] {
@@ -197,53 +238,24 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
     const allBanners: BannerConfig[] = await banner.find({}).lean().then((docs: any[]) => docs.map(transforms.toObjectWithId) as BannerConfig[]);
     const groupHref = systemCfg?.group?.href ?? baseUrl;
     const committeeRoles = committeeCfg?.roles ?? [];
-
     const isUnbranded = request.brandingMode === BrandingMode.UNBRANDED;
-
-    const memberDocs = await memberModel.find({ _id: { $in: request.memberIds } }).lean().then((docs: any[]) => docs.map(transforms.toObjectWithId) as Member[]);
+    const rawMemberDocs = await memberModel.find({ _id: { $in: request.memberIds } }).lean().then((docs: any[]) => docs.map(transforms.toObjectWithId) as Member[]);
+    const generatePasswordResetIds = !!notifConfig?.preSendActions?.includes(WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID);
+    const memberDocs: Member[] = generatePasswordResetIds
+      ? await Promise.all(rawMemberDocs.map(async doc => (doc.id ? (await generatePasswordResetIdForMemberId(doc.id)) ?? doc : doc)))
+      : rawMemberDocs;
     const membersById = new Map(memberDocs.map(item => [item.id ?? "", item]));
-
-    const currentMemberRecord = currentMemberId
-      ? await memberModel.findById(currentMemberId).lean().then((doc: any) => doc ? transforms.toObjectWithId(doc) as Member : null)
-      : null;
-
-    let sender: EmailAddress;
-    let replyTo: EmailAddress;
-    let bcc: EmailAddress[];
-    if (isUnbranded) {
-      const committeeRoleForMember = currentMemberId
-        ? committeeRoles.find(role => role.memberId === currentMemberId)
-        : undefined;
-      const fallbackFullName = currentMemberRecord?.displayName
-        ?? `${currentMemberRecord?.firstName ?? ""} ${currentMemberRecord?.lastName ?? ""}`.trim();
-      const fromAddress: EmailAddress = {
-        name: committeeRoleForMember?.fullName || fallbackFullName || "",
-        email: committeeRoleForMember?.email || currentMemberRecord?.email || ""
-      };
-      if (!fromAddress.email) {
-        progress.status = BatchSendStatus.FAILED;
-        progress.errorMessage = "Cannot send unbranded email - no email is set for your committee role (or your member record)";
-        progress.completedAt = dateTimeNow().toMillis();
-        return;
-      }
-      sender = fromAddress;
-      replyTo = fromAddress;
-      bcc = [];
-    } else {
-      const senderRole = request.senderRoleOverride || notifConfig.senderRole;
-      const replyToRole = request.replyToRoleOverride || notifConfig.replyToRole;
-      sender = emailAddressForRole(committeeRoles, senderRole);
-      replyTo = emailAddressForRole(committeeRoles, replyToRole);
-      const bccRoles = request.bccRolesOverride?.length
-        ? request.bccRolesOverride
-        : (notifConfig.bccRoles?.length > 0 ? notifConfig.bccRoles : notifConfig.ccRoles ?? []);
-      bcc = emailAddressesForRoles(committeeRoles, bccRoles);
+    const addresses = resolveSenderAddresses(request, committeeRoles, notifConfig, currentMemberId);
+    if ("error" in addresses) {
+      progress.status = BatchSendStatus.FAILED;
+      progress.errorMessage = addresses.error;
+      progress.completedAt = dateTimeNow().toMillis();
+      return;
     }
+    const { sender, replyTo, bcc } = addresses;
     const bannerImageSrc = bannerSourceFor(allBanners, request.bannerId, groupHref);
     const accountFields = await accountMergeFieldsFor();
-
     const externalRecipients = (request.externalRecipients ?? []).filter(item => !!item?.email?.trim());
-
     const memberEntries: BatchSendProgressEntry[] = request.memberIds.map(id => {
       const memberRecord = membersById.get(id);
       return {
@@ -305,7 +317,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
             ACCENT_COLOR: resolveAccentColor(notifConfig?.accentColor)
           },
           memberMergeFields: memberMergeFieldsValue,
-          systemMergeFields: systemMergeFields(systemCfg, groupHref),
+          systemMergeFields: systemMergeFields(systemCfg, groupHref, item.kind === "member" ? passwordResetLinkFor(item.memberRecord, groupHref) : ""),
           accountMergeFields: accountFields
         };
         const subject = notifConfig ? buildSubject(notifConfig, request.subject, params) : request.subject;
@@ -364,7 +376,20 @@ export async function startBatchTransactionalSend(req: Request, res: Response): 
       return;
     }
     const isUnbranded = request.brandingMode === BrandingMode.UNBRANDED;
-    if (!isUnbranded) {
+    const currentMemberIdForValidation = (req as AuthenticatedRequest).user?.memberId ?? null;
+    if (isUnbranded) {
+      const committeeConfigDoc = await config.queryKey(ConfigKey.COMMITTEE);
+      const committeeRoles: CommitteeMember[] = committeeConfigDoc?.value?.roles ?? [];
+      const role = resolveUnbrandedRole(request, committeeRoles, currentMemberIdForValidation);
+      if (!role?.email) {
+        const requestedType = request.unbrandedSenderRoleType;
+        const errorMessage = requestedType
+          ? `Cannot send unbranded email - the role "${requestedType}" you chose is not one of your committee roles with a valid email. Pick another or contact a site administrator.`
+          : "Cannot send unbranded email - you are not linked to a committee role with a valid email on this site. Unbranded sends must come from a verified committee role address.";
+        res.status(400).json({ request: { messageType }, error: { message: errorMessage } });
+        return;
+      }
+    } else {
       const notifConfig: NotificationConfig | null = request.notificationConfigId
         ? await notificationConfigModel.findById(request.notificationConfigId)
           .lean()

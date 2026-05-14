@@ -138,6 +138,12 @@ export async function sendForgotPasswordEmail(req: Request, res: Response): Prom
   }
 }
 
+export async function generatePasswordResetIdForMemberId(memberId: string): Promise<Member | null> {
+  const found: any = await member.findById(memberId);
+  if (!found) return null;
+  return generatePasswordResetId(found);
+}
+
 async function generatePasswordResetId(foundMember: any): Promise<Member> {
   foundMember.passwordResetId = stringUtils.generateUid();
   const savedDocument = await foundMember.save();

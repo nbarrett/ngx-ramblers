@@ -25,10 +25,13 @@ export class CommitteeReferenceData {
   }
 
   loggedOnRole(): CommitteeMember {
+    return this.loggedOnRoles()[0];
+  }
+
+  loggedOnRoles(): CommitteeMember[] {
     const memberId = this.memberLoginService.loggedInMember().memberId;
-    return this.committeeMembers().find((role) => {
-      return role.memberId === memberId;
-    });
+    if (!memberId) return [];
+    return this.committeeMembers().filter(role => role.memberId === memberId);
   }
 
   fileTypes(): FileType[] {

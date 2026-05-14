@@ -69,10 +69,15 @@ import {
   newDividerFragment,
   newMultiColumnFragment,
   EmailComposerContextSource,
+  PROMOTIONAL_LANGUAGE_PATTERN,
   RecipientMode,
+  REPLY_OR_FORWARD_SUBJECT_PATTERN,
   SECTION_DIVIDER_OPTIONS,
   SectionDividerStyle,
   SendingChannel,
+  UNBRANDED_HARD_CAP_RECIPIENTS,
+  UNBRANDED_LIST_SEND_WARNING_THRESHOLD,
+  UNBRANDED_LONG_BODY_CHAR_THRESHOLD,
   ValidationError,
   ValidationErrorWithLink
 } from "../../models/email-composer.model";
@@ -111,7 +116,7 @@ import { CommitteeReferenceData } from "../../services/committee/committee-refer
 import { CommitteeQueryService } from "../../services/committee/committee-query.service";
 import { WalksAndEventsService } from "../../services/walks-and-events/walks-and-events.service";
 import { GoogleMapsService } from "../../services/google-maps.service";
-import { CommitteeFile, GroupEventSummary, Notification, NotificationItem } from "../../models/committee.model";
+import { CommitteeFile, CommitteeMember, GroupEventSummary, Notification, NotificationItem } from "../../models/committee.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { CommitteeFileService } from "../../services/committee/committee-file.service";
 import { MediaQueryService } from "../../services/committee/media-query.service";
@@ -558,9 +563,16 @@ import { DateTime } from "luxon";
               </ul>
             </details>
           }
-          <details class="mt-3">
-            <summary class="form-label fw-bold">Also include some group members? (optional)</summary>
-            <div class="mt-2">
+          <fieldset class="email-composer-fieldset mt-3">
+            <legend>
+              <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset"
+                      (click)="narrowMembersExpanded = !narrowMembersExpanded"
+                      [attr.aria-expanded]="narrowMembersExpanded">
+                <fa-icon [icon]="narrowMembersExpanded ? faChevronDown : faChevronRight" class="me-1"/>
+                Also include some group members? (optional)
+              </button>
+            </legend>
+            @if (narrowMembersExpanded) {
               <div class="row mb-3">
                 <div class="col-sm-12">
                   <div class="form-check">
@@ -606,8 +618,8 @@ import { DateTime } from "luxon";
                   (selectedIdsChange)="onSelectedMemberIdsChange($event)"
                   (preFilterKeyChange)="onPreFilterKeyChange($event)"/>
               }
-            </div>
-          </details>
+            }
+          </fieldset>
         } @else {
           <div class="row mb-3">
             <div class="col-sm-12">
@@ -649,12 +661,6 @@ import { DateTime } from "luxon";
                             containerClass="email-composer-list-tooltip"
                             placement="right">{{ stringUtils.pluraliseWithCount(subscribedMemberCount(list), "member") }}</span>
                     </label>
-                  </div>
-                }
-                @if (nonEmptyLists().length === 0) {
-                  <div class="alert alert-warning">
-                    <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
-                    <strong>No mailing lists configured.</strong> Set them up in Mail Settings before sending to a whole list.
                   </div>
                 }
               </div>
@@ -780,15 +786,26 @@ import { DateTime } from "luxon";
           </fieldset>
         }
         @if (state.brandingMode === BrandingMode.UNBRANDED) {
+          @let roleOptions = unbrandedRoleOptions();
           @let senderInfo = unbrandedSenderInfo();
-          <div class="alert alert-success">
-            <fa-icon [icon]="faCheckCircle" class="me-2"/>
-            @if (senderInfo.email) {
-              <strong>Sender:</strong> Unbranded emails go directly from you ({{ senderInfo.name }} &lt;{{ senderInfo.email }}&gt;). Sign off the email however you like in the body.
-            } @else {
-              <strong>Sender:</strong> Unbranded emails go directly from you. Sign off the email however you like in the body.
+          @if (senderInfo.email) {
+            @if (roleOptions.length > 1) {
+              <fieldset class="email-composer-fieldset">
+                <legend>Send from which committee role?</legend>
+                <p class="text-muted small mb-2">You are linked to more than one role - pick which identity recipients should see.</p>
+                <select class="form-select" [ngModel]="resolvedUnbrandedRole()?.type"
+                        (ngModelChange)="onUnbrandedSenderRoleChange($event)">
+                  @for (role of roleOptions; track role.type) {
+                    <option [ngValue]="role.type">{{ role.description }} - {{ role.fullName || '—' }} &lt;{{ role.email }}&gt;</option>
+                  }
+                </select>
+              </fieldset>
             }
-          </div>
+            <div class="alert alert-success">
+              <fa-icon [icon]="faCheckCircle" class="me-2"/>
+              <strong>Sender:</strong> Unbranded emails will go from your committee role ({{ senderInfo.name }} &lt;{{ senderInfo.email }}&gt;). Sign off the email however you like in the body.
+            </div>
+          }
         }
       </div>
     </ng-template>
@@ -796,6 +813,47 @@ import { DateTime } from "luxon";
     <ng-template #composeStep>
       <div class="email-composer-section">
         <h3>Compose your email</h3>
+        @if (pendingForwardedHeaderLines.length > 0 || unbrandedListSendBlocked() || showUnbrandedListSendWarning()) {
+          <div class="email-composer-validation-summary">
+            @if (pendingForwardedHeaderLines.length > 0) {
+              <h5>Forwarded email detected:</h5>
+              <ul class="list-arrow">
+                <li>Recipients and subject were extracted from the headers below and placed in the Recipients step and Subject field.</li>
+                <li>The original sender details have been re-inserted into the body between two horizontal rules - edit or remove them in the editor below if you do not want them included.</li>
+                <li>Type your own reply above the first rule.</li>
+              </ul>
+              <button type="button" class="btn btn-primary btn-sm mt-2 mb-3" (click)="dismissForwardedHeaderOffer()">
+                <fa-icon [icon]="faXmark"/> Dismiss
+              </button>
+            }
+            @if (unbrandedListSendBlocked()) {
+              <h5>Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked:</h5>
+              <ul class="list-arrow">
+                <li>This send is for {{ totalRecipientCount() }} recipients - at this volume PECR and GDPR require the unsubscribe link and sender identity that only the Branded format includes. Unbranded omits both.</li>
+                <li>Switch to Branded mode to continue, or reduce the recipient count.</li>
+              </ul>
+              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="switchToBrandedFromWarning()">
+                <fa-icon [icon]="faArrowRotateLeft"/> Switch to Branded
+              </button>
+            } @else if (showUnbrandedListSendWarning()) {
+              <h5>This looks like a broadcast rather than a one-to-one reply:</h5>
+              <ul class="list-arrow">
+                <li>Branded format includes the unsubscribe link and sender identity that PECR and GDPR require for marketing-style sends to a list. Unbranded omits both, so it is best kept for replies and one-to-few correspondence.</li>
+                @for (reason of unbrandedListSendWarningReasons(); track reason) {
+                  <li>{{ reason }}</li>
+                }
+              </ul>
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                <button type="button" class="btn btn-primary btn-sm" (click)="switchToBrandedFromWarning()">
+                  <fa-icon [icon]="faArrowRotateLeft"/> Switch to Branded
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" (click)="dismissUnbrandedListSendWarning()">
+                  <fa-icon [icon]="faXmark"/> Dismiss
+                </button>
+              </div>
+            }
+          </div>
+        }
         @let composeTrackingUrls = recycledTrackingUrlsInState();
         @let composeUnbrandedNoRecipients = state.brandingMode === BrandingMode.UNBRANDED && !recipientsStepValid();
         @if (composeUnbrandedNoRecipients || composeStepErrors().length > 0 || composeTrackingUrls.length > 0) {
@@ -808,13 +866,28 @@ import { DateTime } from "luxon";
               @for (error of composeStepErrors(); track error) { <li>{{ error }}</li> }
               @if (composeTrackingUrls.length > 0) {
                 <li>
-                  {{ composeTrackingUrls.length }} link{{ composeTrackingUrls.length === 1 ? "" : "s" }} in this email point at another sender's tracking redirect (typically pasted in from a forwarded marketing email). Brevo will wrap these again when we send, so recipients hit two redirect layers and may land on a stale 404. Edit the relevant section and replace each link with its original destination URL.
+                  {{ composeTrackingUrls.length }} link{{ composeTrackingUrls.length === 1 ? "" : "s" }} in this email point at another sender's tracking redirect (typically pasted in from a forwarded marketing email). Brevo will wrap these again when we send, so recipients hit two redirect layers and may land on a stale 404. Click <strong>Resolve tracking links</strong> below to follow each redirect and replace it with the underlying URL, or edit the relevant section by hand.
                   <ul class="small mt-1 mb-0">
                     @for (url of composeTrackingUrls; track url) { <li><code>{{ shortTrackingUrl(url) }}</code></li> }
                   </ul>
                 </li>
               }
             </ul>
+            @if (composeTrackingUrls.length > 0) {
+              <button type="button" class="btn btn-primary btn-sm mt-2"
+                      [disabled]="resolveTrackingInProgress"
+                      (click)="resolveTrackingUrls()">
+                <fa-icon [icon]="faArrowRotateLeft"/>
+                {{ resolveTrackingInProgress ? "Resolving…" : "Resolve tracking links" }}
+              </button>
+              @if (trackingResolutionFailures.length > 0) {
+                <ul class="small mt-2 mb-0 list-arrow">
+                  @for (failure of trackingResolutionFailures; track failure.url) {
+                    <li><code>{{ shortTrackingUrl(failure.url) }}</code> - {{ failure.error }}</li>
+                  }
+                </ul>
+              }
+            }
           </div>
         }
         <fieldset class="email-composer-fieldset">
@@ -945,7 +1018,8 @@ import { DateTime } from "luxon";
               <div class="fragment-row-body">
                 @switch (fragment.kind) {
                   @case (ComposerFragmentKind.INTRO) {
-                    <app-tiptap-markdown-editor [value]="state.introMarkdown"
+                    <app-tiptap-markdown-editor #introEditor
+                                                [value]="state.introMarkdown"
                                                 (valueChange)="onIntroMarkdownChange($event)"
                                                 (rawPaste)="onIntroRawPaste($event)"
                                                 placeholder="Write your message here…"
@@ -1383,25 +1457,54 @@ import { DateTime } from "luxon";
     <ng-template #sendStep>
       <div class="email-composer-section">
         <h3>Send</h3>
-        @if (subjectStartsWithCopyOf()) {
-          <div class="alert alert-warning">
-            <strong>Subject still says "Copy of …"</strong>
-            <p class="mb-2 mt-2">Update the subject line on the <a href="javascript:void(0)" (click)="goToCompose()">Compose step</a> before sending so recipients don't see "Copy of …".</p>
-            <button type="button" class="btn btn-primary btn-sm" (click)="goToCompose()">
-              <fa-icon [icon]="faArrowLeft"/> Go and fix
-            </button>
-          </div>
-        }
         @let trackingUrls = recycledTrackingUrlsInState();
-        @if (trackingUrls.length > 0) {
-          <div class="alert alert-danger">
-            <strong>Recycled tracking URLs detected</strong>
-            <p class="mb-2 mt-2">
-              {{ trackingUrls.length }} link{{ trackingUrls.length === 1 ? "" : "s" }} in this email point at another sender's tracking redirect. Brevo will wrap them again on send, so recipients hit two redirect layers and may land on a stale 404. Edit the relevant section and replace each link with its original destination URL.
-            </p>
-            <button type="button" class="btn btn-primary btn-sm" (click)="goToCompose()">
-              <fa-icon [icon]="faArrowLeft"/> Go and fix
-            </button>
+        @if (unbrandedListSendBlocked() || showUnbrandedListSendWarning() || subjectStartsWithCopyOf() || trackingUrls.length > 0) {
+          <div class="email-composer-validation-summary">
+            @if (unbrandedListSendBlocked()) {
+              <h5>Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked:</h5>
+              <ul class="list-arrow">
+                <li>This send is for {{ totalRecipientCount() }} recipients - at this volume PECR and GDPR require the unsubscribe link and sender identity that only the Branded format includes. Unbranded omits both.</li>
+                <li>Switch to Branded mode to continue, or reduce the recipient count.</li>
+              </ul>
+              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="switchToBrandedFromWarning()">
+                <fa-icon [icon]="faArrowRotateLeft"/> Switch to Branded
+              </button>
+            } @else if (showUnbrandedListSendWarning()) {
+              <h5>This looks like a broadcast rather than a one-to-one reply:</h5>
+              <ul class="list-arrow">
+                <li>Branded format includes the unsubscribe link and sender identity that PECR and GDPR require for marketing-style sends to a list. Unbranded omits both, so it is best kept for replies and one-to-few correspondence.</li>
+                @for (reason of unbrandedListSendWarningReasons(); track reason) {
+                  <li>{{ reason }}</li>
+                }
+              </ul>
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                <button type="button" class="btn btn-primary btn-sm" (click)="switchToBrandedFromWarning()">
+                  <fa-icon [icon]="faArrowRotateLeft"/> Switch to Branded
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" (click)="dismissUnbrandedListSendWarning()">
+                  <fa-icon [icon]="faXmark"/> Dismiss
+                </button>
+              </div>
+            }
+            @if (subjectStartsWithCopyOf()) {
+              <h5>Subject still says "Copy of …":</h5>
+              <ul class="list-arrow">
+                <li>Update the subject line on the <a href="javascript:void(0)" (click)="goToCompose()">Compose step</a> before sending so recipients don't see "Copy of …".</li>
+              </ul>
+              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="goToCompose()">
+                <fa-icon [icon]="faArrowLeft"/> Go and fix
+              </button>
+            }
+            @if (trackingUrls.length > 0) {
+              <h5>Recycled tracking URLs detected:</h5>
+              <ul class="list-arrow">
+                <li>{{ trackingUrls.length }} link{{ trackingUrls.length === 1 ? "" : "s" }} in this email point at another sender's tracking redirect. Brevo will wrap them again on send, so recipients hit two redirect layers and may land on a stale 404.</li>
+                <li>Edit the relevant section and replace each link with its original destination URL.</li>
+              </ul>
+              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="goToCompose()">
+                <fa-icon [icon]="faArrowLeft"/> Go and fix
+              </button>
+            }
           </div>
         }
         @if (sendInProgress) {
@@ -1538,6 +1641,9 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected lastSavedAt: number | null = null;
   protected sendInProgress = false;
   protected campaignSendComplete = false;
+  protected unbrandedListSendWarningDismissed = false;
+  protected readonly UNBRANDED_HARD_CAP_RECIPIENTS = UNBRANDED_HARD_CAP_RECIPIENTS;
+  protected readonly UNBRANDED_LIST_SEND_WARNING_THRESHOLD = UNBRANDED_LIST_SEND_WARNING_THRESHOLD;
   protected batchProgress: BatchSendProgress | null = null;
   protected batchSendJobId: string | null = null;
   protected notifyTarget: AlertTarget = {};
@@ -1600,13 +1706,14 @@ export class EmailComposer implements OnInit, OnDestroy {
         forceIncludeConfigIds: this.forcedConfigId ? [this.forcedConfigId] : []
       };
       const candidates = this.mailMessagingService.notificationConfigs(this.state.notificationConfigListing);
-      if (this.forcedConfigId) {
+      const allowConfigAutoSelect = this.state.brandingMode !== BrandingMode.UNBRANDED;
+      if (allowConfigAutoSelect && this.forcedConfigId) {
         const forced = candidates.find(candidate => candidate.id === this.forcedConfigId);
         if (forced) {
           this.onEmailConfigChanged(forced);
         }
       }
-      if (!this.state.notificationConfig && candidates.length > 0) {
+      if (allowConfigAutoSelect && !this.state.notificationConfig && candidates.length > 0) {
         this.onEmailConfigChanged(candidates[0]);
       }
       this.applyDefaultListIfNeeded();
@@ -2158,6 +2265,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected narrowFromListEnabled: boolean = false;
+  protected narrowMembersExpanded: boolean = false;
 
   setNarrowFromList(enabled: boolean): void {
     this.narrowFromListEnabled = enabled;
@@ -2232,6 +2340,9 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.syncStateToUrl({ [StoredValue.EMAIL_TYPE]: kebabCase(mode) });
   }
 
+  protected pendingForwardedHeaderLines: string[] = [];
+  @ViewChild("introEditor") private introEditor?: TiptapMarkdownEditor;
+
   protected onIntroRawPaste(event: { text: string; consume: () => void }): void {
     if (this.state.brandingMode !== BrandingMode.UNBRANDED) return;
     const parsed = this.parseEmailHeadersFromMarkdown(event.text);
@@ -2251,7 +2362,9 @@ export class EmailComposer implements OnInit, OnDestroy {
       }
       if (parsed.subject) this.state.subject = parsed.subject;
       this.state.addresseeType = AddresseeType.NONE;
-      this.state.introMarkdown = parsed.body;
+      this.state.introMarkdown = this.buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, parsed.body);
+      this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
+      queueMicrotask(() => this.introEditor?.focusAtStart());
       return;
     }
     const titled = this.extractLeadingH1Title(event.text);
@@ -2260,6 +2373,16 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.state.subject = titled.title;
       this.state.introMarkdown = titled.body;
     }
+  }
+
+  private buildForwardedIntroMarkdown(headerLines: string[], body: string): string {
+    const headerBlock = headerLines.join("  \n");
+    const trimmedBody = body?.trim() ?? "";
+    return `\n\n---\n\n${headerBlock}\n\n---\n\n${trimmedBody}`;
+  }
+
+  protected dismissForwardedHeaderOffer(): void {
+    this.pendingForwardedHeaderLines = [];
   }
 
   private extractLeadingH1Title(content: string): { title: string; body: string } | null {
@@ -2284,7 +2407,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     }
   }
 
-  private parseEmailHeadersFromMarkdown(content: string): { to: { name: string; email: string }[]; cc: { name: string; email: string }[]; subject: string | null; body: string } | null {
+  private parseEmailHeadersFromMarkdown(content: string): { to: { name: string; email: string }[]; cc: { name: string; email: string }[]; subject: string | null; body: string; forwardedHeaderLines: string[] } | null {
     const lines = content.split(/\r?\n/);
     const HEADER_REGEX = /^(To|From|Cc|Bcc|Subject|Date|Sent|Reply-To):\s*(.+)$/i;
     const firstHeaderIdx = lines.findIndex(line => {
@@ -2296,6 +2419,10 @@ export class EmailComposer implements OnInit, OnDestroy {
     const { headers, bodyStartLine } = parsed;
     if (keys(headers).length === 0 || (!headers.to && !headers.subject && !headers.from)) return null;
     const body = bodyStartLine >= 0 ? lines.slice(bodyStartLine).join("\n").replace(/^\n+/, "") : "";
+    const headerEndIdx = bodyStartLine >= 0 ? bodyStartLine : lines.length;
+    const forwardedHeaderLines = lines.slice(firstHeaderIdx, headerEndIdx)
+      .map(line => this.stripMarkdownDecorations(line))
+      .filter(line => line !== "");
     const toList = this.parseEmailAddressList(headers.to ?? "");
     const fromList = this.parseEmailAddressList(headers.from ?? "");
     const seenEmails = new Set<string>();
@@ -2309,7 +2436,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       to: combinedRecipients,
       cc: this.parseEmailAddressList(headers.cc ?? ""),
       subject: headers.subject ?? null,
-      body
+      body,
+      forwardedHeaderLines
     };
   }
 
@@ -2378,6 +2506,9 @@ export class EmailComposer implements OnInit, OnDestroy {
   setBrandingMode(mode: BrandingMode): void {
     const previousMode = this.state.brandingMode;
     this.state.brandingMode = mode;
+    if (previousMode !== mode) {
+      this.unbrandedListSendWarningDismissed = false;
+    }
     if (mode === BrandingMode.UNBRANDED) {
       if (this.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
         this.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
@@ -2393,11 +2524,19 @@ export class EmailComposer implements OnInit, OnDestroy {
         this.state.preFilterKey = null;
         this.state.narrowListId = null;
         this.narrowFromListEnabled = false;
+        this.state.notificationConfig = null;
+        this.state.bannerId = null;
+        this.forcedConfigId = null;
+        this.forcedConfigSlug = null;
       }
     } else if (this.state.externalRecipients?.length) {
       this.state.externalRecipients = [];
     }
-    this.syncStateToUrl({ [StoredValue.EMAIL_BRANDING]: mode });
+    const urlUpdates: Record<string, string | null> = { [StoredValue.EMAIL_BRANDING]: mode };
+    if (mode === BrandingMode.UNBRANDED) {
+      urlUpdates[StoredValue.EMAIL_CONFIG_ID] = null;
+    }
+    this.syncStateToUrl(urlUpdates);
   }
 
   private async loadSavedExternalRecipients(): Promise<void> {
@@ -2421,15 +2560,25 @@ export class EmailComposer implements OnInit, OnDestroy {
     }
   }
 
+  protected unbrandedRoleOptions(): CommitteeMember[] {
+    return (this.committeeReferenceData?.loggedOnRoles() ?? []).filter(role => !!role.email);
+  }
+
+  protected resolvedUnbrandedRole(): CommitteeMember | undefined {
+    const options = this.unbrandedRoleOptions();
+    if (options.length === 0) return undefined;
+    const chosen = options.find(role => role.type === this.state.unbrandedSenderRoleType);
+    return chosen ?? options[0];
+  }
+
+  protected onUnbrandedSenderRoleChange(roleType: string): void {
+    this.state.unbrandedSenderRoleType = roleType || null;
+  }
+
   protected unbrandedSenderInfo(): { name: string; email: string } {
-    const committeeRole = this.committeeReferenceData?.loggedOnRole();
-    if (committeeRole?.email) {
-      return { name: committeeRole.fullName ?? "", email: committeeRole.email };
-    }
-    if (this.loggedInMemberRecord?.email) {
-      const fallbackName = this.loggedInMemberRecord.displayName
-        || `${this.loggedInMemberRecord.firstName ?? ""} ${this.loggedInMemberRecord.lastName ?? ""}`.trim();
-      return { name: fallbackName, email: this.loggedInMemberRecord.email };
+    const role = this.resolvedUnbrandedRole();
+    if (role?.email) {
+      return { name: role.fullName ?? "", email: role.email };
     }
     return { name: "", email: "" };
   }
@@ -3118,7 +3267,11 @@ export class EmailComposer implements OnInit, OnDestroy {
   recipientsStepErrors(): string[] {
     const errors: string[] = [];
     if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
-      if (this.state.selectedListId === null) errors.push("Choose which mailing list to send to");
+      if (this.nonEmptyLists().length === 0) {
+        errors.push("No mailing lists configured - set them up in Mail Settings before sending to a whole list");
+      } else if (this.state.selectedListId === null) {
+        errors.push("Choose which mailing list to send to");
+      }
     } else {
       if (this.narrowFromListEnabled && this.state.narrowListId === null) errors.push("Choose which mailing list to pull members from");
       const externalCount = this.state.externalRecipients?.length ?? 0;
@@ -3143,7 +3296,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     const errors: ValidationError[] = [];
     if (this.state.brandingMode === BrandingMode.UNBRANDED) {
       if (!this.unbrandedSenderInfo().email) {
-        errors.push("Your committee role has no email address - unbranded sends use your committee email as sender. Set one in the committee setup before sending.");
+        errors.push("You are not linked to a committee role with a valid email on this site - unbranded sends must come from a verified committee role address. Ask a site administrator to map your member record to a committee role, or switch to Branded mode.");
       }
     } else if (!this.state.notificationConfig) {
       errors.push("Choose an email type");
@@ -3271,6 +3424,55 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected shortTrackingUrl(url: string): string {
     return url.length > 60 ? `${url.slice(0, 57)}…` : url;
+  }
+
+  protected resolveTrackingInProgress = false;
+  protected trackingResolutionFailures: { url: string; error: string }[] = [];
+
+  protected async resolveTrackingUrls(): Promise<void> {
+    if (this.resolveTrackingInProgress) return;
+    const trackingUrls = this.recycledTrackingUrlsInState();
+    if (trackingUrls.length === 0) return;
+    this.resolveTrackingInProgress = true;
+    this.trackingResolutionFailures = [];
+    const failures: { url: string; error: string }[] = [];
+    try {
+      const results = await Promise.all(trackingUrls.map(async url => {
+        try {
+          return await this.sendService.resolveTrackingUrl(url);
+        } catch (error: any) {
+          return { originalUrl: url, resolvedUrl: null, error: error?.message ?? String(error) } as const;
+        }
+      }));
+      const replacements = new Map<string, string>();
+      for (const result of results) {
+        if (result.resolvedUrl) {
+          replacements.set(result.originalUrl, result.resolvedUrl);
+        } else {
+          failures.push({ url: result.originalUrl, error: result.error ?? "Unable to resolve" });
+        }
+      }
+      if (replacements.size > 0) {
+        this.state.introMarkdown = this.applyTrackingReplacements(this.state.introMarkdown, replacements);
+        this.state.signoffTextMarkdown = this.applyTrackingReplacements(this.state.signoffTextMarkdown, replacements);
+        (this.state.articleBlocks ?? []).forEach(block => {
+          block.markdown = this.applyTrackingReplacements(block.markdown, replacements);
+          block.buttonUrl = this.applyTrackingReplacements(block.buttonUrl, replacements);
+        });
+      }
+    } finally {
+      this.trackingResolutionFailures = failures;
+      this.resolveTrackingInProgress = false;
+    }
+  }
+
+  private applyTrackingReplacements(content: string | null | undefined, replacements: Map<string, string>): string {
+    if (!content) return content ?? "";
+    let next = content;
+    for (const [from, to] of replacements) {
+      next = next.split(from).join(to);
+    }
+    return next;
   }
 
   canAccessStep(stepKey: EmailComposerStepKey): boolean {
@@ -3456,6 +3658,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       delete restored.selectedGroupEventIds;
       restored.groupEvents = [];
       restored.notificationConfigListing = this.state.notificationConfigListing;
+      restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
       this.state = restored as EmailComposerState;
       if (this.state.subject) this.state.subject = `Copy of ${this.state.subject}`;
       this.currentDraftId = null;
@@ -3515,6 +3718,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       restored.groupEvents = [];
       restored.notificationConfigListing = this.state.notificationConfigListing;
       restored.brandingMode = restored.brandingMode ?? BrandingMode.BRANDED;
+      restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
       restored.externalRecipients = restored.externalRecipients ?? [];
       if (restored.brandingMode === BrandingMode.UNBRANDED && restored.recipientMode === RecipientMode.ENTIRE_LIST) {
         restored.recipientMode = RecipientMode.SELECTED_MEMBERS;
@@ -3875,6 +4079,7 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   sendDisabledReason(): string {
     if (this.sendInProgress) return "Sending in progress";
+    if (this.unbrandedListSendBlocked()) return `Unbranded sends to more than ${UNBRANDED_HARD_CAP_RECIPIENTS} recipients are blocked - switch to Branded mode or reduce the recipient count.`;
     if (!this.recipientsStepValid()) return this.recipientsStepValidationMessage();
     if (!this.templateStepValid()) return this.templateStepValidationMessage();
     if (!this.composeStepValid()) return this.composeStepValidationMessage();
@@ -3886,7 +4091,68 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected hasSendBlockers(): boolean {
-    return this.subjectStartsWithCopyOf() || this.recycledTrackingUrlsInState().length > 0;
+    return this.subjectStartsWithCopyOf() || this.recycledTrackingUrlsInState().length > 0 || this.unbrandedListSendBlocked();
+  }
+
+  protected unbrandedListSendBlocked(): boolean {
+    return this.state.brandingMode === BrandingMode.UNBRANDED
+      && this.totalRecipientCount() > UNBRANDED_HARD_CAP_RECIPIENTS;
+  }
+
+  protected unbrandedListSendSignals(): { manyRecipients: boolean; pulledFromList: boolean; notAReply: boolean; longBody: boolean; promotionalLanguage: boolean } {
+    const total = this.totalRecipientCount();
+    const manyRecipients = total > UNBRANDED_LIST_SEND_WARNING_THRESHOLD;
+    const pulledFromList = (this.state.selectedMemberIds?.length ?? 0) > 0
+      || !!this.state.preFilterKey
+      || !!this.state.narrowListId;
+    const subject = this.state.subject ?? "";
+    const notAReply = subject.trim().length > 0 && !REPLY_OR_FORWARD_SUBJECT_PATTERN.test(subject);
+    const bodyText = `${this.state.introMarkdown ?? ""}\n${this.state.signoffTextMarkdown ?? ""}`;
+    const longBody = bodyText.length >= UNBRANDED_LONG_BODY_CHAR_THRESHOLD;
+    const promotionalLanguage = PROMOTIONAL_LANGUAGE_PATTERN.test(bodyText);
+    return { manyRecipients, pulledFromList, notAReply, longBody, promotionalLanguage };
+  }
+
+  protected unbrandedListSendWarningReasons(): string[] {
+    const signals = this.unbrandedListSendSignals();
+    const reasons: string[] = [];
+    if (signals.manyRecipients) reasons.push(`${this.totalRecipientCount()} recipients - more than the ${UNBRANDED_LIST_SEND_WARNING_THRESHOLD}-recipient threshold for a one-to-few send`);
+    if (signals.pulledFromList) {
+      if ((this.state.selectedMemberIds?.length ?? 0) > 0) {
+        reasons.push(`${this.stringUtils.pluraliseWithCount(this.state.selectedMemberIds.length, "recipient")} picked from the member list rather than typed in by hand`);
+      } else if (this.state.preFilterKey) {
+        reasons.push(`Recipients filtered via "${this.state.preFilterKey}" rather than typed in by hand`);
+      } else if (this.state.narrowListId) {
+        reasons.push("Recipients narrowed to a mailing list rather than typed in by hand");
+      }
+    }
+    if (signals.notAReply) reasons.push("Subject does not start with \"Re:\" or \"Fwd:\", so this is not a reply or forward");
+    if (signals.longBody) reasons.push(`Body is ${this.unbrandedBodyTextLength()} characters - longer than the ${UNBRANDED_LONG_BODY_CHAR_THRESHOLD}-character threshold for a short reply`);
+    if (signals.promotionalLanguage) reasons.push("Body contains marketing-style language (e.g. donate, fundraise, charity, appeal, sponsor, volunteer, register)");
+    return reasons;
+  }
+
+  private unbrandedBodyTextLength(): number {
+    return (this.state.introMarkdown ?? "").length + 1 + (this.state.signoffTextMarkdown ?? "").length;
+  }
+
+  protected showUnbrandedListSendWarning(): boolean {
+    if (this.state.brandingMode !== BrandingMode.UNBRANDED) return false;
+    if (this.unbrandedListSendBlocked()) return false;
+    if (this.unbrandedListSendWarningDismissed) return false;
+    const trimmedBody = (this.state.introMarkdown ?? "").trim();
+    if (trimmedBody.length < 50) return false;
+    const signals = this.unbrandedListSendSignals();
+    const triggered = [signals.manyRecipients, signals.pulledFromList, signals.notAReply, signals.longBody, signals.promotionalLanguage].filter(Boolean).length;
+    return triggered >= 2;
+  }
+
+  protected dismissUnbrandedListSendWarning(): void {
+    this.unbrandedListSendWarningDismissed = true;
+  }
+
+  protected switchToBrandedFromWarning(): void {
+    this.setBrandingMode(BrandingMode.BRANDED);
   }
 
   protected goToCompose(): void {
@@ -3997,7 +4263,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       senderRoleOverride: isUnbranded ? undefined : this.state.notificationConfig!.senderRole,
       replyToRoleOverride: isUnbranded ? undefined : this.state.notificationConfig!.replyToRole,
       bccRolesOverride: isUnbranded ? [] : (this.state.notificationConfig!.bccRoles ?? this.state.notificationConfig!.ccRoles ?? []),
-      brandingMode: this.state.brandingMode
+      brandingMode: this.state.brandingMode,
+      unbrandedSenderRoleType: isUnbranded ? this.resolvedUnbrandedRole()?.type : undefined
     };
     const start = await this.sendService.startBatch(request);
     this.batchSendJobId = start.jobId;

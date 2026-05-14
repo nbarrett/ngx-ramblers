@@ -30,4 +30,9 @@ export class EmailComposerSendService {
     const response = await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/${encodeURIComponent(jobId)}/cancel`, {}));
     return response.response as BatchSendProgress;
   }
+
+  async resolveTrackingUrl(url: string): Promise<{ originalUrl: string; resolvedUrl: string | null; error?: string; lastUrl?: string; hops?: number }> {
+    const response = await this.http.post<{ originalUrl: string; resolvedUrl: string | null; error?: string; lastUrl?: string; hops?: number }>(`api/mail/transactional/resolve-tracking-url`, { url }).toPromise();
+    return response!;
+  }
 }
