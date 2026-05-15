@@ -345,7 +345,7 @@ export class SystemConfigService {
   }
 
   public cloudflareWebAnalyticsDefaults(): CloudflareWebAnalyticsConfig {
-    return {enabled: false, siteToken: null, siteTag: null, host: null};
+    return {enabled: false, siteToken: null, siteTag: null};
   }
 
   public googleMapsDefaults(): GoogleMapsConfig {

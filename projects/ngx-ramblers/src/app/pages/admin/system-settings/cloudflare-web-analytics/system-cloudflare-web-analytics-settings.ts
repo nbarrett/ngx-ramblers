@@ -17,7 +17,7 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
             the Cloudflare dashboard, then paste its Beacon Token and Site Tag below.
           </p>
           <div class="row align-items-end">
-            <div class="col-md-3">
+            <div class="col-md-4">
               <div class="form-group">
                 <label class="d-block">Enabled</label>
                 <div class="form-check form-switch">
@@ -30,15 +30,7 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
                 </div>
               </div>
             </div>
-            <div class="col-md-3">
-              <div class="form-group">
-                <label for="cf-wa-host">Host</label>
-                <input id="cf-wa-host" type="text" class="form-control input-sm"
-                       [(ngModel)]="systemConfigInternal.cloudflareWebAnalytics.host"
-                       placeholder="e.g. www.example.org.uk">
-              </div>
-            </div>
-            <div class="col-md-3">
+            <div class="col-md-4">
               <div class="form-group">
                 <label for="cf-wa-site-token">Beacon Token</label>
                 <input id="cf-wa-site-token" type="text" class="form-control input-sm"
@@ -46,7 +38,7 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
                        placeholder="data-cf-beacon token">
               </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-4">
               <div class="form-group">
                 <label for="cf-wa-site-tag">Site Tag</label>
                 <input id="cf-wa-site-tag" type="text" class="form-control input-sm"
@@ -72,21 +64,6 @@ export class SystemCloudflareWebAnalyticsSettings {
     this.systemConfigInternal = systemConfig;
     if (!this.systemConfigInternal?.cloudflareWebAnalytics) {
       this.systemConfigInternal.cloudflareWebAnalytics = this.systemConfigService.cloudflareWebAnalyticsDefaults();
-    }
-    if (!this.systemConfigInternal.cloudflareWebAnalytics.host) {
-      this.systemConfigInternal.cloudflareWebAnalytics.host = this.derivedHost();
-    }
-  }
-
-  private derivedHost(): string {
-    const href = this.systemConfigInternal?.group?.href;
-    if (!href) {
-      return null;
-    }
-    try {
-      return new URL(href).hostname;
-    } catch {
-      return null;
     }
   }
 }
