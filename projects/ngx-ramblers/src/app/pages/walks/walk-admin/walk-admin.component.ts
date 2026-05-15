@@ -18,26 +18,28 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
       <app-page>
         <div class="body-content">
           <div class="row">
-            <div class="col-sm-6">
-              <div class="item-panel">
-                <div (click)="selectWalksForExport()" class="item-icon">
-                  <fa-icon [icon]="faFileExport" class="fa-3x ramblers"/>
-                  <h5>Ramblers Walk Export</h5>
+            @if (allowAdminEdits) {
+              <div class="col-sm-6">
+                <div class="item-panel">
+                  <div (click)="selectWalksForExport()" class="item-icon">
+                    <fa-icon [icon]="faFileExport" class="fa-3x ramblers"/>
+                    <h5>Ramblers Walk Export</h5>
+                  </div>
+                  <app-markdown-editor standalone class="item-text" name="ramblers-export-help"
+                                       description="Ramblers export help"/>
                 </div>
-                <app-markdown-editor standalone class="item-text" name="ramblers-export-help"
-                                     description="Ramblers export help"/>
               </div>
-            </div>
-            <div class="col-sm-6">
-              <div class="item-panel">
-                <div (click)="selectWalksForImport()" class="item-icon">
-                  <fa-icon [icon]="faFileImport" class="fa-3x ramblers"/>
-                  <h5>Ramblers Walk Import</h5>
+              <div class="col-sm-6">
+                <div class="item-panel">
+                  <div (click)="selectWalksForImport()" class="item-icon">
+                    <fa-icon [icon]="faFileImport" class="fa-3x ramblers"/>
+                    <h5>Ramblers Walk Import</h5>
+                  </div>
+                  <app-markdown-editor standalone class="item-text" name="ramblers-import-help"
+                                       description="Ramblers import help"/>
                 </div>
-                <app-markdown-editor standalone class="item-text" name="ramblers-import-help"
-                                     description="Ramblers import help"/>
               </div>
-            </div>
+            }
             <div class="col-sm-6">
               <div class="item-panel">
                 <div (click)="addWalkSlots()" class="item-icon">
@@ -48,36 +50,38 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                                      description="Add walk slots help"/>
               </div>
             </div>
-            <div class="col-sm-6">
-              <div class="item-panel">
-                <div (click)="navigateToConfig()" class="item-icon">
-                  <fa-icon [icon]="faGear" class="fa-3x ramblers"/>
-                  <h5>Walk Configuration</h5>
+            @if (allowAdminEdits) {
+              <div class="col-sm-6">
+                <div class="item-panel">
+                  <div (click)="navigateToConfig()" class="item-icon">
+                    <fa-icon [icon]="faGear" class="fa-3x ramblers"/>
+                    <h5>Walk Configuration</h5>
+                  </div>
+                  <app-markdown-editor standalone class="item-text" name="walk-config-help"
+                                       description="Walk configuration help"/>
                 </div>
-                <app-markdown-editor standalone class="item-text" name="walk-config-help"
-                                     description="Walk configuration help"/>
               </div>
-            </div>
-            <div class="col-sm-6">
-              <div class="item-panel">
-                <div (click)="selectEventDataManagement()" class="item-icon">
-                  <fa-icon [icon]="faDatabase" class="fa-3x meetup"/>
-                  <h5>Event Data Management</h5>
+              <div class="col-sm-6">
+                <div class="item-panel">
+                  <div (click)="selectEventDataManagement()" class="item-icon">
+                    <fa-icon [icon]="faDatabase" class="fa-3x meetup"/>
+                    <h5>Event Data Management</h5>
+                  </div>
+                  <app-markdown-editor standalone class="item-text" name="event-data-management-help"
+                                       description="Event data management help"/>
                 </div>
-                <app-markdown-editor standalone class="item-text" name="event-data-management-help"
-                                     description="Event data management help"/>
               </div>
-            </div>
-            <div class="col-sm-6">
-              <div class="item-panel">
-                <div (click)="adminHowTo()" class="item-icon">
-                  <fa-icon [icon]="faBook" class="fa-3x ramblers"/>
-                  <h5>How To Documentation</h5>
+              <div class="col-sm-6">
+                <div class="item-panel">
+                  <div (click)="adminHowTo()" class="item-icon">
+                    <fa-icon [icon]="faBook" class="fa-3x ramblers"/>
+                    <h5>How To Documentation</h5>
+                  </div>
+                  <app-markdown-editor category="walks-admin" standalone class="item-text" name="how-to-documentation-help"
+                                       description="How-to documentation help"/>
                 </div>
-                <app-markdown-editor category="walks-admin" standalone class="item-text" name="how-to-documentation-help"
-                                     description="How-to documentation help"/>
               </div>
-            </div>
+            }
           </div>
         </div>
       </app-page>

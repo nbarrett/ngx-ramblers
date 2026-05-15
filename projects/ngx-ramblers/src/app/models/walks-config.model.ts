@@ -1,3 +1,5 @@
+import { AccessLevel } from "./member-resource.model";
+
 export interface WalksConfig {
   milesPerHour: number;
   requireRiskAssessment: boolean;
@@ -11,6 +13,8 @@ export interface WalksConfig {
   relatedLinkShowWhat3words?: boolean;
   relatedLinkShowVenue?: boolean;
   relatedLinkShowGpx?: boolean;
+  regularWalkDay?: number;
+  walkCreationAccessLevel?: AccessLevel;
 }
 
 export enum WalkConfigTab {

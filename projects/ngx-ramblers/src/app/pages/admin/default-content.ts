@@ -237,8 +237,8 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
   },
   {
     name: "add-walks-slots-help",
-    text: "* Add walk slots for any number of up and coming Sundays\n" +
-      "* Add a non-standard walk slot - for example on a Saturday or a weekday evening",
+    text: "* Add walk slots in bulk for any number of up and coming dates on your configured regular walk day\n" +
+      "* Add a non-standard walk slot - for example on a different day of the week or a weekday evening",
     category: "walks-admin"
   },
   {

@@ -6,7 +6,7 @@ import { isArray, isNull, isUndefined } from "es-toolkit/compat";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { faBug, faImages, faPeopleGroup, faTableCells, faWalking } from "@fortawesome/free-solid-svg-icons";
+import { faBug, faCalendarPlus, faCheck, faImages, faPeopleGroup, faTableCells, faWalking } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
@@ -72,16 +72,30 @@ import { environment } from "../../../../environments/environment";
                   <span class="caret"></span>
                 </button>
                 <ul *dropdownMenu class="dropdown-menu" id="dropdown-animated" role="menu">
-                  <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.CARDS)" class="dropdown-item">
-                    <div><fa-icon [icon]="faImages" class="me-2"/>{{ stringUtils.asTitle(WalkListView.CARDS) }} View</div>
+                  <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.CARDS)" class="dropdown-item d-flex align-items-center">
+                    <fa-icon [icon]="faImages" class="me-2"/>{{ stringUtils.asTitle(WalkListView.CARDS) }} View
+                    @if (walkListView === WalkListView.CARDS) {
+                      <fa-icon [icon]="faCheck" class="ms-auto ps-3"/>
+                    }
                   </a></li>
-                  <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.TABLE)" class="dropdown-item">
-                    <div><fa-icon [icon]="faTableCells" class="me-2"/>{{ stringUtils.asTitle(WalkListView.TABLE) }} View
-                    </div>
+                  <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.TABLE)" class="dropdown-item d-flex align-items-center">
+                    <fa-icon [icon]="faTableCells" class="me-2"/>{{ stringUtils.asTitle(WalkListView.TABLE) }} View
+                    @if (!walkListView || walkListView === WalkListView.TABLE) {
+                      <fa-icon [icon]="faCheck" class="ms-auto ps-3"/>
+                    }
                   </a></li>
-                  <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.MAP)" class="dropdown-item">
-                    <div><fa-icon [icon]="faWalking" class="me-2"/>{{ stringUtils.asTitle(WalkListView.MAP) }} View</div>
+                  <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.MAP)" class="dropdown-item d-flex align-items-center">
+                    <fa-icon [icon]="faWalking" class="me-2"/>{{ stringUtils.asTitle(WalkListView.MAP) }} View
+                    @if (walkListView === WalkListView.MAP) {
+                      <fa-icon [icon]="faCheck" class="ms-auto ps-3"/>
+                    }
                   </a></li>
+                  @if (display.memberCanAddWalk()) {
+                    <li class="dropdown-divider"></li>
+                    <li role="menuitem"><a role="button" (click)="display.addMemberLedWalk()" class="dropdown-item d-flex align-items-center">
+                      <fa-icon [icon]="faCalendarPlus" class="me-2"/>{{ display.memberWalkButtonLabel() }}
+                    </a></li>
+                  }
                 </ul>
               </div>
               @if (showDiagnostics && !production && memberLoginService.allowWalkAdminEdits()) {
@@ -167,6 +181,8 @@ export class EventsFull implements OnInit, OnDestroy {
   protected readonly faTableCells = faTableCells;
   protected readonly faImages = faImages;
   protected readonly faBug = faBug;
+  protected readonly faCalendarPlus = faCalendarPlus;
+  protected readonly faCheck = faCheck;
   protected readonly WalkListView = WalkListView;
   protected readonly production = environment.production;
 

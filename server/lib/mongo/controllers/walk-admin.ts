@@ -51,6 +51,7 @@ export async function eventStats(req: Request, res: Response) {
             groupEventId: `$${GroupEventField.ID}`,
             itemType: `$${GroupEventField.ITEM_TYPE}`,
             groupCode: `$${GroupEventField.GROUP_CODE}`,
+            groupName: `$${GroupEventField.GROUP_NAME}`,
             inputSource: `$${EventField.INPUT_SOURCE}`
           },
           count: { $sum: 1 }
@@ -66,6 +67,7 @@ export async function eventStats(req: Request, res: Response) {
           _id: {
             itemType: "$_id.itemType",
             groupCode: "$_id.groupCode",
+            groupName: "$_id.groupName",
             inputSource: "$_id.inputSource"
           },
           duplicateCount: { $sum: { $subtract: ["$count", 1] } }
@@ -76,7 +78,7 @@ export async function eventStats(req: Request, res: Response) {
     const duplicates = await extendedGroupEvent.aggregate(duplicatePipeline);
     const duplicateMap = new Map<string, number>();
     duplicates.forEach((d: any) => {
-      const key = `${d._id.itemType}|${d._id.groupCode}|${d._id.inputSource}`;
+      const key = `${d._id.itemType}|${d._id.groupCode}|${d._id.groupName}|${d._id.inputSource}`;
       duplicateMap.set(key, d.duplicateCount);
     });
 
@@ -146,7 +148,7 @@ export async function eventStats(req: Request, res: Response) {
 
     const stats = await extendedGroupEvent.aggregate<EventStats>(pipeline);
     const statsWithDuplicates = stats.map(stat => {
-      const key = `${stat.itemType}|${stat.groupCode}|${stat.inputSource}`;
+      const key = `${stat.itemType}|${stat.groupCode}|${stat.groupName}|${stat.inputSource}`;
       return {
         ...stat,
         duplicateCount: duplicateMap.get(key) || 0

@@ -29,6 +29,10 @@ import { SystemConfigService } from "../../services/system/system-config.service
 import { UrlService } from "../../services/url.service";
 import { GroupEventService } from "../../services/walks-and-events/group-event.service";
 import { ExtendedGroupEventQueryService } from "../../services/walks-and-events/extended-group-event-query.service";
+import { EventDefaultsService } from "../../services/event-defaults.service";
+import { WalksAndEventsService } from "../../services/walks-and-events/walks-and-events.service";
+import { WalksConfigService } from "../../services/system/walks-config.service";
+import { MemberResourcesReferenceDataService } from "../../services/member/member-resources-reference-data.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
@@ -39,6 +43,7 @@ import { Difficulty, LocationDetails, RamblersEventType } from "../../models/ram
 import { BuiltInRole } from "../../models/committee.model";
 import { MediaQueryService } from "../../services/committee/media-query.service";
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
+import { AccessLevel } from "../../models/member-resource.model";
 import { FeaturesService } from "../../services/features.service";
 import { validEmail } from "../../functions/strings";
 import { PageService } from "../../services/page.service";
@@ -68,6 +73,10 @@ export class WalkDisplayService {
   private dateUtils = inject(DateUtilsService);
   private pageService = inject(PageService);
   private eventContactService = inject(EventContactService);
+  private eventDefaultsService = inject(EventDefaultsService);
+  private walksAndEventsService = inject(WalksAndEventsService);
+  private walksConfigService = inject(WalksConfigService);
+  private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   private subject = new ReplaySubject<Member[]>();
   public relatedLinksMediaWidth = 22;
   public expandedWalks: ExpandedWalk [] = [];
@@ -231,6 +240,39 @@ export class WalkDisplayService {
     await this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, this.walkSlug(walk)], queryParams ? {queryParams} : undefined);
     this.logger.debug("area is now", this.urlService.area());
     return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
+  }
+
+  memberCanAddWalk(): boolean {
+    return this.urlService.area() === this.walksArea()
+      && this.memberLoginService.memberLoggedIn()
+      && this.walkPopulationLocal()
+      && this.memberMeetsWalkCreationAccess();
+  }
+
+  private memberMeetsWalkCreationAccess(): boolean {
+    const accessLevel = this.walksConfigService.walksConfig()?.walkCreationAccessLevel ?? AccessLevel.HIDDEN;
+    return !!this.memberResourcesReferenceData.accessLevelFor(accessLevel)?.filter();
+  }
+
+  memberWalkButtonLabel(): string {
+    const configured = this.walksConfigService.walksConfig()?.regularWalkDay ?? 7;
+    const weekday = configured >= 1 && configured <= 7 ? configured : 7;
+    return `Add non-${this.dateUtils.daysOfWeek()[weekday - 1]} walk`;
+  }
+
+  async addMemberLedWalk(): Promise<void> {
+    const member = this.memberLoginService.loggedInMember();
+    const walk = this.eventDefaultsService.createDefault({fields: {inputSource: InputSource.MANUALLY_CREATED}});
+    walk.fields.contactDetails = {
+      contactId: null,
+      memberId: member.memberId,
+      displayName: [member.firstName, member.lastName].filter(item => !!item).join(" "),
+      email: null,
+      phone: null
+    };
+    walk.events = [this.walkEventService.createEventIfRequired(walk, this.walksReferenceService.walkEventTypeMappings.awaitingWalkDetails.eventType, "Walk created by leader")];
+    const saved = await this.walksAndEventsService.createOrUpdate(walk);
+    await this.editFullScreen(saved);
   }
 
   toggleExpandedViewFor(walk: ExtendedGroupEvent, toggleTo: WalkViewMode): ExpandedWalk {

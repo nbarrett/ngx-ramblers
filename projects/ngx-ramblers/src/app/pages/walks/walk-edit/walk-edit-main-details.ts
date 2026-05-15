@@ -40,7 +40,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
             <div class="form-group">
               <app-date-picker id="walk-date" size="md"
                                placeholder="enter date of walk"
-                               [disabled]="!display.allowAdminEdits() || syncDisabled"
+                               [disabled]="!display.walkLeaderOrAdmin(displayedWalk?.walk) || syncDisabled"
                                class="w-100"
                                (change)="onDateChange($event)"
                                [value]="displayedWalk?.walk?.groupEvent.start_date_time"/>

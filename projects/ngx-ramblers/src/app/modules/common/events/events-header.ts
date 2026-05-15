@@ -9,6 +9,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { GroupEventDisplayService } from "../../../pages/group-events/group-event-display.service";
+import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
@@ -51,6 +52,14 @@ import { PageService } from "../../../services/page.service";
                  value="Add New Event"
                  (click)="addNewEvent()"/>
         }
+      </div>
+    }
+    @if (walkDisplay.memberCanAddWalk()) {
+      <div class="col-lg-2 col-md-3 col-sm-4 col-12">
+        <input type="submit" [disabled]="notifyTarget.busy"
+               class="btn btn-primary float-lg-end mb-3"
+               [value]="walkDisplay.memberWalkButtonLabel()"
+               (click)="walkDisplay.addMemberLedWalk()"/>
       </div>
     }
   </div>
@@ -117,6 +126,7 @@ export class EventsHeader implements OnInit, OnDestroy {
   protected readonly BASIC_FILTER_OPTIONS = BASIC_FILTER_OPTIONS;
   private logger: Logger = inject(LoggerFactory).createLogger("EventsHeader", NgxLoggerLevel.ERROR);
   display = inject(GroupEventDisplayService);
+  walkDisplay = inject(WalkDisplayService);
   private urlService: UrlService = inject(UrlService);
   private pageService: PageService = inject(PageService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
