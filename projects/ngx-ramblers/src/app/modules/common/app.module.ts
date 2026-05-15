@@ -44,6 +44,7 @@ import { NgxGoogleAnalyticsModule, NgxGoogleAnalyticsRouterModule } from "ngx-go
 import { CustomReuseStrategy } from "../../routing/custom-reuse-strategy";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { initializeGtag } from "../../pages/admin/system-settings/google-analytics/tag-manager";
+import { initializeCloudflareBeacon } from "../../pages/admin/system-settings/cloudflare-web-analytics/cloudflare-beacon";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { checkMigrationStatus } from "../../services/site-maintenance-initializer";
@@ -160,6 +161,10 @@ import { ngxIconPack } from "../../icons/custom-icon-pack";
     {provide: LIGHTBOX_CONFIG, useValue: {keyboardShortcuts: false, exitAnimationTime: 1000} as LightboxConfig},
     provideAppInitializer(() => {
       const initializerFn = (initializeGtag)(inject(SystemConfigService), inject(LoggerFactory), inject(DateUtilsService));
+      return initializerFn();
+    }),
+    provideAppInitializer(() => {
+      const initializerFn = initializeCloudflareBeacon(inject(SystemConfigService), inject(LoggerFactory));
       return initializerFn();
     }),
     provideAppInitializer(checkMigrationStatus)

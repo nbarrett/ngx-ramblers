@@ -8,7 +8,9 @@ import {
   IntegrationWorkerCallbackConfig,
   IntegrationWorkerMigrationJobRequest,
   IntegrationWorkerMigrationProgressCallback,
-  IntegrationWorkerMigrationResultCallback
+  IntegrationWorkerMigrationResultCallback,
+  IntegrationWorkerLogLevel,
+  IntegrationWorkerResultStatus
 } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { MigrationResult } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { migrateStaticSite } from "../migration/migrate-static-site-engine";
@@ -50,14 +52,14 @@ async function runMigration(request: IntegrationWorkerMigrationJobRequest): Prom
   setProgressSender((data: any) => {
     void postProgress(callback, sharedSecret, {
       jobId,
-      level: "info",
+      level: IntegrationWorkerLogLevel.Info,
       message: normaliseMessage(data)
     });
   });
   setErrorSender((data: any) => {
     void postProgress(callback, sharedSecret, {
       jobId,
-      level: "error",
+      level: IntegrationWorkerLogLevel.Error,
       message: normaliseMessage(data)
     });
   });
@@ -76,7 +78,7 @@ async function runMigration(request: IntegrationWorkerMigrationJobRequest): Prom
 
   await postResult(callback, sharedSecret, {
     jobId,
-    status: errorMessage ? "error" : "success",
+    status: errorMessage ? IntegrationWorkerResultStatus.Error : IntegrationWorkerResultStatus.Success,
     result: result || undefined,
     errorMessage: errorMessage || undefined
   });

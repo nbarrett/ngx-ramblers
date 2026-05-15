@@ -3,7 +3,6 @@ import debug from "debug";
 import { MongoClient } from "mongodb";
 import { envConfig } from "../../env-config/env-config";
 import {
-  ReinitDatabaseParams,
   reinitialiseDatabase,
   seedSampleData,
   validateMongoConnection
@@ -11,7 +10,8 @@ import {
 import { loadSecretsForEnvironment } from "../../shared/secrets";
 import { parseMongoUri } from "../../shared/mongodb-uri";
 import { findEnvironmentFromDatabase } from "../../environments/environments-config";
-import { ProgressCallback, SeedConfig, ValidationResult } from "../types";
+import { ProgressCallback, ReinitDatabaseParams, SeedConfig, ValidationResult } from "../types";
+import { SetupStepStatus } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { log } from "../cli-logger";
 import { MigrationRunner } from "../../mongo/migrations/migrations-runner";
 import { syncWalksManagerData } from "../../walks/walks-manager-sync";
@@ -25,13 +25,13 @@ async function clearForFreshSeed(mongoUri: string, database: string, onProgress?
   const db = client.db(database);
 
   try {
-    onProgress?.({ step: "Clearing changelog", status: "running", timestamp: Date.now() });
+    onProgress?.({ step: "Clearing changelog", status: SetupStepStatus.Running, timestamp: Date.now() });
     await db.collection("changelog").deleteMany({});
-    onProgress?.({ step: "Clearing changelog", status: "completed", timestamp: Date.now() });
+    onProgress?.({ step: "Clearing changelog", status: SetupStepStatus.Completed, timestamp: Date.now() });
 
-    onProgress?.({ step: "Clearing page content", status: "running", timestamp: Date.now() });
+    onProgress?.({ step: "Clearing page content", status: SetupStepStatus.Running, timestamp: Date.now() });
     await db.collection("pageContent").deleteMany({});
-    onProgress?.({ step: "Clearing page content", status: "completed", timestamp: Date.now() });
+    onProgress?.({ step: "Clearing page content", status: SetupStepStatus.Completed, timestamp: Date.now() });
   } finally {
     await client.close();
   }
@@ -42,28 +42,28 @@ async function runFullSync(mongoUri: string, database: string, onProgress?: Prog
   const db = client.db(database);
 
   try {
-    onProgress?.({ step: "Loading system config", status: "running", timestamp: Date.now() });
+    onProgress?.({ step: "Loading system config", status: SetupStepStatus.Running, timestamp: Date.now() });
     const configDoc = await db.collection("config").findOne({ key: ConfigKey.SYSTEM });
     if (!configDoc?.value) {
       throw new Error("System config not found in database");
     }
     const systemConfig = configDoc.value as SystemConfig;
-    onProgress?.({ step: "Loading system config", status: "completed", timestamp: Date.now() });
+    onProgress?.({ step: "Loading system config", status: SetupStepStatus.Completed, timestamp: Date.now() });
 
-    onProgress?.({ step: "Running full data sync", status: "running", timestamp: Date.now() });
+    onProgress?.({ step: "Running full data sync", status: SetupStepStatus.Running, timestamp: Date.now() });
     const result = await syncWalksManagerData(systemConfig, { fullSync: true }, null);
 
     if (result.errors.length > 0) {
       onProgress?.({
         step: "Running full data sync",
-        status: "completed",
+        status: SetupStepStatus.Completed,
         message: `Added ${result.added}, updated ${result.updated}, deleted ${result.deleted}. Errors (${result.errors.length}):\n${result.errors.join("\n")}`,
         timestamp: Date.now()
       });
     } else {
       onProgress?.({
         step: "Running full data sync",
-        status: "completed",
+        status: SetupStepStatus.Completed,
         message: `Added ${result.added}, updated ${result.updated}, deleted ${result.deleted}`,
         timestamp: Date.now()
       });

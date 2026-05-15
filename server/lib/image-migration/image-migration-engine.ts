@@ -14,6 +14,7 @@ import {
   ContentMigrationSourceType,
   ContentMigrationStatus,
   ExternalContentReference,
+  MigrationPhase,
   RootFolder
 } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import * as aws from "../aws/aws-controllers";
@@ -420,7 +421,7 @@ export async function migrateContent(
   let uploadedCount = 0;
   let inFlightFraction = 0;
 
-  const sendProgress = (currentItem: string, phase: "upload" | "update", errorMessage?: string) => {
+  const sendProgress = (currentItem: string, phase: MigrationPhase, errorMessage?: string) => {
     if (progressCallback) {
       const uploadWeight = 0.8;
       const updateWeight = 0.2;
@@ -429,7 +430,7 @@ export async function migrateContent(
       let successCount: number;
       let failureCount: number;
 
-      if (phase === "upload") {
+      if (phase === MigrationPhase.Upload) {
         const uploadFraction = (uploadedCount + inFlightFraction) / uniqueUrls.length;
         percent = Math.round(uploadFraction * uploadWeight * 100);
         processedItems = uploadedCount;
@@ -445,7 +446,7 @@ export async function migrateContent(
       }
 
       progressCallback({
-        totalItems: phase === "upload" ? uniqueUrls.length : request.items.length,
+        totalItems: phase === MigrationPhase.Upload ? uniqueUrls.length : request.items.length,
         processedItems,
         successCount,
         failureCount,
@@ -467,7 +468,7 @@ export async function migrateContent(
     }
     try {
       debugLog("migrateContent:downloading:", url);
-      sendProgress(url, "upload");
+      sendProgress(url, MigrationPhase.Upload);
 
       const { buffer: downloadedBuffer } = await downloadExternalContent(url);
       const fileName = extractFileNameFromUrl(url);
@@ -496,7 +497,7 @@ export async function migrateContent(
           inFlightFraction = Math.min(loaded / total, 1);
           if (inFlightFraction - lastReportedFraction >= 0.05 || inFlightFraction === 1) {
             lastReportedFraction = inFlightFraction;
-            sendProgress(url, "upload");
+            sendProgress(url, MigrationPhase.Upload);
           }
         }
       });
@@ -504,14 +505,14 @@ export async function migrateContent(
       globalUrlMapping[url] = newS3Url;
       uploadedCount++;
       debugLog("migrateContent:uploaded:", url, "->", newS3Url);
-      sendProgress(url, "upload");
+      sendProgress(url, MigrationPhase.Upload);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       debugLog("migrateContent:failed to download/upload:", url, "error:", errorMessage);
       failedUrls.add(url);
       inFlightFraction = 0;
       uploadedCount++;
-      sendProgress(url, "upload", errorMessage);
+      sendProgress(url, MigrationPhase.Upload, errorMessage);
     }
   }
 
@@ -563,7 +564,7 @@ export async function migrateContent(
               errorMessage: "Failed to download or upload content"
             });
           }
-          sendProgress(item.currentUrl, "update");
+          sendProgress(item.currentUrl, MigrationPhase.Update);
         });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -574,7 +575,7 @@ export async function migrateContent(
             status: ContentMigrationStatus.FAILED,
             errorMessage
           });
-          sendProgress(item.currentUrl, "update");
+          sendProgress(item.currentUrl, MigrationPhase.Update);
         });
       }
     } else {
@@ -584,7 +585,7 @@ export async function migrateContent(
           status: ContentMigrationStatus.FAILED,
           errorMessage: "Failed to download or upload content"
         });
-        sendProgress(item.currentUrl, "update");
+        sendProgress(item.currentUrl, MigrationPhase.Update);
       });
     }
   }

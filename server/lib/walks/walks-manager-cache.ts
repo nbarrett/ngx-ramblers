@@ -17,13 +17,14 @@ import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { member } from "../mongo/models/member";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNow, dateTimeFromJsDate } from "../shared/dates";
+import { CacheActionType, CacheStats, CleanupStats } from "./walks-manager.model";
 
 const debugLog = debug(envConfig.logNamespace("walks-manager-cache"));
 debugLog.enabled = false;
 
 interface CacheAction {
   document: mongoose.Document | null;
-  action: "added" | "updated" | "none";
+  action: CacheActionType;
 }
 
 function groupNameFrom(config: SystemConfig, event: GroupEvent): string {
@@ -64,23 +65,6 @@ async function upsertEvent(config: SystemConfig, event: GroupEvent, inputSource:
 export async function cacheEventIfNotFound(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.WALKS_MANAGER_CACHE): Promise<mongoose.Document | null> {
   const result = await upsertEvent(config, event, inputSource);
   return result.document;
-}
-
-export interface CacheStats {
-  added: number;
-  updated: number;
-}
-
-export interface DuplicateDetail {
-  groupEventId: string;
-  keptDocId: string;
-  deletedDocIds: string[];
-}
-
-export interface CleanupStats {
-  duplicatesRemoved: number;
-  ramblersIdsProcessed: number;
-  details: DuplicateDetail[];
 }
 
 export async function cleanupDuplicatesByRamblersId(): Promise<CleanupStats> {
@@ -218,7 +202,7 @@ async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, i
         }
       ).exec();
       debugLog("Updated existing event:", event.url);
-      return {document: existingEvent, action: "updated"};
+      return {document: existingEvent, action: CacheActionType.Updated};
     } else {
       const document = {
         ...mappedEvent,
@@ -228,7 +212,7 @@ async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, i
       };
       const created = await extendedGroupEvent.create(document);
       debugLog("Cached new event:", event.url, "event id:", event.id, "group code:", document.groupEvent.group_code);
-      return {document: created, action: "added"};
+      return {document: created, action: CacheActionType.Added};
     }
   } catch (error) {
     debugLog("upsertEventWithMembers:error:", error);

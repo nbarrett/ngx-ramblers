@@ -49,6 +49,7 @@ import { extendedGroupEventRoutes } from "./mongo/routes/extended-group-event";
 import { venueRoutes } from "./mongo/routes/venue";
 import { environmentSetupRoutes } from "./environment-setup/routes/environment-setup-routes";
 import { cloudflareEmailRoutingRoutes } from "./cloudflare/cloudflare-email-routing-routes";
+import { cloudflareWebAnalyticsRoutes } from "./cloudflare/cloudflare-web-analytics-routes";
 import { bookingRoutes } from "./mongo/routes/booking";
 import { contactInteractionRoutes } from "./mongo/routes/contact-interaction";
 import { configureLogging } from "./logging/logging";
@@ -159,6 +160,7 @@ app.use("/api/database/group-event", extendedGroupEventRoutes);
 app.use("/api/database/migrations", migrationsRoutes);
 app.use("/api/database/venues", venueRoutes);
 app.use("/api/cloudflare/email-routing", cloudflareEmailRoutingRoutes);
+app.use("/api/cloudflare/web-analytics", cloudflareWebAnalyticsRoutes);
 app.use("/api/environment-setup", environmentSetupRoutes);
 const staticAssetExtensions = /\.(js|mjs|css|map|wasm|json|ico|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|eot|txt|xml)$/i;
 if (fs.existsSync(distFolder)) {

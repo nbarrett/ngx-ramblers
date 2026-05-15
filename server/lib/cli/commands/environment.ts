@@ -7,14 +7,12 @@ import { parseMongoUri } from "../../shared/mongodb-uri";
 import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
 import { normaliseMemory } from "../../shared/spelling";
 import { reinitDatabase, seedDatabase } from "./database";
-import { DeployOutputCallback, deployToFlyio } from "./fly";
-import { EnvironmentResult, FlyDeployConfig, ProgressCallback, ResumeOptions } from "../types";
+import { deployToFlyio } from "./fly";
+import { EnvironmentResult, FlyDeployConfig, ProgressCallback } from "../types";
+import { SetupStepStatus } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { ResumeEnvironmentOptions } from "../cli.model";
 import { log } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
-
-export interface ResumeEnvironmentOptions extends ResumeOptions {
-  onDeployOutput?: DeployOutputCallback;
-}
 
 const debugLog = debug(envConfig.logNamespace("cli:environment"));
 
@@ -65,7 +63,7 @@ export async function resumeEnvironment(
 
   if (options.runDbInit) {
     if (onProgress) {
-      onProgress({ step: "database-init", status: "running", message: "Initialising database" });
+      onProgress({ step: "database-init", status: SetupStepStatus.Running, message: "Initialising database" });
     }
 
     const ramblersApiKey = secrets.secrets.RAMBLERS_API_KEY;
@@ -95,7 +93,7 @@ export async function resumeEnvironment(
       if (onProgress) {
         onProgress({
           step: "database-init",
-          status: "running",
+          status: SetupStepStatus.Running,
           message: "Missing Ramblers info in secrets - seeding sample data only"
         });
       }
@@ -110,7 +108,7 @@ export async function resumeEnvironment(
     }
 
     if (onProgress) {
-      onProgress({ step: "database-init", status: "completed", message: "Database initialisation completed" });
+      onProgress({ step: "database-init", status: SetupStepStatus.Completed, message: "Database initialisation completed" });
     }
   }
 

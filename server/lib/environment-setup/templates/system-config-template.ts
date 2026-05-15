@@ -181,6 +181,12 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
     googleAnalytics: {
       trackingId: ""
     },
+    cloudflareWebAnalytics: {
+      enabled: false,
+      siteToken: null,
+      siteTag: null,
+      host: null
+    },
     mailDefaults: {
       mailProvider: MailProvider.BREVO,
       autoSubscribeNewMembers: true

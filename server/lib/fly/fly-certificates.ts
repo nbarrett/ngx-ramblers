@@ -1,6 +1,6 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { AppIpAddresses, CertificateInfo, FlyConfig } from "./fly.model";
+import { AppIpAddresses, CertificateInfo, FlyConfig, IpAddressType } from "./fly.model";
 
 const debugLog = debug(envConfig.logNamespace("fly:certificates"));
 
@@ -109,7 +109,7 @@ async function resolveAppId(config: FlyConfig): Promise<string> {
   return data.app.id;
 }
 
-export async function allocateIpAddress(config: FlyConfig, type: "v4" | "v6" | "shared_v4" | "private_v6"): Promise<{ address: string; type: string }> {
+export async function allocateIpAddress(config: FlyConfig, type: IpAddressType): Promise<{ address: string; type: string }> {
   debugLog("Allocating %s IP address for app %s", type, config.appName);
 
   const internalAppId = await resolveAppId(config);

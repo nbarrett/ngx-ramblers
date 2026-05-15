@@ -17,8 +17,16 @@ export interface CloudflareDnsConfig {
   zoneId: string;
 }
 
+export enum DnsRecordType {
+  A = "A",
+  AAAA = "AAAA",
+  CNAME = "CNAME",
+  TXT = "TXT",
+  MX = "MX",
+}
+
 export interface DnsRecord {
-  type: "A" | "AAAA" | "CNAME" | "TXT" | "MX";
+  type: DnsRecordType;
   name: string;
   content: string;
   ttl?: number;
@@ -69,4 +77,9 @@ export interface CloudflareZone {
   id: string;
   name: string;
   status: string;
+}
+
+export enum RecipientDeliveryStatus {
+  Delivered = "delivered",
+  Failed = "failed",
 }

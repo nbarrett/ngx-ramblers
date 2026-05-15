@@ -57,18 +57,22 @@ import {
   ComposerExternalRecipient,
   ComposerFragment,
   ComposerFragmentKind,
+  DateInputMode,
   DEFAULT_COLUMN_GAP_PX,
   defaultEmailComposerState,
   dividerHtml,
+  DragHoverPosition,
   EMAIL_COMPOSER_STEPS,
   EmailComposerState,
   EmailComposerStepKey,
+  EmailComposition,
   EventInclusionMode,
   EXPANDABLE_FRAGMENT_KINDS,
   findRecycledTrackingUrls,
   newDividerFragment,
   newMultiColumnFragment,
   EmailComposerContextSource,
+  PreviewStepDirection,
   PROMOTIONAL_LANGUAGE_PATTERN,
   RecipientMode,
   REPLY_OR_FORWARD_SUBJECT_PATTERN,
@@ -106,7 +110,7 @@ import { ArticleBlockSingleEditor } from "../../modules/common/article-blocks/ar
 import { SectionDividerSelectComponent } from "../../modules/common/section-divider-select/section-divider-select";
 import { EmailComposerRenderingService } from "../../services/email-composer/email-composer-rendering.service";
 import { EmailComposerSendService } from "../../services/email-composer/email-composer-send.service";
-import { EmailComposition, EmailCompositionsService } from "../../services/email-composer/email-compositions.service";
+import { EmailCompositionsService } from "../../services/email-composer/email-compositions.service";
 import { NotificationConfigSelectorComponent } from "../admin/system-settings/mail/notification-config-selector";
 import { SenderRepliesAndSignoff } from "../admin/send-emails/sender-replies-and-signoff";
 import { EmailPreviewComponent } from "../../modules/common/email-preview/email-preview.component";
@@ -967,8 +971,8 @@ import { DateTime } from "luxon";
       <div class="fragment-list">
         @for (fragment of fragments; let i = $index; track fragment.id + ':' + i) {
           <div class="fragment-row"
-               [class.fragment-row-hover-before]="isDragHover(parentPath.concat([i])) && dragHoverPosition === 'before'"
-               [class.fragment-row-hover-after]="isDragHover(parentPath.concat([i])) && dragHoverPosition === 'after'"
+               [class.fragment-row-hover-before]="isDragHover(parentPath.concat([i])) && dragHoverPosition === DragHoverPosition.Before"
+               [class.fragment-row-hover-after]="isDragHover(parentPath.concat([i])) && dragHoverPosition === DragHoverPosition.After"
                (dragover)="onFragmentDragOver(parentPath.concat([i]), $event)"
                (drop)="onFragmentDrop(parentPath.concat([i]))">
             <div class="fragment-row-header" [attr.draggable]="true"
@@ -1243,14 +1247,14 @@ import { DateTime } from "luxon";
           <strong class="me-3">Date range input:</strong>
           <div class="form-check form-check-inline">
             <input class="form-check-input" type="radio" name="date-input-mode" id="date-input-slider"
-                   [checked]="dateInputMode === 'slider'"
-                   (change)="setDateInputMode('slider')">
+                   [checked]="dateInputMode === DateInputMode.Slider"
+                   (change)="setDateInputMode(DateInputMode.Slider)">
             <label class="form-check-label" for="date-input-slider">Slider</label>
           </div>
           <div class="form-check form-check-inline">
             <input class="form-check-input" type="radio" name="date-input-mode" id="date-input-pickers"
-                   [checked]="dateInputMode === 'pickers'"
-                   (change)="setDateInputMode('pickers')">
+                   [checked]="dateInputMode === DateInputMode.Pickers"
+                   (change)="setDateInputMode(DateInputMode.Pickers)">
             <label class="form-check-label" for="date-input-pickers">Individual dates</label>
           </div>
         </div>
@@ -1266,7 +1270,7 @@ import { DateTime } from "luxon";
                      [(ngModel)]="selectedDateRangePreset"
                      (ngModelChange)="onDateRangePresetChange($event)"/>
         </div>
-        @if (dateInputMode === 'slider') {
+        @if (dateInputMode === DateInputMode.Slider) {
           <div class="col-sm-8 d-flex align-items-end">
             <app-date-range-slider class="w-100"
               [minDate]="eventSliderMinDate"
@@ -1424,23 +1428,23 @@ import { DateTime } from "luxon";
           <button type="button" class="btn btn-primary" (click)="refreshPreview()">Refresh preview</button>
           <div class="btn-group" role="group" aria-label="Step through recipients">
             <button type="button" class="btn btn-primary"
-                    [disabled]="!canStepPreview('first')"
-                    (click)="stepPreview('first')" title="First recipient">
+                    [disabled]="!canStepPreview(PreviewStepDirection.First)"
+                    (click)="stepPreview(PreviewStepDirection.First)" title="First recipient">
               <fa-icon [icon]="faAngleDoubleLeft"/>
             </button>
             <button type="button" class="btn btn-primary"
-                    [disabled]="!canStepPreview('prev')"
-                    (click)="stepPreview('prev')" title="Previous recipient">
+                    [disabled]="!canStepPreview(PreviewStepDirection.Prev)"
+                    (click)="stepPreview(PreviewStepDirection.Prev)" title="Previous recipient">
               <fa-icon [icon]="faAngleLeft"/>
             </button>
             <button type="button" class="btn btn-primary"
-                    [disabled]="!canStepPreview('next')"
-                    (click)="stepPreview('next')" title="Next recipient">
+                    [disabled]="!canStepPreview(PreviewStepDirection.Next)"
+                    (click)="stepPreview(PreviewStepDirection.Next)" title="Next recipient">
               <fa-icon [icon]="faAngleRight"/>
             </button>
             <button type="button" class="btn btn-primary"
-                    [disabled]="!canStepPreview('last')"
-                    (click)="stepPreview('last')" title="Last recipient">
+                    [disabled]="!canStepPreview(PreviewStepDirection.Last)"
+                    (click)="stepPreview(PreviewStepDirection.Last)" title="Last recipient">
               <fa-icon [icon]="faAngleDoubleRight"/>
             </button>
           </div>
@@ -1655,6 +1659,9 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected readonly RecipientMode = RecipientMode;
   protected readonly EventInclusionMode = EventInclusionMode;
   protected readonly ComposerFragmentKind = ComposerFragmentKind;
+  protected readonly DateInputMode = DateInputMode;
+  protected readonly DragHoverPosition = DragHoverPosition;
+  protected readonly PreviewStepDirection = PreviewStepDirection;
   protected readonly BrandingMode = BrandingMode;
   protected readonly brandingModeOptions = BRANDING_MODE_OPTIONS;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
@@ -2080,13 +2087,13 @@ export class EmailComposer implements OnInit, OnDestroy {
     void this.populateGroupEvents();
   }
 
-  protected dateInputMode: "slider" | "pickers" = "slider";
+  protected dateInputMode: DateInputMode = DateInputMode.Slider;
   protected eventSliderMinDate: DateTime = DateTime.now().startOf("day").minus({ months: 3 });
   protected eventSliderMaxDate: DateTime = DateTime.now().startOf("day").plus({ years: 2 });
 
-  protected setDateInputMode(mode: "slider" | "pickers"): void {
+  protected setDateInputMode(mode: DateInputMode): void {
     this.dateInputMode = mode;
-    if (mode === "slider") {
+    if (mode === DateInputMode.Slider) {
       this.recomputeSliderBoundsFromCurrentRange();
     }
   }
@@ -2760,7 +2767,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected expandedFragmentIds: Set<string> = new Set();
   protected draggedFragmentPath: number[] | null = null;
   protected dragHoverPath: number[] | null = null;
-  protected dragHoverPosition: "before" | "after" | null = null;
+  protected dragHoverPosition: DragHoverPosition | null = null;
   protected dragHoverColumnPath: number[] | null = null;
   protected templateContentHtml: string | null = null;
   protected templateContentFetching = false;
@@ -2996,9 +3003,9 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (target) {
       const rect = target.getBoundingClientRect();
       const midpoint = rect.top + rect.height / 2;
-      this.dragHoverPosition = (event.clientY ?? midpoint) < midpoint ? "before" : "after";
+      this.dragHoverPosition = (event.clientY ?? midpoint) < midpoint ? DragHoverPosition.Before : DragHoverPosition.After;
     } else {
-      this.dragHoverPosition = "before";
+      this.dragHoverPosition = DragHoverPosition.Before;
     }
     this.dragHoverPath = [...path];
     this.dragHoverColumnPath = null;
@@ -3010,7 +3017,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.resetDragState();
       return;
     }
-    const targetIndex = this.dragHoverPosition === "after"
+    const targetIndex = this.dragHoverPosition === DragHoverPosition.After
       ? path[path.length - 1] + 1
       : path[path.length - 1];
     const targetPath = [...path.slice(0, -1), targetIndex];
@@ -3892,19 +3899,19 @@ export class EmailComposer implements OnInit, OnDestroy {
     return name ? `${current} of ${count} - ${name}` : `${current} of ${count}`;
   }
 
-  protected canStepPreview(direction: "first" | "prev" | "next" | "last"): boolean {
+  protected canStepPreview(direction: PreviewStepDirection): boolean {
     const count = this.previewRecipientCount();
     if (count <= 1) return false;
-    if (direction === "first" || direction === "prev") return this.previewRecipientIndex > 0;
+    if (direction === PreviewStepDirection.First || direction === PreviewStepDirection.Prev) return this.previewRecipientIndex > 0;
     return this.previewRecipientIndex < count - 1;
   }
 
-  protected stepPreview(direction: "first" | "prev" | "next" | "last"): void {
+  protected stepPreview(direction: PreviewStepDirection): void {
     const count = this.previewRecipientCount();
     if (count === 0) return;
-    if (direction === "first") this.previewRecipientIndex = 0;
-    else if (direction === "last") this.previewRecipientIndex = count - 1;
-    else if (direction === "prev") this.previewRecipientIndex = Math.max(0, this.previewRecipientIndex - 1);
+    if (direction === PreviewStepDirection.First) this.previewRecipientIndex = 0;
+    else if (direction === PreviewStepDirection.Last) this.previewRecipientIndex = count - 1;
+    else if (direction === PreviewStepDirection.Prev) this.previewRecipientIndex = Math.max(0, this.previewRecipientIndex - 1);
     else this.previewRecipientIndex = Math.min(count - 1, this.previewRecipientIndex + 1);
     this.refreshPreview().catch(error => this.logger.error("preview step failed", error));
   }

@@ -50,6 +50,8 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
 import { SystemGoogleMapsSettingsComponent } from "./external/system-google-maps-settings";
 import { FlickrSettings } from "./external/system-flickr-settings";
 import { SystemCloudflareSettingsComponent } from "./external/system-cloudflare-settings";
+import { SystemCloudflareWebAnalyticsSettings } from "./cloudflare-web-analytics/system-cloudflare-web-analytics-settings";
+import { CloudflareWebAnalyticsDashboard } from "./cloudflare-web-analytics/cloudflare-web-analytics-dashboard";
 import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
 import { FooterLinkSetting } from "./footer-link-setting";
 import { SalesforceSettings } from "./salesforce/salesforce-settings";
@@ -353,6 +355,8 @@ import { SalesforceConfigService } from "../../../services/salesforce/salesforce
                     }
                     @if (showSubTab(ExternalSystemsSubTab.CLOUDFLARE)) {
                         <app-system-cloudflare-settings/>
+                        <app-system-cloudflare-web-analytics-settings [config]="config"/>
+                        <app-cloudflare-web-analytics-dashboard [siteTag]="config.cloudflareWebAnalytics?.siteTag"/>
                     }
                     @if (showSubTab(ExternalSystemsSubTab.SECURITY)) {
                         <app-system-recaptcha-settings [config]="config"/>
@@ -394,7 +398,7 @@ import { SalesforceConfigService } from "../../../services/salesforce/salesforce
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, FooterLinkSetting, SalesforceSettings]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 

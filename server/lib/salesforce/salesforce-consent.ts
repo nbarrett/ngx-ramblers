@@ -1,5 +1,5 @@
 import debug from "debug";
-import { SalesforceConfig, SalesforceConsentUpdateRequest } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
+import { ConsentWritebackContext, ConsentWritebackOutcome, ConsentWritebackSkipReason, SalesforceConfig, SalesforceConsentSource, SalesforceConsentUpdateRequest } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNow } from "../shared/dates";
 import { pushSalesforceConsent } from "./salesforce-client";
@@ -8,25 +8,10 @@ import { configuredSalesforce } from "./salesforce-config";
 const debugLog = debug(envConfig.logNamespace("salesforce-consent"));
 debugLog.enabled = true;
 
-export interface ConsentWritebackContext {
-  membershipNumber?: string;
-  reason?: string;
-}
-
-export interface ConsentWritebackOutcome {
-  attempted: boolean;
-  success?: boolean;
-  status?: number;
-  errorCode?: string;
-  errorMessage?: string;
-  latencyMs?: number;
-  skippedReason?: "DISABLED" | "NOT_CONFIGURED" | "NO_MEMBERSHIP_NUMBER";
-}
-
 export function buildFullOptOutConsentRequest(config: Pick<SalesforceConfig, "enableGranularConsent">, reason: string | undefined, timestampIso: string): SalesforceConsentUpdateRequest {
   const request: SalesforceConsentUpdateRequest = {
     emailMarketingConsent: false,
-    source: "ngx-ramblers",
+    source: SalesforceConsentSource.NgxRamblers,
     timestamp: timestampIso,
     ...(reason ? { reason } : {}),
   };
@@ -40,14 +25,14 @@ export function buildFullOptOutConsentRequest(config: Pick<SalesforceConfig, "en
 
 export async function notifySalesforceFullyOptedOut(context: ConsentWritebackContext): Promise<ConsentWritebackOutcome> {
   if (!context.membershipNumber) {
-    return { attempted: false, skippedReason: "NO_MEMBERSHIP_NUMBER" };
+    return { attempted: false, skippedReason: ConsentWritebackSkipReason.NoMembershipNumber };
   }
   const config = await configuredSalesforce();
   if (!config) {
-    return { attempted: false, skippedReason: "NOT_CONFIGURED" };
+    return { attempted: false, skippedReason: ConsentWritebackSkipReason.NotConfigured };
   }
   if (!config.enabled || !config.endpointBaseUrl) {
-    return { attempted: false, skippedReason: "DISABLED" };
+    return { attempted: false, skippedReason: ConsentWritebackSkipReason.Disabled };
   }
   const request = buildFullOptOutConsentRequest(config, context.reason, dateTimeNow().toISO());
   const result = await pushSalesforceConsent(config, context.membershipNumber, request);

@@ -355,11 +355,17 @@ export interface BatchTransactionalSendRequest {
   unbrandedSenderRoleType?: string;
 }
 
+export enum BatchSendEntryStatus {
+  Pending = "pending",
+  Sent = "sent",
+  Failed = "failed",
+}
+
 export interface BatchSendProgressEntry {
   memberId: string;
   email: string;
   fullName: string;
-  status: "pending" | "sent" | "failed";
+  status: BatchSendEntryStatus;
   errorMessage?: string;
   sentAt?: number;
 }
@@ -479,3 +485,56 @@ export const EMAIL_COMPOSER_STEPS: EmailComposerStep[] = [
   { key: EmailComposerStepKey.REVIEW, label: "Preview & Review", hint: "Check the email before sending" },
   { key: EmailComposerStepKey.SEND, label: "Send", hint: "Send and track delivery progress" }
 ];
+
+export enum EmailCompositionStatus {
+  Draft = "draft",
+  Sent = "sent",
+}
+
+export interface EmailCompositionDocument {
+  id?: string;
+  ownerMemberId: string;
+  status: EmailCompositionStatus;
+  shared: boolean;
+  title: string;
+  state: any;
+  createdAt: number;
+  updatedAt: number;
+  updatedBy: string;
+  sentAt?: number;
+  sentRecipientCount?: number;
+}
+
+export interface EmailComposition {
+  id: string;
+  ownerMemberId: string;
+  status: EmailCompositionStatus;
+  shared: boolean;
+  title: string;
+  savedAt: number;
+  sentAt?: number;
+  sentRecipientCount?: number;
+  state: EmailComposerState;
+}
+
+export enum DateInputMode {
+  Slider = "slider",
+  Pickers = "pickers"
+}
+
+export enum DragHoverPosition {
+  Before = "before",
+  After = "after"
+}
+
+export enum PreviewStepDirection {
+  First = "first",
+  Prev = "prev",
+  Next = "next",
+  Last = "last"
+}
+
+export enum SideImagePlacement {
+  Left = "left",
+  Right = "right"
+}

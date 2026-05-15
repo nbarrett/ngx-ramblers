@@ -1,6 +1,7 @@
 import express from "express";
 import { deriveBaseUrl as derivePlainBaseUrl } from "./browser-utils";
 import { fetchHtmlViaIntegrationWorker } from "../ramblers/integration-worker-browser-client";
+import { PlaywrightWaitUntil } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { htmlToMarkdown } from "./turndown-service-factory";
@@ -306,7 +307,7 @@ router.post("/search-venue-website", async (req, res) => {
 
     let html: string;
     try {
-      const result = await fetchHtmlViaIntegrationWorker(searchUrl, "domcontentloaded", 30000);
+      const result = await fetchHtmlViaIntegrationWorker(searchUrl, PlaywrightWaitUntil.DomContentLoaded, 30000);
       html = result.html;
     } catch (e) {
       debugLog("search-venue-website: integration-worker fetch failed:", e);

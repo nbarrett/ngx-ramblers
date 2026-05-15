@@ -7,6 +7,14 @@ import {
   WorkerInvocationSummary,
   WorkerLogsRequest
 } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
+import {
+  CloudflareWebAnalyticsBreakdownEntry,
+  CloudflareWebAnalyticsRequest,
+  CloudflareWebAnalyticsSummary,
+  CloudflareWebAnalyticsTimeseriesPoint,
+  CloudflareWebAnalyticsWebVitalsEntry,
+  WebVitalMetric
+} from "../../../projects/ngx-ramblers/src/app/models/cloudflare-web-analytics.model";
 import { envConfig } from "../env-config/env-config";
 import { cloudflareApi } from "./cloudflare.model";
 
@@ -214,4 +222,199 @@ export async function queryWorkerInvocationLogs(cloudflareConfig: CloudflareConf
     errors: entry.sum.errors,
     subrequests: entry.sum.subrequests
   }));
+}
+
+interface RumGroupRow<D> {
+  count: number;
+  sum: { visits: number };
+  dimensions: D;
+}
+
+interface WebAnalyticsGraphQLData {
+  viewer: {
+    accounts: {
+      totals: RumGroupRow<Record<string, never>>[];
+      timeseries: RumGroupRow<{ ts: string }>[];
+      paths: RumGroupRow<{ requestPath: string }>[];
+      countries: RumGroupRow<{ countryName: string }>[];
+      referrers: RumGroupRow<{ refererHost: string }>[];
+      devices: RumGroupRow<{ deviceType: string }>[];
+      browsers: RumGroupRow<{ userAgentBrowser: string }>[];
+      webVitals: { sum: Record<string, number> }[];
+    }[];
+  };
+}
+
+function chooseTimeBucket(startDate: string, endDate: string): string {
+  const start = Date.parse(startDate);
+  const end = Date.parse(endDate);
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
+    return "datetimeHour";
+  }
+  const rangeHours = (end - start) / (1000 * 60 * 60);
+  if (rangeHours <= 2) {
+    return "datetimeFiveMinutes";
+  }
+  if (rangeHours <= 24) {
+    return "datetimeFifteenMinutes";
+  }
+  if (rangeHours <= 24 * 7) {
+    return "datetimeHour";
+  }
+  return "date";
+}
+
+function toBreakdown<D>(
+  rows: RumGroupRow<D>[],
+  keyExtractor: (dimensions: D) => string,
+  fallback = "(unknown)"
+): CloudflareWebAnalyticsBreakdownEntry[] {
+  return rows.map(row => ({
+    key: keyExtractor(row.dimensions) || fallback,
+    pageviews: row.count || 0,
+    visits: row.sum?.visits || 0
+  }));
+}
+
+const webVitalMetrics: { metric: WebVitalMetric; prefix: string }[] = [
+  {metric: WebVitalMetric.LCP, prefix: "lcp"},
+  {metric: WebVitalMetric.INP, prefix: "inp"},
+  {metric: WebVitalMetric.CLS, prefix: "cls"},
+  {metric: WebVitalMetric.FID, prefix: "fid"},
+  {metric: WebVitalMetric.FCP, prefix: "fcp"},
+  {metric: WebVitalMetric.TTFB, prefix: "ttfb"}
+];
+
+function toWebVitals(rows: { sum: Record<string, number> }[]): CloudflareWebAnalyticsWebVitalsEntry[] {
+  const sum = rows[0]?.sum;
+  if (!sum) {
+    return [];
+  }
+  return webVitalMetrics
+    .map(({metric, prefix}) => ({
+      metric,
+      good: sum[`${prefix}Good`] || 0,
+      needsImprovement: sum[`${prefix}NeedsImprovement`] || 0,
+      poor: sum[`${prefix}Poor`] || 0
+    }))
+    .filter(entry => entry.good + entry.needsImprovement + entry.poor > 0);
+}
+
+export async function queryWebAnalyticsSummary(cloudflareConfig: CloudflareConfig, request: CloudflareWebAnalyticsRequest): Promise<CloudflareWebAnalyticsSummary> {
+  const limit = request.limit || 10;
+  const timeBucket = chooseTimeBucket(request.startDate, request.endDate);
+  const filterParts = [
+    `datetime_geq: "${request.startDate}"`,
+    `datetime_leq: "${request.endDate}"`,
+    `siteTag: "${request.siteTag}"`
+  ];
+  const filter = `{${filterParts.join(", ")}}`;
+
+  const query = `query {
+  viewer {
+    accounts(filter: {accountTag: "${cloudflareConfig.accountId}"}) {
+      totals: rumPageloadEventsAdaptiveGroups(limit: 1, filter: ${filter}) {
+        count
+        sum { visits }
+      }
+      timeseries: rumPageloadEventsAdaptiveGroups(limit: 500, filter: ${filter}, orderBy: [${timeBucket}_ASC]) {
+        count
+        sum { visits }
+        dimensions { ts: ${timeBucket} }
+      }
+      paths: rumPageloadEventsAdaptiveGroups(limit: ${limit}, filter: ${filter}, orderBy: [count_DESC]) {
+        count
+        sum { visits }
+        dimensions { requestPath }
+      }
+      countries: rumPageloadEventsAdaptiveGroups(limit: ${limit}, filter: ${filter}, orderBy: [count_DESC]) {
+        count
+        sum { visits }
+        dimensions { countryName }
+      }
+      referrers: rumPageloadEventsAdaptiveGroups(limit: ${limit}, filter: ${filter}, orderBy: [count_DESC]) {
+        count
+        sum { visits }
+        dimensions { refererHost }
+      }
+      devices: rumPageloadEventsAdaptiveGroups(limit: ${limit}, filter: ${filter}, orderBy: [count_DESC]) {
+        count
+        sum { visits }
+        dimensions { deviceType }
+      }
+      browsers: rumPageloadEventsAdaptiveGroups(limit: ${limit}, filter: ${filter}, orderBy: [count_DESC]) {
+        count
+        sum { visits }
+        dimensions { userAgentBrowser }
+      }
+      webVitals: rumWebVitalsEventsAdaptiveGroups(limit: 1, filter: ${filter}) {
+        sum {
+          lcpGood lcpNeedsImprovement lcpPoor
+          inpGood inpNeedsImprovement inpPoor
+          clsGood clsNeedsImprovement clsPoor
+          fidGood fidNeedsImprovement fidPoor
+          fcpGood fcpNeedsImprovement fcpPoor
+          ttfbGood ttfbNeedsImprovement ttfbPoor
+        }
+      }
+    }
+  }
+}`;
+
+  debugLog("Querying web analytics summary for siteTag=%s range=%s..%s bucket=%s", request.siteTag, request.startDate, request.endDate, timeBucket);
+
+  const response = await fetch(GRAPHQL_URL, {
+    method: "POST",
+    headers: headers(cloudflareConfig.apiToken),
+    body: JSON.stringify({query})
+  });
+
+  const data: GraphQLResponse<WebAnalyticsGraphQLData> = await response.json();
+  debugLog("Web analytics response status: %d, has errors: %s", response.status, !!(data.errors?.length));
+
+  if (data.errors?.length) {
+    const errorMsg = data.errors.map(e => e.message).join(", ");
+    errorDebugLog("Failed to query web analytics: %s, full response: %o", errorMsg, data);
+    throw new Error(`Failed to query web analytics: ${errorMsg}`);
+  }
+
+  if (!data.data) {
+    errorDebugLog("Web analytics response has no data field. Full response: %o", data);
+    throw new Error("Web analytics response has no data field");
+  }
+
+  const account = data.data?.viewer?.accounts?.[0];
+  if (!account) {
+    return {
+      totals: {pageviews: 0, visits: 0},
+      timeseries: [],
+      topPaths: [],
+      topCountries: [],
+      topReferrers: [],
+      deviceTypes: [],
+      browsers: [],
+      webVitals: []
+    };
+  }
+
+  const totalsRow = account.totals?.[0];
+  const timeseries: CloudflareWebAnalyticsTimeseriesPoint[] = (account.timeseries || []).map(row => ({
+    datetime: row.dimensions.ts,
+    pageviews: row.count || 0,
+    visits: row.sum?.visits || 0
+  }));
+
+  return {
+    totals: {
+      pageviews: totalsRow?.count || 0,
+      visits: totalsRow?.sum?.visits || 0
+    },
+    timeseries,
+    topPaths: toBreakdown(account.paths || [], d => d.requestPath),
+    topCountries: toBreakdown(account.countries || [], d => d.countryName),
+    topReferrers: toBreakdown(account.referrers || [], d => d.refererHost, "(direct)"),
+    deviceTypes: toBreakdown(account.devices || [], d => d.deviceType),
+    browsers: toBreakdown(account.browsers || [], d => d.userAgentBrowser),
+    webVitals: toWebVitals(account.webVitals || [])
+  };
 }

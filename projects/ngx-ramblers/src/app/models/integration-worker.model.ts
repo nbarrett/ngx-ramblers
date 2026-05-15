@@ -77,15 +77,38 @@ export interface IntegrationWorkerMigrationJobRequest {
   callback: IntegrationWorkerCallbackConfig;
 }
 
+export enum IntegrationWorkerLogLevel {
+  Info = "info",
+  Error = "error",
+}
+
+export enum IntegrationWorkerResultStatus {
+  Success = "success",
+  Error = "error",
+}
+
 export interface IntegrationWorkerMigrationProgressCallback {
   jobId: string;
-  level: "info" | "error";
+  level: IntegrationWorkerLogLevel;
   message: string;
 }
 
 export interface IntegrationWorkerMigrationResultCallback {
   jobId: string;
-  status: "success" | "error";
+  status: IntegrationWorkerResultStatus;
   result?: MigrationResult;
   errorMessage?: string;
+}
+
+export enum PlaywrightWaitUntil {
+  Load = "load",
+  DomContentLoaded = "domcontentloaded",
+  NetworkIdle = "networkidle",
+  Commit = "commit",
+}
+
+export interface HtmlFetchResult {
+  html: string;
+  finalUrl: string;
+  baseHref: string | null;
 }

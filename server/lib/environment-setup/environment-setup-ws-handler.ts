@@ -6,7 +6,8 @@ import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/webso
 import { EnvironmentSetupRequest } from "./types";
 import { findEnvironmentFromDatabase } from "../environments/environments-config";
 import { loadSecretsWithFallback } from "../shared/secrets";
-import { ResumeEnvironmentOptions, resumeEnvironment } from "../cli/commands/environment";
+import { resumeEnvironment } from "../cli/commands/environment";
+import { ResumeEnvironmentOptions } from "../cli/cli.model";
 import { createEnvironment, validateSetupRequest } from "./environment-setup-service";
 
 export interface EnvironmentSetupWsData {

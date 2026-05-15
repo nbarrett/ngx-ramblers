@@ -4,6 +4,7 @@ import {
   MailSettingsTab,
   MemberSelection,
   NotificationConfig,
+  OverrideEditorMode,
   overrideKeyToLabel,
   SendSmtpEmailParams,
   TemplateDiffResponse,
@@ -526,7 +527,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   protected readonly faChevronUp = faChevronUp;
   public activeOverrideAccordion: string = null;
   public activeOverrideEditor: string = null;
-  public activeOverrideEditorMode: "edit" | "replace" | null = null;
+  public activeOverrideEditorMode: OverrideEditorMode | null = null;
   public pendingOverridePreviews: Record<string, string> = {};
   public overrideImageFolder = RootFolder.siteContent;
   public discoveredOverrideKeys: string[] = [];
@@ -939,17 +940,17 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   editOverrideImage(key: string) {
     this.activeOverrideAccordion = key;
     this.activeOverrideEditor = key;
-    this.activeOverrideEditorMode = "edit";
+    this.activeOverrideEditorMode = OverrideEditorMode.Edit;
   }
 
   replaceOverrideImage(key: string) {
     this.activeOverrideAccordion = key;
     this.activeOverrideEditor = key;
-    this.activeOverrideEditorMode = "replace";
+    this.activeOverrideEditorMode = OverrideEditorMode.Replace;
   }
 
   editingExistingOverride(key: string): boolean {
-    return this.activeOverrideEditor === key && this.activeOverrideEditorMode === "edit" && !!this.overrideValue(key);
+    return this.activeOverrideEditor === key && this.activeOverrideEditorMode === OverrideEditorMode.Edit && !!this.overrideValue(key);
   }
 
   overridePreloadImage(key: string): string {

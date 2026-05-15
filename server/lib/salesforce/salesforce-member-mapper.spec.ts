@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { SalesforceMember } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
+import { SalesforceMember, SalesforceMemberTerm } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
 import { mapSalesforceMemberToRamblersMember } from "./salesforce-member-mapper";
 
 function baseSalesforceMember(overrides: Partial<SalesforceMember> = {}): SalesforceMember {
@@ -16,7 +16,7 @@ function baseSalesforceMember(overrides: Partial<SalesforceMember> = {}): Salesf
     postcode: "CT1 2AA",
     membershipType: "Individual",
     memberType: "Member",
-    memberTerm: "annual",
+    memberTerm: SalesforceMemberTerm.Annual,
     memberStatus: "Active",
     jointWith: "",
     membershipExpiryDate: "2026-07-15T00:00:00Z",

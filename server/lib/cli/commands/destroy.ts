@@ -18,25 +18,11 @@ import { loadSecretsForEnvironment, secretsPath } from "../../shared/secrets";
 import { runCommand } from "../../fly/fly-commands";
 import { adminConfigFromEnvironment } from "../../environment-setup/aws-setup";
 import { ProgressCallback } from "../types";
+import { SetupStepStatus } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { DestroyConfig, DestroyResult } from "../cli.model";
 import { log } from "../cli-logger";
 
 const debugLog = debug(envConfig.logNamespace("cli:destroy"));
-
-export interface DestroyConfig {
-  name: string;
-  appName: string;
-  apiKey?: string;
-  mongoUri?: string;
-  database?: string;
-  skipFly?: boolean;
-  skipS3?: boolean;
-  skipDatabase?: boolean;
-}
-
-export interface DestroyResult {
-  success: boolean;
-  steps: { step: string; success: boolean; message: string }[];
-}
 
 function setFlyApiToken(apiKey?: string): void {
   if (apiKey) {
@@ -116,7 +102,7 @@ export async function destroyEnvironment(config: DestroyConfig, onProgress?: Pro
     debugLog(`[${success ? "SUCCESS" : "FAILED"}] ${step}: ${message}`);
     steps.push({step, success, message});
     if (onProgress) {
-      onProgress({step: "destroy", status: success ? "completed" : "failed", message: `${step}: ${message}`});
+      onProgress({step: "destroy", status: success ? SetupStepStatus.Completed : SetupStepStatus.Failed, message: `${step}: ${message}`});
     }
   };
 

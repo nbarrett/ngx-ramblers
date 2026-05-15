@@ -44,3 +44,10 @@ export interface ParishAllocationApiResponse {
   request: any;
   response?: ParishAllocation | ParishAllocation[];
 }
+
+export enum ParishSortField {
+  ParishName = "parishName",
+  ParishCode = "parishCode",
+  Status = "status",
+  Assignee = "assignee"
+}

@@ -5,8 +5,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UnsubscribeService } from "./unsubscribe.service";
-
-type UnsubscribeState = "confirming" | "confirmed" | "feedback-sent" | "error";
+import { UnsubscribeState } from "../../models/mail.model";
 
 @Component({
   selector: "app-unsubscribe",
@@ -92,13 +91,13 @@ type UnsubscribeState = "confirming" | "confirmed" | "feedback-sent" | "error";
         transform: rotate(360deg)
   `],
   template: `
-    <div class="unsubscribe-card" [class.success]="state === 'confirmed' || state === 'feedback-sent'" [class.error]="state === 'error'">
+    <div class="unsubscribe-card" [class.success]="state === UnsubscribeState.Confirmed || state === UnsubscribeState.FeedbackSent" [class.error]="state === UnsubscribeState.Error">
       @switch (state) {
-        @case ("confirming") {
+        @case (UnsubscribeState.Confirming) {
           <h1>Unsubscribing</h1>
           <p class="panel-body"><span class="spinner" aria-hidden="true"></span>Removing your email from our mailing list...</p>
         }
-        @case ("confirmed") {
+        @case (UnsubscribeState.Confirmed) {
           <h1>You've been unsubscribed</h1>
           <p class="panel-body">
             @if (email && listName) {
@@ -133,11 +132,11 @@ type UnsubscribeState = "confirming" | "confirmed" | "feedback-sent" | "error";
             </button>
           </div>
         }
-        @case ("feedback-sent") {
+        @case (UnsubscribeState.FeedbackSent) {
           <h1>Thanks for your feedback</h1>
           <p class="panel-body">Your response has been recorded. You won't hear from us again.</p>
         }
-        @case ("error") {
+        @case (UnsubscribeState.Error) {
           <h1>Sorry, we couldn't process your unsubscribe</h1>
           <p class="panel-subtitle">{{ errorMessage }}</p>
           <p class="panel-body">
@@ -155,7 +154,8 @@ export class UnsubscribeComponent implements OnInit, OnDestroy {
   private service = inject(UnsubscribeService);
   private subscriptions: Subscription[] = [];
 
-  protected state: UnsubscribeState = "confirming";
+  protected readonly UnsubscribeState = UnsubscribeState;
+  protected state: UnsubscribeState = UnsubscribeState.Confirming;
   protected email = "";
   protected listName = "";
   protected reason = "";
@@ -193,7 +193,7 @@ export class UnsubscribeComponent implements OnInit, OnDestroy {
       const result = await this.service.confirm(this.token);
       this.email = result.email || "";
       this.listName = result.listName || "";
-      this.state = "confirmed";
+      this.state = UnsubscribeState.Confirmed;
     } catch (error: any) {
       this.logger.error("confirm:failed", error);
       this.fail(this.extractErrorMessage(error) || "This unsubscribe link is invalid or has expired.");
@@ -205,17 +205,17 @@ export class UnsubscribeComponent implements OnInit, OnDestroy {
     this.submittingFeedback = true;
     try {
       await this.service.submitFeedback(this.token, this.reason, this.comment);
-      this.state = "feedback-sent";
+      this.state = UnsubscribeState.FeedbackSent;
     } catch (error: any) {
       this.logger.error("submitFeedback:failed", error);
-      this.state = "feedback-sent";
+      this.state = UnsubscribeState.FeedbackSent;
     } finally {
       this.submittingFeedback = false;
     }
   }
 
   private fail(message: string): void {
-    this.state = "error";
+    this.state = UnsubscribeState.Error;
     this.errorMessage = message;
   }
 

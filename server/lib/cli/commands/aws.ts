@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { BucketResult, CopyAssetsCliResult, IamUserResult, ProgressCallback } from "../types";
 import { log } from "../cli-logger";
 import { AWS_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { SetupStepStatus } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 
 export async function createBucketAndUser(
   environmentName: string,
@@ -16,14 +17,14 @@ export async function createBucketAndUser(
   }
 
   if (onProgress) {
-    onProgress({ step: "create-aws-resources", status: "running", message: "Creating S3 bucket and IAM user" });
+    onProgress({ step: "create-aws-resources", status: SetupStepStatus.Running, message: "Creating S3 bucket and IAM user" });
   }
 
   const effectiveRegion = region || adminConfig.region;
   const result = await setupAwsForCustomer(adminConfig, environmentName, effectiveRegion);
 
   if (onProgress) {
-    onProgress({ step: "create-aws-resources", status: "completed", message: `Created bucket: ${result.bucket}` });
+    onProgress({ step: "create-aws-resources", status: SetupStepStatus.Completed, message: `Created bucket: ${result.bucket}` });
   }
 
   return {
@@ -54,13 +55,13 @@ export async function copyAssets(
   }
 
   if (onProgress) {
-    onProgress({ step: "copy-assets", status: "running", message: "Copying standard assets" });
+    onProgress({ step: "copy-assets", status: SetupStepStatus.Running, message: "Copying standard assets" });
   }
 
   const result = await copyStandardAssets(adminConfig, targetBucket);
 
   if (onProgress) {
-    const status = result.failures.length > 0 ? "failed" : "completed";
+    const status = result.failures.length > 0 ? SetupStepStatus.Failed : SetupStepStatus.Completed;
     onProgress({
       step: "copy-assets",
       status,

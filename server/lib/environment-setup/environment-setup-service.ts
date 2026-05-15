@@ -6,6 +6,7 @@ import {
   AwsCustomerCredentials,
   EnvironmentSetupRequest,
   EnvironmentSetupResult,
+  ProgressCallback,
   SetupProgress,
   SetupSession,
   SetupStep,
@@ -35,7 +36,8 @@ import * as configController from "../mongo/controllers/config";
 import { connect as ensureMongoConnection } from "../mongo/mongoose-client";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
 import { normaliseMemory } from "../shared/spelling";
-import { DeployOutputCallback, deployToFlyio as deployToFlyioCommand } from "../cli/commands/fly";
+import { deployToFlyio as deployToFlyioCommand } from "../cli/commands/fly";
+import { DeployOutputCallback } from "../cli/cli.model";
 import { setupSubdomainForEnvironment } from "../cli/commands/subdomain";
 import { configuredEnvironments } from "../environments/environments-config";
 import { baseDomainFrom } from "./environment-context";
@@ -46,8 +48,6 @@ const debugLog = debug(envConfig.logNamespace("environment-setup:service"));
 debugLog.enabled = true;
 
 const activeSessions = new Map<string, SetupSession>();
-
-export type ProgressCallback = (progress: SetupProgress) => void;
 
 function generateSessionId(): string {
   return uid(32);
@@ -245,7 +245,7 @@ export async function createEnvironment(
     sessionId,
     request,
     progress: [],
-    status: "running",
+    status: SetupStepStatus.Running,
     createdAt: dateTimeNowAsValue()
   };
 
@@ -266,16 +266,16 @@ export async function createEnvironment(
   };
 
   try {
-    reportProgress(SetupStep.VALIDATE_INPUTS, "running", "Validating configuration");
+    reportProgress(SetupStep.VALIDATE_INPUTS, SetupStepStatus.Running, "Validating configuration");
     const validationResults = await validateSetupRequest(request);
     const failedValidations = validationResults.filter(r => !r.valid);
     if (failedValidations.length > 0) {
       const errorMessage = failedValidations.map(r => r.message).join("; ");
       throw new Error(`Validation failed: ${errorMessage}`);
     }
-    reportProgress(SetupStep.VALIDATE_INPUTS, "completed", "All validations passed");
+    reportProgress(SetupStep.VALIDATE_INPUTS, SetupStepStatus.Completed, "All validations passed");
 
-    reportProgress(SetupStep.QUERY_RAMBLERS_API, "running", "Fetching group details from Ramblers API");
+    reportProgress(SetupStep.QUERY_RAMBLERS_API, SetupStepStatus.Running, "Fetching group details from Ramblers API");
     const groupData = await groupDetails({
       groupCode: request.ramblersInfo.groupCode,
       apiKey: request.serviceConfigs.ramblers.apiKey
@@ -294,14 +294,14 @@ export async function createEnvironment(
     if (areaGroups.length > 0) {
       request.ramblersInfo.areaData = areaGroups[0];
     }
-    reportProgress(SetupStep.QUERY_RAMBLERS_API, "completed", `Found group: ${groupData.name}`);
+    reportProgress(SetupStep.QUERY_RAMBLERS_API, SetupStepStatus.Completed, `Found group: ${groupData.name}`);
 
     let awsCredentials: AwsCustomerCredentials;
     let copiedAssets: { icons: string[]; logos: string[]; backgrounds: string[] } | undefined;
     const awsAdminConfig = adminConfigFromEnvironment();
 
     if (!request.options.skipFlyDeployment && awsAdminConfig) {
-      reportProgress(SetupStep.CREATE_AWS_RESOURCES, "running", "Creating S3 bucket and IAM user");
+      reportProgress(SetupStep.CREATE_AWS_RESOURCES, SetupStepStatus.Running, "Creating S3 bucket and IAM user");
       const awsSetupResult = await setupAwsForCustomer(
         awsAdminConfig,
         request.environmentBasics.environmentName,
@@ -312,10 +312,10 @@ export async function createEnvironment(
         request.serviceConfigs.aws.region,
         awsSetupResult
       );
-      reportProgress(SetupStep.CREATE_AWS_RESOURCES, "completed", `Created bucket: ${awsCredentials.bucket}`);
+      reportProgress(SetupStep.CREATE_AWS_RESOURCES, SetupStepStatus.Completed, `Created bucket: ${awsCredentials.bucket}`);
 
       if (request.options.copyStandardAssets) {
-        reportProgress(SetupStep.COPY_STANDARD_ASSETS, "running", "Copying standard assets to S3 bucket");
+        reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Running, "Copying standard assets to S3 bucket");
         const copyResult = await copyStandardAssets(awsAdminConfig, awsCredentials.bucket);
         copiedAssets = {
           icons: copyResult.icons.map(img => img.originalFileName),
@@ -325,12 +325,12 @@ export async function createEnvironment(
         const totalCopied = copyResult.icons.length + copyResult.logos.length + copyResult.backgrounds.length;
         if (copyResult.failures.length > 0) {
           const failureMsg = copyResult.failures.map(f => `${f.file}: ${f.error}`).join("; ");
-          reportProgress(SetupStep.COPY_STANDARD_ASSETS, "failed", `Copied ${totalCopied} assets but ${copyResult.failures.length} failed: ${failureMsg}`);
+          reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Failed, `Copied ${totalCopied} assets but ${copyResult.failures.length} failed: ${failureMsg}`);
         } else {
-          reportProgress(SetupStep.COPY_STANDARD_ASSETS, "completed", `Copied ${totalCopied} assets (${copyResult.icons.length} icons, ${copyResult.logos.length} logos, ${copyResult.backgrounds.length} backgrounds)`);
+          reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Completed, `Copied ${totalCopied} assets (${copyResult.icons.length} icons, ${copyResult.logos.length} logos, ${copyResult.backgrounds.length} backgrounds)`);
         }
       } else {
-        reportProgress(SetupStep.COPY_STANDARD_ASSETS, "completed", "Skipped copying standard assets");
+        reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Completed, "Skipped copying standard assets");
       }
     } else {
       awsCredentials = {
@@ -341,34 +341,34 @@ export async function createEnvironment(
         iamUserName: "placeholder",
         policyArn: "placeholder"
       };
-      reportProgress(SetupStep.CREATE_AWS_RESOURCES, "completed", "Skipped AWS resource creation (using placeholder)");
-      reportProgress(SetupStep.COPY_STANDARD_ASSETS, "completed", "Skipped copying standard assets");
+      reportProgress(SetupStep.CREATE_AWS_RESOURCES, SetupStepStatus.Completed, "Skipped AWS resource creation (using placeholder)");
+      reportProgress(SetupStep.COPY_STANDARD_ASSETS, SetupStepStatus.Completed, "Skipped copying standard assets");
     }
 
-    reportProgress(SetupStep.GENERATE_SECRETS, "running", "Generating authentication secret");
+    reportProgress(SetupStep.GENERATE_SECRETS, SetupStepStatus.Running, "Generating authentication secret");
     const authSecret = generateAuthSecret();
-    reportProgress(SetupStep.GENERATE_SECRETS, "completed", "Generated AUTH_SECRET");
+    reportProgress(SetupStep.GENERATE_SECRETS, SetupStepStatus.Completed, "Generated AUTH_SECRET");
 
     const secrets = buildSecretsConfig(request, awsCredentials, authSecret);
 
-    reportProgress(SetupStep.WRITE_SECRETS_FILE, "completed", "Secrets persisted to database (no local file)");
+    reportProgress(SetupStep.WRITE_SECRETS_FILE, SetupStepStatus.Completed, "Secrets persisted to database (no local file)");
 
-    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "running", "Saving environment configuration");
+    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, SetupStepStatus.Running, "Saving environment configuration");
     await ensureMongoConnection();
     await updateEnvironmentsConfig(request, awsCredentials, secrets);
-    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, "completed", "Environment configuration and secrets saved");
+    reportProgress(SetupStep.UPDATE_ENVIRONMENTS_CONFIG, SetupStepStatus.Completed, "Environment configuration and secrets saved");
 
-    reportProgress(SetupStep.INITIALISE_DATABASE, "running", "Initialising MongoDB database");
+    reportProgress(SetupStep.INITIALISE_DATABASE, SetupStepStatus.Running, "Initialising MongoDB database");
     const dbInitTimeout = 120000;
     const dbResult = await Promise.race([
       initialiseDatabase(request, dbProgress => {
-        reportProgress(SetupStep.INITIALISE_DATABASE, "running", dbProgress.message || dbProgress.step);
+        reportProgress(SetupStep.INITIALISE_DATABASE, SetupStepStatus.Running, dbProgress.message || dbProgress.step);
       }, copiedAssets),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error(`Database initialisation timed out after ${dbInitTimeout / 1000} seconds`)), dbInitTimeout)
       )
     ]);
-    reportProgress(SetupStep.INITIALISE_DATABASE, "completed", "Database initialised successfully");
+    reportProgress(SetupStep.INITIALISE_DATABASE, SetupStepStatus.Completed, "Database initialised successfully");
 
     if (request.serviceConfigs.brevo.apiKey) {
       const adminFullName = `${request.adminUser.firstName} ${request.adminUser.lastName}`;
@@ -383,12 +383,12 @@ export async function createEnvironment(
     await ensureMongoConnection();
 
     if (request.options.populateBrevoTemplates && request.serviceConfigs.brevo.apiKey) {
-      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, "running", "Populating Brevo templates");
+      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, SetupStepStatus.Running, "Populating Brevo templates");
       const seedResult = await seedBrevoTemplatesFromLocal();
       const message = `Created ${seedResult.createdCount}, updated ${seedResult.updatedCount}, skipped ${seedResult.skippedCount}`;
-      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, "completed", message);
+      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, SetupStepStatus.Completed, message);
     } else {
-      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, "completed", "Skipped Brevo template population");
+      reportProgress(SetupStep.POPULATE_BREVO_TEMPLATES, SetupStepStatus.Completed, "Skipped Brevo template population");
     }
 
     const environmentsConfig = await configuredEnvironments();
@@ -399,19 +399,19 @@ export async function createEnvironment(
         ? apexHost(new URL(request.ramblersInfo.groupUrl).hostname)
         : "";
       const domainName = baseDomain || hostnameFromGroupUrl;
-      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, "running", `Authenticating domain ${domainName}`);
+      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, SetupStepStatus.Running, `Authenticating domain ${domainName}`);
       const authResult = await authenticateSendingDomain(domainName);
       const authenticatedDomainName = authResult.domainName;
       const authMessage = authResult.authenticated
         ? `Domain ${authenticatedDomainName} authenticated successfully`
         : `Domain ${authenticatedDomainName}: ${authResult.message}`;
-      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, authResult.authenticated ? "completed" : "failed", authMessage);
+      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, authResult.authenticated ? SetupStepStatus.Completed : SetupStepStatus.Failed, authMessage);
     } else {
-      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, "completed", "Skipped Brevo domain authentication");
+      reportProgress(SetupStep.AUTHENTICATE_BREVO_DOMAIN, SetupStepStatus.Completed, "Skipped Brevo domain authentication");
     }
 
     if (!request.options.skipFlyDeployment) {
-      reportProgress(SetupStep.DEPLOY_APP, "running", "Deploying to Fly.io");
+      reportProgress(SetupStep.DEPLOY_APP, SetupStepStatus.Running, "Deploying to Fly.io");
       await deployToFlyioCommand(
         {
           name: request.environmentBasics.environmentName,
@@ -426,25 +426,25 @@ export async function createEnvironment(
           onDeployOutput
         }
       );
-      reportProgress(SetupStep.DEPLOY_APP, "completed", `Deployed ${request.environmentBasics.appName} to Fly.io`);
+      reportProgress(SetupStep.DEPLOY_APP, SetupStepStatus.Completed, `Deployed ${request.environmentBasics.appName} to Fly.io`);
     } else {
-      reportProgress(SetupStep.DEPLOY_APP, "completed", "Skipped Fly.io deployment");
+      reportProgress(SetupStep.DEPLOY_APP, SetupStepStatus.Completed, "Skipped Fly.io deployment");
     }
 
     let appUrl = `https://${request.environmentBasics.appName}.fly.dev`;
 
     if (request.options.setupSubdomain && !request.options.skipFlyDeployment) {
-      reportProgress(SetupStep.SETUP_SUBDOMAIN, "running", "Setting up subdomain (DNS + SSL certificate)");
+      reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Running, "Setting up subdomain (DNS + SSL certificate)");
       await setupSubdomainForEnvironment(request.environmentBasics.environmentName);
       const envConfigData = await configuredEnvironments();
       const baseDomain = baseDomainFrom(envConfigData);
       appUrl = `https://${request.environmentBasics.environmentName}.${baseDomain}`;
-      reportProgress(SetupStep.SETUP_SUBDOMAIN, "completed", `Subdomain configured: ${appUrl}`);
+      reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Completed, `Subdomain configured: ${appUrl}`);
     } else {
-      reportProgress(SetupStep.SETUP_SUBDOMAIN, "completed", "Skipped subdomain setup");
+      reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Completed, "Skipped subdomain setup");
     }
 
-    session.status = "completed";
+    session.status = SetupStepStatus.Completed;
     session.completedAt = dateTimeNowAsValue();
 
     const result: EnvironmentSetupResult = {
@@ -462,7 +462,7 @@ export async function createEnvironment(
     return result;
 
   } catch (error) {
-    session.status = "failed";
+    session.status = SetupStepStatus.Failed;
     session.error = error.message;
     debugLog(`[${sessionId}] Setup failed:`, error);
     throw error;

@@ -9,11 +9,23 @@ export interface SalesforceConfig {
   lastSyncCursor?: string;
 }
 
-export type SalesforceMemberTerm = "life" | "annual";
+export enum SalesforceMemberTerm {
+  Life = "life",
+  Annual = "annual",
+}
 
-export type SalesforceChangeType = "added" | "updated" | "removed";
+export enum SalesforceChangeType {
+  Added = "added",
+  Updated = "updated",
+  Removed = "removed",
+}
 
-export type SalesforceRemovalReason = "expired" | "transferred" | "deceased" | "other";
+export enum SalesforceRemovalReason {
+  Expired = "expired",
+  Transferred = "transferred",
+  Deceased = "deceased",
+  Other = "other",
+}
 
 export interface SalesforceGroupRoles {
   walkLeader?: boolean;
@@ -106,7 +118,10 @@ export interface SalesforceTestConnectionResult {
   errorCode?: string;
 }
 
-export type SalesforceConsentSource = "ngx-ramblers" | "mailman";
+export enum SalesforceConsentSource {
+  NgxRamblers = "ngx-ramblers",
+  Mailman = "mailman",
+}
 
 export interface SalesforceConsentUpdateRequest {
   emailMarketingConsent?: boolean;
@@ -143,3 +158,24 @@ export const SALESFORCE_BULK_LOAD_SOURCE = "salesforce-api";
 export const INSIGHT_HUB_BULK_LOAD_SOURCE = "insight-hub-xlsx";
 
 export type MemberBulkLoadSource = typeof SALESFORCE_BULK_LOAD_SOURCE | typeof INSIGHT_HUB_BULK_LOAD_SOURCE;
+
+export interface ConsentWritebackContext {
+  membershipNumber?: string;
+  reason?: string;
+}
+
+export enum ConsentWritebackSkipReason {
+  Disabled = "DISABLED",
+  NotConfigured = "NOT_CONFIGURED",
+  NoMembershipNumber = "NO_MEMBERSHIP_NUMBER",
+}
+
+export interface ConsentWritebackOutcome {
+  attempted: boolean;
+  success?: boolean;
+  status?: number;
+  errorCode?: string;
+  errorMessage?: string;
+  latencyMs?: number;
+  skippedReason?: ConsentWritebackSkipReason;
+}

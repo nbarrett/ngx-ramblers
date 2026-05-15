@@ -362,6 +362,7 @@ export interface SystemConfig {
   enableMigration: { events: boolean }
   images: ImageConfig
   googleAnalytics: GoogleAnalyticsConfig
+  cloudflareWebAnalytics: CloudflareWebAnalyticsConfig
   mailDefaults: {
     mailProvider: MailProvider;
     autoSubscribeNewMembers: boolean;
@@ -371,6 +372,13 @@ export interface SystemConfig {
 
 export interface GoogleAnalyticsConfig {
   trackingId: string;
+}
+
+export interface CloudflareWebAnalyticsConfig {
+  enabled: boolean;
+  siteToken: string;
+  siteTag: string;
+  host: string;
 }
 
 
@@ -534,6 +542,11 @@ export enum ContentMigrationDocumentType {
   SPREADSHEET = "spreadsheet",
   DOCUMENT = "document",
   OTHER = "other"
+}
+
+export enum MigrationPhase {
+  Upload = "upload",
+  Update = "update",
 }
 
 export interface ExternalContentReference {

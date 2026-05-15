@@ -11,5 +11,9 @@ export {
   CopyAssetsCliResult,
   ValidationResult,
   ResumeOptions,
-  EnvironmentResult
+  EnvironmentResult,
+  ReinitDatabaseParams,
+  SeedDatabaseParams,
+  CopiedAssets,
+  InitialiseDatabaseResult
 } from "../environment-setup/types";

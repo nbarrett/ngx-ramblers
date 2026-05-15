@@ -51,7 +51,8 @@ import { SharedDistrictStyleSelectorComponent } from "../../../../shared/compone
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { SectionToggle, SectionToggleTab } from "../../../../shared/components/section-toggle";
 import { ParishMapService } from "../../../../services/parish-map.service";
-import { ParishAllocation } from "../../../../models/parish-map.model";
+import { ParishAllocation, ParishSortField } from "../../../../models/parish-map.model";
+import { AreaGroupSortField } from "../../../../models/group-area.model";
 import { MemberLoginService } from "../../../../services/member/member-login.service";
 import { NgClass } from "@angular/common";
 
@@ -238,21 +239,21 @@ interface GroupBoundaryUploadResult {
                               <table class="table table-sm table-striped table-sticky-header">
                                   <thead>
                                   <tr>
-                                      <th class="sortable-header" (click)="onSortChange('groupCode')">
+                                      <th class="sortable-header" (click)="onSortChange(AreaGroupSortField.GroupCode)">
                                           Group Code
-                                          @if (sortField === 'groupCode') {
+                                          @if (sortField === AreaGroupSortField.GroupCode) {
                                               <fa-icon [icon]="sortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                           }
                                       </th>
-                                      <th class="sortable-header" (click)="onSortChange('name')">
+                                      <th class="sortable-header" (click)="onSortChange(AreaGroupSortField.Name)">
                                           Group Name
-                                          @if (sortField === 'name') {
+                                          @if (sortField === AreaGroupSortField.Name) {
                                               <fa-icon [icon]="sortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                           }
                                       </th>
-                                      <th class="sortable-header" (click)="onSortChange('districts')">
+                                      <th class="sortable-header" (click)="onSortChange(AreaGroupSortField.Districts)">
                                           Boundary Source
-                                          @if (sortField === 'districts') {
+                                          @if (sortField === AreaGroupSortField.Districts) {
                                               <fa-icon [icon]="sortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                           }
                                       </th>
@@ -667,27 +668,27 @@ interface GroupBoundaryUploadResult {
                                   <table class="table table-sm table-striped table-sticky-header">
                                       <thead>
                                       <tr>
-                                          <th class="sortable-header" (click)="onParishSortChange('parishName')">
+                                          <th class="sortable-header" (click)="onParishSortChange(ParishSortField.ParishName)">
                                               Parish Name
-                                              @if (parishSortField === 'parishName') {
+                                              @if (parishSortField === ParishSortField.ParishName) {
                                                   <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                               }
                                           </th>
-                                          <th class="sortable-header" (click)="onParishSortChange('parishCode')">
+                                          <th class="sortable-header" (click)="onParishSortChange(ParishSortField.ParishCode)">
                                               Parish Code
-                                              @if (parishSortField === 'parishCode') {
+                                              @if (parishSortField === ParishSortField.ParishCode) {
                                                   <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                               }
                                           </th>
-                                          <th class="sortable-header" (click)="onParishSortChange('status')">
+                                          <th class="sortable-header" (click)="onParishSortChange(ParishSortField.Status)">
                                               Status
-                                              @if (parishSortField === 'status') {
+                                              @if (parishSortField === ParishSortField.Status) {
                                                   <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                               }
                                           </th>
-                                          <th class="sortable-header" (click)="onParishSortChange('assignee')">
+                                          <th class="sortable-header" (click)="onParishSortChange(ParishSortField.Assignee)">
                                               Assignee
-                                              @if (parishSortField === 'assignee') {
+                                              @if (parishSortField === ParishSortField.Assignee) {
                                                   <fa-icon [icon]="parishSortAsc ? faArrowUp : faArrowDown" class="ms-1"></fa-icon>
                                               }
                                           </th>
@@ -747,6 +748,8 @@ export class SystemAreaMapSyncComponent implements OnInit {
   @Output() busyChange = new EventEmitter<boolean>();
 
   protected readonly MapsSubTab = MapsSubTab;
+  protected readonly AreaGroupSortField = AreaGroupSortField;
+  protected readonly ParishSortField = ParishSortField;
   groupsTableHeight = asNumber(this.uiActionsService.initialValueFor(StoredValue.GROUPS_TABLE_HEIGHT, 500));
   parishTableHeight = asNumber(this.uiActionsService.initialValueFor(StoredValue.PARISH_TABLE_HEIGHT, 400));
   mapsSubTab: MapsSubTab = MapsSubTab.ALL;
@@ -782,7 +785,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
   loadingNeighboringAreas = false;
   filterText = "";
   populatedDistrictsOnly = false;
-  sortField: "groupCode" | "name" | "districts" = "groupCode";
+  sortField: AreaGroupSortField = AreaGroupSortField.GroupCode;
   sortAsc = true;
   faSearch = faSearch;
   faArrowUp = faArrowUp;
@@ -796,7 +799,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
   csvErrorMessage: string | null = null;
   parishAllocations: ParishAllocation[] = [];
   parishFilterText = "";
-  parishSortField: "parishName" | "parishCode" | "status" | "assignee" = "parishName";
+  parishSortField: ParishSortField = ParishSortField.ParishName;
   parishSortAsc = true;
   clearingAllocations = false;
 
@@ -896,13 +899,13 @@ export class SystemAreaMapSyncComponent implements OnInit {
     return groups.slice().sort((a, b) => {
       let comparison = 0;
       switch (this.sortField) {
-        case "groupCode":
+        case AreaGroupSortField.GroupCode:
           comparison = (a.groupCode || "").localeCompare(b.groupCode || "");
           break;
-        case "name":
+        case AreaGroupSortField.Name:
           comparison = (a.name || "").localeCompare(b.name || "");
           break;
-        case "districts":
+        case AreaGroupSortField.Districts:
           const aDistricts = isArray(a.onsDistricts) ? a.onsDistricts.length : (a.onsDistricts ? 1 : 0);
           const bDistricts = isArray(b.onsDistricts) ? b.onsDistricts.length : (b.onsDistricts ? 1 : 0);
           comparison = aDistricts - bDistricts;
@@ -916,7 +919,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.updateQueryParams();
   }
 
-  onSortChange(field: "groupCode" | "name" | "districts") {
+  onSortChange(field: AreaGroupSortField) {
     if (this.sortField === field) {
       this.sortAsc = !this.sortAsc;
     } else {
@@ -931,7 +934,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
       relativeTo: this.route,
       queryParams: {
         filter: this.filterText || null,
-        sort: this.sortField !== "groupCode" ? this.sortField : null,
+        sort: this.sortField !== AreaGroupSortField.GroupCode ? this.sortField : null,
         sortAsc: this.sortAsc ? null : "false"
       },
       queryParamsHandling: "merge"
@@ -959,7 +962,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.loadParishAllocations();
     const params = this.route.snapshot.queryParams;
     this.filterText = params["filter"] || "";
-    this.sortField = params["sort"] || "groupCode";
+    this.sortField = (params["sort"] as AreaGroupSortField) || AreaGroupSortField.GroupCode;
     this.sortAsc = params["sortAsc"] !== "false";
     this.systemConfigService.events().subscribe(config => {
       this.config = config;
@@ -1000,7 +1003,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     });
   }
 
-  onParishSortChange(field: "parishName" | "parishCode" | "status" | "assignee") {
+  onParishSortChange(field: ParishSortField) {
     if (this.parishSortField === field) {
       this.parishSortAsc = !this.parishSortAsc;
     } else {

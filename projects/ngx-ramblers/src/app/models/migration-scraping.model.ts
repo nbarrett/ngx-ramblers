@@ -72,8 +72,17 @@ export interface NgxWalk {
   groupEvent?: NgxWalkGroupEvent;
 }
 
-export type GapType = "page" | "content" | "album";
-export type GapPriority = "high" | "medium" | "low";
+export enum GapType {
+  Page = "page",
+  Content = "content",
+  Album = "album",
+}
+
+export enum GapPriority {
+  High = "high",
+  Medium = "medium",
+  Low = "low",
+}
 
 export interface ReconciliationGap {
   type: GapType;
@@ -82,7 +91,10 @@ export interface ReconciliationGap {
   priority: GapPriority;
 }
 
-export type SuggestionAction = "create" | "update";
+export enum SuggestionAction {
+  Create = "create",
+  Update = "update",
+}
 
 export interface ReconciliationSuggestion {
   action: SuggestionAction;

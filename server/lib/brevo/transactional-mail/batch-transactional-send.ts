@@ -16,6 +16,7 @@ import {
   BatchSendProgress,
   BatchSendProgressEntry,
   BatchSendStatus,
+  BatchSendEntryStatus,
   BatchSendStartResponse,
   BatchTransactionalSendRequest,
   AddresseeType,
@@ -262,14 +263,14 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         memberId: id,
         email: memberRecord?.email ?? "",
         fullName: memberRecord?.displayName ?? `${memberRecord?.firstName ?? ""} ${memberRecord?.lastName ?? ""}`.trim(),
-        status: "pending" as const
+        status: BatchSendEntryStatus.Pending
       } satisfies BatchSendProgressEntry;
     });
     const externalEntries: BatchSendProgressEntry[] = externalRecipients.map((recipient, idx) => ({
       memberId: `external:${idx}`,
       email: recipient.email,
       fullName: externalRecipientName(recipient).full,
-      status: "pending" as const
+      status: BatchSendEntryStatus.Pending
     } satisfies BatchSendProgressEntry));
 
     const workItems: WorkItem[] = [
@@ -291,13 +292,13 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       if (item.kind === "member") {
         const memberRecord = membersById.get(entry.memberId);
         if (!memberRecord || !memberRecord.email) {
-          entry.status = "failed";
+          entry.status = BatchSendEntryStatus.Failed;
           entry.errorMessage = "Member missing email";
           progress.failedCount += 1;
           continue;
         }
       } else if (!item.recipient.email) {
-        entry.status = "failed";
+        entry.status = BatchSendEntryStatus.Failed;
         entry.errorMessage = "Recipient missing email";
         progress.failedCount += 1;
         continue;
@@ -337,7 +338,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
             : { templateId: notifConfig!.templateId, templateOverrides: notifConfig!.templateOverrides })
         };
         await sendTransactionalEmailRequest(emailRequest, debugLog, baseUrl);
-        entry.status = "sent";
+        entry.status = BatchSendEntryStatus.Sent;
         entry.sentAt = dateTimeNow().toMillis();
         progress.sentCount += 1;
         if (item.kind === "external" && currentMemberId) {
@@ -349,7 +350,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           });
         }
       } catch (error: any) {
-        entry.status = "failed";
+        entry.status = BatchSendEntryStatus.Failed;
         entry.errorMessage = describeBrevoError(error);
         debugLog("send to", entry.email, "failed:", entry.errorMessage, "raw:", error);
         progress.failedCount += 1;

@@ -13,6 +13,7 @@ import { TiptapEditorDirective } from "ngx-tiptap";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faBold, faItalic, faLink, faListOl, faListUl, faQuoteRight, faUndo, faRedo, faHeading, faRemoveFormat } from "@fortawesome/free-solid-svg-icons";
 import { MERGE_FIELD_HINTS, MemberMergeFieldHint } from "../../../models/email-composer.model";
+import { TiptapMark } from "../../../models/tiptap-editor.model";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
 import { AwsFileData } from "../../../models/aws-object.model";
 import { RootFolder } from "../../../models/system.model";
@@ -151,10 +152,10 @@ import { NgxLoggerLevel } from "ngx-logger";
   template: `
     <div class="tiptap-editor-shell">
       <div class="tiptap-toolbar" role="toolbar">
-        <button type="button" title="Bold" (click)="toggle('bold')" [class.is-active]="isActive('bold')">
+        <button type="button" title="Bold" (click)="toggle(TiptapMark.Bold)" [class.is-active]="isActive('bold')">
           <fa-icon [icon]="faBold"/>
         </button>
-        <button type="button" title="Italic" (click)="toggle('italic')" [class.is-active]="isActive('italic')">
+        <button type="button" title="Italic" (click)="toggle(TiptapMark.Italic)" [class.is-active]="isActive('italic')">
           <fa-icon [icon]="faItalic"/>
         </button>
         <span class="toolbar-divider"></span>
@@ -165,13 +166,13 @@ import { NgxLoggerLevel } from "ngx-logger";
           <fa-icon [icon]="faHeading"/> 3
         </button>
         <span class="toolbar-divider"></span>
-        <button type="button" title="Bulleted list" (click)="toggle('bulletList')" [class.is-active]="isActive('bulletList')">
+        <button type="button" title="Bulleted list" (click)="toggle(TiptapMark.BulletList)" [class.is-active]="isActive('bulletList')">
           <fa-icon [icon]="faListUl"/>
         </button>
-        <button type="button" title="Numbered list" (click)="toggle('orderedList')" [class.is-active]="isActive('orderedList')">
+        <button type="button" title="Numbered list" (click)="toggle(TiptapMark.OrderedList)" [class.is-active]="isActive('orderedList')">
           <fa-icon [icon]="faListOl"/>
         </button>
-        <button type="button" title="Quote" (click)="toggle('blockquote')" [class.is-active]="isActive('blockquote')">
+        <button type="button" title="Quote" (click)="toggle(TiptapMark.Blockquote)" [class.is-active]="isActive('blockquote')">
           <fa-icon [icon]="faQuoteRight"/>
         </button>
         <span class="toolbar-divider"></span>
@@ -270,6 +271,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("TiptapMarkdownEditor", NgxLoggerLevel.ERROR);
 
+  protected readonly TiptapMark = TiptapMark;
   protected readonly faBold = faBold;
   protected readonly faItalic = faItalic;
   protected readonly faLink = faLink;
@@ -423,14 +425,14 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     return attrs ? this.editor.isActive(name, attrs) : this.editor.isActive(name);
   }
 
-  toggle(name: "bold" | "italic" | "bulletList" | "orderedList" | "blockquote"): void {
+  toggle(name: TiptapMark): void {
     if (!this.editor) return;
     const chain = this.editor.chain().focus();
-    if (name === "bold") chain.toggleBold().run();
-    else if (name === "italic") chain.toggleItalic().run();
-    else if (name === "bulletList") chain.toggleBulletList().run();
-    else if (name === "orderedList") chain.toggleOrderedList().run();
-    else if (name === "blockquote") chain.toggleBlockquote().run();
+    if (name === TiptapMark.Bold) chain.toggleBold().run();
+    else if (name === TiptapMark.Italic) chain.toggleItalic().run();
+    else if (name === TiptapMark.BulletList) chain.toggleBulletList().run();
+    else if (name === TiptapMark.OrderedList) chain.toggleOrderedList().run();
+    else if (name === TiptapMark.Blockquote) chain.toggleBlockquote().run();
   }
 
   toggleHeading(level: 2 | 3): void {

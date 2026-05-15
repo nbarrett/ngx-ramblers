@@ -52,3 +52,9 @@ export interface GroupAreaRegionConfig {
   sharedDistrictStyle?: SharedDistrictStyle;
   mainAreaGroupCodes?: string[];
 }
+
+export enum AreaGroupSortField {
+  GroupCode = "groupCode",
+  Name = "name",
+  Districts = "districts"
+}
