@@ -1,17 +1,17 @@
 export interface CloudflareWebAnalyticsTotals {
-  pageviews: number;
+  pageViews: number;
   visits: number;
 }
 
 export interface CloudflareWebAnalyticsTimeseriesPoint {
   datetime: string;
-  pageviews: number;
+  pageViews: number;
   visits: number;
 }
 
 export interface CloudflareWebAnalyticsBreakdownEntry {
   key: string;
-  pageviews: number;
+  pageViews: number;
   visits: number;
 }
 

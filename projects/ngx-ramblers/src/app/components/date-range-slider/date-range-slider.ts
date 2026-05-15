@@ -14,8 +14,6 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCalendar } from "@fortawesome/free-solid-svg-icons";
 import { DateUtilsService } from "../../services/date-utils.service";
-import { Logger, LoggerFactory } from "../../services/logger-factory.service";
-import { NgxLoggerLevel } from "ngx-logger";
 import { DateTime } from "luxon";
 import { Subject } from "rxjs";
 import { debounceTime } from "rxjs/operators";
@@ -53,6 +51,7 @@ export interface DateRange {
                 class="range-slider range-from"
                 [min]="minValue"
                 [max]="maxValue"
+                [style.z-index]="fromThumbZIndex"
                 [(ngModel)]="fromValue"
                 (ngModelChange)="onFromChange()"
                 step="1"/>
@@ -184,7 +183,6 @@ export interface DateRange {
   `]
 })
 export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
-  private logger: Logger = inject(LoggerFactory).createLogger("DateRangeSlider", NgxLoggerLevel.OFF);
   private dateUtils = inject(DateUtilsService);
   private initialized = false;
   private rangeInputSet = false;
@@ -212,7 +210,6 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   maxValue = 365;
   fromValue = 0;
   toValue = 30;
-  private baseDate: DateTime;
 
   ngOnInit() {
     this.configureBounds();
@@ -264,6 +261,10 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
     return ((this.toValue - this.fromValue) / this.maxValue) * 100;
   }
 
+  get fromThumbZIndex(): number {
+    return this.fromValue > this.maxValue / 2 ? 5 : 3;
+  }
+
   onFromChange() {
     if (this.fromValue > this.toValue) {
       this.fromValue = this.toValue;
@@ -308,8 +309,10 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   }
 
   private emitChange() {
-    const fromDate = this.minDate?.plus({ days: this.fromValue });
-    const toDate = this.minDate?.plus({ days: this.toValue });
+    const lowValue = Math.min(this.fromValue, this.toValue);
+    const highValue = Math.max(this.fromValue, this.toValue);
+    const fromDate = this.minDate?.plus({ days: lowValue });
+    const toDate = this.minDate?.plus({ days: highValue });
 
     if (fromDate && toDate) {
       this.rangeChangeSubject.next({
@@ -328,7 +331,6 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
     if (!this.minDate) {
       this.minDate = fallback;
     }
-    this.baseDate = this.minDate;
     if (!this.maxDate) {
       this.maxDate = this.minDate.plus({ years: 2 });
     }

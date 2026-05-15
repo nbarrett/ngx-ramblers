@@ -271,7 +271,7 @@ function toBreakdown<D>(
 ): CloudflareWebAnalyticsBreakdownEntry[] {
   return rows.map(row => ({
     key: keyExtractor(row.dimensions) || fallback,
-    pageviews: row.count || 0,
+    pageViews: row.count || 0,
     visits: row.sum?.visits || 0
   }));
 }
@@ -386,7 +386,7 @@ export async function queryWebAnalyticsSummary(cloudflareConfig: CloudflareConfi
   const account = data.data?.viewer?.accounts?.[0];
   if (!account) {
     return {
-      totals: {pageviews: 0, visits: 0},
+      totals: {pageViews: 0, visits: 0},
       timeseries: [],
       topPaths: [],
       topCountries: [],
@@ -400,13 +400,13 @@ export async function queryWebAnalyticsSummary(cloudflareConfig: CloudflareConfi
   const totalsRow = account.totals?.[0];
   const timeseries: CloudflareWebAnalyticsTimeseriesPoint[] = (account.timeseries || []).map(row => ({
     datetime: row.dimensions.ts,
-    pageviews: row.count || 0,
+    pageViews: row.count || 0,
     visits: row.sum?.visits || 0
   }));
 
   return {
     totals: {
-      pageviews: totalsRow?.count || 0,
+      pageViews: totalsRow?.count || 0,
       visits: totalsRow?.sum?.visits || 0
     },
     timeseries,
