@@ -14,6 +14,7 @@ import {
   ExternalSystems,
   Footer,
   GoogleAnalyticsConfig,
+  GoogleSearchConsoleConfig,
   Header,
   GoogleMapsConfig,
   ImageConfig,
@@ -315,6 +316,7 @@ export class SystemConfigService {
       enableMigration: {events: false},
       googleAnalytics: this.googleAnalyticsDefaults(),
       cloudflareWebAnalytics: this.cloudflareWebAnalyticsDefaults(),
+      googleSearchConsole: this.googleSearchConsoleDefaults(),
       googleMaps: this.googleMapsDefaults(),
       recaptcha: this.recaptchaDefaults(),
       mailDefaults: this.mailDefaults(),
@@ -346,6 +348,10 @@ export class SystemConfigService {
 
   public cloudflareWebAnalyticsDefaults(): CloudflareWebAnalyticsConfig {
     return {enabled: false, siteToken: null, siteTag: null};
+  }
+
+  public googleSearchConsoleDefaults(): GoogleSearchConsoleConfig {
+    return {verificationId: null};
   }
 
   public googleMapsDefaults(): GoogleMapsConfig {
