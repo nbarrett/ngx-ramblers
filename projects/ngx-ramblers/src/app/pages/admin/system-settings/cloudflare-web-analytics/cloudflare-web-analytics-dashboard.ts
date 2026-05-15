@@ -9,12 +9,14 @@ import { faExclamationTriangle, faRotate } from "@fortawesome/free-solid-svg-ico
 import {
   CloudflareWebAnalyticsSummary
 } from "../../../../models/cloudflare-web-analytics.model";
+import { UIDateFormat } from "../../../../models/date-format.model";
 import { CloudflareWebAnalyticsService } from "../../../../services/cloudflare/cloudflare-web-analytics.service";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { extractErrorMessage } from "../../../../functions/strings";
 import { SectionToggle } from "../../../../shared/components/section-toggle";
 import { DateRange, DateRangeSlider } from "../../../../components/date-range-slider/date-range-slider";
+import { AnalyticsBreakdownTable } from "./analytics-breakdown-table";
 import { DateTime } from "luxon";
 
 interface PresetRange {
@@ -22,12 +24,41 @@ interface PresetRange {
   days: number;
 }
 
+const CUSTOM_RANGE_LABEL = "Custom";
+
 @Component({
   selector: "app-cloudflare-web-analytics-dashboard",
-  imports: [CommonModule, FormsModule, FontAwesomeModule, BaseChartDirective, SectionToggle, DateRangeSlider],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, BaseChartDirective, SectionToggle, DateRangeSlider, AnalyticsBreakdownTable],
   styles: [`
     :host ::ng-deep .section-toggle
       margin-bottom: 0
+
+    .analytics-table-frame
+      border: 1px solid var(--rsm-border)
+      border-radius: 6px
+      overflow: hidden
+
+    .analytics-table
+      width: 100%
+      border-collapse: collapse
+      font-size: 0.88rem
+
+    .analytics-table thead th
+      background-color: var(--rsm-table-header-bg)
+      color: var(--rsm-table-header-text)
+      font-weight: 600
+      padding: 10px 16px
+      white-space: nowrap
+
+    .analytics-table tbody td
+      padding: 10px 16px
+      border-top: 1px solid var(--rsm-border)
+
+    .analytics-table tbody tr:nth-child(odd)
+      background-color: var(--rsm-panel-bg)
+
+    .analytics-table tbody tr:nth-child(even)
+      background-color: var(--rsm-row-stripe)
   `],
   template: `
     <div class="row thumbnail-heading-frame">
@@ -44,7 +75,7 @@ interface PresetRange {
               <label class="d-block">Range</label>
               <app-section-toggle
                 [tabs]="presetLabels"
-                [selectedTab]="selectedPreset.label"
+                [selectedTab]="selectedPresetLabel"
                 [queryParamKey]="'analytics-range'"
                 (selectedTabChange)="selectPresetByLabel($event)"/>
             </div>
@@ -77,7 +108,7 @@ interface PresetRange {
                 <div class="card h-100">
                   <div class="card-body">
                     <h6 class="text-muted text-uppercase small mb-1">Page views</h6>
-                    <div class="h3 mb-0">{{ summary.totals.pageviews | number }}</div>
+                    <div class="h3 mb-0">{{ summary.totals.pageViews | number }}</div>
                   </div>
                 </div>
               </div>
@@ -93,7 +124,7 @@ interface PresetRange {
                 <div class="card h-100">
                   <div class="card-body">
                     <h6 class="text-muted text-uppercase small mb-1">Date range</h6>
-                    <div class="mb-0">{{ fromDate }} &mdash; {{ toDate }}</div>
+                    <div class="mb-0">{{ fromDateDisplay }} &mdash; {{ toDateDisplay }}</div>
                   </div>
                 </div>
               </div>
@@ -120,49 +151,51 @@ interface PresetRange {
             <div class="row g-3">
               <div class="col-md-6">
                 <h5>Top paths</h5>
-                <ng-container *ngTemplateOutlet="breakdownTable; context: {rows: summary.topPaths, label: 'Path'}"/>
+                <app-analytics-breakdown-table [rows]="summary.topPaths" label="Path"/>
               </div>
               <div class="col-md-6">
                 <h5>Top countries</h5>
-                <ng-container *ngTemplateOutlet="breakdownTable; context: {rows: summary.topCountries, label: 'Country'}"/>
+                <app-analytics-breakdown-table [rows]="summary.topCountries" label="Country"/>
               </div>
               <div class="col-md-6">
                 <h5>Top referrers</h5>
-                <ng-container *ngTemplateOutlet="breakdownTable; context: {rows: summary.topReferrers, label: 'Referrer'}"/>
+                <app-analytics-breakdown-table [rows]="summary.topReferrers" label="Referrer"/>
               </div>
               <div class="col-md-6">
                 <h5>Device types</h5>
-                <ng-container *ngTemplateOutlet="breakdownTable; context: {rows: summary.deviceTypes, label: 'Device'}"/>
+                <app-analytics-breakdown-table [rows]="summary.deviceTypes" label="Device"/>
               </div>
               <div class="col-md-6">
                 <h5>Browsers</h5>
-                <ng-container *ngTemplateOutlet="breakdownTable; context: {rows: summary.browsers, label: 'Browser'}"/>
+                <app-analytics-breakdown-table [rows]="summary.browsers" label="Browser"/>
               </div>
               <div class="col-md-6">
                 <h5>Core Web Vitals</h5>
                 @if (summary.webVitals.length === 0) {
                   <div class="text-muted small">No web vitals reported in this range.</div>
                 } @else {
-                  <table class="table table-sm table-striped">
-                    <thead>
-                    <tr>
-                      <th>Metric</th>
-                      <th class="text-end">Good</th>
-                      <th class="text-end">Needs improvement</th>
-                      <th class="text-end">Poor</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                      @for (row of summary.webVitals; track row.metric) {
-                        <tr>
-                          <td>{{ row.metric }}</td>
-                          <td class="text-end">{{ row.good | number }}</td>
-                          <td class="text-end">{{ row.needsImprovement | number }}</td>
-                          <td class="text-end">{{ row.poor | number }}</td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
+                  <div class="analytics-table-frame">
+                    <table class="analytics-table">
+                      <thead>
+                      <tr>
+                        <th>Metric</th>
+                        <th class="text-end">Good</th>
+                        <th class="text-end">Needs improvement</th>
+                        <th class="text-end">Poor</th>
+                      </tr>
+                      </thead>
+                      <tbody>
+                        @for (row of summary.webVitals; track row.metric) {
+                          <tr>
+                            <td>{{ row.metric }}</td>
+                            <td class="text-end">{{ row.good | number }}</td>
+                            <td class="text-end">{{ row.needsImprovement | number }}</td>
+                            <td class="text-end">{{ row.poor | number }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
                 }
               </div>
             </div>
@@ -174,32 +207,7 @@ interface PresetRange {
           }
         }
       </div>
-    </div>
-
-    <ng-template #breakdownTable let-rows="rows" let-label="label">
-      @if (!rows || rows.length === 0) {
-        <div class="text-muted small">No data.</div>
-      } @else {
-        <table class="table table-sm table-striped">
-          <thead>
-          <tr>
-            <th>{{ label }}</th>
-            <th class="text-end">Page views</th>
-            <th class="text-end">Visits</th>
-          </tr>
-          </thead>
-          <tbody>
-            @for (row of rows; track row.key) {
-              <tr>
-                <td class="text-break">{{ row.key }}</td>
-                <td class="text-end">{{ row.pageviews | number }}</td>
-                <td class="text-end">{{ row.visits | number }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      }
-    </ng-template>`
+    </div>`
 })
 export class CloudflareWebAnalyticsDashboard {
 
@@ -223,6 +231,14 @@ export class CloudflareWebAnalyticsDashboard {
     return this.siteTagInternal;
   }
 
+  get fromDateDisplay(): string {
+    return this.formatDisplayDate(this.fromDate);
+  }
+
+  get toDateDisplay(): string {
+    return this.formatDisplayDate(this.toDate);
+  }
+
   protected summary: CloudflareWebAnalyticsSummary = null;
   protected fromDate: string;
   protected toDate: string;
@@ -236,8 +252,8 @@ export class CloudflareWebAnalyticsDashboard {
     {label: "30d", days: 30},
     {label: "90d", days: 90}
   ];
-  protected selectedPreset: PresetRange = this.presets[1];
-  protected readonly presetLabels: string[] = this.presets.map(preset => preset.label);
+  protected selectedPresetLabel: string = this.presets[1].label;
+  protected readonly presetLabels: string[] = [...this.presets.map(preset => preset.label), CUSTOM_RANGE_LABEL];
   protected sliderMinDate: DateTime;
   protected sliderMaxDate: DateTime;
   protected sliderRange: DateRange;
@@ -265,11 +281,11 @@ export class CloudflareWebAnalyticsDashboard {
     Chart.register(...registerables);
     this.sliderMaxDate = this.dateUtils.dateTimeNow().startOf("day");
     this.sliderMinDate = this.sliderMaxDate.minus({days: 90});
-    this.applyPreset(this.selectedPreset);
+    this.applyPreset(this.presets[1]);
   }
 
   selectPreset(preset: PresetRange): void {
-    this.selectedPreset = preset;
+    this.selectedPresetLabel = preset.label;
     this.applyPreset(preset);
     this.loadAnalytics();
   }
@@ -278,20 +294,41 @@ export class CloudflareWebAnalyticsDashboard {
     const preset = this.presets.find(candidate => candidate.label === label);
     if (preset) {
       this.selectPreset(preset);
+    } else {
+      this.selectedPresetLabel = this.presetLabelForRange(this.sliderRange);
     }
+  }
+
+  private presetLabelForRange(range: DateRange | undefined): string {
+    if (!range) {
+      return CUSTOM_RANGE_LABEL;
+    }
+    const toleranceMillis = 12 * 60 * 60 * 1000;
+    const windowContains = (preset: PresetRange): boolean => {
+      const presetFrom = this.sliderMaxDate.minus({days: preset.days}).toMillis();
+      const presetTo = this.sliderMaxDate.toMillis();
+      return range.from >= presetFrom - toleranceMillis && range.to <= presetTo + toleranceMillis;
+    };
+    const current = this.presets.find(preset => preset.label === this.selectedPresetLabel);
+    if (current && windowContains(current)) {
+      return current.label;
+    }
+    const containing = this.presets.find(preset => windowContains(preset));
+    return containing ? containing.label : CUSTOM_RANGE_LABEL;
   }
 
   private applyPreset(preset: PresetRange): void {
     const to = this.sliderMaxDate;
     const from = to.minus({days: preset.days});
-    this.toDate = to.toFormat("yyyy-LL-dd");
-    this.fromDate = from.toFormat("yyyy-LL-dd");
+    this.toDate = to.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
+    this.fromDate = from.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
     this.sliderRange = {from: from.toMillis(), to: to.toMillis()};
   }
 
   onRangeChange(range: DateRange): void {
-    this.fromDate = DateTime.fromMillis(range.from).toFormat("yyyy-LL-dd");
-    this.toDate = DateTime.fromMillis(range.to).toFormat("yyyy-LL-dd");
+    this.selectedPresetLabel = this.presetLabelForRange(range);
+    this.fromDate = DateTime.fromMillis(range.from).toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
+    this.toDate = DateTime.fromMillis(range.to).toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
     this.sliderRange = range;
     this.loadAnalytics();
   }
@@ -321,16 +358,27 @@ export class CloudflareWebAnalyticsDashboard {
   }
 
   private populateTimeseries(summary: CloudflareWebAnalyticsSummary): void {
-    const labels = summary.timeseries.map(point => point.datetime);
-    const pageviews = summary.timeseries.map(point => point.pageviews);
+    const labels = summary.timeseries.map(point => this.formatTimeseriesLabel(point.datetime));
+    const pageViews = summary.timeseries.map(point => point.pageViews);
     const visits = summary.timeseries.map(point => point.visits);
     this.timeseriesChart = {
       labels,
       datasets: [
-        {label: "Page views", data: pageviews, borderColor: "rgb(249,177,4)", backgroundColor: "rgba(249,177,4,0.2)", tension: 0.25, fill: true},
+        {label: "Page views", data: pageViews, borderColor: "rgb(249,177,4)", backgroundColor: "rgba(249,177,4,0.2)", tension: 0.25, fill: true},
         {label: "Visits", data: visits, borderColor: "rgb(240,128,80)", backgroundColor: "rgba(240,128,80,0.15)", tension: 0.25, fill: true}
       ]
     };
+  }
+
+  private formatDisplayDate(value: string): string {
+    return value ? this.dateUtils.asString(value, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "";
+  }
+
+  private formatTimeseriesLabel(datetime: string): string {
+    const format = datetime?.includes("T")
+      ? UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED_TIME
+      : UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED;
+    return datetime ? this.dateUtils.asString(datetime, undefined, format) : "";
   }
 
 }

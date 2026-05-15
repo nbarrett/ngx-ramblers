@@ -5,7 +5,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 
 export function initializeCloudflareBeacon(systemConfigService: SystemConfigService, loggerFactory: LoggerFactory) {
-  const logger = loggerFactory.createLogger("initializeCloudflareBeacon", NgxLoggerLevel.ERROR);
+  const logger = loggerFactory.createLogger("initializeCloudflareBeacon", NgxLoggerLevel.INFO);
   return async () => {
     try {
       const config: SystemConfig = await firstValueFrom(systemConfigService.events());
@@ -23,7 +23,7 @@ export function initializeCloudflareBeacon(systemConfigService: SystemConfigServ
       beacon.src = "https://static.cloudflareinsights.com/beacon.min.js";
       beacon.setAttribute("data-cf-beacon", JSON.stringify({token: settings.siteToken, spa: true}));
       beacon.onload = () => logger.info("Cloudflare Web Analytics beacon loaded for siteToken:", settings.siteToken);
-      beacon.onerror = (error) => logger.error("Failed to load Cloudflare Web Analytics beacon:", error);
+      beacon.onerror = () => logger.info("Cloudflare Web Analytics beacon did not load (commonly blocked by a browser privacy extension)");
       document.head.appendChild(beacon);
     } catch (error) {
       logger.info("Failed to initialise Cloudflare Web Analytics beacon:", error);
