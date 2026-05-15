@@ -186,6 +186,9 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
       siteToken: null,
       siteTag: null
     },
+    googleSearchConsole: {
+      verificationId: null
+    },
     mailDefaults: {
       mailProvider: MailProvider.BREVO,
       autoSubscribeNewMembers: true

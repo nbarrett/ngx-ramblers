@@ -62,6 +62,7 @@ import { parishRoutes } from "./parishes/parish-routes";
 import { parishAllocationRoutes } from "./mongo/routes/parish-allocation";
 import { migrationRunner } from "./mongo/migrations/migrations-runner";
 import { resolveClientPath } from "./shared/path-utils";
+import { serveIndexHtml } from "./shared/serve-index-html";
 import { Environment } from "../../projects/ngx-ramblers/src/app/models/environment.model";
 import { mapRouteRoutes } from "./map-routes/map-route-routes";
 import { spatialFeaturesController } from "./map-routes/spatial-features-controller";
@@ -164,22 +165,22 @@ app.use("/api/cloudflare/web-analytics", cloudflareWebAnalyticsRoutes);
 app.use("/api/environment-setup", environmentSetupRoutes);
 const staticAssetExtensions = /\.(js|mjs|css|map|wasm|json|ico|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|eot|txt|xml)$/i;
 if (fs.existsSync(distFolder)) {
-  app.use("/", express.static(distFolder, {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith("index.html")) {
-        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      }
+  const indexPath = path.join(distFolder, "index.html");
+  app.get(["/", "/index.html"], (req, res, next) => {
+    if (fs.existsSync(indexPath)) {
+      serveIndexHtml(indexPath, res).catch(next);
+    } else {
+      next();
     }
-  }));
+  });
+  app.use("/", express.static(distFolder, {index: false}));
   app.use((req, res, next) => {
     if (staticAssetExtensions.test(req.path)) {
       res.status(404).send(`Asset not found: ${req.path}`);
       return;
     }
-    const indexPath = path.join(distFolder, "index.html");
     if (fs.existsSync(indexPath)) {
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.sendFile(indexPath);
+      serveIndexHtml(indexPath, res).catch(next);
     } else {
       debugLog("⚠️ index.html not found in", distFolder, "— likely running in dev before build.");
       next();

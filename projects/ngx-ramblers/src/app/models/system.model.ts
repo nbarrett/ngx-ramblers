@@ -363,6 +363,7 @@ export interface SystemConfig {
   images: ImageConfig
   googleAnalytics: GoogleAnalyticsConfig
   cloudflareWebAnalytics: CloudflareWebAnalyticsConfig
+  googleSearchConsole: GoogleSearchConsoleConfig
   mailDefaults: {
     mailProvider: MailProvider;
     autoSubscribeNewMembers: boolean;
@@ -378,6 +379,10 @@ export interface CloudflareWebAnalyticsConfig {
   enabled: boolean;
   siteToken: string;
   siteTag: string;
+}
+
+export interface GoogleSearchConsoleConfig {
+  verificationId: string;
 }
 
 
