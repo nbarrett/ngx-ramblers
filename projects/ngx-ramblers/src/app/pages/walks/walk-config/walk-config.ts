@@ -13,11 +13,14 @@ import { ContentText, ContentTextCategory, View } from "../../../models/content-
 import { MeetupConfig } from "../../../models/meetup-config.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { WalksConfig, WalkConfigTab } from "../../../models/walks-config.model";
+import { AccessLevel } from "../../../models/member-resource.model";
+import { enumValues } from "../../../functions/enums";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { ContentTextService } from "../../../services/content-text.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
+import { DateUtilsService } from "../../../services/date-utils.service";
 import { MeetupService } from "../../../services/meetup.service";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { PageComponent } from "../../../page/page.component";
@@ -81,6 +84,26 @@ import {
                              class="form-check-input"
                              id="show-repeated-pagination">
                       <label class="form-check-label" for="show-repeated-pagination">Repeat the pagination row below the event list when the current page is full (helps mobile users after a long scroll)</label>
+                    </div>
+                    <div class="form-group mb-3 mt-3">
+                      <label for="regular-walk-day">Regular Walk Day (used by Add Walk Slots bulk mode)</label>
+                      <select [(ngModel)]="walksConfig.regularWalkDay"
+                              class="form-control input-sm"
+                              id="regular-walk-day">
+                        @for (day of weekdayOptions; track day.value) {
+                          <option [ngValue]="day.value">{{ day.label }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div class="form-group mb-3">
+                      <label for="walk-creation-access-level">Walk leader self-service - who can create their own walk</label>
+                      <select [(ngModel)]="walksConfig.walkCreationAccessLevel"
+                              class="form-control input-sm"
+                              id="walk-creation-access-level">
+                        @for (level of accessLevels; track level) {
+                          <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
+                        }
+                      </select>
                     </div>
                   </div>
                 }
@@ -294,6 +317,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("WalkConfigComponent", NgxLoggerLevel.ERROR);
   private location = inject(Location);
   private urlService = inject(UrlService);
+  private dateUtils = inject(DateUtilsService);
   private contentTextService = inject(ContentTextService);
   private meetupService = inject(MeetupService);
   private walksConfigService = inject(WalksConfigService);
@@ -308,6 +332,15 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   addNew: boolean;
   public meetupConfig: MeetupConfig;
   public walksConfig: WalksConfig;
+  public weekdayOptions: { label: string; value: number }[] = [];
+  public accessLevels: AccessLevel[] = enumValues(AccessLevel);
+  public accessLevelDescriptions: Record<AccessLevel, string> = {
+    [AccessLevel.HIDDEN]: "No access",
+    [AccessLevel.ENVIRONMENT_ADMIN]: "Environment admin",
+    [AccessLevel.COMMITTEE]: "Committee",
+    [AccessLevel.LOGGED_IN_MEMBER]: "Logged-in member",
+    [AccessLevel.PUBLIC]: "Public"
+  };
   faGear = faGear;
   faShareNodes = faShareNodes;
   faRoute = faRoute;
@@ -320,9 +353,15 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.logger.debug("ngOnInit");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.weekdayOptions = this.dateUtils.daysOfWeek().map((label, index) => ({label, value: index + 1}));
     this.meetupService.queryConfig().then(config => this.meetupConfig = config);
     this.walksConfig = this.walksConfigService.default();
-    this.subscriptions.push(this.walksConfigService.events().subscribe(config => this.walksConfig = config));
+    this.subscriptions.push(this.walksConfigService.events().subscribe(config => {
+      this.walksConfig = config;
+      if (!this.walksConfig.walkCreationAccessLevel) {
+        this.walksConfig.walkCreationAccessLevel = AccessLevel.HIDDEN;
+      }
+    }));
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
       this.tab = params[StoredValue.TAB] || kebabCase(WalkConfigTab.GENERAL);
     }));
@@ -394,6 +433,8 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
 
   save() {
     this.walksConfigService.saveConfig(this.walksConfig)
-      .then(() => this.meetupService.saveConfig(this.notify, this.meetupConfig));
+      .then(() => this.meetupService.saveConfig(this.notify, this.meetupConfig))
+      .then(() => this.notify.success({title: "Walk configuration", message: "Saved successfully"}))
+      .catch((error) => this.notify.error({title: "Walk configuration", message: error}));
   }
 }

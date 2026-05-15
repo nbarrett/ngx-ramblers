@@ -20,17 +20,20 @@ import { DisplayDatesAndTimesPipe } from "../../../pipes/display-dates-and-times
 import { uniq } from "es-toolkit/compat";
 import { DisplayDatesPipe } from "../../../pipes/display-dates.pipe";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { PageComponent } from "../../../page/page.component";
 import { FormsModule } from "@angular/forms";
 import { DatePicker } from "../../../date-and-time/date-picker";
+import { TimePicker } from "../../../date-and-time/time-picker";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
 import { DataQueryOptions } from "../../../models/api-request.model";
 import { GroupEventField } from "../../../models/walk.model";
+import { WeekdayNumbers } from "luxon";
 
 @Component({
     selector: "app-walk-add-slots",
@@ -50,7 +53,7 @@ import { GroupEventField } from "../../../models/walk.model";
                        (click)="selectBulk(true)"
                        [(ngModel)]="selectionMade"
                        value="true"/>
-                <label class="form-check-label" for="create-in-bulk">Create Sunday slots in bulk</label>
+                <label class="form-check-label" for="create-in-bulk">Create slots in bulk</label>
               </div>
               <div class="form-check form-check-inline">
                 <input id="create-non-standard"
@@ -77,28 +80,63 @@ import { GroupEventField } from "../../../models/walk.model";
                       filled.
                     </li>
                   </ul>
-                  <div class="d-inline-flex align-items-center flex-wrap">
-                    <label for="add-slots-until">Add available slots until:</label>
-                    <app-date-picker startOfDay id="add-slots-until" [disabled]="confirmAction"
-                                     [size]="'md'"
-                                     (change)="onUntilDateChange($event)"
-                                     [value]="untilDate">
-                    </app-date-picker>
+                  <div class="row align-items-center">
+                    <div class="col-auto">
+                      <label for="bulk-walk-day">Walk day</label>
+                      <div class="form-group">
+                        <select id="bulk-walk-day" class="form-control input-sm w-100"
+                                [disabled]="confirmAction"
+                                [ngModel]="regularWalkDay"
+                                (ngModelChange)="onRegularWalkDayChange($event)">
+                          @for (day of weekdayOptions; track day.value) {
+                            <option [ngValue]="day.value">{{ day.label }}</option>
+                          }
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-auto">
+                      <label for="add-slots-until">Add available slots until</label>
+                      <div class="form-group">
+                        <app-date-picker startOfDay id="add-slots-until" [disabled]="confirmAction"
+                                         [size]="'md'" class="w-100"
+                                         (change)="onUntilDateChange($event)"
+                                         [value]="untilDate">
+                        </app-date-picker>
+                      </div>
+                    </div>
+                    <div class="col-auto">
+                      <div class="form-group" app-time-picker id="add-slots-start-time" label="Start time"
+                           [disabled]="confirmAction"
+                           [value]="startTime"
+                           (change)="onStartTimeChange($event)">
+                      </div>
+                    </div>
                   </div>
                 </div>
               }
               @if (selectionMade && !bulk) {
                 <div>
                   <ul class="list-arrow">
-                    <li>Use this option to create a slot on any day rather than just on a Sunday.</li>
+                    <li>Use this option to create a slot on any day rather than just on a {{ regularWalkDayName }}.</li>
                   </ul>
-                  <div class="d-inline-flex align-items-center flex-wrap">
-                    <label for="add-single-slot">Add a slot on:</label>
-                    <app-date-picker startOfDay id="add-single-slot"
-                                     [size]="'md'"
-                                     (change)="onSingleDateChange($event)"
-                                     [value]="singleDate">
-                    </app-date-picker>
+                  <div class="row align-items-center">
+                    <div class="col-auto">
+                      <label for="add-single-slot">Add a slot on</label>
+                      <div class="form-group">
+                        <app-date-picker startOfDay id="add-single-slot"
+                                         [size]="'md'" class="w-100"
+                                         (change)="onSingleDateChange($event)"
+                                         [value]="singleDate">
+                        </app-date-picker>
+                      </div>
+                    </div>
+                    <div class="col-auto">
+                      <div class="form-group" app-time-picker id="add-single-slot-start-time" label="Start time"
+                           [disabled]="confirmAction"
+                           [value]="startTime"
+                           (change)="onStartTimeChange($event)">
+                      </div>
+                    </div>
                   </div>
                 </div>
               }
@@ -158,7 +196,7 @@ import { GroupEventField } from "../../../models/walk.model";
       </app-page>
     `,
     styleUrls: ["./walk-add-slots.component.sass"],
-  imports: [PageComponent, FormsModule, DatePicker, FontAwesomeModule]
+  imports: [PageComponent, FormsModule, DatePicker, TimePicker, FontAwesomeModule]
 })
 export class WalkAddSlotsComponent implements OnInit {
 
@@ -174,6 +212,7 @@ export class WalkAddSlotsComponent implements OnInit {
   private notifierService = inject(NotifierService);
   protected display = inject(WalkDisplayService);
   private systemConfigService = inject(SystemConfigService);
+  private walksConfigService = inject(WalksConfigService);
   private broadcastService = inject<BroadcastService<ExtendedGroupEvent[]>>(BroadcastService);
   private location = inject(Location);
   private urlService = inject(UrlService);
@@ -190,10 +229,16 @@ export class WalkAddSlotsComponent implements OnInit {
   public notifyTarget: AlertTarget = {};
   public selectionMade: string;
   private displaySlotTimes = false;
+  public regularWalkDay: WeekdayNumbers = 7;
+  public regularWalkDayName = "Sunday";
+  public regularWalkDayUserSelected = false;
+  public weekdayOptions: { label: string; value: number }[] = [];
+  public startTime: string;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.weekdayOptions = this.dateUtils.daysOfWeek().map((label, index) => ({label, value: index + 1}));
     this.systemConfigService.events().subscribe(async item => {
       if (this.display.walkPopulationWalksManager()) {
         this.notify.warning({
@@ -203,11 +248,35 @@ export class WalkAddSlotsComponent implements OnInit {
       } else {
       }
     });
+    this.walksConfigService.events().subscribe(() => this.applyRegularWalkDay());
     this.todayValue = this.dateUtils.dateTimeNowNoTime().toMillis();
-    const momentUntil = this.dateUtils.dateTimeNowNoTime().set({ weekday: 7 }).plus({ weeks: 12 });
-    this.untilDate = this.dateUtils.asDateValue(momentUntil.valueOf());
+    this.applyRegularWalkDay();
     this.singleDate = this.dateUtils.asDateValue(this.todayValue);
+    this.startTime = this.dateUtils.isoDateTime(this.dateUtils.dateTimeNowNoTime().set({ hour: 10, minute: 0 }).valueOf());
     this.bulk = true;
+  }
+
+  private applyRegularWalkDay() {
+    if (this.regularWalkDayUserSelected) {
+      return;
+    }
+    this.setRegularWalkDay(this.normaliseWeekday(this.walksConfigService.walksConfig()?.regularWalkDay));
+  }
+
+  onRegularWalkDayChange(value: WeekdayNumbers) {
+    this.regularWalkDayUserSelected = true;
+    this.setRegularWalkDay(this.normaliseWeekday(value));
+  }
+
+  private setRegularWalkDay(weekday: WeekdayNumbers) {
+    this.regularWalkDay = weekday;
+    this.regularWalkDayName = this.dateUtils.daysOfWeek()[this.regularWalkDay - 1] || "Sunday";
+    const momentUntil = this.dateUtils.dateTimeNowNoTime().set({ weekday: this.regularWalkDay }).plus({ weeks: 12 });
+    this.untilDate = this.dateUtils.asDateValue(momentUntil.valueOf());
+  }
+
+  private normaliseWeekday(value: number): WeekdayNumbers {
+    return (value >= 1 && value <= 7 ? value : 7) as WeekdayNumbers;
   }
 
   validDate(date: DateValue) {
@@ -221,7 +290,7 @@ export class WalkAddSlotsComponent implements OnInit {
           inputSource: InputSource.MANUALLY_CREATED
         },
         groupEvent: {
-          start_date_time: this.dateUtils.isoDateTime(date)
+          start_date_time: this.applyStartTime(date)
         }
       });
       walk.events = [this.walkEventService.createEventIfRequired(walk, this.walksReferenceService.walkEventTypeMappings.awaitingLeader.eventType, "Walk slot created")];
@@ -260,14 +329,14 @@ export class WalkAddSlotsComponent implements OnInit {
       .then((walks: ExtendedGroupEvent[]) => this.extendedGroupEventQueryService.activeEvents(walks))
       .then((walks: ExtendedGroupEvent[]) => {
         this.notify.clearBusy();
-        const sunday = this.dateUtils.dateTimeNowNoTime().set({ weekday: 7 });
+        const firstDay = this.dateUtils.dateTimeNowNoTime().set({ weekday: this.regularWalkDay });
         const until = this.dateUtils.asDateTime(this.untilDate).startOf("day");
-        const allGeneratedSlots = this.dateUtils.inclusiveDayRange(sunday.valueOf(), until.valueOf())
-          .filter(item => this.dateUtils.asDateTime(item).weekday === 7).filter((date) => {
+        const allGeneratedSlots = this.dateUtils.inclusiveDayRange(firstDay.valueOf(), until.valueOf())
+          .filter(item => this.dateUtils.asDateTime(item).weekday === this.regularWalkDay).filter((date) => {
             return this.dateUtils.asString(date, undefined, "DD-MMM") !== "25-Dec";
           });
         const existingDates: number[] = this.extendedGroupEventQueryService.activeEvents(walks).map(walk => this.dateUtils.asValueNoTime(walk?.groupEvent?.start_date_time));
-        this.logger.debug("sunday", sunday, "until", until);
+        this.logger.debug("firstDay", firstDay, "until", until);
         this.logger.debug("existingDatesAsStrings", existingDates.map(date => this.displayDate.transform(date)));
         this.logger.debug("allGeneratedSlotsAsStrings", allGeneratedSlots.map(date => this.displayDate.transform(date)));
         const requiredSlots = uniq(difference(allGeneratedSlots, existingDates));
@@ -321,11 +390,15 @@ export class WalkAddSlotsComponent implements OnInit {
   }
 
   allowAddSlot() {
-    return !this.confirmAction && !this.bulk && this.memberLoginService.allowWalkAdminEdits();
+    return !this.confirmAction && !this.bulk && this.allowSlotEdits();
   }
 
   allowAddSlots() {
-    return !this.confirmAction && this.bulk && this.memberLoginService.allowWalkAdminEdits();
+    return !this.confirmAction && this.bulk && this.allowSlotEdits();
+  }
+
+  private allowSlotEdits(): boolean {
+    return this.memberLoginService.allowWalkAdminEdits();
   }
 
   cancelConfirmableAction() {
@@ -363,6 +436,18 @@ export class WalkAddSlotsComponent implements OnInit {
   onSingleDateChange(date: DateValue) {
     this.logger.info("onSingleDateChange:date", date);
     this.singleDate = date;
+  }
+
+  onStartTimeChange(value: string) {
+    this.logger.info("onStartTimeChange:value", value);
+    this.startTime = value;
+  }
+
+  private applyStartTime(date: number): string {
+    const day = this.dateUtils.asDateTime(date).startOf("day");
+    const time = this.dateUtils.asDateTime(this.startTime);
+    const combined = time.isValid ? day.set({ hour: time.hour, minute: time.minute }) : day;
+    return this.dateUtils.isoDateTime(combined.valueOf());
   }
 
 }

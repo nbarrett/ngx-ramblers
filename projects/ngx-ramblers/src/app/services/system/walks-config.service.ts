@@ -8,6 +8,7 @@ import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { WalksConfig } from "../../models/walks-config.model";
+import { AccessLevel } from "../../models/member-resource.model";
 
 @Injectable({
   providedIn: "root"
@@ -74,7 +75,9 @@ export class WalksConfigService {
       relatedLinkShowOsMaps: true,
       relatedLinkShowWhat3words: true,
       relatedLinkShowVenue: true,
-      relatedLinkShowGpx: true
+      relatedLinkShowGpx: true,
+      regularWalkDay: 7,
+      walkCreationAccessLevel: AccessLevel.HIDDEN
     };
   };
 
