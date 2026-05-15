@@ -1,24 +1,10 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EmailComposerState } from "../../models/email-composer.model";
+import { EmailComposerState, EmailComposition, EmailCompositionStatus } from "../../models/email-composer.model";
 import { ApiResponse } from "../../models/api-response.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-
-export type EmailCompositionStatus = "draft" | "sent";
-
-export interface EmailComposition {
-  id: string;
-  ownerMemberId: string;
-  status: EmailCompositionStatus;
-  shared: boolean;
-  title: string;
-  savedAt: number;
-  sentAt?: number;
-  sentRecipientCount?: number;
-  state: EmailComposerState;
-}
 
 interface CompositionDocument {
   id: string;
@@ -151,7 +137,7 @@ export class EmailCompositionsService {
   }
 
   async markSent(id: string, sentRecipientCount?: number): Promise<EmailComposition> {
-    const body = { status: "sent" as const, sentRecipientCount };
+    const body = { status: EmailCompositionStatus.Sent, sentRecipientCount };
     const apiResponse = await this.http.put<CompositionSingleResponse>(`${this.BASE_URL}/${id}`, body).toPromise();
     return this.toComposition(apiResponse.response);
   }

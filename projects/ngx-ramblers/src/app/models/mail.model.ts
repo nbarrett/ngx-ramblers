@@ -771,6 +771,20 @@ export interface BlockedContactsResponse {
   contacts: BlockedContact[];
 }
 
+export interface RunUnsubscribesSyncOptions {
+  limit?: number;
+  offset?: number;
+  startDate?: string;
+  endDate?: string;
+  senders?: string[];
+  sort?: SortDirection;
+}
+
+export interface RunUnsubscribesSyncResult {
+  response: BlockedContactsResponse;
+  selfHealed: { cleared: number; skipped: boolean };
+}
+
 export interface ClearAllBlocklistResult {
   brevoFound: number;
   brevoCleared: number;
@@ -1099,4 +1113,21 @@ export function extractOverrideKeys(html: string): string[] {
 
 export function overrideKeyToLabel(key: string): string {
   return key.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+export enum OverrideEditorMode {
+  Edit = "edit",
+  Replace = "replace"
+}
+
+export enum UnsubscribesListMode {
+  Unsubscribes = "unsubscribes",
+  Blocks = "blocks"
+}
+
+export enum UnsubscribeState {
+  Confirming = "confirming",
+  Confirmed = "confirmed",
+  FeedbackSent = "feedback-sent",
+  Error = "error"
 }

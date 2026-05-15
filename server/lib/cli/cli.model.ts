@@ -1,4 +1,47 @@
 import { ChildProcess } from "child_process";
+import { CustomDomainEntry } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { ProgressCallback, ResumeOptions } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { OutputCallback } from "../fly/fly-commands";
+
+export type DeployOutputCallback = OutputCallback;
+
+export interface DestroyConfig {
+  name: string;
+  appName: string;
+  apiKey?: string;
+  mongoUri?: string;
+  database?: string;
+  skipFly?: boolean;
+  skipS3?: boolean;
+  skipDatabase?: boolean;
+}
+
+export interface DestroyResult {
+  success: boolean;
+  steps: { step: string; success: boolean; message: string }[];
+}
+
+export interface ResumeEnvironmentOptions extends ResumeOptions {
+  onDeployOutput?: DeployOutputCallback;
+}
+
+export interface DeployToFlyioOptions {
+  onProgress?: ProgressCallback;
+  onDeployOutput?: DeployOutputCallback;
+}
+
+export interface SubdomainRemovalResult {
+  hostname: string;
+  logs: string[];
+}
+
+export interface CustomDomainOperationResult {
+  hostname: string;
+  zoneId?: string;
+  appName: string;
+  entry?: CustomDomainEntry;
+  logs: string[];
+}
 
 export interface ChromeValidationResult {
   valid: boolean;

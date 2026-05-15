@@ -4,6 +4,7 @@ import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import { configuredBrevo } from "../brevo/brevo-config";
 import { relayRawMime } from "../brevo/smtp-relay";
+import { RecipientDeliveryStatus } from "./cloudflare.model";
 
 const messageType = "cloudflare:inbound-mime";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -20,7 +21,7 @@ interface InboundMimePayload {
 
 interface RecipientResult {
   recipient: string;
-  status: "delivered" | "failed";
+  status: RecipientDeliveryStatus;
   error?: string;
 }
 
@@ -181,11 +182,11 @@ export async function handleInboundMime(req: Request, res: Response): Promise<vo
           envelopeFrom: payload.senderEmail,
           envelopeTo: recipient
         });
-        results.push({ recipient, status: "delivered" });
+        results.push({ recipient, status: RecipientDeliveryStatus.Delivered });
       } catch (err) {
         const message = (err as Error).message || String(err);
         errorDebugLog("Relay failed for %s: %s", recipient, message);
-        results.push({ recipient, status: "failed", error: message });
+        results.push({ recipient, status: RecipientDeliveryStatus.Failed, error: message });
       }
     }
 

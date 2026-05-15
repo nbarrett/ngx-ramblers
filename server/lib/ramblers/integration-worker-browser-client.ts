@@ -3,19 +3,13 @@ import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { signRamblersUploadBody } from "./integration-worker-crypto";
 import { FlickrScrapedUserAlbumsData } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { IntegrationWorkerCallbackConfig, IntegrationWorkerMigrationJobRequest } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
+import { HtmlFetchResult, IntegrationWorkerCallbackConfig, IntegrationWorkerMigrationJobRequest, PlaywrightWaitUntil } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { SiteMigrationConfig } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-browser-client"));
 debugLog.enabled = true;
 
-export interface HtmlFetchResult {
-  html: string;
-  finalUrl: string;
-  baseHref: string | null;
-}
-
-export async function fetchHtmlViaIntegrationWorker(url: string, waitUntil: "load" | "domcontentloaded" | "networkidle" | "commit" = "domcontentloaded", timeoutMs = 60000): Promise<HtmlFetchResult> {
+export async function fetchHtmlViaIntegrationWorker(url: string, waitUntil: PlaywrightWaitUntil = PlaywrightWaitUntil.DomContentLoaded, timeoutMs = 60000): Promise<HtmlFetchResult> {
   return requestBrowserOperation<HtmlFetchResult>("html-fetch", { url, waitUntil, timeoutMs });
 }
 

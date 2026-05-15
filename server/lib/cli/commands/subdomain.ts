@@ -2,7 +2,7 @@ import { Command } from "commander";
 import debug from "debug";
 import { log, error as logError } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
-import { CloudflareDnsConfig, CloudflareZone } from "../../cloudflare/cloudflare.model";
+import { CloudflareDnsConfig, CloudflareZone, DnsRecordType } from "../../cloudflare/cloudflare.model";
 import {
   createDnsRecord,
   listDnsRecords,
@@ -11,7 +11,7 @@ import {
   verifyToken,
   zoneForHostname
 } from "../../cloudflare/cloudflare-dns";
-import { AppIpAddresses, CertificateInfo, FlyConfig } from "../../fly/fly.model";
+import { AppIpAddresses, CertificateInfo, FlyConfig, IpAddressType } from "../../fly/fly.model";
 import { appIpAddresses, allocateIpAddress, addCertificate, deleteCertificate, queryCertificates } from "../../fly/fly-certificates";
 import { findEnvironmentFromDatabase, environmentsConfigFromDatabase } from "../../environments/environments-config";
 import { connectToDatabase } from "../../environment-setup/database-initialiser";
@@ -23,6 +23,7 @@ import {
   CustomDomainStatus,
   EnvironmentsConfig
 } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { CustomDomainOperationResult, SubdomainRemovalResult } from "../cli.model";
 import { dateTimeNowAsValue } from "../../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("cli:subdomain"));
@@ -74,7 +75,7 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
   }
   if (!ips.ipv4) {
     log("   ⚠ No IPv4 address found — allocating shared IPv4...");
-    const allocated = await allocateIpAddress(flyConfig, "shared_v4");
+    const allocated = await allocateIpAddress(flyConfig, IpAddressType.SharedV4);
     ips.ipv4 = allocated.address;
     log(`   ✓ Allocated shared IPv4: ${ips.ipv4}`);
   } else {
@@ -99,14 +100,14 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
 
   log("\n4. Creating DNS records...");
   if (ips.ipv4 && !existingA) {
-    await createDnsRecord(cloudflareConfig, { type: "A", name: subdomain, content: ips.ipv4 });
+    await createDnsRecord(cloudflareConfig, { type: DnsRecordType.A, name: subdomain, content: ips.ipv4 });
     log(`   ✓ A record created: ${subdomain} -> ${ips.ipv4}`);
   } else if (existingA) {
     log(`   - Skipping A record (already exists)`);
   }
 
   if (ips.ipv6 && !existingAAAA) {
-    await createDnsRecord(cloudflareConfig, { type: "AAAA", name: subdomain, content: ips.ipv6 });
+    await createDnsRecord(cloudflareConfig, { type: DnsRecordType.AAAA, name: subdomain, content: ips.ipv6 });
     log(`   ✓ AAAA record created: ${subdomain} -> ${ips.ipv6}`);
   } else if (existingAAAA) {
     log(`   - Skipping AAAA record (already exists)`);
@@ -121,7 +122,7 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
   for (const mx of requiredMxRecords) {
     const existing = existingMx.find(r => r.content === mx.content);
     if (!existing) {
-      await createDnsRecord(cloudflareConfig, {type: "MX", name: subdomain, content: mx.content, priority: mx.priority});
+      await createDnsRecord(cloudflareConfig, {type: DnsRecordType.MX, name: subdomain, content: mx.content, priority: mx.priority});
       log(`   ✓ MX record created: ${subdomain} -> ${mx.content} (priority ${mx.priority})`);
     } else {
       log(`   - Skipping MX record ${mx.content} (already exists)`);
@@ -172,11 +173,6 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
   }
 
   log(`\n✓ Subdomain setup complete: https://${fullHostname}`);
-}
-
-export interface SubdomainRemovalResult {
-  hostname: string;
-  logs: string[];
 }
 
 export async function removeSubdomainForEnvironment(environmentName: string): Promise<SubdomainRemovalResult> {
@@ -268,14 +264,6 @@ export async function checkSubdomainStatus(environmentName: string): Promise<voi
 }
 
 const HOSTNAME_PATTERN = /^(?=.{1,253}$)(?!-)([a-z0-9-]{1,63}(?<!-)\.)+[a-z]{2,}$/i;
-
-export interface CustomDomainOperationResult {
-  hostname: string;
-  zoneId?: string;
-  appName: string;
-  entry?: CustomDomainEntry;
-  logs: string[];
-}
 
 function normaliseHostname(hostname: string): string {
   return (hostname || "").trim().toLowerCase().replace(/\.$/, "").replace(/^https?:\/\//, "");
@@ -405,7 +393,7 @@ export async function addCustomDomainForEnvironment(environmentName: string, hos
   const ips = await appIpAddresses(flyConfig);
   if (!ips.ipv4) {
     step("  ⚠ No IPv4 address found — allocating shared IPv4...");
-    const allocated = await allocateIpAddress(flyConfig, "shared_v4");
+    const allocated = await allocateIpAddress(flyConfig, IpAddressType.SharedV4);
     ips.ipv4 = allocated.address;
     step(`  ✓ Allocated shared IPv4: ${ips.ipv4}`);
   } else {
@@ -430,8 +418,8 @@ export async function addCustomDomainForEnvironment(environmentName: string, hos
       await deleteDnsRecord(cloudflareConfig, stale.id);
       step(`  ✓ Removed stale CNAME ${hostname} -> ${stale.content} (apex needs A/AAAA)`);
     }
-    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, "A", ips.ipv4, existingRecords);
-    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, "AAAA", ips.ipv6, existingRecords);
+    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.A, ips.ipv4, existingRecords);
+    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.AAAA, ips.ipv6, existingRecords);
   } else {
     for (const stale of existingRecords.filter(record => record.type === "A" || record.type === "AAAA")) {
       await deleteDnsRecord(cloudflareConfig, stale.id);
@@ -541,14 +529,14 @@ async function reconcileAddressRecord(
   cloudflareConfig: CloudflareDnsConfig,
   recordName: string,
   hostname: string,
-  type: "A" | "AAAA",
+  type: DnsRecordType.A | DnsRecordType.AAAA,
   flyAddress: string | undefined,
   existingRecords: { id: string; type: string; content: string }[]
 ): Promise<void> {
   const existing = existingRecords.find(record => record.type === type);
   if (!flyAddress) {
     if (existing) {
-      step(`  - ${type} record present (${existing.content}) but Fly has no ${type === "A" ? "IPv4" : "IPv6"} — leaving as is`);
+      step(`  - ${type} record present (${existing.content}) but Fly has no ${type === DnsRecordType.A ? "IPv4" : "IPv6"} — leaving as is`);
     }
     return;
   }
@@ -575,7 +563,7 @@ async function reconcileCnameRecord(
 ): Promise<void> {
   const existing = existingRecords.find(record => record.type === "CNAME");
   if (!existing) {
-    await createDnsRecord(cloudflareConfig, { type: "CNAME", name: recordName, content: target, proxied: false });
+    await createDnsRecord(cloudflareConfig, { type: DnsRecordType.CNAME, name: recordName, content: target, proxied: false });
     step(`  ✓ CNAME created (DNS only): ${hostname} -> ${target}`);
     return;
   }
@@ -583,7 +571,7 @@ async function reconcileCnameRecord(
     step(`  - CNAME already correct (${target})`);
     return;
   }
-  await updateDnsRecord(cloudflareConfig, existing.id, { type: "CNAME", name: recordName, content: target, proxied: false });
+  await updateDnsRecord(cloudflareConfig, existing.id, { type: DnsRecordType.CNAME, name: recordName, content: target, proxied: false });
   step(`  ✓ CNAME updated (DNS only): ${hostname} ${existing.content} -> ${target}`);
 }
 
@@ -612,10 +600,10 @@ async function reconcileFlyValidationRecords(
   const acmeRecords = await listDnsRecords(cloudflareConfig, cert.dnsValidationHostname.replace(/\.$/, ""));
   const existingAcme = acmeRecords.find(record => record.type === "CNAME");
   if (!existingAcme) {
-    await createDnsRecord(cloudflareConfig, { type: "CNAME", name: acmeName, content: acmeTarget, proxied: false });
+    await createDnsRecord(cloudflareConfig, { type: DnsRecordType.CNAME, name: acmeName, content: acmeTarget, proxied: false });
     step(`  ✓ ACME CNAME created`);
   } else if (existingAcme.content !== acmeTarget) {
-    await updateDnsRecord(cloudflareConfig, existingAcme.id, { type: "CNAME", name: acmeName, content: acmeTarget, proxied: false });
+    await updateDnsRecord(cloudflareConfig, existingAcme.id, { type: DnsRecordType.CNAME, name: acmeName, content: acmeTarget, proxied: false });
     step(`  ✓ ACME CNAME updated ${existingAcme.content} -> ${acmeTarget}`);
   } else {
     step(`  - ACME CNAME already correct`);
@@ -634,10 +622,10 @@ async function reconcileFlyValidationRecords(
   const ownershipRecords = await listDnsRecords(cloudflareConfig, ownershipName);
   const existingTxt = ownershipRecords.find(record => record.type === "TXT");
   if (!existingTxt) {
-    await createDnsRecord(cloudflareConfig, { type: "TXT", name: ownershipLabel, content: ownershipValue });
+    await createDnsRecord(cloudflareConfig, { type: DnsRecordType.TXT, name: ownershipLabel, content: ownershipValue });
     step(`  ✓ Ownership TXT created`);
   } else if (existingTxt.content.replace(/^"|"$/g, "") !== ownershipValue) {
-    await updateDnsRecord(cloudflareConfig, existingTxt.id, { type: "TXT", name: ownershipLabel, content: ownershipValue });
+    await updateDnsRecord(cloudflareConfig, existingTxt.id, { type: DnsRecordType.TXT, name: ownershipLabel, content: ownershipValue });
     step(`  ✓ Ownership TXT updated`);
   } else {
     step(`  - Ownership TXT already correct`);
@@ -836,8 +824,8 @@ async function reconcileCustomDomainDns(
       await deleteDnsRecord(cloudflareConfig, stale.id);
       step(`  ✓ Removed stale CNAME ${hostname} -> ${stale.content} (apex needs A/AAAA)`);
     }
-    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, "A", ips.ipv4, existingRecords);
-    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, "AAAA", ips.ipv6, existingRecords);
+    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.A, ips.ipv4, existingRecords);
+    await reconcileAddressRecord(step, cloudflareConfig, recordName, hostname, DnsRecordType.AAAA, ips.ipv6, existingRecords);
   } else {
     for (const stale of existingRecords.filter(record => record.type === "A" || record.type === "AAAA")) {
       await deleteDnsRecord(cloudflareConfig, stale.id);

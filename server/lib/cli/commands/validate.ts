@@ -6,13 +6,14 @@ import { validateMongoConnection } from "../../environment-setup/database-initia
 import { validateAwsAdminCredentials, adminConfigFromEnvironment } from "../../environment-setup/aws-setup";
 import { validateRamblersApiKey } from "../../environment-setup/ramblers-api-client";
 import { ValidationResult, MongoValidationConfig, ProgressCallback } from "../types";
+import { SetupStepStatus } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { cliLogger, log } from "../cli-logger";
 
 const debugLog = debug(envConfig.logNamespace("cli:validate"));
 
 export async function validateMongodb(config: MongoValidationConfig, onProgress?: ProgressCallback): Promise<ValidationResult> {
   if (onProgress) {
-    onProgress({ step: "validate-mongodb", status: "running", message: "Validating MongoDB connection" });
+    onProgress({ step: "validate-mongodb", status: SetupStepStatus.Running, message: "Validating MongoDB connection" });
   }
 
   const uri = buildMongoUri(config);
@@ -21,7 +22,7 @@ export async function validateMongodb(config: MongoValidationConfig, onProgress?
   if (onProgress) {
     onProgress({
       step: "validate-mongodb",
-      status: result.valid ? "completed" : "failed",
+      status: result.valid ? SetupStepStatus.Completed : SetupStepStatus.Failed,
       message: result.message
     });
   }
@@ -31,7 +32,7 @@ export async function validateMongodb(config: MongoValidationConfig, onProgress?
 
 export async function validateAwsAdmin(onProgress?: ProgressCallback): Promise<ValidationResult> {
   if (onProgress) {
-    onProgress({ step: "validate-aws-admin", status: "running", message: "Validating AWS admin credentials" });
+    onProgress({ step: "validate-aws-admin", status: SetupStepStatus.Running, message: "Validating AWS admin credentials" });
   }
 
   const adminConfig = adminConfigFromEnvironment();
@@ -41,7 +42,7 @@ export async function validateAwsAdmin(onProgress?: ProgressCallback): Promise<V
       message: "AWS admin credentials not configured (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or SETUP_AWS_ACCESS_KEY_ID/SETUP_AWS_SECRET_ACCESS_KEY)"
     };
     if (onProgress) {
-      onProgress({ step: "validate-aws-admin", status: "failed", message: result.message });
+      onProgress({ step: "validate-aws-admin", status: SetupStepStatus.Failed, message: result.message });
     }
     return result;
   }
@@ -51,7 +52,7 @@ export async function validateAwsAdmin(onProgress?: ProgressCallback): Promise<V
   if (onProgress) {
     onProgress({
       step: "validate-aws-admin",
-      status: result.valid ? "completed" : "failed",
+      status: result.valid ? SetupStepStatus.Completed : SetupStepStatus.Failed,
       message: result.message
     });
   }
@@ -61,7 +62,7 @@ export async function validateAwsAdmin(onProgress?: ProgressCallback): Promise<V
 
 export async function validateRamblersApi(apiKey: string, onProgress?: ProgressCallback): Promise<ValidationResult> {
   if (onProgress) {
-    onProgress({ step: "validate-ramblers-api", status: "running", message: "Validating Ramblers API key" });
+    onProgress({ step: "validate-ramblers-api", status: SetupStepStatus.Running, message: "Validating Ramblers API key" });
   }
 
   const result = await validateRamblersApiKey(apiKey);
@@ -69,7 +70,7 @@ export async function validateRamblersApi(apiKey: string, onProgress?: ProgressC
   if (onProgress) {
     onProgress({
       step: "validate-ramblers-api",
-      status: result.valid ? "completed" : "failed",
+      status: result.valid ? SetupStepStatus.Completed : SetupStepStatus.Failed,
       message: result.message
     });
   }

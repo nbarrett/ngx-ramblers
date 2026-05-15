@@ -4,8 +4,8 @@ import { Db, MongoClient } from "mongodb";
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS, NOTIFICATION_CONFIG_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
-import { AdminUserConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
-import { EnvironmentSetupRequest, MongoDbConnectionParams, SetupProgress, ValidationResult } from "./types";
+import { AdminUserConfig, SetupStepStatus } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { CopiedAssets, EnvironmentSetupRequest, InitialiseDatabaseResult, MongoDbConnectionParams, ProgressCallback, ReinitDatabaseParams, SeedDatabaseParams, ValidationResult } from "./types";
 import { createSystemConfig, SystemConfigTemplateParams } from "./templates/system-config-template";
 import { createBrevoConfig } from "./templates/brevo-config-template";
 import { createBookingConfig } from "./templates/booking-config-template";
@@ -20,8 +20,6 @@ import { values } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:database-initialiser"));
 debugLog.enabled = true;
-
-export type ProgressCallback = (progress: SetupProgress) => void;
 
 export function toGroupShortName(groupName: string): string {
   return groupName.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "");
@@ -116,16 +114,6 @@ async function upsertConfigDocument(db: Db, key: ConfigKey, value: unknown): Pro
   debugLog("Upserted config document:", key);
 }
 
-export interface CopiedAssets {
-  icons: string[];
-  logos: string[];
-  backgrounds: string[];
-}
-
-export interface InitialiseDatabaseResult {
-  passwordResetId: string;
-}
-
 export async function initialiseDatabase(
   request: EnvironmentSetupRequest,
   progressCallback?: ProgressCallback,
@@ -134,24 +122,24 @@ export async function initialiseDatabase(
   const uri = buildMongoUri(request);
   const database = request.serviceConfigs.mongodb.database;
 
-  const reportProgress = (step: string, status: "running" | "completed" | "failed", message?: string) => {
+  const reportProgress = (step: string, status: SetupStepStatus, message?: string) => {
     if (progressCallback) {
       progressCallback({ step, status, message, timestamp: dateTimeNowAsValue() });
     }
   };
 
-  reportProgress("Connecting to database", "running");
+  reportProgress("Connecting to database", SetupStepStatus.Running);
   const { client, db } = await connectToDatabase({ uri, database });
 
   try {
-    reportProgress("Creating collections", "running");
+    reportProgress("Creating collections", SetupStepStatus.Running);
     const collectionNames = values(COLLECTIONS);
     for (const collectionName of collectionNames) {
       await ensureCollection(db, collectionName);
     }
-    reportProgress("Creating collections", "completed");
+    reportProgress("Creating collections", SetupStepStatus.Completed);
 
-    reportProgress("Creating SystemConfig", "running");
+    reportProgress("Creating SystemConfig", SetupStepStatus.Running);
     const systemConfigParams: SystemConfigTemplateParams = {
       groupData: request.ramblersInfo.groupData,
       areaCode: request.ramblersInfo.areaCode,
@@ -165,30 +153,30 @@ export async function initialiseDatabase(
     };
     const systemConfig = createSystemConfig(systemConfigParams);
     await upsertConfigDocument(db, ConfigKey.SYSTEM, systemConfig);
-    reportProgress("Creating SystemConfig", "completed");
+    reportProgress("Creating SystemConfig", SetupStepStatus.Completed);
 
-    reportProgress("Creating Brevo config", "running");
+    reportProgress("Creating Brevo config", SetupStepStatus.Running);
     const brevoConfig = createBrevoConfig({ apiKey: request.serviceConfigs.brevo.apiKey });
     await upsertConfigDocument(db, ConfigKey.BREVO, brevoConfig);
-    reportProgress("Creating Brevo config", "completed");
+    reportProgress("Creating Brevo config", SetupStepStatus.Completed);
 
-    reportProgress("Creating Booking config", "running");
+    reportProgress("Creating Booking config", SetupStepStatus.Running);
     const bookingConfig = createBookingConfig();
     await upsertConfigDocument(db, ConfigKey.BOOKING, bookingConfig);
-    reportProgress("Creating Booking config", "completed");
+    reportProgress("Creating Booking config", SetupStepStatus.Completed);
 
-    reportProgress("Creating Committee config", "running");
+    reportProgress("Creating Committee config", SetupStepStatus.Running);
     const groupShortName = toGroupShortName(request.ramblersInfo.groupName);
     const committeeConfig = createCommitteeConfig({ groupShortName });
     await upsertConfigDocument(db, ConfigKey.COMMITTEE, committeeConfig);
-    reportProgress("Creating Committee config", "completed");
+    reportProgress("Creating Committee config", SetupStepStatus.Completed);
 
-    reportProgress("Creating Walks config", "running");
+    reportProgress("Creating Walks config", SetupStepStatus.Running);
     const walksConfig = createWalksConfig();
     await upsertConfigDocument(db, ConfigKey.WALKS, walksConfig);
-    reportProgress("Creating Walks config", "completed");
+    reportProgress("Creating Walks config", SetupStepStatus.Completed);
 
-    reportProgress("Creating admin user", "running");
+    reportProgress("Creating admin user", SetupStepStatus.Running);
     const { member: adminMember, passwordResetId } = createAdminMember({
       adminUser: request.adminUser,
       groupCode: request.ramblersInfo.groupCode
@@ -204,7 +192,7 @@ export async function initialiseDatabase(
     } else {
       await membersCollection.insertOne(adminMember);
     }
-    reportProgress("Creating admin user", "completed");
+    reportProgress("Creating admin user", SetupStepStatus.Completed);
 
     const systemMember = createSystemMember();
     const existingSystemMember = await membersCollection.findOne({ memberId: "system" });
@@ -213,28 +201,28 @@ export async function initialiseDatabase(
       debugLog("Created system member");
     }
 
-    reportProgress("Cleaning up incorrect page content", "running");
+    reportProgress("Cleaning up incorrect page content", SetupStepStatus.Running);
     await cleanIncorrectPageContent(db);
-    reportProgress("Cleaning up incorrect page content", "completed");
+    reportProgress("Cleaning up incorrect page content", SetupStepStatus.Completed);
 
-    reportProgress("Creating sample pages", "running");
+    reportProgress("Creating sample pages", SetupStepStatus.Running);
     await seedSamplePages(db, request.ramblersInfo.groupName, groupShortName);
-    reportProgress("Creating sample pages", "completed");
+    reportProgress("Creating sample pages", SetupStepStatus.Completed);
 
     if (request.options.includeNotificationConfigs) {
-      reportProgress("Creating notification configs", "running");
+      reportProgress("Creating notification configs", SetupStepStatus.Running);
       await seedNotificationConfigs(db);
       await wireNotificationConfigsToProcesses(db);
-      reportProgress("Creating notification configs", "completed");
+      reportProgress("Creating notification configs", SetupStepStatus.Completed);
     }
 
-    reportProgress("Assigning admin to committee roles", "running");
+    reportProgress("Assigning admin to committee roles", SetupStepStatus.Running);
     await assignAdminToCommitteeRoles(db, request.adminUser);
-    reportProgress("Assigning admin to committee roles", "completed");
+    reportProgress("Assigning admin to committee roles", SetupStepStatus.Completed);
 
     await runMigrations(uri, reportProgress);
 
-    reportProgress("Database initialisation complete", "completed");
+    reportProgress("Database initialisation complete", SetupStepStatus.Completed);
     return { passwordResetId };
   } finally {
     await client.close();
@@ -254,17 +242,17 @@ export async function cleanIncorrectPageContent(db: Db): Promise<void> {
   }
 }
 
-export async function runMigrations(mongoUri: string, reportProgress: (step: string, status: "running" | "completed" | "failed", message?: string) => void): Promise<void> {
-  reportProgress("Running database migrations", "running");
+export async function runMigrations(mongoUri: string, reportProgress: (step: string, status: SetupStepStatus, message?: string) => void): Promise<void> {
+  reportProgress("Running database migrations", SetupStepStatus.Running);
   const originalMongoUri = process.env.MONGODB_URI;
   try {
     process.env.MONGODB_URI = mongoUri;
     const runner = new MigrationRunner();
     const result = await runner.runPendingMigrations();
     if (result.success) {
-      reportProgress("Running database migrations", "completed", `Applied ${result.appliedFiles.length} migration(s)`);
+      reportProgress("Running database migrations", SetupStepStatus.Completed, `Applied ${result.appliedFiles.length} migration(s)`);
     } else {
-      reportProgress("Running database migrations", "failed", result.error);
+      reportProgress("Running database migrations", SetupStepStatus.Failed, result.error);
       throw new Error(`Migration failed: ${result.error}`);
     }
   } finally {
@@ -384,82 +372,64 @@ export async function assignAdminToCommitteeRoles(
   return { assignedCount };
 }
 
-export interface SeedDatabaseParams {
-  mongoUri: string;
-  database: string;
-  groupName: string;
-  groupShortName?: string;
-}
-
 export async function seedSampleData(
   params: SeedDatabaseParams,
   progressCallback?: ProgressCallback
 ): Promise<void> {
-  const reportProgress = (step: string, status: "running" | "completed" | "failed", message?: string) => {
+  const reportProgress = (step: string, status: SetupStepStatus, message?: string) => {
     if (progressCallback) {
       progressCallback({ step, status, message, timestamp: dateTimeNowAsValue() });
     }
   };
 
-  reportProgress("Connecting to database for seeding", "running");
+  reportProgress("Connecting to database for seeding", SetupStepStatus.Running);
   const { client, db } = await connectToDatabase({ uri: params.mongoUri, database: params.database });
 
   try {
     const groupShortName = params.groupShortName || toGroupShortName(params.groupName);
 
-    reportProgress("Cleaning up incorrect page content", "running");
+    reportProgress("Cleaning up incorrect page content", SetupStepStatus.Running);
     await cleanIncorrectPageContent(db);
-    reportProgress("Cleaning up incorrect page content", "completed");
+    reportProgress("Cleaning up incorrect page content", SetupStepStatus.Completed);
 
-    reportProgress("Seeding sample pages", "running");
+    reportProgress("Seeding sample pages", SetupStepStatus.Running);
     await seedSamplePages(db, params.groupName, groupShortName);
-    reportProgress("Seeding sample pages", "completed");
+    reportProgress("Seeding sample pages", SetupStepStatus.Completed);
 
     await runMigrations(params.mongoUri, reportProgress);
 
-    reportProgress("Database seeding complete", "completed");
+    reportProgress("Database seeding complete", SetupStepStatus.Completed);
   } finally {
     await client.close();
     debugLog("Closed database connection");
   }
 }
 
-export interface ReinitDatabaseParams {
-  mongoUri: string;
-  database: string;
-  groupName: string;
-  groupCode: string;
-  areaCode: string;
-  areaName: string;
-  ramblersApiKey: string;
-  googleMapsApiKey?: string;
-  osMapsApiKey?: string;
-}
 
 export async function reinitialiseDatabase(
   params: ReinitDatabaseParams,
   progressCallback?: ProgressCallback
 ): Promise<void> {
-  const reportProgress = (step: string, status: "running" | "completed" | "failed", message?: string) => {
+  const reportProgress = (step: string, status: SetupStepStatus, message?: string) => {
     if (progressCallback) {
       progressCallback({ step, status, message, timestamp: dateTimeNowAsValue() });
     }
   };
 
-  reportProgress("Connecting to database for reinitialisation", "running");
+  reportProgress("Connecting to database for reinitialisation", SetupStepStatus.Running);
   const { client, db } = await connectToDatabase({ uri: params.mongoUri, database: params.database });
 
   try {
     const groupShortName = toGroupShortName(params.groupName);
 
-    reportProgress("Creating collections", "running");
+    reportProgress("Creating collections", SetupStepStatus.Running);
     const collectionNames = values(COLLECTIONS);
     for (const collectionName of collectionNames) {
       await ensureCollection(db, collectionName);
     }
-    reportProgress("Creating collections", "completed");
+    reportProgress("Creating collections", SetupStepStatus.Completed);
 
-    reportProgress("Fetching group data from Ramblers API", "running");
+    reportProgress("Fetching group data from Ramblers API", SetupStepStatus.Running);
     const { groupDetails } = await import("./ramblers-api-client");
     const groupData = await groupDetails({
       groupCode: params.groupCode,
@@ -468,9 +438,9 @@ export async function reinitialiseDatabase(
     if (!groupData) {
       throw new Error(`Failed to fetch group details for ${params.groupCode}`);
     }
-    reportProgress("Fetching group data from Ramblers API", "completed", `Found: ${groupData.name}`);
+    reportProgress("Fetching group data from Ramblers API", SetupStepStatus.Completed, `Found: ${groupData.name}`);
 
-    reportProgress("Updating SystemConfig", "running");
+    reportProgress("Updating SystemConfig", SetupStepStatus.Running);
     const systemConfigParams: SystemConfigTemplateParams = {
       groupData,
       areaCode: params.areaCode,
@@ -481,34 +451,34 @@ export async function reinitialiseDatabase(
     };
     const systemConfig = createSystemConfig(systemConfigParams);
     await upsertConfigDocument(db, ConfigKey.SYSTEM, systemConfig);
-    reportProgress("Updating SystemConfig", "completed");
+    reportProgress("Updating SystemConfig", SetupStepStatus.Completed);
 
-    reportProgress("Updating Committee config", "running");
+    reportProgress("Updating Committee config", SetupStepStatus.Running);
     const committeeConfig = createCommitteeConfig({ groupShortName });
     await upsertConfigDocument(db, ConfigKey.COMMITTEE, committeeConfig);
-    reportProgress("Updating Committee config", "completed");
+    reportProgress("Updating Committee config", SetupStepStatus.Completed);
 
-    reportProgress("Updating Booking config", "running");
+    reportProgress("Updating Booking config", SetupStepStatus.Running);
     const bookingConfig = createBookingConfig();
     await upsertConfigDocument(db, ConfigKey.BOOKING, bookingConfig);
-    reportProgress("Updating Booking config", "completed");
+    reportProgress("Updating Booking config", SetupStepStatus.Completed);
 
-    reportProgress("Updating Walks config", "running");
+    reportProgress("Updating Walks config", SetupStepStatus.Running);
     const walksConfig = createWalksConfig();
     await upsertConfigDocument(db, ConfigKey.WALKS, walksConfig);
-    reportProgress("Updating Walks config", "completed");
+    reportProgress("Updating Walks config", SetupStepStatus.Completed);
 
-    reportProgress("Cleaning up incorrect page content", "running");
+    reportProgress("Cleaning up incorrect page content", SetupStepStatus.Running);
     await cleanIncorrectPageContent(db);
-    reportProgress("Cleaning up incorrect page content", "completed");
+    reportProgress("Cleaning up incorrect page content", SetupStepStatus.Completed);
 
-    reportProgress("Updating sample pages", "running");
+    reportProgress("Updating sample pages", SetupStepStatus.Running);
     await seedSamplePages(db, params.groupName, groupShortName);
-    reportProgress("Updating sample pages", "completed");
+    reportProgress("Updating sample pages", SetupStepStatus.Completed);
 
     await runMigrations(params.mongoUri, reportProgress);
 
-    reportProgress("Database reinitialisation complete", "completed");
+    reportProgress("Database reinitialisation complete", SetupStepStatus.Completed);
   } finally {
     await client.close();
     debugLog("Closed database connection");

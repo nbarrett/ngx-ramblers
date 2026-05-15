@@ -1,25 +1,10 @@
 import mongoose from "mongoose";
 import { ensureModel } from "../utils/model-utils";
-
-export type EmailCompositionStatus = "draft" | "sent";
-
-export interface EmailCompositionDocument {
-  id?: string;
-  ownerMemberId: string;
-  status: EmailCompositionStatus;
-  shared: boolean;
-  title: string;
-  state: any;
-  createdAt: number;
-  updatedAt: number;
-  updatedBy: string;
-  sentAt?: number;
-  sentRecipientCount?: number;
-}
+import { EmailCompositionDocument, EmailCompositionStatus } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
 
 const emailCompositionSchema = new mongoose.Schema({
   ownerMemberId: { type: String, required: true, index: true },
-  status: { type: String, required: true, enum: ["draft", "sent"], default: "draft", index: true },
+  status: { type: String, required: true, enum: [EmailCompositionStatus.Draft, EmailCompositionStatus.Sent], default: EmailCompositionStatus.Draft, index: true },
   shared: { type: Boolean, required: true, default: false, index: true },
   title: { type: String, required: true },
   state: { type: mongoose.Schema.Types.Mixed, required: true },

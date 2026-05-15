@@ -112,7 +112,12 @@ export interface SetupOptions {
   setupSubdomain: boolean;
 }
 
-export type SetupStepStatus = "pending" | "running" | "completed" | "failed";
+export enum SetupStepStatus {
+  Pending = "pending",
+  Running = "running",
+  Completed = "completed",
+  Failed = "failed",
+}
 
 export interface SetupProgress {
   step: string;
@@ -404,6 +409,35 @@ export interface EnvironmentResult {
 }
 
 export type ProgressCallback = (progress: SetupProgress) => void;
+
+export interface CopiedAssets {
+  icons: string[];
+  logos: string[];
+  backgrounds: string[];
+}
+
+export interface InitialiseDatabaseResult {
+  passwordResetId: string;
+}
+
+export interface SeedDatabaseParams {
+  mongoUri: string;
+  database: string;
+  groupName: string;
+  groupShortName?: string;
+}
+
+export interface ReinitDatabaseParams {
+  mongoUri: string;
+  database: string;
+  groupName: string;
+  groupCode: string;
+  areaCode: string;
+  areaName: string;
+  ramblersApiKey: string;
+  googleMapsApiKey?: string;
+  osMapsApiKey?: string;
+}
 
 export interface ReconciliationResult {
   environment: string;

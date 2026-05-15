@@ -10,6 +10,7 @@ import {
   defaultRamblersConfig,
   defaultRightPanel,
   EventPopulation,
+  CloudflareWebAnalyticsConfig,
   ExternalSystems,
   Footer,
   GoogleAnalyticsConfig,
@@ -313,6 +314,7 @@ export class SystemConfigService {
       globalStyles: this.defaultHasStyles(),
       enableMigration: {events: false},
       googleAnalytics: this.googleAnalyticsDefaults(),
+      cloudflareWebAnalytics: this.cloudflareWebAnalyticsDefaults(),
       googleMaps: this.googleMapsDefaults(),
       recaptcha: this.recaptchaDefaults(),
       mailDefaults: this.mailDefaults(),
@@ -340,6 +342,10 @@ export class SystemConfigService {
 
   public googleAnalyticsDefaults(): GoogleAnalyticsConfig {
     return {trackingId: null};
+  }
+
+  public cloudflareWebAnalyticsDefaults(): CloudflareWebAnalyticsConfig {
+    return {enabled: false, siteToken: null, siteTag: null, host: null};
   }
 
   public googleMapsDefaults(): GoogleMapsConfig {

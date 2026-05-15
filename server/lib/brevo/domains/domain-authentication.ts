@@ -1,7 +1,7 @@
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { configuredCloudflare } from "../../cloudflare/cloudflare-config";
-import { CloudflareDnsConfig } from "../../cloudflare/cloudflare.model";
+import { CloudflareDnsConfig, DnsRecordType } from "../../cloudflare/cloudflare.model";
 import { createDnsRecord, deleteDnsRecord, listDnsRecords, zoneForHostname } from "../../cloudflare/cloudflare-dns";
 import {
   authenticateDomain,
@@ -117,7 +117,7 @@ async function resolveCfAndBaseDomain(options: DomainAuthenticationOptions, doma
 }
 
 async function cleanupStaleTxtRecords(cfDnsConfig: CloudflareDnsConfig, fqdn: string, currentValue: string | null): Promise<number> {
-  const existing = await listDnsRecords(cfDnsConfig, fqdn, "TXT");
+  const existing = await listDnsRecords(cfDnsConfig, fqdn, DnsRecordType.TXT);
   const staleRecords = existing.filter(r => r.content !== currentValue);
   await Promise.all(staleRecords.map(async record => {
     debugLog("Deleting stale TXT record:", record.name, "->", record.content?.substring(0, 40));
@@ -138,7 +138,7 @@ async function ensureTxtRecord(cfDnsConfig: CloudflareDnsConfig, record: BrevoDn
     debugLog("Cleaned up", staleCount, "stale TXT record(s) for:", fqdn);
   }
 
-  const current = await listDnsRecords(cfDnsConfig, fqdn, "TXT");
+  const current = await listDnsRecords(cfDnsConfig, fqdn, DnsRecordType.TXT);
   if (current.some(r => r.content === record.value)) {
     debugLog("TXT record already exists:", fqdn);
     return true;
@@ -146,7 +146,7 @@ async function ensureTxtRecord(cfDnsConfig: CloudflareDnsConfig, record: BrevoDn
 
   debugLog("Creating TXT record:", fqdn, "->", record.value);
   await createDnsRecord(cfDnsConfig, {
-    type: "TXT",
+    type: DnsRecordType.TXT,
     name: record.hostName,
     content: record.value,
     ttl: 1,

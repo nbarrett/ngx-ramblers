@@ -7,7 +7,8 @@ import {
   ArticleBlockImageAlignment,
   ArticleBlockPosition,
   dividerHtml,
-  SectionDividerStyle
+  SectionDividerStyle,
+  SideImagePlacement
 } from "../../models/email-composer.model";
 import { UrlService } from "../url.service";
 
@@ -76,10 +77,10 @@ export class EmailComposerRenderingService {
     const resolvedSrc = this.urlService.imageSource(cleanedSrc, true) ?? cleanedSrc;
     const imgTag = `<img src="${this.escapeAttr(resolvedSrc)}" alt="${altAttr}"${widthAttr} style="max-width:100%;height:auto;border:0;display:block;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;vertical-align:bottom"/>`;
     if (image.alignment === ArticleBlockImageAlignment.LEFT) {
-      return this.tableSectionWithSideImage(imgTag, contentHtml, "left");
+      return this.tableSectionWithSideImage(imgTag, contentHtml, SideImagePlacement.Left);
     }
     if (image.alignment === ArticleBlockImageAlignment.RIGHT) {
-      return this.tableSectionWithSideImage(imgTag, contentHtml, "right");
+      return this.tableSectionWithSideImage(imgTag, contentHtml, SideImagePlacement.Right);
     }
     return this.tableSectionWithBannerImage(imgTag, contentHtml);
   }
@@ -101,10 +102,10 @@ export class EmailComposerRenderingService {
     return `<table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;" width="100%"><tbody><tr><td align="center" valign="top">${imgTag}</td></tr><tr><td valign="top" style="font-family:Helvetica,Arial,sans-serif;font-size:16px;line-height:150%;color:#222222;word-break:break-word;padding-top:12px;">${contentHtml}</td></tr></tbody></table>`;
   }
 
-  private tableSectionWithSideImage(imgTag: string, contentHtml: string, side: "left" | "right"): string {
-    const imageCell = `<td valign="top" width="40%" style="padding:${side === "left" ? "0 16px 0 0" : "0 0 0 16px"};">${imgTag}</td>`;
+  private tableSectionWithSideImage(imgTag: string, contentHtml: string, side: SideImagePlacement): string {
+    const imageCell = `<td valign="top" width="40%" style="padding:${side === SideImagePlacement.Left ? "0 16px 0 0" : "0 0 0 16px"};">${imgTag}</td>`;
     const textCell = `<td valign="top" style="font-family:Helvetica,Arial,sans-serif;font-size:16px;line-height:150%;color:#222222;word-break:break-word;">${contentHtml}</td>`;
-    const cells = side === "left" ? imageCell + textCell : textCell + imageCell;
+    const cells = side === SideImagePlacement.Left ? imageCell + textCell : textCell + imageCell;
     return `<table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;" width="100%"><tbody><tr>${cells}</tr></tbody></table>`;
   }
 

@@ -168,6 +168,14 @@ const sharedSyntaxRestrictions = [
     "selector": "CallExpression[callee.object.name='Array'][callee.property.name='isArray']",
     "message": "Use isArray() from es-toolkit/compat instead of Array.isArray() for consistency."
   },
+  {
+    "selector": "TSTypeAliasDeclaration > TSUnionType > TSLiteralType:first-child > Literal[value=/.*/][raw=/^[\"']/]",
+    "message": "String-literal union types are not allowed. Define a TypeScript enum instead."
+  },
+  {
+    "selector": "TSTypeAnnotation > TSUnionType > TSLiteralType:first-child > Literal[value=/.*/][raw=/^[\"']/]",
+    "message": "String-literal union types are not allowed. Define a TypeScript enum instead."
+  },
   ...typeofRestrictions
 ];
 

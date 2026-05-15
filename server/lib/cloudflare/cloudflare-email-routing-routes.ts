@@ -12,7 +12,7 @@ import {
   updateEmailRoutingRule
 } from "./cloudflare-email-routing";
 import { createDnsRecord, deleteDnsRecord, listDnsRecords, zoneForHostname } from "./cloudflare-dns";
-import { DnsRecordResult, MxRecordStatus } from "./cloudflare.model";
+import { DnsRecordResult, DnsRecordType, MxRecordStatus } from "./cloudflare.model";
 import {
   ensureEmailAuthRecords,
   queryEmailAuthStatus
@@ -531,7 +531,7 @@ router.get("/mx-records", authConfig.authenticate(), async (req: Request, res: R
       res.status(400).json({request: {messageType}, error: {message: `No Cloudflare zone found for ${subdomain}. Add the zone in Cloudflare first.`}});
       return;
     }
-    const existingRecords = await listDnsRecords({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, subdomain, "MX");
+    const existingRecords = await listDnsRecords({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, subdomain, DnsRecordType.MX);
     res.json({request: {messageType}, response: buildMxStatus(subdomain, existingRecords)});
   } catch (error) {
     errorDebugLog("Error fetching MX record status:", error.message);
@@ -555,15 +555,15 @@ router.post("/mx-records", authConfig.authenticate(), async (req: Request, res: 
       return;
     }
     const dnsConfig = {apiToken: cloudflareConfig.apiToken, zoneId: zone.id};
-    const existingRecords = await listDnsRecords(dnsConfig, subdomain, "MX");
+    const existingRecords = await listDnsRecords(dnsConfig, subdomain, DnsRecordType.MX);
 
     for (const mx of REQUIRED_MX_RECORDS) {
       if (!existingRecords.some(r => r.content === mx.content)) {
-        await createDnsRecord(dnsConfig, {type: "MX", name: subdomain, content: mx.content, priority: mx.priority});
+        await createDnsRecord(dnsConfig, {type: DnsRecordType.MX, name: subdomain, content: mx.content, priority: mx.priority});
       }
     }
 
-    const updatedRecords = await listDnsRecords(dnsConfig, subdomain, "MX");
+    const updatedRecords = await listDnsRecords(dnsConfig, subdomain, DnsRecordType.MX);
     res.json({request: {messageType}, response: buildMxStatus(subdomain, updatedRecords)});
   } catch (error) {
     errorDebugLog("Error creating MX records:", error.message);
@@ -588,7 +588,7 @@ router.delete("/mx-records/:recordId", authConfig.authenticate(), async (req: Re
       return;
     }
     const dnsConfig = {apiToken: cloudflareConfig.apiToken, zoneId: zone.id};
-    const existingRecords = await listDnsRecords(dnsConfig, subdomain, "MX");
+    const existingRecords = await listDnsRecords(dnsConfig, subdomain, DnsRecordType.MX);
     const target = existingRecords.find(r => r.id === recordId);
     if (!target) {
       res.status(404).json({request: {messageType}, error: {message: `MX record ${recordId} not found on ${subdomain}`}});
@@ -599,7 +599,7 @@ router.delete("/mx-records/:recordId", authConfig.authenticate(), async (req: Re
       return;
     }
     await deleteDnsRecord(dnsConfig, recordId);
-    const updatedRecords = await listDnsRecords(dnsConfig, subdomain, "MX");
+    const updatedRecords = await listDnsRecords(dnsConfig, subdomain, DnsRecordType.MX);
     res.json({request: {messageType}, response: buildMxStatus(subdomain, updatedRecords)});
   } catch (error) {
     errorDebugLog("Error deleting MX record:", error.message);

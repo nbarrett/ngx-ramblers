@@ -37,6 +37,7 @@ import {
   Sender,
   UNSUBSCRIBE_FEEDBACK_REASON_LABELS,
   UnsubscribeActivity,
+  UnsubscribesListMode,
   UnsubscribeSortField
 } from "../../../../models/mail.model";
 import { ALERT_ERROR } from "../../../../models/alert-target.model";
@@ -238,7 +239,7 @@ const ALL_SENDERS = "all";
                                description="Mail settings unsubscribes help"/>
         </div>
       </div>
-      @if (mode === 'blocks') {
+      @if (mode === UnsubscribesListMode.Blocks) {
       <div class="table-responsive table-container">
         <table class="table table-striped table-hover">
           <thead class="sticky-top">
@@ -372,7 +373,7 @@ const ALL_SENDERS = "all";
         </table>
       </div>
       }
-      @if (mode === 'unsubscribes') {
+      @if (mode === UnsubscribesListMode.Unsubscribes) {
         <div class="table-responsive table-container">
           <table class="table table-striped table-hover">
             <thead class="sticky-top">
@@ -470,10 +471,10 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
 
   public unsubscribes: BlockedContact[] = [];
   public activity: UnsubscribeActivity[] = [];
-  public mode: "unsubscribes" | "blocks" = "unsubscribes";
+  public mode: UnsubscribesListMode = UnsubscribesListMode.Unsubscribes;
   public modeTabs: SectionToggleTab[] = [
-    { value: "unsubscribes", label: "Unsubscribes" },
-    { value: "blocks", label: "Blocks" }
+    { value: UnsubscribesListMode.Unsubscribes, label: "Unsubscribes" },
+    { value: UnsubscribesListMode.Blocks, label: "Blocks" }
   ];
   public totalCount = 0;
   public loading = true;
@@ -499,6 +500,7 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
   protected readonly ALL_SENDERS = ALL_SENDERS;
   protected readonly StoredValue = StoredValue;
   protected readonly UnsubscribeSortField = UnsubscribeSortField;
+  protected readonly UnsubscribesListMode = UnsubscribesListMode;
   protected readonly faSearch = faSearch;
   protected readonly faSpinner = faSpinner;
   protected readonly faEnvelopeOpen = faEnvelopeOpen;
@@ -540,8 +542,8 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
         if (status) {
           this.reasonFilter = status;
         }
-        if (subTab === "blocks" || subTab === "unsubscribes") {
-          this.mode = subTab;
+        if (subTab === UnsubscribesListMode.Blocks || subTab === UnsubscribesListMode.Unsubscribes) {
+          this.mode = subTab as UnsubscribesListMode;
         }
         if (startDate || endDate) {
           const fromMs = startDate ? DateTime.fromISO(startDate).startOf("day").toMillis() : this.dateFilterRange?.from;
@@ -592,7 +594,7 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
   }
 
   async loadUnsubscribes(): Promise<void> {
-    if (this.mode === "unsubscribes") {
+    if (this.mode === UnsubscribesListMode.Unsubscribes) {
       return this.loadActivity();
     }
     this.loading = true;
@@ -641,10 +643,10 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
     }
   }
 
-  setMode(mode: "blocks" | "unsubscribes"): void {
+  setMode(mode: UnsubscribesListMode): void {
     if (this.mode === mode) return;
     this.mode = mode;
-    if (mode === "unsubscribes") {
+    if (mode === UnsubscribesListMode.Unsubscribes) {
       this.loadActivity();
     } else {
       this.loadUnsubscribes();
@@ -957,7 +959,7 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
   manageDropdownItems(): BrevoDropdownItem[] {
     return [
       { id: "refresh", label: "Refresh" },
-      { id: "clear-all-blocks", label: "Clear all blocks", disabled: this.unsubscribes.length === 0 || this.pendingClearAll || this.mode !== "blocks" }
+      { id: "clear-all-blocks", label: "Clear all blocks", disabled: this.unsubscribes.length === 0 || this.pendingClearAll || this.mode !== UnsubscribesListMode.Blocks }
     ];
   }
 
@@ -970,8 +972,8 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
   }
 
   onModeChange(value: string): void {
-    if (value === "blocks" || value === "unsubscribes") {
-      this.setMode(value);
+    if (value === UnsubscribesListMode.Blocks || value === UnsubscribesListMode.Unsubscribes) {
+      this.setMode(value as UnsubscribesListMode);
     }
   }
 

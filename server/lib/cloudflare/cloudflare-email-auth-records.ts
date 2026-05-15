@@ -1,6 +1,7 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { CloudflareDnsConfig } from "./cloudflare.model";
+import { CloudflareDnsConfig, DnsRecordType } from "./cloudflare.model";
+import { DmarcRecordStatus, EmailAuthRecordsStatus, SpfRecordStatus } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
 import { createDnsRecord, listDnsRecords, updateDnsRecord } from "./cloudflare-dns";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:email-auth-records"));
@@ -8,32 +9,6 @@ const debugLog = debug(envConfig.logNamespace("cloudflare:email-auth-records"));
 export const REQUIRED_SPF_INCLUDES = ["_spf.mx.cloudflare.net", "spf.brevo.com"];
 export const DEFAULT_SPF_QUALIFIER = "~all";
 export const DEFAULT_DMARC_POLICY = "v=DMARC1; p=none;";
-
-export interface SpfRecordStatus {
-  domain: string;
-  present: boolean;
-  multiple: boolean;
-  rawContent: string | null;
-  existingIncludes: string[];
-  missingIncludes: string[];
-  allPresent: boolean;
-  recordId: string | null;
-}
-
-export interface DmarcRecordStatus {
-  domain: string;
-  dmarcHostname: string;
-  present: boolean;
-  rawContent: string | null;
-  policy: string | null;
-  recordId: string | null;
-}
-
-export interface EmailAuthRecordsStatus {
-  domain: string;
-  spf: SpfRecordStatus;
-  dmarc: DmarcRecordStatus;
-}
 
 function unquoteTxtContent(content: string): string {
   const trimmed = content.trim();
@@ -77,7 +52,7 @@ function otherMechanismsIn(spfContent: string): string[] {
 }
 
 export async function querySpfStatus(dnsConfig: CloudflareDnsConfig, domain: string): Promise<SpfRecordStatus> {
-  const records = await listDnsRecords(dnsConfig, domain, "TXT");
+  const records = await listDnsRecords(dnsConfig, domain, DnsRecordType.TXT);
   const spfRecords = records.filter(record => /^"?v=spf1\b/i.test(record.content));
   const multiple = spfRecords.length > 1;
   if (spfRecords.length === 0) {
@@ -111,7 +86,7 @@ export async function querySpfStatus(dnsConfig: CloudflareDnsConfig, domain: str
 
 export async function queryDmarcStatus(dnsConfig: CloudflareDnsConfig, domain: string): Promise<DmarcRecordStatus> {
   const dmarcHostname = `_dmarc.${domain}`;
-  const records = await listDnsRecords(dnsConfig, dmarcHostname, "TXT");
+  const records = await listDnsRecords(dnsConfig, dmarcHostname, DnsRecordType.TXT);
   const dmarcRecord = records.find(record => /^"?v=DMARC1\b/i.test(record.content));
   if (!dmarcRecord) {
     return {
@@ -155,14 +130,14 @@ export async function ensureSpfRecord(dnsConfig: CloudflareDnsConfig, domain: st
   if (!current.present) {
     const desired = buildSpfContent([], DEFAULT_SPF_QUALIFIER);
     debugLog("Creating SPF record for %s -> %s", domain, desired);
-    await createDnsRecord(dnsConfig, { type: "TXT", name: domain, content: desired, ttl: 1, proxied: false });
+    await createDnsRecord(dnsConfig, { type: DnsRecordType.TXT, name: domain, content: desired, ttl: 1, proxied: false });
     return querySpfStatus(dnsConfig, domain);
   }
   const qualifier = extractAllQualifier(current.rawContent || "");
   const otherMechanisms = otherMechanismsIn(current.rawContent || "");
   const updated = buildSpfContent(current.existingIncludes, qualifier, otherMechanisms);
   debugLog("Updating SPF record %s for %s: %s -> %s", current.recordId, domain, current.rawContent, updated);
-  await updateDnsRecord(dnsConfig, current.recordId, { type: "TXT", name: domain, content: updated, ttl: 1, proxied: false });
+  await updateDnsRecord(dnsConfig, current.recordId, { type: DnsRecordType.TXT, name: domain, content: updated, ttl: 1, proxied: false });
   return querySpfStatus(dnsConfig, domain);
 }
 
@@ -173,7 +148,7 @@ export async function ensureDmarcRecord(dnsConfig: CloudflareDnsConfig, domain: 
     return current;
   }
   debugLog("Creating DMARC record for %s -> %s", domain, DEFAULT_DMARC_POLICY);
-  await createDnsRecord(dnsConfig, { type: "TXT", name: current.dmarcHostname, content: DEFAULT_DMARC_POLICY, ttl: 1, proxied: false });
+  await createDnsRecord(dnsConfig, { type: DnsRecordType.TXT, name: current.dmarcHostname, content: DEFAULT_DMARC_POLICY, ttl: 1, proxied: false });
   return queryDmarcStatus(dnsConfig, domain);
 }
 

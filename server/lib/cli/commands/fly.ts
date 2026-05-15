@@ -3,7 +3,7 @@ import debug from "debug";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { flyTomlAbsolutePath, OutputCallback, runCommand, runCommandStreaming } from "../../fly/fly-commands";
+import { flyTomlAbsolutePath, runCommand, runCommandStreaming } from "../../fly/fly-commands";
 import { loadSecretsWithFallback, REQUIRED_SECRETS, writeSecretsFile } from "../../shared/secrets";
 import {
   configuredEnvironments,
@@ -12,13 +12,13 @@ import {
 } from "../../environments/environments-config";
 import { normaliseMemory } from "../../shared/spelling";
 import { DeployResult, FlyDeployConfig, ProgressCallback } from "../types";
+import { SetupStepStatus } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { DeployToFlyioOptions } from "../cli.model";
 import { FLYIO_DEFAULTS } from "../../../deploy/types";
 import { DEPLOYMENT_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { log } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
 import { keys } from "es-toolkit/compat";
-
-export type DeployOutputCallback = OutputCallback;
 
 const debugLog = debug(envConfig.logNamespace("cli:fly"));
 
@@ -105,11 +105,6 @@ async function appExists(appName: string): Promise<boolean> {
   }
 }
 
-export interface DeployToFlyioOptions {
-  onProgress?: ProgressCallback;
-  onDeployOutput?: DeployOutputCallback;
-}
-
 export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions?: ProgressCallback | DeployToFlyioOptions): Promise<DeployResult> {
   const options: DeployToFlyioOptions = typeof onProgressOrOptions === "function"
     ? { onProgress: onProgressOrOptions }
@@ -117,7 +112,7 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
 
   const { onProgress, onDeployOutput } = options;
 
-  const report = (message: string, status: "running" | "completed" | "failed" = "running") => {
+  const report = (message: string, status: SetupStepStatus = SetupStepStatus.Running) => {
     debugLog(message);
     if (onProgress) {
       onProgress({ step: "deploy-flyio", status, message });
@@ -217,7 +212,7 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
     });
     report("Updated environment configuration in database");
 
-    report("Deployment completed", "completed");
+    report("Deployment completed", SetupStepStatus.Completed);
 
     return {
       success: true,
@@ -226,7 +221,7 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
       message: "Deployment completed successfully"
     };
   } catch (error) {
-    report(`Deployment failed: ${error.message}`, "failed");
+    report(`Deployment failed: ${error.message}`, SetupStepStatus.Failed);
     throw error;
   }
 }

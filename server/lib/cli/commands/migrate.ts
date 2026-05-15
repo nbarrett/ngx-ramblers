@@ -17,7 +17,10 @@ import {
   NgxWalk,
   ReconciliationGap,
   ReconciliationResult,
-  ReconciliationSuggestion
+  ReconciliationSuggestion,
+  GapType,
+  GapPriority,
+  SuggestionAction
 } from "../../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 
 const debugLog = debug(envConfig.logNamespace("cli:migrate"));
@@ -334,15 +337,15 @@ function reconcile(oldPages: ReconciliationPage[], newPages: NgxPage[], walks: N
 
     if (!found && oldPage.type !== "other") {
       gaps.push({
-        type: "page",
+        type: GapType.Page,
         oldPath: oldPage.path,
         description: `${oldPage.type} page "${oldPage.title}" not found on new site`,
-        priority: oldPage.type === "home" || oldPage.type === "about" || oldPage.type === "walks" ? "high" : "medium"
+        priority: oldPage.type === "home" || oldPage.type === "about" || oldPage.type === "walks" ? GapPriority.High : GapPriority.Medium
       });
 
       const suggestedPath = possiblePaths[0] || oldPage.path.toLowerCase().replace(/\.html?$/, "");
       suggestions.push({
-        action: "create",
+        action: SuggestionAction.Create,
         path: suggestedPath,
         description: `Create ${oldPage.type} page from "${oldPage.title}"`,
         content: {
@@ -358,14 +361,14 @@ function reconcile(oldPages: ReconciliationPage[], newPages: NgxPage[], walks: N
     const hasAlbum = newPages.some(np => np.path.startsWith("gallery/") && np.rows.some(r => r.type === "album"));
     if (!hasAlbum && page.images.length > 3) {
       gaps.push({
-        type: "album",
+        type: GapType.Album,
         oldPath: page.path,
         description: `${page.images.length} images detected that could be an album`,
-        priority: "low"
+        priority: GapPriority.Low
       });
 
       suggestions.push({
-        action: "create",
+        action: SuggestionAction.Create,
         path: `gallery/${page.path.replace(/[^a-z0-9]/gi, "-").toLowerCase()}`,
         description: `Create album from ${page.images.length} images on "${page.title}"`
       });
@@ -380,14 +383,14 @@ function reconcile(oldPages: ReconciliationPage[], newPages: NgxPage[], walks: N
 
     if (!hasWalksProgramme) {
       gaps.push({
-        type: "page",
+        type: GapType.Page,
         oldPath: "walks",
         description: `${walks.length} walks found but no walk programme pages exist`,
-        priority: "high"
+        priority: GapPriority.High
       });
 
       suggestions.push({
-        action: "create",
+        action: SuggestionAction.Create,
         path: "walks/programme",
         description: `Create walk programme page for ${walks.length} walks`
       });

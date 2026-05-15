@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
-import { emailComposition, EmailCompositionDocument, EmailCompositionStatus } from "../models/email-composition";
+import { emailComposition } from "../models/email-composition";
+import { EmailCompositionDocument, EmailCompositionStatus } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import * as transforms from "./transforms";
 
@@ -20,7 +21,7 @@ function memberIdFrom(req: AuthenticatedRequest): string | null {
 
 function statusFromQuery(req: Request): EmailCompositionStatus | null {
   const raw = (req.query?.status ?? "").toString().toLowerCase();
-  if (raw === "draft" || raw === "sent") return raw;
+  if (raw === EmailCompositionStatus.Draft || raw === EmailCompositionStatus.Sent) return raw as EmailCompositionStatus;
   return null;
 }
 
@@ -116,8 +117,8 @@ export async function update(req: AuthenticatedRequest, res: Response): Promise<
     if (body.title !== undefined) existing.title = body.title;
     if (body.state !== undefined) existing.state = body.state;
     if (body.shared !== undefined) existing.shared = body.shared === true;
-    if (body.status === "sent" && existing.status !== "sent") {
-      existing.status = "sent";
+    if (body.status === EmailCompositionStatus.Sent && existing.status !== EmailCompositionStatus.Sent) {
+      existing.status = EmailCompositionStatus.Sent;
       existing.sentAt = Date.now();
       if (body.sentRecipientCount !== undefined) existing.sentRecipientCount = body.sentRecipientCount;
     }

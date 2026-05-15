@@ -24,3 +24,10 @@ export interface StreamingCommandResult {
   exitCode: number;
   output: string;
 }
+
+export enum IpAddressType {
+  V4 = "v4",
+  V6 = "v6",
+  SharedV4 = "shared_v4",
+  PrivateV6 = "private_v6",
+}

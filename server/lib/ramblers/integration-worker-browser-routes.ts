@@ -6,6 +6,7 @@ import { verifyRamblersUploadSignature } from "./integration-worker-crypto";
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { FlickrScrapedAlbumSummary, FlickrScrapedUserAlbumsData } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { PlaywrightWaitUntil } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-browser-routes"));
 debugLog.enabled = true;
@@ -31,7 +32,7 @@ async function newBrowserPage(browser: Browser): Promise<Page> {
 interface HtmlFetchRequest {
   url: string;
   timeoutMs?: number;
-  waitUntil?: "load" | "domcontentloaded" | "networkidle" | "commit";
+  waitUntil?: PlaywrightWaitUntil;
 }
 
 interface HtmlFetchResponse {

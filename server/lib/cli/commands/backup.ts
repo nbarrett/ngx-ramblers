@@ -4,6 +4,7 @@ import inquirer from "inquirer";
 import mongoose from "mongoose";
 import { envConfig } from "../../env-config/env-config";
 import { ProgressCallback } from "../types";
+import { SetupStepStatus } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { error as logError, log } from "../cli-logger";
 import { BackupAndRestoreService, BackupOptions, RestoreOptions } from "../../backup/backup-and-restore-service";
 import * as configController from "../../mongo/controllers/config";
@@ -97,7 +98,7 @@ export async function createBackup(
       return;
     }
 
-    onProgress?.({ step: "backup", status: "running", message: `Starting backup of ${targetEnv}` });
+    onProgress?.({ step: "backup", status: SetupStepStatus.Running, message: `Starting backup of ${targetEnv}` });
     log(`\nStarting backup of environment: ${targetEnv}\n`);
 
     const service = new BackupAndRestoreService([], backupConfig);
@@ -114,10 +115,10 @@ export async function createBackup(
     log(`✓ ` +`Backup started: ${session.sessionId}`);
     log(`\nMonitor progress in Admin > Backup & Restore\n`);
 
-    onProgress?.({ step: "backup", status: "completed", message: `Backup started: ${session.sessionId}` });
+    onProgress?.({ step: "backup", status: SetupStepStatus.Completed, message: `Backup started: ${session.sessionId}` });
   } catch (error) {
     logError(`Backup failed: ${error.message}`);
-    onProgress?.({ step: "backup", status: "failed", message: error.message });
+    onProgress?.({ step: "backup", status: SetupStepStatus.Failed, message: error.message });
   } finally {
     await closeConnection();
   }
@@ -167,7 +168,7 @@ export async function restoreBackup(
       }
     }
 
-    onProgress?.({ step: "restore", status: "running", message: `Starting restore to ${targetEnv}` });
+    onProgress?.({ step: "restore", status: SetupStepStatus.Running, message: `Starting restore to ${targetEnv}` });
     log(`\nStarting restore to environment: ${targetEnv}\n`);
     log(`From: ${fromPath}\n`);
 
@@ -191,10 +192,10 @@ export async function restoreBackup(
       log(`\nMonitor progress in Admin > Backup & Restore\n`);
     }
 
-    onProgress?.({ step: "restore", status: "completed", message: `Restore started: ${session.sessionId}` });
+    onProgress?.({ step: "restore", status: SetupStepStatus.Completed, message: `Restore started: ${session.sessionId}` });
   } catch (error) {
     logError(`Restore failed: ${error.message}`);
-    onProgress?.({ step: "restore", status: "failed", message: error.message });
+    onProgress?.({ step: "restore", status: SetupStepStatus.Failed, message: error.message });
   } finally {
     await closeConnection();
   }
@@ -220,7 +221,7 @@ export async function s3Backup(
     };
 
     const label = options.all ? "all sites" : options.site;
-    onProgress?.({ step: "s3-backup", status: "running", message: `Starting S3 incremental backup for ${label}` });
+    onProgress?.({ step: "s3-backup", status: SetupStepStatus.Running, message: `Starting S3 incremental backup for ${label}` });
     log(`\nStarting S3 incremental backup for: ${label}\n`);
 
     if (options.dryRun) {
@@ -239,10 +240,10 @@ export async function s3Backup(
       log("");
     });
 
-    onProgress?.({ step: "s3-backup", status: "completed", message: `S3 backup completed for ${label}` });
+    onProgress?.({ step: "s3-backup", status: SetupStepStatus.Completed, message: `S3 backup completed for ${label}` });
   } catch (error) {
     logError(`S3 backup failed: ${error.message}`);
-    onProgress?.({ step: "s3-backup", status: "failed", message: error.message });
+    onProgress?.({ step: "s3-backup", status: SetupStepStatus.Failed, message: error.message });
   } finally {
     await closeConnection();
   }
@@ -273,7 +274,7 @@ export async function s3Restore(
     };
 
     const label = options.all ? "all sites" : options.site;
-    onProgress?.({ step: "s3-restore", status: "running", message: `Starting S3 restore for ${label} from ${options.timestamp}` });
+    onProgress?.({ step: "s3-restore", status: SetupStepStatus.Running, message: `Starting S3 restore for ${label} from ${options.timestamp}` });
     log(`\nStarting S3 restore for: ${label}`);
     log(`From timestamp: ${options.timestamp}\n`);
 
@@ -307,10 +308,10 @@ export async function s3Restore(
       log("");
     });
 
-    onProgress?.({ step: "s3-restore", status: "completed", message: `S3 restore completed for ${label}` });
+    onProgress?.({ step: "s3-restore", status: SetupStepStatus.Completed, message: `S3 restore completed for ${label}` });
   } catch (error) {
     logError(`S3 restore failed: ${error.message}`);
-    onProgress?.({ step: "s3-restore", status: "failed", message: error.message });
+    onProgress?.({ step: "s3-restore", status: SetupStepStatus.Failed, message: error.message });
   } finally {
     await closeConnection();
   }

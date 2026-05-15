@@ -46,5 +46,9 @@ export {
   SetupStep,
   ReconciliationResult,
   ReconciliationReport,
-  DeployEnvironmentConfig
+  DeployEnvironmentConfig,
+  CopiedAssets,
+  InitialiseDatabaseResult,
+  SeedDatabaseParams,
+  ReinitDatabaseParams
 } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";

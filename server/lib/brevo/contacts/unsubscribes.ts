@@ -19,6 +19,8 @@ import {
   ClearAllBlocklistResult,
   MailListAuditListType,
   MailListAuditSource,
+  RunUnsubscribesSyncOptions,
+  RunUnsubscribesSyncResult,
   SalesforceWritebackStatus,
   UnsubscribeActivity,
   UnsubscribeActivityResponse,
@@ -42,8 +44,8 @@ function parsePositiveInt(value: any, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function parseSort(value: any): "asc" | "desc" {
-  return value === SortDirection.ASC ? "asc" : "desc";
+function parseSort(value: any): SortDirection {
+  return value === SortDirection.ASC ? SortDirection.ASC : SortDirection.DESC;
 }
 
 function parseSenders(value: any): string[] | undefined {
@@ -73,7 +75,7 @@ async function fetchBlockedContactsPage(
   startDate: string | undefined,
   endDate: string | undefined,
   senders: string[] | undefined,
-  sort: "asc" | "desc",
+  sort: SortDirection,
   limit: number,
   offset: number
 ): Promise<{ contacts: BlockedContact[]; totalCount: number }> {
@@ -102,7 +104,7 @@ async function fetchAllBlockedContacts(
   startDate: string | undefined,
   endDate: string | undefined,
   senders: string[] | undefined,
-  sort: "asc" | "desc",
+  sort: SortDirection,
   requestedLimit: number,
   startOffset: number,
   accumulator: AggregatedBlockedContacts = { contacts: [], totalCount: 0 }
@@ -440,11 +442,11 @@ async function attachUnsubscribeFeedback(contacts: BlockedContact[]): Promise<Bl
   });
 }
 
-function compareBlockedAt(a: BlockedContact, b: BlockedContact, sort: "asc" | "desc"): number {
+function compareBlockedAt(a: BlockedContact, b: BlockedContact, sort: SortDirection): number {
   const aValue = a.blockedAt || "";
   const bValue = b.blockedAt || "";
   const comparison = aValue.localeCompare(bValue);
-  return sort === "asc" ? comparison : -comparison;
+  return sort === SortDirection.ASC ? comparison : -comparison;
 }
 
 async function persistMemberEmailBlocks(contacts: BlockedContact[]): Promise<void> {
@@ -591,7 +593,7 @@ export async function clearAllBlocklist(req: Request, res: Response): Promise<vo
       undefined,
       undefined,
       undefined,
-      "desc",
+      SortDirection.DESC,
       MAX_FETCH_LIMIT,
       0
     );
@@ -660,20 +662,6 @@ export async function clearAllBlocklist(req: Request, res: Response): Promise<vo
   }
 }
 
-export interface RunUnsubscribesSyncOptions {
-  limit?: number;
-  offset?: number;
-  startDate?: string;
-  endDate?: string;
-  senders?: string[];
-  sort?: "asc" | "desc";
-}
-
-export interface RunUnsubscribesSyncResult {
-  response: BlockedContactsResponse;
-  selfHealed: { cleared: number; skipped: boolean };
-}
-
 export async function runUnsubscribesSync(opts: RunUnsubscribesSyncOptions = {}): Promise<RunUnsubscribesSyncResult> {
   const brevoConfig = await configuredBrevo();
   const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
@@ -683,7 +671,7 @@ export async function runUnsubscribesSync(opts: RunUnsubscribesSyncOptions = {})
 
   const requestedLimit = Math.min(opts.limit && opts.limit > 0 ? opts.limit : DEFAULT_PAGE_LIMIT, MAX_FETCH_LIMIT);
   const startOffset = opts.offset && opts.offset > 0 ? opts.offset : 0;
-  const sort: "asc" | "desc" = opts.sort === "asc" ? "asc" : "desc";
+  const sort: SortDirection = opts.sort === SortDirection.ASC ? SortDirection.ASC : SortDirection.DESC;
   const noFilters = !opts.startDate && !opts.endDate && (!opts.senders || opts.senders.length === 0) && startOffset === 0;
 
   const aggregated = await fetchAllBlockedContacts(
@@ -754,7 +742,7 @@ export async function unsubscribeActivity(req: Request, res: Response): Promise<
     const limit = Math.min(parsePositiveInt(req.query.limit, DEFAULT_PAGE_LIMIT), MAX_FETCH_LIMIT);
     const offset = parsePositiveInt(req.query.offset, 0) || 0;
     const sort = parseSort(req.query.sort);
-    const sortDirection = sort === "asc" ? 1 : -1;
+    const sortDirection = sort === SortDirection.ASC ? 1 : -1;
     const startMs = startOfDayMillis(isString(req.query.startDate) ? req.query.startDate : undefined);
     const endMs = endOfDayMillis(isString(req.query.endDate) ? req.query.endDate : undefined);
     const baseFilter: Record<string, any> = { createdBy: MailListAuditSource.BRANDED_UNSUBSCRIBE };
