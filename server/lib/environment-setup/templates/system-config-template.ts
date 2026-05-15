@@ -184,8 +184,7 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
     cloudflareWebAnalytics: {
       enabled: false,
       siteToken: null,
-      siteTag: null,
-      host: null
+      siteTag: null
     },
     mailDefaults: {
       mailProvider: MailProvider.BREVO,

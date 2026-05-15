@@ -378,7 +378,6 @@ export interface CloudflareWebAnalyticsConfig {
   enabled: boolean;
   siteToken: string;
   siteTag: string;
-  host: string;
 }
 
 
