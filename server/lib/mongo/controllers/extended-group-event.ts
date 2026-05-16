@@ -270,7 +270,7 @@ export async function queryWalkLeaders(req: Request, res: Response) {
       const sortedLabels: string[] = labels.sort((a: string, b: string) => b.length - a.length);
       let bestLabel = sortedLabels[0];
       const uniqueLabels: string[] = [...new Set(sortedLabels)];
-      const finalId = item.source === EventSource.LOCAL ? item._id : kebabCase(item._id);
+      const finalId = isMongoIdString(item._id) ? item._id : kebabCase(item._id);
 
       if (showGroupName && item.source !== EventSource.LOCAL && item.groupName) {
         bestLabel = `${bestLabel} (${item.groupName})`;

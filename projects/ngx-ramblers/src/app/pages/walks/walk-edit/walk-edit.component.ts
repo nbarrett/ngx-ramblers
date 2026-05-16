@@ -172,7 +172,8 @@ import TurndownService from "turndown";
               [notify]="notify"
               [displayedWalk]="displayedWalk"
               [inputDisabled]="inputDisabled()"
-              (statusChange)="setStatus($event)"/>
+              (statusChange)="setStatus($event)"
+              (tabRequest)="onTabSelect($event)"/>
           </tab>
         }
       </tabset>
