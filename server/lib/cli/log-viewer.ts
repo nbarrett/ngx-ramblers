@@ -18,6 +18,10 @@ function isTmuxAvailable(): boolean {
   return result.status === 0;
 }
 
+export function logViewerSupported(): boolean {
+  return process.platform === "darwin" || isTmuxAvailable();
+}
+
 function openWithTmux(config: LogViewerConfig): Promise<void> {
   spawnSync("tmux", ["split-window", "-h", "tail", "-f", config.backendLogPath]);
 

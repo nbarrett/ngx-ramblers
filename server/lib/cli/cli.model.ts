@@ -43,14 +43,6 @@ export interface CustomDomainOperationResult {
   logs: string[];
 }
 
-export interface ChromeValidationResult {
-  valid: boolean;
-  chromeBinPath: string | null;
-  chromedriverPath: string | null;
-  chromeVersion: string | null;
-  error: string | null;
-}
-
 export interface LocalRunConfig {
   environmentName: string;
   mode: "dev" | "prod";

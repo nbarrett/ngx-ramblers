@@ -1,5 +1,13 @@
 import { ActionButtonColumn } from "./page-content-actions";
 
+export const CONTRIBUTOR_ENVIRONMENT_MENU_ITEM: ActionButtonColumn = {
+  accessLevel: "committee",
+  title: "Contributor Environment",
+  icon: "faLaptopCode",
+  href: "admin/contributor-environment",
+  contentText: "Generate a developer environment bundle so a contributor can run NGX on their own machine against this group's environment"
+};
+
 export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
   {
     accessLevel: "loggedInMember",
@@ -99,6 +107,7 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
     href: "admin/environment-management",
     contentText: "Manage environment setup, backups, environments monitoring, and maintenance"
   },
+  CONTRIBUTOR_ENVIRONMENT_MENU_ITEM,
   {
     accessLevel: "committee",
     title: "Configure Banners",

@@ -182,6 +182,8 @@ export interface SetupStatusResponse extends ApiResponse {
 }
 
 export interface EnvironmentDefaults {
+  environment?: string;
+  database?: string;
   mongodb: {
     cluster: string;
     username: string;

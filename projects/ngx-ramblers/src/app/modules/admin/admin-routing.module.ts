@@ -93,6 +93,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
         .then(m => m.SystemSettingsComponent), canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
+      path: "contributor-environment",
+      loadComponent: () => import("../../pages/admin/contributor-environment/contributor-environment.component")
+        .then(m => m.ContributorEnvironmentComponent),
+      canActivate: [SystemHealthyGuard, AdminAuthGuard]
+    },
+    {
       path: "set-password/:password-reset-id", loadComponent: () => import("../../login/set-password.component")
         .then(m => m.SetPasswordComponent)
     },

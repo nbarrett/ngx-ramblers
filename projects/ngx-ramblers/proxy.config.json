@@ -13,7 +13,7 @@
     "ws": true,
     "logLevel": "debug"
   },
-  "/reports": {
+  "/reports/site": {
     "target": "http://localhost:5001",
     "secure": false,
     "changeOrigin": true,

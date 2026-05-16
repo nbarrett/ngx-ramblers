@@ -1,0 +1,10 @@
+{
+  "environments": [
+    {
+      "environment": "pang-valley",
+      "flyio": {
+        "appName": "ngx-ramblers-pang-valley"
+      }
+    }
+  ]
+}
