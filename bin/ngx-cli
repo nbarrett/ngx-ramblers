@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 SOURCE="${BASH_SOURCE[0]}"
 while [ -L "$SOURCE" ]; do
   DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
@@ -6,13 +6,28 @@ while [ -L "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+find_checkout_root() {
+  local dir="$1"
+  while [ "$dir" != "/" ]; do
+    if [ -f "$dir/fly.toml" ]; then
+      echo "$dir"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
+
+PROJECT_ROOT="$(find_checkout_root "$PWD")" || PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 HASH_FILE="node_modules/.install-hash"
 
 compute_hash() {
-  cat package-lock.json server/package-lock.json 2>/dev/null | shasum -a 256 | cut -d' ' -f1
+  local hasher="sha256sum"
+  command -v shasum >/dev/null 2>&1 && hasher="shasum -a 256"
+  cat package-lock.json server/package-lock.json 2>/dev/null | $hasher | cut -d' ' -f1
 }
 
 needs_install() {

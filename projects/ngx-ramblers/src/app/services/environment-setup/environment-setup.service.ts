@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Observable, Subject } from "rxjs";
+import { firstValueFrom, Observable, Subject } from "rxjs";
 import { ApiResponse } from "../../models/api-response.model";
 import {
   CreateEnvironmentResponse,
@@ -55,6 +55,11 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as SetupStatusResponse;
+  }
+
+  async generateContributorBundle(environmentName: string, schema: string, clone: boolean): Promise<Blob> {
+    const options = {...this.opts, responseType: "blob" as const};
+    return firstValueFrom(this.http.post(`${this.BASE_URL}/contributor-bundle`, {environmentName, schema, clone}, options));
   }
 
   async groupsByArea(lookup: RamblersAreaLookup): Promise<GroupsByAreaResponse> {

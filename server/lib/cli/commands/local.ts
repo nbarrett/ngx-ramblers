@@ -14,8 +14,9 @@ import { log } from "../cli-logger";
 import { select, isBack, isQuit, handleQuit, clearScreen } from "../cli-prompt";
 import { dateTimeNow } from "../../shared/dates";
 import { envConfig } from "../../env-config/env-config";
-import { ChromeValidationResult, LocalRunConfig, ProcessState, RunningProcess } from "../cli.model";
-import { openLogViewer } from "../log-viewer";
+import { LocalRunConfig, ProcessState, RunningProcess } from "../cli.model";
+import { DEFAULT_CHROME_VERSION } from "../../shared/chrome-version";
+import { openLogViewer, logViewerSupported } from "../log-viewer";
 
 const debugLog = debug(envConfig.logNamespace("cli:local"));
 
@@ -153,107 +154,6 @@ function applyServerEnvOverrides(env: NodeJS.ProcessEnv): void {
   }
 }
 
-function detectInstalledChromeVersion(): string | null {
-  const chromedriverDir = path.join(PROJECT_ROOT, "server/chromedriver");
-  if (!fs.existsSync(chromedriverDir)) {
-    return null;
-  }
-  const platformPrefixes = ["mac_arm-", "mac-", "linux-", "win32-", "win64-"];
-  const dirs = fs.readdirSync(chromedriverDir).filter(d => platformPrefixes.some(prefix => d.startsWith(prefix)));
-  if (dirs.length === 0) {
-    return null;
-  }
-  const latest = dirs.sort().reverse()[0];
-  const match = latest.match(/^[a-z0-9_]+-(.+)$/);
-  return match ? match[1] : null;
-}
-
-function validateChromeBinary(chromeBinPath: string): boolean {
-  if (!fs.existsSync(chromeBinPath)) {
-    return false;
-  }
-
-  const result = spawnSync(chromeBinPath, ["--version", "--no-sandbox"], {
-    stdio: ["ignore", "pipe", "pipe"],
-    timeout: 5000
-  });
-
-  return result.status === 0;
-}
-
-function findBinaryInVersionDir(baseDir: string, version: string): string | null {
-  const versionDir = fs.readdirSync(baseDir).find(d => d.endsWith(`-${version}`));
-  if (!versionDir) {
-    return null;
-  }
-  const fullPath = path.join(baseDir, versionDir);
-  const subDirs = fs.readdirSync(fullPath);
-  const chromedriverBin = subDirs.find(d => d.startsWith("chromedriver-"));
-  if (chromedriverBin) {
-    return path.join(fullPath, chromedriverBin, "chromedriver");
-  }
-  const chromeBinDir = subDirs.find(d => d.startsWith("chrome-"));
-  if (chromeBinDir) {
-    const chromeContents = path.join(fullPath, chromeBinDir);
-    const appBundle = fs.readdirSync(chromeContents).find(f => f.endsWith(".app"));
-    if (appBundle) {
-      return path.join(chromeContents, appBundle, "Contents/MacOS/Google Chrome for Testing");
-    }
-    const chromeBin = fs.readdirSync(chromeContents).find(f => f === "chrome");
-    if (chromeBin) {
-      return path.join(chromeContents, chromeBin);
-    }
-  }
-  return null;
-}
-
-function validateChromeSetup(chromeVersionOverride?: string): ChromeValidationResult {
-  const chromeVersion = detectInstalledChromeVersion() || chromeVersionOverride;
-
-  if (!chromeVersion) {
-    return {
-      valid: false,
-      error: "No Chrome version detected in server/chromedriver/",
-      chromeBinPath: null,
-      chromedriverPath: null,
-      chromeVersion: null
-    };
-  }
-
-  const chromedriverDir = path.join(PROJECT_ROOT, "server/chromedriver");
-  const chromeDir = path.join(PROJECT_ROOT, "server/chrome");
-  const chromedriverPath = findBinaryInVersionDir(chromedriverDir, chromeVersion);
-  const chromeBinPath = fs.existsSync(chromeDir) ? findBinaryInVersionDir(chromeDir, chromeVersion) : null;
-
-  if (!chromedriverPath || !fs.existsSync(chromedriverPath)) {
-    return {
-      valid: false,
-      chromeVersion,
-      error: `Chromedriver not found for version ${chromeVersion}`,
-      chromeBinPath: null,
-      chromedriverPath: null
-    };
-  }
-
-  if (!chromeBinPath || !validateChromeBinary(chromeBinPath)) {
-    return {
-      valid: false,
-      chromeVersion,
-      chromedriverPath,
-      error: `Chrome binary not found or not executable for version ${chromeVersion}`,
-      chromeBinPath: null
-    };
-  }
-
-  return {
-    valid: true,
-    chromeVersion,
-    chromedriverPath,
-    chromeBinPath,
-    error: null
-  };
-}
-
 async function selectEnvironment(): Promise<string | null> {
   const environments = await listEnvironmentSummariesFromDatabase();
 
@@ -356,13 +256,6 @@ function buildEnvironmentVariables(
   port: number,
   s3BucketOverride?: string
 ): NodeJS.ProcessEnv {
-  const chromeValidation = validateChromeSetup(secrets.CHROME_VERSION);
-
-  if (!chromeValidation.valid) {
-    log("Warning: Chrome not available - %s", chromeValidation.error);
-    log("         Scraping features will be disabled");
-  }
-
   const cleanEnv = buildCleanEnvironment();
 
   const env: NodeJS.ProcessEnv = {
@@ -373,14 +266,9 @@ function buildEnvironmentVariables(
     DEBUG: secrets.DEBUG || "ngx-ramblers:*",
     DEBUG_COLORS: "true",
     NODE_OPTIONS: "--max_old_space_size=2560",
-    PLATFORM_ADMIN_ENABLED: "true"
+    PLATFORM_ADMIN_ENABLED: "true",
+    CHROME_VERSION: secrets.CHROME_VERSION || DEFAULT_CHROME_VERSION
   };
-
-  if (chromeValidation.valid) {
-    env.CHROME_VERSION = chromeValidation.chromeVersion || "";
-    env.CHROMEDRIVER_PATH = chromeValidation.chromedriverPath || "";
-    env.CHROME_BIN = chromeValidation.chromeBinPath || "";
-  }
 
   if (s3BucketOverride) {
     log("S3 bucket override: %s → %s", env.AWS_BUCKET, s3BucketOverride);
@@ -1174,7 +1062,7 @@ export function createLocalCommand(): Command {
           return;
         }
         const port = parseInt(options.port, 10);
-        const logViewer = options.logViewer !== false;
+        const logViewer = options.logViewer !== false && logViewerSupported();
         const headless = options.headless !== false;
         const dockerWorker = options.dockerWorker !== false && headless;
 
@@ -1228,7 +1116,7 @@ export function createLocalCommand(): Command {
           return;
         }
         const port = parseInt(options.port, 10);
-        const logViewer = options.logViewer !== false;
+        const logViewer = options.logViewer !== false && logViewerSupported();
 
         const config = ensureLogDir(
           {

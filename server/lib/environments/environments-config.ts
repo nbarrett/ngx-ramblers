@@ -1,3 +1,4 @@
+import fs from "fs";
 import debug from "debug";
 import { ConfigDocument, ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
@@ -10,6 +11,7 @@ import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
 import { connect as connectToDatabase } from "../mongo/mongoose-client";
 import type { EnvironmentConfig as DeployEnvironmentConfig } from "../../deploy/types";
+import { resolveClientPath } from "../shared/path-utils";
 
 const debugLog = debug(envConfig.logNamespace("environments-config"));
 debugLog.enabled = true;
@@ -33,12 +35,50 @@ async function loadFromDatabase(): Promise<EnvironmentsConfig | null> {
   }
 }
 
+const LOCAL_ENVIRONMENTS_MANIFEST = "environments.local.json";
+
+function loadFromLocalManifest(): EnvironmentsConfig | null {
+  const manifestPath = resolveClientPath("non-vcs/secrets", LOCAL_ENVIRONMENTS_MANIFEST);
+  if (!fs.existsSync(manifestPath)) {
+    debugLog("No local environments manifest at %s", manifestPath);
+    return null;
+  } else {
+    try {
+      const parsed: EnvironmentsConfig = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+      if (parsed?.environments?.length) {
+        debugLog("Loaded environments config from local manifest %s: %d environments", manifestPath, parsed.environments.length);
+        return parsed;
+      } else {
+        debugLog("Local environments manifest %s contains no environments", manifestPath);
+        return null;
+      }
+    } catch (error) {
+      debugLog("Failed to parse local environments manifest %s: %s", manifestPath, error.message);
+      return null;
+    }
+  }
+}
+
+function sortEnvironments(config: EnvironmentsConfig): EnvironmentsConfig {
+  if (config.environments) {
+    return { ...config, environments: [...config.environments].sort((a, b) => a.environment.localeCompare(b.environment)) };
+  } else {
+    return config;
+  }
+}
+
 export async function configuredEnvironments(): Promise<EnvironmentsConfig> {
   const dbConfig = await loadFromDatabase();
   if (dbConfig) {
-    return dbConfig;
+    return sortEnvironments(dbConfig);
+  } else {
+    const localConfig = loadFromLocalManifest();
+    if (localConfig) {
+      return sortEnvironments(localConfig);
+    } else {
+      throw new Error("No environments configuration found in database or local manifest. Configure environments via /admin/environment-management, or add non-vcs/secrets/environments.local.json for offline development.");
+    }
   }
-  throw new Error("No environments configuration found in database. Configure environments via /admin/environment-management before running deployment commands.");
 }
 
 export async function findEnvironmentFromDatabase(environmentName: string): Promise<DeployEnvironmentConfig | null> {

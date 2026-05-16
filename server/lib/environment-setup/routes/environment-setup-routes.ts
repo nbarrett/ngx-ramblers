@@ -16,7 +16,7 @@ import { adminConfigFromEnvironment, copyStandardAssets, validateAwsAdminCredent
 import { createEnvironment, listSessions, sessionStatus, validateSetupRequest } from "../environment-setup-service";
 import { EnvironmentSetupRequest, RamblersAreaLookup, RamblersGroupLookup } from "../types";
 import { configuredEnvironments, findEnvironmentFromDatabase } from "../../environments/environments-config";
-import { buildMongoUri, extractClusterFromUri, extractUsernameFromUri } from "../../shared/mongodb-uri";
+import { buildMongoUri, extractClusterFromUri, extractUsernameFromUri, parseMongoUri } from "../../shared/mongodb-uri";
 import { resumeEnvironment } from "../../cli/commands/environment";
 import { destroyEnvironment } from "../../cli/commands/destroy";
 import {
@@ -45,6 +45,9 @@ import {
   loadEnvironmentContext,
   withBrevoApiKey
 } from "../environment-context";
+import AdmZip from "adm-zip";
+import { buildContributorBundle } from "../../contributor-environment/contributor-bundle";
+import { cloneDatabase, databaseHasCollections } from "../../contributor-environment/clone-database";
 
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:routes"));
@@ -266,16 +269,20 @@ router.get("/defaults", async (req: Request, res: Response) => {
     const mongoUri = envConfig.mongo().uri;
     const mongoCluster = extractClusterFromUri(mongoUri) || "";
     const mongoUsername = extractUsernameFromUri(mongoUri) || "";
+    const parsedMongo = parseMongoUri(mongoUri);
+    const currentEnvironment = (parsedMongo?.database || "").replace(/^ngx-ramblers-/, "");
 
     const config = await systemConfig.systemConfig();
 
     const defaults = {
+      environment: currentEnvironment,
+      database: parsedMongo?.database || "",
       mongodb: {
         cluster: mongoCluster,
         username: mongoUsername
       },
       aws: {
-        region: envConfig.aws().region
+        region: envConfig.value(Environment.AWS_REGION) || ""
       },
       googleMaps: {
         apiKey: config?.googleMaps?.apiKey || ""
@@ -1088,6 +1095,58 @@ router.post("/admin-password-reset/:environmentName", async (req: Request, res: 
     }
     errorDebugLog("Error generating admin password reset:", error.message);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/contributor-bundle", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const environmentName: string = req.body?.environmentName;
+    const schema: string = req.body?.schema;
+    const clone: boolean = req.body?.clone === true;
+    const parsedMongo = parseMongoUri(envConfig.mongo().uri);
+    if (!environmentName || !schema) {
+      res.status(400).json({ error: "environmentName and schema are required" });
+    } else if (!parsedMongo) {
+      res.status(500).json({ error: "Could not read the current database connection" });
+    } else if (clone && schema === parsedMongo.database) {
+      res.status(400).json({ error: "Choose a schema name different from the current database for a clone" });
+    } else if (clone && await databaseHasCollections(schema)) {
+      res.status(409).json({ error: `Schema ${schema} already exists - choose a new name` });
+    } else {
+      if (clone) {
+        await cloneDatabase(parsedMongo.database, schema);
+      }
+      const bundleMongoUri = buildMongoUri({
+        cluster: parsedMongo.cluster,
+        username: parsedMongo.username,
+        password: parsedMongo.password,
+        database: schema
+      });
+      const environmentConfig = await findEnvironmentFromDatabase(environmentName);
+      const appName = environmentConfig?.appName || `ngx-ramblers-${environmentName}`;
+      const bundleFiles = buildContributorBundle({
+        environment: environmentName,
+        appName,
+        mongoUri: bundleMongoUri,
+        aws: {
+          region: envConfig.value(Environment.AWS_REGION) || "",
+          bucket: envConfig.value(Environment.AWS_BUCKET) || "",
+          accessKeyId: envConfig.value(Environment.AWS_ACCESS_KEY_ID) || "",
+          secretAccessKey: envConfig.value(Environment.AWS_SECRET_ACCESS_KEY) || ""
+        }
+      });
+      const zip = new AdmZip();
+      bundleFiles.forEach(file => zip.addFile(file.path, Buffer.from(file.content, "utf-8")));
+      debugLog("Generated contributor bundle for environment %s, schema %s, clone %s", environmentName, schema, clone);
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="contributor-environment-${environmentName}.zip"`);
+      res.send(zip.toBuffer());
+    }
+  } catch (error) {
+    errorDebugLog("contributor-bundle generation failed:", error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
