@@ -2,14 +2,15 @@ import { Command } from "commander";
 import debug from "debug";
 import { keys } from "es-toolkit/compat";
 import { EnvironmentSetupRequest } from "../../environment-setup/types";
-import { loadSecretsForEnvironment, loadSecretsWithFallback, updateSecretsFile } from "../../shared/secrets";
+import { classifyMissingRequiredSecrets, loadSecretsForEnvironment, loadSecretsWithFallback, updateSecretsFile } from "../../shared/secrets";
 import { parseMongoUri } from "../../shared/mongodb-uri";
-import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase } from "../../environments/environments-config";
+import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase, persistEnvironmentSecret } from "../../environments/environments-config";
+import { generateAuthSecret } from "../../contributor-environment/contributor-bundle";
 import { normaliseMemory } from "../../shared/spelling";
 import { reinitDatabase, seedDatabase } from "./database";
 import { deployToFlyio } from "./fly";
 import { EnvironmentResult, FlyDeployConfig, ProgressCallback } from "../types";
-import { SetupStepStatus } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { SetupStep, SetupStepStatus } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { ResumeEnvironmentOptions } from "../cli.model";
 import { log } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
@@ -33,6 +34,34 @@ export async function createEnvironment(
   };
 }
 
+async function healMissingRequiredSecrets(
+  environmentName: string,
+  secrets: Record<string, string>,
+  onProgress?: ProgressCallback
+): Promise<Record<string, string>> {
+  const { missing, autoGeneratable, unrecoverable } = classifyMissingRequiredSecrets(secrets);
+  if (missing.length === 0) {
+    return secrets;
+  }
+
+  if (unrecoverable.length > 0) {
+    throw new Error(`Cannot resume ${environmentName}: missing required secrets [${unrecoverable.join(", ")}] that cannot be auto-generated. Supply them via the Edit environment view in /admin/environment-management before resuming.`);
+  }
+
+  const healed = { ...secrets };
+  for (const key of autoGeneratable) {
+    const value = generateAuthSecret();
+    await persistEnvironmentSecret(environmentName, key, value);
+    healed[key] = value;
+    const message = `Missing ${key} auto-generated and persisted to the ${environmentName} environment record`;
+    debugLog(message);
+    if (onProgress) {
+      onProgress({ step: SetupStep.GENERATE_SECRETS, status: SetupStepStatus.Completed, message });
+    }
+  }
+  return healed;
+}
+
 export async function resumeEnvironment(
   name: string,
   options: ResumeEnvironmentOptions,
@@ -45,11 +74,13 @@ export async function resumeEnvironment(
     throw new Error(`Environment ${name} not found`);
   }
 
-  const secrets = await loadSecretsWithFallback(name, envConfigData.appName);
-  if (keys(secrets.secrets).length === 0) {
+  const loadedSecrets = await loadSecretsWithFallback(name, envConfigData.appName);
+  if (keys(loadedSecrets.secrets).length === 0) {
     throw new Error(`No secrets found for ${envConfigData.appName}`);
   }
-  debugLog("Loaded secrets from:", secrets.path);
+  debugLog("Loaded secrets from:", loadedSecrets.path);
+
+  const secrets = { ...loadedSecrets, secrets: await healMissingRequiredSecrets(name, loadedSecrets.secrets, onProgress) };
 
   const mongoUri = secrets.secrets.MONGODB_URI;
   if (!mongoUri) {

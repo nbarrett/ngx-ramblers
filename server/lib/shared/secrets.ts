@@ -195,6 +195,23 @@ export function updateSecretsFile(appName: string, newSecrets: Record<string, st
 
 export const REQUIRED_SECRETS = ["AUTH_SECRET", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "AWS_BUCKET", "MONGODB_URI", "NODE_ENV"];
 
+export const AUTO_GENERATED_REQUIRED_SECRETS = ["AUTH_SECRET"];
+
+export interface MissingRequiredSecrets {
+  missing: string[];
+  autoGeneratable: string[];
+  unrecoverable: string[];
+}
+
+export function classifyMissingRequiredSecrets(secrets: Record<string, string>): MissingRequiredSecrets {
+  const missing = REQUIRED_SECRETS.filter(key => !secrets[key]);
+  return {
+    missing,
+    autoGeneratable: missing.filter(key => AUTO_GENERATED_REQUIRED_SECRETS.includes(key)),
+    unrecoverable: missing.filter(key => !AUTO_GENERATED_REQUIRED_SECRETS.includes(key))
+  };
+}
+
 function fillFromLocalFile(appName: string, secrets: Record<string, string>): Record<string, string> {
   const missing = REQUIRED_SECRETS.filter(key => !secrets[key]);
   if (missing.length === 0) {

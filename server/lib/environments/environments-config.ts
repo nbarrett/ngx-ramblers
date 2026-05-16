@@ -140,6 +140,23 @@ export async function upsertEnvironmentInDatabase(envUpdate: DbEnvironmentConfig
   debugLog("Upserted environment in database:", envUpdate.environment);
 }
 
+export async function persistEnvironmentSecret(environmentName: string, key: string, value: string): Promise<void> {
+  await connectToDatabase(debugLog);
+  const existingDoc = await config.queryKey(ConfigKey.ENVIRONMENTS);
+  const existing: EnvironmentsConfig = existingDoc?.value || { environments: [] };
+  const environments = existing.environments || [];
+  const idx = environments.findIndex(e => e.environment === environmentName);
+  if (idx < 0) {
+    throw new Error(`Cannot persist secret ${key}: environment ${environmentName} not found in ENVIRONMENTS config`);
+  }
+  environments[idx] = {
+    ...environments[idx],
+    secrets: { ...(environments[idx].secrets || {}), [key]: value }
+  };
+  await config.createOrUpdateKey(ConfigKey.ENVIRONMENTS, { ...existing, environments });
+  debugLog("Persisted secret %s for environment: %s", key, environmentName);
+}
+
 export async function removeEnvironmentFromDatabase(environmentName: string): Promise<boolean> {
   await connectToDatabase(debugLog);
   const existingDoc = await config.queryKey(ConfigKey.ENVIRONMENTS);
