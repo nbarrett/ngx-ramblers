@@ -1,4 +1,4 @@
-import { Component, Input } from "@angular/core";
+import { Component, inject, Input } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
@@ -7,6 +7,7 @@ import { SecretsEditor } from "../secrets-editor/secrets-editor";
 import { CloudflareUrlInputComponent, CloudflareUrlParseResult } from "../cloudflare-url-input/cloudflare-url-input";
 import { createDefaultUploadWorkerConfig, EnvironmentsConfig } from "../../../models/environment-config.model";
 import { InputSize } from "../../../models/ui-size.model";
+import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-url.service";
 
 @Component({
   selector: "app-environment-global-settings",
@@ -90,7 +91,7 @@ import { InputSize } from "../../../models/ui-size.model";
       <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
         <img src="assets/icons/cloudflare-logo.svg" alt="Cloudflare" style="height: 26px;">
         <span>Global Cloudflare Configuration</span>
-        <a href="https://dash.cloudflare.com"
+        <a [href]="cloudflareDashboardUrl"
            target="_blank"
            class="btn btn-sm btn-outline-cloudflare ms-auto">
           <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
@@ -106,7 +107,9 @@ import { InputSize } from "../../../models/ui-size.model";
             name="cloudflareApiToken"
             [size]="InputSize.SM">
           </app-secret-input>
-          <small class="form-text text-muted">Token with Zone → DNS → Edit permission</small>
+          <small class="form-text text-muted">One token for DNS, email routing and Web Analytics. Needs
+            <a [href]="cloudflareApiTokensUrl" target="_blank">Zone → DNS → Edit, Account → Account Settings →
+            Edit and Account → Account Analytics → Read</a> permissions</small>
         </div>
         <div class="col-md-6 mb-2">
           <label class="form-label">Account ID</label>
@@ -115,7 +118,7 @@ import { InputSize } from "../../../models/ui-size.model";
             name="cloudflareAccountId"
             [size]="InputSize.SM">
           </app-secret-input>
-          <small class="form-text text-muted">Found in <a href="https://dash.cloudflare.com" target="_blank">Cloudflare dashboard</a> URL</small>
+          <small class="form-text text-muted">Found in <a [href]="cloudflareDashboardUrl" target="_blank">Cloudflare dashboard</a> URL</small>
         </div>
         <div class="col-md-6 mb-2">
           <label class="form-label">Zone ID</label>
@@ -232,6 +235,8 @@ export class EnvironmentGlobalSettings {
 
   protected readonly InputSize = InputSize;
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
+  protected readonly cloudflareDashboardUrl = inject(CloudflareUrlService).dashboard();
+  protected readonly cloudflareApiTokensUrl = inject(CloudflareUrlService).apiTokens();
 
   onCloudflareUrlParsed(result: CloudflareUrlParseResult) {
     this.config.cloudflare.accountId = result.accountId;

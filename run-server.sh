@@ -11,6 +11,8 @@ if [ ! -f "$SECRETS_FILE" ]; then
   exit 1
 fi
 
+unset CLOUDFLARE_CONFIG
+
 while IFS= read -r _line || [ -n "$_line" ]; do
   [[ "$_line" =~ ^[[:space:]]*# ]] && continue
   [[ -z "${_line// }" ]] && continue

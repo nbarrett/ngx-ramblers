@@ -24,6 +24,11 @@ export interface HealthGroup {
   href?: string;
 }
 
+export interface HealthWebAnalytics {
+  enabled?: boolean;
+  siteTag?: string;
+}
+
 export enum HealthStatus {
   OK = "OK",
   DEGRADED = "DEGRADED"
@@ -34,6 +39,7 @@ export interface HealthResponse {
   environment: HealthEnvironment;
   aws: HealthAws;
   group: HealthGroup;
+  webAnalytics?: HealthWebAnalytics;
   timestamp: string;
   migrations: HealthMigrations;
 }

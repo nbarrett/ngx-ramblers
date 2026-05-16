@@ -76,6 +76,10 @@ export async function systemStatus(req: Request, res: Response<Partial<HealthRes
         groupCode: config?.group?.groupCode,
         href: config?.group?.href
       },
+      webAnalytics: {
+        enabled: config?.cloudflareWebAnalytics?.enabled,
+        siteTag: config?.cloudflareWebAnalytics?.siteTag
+      },
       migrations: {
         ...base.migrations,
         files: migrationStatus.files

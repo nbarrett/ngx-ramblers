@@ -1,6 +1,7 @@
-import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
+import { Location } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { RouterLink } from "@angular/router";
+import { ActivatedRoute, RouterLink } from "@angular/router";
 import { Subscription } from "rxjs";
 import { isString } from "es-toolkit/compat";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -15,6 +16,7 @@ import {
 import { SecretInputComponent } from "../secret-input/secret-input.component";
 import { SecretsEditor } from "../secrets-editor/secrets-editor";
 import { MongoUriInputComponent, MongoUriParseResult } from "../mongo-uri-input/mongo-uri-input";
+import { EnvironmentWebAnalyticsSites } from "./environment-web-analytics-sites";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import {
@@ -22,9 +24,12 @@ import {
   EnvironmentConfig,
   EnvironmentsConfig
 } from "../../../models/environment-config.model";
+import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-url.service";
+import { CrossEnvironmentHealthService } from "../../../services/cross-environment-health.service";
 import { EnvironmentSettingsSubTab, Image, SystemConfig, SystemSettingsTab } from "../../../models/system.model";
 import { EnvironmentSetupTab } from "../../../models/environment-setup.model";
 import { InputSize } from "../../../models/ui-size.model";
+import { StoredValue } from "../../../models/ui-actions";
 import { asNumber } from "../../../functions/numbers";
 import { toKebabCase } from "../../../functions/strings";
 
@@ -37,7 +42,8 @@ import { toKebabCase } from "../../../functions/strings";
     FontAwesomeModule,
     SecretInputComponent,
     SecretsEditor,
-    MongoUriInputComponent
+    MongoUriInputComponent,
+    EnvironmentWebAnalyticsSites
   ],
   styles: [`
     .btn-outline-aws
@@ -324,8 +330,8 @@ import { toKebabCase } from "../../../functions/strings";
           <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
             <img src="assets/icons/cloudflare-logo.svg" alt="Cloudflare" style="height: 26px;">
             <span>Email Routing (Per-Environment)</span>
-            @if (config?.cloudflare?.accountId && currentEnvironment?.cloudflare?.baseDomain) {
-              <a [href]="'https://dash.cloudflare.com/' + config.cloudflare.accountId + '/' + currentEnvironment.cloudflare.baseDomain + '/email/routing/overview'"
+            @if (perEnvEmailRoutingUrl) {
+              <a [href]="perEnvEmailRoutingUrl"
                  target="_blank"
                  class="btn btn-sm btn-outline-cloudflare ms-auto">
                 <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
@@ -375,6 +381,7 @@ import { toKebabCase } from "../../../functions/strings";
             namePrefix="env">
           </app-secrets-editor>
         </div>
+        <app-environment-web-analytics-sites [host]="environmentHost" [existingSiteTag]="environmentSiteTag"/>
       </div>
     } @else {
       <div class="alert alert-warning">
@@ -388,16 +395,24 @@ import { toKebabCase } from "../../../functions/strings";
     }
   `
 })
-export class EnvironmentPerEnvSettings implements OnInit, OnDestroy {
+export class EnvironmentPerEnvSettings implements OnChanges, OnInit, OnDestroy {
 
   private systemConfigService = inject(SystemConfigService);
+  private cloudflareUrl = inject(CloudflareUrlService);
+  private crossEnvironmentHealthService = inject(CrossEnvironmentHealthService);
   urlService = inject(UrlService);
+  private activatedRoute = inject(ActivatedRoute);
+  private location = inject(Location);
   private subscriptions: Subscription[] = [];
+  private environmentParam: string | null = null;
+  private restoredFromUrl = false;
 
   @Input({required: true}) config: EnvironmentsConfig;
 
   systemConfig: SystemConfig;
   headerLogo: Image;
+  protected environmentHost: string | null = null;
+  protected environmentSiteTag: string | null = null;
 
   protected readonly InputSize = InputSize;
   protected readonly environmentSetupGlobalQueryParams = {tab: toKebabCase(EnvironmentSetupTab.SETTINGS), "sub-tab": EnvironmentSettingsSubTab.GLOBAL};
@@ -419,10 +434,34 @@ export class EnvironmentPerEnvSettings implements OnInit, OnDestroy {
     const numValue = isString(value) ? asNumber(value) : value;
     const maxIndex = Math.max(0, this.config.environments.length - 1);
     this._currentEnvironmentIndex = Math.min(Math.max(0, numValue), maxIndex);
+    this.updateEnvironmentUrl();
+    this.refreshEnvironmentHealth();
   }
 
   get currentEnvironment(): EnvironmentConfig | null {
     return this.config.environments[this.currentEnvironmentIndex] ?? null;
+  }
+
+  get perEnvEmailRoutingUrl(): string | null {
+    const accountId = this.currentEnvironment?.cloudflare?.accountId || this.config?.cloudflare?.accountId;
+    return accountId && this.environmentHost
+      ? this.cloudflareUrl.emailRoutingOverview(accountId, this.environmentHost)
+      : null;
+  }
+
+  private refreshEnvironmentHealth(): void {
+    const environmentName = this.currentEnvironment?.environment;
+    if (!environmentName) {
+      this.environmentHost = null;
+      this.environmentSiteTag = null;
+      return;
+    }
+    this.crossEnvironmentHealthService.webHostForEnvironment(environmentName)
+      .then(host => this.environmentHost = host)
+      .catch(() => this.environmentHost = null);
+    this.crossEnvironmentHealthService.webAnalyticsForEnvironment(environmentName)
+      .then(webAnalytics => this.environmentSiteTag = webAnalytics?.siteTag || null)
+      .catch(() => this.environmentSiteTag = null);
   }
 
   get environmentCount(): number {
@@ -437,6 +476,12 @@ export class EnvironmentPerEnvSettings implements OnInit, OnDestroy {
     return this.currentEnvironmentIndex < this.config.environments.length - 1;
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes.config && !this.restoredFromUrl && this.config?.environments?.length) {
+      this.restoreSelectionFromUrl();
+    }
+  }
+
   ngOnInit() {
     this.subscriptions.push(
       this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => {
@@ -448,6 +493,34 @@ export class EnvironmentPerEnvSettings implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  private restoreSelectionFromUrl(): void {
+    this.restoredFromUrl = true;
+    this.environmentParam = this.activatedRoute.snapshot.queryParams[StoredValue.ENVIRONMENT] || null;
+    if (this.environmentParam) {
+      const index = this.config.environments.findIndex(environment => toKebabCase(environment.environment || "") === this.environmentParam);
+      if (index >= 0) {
+        this.currentEnvironmentIndex = index;
+      }
+    }
+    this.refreshEnvironmentHealth();
+  }
+
+  private updateEnvironmentUrl(): void {
+    const name = this.currentEnvironment?.environment;
+    const slug = name ? toKebabCase(name) : null;
+    if (slug === this.environmentParam) {
+      return;
+    }
+    this.environmentParam = slug;
+    const params = new URLSearchParams(window.location.search);
+    if (slug) {
+      params.set(StoredValue.ENVIRONMENT, slug);
+    } else {
+      params.delete(StoredValue.ENVIRONMENT);
+    }
+    this.location.replaceState(window.location.pathname, params.toString());
   }
 
   navigatePrevious() {
