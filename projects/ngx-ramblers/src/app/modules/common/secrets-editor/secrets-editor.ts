@@ -27,7 +27,7 @@ import { SecretEntry } from "../../../models/backup-session.model";
                  [name]="namePrefix + 'SecretKey' + i"
                  [placeholder]="keyPlaceholder">
         </div>
-        <div class="col-md-5">
+        <div class="col-md">
           <app-secret-input
             [ngModel]="secret.value"
             (ngModelChange)="updateSecretValue(i, $event)"
@@ -35,7 +35,7 @@ import { SecretEntry } from "../../../models/backup-session.model";
             [size]="InputSize.SM">
           </app-secret-input>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-auto">
           <button type="button"
                   class="btn btn-danger btn-sm"
                   (click)="removeSecret(i)">

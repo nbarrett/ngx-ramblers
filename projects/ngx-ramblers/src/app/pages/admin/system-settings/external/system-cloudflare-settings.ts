@@ -5,6 +5,7 @@ import { faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NonSensitiveCloudflareConfig } from "../../../../models/cloudflare-email-routing.model";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
+import { CloudflareUrlService } from "../../../../services/cloudflare/cloudflare-url.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { CloudflareButton } from "../../../../modules/common/third-parties/cloudflare-button";
 
@@ -58,6 +59,7 @@ export class SystemCloudflareSettingsComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("SystemCloudflareSettingsComponent", NgxLoggerLevel.ERROR);
   private cloudflareService = inject(CloudflareEmailRoutingService);
+  private cloudflareUrl = inject(CloudflareUrlService);
   private subscriptions: Subscription[] = [];
 
   baseDomain = "";
@@ -94,7 +96,7 @@ export class SystemCloudflareSettingsComponent implements OnInit, OnDestroy {
 
   get dashboardUrl(): string {
     if (this.accountId && this.baseDomain) {
-      return `https://dash.cloudflare.com/${this.accountId}/${this.baseDomain}/email/routing/overview`;
+      return this.cloudflareUrl.emailRoutingOverview(this.accountId, this.baseDomain);
     }
     return null;
   }

@@ -3,8 +3,10 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ApiResponse } from "../../models/api-response.model";
 import {
+  CloudflareRumSite,
   CloudflareWebAnalyticsRequest,
-  CloudflareWebAnalyticsSummary
+  CloudflareWebAnalyticsSummary,
+  CreateRumSiteRequest
 } from "../../models/cloudflare-web-analytics.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -21,5 +23,9 @@ export class CloudflareWebAnalyticsService {
 
   async queryAnalytics(request: CloudflareWebAnalyticsRequest): Promise<CloudflareWebAnalyticsSummary> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/analytics`, request))).response;
+  }
+
+  async createSite(request: CreateRumSiteRequest): Promise<CloudflareRumSite> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/sites`, request))).response;
   }
 }

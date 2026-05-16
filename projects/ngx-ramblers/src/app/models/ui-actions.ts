@@ -56,6 +56,7 @@ export enum StoredValue {
   EMAIL_COMMITTEE_FILE = "committee-file",
   EMAIL_SOURCE_PAGE = "source-page",
   EMAIL_EVENT = "event",
+  ENVIRONMENT = "environment",
   EVENT_ID = "event-id",
   FACILITIES = "facilities",
   FREE_ONLY = "free-only",

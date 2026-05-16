@@ -43,6 +43,7 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
 import { UrlService } from "../../../../services/url.service";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
+import { CloudflareUrlService } from "../../../../services/cloudflare/cloudflare-url.service";
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
 import { Subscription } from "rxjs";
 import { cloneDeep, isBoolean, isEqual, isString } from "es-toolkit/compat";
@@ -136,11 +137,11 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                               <li>Open <a routerLink="/admin/environment-setup" [queryParams]="environmentSetupGlobalQueryParams">Global Settings</a> and ensure
                                 the Cloudflare section has a valid <strong>API Token</strong>,
                                 <strong>Zone ID</strong>, and <strong>Base Domain</strong></li>
-                              <li>The <a href="https://dash.cloudflare.com/profile/api-tokens"
+                              <li>The <a [href]="cloudflareApiTokensUrl"
                                 target="_blank">API Token</a> must include
                                 <em>Zone &gt; Email Routing Rules &gt; Edit</em></li>
                               <li>Enable Email Routing for your zone in the
-                                <a href="https://dash.cloudflare.com" target="_blank">Cloudflare dashboard</a></li>
+                                <a [href]="cloudflareDashboardUrl" target="_blank">Cloudflare dashboard</a></li>
                             </ol>
                             <div class="mt-2"><strong>Detail:</strong>
                               {{ cloudflareEmailRoutingService.configErrorNotifications() | async }}</div>
@@ -562,6 +563,9 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   private activatedRoute = inject(ActivatedRoute);
   private committeeConfigService = inject(CommitteeConfigService);
   cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
+  private cloudflareUrl = inject(CloudflareUrlService);
+  protected readonly cloudflareDashboardUrl = this.cloudflareUrl.dashboard();
+  protected readonly cloudflareApiTokensUrl = this.cloudflareUrl.apiTokens();
   private committeeQueryService = inject(CommitteeQueryService);
   private environmentSetupService = inject(EnvironmentSetupService);
   private subscriptions: Subscription[] = [];
@@ -775,7 +779,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
   cloudflareRoutingUrl(): string {
     if (this.cloudflareAccountId && this.cloudflareZoneId) {
-      return `https://dash.cloudflare.com/${this.cloudflareAccountId}/email-service/routing/${this.cloudflareZoneId}/routing-rules`;
+      return this.cloudflareUrl.emailRoutingRules(this.cloudflareAccountId, this.cloudflareZoneId);
     }
     return null;
   }
@@ -784,7 +788,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     if (!this.cloudflareAccountId || !scriptName) {
       return null;
     }
-    return `https://dash.cloudflare.com/${this.cloudflareAccountId}/workers/services/view/${scriptName}/production`;
+    return this.cloudflareUrl.worker(this.cloudflareAccountId, scriptName);
   }
 
   workerMappingLabel(scriptName: string): string {

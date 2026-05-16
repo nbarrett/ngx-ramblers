@@ -9,6 +9,7 @@ export const cloudflareApi = {
   accountEmailDestinationAddresses: (accountId: string) => `${CLOUDFLARE_API_BASE}/accounts/${accountId}/email/routing/addresses`,
   zoneEmailRoutingRules: (zoneId: string) => `${CLOUDFLARE_API_BASE}/zones/${zoneId}/email/routing/rules`,
   accountWorkersScripts: (accountId: string) => `${CLOUDFLARE_API_BASE}/accounts/${accountId}/workers/scripts`,
+  accountRumSites: (accountId: string) => `${CLOUDFLARE_API_BASE}/accounts/${accountId}/rum/site_info`,
   graphql: () => `${CLOUDFLARE_API_BASE}/graphql`
 };
 
