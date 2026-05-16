@@ -43,7 +43,7 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
                        [disabled]="inputDisabled"
                        [(ngModel)]="showOnlyWalkLeaders" [value]="true">
                 <label class="form-check-label" for="showOnlyWalkLeadersTrue">
-                  Show Only Walk Leaders ({{ previousWalkLeadersWithAliasOrMe.length }})</label>
+                  Show Only Walk Leaders ({{ previousWalkLeaderCount }})</label>
               </div>
               <div class="form-check form-check-inline">
                 <input id="showOnlyWalkLeadersFalse" type="radio" class="form-check-input"
@@ -220,6 +220,7 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   @Output() rematchPreviewRequest = new EventEmitter<void>();
   showOnlyWalkLeaders = true;
   previousWalkLeadersWithAliasOrMe: DisplayMember[] = [];
+  previousWalkLeaderCount = 0;
   membersWithAliasOrMe: DisplayMember[] = [];
   walkStatuses: any[] = [];
   myContactId: string;
@@ -250,6 +251,7 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
       this.refreshContactIds();
     }));
 
+    this.previousWalkLeaderCount = previousWalkLeaderIds?.length || 0;
     this.previousWalkLeadersWithAliasOrMe = this.membersWithAliasOrMe
       .filter(member => previousWalkLeaderIds?.includes(member.memberId));
   }

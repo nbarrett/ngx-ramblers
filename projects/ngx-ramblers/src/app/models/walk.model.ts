@@ -361,6 +361,12 @@ export enum WalkCopyOption {
   COPY_WITH_OS_MAPS_ROUTE_SELECTED = "copy-with-os-maps-route-selected"
 }
 
+export enum GroupEventDateTimeField {
+  START = "start_date_time",
+  END = "end_date_time",
+  MEETING = "meeting_date_time"
+}
+
 export interface CopyFrom {
   walkTemplate: ExtendedGroupEvent;
   walkTemplates: ExtendedGroupEvent[];
