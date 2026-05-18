@@ -141,6 +141,7 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
     this.editableConfig.uploadWorker = {...createDefaultUploadWorkerConfig(), ...this.editableConfig.uploadWorker};
     this.editableConfig.environments = this.editableConfig.environments
       .map(env => ({
+        ...env,
         environment: env.environment || "",
         aws: {...createEmptyAwsConfig(), ...env.aws},
         mongo: {...createEmptyMongoConfig(), ...env.mongo},
@@ -154,11 +155,8 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
   saveConfigFromForm() {
     this.configError = "";
     const config: EnvironmentsConfig = {
-      environments: this.propagateWorkerSecrets(this.editableConfig.environments, this.editableConfig.uploadWorker),
-      aws: this.editableConfig.aws,
-      cloudflare: this.editableConfig.cloudflare,
-      secrets: this.editableConfig.secrets,
-      uploadWorker: this.editableConfig.uploadWorker
+      ...this.editableConfig,
+      environments: this.propagateWorkerSecrets(this.editableConfig.environments, this.editableConfig.uploadWorker)
     };
 
     this.environmentConfigService.saveConfig(config).then(() => {

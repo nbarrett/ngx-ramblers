@@ -1103,13 +1103,16 @@ router.post("/contributor-bundle", async (req: Request, res: Response) => {
 
   try {
     const environmentName: string = req.body?.environmentName;
-    const schema: string = req.body?.schema;
+    const requestedSchema: string = req.body?.schema;
     const clone: boolean = req.body?.clone === true;
     const parsedMongo = parseMongoUri(envConfig.mongo().uri);
-    if (!environmentName || !schema) {
-      res.status(400).json({ error: "environmentName and schema are required" });
+    const schema: string = clone ? requestedSchema : parsedMongo?.database;
+    if (!environmentName) {
+      res.status(400).json({ error: "environmentName is required" });
     } else if (!parsedMongo) {
       res.status(500).json({ error: "Could not read the current database connection" });
+    } else if (!schema) {
+      res.status(400).json({ error: clone ? "A schema name is required to clone the database" : "Could not determine the current database" });
     } else if (clone && schema === parsedMongo.database) {
       res.status(400).json({ error: "Choose a schema name different from the current database for a clone" });
     } else if (clone && await databaseHasCollections(schema)) {
@@ -1124,7 +1127,7 @@ router.post("/contributor-bundle", async (req: Request, res: Response) => {
         password: parsedMongo.password,
         database: schema
       });
-      const environmentConfig = await findEnvironmentFromDatabase(environmentName);
+      const environmentConfig = await findEnvironmentFromDatabase(environmentName).catch(() => null);
       const appName = environmentConfig?.appName || `ngx-ramblers-${environmentName}`;
       const bundleFiles = buildContributorBundle({
         environment: environmentName,

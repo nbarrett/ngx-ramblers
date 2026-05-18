@@ -1,7 +1,8 @@
-import { HttpClient, HttpHeaders } from "@angular/common/http";
+import { HttpClient, HttpErrorResponse, HttpHeaders } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, Observable, Subject } from "rxjs";
+import { isString } from "es-toolkit/compat";
 import { ApiResponse } from "../../models/api-response.model";
 import {
   CreateEnvironmentResponse,
@@ -59,7 +60,34 @@ export class EnvironmentSetupService {
 
   async generateContributorBundle(environmentName: string, schema: string, clone: boolean): Promise<Blob> {
     const options = {...this.opts, responseType: "blob" as const};
-    return firstValueFrom(this.http.post(`${this.BASE_URL}/contributor-bundle`, {environmentName, schema, clone}, options));
+    try {
+      return await firstValueFrom(this.http.post(`${this.BASE_URL}/contributor-bundle`, {environmentName, schema, clone}, options));
+    } catch (error) {
+      throw new Error(await this.bundleErrorMessage(error));
+    }
+  }
+
+  private async bundleErrorMessage(error: unknown): Promise<string> {
+    const httpError = error as HttpErrorResponse;
+    const body = httpError?.error;
+    if (body instanceof Blob) {
+      const fromBlob = await this.parseBlobError(body);
+      if (fromBlob) {
+        return fromBlob;
+      }
+    } else if (isString(body?.error)) {
+      return body.error;
+    }
+    return httpError?.message || "Could not generate the bundle - check the details and try again.";
+  }
+
+  private async parseBlobError(blob: Blob): Promise<string | null> {
+    try {
+      const parsed = JSON.parse(await blob.text());
+      return isString(parsed?.error) ? parsed.error : null;
+    } catch {
+      return null;
+    }
   }
 
   async groupsByArea(lookup: RamblersAreaLookup): Promise<GroupsByAreaResponse> {
