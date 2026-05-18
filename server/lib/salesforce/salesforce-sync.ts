@@ -16,6 +16,7 @@ import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date
 import { fetchSalesforceMembers } from "./salesforce-client";
 import { configuredSalesforce, parseGroupCodes, persistSalesforceConfig } from "./salesforce-config";
 import { mapSalesforceMemberToRamblersMember } from "./salesforce-member-mapper";
+import { memberBulkLoadAudit } from "../mongo/models/member-bulk-load-audit";
 
 const debugLog = debug(envConfig.logNamespace("salesforce-sync"));
 debugLog.enabled = true;
@@ -64,10 +65,27 @@ function ensureGroupCodes(systemConfig: SystemConfig): string[] {
   return parseGroupCodes(systemConfig?.group?.groupCode);
 }
 
+function mapMembers(salesforceMembers: SalesforceMember[], enableGranularConsent: boolean): RamblersMember[] {
+  return salesforceMembers.map(member => mapSalesforceMemberToRamblersMember(member, { enableGranularConsent }));
+}
+
 function appendMembers(audit: MemberBulkLoadAudit, salesforceMembers: SalesforceMember[], enableGranularConsent: boolean): RamblersMember[] {
-  const mapped = salesforceMembers.map(member => mapSalesforceMemberToRamblersMember(member, { enableGranularConsent }));
+  const mapped = mapMembers(salesforceMembers, enableGranularConsent);
   audit.members.push(...mapped);
   return mapped;
+}
+
+async function previousBulkLoadMembers(): Promise<RamblersMember[]> {
+  const latestAudit = await memberBulkLoadAudit.findOne().sort({ createdDate: -1 }).lean().exec();
+  return latestAudit?.members ?? [];
+}
+
+export function rebuildFullMemberList(previousMembers: RamblersMember[], additions: RamblersMember[], removals: SalesforceMember[]): RamblersMember[] {
+  const removedMembershipNumbers = new Set(removals.map(member => member.membershipNumber));
+  const replacedMembershipNumbers = new Set(additions.map(member => member.membershipNumber));
+  const retainedMembers = previousMembers.filter(member =>
+    !removedMembershipNumbers.has(member.membershipNumber) && !replacedMembershipNumbers.has(member.membershipNumber));
+  return [...retainedMembers, ...additions];
 }
 
 export async function runSalesforceSync(options: SalesforceSyncOptions = {}): Promise<SalesforceSyncOutcome> {
@@ -100,6 +118,8 @@ export async function runSalesforceSync(options: SalesforceSyncOptions = {}): Pr
 
   const startedAt = dateTimeNowAsValue();
   const tenantStatuses: number[] = [];
+  const incrementalAdditions: SalesforceMember[] = [];
+  const incrementalRemovals: SalesforceMember[] = [];
 
   for (const groupCode of groupCodes) {
     const result = await fetchSalesforceMembers(salesforceConfig, {
@@ -120,14 +140,23 @@ export async function runSalesforceSync(options: SalesforceSyncOptions = {}): Pr
     tenantStatuses.push(result.status);
     const response = result.data;
     logInfo(audit, `Salesforce returned ${response.totalCount ?? response.members?.length ?? 0} members for ${response.groupCode} (${response.groupName}) in ${result.latencyMs}ms.`);
-    if (response.changes && response.changes.length > 0) {
-      const additions = response.changes.filter(change => change.changeType !== "removed").map(change => change.member);
-      appendMembers(audit, additions, enableGranularConsent);
-      const removals = response.changes.filter(change => change.changeType === "removed");
+    if (since) {
+      const changes = response.changes ?? [];
+      const additions = changes.filter(change => change.changeType !== "removed").map(change => change.member);
+      const removals = changes.filter(change => change.changeType === "removed").map(change => change.member);
+      incrementalAdditions.push(...additions);
+      incrementalRemovals.push(...removals);
       logInfo(audit, `Incremental sync for ${groupCode}: ${additions.length} added/updated, ${removals.length} removed.`);
     } else if (response.members && response.members.length > 0) {
       appendMembers(audit, response.members, enableGranularConsent);
     }
+  }
+
+  if (since) {
+    const previousMembers = await previousBulkLoadMembers();
+    const mappedAdditions = mapMembers(incrementalAdditions, enableGranularConsent);
+    audit.members = rebuildFullMemberList(previousMembers, mappedAdditions, incrementalRemovals);
+    logInfo(audit, `Incremental sync rebuilt full member list from ${previousMembers.length} previously loaded: ${mappedAdditions.length} added/updated, ${incrementalRemovals.length} removed, ${audit.members.length} members now.`);
   }
 
   const cursor = dateTimeNow().toISO();
