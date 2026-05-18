@@ -42,7 +42,7 @@ export function parseMongoUri(fullUri: string): ParsedMongoUri | null {
   }
 
   const uri = fullUri.trim();
-  const uriPattern = /^mongodb(\+srv)?:\/\/([^:]+):([^@]+)@(.+)$/;
+  const uriPattern = /^mongodb(\+srv)?:\/\/(?:([^:@\/]+):([^@\/]+)@)?(.+)$/;
   const match = uri.match(uriPattern);
 
   if (!match) {
@@ -63,8 +63,8 @@ export function parseMongoUri(fullUri: string): ParsedMongoUri | null {
   return {
     uri: `${protocol}://${rest}`,
     cluster,
-    username: decodeURIComponent(username),
-    password: decodeURIComponent(password),
+    username: username ? decodeURIComponent(username) : "",
+    password: password ? decodeURIComponent(password) : "",
     database,
     groupName
   };

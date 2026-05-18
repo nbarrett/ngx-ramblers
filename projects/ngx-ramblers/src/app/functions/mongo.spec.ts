@@ -99,9 +99,12 @@ describe("MongoDB URI Functions", () => {
       expect(result).toBeNull();
     });
 
-    it("should return null if URI has no credentials", () => {
+    it("should parse a URI without credentials", () => {
       const result = parseMongoUri("mongodb://localhost:27017/fakedb");
-      expect(result).toBeNull();
+      expect(result).not.toBeNull();
+      expect(result!.username).toBe("");
+      expect(result!.password).toBe("");
+      expect(result!.database).toBe("fakedb");
     });
 
     it("should trim whitespace from URI", () => {

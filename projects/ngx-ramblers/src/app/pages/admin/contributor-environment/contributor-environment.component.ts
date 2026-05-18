@@ -54,13 +54,18 @@ function toKebabCase(value: string): string {
           @if (clone) {
             <div class="form-group">
               <label for="schema">Schema</label>
-              <input id="schema" class="form-control" [(ngModel)]="schema">
+              <input id="schema" class="form-control" [ngModel]="schema"
+                     (ngModelChange)="onSchemaChange($event)" (blur)="checkSchema()">
               <small class="text-muted">
                 A new schema to create on the same server, populated with a copy of the current data.
               </small>
+              @if (schemaExists) {
+                <small class="d-block text-danger">Schema {{ schema }} already exists - choose a new name.</small>
+              }
             </div>
           }
-          <button class="btn btn-primary" [disabled]="generating || !environmentName.trim() || !schema.trim()"
+          <button class="btn btn-primary"
+                  [disabled]="generating || !environmentName.trim() || (clone && (!schema.trim() || schemaExists))"
                   (click)="generate()">
             {{ generating ? "Generating..." : "Generate developer environment" }}
           </button>
@@ -90,6 +95,7 @@ export class ContributorEnvironmentComponent implements OnInit {
   currentDatabase = "";
   schema = "";
   clone = false;
+  schemaExists = false;
   generating = false;
   notifyTarget: AlertTarget = {};
   notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -130,6 +136,26 @@ export class ContributorEnvironmentComponent implements OnInit {
     } else {
       this.schema = this.currentDatabase;
     }
+    void this.checkSchema();
+  }
+
+  onSchemaChange(value: string): void {
+    this.schema = value;
+    this.schemaExists = false;
+  }
+
+  async checkSchema(): Promise<void> {
+    const schema = this.schema.trim();
+    if (!this.clone || !schema) {
+      this.schemaExists = false;
+      return;
+    }
+    try {
+      this.schemaExists = await this.environmentSetupService.schemaExists(schema);
+    } catch (error) {
+      this.logger.error("Could not check schema existence:", error);
+      this.schemaExists = false;
+    }
   }
 
   async generate(): Promise<void> {
@@ -148,7 +174,7 @@ export class ContributorEnvironmentComponent implements OnInit {
       this.logger.error("Failed to generate contributor bundle:", error);
       this.notify.error({
         title: "Bundle generation failed",
-        message: "Could not generate the bundle - check the details and try again.",
+        message: error instanceof Error ? error.message : "Could not generate the bundle - check the details and try again.",
         continue: true
       });
     } finally {
