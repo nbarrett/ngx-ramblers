@@ -43,6 +43,14 @@ export interface CustomDomainOperationResult {
   logs: string[];
 }
 
+export interface ApexRedirectOperationResult {
+  primaryHostname: string;
+  redirectFrom: string;
+  zoneId?: string;
+  redirectCreated: boolean;
+  logs: string[];
+}
+
 export interface LocalRunConfig {
   environmentName: string;
   mode: "dev" | "prod";

@@ -2,7 +2,7 @@ import { Command } from "commander";
 import debug from "debug";
 import { log, error as logError } from "../cli-logger";
 import { envConfig } from "../../env-config/env-config";
-import { CloudflareDnsConfig, CloudflareZone, DnsRecordType } from "../../cloudflare/cloudflare.model";
+import { CloudflareDnsConfig, CloudflareZone, DnsRecordResult, DnsRecordType } from "../../cloudflare/cloudflare.model";
 import {
   createDnsRecord,
   listDnsRecords,
@@ -11,6 +11,7 @@ import {
   verifyToken,
   zoneForHostname
 } from "../../cloudflare/cloudflare-dns";
+import { ensureHostRedirectRule, removeHostRedirectRule } from "../../cloudflare/cloudflare-redirect-rules";
 import { AppIpAddresses, CertificateInfo, FlyConfig, IpAddressType } from "../../fly/fly.model";
 import { appIpAddresses, allocateIpAddress, addCertificate, deleteCertificate, queryCertificates } from "../../fly/fly-certificates";
 import { findEnvironmentFromDatabase, environmentsConfigFromDatabase } from "../../environments/environments-config";
@@ -23,7 +24,7 @@ import {
   CustomDomainStatus,
   EnvironmentsConfig
 } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
-import { CustomDomainOperationResult, SubdomainRemovalResult } from "../cli.model";
+import { ApexRedirectOperationResult, CustomDomainOperationResult, SubdomainRemovalResult } from "../cli.model";
 import { dateTimeNowAsValue } from "../../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("cli:subdomain"));
@@ -490,6 +491,12 @@ export async function addCustomDomainForEnvironment(environmentName: string, hos
     step("  ⚠ Could not update Group Web URL automatically (no MongoDB config on this env). Set it manually in Admin → System Settings → Group → Web URL.");
   }
 
+  try {
+    await applyDomainRedirectHygiene(step, environmentsConfig, environmentName, hostname, zone);
+  } catch (error) {
+    step(`  ⚠ Apex/www redirect reconciliation skipped: ${redirectErrorDetail(error)}`);
+  }
+
   step(`Done: https://${hostname}`);
   return { hostname, zoneId: zone.id, appName, entry: finalEntry, logs };
 }
@@ -573,6 +580,167 @@ async function reconcileCnameRecord(
   }
   await updateDnsRecord(cloudflareConfig, existing.id, { type: DnsRecordType.CNAME, name: recordName, content: target, proxied: false });
   step(`  ✓ CNAME updated (DNS only): ${hostname} ${existing.content} -> ${target}`);
+}
+
+const REDIRECT_PLACEHOLDER_IPV4 = "192.0.2.1";
+
+function siblingHostname(hostname: string): string {
+  return hostname.startsWith("www.") ? hostname.slice(4) : `www.${hostname}`;
+}
+
+function redirectErrorDetail(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function reconcileRedirectPlaceholderRecord(
+  step: (msg: string) => void,
+  cloudflareConfig: CloudflareDnsConfig,
+  recordName: string,
+  hostname: string,
+  existingRecords: DnsRecordResult[]
+): Promise<void> {
+  const existingCname = existingRecords.find(record => record.type === "CNAME");
+  if (existingCname) {
+    step(`  - ${hostname} already has a CNAME (${existingCname.content}); leaving DNS as is`);
+    if (!existingCname.proxied) {
+      step(`  ⚠ that CNAME is DNS-only — the redirect rule only fires for proxied records`);
+    }
+    return;
+  }
+  const existingA = existingRecords.find(record => record.type === "A");
+  if (!existingA) {
+    await createDnsRecord(cloudflareConfig, { type: DnsRecordType.A, name: recordName, content: REDIRECT_PLACEHOLDER_IPV4, proxied: true });
+    step(`  ✓ Proxied A record created: ${hostname} -> ${REDIRECT_PLACEHOLDER_IPV4} (redirect-only placeholder)`);
+    return;
+  }
+  if (existingA.proxied) {
+    step(`  - ${hostname} already has a proxied A record (${existingA.content})`);
+    return;
+  }
+  await updateDnsRecord(cloudflareConfig, existingA.id, { type: DnsRecordType.A, name: recordName, content: existingA.content, proxied: true });
+  step(`  ✓ A record for ${hostname} set to proxied so the redirect rule applies`);
+}
+
+function siblingAttachedToEnvironment(environmentsConfig: EnvironmentsConfig, environmentName: string, sibling: string): boolean {
+  const customDomains = (environmentsConfig.environments || [])
+    .find(env => env.environment === environmentName)?.customDomains || [];
+  return customDomains.some(entry => entry.hostname === sibling && entry.status === CustomDomainStatus.ATTACHED);
+}
+
+async function applyDomainRedirectHygiene(
+  step: (msg: string) => void,
+  environmentsConfig: EnvironmentsConfig,
+  environmentName: string,
+  attachedHostname: string,
+  zone: CloudflareZone
+): Promise<void> {
+  const cloudflareConfig: CloudflareDnsConfig = { apiToken: environmentsConfig.cloudflare.apiToken, zoneId: zone.id };
+
+  step("Reconciling apex/www redirect rules...");
+  try {
+    const removed = await removeHostRedirectRule(cloudflareConfig, attachedHostname);
+    if (removed) {
+      step(`  ✓ Removed a stale redirect rule that pointed ${attachedHostname} elsewhere (it now serves the site)`);
+    }
+  } catch (error) {
+    step(`  ⚠ Could not check redirect rules for ${attachedHostname}: ${redirectErrorDetail(error)}`);
+  }
+
+  const sibling = siblingHostname(attachedHostname);
+  if (sibling !== zone.name && !sibling.endsWith(`.${zone.name}`)) {
+    step(`  - ${sibling} is outside zone ${zone.name} — no redirect created`);
+    return;
+  }
+  if (siblingAttachedToEnvironment(environmentsConfig, environmentName, sibling)) {
+    step(`  - ${sibling} is attached as its own custom domain — no redirect created`);
+    return;
+  }
+  try {
+    const result = await ensureHostRedirectRule(cloudflareConfig, { fromHost: sibling, toHost: attachedHostname });
+    const recordName = subdomainLabelForHostname(sibling, zone);
+    const existingRecords = await listDnsRecords(cloudflareConfig, sibling);
+    await reconcileRedirectPlaceholderRecord(step, cloudflareConfig, recordName, sibling, existingRecords);
+    step(`  ✓ Redirect rule ${result.action}: ${sibling} -> https://${attachedHostname} (301, path + query preserved)`);
+  } catch (error) {
+    step(`  ⚠ Could not set up the ${sibling} redirect: ${redirectErrorDetail(error)}`);
+  }
+}
+
+async function removeSiblingRedirect(
+  step: (msg: string) => void,
+  cloudflareConfig: CloudflareDnsConfig,
+  zone: CloudflareZone,
+  removedHostname: string
+): Promise<void> {
+  const sibling = siblingHostname(removedHostname);
+  if (sibling !== zone.name && !sibling.endsWith(`.${zone.name}`)) {
+    return;
+  }
+  try {
+    const removed = await removeHostRedirectRule(cloudflareConfig, sibling);
+    if (removed) {
+      step(`  ✓ Removed redirect rule ${sibling} -> ${removedHostname}`);
+    }
+    const siblingRecords = await listDnsRecords(cloudflareConfig, sibling);
+    for (const placeholder of siblingRecords.filter(record => record.type === "A" && record.content === REDIRECT_PLACEHOLDER_IPV4)) {
+      await deleteDnsRecord(cloudflareConfig, placeholder.id);
+      step(`  ✓ Removed redirect-only placeholder A record for ${sibling}`);
+    }
+  } catch (error) {
+    step(`  ⚠ Could not clean up the ${sibling} redirect: ${redirectErrorDetail(error)}`);
+  }
+}
+
+export async function setupApexRedirectForEnvironment(environmentName: string, primaryHostnameInput: string): Promise<ApexRedirectOperationResult> {
+  const logs: string[] = [];
+  const step = (msg: string) => { logs.push(msg); log(msg); };
+
+  const primaryHostname = validateHostname(primaryHostnameInput);
+  const redirectFrom = siblingHostname(primaryHostname);
+  step(`Setting up redirect ${redirectFrom} -> ${primaryHostname} for environment ${environmentName}`);
+
+  const envConfig = await findEnvironmentFromDatabase(environmentName);
+  if (!envConfig) {
+    throw new Error(`Environment '${environmentName}' not found in database`);
+  }
+
+  const environmentsConfig = await environmentsConfigFromDatabase();
+  if (!environmentsConfig?.cloudflare?.apiToken) {
+    throw new Error("Cloudflare API token not configured. Add cloudflare.apiToken to environments config.");
+  }
+
+  step("Verifying Cloudflare token...");
+  const tokenValid = await verifyToken(environmentsConfig.cloudflare.apiToken);
+  if (!tokenValid) {
+    throw new Error("Cloudflare token is invalid");
+  }
+  step("  ✓ Token valid");
+
+  step("Resolving Cloudflare zone for hostname...");
+  const zone = await zoneForHostname(environmentsConfig.cloudflare.apiToken, primaryHostname);
+  if (!zone) {
+    throw new Error(`No Cloudflare zone found that covers hostname ${primaryHostname}. Add the zone in Cloudflare first.`);
+  }
+  step(`  ✓ Zone ${zone.name} (${zone.id})`);
+
+  const cloudflareConfig: CloudflareDnsConfig = { apiToken: environmentsConfig.cloudflare.apiToken, zoneId: zone.id };
+
+  if (siblingAttachedToEnvironment(environmentsConfig, environmentName, redirectFrom)) {
+    step(`  - ${redirectFrom} is attached as its own custom domain — it serves the site directly, no redirect created`);
+    return { primaryHostname, redirectFrom, zoneId: zone.id, redirectCreated: false, logs };
+  }
+
+  step(`Creating Cloudflare redirect rule ${redirectFrom} -> https://${primaryHostname}...`);
+  const result = await ensureHostRedirectRule(cloudflareConfig, { fromHost: redirectFrom, toHost: primaryHostname });
+  step(`  ✓ Redirect rule ${result.action} (301, path + query preserved)`);
+
+  step(`Ensuring ${redirectFrom} reaches Cloudflare's edge...`);
+  const recordName = subdomainLabelForHostname(redirectFrom, zone);
+  const existingRecords = await listDnsRecords(cloudflareConfig, redirectFrom);
+  await reconcileRedirectPlaceholderRecord(step, cloudflareConfig, recordName, redirectFrom, existingRecords);
+
+  step(`Done: https://${redirectFrom} now redirects to https://${primaryHostname}`);
+  return { primaryHostname, redirectFrom, zoneId: zone.id, redirectCreated: true, logs };
 }
 
 function extractCertId(dnsValidationTarget: string | undefined): string | undefined {
@@ -669,6 +837,7 @@ export async function removeCustomDomainForEnvironment(environmentName: string, 
         step(`  ✓ Deleted ${record.type} record for ${hostname}`);
       }
     }
+    await removeSiblingRedirect(step, cloudflareConfig, zone, hostname);
   } else {
     step("  - Zone not found in Cloudflare, skipping DNS cleanup");
   }
@@ -787,6 +956,18 @@ export function createSubdomainCommand(): Command {
     .action(async environment => {
       try {
         await checkSubdomainStatus(environment);
+      } catch (err: unknown) {
+        if (err instanceof Error) logError(err.message);
+        process.exit(1);
+      }
+    });
+
+  subdomain
+    .command("apex-redirect <environment> <hostname>")
+    .description("Redirect the apex/www sibling of a hostname to it via a Cloudflare edge 301")
+    .action(async (environment, hostname) => {
+      try {
+        await setupApexRedirectForEnvironment(environment, hostname);
       } catch (err: unknown) {
         if (err instanceof Error) logError(err.message);
         process.exit(1);

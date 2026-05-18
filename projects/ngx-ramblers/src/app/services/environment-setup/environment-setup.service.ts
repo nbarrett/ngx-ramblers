@@ -5,6 +5,7 @@ import { firstValueFrom, Observable, Subject } from "rxjs";
 import { isString } from "es-toolkit/compat";
 import { ApiResponse } from "../../models/api-response.model";
 import {
+  ApexRedirectResponse,
   CreateEnvironmentResponse,
   CustomDomainResponse,
   EnvironmentDefaults,
@@ -65,6 +66,13 @@ export class EnvironmentSetupService {
     } catch (error) {
       throw new Error(await this.bundleErrorMessage(error));
     }
+  }
+
+  async schemaExists(name: string): Promise<boolean> {
+    const response = await firstValueFrom(
+      this.http.get<{ exists: boolean }>(`${this.BASE_URL}/schema-exists`, {...this.opts, params: {name}})
+    );
+    return response?.exists === true;
   }
 
   private async bundleErrorMessage(error: unknown): Promise<string> {
@@ -334,6 +342,15 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as CustomDomainResponse;
+  }
+
+  async setupApexRedirect(environmentName: string, hostname: string): Promise<ApexRedirectResponse> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/setup-apex-redirect/${environmentName}`, {hostname}, this.opts),
+      this.notifications
+    );
+    return response as unknown as ApexRedirectResponse;
   }
 
 }
