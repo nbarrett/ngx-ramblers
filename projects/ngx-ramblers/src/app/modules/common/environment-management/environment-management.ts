@@ -403,6 +403,40 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                         </table>
                       </div>
                     }
+                    <div class="mt-4">
+                      <div class="fw-bold">Apex / www redirect</div>
+                      <p class="small text-muted mb-2">
+                        Make the bare apex (or <code>www.</code>) variant of a domain 301-redirect to the host the
+                        site is served on. The redirect runs at Cloudflare's edge — enter the hostname the site is
+                        served on and the other variant is pointed at it.
+                      </p>
+                      <div class="d-flex gap-2 align-items-start flex-wrap">
+                        <input type="text" class="form-control" style="max-width: 320px;"
+                               placeholder="Primary hostname e.g. www.ekwg.co.uk"
+                               [(ngModel)]="apexRedirectHostname"
+                               [disabled]="operationBusy || customDomainBusy || apexRedirectBusy">
+                        <button class="btn btn-primary" (click)="setupApexRedirect()"
+                                [disabled]="operationBusy || customDomainBusy || apexRedirectBusy || !apexRedirectHostname">
+                          @if (apexRedirectBusy) {
+                            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                          } @else {
+                            <fa-icon [icon]="faGlobe" class="me-1"></fa-icon>
+                          }
+                          Set up redirect
+                        </button>
+                      </div>
+                      @if (apexRedirectError) {
+                        <div class="alert alert-danger mt-3 mb-0">
+                          <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                          {{ apexRedirectError }}
+                        </div>
+                      }
+                      @if (apexRedirectMessages.length > 0) {
+                        <div class="mt-3">
+                          <app-session-logs [messages]="apexRedirectMessages"></app-session-logs>
+                        </div>
+                      }
+                    </div>
                   </div>
                 </div>
                 @if (passwordResetResult) {
@@ -584,6 +618,11 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   checkingDomainHostname: string | null = null;
   alsoAttachWww = true;
 
+  apexRedirectHostname = "";
+  apexRedirectBusy = false;
+  apexRedirectError: string | null = null;
+  apexRedirectMessages: string[] = [];
+
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faCog = faCog;
   protected readonly faExclamationCircle = faExclamationCircle;
@@ -693,8 +732,14 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   async onExistingEnvironmentSelected(env: ExistingEnvironment): Promise<void> {
     this.clearState();
     if (env) {
+      this.apexRedirectHostname = this.suggestedApexRedirectHostname(env);
       await this.probeEnvironmentStatus(env.name);
     }
+  }
+
+  private suggestedApexRedirectHostname(env: ExistingEnvironment): string {
+    const attached = (env.customDomains || []).find(domain => domain.status === CustomDomainStatus.ATTACHED);
+    return attached?.hostname || "";
   }
 
   private async probeEnvironmentStatus(environmentName: string): Promise<void> {
@@ -746,6 +791,10 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     this.removingDomainHostname = null;
     this.checkingDomainHostname = null;
     this.alsoAttachWww = true;
+    this.apexRedirectHostname = "";
+    this.apexRedirectBusy = false;
+    this.apexRedirectError = null;
+    this.apexRedirectMessages = [];
   }
 
   customDomains(): CustomDomainEntry[] {
@@ -872,6 +921,40 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     } finally {
       this.customDomainBusy = false;
       this.checkingDomainHostname = null;
+    }
+  }
+
+  async setupApexRedirect(): Promise<void> {
+    if (!this.selectedExistingEnv) {
+      this.notify.warning({ title: "No Environment Selected", message: "Please select an environment first" });
+      return;
+    }
+    const hostname = this.normaliseHostname(this.apexRedirectHostname);
+    if (!hostname) {
+      this.apexRedirectError = "Enter the hostname the site is served on";
+      return;
+    }
+    this.apexRedirectBusy = true;
+    this.apexRedirectError = null;
+    this.apexRedirectMessages = [`Setting up apex/www redirect for ${hostname}`];
+    try {
+      const response = await this.environmentSetupService.setupApexRedirect(this.selectedExistingEnv.name, hostname);
+      if (response.success) {
+        this.apexRedirectMessages = response.logs?.length
+          ? [...this.apexRedirectMessages, ...response.logs]
+          : [...this.apexRedirectMessages, response.message];
+      } else {
+        this.apexRedirectError = response.message || "Apex redirect setup failed";
+        if (response.logs?.length) {
+          this.apexRedirectMessages = [...this.apexRedirectMessages, ...response.logs];
+        }
+      }
+    } catch (error) {
+      this.apexRedirectError = this.extractErrorDetail(error);
+      this.apexRedirectMessages = [...this.apexRedirectMessages, `Error: ${this.apexRedirectError}`];
+      this.logger.error("Apex redirect setup failed:", error);
+    } finally {
+      this.apexRedirectBusy = false;
     }
   }
 

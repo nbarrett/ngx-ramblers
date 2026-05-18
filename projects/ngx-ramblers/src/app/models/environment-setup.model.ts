@@ -234,6 +234,14 @@ export interface CustomDomainResponse {
   logs?: string[];
 }
 
+export interface ApexRedirectResponse {
+  success: boolean;
+  message: string;
+  primaryHostname?: string;
+  redirectFrom?: string;
+  logs?: string[];
+}
+
 export interface ExistingEnvironmentsResponse extends ApiResponse {
   environments: ExistingEnvironment[];
 }

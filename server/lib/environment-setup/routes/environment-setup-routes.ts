@@ -24,6 +24,7 @@ import {
   checkCustomDomainStatus,
   removeCustomDomainForEnvironment,
   removeSubdomainForEnvironment,
+  setupApexRedirectForEnvironment,
   setupSubdomainForEnvironment
 } from "../../cli/commands/subdomain";
 import { configuredBrevo } from "../../brevo/brevo-config";
@@ -904,6 +905,41 @@ router.post("/check-custom-domain/:environmentName", async (req: Request, res: R
   }
 });
 
+router.post("/setup-apex-redirect/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    const { hostname } = req.body || {};
+    debugLog("Setup apex redirect request received for:", environmentName, hostname);
+
+    if (!hostname) {
+      res.status(400).json({ success: false, message: "hostname is required" });
+      return;
+    }
+
+    await loadEnvironmentContext(environmentName);
+    const result = await setupApexRedirectForEnvironment(environmentName, hostname);
+
+    res.json({
+      success: true,
+      message: result.redirectCreated
+        ? `Redirect ${result.redirectFrom} -> ${result.primaryHostname} configured`
+        : `No redirect needed: ${result.redirectFrom} is attached as its own domain`,
+      primaryHostname: result.primaryHostname,
+      redirectFrom: result.redirectFrom,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error setting up apex redirect:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 router.post("/authenticate-brevo-domain/:environmentName", async (req: Request, res: Response) => {
   if (!validateSetupAccess(req, res)) return;
 
@@ -1095,6 +1131,23 @@ router.post("/admin-password-reset/:environmentName", async (req: Request, res: 
     }
     errorDebugLog("Error generating admin password reset:", error.message);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get("/schema-exists", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const name = String(req.query?.name || "").trim();
+    if (!name) {
+      res.status(400).json({ error: "name is required" });
+    } else {
+      const exists = await databaseHasCollections(name);
+      res.json({ exists });
+    }
+  } catch (error) {
+    errorDebugLog("schema-exists check failed:", error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 

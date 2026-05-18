@@ -10,6 +10,7 @@ export const cloudflareApi = {
   zoneEmailRoutingRules: (zoneId: string) => `${CLOUDFLARE_API_BASE}/zones/${zoneId}/email/routing/rules`,
   accountWorkersScripts: (accountId: string) => `${CLOUDFLARE_API_BASE}/accounts/${accountId}/workers/scripts`,
   accountRumSites: (accountId: string) => `${CLOUDFLARE_API_BASE}/accounts/${accountId}/rum/site_info`,
+  zoneRulesetPhaseEntrypoint: (zoneId: string, phase: string) => `${CLOUDFLARE_API_BASE}/zones/${zoneId}/rulesets/phases/${phase}/entrypoint`,
   graphql: () => `${CLOUDFLARE_API_BASE}/graphql`
 };
 
@@ -78,6 +79,33 @@ export interface CloudflareZone {
   id: string;
   name: string;
   status: string;
+}
+
+export interface RedirectRuleTargetUrl {
+  expression?: string;
+  value?: string;
+}
+
+export interface RedirectRuleFromValue {
+  status_code: number;
+  target_url: RedirectRuleTargetUrl;
+  preserve_query_string?: boolean;
+}
+
+export interface DynamicRedirectRule {
+  id?: string;
+  action: string;
+  action_parameters: { from_value: RedirectRuleFromValue };
+  expression: string;
+  description?: string;
+  enabled?: boolean;
+}
+
+export interface RulesetResult {
+  id: string;
+  name?: string;
+  phase?: string;
+  rules?: DynamicRedirectRule[];
 }
 
 export enum RecipientDeliveryStatus {
