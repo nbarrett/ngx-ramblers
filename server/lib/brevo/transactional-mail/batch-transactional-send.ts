@@ -23,6 +23,7 @@ import {
   ComposerExternalRecipient
 } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
 import { BrandingMode, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { recordMemberEmailSends } from "../../mongo/controllers/member-email-send";
 import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
@@ -360,6 +361,15 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
 
     progress.completedAt = dateTimeNow().toMillis();
     progress.status = progress.failedCount === 0 ? BatchSendStatus.COMPLETED : BatchSendStatus.COMPLETED_WITH_ERRORS;
+    await recordMemberEmailSends({
+      jobId,
+      notificationConfigId: notifConfig?.id ?? null,
+      subject: request.subject,
+      sentBy: currentMemberId,
+      entries: memberEntries
+        .filter(entry => entry.status === BatchSendEntryStatus.Sent)
+        .map(entry => ({ memberId: entry.memberId, email: entry.email, sentAt: entry.sentAt ?? dateTimeNow().toMillis() }))
+    });
   } catch (error: any) {
     progress.status = BatchSendStatus.FAILED;
     progress.errorMessage = error?.message ?? String(error);

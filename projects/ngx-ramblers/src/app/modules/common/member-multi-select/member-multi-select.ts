@@ -4,42 +4,44 @@ import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { isNumber } from "es-toolkit/compat";
-import { Member, MemberBulkLoadAudit, MemberFilterSelection, MemberTerm, SORT_BY_NAME } from "../../../models/member.model";
+import { Member, MemberBulkLoadDateMap, MemberFilterSelection, MemberTerm, SORT_BY_NAME } from "../../../models/member.model";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
 import { MemberSelection, NotificationConfig } from "../../../models/mail.model";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { RECIPIENT_PRE_FILTERS, RecipientFilterDecision, RecipientPreFilter } from "../../../models/email-composer.model";
+import { MemberEmailSendService } from "../../../services/member-email-send/member-email-send.service";
 
 @Component({
   selector: "app-member-multi-select",
   imports: [FormsModule, NgSelectComponent, NgOptgroupTemplateDirective],
   template: `
-    <div class="mb-2">
-      <label class="me-2">Pre-filter:</label>
-      @for (filter of preFilters; track filter.key) {
+    @if (!lockedSelection) {
+      <div class="mb-2">
+        <label class="me-2">Pre-filter:</label>
+        @for (filter of preFilters; track filter.key) {
+          <div class="form-check form-check-inline">
+            <input class="form-check-input"
+                   type="radio"
+                   [id]="'pre-filter-' + (filter.key ?? 'all-with-email')"
+                   name="member-pre-filter"
+                   [checked]="activePreFilterKey === filter.key && !manualMode"
+                   (click)="applyPreFilter(filter.key)">
+            <label class="form-check-label" [for]="'pre-filter-' + (filter.key ?? 'all-with-email')">{{ labelFor(filter) }}</label>
+          </div>
+        }
         <div class="form-check form-check-inline">
           <input class="form-check-input"
                  type="radio"
-                 [id]="'pre-filter-' + (filter.key ?? 'all-with-email')"
+                 id="pre-filter-clear-manual"
                  name="member-pre-filter"
-                 [checked]="activePreFilterKey === filter.key && !manualMode"
-                 (click)="applyPreFilter(filter.key)">
-          <label class="form-check-label" [for]="'pre-filter-' + (filter.key ?? 'all-with-email')">{{ labelFor(filter) }}</label>
+                 [checked]="manualMode"
+                 (click)="clear()">
+          <label class="form-check-label" for="pre-filter-clear-manual">Clear and choose manually{{ EM_DASH_WITH_SPACES }}<strong>{{ selectedCount() }} of {{ selectableMembers.length }} selected</strong></label>
         </div>
-      }
-      <div class="form-check form-check-inline">
-        <input class="form-check-input"
-               type="radio"
-               id="pre-filter-clear-manual"
-               name="member-pre-filter"
-               [checked]="manualMode"
-               (click)="clear()">
-        <label class="form-check-label" for="pre-filter-clear-manual">Clear and choose manually{{ EM_DASH_WITH_SPACES }}<strong>{{ selectedCount() }} of {{ selectableMembers.length }} selected</strong></label>
       </div>
-    </div>
+    }
     <div class="row">
       <div class="col-sm-12">
         <ng-select [items]="selectableMembers"
@@ -80,15 +82,16 @@ export class MemberMultiSelect implements OnChanges {
   protected fullNameWithAlias = inject(FullNameWithAliasPipe);
   private dateUtils = inject(DateUtilsService);
   private stringUtils = inject(StringUtilsService);
-  private bulkLoadAuditService = inject(MemberBulkLoadAuditService);
+  private memberEmailSendService = inject(MemberEmailSendService);
 
   @Input() members: Member[] = [];
   @Input() selectedIds: string[] = [];
   @Input() preFilterKey: MemberSelection | null = null;
   @Input() notificationConfig: NotificationConfig | null = null;
-  @Input() latestBulkLoadAudit: MemberBulkLoadAudit | null = null;
+  @Input() memberBulkLoadDateMap: MemberBulkLoadDateMap | null = null;
   @Input() requireConsent: boolean = false;
   @Input() autoFill: boolean = true;
+  @Input() lockedSelection: boolean = false;
   @Output() selectedIdsChange = new EventEmitter<string[]>();
   @Output() preFilterKeyChange = new EventEmitter<MemberSelection | null>();
 
@@ -96,11 +99,13 @@ export class MemberMultiSelect implements OnChanges {
   protected filteredOutDecisions: RecipientFilterDecision[] = [];
   protected activePreFilterKey: MemberSelection | null = null;
   protected manualMode: boolean = false;
+  protected priorSendDateMap: Record<string, number> = {};
+  private priorSendFetchToken: number = 0;
   protected readonly preFilters: RecipientPreFilter[] = RECIPIENT_PRE_FILTERS;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["members"] || changes["preFilterKey"] || changes["requireConsent"] || changes["notificationConfig"] || changes["latestBulkLoadAudit"]) {
+    if (changes["members"] || changes["preFilterKey"] || changes["requireConsent"] || changes["notificationConfig"] || changes["memberBulkLoadDateMap"]) {
       this.activePreFilterKey = this.preFilterKey;
       this.manualMode = !this.autoFill;
       this.rebuildSelections();
@@ -108,6 +113,37 @@ export class MemberMultiSelect implements OnChanges {
       if (this.autoFill && (!this.selectedIds || this.selectedIds.length === 0)) {
         this.applyAutoSelection();
       }
+      if (changes["notificationConfig"]) {
+        void this.refreshPriorSendMap();
+      }
+    }
+  }
+
+  private async refreshPriorSendMap(): Promise<void> {
+    const token = ++this.priorSendFetchToken;
+    const configId = this.notificationConfig?.id ?? null;
+    if (!configId) {
+      this.priorSendDateMap = {};
+      return;
+    }
+    try {
+      const sends = await this.memberEmailSendService.list(configId);
+      if (token !== this.priorSendFetchToken) return;
+      this.priorSendDateMap = sends.reduce((map, send) => {
+        const existing = map[send.memberId];
+        if (!existing || send.sentAt > existing) {
+          map[send.memberId] = send.sentAt;
+        }
+        return map;
+      }, {} as Record<string, number>);
+    } catch (error) {
+      if (token !== this.priorSendFetchToken) return;
+      this.logger.warn("could not load prior send map:", error);
+      this.priorSendDateMap = {};
+    }
+    this.rebuildSelections();
+    if (this.autoFill && !this.manualMode) {
+      this.applyAutoSelection();
     }
   }
 
@@ -170,6 +206,7 @@ export class MemberMultiSelect implements OnChanges {
 
   private matchesPreFilter(member: Member, key: MemberSelection | null): boolean {
     if (!member.email) return false;
+    if (this.priorSendDateFor(member)) return false;
     if (!key) return true;
     switch (key) {
       case MemberSelection.RECENTLY_ADDED:
@@ -177,8 +214,7 @@ export class MemberMultiSelect implements OnChanges {
       case MemberSelection.EXPIRED_MEMBERS:
         return this.isExpiredMember(member);
       case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS:
-        return !!(member.groupMember && member.membershipExpiryDate
-          && this.bulkLoadAuditService.receivedInBulkLoad(member, false, this.latestBulkLoadAudit));
+        return this.missingFromBulkLoad(member);
       default:
         return false;
     }
@@ -198,6 +234,18 @@ export class MemberMultiSelect implements OnChanges {
     return expirationExceeded && !recentlyCreated && !recentlyUpdated;
   }
 
+  private missingFromBulkLoad(member: Member): boolean {
+    if (!member.groupMember || !member.membershipNumber) {
+      return false;
+    }
+    const lastBulkLoadDate = this.memberBulkLoadDateMap?.[member.membershipNumber];
+    return !!lastBulkLoadDate && lastBulkLoadDate < this.filterDateMillis();
+  }
+
+  private priorSendDateFor(member: Member): number | undefined {
+    return member.id ? this.priorSendDateMap[member.id] : undefined;
+  }
+
   private monthsInPast(): number {
     const months = this.notificationConfig?.monthsInPast;
     return isNumber(months) ? months : 1;
@@ -215,9 +263,7 @@ export class MemberMultiSelect implements OnChanges {
       case MemberSelection.EXPIRED_MEMBERS:
         return `Expired (${this.stringUtils.pluraliseWithCount(months, "month")} past expiry)`;
       case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS:
-        return this.latestBulkLoadAudit?.createdDate
-          ? `Missing from last bulk load (${this.dateUtils.displayDate(this.latestBulkLoadAudit.createdDate)})`
-          : filter.label;
+        return `Missing from bulk load (${this.stringUtils.pluraliseWithCount(months, "month")} or more)`;
       default:
         return filter.label;
     }
@@ -240,6 +286,10 @@ export class MemberMultiSelect implements OnChanges {
   }
 
   private contextualSuffix(member: Member, preFilterKey: MemberSelection | null, memberGrouping: string): string {
+    const priorSendDate = this.priorSendDateFor(member);
+    if (priorSendDate) {
+      return ` (already sent ${this.dateUtils.displayDate(priorSendDate)})`;
+    }
     switch (preFilterKey) {
       case MemberSelection.RECENTLY_ADDED:
         return member.createdDate
@@ -249,10 +299,12 @@ export class MemberMultiSelect implements OnChanges {
         return member.membershipExpiryDate
           ? ` (expired ${this.dateUtils.displayDate(member.membershipExpiryDate)})`
           : ` (${memberGrouping})`;
-      case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS:
-        return member.membershipExpiryDate
-          ? ` (expiry ${this.dateUtils.displayDate(member.membershipExpiryDate)})`
+      case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS: {
+        const lastBulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] : null;
+        return lastBulkLoadDate
+          ? ` (last bulk load ${this.dateUtils.displayDate(lastBulkLoadDate)})`
           : ` (${memberGrouping})`;
+      }
       default:
         return ` (${memberGrouping})`;
     }

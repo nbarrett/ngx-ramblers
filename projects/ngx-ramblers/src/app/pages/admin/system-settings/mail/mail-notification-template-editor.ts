@@ -277,14 +277,14 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                           </option>
                         }
                       </select>
-                      <app-brevo-button button title="Template"
+                      <app-brevo-button button variant="quiet" title="Template"
                                         [disabled]="notReady()"
                                         [dropdownItems]="templateDropdownItems"
                                         (dropdownSelected)="handleTemplateDropdown($event)"/>
-                      <app-brevo-button button title="Push Default Template"
+                      <app-brevo-button button variant="quiet" title="Push Default Template"
                                         [disabled]="notReady() || !localTemplateAvailable()"
                                         (click)="pushDefaultTemplate()"/>
-                      <app-brevo-button button title="Snapshot Templates"
+                      <app-brevo-button button variant="quiet" title="Snapshot Templates"
                                         [showTooltip]="true"
                                         [disabled]="snapshotTemplatesDisabled()"
                                         (click)="snapshotTemplates()"/>

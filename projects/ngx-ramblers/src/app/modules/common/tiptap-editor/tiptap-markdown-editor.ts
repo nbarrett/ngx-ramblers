@@ -251,6 +251,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.editor?.commands.focus("start");
   }
 
+  public focusAtEnd(): void {
+    this.editor?.commands.focus("end");
+  }
+
   @Input() placeholder: string = "Start writing…";
   @Input() showMergeFields: boolean = false;
   @Output() valueChange = new EventEmitter<string>();

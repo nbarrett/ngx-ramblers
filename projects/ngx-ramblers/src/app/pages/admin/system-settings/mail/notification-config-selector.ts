@@ -46,7 +46,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
                    routerLink="/admin/mail-settings"
                    [queryParams]="emailTypeQueryParams()"
                    target="_blank">
-                  <app-button-wrapper button [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Settings'">
+                  <app-button-wrapper button variant="quiet" [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Settings'">
                     <fa-icon [icon]="faPencil"/>
                   </app-button-wrapper>
                 </a>
@@ -104,7 +104,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
                      routerLink="/admin/banners"
                      [queryParams]="bannerQueryParams()"
                      target="_blank">
-                    <app-button-wrapper button [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Banner'">
+                    <app-button-wrapper button variant="quiet" [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Banner'">
                       <fa-icon [icon]="faPencil"/>
                     </app-button-wrapper>
                   </a>
@@ -131,7 +131,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
                     </option>
                   }
                 </select>
-                <app-brevo-button button [disabled]="!notificationConfig.templateId"
+                <app-brevo-button button variant="quiet" [disabled]="!notificationConfig.templateId"
                   (click)="editTemplate(notificationConfig.templateId)"
                   [dockedTo]="DockedTo.RIGHT"
                   [title]="'View or Edit Template'"/>

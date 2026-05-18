@@ -51,7 +51,7 @@ import { UrlService } from "../../../services/url.service";
             style="font-family: Helvetica, Arial, sans-serif;font-size: 16px;line-height: 150%;color: #222222;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;word-break: break-word;"
             valign="top">
             @if (notificationItem?.subject) {
-              <h3>{{ notificationItem.subject }}</h3>
+              <h3 [style.margin-top]="notificationItem?.image?.src ? null : '0'">{{ notificationItem.subject }}</h3>
             }
             <div
               style="margin: 10px 0;padding: 0;font-family: Helvetica, Arial, sans-serif;font-size: 16px;line-height: 150%;color: #222222;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;">

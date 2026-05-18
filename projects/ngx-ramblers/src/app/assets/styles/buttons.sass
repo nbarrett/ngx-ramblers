@@ -99,6 +99,34 @@
   box-shadow: 0 0 0 .2rem rgba(222, 226, 230, .5)
 
 
+.btn-quiet
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-grey
+  border-color: $ramblers-colour-grey
+
+
+.btn-quiet.focus, .btn-quiet:focus, .btn-quiet:hover
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-sunrise
+  border-color: $ramblers-colour-sunrise
+
+
+.btn-quiet.focus, .btn-quiet:focus
+  box-shadow: 0 0 0 .2rem rgba(249, 177, 4, .35)
+
+
+.btn-quiet.disabled, .btn-quiet:disabled
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-grey
+  border-color: $ramblers-colour-grey
+
+
+.btn-quiet:not(:disabled):not(.disabled).active, .btn-quiet:not(:disabled):not(.disabled):active, .show > .btn-quiet.dropdown-toggle
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-sunrise-hover-border
+  border-color: $ramblers-colour-sunrise-hover-border
+
+
 .btn-success
   color: $ramblers-colour-black
   background-color: $ramblers-colour-mintcake

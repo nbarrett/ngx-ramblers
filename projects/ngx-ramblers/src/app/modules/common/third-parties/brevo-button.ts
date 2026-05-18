@@ -32,7 +32,7 @@ import { DockedTo } from "../../../models/docking.model";
     <div class="brevo-dropdown" [ngClass]="{'d-inline-block': dropdownItems?.length, 'dropdown-active': dropdownItems?.length}" dropdown [isDisabled]="disabled || loading">
       @if (dropdownItems?.length) {
         <div dropdownToggle>
-          <app-button-wrapper [disabled]="disabled" [loading]="loading" [button]="button" [showTooltip]="showTooltip" [title]="title" [dockedTo]="dockedTo">
+          <app-button-wrapper [disabled]="disabled" [loading]="loading" [button]="button" [showTooltip]="showTooltip" [title]="title" [dockedTo]="dockedTo" [variant]="variant">
             <img title class="image"
                  src="/assets/images/local/brevo.ico"
                  alt="{{title}}"/>
@@ -48,7 +48,7 @@ import { DockedTo } from "../../../models/docking.model";
           }
         </ul>
       } @else {
-        <app-button-wrapper [disabled]="disabled" [loading]="loading" [button]="button" [showTooltip]="showTooltip" [title]="title">
+        <app-button-wrapper [disabled]="disabled" [loading]="loading" [button]="button" [showTooltip]="showTooltip" [title]="title" [variant]="variant">
           <img title class="image"
                src="/assets/images/local/brevo.ico"
                alt="{{title}}"/>
@@ -66,6 +66,7 @@ export class BrevoButtonComponent implements OnInit {
   public loading: boolean;
   public showTooltip: boolean;
   public title: string;
+  public variant: string = "primary";
   public dropdownItems: BrevoDropdownItem[] = [];
   @Input() dockedTo: DockedTo | null = null;
 
@@ -87,6 +88,10 @@ export class BrevoButtonComponent implements OnInit {
 
   @Input("showTooltip") set showTooltipValue(value: boolean) {
     this.showTooltip = coerceBooleanProperty(value);
+  }
+
+  @Input("variant") set variantValue(value: string) {
+    this.variant = value || "primary";
   }
 
   @Input("dropdownItems") set dropdownItemsValue(value: BrevoDropdownItem[]) {

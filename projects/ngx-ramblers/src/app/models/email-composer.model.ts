@@ -74,7 +74,7 @@ export const RECIPIENT_PRE_FILTERS: RecipientPreFilter[] = [
   { key: null, label: "All with email" },
   { key: MemberSelection.RECENTLY_ADDED, label: "Recently added" },
   { key: MemberSelection.EXPIRED_MEMBERS, label: "Expired members" },
-  { key: MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS, label: "Missing from last bulk load" }
+  { key: MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS, label: "Missing from bulk load" }
 ];
 
 export interface ArticleBlockImage {
@@ -150,7 +150,7 @@ export const SECTION_DIVIDER_OPTIONS: SectionDividerOption[] = [
   { key: SectionDividerStyle.DASHED_GREY, label: "Dashed grey", cssBorder: "1px dashed #9ca3af" }
 ];
 
-export function dividerHtml(style: SectionDividerStyle): string {
+export function dividerHtml(style: SectionDividerStyle, marginCss: string = "6px 0"): string {
   const option = SECTION_DIVIDER_OPTIONS.find(opt => opt.key === style);
   if (!option || option.key === SectionDividerStyle.NONE) return "";
   const match = option.cssBorder.match(/^(\d+)px\s+(solid|dashed|dotted)\s+(#[0-9a-fA-F]{3,8})$/);
@@ -161,7 +161,7 @@ export function dividerHtml(style: SectionDividerStyle): string {
   const cellStyle = lineStyle === "solid"
     ? `height:${heightPx}px;line-height:${heightPx}px;font-size:0;background-color:${colour};mso-line-height-rule:exactly;`
     : `height:${heightPx}px;line-height:${heightPx}px;font-size:0;border-top:${widthPx}px ${lineStyle} ${colour};mso-line-height-rule:exactly;`;
-  return `<table role="presentation" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;width:100%;margin:18px 0;"><tr><td style="${cellStyle}">&nbsp;</td></tr></table>`;
+  return `<table role="presentation" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;width:100%;margin:${marginCss};"><tr><td style="${cellStyle}">&nbsp;</td></tr></table>`;
 }
 
 export interface RecipientFilterDecision {
@@ -465,7 +465,7 @@ export function defaultEmailComposerState(): EmailComposerState {
     eventsDividerAfter: SectionDividerStyle.THIN_YELLOW,
     signoffDividerAfter: SectionDividerStyle.THIN_YELLOW,
     betweenArticlesDivider: SectionDividerStyle.THIN_YELLOW,
-    betweenEventsDivider: SectionDividerStyle.NONE,
+    betweenEventsDivider: SectionDividerStyle.THIN_YELLOW,
     fragmentOrder: []
   };
 }
