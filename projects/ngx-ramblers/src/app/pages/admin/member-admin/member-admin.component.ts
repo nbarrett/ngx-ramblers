@@ -396,6 +396,11 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     void this.urlService.navigateTo([...this.urlService.pathSegments(), PathSegment.EMAIL_COMPOSER]);
   }
 
+  composeEmailToMember(memberId: string) {
+    this.notify.hide();
+    void this.urlService.navigateTo([...this.urlService.pathSegments(), PathSegment.EMAIL_COMPOSER], { [StoredValue.EMAIL_MEMBER]: memberId });
+  }
+
 applySortTo(field: string, filterSource: MemberTableFilter) {
     this.logger.off("sorting by field", field, "current value of filterSource", filterSource);
     filterSource.sortField = field;
@@ -608,9 +613,9 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
     ];
   }
 
-  emailActionsFor(email: string, displayName: string): ContactAction[] {
+  emailActionsFor(email: string, displayName: string, memberId: string): ContactAction[] {
     const actions: ContactAction[] = [
-      { label: "Send email", icon: faEnvelope, tooltip: `Email ${displayName} at ${email}`, href: `mailto:${email}` },
+      { label: "Send email", icon: faEnvelope, tooltip: `Email ${displayName} at ${email} in the email composer`, onClick: () => this.composeEmailToMember(memberId) },
       { label: "Copy email", icon: faCopy, tooltip: `Copy ${email} to clipboard`, onClick: () => this.clipboardService.copyToClipboard(email) }
     ];
     if (navigator.share) {

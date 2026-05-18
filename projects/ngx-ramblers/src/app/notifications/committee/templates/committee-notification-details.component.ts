@@ -95,7 +95,7 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
   public group: Organisation;
 
   betweenEventsDividerHtml(): SafeHtml | null {
-    const html = dividerHtml(this.betweenEventsDivider);
+    const html = dividerHtml(this.betweenEventsDivider, "0 0 18px 0");
     if (!html) return null;
     return this.sanitizer.bypassSecurityTrustHtml(html);
   }

@@ -176,7 +176,7 @@
                     }
                     <td data-label="Member Name" class="nowrap">
                       @if (member.email) {
-                        <app-contact-action-dropdown [actions]="emailActionsFor(member.email, member | fullNameWithAlias)">
+                        <app-contact-action-dropdown [actions]="emailActionsFor(member.email, member | fullNameWithAlias, member.id)">
                           {{ member | fullNameWithAlias }}
                         </app-contact-action-dropdown>
                       } @else {

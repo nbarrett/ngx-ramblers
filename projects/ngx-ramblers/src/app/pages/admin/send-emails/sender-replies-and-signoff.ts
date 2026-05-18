@@ -22,7 +22,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
           <div class="col-sm-12">
             @if (loggedInMemberRoles().length > 1) {
               <div class="btn-group" dropdown>
-                <button type="button" class="btn btn-primary btn-sm dropdown-toggle" dropdownToggle
+                <button type="button" class="btn btn-quiet btn-sm dropdown-toggle" dropdownToggle
                   [disabled]="selectAllAsMeDisabled()">
                   Select All As Me <span class="caret"></span>
                 </button>
@@ -40,7 +40,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
                 </ul>
               </div>
             } @else {
-              <button type="button" class="btn btn-primary btn-sm"
+              <button type="button" class="btn btn-quiet btn-sm"
                 [disabled]="selectAllAsMeDisabled()"
                 (click)="selectAllAsMe()">Select All As Me</button>
             }
@@ -310,8 +310,8 @@ export class SenderRepliesAndSignoff implements OnInit {
     this.notificationConfig.senderRole = primaryRole;
     this.notificationConfig.replyToRole = primaryRole;
     if (!this.omitSignOff) {
-      const orderedRoles = [primaryRole, ...roles.filter(role => role !== primaryRole)];
-      this.assignSignOffRoles(this.overrideMode() ? this.stripVacantRoles(orderedRoles) : orderedRoles);
+      const signOffRoles = [primaryRole];
+      this.assignSignOffRoles(this.overrideMode() ? this.stripVacantRoles(signOffRoles) : signOffRoles);
     }
     this.senderRoleChanged();
     this.rolesChanged.emit();

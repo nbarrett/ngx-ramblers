@@ -20,12 +20,15 @@ import { DockedTo } from "../../../models/docking.model";
     <div [tooltip]="showTooltip? (disabled ? 'Not available to ' : 'Click to ') + title : null" placement="auto"
          (click)="blockClick($event)"
          [ngClass]="{
-           'btn btn-primary d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap': button,
+           'btn d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap': button,
            'rounded-start-0': button && dockedTo === DockedTo.RIGHT,
            'rounded-end-0': button && dockedTo === DockedTo.LEFT,
            'not-allowed is-disabled': disabled || loading,
            'pointer': !disabled && !loading
-         }">
+         }"
+         [class.btn-primary]="button && variant === 'primary'"
+         [class.btn-secondary]="button && variant === 'secondary'"
+         [class.btn-quiet]="button && variant === 'quiet'">
       @if (loading) {
         <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
       } @else {
@@ -44,6 +47,7 @@ export class ButtonWrapper implements OnInit {
   public loading: boolean;
   public showTooltip: boolean;
   public title: string;
+  public variant: string = "primary";
   @Input() dockedTo: DockedTo | null = null;
   protected readonly DockedTo = DockedTo;
   protected readonly faSpinner = faSpinner;
@@ -67,6 +71,10 @@ export class ButtonWrapper implements OnInit {
 
   @Input("showTooltip") set showTooltipValue(value: boolean) {
     this.showTooltip = coerceBooleanProperty(value);
+  }
+
+  @Input("variant") set variantValue(value: string) {
+    this.variant = value || "primary";
   }
 
   ngOnInit(): void {

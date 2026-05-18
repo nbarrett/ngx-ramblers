@@ -70,6 +70,16 @@ export class MemberService {
     }
   };
 
+  privilegedFieldsDataQueryOptions: DataQueryOptions = {
+    select: {
+      ...this.publicFieldsDataQueryOptions.select,
+      membershipNumber: 1,
+      memberStatus: 1,
+      memberTerm: 1,
+      updatedDate: 1,
+    }
+  };
+
   changeNotifications(): Observable<MemberApiResponse> {
     return this.memberChanges.asObservable();
   }
@@ -178,7 +188,15 @@ export class MemberService {
   }
 
   publicFields(filterFunction?: (value?: any) => boolean): Promise<Member[]> {
-    return this.all(this.publicFieldsDataQueryOptions).then(members => chain(members)
+    return this.fieldsFor(this.publicFieldsDataQueryOptions, filterFunction);
+  }
+
+  privilegedFields(filterFunction?: (value?: any) => boolean): Promise<Member[]> {
+    return this.fieldsFor(this.privilegedFieldsDataQueryOptions, filterFunction);
+  }
+
+  private fieldsFor(dataQueryOptions: DataQueryOptions, filterFunction?: (value?: any) => boolean): Promise<Member[]> {
+    return this.all(dataQueryOptions).then(members => chain(members)
       .filter(filterFunction || (() => true))
       .sortBy((member: Member) => member.firstName + member.lastName).value());
   }

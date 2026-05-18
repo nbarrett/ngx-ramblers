@@ -41,7 +41,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../services/notifier.service";
 import { AlertTarget } from "../../models/alert-target.model";
 import { PageComponent } from "../../page/page.component";
-import { Member, MemberBulkLoadAudit } from "../../models/member.model";
+import { Member, MemberBulkLoadDateMap } from "../../models/member.model";
 import { MemberBulkLoadAuditService } from "../../services/member/member-bulk-load-audit.service";
 import {
   ADDRESSEE_OPTIONS,
@@ -93,7 +93,8 @@ import {
   NotificationConfig,
   SendSmtpEmailParams,
   StatusMappedResponseSingleInput,
-  TemplateRenderRequest
+  TemplateRenderRequest,
+  WorkflowAction
 } from "../../models/mail.model";
 import { MailMessagingService } from "../../services/mail/mail-messaging.service";
 import { MailService } from "../../services/mail/mail.service";
@@ -323,25 +324,25 @@ import { DateTime } from "luxon";
       <div class="email-composer-action-bar">
         @if (!sendComplete()) {
           <div class="email-composer-toolbar">
-            <button type="button" class="btn btn-primary"
+            <button type="button" class="btn btn-quiet"
                     (click)="saveDraft()"
                     [disabled]="!hasContentToDraft()">
               <fa-icon [icon]="faFloppyDisk" class="me-1"/>Save as draft
             </button>
             @if (currentDraftId) {
-              <button type="button" class="btn btn-primary"
+              <button type="button" class="btn btn-quiet"
                       (click)="revertToSavedDraft()"
                       title="Discard unsaved changes and reload the last saved version of this draft">
                 <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Revert to saved draft
               </button>
             }
-            <button type="button" class="btn btn-primary" (click)="toggleDraftsPanel()">
+            <button type="button" class="btn btn-quiet" (click)="toggleDraftsPanel()">
               <fa-icon [icon]="faFolderOpen" class="me-1"/>{{ draftsPanelOpen ? "Hide drafts" : "Show drafts" }} ({{ drafts.length }})
             </button>
-            <button type="button" class="btn btn-primary" (click)="toggleSentEmailsPanel()">
+            <button type="button" class="btn btn-quiet" (click)="toggleSentEmailsPanel()">
               <fa-icon [icon]="faPaperPlane" class="me-1"/>{{ sentEmailsPanelOpen ? "Hide sent" : "Show sent" }} ({{ sentEmails.length }})
             </button>
-            <button type="button" class="btn btn-primary" (click)="newComposition()" [disabled]="!hasContentToDraft()">
+            <button type="button" class="btn btn-quiet" (click)="newComposition()" [disabled]="!hasContentToDraft()">
               <fa-icon [icon]="faFile" class="me-1"/>New
             </button>
           </div>
@@ -349,7 +350,7 @@ import { DateTime } from "luxon";
         <div class="stepper-nav">
           @switch (stepperActiveTab) {
             @case (EmailComposerStepKey.TEMPLATE) {
-              <button type="button" class="btn btn-primary" (click)="cancel()"><fa-icon [icon]="faXmark"/> Cancel</button>
+              <button type="button" class="btn btn-quiet" (click)="cancel()"><fa-icon [icon]="faXmark"/> Cancel</button>
               <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!templateStepValid()" [title]="templateStepValidationMessage()">
                 Next <fa-icon [icon]="faArrowRight"/>
               </button>
@@ -377,7 +378,7 @@ import { DateTime } from "luxon";
             @case (EmailComposerStepKey.SEND) {
               @if (sendComplete()) {
                 <button type="button" class="btn btn-primary" (click)="newComposition()"><fa-icon [icon]="faFile"/> Start a new email</button>
-                <button type="button" class="btn btn-primary" (click)="closeAfterSend()"><fa-icon [icon]="faXmark"/> Close</button>
+                <button type="button" class="btn btn-quiet" (click)="closeAfterSend()"><fa-icon [icon]="faXmark"/> Close</button>
               } @else {
                 <button type="button" class="btn btn-primary" (click)="goPrev()" [disabled]="sendInProgress"><fa-icon [icon]="faArrowLeft"/> Back</button>
                 @if (sendConfirm.notificationsOutstanding()) {
@@ -386,7 +387,7 @@ import { DateTime } from "luxon";
                           [disabled]="sendInProgress">
                     <fa-icon [icon]="faPaperPlane"/> Confirm send
                   </button>
-                  <button type="button" class="btn btn-primary"
+                  <button type="button" class="btn btn-quiet"
                           (click)="cancelSendConfirm()"
                           [disabled]="sendInProgress">
                     <fa-icon [icon]="faXmark"/> Cancel
@@ -408,8 +409,8 @@ import { DateTime } from "luxon";
         <div class="text-muted small mb-2">{{ lastSavedDescription() }}</div>
       }
       @if (!sendComplete()) {
-        <div class="form-check mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-          <div>
+        <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div class="form-check mb-0">
             <input class="form-check-input" type="checkbox" id="composition-shared"
                    [checked]="composeShared"
                    (change)="onSharedToggled($any($event.target).checked)">
@@ -475,17 +476,21 @@ import { DateTime } from "luxon";
     <ng-template #recipientsStep>
       <div class="email-composer-section">
         <h3>Who is this email going to?</h3>
-        @if (recipientsStepErrors().length > 0) {
+        @if (bulkDeletionPending() || recipientsStepErrors().length > 0) {
           <div class="email-composer-validation-summary">
-            <h5>Before you can continue:</h5>
-            <ul class="list-arrow">
-              @for (error of recipientsStepErrors(); track error) { <li>{{ error }}</li> }
-            </ul>
-          </div>
-        } @else if (totalRecipientCount() > 0) {
-          <div class="alert alert-success">
-            <fa-icon [icon]="faCheckCircle" class="me-2"/>
-            <strong>Recipients chosen:</strong> {{ recipientCountSummary() }}
+            @if (bulkDeletionPending()) {
+              <h5>This email workflow deletes its recipients:</h5>
+              <ul class="list-arrow">
+                <li>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete the members once the email has gone out.</li>
+                <li>Everyone you choose here will be removed from the database after the send.</li>
+              </ul>
+            }
+            @if (recipientsStepErrors().length > 0) {
+              <h5>Before you can continue:</h5>
+              <ul class="list-arrow">
+                @for (error of recipientsStepErrors(); track error) { <li>{{ error }}</li> }
+              </ul>
+            }
           </div>
         }
         @if (state.brandingMode === BrandingMode.UNBRANDED) {
@@ -529,23 +534,36 @@ import { DateTime } from "luxon";
           </fieldset>
           @if (state.externalRecipients.length > 0) {
             <fieldset class="email-composer-fieldset">
-              <legend>Recipients for this send</legend>
-              <ul class="list-unstyled mb-0">
-                @for (recipient of state.externalRecipients; track recipient.email; let idx = $index) {
-                  <li class="d-flex align-items-center gap-2 py-1">
-                    <span class="flex-grow-1">
-                      <strong>{{ recipient.email }}</strong>
-                      @if (recipient.name) { <span class="text-muted"> &mdash; {{ recipient.name }}</span> }
-                      @if (!recipient.existingId && recipient.saveForReuse) {
-                        <span class="badge bg-light text-muted ms-2">Will be saved for re-use</span>
-                      }
-                    </span>
-                    <button type="button" class="btn btn-sm btn-danger" (click)="removeExternalRecipient(idx)" title="Remove" aria-label="Remove">
-                      <fa-icon [icon]="faXmark"/>
-                    </button>
-                  </li>
-                }
-              </ul>
+              <legend>
+                <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset"
+                        (click)="recipientsForSendExpanded = !recipientsForSendExpanded"
+                        [attr.aria-expanded]="recipientsForSendExpanded">
+                  <fa-icon [icon]="recipientsForSendExpanded ? faChevronDown : faChevronRight" class="me-1"/>
+                  Recipients for this send ({{ state.externalRecipients.length }})
+                </button>
+              </legend>
+              @if (recipientsForSendExpanded) {
+                <ul class="list-unstyled mb-0">
+                  @for (recipient of state.externalRecipients; track recipient.email; let idx = $index) {
+                    <li class="d-flex align-items-center gap-2 py-1">
+                      <span class="flex-grow-1">
+                        <strong>{{ recipient.email }}</strong>
+                        @if (recipient.name) { <span class="text-muted"> &mdash; {{ recipient.name }}</span> }
+                        @if (recipientAlreadySaved(recipient)) {
+                          <span class="badge bg-light text-muted ms-2">Already saved</span>
+                        } @else if (recipient.saveForReuse) {
+                          <span class="badge bg-light text-muted ms-2">Will be saved for re-use</span>
+                        }
+                      </span>
+                      <button type="button" class="btn btn-sm btn-danger" (click)="removeExternalRecipient(idx)" title="Remove" aria-label="Remove">
+                        <fa-icon [icon]="faXmark"/>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="text-muted small mb-0">{{ stringUtils.pluraliseWithCount(state.externalRecipients.length, "recipient") }} added - expand to view or remove.</p>
+              }
             </fieldset>
           }
           @if (unselectedSavedExternalRecipients().length > 0) {
@@ -616,35 +634,51 @@ import { DateTime } from "luxon";
                   [selectedIds]="state.selectedMemberIds"
                   [preFilterKey]="state.preFilterKey"
                   [notificationConfig]="state.notificationConfig"
-                  [latestBulkLoadAudit]="latestBulkLoadAudit"
+                  [memberBulkLoadDateMap]="memberBulkLoadDateMap"
                   [requireConsent]="requiresConsent()"
+                  [lockedSelection]="!!forcedMemberId"
                   [autoFill]="false"
                   (selectedIdsChange)="onSelectedMemberIdsChange($event)"
                   (preFilterKeyChange)="onPreFilterKeyChange($event)"/>
               }
+            } @else {
+              <p class="text-muted small mb-0">Expand to also send this to individual group members alongside any external recipients above.</p>
             }
           </fieldset>
-        } @else {
+        } @else if (forcedMemberId) {
           <div class="row mb-3">
             <div class="col-sm-12">
-              <div class="form-check">
-                <input id="mode-list" type="radio" class="form-check-input" name="recipient-mode"
-                       [checked]="state.recipientMode === RecipientMode.ENTIRE_LIST"
-                       (change)="setRecipientMode(RecipientMode.ENTIRE_LIST)">
-                <label class="form-check-label" for="mode-list">
-                  <strong>Everyone on a mailing list</strong> - one email sent to the whole list
-                </label>
-              </div>
-              <div class="form-check">
-                <input id="mode-selected" type="radio" class="form-check-input" name="recipient-mode"
-                       [checked]="state.recipientMode === RecipientMode.SELECTED_MEMBERS"
-                       (change)="setRecipientMode(RecipientMode.SELECTED_MEMBERS)">
-                <label class="form-check-label" for="mode-selected">
-                  <strong>Specific members</strong> - send individually to chosen members
-                </label>
-              </div>
+              <p class="mb-0">
+                <fa-icon [icon]="faAddressCard" class="me-2"/>
+                <strong>Single member</strong> - this email will be sent individually to
+                <strong>{{ forcedMemberLabel() }}</strong>. To send to more people,
+                <button type="button" class="btn btn-link p-0 align-baseline" (click)="clearForcedMember()">choose recipients</button>.
+              </p>
             </div>
           </div>
+        } @else {
+          @if (showRecipientSourceRadios()) {
+            <div class="row mb-3">
+              <div class="col-sm-12">
+                <div class="form-check">
+                  <input id="mode-list" type="radio" class="form-check-input" name="recipient-mode"
+                         [checked]="state.recipientMode === RecipientMode.ENTIRE_LIST"
+                         (change)="setRecipientMode(RecipientMode.ENTIRE_LIST)">
+                  <label class="form-check-label" for="mode-list">
+                    <strong>Everyone on a mailing list</strong> - one email sent to the whole list
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input id="mode-selected" type="radio" class="form-check-input" name="recipient-mode"
+                         [checked]="state.recipientMode === RecipientMode.SELECTED_MEMBERS"
+                         (change)="setRecipientMode(RecipientMode.SELECTED_MEMBERS)">
+                  <label class="form-check-label" for="mode-selected">
+                    <strong>Specific members</strong> - send individually to chosen members
+                  </label>
+                </div>
+              </div>
+            </div>
+          }
           @if (state.recipientMode === RecipientMode.ENTIRE_LIST) {
             <div class="row">
               <div class="col-sm-12">
@@ -670,29 +704,31 @@ import { DateTime } from "luxon";
               </div>
             </div>
           } @else {
-            <div class="row mb-3">
-              <div class="col-sm-12">
-                <label class="form-label">Choose members from:</label>
-                <div class="form-check">
-                  <input class="form-check-input" type="radio" name="narrow-source"
-                         id="narrow-source-all-branded"
-                         [checked]="!narrowFromListEnabled"
-                         (change)="setNarrowFromList(false)">
-                  <label class="form-check-label" for="narrow-source-all-branded">
-                    <strong>All members</strong>
-                  </label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="radio" name="narrow-source"
-                         id="narrow-source-list-branded"
-                         [checked]="narrowFromListEnabled"
-                         (change)="setNarrowFromList(true)">
-                  <label class="form-check-label" for="narrow-source-list-branded">
-                    <strong>A specific mailing list</strong>
-                  </label>
+            @if (showRecipientSourceRadios()) {
+              <div class="row mb-3">
+                <div class="col-sm-12">
+                  <label class="form-label">Choose members from:</label>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="narrow-source"
+                           id="narrow-source-all-branded"
+                           [checked]="!narrowFromListEnabled"
+                           (change)="setNarrowFromList(false)">
+                    <label class="form-check-label" for="narrow-source-all-branded">
+                      <strong>All members</strong>
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="narrow-source"
+                           id="narrow-source-list-branded"
+                           [checked]="narrowFromListEnabled"
+                           (change)="setNarrowFromList(true)">
+                    <label class="form-check-label" for="narrow-source-list-branded">
+                      <strong>A specific mailing list</strong>
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
+            }
             @if (narrowFromListEnabled) {
               <div class="row mb-3">
                 <div class="col-sm-6">
@@ -714,12 +750,22 @@ import { DateTime } from "luxon";
                 [selectedIds]="state.selectedMemberIds"
                 [preFilterKey]="state.preFilterKey"
                 [notificationConfig]="state.notificationConfig"
-                [latestBulkLoadAudit]="latestBulkLoadAudit"
+                [memberBulkLoadDateMap]="memberBulkLoadDateMap"
                 [requireConsent]="requiresConsent()"
                 (selectedIdsChange)="onSelectedMemberIdsChange($event)"
                 (preFilterKeyChange)="onPreFilterKeyChange($event)"/>
             }
           }
+        }
+        @if (recipientsStepErrors().length === 0 && totalRecipientCount() > 0) {
+          <div class="row recipients-summary-row">
+            <div class="col-sm-12">
+              <div class="alert alert-success mb-0">
+                <fa-icon [icon]="faCheckCircle" class="me-2"/>
+                <strong>Recipients chosen:</strong> {{ recipientCountSummary() }}
+              </div>
+            </div>
+          </div>
         }
       </div>
     </ng-template>
@@ -807,7 +853,7 @@ import { DateTime } from "luxon";
             }
             <div class="alert alert-success">
               <fa-icon [icon]="faCheckCircle" class="me-2"/>
-              <strong>Sender:</strong> Unbranded emails will go from your committee role ({{ senderInfo.name }} &lt;{{ senderInfo.email }}&gt;). Sign off the email however you like in the body.
+              <strong>Sender:</strong> Unbranded emails will go from your <strong>{{ senderInfo.description }}</strong> role ({{ senderInfo.name }} &lt;{{ senderInfo.email }}&gt;). Sign off the email however you like in the body.
             </div>
           }
         }
@@ -1461,6 +1507,15 @@ import { DateTime } from "luxon";
     <ng-template #sendStep>
       <div class="email-composer-section">
         <h3>Send</h3>
+        @if (bulkDeletionPending()) {
+          <div class="email-composer-validation-summary">
+            <h5>This send permanently deletes members:</h5>
+            <ul class="list-arrow">
+              <li>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete the members once the email has gone out.</li>
+              <li>Sending now will permanently remove {{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "recipient member") }} from the database. This cannot be undone.</li>
+            </ul>
+          </div>
+        }
         @let trackingUrls = recycledTrackingUrlsInState();
         @if (unbrandedListSendBlocked() || showUnbrandedListSendWarning() || subjectStartsWithCopyOf() || trackingUrls.length > 0) {
           <div class="email-composer-validation-summary">
@@ -1624,10 +1679,11 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected committeeFileUrlError: string | null = null;
   protected committeeFileUrlAllowedIds: string[] | null = null;
   protected members: Member[] = [];
-  protected latestBulkLoadAudit: MemberBulkLoadAudit | null = null;
+  protected memberBulkLoadDateMap: MemberBulkLoadDateMap | null = null;
   protected senderExists = false;
   protected forcedConfigId: string | null = null;
   protected forcedConfigSlug: string | null = null;
+  protected forcedMemberId: string | null = null;
   protected currentDraftId: string | null = null;
   protected currentComposition: EmailComposition | null = null;
   protected drafts: EmailComposition[] = [];
@@ -1712,28 +1768,18 @@ export class EmailComposer implements OnInit, OnDestroy {
         includeWorkflowRelatedConfigs: false,
         forceIncludeConfigIds: this.forcedConfigId ? [this.forcedConfigId] : []
       };
-      const candidates = this.mailMessagingService.notificationConfigs(this.state.notificationConfigListing);
-      const allowConfigAutoSelect = this.state.brandingMode !== BrandingMode.UNBRANDED;
-      if (allowConfigAutoSelect && this.forcedConfigId) {
-        const forced = candidates.find(candidate => candidate.id === this.forcedConfigId);
-        if (forced) {
-          this.onEmailConfigChanged(forced);
-        }
-      }
-      if (allowConfigAutoSelect && !this.state.notificationConfig && candidates.length > 0) {
-        this.onEmailConfigChanged(candidates[0]);
-      }
+      this.autoSelectNotificationConfig();
       this.applyDefaultListIfNeeded();
     }));
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.systemConfig = systemConfig;
     }));
-    this.members = await this.memberService.publicFields(this.memberService.filterFor.GROUP_MEMBERS);
+    this.members = await this.memberService.privilegedFields(this.memberService.filterFor.GROUP_MEMBERS);
     try {
-      this.latestBulkLoadAudit = await this.memberBulkLoadAuditService.findLatestBulkLoadAudit();
+      this.memberBulkLoadDateMap = await this.memberBulkLoadAuditService.createMemberBulkLoadDateMap();
     } catch (error) {
-      this.logger.warn("could not load latestBulkLoadAudit:", error);
-      this.latestBulkLoadAudit = null;
+      this.logger.warn("could not load memberBulkLoadDateMap:", error);
+      this.memberBulkLoadDateMap = null;
     }
     await this.refreshDrafts();
   }
@@ -1747,6 +1793,10 @@ export class EmailComposer implements OnInit, OnDestroy {
     const slug = queryParams.get(StoredValue.EMAIL_CONFIG_ID);
     this.forcedConfigSlug = slug;
     this.forcedConfigId = this.resolveConfigIdFromSlug(slug);
+    const memberParam = queryParams.get(StoredValue.EMAIL_MEMBER);
+    if (memberParam) {
+      this.forcedMemberId = memberParam;
+    }
     const sourcePage = queryParams.get(StoredValue.EMAIL_SOURCE_PAGE);
     const committeeFile = queryParams.get(StoredValue.EMAIL_COMMITTEE_FILE);
     const eventQuery = queryParams.get(StoredValue.EMAIL_EVENT);
@@ -1837,7 +1887,7 @@ export class EmailComposer implements OnInit, OnDestroy {
         : null,
       location: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.description,
       postcode: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.postcode,
-      title: event?.groupEvent?.title || "Awaiting " + (event?.groupEvent?.item_type ?? "event") + " details",
+      title: event?.groupEvent?.title || "Awaiting " + this.stringUtils.asTitle(event?.groupEvent?.item_type ?? "event") + " details",
       description: event?.groupEvent?.description,
       contactName: event?.fields?.contactDetails?.displayName,
       contactPhone: event?.fields?.contactDetails?.phone,
@@ -2273,6 +2323,7 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected narrowFromListEnabled: boolean = false;
   protected narrowMembersExpanded: boolean = false;
+  protected recipientsForSendExpanded: boolean = true;
 
   setNarrowFromList(enabled: boolean): void {
     this.narrowFromListEnabled = enabled;
@@ -2367,11 +2418,13 @@ export class EmailComposer implements OnInit, OnDestroy {
       if (additions.length > 0) {
         this.state.externalRecipients = [...this.state.externalRecipients, ...additions];
       }
-      if (parsed.subject) this.state.subject = parsed.subject;
-      this.state.addresseeType = AddresseeType.NONE;
-      this.state.introMarkdown = this.buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, parsed.body);
+      const existingIntro = this.state.introMarkdown ?? "";
+      const hasExistingIntro = existingIntro.trim().length > 0;
+      if (parsed.subject && !this.state.subject?.trim()) this.state.subject = parsed.subject;
+      if (!hasExistingIntro) this.state.addresseeType = AddresseeType.NONE;
+      this.state.introMarkdown = existingIntro + this.buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, parsed.body);
       this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
-      queueMicrotask(() => this.introEditor?.focusAtStart());
+      queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
       return;
     }
     const titled = this.extractLeadingH1Title(event.text);
@@ -2510,6 +2563,22 @@ export class EmailComposer implements OnInit, OnDestroy {
     return null;
   }
 
+  private autoSelectNotificationConfig(): void {
+    if (!this.state.notificationConfigListing || this.state.brandingMode === BrandingMode.UNBRANDED) {
+      return;
+    }
+    const candidates = this.mailMessagingService.notificationConfigs(this.state.notificationConfigListing);
+    if (this.forcedConfigId) {
+      const forced = candidates.find(candidate => candidate.id === this.forcedConfigId);
+      if (forced) {
+        this.onEmailConfigChanged(forced);
+      }
+    }
+    if (!this.state.notificationConfig && candidates.length > 0) {
+      this.onEmailConfigChanged(candidates[0]);
+    }
+  }
+
   setBrandingMode(mode: BrandingMode): void {
     const previousMode = this.state.brandingMode;
     this.state.brandingMode = mode;
@@ -2536,8 +2605,11 @@ export class EmailComposer implements OnInit, OnDestroy {
         this.forcedConfigId = null;
         this.forcedConfigSlug = null;
       }
-    } else if (this.state.externalRecipients?.length) {
-      this.state.externalRecipients = [];
+    } else {
+      if (this.state.externalRecipients?.length) {
+        this.state.externalRecipients = [];
+      }
+      this.autoSelectNotificationConfig();
     }
     const urlUpdates: Record<string, string | null> = { [StoredValue.EMAIL_BRANDING]: mode };
     if (mode === BrandingMode.UNBRANDED) {
@@ -2582,12 +2654,12 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.state.unbrandedSenderRoleType = roleType || null;
   }
 
-  protected unbrandedSenderInfo(): { name: string; email: string } {
+  protected unbrandedSenderInfo(): { name: string; email: string; description: string } {
     const role = this.resolvedUnbrandedRole();
     if (role?.email) {
-      return { name: role.fullName ?? "", email: role.email };
+      return { name: role.fullName ?? "", email: role.email, description: role.description ?? "" };
     }
-    return { name: "", email: "" };
+    return { name: "", email: "", description: "" };
   }
 
   protected isValidEmail(email: string): boolean {
@@ -2649,6 +2721,11 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected removeExternalRecipient(index: number): void {
     this.state.externalRecipients = this.state.externalRecipients.filter((_, idx) => idx !== index);
+  }
+
+  protected recipientAlreadySaved(recipient: ComposerExternalRecipient): boolean {
+    return !!recipient.existingId
+      || this.savedExternalRecipients.some(item => item.email.toLowerCase() === recipient.email.toLowerCase());
   }
 
   protected unselectedSavedExternalRecipients(): ExternalRecipient[] {
@@ -2742,6 +2819,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.selectedDateRangePreset = this.matchPresetToCurrentRange();
       void this.populateGroupEvents();
     }
+    this.applyForcedMemberSelection();
   }
 
   private syncStateToUrl(extra: Record<string, string | null | undefined>): void {
@@ -3139,6 +3217,48 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.state.preFilterKey = config.defaultMemberSelection ?? null;
       this.state.selectedMemberIds = [];
     }
+    this.applyForcedMemberSelection();
+  }
+
+  private applyForcedMemberSelection(): void {
+    if (!this.forcedMemberId) {
+      return;
+    }
+    this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+    this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+    this.state.preFilterKey = null;
+    this.state.selectedMemberIds = [this.forcedMemberId];
+  }
+
+  protected forcedMemberLabel(): string {
+    const member = this.members?.find(item => item.id === this.forcedMemberId);
+    if (!member) {
+      return "the selected member";
+    }
+    const name = member.displayName?.trim() || `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() || "the selected member";
+    return member.email ? `${name} (${member.email})` : name;
+  }
+
+  protected clearForcedMember(): void {
+    this.forcedMemberId = null;
+    this.syncStateToUrl({ [StoredValue.EMAIL_MEMBER]: null });
+  }
+
+  protected bulkDeletionPending(): boolean {
+    const config = this.state.notificationConfig;
+    if (!config) {
+      return false;
+    }
+    return [...(config.preSendActions ?? []), ...(config.postSendActions ?? [])]
+      .includes(WorkflowAction.BULK_DELETE_GROUP_MEMBER);
+  }
+
+  protected bulkDeletionMemberCount(): number {
+    return this.state.selectedMemberIds?.length ?? 0;
+  }
+
+  protected showRecipientSourceRadios(): boolean {
+    return !this.state.preFilterKey;
   }
 
   protected async refreshTemplateContent(): Promise<void> {
@@ -3592,7 +3712,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected sendConfirm = new Confirm();
 
   private hasUnsavedChanges(): boolean {
-    return !!this.state.subject?.trim() || !!this.state.introMarkdown?.trim() || this.state.articleBlocks.length > 0;
+    return !!this.state.subject?.trim() || !!this.state.introMarkdown?.trim() || (this.state.articleBlocks ?? []).length > 0;
   }
 
   protected hasContentToDraft(): boolean {
@@ -3666,6 +3786,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       restored.groupEvents = [];
       restored.notificationConfigListing = this.state.notificationConfigListing;
       restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
+      restored.articleBlocks = restored.articleBlocks ?? [];
       this.state = restored as EmailComposerState;
       if (this.state.subject) this.state.subject = `Copy of ${this.state.subject}`;
       this.currentDraftId = null;
@@ -3727,6 +3848,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       restored.brandingMode = restored.brandingMode ?? BrandingMode.BRANDED;
       restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
       restored.externalRecipients = restored.externalRecipients ?? [];
+      restored.articleBlocks = restored.articleBlocks ?? [];
       if (restored.brandingMode === BrandingMode.UNBRANDED && restored.recipientMode === RecipientMode.ENTIRE_LIST) {
         restored.recipientMode = RecipientMode.SELECTED_MEMBERS;
         restored.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
@@ -3796,6 +3918,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected newComposition(): void {
+    this.forcedMemberId = null;
+    this.syncStateToUrl({ [StoredValue.EMAIL_MEMBER]: null });
     this.state = defaultEmailComposerState();
     if (this.mailMessagingConfig) {
       this.state.notificationConfigListing = {
