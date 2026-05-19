@@ -21,7 +21,7 @@ import { MailService } from "../../../services/mail/mail.service";
           #previewFrame
           title="Email preview"
           scrolling="yes"
-          sandbox="allow-popups allow-popups-to-escape-sandbox allow-downloads"
+          sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads"
           (load)="resize()"
           [src]="previewUrl"
           style="display:block;width:100%;height:70vh;border:0;background:#f3f3f3;"></iframe>
@@ -52,7 +52,7 @@ export class EmailPreviewComponent implements OnDestroy {
       const response = await this.mailService.renderTemplate(request);
       this.clearObservers();
       this.previewHtml = response.htmlContent;
-      this.previewUrl = this.toPreviewUrl(this.withBaseHref(response.htmlContent));
+      this.previewUrl = this.toPreviewUrl(this.withBaseHref(this.rewriteDevHostUrls(response.htmlContent)));
     } catch (error) {
       this.previewHtml = null;
       this.previewUrl = null;
@@ -109,6 +109,10 @@ export class EmailPreviewComponent implements OnDestroy {
     }
     doc?.querySelectorAll("img").forEach(image => image.addEventListener("load", applyHeight, {once: true}));
     window.setTimeout(applyHeight, 0);
+  }
+
+  private rewriteDevHostUrls(html: string): string {
+    return html.replace(/https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?\//gi, `${window.location.origin}/`);
   }
 
   private withBaseHref(html: string): string {
