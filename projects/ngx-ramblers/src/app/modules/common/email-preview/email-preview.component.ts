@@ -5,7 +5,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { TemplateRenderRequest } from "../../../models/mail.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MailService } from "../../../services/mail/mail.service";
-import { UrlService } from "../../../services/url.service";
 
 @Component({
   selector: "app-email-preview",
@@ -33,7 +32,6 @@ import { UrlService } from "../../../services/url.service";
 export class EmailPreviewComponent implements OnDestroy {
   private sanitizer = inject(DomSanitizer);
   private mailService = inject(MailService);
-  private urlService = inject(UrlService);
   private logger: Logger = inject(LoggerFactory).createLogger("EmailPreviewComponent", NgxLoggerLevel.ERROR);
 
   @ViewChild("previewFrame") previewFrame: ElementRef<HTMLIFrameElement>;
@@ -117,11 +115,7 @@ export class EmailPreviewComponent implements OnDestroy {
     if (/<base\b/i.test(html)) {
       return html;
     }
-    const base = this.urlService.baseUrl();
-    if (!base) {
-      return html;
-    }
-    const baseTag = `<base href="${base.replace(/\/+$/, "")}/">`;
+    const baseTag = `<base href="${window.location.origin}/">`;
     if (/<head[^>]*>/i.test(html)) {
       return html.replace(/<head[^>]*>/i, head => `${head}${baseTag}`);
     }
