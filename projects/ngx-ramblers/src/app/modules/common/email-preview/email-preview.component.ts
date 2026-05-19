@@ -5,6 +5,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { TemplateRenderRequest } from "../../../models/mail.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MailService } from "../../../services/mail/mail.service";
+import { UrlService } from "../../../services/url.service";
 
 @Component({
   selector: "app-email-preview",
@@ -32,6 +33,7 @@ import { MailService } from "../../../services/mail/mail.service";
 export class EmailPreviewComponent implements OnDestroy {
   private sanitizer = inject(DomSanitizer);
   private mailService = inject(MailService);
+  private urlService = inject(UrlService);
   private logger: Logger = inject(LoggerFactory).createLogger("EmailPreviewComponent", NgxLoggerLevel.ERROR);
 
   @ViewChild("previewFrame") previewFrame: ElementRef<HTMLIFrameElement>;
@@ -52,7 +54,7 @@ export class EmailPreviewComponent implements OnDestroy {
       const response = await this.mailService.renderTemplate(request);
       this.clearObservers();
       this.previewHtml = response.htmlContent;
-      this.previewUrl = this.toPreviewUrl(response.htmlContent);
+      this.previewUrl = this.toPreviewUrl(this.withBaseHref(response.htmlContent));
     } catch (error) {
       this.previewHtml = null;
       this.previewUrl = null;
@@ -109,6 +111,24 @@ export class EmailPreviewComponent implements OnDestroy {
     }
     doc?.querySelectorAll("img").forEach(image => image.addEventListener("load", applyHeight, {once: true}));
     window.setTimeout(applyHeight, 0);
+  }
+
+  private withBaseHref(html: string): string {
+    if (/<base\b/i.test(html)) {
+      return html;
+    }
+    const base = this.urlService.baseUrl();
+    if (!base) {
+      return html;
+    }
+    const baseTag = `<base href="${base.replace(/\/+$/, "")}/">`;
+    if (/<head[^>]*>/i.test(html)) {
+      return html.replace(/<head[^>]*>/i, head => `${head}${baseTag}`);
+    }
+    if (/<html[^>]*>/i.test(html)) {
+      return html.replace(/<html[^>]*>/i, htmlTag => `${htmlTag}<head>${baseTag}</head>`);
+    }
+    return `${baseTag}${html}`;
   }
 
   private toPreviewUrl(html: string): SafeResourceUrl {
