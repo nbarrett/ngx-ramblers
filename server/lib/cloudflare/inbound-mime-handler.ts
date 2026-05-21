@@ -190,9 +190,19 @@ export async function handleInboundMime(req: Request, res: Response): Promise<vo
       }
     }
 
-    const allDelivered = results.every(r => r.status === "delivered");
-    debugLog("Inbound-mime processed: %d recipients, all-delivered=%s", results.length, allDelivered);
-    res.status(allDelivered ? 200 : 207).json({ request: { messageType }, response: { results } });
+    const deliveredCount = results.filter(r => r.status === RecipientDeliveryStatus.Delivered).length;
+    const allDelivered = deliveredCount === results.length;
+    const noneDelivered = deliveredCount === 0;
+    debugLog("Inbound-mime processed: %d recipients, delivered=%d, all-delivered=%s, none-delivered=%s", results.length, deliveredCount, allDelivered, noneDelivered);
+    const statusCode = allDelivered ? 200 : (noneDelivered ? 502 : 207);
+    const errorSummary = noneDelivered
+      ? results.map(r => r.error || "unknown failure").filter((value, index, self) => self.indexOf(value) === index).join("; ")
+      : undefined;
+    res.status(statusCode).json({
+      request: { messageType },
+      response: { results, allDelivered, deliveredCount },
+      ...(errorSummary ? { error: { message: `All recipients failed: ${errorSummary}` } } : {})
+    });
   } catch (err) {
     const message = (err as Error).message || String(err);
     errorDebugLog("Unhandled inbound-mime error: %s", message);

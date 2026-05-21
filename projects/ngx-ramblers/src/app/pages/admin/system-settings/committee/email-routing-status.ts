@@ -28,6 +28,10 @@ import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { CloudflareButton } from "../../../../modules/common/third-parties/cloudflare-button";
 import { normaliseEmail } from "../../../../functions/strings";
+import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
+import { MailMessagingConfig, MailSettingsTab } from "../../../../models/mail.model";
+import { RouterLink } from "@angular/router";
+import { kebabCase } from "es-toolkit/compat";
 
 enum WorkerAction {
   DEPLOY = "deploy",
@@ -224,11 +228,21 @@ function mapResolutionToRouteType(resolution: RoutingResolution): EmailRouteType
           </div>
           <div class="small text-muted mt-1">
             @if (forwardingMode === EmailForwardingMode.BREVO_RESEND) {
-              Recommended. Each message is re-sent from <strong>{{ status.roleEmail }}</strong> in a form that mail providers trust, so it's less likely to land in {{ recipientNounSingular() }} spam folders. Replies still go back to whoever originally sent the message.
+              Recommended. Each message is re-sent from <strong>{{ status.roleEmail }}</strong> in a form that mail providers trust, so it's less likely to be filtered to {{ recipientNounSingular() }} spam folders. Replies still go back to whoever originally sent the message.
             } @else {
               The original message is passed on as-is. Simpler, but some mail providers treat forwarded mail as suspicious and may filter it to spam.
             }
           </div>
+          @if (forwardingMode === EmailForwardingMode.BREVO_RESEND && !brevoSmtpConfigured) {
+            <div class="d-flex align-items-center mt-2">
+              <alert type="warning" class="flex-grow-1 mb-0">
+                <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+                <strong class="ms-2">SMTP credentials not set</strong>
+                <span class="ms-2">Brevo re-send needs an SMTP login and key before it can deliver. Set both in
+                  <a routerLink="/admin/mail-settings" [queryParams]="{tab: mailApiSettingsTab}">Mail Settings &rarr; Mail API Settings</a>, then return here to deploy.</span>
+              </alert>
+            </div>
+          }
           @if (modeChangedFromDeployed() || deployedScriptIsOutOfDate) {
             <div class="d-flex align-items-center mt-2">
               <app-cloudflare-button [disabled]="updateWorkerDisabled()" [loading]="workerAction === WorkerAction.UPDATE" button
@@ -279,7 +293,7 @@ function mapResolutionToRouteType(resolution: RoutingResolution): EmailRouteType
               (click)="createWorker()"
               title="Deploy Worker"></app-cloudflare-button>
           </div>
-          @if (workerButtonDisabled() && !apiRequestPending) {
+          @if (workerButtonDisabled() && !apiRequestPending && !allRecipientsVerified()) {
             <div class="small text-muted">Every {{ recipientNounSingular() }} must be verified before the Worker can be deployed.</div>
           }
         }
@@ -317,11 +331,12 @@ function mapResolutionToRouteType(resolution: RoutingResolution): EmailRouteType
       .badge-action-attn
         background: #c05711
     `],
-    imports: [AlertComponent, FontAwesomeModule, CloudflareButton, FormsModule]
+    imports: [AlertComponent, FontAwesomeModule, CloudflareButton, FormsModule, RouterLink]
 })
 export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("EmailRoutingStatusComponent", NgxLoggerLevel.ERROR);
   cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
+  private mailMessagingService = inject(MailMessagingService);
   public stringUtilsService = inject(StringUtilsService);
   protected committeeMemberInternal: CommitteeMember;
   public status: EmailRoutingStatus;
@@ -347,6 +362,8 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   public forwardingMode: EmailForwardingMode = EmailForwardingMode.CLOUDFLARE_FORWARD;
   public deployedForwardingMode: EmailForwardingMode | null = null;
   public deployedScriptIsOutOfDate = false;
+  public brevoSmtpConfigured = true;
+  protected readonly mailApiSettingsTab = kebabCase(MailSettingsTab.MAIL_API_SETTINGS);
 
   @Input() memberEmail: string;
   @Input() showRecipientStatus = true;
@@ -380,6 +397,12 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
       this.cloudflareEmailRoutingService.rulesNotifications().subscribe((rules: EmailRoutingRule[]) => {
         this.rules = rules || [];
         this.refreshStatus();
+      })
+    );
+    this.subscriptions.push(
+      this.mailMessagingService.events().subscribe((mailMessagingConfig: MailMessagingConfig) => {
+        const mailConfig = mailMessagingConfig?.mailConfig;
+        this.brevoSmtpConfigured = !!mailConfig?.smtpUser?.trim() && !!mailConfig?.smtpPassword?.trim();
       })
     );
     this.loadRules();
@@ -522,8 +545,12 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
     return this.status?.destinationVerificationStatuses?.every(d => d.status === DestinationVerificationStatus.VERIFIED) || false;
   }
 
+  brevoSmtpMissing(): boolean {
+    return this.forwardingMode === EmailForwardingMode.BREVO_RESEND && !this.brevoSmtpConfigured;
+  }
+
   workerButtonDisabled(): boolean {
-    return this.apiRequestPending || !this.allRecipientsVerified();
+    return this.apiRequestPending || !this.allRecipientsVerified() || this.brevoSmtpMissing();
   }
 
   updateWorkerDisabled(): boolean {
@@ -541,6 +568,9 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
       subject = "Recipients changed";
     } else {
       subject = "Worker code is out of date";
+    }
+    if (this.brevoSmtpMissing()) {
+      return `${subject}. Set SMTP credentials in Mail Settings before updating the worker.`;
     }
     if (this.allRecipientsVerified()) {
       return `${subject}. Click Update Worker to apply.`;
