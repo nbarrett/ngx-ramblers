@@ -120,7 +120,7 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
                 <td class="small">{{ log.from }}</td>
                 <td class="small">{{ log.to }}</td>
                 <td class="small">{{ log.subject }}</td>
-                <td><span [class]="statusBadgeClass(log.status)">{{ log.status }}</span></td>
+                <td><span [class]="statusBadgeClass(log)">{{ log.status }}</span></td>
                 <td>@if (log.spf) {<span [class]="authBadgeClass(log.spf)">{{ log.spf }}</span>}</td>
                 <td>@if (log.dkim) {<span [class]="authBadgeClass(log.dkim)">{{ log.dkim }}</span>}</td>
                 <td>@if (log.dmarc) {<span [class]="authBadgeClass(log.dmarc)">{{ log.dmarc }}</span>}</td>
@@ -276,13 +276,6 @@ export class EmailRoutingLogComponent implements OnInit {
   workerLogSortDirection = DESCENDING;
 
   ngOnInit() {
-    const now = this.dateUtils.dateTimeNow();
-    this.logMaxDate = now;
-    this.logMinDate = now.minus({days: 30});
-    this.logDateRange = {
-      from: now.minus({days: 30}).toMillis(),
-      to: now.toMillis()
-    };
     this.refreshAll();
   }
 
@@ -290,6 +283,7 @@ export class EmailRoutingLogComponent implements OnInit {
     this.loading = true;
     this.error = null;
     try {
+      this.advanceDateBoundsToNow();
       const promises: Promise<void>[] = [this.refreshEmailRoutingLogs()];
       if (this.workerScriptName) {
         promises.push(this.refreshWorkerLogs());
@@ -303,6 +297,24 @@ export class EmailRoutingLogComponent implements OnInit {
   onLogDateRangeChange(range: DateRange) {
     this.logDateRange = range;
     this.refreshAll();
+  }
+
+  private advanceDateBoundsToNow() {
+    const previousMaxMillis = this.logMaxDate?.toMillis();
+    const previousMinMillis = this.logMinDate?.toMillis();
+    const toPinnedToMax = this.logDateRange?.to === previousMaxMillis;
+    const fromPinnedToMin = this.logDateRange?.from === previousMinMillis;
+    const now = this.dateUtils.dateTimeNow();
+    this.logMaxDate = now;
+    this.logMinDate = now.minus({days: 30});
+    if (!this.logDateRange) {
+      this.logDateRange = {from: this.logMinDate.toMillis(), to: this.logMaxDate.toMillis()};
+      return;
+    }
+    this.logDateRange = {
+      from: fromPinnedToMin ? this.logMinDate.toMillis() : this.logDateRange.from,
+      to: toPinnedToMax ? this.logMaxDate.toMillis() : this.logDateRange.to
+    };
   }
 
   sortEmailLogsBy(field: string) {
@@ -373,11 +385,12 @@ export class EmailRoutingLogComponent implements OnInit {
     }
   }
 
-  statusBadgeClass(status: string): string {
+  statusBadgeClass(log: EmailRoutingLogEntry): string {
+    const status = log.status;
     if (status === EmailRoutingLogStatus.FORWARDED || status === EmailRoutingLogStatus.DELIVERED) {
       return "badge bg-success";
     } else if (status === EmailRoutingLogStatus.DROPPED && this.routeType === "worker") {
-      return "badge bg-success";
+      return this.workerErrorNear(log.datetime) ? "badge bg-danger" : "badge bg-success";
     } else if (status === EmailRoutingLogStatus.REJECTED || status === EmailRoutingLogStatus.DELIVERY_FAILED) {
       return "badge bg-danger";
     } else if (status === EmailRoutingLogStatus.DROPPED) {
@@ -408,8 +421,11 @@ export class EmailRoutingLogComponent implements OnInit {
     const isWorkerRoute = this.routeType === "worker";
 
     if (status === EmailRoutingLogStatus.DROPPED && isWorkerRoute) {
+      if (this.workerErrorNear(log.datetime)) {
+        return "Worker invocation failed for this message - see Worker Invocation Log below. Mail to this address will not have been delivered.";
+      }
       if (spf === EmailAuthResult.PASS && dkim === EmailAuthResult.PASS) {
-        return "Handed off to worker for forwarding — authentication passed";
+        return "Handed off to worker for forwarding - authentication passed";
       } else {
         return "Handed off to worker for forwarding";
       }
@@ -449,6 +465,26 @@ export class EmailRoutingLogComponent implements OnInit {
     }
 
     return "";
+  }
+
+  private workerErrorNear(emailDateTime: string): boolean {
+    if (!this.workerLogs?.length || !emailDateTime) {
+      return false;
+    }
+    const emailTime = DateTime.fromISO(emailDateTime);
+    if (!emailTime.isValid) {
+      return false;
+    }
+    return this.workerLogs.some(workerLog => {
+      if (!workerLog.errors || workerLog.errors <= 0) {
+        return false;
+      }
+      const workerTime = DateTime.fromISO(workerLog.datetime);
+      if (!workerTime.isValid) {
+        return false;
+      }
+      return Math.abs(emailTime.diff(workerTime, "minutes").minutes) < 2;
+    });
   }
 
   private friendlyError(err: any): string {

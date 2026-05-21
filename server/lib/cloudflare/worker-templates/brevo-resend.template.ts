@@ -31,21 +31,19 @@ export default {
       senderName
     });
     const signature = await hmacSign(body, sharedSecret);
-    try {
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-NGX-Signature": signature
-        },
-        body
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        console.error("NGX inbound-mime webhook failed: " + response.status + " " + text);
-      }
-    } catch (error) {
-      console.error("Failed to POST to NGX webhook:", (error as Error).message || error);
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-NGX-Signature": signature
+      },
+      body
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      const reason = "NGX inbound-mime webhook failed: " + response.status + " " + text;
+      console.error(reason);
+      throw new Error(reason);
     }
   }
 };

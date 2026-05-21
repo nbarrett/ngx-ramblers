@@ -36,6 +36,7 @@ import {
   workerScriptName
 } from "./cloudflare-email-workers";
 import { ensureInboundWebhookConfigured } from "../brevo/inbound-webhook-config";
+import { configuredBrevo } from "../brevo/brevo-config";
 import { handleInboundMime } from "./inbound-mime-handler";
 import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { errorResponse } from "../shared/error-response";
@@ -58,6 +59,18 @@ const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
 const errorDebugLog = debug("ERROR:" + envConfig.logNamespace(messageType));
 errorDebugLog.enabled = true;
+
+const BREVO_SMTP_REQUIRED_MESSAGE = "Brevo re-send (authenticated) needs SMTP credentials before it can deliver messages. Open Mail Settings > Mail API Settings and set both SMTP Login and SMTP Key, then come back and deploy the worker.";
+
+async function brevoSmtpCredentialsMissing(): Promise<boolean> {
+  try {
+    const brevo = await configuredBrevo();
+    return !brevo.smtpUser?.trim() || !brevo.smtpPassword?.trim();
+  } catch (error) {
+    errorDebugLog("Failed to read Brevo config when checking SMTP credentials:", (error as Error).message);
+    return true;
+  }
+}
 
 const router = express.Router();
 
@@ -134,6 +147,9 @@ async function planCatchAllRule(
   if (action === CatchAllAction.WORKER) {
     if (destinations.length === 0) {
       return {error: "WORKER action requires at least one destination"};
+    }
+    if (forwardingMode === EmailForwardingMode.BREVO_RESEND && await brevoSmtpCredentialsMissing()) {
+      return {error: BREVO_SMTP_REQUIRED_MESSAGE};
     }
     const webhookContext = forwardingMode === EmailForwardingMode.BREVO_RESEND
       ? await ensureInboundWebhookConfigured()
@@ -370,6 +386,10 @@ router.post("/workers", authConfig.authenticate(), async (req: Request, res: Res
     let webhookUrl: string | undefined;
     let inboundWebhookSecret: string | undefined;
     if (forwardingMode === EmailForwardingMode.BREVO_RESEND) {
+      if (await brevoSmtpCredentialsMissing()) {
+        res.status(400).json({request: {messageType}, error: {message: BREVO_SMTP_REQUIRED_MESSAGE}});
+        return;
+      }
       const inboundConfig = await ensureInboundWebhookConfigured();
       webhookUrl = inboundConfig.webhookUrl;
       inboundWebhookSecret = inboundConfig.secret;
