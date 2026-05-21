@@ -130,7 +130,9 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       const sortFieldParam = params.get(this.stringUtilsService.kebabCase(StoredValue.SORT));
       const sortOrderParam = params.get(this.stringUtilsService.kebabCase(StoredValue.SORT_ORDER));
       const membershipNumberParam = params.get(this.stringUtilsService.kebabCase(StoredValue.MEMBER_ID));
-      if (membershipNumberParam && membershipNumberParam !== this.lastOpenedMembershipNumber) {
+      if (!membershipNumberParam) {
+        this.lastOpenedMembershipNumber = null;
+      } else if (membershipNumberParam !== this.lastOpenedMembershipNumber) {
         this.pendingMembershipNumberToOpen = membershipNumberParam;
         this.openPendingMemberIfReady();
       }
@@ -359,22 +361,32 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
 
   private openPendingMemberIfReady(): void {
     if (!this.pendingMembershipNumberToOpen || this.members.length === 0) return;
-    const target = this.members.find(candidate => candidate.membershipNumber === this.pendingMembershipNumberToOpen);
+    const pendingMembershipNumber = this.pendingMembershipNumberToOpen;
     this.pendingMembershipNumberToOpen = null;
+    const target = this.members.find(candidate => candidate.membershipNumber === pendingMembershipNumber);
     if (!target) {
-      this.logger.warn("openPendingMemberIfReady: no member with membershipNumber", this.pendingMembershipNumberToOpen);
+      this.logger.warn("openPendingMemberIfReady: no member with membershipNumber", pendingMembershipNumber);
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { [this.stringUtilsService.kebabCase(StoredValue.MEMBER_ID)]: null },
+        queryParamsHandling: "merge",
+        replaceUrl: true
+      });
       return;
     }
-    this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { [this.stringUtilsService.kebabCase(StoredValue.MEMBER_ID)]: null },
-      queryParamsHandling: "merge"
-    });
     this.showMemberDialog(target, EditMode.EDIT);
   }
 
   showMemberDialog(member: Member, editMode: EditMode) {
     this.notify.hide();
+    this.lastOpenedMembershipNumber = member.membershipNumber || null;
+    if (member.membershipNumber) {
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { [this.stringUtilsService.kebabCase(StoredValue.MEMBER_ID)]: member.membershipNumber },
+        queryParamsHandling: "merge"
+      });
+    }
     const config = {
       class: "modal-xl",
       animated: false,

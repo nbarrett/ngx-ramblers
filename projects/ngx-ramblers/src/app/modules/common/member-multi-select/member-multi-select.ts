@@ -10,7 +10,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MemberSelection, NotificationConfig } from "../../../models/mail.model";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
-import { RECIPIENT_PRE_FILTERS, RecipientFilterDecision, RecipientPreFilter } from "../../../models/email-composer.model";
+import { PriorSendExclusion, RECIPIENT_PRE_FILTERS, RecipientFilterDecision, RecipientPreFilter } from "../../../models/email-composer.model";
 import { MemberEmailSendService } from "../../../services/member-email-send/member-email-send.service";
 
 @Component({
@@ -61,20 +61,7 @@ import { MemberEmailSendService } from "../../../services/member-email-send/memb
           </ng-template>
         </ng-select>
       </div>
-    </div>
-    @if (false && filteredOutDecisions?.length > 0) {
-      <div class="alert alert-warning mt-2">
-        <strong>{{ filteredOutDecisions.length }} member(s) excluded:</strong>
-        <ul class="mb-0">
-          @for (decision of filteredOutDecisions.slice(0, 5); track decision.member.id) {
-            <li>{{ fullNameWithAlias.transform(decision.member) }} - {{ decision.reason }}</li>
-          }
-          @if (filteredOutDecisions.length > 5) {
-            <li>and {{ filteredOutDecisions.length - 5 }} more</li>
-          }
-        </ul>
-      </div>
-    }`
+    </div>`
 })
 export class MemberMultiSelect implements OnChanges {
 
@@ -92,11 +79,14 @@ export class MemberMultiSelect implements OnChanges {
   @Input() requireConsent: boolean = false;
   @Input() autoFill: boolean = true;
   @Input() lockedSelection: boolean = false;
+  @Input() includeAlreadySent: boolean = false;
   @Output() selectedIdsChange = new EventEmitter<string[]>();
   @Output() preFilterKeyChange = new EventEmitter<MemberSelection | null>();
+  @Output() priorSendExclusionsChange = new EventEmitter<PriorSendExclusion[]>();
 
   protected selectableMembers: MemberFilterSelection[] = [];
   protected filteredOutDecisions: RecipientFilterDecision[] = [];
+  protected priorSendExclusions: PriorSendExclusion[] = [];
   protected activePreFilterKey: MemberSelection | null = null;
   protected manualMode: boolean = false;
   protected priorSendDateMap: Record<string, number> = {};
@@ -116,6 +106,9 @@ export class MemberMultiSelect implements OnChanges {
       if (changes["notificationConfig"]) {
         void this.refreshPriorSendMap();
       }
+    }
+    if (changes["includeAlreadySent"] && !changes["includeAlreadySent"].firstChange && !this.manualMode) {
+      this.applyAutoSelection();
     }
   }
 
@@ -177,9 +170,22 @@ export class MemberMultiSelect implements OnChanges {
   private rebuildSelections(): void {
     const decisions = this.members.map(member => this.evaluateMember(member));
     this.filteredOutDecisions = decisions.filter(decision => decision.filteredOut);
-    this.selectableMembers = decisions
-      .filter(decision => !decision.filteredOut)
-      .map(decision => this.toFilterSelection(decision.member, this.activePreFilterKey))
+    const survivingMembers = decisions.filter(decision => !decision.filteredOut).map(decision => decision.member);
+    const newExclusions: PriorSendExclusion[] = this.manualMode
+      ? []
+      : survivingMembers
+        .filter(member => this.wouldMatchByCriteria(member, this.activePreFilterKey))
+        .map(member => ({ member, sentAt: this.priorSendDateFor(member) }))
+        .filter((entry): entry is PriorSendExclusion => isNumber(entry.sentAt) && entry.sentAt > 0)
+        .sort((a, b) => b.sentAt - a.sentAt);
+    const exclusionsChanged = newExclusions.length !== this.priorSendExclusions.length
+      || newExclusions.some((entry, index) => entry.member.id !== this.priorSendExclusions[index]?.member.id);
+    this.priorSendExclusions = newExclusions;
+    if (exclusionsChanged) {
+      this.priorSendExclusionsChange.emit(this.priorSendExclusions);
+    }
+    this.selectableMembers = survivingMembers
+      .map(member => this.toFilterSelection(member, this.activePreFilterKey))
       .sort(SORT_BY_NAME);
   }
 
@@ -205,8 +211,13 @@ export class MemberMultiSelect implements OnChanges {
   }
 
   private matchesPreFilter(member: Member, key: MemberSelection | null): boolean {
+    if (!this.wouldMatchByCriteria(member, key)) return false;
+    if (this.includeAlreadySent) return true;
+    return !this.priorSendDateFor(member);
+  }
+
+  private wouldMatchByCriteria(member: Member, key: MemberSelection | null): boolean {
     if (!member.email) return false;
-    if (this.priorSendDateFor(member)) return false;
     if (!key) return true;
     switch (key) {
       case MemberSelection.RECENTLY_ADDED:

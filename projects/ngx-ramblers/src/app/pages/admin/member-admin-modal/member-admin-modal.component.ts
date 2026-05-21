@@ -1,7 +1,7 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { Router } from "@angular/router";
+import { ActivatedRoute, Router } from "@angular/router";
 import { faEye, faEyeSlash, faPaste, faSort, faSortDown, faSortUp } from "@fortawesome/free-solid-svg-icons";
-import { omit } from "es-toolkit/compat";
+import { omit, values } from "es-toolkit/compat";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -10,7 +10,7 @@ import { DateValue } from "../../../models/date.model";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { Member, MemberTerm, MemberUpdateAudit } from "../../../models/member.model";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
-import { EditMode } from "../../../models/ui-actions";
+import { EditMode, StoredValue } from "../../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { DbUtilsService } from "../../../services/db-utils.service";
@@ -25,7 +25,7 @@ import { ProfileConfirmationService } from "../../../services/profile-confirmati
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
-import { MailListAudit, MailMessagingConfig } from "../../../models/mail.model";
+import { BREVO_TAB_SUB_TAB_QUERY_PARAM, MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM, MailListAudit, MailMessagingConfig, MemberAdminModalTab } from "../../../models/mail.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
@@ -83,6 +83,9 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   protected dateUtils = inject(DateUtilsService);
   bsModalRef = inject(BsModalRef);
   private router = inject(Router);
+  private activatedRoute = inject(ActivatedRoute);
+  protected activeTabKey: MemberAdminModalTab = MemberAdminModalTab.CONTACT;
+  protected readonly MemberAdminModalTab = MemberAdminModalTab;
   public systemConfig: SystemConfig;
   public mailMessagingConfig: MailMessagingConfig;
   private notify: AlertInstance;
@@ -121,6 +124,12 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
+      const paramValue = params[MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM];
+      if (paramValue && values(MemberAdminModalTab).includes(paramValue)) {
+        this.activeTabKey = paramValue as MemberAdminModalTab;
+      }
+    }));
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((systemConfig: SystemConfig) => {
         this.systemConfig = systemConfig;
@@ -180,6 +189,27 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+    this.router.navigate([], {
+      queryParams: {
+        [MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM]: null,
+        [BREVO_TAB_SUB_TAB_QUERY_PARAM]: null,
+        [this.stringUtils.kebabCase(StoredValue.MEMBER_ID)]: null
+      },
+      queryParamsHandling: "merge",
+      replaceUrl: true
+    });
+  }
+
+  tabActive(tab: MemberAdminModalTab): boolean {
+    return this.activeTabKey === tab;
+  }
+
+  selectTab(tab: MemberAdminModalTab): void {
+    this.activeTabKey = tab;
+    this.router.navigate([], {
+      queryParams: { [MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM]: tab },
+      queryParamsHandling: "merge"
+    });
   }
 
   protected sortedMemberUpdateAudits(): MemberUpdateAudit[] {
