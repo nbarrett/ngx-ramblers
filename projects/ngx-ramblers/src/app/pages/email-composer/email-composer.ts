@@ -273,10 +273,10 @@ import { DateTime } from "luxon";
                     }
                     <span class="text-muted small ms-2">{{ draftSavedDescription(draft) }}</span>
                   </div>
-                  <div>
-                    <button type="button" class="btn btn-primary btn-sm me-2" (click)="loadDraft(draft.id)">Load</button>
+                  <div class="email-composer-draft-actions">
+                    <button type="button" class="btn btn-primary btn-sm" (click)="loadDraft(draft.id)">Load</button>
                     @if (pendingDraftDeleteId === draft.id) {
-                      <button type="button" class="btn btn-danger btn-sm me-2" (click)="confirmDeleteDraft(draft.id)">Confirm delete</button>
+                      <button type="button" class="btn btn-danger btn-sm" (click)="confirmDeleteDraft(draft.id)">Confirm delete</button>
                       <button type="button" class="btn btn-primary btn-sm" (click)="cancelDeleteDraft()">Cancel</button>
                     } @else {
                       <button type="button" class="btn btn-danger btn-sm" (click)="requestDeleteDraft(draft.id)">Delete</button>
@@ -306,10 +306,10 @@ import { DateTime } from "luxon";
                       <span class="text-muted small ms-2">to {{ sent.sentRecipientCount }} recipient{{ sent.sentRecipientCount === 1 ? "" : "s" }}</span>
                     }
                   </div>
-                  <div>
-                    <button type="button" class="btn btn-primary btn-sm me-2" (click)="useAsTemplate(sent.id)">Use as template</button>
+                  <div class="email-composer-draft-actions">
+                    <button type="button" class="btn btn-primary btn-sm" (click)="useAsTemplate(sent.id)">Use as template</button>
                     @if (pendingDraftDeleteId === sent.id) {
-                      <button type="button" class="btn btn-danger btn-sm me-2" (click)="confirmDeleteDraft(sent.id)">Confirm delete</button>
+                      <button type="button" class="btn btn-danger btn-sm" (click)="confirmDeleteDraft(sent.id)">Confirm delete</button>
                       <button type="button" class="btn btn-primary btn-sm" (click)="cancelDeleteDraft()">Cancel</button>
                     } @else {
                       <button type="button" class="btn btn-danger btn-sm" (click)="requestDeleteDraft(sent.id)">Delete</button>
@@ -2403,6 +2403,16 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected onIntroRawPaste(event: { text: string; consume: () => void }): void {
     if (this.state.brandingMode !== BrandingMode.UNBRANDED) return;
+    const titled = this.extractLeadingTitle(event.text);
+    if (titled) {
+      event.consume();
+      this.state.subject = titled.title;
+      this.state.introMarkdown = titled.body;
+      this.state.addresseeType = AddresseeType.NONE;
+      this.pendingForwardedHeaderLines = [];
+      queueMicrotask(() => this.introEditor?.focusAtStart());
+      return;
+    }
     const parsed = this.parseEmailHeadersFromMarkdown(event.text);
     if (parsed) {
       event.consume();
@@ -2425,13 +2435,6 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.state.introMarkdown = existingIntro + this.buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, parsed.body);
       this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
       queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
-      return;
-    }
-    const titled = this.extractLeadingH1Title(event.text);
-    if (titled && !this.state.subject?.trim()) {
-      event.consume();
-      this.state.subject = titled.title;
-      this.state.introMarkdown = titled.body;
     }
   }
 
@@ -2445,11 +2448,11 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.pendingForwardedHeaderLines = [];
   }
 
-  private extractLeadingH1Title(content: string): { title: string; body: string } | null {
+  private extractLeadingTitle(content: string): { title: string; body: string } | null {
     const lines = content.split(/\r?\n/);
     const firstNonBlankIdx = lines.findIndex(line => line.trim() !== "");
     if (firstNonBlankIdx === -1) return null;
-    const match = lines[firstNonBlankIdx].trim().match(/^#\s+(.+?)\s*#*\s*$/);
+    const match = lines[firstNonBlankIdx].trim().match(/^#{1,2}\s+(.+?)\s*#*\s*$/);
     if (!match) return null;
     const body = lines.slice(firstNonBlankIdx + 1).join("\n").replace(/^\n+/, "");
     return { title: match[1].trim(), body };
@@ -3781,12 +3784,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       const sent = await this.compositionsService.load(id);
       if (!sent) return;
       const restored: any = JSON.parse(JSON.stringify(sent.state));
-      const selectedGroupEventIds: string[] = restored.selectedGroupEventIds ?? [];
-      delete restored.selectedGroupEventIds;
-      restored.groupEvents = [];
-      restored.notificationConfigListing = this.state.notificationConfigListing;
-      restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
-      restored.articleBlocks = restored.articleBlocks ?? [];
+      const selectedGroupEventIds = this.applyRestoredStateDefaults(restored);
       this.state = restored as EmailComposerState;
       if (this.state.subject) this.state.subject = `Copy of ${this.state.subject}`;
       this.currentDraftId = null;
@@ -3841,18 +3839,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       const draft = await this.compositionsService.load(id);
       if (!draft) return;
       const restored: any = JSON.parse(JSON.stringify(draft.state));
-      const selectedGroupEventIds: string[] = restored.selectedGroupEventIds ?? [];
-      delete restored.selectedGroupEventIds;
-      restored.groupEvents = [];
-      restored.notificationConfigListing = this.state.notificationConfigListing;
-      restored.brandingMode = restored.brandingMode ?? BrandingMode.BRANDED;
-      restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
-      restored.externalRecipients = restored.externalRecipients ?? [];
-      restored.articleBlocks = restored.articleBlocks ?? [];
-      if (restored.brandingMode === BrandingMode.UNBRANDED && restored.recipientMode === RecipientMode.ENTIRE_LIST) {
-        restored.recipientMode = RecipientMode.SELECTED_MEMBERS;
-        restored.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-      }
+      const selectedGroupEventIds = this.applyRestoredStateDefaults(restored);
       this.state = restored as EmailComposerState;
       this.currentDraftId = draft.id;
       this.lastSavedAt = draft.savedAt;
@@ -3865,6 +3852,25 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.logger.error("loadDraft failed:", error);
       this.notify.error({ title: "Load draft failed", message: String(error) });
     }
+  }
+
+  private applyRestoredStateDefaults(restored: any): string[] {
+    const selectedGroupEventIds: string[] = restored.selectedGroupEventIds ?? [];
+    delete restored.selectedGroupEventIds;
+    restored.groupEvents = [];
+    restored.notificationConfigListing = this.state.notificationConfigListing;
+    restored.brandingMode = restored.brandingMode ?? BrandingMode.BRANDED;
+    restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
+    restored.externalRecipients = restored.externalRecipients ?? [];
+    restored.selectedMemberIds = restored.selectedMemberIds ?? [];
+    restored.signoffRoles = restored.signoffRoles ?? [];
+    restored.fragmentOrder = restored.fragmentOrder ?? [];
+    restored.articleBlocks = restored.articleBlocks ?? [];
+    if (restored.brandingMode === BrandingMode.UNBRANDED && restored.recipientMode === RecipientMode.ENTIRE_LIST) {
+      restored.recipientMode = RecipientMode.SELECTED_MEMBERS;
+      restored.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+    }
+    return selectedGroupEventIds;
   }
 
   private async rehydrateAfterLoad(selectedGroupEventIds: string[]): Promise<void> {
@@ -3880,6 +3886,9 @@ export class EmailComposer implements OnInit, OnDestroy {
       const liveConfig = this.mailMessagingService.notificationConfigs(this.state.notificationConfigListing)
         .find(config => config.id === storedConfigId);
       if (liveConfig) this.state.notificationConfig = liveConfig;
+    }
+    if (!this.state.notificationConfig && this.state.brandingMode !== BrandingMode.UNBRANDED) {
+      this.autoSelectNotificationConfig();
     }
     if (this.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.state.groupEventsFilter) {
       await this.populateGroupEvents();
@@ -3927,6 +3936,7 @@ export class EmailComposer implements OnInit, OnDestroy {
         includeWorkflowRelatedConfigs: false,
         forceIncludeConfigIds: this.forcedConfigId ? [this.forcedConfigId] : []
       };
+      this.autoSelectNotificationConfig();
     }
     this.currentDraftId = null;
     this.lastSavedAt = null;
@@ -4237,10 +4247,14 @@ export class EmailComposer implements OnInit, OnDestroy {
       || !!this.state.preFilterKey
       || !!this.state.narrowListId;
     const subject = this.state.subject ?? "";
-    const notAReply = subject.trim().length > 0 && !REPLY_OR_FORWARD_SUBJECT_PATTERN.test(subject);
+    const subjectIsAReplyOrForward = subject.trim().length > 0 && REPLY_OR_FORWARD_SUBJECT_PATTERN.test(subject);
     const bodyText = `${this.state.introMarkdown ?? ""}\n${this.state.signoffTextMarkdown ?? ""}`;
-    const longBody = bodyText.length >= UNBRANDED_LONG_BODY_CHAR_THRESHOLD;
+    const bodyIsLong = bodyText.length >= UNBRANDED_LONG_BODY_CHAR_THRESHOLD;
     const promotionalLanguage = PROMOTIONAL_LANGUAGE_PATTERN.test(bodyText);
+    const notAReplyRuleEnabled = false;
+    const longBodyRuleEnabled = false;
+    const notAReply = notAReplyRuleEnabled && !subjectIsAReplyOrForward;
+    const longBody = longBodyRuleEnabled && bodyIsLong;
     return { manyRecipients, pulledFromList, notAReply, longBody, promotionalLanguage };
   }
 
