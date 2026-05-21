@@ -20,10 +20,17 @@ import { SystemConfig } from "../../../models/system.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { MailSubscriptionSettingComponent } from "./mail-subscription-setting";
 import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
+import { BrevoContactViewComponent } from "./brevo-contact-view";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
+import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
+import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableColumn } from "../../../modules/common/sortable-table/sortable-table.model";
+import { BREVO_TAB_SUB_TAB_QUERY_PARAM, BrevoTabSubTab } from "../../../models/mail.model";
+import { DESCENDING } from "../../../models/table-filtering.model";
 
 @Component({
     selector: "[app-mail-subscription-settings]",
@@ -92,32 +99,42 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
             </div>
           </div>
         }
-        <div class="row">
+        <div class="row mt-2">
           <div class="col col-sm-12">
-            <table
-              class="round styled-table table-striped table-hover table-sm table-pointer">
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Created By</th>
-                  <th>Audit Message</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (mailListAudit of mailListAudits; track mailListAudit.id) {
-                  <tr>
-                    <td>{{ mailListAudit.timestamp | displayDateAndTime }}</td>
-                    <td>{{ mailListAudit.createdBy | memberIdToFullName : members }}</td>
-                    <td>{{ stringUtils.stringifyObject(mailListAudit.audit) }}
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+            <app-section-toggle
+              [tabs]="subTabs"
+              [selectedTab]="activeSubTab"
+              (selectedTabChange)="onSubTabChange($event)"
+              [queryParamKey]="subTabQueryParam"
+              [fullWidth]="false"/>
+          </div>
+        </div>
+        <div class="row mt-2">
+          <div class="col col-sm-12">
+            <div [class.d-none]="activeSubTab !== BrevoTabSubTab.AUDIT_LOG">
+              <app-sortable-table
+                [columns]="auditColumns"
+                [rows]="mailListAudits || []"
+                [defaultSortKey]="'timestamp'"
+                [defaultSortDirection]="DESCENDING"
+                emptyMessage="No mail list audit entries">
+                <ng-template appSortableTableCell="time" let-row>{{ row.timestamp | displayDateAndTime }}</ng-template>
+                <ng-template appSortableTableCell="createdBy" let-row>{{ row.createdBy | memberIdToFullName : members }}</ng-template>
+                <ng-template appSortableTableCell="audit" let-row>{{ stringUtils.stringifyObject(row.audit) }}</ng-template>
+              </app-sortable-table>
+            </div>
+            @if (member?.mail?.id) {
+              <div [class.d-none]="activeSubTab !== BrevoTabSubTab.ACTIVITY">
+                <app-brevo-contact-view
+                  [contactId]="member.mail.id"
+                  [contactEmail]="member.email"
+                  [mailMessagingConfig]="mailMessagingConfig"/>
+              </div>
+            }
           </div>
         </div>
       </div>`,
-    imports: [MailSubscriptionSettingComponent, BrevoButtonComponent, DisplayDateAndTimePipe, DisplayDatePipe, FullNameWithAliasPipe, MemberIdToFullNamePipe, FontAwesomeModule]
+    imports: [MailSubscriptionSettingComponent, BrevoButtonComponent, BrevoContactViewComponent, DisplayDateAndTimePipe, DisplayDatePipe, FullNameWithAliasPipe, MemberIdToFullNamePipe, FontAwesomeModule, SectionToggle, SortableTableComponent, SortableTableCellDirective]
 })
 export class MailSubscriptionSettingsComponent implements OnInit {
 
@@ -147,7 +164,24 @@ export class MailSubscriptionSettingsComponent implements OnInit {
   @Input() public mailListAudits: MailListAudit[];
   @Input() public members: Member[];
 
+  protected activeSubTab: BrevoTabSubTab = BrevoTabSubTab.AUDIT_LOG;
+  protected readonly subTabQueryParam: string = BREVO_TAB_SUB_TAB_QUERY_PARAM;
+  protected readonly subTabs: SectionToggleTab[] = [
+    { value: BrevoTabSubTab.AUDIT_LOG, label: "Subscription audit" },
+    { value: BrevoTabSubTab.ACTIVITY, label: "Brevo activity" }
+  ];
+  protected readonly auditColumns: SortableTableColumn<MailListAudit>[] = [
+    { key: "time", label: "Time", sortKey: "timestamp" },
+    { key: "createdBy", label: "Created By", sortKey: "createdBy" },
+    { key: "audit", label: "Audit Message" }
+  ];
+  protected readonly BrevoTabSubTab = BrevoTabSubTab;
+  protected readonly DESCENDING = DESCENDING;
   protected readonly faBan = faBan;
+
+  onSubTabChange(value: BrevoTabSubTab): void {
+    this.activeSubTab = value;
+  }
 
   ngOnInit() {
     this.initialiseSubscriptions();

@@ -170,6 +170,11 @@ export interface RecipientFilterDecision {
   filteredOut: boolean;
 }
 
+export interface PriorSendExclusion {
+  member: Member;
+  sentAt: number;
+}
+
 export enum EmailComposerContextSource {
   COMMITTEE = "committee",
   GROUP_EVENT = "group-event",

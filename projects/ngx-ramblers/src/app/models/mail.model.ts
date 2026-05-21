@@ -740,6 +740,140 @@ export interface UnsubscribeFeedback {
   recordedAt?: string;
 }
 
+export interface BrevoContactStatisticsCount {
+  campaignId?: number;
+  eventTime?: string;
+}
+
+export interface BrevoContactCampaignStats {
+  messagesSent?: BrevoContactStatisticsCount[];
+  hardBounces?: BrevoContactStatisticsCount[];
+  softBounces?: BrevoContactStatisticsCount[];
+  complaints?: BrevoContactStatisticsCount[];
+  opened?: { campaignId?: number; count?: number; eventTime?: string; ip?: string }[];
+  clicked?: { campaignId?: number; links?: { count?: number; eventTime?: string; ip?: string; url?: string }[] }[];
+  unsubscriptions?: {
+    userUnsubscription?: { eventTime?: string; ip?: string }[];
+    adminUnsubscription?: { eventTime?: string; ip?: string }[];
+  };
+  delivered?: BrevoContactStatisticsCount[];
+}
+
+export interface BrevoContactDetails {
+  email: string;
+  id: number;
+  emailBlacklisted: boolean;
+  smsBlacklisted: boolean;
+  createdAt: string;
+  modifiedAt: string;
+  listIds: number[];
+  listUnsubscribed?: number[];
+  attributes: Attributes;
+  statistics?: BrevoContactCampaignStats;
+}
+
+export enum BrevoEventType {
+  REQUESTS = "requests",
+  DELIVERED = "delivered",
+  OPENED = "opened",
+  CLICKS = "clicks",
+  HARD_BOUNCES = "hardBounces",
+  SOFT_BOUNCES = "softBounces",
+  BOUNCES = "bounces",
+  SPAM = "spam",
+  INVALID = "invalid",
+  DEFERRED = "deferred",
+  BLOCKED = "blocked",
+  UNSUBSCRIBED = "unsubscribed",
+  ERROR = "error",
+  LOADED_BY_PROXY = "loadedByProxy"
+}
+
+export interface BrevoEmailEvent {
+  email: string;
+  date: string;
+  subject?: string;
+  messageId: string;
+  event: BrevoEventType | string;
+  reason?: string;
+  tag?: string;
+  ip?: string;
+  link?: string;
+  from?: string;
+  templateId?: number;
+}
+
+export interface BrevoEmailEventReport {
+  events: BrevoEmailEvent[];
+}
+
+export interface BrevoTransactionalEmailSummary {
+  email: string;
+  subject: string;
+  templateId?: number;
+  messageId: string;
+  uuid: string;
+  date: string;
+  from?: string;
+  tags?: string[];
+}
+
+export interface BrevoTransactionalEmailListResponse {
+  count?: number;
+  transactionalEmails: BrevoTransactionalEmailSummary[];
+}
+
+export interface BrevoTransactionalEmailContentEvent {
+  name: string;
+  time: string;
+}
+
+export interface BrevoTransactionalEmailContent {
+  email: string;
+  subject: string;
+  templateId?: number;
+  date: string;
+  events: BrevoTransactionalEmailContentEvent[];
+  body: string;
+  attachmentCount: number;
+}
+
+export const MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM = "modal-tab";
+export const BREVO_TAB_SUB_TAB_QUERY_PARAM = "brevo-section";
+
+export enum MemberAdminModalTab {
+  CONTACT = "contact",
+  LOGIN = "login",
+  PRIVILEGES = "privileges",
+  PREFERENCES = "preferences",
+  MEMBERSHIP = "membership",
+  RAMBLERS = "ramblers",
+  AUDIT = "audit",
+  MEMBER_RAW_DATA = "member-raw-data"
+}
+
+export enum BrevoTabSubTab {
+  AUDIT_LOG = "audit-log",
+  ACTIVITY = "brevo-activity"
+}
+
+export const BREVO_EVENT_LABELS: Record<string, string> = {
+  [BrevoEventType.REQUESTS]: "Sent",
+  [BrevoEventType.DELIVERED]: "Delivered",
+  [BrevoEventType.OPENED]: "Opened",
+  [BrevoEventType.CLICKS]: "Clicked",
+  [BrevoEventType.HARD_BOUNCES]: "Hard bounce",
+  [BrevoEventType.SOFT_BOUNCES]: "Soft bounce",
+  [BrevoEventType.BOUNCES]: "Bounce",
+  [BrevoEventType.SPAM]: "Spam complaint",
+  [BrevoEventType.INVALID]: "Invalid",
+  [BrevoEventType.DEFERRED]: "Deferred",
+  [BrevoEventType.BLOCKED]: "Blocked",
+  [BrevoEventType.UNSUBSCRIBED]: "Unsubscribed",
+  [BrevoEventType.ERROR]: "Error",
+  [BrevoEventType.LOADED_BY_PROXY]: "Loaded by proxy"
+};
+
 export interface BlockedContact {
   email: string;
   senderEmail: string;

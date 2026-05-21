@@ -82,6 +82,7 @@ import {
   UNBRANDED_HARD_CAP_RECIPIENTS,
   UNBRANDED_LIST_SEND_WARNING_THRESHOLD,
   UNBRANDED_LONG_BODY_CHAR_THRESHOLD,
+  PriorSendExclusion,
   ValidationError,
   ValidationErrorWithLink
 } from "../../models/email-composer.model";
@@ -146,6 +147,7 @@ import {
   CommitteeNotificationRamblersMessageItemComponent
 } from "../../notifications/committee/templates/committee-notification-ramblers-message-item";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
+import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { Confirm, ConfirmType, StoredValue } from "../../models/ui-actions";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgSelectModule } from "@ng-select/ng-select";
@@ -190,7 +192,8 @@ import { DateTime } from "luxon";
     MarkdownComponent,
     CommitteeNotificationDetailsComponent,
     CommitteeNotificationRamblersMessageItemComponent,
-    DisplayDatePipe
+    DisplayDatePipe,
+    FullNameWithAliasPipe
   ],
   template: `
     <app-page autoTitle pageTitle="Email Composer">
@@ -476,20 +479,49 @@ import { DateTime } from "luxon";
     <ng-template #recipientsStep>
       <div class="email-composer-section">
         <h3>Who is this email going to?</h3>
-        @if (bulkDeletionPending() || recipientsStepErrors().length > 0) {
+        @if (bulkDeletionPending() || recipientsStepErrors().length > 0 || priorSendExclusions.length > 0) {
           <div class="email-composer-validation-summary">
             @if (bulkDeletionPending()) {
-              <h5>This email workflow deletes its recipients:</h5>
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow deletes its recipients:</h5>
               <ul class="list-arrow">
                 <li>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete the members once the email has gone out.</li>
                 <li>Everyone you choose here will be removed from the database after the send.</li>
               </ul>
             }
             @if (recipientsStepErrors().length > 0) {
-              <h5>Before you can continue:</h5>
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
               <ul class="list-arrow">
                 @for (error of recipientsStepErrors(); track error) { <li>{{ error }}</li> }
               </ul>
+            }
+            @if (priorSendExclusions.length > 0) {
+              <h5>
+                <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                @if (!includeAlreadySent) {
+                  {{ priorSendExclusions.length }} {{ priorSendExclusions.length === 1 ? "member was" : "members were" }} excluded because they already received this email{{ priorSendDateRangeLabel() }}.
+                } @else {
+                  Including {{ priorSendExclusions.length }} already-sent {{ priorSendExclusions.length === 1 ? "member" : "members" }} in this re-send (originally sent{{ priorSendDateRangeLabel() }}).
+                }
+                <button type="button" class="email-composer-inline-toggle ms-2"
+                        (click)="togglePriorSendDetails()">
+                  {{ priorSendDetailsExpanded ? "Hide who" : "Show who" }}
+                </button>
+              </h5>
+              @if (priorSendDetailsExpanded) {
+                <ul class="list-arrow mt-1">
+                  @for (exclusion of priorSendExclusions; track exclusion.member.id) {
+                    <li>{{ exclusion.member | fullNameWithAlias }} - sent {{ priorSendDateLabel(exclusion.sentAt) }}</li>
+                  }
+                </ul>
+              }
+              <div class="form-check mt-2">
+                <input class="form-check-input"
+                       type="checkbox"
+                       id="include-already-sent"
+                       [checked]="includeAlreadySent"
+                       (change)="toggleIncludeAlreadySent()">
+                <label class="form-check-label small" for="include-already-sent">Re-send to members already sent this email</label>
+              </div>
             }
           </div>
         }
@@ -638,8 +670,10 @@ import { DateTime } from "luxon";
                   [requireConsent]="requiresConsent()"
                   [lockedSelection]="!!forcedMemberId"
                   [autoFill]="false"
+                  [includeAlreadySent]="includeAlreadySent"
                   (selectedIdsChange)="onSelectedMemberIdsChange($event)"
-                  (preFilterKeyChange)="onPreFilterKeyChange($event)"/>
+                  (preFilterKeyChange)="onPreFilterKeyChange($event)"
+                  (priorSendExclusionsChange)="onPriorSendExclusionsChange($event)"/>
               }
             } @else {
               <p class="text-muted small mb-0">Expand to also send this to individual group members alongside any external recipients above.</p>
@@ -752,8 +786,10 @@ import { DateTime } from "luxon";
                 [notificationConfig]="state.notificationConfig"
                 [memberBulkLoadDateMap]="memberBulkLoadDateMap"
                 [requireConsent]="requiresConsent()"
+                [includeAlreadySent]="includeAlreadySent"
                 (selectedIdsChange)="onSelectedMemberIdsChange($event)"
-                (preFilterKeyChange)="onPreFilterKeyChange($event)"/>
+                (preFilterKeyChange)="onPreFilterKeyChange($event)"
+                (priorSendExclusionsChange)="onPriorSendExclusionsChange($event)"/>
             }
           }
         }
@@ -793,7 +829,7 @@ import { DateTime } from "luxon";
         </fieldset>
         @if (templateStepErrors().length > 0) {
           <div class="email-composer-validation-summary">
-            <h5>Before you can continue:</h5>
+            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
             <ul class="list-arrow">
               @for (error of templateStepErrors(); track $index) {
                 <li>
@@ -866,7 +902,7 @@ import { DateTime } from "luxon";
         @if (pendingForwardedHeaderLines.length > 0 || unbrandedListSendBlocked() || showUnbrandedListSendWarning()) {
           <div class="email-composer-validation-summary">
             @if (pendingForwardedHeaderLines.length > 0) {
-              <h5>Forwarded email detected:</h5>
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Forwarded email detected:</h5>
               <ul class="list-arrow">
                 <li>Recipients and subject were extracted from the headers below and placed in the Recipients step and Subject field.</li>
                 <li>The original sender details have been re-inserted into the body between two horizontal rules - edit or remove them in the editor below if you do not want them included.</li>
@@ -877,7 +913,7 @@ import { DateTime } from "luxon";
               </button>
             }
             @if (unbrandedListSendBlocked()) {
-              <h5>Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked:</h5>
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked:</h5>
               <ul class="list-arrow">
                 <li>This send is for {{ totalRecipientCount() }} recipients - at this volume PECR and GDPR require the unsubscribe link and sender identity that only the Branded format includes. Unbranded omits both.</li>
                 <li>Switch to Branded mode to continue, or reduce the recipient count.</li>
@@ -886,7 +922,7 @@ import { DateTime } from "luxon";
                 <fa-icon [icon]="faArrowRotateLeft"/> Switch to Branded
               </button>
             } @else if (showUnbrandedListSendWarning()) {
-              <h5>This looks like a broadcast rather than a one-to-one reply:</h5>
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This looks like a broadcast rather than a one-to-one reply:</h5>
               <ul class="list-arrow">
                 <li>Branded format includes the unsubscribe link and sender identity that PECR and GDPR require for marketing-style sends to a list. Unbranded omits both, so it is best kept for replies and one-to-few correspondence.</li>
                 @for (reason of unbrandedListSendWarningReasons(); track reason) {
@@ -908,7 +944,7 @@ import { DateTime } from "luxon";
         @let composeUnbrandedNoRecipients = state.brandingMode === BrandingMode.UNBRANDED && !recipientsStepValid();
         @if (composeUnbrandedNoRecipients || composeStepErrors().length > 0 || composeTrackingUrls.length > 0) {
           <div class="email-composer-validation-summary">
-            <h5>Before you can continue:</h5>
+            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
             <ul class="list-arrow">
               @if (composeUnbrandedNoRecipients) {
                 <li>Paste a forwarded email (with <code>To:</code>, <code>Cc:</code>, <code>Subject:</code> headers) into the body below and the addresses and subject will be picked up automatically, or go back to the Recipients step to add them by hand.</li>
@@ -1509,7 +1545,7 @@ import { DateTime } from "luxon";
         <h3>Send</h3>
         @if (bulkDeletionPending()) {
           <div class="email-composer-validation-summary">
-            <h5>This send permanently deletes members:</h5>
+            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This send permanently deletes members:</h5>
             <ul class="list-arrow">
               <li>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete the members once the email has gone out.</li>
               <li>Sending now will permanently remove {{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "recipient member") }} from the database. This cannot be undone.</li>
@@ -1520,7 +1556,7 @@ import { DateTime } from "luxon";
         @if (unbrandedListSendBlocked() || showUnbrandedListSendWarning() || subjectStartsWithCopyOf() || trackingUrls.length > 0) {
           <div class="email-composer-validation-summary">
             @if (unbrandedListSendBlocked()) {
-              <h5>Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked:</h5>
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked:</h5>
               <ul class="list-arrow">
                 <li>This send is for {{ totalRecipientCount() }} recipients - at this volume PECR and GDPR require the unsubscribe link and sender identity that only the Branded format includes. Unbranded omits both.</li>
                 <li>Switch to Branded mode to continue, or reduce the recipient count.</li>
@@ -1529,7 +1565,7 @@ import { DateTime } from "luxon";
                 <fa-icon [icon]="faArrowRotateLeft"/> Switch to Branded
               </button>
             } @else if (showUnbrandedListSendWarning()) {
-              <h5>This looks like a broadcast rather than a one-to-one reply:</h5>
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This looks like a broadcast rather than a one-to-one reply:</h5>
               <ul class="list-arrow">
                 <li>Branded format includes the unsubscribe link and sender identity that PECR and GDPR require for marketing-style sends to a list. Unbranded omits both, so it is best kept for replies and one-to-few correspondence.</li>
                 @for (reason of unbrandedListSendWarningReasons(); track reason) {
@@ -1546,7 +1582,7 @@ import { DateTime } from "luxon";
               </div>
             }
             @if (subjectStartsWithCopyOf()) {
-              <h5>Subject still says "Copy of …":</h5>
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Subject still says "Copy of …":</h5>
               <ul class="list-arrow">
                 <li>Update the subject line on the <a href="javascript:void(0)" (click)="goToCompose()">Compose step</a> before sending so recipients don't see "Copy of …".</li>
               </ul>
@@ -1555,7 +1591,7 @@ import { DateTime } from "luxon";
               </button>
             }
             @if (trackingUrls.length > 0) {
-              <h5>Recycled tracking URLs detected:</h5>
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Recycled tracking URLs detected:</h5>
               <ul class="list-arrow">
                 <li>{{ trackingUrls.length }} link{{ trackingUrls.length === 1 ? "" : "s" }} in this email point at another sender's tracking redirect. Brevo will wrap them again on send, so recipients hit two redirect layers and may land on a stale 404.</li>
                 <li>Edit the relevant section and replace each link with its original destination URL.</li>
@@ -2835,6 +2871,38 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   onSelectedMemberIdsChange(ids: string[]): void {
     this.state.selectedMemberIds = ids;
+  }
+
+  protected priorSendExclusions: PriorSendExclusion[] = [];
+  protected includeAlreadySent: boolean = false;
+  protected priorSendDetailsExpanded: boolean = false;
+
+  onPriorSendExclusionsChange(exclusions: PriorSendExclusion[]): void {
+    this.priorSendExclusions = exclusions ?? [];
+    if (this.priorSendExclusions.length === 0) {
+      this.priorSendDetailsExpanded = false;
+      this.includeAlreadySent = false;
+    }
+  }
+
+  toggleIncludeAlreadySent(): void {
+    this.includeAlreadySent = !this.includeAlreadySent;
+  }
+
+  togglePriorSendDetails(): void {
+    this.priorSendDetailsExpanded = !this.priorSendDetailsExpanded;
+  }
+
+  priorSendDateRangeLabel(): string {
+    if (this.priorSendExclusions.length === 0) return "";
+    const sortedDates = this.priorSendExclusions.map(entry => entry.sentAt).sort((a, b) => a - b);
+    const earliest = this.dateUtils.displayDate(sortedDates[0]);
+    const latest = this.dateUtils.displayDate(sortedDates[sortedDates.length - 1]);
+    return earliest === latest ? ` on ${earliest}` : ` between ${earliest} and ${latest}`;
+  }
+
+  priorSendDateLabel(sentAt: number): string {
+    return this.dateUtils.displayDate(sentAt);
   }
 
   onEventsDividerChange(style: SectionDividerStyle): void {
