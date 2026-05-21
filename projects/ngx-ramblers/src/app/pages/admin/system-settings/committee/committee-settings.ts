@@ -51,6 +51,8 @@ import { PageComponent } from "../../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { CommitteeMemberEditor } from "./committee-member";
+import { RecipientMultiSelect } from "./recipient-multi-select";
+import { CloudflareButton } from "../../../../modules/common/third-parties/cloudflare-button";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
@@ -193,85 +195,6 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                       </div>
                     </div>
                   </div>
-                  @if (cloudflareEmailRoutingService.emailForwardingAvailable() && baseDomain) {
-                    <div class="card mb-3">
-                      <div class="card-header d-flex justify-content-between align-items-center">
-                        <strong>Catch-all rule for *&commat;{{ baseDomain }}</strong>
-                        <span class="badge {{ catchAllStatusBadgeClass() }}">{{ catchAllStatusLabel() }}</span>
-                      </div>
-                      <div class="card-body">
-                        <p class="small text-muted mb-2">
-                          The catch-all decides what happens to mail sent to addresses on
-                          <strong>{{ baseDomain }}</strong> that don't match a specific role rule.
-                        </p>
-                        @if (!editingCatchAll) {
-                          <button class="btn btn-sm btn-outline-ramblers" type="button" (click)="startEditCatchAll()">Edit catch-all</button>
-                        } @else {
-                          <div class="row g-2">
-                            <div class="col-sm-4">
-                              <label class="form-label">Action</label>
-                              <select class="form-select form-select-sm" [(ngModel)]="catchAllDraftAction"
-                                      name="catch-all-action">
-                                <option [ngValue]="CatchAllAction.DISABLED">Disabled (no rule active)</option>
-                                <option [ngValue]="CatchAllAction.DROP">Drop (return undeliverable)</option>
-                                <option [ngValue]="CatchAllAction.FORWARD">Forward to one address</option>
-                                <option [ngValue]="CatchAllAction.WORKER">Forward to multiple addresses</option>
-                              </select>
-                            </div>
-                            @if (catchAllDraftAction === CatchAllAction.FORWARD) {
-                              <div class="col-sm-8">
-                                <label class="form-label">Destination email</label>
-                                <input type="email" class="form-control form-control-sm"
-                                       [(ngModel)]="catchAllDraftSingleDestination"
-                                       name="catch-all-destination"
-                                       placeholder="recipient@example.com">
-                              </div>
-                            }
-                            @if (catchAllDraftAction === CatchAllAction.WORKER) {
-                              <div class="col-sm-12 mt-2">
-                                <label class="form-label">Destination emails</label>
-                                @for (dest of catchAllDraftMultipleDestinations; track $index; let i = $index) {
-                                  <div class="input-group input-group-sm mb-1">
-                                    <input type="email" class="form-control"
-                                           [ngModel]="dest"
-                                           (ngModelChange)="updateMultipleDestination(i, $event)"
-                                           [name]="'catch-all-multi-' + i"
-                                           placeholder="recipient@example.com">
-                                    <button class="btn btn-outline-secondary" type="button"
-                                            (click)="removeMultipleDestination(i)" tooltip="Remove">
-                                      <fa-icon [icon]="faClose"></fa-icon>
-                                    </button>
-                                  </div>
-                                }
-                                <button class="btn btn-sm btn-outline-secondary" type="button"
-                                        (click)="addMultipleDestination()">
-                                  <fa-icon [icon]="faAdd" class="me-1"></fa-icon>Add destination
-                                </button>
-                              </div>
-                            }
-                            <div class="col-sm-12 mt-3 d-flex gap-2">
-                              <button class="btn btn-success btn-sm" type="button"
-                                      (click)="saveCatchAll()" [disabled]="catchAllSaving">
-                                {{ catchAllSaving ? "Saving..." : "Save catch-all" }}
-                              </button>
-                              <button class="btn btn-outline-secondary btn-sm" type="button"
-                                      (click)="cancelEditCatchAll()" [disabled]="catchAllSaving">
-                                Cancel
-                              </button>
-                            </div>
-                            @if (catchAllError) {
-                              <div class="col-sm-12 mt-2">
-                                <div class="alert alert-warning mb-0">
-                                  <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
-                                  <span class="ms-2">{{ catchAllError }}</span>
-                                </div>
-                              </div>
-                            }
-                          </div>
-                        }
-                      </div>
-                    </div>
-                  }
                   @if (platformAdminEnabled && orphanedWorkerScripts.length) {
                     <div class="mb-3">
                       <h6 class="mb-2">Orphaned Cloudflare Workers</h6>
@@ -440,6 +363,99 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                         </tbody>
                       </table>
                     </div>
+                    @if (cloudflareEmailRoutingService.emailForwardingAvailable() && baseDomain) {
+                      <div class="card mb-3 mt-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                          <div>
+                            <strong>Catch-all rule for *&commat;{{ baseDomain }}</strong>
+                            @if (catchAllWorkerScriptName()) {
+                              <span class="small text-muted ms-2">({{ catchAllWorkerScriptName() }})</span>
+                              @if (catchAllDeployedRecipientCount()) {
+                                <span class="small text-muted ms-2">· {{ catchAllDeployedRecipientCount() }} recipient{{ catchAllDeployedRecipientCount() === 1 ? "" : "s" }} deployed</span>
+                              }
+                            }
+                          </div>
+                          <span class="badge {{ catchAllStatusBadgeClass() }}">{{ catchAllStatusLabel() }}</span>
+                        </div>
+                        <div class="card-body">
+                          <p class="small text-muted mb-2">
+                            The catch-all decides what happens to mail sent to addresses on
+                            <strong>{{ baseDomain }}</strong> that don't match a specific role rule.
+                          </p>
+                          @if (catchAllWorkerScriptName() && catchAllDeployedScriptOutOfDate && !editingCatchAll) {
+                            <div class="d-flex align-items-center mb-2">
+                              <app-cloudflare-button button
+                                [disabled]="catchAllRedeploying"
+                                [loading]="catchAllRedeploying"
+                                (click)="redeployCatchAllWorker()"
+                                title="Redeploy Worker with latest code"></app-cloudflare-button>
+                              <span class="small text-muted ms-2">Worker code is out of date - click to redeploy.</span>
+                            </div>
+                          }
+                          @if (!editingCatchAll) {
+                            <button class="btn btn-sm btn-primary" type="button" (click)="startEditCatchAll()">Edit catch-all</button>
+                          } @else {
+                            <div class="row g-2">
+                              <div class="col-sm-4">
+                                <label class="form-label">Action</label>
+                                <select class="form-select form-select-sm" [(ngModel)]="catchAllDraftAction"
+                                        name="catch-all-action">
+                                  <option [ngValue]="CatchAllAction.DISABLED">Disabled (no rule active)</option>
+                                  <option [ngValue]="CatchAllAction.DROP">Drop (return undeliverable)</option>
+                                  <option [ngValue]="CatchAllAction.FORWARD">Forward to one address</option>
+                                  <option [ngValue]="CatchAllAction.WORKER">Forward to multiple addresses</option>
+                                </select>
+                              </div>
+                              @if (catchAllDraftAction === CatchAllAction.FORWARD) {
+                                <div class="col-sm-8">
+                                  <label class="form-label">Destination email</label>
+                                  <input type="email" class="form-control form-control-sm"
+                                         [(ngModel)]="catchAllDraftSingleDestination"
+                                         name="catch-all-destination"
+                                         placeholder="recipient@example.com">
+                                </div>
+                              }
+                              @if (catchAllDraftAction === CatchAllAction.WORKER) {
+                                <div class="col-sm-12 mt-2">
+                                  <label class="form-label">Recipients</label>
+                                  <app-recipient-multi-select
+                                    inputId="catch-all-recipients"
+                                    [recipients]="catchAllDraftMultipleDestinations"
+                                    (recipientsChange)="catchAllDraftMultipleDestinations = $event"/>
+                                  @if (catchAllDraftRecipientsChanged()) {
+                                    <div class="small text-muted mt-1">
+                                      Recipients changed - click Save to redeploy the worker with the new list.
+                                    </div>
+                                  } @else if (catchAllDeployedScriptOutOfDate) {
+                                    <div class="small text-muted mt-1">
+                                      Worker code is out of date - saving will also redeploy with the latest template.
+                                    </div>
+                                  }
+                                </div>
+                              }
+                              <div class="col-sm-12 mt-3 d-flex gap-2">
+                                <button class="btn btn-success btn-sm" type="button"
+                                        (click)="saveCatchAll()" [disabled]="catchAllSaving">
+                                  {{ catchAllSaving ? "Saving..." : "Save catch-all" }}
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" type="button"
+                                        (click)="cancelEditCatchAll()" [disabled]="catchAllSaving">
+                                  Cancel
+                                </button>
+                              </div>
+                              @if (catchAllError) {
+                                <div class="col-sm-12 mt-2">
+                                  <div class="alert alert-warning mb-0">
+                                    <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+                                    <span class="ms-2">{{ catchAllError }}</span>
+                                  </div>
+                                </div>
+                              }
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    }
                   }
                   @if (editingRoleDraft) {
                     <div class="thumbnail-heading-frame">
@@ -552,7 +568,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
         </div>
       </div>
     </app-page>`,
-    imports: [PageComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, AlertComponent, AsyncPipe, RouterLink]
+    imports: [PageComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton]
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
@@ -602,6 +618,9 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   catchAllDraftMultipleDestinations: string[] = [];
   catchAllSaving = false;
   catchAllError: string | null = null;
+  catchAllDeployedRecipients: string[] = [];
+  catchAllDeployedScriptOutOfDate = false;
+  catchAllRedeploying = false;
   workerScripts: EmailWorkerScript[] = [];
   workerDeletePending: string | null = null;
   baseDomain = "";
@@ -659,6 +678,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       }),
       this.cloudflareEmailRoutingService.catchAllNotifications().subscribe(rule => {
         this.catchAllRule = rule;
+        this.refreshDeployedCatchAllWorkerInfo();
       }),
       this.cloudflareEmailRoutingService.workersNotifications().subscribe(workers => {
         this.workerScripts = workers;
@@ -927,6 +947,11 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     return forwardAction?.value?.[0] || null;
   }
 
+  catchAllWorkerScriptName(): string {
+    const workerAction = this.catchAllRule?.actions?.find(a => a.type === EmailRoutingActionType.WORKER);
+    return workerAction?.value?.[0] || null;
+  }
+
   catchAllResolvedAction(): CatchAllAction {
     if (!this.catchAllRule || !this.catchAllRule.enabled) {
       return CatchAllAction.DISABLED;
@@ -989,18 +1014,6 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.catchAllDraftMultipleDestinations = [];
   }
 
-  addMultipleDestination(): void {
-    this.catchAllDraftMultipleDestinations = [...this.catchAllDraftMultipleDestinations, ""];
-  }
-
-  removeMultipleDestination(index: number): void {
-    this.catchAllDraftMultipleDestinations = this.catchAllDraftMultipleDestinations.filter((_, i) => i !== index);
-  }
-
-  updateMultipleDestination(index: number, value: string): void {
-    this.catchAllDraftMultipleDestinations = this.catchAllDraftMultipleDestinations.map((existing, i) => i === index ? value : existing);
-  }
-
   async saveCatchAll(): Promise<void> {
     this.catchAllError = null;
     this.catchAllSaving = true;
@@ -1022,6 +1035,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         destinations: cleaned
       });
       this.editingCatchAll = false;
+      await this.refreshDeployedCatchAllWorkerInfo();
     } catch (err) {
       this.logger.error("Failed to save catch-all rule:", err);
       this.catchAllError = (err && (err.message || err.error?.message)) || "Failed to save catch-all rule.";
@@ -1042,6 +1056,75 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     } catch (err) {
       this.logger.error("Failed to load catch-all worker recipients for", scriptName, err);
       return [""];
+    }
+  }
+
+  private async refreshDeployedCatchAllWorkerInfo(): Promise<void> {
+    const scriptName = this.catchAllWorkerScriptName();
+    if (!scriptName || !this.baseDomain) {
+      this.catchAllDeployedRecipients = [];
+      this.catchAllDeployedScriptOutOfDate = false;
+      return;
+    }
+    try {
+      const info = await this.cloudflareEmailRoutingService.queryWorkerInfo(scriptName, {
+        roleEmail: `*@${this.baseDomain}`,
+        roleName: "catch-all"
+      });
+      this.catchAllDeployedRecipients = info.recipients || [];
+      this.catchAllDeployedScriptOutOfDate = info.upToDate === false;
+    } catch (err) {
+      this.logger.error("Failed to load catch-all worker info for", scriptName, err);
+      this.catchAllDeployedRecipients = [];
+      this.catchAllDeployedScriptOutOfDate = false;
+    }
+  }
+
+  catchAllDeployedRecipientCount(): number {
+    return this.catchAllDeployedRecipients?.length || 0;
+  }
+
+  catchAllDraftRecipientsChanged(): boolean {
+    if (!this.editingCatchAll || this.catchAllDraftAction !== CatchAllAction.WORKER) {
+      return false;
+    }
+    const draft = (this.catchAllDraftMultipleDestinations || [])
+      .map(d => (d || "").trim())
+      .filter(Boolean)
+      .map(d => d.toLowerCase())
+      .sort();
+    const deployed = (this.catchAllDeployedRecipients || [])
+      .map(d => (d || "").trim())
+      .filter(Boolean)
+      .map(d => d.toLowerCase())
+      .sort();
+    if (draft.length !== deployed.length) {
+      return true;
+    }
+    return draft.some((email, index) => email !== deployed[index]);
+  }
+
+  async redeployCatchAllWorker(): Promise<void> {
+    const scriptName = this.catchAllWorkerScriptName();
+    if (!scriptName || this.catchAllRedeploying) {
+      return;
+    }
+    this.catchAllRedeploying = true;
+    this.catchAllError = null;
+    try {
+      const recipients = this.catchAllDeployedRecipients?.length
+        ? this.catchAllDeployedRecipients
+        : await this.cloudflareEmailRoutingService.queryWorkerRecipients(scriptName);
+      await this.cloudflareEmailRoutingService.updateCatchAllRule({
+        action: CatchAllAction.WORKER,
+        destinations: recipients
+      });
+      await this.refreshDeployedCatchAllWorkerInfo();
+    } catch (err) {
+      this.logger.error("Failed to redeploy catch-all worker:", err);
+      this.catchAllError = (err && (err.message || err.error?.message)) || "Failed to redeploy catch-all worker.";
+    } finally {
+      this.catchAllRedeploying = false;
     }
   }
 

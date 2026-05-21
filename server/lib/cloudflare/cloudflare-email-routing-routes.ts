@@ -199,12 +199,17 @@ router.put("/rules/catch-all", authConfig.authenticate(), async (req: Request, r
       actions: plan.actions
     });
 
-    if (existingWorkerScript && (request.action !== CatchAllAction.WORKER || existingWorkerScript !== catchAllScriptName)) {
+    const previousIsDedicatedCatchAllScript = existingWorkerScript?.endsWith("-catch-all");
+    const previousIsOrphaned = existingWorkerScript
+      && (request.action !== CatchAllAction.WORKER || existingWorkerScript !== catchAllScriptName);
+    if (previousIsOrphaned && previousIsDedicatedCatchAllScript) {
       try {
         await deleteWorkerScript(cloudflareConfig, existingWorkerScript);
       } catch (cleanupError) {
         errorDebugLog("Failed to delete previous catch-all worker script", existingWorkerScript, ":", cleanupError.message);
       }
+    } else if (previousIsOrphaned) {
+      debugLog("Catch-all previously referenced %s - preserving (shared with another rule, not a dedicated catch-all script). The new catch-all rule points at %s.", existingWorkerScript, catchAllScriptName);
     }
 
     res.json({request: {messageType}, response: updated});
