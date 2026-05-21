@@ -83,19 +83,23 @@ export class EmailPreviewComponent implements OnDestroy {
   }
 
   resize(): void {
-    const doc = this.previewFrame?.nativeElement?.contentDocument;
+    const frame = this.previewFrame?.nativeElement;
+    const doc = frame?.contentDocument;
     const applyHeight = () => {
       if (doc?.documentElement && doc?.body) {
         doc.documentElement.style.overflow = "hidden";
         doc.body.style.overflow = "hidden";
       }
-      return Math.max(
+      const height = Math.max(
         doc?.body?.scrollHeight || 0,
         doc?.body?.offsetHeight || 0,
         doc?.documentElement?.scrollHeight || 0,
-        doc?.documentElement?.offsetHeight || 0,
-        1600
+        doc?.documentElement?.offsetHeight || 0
       );
+      if (frame && height > 0) {
+        frame.style.height = `${height}px`;
+      }
+      return height;
     };
     this.clearObservers();
     if (doc?.body && !isUndefined(ResizeObserver)) {

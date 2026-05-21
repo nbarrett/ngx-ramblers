@@ -23,7 +23,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
 @Component({
     selector: "app-notification-config-selector",
     template: `
-    @if (notificationConfig && notificationConfigListing?.mailMessagingConfig) {
+    @if (notificationConfigListing?.mailMessagingConfig) {
       <div class="row align-items-center">
         <div class="col-sm-12">
           <div class="form-group">
@@ -33,6 +33,9 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
                 [disabled]="busy"
                 [(ngModel)]="notificationConfig"
                 (ngModelChange)="emailConfigChanged.emit($event)">
+                @if (!notificationConfig) {
+                  <option [ngValue]="null" disabled>Choose an email type</option>
+                }
                 @for (emailConfig of mailMessagingService.notificationConfigs(notificationConfigListing); track emailConfig.id) {
                   <option
                     [ngValue]="emailConfig"
@@ -54,7 +57,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
             </div>
           </div>
         </div>
-        @if (helpAvailable) {
+        @if (helpAvailable && notificationConfig) {
           <div class="col-sm-3 panel-toggle">
             @if (!helpInfo.showHelp) {
               <a
@@ -70,7 +73,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
           </div>
         }
       </div>
-      @if (helpInfo.showHelp) {
+      @if (notificationConfig && helpInfo.showHelp) {
         <div class="row">
           <div class="col-sm-12  p-4">
             <div markdown>
@@ -84,7 +87,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
           </div>
         </div>
       }
-      @if (showBranding) {
+      @if (notificationConfig && showBranding) {
         <div class="row">
           <div class="col-sm-12">
             <div class="form-group">
