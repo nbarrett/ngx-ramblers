@@ -5,7 +5,6 @@ import { ALERT_WARNING } from "../../../../models/alert-target.model";
 import {
   BuiltInRole,
   CommitteeMember,
-  CommitteeRecipientOption,
   EmailDerivation,
   ForwardEmailTarget,
   RoleType
@@ -13,7 +12,6 @@ import {
 import { Member } from "../../../../models/member.model";
 import {
   DestinationAddress,
-  DestinationVerificationStatus,
   EmailRouteType,
   EmailRoutingActionType,
   EmailRoutingMatcherField,
@@ -29,8 +27,7 @@ import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/c
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
 import { enumKeyValues, KeyValue } from "../../../../functions/enums";
 import { normaliseEmail, toDotCase, validEmail } from "../../../../functions/strings";
-import { sortBy } from "../../../../functions/arrays";
-import { NgSelectComponent } from "@ng-select/ng-select";
+import { RecipientMultiSelect } from "./recipient-multi-select";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { MemberNamingService } from "projects/ngx-ramblers/src/app/services/member/member-naming.service";
 import { UrlService } from "../../../../services/url.service";
@@ -130,24 +127,10 @@ export enum CommitteeMemberTab {
             }
             <div class="col-sm-12 mt-2">
               <label class="control-label">Recipients</label>
-              <ng-select
-                [items]="recipientEmailOptions"
-                [searchable]="true"
-                [clearable]="true"
-                [editableSearchTerm]="true"
-                [addTag]="tagRecipientEmail"
-                [multiple]="true"
-                [closeOnSelect]="true"
-                dropdownPosition="bottom"
-                [placeholder]="'Select one or more recipients'"
-                class="recipient-select"
-                bindLabel="label"
-                bindValue="email"
-                (open)="refreshRecipientEmailOptions()"
-                id="new-recipient-{{index}}"
-                [(ngModel)]="committeeMember.forwardEmailRecipients"
-                (ngModelChange)="recipientsChanged($event)">
-              </ng-select>
+              <app-recipient-multi-select
+                [inputId]="'new-recipient-' + index"
+                [recipients]="committeeMember.forwardEmailRecipients"
+                (recipientsChange)="recipientsChanged($event)"/>
             </div>
           }
         </ng-template>
@@ -205,24 +188,10 @@ export enum CommitteeMemberTab {
           @if (committeeMember.contactUsTarget === ForwardEmailTarget.MULTIPLE) {
             <div class="col-sm-12 mt-2">
               <label class="control-label">Recipients</label>
-              <ng-select
-                [items]="recipientEmailOptions"
-                [searchable]="true"
-                [clearable]="true"
-                [editableSearchTerm]="true"
-                [addTag]="tagRecipientEmail"
-                [multiple]="true"
-                [closeOnSelect]="true"
-                dropdownPosition="bottom"
-                [placeholder]="'Select one or more recipients'"
-                class="recipient-select"
-                bindLabel="label"
-                bindValue="email"
-                (open)="refreshRecipientEmailOptions()"
-                id="contact-us-recipients-{{index}}"
-                [(ngModel)]="committeeMember.contactUsRecipients"
-                (ngModelChange)="contactUsRecipientsChanged($event)">
-              </ng-select>
+              <app-recipient-multi-select
+                [inputId]="'contact-us-recipients-' + index"
+                [recipients]="committeeMember.contactUsRecipients"
+                (recipientsChange)="contactUsRecipientsChanged($event)"/>
             </div>
           }
         </ng-template>
@@ -438,7 +407,7 @@ export enum CommitteeMemberTab {
     }
     `,
     styleUrls: ["./committee-member.sass"],
-  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, EmailRoutingLogComponent, CopyIconComponent, MarkdownComponent, MarkdownEditorComponent, SectionToggle, NgSelectComponent, NgTemplateOutlet]
+  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, EmailRoutingLogComponent, CopyIconComponent, MarkdownComponent, MarkdownEditorComponent, SectionToggle, RecipientMultiSelect, NgTemplateOutlet]
 })
 export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeMemberEditor", NgxLoggerLevel.ERROR);
@@ -493,7 +462,6 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   protected readonly ALERT_WARNING = ALERT_WARNING;
   baseDomain = "";
   private subscriptions: Subscription[] = [];
-  recipientEmailOptions: CommitteeRecipientOption[] = [];
   private destinationAddresses: DestinationAddress[] = [];
   private workers: EmailWorkerScript[] = [];
   private catchAllRule: EmailRoutingRule = null;
@@ -517,7 +485,6 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     if (!this.committeeMember.forwardEmailTarget) {
       this.committeeMember.forwardEmailTarget = ForwardEmailTarget.MEMBER_EMAIL;
     }
-    this.refreshRecipientEmailOptions();
     this.subscriptions.push(
       this.cloudflareEmailRoutingService.cloudflareConfigNotifications().subscribe((config: NonSensitiveCloudflareConfig) => {
         this.baseDomain = config?.baseDomain || "";
@@ -615,81 +582,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   }
 
 
-  refreshRecipientEmailOptions(): void {
-    const options = this.committeeQueryService.committeeMembers
-      .map(member => this.recipientOptionFor(member))
-      .filter((option): option is CommitteeRecipientOption => !!option);
-    const selectedRecipients = this.committeeMember?.forwardEmailRecipients || [];
-    const selectedOptions = selectedRecipients
-      .filter(email => email)
-      .map(email => this.tagRecipientEmail(email));
-    this.recipientEmailOptions = options
-      .concat(selectedOptions)
-      .reduce((acc, option) => {
-        const optionEmail = normaliseEmail(option.email);
-        const exists = acc.find(item => normaliseEmail(item.email) === optionEmail);
-        return exists ? acc : [...acc, option];
-      }, [])
-      .sort(sortBy("label"));
-  }
-
-  tagRecipientEmail = (value: string): CommitteeRecipientOption | null => {
-    if (!validEmail(value)) {
-      return null;
-    }
-    return {label: value, email: value};
-  };
-
-  private recipientOptionFor(member: Member): CommitteeRecipientOption | null {
-    if (!member?.email) {
-      return null;
-    }
-    return {
-      email: member.email,
-      label: `${this.fullNamePipe.transform(member)} — ${member.email}`
-    };
-  }
-
-  recipientLabel(email: string): string {
-    if (!email) {
-      return "";
-    }
-    const match = this.recipientEmailOptions.find(option => option.email === email);
-    return match?.label || email;
-  }
-
-
-  recipientStatusLabel(email: string): string {
-    const status = this.recipientStatus(email);
-    if (status === DestinationVerificationStatus.VERIFIED) {
-      return "Verified";
-    } else if (status === DestinationVerificationStatus.PENDING) {
-      return "Pending";
-    } else {
-      return "Not Registered";
-    }
-  }
-
-  recipientStatusBadgeClass(email: string): string {
-    const status = this.recipientStatus(email);
-    if (status === DestinationVerificationStatus.VERIFIED) {
-      return "text-style-sunset";
-    } else {
-      return "bg-warning";
-    }
-  }
-
-  private recipientStatus(email: string): DestinationVerificationStatus {
-    const matchedAddress = this.destinationAddresses.find(addr => normaliseEmail(addr.email) === normaliseEmail(email));
-    if (!matchedAddress) {
-      return DestinationVerificationStatus.NOT_REGISTERED;
-    }
-    return matchedAddress.verified ? DestinationVerificationStatus.VERIFIED : DestinationVerificationStatus.PENDING;
-  }
-
-
   recipientsChanged(recipients: string[]) {
-    this.refreshRecipientEmailOptions();
     this.committeeMember.forwardEmailRecipients = [...(recipients || [])];
     const normalisedRecipients = (recipients || [])
       .map(email => normaliseEmail(email))
@@ -791,7 +684,6 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   }
 
   contactUsRecipientsChanged(recipients: string[]) {
-    this.refreshRecipientEmailOptions();
     this.committeeMember.contactUsRecipients = [...(recipients || [])];
   }
 
@@ -844,7 +736,6 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       const recipients = await this.cloudflareEmailRoutingService.queryWorkerRecipients(workerName);
       this.logger.info("Imported recipients from worker:", workerName, recipients);
       this.committeeMember.forwardEmailRecipients = recipients;
-      this.refreshRecipientEmailOptions();
     } catch (err) {
       this.logger.error("Failed to import recipients from worker:", err);
     } finally {
