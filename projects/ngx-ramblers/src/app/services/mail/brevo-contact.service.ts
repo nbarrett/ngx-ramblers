@@ -5,6 +5,7 @@ import { ApiResponse } from "../../models/api-response.model";
 import {
   BrevoContactCampaignStats,
   BrevoContactDetails,
+  BrevoContactSnapshot,
   BrevoEmailEventReport,
   BrevoTransactionalEmailContent,
   BrevoTransactionalEmailListResponse
@@ -44,6 +45,11 @@ export class BrevoContactService {
   async getContactInfo(identifier: number | string): Promise<BrevoContactDetails> {
     const encoded = encodeURIComponent(String(identifier));
     return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/contacts/${encoded}/info`))).response;
+  }
+
+  async getContactSnapshot(email: string): Promise<BrevoContactSnapshot | null> {
+    const encoded = encodeURIComponent(email);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/contacts/${encoded}/snapshot`))).response;
   }
 
   async getContactCampaignStats(identifier: number | string, startDate?: string, endDate?: string): Promise<BrevoContactCampaignStats> {

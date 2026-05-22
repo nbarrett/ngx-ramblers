@@ -26,7 +26,6 @@ import { EventCardsList } from "./event-cards-list";
 import { EventsFull } from "./events-full";
 import { PaginationComponent } from "ngx-bootstrap/pagination";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { NgTemplateOutlet } from "@angular/common";
 import { WalksConfig } from "../../../models/walks-config.model";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
@@ -74,7 +73,7 @@ import { isMongoId } from "../../../services/mongo-utils";
       }
     `,
   styleUrls: ["../../../pages/group-events/home/group-event-home.sass"],
-  imports: [EventsHeader, FormsModule, EventCardsList, EventsFull, PaginationComponent, FontAwesomeModule, NgTemplateOutlet]
+  imports: [EventsHeader, FormsModule, EventCardsList, EventsFull, PaginationComponent, FontAwesomeModule]
 })
 export class Events implements OnInit, OnDestroy {
 

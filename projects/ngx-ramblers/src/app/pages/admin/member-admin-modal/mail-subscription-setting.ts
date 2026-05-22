@@ -59,6 +59,7 @@ export class MailSubscriptionSettingComponent implements OnInit {
   }
 
   subscriptionChange(subscriptionChangedState: any) {
+    this.subscription.unsubscribedAt = subscriptionChangedState ? undefined : this.dateUtils.nowAsValue();
     this.logger.info("subscriptionChanged:subscription", this.subscription, "subscriptionChangedState:", subscriptionChangedState);
     const mailListAudit: MailListAudit = this.mailListAuditService.createMailListAudit(`${subscriptionChangedState ? "Subscribed to" : "Unsubscribed from"} ${this.listNameFor(this.subscription)} list`, AuditStatus.info, this.member.id, this.subscription.id);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAIL_SUBSCRIPTION_CHANGED, mailListAudit));

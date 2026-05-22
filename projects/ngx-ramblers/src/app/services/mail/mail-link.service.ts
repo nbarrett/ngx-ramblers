@@ -73,7 +73,7 @@ export class MailLinkService {
   }
 
   public contactView(contactId: number) {
-    return `${this.config.baseUrl}/contact/index/${contactId}`;
+    return this.config?.baseUrl ? `${this.config.baseUrl}/contact/index/${contactId}` : "";
   }
 
   public apiKeysView() {

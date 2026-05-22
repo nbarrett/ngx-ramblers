@@ -4,7 +4,19 @@
 app-member-admin-modal
   min-width: 1900px !important
 
-.audit-table-container
-  max-height: 50vh
+.modal-content
+  display: flex
+  flex-direction: column
+  max-height: calc(100vh - 3.5rem)
+  overflow: hidden
+
+.modal-body
+  flex: 1 1 auto
+  min-height: 0
   overflow-y: auto
-  overflow-x: hidden
+
+:host ::ng-deep .custom-tabset .nav-tabs
+  flex-wrap: nowrap
+
+:host ::ng-deep .custom-tabset .nav-tabs > li > a
+  white-space: nowrap

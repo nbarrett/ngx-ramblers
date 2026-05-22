@@ -465,11 +465,11 @@ async function persistMemberEmailBlocks(contacts: BlockedContact[]): Promise<voi
     };
     try {
       const memberDoc = await member.findById(memberId).lean().exec() as any;
-      const existingSubscriptions: Array<{ id: number; subscribed: boolean }> =
+      const existingSubscriptions: Array<{ id: number; subscribed: boolean; unsubscribedAt?: number }> =
         memberDoc?.mail?.subscriptions || [];
       const blockedListIds = new Set((contact.listIds || []).filter(id => Number.isFinite(id)));
       const updatedSubscriptions = existingSubscriptions.map(sub =>
-        blockedListIds.has(sub.id) ? { ...sub, subscribed: false } : sub
+        blockedListIds.has(sub.id) && sub.subscribed ? { ...sub, subscribed: false, unsubscribedAt: blockedAt } : sub
       );
       const update: any = { $set: { emailBlock } };
       if (updatedSubscriptions.length > 0

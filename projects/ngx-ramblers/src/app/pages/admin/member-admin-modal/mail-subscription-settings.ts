@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
-import { faBan } from "@fortawesome/free-solid-svg-icons";
+import { faBan, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -22,7 +22,6 @@ import { MailSubscriptionSettingComponent } from "./mail-subscription-setting";
 import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
 import { BrevoContactViewComponent } from "./brevo-contact-view";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
-import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
 import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
@@ -46,70 +45,51 @@ import { DESCENDING } from "../../../models/table-filtering.model";
         </div>
       }
       @if (member) {
-        <div class="row">
+        <div class="row thumbnail-heading-frame">
+          <div class="thumbnail-heading">Subscriptions</div>
           <div class="col-sm-12">
-            <p>Please select how {{ member | fullNameWithAlias }} wants to be <b>emailed</b>
-          by using the subscription checkboxes below.</p>
-        </div>
-        <div class="col-sm-12">
-          @if (member.emailMarketingConsent) {
-            <p>Email Marketing Consent was provided
-              by {{ member | fullNameWithAlias }} @if (member.emailPermissionLastUpdated) {
-              <span
-                >via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}</span>
-                }.
-              </p>
-            }
-            @if (!member.emailMarketingConsent) {
-              <p>Email Marketing Consent has not been given by {{ member | fullNameWithAlias }}.
-                @if (member.emailPermissionLastUpdated) {
-                  <span> This was last updated via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}.</span>
-                }</p>
-              }
-              @if (hasGranularConsent()) {
-                <p class="mb-1"><strong>Granular consent (Salesforce):</strong></p>
-                <ul class="mb-2">
-                  @if (member.groupMarketingConsent !== undefined) {
-                    <li>Local group emails: {{ member.groupMarketingConsent ? "opted in" : "opted out" }}</li>
-                  }
-                  @if (member.areaMarketingConsent !== undefined) {
-                    <li>Area emails: {{ member.areaMarketingConsent ? "opted in" : "opted out" }}</li>
-                  }
-                  @if (member.otherMarketingConsent !== undefined) {
-                    <li>Other groups' emails: {{ member.otherMarketingConsent ? "opted in" : "opted out" }}</li>
-                  }
-                </ul>
-              }
-            </div>
-            <div class="col-sm-12 mb-3">
-              @if (member?.mail?.subscriptions && mailMessagingConfig) {
-                <div class="row">
-                  @for (subscription of member.mail.subscriptions; track subscription.id) {
-                    <div class="col-sm-4">
-                      <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
-                    </div>
-                  }
-                  <div class="col">
-                    <app-brevo-button button [disabled]="!member?.mail?.id"
-                      (click)="viewBrevoContact(member?.mail?.id)"
-                      [title]="linkTitle()"/>
-                  </div>
+          <p class="mb-2">Please select how {{ member | fullNameWithAlias }} wants to be <b>emailed</b>
+            by using the subscription checkboxes below.</p>
+          @if (member?.mail?.subscriptions && mailMessagingConfig) {
+            <div class="row">
+              @for (subscription of member.mail.subscriptions; track subscription.id) {
+                <div class="col-sm-4">
+                  <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
                 </div>
               }
             </div>
+            @if (notEmailableReason(); as reason) {
+              <div class="alert alert-warning small mt-3 mb-0">
+                <div class="d-flex align-items-center mb-1">
+                  <fa-icon [icon]="faTriangleExclamation" class="me-2"></fa-icon>
+                  <strong>Subscriptions do not guarantee delivery</strong>
+                </div>
+                <span>A ticked list above shows what {{ member | fullNameWithAlias }} has opted into - it does not mean they will be emailed. {{ reason }}.</span>
+                @if (consentMissing()) {
+                  <div class="mt-1">
+                    <a href="javascript:void(0)" (click)="viewConsent($event)">View consent settings on the Ramblers Membership tab</a>
+                  </div>
+                }
+              </div>
+            }
+          }
           </div>
-        }
-        <div class="row mt-2">
-          <div class="col col-sm-12">
+        </div>
+      }
+        <div class="row mt-3">
+          <div class="col col-sm-12 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <app-section-toggle
               [tabs]="subTabs"
               [selectedTab]="activeSubTab"
               (selectedTabChange)="onSubTabChange($event)"
               [queryParamKey]="subTabQueryParam"
               [fullWidth]="false"/>
+            <app-brevo-button button [disabled]="!member?.mail?.id"
+              (click)="viewBrevoContact(member?.mail?.id)"
+              [title]="linkTitle()"/>
           </div>
         </div>
-        <div class="row mt-2">
+        <div class="row mt-3">
           <div class="col col-sm-12">
             <div [class.d-none]="activeSubTab !== BrevoTabSubTab.AUDIT_LOG">
               <app-sortable-table
@@ -123,18 +103,19 @@ import { DESCENDING } from "../../../models/table-filtering.model";
                 <ng-template appSortableTableCell="audit" let-row>{{ stringUtils.stringifyObject(row.audit) }}</ng-template>
               </app-sortable-table>
             </div>
-            @if (member?.mail?.id) {
+            @if (member?.email) {
               <div [class.d-none]="activeSubTab !== BrevoTabSubTab.ACTIVITY">
                 <app-brevo-contact-view
-                  [contactId]="member.mail.id"
+                  [contactId]="member?.mail?.id ?? null"
                   [contactEmail]="member.email"
-                  [mailMessagingConfig]="mailMessagingConfig"/>
+                  [mailMessagingConfig]="mailMessagingConfig"
+                  (refreshed)="refreshRequested.emit()"/>
               </div>
             }
           </div>
         </div>
       </div>`,
-    imports: [MailSubscriptionSettingComponent, BrevoButtonComponent, BrevoContactViewComponent, DisplayDateAndTimePipe, DisplayDatePipe, FullNameWithAliasPipe, MemberIdToFullNamePipe, FontAwesomeModule, SectionToggle, SortableTableComponent, SortableTableCellDirective]
+    imports: [MailSubscriptionSettingComponent, BrevoButtonComponent, BrevoContactViewComponent, DisplayDateAndTimePipe, FullNameWithAliasPipe, MemberIdToFullNamePipe, FontAwesomeModule, SectionToggle, SortableTableComponent, SortableTableCellDirective]
 })
 export class MailSubscriptionSettingsComponent implements OnInit {
 
@@ -144,6 +125,8 @@ export class MailSubscriptionSettingsComponent implements OnInit {
   protected mailMessagingService = inject(MailMessagingService);
   protected dateUtils = inject(DateUtilsService);
   @Output() unsubscribesRequested = new EventEmitter<void>();
+  @Output() refreshRequested = new EventEmitter<void>();
+  @Output() viewConsentRequested = new EventEmitter<void>();
   public member: Member;
   public systemConfig: SystemConfig;
   public mailMessagingConfig: MailMessagingConfig;
@@ -164,11 +147,11 @@ export class MailSubscriptionSettingsComponent implements OnInit {
   @Input() public mailListAudits: MailListAudit[];
   @Input() public members: Member[];
 
-  protected activeSubTab: BrevoTabSubTab = BrevoTabSubTab.AUDIT_LOG;
+  protected activeSubTab: BrevoTabSubTab = BrevoTabSubTab.ACTIVITY;
   protected readonly subTabQueryParam: string = BREVO_TAB_SUB_TAB_QUERY_PARAM;
   protected readonly subTabs: SectionToggleTab[] = [
-    { value: BrevoTabSubTab.AUDIT_LOG, label: "Subscription audit" },
-    { value: BrevoTabSubTab.ACTIVITY, label: "Brevo activity" }
+    { value: BrevoTabSubTab.ACTIVITY, label: "Brevo activity" },
+    { value: BrevoTabSubTab.AUDIT_LOG, label: "Subscription audit" }
   ];
   protected readonly auditColumns: SortableTableColumn<MailListAudit>[] = [
     { key: "time", label: "Time", sortKey: "timestamp" },
@@ -178,12 +161,34 @@ export class MailSubscriptionSettingsComponent implements OnInit {
   protected readonly BrevoTabSubTab = BrevoTabSubTab;
   protected readonly DESCENDING = DESCENDING;
   protected readonly faBan = faBan;
+  protected readonly faTriangleExclamation = faTriangleExclamation;
+
+  notEmailableReason(): string | null {
+    if (this.member?.emailBlock) {
+      return "They are blocked from email, so Brevo will not deliver any send";
+    }
+    if (this.member && !this.member.emailMarketingConsent) {
+      return "Head Office marketing consent has not been given, so they are excluded from any send that respects consent";
+    }
+    return null;
+  }
+
+  consentMissing(): boolean {
+    return !!this.member && !this.member.emailBlock && !this.member.emailMarketingConsent;
+  }
+
+  viewConsent(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.viewConsentRequested.emit();
+  }
 
   onSubTabChange(value: BrevoTabSubTab): void {
     this.activeSubTab = value;
   }
 
   ngOnInit() {
+    this.activeSubTab = this.member?.mail?.id ? BrevoTabSubTab.ACTIVITY : BrevoTabSubTab.AUDIT_LOG;
     this.initialiseSubscriptions();
   }
 
@@ -213,12 +218,6 @@ export class MailSubscriptionSettingsComponent implements OnInit {
 
   linkTitle() {
     return this.member?.mail?.id ? "View contact details In Brevo" : "Contact not yet created in Brevo";
-  }
-
-  hasGranularConsent(): boolean {
-    return this.member?.groupMarketingConsent !== undefined
-      || this.member?.areaMarketingConsent !== undefined
-      || this.member?.otherMarketingConsent !== undefined;
   }
 
   private listSetting(list: ListInfo): ListSetting {

@@ -12,6 +12,11 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { isString } from "es-toolkit/compat";
 import { createBottleneckWithRatePerSecond } from "../common/rate-limiting";
+import { snapshotBrevoContact } from "./contact-snapshot";
+
+interface AuthenticatedDeleteRequest extends Request {
+  user?: { memberId?: string; userName?: string };
+}
 
 const messageType = "brevo:contacts-delete";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -25,7 +30,9 @@ export async function contactsDelete(req: Request, res: Response, next: NextFunc
     const apiInstance = new SibApiV3Sdk.ContactsApi();
     apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
     const request: ContactsDeleteRequest = req.body;
+    const snapshotBy = (req as AuthenticatedDeleteRequest).user?.userName;
     const responses: StatusMappedResponseSingleInput[] = await Promise.all(request.ids.map(async (id: NumberOrString) => {
+      await snapshotBrevoContact(id, snapshotBy);
       const identifier: string = isString(id) ? encodeURIComponent(id) : id.toString();
       const response: {
         response: http.IncomingMessage,

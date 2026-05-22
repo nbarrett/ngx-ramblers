@@ -7,6 +7,7 @@ import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/d
 import { handleError, successfulResponse } from "../common/messages";
 import { sendTransactionalEmailRequest } from "./send-transactional-mail";
 import {
+  BLOCKED_CONTACT_REASON_LABELS,
   EmailAddress,
   NotificationConfig,
   SendSmtpEmailParams,
@@ -24,7 +25,7 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
 import { BrandingMode, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { recordMemberEmailSends } from "../../mongo/controllers/member-email-send";
-import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
+import { Member, MemberEmailBlock } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
@@ -103,9 +104,16 @@ function addressLineFor(addresseeType: AddresseeType): string {
   return "Hi {{params.memberMergeFields.FNAME}},";
 }
 
+function memberFullName(member: Member | undefined): string {
+  const firstName = member?.firstName || member?.title || "";
+  const lastName = member?.lastName || "";
+  const full = `${firstName} ${firstName === lastName ? "" : lastName}`.trim();
+  return full || member?.displayName || "";
+}
+
 function memberMergeFields(member: Member, memberExpiry: string): SendSmtpEmailParams["memberMergeFields"] {
   return {
-    FULL_NAME: member.displayName ?? `${member.firstName} ${member.lastName}`.trim(),
+    FULL_NAME: memberFullName(member),
     EMAIL: member.email ?? "",
     FNAME: member.firstName ?? "",
     LNAME: member.lastName ?? "",
@@ -153,6 +161,40 @@ function delay(ms: number): Promise<void> {
 type WorkItem =
   | { kind: "member"; memberRecord: Member; entry: BatchSendProgressEntry }
   | { kind: "external"; recipient: ComposerExternalRecipient; entry: BatchSendProgressEntry };
+
+function blockSkipReason(emailBlock: MemberEmailBlock): string {
+  const label = BLOCKED_CONTACT_REASON_LABELS[emailBlock.reasonCode] || "Blocked from email";
+  return emailBlock.reasonMessage ? `${label} - "${emailBlock.reasonMessage}"` : label;
+}
+
+function memberSuppressionReason(member: Member, referenceListId: number | null): string | null {
+  if (member.emailBlock) {
+    return blockSkipReason(member.emailBlock);
+  }
+  const subscriptions = member.mail?.subscriptions ?? [];
+  if (referenceListId !== null) {
+    return subscriptions.some(subscription => subscription.id === referenceListId && !subscription.subscribed && !!subscription.unsubscribedAt)
+      ? "Unsubscribed from this mailing list"
+      : null;
+  }
+  const hasGenuineUnsubscribe = subscriptions.some(subscription => !subscription.subscribed && !!subscription.unsubscribedAt);
+  return hasGenuineUnsubscribe && !subscriptions.some(subscription => subscription.subscribed)
+    ? "Unsubscribed from all mailing lists"
+    : null;
+}
+
+function memberSkipReason(member: Member, referenceListId: number | null, respectEmailBlocks: boolean, respectHeadOfficeConsent: boolean): string | null {
+  if (respectEmailBlocks) {
+    const suppressionReason = memberSuppressionReason(member, referenceListId);
+    if (suppressionReason) {
+      return suppressionReason;
+    }
+  }
+  if (respectHeadOfficeConsent && member.emailMarketingConsent === false) {
+    return "No Head Office marketing consent";
+  }
+  return null;
+}
 
 function externalRecipientName(recipient: ComposerExternalRecipient): { full: string; first: string; last: string } {
   const trimmed = recipient.name?.trim() ?? "";
@@ -237,6 +279,9 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
     const systemCfg: SystemConfig = systemConfigDoc?.value;
     const committeeConfigDoc = await config.queryKey(ConfigKey.COMMITTEE);
     const committeeCfg: CommitteeConfig = committeeConfigDoc?.value;
+    const brevoConfigDoc = await config.queryKey(ConfigKey.BREVO);
+    const respectEmailBlocks: boolean = brevoConfigDoc?.value?.respectEmailBlocks === true;
+    const respectHeadOfficeConsent: boolean = brevoConfigDoc?.value?.respectHeadOfficeConsent !== false;
     const allBanners: BannerConfig[] = await banner.find({}).lean().then((docs: any[]) => docs.map(transforms.toObjectWithId) as BannerConfig[]);
     const groupHref = systemCfg?.group?.href ?? baseUrl;
     const committeeRoles = committeeCfg?.roles ?? [];
@@ -263,7 +308,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       return {
         memberId: id,
         email: memberRecord?.email ?? "",
-        fullName: memberRecord?.displayName ?? `${memberRecord?.firstName ?? ""} ${memberRecord?.lastName ?? ""}`.trim(),
+        fullName: memberFullName(memberRecord),
         status: BatchSendEntryStatus.Pending
       } satisfies BatchSendProgressEntry;
     });
@@ -296,6 +341,14 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           entry.status = BatchSendEntryStatus.Failed;
           entry.errorMessage = "Member missing email";
           progress.failedCount += 1;
+          continue;
+        }
+        const referenceListId = request.narrowListId ?? notifConfig?.defaultListId ?? null;
+        const suppressionReason = memberSkipReason(memberRecord, referenceListId, respectEmailBlocks, respectHeadOfficeConsent);
+        if (suppressionReason) {
+          entry.status = BatchSendEntryStatus.Skipped;
+          entry.errorMessage = suppressionReason;
+          progress.skippedCount += 1;
           continue;
         }
       } else if (!item.recipient.email) {
@@ -428,6 +481,7 @@ export async function startBatchTransactionalSend(req: Request, res: Response): 
       totalRecipients,
       sentCount: 0,
       failedCount: 0,
+      skippedCount: 0,
       startedAt: dateTimeNow().toMillis(),
       entries: []
     };

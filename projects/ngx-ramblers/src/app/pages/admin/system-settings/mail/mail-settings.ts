@@ -91,21 +91,33 @@ import { InputSize } from "../../../../models/ui-size.model";
                   <div class="thumbnail-heading-frame">
                     <div class="thumbnail-heading">Global Settings</div>
                     <div class="row">
-                      <div class="col-sm-12 mb-3 mx-2">
+                      <div class="col-sm-12 mx-2">
                         <app-markdown-editor standalone category="admin" name="mail-settings-global-help"
                         description="Mail Settings Global Configuration Help"/>
                       </div>
                     </div>
                     <div class="col-sm-12">
-                      <div class="form-check">
-                        <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendTransactional"
-                          type="checkbox" class="form-check-input" id="mail-enabled">
-                        <label class="form-check-label" for="mail-enabled">Allow Send Transactional</label>
-                      </div>
-                      <div class="form-check mt-2">
-                        <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendCampaign"
-                          type="checkbox" class="form-check-input" id="allow-send-campaign">
-                        <label class="form-check-label" for="allow-send-campaign">Allow Send Campaign</label>
+                      <div class="p-3 my-3">
+                        <div class="form-check">
+                          <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendTransactional"
+                            type="checkbox" class="form-check-input" id="mail-enabled">
+                          <label class="form-check-label" for="mail-enabled">Allow Send Transactional</label>
+                        </div>
+                        <div class="form-check mt-2">
+                          <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendCampaign"
+                            type="checkbox" class="form-check-input" id="allow-send-campaign">
+                          <label class="form-check-label" for="allow-send-campaign">Allow Send Campaign</label>
+                        </div>
+                        <div class="form-check mt-2">
+                          <input [(ngModel)]="mailMessagingConfig.mailConfig.respectHeadOfficeConsent"
+                            type="checkbox" class="form-check-input" id="respect-head-office-consent">
+                          <label class="form-check-label" for="respect-head-office-consent">Respect Head Office marketing consent <strong>when sending</strong> (on by default) - in any composer send, members who have <strong>not granted marketing consent</strong> are shown as a disabled group and skipped at send. Separate from the per-list "only auto-subscribe consented members" option, which controls list membership, not sending.</label>
+                        </div>
+                        <div class="form-check mt-2">
+                          <input [(ngModel)]="mailMessagingConfig.mailConfig.respectEmailBlocks"
+                            type="checkbox" class="form-check-input" id="respect-email-blocks">
+                          <label class="form-check-label" for="respect-email-blocks">Respect unsubscribes and blocks (off by default) - members who have <strong>unsubscribed or been blocked</strong> show disabled in the composer picker and are skipped at send. Off by default because a local unsubscribe only reaches Brevo when you run Update Brevo Mailing Lists.</label>
+                        </div>
                       </div>
                       <div class="form-group">
                         <label for="base-url">Base Url</label>

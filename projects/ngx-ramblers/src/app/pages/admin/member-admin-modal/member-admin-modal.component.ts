@@ -1,6 +1,6 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
-import { faEye, faEyeSlash, faPaste, faSort, faSortDown, faSortUp } from "@fortawesome/free-solid-svg-icons";
+import { faEye, faEyeSlash, faPaste } from "@fortawesome/free-solid-svg-icons";
 import { omit, values } from "es-toolkit/compat";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -44,14 +44,16 @@ import { SecretInputComponent } from "../../../modules/common/secret-input/secre
 import { JsonPipe } from "@angular/common";
 import { CreatedAuditPipe } from "../../../pipes/created-audit-pipe";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
+import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { LastConfirmedDateDisplayed } from "../../../pipes/last-confirmed-date-displayed.pipe";
 import { UpdatedAuditPipe } from "../../../pipes/updated-audit-pipe";
 import { FormatAuditPipe } from "../../../pipes/format-audit-pipe";
-import { sortBy } from "../../../functions/arrays";
 import { DeletedMemberService } from "../../../services/member/deleted-member.service";
-import { SortDirection } from "../../../models/sort.model";
-import { MemberAuditSortColumn } from "../../../models/member-admin.model";
 import { InputSize } from "../../../models/ui-size.model";
+import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableColumn } from "../../../modules/common/sortable-table/sortable-table.model";
+import { DESCENDING } from "../../../models/table-filtering.model";
 
 @Component({
   selector: "app-member-admin-modal",
@@ -60,7 +62,7 @@ import { InputSize } from "../../../models/ui-size.model";
   providers: [FormatAuditPipe],
   imports: [TabsetComponent, TabDirective, FormsModule, DatePicker, MarkdownEditorComponent, TooltipDirective,
     FontAwesomeModule, MailChimpSubscriptionSettingsComponent, MailSubscriptionSettingsComponent, SwitchIconComponent,
-    SecretInputComponent, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe]
+    SecretInputComponent, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, DisplayDatePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe, SortableTableComponent, SortableTableCellDirective]
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberAdminModalComponent", NgxLoggerLevel.ERROR);
@@ -111,19 +113,23 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   protected readonly faEye = faEye;
   protected readonly faEyeSlash = faEyeSlash;
   protected rawMemberDataVisible = false;
-  protected readonly faSort = faSort;
-  protected readonly faSortUp = faSortUp;
-  protected readonly faSortDown = faSortDown;
   protected readonly MailProvider = MailProvider;
-  protected readonly MemberAuditSortColumn = MemberAuditSortColumn;
   protected readonly InputSize = InputSize;
-  protected auditSortColumn: MemberAuditSortColumn = MemberAuditSortColumn.UPDATE_TIME;
-  protected auditSortDirection: SortDirection = SortDirection.DESC;
+  protected readonly DESCENDING = DESCENDING;
+  protected readonly memberUpdateAuditColumns: SortableTableColumn<MemberUpdateAudit>[] = [
+    {key: "updateTime", label: "Update Time", sortKey: "updateTime"},
+    {key: "memberAction", label: "Member Action", sortKey: "memberAction", cellGetter: row => row.memberAction},
+    {key: "auditMessage", label: "Audit Message", sortKey: "auditMessage"}
+  ];
   protected isLifeMember(): boolean {
     return (this.member?.memberTerm?.toString()?.toLowerCase() === MemberTerm.LIFE);
   }
 
   ngOnInit() {
+    const initialTab = this.activatedRoute.snapshot.queryParams[MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM];
+    if (initialTab && values(MemberAdminModalTab).includes(initialTab)) {
+      this.activeTabKey = initialTab as MemberAdminModalTab;
+    }
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
       const paramValue = params[MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM];
       if (paramValue && values(MemberAdminModalTab).includes(paramValue)) {
@@ -175,6 +181,12 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     });
   }
 
+  refreshSubscriptionAudit(): void {
+    if (this.member?.id) {
+      this.refreshMailListAuditsForMember(this.member.id);
+    }
+  }
+
   private refreshMailListAuditsForMember(memberId: string) {
     this.logger.info("querying mailListAuditService for memberId", memberId);
     this.mailListAuditService.all({
@@ -206,31 +218,13 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
 
   selectTab(tab: MemberAdminModalTab): void {
     this.activeTabKey = tab;
+    if (this.activatedRoute.snapshot.queryParamMap.get(MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM) === tab) {
+      return;
+    }
     this.router.navigate([], {
       queryParams: { [MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM]: tab },
       queryParamsHandling: "merge"
     });
-  }
-
-  protected sortedMemberUpdateAudits(): MemberUpdateAudit[] {
-    const comparator = sortBy(`${this.auditSortDirection === SortDirection.ASC ? "" : "-"}${this.auditSortColumn}`);
-    return [...this.memberUpdateAudits].sort(comparator);
-  }
-
-  protected toggleAuditSort(column: MemberAuditSortColumn) {
-    if (this.auditSortColumn === column) {
-      this.auditSortDirection = this.auditSortDirection === SortDirection.ASC ? SortDirection.DESC : SortDirection.ASC;
-    } else {
-      this.auditSortColumn = column;
-      this.auditSortDirection = column === MemberAuditSortColumn.UPDATE_TIME ? SortDirection.DESC : SortDirection.ASC;
-    }
-  }
-
-  protected auditSortIcon(column: MemberAuditSortColumn) {
-    if (this.auditSortColumn !== column) {
-      return this.faSort;
-    }
-    return this.auditSortDirection === SortDirection.ASC ? this.faSortUp : this.faSortDown;
   }
 
   deleteMemberDetails() {
@@ -368,5 +362,11 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   jointWith(jointWith: string): string {
     const member = this?.members?.find(member => member.membershipNumber === jointWith);
     return member ? this.fullNameWithAliasPipe.transform(member) : null;
+  }
+
+  hasGranularConsent(): boolean {
+    return this.member?.groupMarketingConsent !== undefined
+      || this.member?.areaMarketingConsent !== undefined
+      || this.member?.otherMarketingConsent !== undefined;
   }
 }

@@ -352,6 +352,7 @@ export interface BatchTransactionalSendRequest {
   htmlBodyBottom?: string;
   attachmentUrl?: string;
   memberIds: string[];
+  narrowListId?: number | null;
   externalRecipients?: ComposerExternalRecipient[];
   senderRoleOverride?: string;
   replyToRoleOverride?: string;
@@ -364,6 +365,7 @@ export enum BatchSendEntryStatus {
   Pending = "pending",
   Sent = "sent",
   Failed = "failed",
+  Skipped = "skipped",
 }
 
 export interface BatchSendProgressEntry {
@@ -381,6 +383,7 @@ export interface BatchSendProgress {
   totalRecipients: number;
   sentCount: number;
   failedCount: number;
+  skippedCount: number;
   startedAt: number;
   completedAt?: number;
   entries: BatchSendProgressEntry[];

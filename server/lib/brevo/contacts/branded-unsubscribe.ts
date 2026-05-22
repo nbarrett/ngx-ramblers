@@ -91,8 +91,9 @@ async function lookupListName(listId: number): Promise<string | undefined> {
 }
 
 async function flipLocalSubscription(matched: MatchedMemberSubscriptions, listId: number): Promise<void> {
+  const unsubscribedAt = dateTimeNowAsValue();
   const updated = matched.subscriptions.map(sub =>
-    sub.id === listId ? { ...sub, subscribed: false } : sub
+    sub.id === listId && sub.subscribed ? { ...sub, subscribed: false, unsubscribedAt } : sub
   );
   if (JSON.stringify(updated) === JSON.stringify(matched.subscriptions)) {
     return;
@@ -101,7 +102,10 @@ async function flipLocalSubscription(matched: MatchedMemberSubscriptions, listId
 }
 
 async function flipAllLocalSubscriptions(matched: MatchedMemberSubscriptions): Promise<void> {
-  const updated = matched.subscriptions.map(sub => ({ ...sub, subscribed: false }));
+  const unsubscribedAt = dateTimeNowAsValue();
+  const updated = matched.subscriptions.map(sub =>
+    sub.subscribed ? { ...sub, subscribed: false, unsubscribedAt } : sub
+  );
   if (updated.length === 0 || JSON.stringify(updated) === JSON.stringify(matched.subscriptions)) {
     return;
   }
