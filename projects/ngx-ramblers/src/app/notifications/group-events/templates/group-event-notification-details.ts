@@ -9,7 +9,6 @@ import { UrlService } from "../../../services/url.service";
 import { MailMessagingConfig } from "../../../models/mail.model";
 import { CommitteeReferenceDataLike } from "../../../models/committee-reference-data.model";
 import { PageService } from "../../../services/page.service";
-import { LinkComponent } from "../../../link/link";
 import { MarkdownComponent } from "ngx-markdown";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
@@ -123,7 +122,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
           [format]="'list'"
           [roles]="latestNotification?.content?.signoffAs?.value"/>
       }`,
-    imports: [LinkComponent, MarkdownComponent, ContactUsComponent, DisplayDatePipe]
+    imports: [MarkdownComponent, ContactUsComponent, DisplayDatePipe]
 })
 export class GroupEventNotificationDetails implements OnInit {
   public mediaQueryService: MediaQueryService = inject(MediaQueryService);

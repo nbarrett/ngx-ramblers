@@ -25,6 +25,7 @@ import {
 import { MailService } from "./mail.service";
 import { MemberService } from "../member/member.service";
 import { groupBy } from "es-toolkit/compat";
+import { isNumber } from "es-toolkit/compat";
 import { map } from "es-toolkit/compat";
 import { MailProviderStats } from "../../models/system.model";
 import { cloneDeep } from "es-toolkit/compat";
@@ -153,6 +154,20 @@ export class MailListUpdaterService {
     const subscribed = member?.groupMember && !!(member?.email) && subscriptionCount > 0;
     this.logger.off("memberSubscribed:member.groupMember", member?.groupMember, "email", member?.email, "name:", this.fullNamePipe.transform(member), "member:", member, "subscriptionCount:", subscriptionCount, "subscribed:", subscribed);
     return subscribed;
+  }
+
+  public listUnsubscribedAt(member: Member, listId: number): number | null {
+    const subscription = member?.mail?.subscriptions?.find(item => item.id === listId && !item.subscribed && isNumber(item.unsubscribedAt));
+    return subscription?.unsubscribedAt ?? null;
+  }
+
+  public fullyUnsubscribedAt(member: Member): number | null {
+    const subscriptions = member?.mail?.subscriptions ?? [];
+    if (subscriptions.some(item => item.subscribed)) {
+      return null;
+    }
+    const unsubscribeDates = subscriptions.filter(item => isNumber(item.unsubscribedAt)).map(item => item.unsubscribedAt);
+    return unsubscribeDates.length > 0 ? Math.max(...unsubscribeDates) : null;
   }
 
   private async processContactRemoveRequests(contactRemoveRequests: ContactsAddOrRemoveRequest[], members: Member[], notify: AlertInstance) {

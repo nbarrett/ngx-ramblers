@@ -50,14 +50,14 @@ export interface ContactAction {
             @if (action.onClick) {
               <a class="dropdown-item" href="javascript:void(0)"
                  (click)="invoke($event, action)"
-                 container="body" [tooltip]="action.tooltip" placement="left">
+                 container="body" [tooltip]="action.tooltip" placement="right">
                 <fa-icon [icon]="action.icon" class="fa-icon me-2"/>{{ action.label }}
               </a>
             } @else {
               <a class="dropdown-item"
                  [href]="action.href"
                  [target]="action.target || '_self'"
-                 container="body" [tooltip]="action.tooltip" placement="left">
+                 container="body" [tooltip]="action.tooltip" placement="right">
                 <fa-icon [icon]="action.icon" class="fa-icon me-2"/>{{ action.label }}
               </a>
             }

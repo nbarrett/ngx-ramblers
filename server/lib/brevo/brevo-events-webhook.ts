@@ -96,10 +96,10 @@ async function applyBlockEvent(payload: any): Promise<{ applied: boolean; reason
 
   const listIds = await fetchListIdsForEmail(email);
   const memberDoc = await member.findById(memberId).lean().exec() as any;
-  const existingSubs: Array<{ id: number; subscribed: boolean }> = memberDoc?.mail?.subscriptions || [];
+  const existingSubs: Array<{ id: number; subscribed: boolean; unsubscribedAt?: number }> = memberDoc?.mail?.subscriptions || [];
   const blockedListIds = new Set(listIds.filter(id => Number.isFinite(id)));
   const updatedSubs = existingSubs.map(sub =>
-    blockedListIds.has(sub.id) ? { ...sub, subscribed: false } : sub
+    blockedListIds.has(sub.id) && sub.subscribed ? { ...sub, subscribed: false, unsubscribedAt: blockedAt } : sub
   );
 
   const emailBlock = {

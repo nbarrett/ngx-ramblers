@@ -218,6 +218,8 @@ export interface MailConfig extends BuiltInProcessMappings {
   allowUpdateLists: boolean;
   allowSendCampaign: boolean;
   allowSendTransactional: boolean;
+  respectHeadOfficeConsent?: boolean;
+  respectEmailBlocks?: boolean;
   listSettings: ListSetting[];
   smtpServer?: string;
   smtpPort?: number;
@@ -807,6 +809,23 @@ export interface BrevoEmailEventReport {
   events: BrevoEmailEvent[];
 }
 
+export interface BrevoContactSnapshot {
+  id?: string;
+  email: string;
+  memberId?: string;
+  brevoContactId?: number;
+  contactDetails?: BrevoContactDetails | null;
+  campaignStats?: BrevoContactCampaignStats | null;
+  events: BrevoEmailEvent[];
+  snapshotAt: number;
+  snapshotBy?: string;
+}
+
+export interface BrevoContactSnapshotApiResponse extends ApiResponse {
+  request: any;
+  response: BrevoContactSnapshot | null;
+}
+
 export interface BrevoTransactionalEmailSummary {
   email: string;
   subject: string;
@@ -845,9 +864,9 @@ export enum MemberAdminModalTab {
   CONTACT = "contact",
   LOGIN = "login",
   PRIVILEGES = "privileges",
-  PREFERENCES = "preferences",
-  MEMBERSHIP = "membership",
-  RAMBLERS = "ramblers",
+  RAMBLERS_MEMBERSHIP = "ramblers-membership",
+  MAILCHIMP = "mailchimp",
+  BREVO = "brevo",
   AUDIT = "audit",
   MEMBER_RAW_DATA = "member-raw-data"
 }
@@ -1036,6 +1055,7 @@ export interface ContactAddOrRemoveResponse {
 export interface MailSubscription {
   subscribed?: boolean;
   id?: number;
+  unsubscribedAt?: number;
 }
 
 export interface ListSetting {

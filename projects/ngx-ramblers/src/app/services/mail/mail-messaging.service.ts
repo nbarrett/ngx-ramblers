@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { ADMIN_SET_PASSWORD_PATH } from "../../models/system.model";
 import { NgxLoggerLevel } from "ngx-logger";
-import { isNumber, isString } from "es-toolkit/compat";
+import { isBoolean, isNumber, isString } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { Member } from "../../models/member.model";
@@ -573,6 +573,12 @@ export class MailMessagingService {
   private migrateMailConfig() {
     if (!this.mailMessagingConfig?.mailConfig?.listSettings) {
       this.mailMessagingConfig.mailConfig.listSettings = [];
+    }
+    if (this.mailMessagingConfig?.mailConfig && !isBoolean(this.mailMessagingConfig.mailConfig.respectHeadOfficeConsent)) {
+      this.mailMessagingConfig.mailConfig.respectHeadOfficeConsent = true;
+    }
+    if (this.mailMessagingConfig?.mailConfig && !isBoolean(this.mailMessagingConfig.mailConfig.respectEmailBlocks)) {
+      this.mailMessagingConfig.mailConfig.respectEmailBlocks = false;
     }
     this.mailMessagingConfig?.brevo?.lists?.lists.forEach(list => {
       if (!this.mailMessagingConfig?.mailConfig?.listSettings.find(item => item.id === list.id)) {

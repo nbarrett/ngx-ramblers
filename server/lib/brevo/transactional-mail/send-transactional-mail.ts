@@ -51,18 +51,23 @@ function mergeHeaders(existing: object | undefined, emailRequest: SendSmtpEmailR
   return keys(merged).length ? merged : undefined;
 }
 
-async function deriveListIdFromMember(email: string): Promise<number | undefined> {
+async function resolveUnsubscribeListId(email: string, requestedListId?: number): Promise<number | undefined> {
   try {
     const matched = await member.findOne(
       { email: email.toLowerCase() },
       { _id: 1, mail: 1 }
     ).lean().exec() as any;
     const subscribed: Array<{ id: number; subscribed: boolean }> = (matched?.mail?.subscriptions || []).filter((sub: any) => sub?.subscribed);
-    if (subscribed.length === 1) return subscribed[0].id;
-    return undefined;
+    if (Number.isFinite(requestedListId) && subscribed.some(sub => sub.id === requestedListId)) {
+      return requestedListId;
+    }
+    if (subscribed.length === 1) {
+      return subscribed[0].id;
+    }
+    return Number.isFinite(requestedListId) ? requestedListId : undefined;
   } catch (error: any) {
-    debugLog("deriveListIdFromMember:failed", email, error?.message || error);
-    return undefined;
+    debugLog("resolveUnsubscribeListId:failed", email, error?.message || error);
+    return requestedListId;
   }
 }
 
@@ -74,7 +79,7 @@ async function injectUnsubscribeContext(emailRequest: SendSmtpEmailRequest, over
     return { apiUrl: null };
   }
   const senderEmail = emailRequest.sender?.email || emailRequest.replyTo?.email;
-  const listId = emailRequest.listId ?? await deriveListIdFromMember(email);
+  const listId = await resolveUnsubscribeListId(email, emailRequest.listId);
   try {
     const pageUrl = await buildUnsubscribeUrl(email, pageBaseUrl, senderEmail, listId);
     const apiUrl = await buildUnsubscribeApiUrl(email, apiBaseUrl, senderEmail, listId);

@@ -108,6 +108,31 @@
                 </form>
               </div>
             </div>
+            <div class="row thumbnail-heading-frame">
+              <div class="thumbnail-heading">Preferences</div>
+              <div class="col-sm-12">
+                <p>Please deselect the checkbox below to prompt {{member | fullNameWithAlias}} to
+                  confirm their profile settings on next login:</p>
+                <div class="form-check">
+                  <input (ngModelChange)="profileSettingsConfirmedChecked($event)"
+                         [(ngModel)]="member.profileSettingsConfirmed" type="checkbox" class="form-check-input"
+                         id="profile-settings-confirmed">
+                  <label class="form-check-label"
+                         for="profile-settings-confirmed">Profile settings confirmed
+                    ({{member | lastConfirmedDateDisplayed}})
+                  </label>
+                </div>
+                <p class="mt-3">Please select how {{member | fullNameWithAlias}} wishes to limit access to
+                  their member data using the checkboxes below:</p>
+                <div class="form-check">
+                  <input [(ngModel)]="member.hideSurname" type="checkbox" class="form-check-input"
+                         id="hide-surname">
+                  <label class="form-check-label"
+                         for="hide-surname">Hide surname from non-logged-in members
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
         </tab>
         <tab [active]="tabActive(MemberAdminModalTab.LOGIN)" (selectTab)="selectTab(MemberAdminModalTab.LOGIN)" heading="Login">
@@ -266,149 +291,146 @@
           </div>
         </div>
       </tab>
-      <tab [active]="tabActive(MemberAdminModalTab.PREFERENCES)" (selectTab)="selectTab(MemberAdminModalTab.PREFERENCES)" heading="Preferences">
+      <tab [active]="tabActive(MemberAdminModalTab.RAMBLERS_MEMBERSHIP)" (selectTab)="selectTab(MemberAdminModalTab.RAMBLERS_MEMBERSHIP)" heading="Ramblers Membership">
         <div class="img-thumbnail thumbnail-admin-edit">
-          <div class="row">
+          <div class="row thumbnail-heading-frame">
+            <div class="thumbnail-heading">Membership</div>
             <div class="col-sm-12">
-              <p>Please deselect the checkbox below to prompt {{member |
-                fullNameWithAlias}} to
-                confirm their profile settings on next login:</p>
-              <div class="form-check">
-                <input (ngModelChange)="profileSettingsConfirmedChecked($event)"
-                       [(ngModel)]="member.profileSettingsConfirmed" type="checkbox" class="form-check-input"
-                       id="profile-settings-confirmed">
-                <label class="form-check-label"
-                       for="profile-settings-confirmed">Profile settings confirmed
-                  ({{member | lastConfirmedDateDisplayed}})
-                </label>
-              </div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-sm-12">
-              <p>Please select how {{member | fullNameWithAlias}} wishes to limit
-                access to
-                their member data using the checkboxes below:</p>
-              <div class="form-check">
-                <input [(ngModel)]="member.hideSurname" type="checkbox" class="form-check-input"
-                       id="hide-surname">
-                <label class="form-check-label"
-                       for="hide-surname">Hide surname from non-logged-in members
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-      </tab>
-      <tab [active]="tabActive(MemberAdminModalTab.MEMBERSHIP)" (selectTab)="selectTab(MemberAdminModalTab.MEMBERSHIP)" heading="Membership">
-        <div class="img-thumbnail thumbnail-admin-edit">
-          <div class="row">
-            <div class="col col-sm-12">
-              <p>The membership information below is populated directly from the Ramblers
-                provided
-                data:</p>
-            </div>
-            <div class="col col-sm-6">
-              <div class="form-group">
-                <app-date-picker startOfDay
-                                 [label]="'Membership Expiry Date'"
-                                 [size]="'md round'"
-                                 [placeholder]="isLifeMember() ? 'Lifetime' : ''"
-                                 [disabled]="isLifeMember()"
-                                 [readonly]="isLifeMember()"
-                                 (change)="onMembershipDateChange($event)"
-                                 [value]="isLifeMember() ? null : member.membershipExpiryDate">
-                </app-date-picker>
-              </div>
-            </div>
-            <div class="col col-sm-6">
-              <div class="form-group">
-                <label for="membership-number">Membership Number</label>
-                <input [(ngModel)]="member.membershipNumber" type="text"
-                       class="form-control input-sm" id="membership-number"
-                       placeholder="Enter Membership Number here">
-              </div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col col-sm-6">
-              <div class="form-group">
-                <label for="member-status">Member Status</label>
-                <input disabled [(ngModel)]="member.memberStatus" type="text"
-                       class="form-control input-sm" id="member-status"
-                       placeholder="Member Status">
-              </div>
-            </div>
-            <div class="col col-sm-6">
-              <div class="form-group">
-                <label for="member-term">Member Term</label>
-                <input disabled [(ngModel)]="member.memberTerm" type="text"
-                       class="form-control input-sm" id="member-term"
-                       placeholder="Member Term">
-              </div>
-            </div>
-          </div>
-          <div class="row">
-            @if (member?.jointWith) {
-              <div class="col col-sm-6">
-                <div class="form-group">
-                  <label for="joint-with">Joint with</label>
-                  <input disabled [value]="jointWith(member.jointWith)" type="text"
-                         class="form-control input-sm" id="joint-with"
-                         placeholder="(not found)">
+              <p>The membership information below is populated directly from the Ramblers provided data:</p>
+              <div class="row">
+                <div class="col col-sm-6">
+                  <div class="form-group">
+                    <app-date-picker startOfDay
+                                     [label]="'Membership Expiry Date'"
+                                     [size]="'md round'"
+                                     [placeholder]="isLifeMember() ? 'Lifetime' : ''"
+                                     [disabled]="isLifeMember()"
+                                     [readonly]="isLifeMember()"
+                                     (change)="onMembershipDateChange($event)"
+                                     [value]="isLifeMember() ? null : member.membershipExpiryDate">
+                    </app-date-picker>
+                  </div>
+                </div>
+                <div class="col col-sm-6">
+                  <div class="form-group">
+                    <label for="membership-number">Membership Number</label>
+                    <input [(ngModel)]="member.membershipNumber" type="text"
+                           class="form-control input-sm" id="membership-number"
+                           placeholder="Enter Membership Number here">
+                  </div>
                 </div>
               </div>
-            }
-            @if (member?.jointWith) {
-              <div class="col col-sm-6">
-                <div class="form-group">
-                  <label for="joint-with-membership-number">Joint Membership Number</label>
-                  <input disabled [value]="member.jointWith" type="text"
-                         class="form-control input-sm" id="joint-with-membership-number"
-                         placeholder="(not found)">
+              <div class="row">
+                <div class="col col-sm-6">
+                  <div class="form-group">
+                    <label for="member-status">Member Status</label>
+                    <input disabled [(ngModel)]="member.memberStatus" type="text"
+                           class="form-control input-sm" id="member-status"
+                           placeholder="Member Status">
+                  </div>
+                </div>
+                <div class="col col-sm-6">
+                  <div class="form-group">
+                    <label for="member-term">Member Term</label>
+                    <input disabled [(ngModel)]="member.memberTerm" type="text"
+                           class="form-control input-sm" id="member-term"
+                           placeholder="Member Term">
+                  </div>
                 </div>
               </div>
-            }
-          </div>
-        </div>
-      </tab>
-      <tab [active]="tabActive(MemberAdminModalTab.RAMBLERS)" (selectTab)="selectTab(MemberAdminModalTab.RAMBLERS)" heading="Ramblers">
-        <div class="img-thumbnail thumbnail-admin-edit">
-          <div class="row">
-            <div class="col-sm-12">
-              <p class="title-in-thumbnail">The following section allows data to be managed for
-                <a target="_blank" [href]="systemConfig.national.walksManager.href">Ramblers Walks and Events Manager</a>
+              <div class="row">
+                @if (member?.jointWith) {
+                  <div class="col col-sm-6">
+                    <div class="form-group">
+                      <label for="joint-with">Joint with</label>
+                      <input disabled [value]="jointWith(member.jointWith)" type="text"
+                             class="form-control input-sm" id="joint-with"
+                             placeholder="(not found)">
+                    </div>
+                  </div>
+                }
+                @if (member?.jointWith) {
+                  <div class="col col-sm-6">
+                    <div class="form-group">
+                      <label for="joint-with-membership-number">Joint Membership Number</label>
+                      <input disabled [value]="member.jointWith" type="text"
+                             class="form-control input-sm" id="joint-with-membership-number"
+                             placeholder="(not found)">
+                    </div>
+                  </div>
+                }
+              </div>
             </div>
-            <div class="col-sm-12 mt-2 mb-2">
+          </div>
+          <div class="row thumbnail-heading-frame">
+            <div class="thumbnail-heading">Email marketing consent</div>
+            <div class="col-sm-12">
+              @if (member.emailMarketingConsent) {
+                <p class="mb-2">Email Marketing Consent was provided
+                  by {{ member | fullNameWithAlias }} @if (member.emailPermissionLastUpdated) {
+                  <span>via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}</span>
+                  }.</p>
+              }
+              @if (!member.emailMarketingConsent) {
+                <p class="mb-2">Email Marketing Consent has not been given by {{ member | fullNameWithAlias }}.
+                  @if (member.emailPermissionLastUpdated) {
+                    <span> This was last updated via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}.</span>
+                  }</p>
+              }
+              @if (hasGranularConsent()) {
+                <p class="mb-1"><strong>Granular consent (Salesforce):</strong></p>
+                <ul class="mb-0">
+                  @if (member.groupMarketingConsent !== undefined) {
+                    <li>Local group emails: {{ member.groupMarketingConsent ? "opted in" : "opted out" }}</li>
+                  }
+                  @if (member.areaMarketingConsent !== undefined) {
+                    <li>Area emails: {{ member.areaMarketingConsent ? "opted in" : "opted out" }}</li>
+                  }
+                  @if (member.otherMarketingConsent !== undefined) {
+                    <li>Other groups' emails: {{ member.otherMarketingConsent ? "opted in" : "opted out" }}</li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
+          <div class="row thumbnail-heading-frame">
+            <div class="thumbnail-heading">Walks Manager</div>
+            <div class="col-sm-12">
+              <p>The following section allows data to be managed for
+                <a target="_blank" [href]="systemConfig.national.walksManager.href">Ramblers Walks and Events Manager</a>.</p>
               <app-markdown-editor standalone category="admin" name="walks-manager-fields-help"
                                    description="Walks Manager fields help"/>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col col-sm-6">
-              <label for="ramblers-contact-name">Walks Manager Contact Name</label>
-              <div class="input-group">
-                <input autocomplete="new-password" name="contactId" [(ngModel)]="member.contactId" type="text"
-                       class="form-control input-sm" id="ramblers-contact-name"
-                       placeholder="The first name and last name used in Ramblers Walks Manager">
-                <button type="button" class="btn btn-outline-secondary" tooltip="Set this field to be {{member | fullNameWithAlias}}" (click)="defaultContactName()">
-                  <fa-icon [icon]="faPaste" class="fa-icon"></fa-icon>
-                </button>
+              <div class="row mt-2">
+                <div class="col col-sm-6">
+                  <label for="ramblers-contact-name">Walks Manager Contact Name</label>
+                  <div class="input-group">
+                    <input autocomplete="new-password" name="contactId" [(ngModel)]="member.contactId" type="text"
+                           class="form-control input-sm" id="ramblers-contact-name"
+                           placeholder="The first name and last name used in Ramblers Walks Manager">
+                    <button type="button" class="btn btn-outline-secondary" tooltip="Set this field to be {{member | fullNameWithAlias}}" (click)="defaultContactName()">
+                      <fa-icon [icon]="faPaste" class="fa-icon"></fa-icon>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </tab>
         @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.MAILCHIMP) {
-          <tab app-mailchimp-subscription-settings heading="Mailchimp" [member]="member"
+          <tab app-mailchimp-subscription-settings heading="Email &amp; subscriptions" [member]="member"
+               [active]="tabActive(MemberAdminModalTab.MAILCHIMP)" (selectTab)="selectTab(MemberAdminModalTab.MAILCHIMP)"
                [mailchimpConfig]="mailchimpConfig"
           />
         }
         @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.BREVO) {
-          <tab app-mail-subscription-settings heading="Brevo" [member]="member" [members]="members"
+          <tab app-mail-subscription-settings heading="Email &amp; subscriptions" [member]="member" [members]="members"
+               [active]="tabActive(MemberAdminModalTab.BREVO)" (selectTab)="selectTab(MemberAdminModalTab.BREVO)"
                [mailMessagingConfig]="mailMessagingConfig" [systemConfig]="systemConfig"
                [mailListAudits]="mailListAudits"
                (unsubscribesRequested)="goToUnsubscribesPage()"
+               (refreshRequested)="refreshSubscriptionAudit()"
+               (viewConsentRequested)="selectTab(MemberAdminModalTab.RAMBLERS_MEMBERSHIP)"
           />
         }
         <tab [active]="tabActive(MemberAdminModalTab.AUDIT)" (selectTab)="selectTab(MemberAdminModalTab.AUDIT)" heading="Audit">
@@ -452,37 +474,15 @@
             </div>
             <div class="row">
               <div class="col col-sm-12">
-                <div class="audit-table-container">
-                  <table
-                    class="round styled-table table-striped table-hover table-sm table-pointer">
-                    <thead>
-                    <tr>
-                      <th (click)="toggleAuditSort(MemberAuditSortColumn.UPDATE_TIME)" class="sortable">
-                        Update Time
-                        <fa-icon [icon]="auditSortIcon(MemberAuditSortColumn.UPDATE_TIME)" size="xs" class="ms-1"/>
-                      </th>
-                      <th (click)="toggleAuditSort(MemberAuditSortColumn.MEMBER_ACTION)" class="sortable">
-                        Member Action
-                        <fa-icon [icon]="auditSortIcon(MemberAuditSortColumn.MEMBER_ACTION)" size="xs" class="ms-1"/>
-                      </th>
-                      <th (click)="toggleAuditSort(MemberAuditSortColumn.AUDIT_MESSAGE)" class="sortable">
-                        Audit Message
-                        <fa-icon [icon]="auditSortIcon(MemberAuditSortColumn.AUDIT_MESSAGE)" size="xs" class="ms-1"/>
-                      </th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                      @for (memberUpdateAudit of sortedMemberUpdateAudits(); track memberUpdateAudit.id) {
-                        <tr>
-                          <td>{{ memberUpdateAudit.updateTime | displayDateAndTime }}</td>
-                          <td>{{ memberUpdateAudit.memberAction }}</td>
-                          <td>{{ memberUpdateAudit.auditMessage || NO_CHANGES_OR_DIFFERENCES }}
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
+                <app-sortable-table
+                  [columns]="memberUpdateAuditColumns"
+                  [rows]="memberUpdateAudits"
+                  [defaultSortKey]="'updateTime'"
+                  [defaultSortDirection]="DESCENDING"
+                  emptyMessage="No member audit entries">
+                  <ng-template appSortableTableCell="updateTime" let-row>{{ row.updateTime | displayDateAndTime }}</ng-template>
+                  <ng-template appSortableTableCell="auditMessage" let-row>{{ row.auditMessage || NO_CHANGES_OR_DIFFERENCES }}</ng-template>
+                </app-sortable-table>
               </div>
             </div>
           </div>

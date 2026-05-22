@@ -15,7 +15,8 @@ const MailchimpSubscription = {
 
 const MailSubscription = new mongoose.Schema({
   subscribed: {type: Boolean},
-  id: {type: Number}
+  id: {type: Number},
+  unsubscribedAt: {type: Number}
 }, {_id: false});
 
 const memberSchema = new mongoose.Schema({

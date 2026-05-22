@@ -10,7 +10,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MemberSelection, NotificationConfig } from "../../../models/mail.model";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
-import { PriorSendExclusion, RECIPIENT_PRE_FILTERS, RecipientFilterDecision, RecipientPreFilter } from "../../../models/email-composer.model";
+import { PriorSendExclusion, RECIPIENT_PRE_FILTERS, RecipientPreFilter } from "../../../models/email-composer.model";
 import { MemberEmailSendService } from "../../../services/member-email-send/member-email-send.service";
 
 @Component({
@@ -53,6 +53,7 @@ import { MemberEmailSendService } from "../../../services/member-email-send/memb
                    [groupValue]="groupValue"
                    [multiple]="true"
                    [closeOnSelect]="false"
+                   [clearSearchOnAdd]="true"
                    (change)="onChange()"
                    [(ngModel)]="selectedIds">
           <ng-template ng-optgroup-tmp let-item="item">
@@ -77,6 +78,8 @@ export class MemberMultiSelect implements OnChanges {
   @Input() notificationConfig: NotificationConfig | null = null;
   @Input() memberBulkLoadDateMap: MemberBulkLoadDateMap | null = null;
   @Input() requireConsent: boolean = false;
+  @Input() respectBlocks: boolean = false;
+  @Input() unsubscribedDates: Record<string, number> = {};
   @Input() autoFill: boolean = true;
   @Input() lockedSelection: boolean = false;
   @Input() includeAlreadySent: boolean = false;
@@ -85,7 +88,6 @@ export class MemberMultiSelect implements OnChanges {
   @Output() priorSendExclusionsChange = new EventEmitter<PriorSendExclusion[]>();
 
   protected selectableMembers: MemberFilterSelection[] = [];
-  protected filteredOutDecisions: RecipientFilterDecision[] = [];
   protected priorSendExclusions: PriorSendExclusion[] = [];
   protected activePreFilterKey: MemberSelection | null = null;
   protected manualMode: boolean = false;
@@ -95,7 +97,7 @@ export class MemberMultiSelect implements OnChanges {
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["members"] || changes["preFilterKey"] || changes["requireConsent"] || changes["notificationConfig"] || changes["memberBulkLoadDateMap"]) {
+    if (changes["members"] || changes["preFilterKey"] || changes["requireConsent"] || changes["respectBlocks"] || changes["unsubscribedDates"] || changes["notificationConfig"] || changes["memberBulkLoadDateMap"]) {
       this.activePreFilterKey = this.preFilterKey;
       this.manualMode = !this.autoFill;
       this.rebuildSelections();
@@ -142,8 +144,8 @@ export class MemberMultiSelect implements OnChanges {
 
   private dropSelectedIdsNotInSelectablePool(): void {
     if (!this.selectedIds || this.selectedIds.length === 0) return;
-    const selectableIdSet = new Set(this.selectableMembers.map(item => item.id));
-    const trimmed = this.selectedIds.filter(id => selectableIdSet.has(id));
+    const enabledIdSet = new Set(this.selectableMembers.filter(item => !item.disabled).map(item => item.id));
+    const trimmed = this.selectedIds.filter(id => enabledIdSet.has(id));
     if (trimmed.length !== this.selectedIds.length) {
       this.selectedIds = trimmed;
       this.selectedIdsChange.emit(this.selectedIds);
@@ -167,13 +169,16 @@ export class MemberMultiSelect implements OnChanges {
     this.rebuildSelections();
   }
 
+  private priorSendExclusionApplies(): boolean {
+    const configuredSelection = this.notificationConfig?.defaultMemberSelection;
+    return !!configuredSelection && this.preFilters.some(filter => filter.key === configuredSelection);
+  }
+
   private rebuildSelections(): void {
-    const decisions = this.members.map(member => this.evaluateMember(member));
-    this.filteredOutDecisions = decisions.filter(decision => decision.filteredOut);
-    const survivingMembers = decisions.filter(decision => !decision.filteredOut).map(decision => decision.member);
-    const newExclusions: PriorSendExclusion[] = this.manualMode
+    const newExclusions: PriorSendExclusion[] = (this.manualMode || !this.priorSendExclusionApplies())
       ? []
-      : survivingMembers
+      : this.members
+        .filter(member => !this.memberDisabled(member))
         .filter(member => this.wouldMatchByCriteria(member, this.activePreFilterKey))
         .map(member => ({ member, sentAt: this.priorSendDateFor(member) }))
         .filter((entry): entry is PriorSendExclusion => isNumber(entry.sentAt) && entry.sentAt > 0)
@@ -184,35 +189,53 @@ export class MemberMultiSelect implements OnChanges {
     if (exclusionsChanged) {
       this.priorSendExclusionsChange.emit(this.priorSendExclusions);
     }
-    this.selectableMembers = survivingMembers
+    this.selectableMembers = this.members
       .map(member => this.toFilterSelection(member, this.activePreFilterKey))
       .sort(SORT_BY_NAME);
   }
 
   private applyAutoSelection(): void {
     const selected = this.selectableMembers
+      .filter(item => !item.disabled)
       .filter(item => this.matchesPreFilter(item.member, this.activePreFilterKey))
       .map(item => item.id);
     this.selectedIds = selected;
     this.selectedIdsChange.emit(this.selectedIds);
   }
 
-  private evaluateMember(member: Member): RecipientFilterDecision {
-    if (!member.email) {
-      return { member, filteredOut: false };
+  private isBlocked(member: Member): boolean {
+    return !!member.emailBlock;
+  }
+
+  private isUnsubscribed(member: Member): boolean {
+    return !!member.id && isNumber(this.unsubscribedDates[member.id]);
+  }
+
+  private suppressionSuffix(member: Member): string | null {
+    const unsubscribedAt = member.id ? this.unsubscribedDates[member.id] : undefined;
+    if (isNumber(unsubscribedAt)) {
+      return ` (unsubscribed ${this.dateUtils.displayDate(unsubscribedAt)})`;
     }
-    if (member.emailBlock) {
-      return { member, filteredOut: true, reason: "blocked from email" };
+    if (member.emailBlock?.blockedAt) {
+      return ` (blocked ${this.dateUtils.displayDate(member.emailBlock.blockedAt)})`;
     }
-    if (this.requireConsent && member.emailMarketingConsent === false) {
-      return { member, filteredOut: true, reason: "marketing consent not given" };
-    }
-    return { member, filteredOut: false };
+    return null;
+  }
+
+  private consentMissing(member: Member): boolean {
+    return member.emailMarketingConsent === false;
+  }
+
+  private memberDisabled(member: Member): boolean {
+    if (!member.email) return true;
+    if ((this.isBlocked(member) || this.isUnsubscribed(member)) && this.respectBlocks) return true;
+    if (this.consentMissing(member) && this.requireConsent) return true;
+    return false;
   }
 
   private matchesPreFilter(member: Member, key: MemberSelection | null): boolean {
     if (!this.wouldMatchByCriteria(member, key)) return false;
-    if (this.includeAlreadySent) return true;
+    if (this.includeAlreadySent || !this.priorSendExclusionApplies()) return true;
     return !this.priorSendDateFor(member);
   }
 
@@ -281,22 +304,30 @@ export class MemberMultiSelect implements OnChanges {
   }
 
   private toFilterSelection(member: Member, preFilterKey: MemberSelection | null): MemberFilterSelection {
-    const disabled = !member.email;
+    const noEmail = !member.email;
+    const suppressed = !noEmail && (this.isBlocked(member) || this.isUnsubscribed(member));
+    const consentMissing = !noEmail && !suppressed && this.consentMissing(member);
+    const disabled = this.memberDisabled(member);
     const today = this.dateUtils.dateTimeNowNoTime().toMillis();
-    const expired = !disabled && !!member.membershipExpiryDate && member.membershipExpiryDate < today;
-    const memberGrouping = this.memberGroupingFor(member, disabled, expired);
+    const expired = !noEmail && !suppressed && !!member.membershipExpiryDate && member.membershipExpiryDate < today;
+    const memberGrouping = this.memberGroupingFor(noEmail, suppressed, consentMissing, expired);
     const memberInformation = `${this.fullNameWithAlias.transform(member)}${this.contextualSuffix(member, preFilterKey, memberGrouping)}`;
     return { id: member.id, member, memberInformation, memberGrouping, disabled };
   }
 
-  private memberGroupingFor(member: Member, disabled: boolean, expired: boolean): string {
-    if (disabled) return "no email address";
+  private memberGroupingFor(noEmail: boolean, suppressed: boolean, consentMissing: boolean, expired: boolean): string {
+    if (noEmail) return "no email address";
+    if (suppressed) return "unsubscribed or blocked from email";
+    if (consentMissing) return "members without Head Office consent";
     if (expired) return "expired members";
-    const consentLabel = member.emailMarketingConsent === false ? "no consent" : "consent given";
-    return `active members, ${consentLabel}`;
+    return "active members with consent given";
   }
 
   private contextualSuffix(member: Member, preFilterKey: MemberSelection | null, memberGrouping: string): string {
+    const suppressionSuffix = this.suppressionSuffix(member);
+    if (suppressionSuffix) {
+      return suppressionSuffix;
+    }
     const priorSendDate = this.priorSendDateFor(member);
     if (priorSendDate) {
       return ` (already sent ${this.dateUtils.displayDate(priorSendDate)})`;

@@ -32,7 +32,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
-import { ListInfo, MailMessagingConfig, UnsubscribeHistoryEntry } from "../../../models/mail.model";
+import { ListInfo, MailMessagingConfig, MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM, MemberAdminModalTab, UnsubscribeHistoryEntry } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { MailService } from "../../../services/mail/mail.service";
 import { uniq } from "es-toolkit/compat";
@@ -49,7 +49,6 @@ import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { NgClass, TitleCasePipe } from "@angular/common";
-import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { SwitchIconComponent } from "../system-settings/committee/switch-icon";
 import { DisplayDateNoDayPipe } from "../../../pipes/display-date-no-day.pipe";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
@@ -65,7 +64,7 @@ import { MemberTerm } from "../../../models/member.model";
     selector: "app-member-admin",
     templateUrl: "./member-admin.component.html",
     styleUrls: ["./member-admin.component.sass"],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, TooltipDirective, SwitchIconComponent, TitleCasePipe, DisplayDateNoDayPipe, FullNameWithAliasPipe, ContactActionDropdownComponent]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, SwitchIconComponent, TitleCasePipe, DisplayDateNoDayPipe, FullNameWithAliasPipe, ContactActionDropdownComponent]
 })
 export class MemberAdminComponent implements OnInit, OnDestroy {
 
@@ -363,7 +362,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     if (!this.pendingMembershipNumberToOpen || this.members.length === 0) return;
     const pendingMembershipNumber = this.pendingMembershipNumberToOpen;
     this.pendingMembershipNumberToOpen = null;
-    const target = this.members.find(candidate => candidate.membershipNumber === pendingMembershipNumber);
+    const target = this.members.find(candidate => candidate.membershipNumber === pendingMembershipNumber || candidate.id === pendingMembershipNumber);
     if (!target) {
       this.logger.warn("openPendingMemberIfReady: no member with membershipNumber", pendingMembershipNumber);
       this.router.navigate([], {
@@ -374,16 +373,25 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       });
       return;
     }
-    this.showMemberDialog(target, EditMode.EDIT);
+    void this.showMemberDialog(target, EditMode.EDIT);
   }
 
-  showMemberDialog(member: Member, editMode: EditMode) {
+  async showMemberDialog(member: Member, editMode: EditMode) {
     this.notify.hide();
-    this.lastOpenedMembershipNumber = member.membershipNumber || null;
-    if (member.membershipNumber) {
-      this.router.navigate([], {
+    const memberIdentifier = member.membershipNumber || member.id;
+    this.lastOpenedMembershipNumber = memberIdentifier || null;
+    const needsModalTab = !this.route.snapshot.queryParamMap.get(MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM);
+    if (memberIdentifier || needsModalTab) {
+      const queryParams: Record<string, string> = {};
+      if (memberIdentifier) {
+        queryParams[this.stringUtilsService.kebabCase(StoredValue.MEMBER_ID)] = memberIdentifier;
+      }
+      if (needsModalTab) {
+        queryParams[MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM] = MemberAdminModalTab.CONTACT;
+      }
+      await this.router.navigate([], {
         relativeTo: this.route,
-        queryParams: { [this.stringUtilsService.kebabCase(StoredValue.MEMBER_ID)]: member.membershipNumber },
+        queryParams,
         queryParamsHandling: "merge"
       });
     }
@@ -448,11 +456,11 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
     this.memberDefaultsService.applyDefaultMailSettingsToMember(member, this.systemConfig, this.mailMessagingConfig);
     member.groupMember = true;
     member.socialMember = true;
-    this.showMemberDialog(member, EditMode.ADD_NEW);
+    void this.showMemberDialog(member, EditMode.ADD_NEW);
   }
 
   editMember(member: Member) {
-    this.showMemberDialog(member, EditMode.EDIT);
+    void this.showMemberDialog(member, EditMode.EDIT);
   }
 
   refreshMembers(memberFilter?: any) {
