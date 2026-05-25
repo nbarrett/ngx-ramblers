@@ -803,6 +803,32 @@ export interface BrevoEmailEvent {
   link?: string;
   from?: string;
   templateId?: number;
+  campaignId?: number;
+  source?: BrevoEventSource;
+}
+
+export enum BrevoEventSource {
+  TRANSACTIONAL = "transactional",
+  CAMPAIGN = "campaign"
+}
+
+export interface BrevoCampaignSummary {
+  id: number;
+  name?: string;
+  subject?: string;
+  sender?: { name?: string; email?: string };
+}
+
+export interface BrevoCampaignListResponse {
+  campaigns: BrevoCampaignSummary[];
+}
+
+export interface BrevoCampaignContent {
+  id: number;
+  subject?: string;
+  htmlContent: string;
+  sender?: { name?: string; email?: string };
+  sentDate?: string;
 }
 
 export interface BrevoEmailEventReport {
@@ -855,6 +881,12 @@ export interface BrevoTransactionalEmailContent {
   events: BrevoTransactionalEmailContentEvent[];
   body: string;
   attachmentCount: number;
+}
+
+export interface BrevoEmailPreviewContent {
+  subject: string;
+  date: string;
+  body: string;
 }
 
 export const MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM = "modal-tab";

@@ -9,11 +9,12 @@ import { BrevoContactService } from "../../../services/mail/brevo-contact.servic
 import { MailLinkService } from "../../../services/mail/mail-link.service";
 import {
   BREVO_EVENT_LABELS,
+  BrevoCampaignSummary,
   BrevoContactCampaignStats,
   BrevoEmailEvent,
+  BrevoEmailPreviewContent,
+  BrevoEventSource,
   BrevoEventType,
-  BrevoTransactionalEmailContent,
-  ListInfo,
   MailMessagingConfig
 } from "../../../models/mail.model";
 import { BrevoContactViewState, BrevoEventGroup, BrevoStatTile } from "./brevo-contact-view.model";
@@ -25,7 +26,7 @@ import { BrevoContactViewState, BrevoEventGroup, BrevoStatTile } from "./brevo-c
     <div>
       <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
         @if (contactEmail) {
-          <button type="button" class="btn btn-sm btn-outline-secondary"
+          <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center"
                   [disabled]="state.loading"
                   (click)="refresh()">
             <fa-icon [icon]="faArrowsRotate" class="me-1"></fa-icon>
@@ -33,7 +34,7 @@ import { BrevoContactViewState, BrevoEventGroup, BrevoStatTile } from "./brevo-c
           </button>
         }
         @if (contactId) {
-          <a class="btn btn-sm btn-outline-secondary"
+          <a class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center"
              target="_blank"
              rel="noopener"
              [href]="brevoLink()">
@@ -68,8 +69,6 @@ import { BrevoContactViewState, BrevoEventGroup, BrevoStatTile } from "./brevo-c
                   }
                 </div>
                 <dl class="row small mb-0">
-                  <dt class="col-sm-4">Lists</dt>
-                  <dd class="col-sm-8">{{ listSummary() }}</dd>
                   <dt class="col-sm-4">Brevo ID</dt>
                   <dd class="col-sm-8">{{ state.contactDetails.id }}</dd>
                   <dt class="col-sm-4">Created</dt>
@@ -102,16 +101,16 @@ import { BrevoContactViewState, BrevoEventGroup, BrevoStatTile } from "./brevo-c
 
       @if (contactEmail) {
         <div class="row thumbnail-heading-frame">
-          <div class="thumbnail-heading">Recent history ({{ state.events.length }} event{{ state.events.length === 1 ? "" : "s" }})</div>
+          <div class="thumbnail-heading">Recent history ({{ mergedEventCount() }} event{{ mergedEventCount() === 1 ? "" : "s" }})</div>
           <div class="col-sm-12">
           @if (archivedSnapshotAt) {
             <div class="text-muted small fst-italic mb-2">Archived snapshot - contact has been deleted from Brevo. Captured {{ archivedDateTime() }}.</div>
           }
           <div>
-          @if (state.loading && state.events.length === 0) {
+          @if (state.loading && mergedEventCount() === 0) {
             <div class="text-muted small">Loading...</div>
-          } @else if (state.events.length === 0) {
-            <div class="text-muted small">No transactional events in the last {{ state.eventsDays }} days.</div>
+          } @else if (mergedEventCount() === 0) {
+            <div class="text-muted small">No transactional or campaign events in the last {{ state.eventsDays }} days.</div>
           } @else {
             @for (group of eventGroups(); track group.label) {
               <div class="mb-2">
@@ -211,9 +210,11 @@ export class BrevoContactViewComponent implements OnChanges {
   };
   protected archivedSnapshotAt: number | null = null;
   protected previewedEventKey: string | null = null;
-  protected previewState: { loading: boolean; error: string | null; content: BrevoTransactionalEmailContent | null } = { loading: false, error: null, content: null };
+  protected previewState: { loading: boolean; error: string | null; content: BrevoEmailPreviewContent | null } = { loading: false, error: null, content: null };
   protected safePreviewBody: SafeHtml | null = null;
-  private previewKeyCache: { events: BrevoEmailEvent[]; keys: Set<string> } | null = null;
+  private previewKeyCache: { events: BrevoEmailEvent[]; campaignEvents: BrevoEmailEvent[]; keys: Set<string> } | null = null;
+  private campaignsById = new Map<number, BrevoCampaignSummary>();
+  protected campaignDerivedEvents: BrevoEmailEvent[] = [];
 
   protected readonly faArrowsRotate = faArrowsRotate;
   protected readonly faChevronDown = faChevronDown;
@@ -264,14 +265,6 @@ export class BrevoContactViewComponent implements OnChanges {
     this.refreshed.emit();
   }
 
-  protected listSummary(): string {
-    const ids = this.state.contactDetails?.listIds || [];
-    if (ids.length === 0) return "None";
-    const lists: ListInfo[] = this.mailMessagingConfig?.brevo?.lists?.lists || [];
-    const named = ids.map((id: number) => lists.find(list => list.id === id)?.name || `#${id}`);
-    return named.join(", ");
-  }
-
   protected statTiles(): BrevoStatTile[] {
     const stats: BrevoContactCampaignStats | null = this.state.campaignStats;
     if (!stats) return [];
@@ -291,10 +284,16 @@ export class BrevoContactViewComponent implements OnChanges {
     ];
   }
 
+  private mergedEvents(): BrevoEmailEvent[] {
+    return [...this.state.events, ...this.campaignDerivedEvents]
+      .sort((left, right) => (Date.parse(right.date) || 0) - (Date.parse(left.date) || 0));
+  }
+
   protected eventGroups(): BrevoEventGroup[] {
+    const merged = this.mergedEvents();
     const groups = new Map<string, BrevoEmailEvent[]>();
     const labelByKey = new Map<string, string>();
-    for (const event of this.state.events) {
+    for (const event of merged) {
       const key = this.dayKey(event.date);
       const existing = groups.get(key);
       if (existing) {
@@ -305,6 +304,46 @@ export class BrevoContactViewComponent implements OnChanges {
       }
     }
     return Array.from(groups.entries()).map(([key, events]) => ({ label: labelByKey.get(key) || key, events }));
+  }
+
+  protected mergedEventCount(): number {
+    return this.state.events.length + this.campaignDerivedEvents.length;
+  }
+
+  private campaignTitle(campaignId?: number): string {
+    if (!campaignId) {
+      return "";
+    }
+    const campaign = this.campaignsById.get(campaignId);
+    return campaign?.subject || campaign?.name || `Campaign #${campaignId}`;
+  }
+
+  private campaignSenderEmail(campaignId?: number): string | undefined {
+    return campaignId ? this.campaignsById.get(campaignId)?.sender?.email : undefined;
+  }
+
+  private buildCampaignEvents(stats: BrevoContactCampaignStats | null): BrevoEmailEvent[] {
+    if (!stats) {
+      return [];
+    }
+    const email = this.contactEmail || "";
+    const events: BrevoEmailEvent[] = [];
+    const add = (event: BrevoEventType, eventTime: string | undefined, campaignId?: number, link?: string) => {
+      if (!eventTime) {
+        return;
+      }
+      events.push({ email, date: eventTime, subject: this.campaignTitle(campaignId), messageId: "", event, campaignId, link, from: this.campaignSenderEmail(campaignId), source: BrevoEventSource.CAMPAIGN });
+    };
+    (stats.messagesSent || []).forEach(item => add(BrevoEventType.REQUESTS, item.eventTime, item.campaignId));
+    (stats.delivered || []).forEach(item => add(BrevoEventType.DELIVERED, item.eventTime, item.campaignId));
+    (stats.opened || []).forEach(item => add(BrevoEventType.OPENED, item.eventTime, item.campaignId));
+    (stats.clicked || []).forEach(item => (item.links || []).forEach(link => add(BrevoEventType.CLICKS, link.eventTime, item.campaignId, link.url)));
+    (stats.hardBounces || []).forEach(item => add(BrevoEventType.HARD_BOUNCES, item.eventTime, item.campaignId));
+    (stats.softBounces || []).forEach(item => add(BrevoEventType.SOFT_BOUNCES, item.eventTime, item.campaignId));
+    (stats.complaints || []).forEach(item => add(BrevoEventType.SPAM, item.eventTime, item.campaignId));
+    (stats.unsubscriptions?.userUnsubscription || []).forEach(item => add(BrevoEventType.UNSUBSCRIBED, item.eventTime));
+    (stats.unsubscriptions?.adminUnsubscription || []).forEach(item => add(BrevoEventType.UNSUBSCRIBED, item.eventTime));
+    return events;
   }
 
   protected labelFor(eventType: string): string {
@@ -344,25 +383,33 @@ export class BrevoContactViewComponent implements OnChanges {
   }
 
   protected eventKey(event: BrevoEmailEvent): string {
-    return `${event.messageId}|${event.event}|${event.date}`;
+    return `${event.messageId}|${event.campaignId ?? ""}|${event.event}|${event.date}`;
+  }
+
+  private isCampaignEvent(event: BrevoEmailEvent): boolean {
+    return event.source === BrevoEventSource.CAMPAIGN || (!event.messageId && !!event.campaignId);
   }
 
   protected canPreview(event: BrevoEmailEvent): boolean {
-    if (!event.messageId) {
+    if (!event.messageId && !event.campaignId) {
       return false;
     }
-    if (this.previewKeyCache?.events !== this.state.events) {
-      this.previewKeyCache = { events: this.state.events, keys: this.firstEventKeyPerMessage() };
+    if (this.previewKeyCache?.events !== this.state.events || this.previewKeyCache?.campaignEvents !== this.campaignDerivedEvents) {
+      this.previewKeyCache = { events: this.state.events, campaignEvents: this.campaignDerivedEvents, keys: this.previewableKeys() };
     }
     return this.previewKeyCache.keys.has(this.eventKey(event));
   }
 
-  private firstEventKeyPerMessage(): Set<string> {
+  private previewableKeys(): Set<string> {
     const seenMessages = new Set<string>();
+    const seenCampaigns = new Set<number>();
     const keys = new Set<string>();
-    this.state.events.forEach(event => {
+    this.mergedEvents().forEach(event => {
       if (event.messageId && !seenMessages.has(event.messageId)) {
         seenMessages.add(event.messageId);
+        keys.add(this.eventKey(event));
+      } else if (!event.messageId && event.campaignId && !seenCampaigns.has(event.campaignId)) {
+        seenCampaigns.add(event.campaignId);
         keys.add(this.eventKey(event));
       }
     });
@@ -372,32 +419,65 @@ export class BrevoContactViewComponent implements OnChanges {
   protected async togglePreview(event: BrevoEmailEvent): Promise<void> {
     const key = this.eventKey(event);
     if (this.previewedEventKey === key) {
-      this.previewedEventKey = null;
-      this.previewState = { loading: false, error: null, content: null };
-      this.safePreviewBody = null;
+      this.clearPreview();
       return;
     }
     this.previewedEventKey = key;
     this.previewState = { loading: true, error: null, content: null };
     this.safePreviewBody = null;
+    const content = this.isCampaignEvent(event)
+      ? await this.fetchCampaignPreview(event)
+      : await this.fetchTransactionalPreview(event);
+    if (content) {
+      this.previewState = { loading: false, error: null, content };
+      this.safePreviewBody = content.body ? this.sanitizer.bypassSecurityTrustHtml(content.body) : null;
+    }
+  }
+
+  private async fetchTransactionalPreview(event: BrevoEmailEvent): Promise<BrevoEmailPreviewContent | null> {
     if (!this.contactEmail) {
       this.previewState = { loading: false, error: "No email address on member - cannot fetch preview", content: null };
-      return;
+      return null;
     }
     try {
       const list = await this.brevoContactService.getTransactionalEmails(this.contactEmail, { messageId: event.messageId, limit: 1 });
       const summary = list?.transactionalEmails?.[0];
       if (!summary?.uuid) {
         this.previewState = { loading: false, error: "No stored preview available for this message", content: null };
-        return;
+        return null;
       }
       const content = await this.brevoContactService.getTransactionalEmailContent(summary.uuid);
-      this.previewState = { loading: false, error: null, content };
-      this.safePreviewBody = content?.body ? this.sanitizer.bypassSecurityTrustHtml(content.body) : null;
+      return { subject: content?.subject || event.subject || "", date: content?.date || event.date, body: content?.body || "" };
     } catch (error: any) {
-      this.logger.warn("preview fetch failed", error);
+      this.logger.warn("transactional preview fetch failed", error);
       this.previewState = { loading: false, error: this.errorMessage(error), content: null };
+      return null;
     }
+  }
+
+  private async fetchCampaignPreview(event: BrevoEmailEvent): Promise<BrevoEmailPreviewContent | null> {
+    if (!event.campaignId) {
+      this.previewState = { loading: false, error: "No campaign reference for this event", content: null };
+      return null;
+    }
+    try {
+      const content = await this.brevoContactService.getCampaignContent(event.campaignId);
+      if (!content?.htmlContent) {
+        this.previewState = { loading: false, error: "No stored content available for this campaign", content: null };
+        return null;
+      }
+      return { subject: content.subject || event.subject || "", date: content.sentDate || event.date, body: content.htmlContent };
+    } catch (error: any) {
+      this.logger.warn("campaign preview fetch failed", error);
+      this.previewState = { loading: false, error: this.errorMessage(error), content: null };
+      return null;
+    }
+  }
+
+  private clearPreview(): void {
+    this.previewedEventKey = null;
+    this.previewState = { loading: false, error: null, content: null };
+    this.safePreviewBody = null;
   }
 
   protected async loadMore(): Promise<void> {
@@ -427,11 +507,13 @@ export class BrevoContactViewComponent implements OnChanges {
     this.state = { ...this.state, loading: true, error: null };
     this.archivedSnapshotAt = null;
     try {
-      const [details, stats, report] = await Promise.all([
+      const [details, stats, report, campaigns] = await Promise.all([
         this.brevoContactService.getContactInfo(this.contactEmail).catch(error => this.swallowError("contact info", error)),
         this.brevoContactService.getContactCampaignStats(this.contactEmail).catch(error => this.swallowError("campaign stats", error)),
-        this.brevoContactService.getEmailEventReport(this.contactEmail, { days: this.state.eventsDays, limit: this.state.eventsLimit, offset: 0 }).catch(error => this.captureError("event report", error))
+        this.brevoContactService.getEmailEventReport(this.contactEmail, { days: this.state.eventsDays, limit: this.state.eventsLimit, offset: 0 }).catch(error => this.captureError("event report", error)),
+        this.brevoContactService.getCampaigns().catch(error => { this.swallowError("campaigns", error); return [] as BrevoCampaignSummary[]; })
       ]);
+      this.campaignsById = new Map((campaigns || []).map(campaign => [campaign.id, campaign] as [number, BrevoCampaignSummary]));
       const liveEvents = report?.events || [];
       const liveDetails = details || null;
       const liveStats = stats || null;
@@ -449,6 +531,7 @@ export class BrevoContactViewComponent implements OnChanges {
         events,
         canLoadMore: !snapshot && events.length === this.state.eventsLimit
       };
+      this.campaignDerivedEvents = this.buildCampaignEvents(this.state.campaignStats);
     } catch (error: any) {
       this.logger.warn("loadAll failed", error);
       this.state = { ...this.state, loading: false, error: this.errorMessage(error) };
@@ -502,9 +585,8 @@ export class BrevoContactViewComponent implements OnChanges {
       error: null,
       ...overrides
     };
-    this.previewedEventKey = null;
-    this.previewState = { loading: false, error: null, content: null };
-    this.safePreviewBody = null;
+    this.clearPreview();
+    this.campaignDerivedEvents = [];
   }
 }
 

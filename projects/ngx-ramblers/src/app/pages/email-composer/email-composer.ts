@@ -97,6 +97,7 @@ import {
   TemplateRenderRequest,
   WorkflowAction
 } from "../../models/mail.model";
+import { toCampaignContactTokens } from "../../common/campaign-contact-tokens";
 import { MailMessagingService } from "../../services/mail/mail-messaging.service";
 import { MailService } from "../../services/mail/mail.service";
 import { MailListUpdaterService } from "../../services/mail/mail-list-updater.service";
@@ -1556,7 +1557,7 @@ import { DateTime } from "luxon";
           </div>
         }
         @let trackingUrls = recycledTrackingUrlsInState();
-        @if (unbrandedListSendBlocked() || showUnbrandedListSendWarning() || subjectStartsWithCopyOf() || trackingUrls.length > 0) {
+        @if (unbrandedListSendBlocked() || showUnbrandedListSendWarning() || subjectStartsWithCopyOf() || subjectUnchangedFromDefault() || trackingUrls.length > 0) {
           <div class="email-composer-validation-summary">
             @if (unbrandedListSendBlocked()) {
               <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked:</h5>
@@ -1591,6 +1592,15 @@ import { DateTime } from "luxon";
               </ul>
               <button type="button" class="btn btn-primary btn-sm mt-2" (click)="goToCompose()">
                 <fa-icon [icon]="faArrowLeft"/> Go and fix
+              </button>
+            }
+            @if (subjectUnchangedFromDefault()) {
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Subject still has the default title:</h5>
+              <ul class="list-arrow">
+                <li>The subject is still "{{ state.subject }}", the default for this email type, and hasn't been personalised. Edit it on the <a href="javascript:void(0)" (click)="goToCompose()">Compose step</a> if you meant to change it - you can still send as-is.</li>
+              </ul>
+              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="goToCompose()">
+                <fa-icon [icon]="faArrowLeft"/> Go and edit
               </button>
             }
             @if (trackingUrls.length > 0) {
@@ -2129,8 +2139,8 @@ export class EmailComposer implements OnInit, OnDestroy {
     }
     try {
       const events = await this.committeeQueryService.groupEvents(this.state.groupEventsFilter!);
-      const previouslySelected = new Map(this.state.groupEvents.map(item => [item.id, item.selected]));
-      this.state.groupEvents = events.map(event => ({ ...event, selected: previouslySelected.get(event.id) ?? this.state.groupEventsFilter!.selectAll }));
+      const priorById = new Map(this.state.groupEvents.map(item => [item.id, item]));
+      this.state.groupEvents = events.map(event => this.mergePriorSelection(event, priorById.get(event.id)));
     } catch (error) {
       this.logger.error("populateGroupEvents failed", error);
     }
@@ -2310,12 +2320,32 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (media.length === 0) return;
     const currentIndex = event.selectedMediaIndex ?? 0;
     const nextIndex = (currentIndex + direction + media.length) % media.length;
-    event.selectedMediaIndex = nextIndex;
-    const next = media[nextIndex];
-    const mediumStyle = next?.styles?.find(style => style.style === "medium") ?? next?.styles?.[0];
-    if (mediumStyle?.url) {
-      event.image = mediumStyle.url;
+    this.applyMediaSelection(event, nextIndex);
+  }
+
+  private mediaUrlAtIndex(event: GroupEventSummary, index: number): string | undefined {
+    const item = event.media?.[index];
+    return item?.styles?.find(style => style.style === "medium")?.url ?? item?.styles?.[0]?.url;
+  }
+
+  private clampMediaIndex(event: GroupEventSummary, index: number | undefined): number {
+    const count = event.media?.length ?? 0;
+    if (count === 0 || !isNumber(index)) return 0;
+    return Math.min(Math.max(index, 0), count - 1);
+  }
+
+  private applyMediaSelection(event: GroupEventSummary, index: number): void {
+    event.selectedMediaIndex = index;
+    const url = this.mediaUrlAtIndex(event, index);
+    if (url) {
+      event.image = url;
     }
+  }
+
+  private mergePriorSelection(event: GroupEventSummary, prior?: GroupEventSummary): GroupEventSummary {
+    const merged: GroupEventSummary = { ...event, selected: prior?.selected ?? this.state.groupEventsFilter!.selectAll };
+    this.applyMediaSelection(merged, this.clampMediaIndex(merged, prior?.selectedMediaIndex));
+    return merged;
   }
 
   synthesisedNotificationForCommittee(): Notification | null {
@@ -2429,8 +2459,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.cachedCandidateMembers = this.members;
     } else {
       this.cachedCandidateMembers = this.members.filter(member =>
-        this.mailListUpdaterService.memberSubscribed(member, narrowListId)
-        || isNumber(this.mailListUpdaterService.listUnsubscribedAt(member, narrowListId)));
+        this.mailListUpdaterService.memberSubscribed(member, narrowListId));
     }
     this.cachedUnsubscribedDates = this.cachedCandidateMembers.reduce((dates, member) => {
       const unsubscribedAt = isNumber(referenceListId)
@@ -4005,9 +4034,17 @@ export class EmailComposer implements OnInit, OnDestroy {
     }
   }
 
+  private restoredMediaIndexById: Record<string, number> = {};
+
+  private restoredDateValue(stored: { value?: number } | null | undefined): DateValue | null {
+    return isNumber(stored?.value) ? this.dateUtils.asDateValue(stored!.value) : null;
+  }
+
   private applyRestoredStateDefaults(restored: any): string[] {
     const selectedGroupEventIds: string[] = restored.selectedGroupEventIds ?? [];
+    this.restoredMediaIndexById = restored.groupEventMediaIndexById ?? {};
     delete restored.selectedGroupEventIds;
+    delete restored.groupEventMediaIndexById;
     restored.groupEvents = [];
     restored.notificationConfigListing = this.state.notificationConfigListing;
     restored.brandingMode = restored.brandingMode ?? BrandingMode.BRANDED;
@@ -4017,6 +4054,10 @@ export class EmailComposer implements OnInit, OnDestroy {
     restored.signoffRoles = restored.signoffRoles ?? [];
     restored.fragmentOrder = restored.fragmentOrder ?? [];
     restored.articleBlocks = restored.articleBlocks ?? [];
+    if (restored.groupEventsFilter) {
+      restored.groupEventsFilter.fromDate = this.restoredDateValue(restored.groupEventsFilter.fromDate);
+      restored.groupEventsFilter.toDate = this.restoredDateValue(restored.groupEventsFilter.toDate);
+    }
     if (restored.brandingMode === BrandingMode.UNBRANDED && restored.recipientMode === RecipientMode.ENTIRE_LIST) {
       restored.recipientMode = RecipientMode.SELECTED_MEMBERS;
       restored.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
@@ -4044,10 +4085,14 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (this.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.state.groupEventsFilter) {
       await this.populateGroupEvents();
       const selectedSet = new Set(selectedGroupEventIds);
-      this.state.groupEvents = this.state.groupEvents.map(event => ({
-        ...event,
-        selected: event.id ? selectedSet.has(event.id) : false
-      } as any));
+      this.state.groupEvents = this.state.groupEvents.map(event => {
+        const restored = { ...event, selected: event.id ? selectedSet.has(event.id) : false } as GroupEventSummary;
+        const savedIndex = event.id ? this.restoredMediaIndexById[event.id] : undefined;
+        if (isNumber(savedIndex)) {
+          this.applyMediaSelection(restored, this.clampMediaIndex(restored, savedIndex));
+        }
+        return restored;
+      });
     }
     if (this.state.eventInclusion === EventInclusionMode.SINGLE_EVENT) {
       const storedSingleId = (this.state.singleEvent as any)?.id;
@@ -4382,6 +4427,19 @@ export class EmailComposer implements OnInit, OnDestroy {
     return !!this.state.subject?.trim().toLowerCase().startsWith("copy of ");
   }
 
+  protected subjectUnchangedFromDefault(): boolean {
+    const subjectConfig = this.state.notificationConfig?.subject;
+    if (!subjectConfig) {
+      return false;
+    }
+    if (subjectConfig.prefixParameter || subjectConfig.suffixParameter) {
+      return false;
+    }
+    const defaultText = (subjectConfig.text ?? "").trim();
+    const current = (this.state.subject ?? "").trim();
+    return !!defaultText && current === defaultText;
+  }
+
   protected hasSendBlockers(): boolean {
     return this.subjectStartsWithCopyOf() || this.recycledTrackingUrlsInState().length > 0 || this.unbrandedListSendBlocked();
   }
@@ -4493,19 +4551,22 @@ export class EmailComposer implements OnInit, OnDestroy {
   private async sendCampaign(): Promise<void> {
     const member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
     const { top, bottom, combined } = this.composedBodyParts();
+    const campaignTop = toCampaignContactTokens(top);
+    const campaignBottom = toCampaignContactTokens(bottom);
+    const campaignCombined = toCampaignContactTokens(combined);
     const params = this.mailMessagingService.createSendSmtpEmailParams(
       member,
       this.state.notificationConfig!,
-      combined,
+      campaignCombined,
       this.state.subject,
       "",
-      top,
-      bottom
+      campaignTop,
+      campaignBottom
     );
     const request: CreateCampaignRequest = {
       createAsDraft: false,
       templateId: this.state.notificationConfig!.templateId,
-      htmlContent: combined,
+      htmlContent: campaignCombined,
       inlineImageActivation: false,
       mirrorActive: false,
       name: this.state.subject,

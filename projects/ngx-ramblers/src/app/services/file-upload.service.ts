@@ -112,10 +112,9 @@ export class FileUploadService {
   }
 
   async remoteUrlToBlob(url: string): Promise<Blob> {
-    const relativeUrl = this.urlService.removeS3PrefixFrom(url);
-    const params = this.commonDataService.toHttpParams({url: relativeUrl});
+    const params = this.commonDataService.toHttpParams({url});
     const apiResponse = await this.http.get(this.URL_TO_FILE_URL, {params, responseType: "blob"}).toPromise();
-    this.logger.debug("relativeUrl", relativeUrl, "- received", apiResponse);
+    this.logger.debug("url", url, "- received", apiResponse);
     return apiResponse;
   }
 

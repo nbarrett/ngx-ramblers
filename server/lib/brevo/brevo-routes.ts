@@ -29,6 +29,8 @@ import { confirmUnsubscribe, decodeUnsubscribeRequest, redirectFromList, submitU
 import { brevoEventsWebhook, brevoEventsWebhookConfig } from "./brevo-events-webhook";
 import { sendCampaign } from "./campaigns/send-campaign";
 import { createCampaign } from "./campaigns/create-campaign";
+import { queryCampaigns } from "./campaigns/query-campaigns";
+import { campaignContent } from "./campaigns/campaign-content";
 import { querySegments } from "./segments/query-segements";
 import { senders } from "./senders/senders";
 import { createSender } from "./senders/create-sender";
@@ -89,6 +91,8 @@ router.post("/transactional/forgot-password", sendForgotPasswordEmail);
 router.post("/transactional/resolve-tracking-url", authConfig.authenticate(), resolveTrackingUrl);
 router.post("/campaign/create", authConfig.authenticate(), createCampaign);
 router.post("/campaign/send", authConfig.authenticate(), sendCampaign);
+router.get("/campaigns", authConfig.authenticate(), queryCampaigns);
+router.get("/campaigns/:campaignId/content", authConfig.authenticate(), campaignContent);
 router.get("/segments", authConfig.authenticate(), querySegments);
 router.post("/templates", queryTemplates);
 router.post("/templates/push-default", authConfig.authenticate(), pushDefaultTemplate);
