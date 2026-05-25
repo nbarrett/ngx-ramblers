@@ -59,3 +59,4 @@ Thumbs.db
 .eslint-config/
 /cli-output
 /.claude/
+/.agents/
