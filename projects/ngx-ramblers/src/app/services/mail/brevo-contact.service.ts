@@ -3,6 +3,9 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ApiResponse } from "../../models/api-response.model";
 import {
+  BrevoCampaignContent,
+  BrevoCampaignListResponse,
+  BrevoCampaignSummary,
   BrevoContactCampaignStats,
   BrevoContactDetails,
   BrevoContactSnapshot,
@@ -50,6 +53,16 @@ export class BrevoContactService {
   async getContactSnapshot(email: string): Promise<BrevoContactSnapshot | null> {
     const encoded = encodeURIComponent(email);
     return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/contacts/${encoded}/snapshot`))).response;
+  }
+
+  async getCampaigns(limit = 100): Promise<BrevoCampaignSummary[]> {
+    const params = new HttpParams().set("limit", String(limit));
+    const response = (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/campaigns`, { params }))).response as BrevoCampaignListResponse;
+    return response?.campaigns || [];
+  }
+
+  async getCampaignContent(campaignId: number): Promise<BrevoCampaignContent> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/campaigns/${campaignId}/content`))).response;
   }
 
   async getContactCampaignStats(identifier: number | string, startDate?: string, endDate?: string): Promise<BrevoContactCampaignStats> {

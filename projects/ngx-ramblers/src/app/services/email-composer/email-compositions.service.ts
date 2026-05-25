@@ -132,7 +132,10 @@ export class EmailCompositionsService {
       selectedGroupEventIds: (state.groupEvents ?? [])
         .filter(event => (event as any).selected)
         .map(event => event.id)
-        .filter((id): id is string => !!id)
+        .filter((id): id is string => !!id),
+      groupEventMediaIndexById: (state.groupEvents ?? [])
+        .filter(event => (event as any).selected && !!event.id && ((event as any).selectedMediaIndex ?? 0) > 0)
+        .reduce((indexById, event) => ({ ...indexById, [event.id!]: (event as any).selectedMediaIndex }), {} as Record<string, number>)
     };
   }
 

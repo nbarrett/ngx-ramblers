@@ -67,7 +67,7 @@ export async function createCampaign(req: Request, res: Response, next: NextFunc
     createEmailCampaign.subject = createCampaignRequest.subject;
     createEmailCampaign.tag = createCampaignRequest.tag;
     createEmailCampaign.toField = "{{contact.FIRSTNAME}} {{contact.LASTNAME}}";
-    await performTemplateSubstitution(createCampaignRequest, createEmailCampaign, debugLog);
+    await performTemplateSubstitution(createCampaignRequest, createEmailCampaign, debugLog, true);
     debugLog("Email campaign preparation 2/2 createEmailCampaign:", JSON.stringify(omit(createEmailCampaign, "htmlContent")));
     apiInstance.createEmailCampaign(createEmailCampaign)
       .then(response => {

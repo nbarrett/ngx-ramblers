@@ -327,8 +327,9 @@ export class UrlService {
 
   imageSource(url: string, absolute?: boolean, cacheBuster?: boolean): string {
     if (this.isRemoteUrl(url)) {
-      this.logger.debug("imageSourceUrl:isRemoteUrl:returning", url);
-      return url;
+      const encoded = url.replace(/ /g, "%20");
+      this.logger.debug("imageSourceUrl:isRemoteUrl:returning", encoded);
+      return encoded;
     } else if (FALLBACK_MEDIA.url === url) {
       this.logger.debug("imageSourceUrl:FALLBACK_MEDIA:returning", url);
       return url;
@@ -356,10 +357,6 @@ export class UrlService {
     const base = this.baseUrl().replace(/\/$/, "");
     const path = url.replace(/^\/+/, "");
     return `${base}/${path}`;
-  }
-
-  removeS3PrefixFrom(fileName: string): string {
-    return fileName?.includes(S3_BASE_URL) ? fileName.replace(S3_BASE_URL, "") : fileName;
   }
 
   resourceRelativePathForAWSFileName(fileName: string): string {

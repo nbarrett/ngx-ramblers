@@ -16,6 +16,7 @@ import {
 import { queryTemplateContent } from "../transactional-mail/query-template-content";
 import { KeyValue } from "../../../../projects/ngx-ramblers/src/app/functions/enums";
 import { extractParametersFrom } from "../../../../projects/ngx-ramblers/src/app/common/mail-parameters";
+import { toCampaignContactTokens } from "../../../../projects/ngx-ramblers/src/app/common/campaign-contact-tokens";
 import { replaceAll } from "../../shared/string-utils";
 import { ramblersEmailLayout } from "../templates/ramblers-email-layout";
 import { unbrandedEmailLayout } from "../templates/unbranded-email-layout";
@@ -123,14 +124,16 @@ export function inlineDefaultLinkStyles(html: string): string {
 
 export function renderBrandedTemplate(rawHtml: string,
                                      params: any,
-                                     templateOverrides?: Record<string, string>): string {
+                                     templateOverrides?: Record<string, string>,
+                                     campaign: boolean = false): string {
   const sanitisedHtml = sanitiseBrevoTemplate(rawHtml ?? "");
   const overriddenHtml = applyTemplateOverrides(sanitisedHtml, templateOverrides);
   const wrappedHtml = ramblersEmailLayout(overriddenHtml);
+  const personalisedHtml = campaign ? toCampaignContactTokens(wrappedHtml) : wrappedHtml;
   const parametersAndValues: KeyValue<any>[] = extractParametersFrom(params, true);
   const substitutedHtmlContent: string = parametersAndValues.reduce(
     (templateContent, keyValue) => replaceAll(keyValue.key, keyValue.value, templateContent) as string,
-    wrappedHtml,
+    personalisedHtml,
   );
   return inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, params));
 }
@@ -147,7 +150,8 @@ export function renderLocalBrandedTemplate(templateName: string,
 
 export async function performTemplateSubstitution(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest | TemplateRenderRequest,
                                                   sendSmtpEmail: SendSmtpEmail | CreateEmailCampaign,
-                                                  debugLog: debug.Debugger): Promise<SendSmtpEmail | CreateEmailCampaign> {
+                                                  debugLog: debug.Debugger,
+                                                  campaign: boolean = false): Promise<SendSmtpEmail | CreateEmailCampaign> {
   const priorDebugValue = debugLog.enabled;
   debugLog.enabled = false;
   try {
@@ -164,7 +168,7 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
     } else if (emailRequest.templateId) {
       debugLog("performing template substitution in email content for templateId", emailRequest.templateId);
       const templateResponse: TemplateResponse = await queryTemplateContent(emailRequest.templateId);
-      const htmlContent = renderBrandedTemplate(templateResponse?.htmlContent, emailRequest.params, emailRequest.templateOverrides);
+      const htmlContent = renderBrandedTemplate(templateResponse?.htmlContent, emailRequest.params, emailRequest.templateOverrides, campaign);
       debugLog(`Setting final htmlContent to ${htmlContent}`);
       sendSmtpEmail.htmlContent = htmlContent;
     } else {

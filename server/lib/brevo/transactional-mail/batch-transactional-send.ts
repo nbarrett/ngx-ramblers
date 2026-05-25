@@ -320,7 +320,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
     } satisfies BatchSendProgressEntry));
 
     const workItems: WorkItem[] = [
-      ...memberEntries.map((entry, idx) => ({ kind: "member" as const, memberRecord: memberDocs[idx], entry })),
+      ...memberEntries.map(entry => ({ kind: "member" as const, memberRecord: membersById.get(entry.memberId)!, entry })),
       ...externalEntries.map((entry, idx) => ({ kind: "external" as const, recipient: externalRecipients[idx], entry }))
     ];
 
