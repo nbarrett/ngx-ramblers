@@ -5,6 +5,7 @@ import { ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";
 import { CommitteeFile, GroupEventType, groupEventTypeFor } from "../../models/committee.model";
+import { FileServeDisposition } from "../../models/aws-object.model";
 import { EM_DASH_WITH_SPACES } from "../../models/content-text.model";
 import { Confirm } from "../../models/ui-actions";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
@@ -96,15 +97,43 @@ export class CommitteeDisplayService {
   }
 
   fileUrl(committeeFile: CommitteeFile) {
+    return this.committeeFileUrl(committeeFile, FileServeDisposition.DOWNLOAD);
+  }
+
+  viewUrl(committeeFile: CommitteeFile) {
+    if (this.isOfficeViewable(committeeFile)) {
+      return this.officeViewerUrl(committeeFile);
+    }
+    return this.committeeFileUrl(committeeFile, FileServeDisposition.INLINE);
+  }
+
+  canViewInBrowser(committeeFile: CommitteeFile): boolean {
+    return this.isBrowserViewable(committeeFile) || this.isOfficeViewable(committeeFile);
+  }
+
+  private isBrowserViewable(committeeFile: CommitteeFile): boolean {
+    return this.fileExtensionIs(committeeFile?.fileNameData?.awsFileName, ["pdf", "jpg", "jpeg", "png", "gif", "svg", "txt"]);
+  }
+
+  private isOfficeViewable(committeeFile: CommitteeFile): boolean {
+    return this.fileExtensionIs(committeeFile?.fileNameData?.awsFileName, ["doc", "docx", "xls", "xlsx", "ppt", "pptx"]);
+  }
+
+  private officeViewerUrl(committeeFile: CommitteeFile): string {
+    const source = this.committeeFileUrl(committeeFile, undefined, this.urlService.publicBaseUrl());
+    return source ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(source)}` : "";
+  }
+
+  private committeeFileUrl(committeeFile: CommitteeFile, disposition?: FileServeDisposition, base: string = this.urlService.baseUrl()) {
     if (!committeeFile) {
       return "";
     } else if (this.urlService.isRemoteUrl(committeeFile?.fileNameData?.awsFileName)) {
       return committeeFile.fileNameData.awsFileName;
     } else {
-      const baseUrl = this.urlService.baseUrl() + "/" + this.committeeFileBaseUrl + "/" + committeeFile?.fileNameData?.awsFileName;
+      const baseUrl = base + "/" + this.committeeFileBaseUrl + "/" + committeeFile?.fileNameData?.awsFileName;
       const originalFileName = committeeFile?.fileNameData?.originalFileName;
-      return originalFileName
-        ? `${baseUrl}?download=${encodeURIComponent(originalFileName)}`
+      return originalFileName && disposition
+        ? `${baseUrl}?${disposition}=${encodeURIComponent(originalFileName)}`
         : baseUrl;
     }
   }
@@ -134,9 +163,9 @@ export class CommitteeDisplayService {
 
   iconFile(committeeFile: CommitteeFile): string {
     if (this.fileExtensionIs(committeeFile?.fileNameData?.awsFileName, ["doc", "docx", "jpg", "pdf", "ppt", "png", "txt", "xls", "xlsx"])) {
-      return "icon-" + this.fileExtension(committeeFile?.fileNameData?.awsFileName).substring(0, 3) + ".jpg";
+      return "icon-" + this.fileExtension(committeeFile?.fileNameData?.awsFileName).substring(0, 3) + ".svg";
     } else {
-      return "icon-default.jpg";
+      return "icon-default.svg";
     }
   }
 

@@ -1,6 +1,11 @@
 import { Dimensions } from "ngx-image-cropper";
 import { AuditStatus } from "./audit";
 
+export enum FileServeDisposition {
+  DOWNLOAD = "download",
+  INLINE = "inline"
+}
+
 export interface FileNameData {
   originalFileName?: string;
   awsFileName?: string;

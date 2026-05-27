@@ -2,7 +2,8 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { first, last } from "es-toolkit/compat";
-import { faEdit, faEnvelope, faTrash, faCheck, faBan } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faEnvelope, faTrash, faCheck, faBan, faDownload, faUpRightFromSquare, faCaretDown } from "@fortawesome/free-solid-svg-icons";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { AuthService } from "../../../auth/auth.service";
 import { CommitteeFile } from "../../../models/committee.model";
 import { NamedEventType } from "../../../models/broadcast.model";
@@ -63,12 +64,35 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                    (mouseover)="selectCommitteeFile(committeeFile)">
                 @if (committeeFile.fileNameData) {
                   <div class="file-download">
-                    <img [alt]="display.iconFile(committeeFile)"
-                         [src]="'assets/images/ramblers/' + display.iconFile(committeeFile)"
-                         class="icon"/>
-                    <a [href]="display.fileUrl(committeeFile)"
-                       [title]="display.fileTitle(committeeFile)" class="morelink"
-                       target="_blank">Download</a>
+                    <div class="file-actions" dropdown container="body">
+                      <a dropdownToggle role="button" class="file-actions-toggle">
+                        <img [alt]="display.iconFile(committeeFile)"
+                             [src]="'assets/images/ramblers/' + display.iconFile(committeeFile)"
+                             class="icon"/>
+                        <fa-icon [icon]="faCaretDown" class="file-actions-caret"/>
+                      </a>
+                      <ul *dropdownMenu class="dropdown-menu file-actions-menu" role="menu">
+                        <li class="file-actions-heading">
+                          <span class="file-actions-type">{{ committeeFile.fileType }}</span>
+                          {{ display.fileTitle(committeeFile) }}
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        @if (display.canViewInBrowser(committeeFile)) {
+                          <li>
+                            <a class="dropdown-item" target="_blank" rel="noopener"
+                               [href]="display.viewUrl(committeeFile)">
+                              <fa-icon [icon]="faUpRightFromSquare" class="fa-icon me-2"/>View in new tab
+                            </a>
+                          </li>
+                        }
+                        <li>
+                          <a class="dropdown-item" target="_blank" rel="noopener"
+                             [href]="display.fileUrl(committeeFile)">
+                            <fa-icon [icon]="faDownload" class="fa-icon me-2"/>Download
+                          </a>
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                 }
                 <div class="file-detail">
@@ -109,9 +133,6 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     </div>
                   }
                 </div>
-                @if (!isLast(committeeFile)) {
-                  <hr class="rule">
-                }
               </div>
             }
             @if (committeeFiles?.length === 0 && !editingFile) {
@@ -122,7 +143,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
       </div>
     </div>`,
   styleUrls: ["./committee-documents-row.sass"],
-  imports: [CommitteeFileEditor, FontAwesomeModule]
+  imports: [CommitteeFileEditor, FontAwesomeModule, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective]
 })
 export class CommitteeDocumentsRow implements OnInit, OnDestroy {
 
@@ -132,6 +153,9 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   faTrash = faTrash;
   faCheck = faCheck;
   faBan = faBan;
+  faDownload = faDownload;
+  faUpRightFromSquare = faUpRightFromSquare;
+  faCaretDown = faCaretDown;
   memberLoginService = inject(MemberLoginService);
   display = inject(CommitteeDisplayService);
   private authService = inject(AuthService);
@@ -266,10 +290,6 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
 
   isActive(committeeFile: CommitteeFile): boolean {
     return committeeFile === this.selectedCommitteeFile;
-  }
-
-  isLast(committeeFile: CommitteeFile): boolean {
-    return last(this.committeeFiles) === committeeFile;
   }
 
   addCommitteeFile() {

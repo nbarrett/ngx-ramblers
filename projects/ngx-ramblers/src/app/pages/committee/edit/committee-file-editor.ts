@@ -95,7 +95,7 @@ import { DatePicker } from "../../../date-and-time/date-picker";
                  placeholder="Enter a title for this file">
         </div>
         <div class="col-md-12 mb-3">
-          <label>Link Preview: <a target="_blank" [href]="display.fileUrl(committeeFile)">
+          <label>Link Preview: <a target="_blank" rel="noopener" [href]="display.viewUrl(committeeFile)">
             {{ display.fileTitle(committeeFile) }}</a>
           </label>
         </div>
