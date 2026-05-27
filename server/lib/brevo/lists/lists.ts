@@ -4,6 +4,7 @@ import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import http from "http";
 import {
   OptionalRequestOptions,
@@ -29,7 +30,7 @@ export async function lists(req: Request, res: Response, next: NextFunction): Pr
     const response: {
       response: http.IncomingMessage,
       body: any
-    } = await apiInstance.getLists(opts.limit, opts.offset, opts.sort);
+    } = await scheduleBrevo(() => apiInstance.getLists(opts.limit, opts.offset, opts.sort));
     const listsResponse: ListsResponse = {
       lists: response?.body?.lists || [],
       count: response?.body?.count || 0

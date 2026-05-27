@@ -53,6 +53,7 @@ import {
   UnsubscribeActivityResponse,
   UnsubscribeHistoryEntry
 } from "../../models/mail.model";
+import { BrevoCampaignQueueSummary } from "../../models/brevo-campaign-queue.model";
 import { SortDirection } from "../../models/sort.model";
 
 @Injectable({
@@ -64,6 +65,18 @@ export class MailService {
   private http = inject(HttpClient);
   private commonDataService = inject(CommonDataService);
   private BASE_URL = "api/mail";
+
+  async campaignQueueSummary(): Promise<BrevoCampaignQueueSummary> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/campaign/queue`))).response;
+  }
+
+  async releaseCampaign(campaignId: number): Promise<BrevoCampaignQueueSummary> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/campaign/${campaignId}/release`, {}))).response;
+  }
+
+  async cancelCampaign(campaignId: number): Promise<BrevoCampaignQueueSummary> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/campaign/${campaignId}/cancel`, {}))).response;
+  }
 
   async createList(listCreateRequest: ListCreateRequest): Promise<ListCreateResponse> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/lists/create`, listCreateRequest))).response;

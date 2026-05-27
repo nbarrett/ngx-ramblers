@@ -10,6 +10,7 @@ export { GoogleMapsConfig };
 export enum SystemSettingsTab {
   AREA_AND_GROUP = "Area & Group",
   MAPS = "Maps",
+  MEDIA = "Media",
   BACKGROUNDS = "Backgrounds",
   ICONS = "Icons",
   LOGOS = "Logos",
@@ -18,6 +19,14 @@ export enum SystemSettingsTab {
   WEBSITE_HEADER = "Header",
   WEBSITE_FOOTER = "Footer",
   EXTERNAL_SYSTEMS = "External Systems",
+  SCHEDULED_TASKS = "Scheduled Tasks",
+}
+
+export enum MediaSubTab {
+  BACKGROUNDS = "backgrounds",
+  ICONS = "icons",
+  LOGOS = "logos",
+  IMAGES = "images"
 }
 
 export enum ExternalSystemsSubTab {

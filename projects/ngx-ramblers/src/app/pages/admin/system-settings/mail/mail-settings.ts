@@ -23,7 +23,7 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { kebabCase } from "es-toolkit/compat";
 import { NumberUtilsService } from "../../../../services/number-utils.service";
 import { first } from "es-toolkit/compat";
-import { isEmpty } from "es-toolkit/compat";
+import { isEmpty, isUndefined } from "es-toolkit/compat";
 import { PageComponent } from "../../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { MailNotificationTemplateEditor } from "./mail-notification-template-editor";
@@ -40,6 +40,7 @@ import { faExclamationTriangle, faSpinner } from "@fortawesome/free-solid-svg-ic
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 import { InputSize } from "../../../../models/ui-size.model";
+import { brevoEmailsSentToday, brevoRemainingDailyEmailCredits } from "../../../../functions/brevo-campaigns";
 
 @Component({
     selector: "app-mail-settings",
@@ -118,6 +119,13 @@ import { InputSize } from "../../../../models/ui-size.model";
                             type="checkbox" class="form-check-input" id="respect-email-blocks">
                           <label class="form-check-label" for="respect-email-blocks">Respect unsubscribes and blocks (off by default) - members who have <strong>unsubscribed or been blocked</strong> show disabled in the composer picker and are skipped at send. Off by default because a local unsubscribe only reaches Brevo when you run Update Brevo Mailing Lists.</label>
                         </div>
+                      </div>
+                      <div class="form-group">
+                        <label for="daily-campaign-send-limit">Brevo-enforced daily campaign limit</label>
+                        <input [(ngModel)]="mailMessagingConfig.mailConfig.dailyCampaignSendLimit" type="number"
+                          class="form-control input-sm" id="daily-campaign-send-limit" min="1"
+                          placeholder="Leave blank when the Brevo plan has no daily limit">
+                        <small class="form-text text-muted">Set this to the daily limit enforced by your Brevo plan (300 for the free plan). Leave blank when Brevo has no daily hold. NGX sends one whole campaign and does not split it to impose a separate lower limit.</small>
                       </div>
                       <div class="form-group">
                         <label for="base-url">Base Url</label>
@@ -295,12 +303,12 @@ import { InputSize } from "../../../../models/ui-size.model";
                       </div>
                     </div>
                   }
-                  @if (mailMessagingConfig.brevo.account?.email) {
+                  @if (remainingDailyEmailCredits() !== null) {
                     <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Free Email Plan Usage</div>
                       <div class="row">
                         <div class="col-sm-12">
-                          <p>Credits are renewed each day - {{ freeCreditsUsed() }} available out of {{ CREDITS_AVAILABLE }} emails/day ({{ percentageCreditsUsed() }}% used)</p>
+                          <p>Credits are renewed each day - {{ remainingDailyEmailCredits() }} available out of {{ CREDITS_AVAILABLE }} emails/day ({{ percentageCreditsUsed() }}% used)</p>
                           <div class="progress">
                             <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': percentageCreditsUsed() + '%' }"></div>
                           </div>
@@ -434,6 +442,9 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       if (!this.mailMessagingConfig || this.acceptNextConfigEmission) {
         this.mailMessagingConfig = mailMessagingConfig;
+        if (isUndefined(this.mailMessagingConfig.mailConfig.dailyCampaignSendLimit)) {
+          this.mailMessagingConfig.mailConfig.dailyCampaignSendLimit = 300;
+        }
         this.acceptNextConfigEmission = false;
         this.pendingApiKeyValidation = false;
       }
@@ -540,12 +551,12 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     }
   }
 
-  freeCreditsUsed(): number {
-    return this.mailMessagingConfig?.brevo?.account?.plan?.find(item => item.type === "free")?.credits || 0;
+  remainingDailyEmailCredits(): number | null {
+    return brevoRemainingDailyEmailCredits(this.mailMessagingConfig?.brevo?.account);
   }
 
   percentageCreditsUsed(): number {
-    return this.numberUtilsService.asNumber((this.CREDITS_AVAILABLE - this.freeCreditsUsed()) / this.CREDITS_AVAILABLE * 100, 0);
+    return this.numberUtilsService.asNumber((brevoEmailsSentToday(this.mailMessagingConfig?.brevo?.account) ?? 0) / this.CREDITS_AVAILABLE * 100, 0);
   }
 
   public selectTab(tab: MailSettingsTab) {

@@ -5,6 +5,7 @@ import { handleError, successfulResponse } from "../common/messages";
 import { AccountResponse } from "../../../../projects/ngx-ramblers/src/app/models/brevo.model";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { Account, AccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const messageType = "brevo:account";
@@ -15,7 +16,7 @@ export async function fetchBrevoAccount(): Promise<Account> {
   const brevoConfig = await configuredBrevo();
   const apiInstance = new SibApiV3Sdk.AccountApi();
   apiInstance.setApiKey(SibApiV3Sdk.AccountApiApiKeys.apiKey, brevoConfig.apiKey);
-  const accountResponse: AccountResponse = await apiInstance.getAccount();
+  const accountResponse: AccountResponse = await scheduleBrevo(() => apiInstance.getAccount());
   return accountResponse.body;
 }
 

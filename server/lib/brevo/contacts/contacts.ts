@@ -4,6 +4,7 @@ import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import http from "http";
 import { ContactsListResponse } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
@@ -25,7 +26,7 @@ export async function contacts(req: Request, res: Response, next: NextFunction):
     const response: {
       response: http.IncomingMessage,
       body: any
-    } = await apiInstance.getContacts(opts.limit, opts.offset);
+    } = await scheduleBrevo(() => apiInstance.getContacts(opts.limit, opts.offset));
     const contactsListResponse: ContactsListResponse = response.body;
     successfulResponse({req, res, response: contactsListResponse, messageType, debugLog});
   } catch (error) {

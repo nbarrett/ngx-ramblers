@@ -1,7 +1,7 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
 import { LoggedInGuard } from "../../guards/admin-login-guard";
-import { hasDynamicPath, hasEmailComposerPath } from "../../services/path-matchers";
+import { hasDynamicPath, hasEmailComposerPath, hasSendNotificationPath } from "../../services/path-matchers";
 import { CommitteeAuthGuard } from "../../guards/committee-auth-guard";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
 import { AdminAuthGuard, MemberAdminAuthGuard } from "../../guards/admin-auth-guard";
@@ -187,6 +187,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       path: "carousel-editor", loadComponent: () => import("../../carousel/edit/image-list-page/image-list-edit-page")
         .then(m => m.ImageListEditPageComponent),
       canActivate: [SystemHealthyGuard]
+    },
+    {
+      matcher: hasSendNotificationPath,
+      loadComponent: () => import("../../pages/email-composer/email-composer")
+        .then(m => m.EmailComposer),
+      canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
     },
     {
       matcher: hasEmailComposerPath,

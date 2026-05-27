@@ -37,6 +37,7 @@ export class MemberDefaultsService {
       .catch(error => {
         this.logger.info("Error updating Brevo lists", error)
         notify.error({title: "Error updating Brevo lists", message: error});
+        notify.clearBusy();
       });
   }
 

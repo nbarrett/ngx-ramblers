@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing";
 import { vi } from "vitest";
 import { MemberBulkLoadService } from "./member-bulk-load.service";
-import { Member, RamblersMember, WriteDataRule } from "../../models/member.model";
+import { Member, MemberAction, RamblersMember, WriteDataRule } from "../../models/member.model";
 import { AUDIT_FIELDS, InsightHubDateFormat } from "../../models/ramblers-insight-hub";
 import { DateUtilsService } from "../date-utils.service";
 import { LoggerFactory } from "../logger-factory.service";
@@ -16,6 +16,7 @@ import { FullNamePipe } from "../../pipes/full-name.pipe";
 
 describe("MemberBulkLoadService", () => {
     let service: MemberBulkLoadService;
+    let memberNamingServiceSpy: any;
 
     beforeEach(() => {
         const dateUtilsSpy = {
@@ -42,9 +43,10 @@ describe("MemberBulkLoadService", () => {
             resetUpdateStatusForMember: vi.fn().mockName("MemberDefaultsService.resetUpdateStatusForMember"),
             applyDefaultMailSettingsToMember: vi.fn().mockName("MemberDefaultsService.applyDefaultMailSettingsToMember")
         };
-        const memberNamingServiceSpy = {
+        memberNamingServiceSpy = {
             createUniqueDisplayName: vi.fn().mockName("MemberNamingService.createUniqueDisplayName"),
             createUniqueUserName: vi.fn().mockName("MemberNamingService.createUniqueUserName"),
+            createUserName: vi.fn().mockName("MemberNamingService.createUserName"),
             removeCharactersNotPartOfName: vi.fn().mockName("MemberNamingService.removeCharactersNotPartOfName")
         };
         const numberUtilsServiceSpy = {
@@ -84,6 +86,79 @@ describe("MemberBulkLoadService", () => {
 
     it("should be created", () => {
         expect(service).toBeTruthy();
+    });
+
+    describe("member matching", () => {
+        it("should match imported Salesforce members by generated username before creating a duplicate", () => {
+            memberNamingServiceSpy.createUserName.mockReturnValue("wendy.williams");
+            const existingMember = {
+                id: "existing-member",
+                firstName: "Wendy",
+                lastName: "Williams",
+                title: "Ms",
+                userName: "wendy.williams"
+            } as Member;
+            const ramblersMember = {
+                firstName: "Wendy",
+                lastName: "Williams",
+                title: "Ms",
+                membershipNumber: "new-salesforce-number"
+            } as RamblersMember;
+
+            const result = service.bulkLoadMemberAndMatchFor({ramblersMember, contact: null}, [existingMember], {} as any);
+
+            expect(result.member).toBe(existingMember);
+            expect(result.memberMatch).toBe(MemberAction.found);
+            expect(result.memberMatchType).toBe("user name");
+        });
+
+        it("should match imported Salesforce members by the unique name and title index before creating a duplicate", () => {
+            memberNamingServiceSpy.createUserName.mockReturnValue("different.user");
+            const existingMember = {
+                id: "existing-member",
+                firstName: "Wendy",
+                lastName: "Williams",
+                title: "Ms"
+            } as Member;
+            const ramblersMember = {
+                firstName: "Wendy",
+                lastName: "Williams",
+                title: "Ms",
+                membershipNumber: "new-salesforce-number"
+            } as RamblersMember;
+
+            const result = service.bulkLoadMemberAndMatchFor({ramblersMember, contact: null}, [existingMember], {} as any);
+
+            expect(result.member).toBe(existingMember);
+            expect(result.memberMatch).toBe(MemberAction.found);
+            expect(result.memberMatchType).toBe("name and title");
+        });
+
+        it("should treat two same-named members with different membership numbers as distinct and disambiguate the name alias", () => {
+            memberNamingServiceSpy.createUserName.mockReturnValue("wendy.williams");
+            memberNamingServiceSpy.createUniqueUserName.mockReturnValue("wendy.williams2");
+            memberNamingServiceSpy.createUniqueDisplayName.mockReturnValue("Wendy W");
+            const existingMember = {
+                id: "existing-member",
+                membershipNumber: "100",
+                firstName: "Wendy",
+                lastName: "Williams",
+                title: "Ms",
+                userName: "wendy.williams"
+            } as Member;
+            const ramblersMember = {
+                firstName: "Wendy",
+                lastName: "Williams",
+                title: "Ms",
+                membershipNumber: "200"
+            } as RamblersMember;
+
+            const result = service.bulkLoadMemberAndMatchFor({ramblersMember, contact: null}, [existingMember], {} as any);
+
+            expect(result.member).not.toBe(existingMember);
+            expect(result.memberMatch).toBe(MemberAction.created);
+            expect(result.member.nameAlias).toBe("2");
+        });
     });
 
     describe("membershipExpiryDate field handling", () => {

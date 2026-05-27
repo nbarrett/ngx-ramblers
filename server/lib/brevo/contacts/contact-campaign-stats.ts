@@ -6,6 +6,7 @@ import { isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { BrevoContactCampaignStats } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const messageType = "brevo:contact-campaign-stats";
@@ -24,7 +25,7 @@ export async function contactCampaignStats(req: Request, res: Response): Promise
     const brevoConfig = await configuredBrevo();
     const apiInstance = new SibApiV3Sdk.ContactsApi();
     apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: { response: http.IncomingMessage, body: any } = await apiInstance.getContactStats(identifier, startDate, endDate);
+    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => apiInstance.getContactStats(identifier, startDate, endDate));
     const body: BrevoContactCampaignStats = response.body;
     successfulResponse({ req, res, response: body, messageType, debugLog });
   } catch (error) {

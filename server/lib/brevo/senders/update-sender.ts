@@ -4,6 +4,7 @@ import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { Sender } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const messageType = "brevo:senders:update";
@@ -21,7 +22,7 @@ export async function updateSender(req: Request, res: Response, next: NextFuncti
     opts.name = request.name;
     opts.email = request.email;
     debugLog("updateSender: senderId:", senderId, "opts:", opts);
-    await apiInstance.updateSender(senderId, opts);
+    await scheduleBrevo(() => apiInstance.updateSender(senderId, opts));
     successfulResponse({req, res, response: {updated: true}, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);

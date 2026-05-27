@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
+import { ensureMemberContactAttributes, stripUnavailableMemberAttributes } from "./member-contact-attributes";
 import {
   CreateContactRequestWithObjectAttributes,
   MailConfig
@@ -29,17 +31,21 @@ export async function contactsBatchUpdate(req: Request, res: Response): Promise<
     const brevoConfig: MailConfig = await configuredBrevo();
     const apiInstance: ContactsApi = new SibApiV3Sdk.ContactsApi();
     const createContactRequests: CreateContactRequestWithObjectAttributes[] = req.body;
+    const availableMemberAttributes = await ensureMemberContactAttributes();
     const chunkedResponses: SuccessfulResponse[] = await Promise.all(chunk(createContactRequests, MAXIMUM_BATCH_SIZE)
       .map(async (chunkedCreateContactRequests: CreateContactRequestWithObjectAttributes[]) => {
         debugLog("createContactRequests received:", chunkedCreateContactRequests);
         apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
         const updateBatchContacts: UpdateBatchContacts = new SibApiV3Sdk.UpdateBatchContacts();
-        updateBatchContacts.contacts = chunkedCreateContactRequests;
+        updateBatchContacts.contacts = chunkedCreateContactRequests.map(contactRequest => ({
+          ...contactRequest,
+          attributes: stripUnavailableMemberAttributes(contactRequest.attributes, availableMemberAttributes)
+        }));
         debugLog("updateBatchContacts:", updateBatchContacts.contacts);
         const response: {
           response: http.IncomingMessage,
           body?: any
-        } = await apiInstance.updateBatchContacts(updateBatchContacts);
+        } = await scheduleBrevo(() => apiInstance.updateBatchContacts(updateBatchContacts));
         return {
           req,
           res,

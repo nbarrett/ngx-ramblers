@@ -11,7 +11,7 @@ import {
   StatusMappedResponseSingleInput
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { isString } from "es-toolkit/compat";
-import { createBottleneckWithRatePerSecond } from "../common/rate-limiting";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { snapshotBrevoContact } from "./contact-snapshot";
 
 interface AuthenticatedDeleteRequest extends Request {
@@ -20,9 +20,7 @@ interface AuthenticatedDeleteRequest extends Request {
 
 const messageType = "brevo:contacts-delete";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = false;
-
-const limiter = createBottleneckWithRatePerSecond(10);
+debugLog.enabled = true;
 
 export async function contactsDelete(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -31,16 +29,21 @@ export async function contactsDelete(req: Request, res: Response, next: NextFunc
     apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
     const request: ContactsDeleteRequest = req.body;
     const snapshotBy = (req as AuthenticatedDeleteRequest).user?.userName;
-    const responses: StatusMappedResponseSingleInput[] = await Promise.all(request.ids.map(async (id: NumberOrString) => {
+    const total = request.ids.length;
+    debugLog("Processing", total, "contact deletion request(s)");
+    const responses: StatusMappedResponseSingleInput[] = await Promise.all(request.ids.map(async (id: NumberOrString, index: number) => {
+      const position = `${index + 1} of ${total}`;
       await snapshotBrevoContact(id, snapshotBy);
       const identifier: string = isString(id) ? encodeURIComponent(id) : id.toString();
       const response: {
         response: http.IncomingMessage,
         body?: any
-      } = await limiter.schedule(() => apiInstance.deleteContact(identifier));
-      return mapStatusMappedResponseSingleInput(id, response, 204);
+      } = await scheduleBrevo(() => apiInstance.deleteContact(identifier));
+      const mapped = mapStatusMappedResponseSingleInput(id, response, 204);
+      debugLog("Deleted Brevo contact", id, `(${position})`, "status", mapped.status);
+      return mapped;
     })).then((statusOnlyResponses: StatusMappedResponseSingleInput[]) => {
-      debugLog("statusOnlyResponses:", statusOnlyResponses);
+      debugLog("Completed", statusOnlyResponses.length, "of", total, "contact deletion request(s)");
       return statusOnlyResponses;
     });
     successfulResponse({req, res, response: responses, messageType, debugLog});

@@ -6,6 +6,7 @@ import { isNumber, isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "./common/messages";
 import { envConfig } from "../env-config/env-config";
 import { configuredBrevo } from "./brevo-config";
+import { scheduleBrevo } from "./common/rate-limiting";
 import { readBrevoEventsWebhookSecret } from "./brevo-events-webhook-config";
 import { member } from "../mongo/models/member";
 import { mailListAudit } from "../mongo/models/mail-list-audit";
@@ -67,7 +68,7 @@ async function fetchListIdsForEmail(email: string): Promise<number[]> {
     const brevoConfig = await configuredBrevo();
     const contactsApi = new SibApiV3Sdk.ContactsApi();
     contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: { response: http.IncomingMessage, body: any } = await contactsApi.getContactInfo(email);
+    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => contactsApi.getContactInfo(email));
     return (response.body?.listIds as number[]) || [];
   } catch (error: any) {
     debugLog("fetchListIdsForEmail:lookup-failed", email, error?.response?.statusCode || error?.message || error);

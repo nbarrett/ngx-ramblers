@@ -4,6 +4,7 @@ import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import http from "http";
 import { ListsResponse } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
@@ -21,7 +22,7 @@ export interface BrevoSenderSummary {
 async function fetchBrevoSendersBody(apiKey: string): Promise<any> {
   const apiInstance = new SibApiV3Sdk.SendersApi();
   apiInstance.setApiKey(SibApiV3Sdk.SendersApiApiKeys.apiKey, apiKey);
-  const response: { response: http.IncomingMessage, body: any } = await apiInstance.getSenders();
+  const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => apiInstance.getSenders());
   return response.body;
 }
 

@@ -159,6 +159,10 @@ import {
   createPastPreset
 } from "../../models/search.model";
 import { DateTime } from "luxon";
+import { campaignOverflowNotice } from "../../functions/brevo-campaigns";
+import { CampaignOverflowNotice, NGX_BREVO_CAMPAIGN_TAG } from "../../models/brevo-campaign-queue.model";
+import { BREVO_CAMPAIGN_RELEASE_TASK_ID } from "../../models/scheduled-task.model";
+import { ScheduledTaskService } from "../../services/scheduled-task.service";
 
 @Component({
   selector: "app-email-composer",
@@ -337,7 +341,7 @@ import { DateTime } from "luxon";
               <button type="button" class="btn btn-quiet"
                       (click)="revertToSavedDraft()"
                       title="Discard unsaved changes and reload the last saved version of this draft">
-                <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Revert to saved draft
+                <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Revert
               </button>
             }
             <button type="button" class="btn btn-quiet" (click)="toggleDraftsPanel()">
@@ -1510,6 +1514,12 @@ import { DateTime } from "luxon";
             <li>Estimated send time: <strong>{{ estimatedSendTime() }}</strong></li>
           }
         </ul>
+        @if (campaignQueueNotice(); as notice) {
+          <div class="alert alert-warning">
+            <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+            <strong>{{ notice.title }}</strong> {{ notice.message }}
+          </div>
+        }
         <div class="d-flex flex-wrap align-items-center mb-3" style="gap: 0.5rem;">
           <button type="button" class="btn btn-primary" (click)="refreshPreview()">Refresh preview</button>
           <div class="btn-group" role="group" aria-label="Step through recipients">
@@ -1547,6 +1557,12 @@ import { DateTime } from "luxon";
     <ng-template #sendStep>
       <div class="email-composer-section">
         <h3>Send</h3>
+        @if (campaignQueueNotice(); as notice) {
+          <div class="alert alert-warning">
+            <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+            <strong>{{ notice.title }}</strong> {{ notice.message }}
+          </div>
+        }
         @if (bulkDeletionPending()) {
           <div class="email-composer-validation-summary">
             <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This send permanently deletes members:</h5>
@@ -1617,8 +1633,8 @@ import { DateTime } from "luxon";
         }
         @if (sendInProgress) {
           <div class="alert alert-warning">
-            <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
-            Sending in progress…
+            <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>
+            <strong>Sending:</strong> in progress…
           </div>
         }
         @if (batchProgress) {
@@ -1677,7 +1693,10 @@ import { DateTime } from "luxon";
           </div>
         }
         @if (campaignSendComplete) {
-          <div class="alert alert-success">Campaign was sent successfully.</div>
+          <div class="alert alert-success">
+            <fa-icon [icon]="faCheckCircle" class="me-2"/>
+            <strong>Sent:</strong> the campaign was sent successfully.
+          </div>
         }
       </div>
     </ng-template>
@@ -1712,6 +1731,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected googleMapsService = inject(GoogleMapsService);
   protected urlService = inject(UrlService);
   private compositionsService = inject(EmailCompositionsService);
+  private scheduledTaskService = inject(ScheduledTaskService);
 
   @ViewChild("emailPreview") emailPreview!: EmailPreviewComponent;
   @ViewChild("eventsContent") eventsContent!: ElementRef<HTMLDivElement>;
@@ -1756,6 +1776,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected lastSavedAt: number | null = null;
   protected sendInProgress = false;
   protected campaignSendComplete = false;
+  private automaticCampaignReleaseTaskEnabled: boolean | null = null;
   protected unbrandedListSendWarningDismissed = false;
   protected readonly UNBRANDED_HARD_CAP_RECIPIENTS = UNBRANDED_HARD_CAP_RECIPIENTS;
   protected readonly UNBRANDED_LIST_SEND_WARNING_THRESHOLD = UNBRANDED_LIST_SEND_WARNING_THRESHOLD;
@@ -1808,6 +1829,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     void this.loadSavedExternalRecipients();
     void this.loadLoggedInMemberRecord();
+    void this.loadCampaignReleaseTaskState();
     this.subscriptions.push(this.route.queryParamMap.subscribe((paramMap: ParamMap) => {
       void this.applyContextFromRoute(paramMap, this.route.snapshot.paramMap);
       this.applyUrlStateToComposer(paramMap);
@@ -3556,6 +3578,32 @@ export class EmailComposer implements OnInit, OnDestroy {
     return this.state.selectedMemberIds.length + (this.state.externalRecipients?.length ?? 0);
   }
 
+  protected campaignQueueNotice(): CampaignOverflowNotice | null {
+    if (this.state.recipientMode !== RecipientMode.ENTIRE_LIST || this.state.brandingMode === BrandingMode.UNBRANDED) {
+      return null;
+    }
+    return campaignOverflowNotice(
+      this.totalRecipientCount(),
+      this.mailMessagingConfig?.brevo?.account,
+      this.mailMessagingConfig?.mailConfig?.dailyCampaignSendLimit,
+      this.campaignAutomaticReleaseEnabled()
+    );
+  }
+
+  private campaignAutomaticReleaseEnabled(): boolean | null {
+    return this.automaticCampaignReleaseTaskEnabled;
+  }
+
+  private async loadCampaignReleaseTaskState(): Promise<void> {
+    try {
+      const task = (await this.scheduledTaskService.tasks()).find(item => item.id === BREVO_CAMPAIGN_RELEASE_TASK_ID);
+      this.automaticCampaignReleaseTaskEnabled = task?.enabled ?? null;
+    } catch (error) {
+      this.logger.error("loadCampaignReleaseTaskState failed:", error);
+      this.automaticCampaignReleaseTaskEnabled = null;
+    }
+  }
+
   estimatedSendTime(): string {
     const count = this.state.selectedMemberIds.length + (this.state.externalRecipients?.length ?? 0);
     if (count === 0) return "0s";
@@ -4212,7 +4260,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private previewMemberName(member: Member): string {
-    return member.displayName?.trim() || `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() || member.email || "";
+    const fullName = `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim();
+    return fullName || member.displayName?.trim() || member.email || "";
   }
 
   protected previewRecipientCount(): number {
@@ -4549,11 +4598,13 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private async sendCampaign(): Promise<void> {
+    await this.loadCampaignReleaseTaskState();
     const member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
     const { top, bottom, combined } = this.composedBodyParts();
     const campaignTop = toCampaignContactTokens(top);
     const campaignBottom = toCampaignContactTokens(bottom);
     const campaignCombined = toCampaignContactTokens(combined);
+    const overflowNotice = this.campaignQueueNotice();
     const params = this.mailMessagingService.createSendSmtpEmailParams(
       member,
       this.state.notificationConfig!,
@@ -4570,6 +4621,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       inlineImageActivation: false,
       mirrorActive: false,
       name: this.state.subject,
+      tag: NGX_BREVO_CAMPAIGN_TAG,
       params,
       recipients: { listIds: [this.state.selectedListId!] },
       replyTo: this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.replyToRole, "email") ?? "",
@@ -4586,7 +4638,10 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.sendInProgress = false;
     await this.recordSentToHistory();
     this.notify.hide();
-    this.notify.success({ title: "Sent", message: `Campaign sent to ${this.recipientCountSummary()}` });
+    this.notify.success({
+      title: "Campaign submitted",
+      message: overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `Campaign sent to ${this.recipientCountSummary()}`
+    });
   }
 
   private async recordSentToHistory(recipientCount?: number): Promise<void> {

@@ -4,6 +4,7 @@ import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import http from "http";
 import { HasListId, HasListType, ListsResponse } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
@@ -17,7 +18,7 @@ export async function listDelete(req: Request, res: Response, next: NextFunction
     const listId: number = +req.query.listId;
     const apiInstance = new SibApiV3Sdk.ContactsApi();
     apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: { response: http.IncomingMessage, body?: any } = await apiInstance.deleteList(listId);
+    const response: { response: http.IncomingMessage, body?: any } = await scheduleBrevo(() => apiInstance.deleteList(listId));
     const listsResponse: ListsResponse = response.body;
     successfulResponse({req, res, response: listsResponse, messageType, debugLog});
   } catch (error) {

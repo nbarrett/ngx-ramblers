@@ -4,6 +4,7 @@ import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import http from "http";
 import { CreateSenderResponse, Sender } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { CreateSender } from "@getbrevo/brevo/model/createSender";
@@ -20,7 +21,7 @@ export async function registerBrevoSender(apiKey: string, name: string, email: s
   opts.email = email;
   opts.name = name;
   debugLog("registerBrevoSender: opts:", opts);
-  const response: { response: http.IncomingMessage; body: any } = await apiInstance.createSender(opts);
+  const response: { response: http.IncomingMessage; body: any } = await scheduleBrevo(() => apiInstance.createSender(opts));
   return response.body;
 }
 

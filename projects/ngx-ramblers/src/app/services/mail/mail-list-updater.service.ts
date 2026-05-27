@@ -356,8 +356,12 @@ export class MailListUpdaterService {
     const idMatch = contact.id === member?.mail?.id;
     const firstNameMatch = contact.attributes.FIRSTNAME === member.firstName;
     const lastNameMatch = contact.attributes.LASTNAME === member.lastName;
-    const misMatch = !(emailMatch && memberEmailMatch && idMatch && firstNameMatch && lastNameMatch && listsIdMatch);
-    this.logger.off("memberToContactMismatch:emailMatch", emailMatch, "memberEmailMatch", memberEmailMatch, "idMatch", idMatch, "firstNameMatch", firstNameMatch, "lastNameMatch", lastNameMatch, "listsIdMatch", listsIdMatch, "misMatch", misMatch, "contact:", contact, "member:", member);
+    const memberMergeFields = this.mailMessagingService.toMemberMergeVariables(member);
+    const memberNumberMatch = (contact.attributes.MEMBER_NUM ?? "") === memberMergeFields.MEMBER_NUM;
+    const memberExpiryMatch = (contact.attributes.MEMBER_EXP ?? "") === memberMergeFields.MEMBER_EXP;
+    const userNameMatch = (contact.attributes.USERNAME ?? "") === memberMergeFields.USERNAME;
+    const misMatch = !(emailMatch && memberEmailMatch && idMatch && firstNameMatch && lastNameMatch && memberNumberMatch && memberExpiryMatch && userNameMatch && listsIdMatch);
+    this.logger.off("memberToContactMismatch:emailMatch", emailMatch, "memberEmailMatch", memberEmailMatch, "idMatch", idMatch, "firstNameMatch", firstNameMatch, "lastNameMatch", lastNameMatch, "memberNumberMatch", memberNumberMatch, "memberExpiryMatch", memberExpiryMatch, "userNameMatch", userNameMatch, "listsIdMatch", listsIdMatch, "misMatch", misMatch, "contact:", contact, "member:", member);
     return misMatch;
   }
 
@@ -418,22 +422,33 @@ export class MailListUpdaterService {
   }
 
   public toCreateContactRequest(member: Member): CreateContactRequestWithAttributes {
+    const memberMergeFields = this.mailMessagingService.toMemberMergeVariables(member);
     return {
       email: this.cleanEmail(member.email),
       extId: member.id,
-      attributes: {FIRSTNAME: member.firstName, LASTNAME: member.lastName},
+      attributes: {
+        FIRSTNAME: member.firstName,
+        LASTNAME: member.lastName,
+        MEMBER_NUM: memberMergeFields.MEMBER_NUM,
+        MEMBER_EXP: memberMergeFields.MEMBER_EXP,
+        USERNAME: memberMergeFields.USERNAME
+      },
       listIds: this.subscribedListIds(member)
     };
   }
 
   public toCreateContactRequestWithObjectAttributes(member: Member): CreateContactRequestWithObjectAttributes {
+    const memberMergeFields = this.mailMessagingService.toMemberMergeVariables(member);
     return {
       email: this.cleanEmail(member.mail.email),
       extId: member.id,
       attributes: {
         EMAIL: this.cleanEmail(member.email) as any,
         FIRSTNAME: member.firstName as any,
-        LASTNAME: member.lastName as any
+        LASTNAME: member.lastName as any,
+        MEMBER_NUM: memberMergeFields.MEMBER_NUM as any,
+        MEMBER_EXP: memberMergeFields.MEMBER_EXP as any,
+        USERNAME: memberMergeFields.USERNAME as any
       },
       listIds: this.subscribedListIds(member)
     };

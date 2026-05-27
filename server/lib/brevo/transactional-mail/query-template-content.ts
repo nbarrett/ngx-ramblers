@@ -1,6 +1,7 @@
 import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { GetSmtpTemplateOverview } from "@getbrevo/brevo";
 import * as http from "http";
@@ -17,7 +18,7 @@ export async function queryTemplateContent(templateId: number): Promise<Template
   const brevoConfig = await configuredBrevo();
   const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
   apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
-  return apiInstance.getSmtpTemplate(templateId).then((data: {
+  return scheduleBrevo(() => apiInstance.getSmtpTemplate(templateId)).then((data: {
     response: http.IncomingMessage;
     body: GetSmtpTemplateOverview
   }) => {

@@ -6,6 +6,7 @@ import { isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { BrevoTransactionalEmailListResponse } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const messageType = "brevo:transactional-emails-list";
@@ -38,7 +39,7 @@ export async function transactionalEmailsList(req: Request, res: Response): Prom
     const brevoConfig = await configuredBrevo();
     const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
     apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: { response: http.IncomingMessage, body: any } = await apiInstance.getTransacEmailsList(
+    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => apiInstance.getTransacEmailsList(
       email,
       templateId,
       messageId,
@@ -47,7 +48,7 @@ export async function transactionalEmailsList(req: Request, res: Response): Prom
       sort,
       limit,
       offset
-    );
+    ));
     const body: BrevoTransactionalEmailListResponse = {
       count: response.body?.count ?? 0,
       transactionalEmails: response.body?.transactionalEmails || []

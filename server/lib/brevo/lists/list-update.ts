@@ -4,6 +4,7 @@ import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import http from "http";
 import { ListsResponse, ListUpdateRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
@@ -27,7 +28,7 @@ export async function listUpdate(req: Request, res: Response, next: NextFunction
     const response: {
       response: http.IncomingMessage,
       body?: any
-    } = await apiInstance.updateList(listUpdateRequest.listId, updateList);
+    } = await scheduleBrevo(() => apiInstance.updateList(listUpdateRequest.listId, updateList));
     const listsResponse: ListsResponse = response.body;
     successfulResponse({req, res, response: listsResponse, messageType, debugLog});
   } catch (error) {

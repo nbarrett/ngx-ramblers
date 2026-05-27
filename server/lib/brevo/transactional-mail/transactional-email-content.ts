@@ -5,6 +5,7 @@ import http from "http";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { BrevoTransactionalEmailContent } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const messageType = "brevo:transactional-email-content";
@@ -21,7 +22,7 @@ export async function transactionalEmailContent(req: Request, res: Response): Pr
     const brevoConfig = await configuredBrevo();
     const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
     apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: { response: http.IncomingMessage, body: any } = await apiInstance.getTransacEmailContent(uuid);
+    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => apiInstance.getTransacEmailContent(uuid));
     const body: BrevoTransactionalEmailContent = response.body;
     successfulResponse({ req, res, response: body, messageType, debugLog });
   } catch (error) {

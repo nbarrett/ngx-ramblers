@@ -7,6 +7,7 @@ import {
   colourSelectors,
   colourSelectorsDarkLight,
   ExternalSystemsSubTab,
+  MediaSubTab,
   NavBarJustification,
   NavBarLocation,
   RootFolder,
@@ -57,6 +58,7 @@ import { SectionToggle, SectionToggleTab } from "../../../shared/components/sect
 import { FooterLinkSetting } from "./footer-link-setting";
 import { SalesforceSettings } from "./salesforce/salesforce-settings";
 import { SalesforceConfigService } from "../../../services/salesforce/salesforce-config.service";
+import { ScheduledTasksComponent } from "./scheduled-tasks/scheduled-tasks";
 
 
 @Component({
@@ -72,32 +74,35 @@ import { SalesforceConfigService } from "../../../services/salesforce/salesforce
                      [config]="config"
                      [active]="tabActive(SystemSettingsTab.AREA_AND_GROUP)"
                      (selectTab)="selectTab(SystemSettingsTab.AREA_AND_GROUP)"/>
-                <tab app-image-collection-settings
-                     heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.BACKGROUNDS)}}"
-                     [active]="tabActive(SystemSettingsTab.BACKGROUNDS)"
-                     (selectTab)="selectTab(SystemSettingsTab.BACKGROUNDS)"
-                     [rootFolder]="backgrounds"
-                     [config]="config"
-                     [images]="config.backgrounds"/>
-                <tab app-image-collection-settings
-                     heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.ICONS)}}"
-                     [active]="tabActive(SystemSettingsTab.ICONS)"
-                     (selectTab)="selectTab(SystemSettingsTab.ICONS)"
-                     [rootFolder]="icons"
-                     [config]="config"
-                     [images]="config.icons"/>
-                <tab app-image-collection-settings
-                     heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.LOGOS)}}"
-                     [active]="tabActive(SystemSettingsTab.LOGOS)"
-                     (selectTab)="selectTab(SystemSettingsTab.LOGOS)"
-                     [rootFolder]="logos"
-                     [config]="config"
-                     [images]="config.logos"/>
-                <tab app-image-settings
-                     heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.IMAGES)}}"
-                     [config]="config"
-                     [active]="tabActive(SystemSettingsTab.IMAGES)"
-                     (selectTab)="selectTab(SystemSettingsTab.IMAGES)"/>
+                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.MEDIA)}}"
+                     [active]="tabActive(SystemSettingsTab.MEDIA)"
+                     (selectTab)="selectTab(SystemSettingsTab.MEDIA)">
+                  <app-section-toggle
+                    [tabs]="mediaSubTabs"
+                    [(selectedTab)]="mediaSubTab"
+                    [queryParamKey]="'media-sub-tab'"/>
+                  @if (mediaSubTab === MediaSubTab.BACKGROUNDS) {
+                    <div app-image-collection-settings
+                         [rootFolder]="backgrounds"
+                         [config]="config"
+                         [images]="config.backgrounds"></div>
+                  }
+                  @if (mediaSubTab === MediaSubTab.ICONS) {
+                    <div app-image-collection-settings
+                         [rootFolder]="icons"
+                         [config]="config"
+                         [images]="config.icons"></div>
+                  }
+                  @if (mediaSubTab === MediaSubTab.LOGOS) {
+                    <div app-image-collection-settings
+                         [rootFolder]="logos"
+                         [config]="config"
+                         [images]="config.logos"></div>
+                  }
+                  @if (mediaSubTab === MediaSubTab.IMAGES) {
+                    <div app-image-settings [config]="config"></div>
+                  }
+                </tab>
                 <tab app-global-styles
                      heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.STYLES)}}"
                      [config]="config"
@@ -366,6 +371,13 @@ import { SalesforceConfigService } from "../../../services/salesforce/salesforce
                     }
                   </div>
                 </tab>
+                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.SCHEDULED_TASKS)}}"
+                     [active]="tabActive(SystemSettingsTab.SCHEDULED_TASKS)"
+                     (selectTab)="selectTab(SystemSettingsTab.SCHEDULED_TASKS)">
+                  <div class="img-thumbnail thumbnail-admin-edit">
+                    <app-scheduled-tasks/>
+                  </div>
+                </tab>
               </tabset>
             }
             @if (notifyTarget.showAlert) {
@@ -400,7 +412,7 @@ import { SalesforceConfigService } from "../../../services/salesforce/salesforce
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, ScheduledTasksComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -433,6 +445,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   private tab: SystemSettingsTab = SystemSettingsTab.AREA_AND_GROUP;
   protected readonly SystemSettingsTab = SystemSettingsTab;
   protected readonly ExternalSystemsSubTab = ExternalSystemsSubTab;
+  protected readonly MediaSubTab = MediaSubTab;
   protected readonly enumValueForKey = enumValueForKey;
   protected readonly faAdd = faAdd;
   protected readonly faPencil = faPencil;
@@ -445,6 +458,13 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     {key: "instagram", name: "instagram", title: "Instagram", icon: faInstagram}
   ];
   externalSystemSubTab = ExternalSystemsSubTab.ALL;
+  mediaSubTab = MediaSubTab.BACKGROUNDS;
+  mediaSubTabs: SectionToggleTab[] = [
+    {value: MediaSubTab.BACKGROUNDS, label: "Backgrounds"},
+    {value: MediaSubTab.ICONS, label: "Icons"},
+    {value: MediaSubTab.LOGOS, label: "Logos"},
+    {value: MediaSubTab.IMAGES, label: "Images"}
+  ];
   externalSystemSubTabs: SectionToggleTab[] = [
     {value: ExternalSystemsSubTab.ALL, label: "All"},
     {value: ExternalSystemsSubTab.RAMBLERS, label: "Ramblers"},
@@ -468,8 +488,14 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
       const defaultValue = kebabCase(SystemSettingsTab.AREA_AND_GROUP);
       const tabParameter = params["tab"];
       const tab = tabParameter || defaultValue;
+      const mediaSubTab = this.legacyMediaSubTab(tab);
       this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue, "selectTab:", tab);
-      this.selectTab(tab);
+      if (mediaSubTab) {
+        this.mediaSubTab = mediaSubTab;
+        this.tab = SystemSettingsTab.MEDIA;
+      } else {
+        this.tab = tab as SystemSettingsTab;
+      }
     }));
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
@@ -577,5 +603,19 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
 
   showSubTab(tab: ExternalSystemsSubTab): boolean {
     return [ExternalSystemsSubTab.ALL, tab].includes(this.externalSystemSubTab as ExternalSystemsSubTab);
+  }
+
+  private legacyMediaSubTab(tab: string): MediaSubTab | null {
+    let mediaSubTab: MediaSubTab | null = null;
+    if (tab === kebabCase(SystemSettingsTab.BACKGROUNDS)) {
+      mediaSubTab = MediaSubTab.BACKGROUNDS;
+    } else if (tab === kebabCase(SystemSettingsTab.ICONS)) {
+      mediaSubTab = MediaSubTab.ICONS;
+    } else if (tab === kebabCase(SystemSettingsTab.LOGOS)) {
+      mediaSubTab = MediaSubTab.LOGOS;
+    } else if (tab === kebabCase(SystemSettingsTab.IMAGES)) {
+      mediaSubTab = MediaSubTab.IMAGES;
+    }
+    return mediaSubTab;
   }
 }

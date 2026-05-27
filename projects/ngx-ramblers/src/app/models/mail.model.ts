@@ -228,6 +228,7 @@ export interface MailConfig extends BuiltInProcessMappings {
   inboundWebhookSecret?: string;
   brevoEventsWebhookSecret?: string;
   unsubscribeTokenSecret?: string;
+  dailyCampaignSendLimit?: number | null;
 }
 
 export interface BuiltInProcessMappings {
