@@ -19,7 +19,8 @@ import { envConfig } from "../env-config/env-config";
 import {
   AWSConfig,
   AwsInfo,
-  AwsUploadErrorResponse
+  AwsUploadErrorResponse,
+  FileServeDisposition
 } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { contentTypeFrom } from "./aws-utils";
@@ -110,9 +111,9 @@ export async function objectData(req: Request, res: Response) {
       debugLog("got object", s3Item);
     }
     const headers: Record<string, string> = {"Content-Type": contentTypeFrom(options.Key)};
-    const downloadName = downloadFilenameFrom(req);
-    if (downloadName) {
-      headers["Content-Disposition"] = contentDispositionAttachment(downloadName);
+    const disposition = contentDispositionFrom(req);
+    if (disposition) {
+      headers["Content-Disposition"] = disposition;
     }
     res.writeHead(200, headers);
     s3Item.Body.pipe(res);
@@ -254,8 +255,19 @@ function optionsFrom(req: Request): GetObjectRequest {
   return {Bucket: s3Config().bucket, Key: key};
 }
 
-function downloadFilenameFrom(req: Request): string | null {
-  const raw = req.query?.download;
+function contentDispositionFrom(req: Request): string | null {
+  const attachmentName = filenameParam(req.query?.[FileServeDisposition.DOWNLOAD]);
+  if (attachmentName) {
+    return contentDisposition("attachment", attachmentName);
+  }
+  const inlineName = filenameParam(req.query?.[FileServeDisposition.INLINE]);
+  if (inlineName) {
+    return contentDisposition("inline", inlineName);
+  }
+  return null;
+}
+
+function filenameParam(raw: unknown): string | null {
   if (!isString(raw)) {
     return null;
   }
@@ -266,10 +278,10 @@ function downloadFilenameFrom(req: Request): string | null {
   return path.basename(trimmed);
 }
 
-function contentDispositionAttachment(filename: string): string {
+function contentDisposition(type: string, filename: string): string {
   const safe = filename.replace(/[\r\n"\\]/g, "_");
   const encoded = encodeURIComponent(filename);
-  return `attachment; filename="${safe}"; filename*=UTF-8''${encoded}`;
+  return `${type}; filename="${safe}"; filename*=UTF-8''${encoded}`;
 }
 
 async function ensureExtractedReportDirectory(bucket: string, reportKeyPrefix: string): Promise<string> {
