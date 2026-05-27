@@ -41,6 +41,7 @@ enum ConfigAccess {
 const configAccessPolicy: Record<ConfigKey, ConfigAccess> = {
   [ConfigKey.BOOKING]: ConfigAccess.PUBLIC_WITH_REDACTION,
   [ConfigKey.BREVO]: ConfigAccess.PUBLIC_WITH_REDACTION,
+  [ConfigKey.SCHEDULED_TASKS]: ConfigAccess.ADMIN_ONLY,
   [ConfigKey.COMMITTEE]: ConfigAccess.PUBLIC_WITH_REDACTION,
   [ConfigKey.ENVIRONMENTS]: ConfigAccess.ADMIN_ONLY,
   [ConfigKey.MAIL]: ConfigAccess.ADMIN_ONLY,

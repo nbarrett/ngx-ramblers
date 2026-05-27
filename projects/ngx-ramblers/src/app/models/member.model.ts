@@ -177,6 +177,11 @@ export interface BulkLoadMemberAndMatch {
   member: Member;
 }
 
+export interface MemberMatchResult {
+  member: Member | null;
+  memberMatchType: string | null;
+}
+
 export interface BulkLoadMemberAndMatchToWalk {
   include: boolean;
   bulkLoadMemberAndMatch: BulkLoadMemberAndMatch;

@@ -3,6 +3,7 @@ import { Identifiable } from "./api-response.model";
 export enum ConfigKey {
   BOOKING = "booking",
   BREVO = "brevo",
+  SCHEDULED_TASKS = "scheduled-tasks",
   COMMITTEE = "committee",
   ENVIRONMENTS = "environments",
   MAIL = "mail",

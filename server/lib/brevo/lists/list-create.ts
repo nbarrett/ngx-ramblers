@@ -4,6 +4,7 @@ import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import http from "http";
 import { ListCreateRequest, ListsResponse } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
@@ -21,7 +22,7 @@ export async function listCreate(req: Request, res: Response, next: NextFunction
     createList.name = listCreateRequest.name;
     createList.folderId = listCreateRequest.folderId;
     debugLog("createList request received:", createList);
-    const response: { response: http.IncomingMessage, body: any } = await apiInstance.createList(createList);
+    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => apiInstance.createList(createList));
     const listsResponse: ListsResponse = response.body;
     successfulResponse({req, res, response: listsResponse, messageType, debugLog});
   } catch (error) {

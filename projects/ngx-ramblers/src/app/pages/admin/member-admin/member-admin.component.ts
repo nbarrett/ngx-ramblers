@@ -498,10 +498,20 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
   }
 
   async confirmBulkDelete() {
-    const deletedMembers = await this.memberBulkDeleteService.performBulkDelete(this.members, this.bulkDeleteMarkedMemberIds);
-    this.logger.info("deletedMembers:", deletedMembers);
-    await this.updateLists();
-    this.cancelBulkDelete();
+    const memberCount: string = this.stringUtilsService.pluraliseWithCount(this.bulkDeleteMarkedMemberIds.length, "member");
+    this.notify.progress({
+      title: "Member Bulk Delete",
+      message: `Deleting ${memberCount} and synchronising email lists - this can take a few minutes for large selections, please wait`
+    }, true);
+    try {
+      const deletedMembers = await this.memberBulkDeleteService.performBulkDelete(this.members, this.bulkDeleteMarkedMemberIds);
+      this.logger.info("deletedMembers:", deletedMembers);
+      await this.updateLists();
+    } finally {
+      this.confirm.clear();
+      this.bulkDeleteMarkedMemberIds = [];
+      this.notify.clearBusy();
+    }
   }
 
   public async updateLists() {

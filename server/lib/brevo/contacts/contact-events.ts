@@ -7,6 +7,7 @@ import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
 import { BrevoEmailEventReport } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { scheduleBrevo } from "../common/rate-limiting";
 
 const messageType = "brevo:contact-events";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -39,7 +40,7 @@ export async function contactEvents(req: Request, res: Response): Promise<void> 
     const brevoConfig = await configuredBrevo();
     const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
     apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: { response: http.IncomingMessage, body: any } = await apiInstance.getEmailEventReport(
+    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => apiInstance.getEmailEventReport(
       limit,
       offset,
       startDate,
@@ -51,7 +52,7 @@ export async function contactEvents(req: Request, res: Response): Promise<void> 
       undefined,
       undefined,
       sort
-    );
+    ));
     const body: BrevoEmailEventReport = { events: response.body?.events || [] };
     successfulResponse({ req, res, response: body, messageType, debugLog });
   } catch (error) {

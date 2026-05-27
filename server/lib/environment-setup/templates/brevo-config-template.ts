@@ -10,6 +10,7 @@ export function createBrevoConfig(params: BrevoConfigTemplateParams): MailConfig
     baseUrl: BREVO_DEFAULTS.BASE_URL,
     myBaseUrl: BREVO_DEFAULTS.MY_BASE_URL,
     editorUrl: BREVO_DEFAULTS.EDITOR_URL,
+    dailyCampaignSendLimit: 300,
     allowUpdateLists: true,
     allowSendCampaign: true,
     allowSendTransactional: true,

@@ -5,6 +5,7 @@ import { CreateSmtpEmail, SendSmtpEmail } from "@getbrevo/brevo";
 import * as http from "http";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { member } from "../../mongo/models/member";
 import * as transforms from "../../mongo/controllers/transforms";
 import * as stringUtils from "../../shared/string-utils";
@@ -259,7 +260,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
 
   debugLog("About to send forgot password email:", sendSmtpEmail);
 
-  apiInstance.sendTransacEmail(sendSmtpEmail).then((data: {
+  scheduleBrevo(() => apiInstance.sendTransacEmail(sendSmtpEmail)).then((data: {
     response: http.IncomingMessage;
     body: CreateSmtpEmail
   }) => {

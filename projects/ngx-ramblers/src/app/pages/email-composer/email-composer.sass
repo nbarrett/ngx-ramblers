@@ -211,24 +211,27 @@
 
 .email-composer-action-bar
   display: flex
-  flex-wrap: wrap
+  flex-wrap: nowrap
   align-items: center
   justify-content: space-between
   gap: 8px
   padding: 8px 0
+  overflow-x: auto
 
 .email-composer-toolbar
   display: flex
-  flex-wrap: wrap
+  flex-wrap: nowrap
   gap: 8px
   align-items: center
   margin: 0
+  flex-shrink: 0
 
 .email-composer-action-bar .stepper-nav
   display: flex
-  flex-wrap: wrap
+  flex-wrap: nowrap
   gap: 8px
   margin: 0
+  flex-shrink: 0
 
 .email-composer-action-bar .stepper-nav .btn,
 .email-composer-action-bar .email-composer-toolbar .btn

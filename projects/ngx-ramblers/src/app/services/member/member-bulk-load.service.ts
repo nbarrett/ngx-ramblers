@@ -7,6 +7,7 @@ import {
   Member,
   MemberAction,
   MemberBulkLoadAudit,
+  MemberMatchResult,
   MemberUpdateAudit,
   NONE,
   RamblersMember,
@@ -61,7 +62,6 @@ export class MemberBulkLoadService {
 
   public bulkLoadMemberAndMatchFor(ramblersMemberAndContact: RamblersMemberAndContact, existingMembers: Member[], systemConfig: SystemConfig): BulkLoadMemberAndMatch {
     const ramblersMember = ramblersMemberAndContact.ramblersMember;
-    const contactMatchingEnabled: boolean = !!ramblersMemberAndContact?.contact;
     const bulkLoadMemberAndMatch: BulkLoadMemberAndMatch = {
       memberMatch: null,
       member: null,
@@ -69,30 +69,13 @@ export class MemberBulkLoadService {
       ramblersMember,
       contact: ramblersMemberAndContact?.contact
     };
-    bulkLoadMemberAndMatch.member = existingMembers.find(member => {
-      if (member?.membershipNumber === ramblersMember?.membershipNumber) {
-        bulkLoadMemberAndMatch.memberMatchType = "membership number";
-        bulkLoadMemberAndMatch.memberMatch = MemberAction.found;
-        return true;
-      } else if (!isEmpty(ramblersMember.email) && !isEmpty(member.email) && ramblersMember.email === member.email && ramblersMember.lastName === member.lastName) {
-        bulkLoadMemberAndMatch.memberMatchType = "email and last name";
-        bulkLoadMemberAndMatch.memberMatch = MemberAction.found;
-        return true;
-      } else if (contactMatchingEnabled && !isEmpty(ramblersMember.mobileNumber) && !isEmpty(member.mobileNumber) && this.numberUtils.asNumber(ramblersMember.mobileNumber) === this.numberUtils.asNumber(member.mobileNumber)) {
-        bulkLoadMemberAndMatch.memberMatchType = "mobile number";
-        bulkLoadMemberAndMatch.memberMatch = MemberAction.found;
-        return true;
-      } else if (contactMatchingEnabled && this.memberNamingService.removeCharactersNotPartOfName(ramblersMemberAndContact.contact.name) === this.memberNamingService.removeCharactersNotPartOfName(member.displayName)) {
-        bulkLoadMemberAndMatch.memberMatchType = "display name";
-        bulkLoadMemberAndMatch.memberMatch = MemberAction.found;
-        return true;
-      } else {
-        return false;
-      }
-    });
-    if (bulkLoadMemberAndMatch.member) {
+    const existingMatch = this.existingMemberMatchFor(ramblersMemberAndContact, existingMembers);
+    if (existingMatch.member) {
+      bulkLoadMemberAndMatch.member = existingMatch.member;
+      bulkLoadMemberAndMatch.memberMatchType = existingMatch.memberMatchType;
+      bulkLoadMemberAndMatch.memberMatch = MemberAction.found;
       this.logger.info("matched ramblersMembers based on:", bulkLoadMemberAndMatch.memberMatchType,
-        "contact:", contactMatchingEnabled,
+        "contact:", !!ramblersMemberAndContact?.contact,
         "ramblersMember:", ramblersMember,
         "member:", bulkLoadMemberAndMatch.member);
       this.memberDefaultsService.resetUpdateStatusForMember(bulkLoadMemberAndMatch.member, systemConfig);
@@ -109,16 +92,96 @@ export class MemberBulkLoadService {
         contactId: displayName,
         expiredPassword: true
       };
-      if (contactMatchingEnabled) {
+      if (ramblersMemberAndContact?.contact) {
         bulkLoadMemberAndMatch.member.firstName = this.memberNamingService.removeCharactersNotPartOfName(ramblersMember.firstName) || "Unknown";
         bulkLoadMemberAndMatch.member.lastName = this.memberNamingService.removeCharactersNotPartOfName(ramblersMember.lastName) || "Unknown";
         bulkLoadMemberAndMatch.member.mobileNumber = ramblersMember.mobileNumber;
+      }
+      const nameAlias = this.createUniqueNameAlias(ramblersMember, existingMembers);
+      if (nameAlias) {
+        bulkLoadMemberAndMatch.member.nameAlias = nameAlias;
       }
       existingMembers.push(bulkLoadMemberAndMatch.member);
       this.logger.info("new member created:", bulkLoadMemberAndMatch.member);
     }
     return bulkLoadMemberAndMatch;
   };
+
+  public existingMemberMatchFor(ramblersMemberAndContact: RamblersMemberAndContact, existingMembers: Member[]): MemberMatchResult {
+    const matchedMember = existingMembers.find(member => !!this.memberMatchTypeFor(ramblersMemberAndContact, member));
+    return {
+      member: matchedMember,
+      memberMatchType: matchedMember ? this.memberMatchTypeFor(ramblersMemberAndContact, matchedMember) : null
+    };
+  }
+
+  private memberMatchTypeFor(ramblersMemberAndContact: RamblersMemberAndContact, member: Member): string {
+    const ramblersMember = ramblersMemberAndContact.ramblersMember;
+    const contactMatchingEnabled = !!ramblersMemberAndContact?.contact;
+    const importedUserName = this.importedUserName(ramblersMember);
+    if (!isEmpty(ramblersMember?.membershipNumber) && member?.membershipNumber === ramblersMember?.membershipNumber) {
+      return "membership number";
+    }
+    if (!isEmpty(ramblersMember?.membershipNumber) && !isEmpty(member?.membershipNumber)) {
+      return null;
+    }
+    if (!isEmpty(importedUserName) && this.sameText(importedUserName, member.userName)) {
+      return "user name";
+    }
+    if (this.uniqueNameIndexMatches(ramblersMember, member)) {
+      return "name and title";
+    }
+    if (!isEmpty(ramblersMember.email) && !isEmpty(member.email) && this.sameText(ramblersMember.email, member.email) && this.sameText(ramblersMember.lastName, member.lastName)) {
+      return "email and last name";
+    }
+    if (contactMatchingEnabled && !isEmpty(ramblersMember.mobileNumber) && !isEmpty(member.mobileNumber) && this.numberUtils.asNumber(ramblersMember.mobileNumber) === this.numberUtils.asNumber(member.mobileNumber)) {
+      return "mobile number";
+    }
+    if (contactMatchingEnabled && this.memberNamingService.removeCharactersNotPartOfName(ramblersMemberAndContact.contact.name) === this.memberNamingService.removeCharactersNotPartOfName(member.displayName)) {
+      return "display name";
+    }
+    return null;
+  }
+
+  private importedUserName(ramblersMember: RamblersMember | Member): string {
+    return (ramblersMember as Member).userName || this.memberNamingService.createUserName(ramblersMember);
+  }
+
+  private uniqueNameIndexMatches(ramblersMember: RamblersMember | Member, member: Member): boolean {
+    return this.nameIndexTupleMatches(ramblersMember, member, (ramblersMember as Member).nameAlias);
+  }
+
+  private nameIndexTupleMatches(ramblersMember: RamblersMember | Member, member: Member, nameAlias: string): boolean {
+    const importedFirstName = ramblersMember.firstName || ramblersMember.title;
+    return !isEmpty(importedFirstName)
+      && !isEmpty(ramblersMember.lastName)
+      && this.sameText(importedFirstName, member.firstName)
+      && this.sameText(ramblersMember.lastName, member.lastName)
+      && this.sameText(ramblersMember.title, member.title)
+      && this.sameText(nameAlias, member.nameAlias);
+  }
+
+  private createUniqueNameAlias(ramblersMember: RamblersMember | Member, existingMembers: Member[]): string {
+    const baseAlias = ((ramblersMember as Member).nameAlias || "").trim();
+    const aliasForOccurrence = (occurrence: number): string => {
+      if (occurrence === 1) {
+        return baseAlias;
+      }
+      return baseAlias ? `${baseAlias} ${occurrence}` : `${occurrence}`;
+    };
+    const maxOccurrences = existingMembers.length + 2;
+    return Array.from({length: maxOccurrences}, (_, index) => aliasForOccurrence(index + 1))
+      .find(alias => !existingMembers.some(member => this.nameIndexTupleMatches(ramblersMember, member, alias)))
+      ?? aliasForOccurrence(maxOccurrences + 1);
+  }
+
+  private sameText(left: string, right: string): boolean {
+    return this.normalizedText(left) === this.normalizedText(right);
+  }
+
+  private normalizedText(value: string): string {
+    return value ? value.trim().toLowerCase() : "";
+  }
 
   private saveAndAuditMemberUpdate(promises: Promise<any>[], uploadSessionId: string, rowNumber: number, memberMatch: MemberAction, memberAction: MemberAction, changes: number, auditMessage: any, member: Member, notify: AlertInstance): Promise<Promise<any>[]> {
 
@@ -137,6 +200,7 @@ export class MemberBulkLoadService {
     return this.memberService.createOrUpdate(member)
       .then((savedMember: Member) => {
         audit.memberId = savedMember.id;
+        member.id = savedMember.id;
         notify.success({title: `Bulk member load ${qualifier} was successful`, message: auditMessage});
         this.logger.info("saveAndAuditMemberUpdate:", audit);
         promises.push(this.memberUpdateAuditService.create(audit));

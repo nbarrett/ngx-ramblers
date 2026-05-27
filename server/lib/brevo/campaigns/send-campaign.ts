@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { CreateEmailCampaign } from "@getbrevo/brevo";
 import { handleError, mapStatusMappedResponseSingleInput, successfulResponse } from "../common/messages";
@@ -25,7 +26,7 @@ export async function sendCampaign(req: Request, res: Response, next: NextFuncti
     const createEmailCampaign: CreateEmailCampaign = new SibApiV3Sdk.CreateEmailCampaign();
     apiInstance.setApiKey(SibApiV3Sdk.EmailCampaignsApiApiKeys.apiKey, brevoConfig.apiKey);
     debugLog(`About to send email campaign with  supplied sendCampaignRequest: ${sendCampaignRequest}`);
-    apiInstance.sendEmailCampaignNow(sendCampaignRequest.campaignId).then((response: {
+    scheduleBrevo(() => apiInstance.sendEmailCampaignNow(sendCampaignRequest.campaignId)).then((response: {
       response: http.IncomingMessage;
       body: CreateModel
     }) => {

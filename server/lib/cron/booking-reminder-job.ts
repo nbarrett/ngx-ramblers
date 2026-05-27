@@ -1,5 +1,4 @@
 import debug from "debug";
-import * as cron from "node-cron";
 import { envConfig } from "../env-config/env-config";
 import { loadBookingConfig } from "../config/booking-config";
 import { booking } from "../mongo/models/booking";
@@ -15,24 +14,24 @@ import {
   sendBookingRestoredEmail,
   sendBookingWaitlistedEmail
 } from "../brevo/transactional-mail/send-booking-email";
+import { registerScheduledTask, setScheduledTaskEnabled } from "./scheduled-task-registry";
 
 const debugLog = debug(envConfig.logNamespace("cron:booking-reminder"));
 debugLog.enabled = true;
 
-let scheduledTask: ReturnType<typeof cron.schedule> | null = null;
-
 export async function scheduleBookingReminders() {
   const cronExpression = "0 8 * * *";
-
-  scheduledTask = cron.schedule(cronExpression, async () => {
-    debugLog("Starting scheduled booking reminder check");
-    try {
+  await registerScheduledTask({
+    id: "booking-reminders",
+    name: "Booking reminders",
+    description: "Sends due booking reminder messages for upcoming events.",
+    cronExpression,
+    enabled: true,
+    run: async () => {
+      debugLog("Starting scheduled booking reminder check");
       await sendPendingReminders();
-    } catch (error) {
-      debugLog("Scheduled reminder check failed:", error);
     }
   });
-
   debugLog(`Booking reminder cron job scheduled: ${cronExpression} (daily at 8am)`);
 }
 
@@ -196,9 +195,6 @@ export async function sendEmailsByTypeForEvent(eventId: string, emailType: Booki
 }
 
 export function stopBookingReminders() {
-  if (scheduledTask) {
-    scheduledTask.stop();
-    debugLog("Booking reminder cron job stopped");
-    scheduledTask = null;
-  }
+  void setScheduledTaskEnabled("booking-reminders", false);
+  debugLog("Booking reminder cron job stopped");
 }

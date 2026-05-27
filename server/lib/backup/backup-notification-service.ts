@@ -2,6 +2,7 @@ import debug from "debug";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { envConfig } from "../env-config/env-config";
 import { configuredBrevo } from "../brevo/brevo-config";
+import { scheduleBrevo } from "../brevo/common/rate-limiting";
 import { BackupSession } from "../mongo/models/backup-session";
 import { dateTimeFromJsDate } from "../shared/dates";
 import { DateTime } from "luxon";
@@ -92,7 +93,7 @@ export class BackupNotificationService {
       sendSmtpEmail.to = this.options.recipients;
       sendSmtpEmail.htmlContent = htmlContent;
 
-      const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+      const response = await scheduleBrevo(() => apiInstance.sendTransacEmail(sendSmtpEmail));
       debugLog("Email sent successfully:", response);
     } catch (error) {
       debugLog("Error sending email:", error);

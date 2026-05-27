@@ -3,7 +3,10 @@ export function toCampaignContactTokens(html: string): string {
     FULL_NAME: "{{contact.FIRSTNAME}} {{contact.LASTNAME}}",
     FNAME: "{{contact.FIRSTNAME}}",
     LNAME: "{{contact.LASTNAME}}",
-    EMAIL: "{{contact.EMAIL}}"
+    EMAIL: "{{contact.EMAIL}}",
+    MEMBER_NUM: "{{contact.MEMBER_NUM}}",
+    MEMBER_EXP: "{{contact.MEMBER_EXP}}",
+    USERNAME: "{{contact.USERNAME}}"
   };
   return Object.entries(contactTokenByMergeField).reduce(
     (content, [mergeField, contactToken]) =>

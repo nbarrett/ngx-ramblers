@@ -5,6 +5,7 @@ import { isNumber, isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { member } from "../../mongo/models/member";
 import { mailListAudit } from "../../mongo/models/mail-list-audit";
 import {
@@ -65,7 +66,7 @@ async function removeContactFromBrevoList(email: string, listId: number): Promis
   const removal = new SibApiV3Sdk.RemoveContactFromList();
   removal.emails = [email];
   try {
-    await contactsApi.removeContactFromList(listId, removal);
+    await scheduleBrevo(() => contactsApi.removeContactFromList(listId, removal));
   } catch (error: any) {
     const status = error?.response?.statusCode;
     if (status === 400 || status === 404) {
@@ -81,7 +82,7 @@ async function lookupListName(listId: number): Promise<string | undefined> {
     const brevoConfig = await configuredBrevo();
     const contactsApi = new SibApiV3Sdk.ContactsApi();
     contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: any = await contactsApi.getList(listId);
+    const response: any = await scheduleBrevo(() => contactsApi.getList(listId));
     const name = response?.body?.name;
     return isString(name) && name.trim().length > 0 ? name : undefined;
   } catch (error: any) {
@@ -316,7 +317,7 @@ async function emailIsOnList(email: string, listId: number): Promise<boolean> {
     const brevoConfig = await configuredBrevo();
     const contactsApi = new SibApiV3Sdk.ContactsApi();
     contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: any = await contactsApi.getContactInfo(email);
+    const response: any = await scheduleBrevo(() => contactsApi.getContactInfo(email));
     const listIds: number[] = response?.body?.listIds || [];
     return listIds.includes(listId);
   } catch (error: any) {

@@ -70,6 +70,8 @@ import { spatialFeaturesController } from "./map-routes/spatial-features-control
 import { scheduleWalksManagerSync } from "./cron/walks-manager-sync-job";
 import { scheduleBookingReminders } from "./cron/booking-reminder-job";
 import { scheduleBrevoUnsubscribesSync } from "./cron/brevo-unsubscribes-sync-job";
+import { scheduleBrevoCampaignRelease } from "./cron/brevo-campaign-release-job";
+import { scheduledTaskRoutes } from "./cron/scheduled-task-routes";
 import bodyParser from "body-parser";
 import compression from "compression";
 import errorHandler from "errorhandler";
@@ -129,6 +131,7 @@ app.use("/api/google-maps", googleMapsRoutes);
 app.use("/api/instagram", instagramRoutes);
 app.use("/api/mailchimp", mailchimpRoutes);
 app.use("/api/mail", brevoRoutes);
+app.use("/api/scheduled-tasks", scheduledTaskRoutes);
 app.use("/api/addresses", addresses);
 app.use("/api/os-maps", osMapsRoutes);
 app.use("/api/meetup", meetupRoutes);
@@ -255,6 +258,10 @@ async function startServer() {
 
       scheduleBrevoUnsubscribesSync().catch(error => {
         debugLog("❌ Failed to schedule Brevo unsubscribes sync:", error);
+      });
+
+      scheduleBrevoCampaignRelease().catch(error => {
+        debugLog("❌ Failed to schedule Brevo campaign release:", error);
       });
     }).catch(error => {
       debugLog("❌ MongoDB connection failed:", error);

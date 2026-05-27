@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { CreateContactRequest, MailConfig } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import http from "http";
@@ -23,7 +24,7 @@ export async function contactUpdate(req: Request, res: Response): Promise<any> {
     const response: {
       response: http.IncomingMessage,
       body?: any
-    } = await apiInstance.updateContact(identifier, updateContact);
+    } = await scheduleBrevo(() => apiInstance.updateContact(identifier, updateContact));
     debugLog("response", response);
     successfulResponse({req, res, response: response.body, messageType, debugLog});
   } catch (error) {

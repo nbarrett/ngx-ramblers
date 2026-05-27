@@ -7,7 +7,7 @@ import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
 import { dateTimeFromMillis, dateTimeNowAsValue } from "../../shared/dates";
-import { createBottleneckWithRatePerSecond } from "../common/rate-limiting";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { member } from "../../mongo/models/member";
 import { mailListAudit } from "../../mongo/models/mail-list-audit";
 import {
@@ -37,7 +37,6 @@ debugLog.enabled = false;
 const BREVO_PAGE_LIMIT = 100;
 const DEFAULT_PAGE_LIMIT = 100;
 const MAX_FETCH_LIMIT = 1000;
-const CONTACT_INFO_RATE_PER_SECOND = 10;
 
 function parsePositiveInt(value: any, fallback: number): number {
   const parsed = Number.parseInt(value, 10);
@@ -79,14 +78,14 @@ async function fetchBlockedContactsPage(
   limit: number,
   offset: number
 ): Promise<{ contacts: BlockedContact[]; totalCount: number }> {
-  const response: { response: http.IncomingMessage, body: any } = await apiInstance.getTransacBlockedContacts(
+  const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => apiInstance.getTransacBlockedContacts(
     startDate,
     endDate,
     limit,
     offset,
     senders,
     sort
-  );
+  ));
   const body = response.body || {};
   return {
     contacts: body.contacts || [],
@@ -174,11 +173,10 @@ async function enrichWithContactInfo(
   contacts: BlockedContact[]
 ): Promise<BlockedContact[]> {
   if (contacts.length === 0) return contacts;
-  const limiter = createBottleneckWithRatePerSecond(CONTACT_INFO_RATE_PER_SECOND);
-  const lookups = contacts.map(contact => limiter.schedule(async () => {
+  const lookups = contacts.map(async (contact) => {
     if (!contact.email) return contact;
     try {
-      const response: { response: http.IncomingMessage, body: any } = await contactsApi.getContactInfo(contact.email);
+      const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => contactsApi.getContactInfo(contact.email));
       const body = response.body || {};
       return {
         ...contact,
@@ -190,7 +188,7 @@ async function enrichWithContactInfo(
       debugLog("enrichWithContactInfo:lookup-failed", contact.email, error?.response?.statusCode || error?.message || error);
       return contact;
     }
-  }));
+  });
   return Promise.all(lookups);
 }
 
@@ -221,7 +219,7 @@ function buildAuditMessage(contact: BlockedContact, listName: string | undefined
 async function loadBrevoListNames(contactsApi: SibApiV3Sdk.ContactsApi): Promise<Map<number, string>> {
   const namesById = new Map<number, string>();
   try {
-    const response: { response: http.IncomingMessage, body: any } = await contactsApi.getLists(50, 0);
+    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => contactsApi.getLists(50, 0));
     const lists = (response.body?.lists || []) as Array<{ id: number; name: string }>;
     lists.forEach(list => {
       if (Number.isFinite(list?.id)) namesById.set(list.id, list.name);
@@ -532,7 +530,7 @@ export async function removeFromBlocklist(req: Request, res: Response): Promise<
     const contactsApi = new SibApiV3Sdk.ContactsApi();
     contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
     try {
-      await apiInstance.smtpBlockedContactsEmailDelete(email);
+      await scheduleBrevo(() => apiInstance.smtpBlockedContactsEmailDelete(email));
     } catch (error: any) {
       const status = error?.response?.statusCode;
       if (status !== 404) {
@@ -543,7 +541,7 @@ export async function removeFromBlocklist(req: Request, res: Response): Promise<
     try {
       const update = new SibApiV3Sdk.UpdateContact();
       update.emailBlacklisted = false;
-      await contactsApi.updateContact(email, update);
+      await scheduleBrevo(() => contactsApi.updateContact(email, update));
     } catch (error: any) {
       const status = error?.response?.statusCode;
       if (status !== 404) {
@@ -597,7 +595,6 @@ export async function clearAllBlocklist(req: Request, res: Response): Promise<vo
       MAX_FETCH_LIMIT,
       0
     );
-    const limiter = createBottleneckWithRatePerSecond(CONTACT_INFO_RATE_PER_SECOND);
     const result: ClearAllBlocklistResult = {
       brevoFound: aggregated.contacts.length,
       brevoCleared: 0,
@@ -605,12 +602,12 @@ export async function clearAllBlocklist(req: Request, res: Response): Promise<vo
       localCleared: 0,
       errors: []
     };
-    await Promise.all(aggregated.contacts.map(contact => limiter.schedule(async () => {
+    await Promise.all(aggregated.contacts.map(async (contact) => {
       const email = contact.email;
       if (!email) return;
       try {
         try {
-          await apiInstance.smtpBlockedContactsEmailDelete(email);
+          await scheduleBrevo(() => apiInstance.smtpBlockedContactsEmailDelete(email));
         } catch (error: any) {
           const status = error?.response?.statusCode;
           if (status !== 404) throw error;
@@ -618,7 +615,7 @@ export async function clearAllBlocklist(req: Request, res: Response): Promise<vo
         try {
           const update = new SibApiV3Sdk.UpdateContact();
           update.emailBlacklisted = false;
-          await contactsApi.updateContact(email, update);
+          await scheduleBrevo(() => contactsApi.updateContact(email, update));
         } catch (error: any) {
           const status = error?.response?.statusCode;
           if (status !== 404) throw error;
@@ -632,7 +629,7 @@ export async function clearAllBlocklist(req: Request, res: Response): Promise<vo
         });
         debugLog("clearAllBlocklist:failed", email, error?.message || error);
       }
-    })));
+    }));
     const triggeredBy = (req as any).user?.userName || (req as any).user?.id || "admin-action";
     const localMembers = await member.find(
       { emailBlock: { $exists: true } },

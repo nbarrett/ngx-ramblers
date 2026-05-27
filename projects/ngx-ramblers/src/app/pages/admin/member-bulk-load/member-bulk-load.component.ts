@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
-import { faEnvelopesBulk, faSearch, faCloudArrowDown, faCheckCircle, faTimesCircle } from "@fortawesome/free-solid-svg-icons";
+import { faEnvelopesBulk, faSearch, faCloudArrowDown } from "@fortawesome/free-solid-svg-icons";
 import { first } from "es-toolkit/compat";
 import { groupBy } from "es-toolkit/compat";
 import { map } from "es-toolkit/compat";
@@ -20,7 +20,9 @@ import {
   MemberBulkLoadAudit,
   MemberBulkLoadAuditApiResponse,
   MemberUpdateAudit,
-  SessionStatus
+  RamblersMember,
+  SessionStatus,
+  StatusMessage
 } from "../../../models/member.model";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
 import {
@@ -248,14 +250,39 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                           </div>
                         </div>
                       }
-                      @if (salesforceSyncMessage) {
+                      @if (notifyTarget.showAlert) {
                         <div class="row mt-3">
                           <div class="col-md-12">
-                            <div class="alert {{ salesforceSyncError ? 'alert-danger' : 'alert-success' }}">
-                              <fa-icon [icon]="salesforceSyncError ? faTimesCircle : faCheckCircle" class="me-2"/>
-                              {{ salesforceSyncMessage }}
+                            <div class="alert {{notifyTarget.alertClass}}">
+                              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                              @if (notifyTarget.alertTitle) {
+                                <strong> {{ notifyTarget.alertTitle }}: </strong>
+                              }
+                              {{ notifyTarget.alertMessage }}
                             </div>
                           </div>
+                        </div>
+                      }
+                      @if (salesforceSyncAuditLog.length > 0) {
+                        <div class="table-responsive mt-3">
+                          <table class="round tbl-green-g table-striped table-hover table-sm">
+                            <thead>
+                            <tr class="pointer">
+                              <th>Status</th>
+                              <th>Message</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                              @for (auditLog of salesforceSyncAuditLog; track auditLog.message) {
+                                <tr>
+                                  <td>
+                                    <app-status-icon [status]="auditLog.status"/>
+                                  </td>
+                                  <td>{{ auditLog.message }}</td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
                         </div>
                       }
                     </div>
@@ -589,13 +616,10 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   faEnvelopesBulk = faEnvelopesBulk;
   faSearch = faSearch;
   faCloudArrowDown = faCloudArrowDown;
-  faCheckCircle = faCheckCircle;
-  faTimesCircle = faTimesCircle;
   salesforceConfig: SalesforceConfig | null = null;
   salesforceSyncing = false;
   lastSalesforceFullSync = false;
-  salesforceSyncMessage: string | null = null;
-  salesforceSyncError = false;
+  salesforceSyncAuditLog: StatusMessage[] = [];
   protected readonly NO_CHANGES_OR_DIFFERENCES = NO_CHANGES_OR_DIFFERENCES;
 
   ngOnInit() {
@@ -670,7 +694,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
         results: [],
       }
     };
-    this.refreshMembers();
+    void this.refreshMembers();
     this.memberBulkLoadAuditService.all({
       sort: {createdDate: -1}
     }).then(memberBulkLoadAudits => {
@@ -681,11 +705,12 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     });
   }
 
-  private refreshMembers() {
+  private refreshMembers(): Promise<Member[]> {
     this.logger.info(`refreshing ${this.stringUtils.pluraliseWithCount(this.members.length, "member")}`);
-    this.memberService.all().then(members => {
+    return this.memberService.all().then(members => {
       this.logger.info(`found ${this.stringUtils.pluraliseWithCount(members.length, "member")}`);
       this.members = members;
+      return members;
     });
   }
 
@@ -699,15 +724,13 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     }
     this.salesforceSyncing = true;
     this.lastSalesforceFullSync = fullSync;
-    this.salesforceSyncMessage = null;
-    this.salesforceSyncError = false;
+    this.salesforceSyncAuditLog = [];
     this.notify.setBusy();
     try {
       const apiResponse = await this.salesforceSyncService.sync(fullSync);
       const audit = apiResponse?.response;
+      this.salesforceSyncAuditLog = audit?.auditLog ?? [];
       if (apiResponse?.error) {
-        this.salesforceSyncError = true;
-        this.salesforceSyncMessage = `Salesforce sync failed: ${apiResponse.error}`;
         this.notify.error({title: "Salesforce sync failed", message: apiResponse.error});
         if (audit) {
           await this.memberBulkLoadAuditService.create(audit).catch(error => {
@@ -717,24 +740,20 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
         return;
       }
       if (!audit) {
-        this.salesforceSyncError = true;
-        this.salesforceSyncMessage = "Salesforce sync returned no result.";
-        this.notify.error({title: "Salesforce sync failed", message: this.salesforceSyncMessage});
+        this.notify.error({title: "Salesforce sync failed", message: "Salesforce sync returned no result."});
         return;
       }
-      await this.memberBulkLoadService.processResponse(this.mailMessagingConfig, this.systemConfig, audit, this.members, this.notify);
+      const members = await this.refreshMembers();
+      await this.memberBulkLoadService.processResponse(this.mailMessagingConfig, this.systemConfig, audit, members, this.notify);
       await this.refreshMemberBulkLoadAudit();
       await this.refreshMemberUpdateAudit();
       const validationSuccessful = await this.validateBulkUploadProcessing({action: null, request: null, response: audit});
       await this.sendSubscriptionUpdates(validationSuccessful);
-      this.refreshMembers();
+      await this.refreshMembers();
       await this.salesforceConfigService.refresh();
-      this.salesforceSyncMessage = `Salesforce sync complete: processed ${audit.members.length} members.`;
     } catch (error) {
       this.logger.error("Salesforce sync error", error);
-      this.salesforceSyncError = true;
-      this.salesforceSyncMessage = `Salesforce sync failed: ${error instanceof Error ? error.message : String(error)}`;
-      this.notify.error({title: "Salesforce sync failed", message: this.salesforceSyncMessage});
+      this.notify.error({title: "Salesforce sync failed", message: error instanceof Error ? error.message : String(error)});
     } finally {
       this.salesforceSyncing = false;
       this.clearBusy();
@@ -756,21 +775,34 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     this.searchChangeObservable.next(searchEntry);
   }
 
-  createMemberFromAudit(memberFromAudit: Member) {
-    const member = this.memberDefaultsService.applyDefaultMailSettingsToMember(cloneDeep(memberFromAudit), this.systemConfig, this.mailMessagingConfig);
+  async createMemberFromAudit(memberFromAudit: Member) {
+    const members = await this.refreshMembers();
+    const existingMatch = this.memberBulkLoadService.existingMemberMatchFor({
+      ramblersMember: memberFromAudit as unknown as RamblersMember,
+      contact: null
+    }, members);
+    const existingMember = existingMatch.member;
+    const member = this.memberDefaultsService.applyDefaultMailSettingsToMember(cloneDeep(existingMember ?? memberFromAudit), this.systemConfig, this.mailMessagingConfig);
     this.modalService.show(MemberAdminModalComponent, {
       class: "modal-xl",
       show: true,
       initialState: {
-        editMode: EditMode.ADD_NEW,
+        editMode: existingMember ? EditMode.EDIT : EditMode.ADD_NEW,
         member,
         members: this.members,
       }
     });
-    this.notify.warning({
-      title: "Recreating Member",
-      message: "Note that clicking Save immediately on this member is likely to cause the same error to occur as was originally logged in the audit. Therefore make the necessary changes here to allow the member record to be saved successfully"
-    });
+    if (existingMember) {
+      this.notify.success({
+        title: "Existing member found",
+        message: `Opened the existing member matched by ${existingMatch.memberMatchType}. Saving will update that record instead of creating a duplicate.`
+      });
+    } else {
+      this.notify.warning({
+        title: "Recreating Member",
+        message: "No existing member match was found. Review the details before saving this as a new member."
+      });
+    }
   }
 
   showMemberUpdateAuditColumn(field: string) {

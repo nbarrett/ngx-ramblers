@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { CreateEmailCampaign } from "@getbrevo/brevo";
 import {
@@ -38,6 +39,19 @@ async function injectCampaignUnsubscribeUrl(createCampaignRequest: CreateCampaig
   memberMergeFields.UNSUBSCRIBE_URL = `${groupHref}/api/mail/unsubscribe/from-list?email={{ contact.EMAIL }}&listId=${listId}&redirect=${encodeURIComponent(path)}`;
 }
 
+async function createEmailCampaignWithTagFallback(apiInstance: SibApiV3Sdk.EmailCampaignsApi, createEmailCampaign: CreateEmailCampaign, debugLog: any) {
+  try {
+    return await scheduleBrevo(() => apiInstance.createEmailCampaign(createEmailCampaign));
+  } catch (error: any) {
+    if (error?.statusCode !== 405 || !createEmailCampaign.tag) {
+      throw error;
+    }
+    debugLog("Brevo rejected the campaign tag (405); this account's plan does not allow campaign tags. Retrying without the tag so the campaign can send. Campaigns sent without the tag are not tracked in the managed Campaign Queue.", error?.body);
+    createEmailCampaign.tag = undefined;
+    return scheduleBrevo(() => apiInstance.createEmailCampaign(createEmailCampaign));
+  }
+}
+
 export async function createCampaign(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const brevoConfig = await configuredBrevo();
@@ -69,15 +83,10 @@ export async function createCampaign(req: Request, res: Response, next: NextFunc
     createEmailCampaign.toField = "{{contact.FIRSTNAME}} {{contact.LASTNAME}}";
     await performTemplateSubstitution(createCampaignRequest, createEmailCampaign, debugLog, true);
     debugLog("Email campaign preparation 2/2 createEmailCampaign:", JSON.stringify(omit(createEmailCampaign, "htmlContent")));
-    apiInstance.createEmailCampaign(createEmailCampaign)
-      .then(response => {
-        const responseSingleInput: StatusMappedResponseSingleInput = mapStatusMappedResponseSingleInput(createEmailCampaign.subject, response, 201);
-        debugLog("API called successfully. Returned data: " + JSON.stringify(response), "responseSingleInput:", responseSingleInput);
-        successfulResponse({req, res, response: responseSingleInput, messageType, debugLog});
-      })
-      .catch((error: any) => {
-        handleError(req, res, messageType, debugLog, error);
-      });
+    const response = await createEmailCampaignWithTagFallback(apiInstance, createEmailCampaign, debugLog);
+    const responseSingleInput: StatusMappedResponseSingleInput = mapStatusMappedResponseSingleInput(createEmailCampaign.subject, response, 201);
+    debugLog("API called successfully. Returned data: " + JSON.stringify(response), "responseSingleInput:", responseSingleInput);
+    successfulResponse({req, res, response: responseSingleInput, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }

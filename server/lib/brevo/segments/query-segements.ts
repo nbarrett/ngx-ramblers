@@ -12,6 +12,7 @@ import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { ContactsApi, GetSegmentsSegments } from "@getbrevo/brevo";
 import http from "http";
 import { handleError, successfulResponse } from "../common/messages";
+import { scheduleBrevo } from "../common/rate-limiting";
 
 const messageType = "brevo:segments:query";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -27,7 +28,7 @@ export async function querySegments(req: Request, res: Response): Promise<any> {
     const apiResponse: {
       response: http.IncomingMessage,
       body?: any
-    } = await apiInstance.getSegments(requestOptions.limit, requestOptions.offset, requestOptions.sort, requestOptions.options);
+    } = await scheduleBrevo(() => apiInstance.getSegments(requestOptions.limit, requestOptions.offset, requestOptions.sort, requestOptions.options));
 
     const response: SegmentsResponse = {
       count: apiResponse.body.count,

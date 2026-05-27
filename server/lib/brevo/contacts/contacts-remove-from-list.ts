@@ -4,6 +4,7 @@ import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import http from "http";
 import {
   ContactAddOrRemoveResponse,
@@ -28,7 +29,7 @@ export async function contactsRemoveFromList(req: Request, res: Response, next: 
       const response: {
         response: http.IncomingMessage,
         body: any
-      } = await apiInstance.removeContactFromList(listId, contactEmails);
+      } = await scheduleBrevo(() => apiInstance.removeContactFromList(listId, contactEmails));
       const contactRemoveFromListResponse: ContactAddOrRemoveResponse = response.body;
       return contactRemoveFromListResponse;
     }));

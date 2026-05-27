@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { CreateSmtpEmail, SendSmtpEmail } from "@getbrevo/brevo";
 import { handleError, performTemplateSubstitution, successfulResponse } from "../common/messages";
@@ -122,7 +123,7 @@ export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailR
     }
   }
   transactionalDebugLog("About to send mail with supplied sendSmtpEmail:", sendSmtpEmail);
-  return apiInstance.sendTransacEmail(sendSmtpEmail);
+  return scheduleBrevo(() => apiInstance.sendTransacEmail(sendSmtpEmail));
 }
 
 export async function sendTransactionalMail(req: Request, res: Response, next: NextFunction): Promise<void> {

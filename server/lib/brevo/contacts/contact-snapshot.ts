@@ -5,6 +5,7 @@ import { isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { member } from "../../mongo/models/member";
 import { brevoContactSnapshot } from "../../mongo/models/brevo-contact-snapshot";
@@ -21,9 +22,9 @@ const EVENT_LOOKBACK_DAYS = 90;
 async function fetchAllEvents(transactionalApi: SibApiV3Sdk.TransactionalEmailsApi, email: string): Promise<BrevoEmailEvent[]> {
   const all: BrevoEmailEvent[] = [];
   for (const page of EVENT_PAGE_OFFSETS) {
-    const response: { body: any } = await transactionalApi.getEmailEventReport(
+    const response: { body: any } = await scheduleBrevo(() => transactionalApi.getEmailEventReport(
       EVENTS_PER_PAGE, page * EVENTS_PER_PAGE, undefined, undefined, EVENT_LOOKBACK_DAYS, email,
-      undefined, undefined, undefined, undefined, "desc");
+      undefined, undefined, undefined, undefined, "desc"));
     const events: BrevoEmailEvent[] = response.body?.events || [];
     all.push(...events);
     if (events.length < EVENTS_PER_PAGE) {
@@ -42,7 +43,7 @@ export async function snapshotBrevoContact(identifier: NumberOrString, snapshotB
     let contactDetails: BrevoContactDetails | null = null;
     let email: string | null = identifierString.includes("@") ? identifierString : null;
     try {
-      const info: { body: any } = await contactsApi.getContactInfo(identifierString);
+      const info: { body: any } = await scheduleBrevo(() => contactsApi.getContactInfo(identifierString));
       contactDetails = info.body as BrevoContactDetails;
       email = contactDetails?.email || email;
     } catch (error: any) {

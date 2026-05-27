@@ -5,6 +5,7 @@ import http from "http";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { scheduleBrevo } from "../common/rate-limiting";
 import { BrevoCampaignContent } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const messageType = "brevo:campaign-content";
@@ -17,7 +18,7 @@ export async function campaignContent(req: Request, res: Response): Promise<void
     const brevoConfig = await configuredBrevo();
     const apiInstance = new SibApiV3Sdk.EmailCampaignsApi();
     apiInstance.setApiKey(SibApiV3Sdk.EmailCampaignsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: { response: http.IncomingMessage, body: any } = await apiInstance.getEmailCampaign(campaignId);
+    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => apiInstance.getEmailCampaign(campaignId));
     const campaign = response.body || {};
     const body: BrevoCampaignContent = {
       id: campaign.id ?? campaignId,
