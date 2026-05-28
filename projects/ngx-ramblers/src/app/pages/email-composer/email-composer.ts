@@ -4599,6 +4599,8 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   private async sendCampaign(): Promise<void> {
     await this.loadCampaignReleaseTaskState();
+    const groupMembers = await this.memberService.privilegedFields(this.memberService.filterFor.GROUP_MEMBERS);
+    await this.mailListUpdaterService.updateMailLists(this.notify, groupMembers);
     const member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
     const { top, bottom, combined } = this.composedBodyParts();
     const campaignTop = toCampaignContactTokens(top);
