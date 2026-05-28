@@ -8,7 +8,8 @@ const debugLog = debug(envConfig.logNamespace("cloudflare:email-auth-records"));
 
 export const REQUIRED_SPF_INCLUDES = ["_spf.mx.cloudflare.net", "spf.brevo.com"];
 export const DEFAULT_SPF_QUALIFIER = "~all";
-export const DEFAULT_DMARC_POLICY = "v=DMARC1; p=none;";
+export const BREVO_DMARC_REPORTING_TAG = "rua=mailto:rua@dmarc.brevo.com";
+export const DEFAULT_DMARC_POLICY = `v=DMARC1; p=none; ${BREVO_DMARC_REPORTING_TAG};`;
 
 function unquoteTxtContent(content: string): string {
   const trimmed = content.trim();
@@ -26,6 +27,14 @@ function extractIncludes(spfContent: string): string[] {
 function extractAllQualifier(spfContent: string): string {
   const match = spfContent.match(/[~\-+?]all\b/i);
   return match ? match[0] : DEFAULT_SPF_QUALIFIER;
+}
+
+function dmarcReportingConfigured(content: string): boolean {
+  return /(?:^|;)\s*rua\s*=\s*[^;\s]+/i.test(content);
+}
+
+export function withBrevoDmarcReporting(content: string): string {
+  return `${content.trim().replace(/;+\s*$/, "")}; ${BREVO_DMARC_REPORTING_TAG};`;
 }
 
 export function buildSpfContent(existingIncludes: string[], qualifier: string = DEFAULT_SPF_QUALIFIER, otherMechanisms: string[] = []): string {
@@ -84,8 +93,8 @@ export async function querySpfStatus(dnsConfig: CloudflareDnsConfig, domain: str
   };
 }
 
-export async function queryDmarcStatus(dnsConfig: CloudflareDnsConfig, domain: string): Promise<DmarcRecordStatus> {
-  const dmarcHostname = `_dmarc.${domain}`;
+async function queryDmarcStatusForPolicyDomain(dnsConfig: CloudflareDnsConfig, domain: string, policyDomain: string): Promise<DmarcRecordStatus> {
+  const dmarcHostname = `_dmarc.${policyDomain}`;
   const records = await listDnsRecords(dnsConfig, dmarcHostname, DnsRecordType.TXT);
   const dmarcRecord = records.find(record => /^"?v=DMARC1\b/i.test(record.content));
   if (!dmarcRecord) {
@@ -95,6 +104,8 @@ export async function queryDmarcStatus(dnsConfig: CloudflareDnsConfig, domain: s
       present: false,
       rawContent: null,
       policy: null,
+      reportingConfigured: false,
+      inherited: policyDomain !== domain,
       recordId: null
     };
   }
@@ -106,14 +117,24 @@ export async function queryDmarcStatus(dnsConfig: CloudflareDnsConfig, domain: s
     present: true,
     rawContent: content,
     policy: policyMatch ? policyMatch[1].toLowerCase() : null,
+    reportingConfigured: dmarcReportingConfigured(content),
+    inherited: policyDomain !== domain,
     recordId: dmarcRecord.id
   };
 }
 
-export async function queryEmailAuthStatus(dnsConfig: CloudflareDnsConfig, domain: string): Promise<EmailAuthRecordsStatus> {
+export async function queryDmarcStatus(dnsConfig: CloudflareDnsConfig, domain: string, policyDomain: string = domain): Promise<DmarcRecordStatus> {
+  const directStatus = await queryDmarcStatusForPolicyDomain(dnsConfig, domain, domain);
+  if (directStatus.present || policyDomain === domain) {
+    return directStatus;
+  }
+  return queryDmarcStatusForPolicyDomain(dnsConfig, domain, policyDomain);
+}
+
+export async function queryEmailAuthStatus(dnsConfig: CloudflareDnsConfig, domain: string, policyDomain: string = domain): Promise<EmailAuthRecordsStatus> {
   const [spf, dmarc] = await Promise.all([
     querySpfStatus(dnsConfig, domain),
-    queryDmarcStatus(dnsConfig, domain)
+    queryDmarcStatus(dnsConfig, domain, policyDomain)
   ]);
   return { domain, spf, dmarc };
 }
@@ -141,20 +162,25 @@ export async function ensureSpfRecord(dnsConfig: CloudflareDnsConfig, domain: st
   return querySpfStatus(dnsConfig, domain);
 }
 
-export async function ensureDmarcRecord(dnsConfig: CloudflareDnsConfig, domain: string): Promise<DmarcRecordStatus> {
-  const current = await queryDmarcStatus(dnsConfig, domain);
-  if (current.present) {
-    debugLog("DMARC already present for", domain, "policy:", current.policy);
+export async function ensureDmarcRecord(dnsConfig: CloudflareDnsConfig, domain: string, policyDomain: string = domain): Promise<DmarcRecordStatus> {
+  const current = await queryDmarcStatus(dnsConfig, domain, policyDomain);
+  if (current.present && current.reportingConfigured) {
+    debugLog("DMARC already present with aggregate reporting for", domain, "policy:", current.policy);
     return current;
   }
-  debugLog("Creating DMARC record for %s -> %s", domain, DEFAULT_DMARC_POLICY);
-  await createDnsRecord(dnsConfig, { type: DnsRecordType.TXT, name: current.dmarcHostname, content: DEFAULT_DMARC_POLICY, ttl: 1, proxied: false });
-  return queryDmarcStatus(dnsConfig, domain);
+  if (current.present) {
+    const updated = withBrevoDmarcReporting(current.rawContent || DEFAULT_DMARC_POLICY);
+    debugLog("Adding DMARC aggregate reporting for %s -> %s", domain, updated);
+    await updateDnsRecord(dnsConfig, current.recordId, { type: DnsRecordType.TXT, name: current.dmarcHostname, content: updated, ttl: 1, proxied: false });
+  } else {
+    debugLog("Creating DMARC record for %s -> %s", domain, DEFAULT_DMARC_POLICY);
+    await createDnsRecord(dnsConfig, { type: DnsRecordType.TXT, name: current.dmarcHostname, content: DEFAULT_DMARC_POLICY, ttl: 1, proxied: false });
+  }
+  return queryDmarcStatus(dnsConfig, domain, policyDomain);
 }
 
-export async function ensureEmailAuthRecords(dnsConfig: CloudflareDnsConfig, domain: string): Promise<EmailAuthRecordsStatus> {
+export async function ensureEmailAuthRecords(dnsConfig: CloudflareDnsConfig, domain: string, policyDomain: string = domain): Promise<EmailAuthRecordsStatus> {
   const spf = await ensureSpfRecord(dnsConfig, domain);
-  const dmarc = await ensureDmarcRecord(dnsConfig, domain);
+  const dmarc = await ensureDmarcRecord(dnsConfig, domain, policyDomain);
   return { domain, spf, dmarc };
 }
-

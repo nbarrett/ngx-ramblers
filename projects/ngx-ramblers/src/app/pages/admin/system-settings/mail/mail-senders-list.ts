@@ -221,8 +221,10 @@ import { SessionLogsComponent } from "../../../../shared/components/session-logs
                   } @else {
                     <span class="badge bg-danger ms-2">SPF absent</span>
                   }
-                  @if (authRecordsStatus.dmarc.present) {
+                  @if (authRecordsStatus.dmarc.present && authRecordsStatus.dmarc.reportingConfigured) {
                     <span class="badge bg-success ms-2">DMARC {{ authRecordsStatus.dmarc.policy || "present" }}</span>
+                  } @else if (authRecordsStatus.dmarc.present) {
+                    <span class="badge bg-warning ms-2">DMARC missing reporting</span>
                   } @else {
                     <span class="badge bg-warning ms-2">DMARC absent</span>
                   }
@@ -276,12 +278,18 @@ import { SessionLogsComponent } from "../../../../shared/components/session-logs
                       <td class="small">
                         @if (authRecordsStatus.dmarc.present) {
                           <div>{{ authRecordsStatus.dmarc.rawContent }}</div>
+                          @if (authRecordsStatus.dmarc.inherited) {
+                            <div class="text-muted mt-1">Inherited from {{ authRecordsStatus.dmarc.dmarcHostname }}</div>
+                          }
+                          @if (!authRecordsStatus.dmarc.reportingConfigured) {
+                            <div class="text-warning mt-1">Missing aggregate reporting. Will add: rua=mailto:rua&#64;dmarc.brevo.com</div>
+                          }
                         } @else {
-                          <span class="text-muted">No DMARC record on {{ authRecordsStatus.dmarc.dmarcHostname }}. Will create: v=DMARC1; p=none; (monitoring only)</span>
+                          <span class="text-muted">No DMARC record on {{ authRecordsStatus.dmarc.dmarcHostname }}. Will create: v=DMARC1; p=none; rua=mailto:rua&#64;dmarc.brevo.com; (monitoring and aggregate reporting)</span>
                         }
                       </td>
                       <td class="text-center">
-                        @if (authRecordsStatus.dmarc.present) {
+                        @if (authRecordsStatus.dmarc.present && authRecordsStatus.dmarc.reportingConfigured) {
                           <fa-icon [icon]="faCheck" class="text-success"></fa-icon>
                         } @else {
                           <fa-icon [icon]="faClose" class="text-danger"></fa-icon>
@@ -906,7 +914,7 @@ export class MailSendersListComponent implements OnInit, OnDestroy {
   authRecordsFixable(): boolean {
     const status = this.authRecordsStatus;
     if (!status) return false;
-    return !status.spf.allPresent || !status.dmarc.present;
+    return !status.spf.allPresent || !status.dmarc.present || !status.dmarc.reportingConfigured;
   }
 
   async ensureAuthRecords(): Promise<void> {

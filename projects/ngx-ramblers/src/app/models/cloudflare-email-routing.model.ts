@@ -166,6 +166,8 @@ export interface DmarcRecordStatus {
   present: boolean;
   rawContent: string | null;
   policy: string | null;
+  reportingConfigured: boolean;
+  inherited: boolean;
   recordId: string | null;
 }
 
