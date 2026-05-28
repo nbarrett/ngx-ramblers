@@ -41,7 +41,8 @@ export class DateUtilsService {
     yearMonthDayTHhmm: UIDateFormat.YEAR_MONTH_DAY_T_HHMM,
     yearMonthDayWithDashes: UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES,
     yearMonthDay: UIDateFormat.YEAR_MONTH_DAY,
-    dayMonthYearAbbreviatedTime: UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED_TIME
+    dayMonthYearAbbreviatedTime: UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED_TIME,
+    dayMonthYearAbbreviatedTimeZone: UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED_TIME_ZONE
   };
 
   isMidnight(dateValue: DateInput): boolean {
@@ -123,6 +124,10 @@ export class DateUtilsService {
 
   displayDateAbbreviatedTime(dateValue: DateInput): string {
     return this.asString(dateValue, undefined, this.formats.dayMonthYearAbbreviatedTime);
+  }
+
+  displayDateAbbreviatedTimeZone(dateValue: DateInput): string {
+    return this.asString(dateValue, undefined, this.formats.dayMonthYearAbbreviatedTimeZone);
   }
 
   displayDate(dateValue: DateInput): string {

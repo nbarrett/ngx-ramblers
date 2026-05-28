@@ -21,17 +21,17 @@ async function ensureForDomain(apiToken: string, rawDomain: string): Promise<voi
     return;
   }
   const dnsConfig = { apiToken, zoneId: zone.id };
-  const before = await queryEmailAuthStatus(dnsConfig, domain);
-  if (before.spf.allPresent && before.dmarc.present) {
-    debugLog("SPF and DMARC already satisfy requirements for %s — no action needed", domain);
+  const before = await queryEmailAuthStatus(dnsConfig, domain, zone.name);
+  if (before.spf.allPresent && before.dmarc.present && before.dmarc.reportingConfigured) {
+    debugLog("SPF and DMARC already satisfy requirements for %s - no action needed", domain);
     return;
   }
   if (before.spf.multiple) {
     debugLog("Multiple SPF records on %s — refusing to auto-fix (RFC 7208). Consolidate manually in Cloudflare.", domain);
     return;
   }
-  debugLog("Ensuring email auth records for %s (spf.allPresent=%s, dmarc.present=%s)", domain, before.spf.allPresent, before.dmarc.present);
-  const after = await ensureEmailAuthRecords(dnsConfig, domain);
+  debugLog("Ensuring email auth records for %s (spf.allPresent=%s, dmarc.present=%s, dmarc.reportingConfigured=%s)", domain, before.spf.allPresent, before.dmarc.present, before.dmarc.reportingConfigured);
+  const after = await ensureEmailAuthRecords(dnsConfig, domain, zone.name);
   debugLog("Email auth records ensured for %s — spf=%s, dmarc=%s", domain, after.spf.rawContent, after.dmarc.rawContent);
 }
 

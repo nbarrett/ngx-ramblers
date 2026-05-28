@@ -648,7 +648,7 @@ router.get("/auth-records", authConfig.authenticate(), async (req: Request, res:
       res.status(400).json({request: {messageType}, error: {message: `No Cloudflare zone found for ${domain}. Add the zone in Cloudflare first.`}});
       return;
     }
-    const status = await queryEmailAuthStatus({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, domain);
+    const status = await queryEmailAuthStatus({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, domain, zone.name);
     res.json({request: {messageType}, response: status});
   } catch (error) {
     errorDebugLog("Error fetching email auth record status:", error.message);
@@ -670,7 +670,7 @@ router.post("/auth-records", authConfig.authenticate(), async (req: Request, res
       res.status(400).json({request: {messageType}, error: {message: `No Cloudflare zone found for ${domain}. Add the zone in Cloudflare first.`}});
       return;
     }
-    const status = await ensureEmailAuthRecords({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, domain);
+    const status = await ensureEmailAuthRecords({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, domain, zone.name);
     res.json({request: {messageType}, response: status});
   } catch (error) {
     errorDebugLog("Error ensuring email auth records:", error.message);

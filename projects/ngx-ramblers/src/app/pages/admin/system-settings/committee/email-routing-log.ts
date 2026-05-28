@@ -18,7 +18,6 @@ import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { CloudflareButton } from "../../../../modules/common/third-parties/cloudflare-button";
 import { DateRange, DateRangeSlider } from "../../../../components/date-range-slider/date-range-slider";
-import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-abbreviated-time.pipe";
 
 @Component({
   selector: "app-email-routing-log",
@@ -44,12 +43,17 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
     }
     <h6 class="section-heading">Email Routing Log</h6>
     @if (emailRoutingLogs?.length) {
+      @if (hasUniformMissingDmarcSummary()) {
+        <div class="alert alert-warning py-2 small mb-2">
+          All displayed messages were delivered with SPF and DKIM passing, but no DMARC policy was reported for the sender domain.
+        </div>
+      }
       <div class="table-responsive" style="max-height: 400px; overflow-y: auto">
         <table class="table table-sm email-log-table">
           <thead class="sticky-top bg-white">
             <tr>
               <th class="sortable-header" (click)="sortEmailLogsBy('datetime')">
-                <span class="nowrap">Date/Time
+                <span class="nowrap">Date/Time (UK)
                   @if (emailLogSortField === 'datetime') {
                     <span class="sorting-header">{{ emailLogSortDirection }}</span>
                   }
@@ -76,35 +80,35 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
                   }
                 </span>
               </th>
-              <th class="sortable-header" (click)="sortEmailLogsBy('status')">
+              <th class="sortable-header badge-column" (click)="sortEmailLogsBy('status')">
                 <span class="nowrap">Status
                   @if (emailLogSortField === 'status') {
                     <span class="sorting-header">{{ emailLogSortDirection }}</span>
                   }
                 </span>
               </th>
-              <th class="sortable-header" (click)="sortEmailLogsBy('spf')">
+              <th class="sortable-header badge-column" (click)="sortEmailLogsBy('spf')">
                 <span class="nowrap">SPF
                   @if (emailLogSortField === 'spf') {
                     <span class="sorting-header">{{ emailLogSortDirection }}</span>
                   }
                 </span>
               </th>
-              <th class="sortable-header" (click)="sortEmailLogsBy('dkim')">
+              <th class="sortable-header badge-column" (click)="sortEmailLogsBy('dkim')">
                 <span class="nowrap">DKIM
                   @if (emailLogSortField === 'dkim') {
                     <span class="sorting-header">{{ emailLogSortDirection }}</span>
                   }
                 </span>
               </th>
-              <th class="sortable-header" (click)="sortEmailLogsBy('dmarc')">
+              <th class="sortable-header badge-column" (click)="sortEmailLogsBy('dmarc')">
                 <span class="nowrap">DMARC
                   @if (emailLogSortField === 'dmarc') {
                     <span class="sorting-header">{{ emailLogSortDirection }}</span>
                   }
                 </span>
               </th>
-              <th class="sortable-header" (click)="sortEmailLogsBy('errorDetail')">
+              <th class="sortable-header error-column" (click)="sortEmailLogsBy('errorDetail')">
                 <span class="nowrap">Error
                   @if (emailLogSortField === 'errorDetail') {
                     <span class="sorting-header">{{ emailLogSortDirection }}</span>
@@ -116,17 +120,17 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
           @for (log of emailRoutingLogs; track log.sessionId; let even = $even) {
             <tbody [class.striped-group]="even">
               <tr>
-                <td class="small text-nowrap">{{ log.datetime | displayDateAbbreviatedTime }}</td>
+                <td class="small text-nowrap">{{ displayLogDateTime(log.datetime) }}</td>
                 <td class="small">{{ log.from }}</td>
                 <td class="small">{{ log.to }}</td>
                 <td class="small">{{ log.subject }}</td>
-                <td><span [class]="statusBadgeClass(log)">{{ log.status }}</span></td>
-                <td>@if (log.spf) {<span [class]="authBadgeClass(log.spf)">{{ log.spf }}</span>}</td>
-                <td>@if (log.dkim) {<span [class]="authBadgeClass(log.dkim)">{{ log.dkim }}</span>}</td>
-                <td>@if (log.dmarc) {<span [class]="authBadgeClass(log.dmarc)">{{ log.dmarc }}</span>}</td>
-                <td class="small">{{ log.errorDetail }}</td>
+                <td class="badge-column"><span [class]="statusBadgeClass(log)">{{ log.status }}</span></td>
+                <td class="badge-column">@if (log.spf) {<span [class]="authBadgeClass(log.spf)">{{ log.spf }}</span>}</td>
+                <td class="badge-column">@if (log.dkim) {<span [class]="authBadgeClass(log.dkim)">{{ log.dkim }}</span>}</td>
+                <td class="badge-column">@if (log.dmarc) {<span [class]="authBadgeClass(log.dmarc)">{{ log.dmarc }}</span>}</td>
+                <td class="small error-column">{{ log.errorDetail }}</td>
               </tr>
-              @if (authSummary(log)) {
+              @if (showAuthSummary(log)) {
                 <tr>
                   <td colspan="9" class="small text-muted border-0 pt-0 pb-2">{{ authSummary(log) }}</td>
                 </tr>
@@ -147,7 +151,7 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
             <thead class="sticky-top bg-white">
               <tr>
                 <th class="sortable-header" (click)="sortWorkerLogsBy('datetime')">
-                  <span class="nowrap">Date/Time
+                  <span class="nowrap">Date/Time (UK)
                     @if (workerLogSortField === 'datetime') {
                       <span class="sorting-header">{{ workerLogSortDirection }}</span>
                     }
@@ -186,7 +190,7 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
             <tbody>
               @for (log of workerLogs; track log.datetime + log.status) {
                 <tr>
-                  <td class="small text-nowrap">{{ log.datetime | displayDateAbbreviatedTime }}</td>
+                  <td class="small text-nowrap">{{ displayLogDateTime(log.datetime) }}</td>
                   <td>
                     @if (log.errors > 0) {
                       <span class="badge bg-danger">{{ log.status }}</span>
@@ -222,6 +226,14 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
     .auth-badge-neutral
       background-color: #adb5bd !important
       color: #fff !important
+    .email-log-table .badge-column
+      min-width: 4.75rem
+      padding-left: 0.5rem
+      padding-right: 0.5rem
+      text-align: center
+      white-space: nowrap
+    .email-log-table .error-column
+      padding-left: 0.75rem
     .email-log-table tbody tr
       --bs-table-bg: #fff
     .email-log-table tbody.striped-group tr
@@ -231,7 +243,7 @@ import { DisplayDateAbbreviatedTimePipe } from "../../../../pipes/display-date-a
     .email-log-table tbody
       border-bottom: 1px solid #dee2e6
   `],
-  imports: [AlertComponent, FontAwesomeModule, CloudflareButton, DateRangeSlider, DisplayDateAbbreviatedTimePipe]
+  imports: [AlertComponent, FontAwesomeModule, CloudflareButton, DateRangeSlider]
 })
 export class EmailRoutingLogComponent implements OnInit {
 
@@ -241,6 +253,7 @@ export class EmailRoutingLogComponent implements OnInit {
   public stringUtilsService = inject(StringUtilsService);
 
   protected readonly ALERT_ERROR = ALERT_ERROR;
+  private readonly missingDmarcSummary = "Delivered - SPF and DKIM passed but no DMARC policy on sender domain";
 
   @Input() roleEmail: string;
   @Input() routeType: string;
@@ -413,6 +426,19 @@ export class EmailRoutingLogComponent implements OnInit {
     }
   }
 
+  displayLogDateTime(dateValue: string): string {
+    return this.dateUtils.displayDateAbbreviatedTimeZone(dateValue);
+  }
+
+  hasUniformMissingDmarcSummary(): boolean {
+    return this.emailRoutingLogs?.length > 1 && this.emailRoutingLogs.every(log => this.authSummary(log) === this.missingDmarcSummary);
+  }
+
+  showAuthSummary(log: EmailRoutingLogEntry): boolean {
+    const summary = this.authSummary(log);
+    return !!summary && !(this.hasUniformMissingDmarcSummary() && summary === this.missingDmarcSummary);
+  }
+
   authSummary(log: EmailRoutingLogEntry): string {
     const spf = (log.spf || "").toLowerCase();
     const dkim = (log.dkim || "").toLowerCase();
@@ -435,7 +461,7 @@ export class EmailRoutingLogComponent implements OnInit {
       if (spf === EmailAuthResult.PASS && dkim === EmailAuthResult.PASS && dmarc === EmailAuthResult.PASS) {
         return "Fully authenticated and delivered";
       } else if (spf === EmailAuthResult.PASS && dkim === EmailAuthResult.PASS) {
-        return "Delivered — SPF and DKIM passed but no DMARC policy on sender domain";
+        return this.missingDmarcSummary;
       } else {
         return "Delivered despite incomplete authentication";
       }

@@ -216,6 +216,16 @@ describe("DateUtilsService", () => {
 
     });
 
+    describe("displayDateAbbreviatedTimeZone", () => {
+
+        it("should display UK local time with the applicable timezone", () => {
+            const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
+            expect(dateUtils.displayDateAbbreviatedTimeZone("2026-04-13T14:28:00Z")).toBe("13 Apr 2026 15:28 GMT+1");
+            expect(dateUtils.displayDateAbbreviatedTimeZone("2026-01-13T14:28:00Z")).toBe("13 Jan 2026 14:28 GMT");
+        });
+
+    });
+
     describe("formatDuration regression test", () => {
 
         it("should calculate duration correctly for same day walk times", () => {
