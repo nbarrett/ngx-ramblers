@@ -25,7 +25,8 @@ export type BackupSessionStatus = typeof BackupSessionStatus[keyof typeof Backup
 
 export const BackupSessionTrigger = {
   CLI: "cli",
-  WEB: "web"
+  WEB: "web",
+  SCHEDULED: "scheduled"
 } as const;
 
 export type BackupSessionTrigger = typeof BackupSessionTrigger[keyof typeof BackupSessionTrigger];

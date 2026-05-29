@@ -73,6 +73,7 @@ import { scheduleBrevoUnsubscribesSync } from "./cron/brevo-unsubscribes-sync-jo
 import { scheduleBrevoCampaignRelease } from "./cron/brevo-campaign-release-job";
 import { scheduleInboxTokenHealthCheck } from "./cron/inbox-token-health-check-job";
 import { scheduleInboxMessageDigest } from "./cron/inbox-message-digest-job";
+import { scheduleAllEnvironmentsBackup } from "./cron/all-environments-backup-job";
 import { scheduledTaskRoutes } from "./cron/scheduled-task-routes";
 import bodyParser from "body-parser";
 import compression from "compression";
@@ -313,6 +314,10 @@ async function startServer() {
 
       scheduleInboxBackgroundWork().catch(error => {
         debugLog("❌ Failed to schedule inbox background work:", error);
+      });
+
+      scheduleAllEnvironmentsBackup().catch(error => {
+        debugLog("❌ Failed to schedule all-environments backup:", error);
       });
     }).catch(error => {
       debugLog("❌ MongoDB connection failed:", error);
