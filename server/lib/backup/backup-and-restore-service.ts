@@ -20,6 +20,7 @@ import { BackupNotificationService } from "./backup-notification-service";
 import {
   BackupConfig,
   BackupSessionStatus,
+  BackupSessionTrigger,
   BackupSessionType,
   EnvironmentBackupConfig
 } from "../../../projects/ngx-ramblers/src/app/models/backup-session.model";
@@ -57,6 +58,7 @@ export interface BackupOptions {
   upload?: boolean;
   includeS3?: boolean;
   user?: string;
+  triggeredBy?: BackupSessionTrigger;
 }
 
 export interface RestoreOptions {
@@ -171,7 +173,7 @@ export class BackupAndRestoreService {
       logs: [],
       metadata: {
         user: options.user,
-        triggeredBy: "web"
+        triggeredBy: options.triggeredBy ?? BackupSessionTrigger.WEB
       }
     };
 

@@ -6,6 +6,7 @@ import { faPencil, faPlay, faRefresh, faSpinner } from "@fortawesome/free-solid-
 import { TimePicker } from "../../../../date-and-time/time-picker";
 import { UIDateFormat } from "../../../../models/date-format.model";
 import {
+  ALL_ENVIRONMENTS_BACKUP_TASK_NAME,
   BREVO_CAMPAIGN_RELEASE_TASK_ID,
   SCHEDULED_TASK_SUB_TAB_GROUPS,
   ScheduledTaskScheduleEdit,
@@ -207,6 +208,7 @@ export class ScheduledTasksComponent implements OnInit {
     {value: ScheduledTaskSubTab.WALKS_MANAGER_SYNC, label: "Walks Manager sync"},
     {value: ScheduledTaskSubTab.GMAIL, label: "Gmail"},
     {value: ScheduledTaskSubTab.BREVO, label: "Brevo"},
+    {value: ScheduledTaskSubTab.ALL_ENVIRONMENTS_BACKUP, label: ALL_ENVIRONMENTS_BACKUP_TASK_NAME},
     {value: ScheduledTaskSubTab.ALL, label: "All"}
   ];
   protected readonly scheduleFrequencyOptions = [

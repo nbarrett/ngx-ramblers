@@ -25,8 +25,12 @@ export enum ScheduledTaskSubTab {
   INBOX_TOKEN_HEALTH_CHECK = "inbox-token-health-check",
   GMAIL = "gmail",
   BREVO = "brevo",
+  ALL_ENVIRONMENTS_BACKUP = "all-environments-backup",
   ALL = "all"
 }
+
+export const ALL_ENVIRONMENTS_BACKUP_TASK_ID = ScheduledTaskSubTab.ALL_ENVIRONMENTS_BACKUP;
+export const ALL_ENVIRONMENTS_BACKUP_TASK_NAME = "All-environments backup";
 
 export const SCHEDULED_TASK_SUB_TAB_GROUPS: Partial<Record<ScheduledTaskSubTab, ScheduledTaskSubTab[]>> = {
   [ScheduledTaskSubTab.GMAIL]: [
