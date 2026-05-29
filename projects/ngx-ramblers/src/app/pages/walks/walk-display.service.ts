@@ -82,8 +82,7 @@ export class WalkDisplayService {
   public relatedLinksMediaWidth = 22;
   public expandedWalks: ExpandedWalk [] = [];
   public walkTypes: WalkType[] = enumValues(WalkType);
-  private nextWalkId: string;
-  private nextWalkIdFetched = false;
+  private nextWalkStartDateByGroupCode: Record<string, number> = {};
   private viewReturnUrl: string;
   public members: Member[] = [];
   public googleMapsConfig: GoogleMapsConfig;
@@ -426,31 +425,26 @@ export class WalkDisplayService {
   }
 
   isNextWalk(walk: ExtendedGroupEvent): boolean {
-    const walkStartDate = this.dateUtils.asValueNoTime(walk?.groupEvent?.start_date_time);
-    const todayValue = this.dateUtils.dateTimeNowNoTime().toMillis();
-    const isFutureOrToday = walkStartDate >= todayValue;
-    const matchesNextWalkId = walk && (walk.id === this.nextWalkId || walk.groupEvent?.id === this.nextWalkId);
-    return isFutureOrToday && matchesNextWalkId && this.walkDetailsComplete(walk);
+    const startDate = walk?.groupEvent?.start_date_time;
+    const groupCode = walk?.groupEvent?.group_code;
+    const nextStartDateForGroup = groupCode ? this.nextWalkStartDateByGroupCode[groupCode] : undefined;
+    return !!startDate && !!nextStartDateForGroup && this.dateUtils.asValueNoTime(startDate) === nextStartDateForGroup;
   }
 
-  refreshNextWalkId(): void {
-    if (!this.nextWalkIdFetched) {
-      this.nextWalkIdFetched = true;
-      this.extendedGroupEventQueryService.fetchNextWalkId(this.group?.groupCode).subscribe({
-        next: (response) => {
-          this.nextWalkId = response.nextWalkId;
-          this.logger.info("refreshNextWalkId: fetched nextWalkId:", this.nextWalkId, "for groupCode:", this.group?.groupCode);
-        },
-        error: (error) => {
-          this.logger.error("refreshNextWalkId: failed to fetch nextWalkId:", error);
-          this.nextWalkIdFetched = false;
-        }
-      });
-    }
-  }
-
-  setNextWalkId(): void {
-    this.refreshNextWalkId();
+  refreshNextWalkStartDate(): void {
+    this.extendedGroupEventQueryService.fetchNextWalkStartDate().subscribe({
+      next: (response) => {
+        const byGroupCode: Record<string, number> = {};
+        Object.entries(response.nextWalkStartDates || {}).forEach(([groupCode, startDate]) => {
+          if (startDate) {
+            byGroupCode[groupCode] = this.dateUtils.asValueNoTime(startDate);
+          }
+        });
+        this.nextWalkStartDateByGroupCode = byGroupCode;
+        this.logger.info("refreshNextWalkStartDate: per-group next walk start dates:", response.nextWalkStartDates);
+      },
+      error: (error) => this.logger.error("refreshNextWalkStartDate: failed to fetch next walk start date:", error)
+    });
   }
 
   closeEditView(walk: ExtendedGroupEvent) {
@@ -483,6 +477,7 @@ export class WalkDisplayService {
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
       this.logger.debug("group:", this.group);
+      this.refreshNextWalkStartDate();
     });
     this.googleMapsService.events().subscribe(config => {
       this.googleMapsConfig = {zoomLevel: 12, apiKey: config.apiKey};
