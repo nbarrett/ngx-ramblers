@@ -37,6 +37,7 @@ export class ExtendedGroupEventQueryService {
   private urlService: UrlService = inject(UrlService);
   private http = inject(HttpClient);
   private BASE_URL = "/api/database/walks";
+  private GROUP_EVENT_BASE_URL = "/api/database/group-event";
 
   dataQueryOptions(filterParameters: HasBasicEventSelection, dateComparison?: string, upperDateComparison?: string): DataQueryOptions {
     const criteria = this.criteriaFor(filterParameters, dateComparison, upperDateComparison);
@@ -209,13 +210,13 @@ export class ExtendedGroupEventQueryService {
     return walks?.filter(walk => this.deletedWalk(walk));
   }
 
-  fetchNextWalkId(groupCode?: string): Observable<{ nextWalkId: string }> {
+  fetchNextWalkStartDate(groupCode?: string): Observable<{ nextWalkStartDates: Record<string, string> }> {
     let httpParams = new HttpParams();
     if (groupCode) {
       httpParams = httpParams.set("groupCode", groupCode);
     }
-    return this.http.get<{ nextWalkId: string }>(
-      `${this.BASE_URL}/next-walk-id`,
+    return this.http.get<{ nextWalkStartDates: Record<string, string> }>(
+      `${this.GROUP_EVENT_BASE_URL}/next-walk-start-date`,
       { params: httpParams }
     );
   }

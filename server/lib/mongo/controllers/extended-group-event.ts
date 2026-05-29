@@ -339,29 +339,34 @@ export async function dateRange(req: Request, res: Response) {
   }
 }
 
-export async function nextWalkId(req: Request, res: Response) {
+export async function nextWalkStartDate(req: Request, res: Response) {
   try {
     const groupCode = req.query.groupCode as string;
-    const now = dateTimeNow().toISO();
+    const startOfToday = dateTimeNow().startOf("day").toISO();
     const matchFilter: any = {
       [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK,
-      [GroupEventField.START_DATE]: { $gte: now }
+      [GroupEventField.START_DATE]: { $gte: startOfToday }
     };
     if (groupCode) {
       matchFilter[GroupEventField.GROUP_CODE] = { $regex: `^${groupCode}$`, $options: "i" };
     }
-    debugLog("nextWalkId: groupCode:", groupCode, "matchFilter:", JSON.stringify(matchFilter));
-    const nextWalk = await extendedGroupEvent.findOne(matchFilter)
-      .sort({ [GroupEventField.START_DATE]: 1 })
-      .select({ _id: 1, [GroupEventField.ID]: 1 })
-      .lean();
-    const nextWalkId = nextWalk?._id?.toString() || nextWalk?.groupEvent?.id;
-    debugLog("nextWalkId: returning:", nextWalkId);
-    res.status(200).json({ nextWalkId });
+    debugLog("nextWalkStartDate: groupCode:", groupCode, "matchFilter:", JSON.stringify(matchFilter));
+    const grouped = await extendedGroupEvent.aggregate([
+      { $match: matchFilter },
+      { $group: { _id: `$${GroupEventField.GROUP_CODE}`, startDate: { $min: `$${GroupEventField.START_DATE}` } } }
+    ]);
+    const nextWalkStartDates: Record<string, string> = {};
+    grouped.forEach((entry: { _id: string; startDate: string }) => {
+      if (entry?._id) {
+        nextWalkStartDates[entry._id] = entry.startDate;
+      }
+    });
+    debugLog("nextWalkStartDate: returning per-group:", JSON.stringify(nextWalkStartDates));
+    res.status(200).json({ nextWalkStartDates });
   } catch (error) {
-    controller.errorDebugLog("nextWalkId error:", error);
+    controller.errorDebugLog("nextWalkStartDate error:", error);
     res.status(500).json({
-      message: "Failed to fetch next walk ID",
+      message: "Failed to fetch next walk start date",
       error: parseError(error)
     });
   }
