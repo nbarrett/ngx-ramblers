@@ -40,6 +40,10 @@ export interface ScheduledTaskRun {
   message: string | null;
 }
 
+export interface ScheduledTaskRunRecord extends ScheduledTaskRun {
+  taskId: string;
+}
+
 export interface ScheduledTaskSummary {
   id: string;
   name: string;

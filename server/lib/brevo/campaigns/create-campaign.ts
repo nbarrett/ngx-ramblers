@@ -17,6 +17,7 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { omit } from "es-toolkit/compat";
 import { dateTimeNow } from "../../shared/dates";
+import { ngxBrevoCampaign } from "../../mongo/models/ngx-brevo-campaign";
 import { systemConfig } from "../../config/system-config";
 import { contactUsParentSegment } from "../contacts/unsubscribe-token";
 
@@ -49,6 +50,20 @@ async function createEmailCampaignWithTagFallback(apiInstance: SibApiV3Sdk.Email
     debugLog("Brevo rejected the campaign tag (405); this account's plan does not allow campaign tags. Retrying without the tag so the campaign can send. Campaigns sent without the tag are not tracked in the managed Campaign Queue.", error?.body);
     createEmailCampaign.tag = undefined;
     return scheduleBrevo(() => apiInstance.createEmailCampaign(createEmailCampaign));
+  }
+}
+
+async function recordNgxCampaign(campaignId: number | undefined, name: string, debugLog: any): Promise<void> {
+  if (!Number.isFinite(campaignId)) {
+    return;
+  }
+  try {
+    await ngxBrevoCampaign.findOneAndUpdate(
+      {campaignId},
+      {campaignId, name: name ?? "", createdAt: dateTimeNow().toMillis()},
+      {upsert: true});
+  } catch (error) {
+    debugLog("Failed to record NGX campaign id for daily-cap queue tracking:", campaignId, error);
   }
 }
 
@@ -86,6 +101,7 @@ export async function createCampaign(req: Request, res: Response, next: NextFunc
     const response = await createEmailCampaignWithTagFallback(apiInstance, createEmailCampaign, debugLog);
     const responseSingleInput: StatusMappedResponseSingleInput = mapStatusMappedResponseSingleInput(createEmailCampaign.subject, response, 201);
     debugLog("API called successfully. Returned data: " + JSON.stringify(response), "responseSingleInput:", responseSingleInput);
+    await recordNgxCampaign(response.body?.id, createEmailCampaign.name ?? "", debugLog);
     successfulResponse({req, res, response: responseSingleInput, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);

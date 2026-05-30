@@ -1,4 +1,7 @@
 import * as cron from "node-cron";
+import debug from "debug";
+import { HttpError } from "@getbrevo/brevo";
+import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
   ScheduledTaskRun,
@@ -7,9 +10,13 @@ import {
   ScheduledTaskSummary
 } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
 import * as config from "../mongo/controllers/config";
+import { scheduledTaskRun } from "../mongo/models/scheduled-task-run";
 import { dateTimeNow } from "../shared/dates";
 import { isUndefined } from "es-toolkit/compat";
 import { RegisteredScheduledTask, ScheduledTaskDefinition } from "./scheduled-task-registry.model";
+
+const debugLog = debug(envConfig.logNamespace("cron:scheduled-tasks"));
+debugLog.enabled = true;
 
 const taskRegistry = new Map<string, RegisteredScheduledTask>();
 const maximumHistoryEntries = 20;
@@ -108,6 +115,40 @@ async function persistCronExpression(id: string, cronExpression: string): Promis
   });
 }
 
+async function persistRun(taskId: string, run: ScheduledTaskRun): Promise<void> {
+  try {
+    await scheduledTaskRun.create({taskId, ...run});
+    const kept = await scheduledTaskRun.find({taskId}).sort({startedAt: -1}).limit(maximumHistoryEntries).select("_id").lean();
+    await scheduledTaskRun.deleteMany({taskId, _id: {$nin: kept.map(entry => entry._id)}});
+  } catch (error) {
+    debugLog(`Failed to persist run for scheduled task "${taskId}":`, error);
+  }
+}
+
+async function loadHistory(taskId: string): Promise<ScheduledTaskRun[]> {
+  try {
+    const records = await scheduledTaskRun.find({taskId}).sort({startedAt: -1}).limit(maximumHistoryEntries).lean();
+    return records.map(record => ({
+      startedAt: record.startedAt,
+      completedAt: record.completedAt,
+      status: record.status,
+      message: record.message
+    }));
+  } catch (error) {
+    debugLog(`Failed to load run history for scheduled task "${taskId}":`, error);
+    return [];
+  }
+}
+
+function detailedErrorMessage(error: any): string {
+  if (error instanceof HttpError) {
+    const body: any = error.body;
+    const detail = body?.message ?? body?.code ?? (typeof body === "string" ? body : undefined);
+    return detail ? `${error.message}: ${detail}` : (error.message || `${error}`);
+  }
+  return error?.message || `${error}`;
+}
+
 async function executeTask(registered: RegisteredScheduledTask): Promise<ScheduledTaskRun> {
   const run: ScheduledTaskRun = {
     startedAt: dateTimeNow().toISO()!,
@@ -121,9 +162,15 @@ async function executeTask(registered: RegisteredScheduledTask): Promise<Schedul
     run.status = ScheduledTaskRunStatus.SUCCEEDED;
   } catch (error: any) {
     run.status = ScheduledTaskRunStatus.FAILED;
-    run.message = error?.message || `${error}`;
+    run.message = detailedErrorMessage(error);
+    const body = error instanceof HttpError ? error.body : (error?.response?.body ?? error?.body);
+    debugLog(`Scheduled task "${registered.definition.name}" (${registered.definition.id}) failed:`, run.message,
+      "\nstatusCode:", error?.statusCode ?? error?.response?.statusCode,
+      "\nbody:", body,
+      "\nstack:", error?.stack);
   }
   run.completedAt = dateTimeNow().toISO()!;
+  await persistRun(registered.definition.id, run);
   return run;
 }
 
@@ -143,7 +190,7 @@ export async function registerScheduledTask(definition: ScheduledTaskDefinition)
     definition: effectiveDefinition,
     defaultCronExpression: definition.cronExpression,
     enabled,
-    history: previous?.history ?? [],
+    history: previous?.history ?? await loadHistory(definition.id),
     task
   };
   if (enabled) {
