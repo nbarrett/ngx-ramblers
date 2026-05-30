@@ -46,7 +46,7 @@ import { JsonPipe, NgTemplateOutlet } from "@angular/common";
 import { DataQueryOptions, FilterCriteria, SortOrder } from "../../../models/api-request.model";
 import { MAP_VIEW_SELECT } from "../../../models/map.model";
 import { buildAdvancedSearchCriteria } from "../../../functions/walks/advanced-search-criteria-builder";
-import { advancedCriteriaQueryParams, advancedCriteriaToSavedCriteria, advancedSearchCriteriaFromParams, advancedSearchSummary, hasAdvancedCriteria, savedCriteriaToAdvancedCriteria } from "../../../functions/walks/advanced-search";
+import { advancedCriteriaQueryParams, advancedSearchCriteriaFromParams, advancedSearchSummary, hasAdvancedCriteria, savedCriteriaToAdvancedCriteria } from "../../../functions/walks/advanced-search";
 import { AuthService } from "../../../auth/auth.service";
 import { environment } from "../../../../environments/environment";
 
@@ -90,7 +90,7 @@ import { environment } from "../../../../environments/environment";
                       <fa-icon [icon]="faCheck" class="ms-auto ps-3"/>
                     }
                   </a></li>
-                  @if (display.memberCanAddWalk()) {
+                  @if (display.memberCanAddWalk(eventsData)) {
                     <li class="dropdown-divider"></li>
                     <li role="menuitem"><a role="button" (click)="display.addMemberLedWalk()" class="dropdown-item d-flex align-items-center">
                       <fa-icon [icon]="faCalendarPlus" class="me-2"/>{{ display.memberWalkButtonLabel() }}
