@@ -1,5 +1,11 @@
 export const NGX_BREVO_CAMPAIGN_TAG = "ngx-daily-cap-overflow";
 
+export interface NgxBrevoCampaignRecord {
+  campaignId: number;
+  name: string;
+  createdAt: number;
+}
+
 export interface BrevoCampaignProgress {
   id: number;
   name: string;
