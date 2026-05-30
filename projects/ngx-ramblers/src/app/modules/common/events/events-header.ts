@@ -19,7 +19,6 @@ import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination"
 import { EventsData } from "../../../models/group-events.model";
 import { ExtendedGroupEvent, HasStartAndEndTime } from "../../../models/group-event.model";
 import { UrlService } from "../../../services/url.service";
-import { PageService } from "../../../services/page.service";
 
 @Component({
   selector: "app-events-header",
@@ -54,7 +53,7 @@ import { PageService } from "../../../services/page.service";
         }
       </div>
     }
-    @if (walkDisplay.memberCanAddWalk()) {
+    @if (walkDisplay.memberCanAddWalk(eventsData)) {
       <div class="col-lg-2 col-md-3 col-sm-4 col-12">
         <input type="submit" [disabled]="notifyTarget.busy"
                class="btn btn-primary float-lg-end mb-3"
@@ -128,7 +127,6 @@ export class EventsHeader implements OnInit, OnDestroy {
   display = inject(GroupEventDisplayService);
   walkDisplay = inject(WalkDisplayService);
   private urlService: UrlService = inject(UrlService);
-  private pageService: PageService = inject(PageService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   faSearch = faSearch;
   private subscriptions: Subscription[] = [];

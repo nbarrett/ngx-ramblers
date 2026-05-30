@@ -40,6 +40,7 @@ import { Observable, ReplaySubject } from "rxjs";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { Difficulty, LocationDetails, RamblersEventType } from "../../models/ramblers-walks-manager";
+import { EventsData } from "../../models/group-events.model";
 import { BuiltInRole } from "../../models/committee.model";
 import { MediaQueryService } from "../../services/committee/media-query.service";
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
@@ -242,8 +243,8 @@ export class WalkDisplayService {
     return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
   }
 
-  memberCanAddWalk(): boolean {
-    return this.urlService.area() === this.walksArea()
+  memberCanAddWalk(eventsData?: EventsData): boolean {
+    return !!eventsData?.eventTypes?.includes(RamblersEventType.GROUP_WALK)
       && this.memberLoginService.memberLoggedIn()
       && this.walkPopulationLocal()
       && this.memberMeetsWalkCreationAccess();
