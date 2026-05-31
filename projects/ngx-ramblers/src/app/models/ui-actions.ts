@@ -49,6 +49,7 @@ export enum StoredValue {
   EDIT_SITE = "edit-site",
   EMAIL_TYPE = "email-type",
   EMAIL_BRANDING = "branding",
+  INBOX_THREAD = "thread",
   EMAIL_PRE_FILTER = "pre-filter",
   EMAIL_CONFIG_ID = "config-id",
   EMAIL_EVENT_INCLUSION = "event-inclusion",

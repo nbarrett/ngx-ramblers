@@ -29,6 +29,8 @@ const sensitiveKeys = new Set([
   "uri",
   "secretKey",
   "smtpPassword",
+  "pushVerificationToken",
+  "vapidPrivateKey",
   "inboundWebhookSecret",
   "brevoEventsWebhookSecret",
 ]);

@@ -48,7 +48,7 @@ import { SystemConfigService } from "../../services/system/system-config.service
 import { BroadcastService } from "../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { asNumber } from "../../functions/numbers";
-import { HeightResizerComponent } from "../../modules/common/height-resizer/height-resizer";
+import { ResizerComponent } from "../../modules/common/resizer/resizer";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { ParishMapService } from "../../services/parish-map.service";
@@ -415,11 +415,11 @@ import { sortBy } from "../../functions/arrays";
             }
           </div>
         }
-        <app-height-resizer compact
-                            [height]="mapHeight"
-                            [minHeight]="200"
-                            [maxHeight]="1200"
-                            (heightChange)="onResizerHeightChange($event)"/>
+        <app-resizer orientation="vertical" variant="tab" compact
+                     [size]="mapHeight"
+                     [minSize]="200"
+                     [maxSize]="1200"
+                     (sizeChange)="onResizerHeightChange($event)"/>
       }
       @if (standalone) {
         <app-map-overlay
@@ -445,7 +445,7 @@ import { sortBy } from "../../functions/arrays";
       </div>
     }
   `,
-  imports: [FormsModule, LeafletModule, MapControls, MapOverlay, NgSelectComponent, HeightResizerComponent, FontAwesomeModule]
+  imports: [FormsModule, LeafletModule, MapControls, MapOverlay, NgSelectComponent, ResizerComponent, FontAwesomeModule]
 })
 export class AreaMap implements OnInit, OnDestroy, OnChanges {
   private logger: Logger = inject(LoggerFactory).createLogger("AreaMap", NgxLoggerLevel.ERROR);

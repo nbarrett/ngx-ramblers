@@ -201,6 +201,11 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
     },
     {
+      path: "inbox", loadComponent: () => import("../../pages/admin/inbox/inbox.component")
+        .then(m => m.InboxComponent),
+      canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
+    },
+    {
       matcher: hasDynamicPath, loadComponent: () => import("../common/dynamic-content-page/dynamic-content-page")
         .then(m => m.DynamicContentPageComponent),
       canActivate: [SystemHealthyGuard]

@@ -24,6 +24,7 @@ import { handleWalksManagerSync } from "../walks/walks-manager-sync-ws-handler";
 import { handleContentMigrationScanHosts, handleContentMigrationScan, handleContentMigrationExecute, handleContentMigrationCancel } from "../image-migration/image-migration-ws-handler";
 import { handleEnvironmentSetup, handleEnvironmentCreate, EnvironmentSetupWsData, EnvironmentCreateWsData } from "../environment-setup/environment-setup-ws-handler";
 import { handleExternalAlbumFetch, handleExternalAlbumImport, handleExternalUserAlbumsFetch, handleExternalBulkAlbumImport, handleExternalAlbumSplitPreview } from "../external-album/external-album-ws-handler";
+import { registerWebSocketServer } from "./websocket-broadcaster";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
@@ -65,6 +66,7 @@ export function createWebSocketServer(server: Server, port: number): void {
     clientTracking: true,
     perMessageDeflate: false
   });
+  registerWebSocketServer(wss);
 
   function upgradeIfWebSocket(request: IncomingMessage, socket: any, head: Buffer): void {
     if (request.url === "/ws") {

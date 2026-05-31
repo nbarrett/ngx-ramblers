@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { CommitteeMember, RoleType } from "../../../../models/committee.model";
+import { CommitteeMember, ForwardEmailTarget, RoleType } from "../../../../models/committee.model";
 import { ALERT_ERROR, ALERT_SUCCESS, ALERT_WARNING } from "../../../../models/alert-target.model";
 import {
   DestinationAddress,
@@ -108,7 +108,19 @@ function mapResolutionToRouteType(resolution: RoutingResolution): EmailRouteType
               title="Register & Verify"></app-cloudflare-button>
           </div>
         }
-        @if (memberEmail && status.routeType === EmailRouteType.DIRECT && destinationMatches()) {
+        @if (memberEmail && status.routeType === EmailRouteType.DIRECT && isCatchAllRole()) {
+          <div class="d-flex align-items-center">
+            <alert type="warning" class="flex-grow-1 mb-0">
+              <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+              <strong class="ms-2">Redundant direct rule</strong>
+              <span class="ms-2">This role is set to Catchall, so it does not need its own rule. Remove <strong>{{ status.roleEmail }} &rarr; {{ status.effectiveDestination }}</strong> so the single catch-all delivers it.</span>
+            </alert>
+            <app-cloudflare-button class="ms-2" [disabled]="apiRequestPending" [loading]="apiRequestPending" button
+              (click)="deleteForward()"
+              title="Remove rule"></app-cloudflare-button>
+          </div>
+        }
+        @if (memberEmail && status.routeType === EmailRouteType.DIRECT && !isCatchAllRole() && destinationMatches()) {
           <div class="d-flex align-items-center">
             <alert type="success" class="flex-grow-1 mb-0">
               <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
@@ -120,7 +132,7 @@ function mapResolutionToRouteType(resolution: RoutingResolution): EmailRouteType
               title="Delete Forward"></app-cloudflare-button>
           </div>
         }
-        @if (memberEmail && status.routeType === EmailRouteType.DIRECT && !destinationMatches()) {
+        @if (memberEmail && status.routeType === EmailRouteType.DIRECT && !isCatchAllRole() && !destinationMatches()) {
           <div class="d-flex align-items-center">
             <alert type="warning" class="flex-grow-1 mb-0">
               <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
@@ -522,6 +534,10 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
 
   catchAllDestinationMatches(): boolean {
     return normaliseEmail(this.status?.effectiveDestination) === normaliseEmail(this.memberEmail);
+  }
+
+  isCatchAllRole(): boolean {
+    return this.committeeMemberInternal?.forwardEmailTarget === ForwardEmailTarget.CATCHALL;
   }
 
   verificationEmail(): string {

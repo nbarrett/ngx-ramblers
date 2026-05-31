@@ -334,7 +334,8 @@ export enum RootFolder {
   walkImports = "walk-imports",
   gpxRoutes = "gpx-routes",
   socialEventsImages = "images-social-events",
-  esriRoutes = "esri-routes"
+  esriRoutes = "esri-routes",
+  inboxAttachments = "inbox-attachments"
 }
 
 export enum NavBarLocation {
@@ -373,6 +374,8 @@ export interface SystemConfig {
   googleAnalytics: GoogleAnalyticsConfig
   cloudflareWebAnalytics: CloudflareWebAnalyticsConfig
   googleSearchConsole: GoogleSearchConsoleConfig
+  googleInbox?: GoogleInboxConfig
+  inboxPush?: InboxPushConfig
   mailDefaults: {
     mailProvider: MailProvider;
     autoSubscribeNewMembers: boolean;
@@ -392,6 +395,22 @@ export interface CloudflareWebAnalyticsConfig {
 
 export interface GoogleSearchConsoleConfig {
   verificationId: string;
+}
+
+export interface GoogleInboxConfig {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  pushVerificationToken?: string;
+  pubsubProjectId?: string;
+  pubsubTopicName?: string;
+  pubsubSubscriptionName?: string;
+}
+
+export interface InboxPushConfig {
+  vapidPublicKey: string;
+  vapidPrivateKey: string;
+  vapidSubject: string;
 }
 
 

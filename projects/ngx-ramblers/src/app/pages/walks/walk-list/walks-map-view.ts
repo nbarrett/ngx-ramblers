@@ -34,7 +34,7 @@ import { MapControlsStateService } from "../../../shared/services/map-controls-s
 import { MapRecreationService } from "../../../shared/services/map-recreation.service";
 import { MapOverlay } from "../../../shared/components/map-overlay";
 import { StoredValue } from "../../../models/ui-actions";
-import { HeightResizerComponent } from "../../../modules/common/height-resizer/height-resizer";
+import { ResizerComponent } from "../../../modules/common/resizer/resizer";
 
 @Component({
   selector: "app-walks-map-view",
@@ -223,17 +223,17 @@ import { HeightResizerComponent } from "../../../modules/common/height-resizer/h
             </app-map-overlay>
           }
         </div>
-        <app-height-resizer compact
-                            [height]="mapHeight"
-                            [minHeight]="300"
-                            [maxHeight]="2000"
-                            (heightChange)="onHeightChange($event)"/>
+        <app-resizer orientation="vertical" variant="tab" compact
+                     [size]="mapHeight"
+                     [minSize]="300"
+                     [maxSize]="2000"
+                     (sizeChange)="onHeightChange($event)"/>
       </div>
     } @else {
       <div class="mt-3"></div>
     }
   `,
-  imports: [LeafletModule, FormsModule, FontAwesomeModule, MapControls, MapOverlay, HeightResizerComponent]
+  imports: [LeafletModule, FormsModule, FontAwesomeModule, MapControls, MapOverlay, ResizerComponent]
 })
 export class WalksMapView implements OnInit, OnChanges, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("WalksMapView", NgxLoggerLevel.ERROR);

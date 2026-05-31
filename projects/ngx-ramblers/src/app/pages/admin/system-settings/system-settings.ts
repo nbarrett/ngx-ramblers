@@ -50,6 +50,7 @@ import { InstagramSettings } from "./external/system-instagram-settings";
 import { RamblersSettings } from "./external/ramblers-settings";
 import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
 import { SystemGoogleMapsSettingsComponent } from "./external/system-google-maps-settings";
+import { SystemGmailInboxSettingsComponent } from "./external/system-gmail-inbox-settings";
 import { FlickrSettings } from "./external/system-flickr-settings";
 import { SystemCloudflareSettingsComponent } from "./external/system-cloudflare-settings";
 import { SystemCloudflareWebAnalyticsSettings } from "./cloudflare-web-analytics/system-cloudflare-web-analytics-settings";
@@ -346,6 +347,7 @@ import { ScheduledTasksComponent } from "./scheduled-tasks/scheduled-tasks";
                     @if (showSubTab(ExternalSystemsSubTab.MAIL)) {
                         <app-mail-provider-settings [config]="config"
                                                     (membersPendingSave)="membersPendingSave=$event"/>
+                        <app-system-gmail-inbox-settings [config]="config"/>
                     }
                     @if (showSubTab(ExternalSystemsSubTab.SOCIAL)) {
                         <app-system-instagram-settings/>
@@ -412,7 +414,7 @@ import { ScheduledTasksComponent } from "./scheduled-tasks/scheduled-tasks";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, ScheduledTasksComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, ScheduledTasksComponent, SystemGmailInboxSettingsComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 

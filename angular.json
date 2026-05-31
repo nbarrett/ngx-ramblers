@@ -42,6 +42,21 @@
             "assets": [
               "projects/ngx-ramblers/src/favicon.ico",
               {
+                "input": "projects/ngx-ramblers/src",
+                "glob": "favicon.svg",
+                "output": "/"
+              },
+              {
+                "input": "projects/ngx-ramblers/dist-sw",
+                "glob": "inbox-push-sw.js",
+                "output": "/"
+              },
+              {
+                "input": "projects/ngx-ramblers/src",
+                "glob": "manifest.webmanifest",
+                "output": "/"
+              },
+              {
                 "input": "projects/ngx-ramblers/src/app/assets",
                 "glob": "**/**/*.*",
                 "output": "/assets"

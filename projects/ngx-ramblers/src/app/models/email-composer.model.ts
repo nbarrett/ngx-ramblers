@@ -200,6 +200,8 @@ export interface EmailComposerState {
   narrowListId: number | null;
   selectedMemberIds: string[];
   externalRecipients: ComposerExternalRecipient[];
+  ccRecipients: ComposerExternalRecipient[];
+  bccRecipients: ComposerExternalRecipient[];
   preFilterKey: MemberSelection | null;
   notificationConfig: NotificationConfig | null;
   notificationConfigListing: NotificationConfigListing | null;
@@ -341,6 +343,12 @@ export interface ComposerExternalRecipient {
   saveForReuse?: boolean;
 }
 
+export enum RecipientField {
+  TO = "to",
+  CC = "cc",
+  BCC = "bcc"
+}
+
 export interface BatchTransactionalSendRequest {
   notificationConfigId?: string;
   bannerId: string | null;
@@ -354,11 +362,23 @@ export interface BatchTransactionalSendRequest {
   memberIds: string[];
   narrowListId?: number | null;
   externalRecipients?: ComposerExternalRecipient[];
+  ccRecipients?: ComposerExternalRecipient[];
+  bccRecipients?: ComposerExternalRecipient[];
   senderRoleOverride?: string;
   replyToRoleOverride?: string;
   bccRolesOverride?: string[];
   brandingMode?: BrandingMode;
   unbrandedSenderRoleType?: string;
+  inboxReplyContext?: InboxReplyOutboundContextLike;
+}
+
+export interface InboxReplyOutboundContextLike {
+  threadId: string;
+  aliasId: string;
+  mailboxConnectionId: string;
+  inboxMessageId: string;
+  inReplyTo: string;
+  references: string[];
 }
 
 export enum BatchSendEntryStatus {
@@ -452,6 +472,8 @@ export function defaultEmailComposerState(): EmailComposerState {
     narrowListId: null,
     selectedMemberIds: [],
     externalRecipients: [],
+    ccRecipients: [],
+    bccRecipients: [],
     preFilterKey: null,
     notificationConfig: null,
     notificationConfigListing: null,

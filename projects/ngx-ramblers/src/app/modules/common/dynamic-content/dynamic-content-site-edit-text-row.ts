@@ -58,8 +58,7 @@ import { AlertComponent } from "ngx-bootstrap/alert";
 import { ALERT_WARNING } from "../../../models/alert-target.model";
 import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
 import { YoutubeInputComponent } from "../youtube-input/youtube-input";
-import { HeightResizerComponent } from "../height-resizer/height-resizer";
-import { ColumnResizerComponent } from "./column-resizer";
+import { ResizerComponent } from "../resizer/resizer";
 import { ClipboardService } from "../../../services/clipboard.service";
 
 @Component({
@@ -316,11 +315,11 @@ import { ClipboardService } from "../../../services/clipboard.service";
                                           [height]="column.imageHeight"
                                           [imageSource]="imageDisplay(rowIndex, columnIndex, column).url"/>
                           @if (controlsShown(column) && column.imageSource) {
-                            <app-height-resizer
-                              [height]="column.imageHeight || 200"
-                              [minHeight]="50"
-                              [maxHeight]="800"
-                              (heightChange)="column.imageHeight = $event"
+                            <app-resizer orientation="vertical" variant="tab"
+                              [size]="column.imageHeight || 200"
+                              [minSize]="50"
+                              [maxSize]="800"
+                              (sizeChange)="column.imageHeight = $event"
                               compact/>
                           }
                         </div>
@@ -758,7 +757,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
                 <ng-container [ngTemplateOutlet]="columnNestedRows"></ng-container>
               }
               @if (columnIndex < row.columns.length - 1 && !expanded) {
-                <app-column-resizer
+                <app-resizer orientation="horizontal" variant="handle" mode="grid"
                   [leftColumn]="column"
                   [rightColumn]="row.columns[columnIndex + 1]"/>
               }
@@ -778,7 +777,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent, HeightResizerComponent, ColumnResizerComponent]
+    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent, YoutubeEmbed, YoutubeInputComponent, ResizerComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 

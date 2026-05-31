@@ -40,6 +40,15 @@ import { recordSendUsage } from "../../mongo/controllers/external-recipient";
 import { randomUUID } from "crypto";
 import { accountMergeFieldsFor } from "../account/account";
 import { generatePasswordResetIdForMemberId } from "./send-forgot-password-email";
+import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../../mongo/models/inbox-mailbox-connection";
+import { derivedAliasForRoleType } from "../../inbox/inbox-aliases";
+import {
+  InboxMessage,
+  InboxMessageDirection,
+  InboxReaderProvider
+} from "../../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { insertSentCopy } from "../../inbox/gmail-inbox-reader";
+import { recordOutboundReply } from "../../inbox/inbox-message-import";
 
 interface AuthenticatedRequest extends Request {
   user?: { memberId?: string; userName?: string };
@@ -258,6 +267,91 @@ function externalMemberMergeFields(recipient: ComposerExternalRecipient): SendSm
   };
 }
 
+async function performInboxReplyWriteback(request: BatchTransactionalSendRequest, emailRequest: SendSmtpEmailRequest, brevoMessageId: string | null, transactionalDebugLog: debug.Debugger): Promise<void> {
+  const context = request.inboxReplyContext;
+  if (!context) {
+    return;
+  }
+  try {
+    const alias = await derivedAliasForRoleType(context.aliasId);
+    if (!alias) {
+      transactionalDebugLog("inbox writeback: no alias found for roleType", context.aliasId);
+      return;
+    }
+    const mailboxConnectionDoc = context.mailboxConnectionId
+      ? await inboxMailboxConnectionModel.findById(context.mailboxConnectionId).lean()
+      : null;
+    const recipient = emailRequest.to?.[0];
+    const outboundMessageId = brevoMessageId
+      ? (brevoMessageId.startsWith("<") ? brevoMessageId : `<${brevoMessageId}>`)
+      : `<${randomUUID()}@ngx-ramblers.org.uk>`;
+    const sentAt = dateTimeNow().toMillis();
+    let gmailMessageId: string | null = null;
+    if (mailboxConnectionDoc?.oauthRefreshTokenEncrypted && mailboxConnectionDoc.provider === InboxReaderProvider.GMAIL_API) {
+      try {
+        const rfc822 = buildRfc822(emailRequest, outboundMessageId, context.inReplyTo, context.references, sentAt);
+        gmailMessageId = await insertSentCopy(mailboxConnectionDoc, rfc822);
+      } catch (writeBackError) {
+        transactionalDebugLog("inbox writeback: insertSentCopy failed", (writeBackError as Error).message);
+      }
+    }
+    const replyMessage: InboxMessage = {
+      threadId: context.threadId,
+      mailboxConnectionId: context.mailboxConnectionId,
+      direction: InboxMessageDirection.OUTBOUND,
+      messageId: outboundMessageId,
+      inReplyTo: context.inReplyTo,
+      references: context.references,
+      from: {name: emailRequest.sender?.name ?? null, email: emailRequest.sender?.email ?? ""},
+      to: recipient ? [{name: recipient.name ?? null, email: recipient.email}] : [],
+      cc: (emailRequest.cc ?? []).map(address => ({name: address.name ?? null, email: address.email})),
+      subject: emailRequest.subject,
+      bodyHtml: null,
+      bodyText: null,
+      receivedAt: null,
+      sentAt,
+      externalSource: InboxReaderProvider.GMAIL_API,
+      externalId: gmailMessageId,
+      attachments: []
+    };
+    await recordOutboundReply(alias, replyMessage, context.threadId);
+  } catch (error) {
+    transactionalDebugLog("inbox writeback failed:", (error as Error).message);
+  }
+}
+
+function buildRfc822(emailRequest: SendSmtpEmailRequest, messageId: string, inReplyTo: string, references: string[], sentAt: number): string {
+  const senderName = emailRequest.sender?.name ?? "";
+  const fromHeader = senderName.length > 0
+    ? `From: ${escapeHeaderName(senderName)} <${emailRequest.sender?.email}>`
+    : `From: ${emailRequest.sender?.email}`;
+  const recipient = emailRequest.to?.[0];
+  const toHeader = recipient
+    ? (recipient.name ? `To: ${escapeHeaderName(recipient.name)} <${recipient.email}>` : `To: ${recipient.email}`)
+    : "";
+  const lines = [
+    fromHeader,
+    toHeader,
+    `Subject: ${emailRequest.subject}`,
+    `Date: ${dateTimeFromMillis(sentAt).toUTC().toRFC2822()}`,
+    `Message-ID: ${messageId}`,
+    `In-Reply-To: ${inReplyTo}`,
+    `References: ${references.join(" ")}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/html; charset=UTF-8",
+    "",
+    emailRequest.htmlContent ?? ""
+  ];
+  return lines.filter(line => line.length > 0 || line === "").join("\r\n");
+}
+
+function escapeHeaderName(raw: string): string {
+  if (/[",<>]/.test(raw)) {
+    return `"${raw.replace(/"/g, "\\\"")}"`;
+  }
+  return raw;
+}
+
 async function processBatch(jobId: string, request: BatchTransactionalSendRequest, baseUrl: string, currentMemberId: string | null): Promise<void> {
   const progress = jobs.get(jobId);
   if (!progress) return;
@@ -303,6 +397,10 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
     const bannerImageSrc = bannerSourceFor(allBanners, request.bannerId, groupHref);
     const accountFields = await accountMergeFieldsFor();
     const externalRecipients = (request.externalRecipients ?? []).filter(item => !!item?.email?.trim());
+    const ccAddresses: EmailAddress[] = (request.ccRecipients ?? []).filter(item => !!item?.email?.trim())
+      .map(item => ({email: item.email, name: externalRecipientName(item).full}));
+    const combinedBcc: EmailAddress[] = [...bcc, ...(request.bccRecipients ?? []).filter(item => !!item?.email?.trim())
+      .map(item => ({email: item.email, name: externalRecipientName(item).full}))];
     const memberEntries: BatchSendProgressEntry[] = request.memberIds.map(id => {
       const memberRecord = membersById.get(id);
       return {
@@ -378,23 +476,31 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         const subject = notifConfig ? buildSubject(notifConfig, request.subject, params) : request.subject;
         params.messageMergeFields.subject = subject;
         const recipientEmail = item.kind === "member" ? item.memberRecord.email : item.recipient.email;
+        const replyHeaders = request.inboxReplyContext
+          ? {"In-Reply-To": request.inboxReplyContext.inReplyTo, "References": request.inboxReplyContext.references.join(" ")}
+          : undefined;
         const emailRequest: SendSmtpEmailRequest = {
           subject,
           sender,
           to: [{ email: recipientEmail, name: entry.fullName }],
           replyTo,
-          bcc: bcc.length > 0 ? bcc : undefined,
+          cc: ccAddresses.length > 0 ? ccAddresses : undefined,
+          bcc: combinedBcc.length > 0 ? combinedBcc : undefined,
           listId: notifConfig?.defaultListId,
           params,
+          headers: replyHeaders,
           brandingMode: request.brandingMode,
           ...(isUnbranded
             ? { htmlContent: request.htmlBody }
             : { templateId: notifConfig!.templateId, templateOverrides: notifConfig!.templateOverrides })
         };
-        await sendTransactionalEmailRequest(emailRequest, debugLog, baseUrl);
+        const sendResult = await sendTransactionalEmailRequest(emailRequest, debugLog, baseUrl);
         entry.status = BatchSendEntryStatus.Sent;
         entry.sentAt = dateTimeNow().toMillis();
         progress.sentCount += 1;
+        if (request.inboxReplyContext) {
+          await performInboxReplyWriteback(request, emailRequest, sendResult?.body?.messageId ?? null, debugLog);
+        }
         if (item.kind === "external" && currentMemberId) {
           await recordSendUsage({
             email: item.recipient.email,

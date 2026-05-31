@@ -186,7 +186,8 @@ export interface EmailWorkerScript {
 
 export enum EmailForwardingMode {
   CLOUDFLARE_FORWARD = "cloudflare-forward",
-  BREVO_RESEND = "brevo-resend"
+  BREVO_RESEND = "brevo-resend",
+  NGX_INBOX = "ngx-inbox"
 }
 
 export interface CreateOrUpdateWorkerRequest {

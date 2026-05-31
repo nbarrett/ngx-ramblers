@@ -107,9 +107,11 @@ export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailR
   sendSmtpEmail.subject = emailRequest.subject;
   sendSmtpEmail.sender = emailRequest.sender;
   sendSmtpEmail.to = emailRequest.to;
-  const bcc = emailRequest.bcc?.length > 0 ? emailRequest.bcc : emailRequest.cc;
-  if (bcc) {
-    sendSmtpEmail.bcc = bcc;
+  if (emailRequest.cc?.length > 0) {
+    sendSmtpEmail.cc = emailRequest.cc;
+  }
+  if (emailRequest.bcc?.length > 0) {
+    sendSmtpEmail.bcc = emailRequest.bcc;
   }
   sendSmtpEmail.replyTo = emailRequest.replyTo;
   const { apiUrl: apiUnsubscribeUrl } = await injectUnsubscribeContext(emailRequest, unsubscribeBaseUrlOverride);

@@ -58,7 +58,7 @@ export enum CommitteeMemberTab {
     @if (committeeMember) {
       <div class="p-2 pt-0">
         <ng-template #forwardTargetControls let-label="label">
-          @if (committeeMember.forwardEmailTarget === ForwardEmailTarget.CUSTOM) {
+          @if (committeeMember.forwardEmailTarget === ForwardEmailTarget.CUSTOM || committeeMember.forwardEmailTarget === ForwardEmailTarget.CATCHALL) {
             <div class="col-sm-12">
               <div class="row">
                 <div class="col-sm-6">
@@ -77,16 +77,24 @@ export enum CommitteeMemberTab {
                 </div>
                 <div class="col-sm-6">
                   <div class="form-group">
-                    <label for="forward-custom-email-{{index}}" class="control-label">Custom email address</label>
-                    <input [(ngModel)]="committeeMember.forwardEmailCustom"
-                      [disabled]="committeeMember.vacant"
-                      id="forward-custom-email-{{index}}"
-                      [class.is-invalid]="committeeMember.forwardEmailCustom && !validEmail(committeeMember.forwardEmailCustom)"
-                      type="email" class="form-control">
-                    @if (committeeMember.forwardEmailCustom && !validEmail(committeeMember.forwardEmailCustom)) {
-                      <div class="invalid-feedback d-block">
-                        Please enter a valid email address
-                      </div>
+                    @if (committeeMember.forwardEmailTarget === ForwardEmailTarget.CATCHALL) {
+                      <label class="control-label">Catchall address (auto)</label>
+                      <input type="email" class="form-control" [value]="catchAllAddress() || ''" disabled>
+                      @if (!catchAllAddress()) {
+                        <small class="text-muted">No Cloudflare catch-all rule found yet - configure a catch-all rule pointing at your inbox mailbox.</small>
+                      }
+                    } @else {
+                      <label for="forward-custom-email-{{index}}" class="control-label">Custom email address</label>
+                      <input [(ngModel)]="committeeMember.forwardEmailCustom"
+                        [disabled]="committeeMember.vacant"
+                        id="forward-custom-email-{{index}}"
+                        [class.is-invalid]="committeeMember.forwardEmailCustom && !validEmail(committeeMember.forwardEmailCustom)"
+                        type="email" class="form-control">
+                      @if (committeeMember.forwardEmailCustom && !validEmail(committeeMember.forwardEmailCustom)) {
+                        <div class="invalid-feedback d-block">
+                          Please enter a valid email address
+                        </div>
+                      }
                     }
                   </div>
                 </div>
@@ -135,7 +143,7 @@ export enum CommitteeMemberTab {
           }
         </ng-template>
         <ng-template #contactUsTargetControls let-label="label">
-          @if (committeeMember.contactUsTarget === ForwardEmailTarget.CUSTOM) {
+          @if (committeeMember.contactUsTarget === ForwardEmailTarget.CUSTOM || committeeMember.contactUsTarget === ForwardEmailTarget.CATCHALL) {
             <div class="col-sm-12">
               <div class="row">
                 <div class="col-sm-6">
@@ -154,16 +162,26 @@ export enum CommitteeMemberTab {
                 </div>
                 <div class="col-sm-6">
                   <div class="form-group">
-                    <label for="contact-us-custom-email-{{index}}" class="control-label">Custom email address</label>
-                    <input [(ngModel)]="committeeMember.contactUsCustom"
-                      [disabled]="committeeMember.vacant"
-                      id="contact-us-custom-email-{{index}}"
-                      [class.is-invalid]="committeeMember.contactUsCustom && !validEmail(committeeMember.contactUsCustom)"
-                      type="email" class="form-control">
-                    @if (committeeMember.contactUsCustom && !validEmail(committeeMember.contactUsCustom)) {
-                      <div class="invalid-feedback d-block">
-                        Please enter a valid email address
-                      </div>
+                    @if (committeeMember.contactUsTarget === ForwardEmailTarget.CATCHALL) {
+                      <label class="control-label">Catchall address (auto)</label>
+                      <input type="email" class="form-control" [value]="catchAllAddress() || ''" disabled>
+                      @if (catchAllAddress()) {
+                        <small class="text-muted">Sent to the catch-all address, addressed to this role; no address is stored on the role.</small>
+                      } @else {
+                        <small class="text-muted">No Cloudflare catch-all rule found yet - configure a catch-all rule pointing at your inbox mailbox.</small>
+                      }
+                    } @else {
+                      <label for="contact-us-custom-email-{{index}}" class="control-label">Custom email address</label>
+                      <input [(ngModel)]="committeeMember.contactUsCustom"
+                        [disabled]="committeeMember.vacant"
+                        id="contact-us-custom-email-{{index}}"
+                        [class.is-invalid]="committeeMember.contactUsCustom && !validEmail(committeeMember.contactUsCustom)"
+                        type="email" class="form-control">
+                      @if (committeeMember.contactUsCustom && !validEmail(committeeMember.contactUsCustom)) {
+                        <div class="invalid-feedback d-block">
+                          Please enter a valid email address
+                        </div>
+                      }
                     }
                   </div>
                 </div>
@@ -359,6 +377,9 @@ export enum CommitteeMemberTab {
                   @case (ForwardEmailTarget.CUSTOM) {
                     <span>Brevo sends the message directly to <strong>{{ committeeMember.contactUsCustom || committeeMember.forwardEmailCustom || '(custom address)' }}</strong>. No Cloudflare rule required.</span>
                   }
+                  @case (ForwardEmailTarget.CATCHALL) {
+                    <span>Brevo sends to the catch-all address <strong>{{ committeeMember.contactUsCustom || catchAllAddress() || '(catch-all address)' }}</strong>, addressed to <strong>{{ committeeMember.fullName || committeeMember.description }}</strong>. The single Cloudflare catch-all delivers it to the connected inbox mailbox, where NGX shows it under this role.</span>
+                  }
                   @case (ForwardEmailTarget.MULTIPLE) {
                     <span>Brevo sends the message directly to all configured recipients. No Cloudflare rule required.</span>
                   }
@@ -471,12 +492,14 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     {value: ForwardEmailTarget.MEMBER_EMAIL, label: "Member's personal email"},
     {value: ForwardEmailTarget.CUSTOM, label: "Custom address"},
     {value: ForwardEmailTarget.MULTIPLE, label: "Multiple recipients"},
+    {value: ForwardEmailTarget.CATCHALL, label: "Catchall"},
     {value: ForwardEmailTarget.NONE, label: "No forwarding"}
   ];
   contactUsTargets = [
     {value: ForwardEmailTarget.MEMBER_EMAIL, label: "Linked member's personal email"},
     {value: ForwardEmailTarget.CUSTOM, label: "Custom address"},
     {value: ForwardEmailTarget.MULTIPLE, label: "Multiple recipients"},
+    {value: ForwardEmailTarget.CATCHALL, label: "Catchall"},
     {value: ForwardEmailTarget.NONE, label: "Disable contact-us for this role"}
   ];
 
@@ -612,12 +635,19 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     }
   }
 
+  catchAllAddress(): string {
+    const forward = this.catchAllRule?.actions?.find(action => action.type === EmailRoutingActionType.FORWARD);
+    return forward?.value?.[0] || null;
+  }
+
   resolvedForwardEmail(): string {
     switch (this.committeeMember.forwardEmailTarget) {
       case ForwardEmailTarget.MEMBER_EMAIL:
         return this.memberPersonalEmail();
       case ForwardEmailTarget.CUSTOM:
         return this.committeeMember.forwardEmailCustom || null;
+      case ForwardEmailTarget.CATCHALL:
+        return this.committeeMember.forwardEmailCustom || this.catchAllAddress();
       case ForwardEmailTarget.MULTIPLE:
         return this.committeeMember.forwardEmailRecipients?.[0] || null;
       case ForwardEmailTarget.NONE:
@@ -636,6 +666,10 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       case ForwardEmailTarget.CUSTOM: {
         const custom = this.committeeMember.forwardEmailCustom;
         return custom ? [custom] : [];
+      }
+      case ForwardEmailTarget.CATCHALL: {
+        const catchAll = this.committeeMember.forwardEmailCustom || this.catchAllAddress();
+        return catchAll ? [catchAll] : [];
       }
       case ForwardEmailTarget.MULTIPLE:
         return this.committeeMember.forwardEmailRecipients || [];
@@ -660,6 +694,10 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
         const email = this.committeeMember?.forwardEmailCustom;
         return email ? `${label} (${email})` : label;
       }
+      case ForwardEmailTarget.CATCHALL: {
+        const email = this.committeeMember?.forwardEmailCustom || this.catchAllAddress();
+        return email ? `${label} (${email})` : label;
+      }
       default:
         return label;
     }
@@ -672,6 +710,9 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
         this.committeeMember.forwardEmailRecipients = [currentEmail];
       }
     }
+    if (this.committeeMember.forwardEmailTarget === ForwardEmailTarget.CATCHALL) {
+      this.committeeMember.forwardEmailCustom = null;
+    }
   }
 
   contactUsTargetChanged() {
@@ -680,6 +721,9 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       if (currentEmail) {
         this.committeeMember.contactUsRecipients = [currentEmail];
       }
+    }
+    if (this.committeeMember.contactUsTarget === ForwardEmailTarget.CATCHALL) {
+      this.committeeMember.contactUsCustom = null;
     }
   }
 
@@ -697,6 +741,10 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       }
       case ForwardEmailTarget.CUSTOM: {
         const email = this.committeeMember?.contactUsCustom;
+        return email ? `${label} (${email})` : label;
+      }
+      case ForwardEmailTarget.CATCHALL: {
+        const email = this.committeeMember?.contactUsCustom || this.catchAllAddress();
         return email ? `${label} (${email})` : label;
       }
       default:
