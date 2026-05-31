@@ -4,7 +4,7 @@ import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { Subscription, timer } from "rxjs";
 import { switchMap } from "rxjs/operators";
-import { isArray, isNumber, isString, kebabCase, keys, values } from "es-toolkit/compat";
+import { isArray, isNumber, isString, isUndefined, kebabCase, keys, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   faAddressCard,
@@ -74,6 +74,7 @@ import {
   EmailComposerContextSource,
   PreviewStepDirection,
   PROMOTIONAL_LANGUAGE_PATTERN,
+  RecipientField,
   RecipientMode,
   REPLY_OR_FORWARD_SUBJECT_PATTERN,
   SECTION_DIVIDER_OPTIONS,
@@ -113,6 +114,9 @@ import { ArticleBlockSingleEditor } from "../../modules/common/article-blocks/ar
 import { SectionDividerSelectComponent } from "../../modules/common/section-divider-select/section-divider-select";
 import { EmailComposerRenderingService } from "../../services/email-composer/email-composer-rendering.service";
 import { EmailComposerSendService } from "../../services/email-composer/email-composer-send.service";
+import { InboxReplyHandoffService } from "../../services/inbox/inbox-reply-handoff.service";
+import { InboxReplyOutboundContext } from "../../models/inbox.model";
+import TurndownService from "turndown";
 import { EmailCompositionsService } from "../../services/email-composer/email-compositions.service";
 import { NotificationConfigSelectorComponent } from "../admin/system-settings/mail/notification-config-selector";
 import { SenderRepliesAndSignoff } from "../admin/send-emails/sender-replies-and-signoff";
@@ -311,7 +315,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                     }
                     <span class="text-muted small ms-2">{{ sentDescription(sent) }}</span>
                     @if (sent.sentRecipientCount) {
-                      <span class="text-muted small ms-2">to {{ sent.sentRecipientCount }} recipient{{ sent.sentRecipientCount === 1 ? "" : "s" }}</span>
+                      <span class="text-muted small ms-2">to {{ stringUtils.pluraliseWithCount(sent.sentRecipientCount, "recipient") }}</span>
                     }
                   </div>
                   <div class="email-composer-draft-actions">
@@ -603,6 +607,9 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                           <span class="badge bg-light text-muted ms-2">Will be saved for re-use</span>
                         }
                       </span>
+                      <span class="text-muted small">Move to</span>
+                      <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.TO, RecipientField.CC)" title="Move to Cc">Cc</button>
+                      <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.TO, RecipientField.BCC)" title="Move to Bcc">Bcc</button>
                       <button type="button" class="btn btn-sm btn-danger" (click)="removeExternalRecipient(idx)" title="Remove" aria-label="Remove">
                         <fa-icon [icon]="faXmark"/>
                       </button>
@@ -611,6 +618,84 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                 </ul>
               } @else {
                 <p class="text-muted small mb-0">{{ stringUtils.pluraliseWithCount(state.externalRecipients.length, "recipient") }} added - expand to view or remove.</p>
+              }
+            </fieldset>
+          }
+          @if (replyCcSuggestion.length > 0) {
+            <div class="email-composer-validation-summary d-flex align-items-start justify-content-between gap-3 mt-2">
+              <div>
+                <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Replying from a shared inbox</h5>
+                <span>Also Cc the other roles - <strong>{{ replyCcSuggestionLabel() }}</strong>?</span>
+              </div>
+              <span class="text-nowrap">
+                <button type="button" class="btn btn-sm btn-primary me-2" (click)="applyReplyCcSuggestion()">Cc these roles</button>
+                <button type="button" class="btn btn-sm btn-link text-decoration-none" (click)="replyCcSuggestion = []">Dismiss</button>
+              </span>
+            </div>
+          }
+          <div class="mt-2">
+            @if (!showCc) {
+              <button type="button" class="btn btn-link btn-sm p-0 me-3 text-decoration-none" (click)="showCc = true">+ Add Cc</button>
+            }
+            @if (!showBcc) {
+              <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" (click)="showBcc = true">+ Add Bcc</button>
+            }
+          </div>
+          @if (showCc) {
+            <fieldset class="email-composer-fieldset mt-2">
+              <legend>
+                <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset" (click)="ccExpanded = !ccExpanded" [attr.aria-expanded]="ccExpanded">
+                  <fa-icon [icon]="ccExpanded ? faChevronDown : faChevronRight" class="me-1"/>
+                  Cc <span class="text-muted small">(visible to all recipients)</span>@if (state.ccRecipients.length > 0) {<span class="text-muted small"> ({{ state.ccRecipients.length }})</span>}
+                </button>
+              </legend>
+              @if (ccExpanded) {
+                <div class="input-group">
+                  <input type="email" class="form-control" [(ngModel)]="newCcEmail" (keyup.enter)="addCcRecipient()" placeholder="name@example.com">
+                  <button type="button" class="btn btn-primary px-3 text-nowrap flex-shrink-0" (click)="addCcRecipient()"><fa-icon [icon]="faPlus" class="me-1"/>Add</button>
+                </div>
+                @if (state.ccRecipients.length > 0) {
+                  <ul class="list-unstyled mb-0 mt-2">
+                    @for (recipient of state.ccRecipients; track recipient.email; let idx = $index) {
+                      <li class="d-flex align-items-center gap-2 py-1">
+                        <span class="flex-grow-1"><strong>{{ recipient.email }}</strong>@if (recipient.name) { <span class="text-muted"> &mdash; {{ recipient.name }}</span> }</span>
+                        <span class="text-muted small">Move to</span>
+                        <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.CC, RecipientField.TO)" title="Move to To">To</button>
+                        <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.CC, RecipientField.BCC)" title="Move to Bcc">Bcc</button>
+                        <button type="button" class="btn btn-sm btn-danger" (click)="removeCcRecipient(idx)" aria-label="Remove"><fa-icon [icon]="faXmark"/></button>
+                      </li>
+                    }
+                  </ul>
+                }
+              }
+            </fieldset>
+          }
+          @if (showBcc) {
+            <fieldset class="email-composer-fieldset mt-2">
+              <legend>
+                <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset" (click)="bccExpanded = !bccExpanded" [attr.aria-expanded]="bccExpanded">
+                  <fa-icon [icon]="bccExpanded ? faChevronDown : faChevronRight" class="me-1"/>
+                  Bcc <span class="text-muted small">(hidden from other recipients)</span>@if (state.bccRecipients.length > 0) {<span class="text-muted small"> ({{ state.bccRecipients.length }})</span>}
+                </button>
+              </legend>
+              @if (bccExpanded) {
+                <div class="input-group">
+                  <input type="email" class="form-control" [(ngModel)]="newBccEmail" (keyup.enter)="addBccRecipient()" placeholder="name@example.com">
+                  <button type="button" class="btn btn-primary px-3 text-nowrap flex-shrink-0" (click)="addBccRecipient()"><fa-icon [icon]="faPlus" class="me-1"/>Add</button>
+                </div>
+                @if (state.bccRecipients.length > 0) {
+                  <ul class="list-unstyled mb-0 mt-2">
+                    @for (recipient of state.bccRecipients; track recipient.email; let idx = $index) {
+                      <li class="d-flex align-items-center gap-2 py-1">
+                        <span class="flex-grow-1"><strong>{{ recipient.email }}</strong>@if (recipient.name) { <span class="text-muted"> &mdash; {{ recipient.name }}</span> }</span>
+                        <span class="text-muted small">Move to</span>
+                        <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.BCC, RecipientField.TO)" title="Move to To">To</button>
+                        <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.BCC, RecipientField.CC)" title="Move to Cc">Cc</button>
+                        <button type="button" class="btn btn-sm btn-danger" (click)="removeBccRecipient(idx)" aria-label="Remove"><fa-icon [icon]="faXmark"/></button>
+                      </li>
+                    }
+                  </ul>
+                }
               }
             </fieldset>
           }
@@ -633,9 +718,17 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                         @if (recipient.name) { <span class="text-muted"> &mdash; {{ recipient.name }}</span> }
                         <span class="text-muted small d-block">{{ lastUsedDescription(recipient) }}</span>
                       </span>
-                      <button type="button" class="btn btn-sm btn-primary" (click)="addSavedExternalRecipient(recipient)">
-                        <fa-icon [icon]="faPlus"/> Use
-                      </button>
+                      <span class="d-flex gap-2" role="group" aria-label="Add saved address to recipients">
+                        <button type="button" class="btn btn-sm btn-quiet" (click)="addSavedExternalRecipientTo(recipient, RecipientField.TO)">
+                          <fa-icon [icon]="faPlus"/> To
+                        </button>
+                        <button type="button" class="btn btn-sm btn-quiet" (click)="addSavedExternalRecipientTo(recipient, RecipientField.CC)">
+                          <fa-icon [icon]="faPlus"/> Cc
+                        </button>
+                        <button type="button" class="btn btn-sm btn-quiet" (click)="addSavedExternalRecipientTo(recipient, RecipientField.BCC)">
+                          <fa-icon [icon]="faPlus"/> Bcc
+                        </button>
+                      </span>
                     </li>
                   }
                 </ul>
@@ -948,9 +1041,8 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
             }
           </div>
         }
-        @let composeTrackingUrls = recycledTrackingUrlsInState();
         @let composeUnbrandedNoRecipients = state.brandingMode === BrandingMode.UNBRANDED && !recipientsStepValid();
-        @if (composeUnbrandedNoRecipients || composeStepErrors().length > 0 || composeTrackingUrls.length > 0) {
+        @if (composeUnbrandedNoRecipients || composeStepErrors().length > 0) {
           <div class="email-composer-validation-summary">
             <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
             <ul class="list-arrow">
@@ -958,30 +1050,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                 <li>Paste a forwarded email (with <code>To:</code>, <code>Cc:</code>, <code>Subject:</code> headers) into the body below and the addresses and subject will be picked up automatically, or go back to the Recipients step to add them by hand.</li>
               }
               @for (error of composeStepErrors(); track error) { <li>{{ error }}</li> }
-              @if (composeTrackingUrls.length > 0) {
-                <li>
-                  {{ composeTrackingUrls.length }} link{{ composeTrackingUrls.length === 1 ? "" : "s" }} in this email point at another sender's tracking redirect (typically pasted in from a forwarded marketing email). Brevo will wrap these again when we send, so recipients hit two redirect layers and may land on a stale 404. Click <strong>Resolve tracking links</strong> below to follow each redirect and replace it with the underlying URL, or edit the relevant section by hand.
-                  <ul class="small mt-1 mb-0">
-                    @for (url of composeTrackingUrls; track url) { <li><code>{{ shortTrackingUrl(url) }}</code></li> }
-                  </ul>
-                </li>
-              }
             </ul>
-            @if (composeTrackingUrls.length > 0) {
-              <button type="button" class="btn btn-primary btn-sm mt-2"
-                      [disabled]="resolveTrackingInProgress"
-                      (click)="resolveTrackingUrls()">
-                <fa-icon [icon]="faArrowRotateLeft"/>
-                {{ resolveTrackingInProgress ? "Resolving…" : "Resolve tracking links" }}
-              </button>
-              @if (trackingResolutionFailures.length > 0) {
-                <ul class="small mt-2 mb-0 list-arrow">
-                  @for (failure of trackingResolutionFailures; track failure.url) {
-                    <li><code>{{ shortTrackingUrl(failure.url) }}</code> - {{ failure.error }}</li>
-                  }
-                </ul>
-              }
-            }
           </div>
         }
         <fieldset class="email-composer-fieldset">
@@ -1515,9 +1584,11 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
           }
         </ul>
         @if (campaignQueueNotice(); as notice) {
-          <div class="alert alert-warning">
-            <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
-            <strong>{{ notice.title }}</strong> {{ notice.message }}
+          <div class="email-composer-validation-summary">
+            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ notice.title }}</h5>
+            <ul class="list-arrow">
+              <li>{{ notice.message }}</li>
+            </ul>
           </div>
         }
         <div class="d-flex flex-wrap align-items-center mb-3" style="gap: 0.5rem;">
@@ -1558,9 +1629,11 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
       <div class="email-composer-section">
         <h3>Send</h3>
         @if (campaignQueueNotice(); as notice) {
-          <div class="alert alert-warning">
-            <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
-            <strong>{{ notice.title }}</strong> {{ notice.message }}
+          <div class="email-composer-validation-summary">
+            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ notice.title }}</h5>
+            <ul class="list-arrow">
+              <li>{{ notice.message }}</li>
+            </ul>
           </div>
         }
         @if (bulkDeletionPending()) {
@@ -1572,8 +1645,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
             </ul>
           </div>
         }
-        @let trackingUrls = recycledTrackingUrlsInState();
-        @if (unbrandedListSendBlocked() || showUnbrandedListSendWarning() || subjectStartsWithCopyOf() || subjectUnchangedFromDefault() || trackingUrls.length > 0) {
+        @if (unbrandedListSendBlocked() || showUnbrandedListSendWarning() || subjectStartsWithCopyOf() || subjectUnchangedFromDefault()) {
           <div class="email-composer-validation-summary">
             @if (unbrandedListSendBlocked()) {
               <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked:</h5>
@@ -1619,22 +1691,11 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                 <fa-icon [icon]="faArrowLeft"/> Go and edit
               </button>
             }
-            @if (trackingUrls.length > 0) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Recycled tracking URLs detected:</h5>
-              <ul class="list-arrow">
-                <li>{{ trackingUrls.length }} link{{ trackingUrls.length === 1 ? "" : "s" }} in this email point at another sender's tracking redirect. Brevo will wrap them again on send, so recipients hit two redirect layers and may land on a stale 404.</li>
-                <li>Edit the relevant section and replace each link with its original destination URL.</li>
-              </ul>
-              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="goToCompose()">
-                <fa-icon [icon]="faArrowLeft"/> Go and fix
-              </button>
-            }
           </div>
         }
         @if (sendInProgress) {
-          <div class="alert alert-warning">
-            <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>
-            <strong>Sending:</strong> in progress…
+          <div class="email-composer-validation-summary">
+            <h5><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Sending: in progress…</h5>
           </div>
         }
         @if (batchProgress) {
@@ -1685,6 +1746,22 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                           <td>{{ entry.errorMessage || "" }}</td>
                         </tr>
                       }
+                      @for (recipient of state.ccRecipients; track recipient.email) {
+                        <tr>
+                          <td>{{ recipient.name || "" }}</td>
+                          <td>{{ recipient.email }}</td>
+                          <td>cc</td>
+                          <td>copied on every send above</td>
+                        </tr>
+                      }
+                      @for (recipient of state.bccRecipients; track recipient.email) {
+                        <tr>
+                          <td>{{ recipient.name || "" }}</td>
+                          <td>{{ recipient.email }}</td>
+                          <td>bcc</td>
+                          <td>blind copied on every send above</td>
+                        </tr>
+                      }
                     </tbody>
                   </table>
                 </details>
@@ -1720,6 +1797,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected dateUtils = inject(DateUtilsService);
   private rendering = inject(EmailComposerRenderingService);
   private sendService = inject(EmailComposerSendService);
+  private inboxReplyHandoff = inject(InboxReplyHandoffService);
   private externalRecipientService = inject(ExternalRecipientService);
   private committeeQueryService = inject(CommitteeQueryService);
   private committeeFileService = inject(CommitteeFileService);
@@ -1770,6 +1848,13 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected newExternalSaveForReuse = true;
   protected newExternalEmailError: string | null = null;
   protected newExternalNameEdited = false;
+  protected showCc = false;
+  protected showBcc = false;
+  protected ccExpanded = true;
+  protected bccExpanded = true;
+  protected newCcEmail = "";
+  protected newBccEmail = "";
+  protected replyCcSuggestion: ComposerExternalRecipient[] = [];
   protected draftsPanelOpen = false;
   protected sentEmailsPanelOpen = false;
   protected composeShared = false;
@@ -1820,6 +1905,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected readonly faCalendarDays = faCalendarDays;
   protected readonly faChevronDown = faChevronDown;
   protected readonly faChevronRight = faChevronRight;
+  public inboxReplyContext: InboxReplyOutboundContext | null = null;
+  private turndownService = new TurndownService({headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced"});
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly faPlus = faPlus;
   protected readonly faTrash = faTrash;
@@ -2330,7 +2417,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       const sanitised = this.compositionsService.serialiseStateForStorage(this.state);
       const text = JSON.stringify(sanitised, null, 2);
       await navigator.clipboard.writeText(text);
-      this.notify.success({ title: "Copied", message: "Composer state copied to clipboard as JSON." });
+      this.notify.success({ title: "Copied", message: "Composer state copied to clipboard as JSON" });
     } catch (error) {
       this.logger.error("copyComposerStateAsJson failed:", error);
       this.notify.error({ title: "Copy failed", message: "Could not copy composer state. See console for details." });
@@ -2563,6 +2650,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
       queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
     }
+    this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
   }
 
   private buildForwardedIntroMarkdown(headerLines: string[], body: string): string {
@@ -2840,16 +2928,83 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.newExternalNameEdited = false;
   }
 
-  protected addSavedExternalRecipient(recipient: ExternalRecipient): void {
-    if (this.state.externalRecipients.some(item => item.email.toLowerCase() === recipient.email.toLowerCase())) return;
-    this.state.externalRecipients = [
-      ...this.state.externalRecipients,
-      { email: recipient.email, name: recipient.name, existingId: recipient.id, saveForReuse: false }
-    ];
+  protected readonly RecipientField = RecipientField;
+
+  private recipientField(field: RecipientField): { get: () => ComposerExternalRecipient[]; set: (next: ComposerExternalRecipient[]) => void } {
+    switch (field) {
+      case RecipientField.TO:
+        return { get: () => this.state.externalRecipients, set: (next: ComposerExternalRecipient[]) => this.state.externalRecipients = next };
+      case RecipientField.CC:
+        return { get: () => this.state.ccRecipients, set: (next: ComposerExternalRecipient[]) => { this.state.ccRecipients = next; this.showCc = true; this.ccExpanded = true; } };
+      case RecipientField.BCC:
+        return { get: () => this.state.bccRecipients, set: (next: ComposerExternalRecipient[]) => { this.state.bccRecipients = next; this.showBcc = true; this.bccExpanded = true; } };
+    }
+  }
+
+  protected addSavedExternalRecipientTo(recipient: ExternalRecipient, field: RecipientField): void {
+    const entry: ComposerExternalRecipient = { email: recipient.email, name: recipient.name, existingId: recipient.id, saveForReuse: false };
+    const target = this.recipientField(field);
+    if (target.get().some(item => item.email.toLowerCase() === entry.email.toLowerCase())) return;
+    target.set([...target.get(), entry]);
+  }
+
+  protected moveRecipient(recipient: ComposerExternalRecipient, from: RecipientField, to: RecipientField): void {
+    const source = this.recipientField(from);
+    const destination = this.recipientField(to);
+    source.set(source.get().filter(item => item.email.toLowerCase() !== recipient.email.toLowerCase()));
+    if (destination.get().some(item => item.email.toLowerCase() === recipient.email.toLowerCase())) return;
+    destination.set([...destination.get(), recipient]);
   }
 
   protected removeExternalRecipient(index: number): void {
     this.state.externalRecipients = this.state.externalRecipients.filter((_, idx) => idx !== index);
+  }
+
+  protected replyCcSuggestionLabel(): string {
+    return this.replyCcSuggestion.map(recipient => recipient.name || recipient.email).join(", ");
+  }
+
+  protected applyReplyCcSuggestion(): void {
+    const merged = this.replyCcSuggestion.reduce<ComposerExternalRecipient[]>((recipients, suggestion) =>
+      recipients.some(existing => existing.email.toLowerCase() === suggestion.email.toLowerCase())
+        ? recipients
+        : [...recipients, suggestion], this.state.ccRecipients);
+    this.state.ccRecipients = merged;
+    this.showCc = true;
+    this.ccExpanded = true;
+    this.replyCcSuggestion = [];
+  }
+
+  protected addCcRecipient(): void {
+    const added = this.appendRecipient(this.state.ccRecipients, this.newCcEmail);
+    if (added) {
+      this.state.ccRecipients = added;
+      this.newCcEmail = "";
+    }
+  }
+
+  protected removeCcRecipient(index: number): void {
+    this.state.ccRecipients = this.state.ccRecipients.filter((_, idx) => idx !== index);
+  }
+
+  protected addBccRecipient(): void {
+    const added = this.appendRecipient(this.state.bccRecipients, this.newBccEmail);
+    if (added) {
+      this.state.bccRecipients = added;
+      this.newBccEmail = "";
+    }
+  }
+
+  protected removeBccRecipient(index: number): void {
+    this.state.bccRecipients = this.state.bccRecipients.filter((_, idx) => idx !== index);
+  }
+
+  private appendRecipient(existing: ComposerExternalRecipient[], rawEmail: string): ComposerExternalRecipient[] | null {
+    const email = rawEmail.trim().toLowerCase();
+    if (!this.isValidEmail(email) || existing.some(item => item.email.toLowerCase() === email)) {
+      return null;
+    }
+    return [...existing, {email, name: this.nameFromEmail(email) || undefined, saveForReuse: false}];
   }
 
   protected recipientAlreadySaved(recipient: ComposerExternalRecipient): boolean {
@@ -2858,7 +3013,11 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected unselectedSavedExternalRecipients(): ExternalRecipient[] {
-    const selectedEmails = new Set(this.state.externalRecipients.map(item => item.email.toLowerCase()));
+    const selectedEmails = new Set([
+      ...this.state.externalRecipients,
+      ...this.state.ccRecipients,
+      ...this.state.bccRecipients
+    ].map(item => item.email.toLowerCase()));
     return this.savedExternalRecipients.filter(item => !selectedEmails.has(item.email.toLowerCase()));
   }
 
@@ -2948,6 +3107,57 @@ export class EmailComposer implements OnInit, OnDestroy {
       void this.populateGroupEvents();
     }
     this.applyForcedMemberSelection();
+    this.applyInboxReplyHandoffIfAny();
+  }
+
+  private applyInboxReplyHandoffIfAny(): void {
+    const reply = this.inboxReplyHandoff.consume();
+    if (!reply) {
+      return;
+    }
+    if (this.state.brandingMode !== BrandingMode.UNBRANDED) {
+      this.setBrandingMode(BrandingMode.UNBRANDED);
+    }
+    this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+    this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+    const recipient = {email: reply.to.email, name: reply.to.name ?? undefined, saveForReuse: false};
+    const alreadyPresent = this.state.externalRecipients.some(existing => existing.email.toLowerCase() === reply.to.email.toLowerCase());
+    if (!alreadyPresent) {
+      this.state.externalRecipients = [recipient, ...this.state.externalRecipients];
+    }
+    this.replyCcSuggestion = (reply.cc ?? []).map(address => ({email: address.email, name: address.name ?? undefined, saveForReuse: false}));
+    this.state.subject = reply.subject;
+    if (reply.senderRoleType) {
+      this.state.unbrandedSenderRoleType = reply.senderRoleType;
+    }
+    const placeholder = "\n\n";
+    const existingBody = this.state.introMarkdown ?? "";
+    const quotedMarkdown = this.htmlToReplyMarkdown(reply.quotedHtml);
+    const alreadyHasQuote = !!this.inboxReplyContext && this.inboxReplyContext.inboxMessageId === reply.inboxMessageId;
+    if (!alreadyHasQuote) {
+      this.state.introMarkdown = existingBody.length > 0 ? existingBody : placeholder + quotedMarkdown;
+    }
+    this.inboxReplyContext = {
+      threadId: reply.threadId,
+      aliasId: reply.aliasId,
+      mailboxConnectionId: reply.mailboxConnectionId,
+      inboxMessageId: reply.inboxMessageId,
+      inReplyTo: reply.inReplyTo,
+      references: reply.references
+    };
+    this.logger.info("Inbox reply handoff applied:", this.inboxReplyContext);
+  }
+
+  private htmlToReplyMarkdown(html: string | null | undefined): string {
+    if (!html) return "";
+    try {
+      return this.turndownService.turndown(html);
+    } catch (error) {
+      this.logger.warn("turndown failed for reply quotedHtml; falling back to raw text", error);
+      const tmp = document.createElement("div");
+      tmp.innerHTML = html;
+      return (tmp.textContent ?? "").split(/\r?\n/).map(line => `> ${line}`).join("\n");
+    }
   }
 
   private syncStateToUrl(extra: Record<string, string | null | undefined>): void {
@@ -3043,7 +3253,8 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected fragmentPreview(fragment: ComposerFragment): string {
     const truncate = (input: string, max: number): string => {
-      const stripped = (input ?? "").replace(/\s+/g, " ").trim();
+      const decoded = this.toPlainTextPreview(input ?? "");
+      const stripped = decoded.replace(/\s+/g, " ").trim();
       if (stripped.length <= max) return stripped;
       return `${stripped.slice(0, max).trim()}…`;
     };
@@ -3075,6 +3286,15 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected fragmentIsExpandable(fragment: ComposerFragment): boolean {
     return EXPANDABLE_FRAGMENT_KINDS.has(fragment.kind);
+  }
+
+  private toPlainTextPreview(input: string): string {
+    if (isUndefined(document)) {
+      return input;
+    }
+    const container = document.createElement("div");
+    container.innerHTML = input;
+    return container.textContent ?? "";
   }
 
   protected eventsPreviewSummary(): string {
@@ -3564,10 +3784,17 @@ export class EmailComposer implements OnInit, OnDestroy {
       return `${this.listNameAndCount(list)} (campaign)`;
     }
     const memberCount = this.state.selectedMemberIds.length;
-    const externalCount = this.state.externalRecipients?.length ?? 0;
-    if (externalCount === 0) return this.stringUtils.pluraliseWithCount(memberCount, "member");
-    if (memberCount === 0) return this.stringUtils.pluraliseWithCount(externalCount, "external recipient");
-    return `${this.stringUtils.pluraliseWithCount(memberCount, "member")} + ${this.stringUtils.pluraliseWithCount(externalCount, "external recipient")}`;
+    const toCount = this.state.externalRecipients?.length ?? 0;
+    const ccCount = this.state.ccRecipients?.length ?? 0;
+    const bccCount = this.state.bccRecipients?.length ?? 0;
+    const externalParts: string[] = [];
+    if (toCount > 0) externalParts.push(this.stringUtils.pluraliseWithCount(toCount, "to recipient"));
+    if (ccCount > 0) externalParts.push(`${ccCount} cc`);
+    if (bccCount > 0) externalParts.push(`${bccCount} bcc`);
+    const externalSummary = externalParts.join(" + ");
+    if (externalParts.length === 0) return this.stringUtils.pluraliseWithCount(memberCount, "member");
+    if (memberCount === 0) return externalSummary;
+    return `${this.stringUtils.pluraliseWithCount(memberCount, "member")} + ${externalSummary}`;
   }
 
   totalRecipientCount(): number {
@@ -3575,7 +3802,10 @@ export class EmailComposer implements OnInit, OnDestroy {
       const list = this.availableLists().find(item => item.id === this.state.selectedListId);
       return list ? this.subscribedMemberCount(list) : 0;
     }
-    return this.state.selectedMemberIds.length + (this.state.externalRecipients?.length ?? 0);
+    return this.state.selectedMemberIds.length
+      + (this.state.externalRecipients?.length ?? 0)
+      + (this.state.ccRecipients?.length ?? 0)
+      + (this.state.bccRecipients?.length ?? 0);
   }
 
   protected campaignQueueNotice(): CampaignOverflowNotice | null {
@@ -3605,7 +3835,10 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   estimatedSendTime(): string {
-    const count = this.state.selectedMemberIds.length + (this.state.externalRecipients?.length ?? 0);
+    const count = this.state.selectedMemberIds.length
+      + (this.state.externalRecipients?.length ?? 0)
+      + (this.state.ccRecipients?.length ?? 0)
+      + (this.state.bccRecipients?.length ?? 0);
     if (count === 0) return "0s";
     const seconds = Math.max(1, Math.ceil(count * 0.4));
     if (seconds < 60) return `${seconds}s`;
@@ -3626,7 +3859,9 @@ export class EmailComposer implements OnInit, OnDestroy {
         errors.push("Choose which mailing list to send to");
       }
     } else {
-      const externalCount = this.state.externalRecipients?.length ?? 0;
+      const externalCount = (this.state.externalRecipients?.length ?? 0)
+        + (this.state.ccRecipients?.length ?? 0)
+        + (this.state.bccRecipients?.length ?? 0);
       if (this.state.selectedMemberIds.length === 0 && externalCount === 0) {
         errors.push(this.state.brandingMode === BrandingMode.UNBRANDED
           ? "Select at least one member or add an external recipient"
@@ -3780,20 +4015,13 @@ export class EmailComposer implements OnInit, OnDestroy {
     return Array.from(found);
   }
 
-  protected shortTrackingUrl(url: string): string {
-    return url.length > 60 ? `${url.slice(0, 57)}…` : url;
-  }
+  private autoResolveTrackingInProgress = false;
 
-  protected resolveTrackingInProgress = false;
-  protected trackingResolutionFailures: { url: string; error: string }[] = [];
-
-  protected async resolveTrackingUrls(): Promise<void> {
-    if (this.resolveTrackingInProgress) return;
+  protected async autoResolveTrackingUrls(): Promise<void> {
+    if (this.autoResolveTrackingInProgress) return;
     const trackingUrls = this.recycledTrackingUrlsInState();
     if (trackingUrls.length === 0) return;
-    this.resolveTrackingInProgress = true;
-    this.trackingResolutionFailures = [];
-    const failures: { url: string; error: string }[] = [];
+    this.autoResolveTrackingInProgress = true;
     try {
       const results = await Promise.all(trackingUrls.map(async url => {
         try {
@@ -3803,33 +4031,46 @@ export class EmailComposer implements OnInit, OnDestroy {
         }
       }));
       const replacements = new Map<string, string>();
+      const failedUrls: string[] = [];
       for (const result of results) {
         if (result.resolvedUrl) {
           replacements.set(result.originalUrl, result.resolvedUrl);
         } else {
-          failures.push({ url: result.originalUrl, error: result.error ?? "Unable to resolve" });
+          failedUrls.push(result.originalUrl);
+          this.logger.warn("auto-resolve tracking url failed - stripping link", result.originalUrl, result.error);
         }
       }
-      if (replacements.size > 0) {
-        this.state.introMarkdown = this.applyTrackingReplacements(this.state.introMarkdown, replacements);
-        this.state.signoffTextMarkdown = this.applyTrackingReplacements(this.state.signoffTextMarkdown, replacements);
-        (this.state.articleBlocks ?? []).forEach(block => {
-          block.markdown = this.applyTrackingReplacements(block.markdown, replacements);
-          block.buttonUrl = this.applyTrackingReplacements(block.buttonUrl, replacements);
-        });
-      }
+      this.state.introMarkdown = this.rewriteTrackingUrls(this.state.introMarkdown, replacements, failedUrls);
+      this.state.signoffTextMarkdown = this.rewriteTrackingUrls(this.state.signoffTextMarkdown, replacements, failedUrls);
+      (this.state.articleBlocks ?? []).forEach(block => {
+        block.markdown = this.rewriteTrackingUrls(block.markdown, replacements, failedUrls);
+        block.buttonUrl = this.rewriteTrackingUrls(block.buttonUrl, replacements, failedUrls);
+      });
     } finally {
-      this.trackingResolutionFailures = failures;
-      this.resolveTrackingInProgress = false;
+      this.autoResolveTrackingInProgress = false;
     }
   }
 
-  private applyTrackingReplacements(content: string | null | undefined, replacements: Map<string, string>): string {
+  private rewriteTrackingUrls(content: string | null | undefined, replacements: Map<string, string>, failedUrls: string[]): string {
     if (!content) return content ?? "";
     let next = content;
     for (const [from, to] of replacements) {
       next = next.split(from).join(to);
     }
+    for (const url of failedUrls) {
+      next = this.stripTrackingLink(next, url);
+    }
+    return next;
+  }
+
+  private stripTrackingLink(content: string, url: string): string {
+    if (!content || !url) return content;
+    const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const markdownLink = new RegExp(`\\[([^\\]]+)\\]\\(${escaped}\\)`, "g");
+    let next = content.replace(markdownLink, "$1");
+    const htmlLink = new RegExp(`<a\\b[^>]*href=["']${escaped}["'][^>]*>([\\s\\S]*?)<\\/a>`, "gi");
+    next = next.replace(htmlLink, "$1");
+    next = next.split(url).join("");
     return next;
   }
 
@@ -3862,6 +4103,9 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (step && this.canAccessStep(step.key)) {
       this.stepperActiveTab = step.key;
       this.syncStateToUrl({ [StoredValue.TAB]: step.key });
+      if (step.key === EmailComposerStepKey.COMPOSE || step.key === EmailComposerStepKey.REVIEW) {
+        this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
+      }
       if (step.key === EmailComposerStepKey.REVIEW) {
         this.refreshPreview().catch(error => this.logger.error("preview refresh failed", error));
       }
@@ -3873,6 +4117,9 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (this.canAccessStep(key)) {
       this.stepperActiveTab = key;
       this.syncStateToUrl({ [StoredValue.TAB]: key });
+      if (key === EmailComposerStepKey.COMPOSE || key === EmailComposerStepKey.REVIEW) {
+        this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
+      }
       if (key === EmailComposerStepKey.REVIEW) {
         this.refreshPreview().catch(error => this.logger.error("preview refresh failed", error));
       }
@@ -3943,7 +4190,15 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected sendConfirm = new Confirm();
 
   private hasUnsavedChanges(): boolean {
-    return !!this.state.subject?.trim() || !!this.state.introMarkdown?.trim() || (this.state.articleBlocks ?? []).length > 0;
+    return !!this.state.subject?.trim()
+      || !!this.state.introMarkdown?.trim()
+      || !!this.state.signoffTextMarkdown?.trim()
+      || (this.state.articleBlocks ?? []).length > 0
+      || (this.state.selectedMemberIds ?? []).length > 0
+      || (this.state.externalRecipients ?? []).length > 0
+      || (this.state.ccRecipients ?? []).length > 0
+      || (this.state.bccRecipients ?? []).length > 0
+      || !!this.state.selectedListId;
   }
 
   protected hasContentToDraft(): boolean {
@@ -4098,6 +4353,8 @@ export class EmailComposer implements OnInit, OnDestroy {
     restored.brandingMode = restored.brandingMode ?? BrandingMode.BRANDED;
     restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
     restored.externalRecipients = restored.externalRecipients ?? [];
+    restored.ccRecipients = restored.ccRecipients ?? [];
+    restored.bccRecipients = restored.bccRecipients ?? [];
     restored.selectedMemberIds = restored.selectedMemberIds ?? [];
     restored.signoffRoles = restored.signoffRoles ?? [];
     restored.fragmentOrder = restored.fragmentOrder ?? [];
@@ -4490,7 +4747,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected hasSendBlockers(): boolean {
-    return this.subjectStartsWithCopyOf() || this.recycledTrackingUrlsInState().length > 0 || this.unbrandedListSendBlocked();
+    return this.subjectStartsWithCopyOf() || this.unbrandedListSendBlocked();
   }
 
   protected unbrandedListSendBlocked(): boolean {
@@ -4675,11 +4932,14 @@ export class EmailComposer implements OnInit, OnDestroy {
       memberIds: this.state.selectedMemberIds,
       narrowListId: this.state.narrowListId,
       externalRecipients: isUnbranded ? this.state.externalRecipients : undefined,
+      ccRecipients: this.state.ccRecipients?.length ? this.state.ccRecipients : undefined,
+      bccRecipients: this.state.bccRecipients?.length ? this.state.bccRecipients : undefined,
       senderRoleOverride: isUnbranded ? undefined : this.state.notificationConfig!.senderRole,
       replyToRoleOverride: isUnbranded ? undefined : this.state.notificationConfig!.replyToRole,
       bccRolesOverride: isUnbranded ? [] : (this.state.notificationConfig!.bccRoles ?? this.state.notificationConfig!.ccRoles ?? []),
       brandingMode: this.state.brandingMode,
-      unbrandedSenderRoleType: isUnbranded ? this.resolvedUnbrandedRole()?.type : undefined
+      unbrandedSenderRoleType: isUnbranded ? this.resolvedUnbrandedRole()?.type : undefined,
+      inboxReplyContext: this.inboxReplyContext ?? undefined
     };
     const start = await this.sendService.startBatch(request);
     this.batchSendJobId = start.jobId;

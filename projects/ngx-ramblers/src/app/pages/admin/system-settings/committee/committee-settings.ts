@@ -175,11 +175,14 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                               (click)="createNewRole()" tooltip="Add a new committee role">
                         <fa-icon [icon]="faAdd" class="me-1"></fa-icon>Add Role
                       </button>
+                      <button class="btn btn-outline-secondary btn-sm" [disabled]="!!editingRoleDraft || !catchAllRule?.enabled"
+                              (click)="clearAllForwards()" tooltip="Set every role's inbound forwarding to Catchall so all role emails route via the single Cloudflare catch-all">
+                        <fa-icon [icon]="faTrash" class="me-1"></fa-icon>Clear all forwards
+                      </button>
                     </div>
                   </div>
                   <div class="row mb-3">
                     <div class="col-sm-8">
-                      <label class="form-label">Search</label>
                       <div class="input-group">
                         <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
                         <input type="text" class="form-control" [(ngModel)]="searchTerm"
@@ -188,7 +191,6 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                       </div>
                     </div>
                     <div class="col-sm-4">
-                      <label class="form-label">Stats</label>
                       <div class="form-control-plaintext">
                         {{ filteredRoles.length }} of {{ committeeConfig.roles.length }} roles
                         ({{ vacantCount }} vacant)
@@ -371,7 +373,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                             @if (catchAllWorkerScriptName()) {
                               <span class="small text-muted ms-2">({{ catchAllWorkerScriptName() }})</span>
                               @if (catchAllDeployedRecipientCount()) {
-                                <span class="small text-muted ms-2">· {{ catchAllDeployedRecipientCount() }} recipient{{ catchAllDeployedRecipientCount() === 1 ? "" : "s" }} deployed</span>
+                                <span class="small text-muted ms-2">· {{ stringUtils.pluraliseWithCount(catchAllDeployedRecipientCount(), "recipient") }} deployed</span>
                               }
                             }
                           </div>
@@ -787,6 +789,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       case ForwardEmailTarget.MEMBER_EMAIL:
         return this.memberPersonalEmailFor(role);
       case ForwardEmailTarget.CUSTOM:
+      case ForwardEmailTarget.CATCHALL:
         return role.forwardEmailCustom || null;
       case ForwardEmailTarget.MULTIPLE:
         return role.forwardEmailRecipients?.[0] || null;
@@ -922,6 +925,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
   emailForwardStatus(role: CommitteeMember): EmailForwardStatus {
     if (role.vacant || !this.cloudflareEmailRoutingService.emailForwardingAvailable()) return EmailForwardStatus.NA;
+    if (role.forwardEmailTarget === ForwardEmailTarget.CATCHALL) return EmailForwardStatus.CATCH_ALL;
     const forwardEmail = this.resolvedForwardEmailFor(role);
     if (!forwardEmail && role.forwardEmailTarget !== ForwardEmailTarget.MULTIPLE) return EmailForwardStatus.NA;
     if (role.forwardEmailTarget === ForwardEmailTarget.MULTIPLE && !role.forwardEmailRecipients?.length) return EmailForwardStatus.NA;
@@ -945,6 +949,15 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   catchAllDestination(): string {
     const forwardAction = this.catchAllRule?.actions?.find(a => a.type === EmailRoutingActionType.FORWARD);
     return forwardAction?.value?.[0] || null;
+  }
+
+  clearAllForwards(): void {
+    (this.committeeConfig?.roles ?? []).forEach(role => {
+      if (!role.vacant) {
+        role.forwardEmailTarget = ForwardEmailTarget.CATCHALL;
+        role.forwardEmailCustom = null;
+      }
+    });
   }
 
   catchAllWorkerScriptName(): string {

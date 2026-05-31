@@ -472,6 +472,7 @@ export class MailMessagingService {
     const recipients = (member.contactUsRecipients ?? member.forwardEmailRecipients) || [];
     switch (target) {
       case ForwardEmailTarget.CUSTOM:
+      case ForwardEmailTarget.CATCHALL:
         return custom ? [named(custom)] : fallbackToRoleEmail();
       case ForwardEmailTarget.MULTIPLE: {
         const filtered = recipients.filter(Boolean);

@@ -15,6 +15,7 @@ import {
 import { member } from "../mongo/models/member";
 import { envConfig } from "../env-config/env-config";
 import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { catchAllConnectionEmail, defaultTenantSlug } from "../inbox/inbox-aliases";
 
 const debugLog = debug(envConfig.logNamespace("contact-us:resolve-recipients"));
 debugLog.enabled = false;
@@ -69,6 +70,14 @@ async function resolveOne(recipient: EmailAddress, roles: CommitteeMember[]): Pr
       if (custom) {
         debugLog("resolveOne:CUSTOM rewrote", recipient.email, "to", custom);
         return [{ name: label, email: custom }];
+      }
+      return [{ name: label, email: recipient.email }];
+    }
+    case ForwardEmailTarget.CATCHALL: {
+      const catchAll = await catchAllConnectionEmail(defaultTenantSlug());
+      if (catchAll) {
+        debugLog("resolveOne:CATCHALL rewrote", recipient.email, "to catch-all", catchAll);
+        return [{ name: label, email: catchAll }];
       }
       return [{ name: label, email: recipient.email }];
     }

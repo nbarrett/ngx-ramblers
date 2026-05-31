@@ -11,12 +11,13 @@ import { MemberLoginService } from "../services/member/member-login.service";
 import { RouterHistoryService } from "../services/router-history.service";
 import { SystemConfigService } from "../services/system/system-config.service";
 import { SiteEditComponent } from "../site-edit/site-edit.component";
+import { InboxNotificationBadgeComponent } from "../modules/common/inbox-notification-badge/inbox-notification-badge.component";
 
 @Component({
     selector: "app-login-panel",
     templateUrl: "./login-panel.component.html",
     styleUrls: ["./login-panel.component.sass"],
-    imports: [SiteEditComponent]
+    imports: [SiteEditComponent, InboxNotificationBadgeComponent]
 })
 export class LoginPanelComponent implements OnInit, OnDestroy {
 

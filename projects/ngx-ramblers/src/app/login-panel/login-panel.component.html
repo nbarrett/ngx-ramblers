@@ -25,4 +25,7 @@
   @if (allowEdits()) {
     <app-site-edit class="d-inline-flex align-items-center flex-wrap"/>
   }
+  @if (memberLoggedIn()) {
+    <app-inbox-notification-badge/>
+  }
 </div>

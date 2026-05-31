@@ -9,13 +9,13 @@ import { SystemConfigService } from "../../services/system/system-config.service
 import { Subscription } from "rxjs";
 import { NgClass } from "@angular/common";
 import { MarkdownComponent } from "ngx-markdown";
-import { HeightResizerComponent } from "../../modules/common/height-resizer/height-resizer";
+import { ResizerComponent } from "../../modules/common/resizer/resizer";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { DisplayDayPipe } from "../../pipes/display-day.pipe";
 
 @Component({
   selector: "app-album-backgrounds",
-  imports: [NgClass, MarkdownComponent, HeightResizerComponent, DisplayDayPipe],
+  imports: [NgClass, MarkdownComponent, ResizerComponent, DisplayDayPipe],
   template: `
     <div class="d-flex flex-column flex-md-row position-relative"
          [style.border-radius.px]="album?.gridViewOptions?.borderRadius || 0"
@@ -79,10 +79,10 @@ import { DisplayDayPipe } from "../../pipes/display-day.pipe";
       </div>
     </div>
     @if (preview) {
-      <app-height-resizer [height]="album?.height || 500"
-                          [minHeight]="200"
-                          [maxHeight]="800"
-                          (heightChange)="onHeightChange($event)"/>
+      <app-resizer orientation="vertical" variant="tab" [size]="album?.height || 500"
+                   [minSize]="200"
+                   [maxSize]="800"
+                   (sizeChange)="onHeightChange($event)"/>
     }
   `,
   styles: [`

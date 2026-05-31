@@ -69,6 +69,7 @@ const memberSchema = new mongoose.Schema({
   profileSettingsConfirmedAt: {type: Number},
   profileSettingsConfirmedBy: {type: String},
   walkChangeNotifications: {type: Boolean},
+  inboxMessageNotifications: {type: Boolean},
   createdDate: {type: Number},
   createdBy: {type: String},
   updatedDate: {type: Number},

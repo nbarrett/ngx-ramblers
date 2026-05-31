@@ -325,7 +325,7 @@ import { SessionLogsComponent } from "../../../../shared/components/session-logs
                     <span class="badge bg-danger ms-2">Missing MX records</span>
                   }
                   @if (mxRecordStatus.extraRecords?.length) {
-                    <span class="badge bg-warning text-dark ms-2">{{ mxRecordStatus.extraRecords.length }} conflicting record{{ mxRecordStatus.extraRecords.length === 1 ? "" : "s" }}</span>
+                    <span class="badge bg-warning text-dark ms-2">{{ stringUtilsService.pluraliseWithCount(mxRecordStatus.extraRecords.length, "conflicting record") }}</span>
                   }
                 }
               </div>

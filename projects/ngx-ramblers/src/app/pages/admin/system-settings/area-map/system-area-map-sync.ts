@@ -35,7 +35,7 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
 import { NgHeaderTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { SelectAllHeaderComponent } from "../../../../modules/common/selectors/select-all-header";
 import { ColourPaletteSelectorComponent, COLOUR_PALETTE_COLOURS } from "../../../../modules/common/selectors/colour-palette-selector";
-import { HeightResizerComponent } from "../../../../modules/common/height-resizer/height-resizer";
+import { ResizerComponent } from "../../../../modules/common/resizer/resizer";
 import { UiActionsService } from "../../../../services/ui-actions.service";
 import { StoredValue } from "../../../../models/ui-actions";
 import { isString } from "es-toolkit/predicate";
@@ -343,11 +343,11 @@ interface GroupBoundaryUploadResult {
                                   </tbody>
                               </table>
                           </div>
-                          <app-height-resizer compact
-                                             [height]="groupsTableHeight"
-                                             [minHeight]="200"
-                                             [maxHeight]="2000"
-                                             (heightChange)="onGroupsTableHeightChange($event)"/>
+                          <app-resizer orientation="vertical" variant="tab" compact
+                                             [size]="groupsTableHeight"
+                                             [minSize]="200"
+                                             [maxSize]="2000"
+                                             (sizeChange)="onGroupsTableHeightChange($event)"/>
                           <h6 class="fw-bold mt-3">Custom Group Boundaries</h6>
                           <p class="mb-3">
                               Upload a shapefile (.zip) containing custom group boundary polygons. Features are matched
@@ -710,11 +710,11 @@ interface GroupBoundaryUploadResult {
                                       </tbody>
                                   </table>
                               </div>
-                              <app-height-resizer compact
-                                                 [height]="parishTableHeight"
-                                                 [minHeight]="200"
-                                                 [maxHeight]="2000"
-                                                 (heightChange)="onParishTableHeightChange($event)"/>
+                              <app-resizer orientation="vertical" variant="tab" compact
+                                                 [size]="parishTableHeight"
+                                                 [minSize]="200"
+                                                 [maxSize]="2000"
+                                                 (sizeChange)="onParishTableHeightChange($event)"/>
                           </div>
                       }
                   </div>
@@ -723,7 +723,7 @@ interface GroupBoundaryUploadResult {
           }
       </div>
   `,
-  imports: [BadgeButtonComponent, ColourPaletteSelectorComponent, FontAwesomeModule, FormsModule, HeightResizerComponent, MarkdownEditorComponent, NgHeaderTemplateDirective, NgSelectComponent, AreaMap, SelectAllHeaderComponent, SharedDistrictStyleSelectorComponent, SectionToggle, TooltipModule, NgClass]
+  imports: [BadgeButtonComponent, ColourPaletteSelectorComponent, FontAwesomeModule, FormsModule, ResizerComponent, MarkdownEditorComponent, NgHeaderTemplateDirective, NgSelectComponent, AreaMap, SelectAllHeaderComponent, SharedDistrictStyleSelectorComponent, SectionToggle, TooltipModule, NgClass]
 })
 export class SystemAreaMapSyncComponent implements OnInit {
   private uiActionsService = inject(UiActionsService);

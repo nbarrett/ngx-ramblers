@@ -156,6 +156,7 @@ export interface MemberPrivileges {
   fileAdmin?: boolean;
   committee?: boolean;
   walkChangeNotifications?: boolean;
+  inboxMessageNotifications?: boolean;
 }
 
 export interface StatusMessage {

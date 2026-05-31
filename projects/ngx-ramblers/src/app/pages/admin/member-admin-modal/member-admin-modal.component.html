@@ -131,6 +131,13 @@
                          for="hide-surname">Hide surname from non-logged-in members
                   </label>
                 </div>
+                <div class="form-check">
+                  <input [(ngModel)]="member.inboxMessageNotifications" type="checkbox" class="form-check-input"
+                         id="inbox-message-notifications">
+                  <label class="form-check-label"
+                         for="inbox-message-notifications">Email me when a committee role I'm assigned to receives a new inbox message
+                  </label>
+                </div>
               </div>
             </div>
           </div>

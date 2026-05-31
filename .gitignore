@@ -9,6 +9,7 @@
 /dist
 /tmp
 /out-tsc
+/projects/ngx-ramblers/dist-sw
 # Only exists if Bazel was run
 /bazel-out
 

@@ -105,6 +105,7 @@ export enum ForwardEmailTarget {
   MEMBER_EMAIL = "MEMBER_EMAIL",
   CUSTOM = "CUSTOM",
   MULTIPLE = "MULTIPLE",
+  CATCHALL = "CATCHALL",
   NONE = "NONE"
 }
 

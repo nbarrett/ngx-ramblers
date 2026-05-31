@@ -15,12 +15,12 @@ import { faMapMarkerAlt, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
-import { HeightResizerComponent } from "../../../modules/common/height-resizer/height-resizer";
+import { ResizerComponent } from "../../../modules/common/resizer/resizer";
 
 @Component({
   selector: "app-venue-map-selector",
   standalone: true,
-  imports: [LeafletModule, FormsModule, FontAwesomeModule, HeightResizerComponent],
+  imports: [LeafletModule, FormsModule, FontAwesomeModule, ResizerComponent],
   template: `
     <div class="venue-map-container">
       <div class="d-flex justify-content-between align-items-center mb-2">
@@ -34,11 +34,11 @@ import { HeightResizerComponent } from "../../../modules/common/height-resizer/h
           (leafletMapReady)="onMapReady($event)"
           (leafletClick)="onMapClick($event)">
         </div>
-        <app-height-resizer compact
-                            [height]="mapHeight"
-                            [minHeight]="200"
-                            [maxHeight]="800"
-                            (heightChange)="onHeightChange($event)"/>
+        <app-resizer orientation="vertical" variant="tab" compact
+                     [size]="mapHeight"
+                     [minSize]="200"
+                     [maxSize]="800"
+                     (sizeChange)="onHeightChange($event)"/>
       }
       @if (selectedVenue) {
         <div class="mt-2 alert alert-success py-2">

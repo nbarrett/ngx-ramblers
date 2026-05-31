@@ -29,7 +29,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
 import { cropperImageStyles, cropperWrapperStyles } from "../../functions/image-cropper-styles";
-import { HeightResizerComponent } from "../../modules/common/height-resizer/height-resizer";
+import { ResizerComponent } from "../../modules/common/resizer/resizer";
 
 @Component({
   selector: "app-carousel",
@@ -119,13 +119,13 @@ import { HeightResizerComponent } from "../../modules/common/height-resizer/heig
       </div>
     </div>
     @if (preview) {
-      <app-height-resizer [height]="album.height || DEFAULT_HEIGHT"
-                          [minHeight]="200"
-                          [maxHeight]="800"
-                          (heightChange)="onHeightChange($event)"/>
+      <app-resizer orientation="vertical" variant="tab" [size]="album.height || DEFAULT_HEIGHT"
+                   [minSize]="200"
+                   [maxSize]="800"
+                   (sizeChange)="onHeightChange($event)"/>
     }`,
   styleUrls: ["./carousel.sass"],
-  imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe, YoutubeEmbed, HeightResizerComponent]
+  imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe, YoutubeEmbed, ResizerComponent]
 })
 export class CarouselComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CarouselComponent", NgxLoggerLevel.ERROR);

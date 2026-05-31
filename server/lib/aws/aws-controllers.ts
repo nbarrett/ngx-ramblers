@@ -233,6 +233,41 @@ export async function putObjectDirect(
   }
 }
 
+export async function putBufferDirect(
+  rootFolder: string,
+  fileName: string,
+  body: Buffer,
+  contentType?: string
+): Promise<AwsInfo | AwsUploadErrorResponse> {
+  const config = s3Config();
+  const bucket = config.bucket;
+  const objectKey = `${rootFolder}/${path.basename(fileName)}`;
+  const params = {
+    Bucket: bucket,
+    Key: objectKey,
+    Body: body,
+    ContentType: contentType ?? contentTypeFrom(objectKey)
+  };
+  debugLog(`Saving buffer to ${bucket}/${objectKey}, size: ${body.length} bytes`);
+  try {
+    const upload = new Upload({
+      client: s3(),
+      params,
+      partSize: 5 * 1024 * 1024,
+      queueSize: 4,
+      leavePartsOnError: false
+    });
+    const data = await upload.done();
+    const information = `Successfully uploaded buffer to ${bucket}/${objectKey} (${body.length} bytes)`;
+    debugLog(information, "->", data);
+    return { responseData: data, information };
+  } catch (error) {
+    const errorMessage = `Failed to upload object to ${bucket}/${objectKey}`;
+    debugLog(errorMessage, "->", error);
+    return { responseData: error, error: errorMessage };
+  }
+}
+
 export function urlToFile(req: Request, res: Response) {
   const remoteUrl = req.query.url as string;
   debugLog("downloading remote image from", remoteUrl);

@@ -1,0 +1,243 @@
+import debug from "debug";
+import { envConfig } from "../env-config/env-config";
+import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
+import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
+import { derivedAliasesForConnection } from "./inbox-aliases";
+import {
+  InboxAliasConfig,
+  InboxAliasConnectionStatus,
+  InboxConnectionHealthResult,
+  InboxMailboxConnection,
+  InboxPollResult,
+  InboxReaderProvider,
+  InboxSyncMode,
+  isInboxGeneralRoleType
+} from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import {
+  fetchFullMessage,
+  listAllInboxMessageIds,
+  listHistoryDelta,
+  listRecentInboxMessageIds,
+  mailboxHistoryId,
+  registerGmailWatch
+} from "./gmail-inbox-reader";
+import { storeInboundMessage } from "./inbox-message-import";
+import { dateTimeNow } from "../shared/dates";
+import { pluraliseWithCount } from "../shared/string-utils";
+import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+
+const debugLog = debug(envConfig.logNamespace("inbox-poller"));
+debugLog.enabled = true;
+const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("inbox-poller"));
+errorDebugLog.enabled = true;
+
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollInProgress = false;
+
+export async function pollAllAliases(): Promise<InboxPollResult[]> {
+  const enabledConnections = await inboxMailboxConnectionModel.find({
+    enabled: true,
+    provider: InboxReaderProvider.GMAIL_API,
+    oauthRefreshTokenEncrypted: {$ne: null},
+    syncMode: {$ne: InboxSyncMode.WATCH}
+  }).lean();
+  return enabledConnections.reduce<Promise<InboxPollResult[]>>(async (acc, connectionRecord) => {
+    const accumulator = await acc;
+    const result = await pollConnection(connectionRecord as InboxMailboxConnection);
+    return accumulator.concat(result);
+  }, Promise.resolve([]));
+}
+
+export async function pollConnection(connection: InboxMailboxConnection): Promise<InboxPollResult> {
+  const mailboxConnectionId = identifier(connection);
+  const aliases = await derivedAliasesForConnection(connection);
+  try {
+    const importedIds = connection.lastHistoryId
+      ? await pollViaHistoryDelta(connection, aliases)
+      : await pollViaListing(connection, aliases);
+    await inboxMailboxConnectionModel.updateOne({_id: mailboxConnectionId}, {
+      $set: {
+        lastPolledAt: dateTimeNow().toMillis(),
+        connectionStatus: InboxAliasConnectionStatus.CONNECTED,
+        lastErrorMessage: null
+      }
+    });
+    if (importedIds.length > 0) {
+      debugLog(`polled Gmail inbox ${connection.gmailAccountEmail}: imported ${pluraliseWithCount(importedIds.length, "new message")}`);
+    }
+    return {mailboxConnectionId, importedCount: importedIds.length, error: null};
+  } catch (error) {
+    const message = (error as Error).message;
+    const status = looksLikeAuthFailure(message) ? InboxAliasConnectionStatus.TOKEN_REVOKED : InboxAliasConnectionStatus.ERROR;
+    await inboxMailboxConnectionModel.updateOne({_id: mailboxConnectionId}, {
+      $set: {
+        connectionStatus: status,
+        lastErrorMessage: message
+      }
+    });
+    errorDebugLog(`poll failed for Gmail inbox ${connection.gmailAccountEmail}: ${message}`);
+    return {mailboxConnectionId, importedCount: 0, error: message};
+  }
+}
+
+async function pollViaListing(connection: InboxMailboxConnection, aliases: InboxAliasConfig[]): Promise<string[]> {
+  const realAliases = aliases.filter(alias => !isInboxGeneralRoleType(alias.roleType));
+  const generalAliasPresent = aliases.some(alias => isInboxGeneralRoleType(alias.roleType));
+  const perAliasIdLists = await Promise.all(realAliases.map(alias => listRecentInboxMessageIds(connection, alias, 50)));
+  const broadIds = generalAliasPresent ? await listAllInboxMessageIds(connection, 50) : [];
+  const gmailMessageIds = [...new Set([...perAliasIdLists.flatMap(ids => ids), ...broadIds])];
+  const imported = await processGmailMessageIds(connection, aliases, gmailMessageIds);
+  const latestHistoryId = await mailboxHistoryId(connection);
+  if (latestHistoryId) {
+    await inboxMailboxConnectionModel.updateOne({_id: identifier(connection)}, {$set: {lastHistoryId: latestHistoryId}});
+  }
+  return imported;
+}
+
+async function pollViaHistoryDelta(connection: InboxMailboxConnection, aliases: InboxAliasConfig[]): Promise<string[]> {
+  const startHistoryId = connection.lastHistoryId ?? "";
+  const {newMessageIds, latestHistoryId} = await listHistoryDelta(connection, startHistoryId);
+  const imported = await processGmailMessageIds(connection, aliases, newMessageIds);
+  if (latestHistoryId) {
+    await inboxMailboxConnectionModel.updateOne({_id: identifier(connection)}, {$set: {lastHistoryId: latestHistoryId}});
+  }
+  return imported;
+}
+
+async function processGmailMessageIds(connection: InboxMailboxConnection, aliases: InboxAliasConfig[], gmailMessageIds: string[]): Promise<string[]> {
+  const realAliases = aliases.filter(alias => !isInboxGeneralRoleType(alias.roleType));
+  const generalAlias = aliases.find(alias => isInboxGeneralRoleType(alias.roleType)) ?? null;
+  return gmailMessageIds.reduce<Promise<string[]>>(async (acc, gmailMessageId) => {
+    const accumulator = await acc;
+    const parsed = await fetchFullMessage(connection, gmailMessageId);
+    const addressedRealAliases = realAliases.filter(alias => parsed.to.concat(parsed.cc)
+      .some(address => normaliseEmail(address.email) === normaliseEmail(alias.roleEmail)));
+    const aliasesToStoreUnder = addressedRealAliases.length > 0
+      ? addressedRealAliases
+      : (generalAlias ? [generalAlias] : []);
+    const storedForAliases = await aliasesToStoreUnder.reduce<Promise<boolean>>(async (stored, alias) => {
+      const existingStored = await stored;
+      const existingThread = await inboxThreadModel.findOne({
+        tenantSlug: alias.tenantSlug,
+        roleType: alias.roleType,
+        messageIds: parsed.messageId
+      }).lean();
+      if (!existingThread) {
+        await storeInboundMessage(alias, parsed);
+        return true;
+      }
+      return existingStored;
+    }, Promise.resolve(false));
+    return storedForAliases ? accumulator.concat(parsed.messageId) : accumulator;
+  }, Promise.resolve([]));
+}
+
+export async function runInboxTokenHealthCheck(): Promise<InboxConnectionHealthResult[]> {
+  const connections = await inboxMailboxConnectionModel.find({
+    enabled: true,
+    provider: InboxReaderProvider.GMAIL_API,
+    oauthRefreshTokenEncrypted: {$ne: null}
+  }).lean();
+  return connections.reduce<Promise<InboxConnectionHealthResult[]>>(async (acc, connectionRecord) => {
+    const accumulator = await acc;
+    return accumulator.concat(await checkConnectionHealth(connectionRecord as InboxMailboxConnection));
+  }, Promise.resolve([]));
+}
+
+async function checkConnectionHealth(connection: InboxMailboxConnection): Promise<InboxConnectionHealthResult> {
+  const mailboxConnectionId = identifier(connection);
+  const checkedAt = dateTimeNow().toMillis();
+  try {
+    await mailboxHistoryId(connection);
+    await inboxMailboxConnectionModel.updateOne({_id: mailboxConnectionId}, {
+      $set: {
+        connectionStatus: InboxAliasConnectionStatus.CONNECTED,
+        lastErrorMessage: null,
+        lastHealthCheckAt: checkedAt
+      }
+    });
+    return {mailboxConnectionId, gmailAccountEmail: connection.gmailAccountEmail, healthy: true, connectionStatus: InboxAliasConnectionStatus.CONNECTED, error: null};
+  } catch (error) {
+    const message = (error as Error).message;
+    const status = looksLikeAuthFailure(message) ? InboxAliasConnectionStatus.TOKEN_REVOKED : InboxAliasConnectionStatus.ERROR;
+    await inboxMailboxConnectionModel.updateOne({_id: mailboxConnectionId}, {
+      $set: {
+        connectionStatus: status,
+        lastErrorMessage: message,
+        lastHealthCheckAt: checkedAt
+      }
+    });
+    errorDebugLog(`token health check failed for Gmail inbox ${connection.gmailAccountEmail}: ${message}`);
+    return {mailboxConnectionId, gmailAccountEmail: connection.gmailAccountEmail, healthy: false, connectionStatus: status, error: message};
+  }
+}
+
+export async function renewInboxWatches(): Promise<void> {
+  const watchConnections = await inboxMailboxConnectionModel.find({
+    enabled: true,
+    provider: InboxReaderProvider.GMAIL_API,
+    oauthRefreshTokenEncrypted: {$ne: null},
+    syncMode: InboxSyncMode.WATCH
+  }).lean();
+  await watchConnections.reduce<Promise<void>>(async (acc, connectionRecord) => {
+    await acc;
+    await renewWatch(connectionRecord as InboxMailboxConnection);
+  }, Promise.resolve());
+}
+
+async function renewWatch(connection: InboxMailboxConnection): Promise<void> {
+  const mailboxConnectionId = identifier(connection);
+  try {
+    await pollConnection(connection);
+    const refreshed = await inboxMailboxConnectionModel.findById(mailboxConnectionId).lean() as InboxMailboxConnection | null;
+    if (!refreshed?.pubsubTopicName) {
+      return;
+    }
+    const registration = await registerGmailWatch(refreshed, refreshed.pubsubTopicName);
+    await inboxMailboxConnectionModel.updateOne({_id: mailboxConnectionId}, {
+      $set: {
+        watchExpiresAt: registration.expiration,
+        lastHistoryId: registration.historyId ?? refreshed.lastHistoryId
+      }
+    });
+    debugLog(`renewed Gmail watch for ${connection.gmailAccountEmail}, expires ${registration.expiration}`);
+  } catch (error) {
+    errorDebugLog(`failed to renew Gmail watch for ${connection.gmailAccountEmail}: ${(error as Error).message}`);
+  }
+}
+
+function identifier(connection: InboxMailboxConnection): string {
+  return (connection.id ?? (connection as unknown as {_id: {toString(): string}})._id?.toString() ?? "").toString();
+}
+
+function looksLikeAuthFailure(message: string): boolean {
+  const lowered = message.toLowerCase();
+  return lowered.includes("invalid_grant") || lowered.includes("token has been expired or revoked") || lowered.includes("invalid credentials");
+}
+
+export function startInboxPolling(intervalMs: number = 30_000): void {
+  if (pollTimer) {
+    debugLog("inbox polling already started; skipping duplicate start");
+    return;
+  }
+  debugLog(`inbox polling starting (every ${intervalMs}ms)`);
+  pollTimer = setInterval(() => {
+    if (pollInProgress) {
+      return;
+    }
+    pollInProgress = true;
+    pollAllAliases()
+      .catch(error => errorDebugLog("Polling iteration failed:", (error as Error).message))
+      .finally(() => {
+        pollInProgress = false;
+      });
+  }, intervalMs);
+}
+
+export function stopInboxPolling(): void {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+    debugLog("inbox polling stopped");
+  }
+}

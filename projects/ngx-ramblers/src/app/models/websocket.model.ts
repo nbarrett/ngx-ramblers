@@ -49,6 +49,8 @@ export enum MessageType {
   BACKUP_MANIFEST_CREATED = "backup-manifest-created",
   BACKUP_MANIFEST_DELETED = "backup-manifest-deleted",
   BACKUP_SESSION_UPDATED = "backup-session-updated",
+  INBOX_NEW_MESSAGE = "inbox-new-message",
+  INBOX_THREAD_UPDATED = "inbox-thread-updated",
 }
 
 export const allowableStatusCodes: number[] = [1000, 1005];

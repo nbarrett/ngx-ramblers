@@ -51,6 +51,9 @@ import { venueRoutes } from "./mongo/routes/venue";
 import { environmentSetupRoutes } from "./environment-setup/routes/environment-setup-routes";
 import { cloudflareEmailRoutingRoutes } from "./cloudflare/cloudflare-email-routing-routes";
 import { cloudflareWebAnalyticsRoutes } from "./cloudflare/cloudflare-web-analytics-routes";
+import { inboxRoutes } from "./inbox/inbox-routes";
+import { inboxOauthRoutes } from "./inbox/oauth-routes";
+import { startInboxPolling } from "./inbox/inbox-poller";
 import { bookingRoutes } from "./mongo/routes/booking";
 import { contactInteractionRoutes } from "./mongo/routes/contact-interaction";
 import { configureLogging } from "./logging/logging";
@@ -71,6 +74,8 @@ import { scheduleWalksManagerSync } from "./cron/walks-manager-sync-job";
 import { scheduleBookingReminders } from "./cron/booking-reminder-job";
 import { scheduleBrevoUnsubscribesSync } from "./cron/brevo-unsubscribes-sync-job";
 import { scheduleBrevoCampaignRelease } from "./cron/brevo-campaign-release-job";
+import { scheduleInboxTokenHealthCheck } from "./cron/inbox-token-health-check-job";
+import { scheduleInboxMessageDigest } from "./cron/inbox-message-digest-job";
 import { scheduledTaskRoutes } from "./cron/scheduled-task-routes";
 import bodyParser from "body-parser";
 import compression from "compression";
@@ -167,6 +172,8 @@ app.use("/api/database/migrations", migrationsRoutes);
 app.use("/api/database/venues", venueRoutes);
 app.use("/api/cloudflare/email-routing", cloudflareEmailRoutingRoutes);
 app.use("/api/cloudflare/web-analytics", cloudflareWebAnalyticsRoutes);
+app.use("/api/inbox", inboxRoutes);
+app.use("/api/inbox/oauth", inboxOauthRoutes);
 app.use("/api/environment-setup", environmentSetupRoutes);
 const staticAssetExtensions = /\.(js|mjs|css|map|wasm|json|ico|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|eot|txt|xml)$/i;
 if (fs.existsSync(distFolder)) {
@@ -263,6 +270,16 @@ async function startServer() {
       scheduleBrevoCampaignRelease().catch(error => {
         debugLog("❌ Failed to schedule Brevo campaign release:", error);
       });
+
+      scheduleInboxTokenHealthCheck().catch(error => {
+        debugLog("❌ Failed to schedule inbox token health check:", error);
+      });
+
+      scheduleInboxMessageDigest().catch(error => {
+        debugLog("❌ Failed to schedule inbox message digest:", error);
+      });
+
+      startInboxPolling();
     }).catch(error => {
       debugLog("❌ MongoDB connection failed:", error);
       debugLog("⚠️ Server will continue but database operations will fail");

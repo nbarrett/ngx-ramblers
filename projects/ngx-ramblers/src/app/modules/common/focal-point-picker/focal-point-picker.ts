@@ -2,7 +2,7 @@ import { Component, ElementRef, EventEmitter, inject, Input, NgZone, Output, Vie
 import { DecimalPipe, NgStyle } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { rangeSliderStyles } from "../../../components/range-slider.styles";
-import { HeightResizerComponent } from "../height-resizer/height-resizer";
+import { ResizerComponent } from "../resizer/resizer";
 import { FocalPoint } from "../../../models/image-cropper.model";
 
 export type { FocalPoint } from "../../../models/image-cropper.model";
@@ -28,12 +28,12 @@ export type { FocalPoint } from "../../../models/image-cropper.model";
       }
     </div>
     @if (resizable) {
-      <app-height-resizer
-        [height]="effectiveHeight"
-        [minHeight]="minHeight"
-        [maxHeight]="maxHeight"
+      <app-resizer orientation="vertical" variant="tab"
+        [size]="effectiveHeight"
+        [minSize]="minHeight"
+        [maxSize]="maxHeight"
         [compact]="true"
-        (heightChange)="onHeightChange($event)"/>
+        (sizeChange)="onHeightChange($event)"/>
     }
     @if (showZoomSlider) {
       <div class="zoom-slider-container mt-2">
@@ -117,7 +117,7 @@ export type { FocalPoint } from "../../../models/image-cropper.model";
 
     ${rangeSliderStyles}
   `],
-  imports: [NgStyle, FormsModule, DecimalPipe, HeightResizerComponent]
+  imports: [NgStyle, FormsModule, DecimalPipe, ResizerComponent]
 })
 export class FocalPointPickerComponent {
   @ViewChild("container") container: ElementRef<HTMLDivElement>;

@@ -12,7 +12,7 @@ import {
 import * as config from "../mongo/controllers/config";
 import { scheduledTaskRun } from "../mongo/models/scheduled-task-run";
 import { dateTimeNow } from "../shared/dates";
-import { isUndefined } from "es-toolkit/compat";
+import { isString, isUndefined } from "es-toolkit/compat";
 import { RegisteredScheduledTask, ScheduledTaskDefinition } from "./scheduled-task-registry.model";
 
 const debugLog = debug(envConfig.logNamespace("cron:scheduled-tasks"));
@@ -143,7 +143,7 @@ async function loadHistory(taskId: string): Promise<ScheduledTaskRun[]> {
 function detailedErrorMessage(error: any): string {
   if (error instanceof HttpError) {
     const body: any = error.body;
-    const detail = body?.message ?? body?.code ?? (typeof body === "string" ? body : undefined);
+    const detail = body?.message ?? body?.code ?? (isString(body) ? body : undefined);
     return detail ? `${error.message}: ${detail}` : (error.message || `${error}`);
   }
   return error?.message || `${error}`;

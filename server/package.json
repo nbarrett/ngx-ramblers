@@ -103,6 +103,7 @@
     "express-session": "1.17.3",
     "fs": "0.0.1-security",
     "fs-extra": "11.3.2",
+    "googleapis": "^172.0.0",
     "he": "1.2.0",
     "inquirer": "12.8.2",
     "js-yaml": "3.13.1",
@@ -139,6 +140,7 @@
     "tsx": "4.21.0",
     "turndown": "7.2.0",
     "typescript": "5.7.3",
+    "web-push": "^3.6.7",
     "ws": "8.18.1",
     "xlsx": "0.16.5"
   },
@@ -148,6 +150,7 @@
   },
   "devDependencies": {
     "@types/node-cron": "3.0.11",
+    "@types/web-push": "^3.6.4",
     "madge": "8.0.0"
   }
 }
