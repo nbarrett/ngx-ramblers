@@ -1,4 +1,5 @@
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { CloudflareRumSite } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-web-analytics.model";
 import { cloudflareApi, CloudflareResponse } from "./cloudflare.model";
@@ -6,8 +7,7 @@ import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:web-analytics:sites"));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("cloudflare:web-analytics:sites"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("cloudflare:web-analytics:sites");
 
 function headers(apiToken: string): Record<string, string> {
   return {

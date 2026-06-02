@@ -13,8 +13,6 @@ import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:email-workers"));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("cloudflare:email-workers"));
-errorDebugLog.enabled = true;
 
 function accountBaseUrl(accountId: string): string {
   return cloudflareApi.accountWorkersScripts(accountId);

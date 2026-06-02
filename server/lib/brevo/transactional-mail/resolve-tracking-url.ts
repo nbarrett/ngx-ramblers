@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import debug from "debug";
 import { isString } from "es-toolkit/compat";
 import { envConfig } from "../../env-config/env-config";
+import { logBrevoError } from "../common/error-log";
 
 const debugLog = debug(envConfig.logNamespace("brevo:resolve-tracking-url"));
 debugLog.enabled = false;
@@ -24,7 +25,8 @@ function isAllowedTrackingUrl(url: string): boolean {
     const parsed = new URL(url);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
     return ALLOWED_TRACKING_HOST_PATTERNS.some(pattern => pattern.test(parsed.hostname));
-  } catch {
+  } catch (error) {
+    logBrevoError("brevo:resolve-tracking-url", error, {url});
     return false;
   }
 }
@@ -85,6 +87,7 @@ export async function resolveTrackingUrl(req: Request, res: Response): Promise<v
     debugLog("resolve failed for", url, ":", outcome.error, "lastUrl:", outcome.lastUrl);
     res.status(200).json({ originalUrl: url, resolvedUrl: null, error: outcome.error, lastUrl: outcome.lastUrl });
   } catch (error: any) {
+    logBrevoError("brevo:resolve-tracking-url", error, {url});
     debugLog("resolve threw for", url, ":", error?.message || error);
     res.status(200).json({ originalUrl: url, resolvedUrl: null, error: error?.message ?? String(error) });
   }

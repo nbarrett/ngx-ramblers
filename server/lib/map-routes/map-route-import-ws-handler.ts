@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import { envConfig } from "../env-config/env-config";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { Feature, FeatureCollection, GeoJsonGeometryTypes, Geometry } from "geojson";
@@ -25,8 +26,7 @@ import { isArray, isNumber, isString, keys } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("map-route-import-ws"));
 debugLog.enabled = true;
-const errorDebugLog = debug("❌ERROR:" + envConfig.logNamespace("map-route-import-ws"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("map-route-import-ws");
 const BNG_DEF = `${EPSG_27700_PROJ4} +type=crs`;
 proj4.defs(MapProjectionCode.BRITISH_NATIONAL_GRID, BNG_DEF);
 

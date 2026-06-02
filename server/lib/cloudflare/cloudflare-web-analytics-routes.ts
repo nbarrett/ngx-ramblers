@@ -1,4 +1,5 @@
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import express, { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import * as authConfig from "../auth/auth-config";
@@ -14,8 +15,7 @@ import {
 const messageType = "cloudflare:web-analytics";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace(messageType));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog(messageType);
 
 const router = express.Router();
 

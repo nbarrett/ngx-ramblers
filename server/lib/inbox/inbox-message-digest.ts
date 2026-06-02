@@ -1,4 +1,5 @@
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
@@ -17,8 +18,7 @@ import { pluraliseWithCount } from "../shared/string-utils";
 
 const debugLog = debug(envConfig.logNamespace("inbox-message-digest"));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("inbox-message-digest"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("inbox-message-digest");
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 

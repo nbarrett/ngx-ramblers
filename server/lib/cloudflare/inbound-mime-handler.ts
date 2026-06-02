@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import { configuredBrevo } from "../brevo/brevo-config";
@@ -9,8 +10,7 @@ import { RecipientDeliveryStatus } from "./cloudflare.model";
 const messageType = "cloudflare:inbound-mime";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace(messageType));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog(messageType);
 
 interface InboundMimePayload {
   rawMimeBase64: string;

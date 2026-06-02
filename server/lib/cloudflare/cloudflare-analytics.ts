@@ -1,4 +1,5 @@
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import { startCase } from "es-toolkit/compat";
 import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import {
@@ -20,8 +21,7 @@ import { cloudflareApi } from "./cloudflare.model";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:analytics"));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("cloudflare:analytics"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("cloudflare:analytics");
 
 const GRAPHQL_URL = cloudflareApi.graphql();
 

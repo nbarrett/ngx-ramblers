@@ -3,6 +3,7 @@ import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
+import { logBrevoError } from "../common/error-log";
 
 const debugLog = debug(envConfig.logNamespace("brevo:member-contact-attributes"));
 debugLog.enabled = true;
@@ -38,11 +39,13 @@ export async function ensureMemberContactAttributes(): Promise<Set<string>> {
           available.add(attributeName);
           debugLog("created Brevo contact attribute", attributeName);
         } catch (error: any) {
+          logBrevoError("brevo:member-contact-attributes", error, {attributeName});
           debugLog("could not create Brevo contact attribute", attributeName, "- omitting it from contact sync", error?.body ?? error?.message ?? error);
         }
       }
     }
   } catch (error: any) {
+    logBrevoError("brevo:member-contact-attributes", error);
     debugLog("could not resolve Brevo contact attributes - member attributes omitted from contact sync", error?.body ?? error?.message ?? error);
   }
   availableMemberAttributes = available;

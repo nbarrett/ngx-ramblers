@@ -1,11 +1,12 @@
 import crypto from "crypto";
 import debug from "debug";
-import { ConfigKey, ConfigDocument } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
+import { ConfigDocument, ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 import { MailConfig } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { envConfig } from "../../env-config/env-config";
 import * as config from "../../mongo/controllers/config";
 import { systemConfig } from "../../config/system-config";
 import { signRamblersUploadBody, verifyRamblersUploadSignature } from "../../ramblers/integration-worker-crypto";
+import { logBrevoError } from "../common/error-log";
 import { dateTimeNowAsValue } from "../../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("brevo:unsubscribe-token"));
@@ -88,6 +89,7 @@ export async function contactUsParentSegment(): Promise<string | null> {
     const href = matchedPage?.href?.trim();
     return href ? href.replace(/^\/+|\/+$/g, "") : null;
   } catch (error: any) {
+    logBrevoError("brevo:unsubscribe-token", error);
     debugLog("contactUsParentSegment:failed", error?.message || error);
     return null;
   }
@@ -129,6 +131,7 @@ export async function verifyUnsubscribeToken(token: string): Promise<DecodedUnsu
       listId: decoded.listId
     };
   } catch (error: any) {
+    logBrevoError("brevo:unsubscribe-token", error);
     debugLog("verifyUnsubscribeToken: decode failed", error?.message || error);
     return null;
   }

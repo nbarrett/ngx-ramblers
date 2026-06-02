@@ -2,11 +2,11 @@ import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
 import { configuredBrevo } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
+import { logBrevoError } from "../common/error-log";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { GetSmtpTemplateOverview } from "@getbrevo/brevo";
 import * as http from "http";
 import { TemplateResponse } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
-import { MailTemplateResponse } from "../../../../projects/ngx-ramblers/src/app/models/brevo.model";
 
 const messageType = "brevo:query-template-content";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -22,7 +22,6 @@ export async function queryTemplateContent(templateId: number): Promise<Template
     response: http.IncomingMessage;
     body: GetSmtpTemplateOverview
   }) => {
-    const x: MailTemplateResponse = null;
     debugLog("API called successfully. Returned data", JSON.stringify(data));
     return {
       createdAt: data.body?.createdAt,
@@ -40,6 +39,7 @@ export async function queryTemplateContent(templateId: number): Promise<Template
       toField: data.body?.toField
     };
   }).catch((error: any) => {
+    logBrevoError(messageType, error, {templateId});
     debugLog("error", error);
     return null;
   });

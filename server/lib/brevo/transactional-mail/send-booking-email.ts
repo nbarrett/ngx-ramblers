@@ -18,7 +18,11 @@ import { banner } from "../../mongo/models/banner";
 import { notificationConfig } from "../../mongo/models/notification-config";
 import { Booking, BookingEmailBuild } from "../../../../projects/ngx-ramblers/src/app/models/booking.model";
 import { sendTransactionalEmailRequest } from "./send-transactional-mail";
-import { BookingEmailType, templatesIncludeSalutation } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
+import { logBrevoError } from "../common/error-log";
+import {
+  BookingEmailType,
+  templatesIncludeSalutation
+} from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
 import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { resolveBookingTemplate, subjectForType } from "./booking-template-resolver";
 import { signoffNamesHtml } from "./signoff-names";
@@ -258,9 +262,11 @@ async function sendBookingNotification(emailType: BookingEmailType, bookingRecor
     sendTransactionalEmailRequest(emailRequest, debugLog).then(data => {
       debugLog("booking email sent successfully:", JSON.stringify(data));
     }).catch((error: any) => {
+      logBrevoError(messageType, error, {emailType});
       debugLog("error sending booking email:", error?.body || error?.message || error);
     });
   } catch (error) {
+    logBrevoError(messageType, error, {emailType});
     debugLog("error sending booking notification:", emailType, error);
   }
 }

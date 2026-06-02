@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import debug from "debug";
+import { createErrorDebugLog } from "../../shared/error-debug-log";
 import { isString } from "es-toolkit/compat";
 import { envConfig } from "../../env-config/env-config";
 import { dateTimeNowAsValue } from "../../shared/dates";
@@ -9,8 +10,7 @@ import * as transforms from "./transforms";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("database:external-recipient"));
 debugLog.enabled = false;
-const errorDebugLog: debug.Debugger = debug("ERROR:" + envConfig.logNamespace("database:external-recipient"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("database:external-recipient");
 
 interface AuthenticatedRequest extends Request {
   user?: { memberId?: string; userName?: string };

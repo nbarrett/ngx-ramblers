@@ -22,6 +22,8 @@ import { ramblersEmailLayout } from "../templates/ramblers-email-layout";
 import { unbrandedEmailLayout } from "../templates/unbranded-email-layout";
 import { readLocalTemplate } from "../templates/local-template-reader";
 import { errorResponse } from "../../shared/error-response";
+import { logBrevoError } from "./error-log";
+import { isObject, isString, keys } from "es-toolkit/compat";
 
 function valueAtPath(source: Record<string, any>, path: string): any {
   return path.split(".").reduce((value, key) => value?.[key], source);
@@ -211,17 +213,29 @@ export function successfulResponse(successfulResponse: SuccessfulResponse) {
   });
 }
 
-export function handleError(req: Request, res: Response, messageType: string, debugLog: any, error: unknown) {
-  const priorDebugValue = debugLog.enabled;
-  debugLog.enabled = true;
-  if (error instanceof HttpError) {
-    debugLog(messageType, "API call failed with HttpError: body", error.body, "statusCode:", error.statusCode);
-    res.status(error.statusCode).json({request: {messageType}, error: error.body});
+function summariseRequestBody(body: unknown): unknown {
+  if (!isObject(body)) {
+    return body;
+  }
+  const heavyKeys = ["htmlContent", "html", "templateContent", "attachment"];
+  const record = body as Record<string, any>;
+  const trimmed = keys(record).reduce((accumulator, key) => {
+    const value = record[key];
+    accumulator[key] = heavyKeys.includes(key) && isString(value) ? `[omitted ${value.length} chars]` : value;
+    return accumulator;
+  }, {} as Record<string, any>);
+  const serialised = JSON.stringify(trimmed);
+  return serialised.length > 8000 ? `${serialised.slice(0, 8000)}…[truncated]` : trimmed;
+}
+
+export function handleError(req: Request, res: Response, messageType: string, _debugLog: any, error: unknown) {
+  const httpError = error instanceof HttpError ? error : null;
+  logBrevoError(messageType, error, {request: {method: req?.method, url: req?.originalUrl, body: summariseRequestBody(req?.body)}});
+  if (httpError) {
+    res.status(httpError.statusCode).json({request: {messageType}, error: httpError.body});
   } else {
-    debugLog(messageType, "API call failed with non-HttpError: body", error);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
-  debugLog.enabled = priorDebugValue;
 }
 
 export interface SuccessfulResponse {

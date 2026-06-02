@@ -3,13 +3,13 @@ import * as authConfig from "../auth/auth-config";
 import {SpatialFeatureModel} from "../mongo/models/spatial-feature";
 import {envConfig} from "../env-config/env-config";
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import {dateTimeNowAsValue} from "../shared/dates";
 import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
 
 const debugLog = debug(envConfig.logNamespace("spatial-features"));
 debugLog.enabled = true;
-const errorDebugLog = debug("❌ERROR:" + envConfig.logNamespace("spatial-features"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("spatial-features");
 
 export const spatialFeaturesController = express.Router();
 

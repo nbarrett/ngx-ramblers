@@ -6,8 +6,6 @@ import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:email-routing"));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("cloudflare:email-routing"));
-errorDebugLog.enabled = true;
 
 function baseUrl(zoneId: string): string {
   return cloudflareApi.zoneEmailRoutingRules(zoneId);

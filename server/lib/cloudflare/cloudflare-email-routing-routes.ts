@@ -1,4 +1,5 @@
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import express, { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import * as authConfig from "../auth/auth-config";
@@ -57,8 +58,7 @@ import {
 const messageType = "cloudflare:email-routing";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace(messageType));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog(messageType);
 
 const BREVO_SMTP_REQUIRED_MESSAGE = "Brevo re-send (authenticated) needs SMTP credentials before it can deliver messages. Open Mail Settings > Mail API Settings and set both SMTP Login and SMTP Key, then come back and deploy the worker.";
 

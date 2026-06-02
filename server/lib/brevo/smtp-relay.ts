@@ -6,8 +6,6 @@ import { BREVO_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/ma
 
 const debugLog = debug(envConfig.logNamespace("brevo:smtp-relay"));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("brevo:smtp-relay"));
-errorDebugLog.enabled = true;
 
 let cachedTransporter: Transporter | null = null;
 let cachedTransporterKey: string | null = null;

@@ -8,6 +8,7 @@ import { configuredBrevo } from "../brevo-config";
 import { listBrevoSenders } from "../senders/senders";
 import { registerBrevoSender } from "../senders/create-sender";
 import { deleteBrevoSenderById } from "../senders/delete-sender";
+import { logBrevoError } from "../common/error-log";
 import { DomainAuthenticationResult } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const debugLog = debug(envConfig.logNamespace("brevo:domain-switch"));
@@ -92,6 +93,7 @@ async function rewriteSendersFromDomainTo(step: (msg: string) => void, apiKey: s
       step(`  ✓ Deleted ${sender.email}`);
       summary.rewritten.push({ oldEmail: sender.email, newEmail, newSenderId: createdId });
     } catch (error) {
+      logBrevoError("brevo:domain-switch", error, {email: sender.email});
       const message = error instanceof Error ? error.message : String(error);
       step(`  ✗ Failed ${sender.email} -> ${newEmail}: ${message}`);
       summary.failed.push({ email: sender.email, error: message });

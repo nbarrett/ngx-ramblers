@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import { isBoolean, isString } from "es-toolkit/compat";
 import * as authConfig from "../auth/auth-config";
 import { envConfig } from "../env-config/env-config";
@@ -52,8 +53,7 @@ import { CommitteeConfig, CommitteeMember } from "../../../projects/ngx-ramblers
 const messageType = "inbox";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace(messageType));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog(messageType);
 
 const router = express.Router();
 
