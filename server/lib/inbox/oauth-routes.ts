@@ -209,7 +209,7 @@ async function completeGoogleCloudSetup(code: string, payload: SetupStatePayload
   const {accessToken} = await exchangeOauthCodeForAccessToken(code);
   const receiverUrl = await pushReceiverUrl();
   if (!receiverUrl) {
-    throw new Error("Cannot derive the NGX push receiver URL; ensure the Google Inbox OAuth redirect URI is configured.");
+    throw new Error("Cannot derive the NGX push receiver URL — ensure the Google Inbox OAuth redirect URI is configured");
   }
   const result = await runGoogleCloudProvisioning(accessToken, {
     projectId: payload.projectId,
