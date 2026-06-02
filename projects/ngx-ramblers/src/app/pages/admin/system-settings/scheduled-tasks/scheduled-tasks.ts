@@ -7,6 +7,7 @@ import { TimePicker } from "../../../../date-and-time/time-picker";
 import { UIDateFormat } from "../../../../models/date-format.model";
 import {
   BREVO_CAMPAIGN_RELEASE_TASK_ID,
+  SCHEDULED_TASK_SUB_TAB_GROUPS,
   ScheduledTaskScheduleEdit,
   ScheduledTaskScheduleFrequency,
   ScheduledTaskRun,
@@ -203,9 +204,9 @@ export class ScheduledTasksComponent implements OnInit {
   protected scheduledTaskSubTab = ScheduledTaskSubTab.ALL;
   protected readonly scheduledTaskSubTabs: SectionToggleTab[] = [
     {value: ScheduledTaskSubTab.BOOKING_REMINDERS, label: "Booking reminders"},
-    {value: ScheduledTaskSubTab.BREVO_UNSUBSCRIBES_SYNC, label: "Brevo unsubscribes sync"},
     {value: ScheduledTaskSubTab.WALKS_MANAGER_SYNC, label: "Walks Manager sync"},
-    {value: ScheduledTaskSubTab.BREVO_CAMPAIGN_RELEASE, label: "Brevo campaign overflow release"},
+    {value: ScheduledTaskSubTab.GMAIL, label: "Gmail"},
+    {value: ScheduledTaskSubTab.BREVO, label: "Brevo"},
     {value: ScheduledTaskSubTab.ALL, label: "All"}
   ];
   protected readonly scheduleFrequencyOptions = [
@@ -229,7 +230,7 @@ export class ScheduledTasksComponent implements OnInit {
     {value: "0", label: "Sunday"},
     {value: "1-5", label: "Monday to Friday"}
   ];
-  protected readonly monthDays = [...new Array(31)].map((value, index) => index + 1);
+  protected readonly monthDays = [...new Array(31)].map((_value, index) => index + 1);
 
   ngOnInit(): void {
     void this.refresh();
@@ -275,7 +276,11 @@ export class ScheduledTasksComponent implements OnInit {
   }
 
   protected showTask(task: ScheduledTaskSummary): boolean {
-    return this.scheduledTaskSubTab === ScheduledTaskSubTab.ALL || task.id === this.scheduledTaskSubTab;
+    if (this.scheduledTaskSubTab === ScheduledTaskSubTab.ALL) {
+      return true;
+    }
+    const group = SCHEDULED_TASK_SUB_TAB_GROUPS[this.scheduledTaskSubTab];
+    return group ? (group as string[]).includes(task.id) : task.id === this.scheduledTaskSubTab;
   }
 
   protected editSchedule(task: ScheduledTaskSummary): void {

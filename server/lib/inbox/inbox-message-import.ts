@@ -24,7 +24,7 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
   const existingThread = await findExistingThread(aliasConfig, message);
   const now = dateTimeNow().toMillis();
   const thread = existingThread ?? await createThread(aliasConfig, message, now);
-  const persistedMessage = await inboxMessageModel.create({...message, threadId: thread.id ?? thread["_id"]?.toString() ?? "", mailboxConnectionId: aliasConfig.mailboxConnectionId, bodyHtml: null, bodyText: null});
+  const persistedMessage = await inboxMessageModel.create({...message, threadId: thread.id ?? thread["_id"]?.toString() ?? "", mailboxConnectionId: aliasConfig.mailboxConnectionId});
   await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {
     $set: {
       lastSeenAt: now,
@@ -72,7 +72,7 @@ async function notifyAssignedRoleMembers(aliasConfig: InboxAliasConfig, message:
 
 export async function recordOutboundReply(aliasConfig: InboxAliasConfig, replyMessage: InboxMessage, originalThreadId: string): Promise<InboxMessage> {
   const now = dateTimeNow().toMillis();
-  const persistedMessage = await inboxMessageModel.create({...replyMessage, threadId: originalThreadId, mailboxConnectionId: replyMessage.mailboxConnectionId ?? aliasConfig.mailboxConnectionId, bodyHtml: null, bodyText: null});
+  const persistedMessage = await inboxMessageModel.create({...replyMessage, threadId: originalThreadId, mailboxConnectionId: replyMessage.mailboxConnectionId ?? aliasConfig.mailboxConnectionId});
   await inboxThreadModel.updateOne({_id: originalThreadId}, {
     $set: {
       lastSeenAt: now,

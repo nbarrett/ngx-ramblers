@@ -2,42 +2,17 @@ import debug from "debug";
 import { google } from "googleapis";
 import { OAuth2Client } from "google-auth-library";
 import { envConfig } from "../env-config/env-config";
+import {
+  GmailServiceAccount,
+  GoogleApiService,
+  GoogleCloudProvisioningOptions,
+  GoogleCloudProvisioningResult,
+  ProvisioningStep,
+  ProvisioningStepStatus
+} from "./gmail-inbox.model";
 
 const debugLog = debug(envConfig.logNamespace("inbox-google-setup"));
 debugLog.enabled = true;
-
-export const GOOGLE_CLOUD_SCOPES = [
-  "https://www.googleapis.com/auth/cloud-platform"
-];
-
-export const GMAIL_PUBLISHER_SERVICE_ACCOUNT = "gmail-api-push@system.gserviceaccount.com";
-
-export interface GoogleCloudProvisioningOptions {
-  projectId: string;
-  topicName: string;
-  subscriptionName?: string;
-  pushReceiverUrl: string;
-}
-
-export enum ProvisioningStepStatus {
-  OK = "ok",
-  SKIPPED = "skipped",
-  FAILED = "failed"
-}
-
-export interface ProvisioningStep {
-  step: string;
-  status: ProvisioningStepStatus;
-  detail: string;
-}
-
-export interface GoogleCloudProvisioningResult {
-  projectId: string;
-  topicFullName: string;
-  subscriptionFullName: string;
-  pushReceiverUrl: string;
-  steps: ProvisioningStep[];
-}
 
 function bootstrapClient(accessToken: string): OAuth2Client {
   const client = new google.auth.OAuth2();
@@ -56,8 +31,8 @@ export async function runGoogleCloudProvisioning(accessToken: string, options: G
   const subscriptionFullName = `projects/${options.projectId}/subscriptions/${subscriptionName}`;
   const steps: ProvisioningStep[] = [];
 
-  steps.push(await enableApi(auth, options.projectId, "gmail.googleapis.com"));
-  steps.push(await enableApi(auth, options.projectId, "pubsub.googleapis.com"));
+  steps.push(await enableApi(auth, options.projectId, GoogleApiService.GMAIL));
+  steps.push(await enableApi(auth, options.projectId, GoogleApiService.PUBSUB));
   steps.push(await ensureTopic(auth, topicFullName));
   steps.push(await grantTopicPublisher(auth, topicFullName));
   steps.push(await ensurePushSubscription(auth, subscriptionFullName, topicFullName, options.pushReceiverUrl));
@@ -101,13 +76,13 @@ async function ensureTopic(auth: OAuth2Client, topicFullName: string): Promise<P
 }
 
 async function grantTopicPublisher(auth: OAuth2Client, topicFullName: string): Promise<ProvisioningStep> {
-  const stepLabel = `Grant Pub/Sub Publisher to ${GMAIL_PUBLISHER_SERVICE_ACCOUNT}`;
+  const stepLabel = `Grant Pub/Sub Publisher to ${GmailServiceAccount.PUBLISHER}`;
   const pubsub = google.pubsub({version: "v1", auth});
   try {
     const policyResponse = await pubsub.projects.topics.getIamPolicy({resource: topicFullName});
     const bindings = policyResponse.data.bindings ?? [];
     const publisherBinding = bindings.find(binding => binding.role === "roles/pubsub.publisher");
-    const member = `serviceAccount:${GMAIL_PUBLISHER_SERVICE_ACCOUNT}`;
+    const member = `serviceAccount:${GmailServiceAccount.PUBLISHER}`;
     if (publisherBinding?.members?.includes(member)) {
       return {step: stepLabel, status: ProvisioningStepStatus.SKIPPED, detail: "Service account already has Publisher role on topic"};
     }

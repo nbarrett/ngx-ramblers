@@ -433,7 +433,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
                             </div>
                           </div>
                         }
-                        @if (column.showPlaceholderImage && !column.imageSource) {
+                        @if (column.imageSource || column.showPlaceholderImage) {
                           <div class="form-group">
                             <app-aspect-ratio-selector label="Image Aspect Ratio"
                                                        [dimensionsDescription]="column.imageAspectRatio?.description"
