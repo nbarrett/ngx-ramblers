@@ -5,7 +5,7 @@ import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faBell, faBellSlash, faEnvelope, faInbox, faReply, faRotateRight, faSearch, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
-import { ActivatedRoute, Router } from "@angular/router";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, values } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
@@ -34,7 +34,7 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
 
 @Component({
   selector: "app-inbox",
-  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, HtmlFrameComponent, ResizerComponent],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, HtmlFrameComponent, ResizerComponent, RouterLink],
   styles: [`
     .inbox-layout
       display: grid
@@ -199,7 +199,7 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
         <div class="alert alert-warning">
           <fa-icon [icon]="faTriangleExclamation"/>
           <strong class="ms-2">No role mailboxes connected -</strong>
-          <span class="ms-1">An administrator can connect a mailbox in System Settings &rarr; External Systems &rarr; Mail, then point each committee role's Inbound Forwarding at it. Roles forwarding to a connected mailbox appear here automatically.</span>
+          <span class="ms-1">An administrator can connect a mailbox in <a [routerLink]="['/admin/system-settings']" [queryParams]="{tab: 'external-systems', 'sub-tab': 'mail'}">System Settings &rarr; External Systems &rarr; Mail</a>, then point each committee role's Inbound Forwarding at it. Roles forwarding to a connected mailbox appear here automatically.</span>
         </div>
       }
       @if (selectedAlias(); as alias) {

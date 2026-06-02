@@ -12,7 +12,7 @@ import { InboxService } from "../../../../services/inbox/inbox.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faGear, faList, faUserPlus } from "@fortawesome/free-solid-svg-icons";
+import { faGear, faList, faTriangleExclamation, faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import { StepperModule } from "primeng/stepper";
 import { isUndefined } from "es-toolkit/compat";
 
@@ -123,7 +123,10 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                           <div class="alert alert-success py-2 small mb-2">{{ statusMessage }}</div>
                         }
                         @if (errorMessage) {
-                          <div class="alert alert-warning py-2 small mb-2">{{ errorMessage }}</div>
+                          <div class="alert alert-warning py-2 small mb-2">
+                            <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                            <strong>Google Cloud setup did not complete:</strong> {{ errorMessage }}
+                          </div>
                         }
                         <div class="row">
                           <div class="col-sm-6">
@@ -213,7 +216,9 @@ export class SystemGmailInboxSettingsComponent {
   protected readonly faGear = faGear;
   protected readonly faUserPlus = faUserPlus;
   protected readonly faList = faList;
+  protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly steps = GMAIL_INBOX_STEPS;
+  protected readonly GmailInboxSetupStepKey = GmailInboxSetupStepKey;
 
   protected stepperActiveIndex = 0;
   protected projectIdInput = "";
@@ -235,7 +240,7 @@ export class SystemGmailInboxSettingsComponent {
       }
       const oauthError = url.searchParams.get("oauthError");
       if (oauthError) {
-        this.errorMessage = `Google Cloud setup did not complete: ${oauthError}`;
+        this.errorMessage = oauthError;
       }
       const connectedParam = url.searchParams.get("connected");
       if (connectedParam) {
@@ -271,8 +276,7 @@ export class SystemGmailInboxSettingsComponent {
     this.errorMessage = null;
     this.statusMessage = null;
     try {
-      const consentUrl = await this.inboxService.startGoogleCloudSetup(this.projectIdInput.trim(), this.topicNameInput.trim());
-      window.location.href = consentUrl;
+      window.location.href = await this.inboxService.startGoogleCloudSetup(this.projectIdInput.trim(), this.topicNameInput.trim());
     } catch (error) {
       this.errorMessage = (error as Error).message;
     } finally {
