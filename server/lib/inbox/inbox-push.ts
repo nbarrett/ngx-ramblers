@@ -3,8 +3,7 @@ import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.
 import { GoogleInboxConfig, SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { systemConfig } from "../config/system-config";
 import * as config from "../mongo/controllers/config";
-
-const PUSH_RECEIVER_PATH = "/api/inbox/pubsub/push";
+import { InboxPushEndpoint } from "./gmail-inbox.model";
 
 export async function pushVerificationToken(): Promise<string | null> {
   return (await systemConfig())?.googleInbox?.pushVerificationToken ?? null;
@@ -36,5 +35,5 @@ export async function pushReceiverUrl(): Promise<string | null> {
     return null;
   }
   const origin = new URL(googleInbox.redirectUri).origin;
-  return `${origin}${PUSH_RECEIVER_PATH}?token=${googleInbox.pushVerificationToken}`;
+  return `${origin}${InboxPushEndpoint.RECEIVER_PATH}?token=${googleInbox.pushVerificationToken}`;
 }

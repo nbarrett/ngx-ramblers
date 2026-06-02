@@ -110,7 +110,10 @@ export async function objectData(req: Request, res: Response) {
     if (logObject) {
       debugLog("got object", s3Item);
     }
-    const headers: Record<string, string> = {"Content-Type": contentTypeFrom(options.Key)};
+    const headers: Record<string, string> = {
+      "Content-Type": contentTypeFrom(options.Key),
+      "Cache-Control": "public, max-age=31536000, immutable"
+    };
     const disposition = contentDispositionFrom(req);
     if (disposition) {
       headers["Content-Disposition"] = disposition;

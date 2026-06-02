@@ -26,6 +26,7 @@ import {
   faFolderOpen,
   faGripLines,
   faGripVertical,
+  faInbox,
   faPaperPlane,
   faPlus,
   faSignature,
@@ -155,6 +156,7 @@ import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { Confirm, ConfirmType, StoredValue } from "../../models/ui-actions";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { NgSelectModule } from "@ng-select/ng-select";
 import {
   AdvancedSearchPreset,
@@ -184,6 +186,9 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
     StepPanel,
     StepPanels,
     TooltipDirective,
+    BsDropdownDirective,
+    BsDropdownToggleDirective,
+    BsDropdownMenuDirective,
     NgSelectModule,
     SiteLinkInputComponent,
     CommitteeFileMultiSelectComponent,
@@ -348,15 +353,31 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                 <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Revert
               </button>
             }
-            <button type="button" class="btn btn-quiet" (click)="toggleDraftsPanel()">
-              <fa-icon [icon]="faFolderOpen" class="me-1"/>{{ draftsPanelOpen ? "Hide drafts" : "Show drafts" }} ({{ drafts.length }})
-            </button>
-            <button type="button" class="btn btn-quiet" (click)="toggleSentEmailsPanel()">
-              <fa-icon [icon]="faPaperPlane" class="me-1"/>{{ sentEmailsPanelOpen ? "Hide sent" : "Show sent" }} ({{ sentEmails.length }})
-            </button>
+            <div class="btn-group" dropdown [container]="'body'">
+              <button type="button" class="btn btn-quiet dropdown-toggle" dropdownToggle>
+                <fa-icon [icon]="faFolderOpen" class="me-1"/>Show
+              </button>
+              <ul *dropdownMenu class="dropdown-menu" role="menu">
+                <li role="menuitem">
+                  <button type="button" class="dropdown-item" (click)="toggleDraftsPanel()">
+                    <fa-icon [icon]="faFolderOpen" class="me-1"/>{{ draftsPanelOpen ? "Hide drafts" : "Drafts" }} ({{ drafts.length }})
+                  </button>
+                </li>
+                <li role="menuitem">
+                  <button type="button" class="dropdown-item" (click)="toggleSentEmailsPanel()">
+                    <fa-icon [icon]="faPaperPlane" class="me-1"/>{{ sentEmailsPanelOpen ? "Hide sent" : "Sent" }} ({{ sentEmails.length }})
+                  </button>
+                </li>
+              </ul>
+            </div>
             <button type="button" class="btn btn-quiet" (click)="newComposition()" [disabled]="!hasContentToDraft()">
               <fa-icon [icon]="faFile" class="me-1"/>New
             </button>
+            @if (inboxReplyContext) {
+              <button type="button" class="btn btn-quiet" (click)="returnToInbox()">
+                <fa-icon [icon]="faInbox" class="me-1"/>Back to inbox
+              </button>
+            }
           </div>
         }
         <div class="stepper-nav">
@@ -633,12 +654,12 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
               </span>
             </div>
           }
-          <div class="mt-2">
+          <div class="email-composer-recipient-toggles mt-2">
             @if (!showCc) {
-              <button type="button" class="btn btn-link btn-sm p-0 me-3 text-decoration-none" (click)="showCc = true">+ Add Cc</button>
+              <button type="button" class="btn btn-sm btn-quiet email-composer-recipient-toggle" (click)="showCc = true">+ Add Cc</button>
             }
             @if (!showBcc) {
-              <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" (click)="showBcc = true">+ Add Bcc</button>
+              <button type="button" class="btn btn-sm btn-quiet email-composer-recipient-toggle" (click)="showBcc = true">+ Add Bcc</button>
             }
           </div>
           @if (showCc) {
@@ -1895,6 +1916,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected readonly faFloppyDisk = faFloppyDisk;
   protected readonly faFolderOpen = faFolderOpen;
   protected readonly faFile = faFile;
+  protected readonly faInbox = faInbox;
   protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faGripVertical = faGripVertical;
@@ -3162,13 +3184,25 @@ export class EmailComposer implements OnInit, OnDestroy {
   private htmlToReplyMarkdown(html: string | null | undefined): string {
     if (!html) return "";
     try {
-      return this.turndownService.turndown(html);
+      return this.turndownService.turndown(this.htmlContentForReplyMarkdown(html));
     } catch (error) {
       this.logger.warn("turndown failed for reply quotedHtml; falling back to raw text", error);
       const tmp = document.createElement("div");
       tmp.innerHTML = html;
+      this.removeReplyMarkdownNonContent(tmp);
       return (tmp.textContent ?? "").split(/\r?\n/).map(line => `> ${line}`).join("\n");
     }
+  }
+
+  private htmlContentForReplyMarkdown(html: string): string {
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    this.removeReplyMarkdownNonContent(container);
+    return container.innerHTML;
+  }
+
+  private removeReplyMarkdownNonContent(container: HTMLElement): void {
+    container.querySelectorAll("style, script, title, meta, link, head").forEach(element => element.remove());
   }
 
   private syncStateToUrl(extra: Record<string, string | null | undefined>): void {
@@ -4195,6 +4229,12 @@ export class EmailComposer implements OnInit, OnDestroy {
       return;
     }
     this.location.back();
+  }
+
+  returnToInbox(): void {
+    this.router.navigate(["/admin/inbox"], {
+      queryParams: this.inboxReplyContext?.threadId ? {[StoredValue.INBOX_THREAD]: this.inboxReplyContext.threadId} : {}
+    });
   }
 
   protected cancelArmed: boolean = false;

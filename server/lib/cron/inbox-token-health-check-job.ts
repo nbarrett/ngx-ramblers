@@ -1,7 +1,7 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { registerScheduledTask } from "./scheduled-task-registry";
-import { renewInboxWatches, runInboxTokenHealthCheck } from "../inbox/inbox-poller";
+import { googleInboxConfigured } from "../inbox/inbox-runtime";
 
 const debugLog = debug(envConfig.logNamespace("cron:inbox-token-health-check"));
 debugLog.enabled = true;
@@ -17,6 +17,11 @@ export async function scheduleInboxTokenHealthCheck(): Promise<void> {
       enabled: true,
       run: async () => {
         debugLog("Starting scheduled inbox token health check");
+        if (!await googleInboxConfigured()) {
+          debugLog("Inbox token health check skipped - Google Inbox OAuth is not configured");
+          return;
+        }
+        const { renewInboxWatches, runInboxTokenHealthCheck } = await import("../inbox/inbox-poller");
         const results = await runInboxTokenHealthCheck();
         const unhealthy = results.filter(result => !result.healthy);
         debugLog("Inbox token health check completed:", {

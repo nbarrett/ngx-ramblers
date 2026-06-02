@@ -22,7 +22,7 @@ import { externalRecipientRoutes } from "./mongo/routes/external-recipient";
 import { memberEmailSendRoutes } from "./mongo/routes/member-email-send";
 import { notificationConfigRoutes } from "./mongo/routes/notification-config";
 import { mailchimpListAuditRoutes } from "./mongo/routes/mailchimp-list-audit";
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import { memberRoutes } from "./mongo/routes/member";
 import { memberAuthAuditRoutes } from "./mongo/routes/member-auth-audit";
 import { memberUpdateAuditRoutes } from "./mongo/routes/member-update-audit";
@@ -51,9 +51,6 @@ import { venueRoutes } from "./mongo/routes/venue";
 import { environmentSetupRoutes } from "./environment-setup/routes/environment-setup-routes";
 import { cloudflareEmailRoutingRoutes } from "./cloudflare/cloudflare-email-routing-routes";
 import { cloudflareWebAnalyticsRoutes } from "./cloudflare/cloudflare-web-analytics-routes";
-import { inboxRoutes } from "./inbox/inbox-routes";
-import { inboxOauthRoutes } from "./inbox/oauth-routes";
-import { startInboxPolling } from "./inbox/inbox-poller";
 import { bookingRoutes } from "./mongo/routes/booking";
 import { contactInteractionRoutes } from "./mongo/routes/contact-interaction";
 import { configureLogging } from "./logging/logging";
@@ -98,6 +95,42 @@ debugLog("⏳currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", e
 const app = express();
 configureLogging(app);
 const server: Server = http.createServer(app);
+type RouterLoader = () => Promise<express.Router>;
+
+function lazyRouter(loader: RouterLoader): express.RequestHandler {
+  let router: express.Router | null = null;
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!router) {
+        router = await loader();
+      }
+      router(req, res, next);
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+async function scheduleInboxBackgroundWork(): Promise<void> {
+  const [
+    { scheduleInboxTokenHealthCheck },
+    { scheduleInboxMessageDigest },
+    { inboxPollingEnabled }
+  ] = await Promise.all([
+    import("./cron/inbox-token-health-check-job"),
+    import("./cron/inbox-message-digest-job"),
+    import("./inbox/inbox-runtime")
+  ]);
+  await scheduleInboxTokenHealthCheck();
+  await scheduleInboxMessageDigest();
+  const pollerEnabled = await inboxPollingEnabled();
+  if (pollerEnabled) {
+    const { startInboxPolling } = await import("./inbox/inbox-poller");
+    startInboxPolling();
+  }
+  debugLog("📬 Inbox scheduled tasks registered; poller enabled:", pollerEnabled);
+}
+
 app.use(compression());
 app.set("port", port);
 app.disable("view cache");
@@ -172,8 +205,8 @@ app.use("/api/database/migrations", migrationsRoutes);
 app.use("/api/database/venues", venueRoutes);
 app.use("/api/cloudflare/email-routing", cloudflareEmailRoutingRoutes);
 app.use("/api/cloudflare/web-analytics", cloudflareWebAnalyticsRoutes);
-app.use("/api/inbox", inboxRoutes);
-app.use("/api/inbox/oauth", inboxOauthRoutes);
+app.use("/api/inbox/oauth", lazyRouter(async () => (await import("./inbox/oauth-routes")).inboxOauthRoutes));
+app.use("/api/inbox", lazyRouter(async () => (await import("./inbox/inbox-routes")).inboxRoutes));
 app.use("/api/environment-setup", environmentSetupRoutes);
 const staticAssetExtensions = /\.(js|mjs|css|map|wasm|json|ico|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|eot|txt|xml)$/i;
 if (fs.existsSync(distFolder)) {
@@ -185,7 +218,14 @@ if (fs.existsSync(distFolder)) {
       next();
     }
   });
-  app.use("/", express.static(distFolder, {index: false}));
+  app.use("/", express.static(distFolder, {
+    index: false,
+    setHeaders: (res, filePath) => {
+      if (/-[A-Za-z0-9]{8,}\.(js|css|woff2?|ttf|eot|otf)$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    }
+  }));
   app.use((req, res, next) => {
     if (staticAssetExtensions.test(req.path)) {
       res.status(404).send(`Asset not found: ${req.path}`);
@@ -271,15 +311,9 @@ async function startServer() {
         debugLog("❌ Failed to schedule Brevo campaign release:", error);
       });
 
-      scheduleInboxTokenHealthCheck().catch(error => {
-        debugLog("❌ Failed to schedule inbox token health check:", error);
+      scheduleInboxBackgroundWork().catch(error => {
+        debugLog("❌ Failed to schedule inbox background work:", error);
       });
-
-      scheduleInboxMessageDigest().catch(error => {
-        debugLog("❌ Failed to schedule inbox message digest:", error);
-      });
-
-      startInboxPolling();
     }).catch(error => {
       debugLog("❌ MongoDB connection failed:", error);
       debugLog("⚠️ Server will continue but database operations will fail");

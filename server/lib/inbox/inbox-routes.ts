@@ -110,13 +110,21 @@ async function hydrateMessage(connection: InboxMailboxConnection, storedMessage:
   if (storedMessage.externalSource !== InboxReaderProvider.GMAIL_API || !storedMessage.externalId) {
     return storedMessage;
   }
+  if (storedMessage.bodyHtml !== null || storedMessage.bodyText !== null) {
+    return storedMessage;
+  }
   const fetchedMessage = await fetchFullMessage(connection, storedMessage.externalId);
-  return {
+  const hydratedMessage = {
     ...storedMessage,
     bodyHtml: fetchedMessage.bodyHtml,
     bodyText: fetchedMessage.bodyText,
     attachments: fetchedMessage.attachments
   };
+  await inboxMessageModel.updateOne(
+    {threadId: storedMessage.threadId, messageId: storedMessage.messageId},
+    {$set: {bodyHtml: hydratedMessage.bodyHtml, bodyText: hydratedMessage.bodyText, attachments: hydratedMessage.attachments}}
+  );
+  return hydratedMessage;
 }
 
 router.get("/mailbox-connections", authConfig.authenticate(), async (req: Request, res: Response) => {

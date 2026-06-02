@@ -23,6 +23,7 @@ import {
   isInboxGeneralRoleType
 } from "../../../models/inbox.model";
 import { BrandingMode } from "../../../models/mail.model";
+import { EmailComposerStepKey } from "../../../models/email-composer.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -295,6 +296,8 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
           <div class="inbox-detail">
           @if (!selectedThread) {
             <div class="text-muted">Select a conversation on the left to see its messages.</div>
+          } @else if (loadingThread) {
+            <div class="text-muted">Loading conversation...</div>
           } @else {
             @for (message of selectedMessages; track message.messageId) {
               <div class="inbox-message" [class.outbound]="message.direction === InboxMessageDirection.OUTBOUND">
@@ -361,6 +364,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   public selectedThread: InboxThread | null = null;
   public selectedThreadId: string | null = null;
   public selectedMessages: InboxMessage[] = [];
+  public loadingThread = false;
   public selectedMailboxView: string = InboxViewScope.ALL_ACCESSIBLE;
   public busy = false;
   public notify: AlertInstance;
@@ -373,6 +377,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private static readonly SIZE_KEY = "inbox-list-size";
 
   private subscriptions: Subscription[] = [];
+  private openThreadRequestId = 0;
 
   async ngOnInit(): Promise<void> {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -467,7 +472,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       if (!this.selectedThreadId && this.threads.length > 0) {
         const requestedSlug = this.route.snapshot.queryParams[StoredValue.INBOX_THREAD];
         const requestedThread = requestedSlug
-          ? this.threads.find(thread => this.threadSlug(thread) === requestedSlug)
+          ? this.threads.find(thread => this.threadSlug(thread) === requestedSlug || this.threadIdOf(thread) === requestedSlug)
           : null;
         await this.openThread(requestedThread ?? this.threads[0]);
       }
@@ -493,6 +498,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.selectedThread = null;
     this.selectedThreadId = null;
     this.selectedMessages = [];
+    this.loadingThread = false;
     await this.refresh();
   }
 
@@ -545,6 +551,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.selectedThread = null;
         this.selectedThreadId = null;
         this.selectedMessages = [];
+        this.loadingThread = false;
       }
       this.selectedThreadIds.clear();
       await this.refresh();
@@ -573,12 +580,21 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   async openThread(thread: InboxThread): Promise<void> {
     const threadId = this.threadIdOf(thread);
+    const requestId = this.openThreadRequestId + 1;
+    this.openThreadRequestId = requestId;
     this.selectedThreadId = threadId;
+    this.selectedThread = thread;
+    this.selectedMessages = [];
+    this.loadingThread = true;
     this.syncThreadToUrl(thread);
     try {
       const response = await this.inboxService.getThread(threadId);
+      if (requestId !== this.openThreadRequestId) {
+        return;
+      }
       this.selectedThread = response.thread;
       this.selectedMessages = response.messages;
+      this.loadingThread = false;
       if (thread.unread) {
         thread.unread = false;
         this.threadListUnreadCount = Math.max(0, this.threadListUnreadCount - 1);
@@ -586,6 +602,10 @@ export class InboxComponent implements OnInit, OnDestroy {
           .catch(error => this.logger.error("mark-read failed:", error));
       }
     } catch (error) {
+      if (requestId !== this.openThreadRequestId) {
+        return;
+      }
+      this.loadingThread = false;
       this.notify.error({title: "Open thread", message: (error as Error).message});
       this.logger.error("Failed to open thread:", error);
     }
@@ -606,7 +626,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.inboxReplyHandoff.queue(reply);
       this.logger.info("Reply queued, navigating to composer:", reply);
       await this.router.navigate(["/admin/email-composer"], {
-        queryParams: {[StoredValue.EMAIL_BRANDING]: BrandingMode.UNBRANDED}
+        queryParams: {[StoredValue.EMAIL_BRANDING]: BrandingMode.UNBRANDED, [StoredValue.TAB]: EmailComposerStepKey.COMPOSE}
       });
     } catch (error) {
       this.notify.error({title: "Reply", message: (error as Error).message});

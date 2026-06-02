@@ -17,7 +17,7 @@ import { FileUtilsService } from "../../../../file-utils.service";
 import { isUndefined } from "es-toolkit/compat";
 import { CropperDebugOffsets, ImageCropperPosition } from "../../../../models/image-cropper.model";
 import { cropperImageStyles, cropperWrapperStyles } from "../../../../functions/image-cropper-styles";
-import { FocalPoint } from "../../focal-point-picker/focal-point-picker";
+import { FocalPoint } from "../../../../models/image-cropper.model";
 
 @Component({
     selector: "app-card-image",
@@ -29,7 +29,7 @@ import { FocalPoint } from "../../focal-point-picker/focal-point-picker";
                (load)="imageLoaded($event)"
                (error)="imageError($event)"
                [ngStyle]="focalPointImageStyles()"
-               [src]="urlService.imageSource(imageSource, false, true)"
+               [src]="urlService.imageSource(imageSource, false, false)"
                [alt]="fileUtils.altFrom(alt, imageSource)"
                [routerLink]="urlService.routerLinkUrl(imageLink)">
         </div>
@@ -39,7 +39,7 @@ import { FocalPoint } from "../../focal-point-picker/focal-point-picker";
           <img class="card-img-top" (load)="imageLoaded($event)"
                (error)="imageError($event)"
                [ngStyle]="cropperImageStyles()"
-               [src]="urlService.imageSource(imageSource, false, true)"
+               [src]="urlService.imageSource(imageSource, false, false)"
                [alt]="fileUtils.altFrom(alt, imageSource)"
                [routerLink]="urlService.routerLinkUrl(imageLink)">
         </div>
@@ -49,7 +49,7 @@ import { FocalPoint } from "../../focal-point-picker/focal-point-picker";
              (error)="imageError($event)"
              [ngStyle]="imageStyles()"
              [ngClass]="{'card-img-fixed-height': fixedHeight}"
-             [src]="urlService.imageSource(imageSource, false, true)"
+             [src]="urlService.imageSource(imageSource, false, false)"
              [alt]="fileUtils.altFrom(alt, imageSource)"
              [routerLink]="urlService.routerLinkUrl(imageLink)">
       }
@@ -59,7 +59,7 @@ import { FocalPoint } from "../../focal-point-picker/focal-point-picker";
              (error)="imageError($event)"
              [ngStyle]="imageStyles()"
              [ngClass]="{'card-img-fixed-height': fixedHeight}"
-             [src]="urlService.imageSource(imageSource, false, true)"
+             [src]="urlService.imageSource(imageSource, false, false)"
              [alt]="fileUtils.altFrom(alt, imageSource)"
              [routerLink]="urlService.routerLinkUrl(imageLink)">
       }
@@ -198,7 +198,7 @@ export class CardImageComponent implements OnInit {
     if (!this.noBorderRadius) {
       styles["border-radius.px"] = !isUndefined(this.borderRadius) ? this.borderRadius : 6;
     }
-    if (this.aspectRatio && this.imageSource === FALLBACK_MEDIA.url) {
+    if (this.aspectRatio) {
       styles["aspect-ratio"] = `${this.aspectRatio.width} / ${this.aspectRatio.height}`;
       styles["object-fit"] = "cover";
     }

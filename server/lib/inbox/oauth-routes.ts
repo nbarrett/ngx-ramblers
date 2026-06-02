@@ -6,8 +6,8 @@ import crypto from "node:crypto";
 import * as authConfig from "../auth/auth-config";
 import { envConfig } from "../env-config/env-config";
 import { errorResponse } from "../shared/error-response";
-import { buildOauthConsentUrl, exchangeOauthCodeForAccessToken, exchangeOauthCodeForRefreshToken, OauthAccessType, resolveGoogleInboxOauth } from "./gmail-inbox-reader";
-import { GoogleCloudProvisioningResult, GOOGLE_CLOUD_SCOPES, runGoogleCloudProvisioning } from "./inbox-google-setup";
+import { buildOauthConsentUrl, exchangeOauthCodeForAccessToken, exchangeOauthCodeForRefreshToken, resolveGoogleInboxOauth } from "./gmail-inbox-reader";
+import { GOOGLE_CLOUD_SCOPES, GoogleInboxOauthStateKind, GoogleInboxSetupStatePayload, OauthAccessType, VerifiedGoogleInboxOauthState } from "./gmail-inbox.model";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { GoogleInboxConfig, SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { systemConfig } from "../config/system-config";
@@ -32,16 +32,6 @@ const inboxSettingsPath = "/admin/system-settings?tab=external-systems&sub-tab=m
 
 const router = express.Router();
 
-interface SetupStatePayload {
-  projectId: string;
-  topicName: string;
-  subscriptionName?: string;
-}
-
-type VerifiedState =
-  | { kind: "mailbox"; mailboxConnectionId: string; issuedAt: number }
-  | { kind: "setup"; payload: SetupStatePayload; issuedAt: number };
-
 function stateSecret(): string {
   return envConfig.auth().secret;
 }
@@ -57,12 +47,12 @@ function signState(mailboxConnectionId: string): string {
   return signStateInternal(`${STATE_KIND_MAILBOX}:${mailboxConnectionId}`);
 }
 
-function signSetupState(payload: SetupStatePayload): string {
+function signSetupState(payload: GoogleInboxSetupStatePayload): string {
   const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   return signStateInternal(`${STATE_KIND_SETUP}:${encoded}`);
 }
 
-function verifyState(state: string): VerifiedState | null {
+function verifyState(state: string): VerifiedGoogleInboxOauthState | null {
   try {
     const decoded = Buffer.from(state, "base64url").toString("utf8");
     const parts = decoded.split(".");
@@ -85,11 +75,11 @@ function verifyState(state: string): VerifiedState | null {
     const kind = kindBody.substring(0, colonIndex);
     const body = kindBody.substring(colonIndex + 1);
     if (kind === STATE_KIND_MAILBOX) {
-      return {kind: "mailbox", mailboxConnectionId: body, issuedAt};
+      return {kind: GoogleInboxOauthStateKind.MAILBOX, mailboxConnectionId: body, issuedAt};
     }
     if (kind === STATE_KIND_SETUP) {
-      const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SetupStatePayload;
-      return {kind: "setup", payload, issuedAt};
+      const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as GoogleInboxSetupStatePayload;
+      return {kind: GoogleInboxOauthStateKind.SETUP, payload, issuedAt};
     }
     return null;
   } catch (error) {
@@ -149,10 +139,14 @@ router.get("/callback", async (req: Request, res: Response) => {
       res.status(400).send("OAuth state token is invalid or expired");
       return;
     }
-    if (verified.kind === "setup") {
+    if (verified.kind === GoogleInboxOauthStateKind.SETUP && verified.payload) {
       const result = await completeGoogleCloudSetup(code, verified.payload);
       const summary = encodeURIComponent(`Project ${result.projectId}, topic ${result.topicFullName}`);
       res.redirect(`${inboxSettingsPath}&setupCompleted=${summary}`);
+      return;
+    }
+    if (!verified.mailboxConnectionId) {
+      res.status(400).send("OAuth state token is missing a mailbox connection");
       return;
     }
     const {refreshToken, emailAddress} = await exchangeOauthCodeForRefreshToken(code);
@@ -205,12 +199,13 @@ router.post("/setup/start", authConfig.authenticate(), async (req: Request, res:
   }
 });
 
-async function completeGoogleCloudSetup(code: string, payload: SetupStatePayload): Promise<GoogleCloudProvisioningResult> {
+async function completeGoogleCloudSetup(code: string, payload: GoogleInboxSetupStatePayload) {
   const {accessToken} = await exchangeOauthCodeForAccessToken(code);
   const receiverUrl = await pushReceiverUrl();
   if (!receiverUrl) {
     throw new Error("Cannot derive the NGX push receiver URL — ensure the Google Inbox OAuth redirect URI is configured");
   }
+  const {runGoogleCloudProvisioning} = await import("./inbox-google-setup");
   const result = await runGoogleCloudProvisioning(accessToken, {
     projectId: payload.projectId,
     topicName: payload.topicName,
