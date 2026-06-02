@@ -48,7 +48,7 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
             per deployment</strong> and provides the OAuth doorway used by all Gmail accounts; <strong>Step 2 is repeated
             for each Gmail account</strong> you want to read mail from; <strong>Step 3</strong> shows which committee
             roles route to which Gmail (configured in Committee Settings). Full setup steps are in
-            <a href="/how-to/technical-articles/2026-05-29-gmail-inbox-setup">Setting up a Gmail inbox for committee replies</a>.
+            <a href="https://www.ngx-ramblers.org.uk/how-to/technical-articles/2026-05-29-gmail-inbox-setup">Setting up a Gmail inbox for committee replies</a>.
           </p>
           <p-stepper [(value)]="stepperActiveIndex" [linear]="false">
             @for (step of steps; let idx = $index; track step.key) {

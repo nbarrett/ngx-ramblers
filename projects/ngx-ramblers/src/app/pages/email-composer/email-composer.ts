@@ -768,7 +768,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                         <span class="email-composer-list-count"
                               [tooltip]="listMembersTooltip(list)"
                               containerClass="email-composer-list-tooltip"
-                              placement="right">{{ stringUtils.pluraliseWithCount(subscribedMemberCount(list), "member") }}</span>
+                              placement="right">{{ listSubscriberCount(list) }}</span>
                       </label>
                     </div>
                   }
@@ -845,7 +845,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                       <span class="email-composer-list-count"
                             [tooltip]="listMembersTooltip(list)"
                             containerClass="email-composer-list-tooltip"
-                            placement="right">{{ stringUtils.pluraliseWithCount(subscribedMemberCount(list), "member") }}</span>
+                            placement="right">{{ listSubscriberCount(list) }}</span>
                     </label>
                   </div>
                 }
@@ -873,7 +873,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                       <span class="email-composer-list-count"
                             [tooltip]="listMembersTooltip(list)"
                             containerClass="email-composer-list-tooltip"
-                            placement="right">{{ stringUtils.pluraliseWithCount(subscribedMemberCount(list), "member") }}</span>
+                            placement="right">{{ listSubscriberCount(list) }}</span>
                     </label>
                   </div>
                 }
@@ -2510,9 +2510,20 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected savedAddressesExpanded: boolean = false;
   protected addExternalExpanded: boolean = true;
 
+  private listNameImpliesMembers(list: ListInfo): boolean {
+    return /members?$/i.test(list.name.trim());
+  }
+
+  protected listSubscriberCount(list: ListInfo): string {
+    const subscribers = this.subscribedMemberCount(list);
+    return this.listNameImpliesMembers(list) ? `${subscribers}` : this.stringUtils.pluraliseWithCount(subscribers, "member");
+  }
+
   protected listNameAndCount(list: ListInfo): string {
     const subscribers = this.subscribedMemberCount(list);
-    return `${list.name} (${this.stringUtils.pluraliseWithCount(subscribers, "member")})`;
+    return this.listNameImpliesMembers(list)
+      ? `${list.name} - ${subscribers}`
+      : this.stringUtils.pluraliseWithCount(subscribers, `${list.name} member`);
   }
 
   protected subscribedMemberCount(list: ListInfo): number {
@@ -3777,11 +3788,11 @@ export class EmailComposer implements OnInit, OnDestroy {
     return this.mailMessagingConfig?.mailConfig?.respectEmailBlocks === true;
   }
 
-  recipientCountSummary(): string {
+  recipientCountSummary(includeChannel = true): string {
     if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
       const list = this.availableLists().find(item => item.id === this.state.selectedListId);
       if (!list) return "no list chosen";
-      return `${this.listNameAndCount(list)} (campaign)`;
+      return includeChannel ? `${this.listNameAndCount(list)} (campaign)` : this.listNameAndCount(list);
     }
     const memberCount = this.state.selectedMemberIds.length;
     const toCount = this.state.externalRecipients?.length ?? 0;
@@ -4899,7 +4910,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.notify.hide();
     this.notify.success({
       title: "Campaign submitted",
-      message: overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `Campaign sent to ${this.recipientCountSummary()}`
+      message: overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `Campaign sent to ${this.recipientCountSummary(false)}`
     });
   }
 

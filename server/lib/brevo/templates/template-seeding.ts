@@ -2,6 +2,7 @@ import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { createOrUpdateTemplate, findTemplateByName } from "./template-management";
 import { localTemplateNames, readLocalTemplate } from "./local-template-reader";
+import { logBrevoError } from "../common/error-log";
 
 const debugLog = debug(envConfig.logNamespace("brevo:template-seeding"));
 const TEMPLATE_SUBJECT = "{{params.messageMergeFields.subject}}";
@@ -46,6 +47,7 @@ export async function seedBrevoTemplatesFromLocal(): Promise<SeedBrevoTemplatesR
       });
       templateIdMap[templateName] = templateId;
     } catch (error) {
+      logBrevoError("brevo:template-seeding", error, {templateName});
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed processing template "${templateName}": ${message}`);
     }

@@ -1,4 +1,5 @@
 import { parseShapefileZipSync } from "../map-routes/shapefile-parser";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import debug from "debug";
 import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
@@ -29,8 +30,7 @@ interface AreaMappings {
 
 const debugLog = debug(envConfig.logNamespace("areas"));
 debugLog.enabled = true;
-const errorDebugLog = debug("❌ERROR:" + envConfig.logNamespace("areas"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("areas");
 
 const s3Cache: { client?: S3 } = {};
 

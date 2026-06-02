@@ -1,4 +1,5 @@
 import debug from "debug";
+import { createErrorDebugLog } from "../../shared/error-debug-log";
 import express, { Request, Response } from "express";
 import * as jwt from "jsonwebtoken";
 import { envConfig } from "../../env-config/env-config";
@@ -53,8 +54,7 @@ import { cloneDatabase, databaseHasCollections } from "../../contributor-environ
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:routes"));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("environment-setup:routes"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("environment-setup:routes");
 
 const router = express.Router();
 

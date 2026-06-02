@@ -6,8 +6,6 @@ import { cloudflareApi } from "./cloudflare.model";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:destination-addresses"));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("cloudflare:destination-addresses"));
-errorDebugLog.enabled = true;
 
 interface CloudflarePaginatedResponse<T> {
   success: boolean;

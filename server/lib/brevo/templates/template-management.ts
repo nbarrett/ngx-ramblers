@@ -4,6 +4,7 @@ import debug from "debug";
 import * as http from "http";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { logBrevoError } from "../common/error-log";
 import { systemConfig } from "../../config/system-config";
 import { apexHost } from "../../../../projects/ngx-ramblers/src/app/functions/hosts";
 import {
@@ -44,6 +45,7 @@ async function preferredSenderDomain(): Promise<string | null> {
     }
     return apexHost(new URL(href).hostname);
   } catch (error) {
+    logBrevoError(messageType, error);
     debugLog("preferredSenderDomain: unable to derive domain", error);
     return null;
   }
@@ -127,6 +129,7 @@ export async function getDefaultSender(): Promise<Sender | null> {
     debugLog("getDefaultSender: no active senders found");
     return null;
   } catch (error) {
+    logBrevoError(messageType, error);
     debugLog("getDefaultSender: error fetching senders:", error);
     return null;
   }
@@ -167,6 +170,7 @@ export async function findTemplateByName(templateName: string): Promise<MailTemp
     debugLog("findTemplateByName: found template", template.id);
     return template;
   } catch (error) {
+    logBrevoError(messageType, error, {templateName});
     debugLog("findTemplateByName: API error:", error);
     if (isObject(error) && "body" in error) {
       debugLog("findTemplateByName: API error body:", JSON.stringify((error as any).body, null, 2));
@@ -193,6 +197,7 @@ export async function createTemplate(request: CreateTemplateRequest): Promise<Cr
     debugLog("createTemplate: created with id", response.body.id);
     return { id: response.body.id };
   } catch (error) {
+    logBrevoError(messageType, error, {templateName: request.templateName});
     const apiError = error as any;
     const apiErrorMessage = apiError?.body?.message || apiError?.response?.body?.message;
     const apiErrorCode = apiError?.body?.code || apiError?.response?.body?.code;
@@ -218,6 +223,7 @@ export async function archiveTemplate(template: MailTemplate): Promise<void> {
       isActive: false
     });
   } catch (error) {
+    logBrevoError(messageType, error, {templateId: template.id});
     if (!invalidSenderDetailsError(error)) {
       throw error;
     }
@@ -253,6 +259,7 @@ export async function updateTemplate(request: UpdateTemplateRequest): Promise<vo
     await api.updateSmtpTemplate(request.templateId, updateSmtpTemplate);
     debugLog("updateTemplate: updated successfully");
   } catch (error) {
+    logBrevoError(messageType, error, {templateId: request.templateId});
     const apiError = error as any;
     const apiErrorMessage = apiError?.body?.message || apiError?.response?.body?.message;
     const apiErrorCode = apiError?.body?.code || apiError?.response?.body?.code;
@@ -287,6 +294,7 @@ export async function createOrUpdateTemplate(request: CreateTemplateRequest): Pr
       });
       return existing.id;
     } catch (error) {
+      logBrevoError(messageType, error, {templateId: existing.id, templateName: request.templateName});
       if (!invalidSenderDetailsError(error)) {
         throw error;
       }

@@ -1,4 +1,5 @@
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import { envConfig } from "../env-config/env-config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
@@ -28,8 +29,7 @@ import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions
 
 const debugLog = debug(envConfig.logNamespace("inbox-poller"));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("inbox-poller"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("inbox-poller");
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let pollInProgress = false;

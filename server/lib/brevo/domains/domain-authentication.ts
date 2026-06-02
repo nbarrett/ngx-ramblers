@@ -10,6 +10,7 @@ import {
   findDomainByName,
   registerDomain
 } from "./domain-management";
+import { logBrevoError } from "../common/error-log";
 import {
   BrevoDnsRecord,
   BrevoDomainConfiguration,
@@ -45,6 +46,7 @@ async function ensureDkimAvailable(domainName: string): Promise<BrevoDomainConfi
   try {
     await deleteDomain(domainName);
   } catch (error) {
+    logBrevoError("brevo:domain-authentication", error, {domainName});
     debugLog("Delete during DKIM recovery failed (continuing):", error.message);
   }
   const fresh = await registerDomain(domainName);
@@ -81,6 +83,7 @@ async function configureDnsRecords(cfDnsConfig: CloudflareDnsConfig, config: Bre
     }
     return { type: "ok", dnsRecordsConfigured };
   } catch (error) {
+    logBrevoError("brevo:domain-authentication", error);
     debugLog("Cloudflare DNS configuration failed:", error.message);
     return { type: "failed", errorMessage: error.message };
   }
@@ -92,6 +95,7 @@ async function requestAuthentication(domainName: string): Promise<{ authenticati
     debugLog("Authentication requested:", authResult.message);
     return { authenticationRequested: true, authError: null };
   } catch (error) {
+    logBrevoError("brevo:domain-authentication", error, {domainName});
     const authError = error.message || "Unknown error";
     debugLog("Authentication request failed:", authError);
     return { authenticationRequested: false, authError };
@@ -177,6 +181,7 @@ async function cleanupIncorrectParentDomain(domainName: string): Promise<void> {
     debugLog("Removing previously registered parent domain:", parentDomain);
     await deleteDomain(parentDomain);
   } catch (error) {
+    logBrevoError("brevo:domain-authentication", error, {domainName});
     debugLog("Parent domain cleanup skipped:", error.message);
   }
 }

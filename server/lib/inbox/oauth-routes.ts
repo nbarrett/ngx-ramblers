@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import mongoose from "mongoose";
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import crypto from "node:crypto";
 import * as authConfig from "../auth/auth-config";
 import { envConfig } from "../env-config/env-config";
@@ -22,8 +23,7 @@ import { requireInboxConfigurationAdministrator } from "./inbox-access";
 const messageType = "inbox:oauth";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace(messageType));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog(messageType);
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 const STATE_KIND_MAILBOX = "m";

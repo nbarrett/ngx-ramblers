@@ -1,4 +1,5 @@
 import debug from "debug";
+import { createErrorDebugLog } from "../shared/error-debug-log";
 import webpush from "web-push";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { InboxPushConfig, SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -12,8 +13,7 @@ import { defaultTenantSlug } from "./inbox-aliases";
 
 const debugLog = debug(envConfig.logNamespace("inbox-web-push"));
 debugLog.enabled = true;
-const errorDebugLog = debug("ERROR:" + envConfig.logNamespace("inbox-web-push"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("inbox-web-push");
 
 const DEFAULT_VAPID_SUBJECT = "mailto:noreply@ngx-ramblers.org.uk";
 

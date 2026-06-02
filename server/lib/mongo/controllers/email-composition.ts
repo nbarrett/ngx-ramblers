@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import debug from "debug";
+import { createErrorDebugLog } from "../../shared/error-debug-log";
 import { envConfig } from "../../env-config/env-config";
 import { emailComposition } from "../models/email-composition";
 import { EmailCompositionDocument, EmailCompositionStatus } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
@@ -8,8 +9,7 @@ import * as transforms from "./transforms";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("database:email-composition"));
 debugLog.enabled = false;
-const errorDebugLog: debug.Debugger = debug("ERROR:" + envConfig.logNamespace("database:email-composition"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("database:email-composition");
 
 interface AuthenticatedRequest extends Request {
   user?: { memberId?: string; userName?: string };

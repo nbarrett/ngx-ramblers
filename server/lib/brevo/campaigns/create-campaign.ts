@@ -1,8 +1,9 @@
-import { NextFunction, Request, Response } from "express";
+import { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
 import { configuredBrevo } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
+import { logBrevoError } from "../common/error-log";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { CreateEmailCampaign } from "@getbrevo/brevo";
 import {
@@ -20,6 +21,7 @@ import { dateTimeNow } from "../../shared/dates";
 import { ngxBrevoCampaign } from "../../mongo/models/ngx-brevo-campaign";
 import { systemConfig } from "../../config/system-config";
 import { contactUsParentSegment } from "../contacts/unsubscribe-token";
+import { fetchBrevoAccount } from "../account/account";
 
 const messageType = "brevo:send-email-campaign";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -40,14 +42,30 @@ async function injectCampaignUnsubscribeUrl(createCampaignRequest: CreateCampaig
   memberMergeFields.UNSUBSCRIBE_URL = `${groupHref}/api/mail/unsubscribe/from-list?email={{ contact.EMAIL }}&listId=${listId}&redirect=${encodeURIComponent(path)}`;
 }
 
-async function createEmailCampaignWithTagFallback(apiInstance: SibApiV3Sdk.EmailCampaignsApi, createEmailCampaign: CreateEmailCampaign, debugLog: any) {
+const campaignTagSupportByApiKey = new Map<string, Promise<boolean>>();
+
+async function campaignTagsSupported(apiKey: string): Promise<boolean> {
+  const cached = campaignTagSupportByApiKey.get(apiKey);
+  if (cached) {
+    return cached;
+  }
+  const lookup = fetchBrevoAccount().then(account => !(account.plan ?? []).some(plan => plan.type === "free"));
+  campaignTagSupportByApiKey.set(apiKey, lookup);
+  lookup.catch(() => campaignTagSupportByApiKey.delete(apiKey));
+  return lookup;
+}
+
+const TAG_REJECTION_STATUS_CODES = [405, 500];
+
+async function createEmailCampaignWithTagFallback(apiInstance: SibApiV3Sdk.EmailCampaignsApi, createEmailCampaign: CreateEmailCampaign) {
   try {
     return await scheduleBrevo(() => apiInstance.createEmailCampaign(createEmailCampaign));
   } catch (error: any) {
-    if (error?.statusCode !== 405 || !createEmailCampaign.tag) {
+    const tagMayBeRejected = TAG_REJECTION_STATUS_CODES.includes(error?.statusCode);
+    if (!tagMayBeRejected || !createEmailCampaign.tag) {
       throw error;
     }
-    debugLog("Brevo rejected the campaign tag (405); this account's plan does not allow campaign tags. Retrying without the tag so the campaign can send. Campaigns sent without the tag are not tracked in the managed Campaign Queue.", error?.body);
+    logBrevoError(messageType, error, {note: `Brevo rejected campaign create with statusCode ${error?.statusCode} while a tag was present; this account's plan does not allow campaign tags. Retrying without the tag so the campaign can send. Campaigns sent without the tag are not tracked in the managed Campaign Queue.`, tag: createEmailCampaign.tag});
     createEmailCampaign.tag = undefined;
     return scheduleBrevo(() => apiInstance.createEmailCampaign(createEmailCampaign));
   }
@@ -67,7 +85,7 @@ async function recordNgxCampaign(campaignId: number | undefined, name: string, d
   }
 }
 
-export async function createCampaign(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function createCampaign(req: Request, res: Response): Promise<void> {
   try {
     const brevoConfig = await configuredBrevo();
     const createCampaignRequest: CreateCampaignRequest = req.body;
@@ -94,11 +112,15 @@ export async function createCampaign(req: Request, res: Response, next: NextFunc
     createEmailCampaign.replyTo = createCampaignRequest.replyTo;
     createEmailCampaign.sender = createCampaignRequest.sender;
     createEmailCampaign.subject = createCampaignRequest.subject;
-    createEmailCampaign.tag = createCampaignRequest.tag;
+    const tagsSupported = await campaignTagsSupported(brevoConfig.apiKey).catch(() => true);
+    if (!tagsSupported && createCampaignRequest.tag) {
+      debugLog("Account plan does not support campaign tags; omitting tag", createCampaignRequest.tag, "so the campaign is not tracked in the managed Campaign Queue.");
+    }
+    createEmailCampaign.tag = tagsSupported ? createCampaignRequest.tag : undefined;
     createEmailCampaign.toField = "{{contact.FIRSTNAME}} {{contact.LASTNAME}}";
     await performTemplateSubstitution(createCampaignRequest, createEmailCampaign, debugLog, true);
     debugLog("Email campaign preparation 2/2 createEmailCampaign:", JSON.stringify(omit(createEmailCampaign, "htmlContent")));
-    const response = await createEmailCampaignWithTagFallback(apiInstance, createEmailCampaign, debugLog);
+    const response = await createEmailCampaignWithTagFallback(apiInstance, createEmailCampaign);
     const responseSingleInput: StatusMappedResponseSingleInput = mapStatusMappedResponseSingleInput(createEmailCampaign.subject, response, 201);
     debugLog("API called successfully. Returned data: " + JSON.stringify(response), "responseSingleInput:", responseSingleInput);
     await recordNgxCampaign(response.body?.id, createEmailCampaign.name ?? "", debugLog);

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import debug from "debug";
+import { createErrorDebugLog } from "../../shared/error-debug-log";
 import { isString } from "es-toolkit/compat";
 import { envConfig } from "../../env-config/env-config";
 import { memberEmailSend, MemberEmailSendDocument } from "../models/member-email-send";
@@ -8,8 +9,7 @@ import * as transforms from "./transforms";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("database:member-email-send"));
 debugLog.enabled = false;
-const errorDebugLog: debug.Debugger = debug("ERROR:" + envConfig.logNamespace("database:member-email-send"));
-errorDebugLog.enabled = true;
+const errorDebugLog = createErrorDebugLog("database:member-email-send");
 
 export async function list(req: Request, res: Response): Promise<void> {
   try {

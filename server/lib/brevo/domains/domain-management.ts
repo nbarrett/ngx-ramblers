@@ -3,6 +3,7 @@ import debug from "debug";
 import * as http from "http";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
+import { logBrevoError } from "../common/error-log";
 import {
   BrevoDnsRecord,
   BrevoDomainConfiguration,
@@ -92,6 +93,7 @@ export async function authenticateDomain(domainName: string): Promise<{ domainNa
       message: response.body.message || "Authentication requested"
     };
   } catch (error) {
+    logBrevoError(messageType, error, {domainName});
     const statusCode = error?.response?.statusCode || error?.status || "unknown";
     const responseBody = error?.response?.body || error?.body || null;
     debugLog("authenticateDomain error:", statusCode, JSON.stringify(responseBody), error.message);
