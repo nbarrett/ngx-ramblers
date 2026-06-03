@@ -25,6 +25,10 @@ function statusFromQuery(req: Request): EmailCompositionStatus | null {
   return null;
 }
 
+function summaryFromQuery(req: Request): boolean {
+  return (req.query?.summary ?? "").toString().toLowerCase() === "true";
+}
+
 export async function listForCurrentMember(req: AuthenticatedRequest, res: Response): Promise<void> {
   const memberId = memberIdFrom(req);
   if (!memberId) {
@@ -35,7 +39,10 @@ export async function listForCurrentMember(req: AuthenticatedRequest, res: Respo
     const filter: any = { $or: [{ ownerMemberId: memberId }, { shared: true }] };
     const status = statusFromQuery(req);
     if (status) filter.status = status;
-    const docs = await emailComposition.find(filter).sort({ updatedAt: -1 }).exec();
+    const query = summaryFromQuery(req)
+      ? emailComposition.find(filter).select("-state").sort({ updatedAt: -1 }).lean()
+      : emailComposition.find(filter).sort({ updatedAt: -1 });
+    const docs = await query.exec();
     res.status(200).json({
       action: ApiAction.QUERY,
       response: docs.map(d => transforms.toObjectWithId(d))

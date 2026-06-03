@@ -306,7 +306,7 @@ async function performInboxReplyWriteback(request: BatchTransactionalSendRequest
       to: recipient ? [{name: recipient.name ?? null, email: recipient.email}] : [],
       cc: (emailRequest.cc ?? []).map(address => ({name: address.name ?? null, email: address.email})),
       subject: emailRequest.subject,
-      bodyHtml: null,
+      bodyHtml: emailRequest.htmlContent ?? null,
       bodyText: null,
       receivedAt: null,
       sentAt,
