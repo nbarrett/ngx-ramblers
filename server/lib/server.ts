@@ -72,7 +72,6 @@ import { scheduleBookingReminders } from "./cron/booking-reminder-job";
 import { scheduleBrevoUnsubscribesSync } from "./cron/brevo-unsubscribes-sync-job";
 import { scheduleBrevoCampaignRelease } from "./cron/brevo-campaign-release-job";
 import { scheduleInboxTokenHealthCheck } from "./cron/inbox-token-health-check-job";
-import { scheduleInboxMessageDigest } from "./cron/inbox-message-digest-job";
 import { scheduleAllEnvironmentsBackup } from "./cron/all-environments-backup-job";
 import { scheduledTaskRoutes } from "./cron/scheduled-task-routes";
 import bodyParser from "body-parser";

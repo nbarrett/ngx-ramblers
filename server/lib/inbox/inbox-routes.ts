@@ -35,7 +35,7 @@ import {
   inboxGeneralRoleTypeFor
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { fetchFullMessage, markMessageRead, markMessagesRead, registerGmailWatch, stopGmailWatch } from "./gmail-inbox-reader";
+import { fetchFullMessage, findGmailMessageIdByRfcHeader, markMessageRead, markMessagesRead, registerGmailWatch, stopGmailWatch } from "./gmail-inbox-reader";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
@@ -107,22 +107,37 @@ async function connectionForMessage(message: InboxMessage, fallback: InboxMailbo
 }
 
 async function hydrateMessage(connection: InboxMailboxConnection, storedMessage: InboxMessage): Promise<InboxMessage> {
-  if (storedMessage.externalSource !== InboxReaderProvider.GMAIL_API || !storedMessage.externalId) {
+  if (storedMessage.externalSource !== InboxReaderProvider.GMAIL_API) {
     return storedMessage;
   }
   if (storedMessage.bodyHtml !== null || storedMessage.bodyText !== null) {
     return storedMessage;
   }
-  const fetchedMessage = await fetchFullMessage(connection, storedMessage.externalId);
+  let externalId = storedMessage.externalId;
+  if (!externalId) {
+    if (!storedMessage.messageId) return storedMessage;
+    try {
+      externalId = await findGmailMessageIdByRfcHeader(connection, storedMessage.messageId);
+    } catch (lookupError) {
+      debugLog(`hydrateMessage: rfc822msgid lookup failed for ${storedMessage.messageId}: ${(lookupError as Error).message}`);
+      return storedMessage;
+    }
+    if (!externalId) {
+      debugLog(`hydrateMessage: no Gmail message found for rfc822msgid=${storedMessage.messageId}`);
+      return storedMessage;
+    }
+  }
+  const fetchedMessage = await fetchFullMessage(connection, externalId);
   const hydratedMessage = {
     ...storedMessage,
+    externalId,
     bodyHtml: fetchedMessage.bodyHtml,
     bodyText: fetchedMessage.bodyText,
     attachments: fetchedMessage.attachments
   };
   await inboxMessageModel.updateOne(
     {threadId: storedMessage.threadId, messageId: storedMessage.messageId},
-    {$set: {bodyHtml: hydratedMessage.bodyHtml, bodyText: hydratedMessage.bodyText, attachments: hydratedMessage.attachments}}
+    {$set: {externalId, bodyHtml: hydratedMessage.bodyHtml, bodyText: hydratedMessage.bodyText, attachments: hydratedMessage.attachments}}
   );
   return hydratedMessage;
 }

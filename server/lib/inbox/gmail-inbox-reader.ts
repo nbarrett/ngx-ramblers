@@ -143,6 +143,18 @@ export async function listAllInboxMessageIds(connection: InboxMailboxConnection,
   return (response.messages ?? []).map(m => m.id ?? "").filter(id => id.length > 0);
 }
 
+export async function findGmailMessageIdByRfcHeader(connection: InboxMailboxConnection, rfcMessageId: string): Promise<string | null> {
+  const stripped = rfcMessageId.replace(/^<|>$/g, "");
+  if (!stripped) return null;
+  const response = await gmailRequest<GmailMessageListResponse>(connection, GmailEndpoint.MESSAGES, {
+    q: `rfc822msgid:${stripped}`,
+    maxResults: 1,
+    includeSpamTrash: true
+  });
+  const firstId = (response.messages ?? [])[0]?.id;
+  return firstId && firstId.length > 0 ? firstId : null;
+}
+
 export async function mailboxHistoryId(connection: InboxMailboxConnection): Promise<string | null> {
   const profile = await gmailRequest<GmailProfile>(connection, GmailEndpoint.PROFILE);
   return profile.historyId ?? null;

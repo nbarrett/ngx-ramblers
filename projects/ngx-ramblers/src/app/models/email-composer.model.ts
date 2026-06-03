@@ -535,7 +535,7 @@ export interface EmailCompositionDocument {
   sentRecipientCount?: number;
 }
 
-export interface EmailComposition {
+export interface EmailCompositionSummary {
   id: string;
   ownerMemberId: string;
   status: EmailCompositionStatus;
@@ -544,7 +544,47 @@ export interface EmailComposition {
   savedAt: number;
   sentAt?: number;
   sentRecipientCount?: number;
+}
+
+export interface EmailComposition extends EmailCompositionSummary {
   state: EmailComposerState;
+}
+
+export interface EmailCompositionDocumentDto {
+  id: string;
+  ownerMemberId: string;
+  status: EmailCompositionStatus;
+  shared: boolean;
+  title: string;
+  state: EmailComposerState;
+  createdAt: number;
+  updatedAt: number;
+  sentAt?: number;
+  sentRecipientCount?: number;
+}
+
+export interface EmailCompositionSummaryDto {
+  id: string;
+  ownerMemberId: string;
+  status: EmailCompositionStatus;
+  shared: boolean;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  sentAt?: number;
+  sentRecipientCount?: number;
+}
+
+export interface EmailCompositionListResponse extends ApiResponse {
+  response: EmailCompositionDocumentDto[];
+}
+
+export interface EmailCompositionSingleResponse extends ApiResponse {
+  response: EmailCompositionDocumentDto;
+}
+
+export interface EmailCompositionSummaryListResponse extends ApiResponse {
+  response: EmailCompositionSummaryDto[];
 }
 
 export enum DateInputMode {

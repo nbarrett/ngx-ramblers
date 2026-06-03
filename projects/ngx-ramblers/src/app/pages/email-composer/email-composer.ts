@@ -67,6 +67,8 @@ import {
   EmailComposerState,
   EmailComposerStepKey,
   EmailComposition,
+  EmailCompositionStatus,
+  EmailCompositionSummary,
   EventInclusionMode,
   EXPANDABLE_FRAGMENT_KINDS,
   findRecycledTrackingUrls,
@@ -1860,8 +1862,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected forcedMemberId: string | null = null;
   protected currentDraftId: string | null = null;
   protected currentComposition: EmailComposition | null = null;
-  protected drafts: EmailComposition[] = [];
-  protected sentEmails: EmailComposition[] = [];
+  protected drafts: EmailCompositionSummary[] = [];
+  protected sentEmails: EmailCompositionSummary[] = [];
   protected savedExternalRecipients: ExternalRecipient[] = [];
   protected loggedInMemberRecord: Member | null = null;
   protected newExternalEmail = "";
@@ -4258,9 +4260,9 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected async refreshDrafts(): Promise<void> {
     try {
-      const all = await this.compositionsService.list();
-      this.drafts = all.filter(c => c.status === "draft");
-      this.sentEmails = all.filter(c => c.status === "sent");
+      const all = await this.compositionsService.listSummaries();
+      this.drafts = all.filter(c => c.status === EmailCompositionStatus.Draft);
+      this.sentEmails = all.filter(c => c.status === EmailCompositionStatus.Sent);
     } catch (error) {
       this.logger.error("refreshDrafts failed:", error);
       this.drafts = [];
@@ -4284,14 +4286,14 @@ export class EmailComposer implements OnInit, OnDestroy {
     }
   }
 
-  protected sentDescription(composition: EmailComposition): string {
+  protected sentDescription(composition: EmailCompositionSummary): string {
     if (!composition.sentAt) return "";
     const ownerName = this.compositionOwnerName(composition);
     const when = this.dateUtils.displayDateAndTime(composition.sentAt);
     return ownerName ? `Sent by ${ownerName} on ${when}` : `Sent ${when}`;
   }
 
-  protected compositionOwnerName(composition: EmailComposition): string | null {
+  protected compositionOwnerName(composition: EmailCompositionSummary): string | null {
     const owner = this.members?.find(m => m.id === composition.ownerMemberId);
     if (!owner) return null;
     const name = `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim();
@@ -4515,7 +4517,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     return `${this.currentComposition.title} ${verb} on ${when}`;
   }
 
-  protected draftSavedDescription(draft: EmailComposition): string {
+  protected draftSavedDescription(draft: EmailCompositionSummary): string {
     const ownerName = this.compositionOwnerName(draft);
     const when = this.dateUtils.displayDateAndTime(draft.savedAt);
     const verb = draft.status === "sent" ? "Sent" : "Created";

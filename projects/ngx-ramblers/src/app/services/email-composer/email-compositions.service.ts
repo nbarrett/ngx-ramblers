@@ -1,31 +1,9 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EmailComposerState, EmailComposition, EmailCompositionStatus } from "../../models/email-composer.model";
-import { ApiResponse } from "../../models/api-response.model";
+import { EmailComposerState, EmailComposition, EmailCompositionDocumentDto, EmailCompositionListResponse, EmailCompositionSingleResponse, EmailCompositionStatus, EmailCompositionSummary, EmailCompositionSummaryDto, EmailCompositionSummaryListResponse } from "../../models/email-composer.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-
-interface CompositionDocument {
-  id: string;
-  ownerMemberId: string;
-  status: EmailCompositionStatus;
-  shared: boolean;
-  title: string;
-  state: EmailComposerState;
-  createdAt: number;
-  updatedAt: number;
-  sentAt?: number;
-  sentRecipientCount?: number;
-}
-
-interface CompositionListResponse extends ApiResponse {
-  response: CompositionDocument[];
-}
-
-interface CompositionSingleResponse extends ApiResponse {
-  response: CompositionDocument;
-}
 
 @Injectable({ providedIn: "root" })
 export class EmailCompositionsService {
@@ -36,14 +14,22 @@ export class EmailCompositionsService {
 
   async list(status?: EmailCompositionStatus): Promise<EmailComposition[]> {
     const url = status ? `${this.BASE_URL}?status=${status}` : this.BASE_URL;
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<CompositionListResponse>(url));
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<EmailCompositionListResponse>(url));
     const docs = apiResponse.response ?? [];
-    return docs.map((d: CompositionDocument) => this.toComposition(d));
+    return docs.map((d: EmailCompositionDocumentDto) => this.toComposition(d));
+  }
+
+  async listSummaries(status?: EmailCompositionStatus): Promise<EmailCompositionSummary[]> {
+    const separator = status ? "&" : "?";
+    const url = status ? `${this.BASE_URL}?status=${status}` : this.BASE_URL;
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<EmailCompositionSummaryListResponse>(`${url}${separator}summary=true`));
+    const docs = apiResponse.response ?? [];
+    return docs.map((d: EmailCompositionSummaryDto) => this.toCompositionSummary(d));
   }
 
   async load(id: string): Promise<EmailComposition | null> {
     try {
-      const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<CompositionSingleResponse>(`${this.BASE_URL}/${id}`));
+      const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<EmailCompositionSingleResponse>(`${this.BASE_URL}/${id}`));
       return apiResponse.response ? this.toComposition(apiResponse.response) : null;
     } catch (error) {
       this.logger.error("load composition failed:", error);
@@ -55,10 +41,10 @@ export class EmailCompositionsService {
     const body: any = { title: this.titleFor(state), state: this.serialiseStateForStorage(state) };
     if (shared !== undefined) body.shared = shared;
     if (existingId) {
-      const apiResponse = await this.http.put<CompositionSingleResponse>(`${this.BASE_URL}/${existingId}`, body).toPromise();
+      const apiResponse = await this.http.put<EmailCompositionSingleResponse>(`${this.BASE_URL}/${existingId}`, body).toPromise();
       return this.toComposition(apiResponse.response);
     }
-    const apiResponse = await this.http.post<CompositionSingleResponse>(this.BASE_URL, body).toPromise();
+    const apiResponse = await this.http.post<EmailCompositionSingleResponse>(this.BASE_URL, body).toPromise();
     return this.toComposition(apiResponse.response);
   }
 
@@ -141,7 +127,7 @@ export class EmailCompositionsService {
 
   async markSent(id: string, sentRecipientCount?: number): Promise<EmailComposition> {
     const body = { status: EmailCompositionStatus.Sent, sentRecipientCount };
-    const apiResponse = await this.http.put<CompositionSingleResponse>(`${this.BASE_URL}/${id}`, body).toPromise();
+    const apiResponse = await this.http.put<EmailCompositionSingleResponse>(`${this.BASE_URL}/${id}`, body).toPromise();
     return this.toComposition(apiResponse.response);
   }
 
@@ -149,7 +135,7 @@ export class EmailCompositionsService {
     await this.http.delete(`${this.BASE_URL}/${id}`).toPromise();
   }
 
-  private toComposition(doc: CompositionDocument): EmailComposition {
+  private toCompositionSummary(doc: EmailCompositionSummaryDto): EmailCompositionSummary {
     return {
       id: doc.id,
       ownerMemberId: doc.ownerMemberId,
@@ -158,7 +144,13 @@ export class EmailCompositionsService {
       title: doc.title,
       savedAt: doc.updatedAt,
       sentAt: doc.sentAt,
-      sentRecipientCount: doc.sentRecipientCount,
+      sentRecipientCount: doc.sentRecipientCount
+    };
+  }
+
+  private toComposition(doc: EmailCompositionDocumentDto): EmailComposition {
+    return {
+      ...this.toCompositionSummary(doc),
       state: doc.state
     };
   }
