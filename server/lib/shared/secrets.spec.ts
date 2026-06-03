@@ -22,6 +22,15 @@ describe("classifyMissingRequiredSecrets", () => {
     expect(result.unrecoverable).toEqual([]);
   });
 
+  it("classifies a missing NODE_ENV as auto-generatable from its static default", () => {
+    const secrets = allRequiredSecrets();
+    delete secrets.NODE_ENV;
+    const result = classifyMissingRequiredSecrets(secrets);
+    expect(result.missing).toEqual(["NODE_ENV"]);
+    expect(result.autoGeneratable).toEqual(["NODE_ENV"]);
+    expect(result.unrecoverable).toEqual([]);
+  });
+
   it("classifies a missing AWS credential as unrecoverable", () => {
     const secrets = allRequiredSecrets();
     delete secrets.AWS_BUCKET;
@@ -43,7 +52,7 @@ describe("classifyMissingRequiredSecrets", () => {
   it("treats an empty bundle as every required secret missing", () => {
     const result = classifyMissingRequiredSecrets({});
     expect(result.missing).toEqual(REQUIRED_SECRETS);
-    expect(result.autoGeneratable).toEqual(["AUTH_SECRET"]);
+    expect(result.autoGeneratable).toEqual(["AUTH_SECRET", "NODE_ENV"]);
   });
 
 });

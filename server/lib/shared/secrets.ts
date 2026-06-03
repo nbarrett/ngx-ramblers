@@ -195,7 +195,9 @@ export function updateSecretsFile(appName: string, newSecrets: Record<string, st
 
 export const REQUIRED_SECRETS = ["AUTH_SECRET", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "AWS_BUCKET", "MONGODB_URI", "NODE_ENV"];
 
-export const AUTO_GENERATED_REQUIRED_SECRETS = ["AUTH_SECRET"];
+export const STATIC_SECRET_DEFAULTS: Record<string, string> = { NODE_ENV: "production" };
+
+export const AUTO_GENERATED_REQUIRED_SECRETS = ["AUTH_SECRET", ...keys(STATIC_SECRET_DEFAULTS)];
 
 export interface MissingRequiredSecrets {
   missing: string[];

@@ -2,7 +2,7 @@ import { Command } from "commander";
 import debug from "debug";
 import { keys } from "es-toolkit/compat";
 import { EnvironmentSetupRequest } from "../../environment-setup/types";
-import { classifyMissingRequiredSecrets, loadSecretsForEnvironment, loadSecretsWithFallback, updateSecretsFile } from "../../shared/secrets";
+import { classifyMissingRequiredSecrets, loadSecretsForEnvironment, loadSecretsWithFallback, STATIC_SECRET_DEFAULTS, updateSecretsFile } from "../../shared/secrets";
 import { parseMongoUri } from "../../shared/mongodb-uri";
 import { findEnvironmentFromDatabase, listEnvironmentSummariesFromDatabase, persistEnvironmentSecret } from "../../environments/environments-config";
 import { generateAuthSecret } from "../../contributor-environment/contributor-bundle";
@@ -50,7 +50,7 @@ async function healMissingRequiredSecrets(
 
   const healed = { ...secrets };
   for (const key of autoGeneratable) {
-    const value = generateAuthSecret();
+    const value = STATIC_SECRET_DEFAULTS[key] ?? generateAuthSecret();
     await persistEnvironmentSecret(environmentName, key, value);
     healed[key] = value;
     const message = `Missing ${key} auto-generated and persisted to the ${environmentName} environment record`;
