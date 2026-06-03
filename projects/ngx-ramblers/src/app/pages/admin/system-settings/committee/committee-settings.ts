@@ -114,6 +114,9 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
           background-color: #F6821F
           border-color: #F6821F
           color: white
+      :host ::ng-deep .email-forward-tooltip .tooltip-inner
+        max-width: none
+        white-space: nowrap
     `],
     template: `
     <app-page autoTitle>
@@ -313,6 +316,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                   @switch (emailForwardStatus(role)) {
                                     @case (EmailForwardStatus.ACTIVE) {
                                       <span class="badge text-style-sunset"
+                                            containerClass="email-forward-tooltip"
                                             tooltip="{{ role.type }}@{{ baseDomain }} &rarr; {{ resolvedForwardEmailFor(role) }}">Active</span>
                                     }
                                     @case (EmailForwardStatus.OUTDATED) {
@@ -321,10 +325,12 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                     }
                                     @case (EmailForwardStatus.CATCH_ALL) {
                                       <span class="badge text-style-sunset"
+                                            containerClass="email-forward-tooltip"
                                             tooltip="Routed via catch-all &rarr; {{ catchAllDestination() }}">Catch-all</span>
                                     }
                                     @case (EmailForwardStatus.WORKER) {
                                       <span class="badge text-style-sunset"
+                                            containerClass="email-forward-tooltip"
                                             tooltip="{{ roleEmailFor(role) }} &rarr; {{ role.forwardEmailRecipients?.length || 0 }} recipients">Multiple</span>
                                     }
                                     @case (EmailForwardStatus.MISSING) {
