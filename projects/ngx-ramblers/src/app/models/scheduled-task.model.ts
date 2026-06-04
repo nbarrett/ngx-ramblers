@@ -25,12 +25,32 @@ export enum ScheduledTaskSubTab {
   INBOX_TOKEN_HEALTH_CHECK = "inbox-token-health-check",
   GMAIL = "gmail",
   BREVO = "brevo",
-  ALL_ENVIRONMENTS_BACKUP = "all-environments-backup",
+  BACKUPS = "backups",
   ALL = "all"
 }
 
-export const ALL_ENVIRONMENTS_BACKUP_TASK_ID = ScheduledTaskSubTab.ALL_ENVIRONMENTS_BACKUP;
-export const ALL_ENVIRONMENTS_BACKUP_TASK_NAME = "All-environments backup";
+export const BACKUPS_TASK_ID = ScheduledTaskSubTab.BACKUPS;
+export const BACKUPS_TASK_NAME = "All-environments backup";
+
+export interface BackupsTaskSettings {
+  mongoDumpConcurrency: number;
+  s3ObjectBackupConcurrency: number;
+  uploadMongoDumpToS3ByDefault: boolean;
+  includeS3ObjectsByDefault: boolean;
+  perEnvironmentTimeoutMinutes: number;
+  maxRetries: number;
+  retryDelaySeconds: number;
+}
+
+export const DEFAULT_BACKUPS_TASK_SETTINGS: BackupsTaskSettings = {
+  mongoDumpConcurrency: 1,
+  s3ObjectBackupConcurrency: 8,
+  uploadMongoDumpToS3ByDefault: true,
+  includeS3ObjectsByDefault: true,
+  perEnvironmentTimeoutMinutes: 45,
+  maxRetries: 1,
+  retryDelaySeconds: 60
+};
 
 export const SCHEDULED_TASK_SUB_TAB_GROUPS: Partial<Record<ScheduledTaskSubTab, ScheduledTaskSubTab[]>> = {
   [ScheduledTaskSubTab.GMAIL]: [
@@ -74,9 +94,11 @@ export interface ScheduledTaskSummary {
   nextRunAt: string | null;
   lastRun: ScheduledTaskRun | null;
   history: ScheduledTaskRun[];
+  settings?: unknown;
 }
 
 export interface ScheduledTasksConfiguration {
   enabled: Record<string, boolean>;
   cronExpressions: Record<string, string>;
+  settings?: Record<string, unknown>;
 }

@@ -28,4 +28,8 @@ export class ScheduledTaskService {
   async setSchedule(id: string, cronExpression: string): Promise<ScheduledTaskSummary> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.put<ApiResponse>(`${this.baseUrl}/${id}/schedule`, {cronExpression}))).response;
   }
+
+  async setSettings(id: string, settings: unknown): Promise<ScheduledTaskSummary> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.put<ApiResponse>(`${this.baseUrl}/${id}/settings`, {settings}))).response;
+  }
 }

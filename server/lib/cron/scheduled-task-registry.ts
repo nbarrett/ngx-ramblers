@@ -80,10 +80,11 @@ async function configuredTaskSettings(): Promise<ScheduledTasksConfiguration> {
     const value = document?.value as ScheduledTasksConfiguration | null;
     return {
       enabled: value?.enabled ?? {},
-      cronExpressions: value?.cronExpressions ?? {}
+      cronExpressions: value?.cronExpressions ?? {},
+      settings: value?.settings ?? {}
     };
   } catch (error) {
-    return {enabled: {}, cronExpressions: {}};
+    return {enabled: {}, cronExpressions: {}, settings: {}};
   }
 }
 
@@ -99,6 +100,21 @@ async function configuredCronExpression(id: string, defaultCronExpression: strin
   return configuredValue && cron.validate(configuredValue) ? configuredValue : defaultCronExpression;
 }
 
+async function configuredSettings(id: string, defaultSettings: unknown): Promise<unknown> {
+  const settings = await configuredTaskSettings();
+  const configuredValue = settings.settings?.[id];
+  if (defaultSettings && configuredValue) {
+    return {
+      ...(defaultSettings as Record<string, unknown>),
+      ...(configuredValue as Record<string, unknown>)
+    };
+  } else if (configuredValue) {
+    return configuredValue;
+  } else {
+    return defaultSettings;
+  }
+}
+
 async function persistEnabledState(id: string, enabled: boolean): Promise<void> {
   const current = await configuredTaskSettings();
   await config.createOrUpdateKey(ConfigKey.SCHEDULED_TASKS, {
@@ -112,6 +128,22 @@ async function persistCronExpression(id: string, cronExpression: string): Promis
   await config.createOrUpdateKey(ConfigKey.SCHEDULED_TASKS, {
     ...current,
     cronExpressions: {...current.cronExpressions, [id]: cronExpression}
+  });
+}
+
+export async function scheduledTaskSettings<T>(id: string, defaultSettings: T): Promise<T> {
+  const settings = await configuredTaskSettings();
+  return {
+    ...defaultSettings,
+    ...(settings.settings?.[id] as Partial<T> || {})
+  };
+}
+
+async function persistTaskSettings(id: string, settings: unknown): Promise<void> {
+  const current = await configuredTaskSettings();
+  await config.createOrUpdateKey(ConfigKey.SCHEDULED_TASKS, {
+    ...current,
+    settings: {...(current.settings ?? {}), [id]: settings}
   });
 }
 
@@ -179,7 +211,8 @@ export async function registerScheduledTask(definition: ScheduledTaskDefinition)
   previous?.task.destroy();
   const enabled = await configuredEnabledState(definition.id, definition.enabled);
   const effectiveCronExpression = await configuredCronExpression(definition.id, definition.cronExpression);
-  const effectiveDefinition = {...definition, cronExpression: effectiveCronExpression};
+  const effectiveSettings = await configuredSettings(definition.id, definition.settings);
+  const effectiveDefinition = {...definition, cronExpression: effectiveCronExpression, settings: effectiveSettings};
   const task = cron.createTask(effectiveCronExpression, async () => {
     const current = taskRegistry.get(definition.id);
     if (current) {
@@ -201,6 +234,7 @@ export async function registerScheduledTask(definition: ScheduledTaskDefinition)
 
 function summary(registered: RegisteredScheduledTask): ScheduledTaskSummary {
   const nextRun = registered.enabled ? registered.task.getNextRun() : null;
+  const settings = registered.definition.settings;
   return {
     id: registered.definition.id,
     name: registered.definition.name,
@@ -211,7 +245,8 @@ function summary(registered: RegisteredScheduledTask): ScheduledTaskSummary {
     enabled: registered.enabled,
     nextRunAt: nextRun ? nextRun.toISOString() : null,
     lastRun: registered.history[0] ?? null,
-    history: registered.history
+    history: registered.history,
+    settings
   };
 }
 
@@ -256,6 +291,16 @@ export async function setScheduledTaskCronExpression(id: string, cronExpression:
     registered.task.start();
   }
   await persistCronExpression(id, expression);
+  return summary(registered);
+}
+
+export async function setScheduledTaskSettings(id: string, settings: unknown): Promise<ScheduledTaskSummary | null> {
+  const registered = taskRegistry.get(id);
+  if (!registered) {
+    return null;
+  }
+  registered.definition = {...registered.definition, settings};
+  await persistTaskSettings(id, settings);
   return summary(registered);
 }
 

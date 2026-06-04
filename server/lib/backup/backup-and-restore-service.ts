@@ -57,6 +57,7 @@ export interface BackupOptions {
   scaleDown?: boolean;
   upload?: boolean;
   includeS3?: boolean;
+  s3ObjectBackupConcurrency?: number;
   user?: string;
   triggeredBy?: BackupSessionTrigger;
 }
@@ -345,7 +346,7 @@ export class BackupAndRestoreService {
           await this.addLog(sessionId, `Starting S3 object backup for site ${options.environment} aligned with timestamp ${mongoTimestamp}`);
           try {
             const s3Results = await startS3Backup(
-              { site: options.environment, mongoTimestamp },
+              { site: options.environment, mongoTimestamp, concurrency: options.s3ObjectBackupConcurrency },
               (msg) => this.addLog(sessionId, msg)
             );
             await this.updateSession(sessionId, { s3Backups: s3Results });
@@ -587,6 +588,7 @@ export class BackupAndRestoreService {
     if (messages.length === 0) {
       return;
     }
+    messages.forEach(message => debugLog(message));
     await backupSession.updateOne(
       { _id: sessionId },
       { $push: { logs: { $each: messages } }, $currentDate: { updatedAt: true } }
@@ -798,6 +800,7 @@ export class BackupAndRestoreService {
   }
 
   private async addLog(sessionId: string, message: string): Promise<void> {
+    debugLog(message);
     await backupSession.updateOne(
       { _id: sessionId },
       { $push: { logs: message }, $currentDate: { updatedAt: true } }

@@ -6,7 +6,7 @@ import { faPencil, faPlay, faRefresh, faSpinner } from "@fortawesome/free-solid-
 import { TimePicker } from "../../../../date-and-time/time-picker";
 import { UIDateFormat } from "../../../../models/date-format.model";
 import {
-  ALL_ENVIRONMENTS_BACKUP_TASK_NAME,
+  BACKUPS_TASK_ID,
   BREVO_CAMPAIGN_RELEASE_TASK_ID,
   SCHEDULED_TASK_SUB_TAB_GROUPS,
   ScheduledTaskScheduleEdit,
@@ -19,6 +19,7 @@ import { DateUtilsService } from "../../../../services/date-utils.service";
 import { ScheduledTaskService } from "../../../../services/scheduled-task.service";
 import { SectionToggle, SectionToggleTab } from "../../../../shared/components/section-toggle";
 import { MailCampaignQueueComponent } from "../mail/mail-campaign-queue";
+import { BackupsTaskSettingsComponent } from "./backups-task-settings";
 
 @Component({
   selector: "app-scheduled-tasks",
@@ -208,7 +209,7 @@ export class ScheduledTasksComponent implements OnInit {
     {value: ScheduledTaskSubTab.WALKS_MANAGER_SYNC, label: "Walks Manager sync"},
     {value: ScheduledTaskSubTab.GMAIL, label: "Gmail"},
     {value: ScheduledTaskSubTab.BREVO, label: "Brevo"},
-    {value: ScheduledTaskSubTab.ALL_ENVIRONMENTS_BACKUP, label: ALL_ENVIRONMENTS_BACKUP_TASK_NAME},
+    {value: ScheduledTaskSubTab.BACKUPS, label: "Backups"},
     {value: ScheduledTaskSubTab.ALL, label: "All"}
   ];
   protected readonly scheduleFrequencyOptions = [
@@ -441,11 +442,23 @@ export class ScheduledTasksComponent implements OnInit {
   }
 
   protected taskChildComponent(task: ScheduledTaskSummary): Type<unknown> | null {
-    return task.id === BREVO_CAMPAIGN_RELEASE_TASK_ID ? MailCampaignQueueComponent : null;
+    if (task.id === BREVO_CAMPAIGN_RELEASE_TASK_ID) {
+      return MailCampaignQueueComponent;
+    } else if (task.id === BACKUPS_TASK_ID) {
+      return BackupsTaskSettingsComponent;
+    } else {
+      return null;
+    }
   }
 
   protected taskChildInputs(task: ScheduledTaskSummary): Record<string, unknown> {
-    return task.id === BREVO_CAMPAIGN_RELEASE_TASK_ID ? {embedded: true} : {};
+    if (task.id === BREVO_CAMPAIGN_RELEASE_TASK_ID) {
+      return {embedded: true};
+    } else if (task.id === BACKUPS_TASK_ID) {
+      return {taskValue: task};
+    } else {
+      return {};
+    }
   }
 
   private timeParts(value: string): string[] {
