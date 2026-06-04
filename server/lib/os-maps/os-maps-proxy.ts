@@ -6,6 +6,7 @@ import * as systemConfig from "../config/system-config";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("os-maps-proxy"));
 debugLog.enabled = false;
+const upstreamTimeoutMs = 10000;
 
 export async function tileProxy(req: Request, res: Response) {
   const {layer, z, x, y} = req.params;
@@ -42,6 +43,7 @@ export async function tileProxy(req: Request, res: Response) {
       path: tilePath
     };
 
+    let timedOut = false;
     const request = https.request(apiRequest, response => {
       debugLog("OS Maps API response:", {
         statusCode: response.statusCode,
@@ -59,10 +61,15 @@ export async function tileProxy(req: Request, res: Response) {
       response.pipe(res);
     });
 
+    request.setTimeout(upstreamTimeoutMs, () => {
+      timedOut = true;
+      request.destroy(new Error(`OS Maps tile request timed out after ${upstreamTimeoutMs}ms`));
+    });
+
     request.on("error", error => {
       debugLog("Tile proxy HTTPS request error:", error);
       if (!res.headersSent) {
-        res.status(500).json({error: "Failed to fetch map tile"});
+        res.status(timedOut ? 504 : 500).json({error: timedOut ? "OS Maps tile request timed out" : "Failed to fetch map tile"});
       }
     });
 

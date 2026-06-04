@@ -11,6 +11,8 @@ import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-
 import { DeleteDocumentsRequest } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { pluraliseWithCount } from "../../shared/string-utils";
 
+const UNPAGINATED_RESULT_CAP = 1000;
+
 mongoose.set("strictQuery", false);
 
 export function create<T>(model: Model<T>, debugEnabled = false) {
@@ -40,7 +42,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
 
   async function findOne(req: Request, res: Response, parameters: DataQueryOptions): Promise<void> {
     try {
-      const result = await model.findOne(parameters.criteria).select(parameters.select).exec();
+      const result = await model.findOne(parameters.criteria).select(parameters.select).lean().exec();
       debugLog(req.query, "findByConditions:parameters", parameters, result, "documents");
       res.status(200).json({
         action: ApiAction.QUERY,
@@ -57,7 +59,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
   }
 
   async function findOneDocument(parameters: DataQueryOptions): Promise<T | null> {
-    const response = await model.findOne(parameters.criteria).select(parameters.select).exec();
+    const response = await model.findOne(parameters.criteria).select(parameters.select).lean().exec();
     debugLog("findOneDocument:parameters:", parameters, "response:", response);
     return transforms.toObjectWithId(response) as T | null;
   }
@@ -253,7 +255,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
         if (usePagination) {
           const total = await model.countDocuments(parameters.criteria).exec();
           const skip = (page - 1) * limit;
-          const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort).skip(skip).limit(limit);
+          const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort).skip(skip).limit(limit).lean();
           const allowDisk = (query as any).allowDiskUse;
           if (isFunction(allowDisk)) {
             allowDisk.call(query, true);
@@ -273,16 +275,18 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
             }
           });
         } else {
-          const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort);
-          if (isNumber(parameters.limit)) {
-            query.limit(parameters.limit);
-          }
+          const explicitLimit = isNumber(parameters.limit) ? parameters.limit : null;
+          const effectiveLimit = explicitLimit ?? UNPAGINATED_RESULT_CAP;
+          const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort).limit(effectiveLimit).lean();
           const allowDisk = (query as any).allowDiskUse;
           if (isFunction(allowDisk)) {
             allowDisk.call(query, true);
           }
           const results = await query.exec();
-          debugLog(req.query, "find - criteria:found", results.length, "documents:", results);
+          if (explicitLimit === null && results.length === UNPAGINATED_RESULT_CAP) {
+            errorDebugLog("all:query for", model.modelName, "capped at", UNPAGINATED_RESULT_CAP, "documents - criteria:", JSON.stringify(parameters.criteria), "- caller should paginate or pass an explicit limit");
+          }
+          debugLog(req.query, "find - criteria:found", results.length, "documents");
           res.status(200).json({
             action: ApiAction.QUERY,
             response: results.map(result => transforms.toObjectWithId(result))
@@ -299,7 +303,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
     findById: async (req: Request, res: Response) => {
       debugLog("find - id:", req.params.id);
       try {
-        const result = await model.findById(req.params.id).exec();
+        const result = await model.findById(req.params.id).lean().exec();
         if (result) {
           debugLog(req.query, "find - id:", req.params.id, "- criteria:found", result);
           res.status(200).json({
