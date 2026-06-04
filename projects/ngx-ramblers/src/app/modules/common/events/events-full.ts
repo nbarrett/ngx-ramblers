@@ -44,7 +44,7 @@ import { InputSource } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { JsonPipe, NgTemplateOutlet } from "@angular/common";
 import { DataQueryOptions, FilterCriteria, SortOrder } from "../../../models/api-request.model";
-import { MAP_VIEW_SELECT } from "../../../models/map.model";
+import { MAP_VIEW_MAX_EVENTS, MAP_VIEW_SELECT } from "../../../models/map.model";
 import { buildAdvancedSearchCriteria } from "../../../functions/walks/advanced-search-criteria-builder";
 import { advancedCriteriaQueryParams, advancedSearchCriteriaFromParams, advancedSearchSummary, hasAdvancedCriteria, savedCriteriaToAdvancedCriteria } from "../../../functions/walks/advanced-search";
 import { AuthService } from "../../../auth/auth.service";
@@ -463,6 +463,7 @@ export class EventsFull implements OnInit, OnDestroy {
       const dataQueryOptions: DataQueryOptions = {criteria, sort};
       if (this.walkListView === WalkListView.MAP) {
         dataQueryOptions.select = MAP_VIEW_SELECT;
+        dataQueryOptions.limit = MAP_VIEW_MAX_EVENTS;
       } else {
         dataQueryOptions.page = this.pageNumber;
         dataQueryOptions.limit = this.pageSize;

@@ -142,6 +142,8 @@ export interface GeocodeResult {
   type?: string;
 }
 
+export const MAP_VIEW_MAX_EVENTS = 1000;
+
 export const MAP_VIEW_SELECT: Record<string, number> = {
     groupEvent: 1,
     fields: 1,
