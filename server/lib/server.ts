@@ -72,7 +72,7 @@ import { scheduleBookingReminders } from "./cron/booking-reminder-job";
 import { scheduleBrevoUnsubscribesSync } from "./cron/brevo-unsubscribes-sync-job";
 import { scheduleBrevoCampaignRelease } from "./cron/brevo-campaign-release-job";
 import { scheduleInboxTokenHealthCheck } from "./cron/inbox-token-health-check-job";
-import { scheduleAllEnvironmentsBackup } from "./cron/all-environments-backup-job";
+import { scheduleBackups } from "./cron/backups-job";
 import { scheduledTaskRoutes } from "./cron/scheduled-task-routes";
 import bodyParser from "body-parser";
 import compression from "compression";
@@ -315,7 +315,7 @@ async function startServer() {
         debugLog("❌ Failed to schedule inbox background work:", error);
       });
 
-      scheduleAllEnvironmentsBackup().catch(error => {
+      scheduleBackups().catch(error => {
         debugLog("❌ Failed to schedule all-environments backup:", error);
       });
     }).catch(error => {

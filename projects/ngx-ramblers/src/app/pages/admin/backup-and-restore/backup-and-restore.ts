@@ -3,7 +3,7 @@ import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
-import { interval, Subscription } from "rxjs";
+import { firstValueFrom, interval, Subscription } from "rxjs";
 import { switchMap } from "rxjs/operators";
 import { isNumber, isString, kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
@@ -192,8 +192,12 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       }
                     </div>
                     <button type="submit" class="btn btn-primary"
-                            [disabled]="selectedEnvironments.length === 0">
-                      Start Backup
+                            [disabled]="selectedEnvironments.length === 0 || backupBusy">
+                      @if (backupBusy) {
+                        <fa-icon [icon]="faSpinner" animation="spin"/> Starting backups
+                      } @else {
+                        Start Backup
+                      }
                     </button>
                   </form>
                 </div>
@@ -668,6 +672,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   expandedSessionIds: string[] = [];
   availableCollections: string[] = [];
   selectedCollections: string[] = [];
+  backupBusy = false;
   restoreAvailableCollections: string[] = [];
   selectedRestoreCollections: string[] = [];
   editableConfig: EnvironmentsConfig = {
@@ -1046,7 +1051,32 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     );
   }
 
-  startBackup() {
+  private backupRequestFor(env: EnvironmentInfo): BackupRequest {
+    const request: BackupRequest = {
+      environment: env.name,
+      scaleDown: this.backupRequest.scaleDown,
+      upload: this.backupRequest.upload
+    };
+    if (this.selectedCollections.length > 0) {
+      request.collections = this.selectedCollections;
+    }
+    return request;
+  }
+
+  private async startBackupForEnvironment(env: EnvironmentInfo): Promise<void> {
+    const session = await firstValueFrom(this.backupRestoreService.startBackup(this.backupRequestFor(env)));
+    this.notify.success({
+      title: "Backup Started",
+      message: `Backup for ${env.name} started: ${session.sessionId}`
+    });
+    this.loadSessions();
+
+    if (this.wsConnected && session._id) {
+      this.websocketService.sendMessage(EventType.BACKUP_RESTORE, { sessionId: session._id });
+    }
+  }
+
+  async startBackup(): Promise<void> {
     if (this.selectedEnvironments.length === 0) {
       this.notify.error({
         title: "Validation Error",
@@ -1064,40 +1094,26 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     }
 
     this.selectTab(BackupRestoreTab.HISTORY);
-
-    for (const env of this.selectedEnvironments) {
-      const request: BackupRequest = {
-        environment: env.name,
-        scaleDown: this.backupRequest.scaleDown,
-        upload: this.backupRequest.upload
-      };
-      if (this.selectedCollections.length > 0) {
-        request.collections = this.selectedCollections;
+    this.backupBusy = true;
+    const failures: string[] = [];
+    try {
+      for (const env of this.selectedEnvironments) {
+        try {
+          await this.startBackupForEnvironment(env);
+        } catch (err: any) {
+          const errorMessage = this.extractErrorMessage(err);
+          failures.push(`${env.name}: ${errorMessage}`);
+          this.logger.error("Backup error:", err);
+        }
       }
-
-      this.subscriptions.push(
-        this.backupRestoreService.startBackup(request).subscribe({
-          next: session => {
-            this.notify.success({
-              title: "Backup Started",
-              message: `Backup for ${env.name} started: ${session.sessionId}`
-            });
-            this.loadSessions();
-
-            if (this.wsConnected && session._id) {
-              this.websocketService.sendMessage(EventType.BACKUP_RESTORE, { sessionId: session._id });
-            }
-          },
-          error: err => {
-            const errorMessage = this.extractErrorMessage(err);
-            this.logger.error("Backup error for", env.name, ":", err);
-            this.notify.error({
-              title: `Error Starting Backup for ${env.name}`,
-              message: errorMessage
-            });
-          }
-        })
-      );
+      if (failures.length > 0) {
+        this.notify.error({
+          title: "Error Starting Backup",
+          message: failures.join("; ")
+        });
+      }
+    } finally {
+      this.backupBusy = false;
     }
   }
 

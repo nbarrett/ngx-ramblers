@@ -81,6 +81,7 @@ export interface BackupRequest {
   scaleDown?: boolean;
   upload?: boolean;
   includeS3?: boolean;
+  s3ObjectBackupConcurrency?: number;
 }
 
 export interface RestoreRequest {
@@ -157,6 +158,7 @@ export interface S3BackupRequest {
   all?: boolean;
   mongoTimestamp?: string;
   dryRun?: boolean;
+  concurrency?: number;
 }
 
 export interface S3RestoreRequest {

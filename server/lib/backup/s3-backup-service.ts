@@ -8,6 +8,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
+import { isNumber } from "es-toolkit/compat";
 import { RamblersWalksManagerDateFormat as DateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import {
   BackupConfig,
@@ -28,6 +29,8 @@ const debugLog = debug(envConfig.logNamespace("s3-backup-service"));
 debugLog.enabled = true;
 
 const PROGRESS_EVERY_MS = 3000;
+const DEFAULT_S3_BACKUP_CONCURRENCY = 1;
+const MAXIMUM_S3_BACKUP_CONCURRENCY = 20;
 
 function formatBytes(bytes: number): string {
   if (!bytes) return "0 B";
@@ -35,6 +38,11 @@ function formatBytes(bytes: number): string {
   const exp = Math.floor(Math.log(bytes) / Math.log(1024));
   const size = (bytes / Math.pow(1024, exp)).toFixed(1);
   return `${size} ${units[exp]}`;
+}
+
+function boundedConcurrency(value: unknown): number {
+  const candidate = isNumber(value) && Number.isFinite(value) ? Math.floor(value) : DEFAULT_S3_BACKUP_CONCURRENCY;
+  return Math.max(1, Math.min(MAXIMUM_S3_BACKUP_CONCURRENCY, candidate));
 }
 
 export type ProgressCallback = (message: string) => void | Promise<void>;
@@ -211,6 +219,7 @@ async function performIncrementalBackup(
   timestamp: string,
   mongoTimestamp?: string,
   dryRun?: boolean,
+  concurrency?: number,
   onProgress?: ProgressCallback
 ): Promise<S3BackupManifest> {
   const startMs = dateTimeNowAsValue();
@@ -251,31 +260,48 @@ async function performIncrementalBackup(
   debugLog(`[${config.site}] Previous manifest: ${previous ? `${previous.timestamp} with ${previousIndex.size} entries` : "none (first run, full backup)"}`);
 
   const manifestEntries: S3BackupManifestEntry[] = [];
-  let copiedCount = 0;
-  let skippedCount = 0;
-  let copiedBytes = 0;
-  let totalBytes = 0;
-  let lastProgressMs = dateTimeNowAsValue();
-  let processed = 0;
+  const state = {
+    nextIndex: 0,
+    copiedCount: 0,
+    skippedCount: 0,
+    copiedBytes: 0,
+    totalBytes: 0,
+    lastProgressMs: dateTimeNowAsValue(),
+    processed: 0,
+    firstError: null as Error | null
+  };
+  const effectiveConcurrency = boundedConcurrency(concurrency);
 
-  for (const obj of sourceObjects) {
-    processed++;
-    totalBytes += obj.size;
+  const emitProgress = async (): Promise<void> => {
+    if (onProgress) {
+      const nowMs = dateTimeNowAsValue();
+      const isLast = state.processed === sourceObjects.length;
+      if (isLast || nowMs - state.lastProgressMs >= PROGRESS_EVERY_MS) {
+        state.lastProgressMs = nowMs;
+        await onProgress(`S3 backup ${config.site}: ${state.processed}/${sourceObjects.length} processed (${state.copiedCount} copied, ${state.skippedCount} skipped, ${formatBytes(state.copiedBytes)} transferred)`);
+      }
+    }
+  };
+
+  const processObject = async (index: number): Promise<void> => {
+    const obj = sourceObjects[index];
+    state.totalBytes += obj.size;
+    const sequence = index + 1;
     const previousEntry = previousIndex.get(obj.key);
     const unchanged = previousEntry && previousEntry.eTag === obj.eTag;
 
     if (unchanged) {
-      manifestEntries.push({
+      manifestEntries[index] = {
         key: obj.key,
         eTag: obj.eTag,
         size: obj.size,
         lastModified: obj.lastModified,
         action: S3BackupAction.SKIPPED
-      });
-      skippedCount++;
-      debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] SKIPPED ${obj.key} (${formatBytes(obj.size)}, eTag ${obj.eTag})`);
+      };
+      state.skippedCount++;
+      debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] SKIPPED ${obj.key} (${formatBytes(obj.size)}, eTag ${obj.eTag})`);
     } else {
-      debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] COPY START ${obj.key} (${formatBytes(obj.size)}${previousEntry ? `, old eTag ${previousEntry.eTag} → new eTag ${obj.eTag}` : ", new"})`);
+      debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] COPY START ${obj.key} (${formatBytes(obj.size)}${previousEntry ? `, old eTag ${previousEntry.eTag} → new eTag ${obj.eTag}` : ", new"})`);
       let recordedETag = obj.eTag;
       if (!dryRun) {
         try {
@@ -288,39 +314,53 @@ async function performIncrementalBackup(
             destKey,
             obj.eTag,
             config.site,
-            `[${processed}/${sourceObjects.length}]`
+            `[${sequence}/${sourceObjects.length}]`
           );
           if (recordedETag !== obj.eTag) {
-            debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] COPY DONE  ${obj.key} -> ${config.backupBucket}/${destKey} (eTag updated ${obj.eTag} -> ${recordedETag})`);
+            debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] COPY DONE  ${obj.key} -> ${config.backupBucket}/${destKey} (eTag updated ${obj.eTag} -> ${recordedETag})`);
           } else {
-            debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] COPY DONE  ${obj.key} -> ${config.backupBucket}/${destKey}`);
+            debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] COPY DONE  ${obj.key} -> ${config.backupBucket}/${destKey}`);
           }
         } catch (error: any) {
-          debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] COPY FAIL  ${obj.key}: ${error?.name || ""} ${error?.message || error}`);
+          debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] COPY FAIL  ${obj.key}: ${error?.name || ""} ${error?.message || error}`);
           throw error;
         }
       } else {
-        debugLog(`[${config.site}] [${processed}/${sourceObjects.length}] COPY DRY-RUN ${obj.key}`);
+        debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] COPY DRY-RUN ${obj.key}`);
       }
-      manifestEntries.push({
+      manifestEntries[index] = {
         key: obj.key,
         eTag: recordedETag,
         size: obj.size,
         lastModified: obj.lastModified,
         action: S3BackupAction.COPIED
-      });
-      copiedCount++;
-      copiedBytes += obj.size;
+      };
+      state.copiedCount++;
+      state.copiedBytes += obj.size;
     }
 
-    if (onProgress) {
-      const nowMs = dateTimeNowAsValue();
-      const isLast = processed === sourceObjects.length;
-      if (isLast || nowMs - lastProgressMs >= PROGRESS_EVERY_MS) {
-        lastProgressMs = nowMs;
-        await onProgress(`S3 backup ${config.site}: ${processed}/${sourceObjects.length} processed (${copiedCount} copied, ${skippedCount} skipped, ${formatBytes(copiedBytes)} transferred)`);
-      }
+    state.processed++;
+    await emitProgress();
+  };
+
+  const worker = async (): Promise<void> => {
+    const index = state.nextIndex++;
+    if (state.firstError || index >= sourceObjects.length) {
+      return;
     }
+    try {
+      await processObject(index);
+    } catch (error: any) {
+      state.firstError = error;
+      return;
+    }
+    return worker();
+  };
+
+  const workerCount = Math.min(effectiveConcurrency, sourceObjects.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  if (state.firstError) {
+    throw state.firstError;
   }
 
   const durationMs = dateTimeNowAsValue() - startMs;
@@ -334,22 +374,22 @@ async function performIncrementalBackup(
     mongoTimestamp: mongoTimestamp || undefined,
     entries: manifestEntries,
     totalObjects: sourceObjects.length,
-    copiedObjects: copiedCount,
-    skippedObjects: skippedCount,
-    totalSizeBytes: totalBytes,
-    copiedSizeBytes: copiedBytes,
+    copiedObjects: state.copiedCount,
+    skippedObjects: state.skippedCount,
+    totalSizeBytes: state.totalBytes,
+    copiedSizeBytes: state.copiedBytes,
     durationMs,
     status: BackupSessionStatus.COMPLETED
   };
 
   if (dryRun) {
-    debugLog(`Dry run for ${config.site} at ${timestamp}: ${copiedCount} would be copied, ${skippedCount} skipped (manifest not persisted)`);
+    debugLog(`Dry run for ${config.site} at ${timestamp}: ${state.copiedCount} would be copied, ${state.skippedCount} skipped (manifest not persisted)`);
     return manifest as S3BackupManifest;
   }
 
   const saved = await s3BackupManifest.create(manifest);
   const savedObject = saved.toObject() as S3BackupManifest;
-  debugLog(`Saved manifest for ${config.site} at ${timestamp}: ${copiedCount} copied, ${skippedCount} skipped`);
+  debugLog(`Saved manifest for ${config.site} at ${timestamp}: ${state.copiedCount} copied, ${state.skippedCount} skipped`);
   backupEvents.emit("manifest-created", { manifest: {...savedObject, entries: []} });
   return savedObject;
 }
@@ -514,7 +554,7 @@ export async function startS3Backup(request: S3BackupRequest, onProgress?: Progr
         await onProgress(`S3 backup ${config.site}: bucket ${config.sourceBucket} is shared with ${config.sharedWith.join(", ")} — backing up once under primary site "${config.site}"`);
       }
       debugLog(`[${config.site}] Starting incremental backup; sharedWith=${(config.sharedWith || []).join(",") || "none"}`);
-      const manifest = await performIncrementalBackup(config, timestamp, request.mongoTimestamp, request.dryRun, onProgress);
+      const manifest = await performIncrementalBackup(config, timestamp, request.mongoTimestamp, request.dryRun, request.concurrency, onProgress);
       results.push({
         site: manifest.site,
         timestamp: manifest.timestamp,
