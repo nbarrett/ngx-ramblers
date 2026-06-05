@@ -8,6 +8,7 @@ export interface ScheduledTaskDefinition {
   cronExpression: string;
   enabled: boolean;
   settings?: unknown;
+  previousIds?: string[];
   run: () => Promise<void>;
 }
 

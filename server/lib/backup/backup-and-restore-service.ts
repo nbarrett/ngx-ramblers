@@ -44,6 +44,7 @@ import {
 } from "./backup-paths";
 import { availableSites, manifestByTimestamp, startS3Backup, startS3Restore } from "./s3-backup-service";
 import { backupEvents } from "./backup-events";
+import { withBackupSlot } from "./backup-concurrency";
 
 const debugLog = debug(envConfig.logNamespace("backup-and-restore-service"));
 debugLog.enabled = true;
@@ -185,7 +186,9 @@ export class BackupAndRestoreService {
       await this.notificationService.notifyBackupStarted(savedSession);
     }
 
-    this.executeBackup(savedSession._id!.toString(), config, options, backupName, envBackupConfig).catch(err => {
+    withBackupSlot(`backup ${options.environment}`, () =>
+      this.executeBackup(savedSession._id!.toString(), config, options, backupName, envBackupConfig)
+    ).catch(err => {
       this.updateSessionError(savedSession._id!.toString(), err.message);
     });
 

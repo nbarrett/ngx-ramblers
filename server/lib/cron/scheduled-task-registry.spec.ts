@@ -1,6 +1,17 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { cronScheduleDescription } from "./scheduled-task-registry";
+import * as cron from "node-cron";
+import { ScheduledTasksConfiguration } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
+import { carryForwardConfiguration, cronScheduleDescription } from "./scheduled-task-registry";
+
+function partInZone(date: Date, type: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(date).find(part => part.type === type)!.value;
+}
 
 describe("cronScheduleDescription", () => {
   it("describes each registered task schedule", () => {
@@ -18,5 +29,52 @@ describe("cronScheduleDescription", () => {
 
   it("identifies custom cron schedules that do not map to common display patterns", () => {
     expect(cronScheduleDescription("0 9 * 1 1")).toEqual("Custom cron schedule (0 9 * 1 1)");
+  });
+});
+
+describe("scheduled task timezone", () => {
+  it("resolves '0 3 * * *' to the next 03:00 in Europe/London regardless of the host timezone", () => {
+    const task = cron.createTask("0 3 * * *", async () => {}, {timezone: "Europe/London"});
+    task.start();
+    const next = task.getNextRun();
+    task.destroy();
+    expect(next).toBeTruthy();
+    expect(partInZone(next!, "hour")).toEqual("03");
+    expect(partInZone(next!, "minute")).toEqual("00");
+  });
+});
+
+describe("carryForwardConfiguration", () => {
+  it("carries a previously-enabled task forward so a renamed id stays enabled", () => {
+    const current: ScheduledTasksConfiguration = {
+      enabled: {"all-environments-backup": true},
+      cronExpressions: {"all-environments-backup": "0 3 * * *"},
+      settings: {"all-environments-backup": {mongoDumpConcurrency: 2}}
+    };
+    const {sourceId, migrated} = carryForwardConfiguration(current, "backups", ["all-environments-backup"]);
+    expect(sourceId).toEqual("all-environments-backup");
+    expect(migrated.enabled["backups"]).toEqual(true);
+    expect(migrated.cronExpressions["backups"]).toEqual("0 3 * * *");
+    expect(migrated.settings!["backups"]).toEqual({mongoDumpConcurrency: 2});
+    expect(migrated.enabled["all-environments-backup"]).toEqual(true);
+  });
+
+  it("does not overwrite configuration already saved under the current id", () => {
+    const current: ScheduledTasksConfiguration = {
+      enabled: {"backups": false, "all-environments-backup": true},
+      cronExpressions: {},
+      settings: {}
+    };
+    const {sourceId, migrated} = carryForwardConfiguration(current, "backups", ["all-environments-backup"]);
+    expect(sourceId).toBeNull();
+    expect(migrated).toBe(current);
+    expect(migrated.enabled["backups"]).toEqual(false);
+  });
+
+  it("makes no change when no legacy id has saved configuration", () => {
+    const current: ScheduledTasksConfiguration = {enabled: {}, cronExpressions: {}, settings: {}};
+    const {sourceId, migrated} = carryForwardConfiguration(current, "backups", ["all-environments-backup"]);
+    expect(sourceId).toBeNull();
+    expect(migrated).toBe(current);
   });
 });

@@ -19,6 +19,7 @@ const debugLog = debug(envConfig.logNamespace("cron:scheduled-tasks"));
 debugLog.enabled = true;
 
 const taskRegistry = new Map<string, RegisteredScheduledTask>();
+const scheduleTimezone = "Europe/London";
 const maximumHistoryEntries = 20;
 const dayNames: Record<string, string> = {
   "0": "Sunday",
@@ -115,6 +116,63 @@ async function configuredSettings(id: string, defaultSettings: unknown): Promise
   }
 }
 
+export function carryForwardConfiguration(current: ScheduledTasksConfiguration, id: string, previousIds: string[]): {
+  sourceId: string | null;
+  migrated: ScheduledTasksConfiguration;
+} {
+  const settings = current.settings ?? {};
+  const hasCurrentConfig = id in current.enabled || id in current.cronExpressions || id in settings;
+  if (hasCurrentConfig || previousIds.length === 0) {
+    return {sourceId: null, migrated: current};
+  }
+  const sourceId = previousIds.find(previousId =>
+    previousId in current.enabled || previousId in current.cronExpressions || previousId in settings) ?? null;
+  if (!sourceId) {
+    return {sourceId: null, migrated: current};
+  }
+  const migrated: ScheduledTasksConfiguration = {
+    enabled: {...current.enabled},
+    cronExpressions: {...current.cronExpressions},
+    settings: {...settings}
+  };
+  if (sourceId in current.enabled) {
+    migrated.enabled[id] = current.enabled[sourceId];
+  }
+  if (sourceId in current.cronExpressions) {
+    migrated.cronExpressions[id] = current.cronExpressions[sourceId];
+  }
+  if (sourceId in settings) {
+    migrated.settings![id] = settings[sourceId];
+  }
+  return {sourceId, migrated};
+}
+
+async function migrateRunHistory(fromTaskId: string, toTaskId: string): Promise<void> {
+  try {
+    const result = await scheduledTaskRun.updateMany({taskId: fromTaskId}, {$set: {taskId: toTaskId}});
+    if (result.modifiedCount > 0) {
+      debugLog(`Migrated ${result.modifiedCount} run history record(s) from "${fromTaskId}" to "${toTaskId}"`);
+    }
+  } catch (error) {
+    debugLog(`Failed to migrate run history from "${fromTaskId}" to "${toTaskId}":`, error);
+  }
+}
+
+async function migratePreviousTaskIds(definition: ScheduledTaskDefinition): Promise<void> {
+  const previousIds = definition.previousIds ?? [];
+  if (previousIds.length === 0) {
+    return;
+  }
+  const current = await configuredTaskSettings();
+  const {sourceId, migrated} = carryForwardConfiguration(current, definition.id, previousIds);
+  if (!sourceId) {
+    return;
+  }
+  await config.createOrUpdateKey(ConfigKey.SCHEDULED_TASKS, migrated);
+  await migrateRunHistory(sourceId, definition.id);
+  debugLog(`WARNING: scheduled task "${definition.id}" had no saved configuration but legacy id "${sourceId}" did - treating as a task-id rename and carrying forward enabled=${migrated.enabled[definition.id]}, cron="${migrated.cronExpressions[definition.id]}" and run history.`);
+}
+
 async function persistEnabledState(id: string, enabled: boolean): Promise<void> {
   const current = await configuredTaskSettings();
   await config.createOrUpdateKey(ConfigKey.SCHEDULED_TASKS, {
@@ -209,6 +267,7 @@ async function executeTask(registered: RegisteredScheduledTask): Promise<Schedul
 export async function registerScheduledTask(definition: ScheduledTaskDefinition): Promise<void> {
   const previous = taskRegistry.get(definition.id);
   previous?.task.destroy();
+  await migratePreviousTaskIds(definition);
   const enabled = await configuredEnabledState(definition.id, definition.enabled);
   const effectiveCronExpression = await configuredCronExpression(definition.id, definition.cronExpression);
   const effectiveSettings = await configuredSettings(definition.id, definition.settings);
@@ -218,7 +277,7 @@ export async function registerScheduledTask(definition: ScheduledTaskDefinition)
     if (current) {
       await executeTask(current);
     }
-  });
+  }, {timezone: scheduleTimezone});
   const registered: RegisteredScheduledTask = {
     definition: effectiveDefinition,
     defaultCronExpression: definition.cronExpression,
@@ -286,7 +345,7 @@ export async function setScheduledTaskCronExpression(id: string, cronExpression:
     if (current) {
       await executeTask(current);
     }
-  });
+  }, {timezone: scheduleTimezone});
   if (registered.enabled) {
     registered.task.start();
   }
