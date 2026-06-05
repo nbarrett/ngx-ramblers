@@ -143,6 +143,7 @@ export async function scheduleBackups(): Promise<void> {
     description: "Backs up every configured environment's MongoDB database and S3 objects to the shared backup bucket. Only runs on platform-admin environments.",
     cronExpression,
     enabled: false,
+    previousIds: ["all-environments-backup"],
     settings: DEFAULT_BACKUPS_TASK_SETTINGS,
     run: async () => {
       if (!platformAdminEnabled()) {
