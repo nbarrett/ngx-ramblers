@@ -19,7 +19,8 @@ import {
   CommitteeMember,
   DEFAULT_COST_PER_MILE,
   ForwardEmailTarget,
-  Notification
+  Notification,
+  RoleType
 } from "../../../../models/committee.model";
 import {
   CatchAllAction,
@@ -67,27 +68,17 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
         max-height: calc(100vh - 520px)
         overflow-y: auto
         overflow-x: hidden
-        border: 1px solid #dee2e6
-        border-radius: 4px
-      th.sortable
-        cursor: pointer
-        user-select: none
-      th.sortable:hover
-        background-color: rgba(0, 0, 0, 0.05)
+        border: 1px solid rgba(155, 200, 171, 0.4)
+        border-radius: 8px
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08)
       th .sort-icon
         margin-left: 0.25rem
         opacity: 0.5
       th.sorted .sort-icon
         opacity: 1
       thead.sticky-top
-        background-color: #f8f9fa
-        border-top: 2px solid #dee2e6
-        border-bottom: 2px solid #dee2e6
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1)
-      thead th
-        font-weight: 600
-        padding-top: 0.75rem
-        padding-bottom: 0.75rem
+        background-color: white
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08)
       tr.row-selected
         background-color: rgba(155, 200, 171, 0.15) !important
         border-left: 3px solid var(--ramblers-colour-mintcake, rgb(155, 200, 171))
@@ -254,7 +245,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                   }
                   @if (!editingRoleDraft) {
                     <div class="table-responsive table-container">
-                      <table class="table table-striped table-hover">
+                      <table class="ngx-data-table">
                         <thead class="sticky-top">
                           <tr>
                             <th class="sortable" [class.sorted]="sortField === 'fullName'"
@@ -341,12 +332,14 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                 </td>
                               }
                               <td>
-                                <div class="btn-group btn-group-sm">
-                                  <button class="btn btn-outline-ramblers" (click)="confirmDeleteRole(role); $event.stopPropagation()"
-                                          [disabled]="!!editingRoleDraft || !!pendingDeleteRole" tooltip="Delete role">
-                                    <fa-icon [icon]="faTrash"></fa-icon>
-                                  </button>
-                                </div>
+                                @if (!isSystemRole(role)) {
+                                  <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-ramblers" (click)="confirmDeleteRole(role); $event.stopPropagation()"
+                                            [disabled]="!!editingRoleDraft || !!pendingDeleteRole" tooltip="Delete role">
+                                      <fa-icon [icon]="faTrash"></fa-icon>
+                                    </button>
+                                  </div>
+                                }
                               </td>
                             </tr>
                             @if (pendingDeleteRole === role) {
@@ -372,7 +365,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                       </table>
                     </div>
                     @if (cloudflareEmailRoutingService.emailForwardingAvailable() && baseDomain) {
-                      <div class="card mb-3 mt-3">
+                      <div class="card ngx-data-card mb-3 mt-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
                           <div>
                             <strong>Catch-all rule for *&commat;{{ baseDomain }}</strong>
@@ -1239,7 +1232,14 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.updateQueryParams();
   }
 
+  isSystemRole(role: CommitteeMember): boolean {
+    return role?.roleType === RoleType.SYSTEM_ROLE;
+  }
+
   confirmDeleteRole(role: CommitteeMember) {
+    if (this.isSystemRole(role)) {
+      return;
+    }
     this.pendingDeleteRole = role;
   }
 
@@ -1248,7 +1248,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   executeDeleteRole() {
-    if (this.pendingDeleteRole) {
+    if (this.pendingDeleteRole && !this.isSystemRole(this.pendingDeleteRole)) {
       const role = this.pendingDeleteRole;
       this.pendingDeleteRole = null;
       this.committeeConfig.roles = this.committeeConfig.roles.filter(r => r !== role);

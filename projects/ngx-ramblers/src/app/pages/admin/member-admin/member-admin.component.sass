@@ -1,5 +1,7 @@
 @import "../../../assets/styles/colours"
 
+$rsm-header-gradient: linear-gradient(to bottom, mix($ramblers-colour-mintcake, white, 30%), mix($ramblers-colour-mintcake, white, 15%))
+
 .switch-heading
   display: flex
   justify-content: center
@@ -19,15 +21,22 @@
 
 .member-table-scroll
   position: relative
+  margin-top: 1rem
   max-height: 70vh
   overflow-y: auto
   overflow-x: auto
   -webkit-overflow-scrolling: touch
   --first-col-width: 110px
   --second-col-width: 160px
+  border: 1px solid rgba($ramblers-colour-mintcake, 0.4)
+  border-radius: 8px
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08)
+
+  thead th
+    border-bottom: 2px solid rgba($ramblers-colour-mintcake, 0.4)
 
   table
-    margin-bottom: 0
+    margin: 0
 
 @media (min-width: 576px)
   .member-table-scroll thead
@@ -35,14 +44,14 @@
     top: 0
     z-index: 20
     background-clip: padding-box
-    background-color: var(--rsm-table-header-bg)
+    background: $rsm-header-gradient
 
   .member-table-scroll thead th
     position: sticky
     top: 0
     z-index: 20
     box-shadow: 0 1px 0 rgba(0,0,0,0.05)
-    background-color: var(--rsm-table-header-bg)
+    background: $rsm-header-gradient
     color: var(--rsm-table-header-text)
 
   .member-table-scroll thead th:nth-child(1)
@@ -89,3 +98,19 @@
   .member-table-scroll
     max-height: none
     overflow: visible
+
+.rsm-btn-ghost,
+.rsm-btn-danger
+  background: $ramblers-colour-grey
+  border-color: $ramblers-colour-grey
+  color: $ramblers-colour-black
+
+.rsm-btn-ghost:hover
+  background: $ramblers-colour-sunrise
+  border-color: $ramblers-colour-sunrise
+  color: $ramblers-colour-black
+
+.rsm-btn-danger:hover
+  background: $ramblers-colour-sunset
+  border-color: $ramblers-colour-sunset
+  color: $ramblers-colour-cloudy
