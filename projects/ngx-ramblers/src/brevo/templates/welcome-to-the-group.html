@@ -7,16 +7,23 @@
 <p>You can reach the {{params.systemMergeFields.APP_SHORTNAME}} site using the address: <a href="{{params.systemMergeFields.APP_URL}}" style="color: #c05711; text-decoration: underline;">{{params.systemMergeFields.APP_URL}}</a></p>
 <p>You can navigate to the different pages within our site by clicking the links on the navigation at the top to the right of our logo. Clicking on the yellow buttons on the very top navigates you between the different Ramblers websites (see example screenshot below).</p>
 <p>{{override.HOME_PAGE_IMAGE}}</p>
+{% block WALKS_PROGRAMME_SECTION %}
 <h4>The Walks Programme</h4>
 <p>This page can be found by following this <a href="{{params.systemMergeFields.APP_URL}}/walks" target="_self" style="color: #c05711; text-decoration: underline;">link</a> or by clicking the screenshot below. By default, the next walk coming up in the walks programme will be displayed so you can quickly find out the details with the minimum of fuss.</p>
 <p>{{override.WALKS_PROGRAMME_IMAGE}}</p>
 <p>You can also filter the displayed walks containing a specific piece of text (e.g. walks by <strong>David</strong>, walks in <strong>Wye</strong> or <strong>moderate</strong> walks) by typing some or all of what you are looking for into the <strong>Quick Search</strong> text box.</p>
+{% endblock %}
+{% block SOCIAL_EVENTS_SECTION %}
 <h4>Social Events</h4>
 <p>This page can be found by the following this <a href="{{params.systemMergeFields.APP_URL}}/social" target="_self" style="color: #c05711; text-decoration: underline;">link</a> or clicking on the screenshot below. You'll see the following displayed:</p>
 <p>{{override.SOCIAL_PAGE_IMAGE}}</p>
+{% endblock %}
+{% block LOGIN_DETAILS_SECTION %}
 <h4>Your {{params.systemMergeFields.APP_SHORTNAME}} login details</h4>
 <p>Most content on the {{params.systemMergeFields.APP_SHORTNAME}} site can be viewed by all public users, however there are a few extra things that get 'unlocked' once you login as an {{params.systemMergeFields.APP_SHORTNAME}} member.</p>
 <p>This includes the ability allocate walks from the walks programme to yourself and to complete the walk details, display of detailed information on social events, various admin functions and access to our <a href="{{params.systemMergeFields.APP_URL}}/how-to" target="_blank" style="color: #c05711; text-decoration: underline;">how-to articles</a>.</p>
+{% endblock %}
+{% block ACCOUNT_ACTIVATION_SECTION %}
 <h4>Activating your {{params.systemMergeFields.APP_SHORTNAME}} account</h4>
 <p>As part of adding you to our group, we've set you up a {{params.systemMergeFields.APP_SHORTNAME}} user profile so that you can login to the <a href="{{params.systemMergeFields.APP_URL}}" target="_blank" style="color: #c05711; text-decoration: underline;">{{params.systemMergeFields.APP_SHORTNAME}} website</a>. We recommend that you activate your {{params.systemMergeFields.APP_SHORTNAME}} member account in order to unlock the additional features outlined above on our website. It's important to note that the <a href="{{params.systemMergeFields.APP_URL}}" target="_blank" style="color: #c05711; text-decoration: underline;">{{params.systemMergeFields.APP_SHORTNAME}} website</a> is completely separate to <a href="https://www.ramblers.org.uk" target="_blank" style="color: #c05711; text-decoration: underline;">National Ramblers site</a>, so the account details we are mentioning from now on only refer to {{params.systemMergeFields.APP_SHORTNAME}} and are separate from any details you've already setup for Ramblers.</p>
 <p>To activate your login, click <a href="{{params.systemMergeFields.PW_RESET_LINK}}" target="_blank" style="color: #c05711; text-decoration: underline;">Activate Your Account</a>.</p>
@@ -25,6 +32,8 @@
 <p>{{override.LOGIN_PROMPT_IMAGE}}</p>
 <p>We've assigned you User Name <strong>{{params.memberMergeFields.USERNAME}}</strong> which should be filled automatically in the screen above. Before clicking <strong>Confirm Reset</strong>, you'll need to enter a <strong>New Password</strong> and <strong>Confirm New Password</strong>.</p>
 <p>Following the reset, whenever you need to login to {{params.systemMergeFields.APP_SHORTNAME}}, you will be asked to enter your Username, along with your password that you entered during your account activation.</p>
+{% endblock %}
+{% block LOGGING_IN_SECTION %}
 <h4>Logging into the website</h4>
 <p>When you aren't logged in, the website header will appear like this:</p>
 <p>{{override.NOT_LOGGED_IN_IMAGE}}</p>
@@ -32,10 +41,15 @@
 <p>{{override.LOGIN_PROMPT_IMAGE}}</p>
 <p>Enter your User Name <strong>{{params.memberMergeFields.USERNAME}}</strong> along with the password that you entered during your account activation, click Login and you should then be logged into the site and you will see the link at the top change like this:</p>
 <p>{{override.LOGGED_IN_IMAGE}}</p>
+{% endblock %}
+{% block ADMIN_PAGE_SECTION %}
 <h4>The Admin Page</h4>
 <p>Once you've reset your password, and you are logged in, you can also update your {{params.systemMergeFields.APP_SHORTNAME}} <a href="{{params.systemMergeFields.APP_URL}}/admin/contact-details" target="_blank" style="color: #c05711; text-decoration: underline;">contact details</a>, <a href="{{params.systemMergeFields.APP_URL}}/admin/change-password" target="_blank" style="color: #c05711; text-decoration: underline;">change your password</a>, or <a href="{{params.systemMergeFields.APP_URL}}/admin/email-subscriptions" target="_blank" style="color: #c05711; text-decoration: underline;">change your email subscriptions</a> from the <a href="{{params.systemMergeFields.APP_URL}}/admin" target="_blank" style="color: #c05711; text-decoration: underline;">admin page</a> on our website.</p>
+{% endblock %}
+{% block UNSUBSCRIBING_SECTION %}
 <h3>Unsubscribing</h3>
 <p>You will be able to remove yourself from our <strong>walks</strong>, <strong>social</strong> or <strong>general</strong> email lists at any point in the future by following the subscription links at the base of any email you receive. You will also be removed from the mailing list if you discontinue your Ramblers membership. All new members joining {{params.systemMergeFields.APP_SHORTNAME}} in the future, will also be asked for their agreement to receipt of emails. This ensures we comply with <a href="https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/" target="_blank" style="color: #c05711; text-decoration: underline;">GDPR legislation</a>.</p>
 <p>If you've already confirmed your preferences via the website since we've sent out this message then there's nothing more you need to do.</p>
+{% endblock %}
 <p>Any queries about the above or anything else, please don't hesitate to contact us by clicking on the most suitable email link below:</p>
 {{params.messageMergeFields.BODY_CONTENT_BOTTOM}}

@@ -31,10 +31,30 @@ export interface NotificationConfigListing {
   forceIncludeConfigIds?: string[];
 }
 
+export enum TemplateOverrideType {
+  IMAGE = "image",
+  CONTENT = "content"
+}
+
+export enum TemplateOverrideState {
+  DEFAULT = "default",
+  CUSTOM = "custom",
+  OMITTED = "omitted"
+}
+
+export interface TemplateOverride {
+  type: TemplateOverrideType;
+  state: TemplateOverrideState;
+  imageUrl?: string;
+  content?: string;
+}
+
+export type TemplateOverrides = Record<string, TemplateOverride>;
+
 export interface NotificationConfig extends Auditable, Identifiable {
   subject: NotificationSubject;
   bannerId: string;
-  templateId?: number;
+  templateName?: string;
   accentColor?: string;
   preSendActions: WorkflowAction[];
   defaultMemberSelection: MemberSelection;
@@ -48,7 +68,8 @@ export interface NotificationConfig extends Auditable, Identifiable {
   replyToRole?: string;
   contentPreset?: string;
   help?: string;
-  templateOverrides?: Record<string, string>;
+  templateOverrides?: TemplateOverrides;
+  body?: string;
   defaultListing?: boolean;
 }
 
@@ -107,22 +128,34 @@ export interface EmailRequest {
   subject: string;
   headers?: object;
   params: SendSmtpEmailParams;
-  templateId?: number;
-  templateOverrides?: Record<string, string>;
+  templateName?: string;
+  templateOverrides?: TemplateOverrides;
+  body?: string;
   htmlContent?: string;
   brandingMode?: BrandingMode;
 }
 
 export interface TemplateRenderRequest {
   params: SendSmtpEmailParams;
-  templateId?: number;
-  templateOverrides?: Record<string, string>;
+  templateName?: string;
+  templateOverrides?: TemplateOverrides;
+  body?: string;
   htmlContent?: string;
   brandingMode?: BrandingMode;
 }
 
 export interface TemplateRenderResponse {
   htmlContent: string;
+}
+
+export interface EditableBodyRequest {
+  templateName: string;
+  templateOverrides?: TemplateOverrides;
+}
+
+export interface EditableBodyResponse {
+  templateName: string;
+  body: string;
 }
 
 export interface SendSmtpEmailRequest extends EmailRequest {
@@ -160,6 +193,16 @@ export interface SendSmtpEmailParams {
   memberMergeFields: MemberMergeFields;
   systemMergeFields: SystemMergeFields;
   accountMergeFields: AccountMergeFields;
+  bookingMergeFields?: BookingMergeFields;
+}
+
+export interface BookingMergeFields {
+  ATTENDEE_NAME: string;
+  EVENT_TITLE: string;
+  EVENT_DATE: string;
+  EVENT_LINK: string;
+  ATTENDEE_LIST: string;
+  PLACES_COUNT: string;
 }
 
 export interface MessageMergeFields {
@@ -378,7 +421,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     contentPreset: null,
-    templateId: null,
     monthsInPast: 1,
     bannerId: null,
     senderRole: "membership",
@@ -394,7 +436,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID],
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
-    templateId: null,
     monthsInPast: 1,
     bannerId: null,
     signOffRoles: ["membership"],
@@ -411,7 +452,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
-    templateId: null,
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["chairman", "secretary", "treasurer", "membership", "social", "walks", "support"],
@@ -427,7 +467,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.EXPIRED_MEMBERS,
     monthsInPast: 1,
-    templateId: 11,
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["membership"],
@@ -443,7 +482,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.EXPIRED_MEMBERS,
     monthsInPast: 1,
-    templateId: null,
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["membership"],
@@ -459,7 +497,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
-    templateId: null,
     senderRole: "walks",
     replyToRole: "walks",
     signOffRoles: ["walks"],
@@ -475,7 +512,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
-    templateId: null,
     senderRole: "support",
     replyToRole: "support",
     signOffRoles: ["support"],
@@ -491,7 +527,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
-    templateId: null,
     senderRole: "treasurer",
     replyToRole: "treasurer",
     signOffRoles: ["treasurer"],
@@ -507,7 +542,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.MAILING_LIST,
     monthsInPast: 1,
-    templateId: null,
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["chairman", "secretary", "membership"],
@@ -523,7 +557,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.MAILING_LIST,
     monthsInPast: 2,
-    templateId: null,
     senderRole: "social",
     replyToRole: "social",
     signOffRoles: ["social"],
@@ -539,7 +572,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 2,
-    templateId: null,
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["membership"],
@@ -555,7 +587,6 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
-    templateId: null,
     senderRole: "walks",
     replyToRole: "walks",
     signOffRoles: ["walks"],
@@ -1175,64 +1206,24 @@ export interface ForgotPasswordEmailResponse {
   message: string;
 }
 
-export interface PushDefaultTemplateRequest {
-  templateId: number;
-  templateName: string;
-}
-
-export interface PushDefaultTemplateResponse {
-  templateId: number;
-  templateName: string;
-  pushed: boolean;
-  message: string;
-}
-
 export interface TemplateDiffRequest {
-  templateId: number;
   templateName: string;
+  includeBookingBlocks?: boolean;
 }
 
 export interface TemplateDiffResponse {
-  templateId: number;
   templateName: string;
   hasLocalTemplate: boolean;
-  matchesLocal: boolean;
-  brevoContentLength: number;
-  localContentLength: number;
   overrideKeys?: string[];
+  contentBlockKeys?: string[];
+  contentBlockDefaults?: Record<string, string>;
 }
 
-export interface SnapshotTemplatesRequest {
-  templateIds?: number[];
-  templateNames?: string[];
-  templateStatus?: boolean;
-  sanitiseHtml?: boolean;
-}
-
-export interface SnapshotTemplateSaved {
-  templateId: number;
+export interface LocalTemplateContentResponse {
   templateName: string;
-  filePath: string;
+  htmlContent: string;
 }
 
-export interface SnapshotTemplateFailure {
-  templateId: number;
-  templateName: string;
-  reason: string;
-}
-
-export interface SnapshotTemplatesResponse {
-  totalTemplates: number;
-  templatesRequested: number;
-  outputDirectory: string;
-  sanitisedHtml: boolean;
-  createdCount: number;
-  updatedCount: number;
-  unchangedCount: number;
-  savedCount: number;
-  savedTemplates: SnapshotTemplateSaved[];
-  failedTemplates: SnapshotTemplateFailure[];
-}
 
 export interface BrevoDnsRecord {
   type: string;

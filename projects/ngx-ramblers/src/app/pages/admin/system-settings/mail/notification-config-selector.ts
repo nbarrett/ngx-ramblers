@@ -121,26 +121,6 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
                 [src]="mailMessagingService.bannerImageSource(notificationConfig, false)">
             </div>
           }
-          <div class="col-sm-12">
-            <div class="form-group">
-              <label for="template">Brevo Template</label>
-              <div class="input-group">
-                <select [(ngModel)]="notificationConfig.templateId"
-                  id="template"
-                  class="form-control input-sm">
-                  @for (template of notificationConfigListing?.mailMessagingConfig?.brevo?.mailTemplates?.templates; track template.id) {
-                    <option
-                      [ngValue]="template.id">{{ template.name }}
-                    </option>
-                  }
-                </select>
-                <app-brevo-button button variant="quiet" [disabled]="!notificationConfig.templateId"
-                  (click)="editTemplate(notificationConfig.templateId)"
-                  [dockedTo]="DockedTo.RIGHT"
-                  [title]="'View or Edit Template'"/>
-              </div>
-            </div>
-          </div>
         </div>
       }
     }
@@ -215,12 +195,6 @@ export class NotificationConfigSelectorComponent implements OnInit {
 
   toBannerInformation(bannerConfig: BannerConfig) {
     return `${bannerConfig.name || "Unnamed"} (${this.stringUtils.asTitle(bannerConfig.bannerType)})`;
-  }
-
-  editTemplate(templateId: number) {
-    const templateUrl = this.mailLinkService.templateEdit(templateId);
-    this.logger.info("editing template:", templateUrl);
-    this.mailLinkService.openUrl(templateUrl);
   }
 
   helpMembers() {

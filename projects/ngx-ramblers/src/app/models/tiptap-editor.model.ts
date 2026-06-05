@@ -5,3 +5,8 @@ export enum TiptapMark {
   OrderedList = "orderedList",
   Blockquote = "blockquote"
 }
+
+export enum TokenPopupType {
+  Field = "field",
+  Link = "link"
+}

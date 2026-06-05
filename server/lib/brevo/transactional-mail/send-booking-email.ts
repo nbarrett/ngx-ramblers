@@ -24,7 +24,7 @@ import {
   templatesIncludeSalutation
 } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
 import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
-import { resolveBookingTemplate, subjectForType } from "./booking-template-resolver";
+import { buildBookingMergeFields, resolveBookingBody, subjectForType } from "./booking-template-resolver";
 import { signoffNamesHtml } from "./signoff-names";
 import { accountMergeFieldsFor } from "../account/account";
 import { loadBookingConfig } from "../../config/booking-config";
@@ -61,7 +61,7 @@ export async function buildBookingEmailRequest(
   const systemCfg: SystemConfig = systemConfigDoc?.value;
   const eventLink = publicEventLink(event, suppliedEventLink, systemCfg);
   const bookingConfig = await loadBookingConfig();
-  const renderedBody = resolveBookingTemplate(emailType, event, bookingRecord, eventLink, bookingConfig);
+  const renderedBody = resolveBookingBody(emailType, event, notifConfig);
 
   const committeeConfigDoc = await config.queryKey(ConfigKey.COMMITTEE);
   const committeeCfg: CommitteeConfig = committeeConfigDoc?.value;
@@ -112,6 +112,7 @@ export async function buildBookingEmailRequest(
       INSTAGRAM_URL: systemCfg?.externalSystems?.instagram?.groupUrl || "",
     },
     accountMergeFields: await accountMergeFieldsFor(),
+    bookingMergeFields: buildBookingMergeFields(event, bookingRecord, eventLink),
   };
 
   const subject = buildSubject(notifConfig, subjectForType(emailType, eventTitle), params);
@@ -126,7 +127,7 @@ export async function buildBookingEmailRequest(
     subject,
     bodyContent,
     params,
-    templateId: notifConfig.templateId
+    templateName: notifConfig.templateName
   };
 }
 
@@ -256,7 +257,7 @@ async function sendBookingNotification(emailType: BookingEmailType, bookingRecor
       bcc: build.bcc,
       replyTo: build.replyTo,
       params: build.params,
-      templateId: build.templateId
+      templateName: build.templateName
     };
     debugLog("sending booking email:", emailType, "to:", primaryAttendee.email, "subject:", build.subject);
     sendTransactionalEmailRequest(emailRequest, debugLog).then(data => {

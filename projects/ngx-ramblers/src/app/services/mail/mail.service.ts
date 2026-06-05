@@ -24,8 +24,6 @@ import {
   ListUpdateRequest,
   MailIdentifiers,
   MailTemplates,
-  PushDefaultTemplateRequest,
-  PushDefaultTemplateResponse,
   SendCampaignRequest,
   Sender,
   SendersResponse,
@@ -37,12 +35,12 @@ import {
   StatusMappedResponseSingleInput,
   TemplateRenderRequest,
   TemplateRenderResponse,
+  EditableBodyRequest,
+  EditableBodyResponse,
   TemplateDiffRequest,
   TemplateDiffResponse,
-  TemplateResponse,
+  LocalTemplateContentResponse,
   TemplateOptions,
-  SnapshotTemplatesRequest,
-  SnapshotTemplatesResponse,
   BrevoDomainInfo,
   BrevoDomainConfiguration,
   DomainRegistrationResult,
@@ -200,19 +198,9 @@ export class MailService {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates`, templateOptions))).response;
   }
 
-  async queryTemplateContent(templateId: number): Promise<TemplateResponse> {
-    this.logger.info("queryTemplateContent:", templateId);
-    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/templates/${templateId}/content`))).response;
-  }
-
   async querySegments(): Promise<MailTemplates> {
     this.logger.info("querySegments");
     return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/templates`))).response;
-  }
-
-  async pushDefaultTemplate(request: PushDefaultTemplateRequest): Promise<PushDefaultTemplateResponse> {
-    this.logger.info("pushDefaultTemplate:", request);
-    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/push-default`, request))).response;
   }
 
   async templateDiff(request: TemplateDiffRequest): Promise<TemplateDiffResponse> {
@@ -220,14 +208,19 @@ export class MailService {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/diff`, request))).response;
   }
 
-  async snapshotTemplates(request: SnapshotTemplatesRequest): Promise<SnapshotTemplatesResponse> {
-    this.logger.info("snapshotTemplates:", request);
-    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/snapshot`, request))).response;
+  async localTemplateContent(templateName: string): Promise<LocalTemplateContentResponse> {
+    this.logger.info("localTemplateContent:", templateName);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/local-content`, {templateName}))).response;
   }
 
   async renderTemplate(request: TemplateRenderRequest): Promise<TemplateRenderResponse> {
     this.logger.info("renderTemplate:", request);
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/render`, request))).response;
+  }
+
+  async editableBody(request: EditableBodyRequest): Promise<EditableBodyResponse> {
+    this.logger.info("editableBody:", request);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/editable-body`, request))).response;
   }
 
   async listDomains(): Promise<BrevoDomainInfo[]> {

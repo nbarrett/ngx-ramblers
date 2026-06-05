@@ -5,10 +5,10 @@ import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
   BookingConfig,
-  BookingEmailTemplates,
   BookingEmailType,
   BookingPlaceholder,
   BookingScope,
+  DEFAULT_BOOKING_EMAIL_BLOCKS,
   bookingEnabledForEvent,
   effectiveMaxCapacityForEvent,
   enabledBookingEventTypes
@@ -53,8 +53,7 @@ import { SectionToggle, SectionToggleTab } from "../../../shared/components/sect
 export enum BookingTab {
   SUMMARY = "Summary",
   PER_EVENT_DETAIL = "Per-Event Detail",
-  CONFIGURATION = "Configuration",
-  EMAIL_TEMPLATES = "Default Email Templates"
+  CONFIGURATION = "Configuration"
 }
 
 @Component({
@@ -507,48 +506,6 @@ export enum BookingTab {
                   }
                 </div>
               </tab>
-              <tab [active]="tabActive(BookingTab.EMAIL_TEMPLATES)"
-                   (selectTab)="selectTab(BookingTab.EMAIL_TEMPLATES)"
-                   [heading]="BookingTab.EMAIL_TEMPLATES">
-                <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="col-sm-12 mb-3">
-                    <app-markdown-editor standalone category="admin" name="bookings-email-templates-help"
-                                        description="Email Templates Help"/>
-                  </div>
-                  @if (bookingConfig) {
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                      <app-section-toggle
-                        [tabs]="emailTemplateTabs"
-                        [(selectedTab)]="selectedEmailTemplateType"/>
-                      <button type="button" class="btn btn-sm"
-                              [class.btn-secondary]="emailTemplateView === View.EDIT"
-                              [class.btn-outline-secondary]="emailTemplateView !== View.EDIT"
-                              (click)="toggleEmailTemplateView()">
-                        <fa-icon [icon]="emailTemplateView === View.EDIT ? faEye : faPencil" class="me-1"/>
-                        {{ emailTemplateView === View.EDIT ? 'Preview' : 'Edit' }}
-                      </button>
-                    </div>
-                    @if (emailTemplateView === View.EDIT) {
-                      <app-markdown-editor [data]="{text: emailTemplateValue(selectedEmailTemplateType)}"
-                                           [name]="selectedEmailTemplateType + '-template'"
-                                           [initialView]="View.EDIT"
-                                           [rows]="15"
-                                           [insertableFields]="placeholderFields"
-                                           (changed)="emailTemplateChanged(selectedEmailTemplateType, $event)"/>
-                    } @else {
-                      <div class="border rounded p-3" markdown ngPreserveWhitespaces [data]="emailTemplateValue(selectedEmailTemplateType) || '*No template configured*'"></div>
-                    }
-                    <div class="d-flex justify-content-start gap-2 mt-3">
-                      <button type="button" class="btn btn-success" (click)="saveBookingConfig()">
-                        Save email templates
-                      </button>
-                      <button type="button" class="btn btn-outline-secondary" (click)="revertEmailTemplates()">
-                        Revert changes
-                      </button>
-                    </div>
-                  }
-                </div>
-              </tab>
             </tabset>
           </div>
         </div>
@@ -620,10 +577,8 @@ export class BookingsComponent implements OnInit, OnDestroy {
   protected readonly BookingStatus = BookingStatus;
   protected readonly View = View;
   emailTemplateTypes: BookingEmailType[] = enumKeyValues(BookingEmailType).map(p => p.value as BookingEmailType);
-  selectedEmailTemplateType: string = BookingEmailType.CONFIRMATION;
   selectedEventEmailOverrideType: string = BookingEmailType.CONFIRMATION;
   emailTemplateTabs: SectionToggleTab[] = this.emailTemplateTypes.map(type => ({value: type, label: this.stringUtils.asTitle(type)}));
-  emailTemplateView: View = View.EDIT;
   private dirtyEventIds: Set<string> = new Set();
   placeholderFields: InsertableField[] = enumKeyValues(BookingPlaceholder).map(p => ({
     label: this.stringUtils.asTitle(p.value),
@@ -1012,15 +967,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
     }
   }
 
-  toggleEmailTemplateView() {
-    this.emailTemplateView = this.emailTemplateView === View.EDIT ? View.VIEW : View.EDIT;
-  }
-
-  async revertEmailTemplates() {
-    await this.bookingConfigService.refresh();
-    this.notify.success({title: "Reverted", message: "Email templates restored to last saved state"});
-  }
-
   async deleteBooking(booking: Booking) {
     try {
       await this.bookingService.delete(booking);
@@ -1135,24 +1081,13 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return enumKeyValues(BookingPlaceholder).map(p => `{{${p.value}}}`).join(", ");
   }
 
-  emailTemplateValue(emailType: string): string {
-    return this.bookingConfig?.emailTemplates?.[emailType] || "";
-  }
-
-  emailTemplateChanged(emailType: string, event: ContentText) {
-    if (!this.bookingConfig.emailTemplates) {
-      this.bookingConfig.emailTemplates = {} as BookingEmailTemplates;
-    }
-    this.bookingConfig.emailTemplates[emailType] = event.text || "";
-  }
-
   selectedEventEmailOverrideValue(): string {
     const overrides = this.eventsMap.get(this.selectedEventId)?.fields?.bookingEmailOverrides;
     return overrides?.[this.selectedEventEmailOverrideType] || "";
   }
 
   loadDefaultForOverride(emailType: string) {
-    const defaultText = this.bookingConfig?.emailTemplates?.[emailType] || "";
+    const defaultText = DEFAULT_BOOKING_EMAIL_BLOCKS[emailType as BookingEmailType] || "";
     if (!defaultText) {
       this.notify.warning({title: "No default", message: "No default template configured for " + this.stringUtils.asTitle(emailType)});
       return;
@@ -1173,7 +1108,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   defaultEmailTemplateDisplay(emailType: string): string {
-    return this.bookingConfig?.emailTemplates?.[emailType] || "*No default template configured.*";
+    return DEFAULT_BOOKING_EMAIL_BLOCKS[emailType as BookingEmailType] || "*No default template configured.*";
   }
 
   eventEmailOverrideChanged(emailType: string, event: ContentText) {

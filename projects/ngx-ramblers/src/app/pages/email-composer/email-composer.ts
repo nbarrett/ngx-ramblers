@@ -1305,12 +1305,18 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                   }
                   @case (ComposerFragmentKind.TEMPLATE_CONTENT) {
                     <div class="fragment-template-content">
-                      @if (templateContentFetching) {
+                      @if (state.notificationConfig?.body) {
+                        <div class="text-muted small mb-2">Read-only preview of this email's content. Edit it under Mail Settings &rarr; Email Configurations.</div>
+                        <app-tiptap-markdown-editor [value]="state.notificationConfig.body"
+                                                    [editable]="false"
+                                                    [showMergeFields]="true"
+                                                    [constrainToEmailWidth]="true"/>
+                      } @else if (templateContentFetching) {
                         <div class="text-muted small"><fa-icon [icon]="faSpinner" animation="spin"/> Loading template content…</div>
                       } @else if (templateContentError) {
                         <div class="text-danger small">{{ templateContentError }}</div>
                       } @else if (templateContentHtml) {
-                        <div class="text-muted small mb-2">Read-only preview of the Brevo template body. Edit the template in Brevo to change this content.</div>
+                        <div class="text-muted small mb-2">Read-only preview of the template body.</div>
                         <iframe class="fragment-template-frame" [srcdoc]="templateContentHtml"></iframe>
                       } @else {
                         <div class="text-muted small">Choose a template on the Sender &amp; Template step to preview its content here.</div>
@@ -3267,7 +3273,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected templateContentHtml: string | null = null;
   protected templateContentFetching = false;
   protected templateContentError: string | null = null;
-  private lastTemplateContentTemplateId: number | null = null;
+  private lastTemplateContentTemplateName: string | null = null;
 
   protected toggleFragmentExpanded(fragmentId: string): void {
     if (this.expandedFragmentIds.has(fragmentId)) {
@@ -3724,27 +3730,27 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected async refreshTemplateContent(): Promise<void> {
-    const templateId = this.state.notificationConfig?.templateId;
-    if (!templateId) {
+    const templateName = this.state.notificationConfig?.templateName;
+    if (!templateName) {
       this.templateContentHtml = null;
       this.templateContentError = null;
-      this.lastTemplateContentTemplateId = null;
+      this.lastTemplateContentTemplateName = null;
       this.removeTemplateContentFragment();
       return;
     }
-    if (this.lastTemplateContentTemplateId === templateId && this.templateContentHtml) {
+    if (this.lastTemplateContentTemplateName === templateName && this.templateContentHtml) {
       this.applyTemplateContentFragmentPresence();
       return;
     }
     this.templateContentFetching = true;
     this.templateContentError = null;
     try {
-      const response = await this.mailService.queryTemplateContent(templateId);
+      const response = await this.mailService.localTemplateContent(templateName);
       this.templateContentHtml = response?.htmlContent ?? null;
-      this.lastTemplateContentTemplateId = templateId;
+      this.lastTemplateContentTemplateName = templateName;
       this.applyTemplateContentFragmentPresence();
     } catch (error) {
-      this.logger.error("queryTemplateContent failed:", error);
+      this.logger.error("localTemplateContent failed:", error);
       this.templateContentError = "Could not load template content.";
       this.templateContentHtml = null;
     } finally {
@@ -3941,7 +3947,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     } else if (!this.state.notificationConfig) {
       errors.push("Choose an email type");
     } else {
-      if (!this.state.notificationConfig.templateId) errors.push(this.errorWithMailSettingsLink("This email type has no template configured - choose another or set one up in ", "Mail Settings"));
+      if (!this.state.notificationConfig.templateName) errors.push(this.errorWithMailSettingsLink("This email type has no template configured - choose another or set one up in ", "Mail Settings"));
       if (!this.senderExists) errors.push(this.errorWithMailSettingsLink("The sender role for this email type is not set up - configure it in ", "Mail Settings"));
       if (!this.state.notificationConfig.senderRole) errors.push("Sender is missing from the email type configuration");
       if (!this.state.notificationConfig.replyToRole) errors.push("Reply-to is missing from the email type configuration");
@@ -4528,7 +4534,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   private maybeAutoRefreshPreview(): void {
     if (!this.autoPreviewPending) return;
     if (this.stepperActiveTab !== EmailComposerStepKey.REVIEW) return;
-    if (!this.state.notificationConfig?.templateId) return;
+    if (!this.state.notificationConfig?.templateName) return;
     this.autoPreviewPending = false;
     this.autoPreviewAttempts = 0;
     const tryRender = () => {
@@ -4607,7 +4613,7 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   async refreshPreview(): Promise<void> {
     const isUnbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
-    if (!isUnbranded && !this.state.notificationConfig?.templateId) {
+    if (!isUnbranded && !this.state.notificationConfig?.templateName) {
       this.emailPreview?.showError("Choose a template to render the preview.");
       return;
     }
@@ -4632,8 +4638,9 @@ export class EmailComposer implements OnInit, OnDestroy {
     const request: TemplateRenderRequest = isUnbranded
       ? { htmlContent: combined, params, brandingMode: BrandingMode.UNBRANDED }
       : {
-        templateId: this.state.notificationConfig!.templateId,
+        templateName: this.state.notificationConfig!.templateName,
         templateOverrides: this.state.notificationConfig!.templateOverrides,
+        body: this.state.notificationConfig!.body,
         htmlContent: combined,
         params
       };
@@ -4928,7 +4935,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     );
     const request: CreateCampaignRequest = {
       createAsDraft: false,
-      templateId: this.state.notificationConfig!.templateId,
+      templateName: this.state.notificationConfig!.templateName,
       htmlContent: campaignCombined,
       inlineImageActivation: false,
       mirrorActive: false,

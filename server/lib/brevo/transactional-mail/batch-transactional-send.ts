@@ -492,7 +492,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           brandingMode: request.brandingMode,
           ...(isUnbranded
             ? { htmlContent: request.htmlBody }
-            : { templateId: notifConfig!.templateId, templateOverrides: notifConfig!.templateOverrides })
+            : { templateName: notifConfig!.templateName, templateOverrides: notifConfig!.templateOverrides, body: notifConfig!.body })
         };
         const sendResult = await sendTransactionalEmailRequest(emailRequest, debugLog, baseUrl);
         entry.status = BatchSendEntryStatus.Sent;

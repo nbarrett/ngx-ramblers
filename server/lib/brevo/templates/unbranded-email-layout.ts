@@ -5,6 +5,7 @@ function unbrandedStyles(): string {
   body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
   body { margin: 0; padding: 0; width: 100% !important; background-color: #ffffff; }
   table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  .unbranded-body img { max-width: 100%; height: auto; }
   a { color: ${T.linkColor}; text-decoration: underline; }
   h1, h2, h3, h4 { font-family: ${T.fontFamily}; color: ${T.bodyColor}; line-height: 130%; margin: 0 0 12px; }
   h1 { font-size: ${T.h2Size}; font-weight: bold; }

@@ -182,7 +182,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
     return;
   }
 
-  debugLog("notificationConfig loaded - templateId:", notifConfig.templateId, "senderRole:", notifConfig.senderRole, "replyToRole:", notifConfig.replyToRole, "subject:", JSON.stringify(notifConfig.subject));
+  debugLog("notificationConfig loaded - templateName:", notifConfig.templateName, "senderRole:", notifConfig.senderRole, "replyToRole:", notifConfig.replyToRole, "subject:", JSON.stringify(notifConfig.subject));
 
   const configuredHref = systemCfg?.group?.href?.trim();
   const requestDerivedHref = `${req.protocol}://${req.get("host")}`;
