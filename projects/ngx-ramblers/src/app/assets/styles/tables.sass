@@ -1,5 +1,66 @@
 @import "./colours"
 
+.ngx-data-table-card
+  border: 1px solid rgba($ramblers-colour-mintcake, 0.4)
+  border-radius: 8px
+  overflow: hidden
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08)
+  background: white
+
+.ngx-data-card
+  border: 1px solid rgba($ramblers-colour-mintcake, 0.4)
+  border-radius: 8px
+  overflow: hidden
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08)
+  background: white
+
+  > .card-header
+    background: linear-gradient(to bottom, rgba($ramblers-colour-mintcake, 0.3), rgba($ramblers-colour-mintcake, 0.15))
+    color: #495057
+    font-weight: 600
+    border-bottom: 2px solid rgba($ramblers-colour-mintcake, 0.4)
+
+.ngx-data-table
+  width: 100%
+  border-collapse: separate
+  border-spacing: 0
+  margin-bottom: 0
+
+  th
+    background: linear-gradient(to bottom, rgba($ramblers-colour-mintcake, 0.3), rgba($ramblers-colour-mintcake, 0.15))
+    color: #495057
+    font-weight: 600
+    text-align: left
+    padding: 12px 16px
+    border-bottom: 2px solid rgba($ramblers-colour-mintcake, 0.4)
+    font-size: 0.85rem
+
+  th.sortable
+    cursor: pointer
+    user-select: none
+
+  th.sortable:hover
+    background: rgba($ramblers-colour-mintcake, 0.4)
+
+  tbody tr td
+    padding: 12px 16px
+    vertical-align: middle
+    border-bottom: 1px solid #e9ecef
+    font-size: 0.9rem
+    word-break: break-word
+
+  tbody tr:last-child td
+    border-bottom: none
+
+  tbody tr:nth-child(odd)
+    background-color: #ffffff
+
+  tbody tr:nth-child(even)
+    background-color: #f8f9fa
+
+  tbody tr:hover
+    background-color: rgba($ramblers-colour-mintcake, 0.1)
+
 table.styled-table
   border-spacing: 0px
   border-collapse: separate
