@@ -25,7 +25,10 @@ import {
   ProcessToTemplateMappings,
   SendSmtpEmailParams,
   SendSmtpEmailRequest,
-  SystemMergeFields
+  SystemMergeFields,
+  TemplateOverride,
+  TemplateOverrides,
+  TemplateOverrideType
 } from "../../models/mail.model";
 import { CommitteeMember, ForwardEmailTarget } from "../../models/committee.model";
 import { resolveAccentColor } from "../../models/email-accent-palette";
@@ -389,8 +392,9 @@ export class MailMessagingService {
         null,
         this.defaultTransactionalAddressLine
       ),
-      templateId: createSendSmtpEmailRequest.notificationConfig.templateId,
+      templateName: createSendSmtpEmailRequest.notificationConfig.templateName,
       templateOverrides: this.resolveTemplateOverrides(createSendSmtpEmailRequest.notificationConfig.templateOverrides),
+      body: createSendSmtpEmailRequest.notificationConfig.body,
     };
     if (createSendSmtpEmailRequest.notificationConfig?.bccRoles.length > 0) {
       emailRequest.bcc = createSendSmtpEmailRequest.notificationConfig?.bccRoles?.map(role => this.createBrevoAddress(role));
@@ -493,11 +497,25 @@ export class MailMessagingService {
         BANNER_IMAGE_SOURCE: "Example Banner Image Source",
         ADDRESS_LINE: this.defaultTransactionalAddressLine
       },
-      memberMergeFields: this.toMemberMergeVariables(this.memberLoginService.loggedInMember()),
+      memberMergeFields: this.exampleMemberMergeFields(),
       systemMergeFields: this.toSystemMergeFields(this.memberLoginService.loggedInMember()),
       accountMergeFields: this.toAccountMergeFields(this.mailMessagingConfig.brevo.account)
     };
   };
+
+  private exampleMemberMergeFields(): MemberMergeFields {
+    const actual = this.toMemberMergeVariables(this.memberLoginService.loggedInMember());
+    return {
+      FULL_NAME: actual.FULL_NAME || "Jo Walker",
+      EMAIL: actual.EMAIL || "jo.walker@example.com",
+      FNAME: actual.FNAME || "Jo",
+      LNAME: actual.LNAME || "Walker",
+      MEMBER_NUM: actual.MEMBER_NUM || "1234567",
+      MEMBER_EXP: actual.MEMBER_EXP || "Wednesday, 31 March 2027",
+      USERNAME: actual.USERNAME || "jo.walker",
+      PW_RESET: actual.PW_RESET || "example-reset-token"
+    };
+  }
 
   public toMemberMergeVariables(member: Member): MemberMergeFields {
     return {
@@ -520,25 +538,26 @@ export class MailMessagingService {
     };
   }
 
-  private resolveTemplateOverrides(overrides?: Record<string, string>): Record<string, string> | undefined {
+  private resolveTemplateOverrides(overrides?: TemplateOverrides): TemplateOverrides | undefined {
     if (!overrides) {
       return overrides;
     }
     const publicBaseUrl = this.urlService.publicBaseUrl();
-    const resolved: Record<string, string> = {};
-    for (const [key, value] of Object.entries(overrides)) {
-      if (!value) {
-        resolved[key] = value;
-        continue;
-      }
-      const apiPathMatch = value.match(/(\/api\/aws\/s3\/.+)$/);
-      if (apiPathMatch) {
-        resolved[key] = `${publicBaseUrl}${apiPathMatch[1]}`;
-      } else {
-        resolved[key] = value;
-      }
+    const resolved: TemplateOverrides = {};
+    for (const [key, override] of Object.entries(overrides)) {
+      resolved[key] = this.resolveOverrideImageUrl(override, publicBaseUrl);
     }
     return resolved;
+  }
+
+  private resolveOverrideImageUrl(override: TemplateOverride, publicBaseUrl: string): TemplateOverride {
+    if (override?.type !== TemplateOverrideType.IMAGE || !override?.imageUrl) {
+      return override;
+    }
+    const apiPathMatch = override.imageUrl.match(/(\/api\/aws\/s3\/.+)$/);
+    return apiPathMatch
+      ? {...override, imageUrl: `${publicBaseUrl}${apiPathMatch[1]}`}
+      : override;
   }
 
   bannerImageSource(notificationConfig: NotificationConfig, absolute: boolean) {

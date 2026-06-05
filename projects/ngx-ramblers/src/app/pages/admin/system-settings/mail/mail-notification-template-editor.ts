@@ -1,3 +1,4 @@
+import { values } from "es-toolkit/compat";
 import { Component, EventEmitter, inject, OnDestroy, OnInit, Output } from "@angular/core";
 import {
   MailMessagingConfig,
@@ -7,7 +8,8 @@ import {
   OverrideEditorMode,
   overrideKeyToLabel,
   SendSmtpEmailParams,
-  TemplateDiffResponse,
+  TemplateOverrideState,
+  TemplateOverrideType,
   WorkflowAction
 } from "../../../../models/mail.model";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
@@ -35,15 +37,10 @@ import {
   faTrash,
   faTriangleExclamation
 } from "@fortawesome/free-solid-svg-icons";
-import { BroadcastService } from "../../../../services/broadcast-service";
-import { AlertLevel } from "../../../../models/alert-target.model";
-import { NamedEvent, NamedEventType } from "../../../../models/broadcast.model";
-import { SiteMaintenanceService } from "../../../../services/site-maintenance.service";
 import { FormsModule } from "@angular/forms";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
-import { BrevoDropdownItem } from "../../../../models/brevo-dropdown.model";
 import { SenderRepliesAndSignoff } from "../../send-emails/sender-replies-and-signoff";
 import {
   ForgotPasswordNotificationDetailsComponent
@@ -55,6 +52,9 @@ import { RootFolder } from "../../../../models/system.model";
 import { ActivatedRoute } from "@angular/router";
 import { Location } from "@angular/common";
 import { StoredValue } from "../../../../models/ui-actions";
+import { ContentBlockEditorComponent } from "./content-block-editor";
+import { EmailBodyEditorComponent } from "./email-body-editor";
+import { BOOKING_EMAIL_BLOCK_KEYS } from "../../../../models/booking-config.model";
 import { toKebabCase } from "../../../../functions/strings";
 import { ImageActionsDropdownComponent } from "../../../../modules/common/dynamic-content/image-actions-dropdown";
 
@@ -262,55 +262,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                                                    [notificationConfig]="notificationConfig"
                                                    (rolesChanged)="refreshCachedState()"/>
                 </div>
-                <div class="col-sm-12">
-                  <div class="form-group">
-                    <label for="template">Brevo Template</label>
-                    <div class="d-flex align-items-center gap-2">
-                      <select [(ngModel)]="notificationConfig.templateId"
-                              [class.is-invalid]="!notificationConfig.templateId"
-                              (ngModelChange)="templateChanged()"
-                              id="template"
-                              class="form-control input-sm">
-                        @for (template of mailMessagingConfig?.brevo?.mailTemplates?.templates; track template.id) {
-                          <option
-                            [ngValue]="template.id">{{ template.name }}
-                          </option>
-                        }
-                      </select>
-                      <app-brevo-button button variant="quiet" title="Template"
-                                        [disabled]="notReady()"
-                                        [dropdownItems]="templateDropdownItems"
-                                        (dropdownSelected)="handleTemplateDropdown($event)"/>
-                      <app-brevo-button button variant="quiet" title="Push Default Template"
-                                        [disabled]="notReady() || !localTemplateAvailable()"
-                                        (click)="pushDefaultTemplate()"/>
-                      <app-brevo-button button variant="quiet" title="Snapshot Templates"
-                                        [showTooltip]="true"
-                                        [disabled]="snapshotTemplatesDisabled()"
-                                        (click)="snapshotTemplates()"/>
-                    </div>
-                    <div class="mt-1">
-                      @if (templateDiffLoading) {
-                        <span class="badge bg-secondary">
-                        <fa-icon [icon]="faSpinner" animation="spin"/>
-                        <span class="ms-1">Checking...</span>
-                      </span>
-                      }
-                      @if (snapshotLoading) {
-                        <span class="badge bg-secondary ms-2">
-                        <fa-icon [icon]="faSpinner" animation="spin"/>
-                        <span class="ms-1">Snapshotting templates...</span>
-                      </span>
-                      }
-                      @if (!templateDiffLoading && templateDiffStatus) {
-                        <span class="badge" [class.bg-success]="templateDiffStatus.matchesLocal"
-                              [class.bg-warning]="!templateDiffStatus.matchesLocal && templateDiffStatus.hasLocalTemplate"
-                              [class.bg-secondary]="!templateDiffStatus.hasLocalTemplate">{{ templateDiffLabel() }}</span>
-                      }
-                    </div>
-                  </div>
-                </div>
-                @if (discoveredOverrideKeys.length > 0) {
+                @if (discoveredOverrideKeys.length > 0 && isBookingConfig()) {
                   <div class="col-sm-12 mt-2">
                     <div class="row thumbnail-heading-frame">
                       <div class="thumbnail-heading">Template Image Overrides</div>
@@ -366,6 +318,13 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                       }
                     </div>
                   </div>
+                }
+                @if (isBookingConfig()) {
+                  <app-content-block-editor [notificationConfig]="notificationConfig"
+                                            [blockKeys]="discoveredContentBlockKeys"
+                                            [blockDefaults]="discoveredContentBlockDefaults"/>
+                } @else if (notificationConfig) {
+                  <app-email-body-editor [notificationConfig]="notificationConfig"/>
                 }
               </div>
               <div class="thumbnail-heading-frame">
@@ -477,7 +436,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
         </div>
       }
     `,
-    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, SenderRepliesAndSignoff, BrevoButtonComponent, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule, ImageCropperAndResizerComponent, ImageActionsDropdownComponent]
+    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, SenderRepliesAndSignoff, BrevoButtonComponent, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule, ImageCropperAndResizerComponent, ImageActionsDropdownComponent, ContentBlockEditorComponent, EmailBodyEditorComponent]
 })
 
 export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
@@ -498,20 +457,10 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   public mailService: MailService = inject(MailService);
   public urlService: UrlService = inject(UrlService);
   public mailMessagingService: MailMessagingService = inject(MailMessagingService);
-  private broadcastService: BroadcastService<any> = inject(BroadcastService);
-  private siteMaintenanceService: SiteMaintenanceService = inject(SiteMaintenanceService);
-  public templateDropdownItems: BrevoDropdownItem[] = [
-    {id: "edit-rich-text", label: "Edit Rich Text"},
-    {id: "view-template", label: "View Template"}
-  ];
   public mailMessagingConfig: MailMessagingConfig;
   public parametersFrom: KeyValue<any>[] = [];
   public params: SendSmtpEmailParams;
   public notificationConfig: NotificationConfig = null;
-  public templateDiffStatus: TemplateDiffResponse;
-  public templateDiffLoading = false;
-  public snapshotLoading = false;
-  public snapshotAllowed = false;
 
   protected readonly faAdd = faAdd;
   protected readonly faEraser = faEraser;
@@ -531,6 +480,8 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   public pendingOverridePreviews: Record<string, string> = {};
   public overrideImageFolder = RootFolder.siteContent;
   public discoveredOverrideKeys: string[] = [];
+  public discoveredContentBlockKeys: string[] = [];
+  public discoveredContentBlockDefaults: Record<string, string> = {};
   private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   private location: Location = inject(Location);
   private configurationParam: string = null;
@@ -561,9 +512,6 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
       this.refreshTemplateDiff();
       this.logger.info("refreshTemplateDiff:complete");
     }));
-    const systemStatus = await this.siteMaintenanceService.getMigrationStatus();
-    const environmentName = systemStatus?.environment?.env || systemStatus?.environment?.nodeEnv;
-    this.snapshotAllowed = environmentName === "development";
     this.logger.info("ngOnInit:complete");
   }
 
@@ -606,10 +554,6 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
 
   toBannerInformation(bannerConfig: BannerConfig) {
     return `${bannerConfig.name || "Unnamed"} (${this.stringUtils.asTitle(bannerConfig.bannerType)})`;
-  }
-
-  notReady() {
-    return !this.notificationConfig?.templateId;
   }
 
   bannerSelected(selectedBanner: BannerConfig) {
@@ -661,11 +605,11 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
         text: null,
         suffixParameter: null
       },
+      body: "",
       preSendActions: [],
       postSendActions: [],
       defaultMemberSelection: null,
       contentPreset: null,
-      templateId: null,
       monthsInPast: 2,
       bannerId: null,
       senderRole: "membership",
@@ -750,17 +694,6 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
     this.mailMessagingService.initialiseSubject(this.notificationConfig);
   }
 
-  handleTemplateDropdown(item: BrevoDropdownItem) {
-    if (!this.notificationConfig?.templateId) {
-      return;
-    }
-    if (item.id === "edit-rich-text") {
-      this.mailLinkService.editTemplateRichTextWithNotifications(this.notificationConfig.templateId, this.notReady(), this.mailMessagingConfig);
-    } else if (item.id === "view-template") {
-      this.mailLinkService.editTemplateWithNotifications(this.notificationConfig.templateId, this.notReady(), this.mailMessagingConfig);
-    }
-  }
-
   nextConfigDisabled() {
     return this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) === this.mailMessagingConfig.notificationConfigs.length - 1;
   }
@@ -770,102 +703,35 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   }
 
   selectedTemplateName(): string {
-    const template = this.mailMessagingConfig?.brevo?.mailTemplates?.templates?.find(t => t.id === this.notificationConfig?.templateId);
-    return template?.name || null;
+    return this.notificationConfig?.templateName || null;
   }
 
-  templateChanged() {
-    this.templateDiffStatus = null;
-    this.refreshTemplateDiff();
+  private bookingBlockKeys(): string[] {
+    return this.notificationConfig?.subject?.text === "Booking Notification"
+      ? values(BOOKING_EMAIL_BLOCK_KEYS)
+      : [];
+  }
+
+  isBookingConfig(): boolean {
+    return this.bookingBlockKeys().length > 0;
   }
 
   refreshTemplateDiff() {
     const templateName = this.selectedTemplateName();
-    const templateId = this.notificationConfig?.templateId;
-    if (!templateId || !templateName) {
-      this.templateDiffStatus = null;
+    const includeBookingBlocks = this.bookingBlockKeys().length > 0;
+    if (!templateName) {
       this.discoveredOverrideKeys = [];
+      this.discoveredContentBlockKeys = this.bookingBlockKeys();
+      this.discoveredContentBlockDefaults = {};
       return;
     }
-    this.templateDiffLoading = true;
-    this.mailService.templateDiff({templateId, templateName}).then(response => {
-      this.templateDiffStatus = response;
+    this.mailService.templateDiff({templateName, includeBookingBlocks}).then(response => {
       this.discoveredOverrideKeys = response.overrideKeys || [];
-      this.templateDiffLoading = false;
-      this.logger.info("template diff result:", response, "discoveredOverrideKeys:", this.discoveredOverrideKeys);
+      this.discoveredContentBlockKeys = [...(response.contentBlockKeys || []), ...this.bookingBlockKeys()];
+      this.discoveredContentBlockDefaults = response.contentBlockDefaults || {};
+      this.logger.info("template introspection:", response, "overrideKeys:", this.discoveredOverrideKeys, "contentBlockKeys:", this.discoveredContentBlockKeys);
     }).catch(error => {
-      this.logger.error("template diff error:", error);
-      this.templateDiffLoading = false;
-    });
-  }
-
-  pushDefaultTemplate() {
-    const templateName = this.selectedTemplateName();
-    const templateId = this.notificationConfig?.templateId;
-    if (!templateId || !templateName) {
-      return;
-    }
-    this.templateDiffLoading = true;
-    this.mailService.pushDefaultTemplate({templateId, templateName}).then(response => {
-      this.logger.info("push default template result:", response);
-      this.templateDiffStatus = {
-        ...(this.templateDiffStatus || {}),
-        hasLocalTemplate: true,
-        matchesLocal: true,
-        overrideKeys: this.discoveredOverrideKeys
-      } as TemplateDiffResponse;
-      this.templateDiffLoading = false;
-      this.refreshTemplateDiff();
-    }).catch(error => {
-      this.logger.error("push default template error:", error);
-      this.templateDiffLoading = false;
-    });
-  }
-
-  templateDiffLabel(): string {
-    if (!this.templateDiffStatus) {
-      return "";
-    }
-    if (!this.templateDiffStatus.hasLocalTemplate) {
-      return "No local default";
-    }
-    if (this.templateDiffStatus.matchesLocal) {
-      return "Matches local default";
-    }
-    return "Differs from local default";
-  }
-
-  localTemplateAvailable(): boolean {
-    return !!this.templateDiffStatus?.hasLocalTemplate;
-  }
-
-  snapshotTemplatesDisabled(): boolean {
-    return !this.snapshotAllowed || this.snapshotLoading || !this.mailMessagingConfig?.brevo?.mailTemplates?.templates?.length;
-  }
-
-  snapshotTemplates() {
-    this.snapshotLoading = true;
-    this.mailService.snapshotTemplates({sanitiseHtml: true}).then(response => {
-      const savedMessage = this.stringUtils.pluraliseWithCount(response.savedCount, "template");
-      const createdMessage = this.stringUtils.pluraliseWithCount(response.createdCount, "created template", "created templates");
-      const updatedMessage = this.stringUtils.pluraliseWithCount(response.updatedCount, "updated template", "updated templates");
-      const unchangedMessage = this.stringUtils.pluraliseWithCount(response.unchangedCount, "unchanged template", "unchanged templates");
-      const failedMessage = response.failedTemplates.length > 0 ? `, ${this.stringUtils.pluraliseWithCount(response.failedTemplates.length, "failed")}` : "";
-      const message = `Snapshot complete: ${savedMessage} saved (${createdMessage}, ${updatedMessage}, ${unchangedMessage})${failedMessage}`;
-      const type = response.failedTemplates.length > 0 ? AlertLevel.ALERT_WARNING : AlertLevel.ALERT_SUCCESS;
-      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
-        message: {title: "Brevo templates", message},
-        type
-      }));
-      this.snapshotLoading = false;
-      this.refreshTemplateDiff();
-    }).catch(error => {
-      const message = error?.message || error;
-      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
-        message: {title: "Brevo templates snapshot failed", message},
-        type: AlertLevel.ALERT_ERROR
-      }));
-      this.snapshotLoading = false;
+      this.logger.error("template introspection error:", error);
     });
   }
 
@@ -884,8 +750,8 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
       return [];
     }
     const issues: string[] = [];
-    if (!target.templateId) {
-      issues.push("No Brevo template selected - emails cannot be sent");
+    if (!target.templateName) {
+      issues.push("No template configured - emails cannot be sent");
     }
     if (!target.bannerId) {
       issues.push("No banner image selected");
@@ -924,7 +790,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   }
 
   overrideValue(key: string): string {
-    return this.pendingOverridePreviews[key] || this.notificationConfig?.templateOverrides?.[key] || "";
+    return this.pendingOverridePreviews[key] || this.notificationConfig?.templateOverrides?.[key]?.imageUrl || "";
   }
 
   toggleOverrideAccordion(key: string) {
@@ -965,7 +831,11 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
     if (!this.notificationConfig.templateOverrides) {
       this.notificationConfig.templateOverrides = {};
     }
-    this.notificationConfig.templateOverrides[key] = this.urlService.imageSource(awsFileData.awsFileName, true);
+    this.notificationConfig.templateOverrides[key] = {
+      type: TemplateOverrideType.IMAGE,
+      state: TemplateOverrideState.CUSTOM,
+      imageUrl: this.urlService.imageSource(awsFileData.awsFileName, true)
+    };
     delete this.pendingOverridePreviews[key];
     this.activeOverrideEditor = null;
     this.activeOverrideEditorMode = null;

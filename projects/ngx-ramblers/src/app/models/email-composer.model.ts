@@ -1,3 +1,4 @@
+import { isObject } from "es-toolkit/compat";
 import { Member, MemberFilterSelection } from "./member.model";
 import { BrandingMode, ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
 import { ApiResponse } from "./api-response.model";
@@ -461,6 +462,124 @@ export const MERGE_FIELD_HINTS: MemberMergeFieldHint[] = [
   { token: "{{params.systemMergeFields.APP_SHORTNAME}}", label: "Group short name" },
   { token: "{{params.systemMergeFields.APP_LONGNAME}}", label: "Group long name" }
 ];
+
+export interface MergeFieldGroup {
+  group: string;
+  fields: MemberMergeFieldHint[];
+}
+
+export const LINK_DESTINATIONS: MemberMergeFieldHint[] = [
+  { token: "{{params.systemMergeFields.APP_URL}}", label: "Website home" },
+  { token: "{{params.systemMergeFields.PW_RESET_LINK}}", label: "Account activation link" },
+  { token: "{{params.systemMergeFields.FACEBOOK_URL}}", label: "Facebook page" },
+  { token: "{{params.systemMergeFields.TWITTER_URL}}", label: "Twitter / X page" },
+  { token: "{{params.systemMergeFields.INSTAGRAM_URL}}", label: "Instagram page" }
+];
+
+export const MERGE_FIELD_CATALOGUE: MergeFieldGroup[] = [
+  {
+    group: "Member details",
+    fields: [
+      { token: "{{params.memberMergeFields.FNAME}}", label: "First name" },
+      { token: "{{params.memberMergeFields.LNAME}}", label: "Last name" },
+      { token: "{{params.memberMergeFields.FULL_NAME}}", label: "Full name" },
+      { token: "{{params.memberMergeFields.EMAIL}}", label: "Email address" },
+      { token: "{{params.memberMergeFields.MEMBER_NUM}}", label: "Membership number" },
+      { token: "{{params.memberMergeFields.USERNAME}}", label: "Username" },
+      { token: "{{params.memberMergeFields.MEMBER_EXP}}", label: "Membership expiry date" }
+    ]
+  },
+  {
+    group: "Member address",
+    fields: [
+      { token: "{{params.accountMergeFields.STREET}}", label: "Street" },
+      { token: "{{params.accountMergeFields.TOWN}}", label: "Town" },
+      { token: "{{params.accountMergeFields.POSTCODE}}", label: "Postcode" }
+    ]
+  },
+  {
+    group: "Group & website",
+    fields: [
+      { token: "{{params.systemMergeFields.APP_SHORTNAME}}", label: "Group short name" },
+      { token: "{{params.systemMergeFields.APP_LONGNAME}}", label: "Group long name" },
+      { token: "{{params.systemMergeFields.APP_URL}}", label: "Website address" },
+      { token: "{{params.systemMergeFields.PW_RESET_LINK}}", label: "Account activation link" },
+      { token: "{{params.systemMergeFields.FACEBOOK_URL}}", label: "Facebook page" },
+      { token: "{{params.systemMergeFields.TWITTER_URL}}", label: "Twitter / X page" },
+      { token: "{{params.systemMergeFields.INSTAGRAM_URL}}", label: "Instagram page" }
+    ]
+  }
+];
+
+const FIELD_LABEL_BY_TOKEN: Record<string, string> = {};
+MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(field => FIELD_LABEL_BY_TOKEN[field.token] = field.label));
+LINK_DESTINATIONS.forEach(destination => FIELD_LABEL_BY_TOKEN[destination.token] = destination.label);
+
+export function registerLinkDestinations(extras: MemberMergeFieldHint[]): void {
+  extras.forEach(extra => FIELD_LABEL_BY_TOKEN[extra.token] = extra.label);
+}
+
+function humanizeToken(inner: string): string {
+  const lastSegment = inner.split(".").pop() || inner;
+  return lastSegment.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, character => character.toUpperCase());
+}
+
+export function friendlyFieldLabel(token: string): string {
+  const normalised = (token || "").trim();
+  const withBraces = normalised.startsWith("{{") ? normalised : `{{${normalised}}}`;
+  if (FIELD_LABEL_BY_TOKEN[withBraces]) {
+    return FIELD_LABEL_BY_TOKEN[withBraces];
+  }
+  const baseMatch = withBraces.match(/^\{\{\s*([^}]+?)\s*\}\}/);
+  if (!baseMatch) {
+    return withBraces;
+  }
+  const baseLabel = FIELD_LABEL_BY_TOKEN[`{{${baseMatch[1].trim()}}}`] || humanizeToken(baseMatch[1].trim());
+  const trailing = withBraces.slice(baseMatch[0].length);
+  return trailing ? `${baseLabel}${trailing}` : baseLabel;
+}
+
+export function friendlyText(text: string): string {
+  return (text || "").replace(/\{\{[^}]+\}\}/g, match => friendlyFieldLabel(match));
+}
+
+const EXAMPLE_VALUE_BY_TOKEN: Record<string, string> = {};
+
+export function registerExampleValues(params: unknown): void {
+  const walk = (node: unknown, path: string): void => {
+    if (isObject(node)) {
+      Object.entries(node as Record<string, unknown>).forEach(([key, value]) => {
+        const nextPath = path ? `${path}.${key}` : key;
+        if (isObject(value)) {
+          walk(value, nextPath);
+        } else {
+          EXAMPLE_VALUE_BY_TOKEN[`{{params.${nextPath}}}`] = value == null ? "" : String(value);
+        }
+      });
+    }
+  };
+  walk(params, "");
+}
+
+export function exampleValueForToken(token: string): string {
+  const normalised = (token || "").trim();
+  const withBraces = normalised.startsWith("{{") ? normalised : `{{${normalised}}}`;
+  if (EXAMPLE_VALUE_BY_TOKEN[withBraces] != null) {
+    return EXAMPLE_VALUE_BY_TOKEN[withBraces];
+  }
+  const baseMatch = withBraces.match(/^\{\{\s*([^}]+?)\s*\}\}/);
+  if (baseMatch) {
+    const baseValue = EXAMPLE_VALUE_BY_TOKEN[`{{${baseMatch[1].trim()}}}`];
+    if (baseValue != null) {
+      return `${baseValue}${withBraces.slice(baseMatch[0].length)}`;
+    }
+  }
+  return "";
+}
+
+export function exampleText(text: string): string {
+  return (text || "").replace(/\{\{[^}]+\}\}/g, match => exampleValueForToken(match) || friendlyFieldLabel(match));
+}
 
 export function defaultEmailComposerState(): EmailComposerState {
   return {

@@ -8,6 +8,7 @@ function responsiveStyles(): string {
   body { margin: 0; padding: 0; width: 100% !important; background-color: ${T.pageBg}; }
   table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
   img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+  .email-body img { max-width: 100%; height: auto; }
   a { color: ${T.linkColor}; text-decoration: underline; }
   h1 { font-family: ${T.fontFamily}; font-size: ${T.h1Size}; font-weight: bold; color: ${T.bodyColor}; line-height: 125%; margin: 0 0 16px; text-align: center; }
   h2 { font-family: ${T.fontFamily}; font-size: ${T.h2Size}; font-weight: bold; color: ${T.bodyColor}; line-height: 125%; margin: 0 0 12px; text-align: left; }

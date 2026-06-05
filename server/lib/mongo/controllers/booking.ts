@@ -417,7 +417,7 @@ export async function previewEmail(req: Request, res: Response) {
     res.json({
       request: {eventId, emailType},
       response: {
-        templateId: build.templateId,
+        templateName: build.templateName,
         htmlContent: build.bodyContent,
         params: build.params,
         subject: build.subject

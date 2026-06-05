@@ -10,17 +10,21 @@ import {
   SendSmtpEmailRequest,
   StatusMappedResponseMultipleInputs,
   StatusMappedResponseSingleInput,
-  TemplateRenderRequest,
-  TemplateResponse
+  TemplateOverride,
+  TemplateOverrides,
+  TemplateOverrideState,
+  TemplateOverrideType,
+  TemplateRenderRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
-import { queryTemplateContent } from "../transactional-mail/query-template-content";
 import { KeyValue } from "../../../../projects/ngx-ramblers/src/app/functions/enums";
 import { extractParametersFrom } from "../../../../projects/ngx-ramblers/src/app/common/mail-parameters";
 import { toCampaignContactTokens } from "../../../../projects/ngx-ramblers/src/app/common/campaign-contact-tokens";
 import { replaceAll } from "../../shared/string-utils";
 import { ramblersEmailLayout } from "../templates/ramblers-email-layout";
 import { unbrandedEmailLayout } from "../templates/unbranded-email-layout";
+import { RAMBLERS_EMAIL_TOKENS } from "../templates/ramblers-design-tokens";
 import { readLocalTemplate } from "../templates/local-template-reader";
+import { renderMarkdownToHtml } from "../../shared/markdown-renderer";
 import { errorResponse } from "../../shared/error-response";
 import { logBrevoError } from "./error-log";
 import { isObject, isString, keys } from "es-toolkit/compat";
@@ -86,18 +90,91 @@ export function sanitiseBrevoTemplate(html: string): string {
   );
 }
 
-export function applyTemplateOverrides(html: string, overrides?: Record<string, string>): string {
+export function resolveTemplateOverride(overrides: TemplateOverrides | undefined, key: string): TemplateOverride | undefined {
+  const raw: any = overrides?.[key];
+  if (!raw) {
+    return undefined;
+  }
+  if (isString(raw)) {
+    return {type: TemplateOverrideType.IMAGE, state: TemplateOverrideState.CUSTOM, imageUrl: raw};
+  }
+  return raw as TemplateOverride;
+}
+
+const CONTENT_BLOCK_REGEX = /\{%\s*block\s+([A-Z_]+)\s*%\}([\s\S]*?)\{%\s*endblock\s*%\}/g;
+
+export function extractContentBlockKeys(html: string): string[] {
+  const matches = html.match(CONTENT_BLOCK_REGEX) || [];
+  return [...new Set(matches.map((match: string) => match.replace(/\{%\s*block\s+|\s*%\}[\s\S]*$/g, "")))];
+}
+
+export function extractContentBlockDefaults(html: string): Record<string, string> {
+  const defaults: Record<string, string> = {};
+  for (const match of html.matchAll(CONTENT_BLOCK_REGEX)) {
+    defaults[match[1]] = (match[2] ?? "").trim();
+  }
+  return defaults;
+}
+
+export function decodeBraceTokens(html: string): string {
+  return html.replace(/%7B%7B/gi, "{{").replace(/%7D%7D/gi, "}}");
+}
+
+const EMAIL_BODY_CONTENT_WIDTH = RAMBLERS_EMAIL_TOKENS.maxWidth - 60;
+
+export function constrainBodyImages(html: string): string {
+  return html.replace(/<img\b([^>]*?)\s*\/?>/gi, (_match, rawAttrs: string) => {
+    const styleMatch = rawAttrs.match(/style="([^"]*)"/i);
+    const existingStyle = (styleMatch ? styleMatch[1] : "").replace(/;\s*$/, "");
+    const sizedMatch = existingStyle.match(/width:\s*(\d+)px/i);
+    const attrsWithoutWidth = rawAttrs.replace(/\swidth="[^"]*"/gi, "");
+    if (sizedMatch) {
+      const px = Math.min(parseInt(sizedMatch[1], 10), EMAIL_BODY_CONTENT_WIDTH);
+      const style = `${existingStyle.replace(/width:\s*\d+px/i, `width:${px}px`)};max-width:100%;height:auto`;
+      const withStyle = styleMatch ? attrsWithoutWidth.replace(/style="[^"]*"/i, `style="${style}"`) : `${attrsWithoutWidth} style="${style}"`;
+      return `<img${withStyle} width="${px}">`;
+    }
+    const style = `${existingStyle ? `${existingStyle};` : ""}width:100%;max-width:${EMAIL_BODY_CONTENT_WIDTH}px;height:auto`;
+    const withStyle = styleMatch ? attrsWithoutWidth.replace(/style="[^"]*"/i, `style="${style}"`) : `${attrsWithoutWidth} style="${style}"`;
+    return `<img${withStyle} width="${EMAIL_BODY_CONTENT_WIDTH}">`;
+  });
+}
+
+export function renderMarkdownPreservingTokens(markdown: string): string {
+  return constrainBodyImages(decodeBraceTokens(renderMarkdownToHtml(markdown ?? "")));
+}
+
+export function applyContentBlocks(html: string, overrides?: TemplateOverrides): string {
+  return html.replace(CONTENT_BLOCK_REGEX, (_full: string, key: string, defaultContent: string) => {
+    const override = resolveTemplateOverride(overrides, key);
+    if (override?.state === TemplateOverrideState.OMITTED) {
+      return "";
+    }
+    if (override?.state === TemplateOverrideState.CUSTOM && override?.type === TemplateOverrideType.CONTENT) {
+      return renderMarkdownPreservingTokens(override.content ?? "");
+    }
+    return defaultContent;
+  });
+}
+
+function templateOverrideImageReplacement(override: TemplateOverride | undefined, label: string): string {
+  if (override?.state === TemplateOverrideState.OMITTED) {
+    return "";
+  }
+  if (override?.state === TemplateOverrideState.CUSTOM && override?.imageUrl) {
+    return `<img src="${override.imageUrl}" alt="${label}" style="max-width:100%;height:auto;display:block">`;
+  }
+  return `<em style="color:#757575">[${label} — To Be Added By Your Webmaster]</em>`;
+}
+
+export function applyTemplateOverrides(html: string, overrides?: TemplateOverrides): string {
   const keys = extractOverrideKeys(html);
   if (keys.length === 0) {
     return html;
   }
   return keys.reduce((content, key) => {
     const marker = `{{override.${key}}}`;
-    const imageUrl = overrides?.[key];
-    const label = overrideKeyToLabel(key);
-    const replacement = imageUrl
-      ? `<img src="${imageUrl}" alt="${label}" style="max-width:100%;height:auto;display:block">`
-      : `<em style="color:#757575">[${label} — To Be Added By Your Webmaster]</em>`;
+    const replacement = templateOverrideImageReplacement(resolveTemplateOverride(overrides, key), overrideKeyToLabel(key));
     return replaceAll(marker, replacement, content) as string;
   }, html);
 }
@@ -124,11 +201,24 @@ export function inlineDefaultLinkStyles(html: string): string {
   });
 }
 
+const SAFE_TEMPLATE_EXPRESSION = /^[A-Za-z_]\w*(\s*\.\s*[A-Za-z_]\w*)*$/;
+
+export function escapeUnknownTemplateExpressions(html: string): string {
+  if (!html) {
+    return html;
+  }
+  return html.replace(/\{\{([\s\S]*?)\}\}/g, (match, inner) =>
+    SAFE_TEMPLATE_EXPRESSION.test((inner ?? "").trim())
+      ? match
+      : match.replace(/\{\{/g, "&#123;&#123;").replace(/\}\}/g, "&#125;&#125;"));
+}
+
 export function renderBrandedTemplate(rawHtml: string,
                                      params: any,
-                                     templateOverrides?: Record<string, string>,
+                                     templateOverrides?: TemplateOverrides,
                                      campaign: boolean = false): string {
-  const sanitisedHtml = sanitiseBrevoTemplate(rawHtml ?? "");
+  const withContentBlocks = applyContentBlocks(rawHtml ?? "", templateOverrides);
+  const sanitisedHtml = sanitiseBrevoTemplate(withContentBlocks);
   const overriddenHtml = applyTemplateOverrides(sanitisedHtml, templateOverrides);
   const wrappedHtml = ramblersEmailLayout(overriddenHtml);
   const personalisedHtml = campaign ? toCampaignContactTokens(wrappedHtml) : wrappedHtml;
@@ -137,12 +227,22 @@ export function renderBrandedTemplate(rawHtml: string,
     (templateContent, keyValue) => replaceAll(keyValue.key, keyValue.value, templateContent) as string,
     personalisedHtml,
   );
-  return inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, params));
+  return escapeUnknownTemplateExpressions(inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, params)));
+}
+
+export function composeShellAndBody(bodyMarkdown: string): string {
+  return [
+    "<h3>{{params.messageMergeFields.subject}}</h3>",
+    "{% if params.messageMergeFields.ADDRESS_LINE %}<p>{{params.messageMergeFields.ADDRESS_LINE}}</p>{% endif %}",
+    "{{params.messageMergeFields.BODY_CONTENT_TOP}}",
+    renderMarkdownPreservingTokens(bodyMarkdown),
+    "{{params.messageMergeFields.BODY_CONTENT_BOTTOM}}"
+  ].join("\n");
 }
 
 export function renderLocalBrandedTemplate(templateName: string,
                                           params: any,
-                                          templateOverrides?: Record<string, string>): string {
+                                          templateOverrides?: TemplateOverrides): string {
   const localHtml = readLocalTemplate(templateName);
   if (!localHtml) {
     throw new Error(`Local Brevo template "${templateName}" not found`);
@@ -158,6 +258,9 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
   debugLog.enabled = false;
   try {
     const isUnbranded = emailRequest.brandingMode === BrandingMode.UNBRANDED;
+    const localTemplateHtml = !isUnbranded && emailRequest.templateName
+      ? readLocalTemplate(emailRequest.templateName)
+      : null;
     if (isUnbranded) {
       debugLog("performing unbranded template substitution");
       const wrappedHtml = unbrandedEmailLayout(emailRequest.htmlContent ?? "");
@@ -167,15 +270,18 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
         wrappedHtml,
       );
       sendSmtpEmail.htmlContent = inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, emailRequest.params));
-    } else if (emailRequest.templateId) {
-      debugLog("performing template substitution in email content for templateId", emailRequest.templateId);
-      const templateResponse: TemplateResponse = await queryTemplateContent(emailRequest.templateId);
-      const htmlContent = renderBrandedTemplate(templateResponse?.htmlContent, emailRequest.params, emailRequest.templateOverrides, campaign);
-      debugLog(`Setting final htmlContent to ${htmlContent}`);
-      sendSmtpEmail.htmlContent = htmlContent;
+    } else if (emailRequest.body) {
+      debugLog("performing template substitution from editable body");
+      sendSmtpEmail.htmlContent = renderBrandedTemplate(composeShellAndBody(emailRequest.body), emailRequest.params, emailRequest.templateOverrides);
+    } else if (localTemplateHtml) {
+      debugLog("performing template substitution from local template", emailRequest.templateName);
+      sendSmtpEmail.htmlContent = renderBrandedTemplate(localTemplateHtml, emailRequest.params, emailRequest.templateOverrides);
     } else {
       debugLog(`Using supplied htmlContent`, emailRequest.htmlContent);
       sendSmtpEmail.htmlContent = emailRequest.htmlContent;
+    }
+    if (isString(sendSmtpEmail.htmlContent)) {
+      sendSmtpEmail.htmlContent = escapeUnknownTemplateExpressions(sendSmtpEmail.htmlContent);
     }
   } catch (error) {
     debugLog(`Error occurred`, error);

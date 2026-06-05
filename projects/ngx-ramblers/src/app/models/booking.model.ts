@@ -140,7 +140,7 @@ export interface BookingEmailBuild {
   subject: string;
   bodyContent: string;
   params: any;
-  templateId: number;
+  templateName: string;
 }
 
 export const DEFAULT_MAX_GROUP_SIZE = 3;

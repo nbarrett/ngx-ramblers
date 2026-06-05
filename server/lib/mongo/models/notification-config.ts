@@ -10,7 +10,7 @@ const notificationConfigSchema = new mongoose.Schema({
     suffixParameter: {type: String}
   },
   bannerId: {type: String},
-  templateId: {type: Number},
+  templateName: {type: String},
   preSendActions: [{type: String}],
   defaultMemberSelection: {type: String},
   postSendActions: [{type: String}],
@@ -24,6 +24,7 @@ const notificationConfigSchema = new mongoose.Schema({
   contentPreset: {type: String},
   help: {type: String},
   templateOverrides: {type: Object},
+  body: {type: String},
   defaultListing: {type: Boolean},
   createdAt: {type: Number},
   createdBy: {type: String},

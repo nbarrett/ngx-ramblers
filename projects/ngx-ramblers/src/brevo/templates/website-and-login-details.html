@@ -4,17 +4,26 @@
 <p>Welcome to {{params.systemMergeFields.APP_LONGNAME}}!</p>
 <p>This is the first email sent to you via our website, using <a href="https://www.brevo.com" style="color: #c05711; text-decoration: underline;">Brevo</a>, the email automation system behind every <a href="https://www.ngx-ramblers.org.uk" style="color: #c05711; text-decoration: underline;">NGX-Ramblers</a> website.</p>
 <p>This email shows the kind of communication you can expect from our group, and includes important information about your login details.</p>
+{% block FINDING_THE_SITE_SECTION %}
 <h4>How can I find the {{params.systemMergeFields.APP_SHORTNAME}} site?</h4>
 <p>You can reach the {{params.systemMergeFields.APP_SHORTNAME}} site at: <a href="{{params.systemMergeFields.APP_URL}}" style="color: #c05711; text-decoration: underline;">{{params.systemMergeFields.APP_URL}}</a></p>
 <p>Navigate to different pages by clicking the links in the navigation bar at the top. The yellow buttons at the very top link to other Ramblers websites.</p>
+{% endblock %}
+{% block LOGIN_DETAILS_SECTION %}
 <h4>Your {{params.systemMergeFields.APP_SHORTNAME}} login details</h4>
 <p>Most content on the {{params.systemMergeFields.APP_SHORTNAME}} site is publicly accessible. However, logging in as a member unlocks additional features. Committee members have extra permissions to administer the website and manage members.</p>
+{% endblock %}
+{% block ACCOUNT_ACTIVATION_SECTION %}
 <h4>Activating your {{params.systemMergeFields.APP_SHORTNAME}} account</h4>
 <p>I've set up a {{params.systemMergeFields.APP_SHORTNAME}} user profile for you. Note that this is completely separate from the <a href="https://www.ramblers.org.uk" style="color: #c05711; text-decoration: underline;">National Ramblers site</a> - these credentials only apply to {{params.systemMergeFields.APP_SHORTNAME}}.</p>
 <p>To activate your login, click <a href="{{params.systemMergeFields.PW_RESET_LINK}}" style="color: #c05711; text-decoration: underline;">Activate Your Account</a>.</p>
 <p>You'll see a login popup where your User Name <strong>{{params.memberMergeFields.USERNAME}}</strong> will be pre-filled. Enter a <strong>New Password</strong> and <strong>Confirm New Password</strong>, then click <strong>Confirm Reset</strong>.</p>
+{% endblock %}
+{% block LOGGING_IN_SECTION %}
 <h4>Logging into the website</h4>
 <p>When not logged in, you'll see a "Login to {{params.systemMergeFields.APP_SHORTNAME}} Site" link at the top. Click it, enter your User Name <strong>{{params.memberMergeFields.USERNAME}}</strong> and password, then click Login.</p>
+{% endblock %}
+{% block ADMIN_PAGE_SECTION %}
 <h4>The Admin Page</h4>
 <p>Once logged in, you can manage your account from the <a href="{{params.systemMergeFields.APP_URL}}/admin" style="color: #c05711; text-decoration: underline;">admin page</a>:</p>
 <ul>
@@ -23,4 +32,5 @@
   <li><a href="{{params.systemMergeFields.APP_URL}}/admin/email-subscriptions" style="color: #c05711; text-decoration: underline;">Manage email subscriptions</a></li>
 </ul>
 <p>Any queries about the above or anything else, please don't hesitate to contact me.</p>
+{% endblock %}
 {{params.messageMergeFields.BODY_CONTENT_BOTTOM}}

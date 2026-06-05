@@ -93,14 +93,14 @@ export function hasTrailingEditPath(urlSegments: UrlSegment[]): UrlMatchResult {
 }
 
 export function hasSendNotificationPath(urlSegments: UrlSegment[]): UrlMatchResult {
-  if (urlSegments.length >= 3 && urlSegments[urlSegments.length - 2].path === PathSegment.SEND_NOTIFICATION) {
+  if (urlSegments.length >= 2 && urlSegments[urlSegments.length - 2].path === PathSegment.SEND_NOTIFICATION) {
     return {
       consumed: urlSegments,
       posParams: {
         [RouteParam.COMMITTEE_EVENT_ID]: urlSegments[urlSegments.length - 1]
       }
     };
-  } else if (urlSegments.length >= 2 && last(urlSegments).path === PathSegment.SEND_NOTIFICATION) {
+  } else if (urlSegments.length >= 1 && last(urlSegments).path === PathSegment.SEND_NOTIFICATION) {
     return {
       consumed: urlSegments,
       posParams: {}

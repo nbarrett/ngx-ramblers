@@ -1,9 +1,12 @@
+import { keys } from "es-toolkit/compat";
 import debug from "debug";
 import { NextFunction, Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
-import { collapseFroalaPlaceholderSpans, handleError, successfulResponse } from "../common/messages";
-import { queryTemplateContent } from "../transactional-mail/query-template-content";
+import { extractContentBlockDefaults, extractContentBlockKeys, handleError, successfulResponse } from "../common/messages";
+import { contentBlockHtmlToMarkdown } from "../common/content-block-markdown";
 import { readLocalTemplate } from "./local-template-reader";
+import { BOOKING_EMAIL_BLOCK_KEYS, DEFAULT_BOOKING_EMAIL_BLOCKS } from "../transactional-mail/booking-template-resolver";
+import { BookingEmailType } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
 import {
   extractOverrideKeys,
   TemplateDiffRequest,
@@ -14,43 +17,31 @@ const messageType = "brevo:template-diff";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = false;
 
-function normaliseHtml(html: string): string {
-  return collapseFroalaPlaceholderSpans(html).replace(/\s+/g, " ").trim();
-}
-
-export async function templateDiff(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function templateDiff(req: Request, res: Response, _next: NextFunction): Promise<void> {
   try {
     const request: TemplateDiffRequest = req.body;
-    debugLog("received diff request:", request);
+    debugLog("received template introspection request:", request);
     const localContent = readLocalTemplate(request.templateName);
-    if (!localContent) {
-      const response: TemplateDiffResponse = {
-        templateId: request.templateId,
-        templateName: request.templateName,
-        hasLocalTemplate: false,
-        matchesLocal: false,
-        brevoContentLength: 0,
-        localContentLength: 0
-      };
-      successfulResponse({req, res, response, messageType, debugLog});
-      return;
+    const contentBlockDefaults: Record<string, string> = {};
+    if (localContent) {
+      const templateBlockHtml = extractContentBlockDefaults(localContent);
+      keys(templateBlockHtml).forEach(key => {
+        contentBlockDefaults[key] = contentBlockHtmlToMarkdown(templateBlockHtml[key]);
+      });
     }
-    const brevoTemplate = await queryTemplateContent(request.templateId);
-    const brevoContent = brevoTemplate?.htmlContent || "";
-    const normalisedBrevo = normaliseHtml(brevoContent);
-    const normalisedLocal = normaliseHtml(localContent);
-    const overrideKeys = extractOverrideKeys(brevoContent);
-    debugLog("normalised brevo length:", normalisedBrevo.length, "normalised local length:", normalisedLocal.length, "overrideKeys:", overrideKeys);
+    if (request.includeBookingBlocks) {
+      (keys(BOOKING_EMAIL_BLOCK_KEYS) as BookingEmailType[]).forEach(emailType => {
+        contentBlockDefaults[BOOKING_EMAIL_BLOCK_KEYS[emailType]] = contentBlockHtmlToMarkdown(DEFAULT_BOOKING_EMAIL_BLOCKS[emailType]);
+      });
+    }
     const response: TemplateDiffResponse = {
-      templateId: request.templateId,
       templateName: request.templateName,
-      hasLocalTemplate: true,
-      matchesLocal: normalisedBrevo === normalisedLocal,
-      brevoContentLength: brevoContent.length,
-      localContentLength: localContent.length,
-      overrideKeys
+      hasLocalTemplate: !!localContent,
+      overrideKeys: localContent ? extractOverrideKeys(localContent) : [],
+      contentBlockKeys: localContent ? extractContentBlockKeys(localContent) : [],
+      contentBlockDefaults
     };
-    debugLog("diff result:", response);
+    debugLog("template introspection result:", response);
     successfulResponse({req, res, response, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);

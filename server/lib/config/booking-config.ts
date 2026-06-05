@@ -24,7 +24,6 @@ function mergeWithLegacyBookingConfig(config: BookingConfig | null, walksConfig:
     defaultMaxCapacity: config?.defaultMaxCapacity || legacyConfig?.defaultMaxCapacity || 0,
     defaultMaxGroupSize: config?.defaultMaxGroupSize || legacyConfig?.defaultMaxGroupSize || 3,
     defaultMemberPriorityDays: config?.defaultMemberPriorityDays || legacyConfig?.defaultMemberPriorityDays || 0,
-    emailTemplates: config?.emailTemplates || null,
     reminderDaysBefore: config?.reminderDaysBefore || null,
     templatesIncludeSalutation: config?.templatesIncludeSalutation ?? legacyConfig?.templatesIncludeSalutation ?? true
   };
