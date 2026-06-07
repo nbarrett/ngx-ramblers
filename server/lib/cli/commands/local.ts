@@ -17,6 +17,7 @@ import { envConfig } from "../../env-config/env-config";
 import { LocalRunConfig, ProcessState, RunningProcess } from "../cli.model";
 import { DEFAULT_CHROME_VERSION } from "../../shared/chrome-version";
 import { openLogViewer, logViewerSupported } from "../log-viewer";
+import { parseMongoUri } from "../../shared/mongodb-uri";
 
 const debugLog = debug(envConfig.logNamespace("cli:local"));
 
@@ -154,6 +155,42 @@ function applyServerEnvOverrides(env: NodeJS.ProcessEnv): void {
   }
 }
 
+function applyExplicitMongoUriOverride(env: NodeJS.ProcessEnv): void {
+  const override = readServerEnvValue(Environment.MONGODB_URI);
+  if (!override || !env[Environment.MONGODB_URI]) {
+    return;
+  }
+
+  const overrideMongo = parseMongoUri(override);
+  const currentMongo = parseMongoUri(env[Environment.MONGODB_URI] || "");
+  if (!overrideMongo?.database || !currentMongo?.database) {
+    return;
+  }
+
+  if (overrideMongo.database !== currentMongo.database) {
+    log(
+      "MONGODB_URI from server/.env targets %s/%s, leaving selected environment on %s/%s",
+      overrideMongo.cluster,
+      overrideMongo.database,
+      currentMongo.cluster,
+      currentMongo.database
+    );
+    return;
+  }
+
+  if (override !== env[Environment.MONGODB_URI]) {
+    log(
+      "MONGODB_URI override from server/.env for %s: %s/%s → %s/%s",
+      overrideMongo.database,
+      currentMongo.username,
+      currentMongo.cluster,
+      overrideMongo.username,
+      overrideMongo.cluster
+    );
+    env[Environment.MONGODB_URI] = override;
+  }
+}
+
 async function selectEnvironment(): Promise<string | null> {
   const environments = await listEnvironmentSummariesFromDatabase();
 
@@ -275,6 +312,7 @@ function buildEnvironmentVariables(
     env.AWS_BUCKET = s3BucketOverride;
   }
 
+  applyExplicitMongoUriOverride(env);
   applyServerEnvOverrides(env);
 
   return env;

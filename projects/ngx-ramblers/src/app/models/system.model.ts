@@ -20,6 +20,7 @@ export enum SystemSettingsTab {
   WEBSITE_FOOTER = "Footer",
   EXTERNAL_SYSTEMS = "External Systems",
   SCHEDULED_TASKS = "Scheduled Tasks",
+  DIAGNOSTICS = "Diagnostics",
 }
 
 export enum MediaSubTab {
