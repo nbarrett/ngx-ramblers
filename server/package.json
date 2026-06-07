@@ -30,7 +30,7 @@
     "serenity": "failsafe clean serenity-run report",
     "serenity-bdd-update": "serenity-bdd update --ignoreSSL",
     "serenity-run": "playwright test -c ./playwright.config.ts",
-    "server": "node --max_old_space_size=384 ts-gen/server/lib/server",
+    "server": "node ts-gen/server/lib/server",
     "worker-server": "node --max_old_space_size=384 ts-gen/server/lib/ramblers/integration-worker-server",
     "worker-server-live": "node --import tsx --watch-path=lib lib/ramblers/integration-worker-server",
     "server-live": "node --import tsx --watch-path=lib lib/server",

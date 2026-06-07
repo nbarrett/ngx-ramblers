@@ -60,6 +60,7 @@ import { FooterLinkSetting } from "./footer-link-setting";
 import { SalesforceSettings } from "./salesforce/salesforce-settings";
 import { SalesforceConfigService } from "../../../services/salesforce/salesforce-config.service";
 import { ScheduledTasksComponent } from "./scheduled-tasks/scheduled-tasks";
+import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-settings";
 
 
 @Component({
@@ -380,6 +381,13 @@ import { ScheduledTasksComponent } from "./scheduled-tasks/scheduled-tasks";
                     <app-scheduled-tasks/>
                   </div>
                 </tab>
+                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.DIAGNOSTICS)}}"
+                     [active]="tabActive(SystemSettingsTab.DIAGNOSTICS)"
+                     (selectTab)="selectTab(SystemSettingsTab.DIAGNOSTICS)">
+                  <div class="img-thumbnail thumbnail-admin-edit">
+                    <app-system-memory-settings/>
+                  </div>
+                </tab>
               </tabset>
             }
             @if (notifyTarget.showAlert) {
@@ -414,7 +422,7 @@ import { ScheduledTasksComponent } from "./scheduled-tasks/scheduled-tasks";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, ScheduledTasksComponent, SystemGmailInboxSettingsComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, ScheduledTasksComponent, SystemGmailInboxSettingsComponent, SystemMemorySettingsComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 

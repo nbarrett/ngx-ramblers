@@ -22,6 +22,7 @@ export class WebSocketClientService {
   private reconnectTimer: any;
   private reconnectDelayMs = 2000;
   private maxReconnectDelayMs = 30000;
+  private pendingMessages: string[] = [];
 
   connect(): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -40,6 +41,7 @@ export class WebSocketClientService {
           this.startPingInterval();
           this.clearReconnect();
           this.reconnectDelayMs = 2000;
+          this.flushPendingMessages();
           resolve(openMessage);
         });
       };
@@ -82,7 +84,23 @@ export class WebSocketClientService {
     this.logger.info("sendMessage:type", type, "data:", data, "with size:", this.numberUtilsService.humanFileSize(this.numberUtilsService.estimateObjectSize(data)));
     const payload = JSON.stringify({type, data});
     this.logger.info("sendMessage:type", type, "data:", data, "with size:", this.numberUtilsService.humanFileSize(payload.length));
-    this.socket.send(payload);
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(payload);
+    } else {
+      this.logger.info("socket not open (state:", this.socket?.readyState, ") - queueing message until the connection opens");
+      this.pendingMessages.push(payload);
+      if (!this.socket || this.socket.readyState === WebSocket.CLOSED || this.socket.readyState === WebSocket.CLOSING) {
+        this.connect().catch(error => this.logger.error("failed to open websocket for queued message:", error));
+      }
+    }
+  }
+
+  private flushPendingMessages(): void {
+    if (this.socket?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    const queued = this.pendingMessages.splice(0);
+    queued.forEach(payload => this.socket.send(payload));
   }
 
   receiveMessages<T>(type: string): Observable<T> {

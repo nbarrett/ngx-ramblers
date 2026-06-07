@@ -85,3 +85,45 @@ export interface CrossEnvironmentHealthResponse {
   environments: EnvironmentHealthCheck[];
   summary: CrossEnvironmentHealthSummary;
 }
+
+export interface ProcessMemoryMb {
+  rss: number;
+  heapTotal: number;
+  heapUsed: number;
+  external: number;
+  arrayBuffers: number;
+}
+
+export interface V8HeapMb {
+  heapSizeLimit: number;
+  totalHeapSize: number;
+  usedHeapSize: number;
+  mallocedMemory: number;
+  externalMemory: number;
+}
+
+export interface MemoryUsageResponse {
+  timestamp: string;
+  environment: string;
+  uptimeSeconds: number;
+  nodeVersion: string;
+  processMemoryMb: ProcessMemoryMb;
+  v8HeapMb: V8HeapMb;
+  nativeContexts: number;
+  detachedContexts: number;
+}
+
+export interface HeapSnapshotResponse {
+  bucket: string;
+  key: string;
+  capturedRssMb: number;
+  message: string;
+}
+
+export enum HeapSnapshotStatus {
+  IDLE = "idle",
+  RUNNING = "running",
+  DONE = "done",
+  STOPPED = "stopped",
+  FAILED = "failed"
+}
