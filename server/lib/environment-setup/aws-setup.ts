@@ -58,15 +58,15 @@ function createIamClient(adminConfig: AwsAdminConfig): IAMClient {
   });
 }
 
-function generateBucketName(environmentName: string): string {
+export function generateBucketName(environmentName: string): string {
   return `ngx-ramblers-${environmentName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
 }
 
-function generateIamUserName(environmentName: string): string {
+export function generateIamUserName(environmentName: string): string {
   return `ngx-ramblers-${environmentName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}-user`;
 }
 
-function generatePolicyName(environmentName: string): string {
+export function generatePolicyName(environmentName: string): string {
   return `ngx-ramblers-${environmentName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}-policy`;
 }
 
@@ -326,6 +326,16 @@ export async function setupAwsForCustomer(
 ): Promise<AwsSetupResult> {
   const effectiveRegion = region || adminConfig.region;
   const bucketName = generateBucketName(environmentName);
+  return setupAwsForBucket(adminConfig, environmentName, bucketName, effectiveRegion);
+}
+
+export async function setupAwsForBucket(
+  adminConfig: AwsAdminConfig,
+  environmentName: string,
+  bucketName: string,
+  region?: string
+): Promise<AwsSetupResult> {
+  const effectiveRegion = region || adminConfig.region;
   const userName = generateIamUserName(environmentName);
   const policyName = generatePolicyName(environmentName);
 

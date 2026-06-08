@@ -153,8 +153,8 @@ export async function listS3Backups(req: Request, res: Response) {
     debugLog("listS3Backups:response:", backups.length, "backups");
     res.status(200).json(backups);
   } catch (error) {
-    debugLog("listS3Backups:error:", error);
-    res.status(200).json([]);
+    debugLog("listS3Backups:unexpected error:", error);
+    res.status(500).json({ error: `Failed to list S3 backups: ${error.message}` });
   }
 }
 

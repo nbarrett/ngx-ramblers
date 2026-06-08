@@ -7,4 +7,6 @@ const refreshTokenSchema = new mongoose.Schema({
   memberPayload: {type: Object, required: true}
 }, {collection: "refreshTokens"});
 
+refreshTokenSchema.index({refreshToken: 1}, {unique: true});
+
 export const refreshToken: mongoose.Model<RefreshToken> = ensureModel<RefreshToken>("refresh-token", refreshTokenSchema);

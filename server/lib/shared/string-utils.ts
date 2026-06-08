@@ -42,6 +42,14 @@ export function lastItemFrom(key: string) {
 }
 
 
+export function padRight(s: string, len: number): string {
+  return s + " ".repeat(Math.max(0, len - s.length));
+}
+
+export function padLeft(s: string, len: number): string {
+  return " ".repeat(Math.max(0, len - s.length)) + s;
+}
+
 export function titleCase(str: string): string {
     return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
 }

@@ -81,3 +81,18 @@ export interface LogViewerConfig {
   refreshIntervalMs: number;
   maxLines: number;
 }
+
+export interface ShardInfo {
+  host: string;
+  ip: string;
+  tcpMs: number;
+}
+
+export interface QueryBenchmark {
+  label: string;
+  avgMs: number;
+  minMs: number;
+  maxMs: number;
+  docCount: number;
+  indexes: number;
+}

@@ -4,7 +4,7 @@ import { envConfig } from "../env-config/env-config";
 const debugLog = debug(envConfig.logNamespace("backup-concurrency"));
 debugLog.enabled = true;
 
-const DEFAULT_LIMIT = 3;
+const DEFAULT_LIMIT = 1;
 
 function resolveLimit(): number {
   const configured = Number.parseInt(process.env.BACKUP_MAX_CONCURRENT_ENVIRONMENTS || "", 10);

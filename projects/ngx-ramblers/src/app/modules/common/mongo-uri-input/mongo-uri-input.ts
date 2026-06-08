@@ -3,10 +3,13 @@ import { Component, EventEmitter, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCheck, faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
-import { MongoDbConnectionConfig, parseMongoUri } from "../../../functions/mongo";
+import { parseMongoUri } from "../../../functions/mongo";
 
-export interface MongoUriParseResult extends MongoDbConnectionConfig {
-  database: string;
+export interface MongoUriParseResult {
+  cluster: string;
+  username: string;
+  password: string;
+  database?: string;
 }
 
 @Component({
@@ -72,7 +75,7 @@ export class MongoUriInputComponent {
         cluster: result.cluster,
         username: result.username,
         password: result.password,
-        database: result.database
+        ...(result.database ? { database: result.database } : {})
       });
     }
   }

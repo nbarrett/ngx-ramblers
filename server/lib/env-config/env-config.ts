@@ -9,7 +9,18 @@ import { Environment } from "../../../projects/ngx-ramblers/src/app/models/envir
 import { env, environmentVariable, isProduction, logNamespace } from "./env-core";
 
 const debugLog = debug(logNamespace("env-config"));
+if (process.env.LOG_ENV_CONFIG === "false") {
+  debugLog.enabled = false;
+}
 const validatedCache = new Map<string, string>();
+const SECRET_NAME_PATTERN = /(SECRET|TOKEN|PASSWORD|KEY)/i;
+
+function redactedEnvironmentValue(variableName: Environment, variableValue: string): string {
+  if (SECRET_NAME_PATTERN.test(variableName)) {
+    return "[REDACTED]";
+  }
+  return variableValue;
+}
 
 function booleanEnvironmentVariable(variableName: Environment) {
   return booleanOf(environmentVariable(variableName));
@@ -23,7 +34,7 @@ function validatedEnvironmentVariable(variableName: Environment): string {
   if (!variableValue) {
     throw new Error(`Environment variable '${variableName}' must be set`);
   } else {
-    debugLog(`using environment variable: ${variableName} with: ${variableValue}`);
+    debugLog(`using environment variable: ${variableName} with: ${redactedEnvironmentValue(variableName, variableValue)}`);
     validatedCache.set(variableName, variableValue);
     return variableValue;
   }
