@@ -158,6 +158,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
     },
     {
+      path: "environment-management/migration",
+      loadComponent: () => import("../../pages/admin/environment-migration/environment-migration")
+        .then(m => m.EnvironmentMigrationComponent),
+      canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
+    },
+    {
       path: "environment-management/health",
       loadComponent: () => import("../../pages/admin/migration-health/migration-health.component")
         .then(m => m.MigrationHealthComponent),

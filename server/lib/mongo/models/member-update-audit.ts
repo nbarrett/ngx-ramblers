@@ -15,5 +15,6 @@ const memberUpdateAuditSchema = new mongoose.Schema({
   auditErrorMessage: {type: Object}
 }, {collection: "memberUpdateAudit"});
 
+memberUpdateAuditSchema.index({memberId: 1});
 
 export const memberUpdateAudit: mongoose.Model<MemberUpdateAudit> = ensureModel<MemberUpdateAudit>("member-update-audit", memberUpdateAuditSchema);

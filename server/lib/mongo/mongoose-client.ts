@@ -81,12 +81,6 @@ export async function connect(debug?: debug.Debugger): Promise<boolean> {
     return true;
   }
   try {
-    await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 30000,
-      maxPoolSize: 10,
-      connectTimeoutMS: 30000,
-      ssl: true
-    });
     mongoose.connection.on("connected", () => {
       debugConnect("Connected to database:", mongoUri);
       connected = true;
@@ -98,6 +92,15 @@ export async function connect(debug?: debug.Debugger): Promise<boolean> {
     mongoose.connection.on("error", err => {
       debugConnect("Connection error:", err);
       connected = false;
+    });
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 30000,
+      connectTimeoutMS: 30000,
+      heartbeatFrequencyMS: 5000,
+      maxPoolSize: 3,
+      minPoolSize: 1,
+      ssl: true
     });
     return true;
   } catch (error) {

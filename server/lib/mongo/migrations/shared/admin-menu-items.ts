@@ -168,6 +168,14 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
   }
 ];
 
+export const ENVIRONMENT_MIGRATION_MENU_ITEM: ActionButtonColumn = {
+  accessLevel: "committee",
+  title: "Environment Migration",
+  icon: "faExchangeAlt",
+  href: "admin/environment-management/migration",
+  contentText: "Move an environment to isolated MongoDB credentials with validation, restore verification, and explicit cutover"
+};
+
 export const ENVIRONMENT_MANAGEMENT_MENU_ITEMS: ActionButtonColumn[] = [
   {
     accessLevel: "committee",
@@ -183,6 +191,7 @@ export const ENVIRONMENT_MANAGEMENT_MENU_ITEMS: ActionButtonColumn[] = [
     href: "admin/environment-management/backup",
     contentText: "Backup and restore MongoDB databases across environments"
   },
+  ENVIRONMENT_MIGRATION_MENU_ITEM,
   {
     accessLevel: "committee",
     title: "Environments Monitoring",

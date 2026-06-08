@@ -4,6 +4,8 @@ import { addresses } from "./addresses/addresses";
 import { awsRoutes } from "./aws/aws-routes";
 import { mongoBackupRoutes } from "./backup/mongo-backup-routes";
 import { s3BackupRoutes } from "./backup/s3-backup-routes";
+import { environmentMigrationRoutes } from "./backup/environment-migration-routes";
+import { createEnvironmentMigrationService } from "./backup/environment-migration-service";
 import { envConfig } from "./env-config/env-config";
 import { mailchimpRoutes } from "./mailchimp/mailchimp-routes";
 import { osMapsRoutes } from "./os-maps/os-maps-routes";
@@ -171,6 +173,7 @@ app.use(spatialFeaturesController);
 app.use("/api/aws", awsRoutes);
 app.use("/api/mongo-backup", mongoBackupRoutes);
 app.use("/api/s3-backup", s3BackupRoutes);
+app.use("/api/environment-migration", environmentMigrationRoutes);
 app.use("/api/contact-us", contactUsRoutes);
 app.use("/api/migration", migrationRoutes);
 app.use("/api/google-maps", googleMapsRoutes);
@@ -304,6 +307,14 @@ async function startServer() {
 
       reconcileOrphanedScrapeRuns().catch(error => {
         debugLog("❌ Failed to reconcile orphaned legacy scrape runs:", error);
+      });
+
+      createEnvironmentMigrationService().reconcileOrphanedMigrations().then(count => {
+        if (count > 0) {
+          debugLog(`⚠️ Reconciled ${count} orphaned environment migration(s) after server restart`);
+        }
+      }).catch(error => {
+        debugLog("❌ Failed to reconcile orphaned environment migrations:", error);
       });
 
       if (envConfig.booleanValue(Environment.SKIP_MIGRATIONS_ON_STARTUP)) {

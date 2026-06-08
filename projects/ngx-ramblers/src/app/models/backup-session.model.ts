@@ -7,36 +7,28 @@ export enum BackupRestoreTab {
   SETTINGS = "Settings"
 }
 
-export const BackupSessionType = {
-  BACKUP: "backup",
-  RESTORE: "restore"
-} as const;
+export enum BackupSessionType {
+  BACKUP = "backup",
+  RESTORE = "restore"
+}
 
-export type BackupSessionType = typeof BackupSessionType[keyof typeof BackupSessionType];
+export enum BackupSessionStatus {
+  PENDING = "pending",
+  IN_PROGRESS = "in_progress",
+  COMPLETED = "completed",
+  FAILED = "failed"
+}
 
-export const BackupSessionStatus = {
-  PENDING: "pending",
-  IN_PROGRESS: "in_progress",
-  COMPLETED: "completed",
-  FAILED: "failed"
-} as const;
+export enum BackupSessionTrigger {
+  CLI = "cli",
+  WEB = "web",
+  SCHEDULED = "scheduled"
+}
 
-export type BackupSessionStatus = typeof BackupSessionStatus[keyof typeof BackupSessionStatus];
-
-export const BackupSessionTrigger = {
-  CLI: "cli",
-  WEB: "web",
-  SCHEDULED: "scheduled"
-} as const;
-
-export type BackupSessionTrigger = typeof BackupSessionTrigger[keyof typeof BackupSessionTrigger];
-
-export const BackupLocation = {
-  LOCAL: "local",
-  S3: "s3"
-} as const;
-
-export type BackupLocation = typeof BackupLocation[keyof typeof BackupLocation];
+export enum BackupLocation {
+  LOCAL = "local",
+  S3 = "s3"
+}
 
 export interface BackupSession {
   _id?: string;
@@ -109,6 +101,8 @@ export interface BackupListItem {
   environment?: string;
   database?: string;
   location: BackupLocation;
+  status?: BackupSessionStatus;
+  outcome?: string;
 }
 
 export interface SecretEntry {
@@ -124,12 +118,10 @@ export interface S3BackupManifestEntry {
   action: S3BackupAction;
 }
 
-export const S3BackupAction = {
-  COPIED: "copied",
-  SKIPPED: "skipped"
-} as const;
-
-export type S3BackupAction = typeof S3BackupAction[keyof typeof S3BackupAction];
+export enum S3BackupAction {
+  COPIED = "copied",
+  SKIPPED = "skipped"
+}
 
 export interface S3BackupManifest {
   _id?: string;

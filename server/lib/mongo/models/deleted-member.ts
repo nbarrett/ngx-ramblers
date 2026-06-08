@@ -9,4 +9,6 @@ const deletedMemberSchema = new mongoose.Schema({
   membershipNumber: {type: String},
 }, {collection: "deletedMembers"});
 
+deletedMemberSchema.index({deletedAt: 1});
+
 export const deletedMember: mongoose.Model<DeletedMember> = ensureModel<DeletedMember>("deleted-member", deletedMemberSchema);

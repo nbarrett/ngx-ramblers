@@ -51,7 +51,6 @@ import { BackupAndRestoreService } from "../../../services/backup-and-restore.se
 import { Confirm, StoredValue } from "../../../models/ui-actions";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { EventType, MessageType } from "../../../models/websocket.model";
-import { NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { reversed, sortBy } from "../../../functions/arrays";
@@ -59,6 +58,8 @@ import { AWS_DEFAULTS, EnvironmentsConfig } from "../../../models/environment-co
 import { EnvironmentSelectComponent } from "../../../modules/common/selectors/environment-select";
 import { CollectionsMultiSelectComponent } from "../../../modules/common/selectors/collections-multi-select";
 import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/backups-multi-select";
+import { BackupSelectComponent } from "../../../modules/common/selectors/backup-select";
+import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../../functions/backup-list-items";
 
 @Component({
   selector: "app-backup-and-restore",
@@ -70,11 +71,10 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
     PageComponent,
     DatePipe,
     FontAwesomeModule,
-    NgSelectComponent,
-    NgOptionTemplateDirective,
     EnvironmentSelectComponent,
     CollectionsMultiSelectComponent,
     BackupsMultiSelectComponent,
+    BackupSelectComponent,
     EnvironmentSettings,
     TooltipDirective
   ],
@@ -214,7 +214,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                     <div class="form-check form-check-inline">
                       <input class="form-check-input" type="radio" id="sourceS3" name="backupSource"
                              [value]="BackupLocation.S3"
-                             [(ngModel)]="backupSource" (ngModelChange)="onBackupSourceChange()"
+                             [(ngModel)]="backupSource" (ngModelChange)="onBackupSourceChange($event)"
                              checked>
                       <label class="form-check-label" for="sourceS3">S3</label>
                     </div>
@@ -222,7 +222,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       <input class="form-check-input" type="radio" id="sourceLocal"
                              name="backupSource"
                              [value]="BackupLocation.LOCAL"
-                             [(ngModel)]="backupSource" (ngModelChange)="onBackupSourceChange()">
+                             [(ngModel)]="backupSource" (ngModelChange)="onBackupSourceChange($event)">
                       <label class="form-check-label" for="sourceLocal">Local</label>
                     </div>
                   </div>
@@ -250,36 +250,15 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                         placeholder="Filter backups by source..."></app-environment-select>
                     </div>
                     <div class="mb-3">
-                      <label class="form-label">Backup to Restore</label>
-                      <ng-select
-                        [(ngModel)]="selectedBackupForRestore"
-                        (ngModelChange)="onBackupForRestoreChange($event)"
+                      <app-backup-select
+                        label="Backup to Restore"
                         [items]="backups"
-                        [multiple]="false"
-                        [searchable]="true"
-                        [searchFn]="backupSearch"
-                        [clearable]="true"
-                        [appendTo]="'body'"
-                        [dropdownPosition]="'bottom'"
-                        bindLabel="name"
-                        placeholder="Select backup..."
+                        [selected]="selectedBackupForRestore"
+                        [source]="backupSource"
+                        (selectedChange)="onBackupForRestoreChange($event)"
                         name="backupForRestore"
-                        appearance="outline">
-                        <ng-template ng-option-tmp let-item="item">
-                          <div class="d-flex flex-column align-items-start gap-1" [title]="item.path || item.name">
-                            @if (backupSource === BackupLocation.S3) {
-                              <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <span class="badge bg-light text-body border">{{ s3Env(item) }}</span>
-                                <span class="badge bg-light text-muted">{{ s3Date(item) }}</span>
-                              </div>
-                              <div class="text-muted small font-monospace text-truncate" style="max-width: 800px;">{{ item.name }}</div>
-                            } @else {
-                              <div class="badge bg-light text-muted">{{ item.timestamp ? (item.timestamp | date:'medium') : '' }}</div>
-                              <div class="text-muted small font-monospace text-truncate" style="max-width: 640px;">{{ item.name }}</div>
-                            }
-                          </div>
-                        </ng-template>
-                      </ng-select>
+                        placeholder="Select backup..."
+                        emptySummary="Select a backup before restoring."></app-backup-select>
                       @if (backups.length === 0) {
                         <small class="form-text">No backups available.</small>
                       }
@@ -1011,12 +990,15 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   loadBackups() {
+    const requestedSource = this.backupSource;
     this.subscriptions.push(
-      (this.backupSource === BackupLocation.S3 ? this.backupRestoreService.listS3Backups() : this.backupRestoreService.listBackups()).subscribe({
+      (requestedSource === BackupLocation.S3 ? this.backupRestoreService.listS3Backups() : this.backupRestoreService.listBackups()).subscribe({
         next: backups => {
-          this.allBackups = [...backups].sort(sortBy("-timestamp", "name"));
-          this.applyBackupFilter();
-          this.logger.info("Loaded backups:", backups);
+          if (this.backupSource === requestedSource) {
+            this.allBackups = backups.map(backup => ({...backup, location: backup.location || requestedSource})).sort(sortBy("-timestamp", "name"));
+            this.applyBackupFilter();
+            this.logger.info("Loaded backups:", backups);
+          }
         },
         error: err => this.notify.error({
           title: "Error loading backups",
@@ -1026,7 +1008,8 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     );
   }
 
-  onBackupSourceChange() {
+  onBackupSourceChange(source: BackupLocation) {
+    this.backupSource = source;
     this.selectedBackupForRestore = null;
     this.selectedBackups = [];
     this.selectedRestoreCollections = [];
@@ -1391,45 +1374,6 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     );
   }
 
-  s3Env(item: BackupListItem): string {
-    const path = item.path || "";
-    const idx = path.indexOf("//");
-    const after = idx >= 0 ? path.substring(idx + 2) : path;
-    const parts = after.split("/");
-    return parts[1] || "";
-  }
-
-  s3Db(item: BackupListItem): string {
-    const path = item.path || "";
-    const idx = path.indexOf("//");
-    const after = idx >= 0 ? path.substring(idx + 2) : path;
-    const parts = after.split("/");
-    return parts[2] || "";
-  }
-
-  s3Date(item: BackupListItem): string {
-    if (item.timestamp) {
-      return this.dateUtils.displayDateAndTime(item.timestamp as any);
-    }
-    const path = item.path || "";
-    const folder = path.split("/").pop() || "";
-    const token = folder.split("-")[0];
-    return token.replace("-", "/").replace("-", "/");
-  }
-
-  backupSearch(term: string, item: BackupListItem): boolean {
-    const q = (term || "").toLowerCase();
-    if (!q) return true;
-    const parts = [
-      item.name || "",
-      item.path || "",
-      this.s3Env(item) || "",
-      this.s3Db(item) || "",
-      this.s3Date(item) || ""
-    ].join(" ").toLowerCase();
-    return parts.indexOf(q) >= 0;
-  }
-
   onSourceEnvironmentChange(value: string) {
     this.sourceEnvironment = value || "";
     this.selectedBackupForRestore = null;
@@ -1439,10 +1383,11 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   private applyBackupFilter() {
+    const sourceBackups = this.allBackups.filter(backup => backupSource(backup, this.backupSource) === this.backupSource);
     if (this.sourceEnvironment) {
-      this.backups = this.allBackups.filter(b => this.envOf(b) === this.sourceEnvironment);
+      this.backups = sourceBackups.filter(b => sameBackupEnvironment(this.envOf(b), this.sourceEnvironment));
     } else {
-      this.backups = [...this.allBackups];
+      this.backups = [...sourceBackups];
     }
   }
 
@@ -1452,24 +1397,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   private envOf(item: BackupListItem): string {
-    const path = item.path || "";
-    const isS3 = path.startsWith("s3://");
-    if (isS3) {
-      return this.s3Env(item);
-    }
-    const anyItem = item as any;
-    if (anyItem.environment) {
-      return anyItem.environment as string;
-    }
-    const name = item.name || "";
-    if (name.length > 20) {
-      const remainder = name.slice(20);
-      const db: string | undefined = anyItem.database;
-      if (db && remainder.endsWith(`-${db}`)) {
-        return remainder.slice(0, remainder.length - (db.length + 1));
-      }
-    }
-    return "";
+    return backupEnvironment(item);
   }
 
   loadS3Sites() {

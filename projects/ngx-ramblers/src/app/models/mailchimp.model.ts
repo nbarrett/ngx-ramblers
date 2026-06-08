@@ -167,21 +167,19 @@ export interface MailchimpCampaignDefaults {
   language: string;
 }
 
-export const MergeFieldType = {
-  TEXT: "text",
-  NUMBER: "number",
-  ADDRESS: "address",
-  PHONE: "phone",
-  DATE: "date",
-  URL: "url",
-  IMAGE_URL: "imageurl",
-  RADIO: "radio",
-  DROPDOWN: "dropdown",
-  BIRTHDAY: "birthday",
-  ZIP: "zip"
-} as const;
-
-export type MergeFieldType = typeof MergeFieldType[keyof typeof MergeFieldType];
+export enum MergeFieldType {
+  TEXT = "text",
+  NUMBER = "number",
+  ADDRESS = "address",
+  PHONE = "phone",
+  DATE = "date",
+  URL = "url",
+  IMAGE_URL = "imageurl",
+  RADIO = "radio",
+  DROPDOWN = "dropdown",
+  BIRTHDAY = "birthday",
+  ZIP = "zip"
+}
 
 export interface MergeField {
   merge_id?: number;

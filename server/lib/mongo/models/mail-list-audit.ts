@@ -14,5 +14,7 @@ const schema = new mongoose.Schema({
 }, {collection: "mailListAudit"});
 
 schema.plugin(uniqueValidator);
+schema.index({createdBy: 1, timestamp: -1});
+schema.index({memberId: 1, listId: 1});
 
 export const mailListAudit: mongoose.Model<MailListAudit> =  ensureModel<MailListAudit>("mail-list-audit", schema);

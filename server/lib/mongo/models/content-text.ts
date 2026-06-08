@@ -9,4 +9,6 @@ const contextTextSchema = new mongoose.Schema({
   styles: {type: Object}
 }, {collection: "contentText"});
 
+contextTextSchema.index({name: 1, category: 1});
+
 export const contentText: mongoose.Model<ContentText> = ensureModel<ContentText>("content-text", contextTextSchema);
