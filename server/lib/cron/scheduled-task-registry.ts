@@ -239,6 +239,10 @@ function detailedErrorMessage(error: any): string {
   return error?.message || `${error}`;
 }
 
+function runtimeEnabled(definition: ScheduledTaskDefinition): boolean {
+  return definition.runtimeEnabled ? definition.runtimeEnabled() : true;
+}
+
 async function executeTask(registered: RegisteredScheduledTask): Promise<ScheduledTaskRun> {
   const run: ScheduledTaskRun = {
     startedAt: dateTimeNow().toISO()!,
@@ -268,7 +272,7 @@ export async function registerScheduledTask(definition: ScheduledTaskDefinition)
   const previous = taskRegistry.get(definition.id);
   previous?.task.destroy();
   await migratePreviousTaskIds(definition);
-  const enabled = await configuredEnabledState(definition.id, definition.enabled);
+  const enabled = await configuredEnabledState(definition.id, definition.enabled) && runtimeEnabled(definition);
   const effectiveCronExpression = await configuredCronExpression(definition.id, definition.cronExpression);
   const effectiveSettings = await configuredSettings(definition.id, definition.settings);
   const effectiveDefinition = {...definition, cronExpression: effectiveCronExpression, settings: effectiveSettings};
@@ -318,8 +322,9 @@ export async function setScheduledTaskEnabled(id: string, enabled: boolean): Pro
   if (!registered) {
     return null;
   }
-  registered.enabled = enabled;
-  if (enabled) {
+  const effectiveEnabled = enabled && runtimeEnabled(registered.definition);
+  registered.enabled = effectiveEnabled;
+  if (effectiveEnabled) {
     registered.task.start();
   } else {
     registered.task.stop();

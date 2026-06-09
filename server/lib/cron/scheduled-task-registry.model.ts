@@ -9,6 +9,7 @@ export interface ScheduledTaskDefinition {
   enabled: boolean;
   settings?: unknown;
   previousIds?: string[];
+  runtimeEnabled?: () => boolean;
   run: () => Promise<void>;
 }
 
