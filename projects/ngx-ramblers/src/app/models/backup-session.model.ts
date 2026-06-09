@@ -66,6 +66,11 @@ export interface BackupSessionMetadata {
   triggeredBy: BackupSessionTrigger;
 }
 
+export interface BackupSessionHistoryRow extends BackupSession {
+  startedMs: number;
+  durationMs: number;
+}
+
 export interface BackupRequest {
   environment: string;
   database?: string;
@@ -131,6 +136,8 @@ export interface S3BackupManifest {
   backupBucket: string;
   backupPrefix: string;
   mongoTimestamp?: string;
+  entriesObjectKey?: string;
+  entriesCount?: number;
   entries: S3BackupManifestEntry[];
   totalObjects: number;
   copiedObjects: number;
@@ -171,6 +178,7 @@ export interface S3BackupSummary {
   copiedSizeBytes: number;
   durationMs: number;
   status: BackupSessionStatus;
+  error?: string;
 }
 
 export interface S3ManifestBreakdown {

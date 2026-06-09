@@ -18,3 +18,8 @@ export interface SortableTableSortState {
   key: string | null;
   direction: string;
 }
+
+export interface SortableTableGroup<T = any> {
+  key: string;
+  rows: T[];
+}

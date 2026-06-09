@@ -384,34 +384,56 @@ export async function analyseS3Manifest(site: string, options: { timestamp?: str
 
     const depth = options.depth && options.depth > 0 ? options.depth : 1;
     const topN = options.top && options.top > 0 ? options.top : 20;
+    const fullManifest = matching._id ? await s3BackupService.manifest(matching._id) : matching;
+    if (!fullManifest) {
+      logError(`Unable to load S3 manifest entries for ${matching.site} @ ${matching.timestamp}`);
+      return;
+    }
 
-    log(`\nAnalysing S3 manifest for ${matching.site} @ ${matching.timestamp}`);
-    log(`  ${matching.totalObjects} total objects, ${formatBytes(matching.totalSizeBytes)} total`);
-    log(`  ${matching.copiedObjects} copied, ${matching.skippedObjects} skipped on this snapshot`);
+    log(`\nAnalysing S3 manifest for ${fullManifest.site} @ ${fullManifest.timestamp}`);
+    log(`  ${fullManifest.totalObjects} total objects, ${formatBytes(fullManifest.totalSizeBytes)} total`);
+    log(`  ${fullManifest.copiedObjects} copied, ${fullManifest.skippedObjects} skipped on this snapshot`);
     log("");
 
     log(`Breakdown by top-level prefix (depth ${depth}):`);
     log(`  ${"prefix".padEnd(40)}  ${"count".padStart(8)}  ${"bytes".padStart(12)}`);
-    groupEntriesByPrefix(matching.entries, depth).forEach(bucket => {
+    groupEntriesByPrefix(fullManifest.entries, depth).forEach(bucket => {
       log(`  ${bucket.label.padEnd(40)}  ${String(bucket.count).padStart(8)}  ${formatBytes(bucket.bytes).padStart(12)}`);
     });
     log("");
 
     log("Breakdown by file extension:");
     log(`  ${"extension".padEnd(20)}  ${"count".padStart(8)}  ${"bytes".padStart(12)}`);
-    groupEntriesByExtension(matching.entries).forEach(bucket => {
+    groupEntriesByExtension(fullManifest.entries).forEach(bucket => {
       log(`  ${bucket.label.padEnd(20)}  ${String(bucket.count).padStart(8)}  ${formatBytes(bucket.bytes).padStart(12)}`);
     });
     log("");
 
     log(`Top ${topN} largest objects:`);
     log(`  ${"size".padStart(12)}  key`);
-    topLargestEntries(matching.entries, topN).forEach(entry => {
+    topLargestEntries(fullManifest.entries, topN).forEach(entry => {
       log(`  ${formatBytes(entry.size).padStart(12)}  ${entry.key}`);
     });
     log("");
   } catch (error) {
     logError(`Failed to analyse manifest: ${error.message}`);
+  } finally {
+    await closeConnection();
+  }
+}
+
+export async function externaliseS3ManifestEntries(options: { site?: string; limit?: number }): Promise<void> {
+  try {
+    await connect();
+    const result = await s3BackupService.externaliseEmbeddedManifestEntries(options.site, options.limit);
+    log("\nS3 manifest entry externalisation complete:");
+    log(`  Scanned: ${result.scanned}`);
+    log(`  Externalised: ${result.externalised}`);
+    log(`  Skipped: ${result.skipped}`);
+    log(`  Failed: ${result.failed}`);
+    log("");
+  } catch (error: any) {
+    logError(`Failed to externalise S3 manifest entries: ${error.message}`);
   } finally {
     await closeConnection();
   }
@@ -509,6 +531,15 @@ export function createBackupCommand(): Command {
     .option("--top <n>", "Number of largest objects to list (default 20)", (value) => parseInt(value, 10))
     .action(async (site: string, options: { timestamp?: string; depth?: number; top?: number }) => {
       await analyseS3Manifest(site, options);
+    });
+
+  s3Cmd
+    .command("externalise-manifest-entries")
+    .description("Move embedded S3 manifest entries from MongoDB to S3")
+    .option("--site <name>", "Externalise manifests for one site")
+    .option("--limit <count>", "Maximum manifests to process", (value) => parseInt(value, 10))
+    .action(async (options: { site?: string; limit?: number }) => {
+      await externaliseS3ManifestEntries(options);
     });
 
   return cmd;
