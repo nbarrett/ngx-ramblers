@@ -34,6 +34,7 @@ import { MarkdownModule, MERMAID_OPTIONS } from "ngx-markdown";
 import { TagifyModule } from "ngx-tagify";
 import { UiSwitchModule } from "ngx-ui-switch";
 import { AuthInterceptor } from "../../auth/auth.interceptor";
+import { RequestDedupInterceptor } from "../../services/request-dedup.interceptor";
 import { ChunkErrorHandler } from "../../errors/chunk-error-handler";
 import { GALLERY_CONFIG, GalleryConfig, GalleryModule } from "ng-gallery";
 import { ImageFit } from "../../models/content-text.model";
@@ -156,6 +157,7 @@ import { ngxIconPack } from "../../icons/custom-icon-pack";
     ValueOrDefaultPipe,
     {provide: ErrorHandler, useClass: ChunkErrorHandler},
     {provide: RouteReuseStrategy, useClass: CustomReuseStrategy},
+    {provide: HTTP_INTERCEPTORS, useClass: RequestDedupInterceptor, multi: true},
     {provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true},
     {provide: GALLERY_CONFIG, useValue: {imageSize: ImageFit.COVER} as GalleryConfig},
     {provide: LIGHTBOX_CONFIG, useValue: {keyboardShortcuts: false, exitAnimationTime: 1000} as LightboxConfig},

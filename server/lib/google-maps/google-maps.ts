@@ -10,7 +10,7 @@ debugLog.enabled = false;
 
 router.get("/config", async (req, res) => {
   try {
-    const systemConfig = await config.queryKey(ConfigKey.SYSTEM);
+    const systemConfig = await config.queryKeyProjected(ConfigKey.SYSTEM, config.SYSTEM_GEOMETRY_EXCLUSION);
     const googleMapsConfig = systemConfig?.value?.googleMaps;
 
     if (googleMapsConfig?.apiKey) {
