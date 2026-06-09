@@ -5,7 +5,7 @@ import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { NonSensitiveCloudflareConfig } from "./cloudflare.model";
 import { decryptCloudflareConfig } from "./cloudflare-crypto";
-import { systemConfig } from "../config/system-config";
+import { systemConfigWithoutGeometry } from "../config/system-config";
 import * as config from "../mongo/controllers/config";
 import { apexHost } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
 
@@ -47,7 +47,7 @@ export async function configuredCloudflare(): Promise<CloudflareConfig> {
 
 async function primaryHostFromSystemConfig(): Promise<string | null> {
   try {
-    const sysConfig = await systemConfig();
+    const sysConfig = await systemConfigWithoutGeometry();
     if (sysConfig?.group?.href) {
       return apexHost(new URL(sysConfig.group.href).hostname);
     }

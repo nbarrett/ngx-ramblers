@@ -546,6 +546,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
   private cmsSettings?: AreaMapData;
   private popupComponentRef: ComponentRef<ParishPopup> | null = null;
   private membersWithLabel: MemberWithLabel[] = [];
+  private membersLoaded = false;
   private tooltipsSuppressed = false;
 
   private savedCenter: L.LatLng | null = null;
@@ -559,18 +560,23 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
   get standalone(): boolean {
     return !this.row;
   }
-  async ngOnInit() {
+  ngOnInit() {
     this.logger.info("AreaMapComponent ngOnInit started");
     this.isInitialized = true;
     this.initializeComponent();
-    if (this.memberLoginService.allowContentEdits()) {
-      const members = await this.memberService.all();
-      this.membersWithLabel = members.map(member => ({
-        ...member,
-        ngSelectAttributes: {label: this.fullNamePipe.transform(member)}
-      })).sort(sortBy("ngSelectAttributes.label"));
-    }
     this.logger.info("AreaMapComponent ngOnInit completed");
+  }
+
+  private async ensureMembersWithLabel(): Promise<void> {
+    if (this.membersLoaded || !this.memberLoginService.allowContentEdits()) {
+      return;
+    }
+    this.membersLoaded = true;
+    const members = await this.memberService.all();
+    this.membersWithLabel = members.map(member => ({
+      ...member,
+      ngSelectAttributes: {label: this.fullNamePipe.transform(member)}
+    })).sort(sortBy("ngSelectAttributes.label"));
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -1741,8 +1747,9 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
                 opacity: 0.9
               });
 
-              layer.on("click", () => {
+              layer.on("click", async () => {
                 if (this.mapRef) {
+                  await this.ensureMembersWithLabel();
                   this.showParishPopup(props, layer, allocatedColor, vacantColor, borderColor, fillOpacity);
                 }
               });

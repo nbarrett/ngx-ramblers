@@ -14,6 +14,28 @@ import {
 const debugLog = debug(envConfig.logNamespace("health"));
 debugLog.enabled = false;
 
+const MIGRATION_STATUS_TTL_MS = 5 * 60 * 1000;
+const migrationStatusCache: { status: MigrationStatus | null; at: number } = { status: null, at: 0 };
+
+async function migrationStatusCached(): Promise<MigrationStatus> {
+  const now = dateTimeNow().toMillis();
+  if (migrationStatusCache.status && now - migrationStatusCache.at < MIGRATION_STATUS_TTL_MS) {
+    return migrationStatusCache.status;
+  }
+  try {
+    const timeoutPromise = new Promise<MigrationStatus>((_, reject) =>
+      setTimeout(() => reject(new Error("Migration status check timeout")), 12000)
+    );
+    const status = await Promise.race([migrationRunner.migrationStatus(), timeoutPromise]);
+    migrationStatusCache.status = status;
+    migrationStatusCache.at = now;
+    return status;
+  } catch (error) {
+    debugLog("Migration status check failed or timed out:", error.message);
+    return migrationStatusCache.status || { files: [], failed: false };
+  }
+}
+
 export async function health(req: Request, res: Response) {
   res.status(200).json({
     status: "OK",
@@ -26,19 +48,7 @@ export async function systemStatus(req: Request, res: Response<Partial<HealthRes
     const awsConfig = queryAWSConfig();
     const config = await systemConfigWithoutGeometry();
 
-    let migrationStatus: MigrationStatus;
-    try {
-      const timeoutPromise = new Promise<MigrationStatus>((_, reject) =>
-        setTimeout(() => reject(new Error("Migration status check timeout")), 1500)
-      );
-      migrationStatus = await Promise.race([
-        migrationRunner.migrationStatus(),
-        timeoutPromise
-      ]);
-    } catch (error) {
-      debugLog("Migration status check failed or timed out:", error.message);
-      migrationStatus = { files: [], failed: false };
-    }
+    const migrationStatus = await migrationStatusCached();
 
     const automaticMigrations = migrationStatus.files.filter(f => !f.manual);
     const pending = automaticMigrations.filter(f => f.status === MigrationFileStatus.PENDING).length;

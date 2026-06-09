@@ -98,8 +98,8 @@ export async function connect(debug?: debug.Debugger): Promise<boolean> {
       socketTimeoutMS: 30000,
       connectTimeoutMS: 30000,
       heartbeatFrequencyMS: 5000,
-      maxPoolSize: 3,
-      minPoolSize: 1,
+      maxPoolSize: 10,
+      minPoolSize: 2,
       ssl: true
     });
     return true;
