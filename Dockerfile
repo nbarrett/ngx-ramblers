@@ -42,13 +42,13 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 COPY .npmrc ./
+COPY ts*.json ./
+COPY tools /usr/src/app/tools
 
 RUN npm ci
 
 COPY fly.toml ./
 COPY angular.json ./
-COPY ts*.json ./
-COPY tools /usr/src/app/tools
 COPY projects/ngx-ramblers /usr/src/app/projects/ngx-ramblers
 
 RUN npx ng build --project ngx-ramblers --progress --configuration production
@@ -88,14 +88,14 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 COPY .npmrc ./
+COPY ts*.json ./
+COPY tools /usr/src/app/tools
 
 RUN npm ci
 
 COPY angular.json ./
-COPY ts*.json ./
 COPY fly.toml ./
 COPY fly.integration-worker.toml ./
-COPY tools /usr/src/app/tools
 COPY projects/ngx-ramblers /usr/src/app/projects/ngx-ramblers
 
 WORKDIR /usr/src/app/server
