@@ -44,11 +44,20 @@ describe("platformBackupSchedulerEnabled", () => {
     expect(platformBackupSchedulerEnabled()).toEqual(false);
   });
 
-  it("is enabled for platform-admin Fly production processes", () => {
+  it("is disabled for local processes with production-like config but no Fly machine id", () => {
     process.env[Environment.NODE_ENV] = "production";
     process.env[Environment.PLATFORM_ADMIN_ENABLED] = "true";
     process.env[Environment.FLY_APP_NAME] = "ngx-ramblers";
     process.env[Environment.FLY_MACHINE_ID] = "";
+
+    expect(platformBackupSchedulerEnabled()).toEqual(false);
+  });
+
+  it("is enabled for platform-admin Fly production machines", () => {
+    process.env[Environment.NODE_ENV] = "production";
+    process.env[Environment.PLATFORM_ADMIN_ENABLED] = "true";
+    process.env[Environment.FLY_APP_NAME] = "ngx-ramblers";
+    process.env[Environment.FLY_MACHINE_ID] = "d8d1234fee5678";
 
     expect(platformBackupSchedulerEnabled()).toEqual(true);
   });

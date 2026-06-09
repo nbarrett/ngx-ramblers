@@ -44,7 +44,7 @@ import {
   parseS3BackupPrefix,
   parseTimestampToDate
 } from "./backup-paths";
-import { availableSites, completedManifestStatusByTimestamp, manifestByTimestamp, startS3Backup, startS3Restore } from "./s3-backup-service";
+import { availableSites, completedManifestStatusByTimestamp, externaliseEmbeddedManifestEntries, manifestByTimestamp, startS3Backup, startS3Restore } from "./s3-backup-service";
 import { backupEvents } from "./backup-events";
 import { withBackupSlot } from "./backup-concurrency";
 
@@ -282,6 +282,9 @@ export class BackupAndRestoreService {
       const outDir = path.join(this.dumpBaseDir, "backups", backupName);
 
       await fs.mkdir(outDir, { recursive: true });
+      if (dbName === mongoose.connection.name) {
+        await this.externaliseS3ManifestEntriesBeforeDump(sessionId);
+      }
 
       const mongoUri = this.buildMongoUriForConfig(config.mongo!.cluster, config.mongo!.username, config.mongo!.password, dbName);
 
@@ -355,7 +358,10 @@ export class BackupAndRestoreService {
               (msg) => this.addLog(sessionId, msg)
             );
             await this.updateSession(sessionId, { s3Backups: s3Results });
-            const summary = s3Results.map(result => `${result.site}: ${result.copiedObjects} copied, ${result.skippedObjects} skipped, ${this.formatBytes(result.copiedSizeBytes)} (${result.status})`).join("; ");
+            const summary = s3Results.map(result => {
+              const base = `${result.site}: ${result.copiedObjects} copied, ${result.skippedObjects} skipped, ${this.formatBytes(result.copiedSizeBytes)} (${result.status})`;
+              return result.error ? `${base}, error: ${result.error}` : base;
+            }).join("; ");
             await this.addLog(sessionId, `S3 object backup completed: ${summary}`);
           } catch (error: any) {
             await this.addLog(sessionId, `S3 object backup failed: ${error.message} (Mongo backup is still valid)`);
@@ -386,6 +392,23 @@ export class BackupAndRestoreService {
           await this.addLog(sessionId, `Warning: Failed to restore scale count: ${scaleError.message}`);
         }
       }
+    }
+  }
+
+  private async externaliseS3ManifestEntriesBeforeDump(sessionId: string): Promise<void> {
+    try {
+      await this.addLog(sessionId, "Checking S3 backup manifests before Mongo dump");
+      const result = await externaliseEmbeddedManifestEntries("", 0, (message) => this.addLog(sessionId, message));
+      if (result.externalised > 0) {
+        await this.addLog(sessionId, `Optimised ${result.externalised} embedded S3 manifest(s) before Mongo dump`);
+      } else if (result.failed === 0) {
+        await this.addLog(sessionId, "S3 backup manifests already optimised");
+      }
+      if (result.failed > 0) {
+        await this.addLog(sessionId, `Warning: ${result.failed} S3 manifest(s) could not be optimised before Mongo dump`);
+      }
+    } catch (error: any) {
+      await this.addLog(sessionId, `Warning: S3 manifest optimisation skipped before Mongo dump: ${error.message}`);
     }
   }
 
@@ -836,7 +859,7 @@ export class BackupAndRestoreService {
     const query = environments && environments.length > 0
       ? { environment: { $in: environments } }
       : {};
-    return backupSession.find(query).sort({startTime: -1}).limit(limit);
+    return backupSession.find(query).sort({startTime: -1}).limit(limit).select("-logs").lean() as unknown as BackupSession[];
   }
 
   async session(sessionId: string): Promise<BackupSession | null> {

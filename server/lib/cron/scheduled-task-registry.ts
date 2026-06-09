@@ -14,6 +14,7 @@ import { scheduledTaskRun } from "../mongo/models/scheduled-task-run";
 import { dateTimeNow } from "../shared/dates";
 import { isString, isUndefined } from "es-toolkit/compat";
 import { RegisteredScheduledTask, ScheduledTaskDefinition } from "./scheduled-task-registry.model";
+import { scheduledTaskEvents } from "./scheduled-task-events";
 
 const debugLog = debug(envConfig.logNamespace("cron:scheduled-tasks"));
 debugLog.enabled = true;
@@ -251,6 +252,7 @@ async function executeTask(registered: RegisteredScheduledTask): Promise<Schedul
     message: null
   };
   registered.history = [run, ...registered.history].slice(0, maximumHistoryEntries);
+  scheduledTaskEvents.emit("task-updated", { task: summary(registered) });
   try {
     await registered.definition.run();
     run.status = ScheduledTaskRunStatus.SUCCEEDED;
@@ -265,6 +267,7 @@ async function executeTask(registered: RegisteredScheduledTask): Promise<Schedul
   }
   run.completedAt = dateTimeNow().toISO()!;
   await persistRun(registered.definition.id, run);
+  scheduledTaskEvents.emit("task-updated", { task: summary(registered) });
   return run;
 }
 
@@ -373,6 +376,6 @@ export async function triggerScheduledTask(id: string): Promise<ScheduledTaskSum
   if (!registered) {
     return null;
   }
-  await executeTask(registered);
+  executeTask(registered).catch(error => debugLog(`Manually triggered task ${id} failed:`, error?.message || error));
   return summary(registered);
 }

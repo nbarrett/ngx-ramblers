@@ -39,6 +39,7 @@ export enum EventType {
   EXTERNAL_USER_ALBUMS_FETCH = "external-user-albums-fetch",
   EXTERNAL_BULK_ALBUM_IMPORT = "external-bulk-album-import",
   LEGACY_URL_SCRAPE = "legacy-url-scrape",
+  SCHEDULED_TASK_EVENTS = "scheduled-task-events",
   PING = "ping",
 }
 
@@ -52,6 +53,7 @@ export enum MessageType {
   BACKUP_SESSION_UPDATED = "backup-session-updated",
   INBOX_NEW_MESSAGE = "inbox-new-message",
   INBOX_THREAD_UPDATED = "inbox-thread-updated",
+  SCHEDULED_TASK_UPDATED = "scheduled-task-updated",
 }
 
 export const allowableStatusCodes: number[] = [1000, 1005];

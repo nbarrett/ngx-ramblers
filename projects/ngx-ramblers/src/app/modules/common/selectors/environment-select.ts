@@ -69,10 +69,20 @@ export class EnvironmentSelectComponent {
   @Input() placeholder?: string;
   @Input() label?: string;
 
-  @Input() selected: EnvironmentInfo[] = [];
+  private _selected: EnvironmentInfo[] = [];
+  @Input() set selected(value: EnvironmentInfo[]) {
+    this._selected = value || [];
+    this.syncNgModelFromInputs();
+  }
+  get selected(): EnvironmentInfo[] { return this._selected; }
   @Output() selectedChange = new EventEmitter<EnvironmentInfo[]>();
 
-  @Input() selectedName: string;
+  private _selectedName: string;
+  @Input() set selectedName(value: string) {
+    this._selectedName = value;
+    this.syncNgModelFromInputs();
+  }
+  get selectedName(): string { return this._selectedName; }
   @Output() selectedNameChange = new EventEmitter<string>();
 
   private humanise = inject(HumanisePipe);

@@ -2,6 +2,7 @@ import expect from "expect";
 import { describe, it } from "mocha";
 import {
   buildBackupPrefix,
+  buildManifestEntriesObjectKey,
   buildETagIndex,
   collectCopiedKeys,
   siteConfigs,
@@ -25,6 +26,15 @@ describe("s3-backup-service", () => {
     it("preserves site name with dashes", () => {
       expect(buildBackupPrefix("berkshire-weekend-walkers", "2026-04-11-00-00-00"))
         .toEqual("s3-backups/berkshire-weekend-walkers/2026-04-11-00-00-00");
+    });
+
+  });
+
+  describe("buildManifestEntriesObjectKey", () => {
+
+    it("stores manifest entries under the backup prefix", () => {
+      expect(buildManifestEntriesObjectKey("s3-backups/kent/2026-04-11-00-00-00"))
+        .toEqual("s3-backups/kent/2026-04-11-00-00-00/manifest-entries.json");
     });
 
   });

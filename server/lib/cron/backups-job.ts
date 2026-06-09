@@ -32,7 +32,7 @@ function platformAdminEnabled(): boolean {
 }
 
 function flyRuntimeAvailable(): boolean {
-  return Boolean(process.env[Environment.FLY_APP_NAME] || process.env[Environment.FLY_MACHINE_ID]);
+  return Boolean(process.env[Environment.FLY_MACHINE_ID]);
 }
 
 export function platformBackupSchedulerEnabled(): boolean {

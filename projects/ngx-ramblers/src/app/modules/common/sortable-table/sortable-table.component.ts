@@ -1,11 +1,15 @@
-import { AfterContentInit, Component, ContentChildren, EventEmitter, Input, OnChanges, Output, QueryList, SimpleChanges, TemplateRef } from "@angular/core";
+import { AfterContentInit, Component, ContentChild, ContentChildren, EventEmitter, Input, OnChanges, Output, QueryList, SimpleChanges, TemplateRef } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faChevronRight, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { sortBy } from "../../../functions/arrays";
-import { SortableTableAlignment, SortableTableColumn, SortableTableSortState } from "./sortable-table.model";
-import { SortableTableCellDirective } from "./sortable-table-cell.directive";
+import { SortableTableAlignment, SortableTableColumn, SortableTableGroup, SortableTableSortState } from "./sortable-table.model";
+import {
+  SortableTableCellDirective,
+  SortableTableExpandedRowDirective,
+  SortableTableGroupHeaderDirective
+} from "./sortable-table-cell.directive";
 
 @Component({
   selector: "app-sortable-table",
@@ -34,18 +38,40 @@ import { SortableTableCellDirective } from "./sortable-table-cell.directive";
               <td [attr.colspan]="columns.length" class="text-center text-muted py-3">{{ emptyMessage }}</td>
             </tr>
           }
-          @for (row of sortedRows; track trackRow($index, row)) {
-            <tr>
-              @for (column of columns; track column.key) {
-                <td [class]="cellClassFor(column)">
-                  @if (templateFor(column.key); as cellTemplate) {
-                    <ng-container *ngTemplateOutlet="cellTemplate; context: { $implicit: row, row: row }"></ng-container>
-                  } @else {
-                    {{ column.cellGetter ? column.cellGetter(row) : "" }}
+          @for (group of groupedRows; track group.key) {
+            @if (groupBy && groupHeaderTemplate) {
+              <tr class="sortable-table-group-row" [class.collapsible]="collapsibleGroups"
+                  (click)="collapsibleGroups && toggleGroupCollapsed(group.key)">
+                <td [attr.colspan]="columns.length">
+                  @if (collapsibleGroups) {
+                    <fa-icon [icon]="groupCollapsed(group.key) ? faChevronRight : faChevronDown" class="me-2" size="xs"/>
                   }
+                  <ng-container *ngTemplateOutlet="groupHeaderTemplate.template; context: { $implicit: group, group: group }"></ng-container>
                 </td>
+              </tr>
+            }
+            @if (!groupCollapsed(group.key)) {
+            @for (row of group.rows; track trackRow($index, row)) {
+              <tr>
+                @for (column of columns; track column.key) {
+                  <td [class]="cellClassFor(column)">
+                    @if (templateFor(column.key); as cellTemplate) {
+                      <ng-container *ngTemplateOutlet="cellTemplate; context: { $implicit: row, row: row }"></ng-container>
+                    } @else {
+                      {{ column.cellGetter ? column.cellGetter(row) : "" }}
+                    }
+                  </td>
+                }
+              </tr>
+              @if (expandedRowTemplate && expandedWhen(row)) {
+                <tr class="sortable-table-expanded-row">
+                  <td [attr.colspan]="columns.length">
+                    <ng-container *ngTemplateOutlet="expandedRowTemplate.template; context: { $implicit: row, row: row }"></ng-container>
+                  </td>
+                </tr>
               }
-            </tr>
+            }
+            }
           }
         </tbody>
       </table>
@@ -119,6 +145,22 @@ import { SortableTableCellDirective } from "./sortable-table-cell.directive";
     .sortable-table tbody tr:hover
       background-color: rgba(155, 200, 171, 0.1)
 
+    .sortable-table tbody tr.sortable-table-group-row td
+      background: linear-gradient(to bottom, rgba(155, 200, 171, 0.25), rgba(155, 200, 171, 0.12))
+      font-weight: 600
+      border-bottom: 2px solid rgba(155, 200, 171, 0.4)
+
+    .sortable-table tbody tr.sortable-table-group-row.collapsible td
+      cursor: pointer
+      user-select: none
+
+    .sortable-table tbody tr.sortable-table-group-row.collapsible:hover td
+      background: rgba(155, 200, 171, 0.35)
+
+    .sortable-table tbody tr.sortable-table-expanded-row:hover,
+    .sortable-table tbody tr.sortable-table-expanded-row
+      background-color: #ffffff
+
     .sortable-table tbody td.text-center
       text-align: center
 
@@ -135,18 +177,38 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
   @Input() defaultSortDirection: string = ASCENDING;
   @Input() emptyMessage: string = "No data to display";
   @Input() trackBy: (index: number, row: any) => any = (index) => index;
+  @Input() groupBy: ((row: any) => string) | null = null;
+  @Input() collapsibleGroups = false;
+  @Input() expandedWhen: (row: any) => boolean = () => false;
   @Output() sortChange = new EventEmitter<SortableTableSortState>();
 
   @ContentChildren(SortableTableCellDirective) protected cellTemplates!: QueryList<SortableTableCellDirective>;
+  @ContentChild(SortableTableGroupHeaderDirective) protected groupHeaderTemplate: SortableTableGroupHeaderDirective | null = null;
+  @ContentChild(SortableTableExpandedRowDirective) protected expandedRowTemplate: SortableTableExpandedRowDirective | null = null;
 
   protected sortKey: string | null = null;
   protected sortDirection: string = ASCENDING;
   protected sortedRows: any[] = [];
+  protected groupedRows: SortableTableGroup[] = [];
 
   protected readonly ASCENDING = ASCENDING;
   protected readonly DESCENDING = DESCENDING;
   protected readonly faChevronUp = faChevronUp;
   protected readonly faChevronDown = faChevronDown;
+  protected readonly faChevronRight = faChevronRight;
+  protected collapsedGroupKeys = new Set<string>();
+
+  protected toggleGroupCollapsed(key: string): void {
+    if (this.collapsedGroupKeys.has(key)) {
+      this.collapsedGroupKeys.delete(key);
+    } else {
+      this.collapsedGroupKeys.add(key);
+    }
+  }
+
+  protected groupCollapsed(key: string): boolean {
+    return this.collapsibleGroups && this.collapsedGroupKeys.has(key);
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["defaultSortKey"] && this.sortKey === null) {
@@ -206,9 +268,27 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
     const source = this.rows || [];
     if (!this.sortKey) {
       this.sortedRows = [...source];
-      return;
+    } else {
+      const prefix = this.sortDirection === DESCENDING ? "-" : "";
+      this.sortedRows = [...source].sort(sortBy(`${prefix}${this.sortKey}`));
     }
-    const prefix = this.sortDirection === DESCENDING ? "-" : "";
-    this.sortedRows = [...source].sort(sortBy(`${prefix}${this.sortKey}`));
+    this.groupedRows = this.applyGrouping(this.sortedRows);
+  }
+
+  private applyGrouping(rows: any[]): SortableTableGroup[] {
+    const groupBy = this.groupBy;
+    if (!groupBy) {
+      return [{ key: "", rows }];
+    }
+    return rows.reduce((groups: SortableTableGroup[], row) => {
+      const key = groupBy(row);
+      const existing = groups.find(group => group.key === key);
+      if (existing) {
+        existing.rows.push(row);
+      } else {
+        groups.push({ key, rows: [row] });
+      }
+      return groups;
+    }, []);
   }
 }
