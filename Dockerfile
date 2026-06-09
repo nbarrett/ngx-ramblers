@@ -80,8 +80,12 @@ ARG NPM_VERSION=11.9.0
 
 USER root
 
-RUN npm install -g n \
-  && "$(npm root -g)/n/bin/n" ${NODE_VERSION} \
+RUN echo "worker-node-diag:" && (which curl tar node npm bash || true) && (node -v || true) && (npm -v || true) && (npm config get prefix || true) \
+  && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" -o /tmp/node.tar.gz \
+  && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1 \
+  && rm /tmp/node.tar.gz \
+  && node --version \
+  && npm --version \
   && npm install -g npm@${NPM_VERSION}
 
 WORKDIR /usr/src/app
