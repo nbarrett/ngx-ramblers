@@ -16,7 +16,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { VenueParserService } from "../../../services/venue/venue-parser.service";
 import { VenueScraperService } from "../../../services/venue/venue-scraper.service";
 import { StoredVenueService } from "../../../services/venue/stored-venue.service";
-import { Venue, VenueParseResult, VenueWithUsageStats } from "../../../models/event-venue.model";
+import { Venue, VenueParseResult, VenueType, VenueWithUsageStats } from "../../../models/event-venue.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { isEmpty } from "es-toolkit/compat";
 import { VenueAutocompleteComponent } from "./venue-autocomplete";
@@ -168,8 +168,10 @@ export enum VenueLookupMode {
               [disabled]="disabled"
               [startingPoint]="startingPoint"
               [initialVenue]="initialVenue"
+              [selectedVenueType]="selectedVenueType"
               (venueSelected)="onVenueSelected($event)"
-              (newVenueCreated)="onNewVenueCreated($event)"/>
+              (newVenueCreated)="onNewVenueCreated($event)"
+              (venueRepositioned)="venueRepositioned.emit($event)"/>
           </div>
         }
       }
@@ -220,8 +222,10 @@ export class VenueLookupComponent implements OnInit {
   @Input() disabled = false;
   @Input() startingPoint: { latitude: number; longitude: number } | null = null;
   @Input() initialVenue: Partial<VenueWithUsageStats> | null = null;
+  @Input() selectedVenueType: VenueType | null = null;
   @Input() showManageVenuesButton = false;
   @Output() venueLookup = new EventEmitter<Partial<Venue>>();
+  @Output() venueRepositioned = new EventEmitter<Partial<Venue>>();
 
   mode = VenueLookupMode.SEARCH;
   protected readonly StoredValue = StoredValue;

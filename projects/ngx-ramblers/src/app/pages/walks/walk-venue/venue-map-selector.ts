@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, NgZone, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from "@angular/core";
 import * as L from "leaflet";
 import { Layer, LeafletMouseEvent } from "leaflet";
 import "proj4leaflet";
@@ -24,7 +24,13 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
   template: `
     <div class="venue-map-container">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <span class="small text-muted">Click a marker to select venue, or click map to create new venue at that location</span>
+        <span class="small text-muted">
+          @if (editingExistingVenue) {
+            Drag the pin to reposition this venue, or click another marker to select a different venue
+          } @else {
+            Click a marker to select venue, or click map to create new venue at that location
+          }
+        </span>
       </div>
       @if (mapReady) {
         <div class="leaflet-map"
@@ -95,7 +101,7 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
       border: none
   `]
 })
-export class VenueMapSelectorComponent implements OnInit, OnDestroy {
+export class VenueMapSelectorComponent implements OnInit, OnChanges, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("VenueMapSelectorComponent", NgxLoggerLevel.ERROR);
   private venueService = inject(VenueService);
   private mapTiles = inject(MapTilesService);
@@ -106,13 +112,16 @@ export class VenueMapSelectorComponent implements OnInit, OnDestroy {
   private map!: L.Map;
   private venueMarkers: L.Marker[] = [];
   private newVenueMarker: L.Marker | null = null;
+  private editedVenueMarker: L.Marker | null = null;
   private venueTypes: VenueType[];
 
   @Input() startingPoint: { latitude: number; longitude: number } | null = null;
   @Input() initialVenue: Partial<VenueWithUsageStats> | null = null;
+  @Input() selectedVenueType: VenueType | null = null;
   @Input() disabled = false;
   @Output() venueSelected = new EventEmitter<VenueWithUsageStats>();
   @Output() newVenueCreated = new EventEmitter<Partial<Venue>>();
+  @Output() venueRepositioned = new EventEmitter<Partial<Venue>>();
 
   mapReady = false;
   options: any;
@@ -131,8 +140,29 @@ export class VenueMapSelectorComponent implements OnInit, OnDestroy {
     this.configureMap();
   }
 
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes.selectedVenueType && !changes.selectedVenueType.firstChange) {
+      this.refreshEditedVenueIcon();
+    }
+  }
+
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  private refreshEditedVenueIcon() {
+    if (this.editedVenueMarker && this.selectedVenueType) {
+      this.editedVenueMarker.setIcon(this.createVenueIcon(this.selectedVenueType));
+    }
+  }
+
+  private isEditedVenue(venue: VenueWithUsageStats): boolean {
+    return this.initialVenue?.lat != null && this.initialVenue?.lon != null
+      && venue.lat === this.initialVenue.lat && venue.lon === this.initialVenue.lon;
+  }
+
+  get editingExistingVenue(): boolean {
+    return this.initialVenue?.lat != null && this.initialVenue?.lon != null;
   }
 
   private configureMap() {
@@ -178,18 +208,28 @@ export class VenueMapSelectorComponent implements OnInit, OnDestroy {
     const venuesWithCoords = venues.filter(v => v.lat && v.lon);
     this.logger.info(`Loading ${venuesWithCoords.length} venue markers`);
 
+    this.editedVenueMarker = null;
     venuesWithCoords.forEach(venue => {
       const marker = this.createVenueMarker(venue);
       marker.addTo(this.map);
       this.venueMarkers.push(marker);
+      if (this.isEditedVenue(venue)) {
+        this.editedVenueMarker = marker;
+      }
     });
+    this.refreshEditedVenueIcon();
   }
 
   private createVenueMarker(venue: VenueWithUsageStats): L.Marker {
     const venueType = this.venueTypes.find(vt => vt.type === venue.type) || this.venueTypes[this.venueTypes.length - 1];
     const icon = this.createVenueIcon(venueType);
+    const editable = !this.disabled && this.isEditedVenue(venue);
 
-    const marker = L.marker([venue.lat!, venue.lon!], { icon });
+    const marker = L.marker([venue.lat!, venue.lon!], { icon, draggable: editable });
+
+    if (editable) {
+      marker.on("dragend", () => this.onEditedVenueDragEnd(marker));
+    }
 
     const popupContent = `
       <div style="min-width: 150px">
@@ -216,14 +256,14 @@ export class VenueMapSelectorComponent implements OnInit, OnDestroy {
   }
 
   private createVenueIcon(venueType: VenueType): L.DivIcon {
-    const faClass = this.getFontAwesomeClass(venueType);
+    const iconClass = this.iconClass(venueType);
     const iconHtml = `
       <div class="venue-pin-container">
         <svg class="venue-pin-svg" width="32" height="42" viewBox="0 0 32 42" xmlns="http://www.w3.org/2000/svg">
           <path d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26s16-14 16-26C32 7.163 24.837 0 16 0z" fill="var(--os-explorer-color, #443d90)" stroke="#ffffff" stroke-width="2"/>
           <circle cx="16" cy="16" r="10" fill="#ffffff"/>
         </svg>
-        <i class="fas fa-${faClass} venue-pin-icon"></i>
+        <i class="${iconClass} venue-pin-icon"></i>
       </div>`;
 
     return L.divIcon({
@@ -235,33 +275,8 @@ export class VenueMapSelectorComponent implements OnInit, OnDestroy {
     });
   }
 
-  private getFontAwesomeClass(venueType: VenueType): string {
-    const iconMap: Record<string, string> = {
-      "pub": "beer",
-      "cafe": "coffee",
-      "restaurant": "utensils",
-      "church": "church",
-      "hall": "building",
-      "car park": "car",
-      "station": "train",
-      "other": "question"
-    };
-    return iconMap[venueType.type] || "question";
-  }
-
-  private getFontAwesomeUnicode(faClass: string): string {
-    const unicodeMap: Record<string, string> = {
-      "beer": "f0fc",
-      "coffee": "f0f4",
-      "utensils": "f2e7",
-      "church": "f51d",
-      "building": "f1ad",
-      "car": "f1b9",
-      "train": "f238",
-      "question": "f128",
-      "plus": "2b"
-    };
-    return unicodeMap[faClass] || "f128";
+  private iconClass(venueType: VenueType): string {
+    return `${venueType.icon.prefix} fa-${venueType.icon.iconName}`;
   }
 
   private selectVenue(venue: VenueWithUsageStats) {
@@ -277,8 +292,21 @@ export class VenueMapSelectorComponent implements OnInit, OnDestroy {
     this.venueSelected.emit(venue);
   }
 
+  private async onEditedVenueDragEnd(marker: L.Marker) {
+    const latlng = marker.getLatLng();
+    const location: Partial<Venue> = { lat: latlng.lat, lon: latlng.lng };
+    try {
+      const gridRefs = await this.addressQueryService.gridReferenceLookupFromLatLng(L.latLng(latlng.lat, latlng.lng));
+      location.postcode = gridRefs?.[0]?.postcode || undefined;
+    } catch (error) {
+      this.logger.error("Error getting postcode for dragged location:", error);
+    }
+    this.logger.info("Venue repositioned to:", location);
+    this.zone.run(() => this.venueRepositioned.emit(location));
+  }
+
   onMapClick(event: LeafletMouseEvent) {
-    if (this.disabled) return;
+    if (this.disabled || this.editingExistingVenue) return;
 
     this.zone.run(() => {
       this.newVenueLocation = event.latlng;
