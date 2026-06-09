@@ -761,6 +761,16 @@ export async function manifestByTimestamp(site: string, timestamp: string): Prom
   return s3BackupManifest.findOne({ site: effectiveSite, timestamp, status: BackupSessionStatus.COMPLETED }).lean() as Promise<S3BackupManifest | null>;
 }
 
+export async function completedManifestStatusByTimestamp(site: string, backupConfig?: BackupConfig): Promise<Map<string, BackupSessionStatus>> {
+  const resolvedConfig = backupConfig || await configuredBackup();
+  const resolved = siteConfigFor(resolvedConfig, site);
+  const effectiveSite = resolved?.site || site;
+  const manifests = await s3BackupManifest
+    .find({ site: effectiveSite, status: BackupSessionStatus.COMPLETED }, { timestamp: 1, status: 1, _id: 0 })
+    .lean() as Pick<S3BackupManifest, "timestamp" | "status">[];
+  return new Map(manifests.map(manifest => [manifest.timestamp, manifest.status]));
+}
+
 export async function availableSites(): Promise<string[]> {
   const backupConfig = await configuredBackup();
   return siteConfigs(backupConfig).map(siteConfig => siteConfig.site);

@@ -44,7 +44,7 @@ import {
   parseS3BackupPrefix,
   parseTimestampToDate
 } from "./backup-paths";
-import { availableSites, manifestByTimestamp, startS3Backup, startS3Restore } from "./s3-backup-service";
+import { availableSites, completedManifestStatusByTimestamp, manifestByTimestamp, startS3Backup, startS3Restore } from "./s3-backup-service";
 import { backupEvents } from "./backup-events";
 import { withBackupSlot } from "./backup-concurrency";
 
@@ -927,43 +927,16 @@ export class BackupAndRestoreService {
   }
 
   async listS3Backups(): Promise<BackupListItem[]> {
-    const results: BackupListItem[] = [];
-    const errors: string[] = [];
     if (!this.backupConfig.environments) {
-      return results;
+      return [];
     }
 
-    const globalBucket = this.backupConfig.aws?.bucket;
+    const errors: string[] = [];
     const globalRegion = this.backupConfig.aws?.region || AWS_DEFAULTS.REGION;
-
-    if (globalBucket) {
-      const credentials = this.preferredCredentials();
-      if (!credentials) {
-        errors.push("No AWS credentials configured for global bucket");
-      } else {
-        const s3 = new S3Client({ region: globalRegion, credentials });
-        for (const env of this.backupConfig.environments) {
-          await this.collectBackupsForEnvironment(results, errors, s3, globalBucket, env.environment);
-        }
-      }
-    } else {
-      let anyS3Configured = false;
-      for (const env of this.backupConfig.environments) {
-        const bucket = env.aws?.bucket;
-        const accessKeyId = env.aws?.accessKeyId;
-        const secretAccessKey = env.aws?.secretAccessKey;
-
-        if (bucket && accessKeyId && secretAccessKey) {
-          anyS3Configured = true;
-          const region = env.aws?.region || AWS_DEFAULTS.REGION;
-          const s3 = new S3Client({ region, credentials: { accessKeyId, secretAccessKey } });
-          await this.collectBackupsForEnvironment(results, errors, s3, bucket, env.environment);
-        }
-      }
-      if (!anyS3Configured) {
-        errors.push("No S3 bucket configured — set a global bucket or per-environment AWS settings");
-      }
-    }
+    const targets = this.s3ListTargets(this.backupConfig.aws?.bucket, globalRegion, errors);
+    const collected = await Promise.all(targets.map(target =>
+      this.collectBackupsForEnvironment(errors, target.s3, target.bucket, target.environment)));
+    const results = collected.flat();
 
     if (results.length === 0 && errors.length > 0) {
       throw new Error(errors.join("; "));
@@ -971,31 +944,62 @@ export class BackupAndRestoreService {
     return results;
   }
 
-  private async collectBackupsForEnvironment(results: BackupListItem[], errors: string[], s3: S3Client, bucket: string, environment: string): Promise<void> {
+  private s3ListTargets(globalBucket: string | undefined, globalRegion: string, errors: string[]): Array<{ environment: string; s3: S3Client; bucket: string }> {
+    const environments = this.backupConfig.environments || [];
+    if (globalBucket) {
+      const credentials = this.preferredCredentials();
+      if (!credentials) {
+        errors.push("No AWS credentials configured for global bucket");
+        return [];
+      }
+      const s3 = new S3Client({ region: globalRegion, credentials });
+      return environments.map(env => ({ environment: env.environment, bucket: globalBucket, s3 }));
+    }
+    const targets = environments
+      .filter(env => env.aws?.bucket && env.aws?.accessKeyId && env.aws?.secretAccessKey)
+      .map(env => ({
+        environment: env.environment,
+        bucket: env.aws.bucket,
+        s3: new S3Client({
+          region: env.aws.region || AWS_DEFAULTS.REGION,
+          credentials: { accessKeyId: env.aws.accessKeyId, secretAccessKey: env.aws.secretAccessKey }
+        })
+      }));
+    if (targets.length === 0) {
+      errors.push("No S3 bucket configured — set a global bucket or per-environment AWS settings");
+    }
+    return targets;
+  }
+
+  private async collectBackupsForEnvironment(errors: string[], s3: S3Client, bucket: string, environment: string): Promise<BackupListItem[]> {
     try {
       const envPrefix = `${environment}/`;
-      const tsPrefixes = await this.listPrefixes(s3, bucket, envPrefix);
-      for (const tsPrefix of tsPrefixes) {
+      const [tsPrefixes, manifestStatuses] = await Promise.all([
+        this.listPrefixes(s3, bucket, envPrefix),
+        completedManifestStatusByTimestamp(environment, this.backupConfig)
+      ]);
+      return tsPrefixes.flatMap(tsPrefix => {
         const trimmed = tsPrefix.replace(/\/$/, "");
         const parsed = parseS3BackupPrefix(trimmed);
-        if (parsed) {
-          const manifest = await manifestByTimestamp(environment, parsed.timestamp);
-          const status = manifest?.status;
-          results.push({
-            name: trimmed,
-            path: buildS3LocationUrl(bucket, trimmed),
-            timestamp: parseTimestampToDate(parsed.timestamp)!,
-            environment,
-            location: BackupLocation.S3,
-            ...(status ? { status } : {}),
-            outcome: status || "missing manifest"
-          });
+        if (!parsed) {
+          return [];
         }
-      }
+        const status = manifestStatuses.get(parsed.timestamp);
+        return [{
+          name: trimmed,
+          path: buildS3LocationUrl(bucket, trimmed),
+          timestamp: parseTimestampToDate(parsed.timestamp)!,
+          environment,
+          location: BackupLocation.S3,
+          ...(status ? { status } : {}),
+          outcome: status || "missing manifest"
+        }];
+      });
     } catch (error) {
       const message = `Failed to list S3 backups for ${environment}: ${error?.message || error}`;
       debugLog(message);
       errors.push(message);
+      return [];
     }
   }
 

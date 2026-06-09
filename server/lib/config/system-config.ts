@@ -10,3 +10,7 @@ debugLog.enabled = false;
 export async function systemConfig(): Promise<SystemConfig> {
   return (await config.queryKey(ConfigKey.SYSTEM))?.value;
 }
+
+export async function systemConfigWithoutGeometry(): Promise<SystemConfig> {
+  return (await config.queryKeyProjected(ConfigKey.SYSTEM, config.SYSTEM_GEOMETRY_EXCLUSION))?.value;
+}
