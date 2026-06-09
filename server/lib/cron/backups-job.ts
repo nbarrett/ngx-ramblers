@@ -31,6 +31,16 @@ function platformAdminEnabled(): boolean {
   return booleanOf(process.env[Environment.PLATFORM_ADMIN_ENABLED]);
 }
 
+function flyRuntimeAvailable(): boolean {
+  return Boolean(process.env[Environment.FLY_APP_NAME] || process.env[Environment.FLY_MACHINE_ID]);
+}
+
+export function platformBackupSchedulerEnabled(): boolean {
+  return platformAdminEnabled()
+    && process.env[Environment.NODE_ENV] === "production"
+    && flyRuntimeAvailable();
+}
+
 function boundedInteger(value: unknown, fallback: number, maximum: number): number {
   const candidate = isNumber(value) && Number.isFinite(value) ? Math.floor(value) : fallback;
   return Math.max(1, Math.min(maximum, candidate));
@@ -144,15 +154,16 @@ export async function scheduleBackups(): Promise<void> {
     cronExpression,
     enabled: false,
     previousIds: ["all-environments-backup"],
+    runtimeEnabled: platformBackupSchedulerEnabled,
     settings: DEFAULT_BACKUPS_TASK_SETTINGS,
     run: async () => {
-      if (!platformAdminEnabled()) {
-        debugLog(`${Environment.PLATFORM_ADMIN_ENABLED} is not set - skipping run on this environment`);
+      if (!platformBackupSchedulerEnabled()) {
+        debugLog(`${Environment.PLATFORM_ADMIN_ENABLED}, ${Environment.NODE_ENV}=production and Fly runtime are required - skipping run on this environment`);
         return;
       }
       debugLog("Starting scheduled all-environments backup");
       await backupAllEnvironments();
     }
   });
-  debugLog(`All-environments backup cron job registered: ${cronExpression} (daily at 3am, disabled by default; ${platformAdminEnabled() ? "platform-admin enabled" : "platform-admin not enabled - registered for UI visibility only"})`);
+  debugLog(`All-environments backup cron job registered: ${cronExpression} (daily at 3am, disabled by default; ${platformBackupSchedulerEnabled() ? "platform backup scheduler enabled" : "platform backup scheduler not enabled - registered for UI visibility only"})`);
 }
