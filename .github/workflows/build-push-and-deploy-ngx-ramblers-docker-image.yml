@@ -29,10 +29,26 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Cache root node_modules
+        id: cache-root-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: root-nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install root dependencies
+        if: steps.cache-root-nm.outputs.cache-hit != 'true'
         run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
+      - name: Cache server node_modules
+        id: cache-server-nm
+        uses: actions/cache@v4
+        with:
+          path: server/node_modules
+          key: server-nm-${{ runner.os }}-${{ hashFiles('server/package-lock.json') }}
+
       - name: Install server dependencies
+        if: steps.cache-server-nm.outputs.cache-hit != 'true'
         run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
         working-directory: ./server
 
@@ -54,10 +70,26 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Cache root node_modules
+        id: cache-root-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: root-nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install root dependencies
+        if: steps.cache-root-nm.outputs.cache-hit != 'true'
         run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
+      - name: Cache server node_modules
+        id: cache-server-nm
+        uses: actions/cache@v4
+        with:
+          path: server/node_modules
+          key: server-nm-${{ runner.os }}-${{ hashFiles('server/package-lock.json') }}
+
       - name: Install server dependencies
+        if: steps.cache-server-nm.outputs.cache-hit != 'true'
         run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
         working-directory: ./server
 
@@ -98,10 +130,26 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Cache root node_modules
+        id: cache-root-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: root-nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install root dependencies
+        if: steps.cache-root-nm.outputs.cache-hit != 'true'
         run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
+      - name: Cache server node_modules
+        id: cache-server-nm
+        uses: actions/cache@v4
+        with:
+          path: server/node_modules
+          key: server-nm-${{ runner.os }}-${{ hashFiles('server/package-lock.json') }}
+
       - name: Install server dependencies
+        if: steps.cache-server-nm.outputs.cache-hit != 'true'
         run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
         working-directory: ./server
 
@@ -121,8 +169,18 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build the Docker image
-        run: docker build . --file Dockerfile --target website --tag ngx-ramblers:${{ github.run_number }}
+        run: |
+          docker buildx build . \
+            --file Dockerfile \
+            --target website \
+            --tag ngx-ramblers:${{ github.run_number }} \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --load
 
       - name: Tag the Docker image (latest)
         if: github.ref_name == 'main'
@@ -140,7 +198,15 @@ jobs:
 
       - name: Build the worker Docker image (Serenity/JS base)
         if: github.event_name == 'push' && steps.worker-changes.outputs.worker == 'true'
-        run: docker build . --build-arg CHROME_VERSION=${{ needs.resolve.outputs.chrome_version }} --file Dockerfile --target worker --tag ngx-ramblers-integration-worker:${{ github.run_number }}
+        run: |
+          docker buildx build . \
+            --build-arg CHROME_VERSION=${{ needs.resolve.outputs.chrome_version }} \
+            --file Dockerfile \
+            --target worker \
+            --tag ngx-ramblers-integration-worker:${{ github.run_number }} \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --load
 
       - name: Tag the worker Docker image (integration-worker-${{ github.run_number }})
         if: github.event_name == 'push' && steps.worker-changes.outputs.worker == 'true'

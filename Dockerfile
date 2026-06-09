@@ -42,27 +42,27 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 COPY .npmrc ./
+
+RUN npm ci
+
 COPY fly.toml ./
 COPY angular.json ./
 COPY ts*.json ./
 COPY tools /usr/src/app/tools
 COPY projects/ngx-ramblers /usr/src/app/projects/ngx-ramblers
 
-RUN npm ci
-
 RUN npx ng build --project ngx-ramblers --progress --configuration production
 
 WORKDIR /usr/src/app/server
 
 COPY server/package*.json ./
-COPY server/ts*.json ./
-COPY server/lib* ./
-COPY server/.mocharc.json ./
-COPY server/playwright.config.ts ./
+
+RUN npm ci --ignore-scripts
+
 COPY server /usr/src/app/server
 
-RUN npm install --include=optional sharp
-RUN npm ci
+RUN npm run tsc
+RUN npm run copy-assets
 
 EXPOSE 5001
 
@@ -88,20 +88,26 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 COPY .npmrc ./
+
+RUN npm ci
+
 COPY angular.json ./
 COPY ts*.json ./
 COPY fly.toml ./
 COPY fly.integration-worker.toml ./
 COPY tools /usr/src/app/tools
-
 COPY projects/ngx-ramblers /usr/src/app/projects/ngx-ramblers
 
-RUN npm ci
-
-COPY server /usr/src/app/server
 WORKDIR /usr/src/app/server
 
-RUN npm ci
+COPY server/package*.json ./
+
+RUN npm ci --ignore-scripts
+
+COPY server /usr/src/app/server
+
+RUN npm run tsc
+RUN npm run copy-assets
 
 RUN npm run serenity-bdd-update
 
