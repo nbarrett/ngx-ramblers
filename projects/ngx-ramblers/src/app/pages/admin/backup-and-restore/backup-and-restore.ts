@@ -1,11 +1,11 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { CommonModule, DatePipe } from "@angular/common";
+import { CommonModule, DatePipe, DOCUMENT } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { ActivatedRoute, Router } from "@angular/router";
+import { ActivatedRoute, Params, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, interval, Subscription } from "rxjs";
 import { switchMap } from "rxjs/operators";
-import { isNumber, isString, kebabCase } from "es-toolkit/compat";
+import { isNumber, isString, isUndefined, kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -29,7 +29,9 @@ import {
   BackupRequest,
   BackupRestoreTab,
   BackupSession,
+  BackupSessionHistoryRow,
   BackupSessionStatus,
+  BackupSessionTrigger,
   BackupSessionType,
   EnvironmentInfo,
   RestoreRequest,
@@ -60,6 +62,17 @@ import { CollectionsMultiSelectComponent } from "../../../modules/common/selecto
 import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/backups-multi-select";
 import { BackupSelectComponent } from "../../../modules/common/selectors/backup-select";
 import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../../functions/backup-list-items";
+import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
+import {
+  SortableTableCellDirective,
+  SortableTableExpandedRowDirective,
+  SortableTableGroupHeaderDirective
+} from "../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableColumn, SortableTableGroup } from "../../../modules/common/sortable-table/sortable-table.model";
+import { DESCENDING } from "../../../models/table-filtering.model";
+import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
+
+const HISTORY_INVOCATION_GAP_MS = 15 * 60 * 1000;
 
 @Component({
   selector: "app-backup-and-restore",
@@ -71,6 +84,11 @@ import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../..
     PageComponent,
     DatePipe,
     FontAwesomeModule,
+    SortableTableComponent,
+    SortableTableCellDirective,
+    SortableTableExpandedRowDirective,
+    SortableTableGroupHeaderDirective,
+    CopyIconComponent,
     EnvironmentSelectComponent,
     CollectionsMultiSelectComponent,
     BackupsMultiSelectComponent,
@@ -87,9 +105,28 @@ import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../..
       white-space: nowrap
       display: inline-block
 
-    .session-logs-cell
-      max-width: 0
-      width: 100%
+    .session-actions .btn
+      filter: grayscale(1)
+      opacity: 0.65
+      transition: filter 0.15s ease, opacity 0.15s ease
+      padding: 0.25rem 0.5rem
+      font-size: 0.75rem
+      line-height: 1.2
+      min-height: 0
+
+      &:hover, &:focus-visible
+        filter: none
+        opacity: 1
+
+    .session-logs-copy
+      position: absolute
+      top: 0.5rem
+      right: 1.25rem
+      color: #e2e8f0
+      font-size: 1.1rem
+
+      &:hover
+        color: #ffffff
 
     .session-logs
       background-color: #1e293b
@@ -119,16 +156,6 @@ import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../..
     .manifest-analysis-header-full
       min-height: 0
 
-    .session-history-scroll
-      max-height: 70vh
-      overflow: auto
-
-      thead th
-        position: sticky
-        top: 0
-        background-color: #fff
-        z-index: 2
-        box-shadow: inset 0 -1px 0 #dee2e6
   `],
   template: `
     <app-page autoTitle pageTitle="Backup & Restore">
@@ -356,127 +383,164 @@ import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../..
               <div class="img-thumbnail thumbnail-admin-edit">
                 <div class="row thumbnail-heading-frame">
                   <div class="thumbnail-heading">Backup/Restore History</div>
-                  <div class="mb-3">
-                    <app-environment-select
-                      label="Environments"
-                      [items]="environmentsWithMongo"
-                      [multiple]="true"
-                      [showSelectAllHeader]="true"
-                      [(selected)]="historyFilterEnvironments"
-                      (selectedChange)="onHistoryFilterChange($event)"></app-environment-select>
-                    <small class="form-text text-muted">
-                      @if (historyFilterEnvironments.length === 0) {
-                        No filter applied — showing sessions for all environments.
-                      } @else {
-                        Filtered to {{ historyFilterEnvironments.length }} of {{ environmentsWithMongo.length }} environments.
-                      }
-                    </small>
+                  <div class="mb-3 row g-3 align-items-start">
+                    <div class="col-md-6">
+                      <app-environment-select
+                        label="Environments"
+                        [items]="environmentsWithMongo"
+                        [multiple]="true"
+                        [showSelectAllHeader]="true"
+                        [(selected)]="historyFilterEnvironments"
+                        (selectedChange)="onHistoryFilterChange($event)"></app-environment-select>
+                      <small class="form-text text-muted">
+                        @if (historyFilterEnvironments.length === 0) {
+                          No filter applied — showing sessions for all environments.
+                        } @else {
+                          Filtered to {{ historyFilterEnvironments.length }} of {{ environmentsWithMongo.length }} environments.
+                        }
+                      </small>
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label" for="history-trigger-filter">Triggered by</label>
+                      <select id="history-trigger-filter" class="form-select" [(ngModel)]="historyFilterTrigger"
+                              (ngModelChange)="onHistoryFilterControlsChange()">
+                        <option [ngValue]="null">All triggers</option>
+                        @for (trigger of historyTriggerOptions(); track trigger) {
+                          <option [ngValue]="trigger">{{ triggerLabel(trigger) }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label" for="history-status-filter">Status</label>
+                      <select id="history-status-filter" class="form-select" [(ngModel)]="historyFilterStatus"
+                              (ngModelChange)="onHistoryFilterControlsChange()">
+                        <option [ngValue]="null">All statuses</option>
+                        @for (status of historyStatusOptions(); track status) {
+                          <option [ngValue]="status">{{ humaniseStatus(status) }}</option>
+                        }
+                      </select>
+                    </div>
                   </div>
-                  <div class="table-responsive session-history-scroll">
-                    <table class="table table-striped table-sm">
-                      <thead>
-                      <tr>
-                        <th>Type</th>
-                        <th>Environment</th>
-                        <th>Status</th>
-                        <th>Started</th>
-                        <th>Duration</th>
-                        <th>S3 Objects</th>
-                        <th>Actions</th>
-                      </tr>
-                      </thead>
-                      <tbody>
-                        @for (session of filteredSessions(); track session._id) {
-                          <tr>
-                            <td>{{ session.type }}</td>
-                            <td>{{ session.environment }}</td>
-                            <td>
-                              <span class="session-status" [ngClass]="statusStyle(session.status)"
+                  <app-sortable-table
+                    [columns]="historyColumns"
+                    [rows]="historyRows"
+                    [defaultSortKey]="'startedMs'"
+                    [defaultSortDirection]="DESCENDING"
+                    [groupBy]="historyGroupBy"
+                    [collapsibleGroups]="true"
+                    [expandedWhen]="historyRowExpanded"
+                    [trackBy]="historyTrackBy"
+                    maxHeight="70vh"
+                    [emptyMessage]="sessions.length === 0 ? 'No backup or restore sessions yet.' : 'No sessions match the selected filters.'">
+                    <ng-template appSortableTableGroupHeader let-group>
+                      {{ groupLabel(group) }} — {{ groupStart(group) | date:'EEE d MMM yyyy, HH:mm' }}
+                      <span class="text-muted fw-normal ms-2">{{ stringUtils.pluraliseWithCount(group.rows.length, "session") }}</span>
+                      @if (groupStatusCount(group, BackupSessionStatus.COMPLETED); as completed) {
+                        <span class="session-status fw-normal ms-2" [ngClass]="statusStyle(BackupSessionStatus.COMPLETED)">{{ completed }} completed</span>
+                      }
+                      @if (groupStatusCount(group, BackupSessionStatus.FAILED); as failed) {
+                        <span class="session-status fw-normal ms-1" [ngClass]="statusStyle(BackupSessionStatus.FAILED)">{{ failed }} failed</span>
+                      }
+                      @if (groupStatusCount(group, BackupSessionStatus.IN_PROGRESS); as inProgress) {
+                        <span class="session-status fw-normal ms-1" [ngClass]="statusStyle(BackupSessionStatus.IN_PROGRESS)">
+                          <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>{{ inProgress }} in progress
+                        </span>
+                      }
+                      @if (groupDuration(group); as overall) {
+                        <span class="text-muted fw-normal ms-2">· overall {{ overall }}</span>
+                      }
+                    </ng-template>
+                    <ng-template appSortableTableCell="status" let-row>
+                      <span class="session-status" [ngClass]="statusStyle(row.status)"
+                            container="body"
+                            [tooltip]="row.error || null">
+                        @if (row.status === BackupSessionStatus.IN_PROGRESS) {
+                          <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                        }
+                        {{ humaniseStatus(row.status) }}
+                      </span>
+                    </ng-template>
+                    <ng-template appSortableTableCell="started" let-row>{{ row.startTime | date:'medium' }}</ng-template>
+                    <ng-template appSortableTableCell="duration" let-row>
+                      @if (row.endTime) {
+                        {{ duration(row.startTime, row.endTime) }}
+                      } @else {
+                        -
+                      }
+                    </ng-template>
+                    <ng-template appSortableTableCell="s3Objects" let-row>
+                      @if (sessionS3Summaries(row).length > 0) {
+                        @for (summary of sessionS3Summaries(row); track summary.site) {
+                          <div class="small">
+                            <span class="session-status me-1" [ngClass]="statusStyle(summary.status)"
+                                  container="body"
+                                  [tooltip]="summary.error || null">{{ humaniseStatus(summary.status) }}</span>
+                            {{ row.type === BackupSessionType.RESTORE ? summary.copiedObjects + ' restored' : summary.copiedObjects + ' copied' }}, {{ summary.skippedObjects }} skipped, {{ formatBytes(summary.copiedSizeBytes) }}
+                            @if (summary.error) {
+                              <div class="text-danger">{{ summary.error }}</div>
+                            }
+                          </div>
+                        }
+                      } @else {
+                        <span class="text-muted">-</span>
+                      }
+                    </ng-template>
+                    <ng-template appSortableTableCell="actions" let-row>
+                      <div class="d-inline-flex gap-1 align-items-center text-nowrap session-actions">
+                        <button type="button" class="btn btn-sm btn-info"
+                                container="body"
+                                [tooltip]="isSessionExpanded(row) ? 'Hide logs' : 'View logs'"
+                                (click)="toggleSessionLogs(row)">
+                          <fa-icon [icon]="isSessionExpanded(row) ? faChevronUp : faFileLines"></fa-icon>
+                        </button>
+                        @if (manifestForSession(row); as manifest) {
+                          @if (pendingDeleteManifest?._id === manifest._id) {
+                            <button type="button" class="btn btn-sm btn-danger"
+                                    (click)="confirmDelete(manifest)">Confirm
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    (click)="cancelManifestConfirmation()">Cancel
+                            </button>
+                          } @else {
+                            <button type="button" class="btn btn-sm btn-warning"
                                     container="body"
-                                    [tooltip]="session.error || null">
-                                @if (session.status === BackupSessionStatus.IN_PROGRESS) {
-                                  <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
-                                }
-                                {{ humaniseStatus(session.status) }}
-                              </span>
-                            </td>
-                            <td>{{ session.startTime | date:'medium' }}</td>
-                            <td>
-                              @if (session.endTime) {
-                                {{ duration(session.startTime, session.endTime) }}
-                              } @else {
-                                -
-                              }
-                            </td>
-                            <td>
-                              @if (sessionS3Summaries(session).length > 0) {
-                                @for (summary of sessionS3Summaries(session); track summary.site) {
-                                  <div class="small">
-                                    <span class="session-status me-1" [ngClass]="statusStyle(summary.status)">{{ humaniseStatus(summary.status) }}</span>
-                                    {{ session.type === BackupSessionType.RESTORE ? summary.copiedObjects + ' restored' : summary.copiedObjects + ' copied' }}, {{ summary.skippedObjects }} skipped, {{ formatBytes(summary.copiedSizeBytes) }}
-                                  </div>
-                                }
-                              } @else {
-                                <span class="text-muted">-</span>
-                              }
-                            </td>
-                            <td class="text-nowrap">
-                              <div class="d-inline-flex gap-1 align-items-center">
-                                <button type="button" class="btn btn-sm btn-info"
-                                        container="body"
-                                        [tooltip]="isSessionExpanded(session) ? 'Hide logs' : 'View logs'"
-                                        (click)="toggleSessionLogs(session)">
-                                  <fa-icon [icon]="isSessionExpanded(session) ? faChevronUp : faFileLines"></fa-icon>
-                                </button>
-                                @if (manifestForSession(session); as manifest) {
-                                  @if (pendingDeleteManifest?._id === manifest._id) {
-                                    <button type="button" class="btn btn-sm btn-danger"
-                                            (click)="confirmDelete(manifest)">Confirm
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                                            (click)="cancelManifestConfirmation()">Cancel
-                                    </button>
-                                  } @else {
-                                    <button type="button" class="btn btn-sm btn-warning"
-                                            container="body"
-                                            [tooltip]="isAnalysing(manifest) ? 'Hide analysis' : 'Analyse S3 snapshot contents'"
-                                            (click)="toggleAnalyse(manifest)">
-                                      <fa-icon [icon]="isAnalysing(manifest) ? faChevronUp : faChartBar"></fa-icon>
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-danger"
-                                            container="body"
-                                            [tooltip]="manifest.deletable === false ? manifest.blockReason : 'Delete S3 snapshot'"
-                                            [disabled]="manifest.deletable === false"
-                                            (click)="requestDelete(manifest)">
-                                      <fa-icon [icon]="faTrash"></fa-icon>
-                                    </button>
-                                  }
-                                }
-                              </div>
-                            </td>
-                          </tr>
-                          @if (isSessionExpanded(session)) {
-                            <tr>
-                              <td colspan="7" class="session-logs-cell">
-                                @if (session.error) {
-                                  <div class="alert alert-danger mb-2"><strong>Error:</strong> {{ session.error }}</div>
-                                }
-                                <div class="session-logs">
-                                  @if (logsNewestFirst(session).length === 0 && session.status === BackupSessionStatus.IN_PROGRESS) {
-                                    <div><fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Waiting for log output...</div>
-                                  }
-                                  @for (log of logsNewestFirst(session); track $index) {
-                                    <div>{{ log }}</div>
-                                  }
-                                </div>
-                              </td>
-                            </tr>
+                                    [tooltip]="isAnalysing(manifest) ? 'Hide analysis' : 'Analyse S3 snapshot contents'"
+                                    (click)="toggleAnalyse(manifest)">
+                              <fa-icon [icon]="isAnalysing(manifest) ? faChevronUp : faChartBar"></fa-icon>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger"
+                                    container="body"
+                                    [tooltip]="manifest.deletable === false ? manifest.blockReason : 'Delete S3 snapshot'"
+                                    [disabled]="manifest.deletable === false"
+                                    (click)="requestDelete(manifest)">
+                              <fa-icon [icon]="faTrash"></fa-icon>
+                            </button>
                           }
-                          @if (manifestForSession(session); as manifest) {
-                            @if (isAnalysing(manifest)) {
-                              <tr>
-                                <td colspan="7" class="p-0">
-                                  <div class="manifest-analysis p-3 bg-white border-top">
+                        }
+                      </div>
+                    </ng-template>
+                    <ng-template appSortableTableExpandedRow let-row>
+                      @if (isSessionExpanded(row)) {
+                        @if (row.error) {
+                          <div class="alert alert-danger mb-2"><strong>Error:</strong> {{ row.error }}</div>
+                        }
+                        <div class="position-relative">
+                          <div class="session-logs">
+                            @if (logsNewestFirst(row).length === 0 && row.status === BackupSessionStatus.IN_PROGRESS) {
+                              <div><fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Waiting for log output...</div>
+                            }
+                            @for (log of logsNewestFirst(row); track $index) {
+                              <div>{{ log }}</div>
+                            }
+                          </div>
+                          <div class="session-logs-copy">
+                            <app-copy-icon [value]="sessionLogsText(row)" elementName="session logs"/>
+                          </div>
+                        </div>
+                      }
+                      @if (manifestForSession(row); as manifest) {
+                        @if (isAnalysing(manifest)) {
+                          <div class="manifest-analysis">
                                     @if (!isAnalysisLoaded(manifest)) {
                                       <div class="d-flex align-items-center text-muted">
                                         <fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>
@@ -561,27 +625,12 @@ import { backupEnvironment, backupSource, sameBackupEnvironment } from "../../..
                                         </div>
                                       </div>
                                     </div>
-                                    }
-                                  </div>
-                                </td>
-                              </tr>
                             }
-                          }
+                          </div>
                         }
-                        @if (filteredSessions().length === 0) {
-                          <tr>
-                            <td colspan="7" class="text-muted text-center">
-                              @if (sessions.length === 0) {
-                                No backup or restore sessions yet.
-                              } @else {
-                                No sessions match the selected environment filter.
-                              }
-                            </td>
-                          </tr>
-                        }
-                      </tbody>
-                    </table>
-                  </div>
+                      }
+                    </ng-template>
+                  </app-sortable-table>
 
                 </div>
               </div>
@@ -615,6 +664,8 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   private dateUtils = inject(DateUtilsService);
   private activatedRoute = inject(ActivatedRoute);
   private router = inject(Router);
+  private document = inject(DOCUMENT);
+  private pendingScrollToExpanded = false;
   private subscriptions: Subscription[] = [];
   private refreshSubscription: Subscription | null = null;
   private tab: BackupRestoreTab = BackupRestoreTab.BACKUP;
@@ -630,6 +681,16 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   protected readonly faChevronDown = faChevronDown;
   protected readonly faFileLines = faFileLines;
   protected readonly faRotateLeft = faRotateLeft;
+  protected readonly DESCENDING = DESCENDING;
+  protected readonly historyColumns: SortableTableColumn<BackupSessionHistoryRow>[] = [
+    { key: "type", label: "Type", sortKey: "type", cellGetter: row => row.type, cellClass: "text-nowrap" },
+    { key: "environment", label: "Environment", sortKey: "environment", cellGetter: row => row.environment },
+    { key: "status", label: "Status", sortKey: "status", cellClass: "text-nowrap" },
+    { key: "started", label: "Started", sortKey: "startedMs" },
+    { key: "duration", label: "Duration", sortKey: "durationMs", cellClass: "text-nowrap" },
+    { key: "s3Objects", label: "S3 Objects" },
+    { key: "actions", label: "Actions" }
+  ];
 
   enabled = false;
 
@@ -680,18 +741,124 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   pendingRestoreManifest: S3BackupManifest | undefined;
   pendingDeleteManifest: S3BackupManifest | undefined;
   historyFilterEnvironments: EnvironmentInfo[] = [];
+  historyFilterStatus: BackupSessionStatus | null = null;
+  historyFilterTrigger: BackupSessionTrigger | null = null;
+  private historyEnvironmentNamesFromUrl: string[] = [];
+  historyRows: BackupSessionHistoryRow[] = [];
   analysingManifestIds: Set<string> = new Set<string>();
   fullManifestsById: Map<string, S3BackupManifest> = new Map<string, S3BackupManifest>();
   manageStoredBackupsOpen = false;
   protected readonly BackupSessionStatus = BackupSessionStatus;
   protected readonly BackupSessionType = BackupSessionType;
 
-  filteredSessions(): BackupSession[] {
-    if (!this.historyFilterEnvironments || this.historyFilterEnvironments.length === 0) {
-      return this.sessions;
-    }
+  private sessionTrigger(session: BackupSession): BackupSessionTrigger {
+    return session.metadata?.triggeredBy || BackupSessionTrigger.WEB;
+  }
+
+  private filteredSessions(): BackupSession[] {
     const selectedNames = new Set(this.historyFilterEnvironments.map(environment => environment.name));
-    return this.sessions.filter(session => selectedNames.has(session.environment));
+    return this.sessions
+      .filter(session => selectedNames.size === 0 || selectedNames.has(session.environment))
+      .filter(session => !this.historyFilterStatus || session.status === this.historyFilterStatus)
+      .filter(session => !this.historyFilterTrigger || this.sessionTrigger(session) === this.historyFilterTrigger);
+  }
+
+  historyStatusOptions(): BackupSessionStatus[] {
+    const present = new Set(this.sessions.map(session => session.status));
+    return [
+      BackupSessionStatus.COMPLETED,
+      BackupSessionStatus.FAILED,
+      BackupSessionStatus.IN_PROGRESS,
+      BackupSessionStatus.PENDING
+    ].filter(status => present.has(status));
+  }
+
+  historyTriggerOptions(): BackupSessionTrigger[] {
+    const present = new Set(this.sessions.map(session => this.sessionTrigger(session)));
+    return [
+      BackupSessionTrigger.SCHEDULED,
+      BackupSessionTrigger.WEB,
+      BackupSessionTrigger.CLI
+    ].filter(trigger => present.has(trigger));
+  }
+
+  triggerLabel(trigger: BackupSessionTrigger): string {
+    if (trigger === BackupSessionTrigger.SCHEDULED) {
+      return "Scheduled task";
+    } else if (trigger === BackupSessionTrigger.CLI) {
+      return "CLI";
+    } else {
+      return "Manual";
+    }
+  }
+
+  private timeValue(time: Date | number | undefined): number {
+    if (isUndefined(time)) {
+      return 0;
+    }
+    return isNumber(time) ? time : this.dateUtils.asDateTime(time).toMillis();
+  }
+
+  refreshHistoryRows() {
+    const enriched = this.filteredSessions().map(session => ({
+      ...session,
+      startedMs: this.timeValue(session.startTime),
+      durationMs: session.endTime ? this.timeValue(session.endTime) - this.timeValue(session.startTime) : -1,
+      historyGroupKey: ""
+    }));
+    const byTrigger = enriched.reduce((groups, row) => {
+      const trigger = this.sessionTrigger(row);
+      groups.set(trigger, [...(groups.get(trigger) || []), row]);
+      return groups;
+    }, new Map<BackupSessionTrigger, BackupSessionHistoryRow[]>());
+    byTrigger.forEach((rows, trigger) => this.assignInvocationChunks(rows, trigger));
+    this.historyRows = enriched;
+  }
+
+  private assignInvocationChunks(rows: BackupSessionHistoryRow[], trigger: BackupSessionTrigger) {
+    [...rows]
+      .sort((first, second) => first.startedMs - second.startedMs)
+      .reduce((state, row) => {
+        const end = row.endTime ? this.timeValue(row.endTime) : row.startedMs;
+        const newChunk = state.anchor === 0 || row.startedMs - state.latestEnd > HISTORY_INVOCATION_GAP_MS;
+        const anchor = newChunk ? row.startedMs : state.anchor;
+        row.historyGroupKey = `${trigger}|${anchor}`;
+        return { anchor, latestEnd: newChunk ? end : Math.max(state.latestEnd, end) };
+      }, { anchor: 0, latestEnd: 0 });
+  }
+
+  historyGroupBy = (row: BackupSessionHistoryRow): string => row.historyGroupKey;
+
+  historyRowExpanded = (row: BackupSessionHistoryRow): boolean => {
+    const manifest = this.manifestForSession(row);
+    return this.isSessionExpanded(row) || (!!manifest && this.isAnalysing(manifest));
+  };
+
+  historyTrackBy = (index: number, row: BackupSessionHistoryRow) => row._id || index;
+
+  groupLabel(group: SortableTableGroup<BackupSessionHistoryRow>): string {
+    return this.triggerLabel(this.sessionTrigger(group.rows[0]));
+  }
+
+  groupStart(group: SortableTableGroup<BackupSessionHistoryRow>): number {
+    return Math.min(...group.rows.map(row => row.startedMs));
+  }
+
+  groupDuration(group: SortableTableGroup<BackupSessionHistoryRow>): string {
+    const earliestStart = Math.min(...group.rows.map(row => row.startedMs));
+    const endTimes = group.rows.filter(row => row.endTime).map(row => this.timeValue(row.endTime));
+    const anyInProgress = group.rows.some(row => row.status === BackupSessionStatus.IN_PROGRESS);
+    if (anyInProgress) {
+      return `${this.duration(earliestStart, this.dateUtils.dateTimeNow().toMillis())} so far`;
+    } else if (endTimes.length > 0) {
+      return this.duration(earliestStart, Math.max(...endTimes));
+    } else {
+      return "";
+    }
+  }
+
+  groupStatusCount(group: SortableTableGroup<BackupSessionHistoryRow>, status: BackupSessionStatus): number {
+    return group.rows.filter(row => row.status === status).length;
   }
 
   manifestForSession(session: BackupSession): S3BackupManifest | undefined {
@@ -712,6 +879,95 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     this.historyFilterEnvironments = selected || [];
     this.loadSessions();
     this.loadS3Manifests();
+    this.refreshHistoryRows();
+    this.updateHistoryFilterQueryParams();
+  }
+
+  onHistoryFilterControlsChange() {
+    this.refreshHistoryRows();
+    this.updateHistoryFilterQueryParams();
+  }
+
+  private applyHistoryFiltersFrom(params: Params) {
+    const environmentsParameter: string = params[StoredValue.ENVIRONMENTS] || "";
+    this.historyEnvironmentNamesFromUrl = environmentsParameter.split(",").filter(name => name.length > 0);
+    this.historyFilterStatus = [
+      BackupSessionStatus.COMPLETED,
+      BackupSessionStatus.FAILED,
+      BackupSessionStatus.IN_PROGRESS,
+      BackupSessionStatus.PENDING
+    ].find(status => status === params[StoredValue.STATUS]) || null;
+    this.historyFilterTrigger = [BackupSessionTrigger.SCHEDULED, BackupSessionTrigger.WEB, BackupSessionTrigger.CLI]
+      .find(trigger => trigger === params[StoredValue.TRIGGERED_BY]) || null;
+    const expandedParameter: string = params[StoredValue.EXPANDED_SESSIONS];
+    if (expandedParameter) {
+      this.expandedSessionIds = expandedParameter.split(",").filter(id => id.length > 0);
+      this.pendingScrollToExpanded = true;
+      this.loadLogsForExpandedSessions();
+    }
+    this.syncHistoryFilterEnvironmentsFromUrl();
+    this.refreshHistoryRows();
+  }
+
+  private syncHistoryFilterEnvironmentsFromUrl() {
+    if (this.environmentsWithMongo.length > 0) {
+      this.historyFilterEnvironments = this.environmentsWithMongo
+        .filter(environment => this.historyEnvironmentNamesFromUrl.includes(environment.name));
+    }
+  }
+
+  private updateHistoryFilterQueryParams() {
+    this.router.navigate([], {
+      queryParams: {
+        [StoredValue.ENVIRONMENTS]: this.historyFilterEnvironments.length > 0
+          ? this.historyFilterEnvironments.map(environment => environment.name).join(",")
+          : null,
+        [StoredValue.TRIGGERED_BY]: this.historyFilterTrigger,
+        [StoredValue.STATUS]: this.historyFilterStatus,
+        [StoredValue.EXPANDED_SESSIONS]: this.expandedSessionIds.length > 0 ? this.expandedSessionIds.join(",") : null
+      },
+      queryParamsHandling: "merge"
+    });
+  }
+
+  private scrollToFirstExpandedSession() {
+    if (this.pendingScrollToExpanded && this.expandedSessionIds.length > 0) {
+      this.pendingScrollToExpanded = false;
+      this.attemptScrollToExpandedRow(0);
+    }
+  }
+
+  private attemptScrollToExpandedRow(attempt: number) {
+    setTimeout(() => {
+      const row = this.document.querySelector(".sortable-table-expanded-row");
+      const viewportHeight = this.document.defaultView?.innerHeight || 0;
+      const top = row?.getBoundingClientRect().top;
+      const inView = !isUndefined(top) && top >= 0 && top < viewportHeight;
+      if (row && !inView) {
+        row.scrollIntoView({behavior: "auto", block: "center"});
+      }
+      if (!inView && attempt < 8) {
+        this.attemptScrollToExpandedRow(attempt + 1);
+      }
+    }, 250);
+  }
+
+  private loadLogsForExpandedSessions() {
+    this.expandedSessionIds
+      .filter(id => this.sessions.some(session => (session._id || session.sessionId) === id && !session.logs))
+      .forEach(id => this.loadSessionLogs(id));
+  }
+
+  private loadSessionLogs(id: string) {
+    this.subscriptions.push(
+      this.backupRestoreService.session(id).subscribe(s => {
+        const i = this.sessions.findIndex(x => (x._id || x.sessionId) === id);
+        if (i >= 0) {
+          this.sessions[i] = s;
+          this.refreshHistoryRows();
+        }
+      })
+    );
   }
 
   toggleAnalyse(manifest: S3BackupManifest) {
@@ -788,6 +1044,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
       this.tab = tabParameter || defaultValue;
       this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue);
       this.handleTabChange(this.tab);
+      this.applyHistoryFiltersFrom(params);
     }));
     if (this.enabled) {
       this.loadEnvironments();
@@ -887,6 +1144,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
       this.sessions = [session, ...this.sessions];
     }
     this.ensureInProgressExpanded(this.sessions);
+    this.refreshHistoryRows();
   }
 
   private handleProgressUpdate(data: any) {
@@ -928,6 +1186,10 @@ export class BackupAndRestore implements OnInit, OnDestroy {
 
   logsNewestFirst(session: BackupSession): string[] {
     return reversed(session?.logs);
+  }
+
+  sessionLogsText(session: BackupSession): string {
+    return this.logsNewestFirst(session).join("\n");
   }
 
   private ensureInProgressExpanded(sessions: BackupSession[]) {
@@ -980,6 +1242,11 @@ export class BackupAndRestore implements OnInit, OnDestroy {
           this.environments = envs;
           this.environmentsWithMongo = envs.filter(environment => environment.hasMongoConfig);
           this.logger.info("Loaded environments:", envs);
+          if (this.historyEnvironmentNamesFromUrl.length > 0) {
+            this.syncHistoryFilterEnvironmentsFromUrl();
+            this.loadSessions();
+            this.refreshHistoryRows();
+          }
         },
         error: err => this.notify.error({
           title: "Error loading environments",
@@ -1025,6 +1292,9 @@ export class BackupAndRestore implements OnInit, OnDestroy {
           this.sessions = sessions;
           this.logger.info("Loaded sessions:", sessions);
           this.ensureInProgressExpanded(sessions);
+          this.loadLogsForExpandedSessions();
+          this.refreshHistoryRows();
+          this.scrollToFirstExpandedSession();
         },
         error: err => this.notify.error({
           title: "Error loading sessions",
@@ -1168,15 +1438,9 @@ export class BackupAndRestore implements OnInit, OnDestroy {
       this.expandedSessionIds.splice(idx, 1);
     } else {
       this.expandedSessionIds.push(id);
-      this.subscriptions.push(
-        this.backupRestoreService.session(id).subscribe(s => {
-          const i = this.sessions.findIndex(x => (x._id || x.sessionId) === id);
-          if (i >= 0) {
-            this.sessions[i] = s;
-          }
-        })
-      );
+      this.loadSessionLogs(id);
     }
+    this.updateHistoryFilterQueryParams();
   }
 
   isSessionExpanded(session: BackupSession): boolean {
@@ -1190,8 +1454,14 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     const durationMs = endTime - startTime;
     const seconds = Math.floor(durationMs / 1000);
     const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
     const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
+    if (hours > 0) {
+      return `${hours}h ${remainingMinutes}m ${remainingSeconds}s`;
+    } else {
+      return `${minutes}m ${remainingSeconds}s`;
+    }
   }
 
   loadConfig() {

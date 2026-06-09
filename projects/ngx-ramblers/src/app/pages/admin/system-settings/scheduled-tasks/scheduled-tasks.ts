@@ -1,4 +1,5 @@
-import { Component, inject, OnInit, Type } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit, Type } from "@angular/core";
+import { Subscription } from "rxjs";
 import { NgComponentOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -17,6 +18,10 @@ import {
 } from "../../../../models/scheduled-task.model";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { ScheduledTaskService } from "../../../../services/scheduled-task.service";
+import { WebSocketClientService } from "../../../../services/websockets/websocket-client.service";
+import { EventType, MessageType } from "../../../../models/websocket.model";
+import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
+import { NgxLoggerLevel } from "ngx-logger";
 import { SectionToggle, SectionToggleTab } from "../../../../shared/components/section-toggle";
 import { MailCampaignQueueComponent } from "../mail/mail-campaign-queue";
 import { BackupsTaskSettingsComponent } from "./backups-task-settings";
@@ -190,9 +195,12 @@ import { BackupsTaskSettingsComponent } from "./backups-task-settings";
       min-width: 220px
   `]
 })
-export class ScheduledTasksComponent implements OnInit {
+export class ScheduledTasksComponent implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("ScheduledTasksComponent", NgxLoggerLevel.ERROR);
   private service = inject(ScheduledTaskService);
   private dateUtils = inject(DateUtilsService);
+  private websocketService = inject(WebSocketClientService);
+  private subscriptions: Subscription[] = [];
   protected tasks: ScheduledTaskSummary[] = [];
   protected scheduleEdits: Record<string, ScheduledTaskScheduleEdit> = {};
   protected busy = false;
@@ -237,6 +245,28 @@ export class ScheduledTasksComponent implements OnInit {
 
   ngOnInit(): void {
     void this.refresh();
+    void this.subscribeToTaskUpdates();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  private async subscribeToTaskUpdates(): Promise<void> {
+    try {
+      await this.websocketService.connect();
+      this.subscriptions.push(
+        this.websocketService.receiveMessages<{ task: ScheduledTaskSummary }>(MessageType.SCHEDULED_TASK_UPDATED)
+          .subscribe(data => this.applyTaskUpdate(data.task))
+      );
+      this.websocketService.sendMessage(EventType.SCHEDULED_TASK_EVENTS, {});
+    } catch (error) {
+      this.logger.warn("live task updates unavailable:", error);
+    }
+  }
+
+  private applyTaskUpdate(task: ScheduledTaskSummary): void {
+    this.tasks = this.tasks.map(existing => existing.id === task.id ? task : existing);
   }
 
   protected async refresh(): Promise<void> {

@@ -23,6 +23,8 @@ const s3BackupManifestSchema = new mongoose.Schema({
   backupBucket: { type: String, required: true },
   backupPrefix: { type: String, required: true },
   mongoTimestamp: { type: String },
+  entriesObjectKey: { type: String },
+  entriesCount: { type: Number },
   entries: [s3BackupManifestEntrySchema],
   totalObjects: { type: Number, required: true, default: 0 },
   copiedObjects: { type: Number, required: true, default: 0 },

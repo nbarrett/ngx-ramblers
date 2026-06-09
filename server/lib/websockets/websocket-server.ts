@@ -26,6 +26,7 @@ import { handleEnvironmentSetup, handleEnvironmentCreate, EnvironmentSetupWsData
 import { handleExternalAlbumFetch, handleExternalAlbumImport, handleExternalUserAlbumsFetch, handleExternalBulkAlbumImport, handleExternalAlbumSplitPreview } from "../external-album/external-album-ws-handler";
 import { registerWebSocketServer } from "./websocket-broadcaster";
 import { handleLegacyUrlScrape } from "../legacy-redirect/legacy-redirect-ws-handler";
+import { handleScheduledTaskEventsWebSocket } from "../cron/scheduled-task-events-ws-handler";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
@@ -57,6 +58,7 @@ const messageHandlers: MessageHandlers = {
   [EventType.EXTERNAL_USER_ALBUMS_FETCH]: async (ws: WebSocket, data: any) => handleExternalUserAlbumsFetch(ws, data),
   [EventType.EXTERNAL_BULK_ALBUM_IMPORT]: async (ws: WebSocket, data: any) => handleExternalBulkAlbumImport(ws, data),
   [EventType.LEGACY_URL_SCRAPE]: async (ws: WebSocket, data: any) => handleLegacyUrlScrape(ws, data),
+  [EventType.SCHEDULED_TASK_EVENTS]: async (ws: WebSocket, data: any) => handleScheduledTaskEventsWebSocket(ws, data),
   [EventType.PING]: (ws: WebSocket) => {
     ws.send(JSON.stringify({ type: "pong", data: {} }));
   },
