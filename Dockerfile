@@ -81,7 +81,7 @@ ARG NPM_VERSION=11.9.0
 USER root
 
 RUN npm install -g n \
-  && n ${NODE_VERSION} \
+  && "$(npm root -g)/n/bin/n" ${NODE_VERSION} \
   && npm install -g npm@${NPM_VERSION}
 
 WORKDIR /usr/src/app
