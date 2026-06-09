@@ -31,7 +31,9 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
           [disabled]="disabled"
           [startingPoint]="startingPoint"
           [initialVenue]="venue"
-          (venueLookup)="onVenueLookup($event)"/>
+          [selectedVenueType]="selectedVenueType"
+          (venueLookup)="onVenueLookup($event)"
+          (venueRepositioned)="onVenueRepositioned($event)"/>
       </div>
       <div class="col-sm-12 mt-3">
         <div class="row">
@@ -171,6 +173,7 @@ export class VenueEditorComponent implements OnInit {
 
   onVenueTypeChange(venueType: VenueType) {
     if (venueType) {
+      this.selectedVenueType = venueType;
       this.venue.type = venueType.type;
       this.venueChange.emit(this.venue);
     }
@@ -192,6 +195,15 @@ export class VenueEditorComponent implements OnInit {
     this.venue.lon = lookupVenue.lon;
     if (lookupVenue.type) {
       this.selectedVenueType = this.venueTypes.find(vt => vt.type === lookupVenue.type) || this.selectedVenueType;
+    }
+    this.venueChange.emit(this.venue);
+  }
+
+  onVenueRepositioned(location: Partial<Venue>) {
+    this.venue.lat = location.lat;
+    this.venue.lon = location.lon;
+    if (location.postcode) {
+      this.venue.postcode = location.postcode;
     }
     this.venueChange.emit(this.venue);
   }

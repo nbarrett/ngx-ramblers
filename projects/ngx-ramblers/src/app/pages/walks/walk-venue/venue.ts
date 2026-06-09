@@ -39,8 +39,10 @@ import { NamedEventType } from "../../../models/broadcast.model";
                   [disabled]="disabledInput"
                   [startingPoint]="startingPointCoordinates"
                   [initialVenue]="displayedWalk?.walk?.fields?.venue"
+                  [selectedVenueType]="selectedVenueType"
                   [showManageVenuesButton]="isAdmin()"
-                  (venueLookup)="onVenueLookup($event)"/>
+                  (venueLookup)="onVenueLookup($event)"
+                  (venueRepositioned)="onVenueRepositioned($event)"/>
               </div>
             </div>
           </div>
@@ -281,6 +283,7 @@ export class Venue implements OnInit, OnDestroy {
 
   onVenueTypeChange(venueType: VenueType) {
     if (venueType) {
+      this.selectedVenueType = venueType;
       this.displayedWalk.walk.fields.venue.type = venueType.type;
       this.logger.debug("onVenueTypeChange:", venueType.type);
     }
@@ -301,6 +304,16 @@ export class Venue implements OnInit, OnDestroy {
   onVenueLookup(venue: Partial<VenueModel>) {
     this.logger.info("onVenueLookup:", venue);
     this.applyVenueToForm(venue);
+  }
+
+  onVenueRepositioned(location: Partial<VenueModel>) {
+    const currentVenue = this.displayedWalk.walk.fields.venue;
+    currentVenue.lat = location.lat;
+    currentVenue.lon = location.lon;
+    if (location.postcode) {
+      currentVenue.postcode = location.postcode;
+      this.checkStartingPointPrompt(location.postcode);
+    }
   }
 
   private applyVenueToForm(venue: Partial<VenueModel> | VenueWithUsageStats) {
