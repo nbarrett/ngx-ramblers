@@ -1263,7 +1263,16 @@ export class SystemAreaMapSyncComponent implements OnInit {
   }
 
   private loadAreaGroups() {
-    const groups = this.config?.area?.groups || [];
+    this.http.get<{ groups: AreaGroup[] }>("api/areas/groups").subscribe({
+      next: response => this.populateEditingGroups(response?.groups || []),
+      error: error => {
+        this.logger.error("loadAreaGroups: api/areas/groups failed, falling back to system config", error);
+        this.populateEditingGroups(this.config?.area?.groups || []);
+      }
+    });
+  }
+
+  private populateEditingGroups(groups: AreaGroup[]) {
     this.hasAreaGroups = groups.length > 0;
     this.logger.debug(`loadAreaGroups: found ${groups.length} groups, hasAreaGroups=${this.hasAreaGroups}`);
     if (!this.hasAreaGroups) {
@@ -1275,19 +1284,6 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.editingGroups = groups.map(group => ({ ...group, onsDistricts: isArray(group.onsDistricts) ? [...group.onsDistricts] : group.onsDistricts }));
     const customCount = this.editingGroups.filter(g => !!g.customGeometry).length;
     this.logger.info(`loadAreaGroups: editingGroups populated with ${this.editingGroups.length} groups, ${customCount} with customGeometry`);
-    this.logger.info("Group data:", this.editingGroups.map(g => ({
-      groupCode: g.groupCode,
-      name: g.name,
-      url: g.url,
-      externalUrl: g.externalUrl,
-      geometrySource: g.geometrySource,
-      color: g.color,
-      nonGeographic: g.nonGeographic,
-      districts: isArray(g.onsDistricts) ? (g.onsDistricts as string[]).length : 0,
-      memberGroups: isArray(g.memberGroupCodes) ? g.memberGroupCodes.length : 0,
-      hasCustomGeometry: !!g.customGeometry
-    })));
-    this.editingGroups.forEach(g => this.logger.info(`  group ${g.groupCode} (${g.name}): customGeometry=${!!g.customGeometry}`));
     this.inferredDistrictsByGroup.clear();
     this.updateRelevantDistricts();
   }

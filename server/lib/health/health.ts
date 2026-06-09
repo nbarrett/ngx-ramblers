@@ -1,7 +1,7 @@
 import debug from "debug";
 import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
-import { systemConfig } from "../config/system-config";
+import { systemConfigWithoutGeometry } from "../config/system-config";
 import { queryAWSConfig } from "../aws/aws-controllers";
 import { migrationRunner } from "../mongo/migrations/migrations-runner";
 import { HealthResponse, HealthStatus } from "../../../projects/ngx-ramblers/src/app/models/health.model";
@@ -24,7 +24,7 @@ export async function health(req: Request, res: Response) {
 export async function systemStatus(req: Request, res: Response<Partial<HealthResponse>>) {
   try {
     const awsConfig = queryAWSConfig();
-    const config = await systemConfig();
+    const config = await systemConfigWithoutGeometry();
 
     let migrationStatus: MigrationStatus;
     try {

@@ -103,6 +103,9 @@ export async function createOrUpdate(req: Request, res: Response) {
 
     if (existingConfig?.value && incomingValue) {
       req.body.value = restoreSensitiveFields(existingConfig.value, incomingValue);
+      if (req.body?.key === ConfigKey.SYSTEM) {
+        req.body.value = preserveCustomGeometry(existingConfig.value, req.body.value);
+      }
     }
 
     const documentRequest = createDocumentRequest(req);
@@ -123,6 +126,13 @@ export async function createOrUpdate(req: Request, res: Response) {
 
 export function queryKey(configKey: ConfigKey): Promise<ConfigDocument> {
   return config.findOne(criteriaForKey(configKey))
+    .then(response => toObjectWithId(response));
+}
+
+export const SYSTEM_GEOMETRY_EXCLUSION: Record<string, 0 | 1> = { "value.area.groups.customGeometry": 0 };
+
+export function queryKeyProjected(configKey: ConfigKey, projection: Record<string, 0 | 1>): Promise<ConfigDocument> {
+  return config.findOne(criteriaForKey(configKey), projection)
     .then(response => toObjectWithId(response));
 }
 
@@ -159,7 +169,8 @@ export function handleQuery(req: Request, res: Response): Promise<any> {
     }
 
     const criteria = criteriaForKey(configKey);
-    return config.findOne(criteria)
+    const projection = configKey === ConfigKey.SYSTEM ? SYSTEM_GEOMETRY_EXCLUSION : {};
+    return config.findOne(criteria, projection)
       .then(response => {
         const configDocument: ConfigDocument = toObjectWithId(response);
         const redactedValue = isAdmin ? configDocument?.value : redactSensitive(configDocument?.value);
@@ -248,6 +259,21 @@ function redactSensitive(value: any): any {
 
 function maskedSensitiveValue(value: any): boolean {
   return isString(value) && value.trim() === "***";
+}
+
+function preserveCustomGeometry(existingValue: any, incomingValue: any): any {
+  const existingGroups = existingValue?.area?.groups;
+  const incomingGroups = incomingValue?.area?.groups;
+  if (!isArray(existingGroups) || !isArray(incomingGroups)) {
+    return incomingValue;
+  }
+  const geometryByGroupCode = new Map(existingGroups
+    .filter((group: any) => group?.customGeometry)
+    .map((group: any) => [group.groupCode, group.customGeometry]));
+  const groups = incomingGroups.map((group: any) => group && !("customGeometry" in group) && geometryByGroupCode.has(group.groupCode)
+    ? { ...group, customGeometry: geometryByGroupCode.get(group.groupCode) }
+    : group);
+  return { ...incomingValue, area: { ...incomingValue.area, groups } };
 }
 
 function restoreSensitiveFields(existingValue: any, incomingValue: any): any {
