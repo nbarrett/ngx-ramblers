@@ -22,8 +22,16 @@ let hitFlushMs = 60 * 1000;
 const pendingHits: Map<string, { count: number; lastHitDate: number }> = new Map();
 let flushInterval: ReturnType<typeof setInterval> | null = null;
 
+function safeDecode(path: string): string {
+  try {
+    return decodeURIComponent(path);
+  } catch (error) {
+    return path;
+  }
+}
+
 function normalisePath(path: string): string {
-  return (path || "").toLowerCase().replace(/\/+$/, "") || "/";
+  return safeDecode(path || "").toLowerCase().replace(/\/+$/, "") || "/";
 }
 
 async function loadConfig(): Promise<void> {
@@ -147,9 +155,10 @@ export function redirectMiddleware(req: Request, res: Response, next: NextFuncti
   const cached = redirectCache.get(cacheKey);
 
   if (cached && cached.targetPath) {
-    debugLog(`redirecting ${req.originalUrl} -> ${cached.targetPath} (${cached.redirectType})`);
+    const target = `/${cached.targetPath.replace(/^\/+/, "")}`;
+    debugLog(`redirecting ${req.originalUrl} -> ${target} (${cached.redirectType})`);
     recordHit(cacheKey);
-    res.redirect(cached.redirectType, cached.targetPath);
+    res.redirect(cached.redirectType, target);
     return;
   }
 

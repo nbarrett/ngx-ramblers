@@ -19,15 +19,22 @@ export function move(array: any[], fromIndex: number, toIndex: number): any[] {
 
 export const sortBy = (...properties: string[]) => (nextItem, currentItem) => properties
   .map((property: string) => {
-    let dir = 1;
-    if (property[0] === "-") {
-      dir = -1;
-      property = property.substring(1);
-    }
-    const path = property.split(".");
+    const isDescending = property[0] === "-";
+    const dir = isDescending ? -1 : 1;
+    const path = (isDescending ? property.substring(1) : property).split(".");
     const nextValue = get(nextItem, path);
     const currentValue = get(currentItem, path);
-    return nextValue > currentValue ? dir : nextValue < currentValue ? -(dir) : 0;
+    const nextMissing = nextValue === null || nextValue === undefined;
+    const currentMissing = currentValue === null || currentValue === undefined;
+    if (nextMissing && currentMissing) {
+      return 0;
+    } else if (nextMissing) {
+      return 1;
+    } else if (currentMissing) {
+      return -1;
+    } else {
+      return nextValue > currentValue ? dir : nextValue < currentValue ? -(dir) : 0;
+    }
   })
   .reduce((previous, next) => previous ? previous : next, 0);
 
