@@ -10,8 +10,13 @@ import {
   LegacyUrlMapping,
   LegacyUrlMappingApiResponse,
   RedirectConfidence,
-  RedirectMappingStatus
+  RedirectMappingStatus,
+  SortDirection
 } from "../../../models/legacy-url-redirect.model";
+import { ActivatedRoute, Router } from "@angular/router";
+import { StoredValue } from "../../../models/ui-actions";
+import { StringUtilsService } from "../../../services/string-utils.service";
+import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { PageComponent } from "../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
@@ -20,8 +25,8 @@ import { FormsModule } from "@angular/forms";
 import { NgClass } from "@angular/common";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
-import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
-import { SortableTableAlignment, SortableTableColumn } from "../../../modules/common/sortable-table/sortable-table.model";
+import { SortableTableCellDirective, SortableTableExpandedRowDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableAlignment, SortableTableColumn, SortableTableSortState } from "../../../modules/common/sortable-table/sortable-table.model";
 import {
   faCheck,
   faEdit,
@@ -55,6 +60,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
     NgSelectComponent,
     SortableTableComponent,
     SortableTableCellDirective,
+    SortableTableExpandedRowDirective,
     BsDropdownDirective,
     BsDropdownMenuDirective,
     BsDropdownToggleDirective
@@ -68,17 +74,17 @@ import { DateUtilsService } from "../../../services/date-utils.service";
             <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
               <div class="flex-grow-1">
                 <ng-select [items]="statusOptions" bindLabel="label" bindValue="value"
-                           [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()"
+                           [(ngModel)]="filterStatus" (ngModelChange)="filtersChanged()"
                            placeholder="Filter by status" [clearable]="true"></ng-select>
               </div>
               <div class="flex-grow-1">
                 <ng-select [items]="confidenceOptions" bindLabel="label" bindValue="value"
-                           [(ngModel)]="filterConfidence" (ngModelChange)="applyFilters()"
+                           [(ngModel)]="filterConfidence" (ngModelChange)="filtersChanged()"
                            placeholder="Filter by confidence" [clearable]="true"></ng-select>
               </div>
               <div class="flex-grow-1">
                 <input type="text" class="form-control" [(ngModel)]="searchText"
-                       (ngModelChange)="applyFilters()" placeholder="Search URLs or titles..."/>
+                       (ngModelChange)="filtersChanged()" placeholder="Search URLs or titles..."/>
               </div>
               <div class="btn-group" dropdown container="body" placement="bottom right">
                 <button class="btn btn-sm btn-primary dropdown-toggle text-nowrap" dropdownToggle type="button"
@@ -100,12 +106,49 @@ import { DateUtilsService } from "../../../services/date-utils.service";
               </div>
             </div>
 
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2 bulk-bar">
+              <div class="form-check mb-0">
+                <input type="checkbox" class="form-check-input" id="select-all-mappings"
+                       [checked]="allFilteredSelected()" (change)="toggleSelectAll()"/>
+                <label class="form-check-label" for="select-all-mappings">
+                  Select all ({{ filteredMappings.length }})
+                </label>
+              </div>
+              @if (selectedIds.size > 0) {
+                <span class="text-muted small">{{ selectedIds.size }} selected</span>
+                <button class="btn btn-sm btn-success" (click)="bulkApplyStatus(RedirectMappingStatus.ACCEPTED)"
+                        [disabled]="busy">
+                  <fa-icon [icon]="faCheck"></fa-icon> Accept Selected
+                </button>
+                <button class="btn btn-sm btn-secondary" (click)="bulkApplyStatus(RedirectMappingStatus.IGNORED)"
+                        [disabled]="busy">
+                  <fa-icon [icon]="faEyeSlash"></fa-icon> Ignore Selected
+                </button>
+                <button class="btn btn-sm" [ngClass]="bulkDeleteArmed ? 'btn-danger' : 'action-btn-danger'"
+                        (click)="bulkDelete()" [disabled]="busy">
+                  <fa-icon [icon]="faTrash"></fa-icon>
+                  {{ bulkDeleteArmed ? "Confirm Delete " + selectedIds.size : "Delete Selected" }}
+                </button>
+                @if (bulkDeleteArmed) {
+                  <button class="btn btn-sm btn-secondary" (click)="disarmBulkDelete()">Cancel</button>
+                }
+                <button class="btn btn-sm btn-outline-secondary" (click)="clearSelection()">Clear</button>
+              }
+            </div>
+
             <app-sortable-table
               [columns]="mappingColumns"
               [rows]="filteredMappings"
-              [defaultSortKey]="'legacyPath'"
+              [defaultSortKey]="sortKey"
+              [defaultSortDirection]="sortDirection"
+              (sortChange)="onSortChange($event)"
+              [expandedWhen]="rowIsEditing"
               [maxHeight]="'calc(100vh - 420px)'"
               emptyMessage="No mappings found. Run a scrape to discover legacy URLs.">
+              <ng-template appSortableTableCell="select" let-row>
+                <input type="checkbox" class="form-check-input" [checked]="isSelected(row)"
+                       (change)="toggleSelection(row)"/>
+              </ng-template>
               <ng-template appSortableTableCell="legacyUrl" let-row>
                 <a [href]="row.legacyFullUrl" target="_blank" rel="noopener noreferrer">
                   <span class="text-muted small">{{ row.legacyDomain }}</span><br/>
@@ -114,17 +157,10 @@ import { DateUtilsService } from "../../../services/date-utils.service";
               </ng-template>
               <ng-template appSortableTableCell="title" let-row>{{ row.title || "-" }}</ng-template>
               <ng-template appSortableTableCell="targetUrl" let-row>
-                @if (editingId === row.id) {
-                  <ng-select [items]="targetUrlOptions" bindLabel="path" bindValue="path"
-                             [(ngModel)]="editTargetPath"
-                             [addTag]="true" addTagText="Use custom path"
-                             placeholder="Select or type target URL"></ng-select>
+                @if (row.targetPath) {
+                  <a [href]="targetHref(row)" target="_blank" rel="noopener noreferrer">{{ row.targetPath }}</a>
                 } @else {
-                  @if (row.targetPath) {
-                    <a [href]="row.targetPath" target="_blank" rel="noopener noreferrer">{{ row.targetPath }}</a>
-                  } @else {
-                    -
-                  }
+                  -
                 }
               </ng-template>
               <ng-template appSortableTableCell="confidence" let-row>
@@ -159,6 +195,20 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                       <fa-icon [icon]="faTrash"></fa-icon>
                     </button>
                   }
+                </div>
+              </ng-template>
+              <ng-template appSortableTableExpandedRow let-row>
+                <div class="d-flex align-items-center gap-2">
+                  <label class="form-label fw-bold mb-0 text-nowrap">Target URL</label>
+                  <div class="flex-grow-1">
+                    <ng-select class="target-url-select" [items]="targetUrlOptions" bindLabel="path" bindValue="path"
+                               [(ngModel)]="editTargetPath"
+                               [appendTo]="'body'"
+                               [dropdownPosition]="'bottom'"
+                               [virtualScroll]="true"
+                               [addTag]="true" addTagText="Use custom path"
+                               placeholder="Select or type target URL"></ng-select>
+                  </div>
                 </div>
               </ng-template>
             </app-sortable-table>
@@ -343,6 +393,9 @@ export class LegacyRedirectsComponent implements OnInit, OnDestroy {
   private legacyScrapeRunService = inject(LegacyScrapeRunService);
   private webSocketClientService = inject(WebSocketClientService);
   private notifierService = inject(NotifierService);
+  private router = inject(Router);
+  private activatedRoute = inject(ActivatedRoute);
+  private stringUtils = inject(StringUtilsService);
   dateUtils = inject(DateUtilsService);
   private subscriptions: Subscription[] = [];
   private notifyTarget: AlertTarget = {};
@@ -369,13 +422,16 @@ export class LegacyRedirectsComponent implements OnInit, OnDestroy {
   filterStatus: string | null = null;
   filterConfidence: string | null = null;
   searchText = "";
+  sortKey = "legacyPath";
+  sortDirection: string = ASCENDING;
 
   protected readonly mappingColumns: SortableTableColumn<LegacyUrlMapping>[] = [
-    {key: "legacyUrl", label: "Legacy URL", sortKey: "legacyPath"},
-    {key: "title", label: "Title", sortKey: "title"},
-    {key: "targetUrl", label: "Target URL", sortKey: "targetPath"},
-    {key: "confidence", label: "Confidence", sortKey: "confidence"},
-    {key: "status", label: "Status", sortKey: "status"},
+    {key: "select", label: ""},
+    {key: "legacyUrl", label: "Legacy URL", sortKey: "legacyPath", cellClass: "legacy-url-cell"},
+    {key: "title", label: "Title", sortKey: "title", cellClass: "title-cell"},
+    {key: "targetUrl", label: "Target URL", sortKey: "targetPath", cellClass: "target-url-cell"},
+    {key: "confidence", label: "Confidence", sortKey: "confidence", cellClass: "badge-cell"},
+    {key: "status", label: "Status", sortKey: "status", cellClass: "badge-cell"},
     {key: "hits", label: "Hits", sortKey: "hitCount", align: SortableTableAlignment.CENTER},
     {key: "actions", label: "Actions"}
   ];
@@ -383,6 +439,10 @@ export class LegacyRedirectsComponent implements OnInit, OnDestroy {
   editingId: string | null = null;
   editTargetPath = "";
   busy = false;
+  selectedIds = new Set<string>();
+  bulkDeleteArmed = false;
+  protected readonly RedirectMappingStatus = RedirectMappingStatus;
+  rowIsEditing = (row: LegacyUrlMapping): boolean => row.id === this.editingId;
 
   scrapeDomain = "";
   scrapeMaxPages = 500;
@@ -413,6 +473,7 @@ export class LegacyRedirectsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.restoreStateFromUrl();
     this.subscriptions.push(
       this.legacyUrlMappingService.notifications().subscribe((response: LegacyUrlMappingApiResponse) => {
         this.logger.debug("mapping notification received:", response);
@@ -498,6 +559,46 @@ export class LegacyRedirectsComponent implements OnInit, OnDestroy {
     }
   }
 
+  private restoreStateFromUrl(): void {
+    const queryParams = this.activatedRoute.snapshot.queryParams;
+    this.filterStatus = queryParams[StoredValue.STATUS] || null;
+    this.filterConfidence = queryParams[StoredValue.CONFIDENCE] || null;
+    this.searchText = queryParams[StoredValue.SEARCH] || "";
+    const sortParam = queryParams[StoredValue.SORT];
+    const matchedSortKey = this.mappingColumns
+      .map(column => column.sortKey)
+      .filter(Boolean)
+      .find(key => this.stringUtils.kebabCase(key) === sortParam);
+    if (matchedSortKey) {
+      this.sortKey = matchedSortKey;
+    }
+    if (queryParams[StoredValue.SORT_ORDER] === SortDirection.DESC) {
+      this.sortDirection = DESCENDING;
+    }
+  }
+
+  private replaceQueryParams(params: Record<string, string | null>): void {
+    this.router.navigate([], {queryParams: params, queryParamsHandling: "merge", replaceUrl: true});
+  }
+
+  filtersChanged(): void {
+    this.replaceQueryParams({
+      [StoredValue.STATUS]: this.filterStatus || null,
+      [StoredValue.CONFIDENCE]: this.filterConfidence || null,
+      [StoredValue.SEARCH]: this.searchText || null
+    });
+    this.applyFilters();
+  }
+
+  onSortChange(sortState: SortableTableSortState): void {
+    this.sortKey = sortState.key;
+    this.sortDirection = sortState.direction;
+    this.replaceQueryParams({
+      [StoredValue.SORT]: sortState.key ? this.stringUtils.kebabCase(sortState.key) : null,
+      [StoredValue.SORT_ORDER]: sortState.direction === DESCENDING ? SortDirection.DESC : SortDirection.ASC
+    });
+  }
+
   applyFilters(): void {
     let result = [...this.allMappings];
 
@@ -551,15 +652,86 @@ export class LegacyRedirectsComponent implements OnInit, OnDestroy {
     this.editTargetPath = "";
   }
 
+  targetHref(mapping: LegacyUrlMapping): string {
+    return `/${(mapping.targetPath || "").replace(/^\/+/, "")}`;
+  }
+
   async saveEdit(mapping: LegacyUrlMapping): Promise<void> {
-    mapping.targetPath = this.editTargetPath;
+    mapping.targetPath = (this.editTargetPath || "").replace(/^\/+/, "");
     mapping.matchMethod = "manual" as any;
-    mapping.confidence = this.editTargetPath ? RedirectConfidence.HIGH : RedirectConfidence.UNMAPPED;
+    mapping.confidence = mapping.targetPath ? RedirectConfidence.HIGH : RedirectConfidence.UNMAPPED;
     await this.legacyUrlMappingService.update(mapping);
     this.editingId = null;
     this.editTargetPath = "";
     this.applyFilters();
     this.loadSummary();
+  }
+
+  isSelected(mapping: LegacyUrlMapping): boolean {
+    return this.selectedIds.has(mapping.id);
+  }
+
+  toggleSelection(mapping: LegacyUrlMapping): void {
+    if (this.selectedIds.has(mapping.id)) {
+      this.selectedIds.delete(mapping.id);
+    } else {
+      this.selectedIds.add(mapping.id);
+    }
+    this.bulkDeleteArmed = false;
+  }
+
+  allFilteredSelected(): boolean {
+    return this.filteredMappings.length > 0 && this.filteredMappings.every(m => this.selectedIds.has(m.id));
+  }
+
+  toggleSelectAll(): void {
+    if (this.allFilteredSelected()) {
+      this.filteredMappings.forEach(m => this.selectedIds.delete(m.id));
+    } else {
+      this.filteredMappings.forEach(m => this.selectedIds.add(m.id));
+    }
+    this.bulkDeleteArmed = false;
+  }
+
+  clearSelection(): void {
+    this.selectedIds.clear();
+    this.bulkDeleteArmed = false;
+  }
+
+  disarmBulkDelete(): void {
+    this.bulkDeleteArmed = false;
+  }
+
+  async bulkApplyStatus(status: RedirectMappingStatus): Promise<void> {
+    this.busy = true;
+    try {
+      const ids = Array.from(this.selectedIds);
+      await this.legacyUrlMappingService.bulkUpdateStatus({ ids, status });
+      this.allMappings.filter(m => this.selectedIds.has(m.id)).forEach(m => m.status = status);
+      this.clearSelection();
+      this.applyFilters();
+      this.loadSummary();
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  async bulkDelete(): Promise<void> {
+    if (!this.bulkDeleteArmed) {
+      this.bulkDeleteArmed = true;
+    } else {
+      this.busy = true;
+      try {
+        const ids = Array.from(this.selectedIds);
+        await this.legacyUrlMappingService.bulkDelete({ ids });
+        this.allMappings = this.allMappings.filter(m => !this.selectedIds.has(m.id));
+        this.clearSelection();
+        this.applyFilters();
+        this.loadSummary();
+      } finally {
+        this.busy = false;
+      }
+    }
   }
 
   async bulkAcceptHighConfidence(): Promise<void> {

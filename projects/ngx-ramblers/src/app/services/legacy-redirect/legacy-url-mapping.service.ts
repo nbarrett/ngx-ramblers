@@ -6,6 +6,7 @@ import { DataQueryOptions } from "../../models/api-request.model";
 import {
   AutoMapRequest,
   AutoMapResult,
+  BulkDeleteRequest,
   BulkStatusUpdateRequest,
   LegacyRedirectSummary,
   LegacyUrlMapping,
@@ -66,6 +67,11 @@ export class LegacyUrlMappingService {
   async bulkUpdateStatus(request: BulkStatusUpdateRequest): Promise<any> {
     this.logger.debug("bulkUpdateStatus", request);
     return this.http.post(`${this.BASE_URL}/bulk-update-status`, request).toPromise();
+  }
+
+  async bulkDelete(request: BulkDeleteRequest): Promise<any> {
+    this.logger.debug("bulkDelete", request);
+    return this.http.post(`${this.BASE_URL}/bulk-delete`, request).toPromise();
   }
 
   async autoMap(request: AutoMapRequest): Promise<AutoMapResult> {

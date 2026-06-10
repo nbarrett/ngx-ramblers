@@ -91,6 +91,10 @@ export interface BulkStatusUpdateRequest {
   status: RedirectMappingStatus;
 }
 
+export interface BulkDeleteRequest {
+  ids: string[];
+}
+
 export interface AutoMapRequest {
   legacyDomain: string;
 }

@@ -8,6 +8,7 @@ import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { pageContent } from "../models/page-content";
 import { extendedGroupEvent } from "../models/extended-group-event";
+import { lastItemFrom } from "../../shared/string-utils";
 
 const debugLog = debug(envConfig.logNamespace("legacy-url-mapping-routes"));
 const controller = crudController.create<any>(legacyUrlMapping as any);
@@ -51,9 +52,10 @@ router.get("/target-urls", async (_req, res) => {
   try {
     const pageContentPaths = await pageContent.distinct("path");
     const walkUrls = await extendedGroupEvent.distinct("groupEvent.url");
+    const walkSlugs = new Set(walkUrls.filter(Boolean).map((url: string) => lastItemFrom(url)).filter(Boolean));
     const targetUrls = [
-      ...pageContentPaths.filter(Boolean).map((path: string) => ({ path, source: "page" })),
-      ...walkUrls.filter(Boolean).map((url: string) => ({ path: `/walks/${url}`, source: "walk" }))
+      ...pageContentPaths.filter(Boolean).map((path: string) => ({ path: path.replace(/^\/+/, ""), source: "page" })),
+      ...Array.from(walkSlugs).map(slug => ({ path: `walks/${slug}`, source: "walk" }))
     ];
     res.json(targetUrls);
   } catch (error) {
@@ -73,6 +75,18 @@ router.post("/bulk-update-status", authConfig.authenticate(), async (req, res) =
     res.json({ modifiedCount: result.modifiedCount });
   } catch (error) {
     debugLog("bulk-update-status error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/bulk-delete", authConfig.authenticate(), async (req, res) => {
+  try {
+    const { ids } = req.body;
+    const result = await legacyUrlMapping.deleteMany({ _id: { $in: ids } });
+    invalidateRedirectCache();
+    res.json({ deletedCount: result.deletedCount });
+  } catch (error) {
+    debugLog("bulk-delete error:", error);
     res.status(500).json({ error: error.message });
   }
 });

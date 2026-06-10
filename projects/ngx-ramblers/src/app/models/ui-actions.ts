@@ -35,6 +35,7 @@ export enum StoredValue {
   CANCELLED = "cancelled",
   CAROUSEL = "carousel",
   CHART_TYPE = "agm-stats-chart-type",
+  CONFIDENCE = "confidence",
   CONTENT_TEMPLATE_VIEW = "content-template-view",
   CONTENT_VIEW_MODE = "view-mode",
   DATE_FROM = "date-from",

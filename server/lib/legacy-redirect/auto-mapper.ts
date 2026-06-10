@@ -21,18 +21,18 @@ interface PathPatternMapping {
 }
 
 const PATH_PATTERNS: PathPatternMapping[] = [
-  { pattern: /^\/walks/i, target: "/walks" },
-  { pattern: /^\/programme/i, target: "/walks" },
-  { pattern: /^\/activities/i, target: "/walks" },
-  { pattern: /^\/gallery/i, target: "/gallery" },
-  { pattern: /^\/photos/i, target: "/gallery" },
-  { pattern: /^\/contact/i, target: "/contact-us" },
-  { pattern: /^\/about/i, target: "/about-us" },
-  { pattern: /^\/events/i, target: "/social-events" },
-  { pattern: /^\/social/i, target: "/social-events" },
-  { pattern: /^\/news/i, target: "/news" },
-  { pattern: /^\/join/i, target: "/join-us" },
-  { pattern: /^\/members/i, target: "/members" },
+  { pattern: /^\/walks/i, target: "walks" },
+  { pattern: /^\/programme/i, target: "walks" },
+  { pattern: /^\/activities/i, target: "walks" },
+  { pattern: /^\/gallery/i, target: "gallery" },
+  { pattern: /^\/photos/i, target: "gallery" },
+  { pattern: /^\/contact/i, target: "contact-us" },
+  { pattern: /^\/about/i, target: "about-us" },
+  { pattern: /^\/events/i, target: "social-events" },
+  { pattern: /^\/social/i, target: "social-events" },
+  { pattern: /^\/news/i, target: "news" },
+  { pattern: /^\/join/i, target: "join-us" },
+  { pattern: /^\/members/i, target: "members" },
 ];
 
 function extractLastPathSegment(urlPath: string): string {
@@ -116,7 +116,7 @@ export async function autoMapLegacyUrls(legacyDomain: string): Promise<AutoMapRe
 
     const eventMatch = eventUrls.get(slug) || eventUrls.get(lastSegment.toLowerCase());
     if (eventMatch) {
-      targetPath = `/walks/${lastItemFrom(eventMatch)}`;
+      targetPath = `walks/${lastItemFrom(eventMatch)}`;
       confidence = RedirectConfidence.HIGH;
       matchMethod = RedirectMatchMethod.WALK_URL;
     }
@@ -124,7 +124,7 @@ export async function autoMapLegacyUrls(legacyDomain: string): Promise<AutoMapRe
     if (!targetPath && slug) {
       const pageMatch = pagePathSet.get(slug) || pagePathSet.get(lastSegment.toLowerCase());
       if (pageMatch) {
-        targetPath = `/${pageMatch}`;
+        targetPath = pageMatch.replace(/^\/+/, "");
         confidence = RedirectConfidence.HIGH;
         matchMethod = RedirectMatchMethod.SLUG;
       }
@@ -151,13 +151,13 @@ export async function autoMapLegacyUrls(legacyDomain: string): Promise<AutoMapRe
           const similarity = tokenSimilarity(titleTokens, eventTokens);
           if (similarity > bestSimilarity) {
             bestSimilarity = similarity;
-            bestPath = `/walks/${lastItemFrom(event.groupEvent.url) || convertTitleToSlug(eventTitle)}`;
+            bestPath = `walks/${lastItemFrom(event.groupEvent.url) || convertTitleToSlug(eventTitle)}`;
           }
         }
       });
 
       if (bestSimilarity > 0.7) {
-        targetPath = bestPath.startsWith("/") ? bestPath : `/${bestPath}`;
+        targetPath = bestPath.replace(/^\/+/, "");
         confidence = RedirectConfidence.MEDIUM;
         matchMethod = RedirectMatchMethod.TITLE;
       }
