@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewEncapsulation } from "@angular/core";
+import { booleanAttribute, Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewEncapsulation } from "@angular/core";
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { HtmlBold, HtmlItalic } from "./html-marks.extension";
@@ -34,9 +34,11 @@ import {
   MERGE_FIELD_CATALOGUE,
   MergeFieldGroup
 } from "../../../models/email-composer.model";
-import { TiptapMark, TokenPopupType } from "../../../models/tiptap-editor.model";
+import { TiptapMark, TiptapTableCommand, TokenPopupType } from "../../../models/tiptap-editor.model";
 import { MERGE_FIELD_NODE_NAME, MergeField } from "./merge-field.extension";
 import { LINK_TOKEN_NODE_NAME, LinkToken } from "./link-token.extension";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { PAGE_BREAK_NODE_NAME, PageBreak } from "./page-break.extension";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
 import { AwsFileData } from "../../../models/aws-object.model";
 import { RootFolder } from "../../../models/system.model";
@@ -49,7 +51,7 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
 @Component({
   selector: "app-tiptap-markdown-editor",
   encapsulation: ViewEncapsulation.None,
-  imports: [TiptapEditorDirective, FontAwesomeModule, ImageCropperAndResizerComponent, FormsModule, NgSelectComponent, NgOptionTemplateDirective],
+  imports: [TiptapEditorDirective, FontAwesomeModule, ImageCropperAndResizerComponent, FormsModule, NgSelectComponent, NgOptionTemplateDirective, TooltipDirective],
   styles: [`
     .tiptap-editor-shell
       border: 1px solid #ced4da
@@ -280,6 +282,35 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
     .tiptap-content merge-field.ProseMirror-selectednode
       box-shadow: 0 0 0 2px rgba(249, 177, 4, 0.55)
 
+    .tiptap-content page-break,
+    .tiptap-content .page-break-chip
+      display: flex
+      align-items: center
+      gap: 10px
+      margin: 0.75rem 0
+      color: #6b5200
+      cursor: default
+      user-select: none
+
+    .tiptap-content page-break::before,
+    .tiptap-content page-break::after
+      content: ""
+      flex: 1
+      border-top: 2px dashed rgb(249, 177, 4)
+
+    .tiptap-content .page-break-label
+      font-size: 0.72rem
+      font-weight: 700
+      text-transform: uppercase
+      letter-spacing: 0.06em
+      background-color: rgba(249, 177, 4, 0.18)
+      border: 1px solid rgb(249, 177, 4)
+      border-radius: 4px
+      padding: 0 6px
+
+    .tiptap-content page-break.ProseMirror-selectednode .page-break-label
+      box-shadow: 0 0 0 2px rgba(249, 177, 4, 0.55)
+
     .tiptap-content .chip-example
       display: none
 
@@ -354,48 +385,57 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
     <div class="tiptap-editor-shell">
       @if (editable) {
       <div class="tiptap-toolbar" role="toolbar" (mousedown)="onToolbarMousedown($event)">
-        <button type="button" title="Bold" (click)="toggle(TiptapMark.Bold)" [class.is-active]="isActive('bold')">
+        <button type="button" tooltip="Bold" container="body" delay=500 (click)="toggle(TiptapMark.Bold)" [class.is-active]="isActive('bold')">
           <fa-icon [icon]="faBold"/>
         </button>
-        <button type="button" title="Italic" (click)="toggle(TiptapMark.Italic)" [class.is-active]="isActive('italic')">
+        <button type="button" tooltip="Italic" container="body" delay=500 (click)="toggle(TiptapMark.Italic)" [class.is-active]="isActive('italic')">
           <fa-icon [icon]="faItalic"/>
         </button>
         <span class="toolbar-divider"></span>
-        <button type="button" title="Heading 2" (click)="toggleHeading(2)" [class.is-active]="isActive('heading', { level: 2 })">
+        <button type="button" tooltip="Heading 2" container="body" delay=500 (click)="toggleHeading(2)" [class.is-active]="isActive('heading', { level: 2 })">
           <fa-icon [icon]="faHeading"/> 2
         </button>
-        <button type="button" title="Heading 3" (click)="toggleHeading(3)" [class.is-active]="isActive('heading', { level: 3 })">
+        <button type="button" tooltip="Heading 3" container="body" delay=500 (click)="toggleHeading(3)" [class.is-active]="isActive('heading', { level: 3 })">
           <fa-icon [icon]="faHeading"/> 3
         </button>
-        <button type="button" title="Heading 4 (click again to make it normal text)" (click)="toggleHeading(4)" [class.is-active]="isActive('heading', { level: 4 })">
+        <button type="button" tooltip="Heading 4 (click again to make it normal text)" container="body" delay=500 (click)="toggleHeading(4)" [class.is-active]="isActive('heading', { level: 4 })">
           <fa-icon [icon]="faHeading"/> 4
         </button>
-        <button type="button" title="Normal text (removes any heading)" (click)="setNormalText()" [class.is-active]="isActive('paragraph')">
+        <button type="button" tooltip="Normal text (removes any heading)" container="body" delay=500 (click)="setNormalText()" [class.is-active]="isActive('paragraph')">
           Normal
         </button>
         <span class="toolbar-divider"></span>
-        <button type="button" title="Bulleted list" (click)="toggle(TiptapMark.BulletList)" [class.is-active]="isActive('bulletList')">
+        <button type="button" tooltip="Bulleted list" container="body" delay=500 (click)="toggle(TiptapMark.BulletList)" [class.is-active]="isActive('bulletList')">
           <fa-icon [icon]="faListUl"/>
         </button>
-        <button type="button" title="Numbered list" (click)="toggle(TiptapMark.OrderedList)" [class.is-active]="isActive('orderedList')">
+        <button type="button" tooltip="Numbered list" container="body" delay=500 (click)="toggle(TiptapMark.OrderedList)" [class.is-active]="isActive('orderedList')">
           <fa-icon [icon]="faListOl"/>
         </button>
-        <button type="button" title="Quote" (click)="toggle(TiptapMark.Blockquote)" [class.is-active]="isActive('blockquote')">
+        <button type="button" tooltip="Quote" container="body" delay=500 (click)="toggle(TiptapMark.Blockquote)" [class.is-active]="isActive('blockquote')">
           <fa-icon [icon]="faQuoteRight"/>
         </button>
         <span class="toolbar-divider"></span>
-        <button type="button" title="Insert link" (click)="openLinkBar()">
+        <button type="button" tooltip="Insert link" container="body" delay=500 (click)="openLinkBar()">
           <fa-icon [icon]="faLink"/>
         </button>
-        <button type="button" title="Insert a link" (click)="openLinkTokenInsert()">
+        <button type="button" tooltip="Insert a link" container="body" delay=500 (click)="openLinkTokenInsert()">
           <fa-icon [icon]="faBolt"/>
         </button>
-        <button type="button" title="Insert image" (click)="insertImage()">
+        <button type="button" tooltip="Insert image" container="body" delay=500 (click)="insertImage()">
           <fa-icon [icon]="faImage"/>
         </button>
+        <button type="button" class="toolbar-text-toggle" tooltip="Insert a table at the cursor" container="body" delay=500 (click)="insertTable()">
+          Table
+        </button>
+        @if (showPageBreak) {
+          <button type="button" class="toolbar-text-toggle" tooltip="Insert a page break at the cursor" container="body" delay=500
+                  (click)="insertPageBreak()">
+            Page break
+          </button>
+        }
         <span class="toolbar-divider"></span>
         @if (showMergeFields) {
-          <select title="Insert a merge field at the cursor" (change)="onMergeFieldInsert($event)">
+          <select tooltip="Insert a merge field at the cursor" container="body" delay=500 (change)="onMergeFieldInsert($event)">
             <option value="">Insert merge field…</option>
             @for (group of mergeFieldCatalogue; track group.group) {
               <optgroup [label]="group.group">
@@ -406,20 +446,32 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
             }
           </select>
           <button type="button" class="toolbar-text-toggle" [class.is-active]="showExampleValues"
-                  title="Toggle merge fields between their names and example values"
+                  tooltip="Toggle merge fields between their names and example values" container="body" delay=500
                   (click)="showExampleValues = !showExampleValues">
             {{ showExampleValues ? "Example values" : "Field names" }}
           </button>
           <span class="toolbar-divider"></span>
         }
-        <button type="button" title="Clear formatting" (click)="clearFormatting()">
+        @if (tableSelected) {
+          <button type="button" class="toolbar-text-toggle" tooltip="Add a row above the current row" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddRowAbove)">+Row ↑</button>
+          <button type="button" class="toolbar-text-toggle" tooltip="Add a row below the current row" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddRowBelow)">+Row ↓</button>
+          <button type="button" class="toolbar-text-toggle" tooltip="Delete the current row" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.DeleteRow)">−Row</button>
+          <button type="button" class="toolbar-text-toggle" tooltip="Add a column to the left" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddColumnLeft)">+Col ←</button>
+          <button type="button" class="toolbar-text-toggle" tooltip="Add a column to the right" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.AddColumnRight)">+Col →</button>
+          <button type="button" class="toolbar-text-toggle" tooltip="Delete the current column" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.DeleteColumn)">−Col</button>
+          <button type="button" class="toolbar-text-toggle" tooltip="Move the current column left" container="body" delay=500 (click)="moveTableColumn(-1)">◀ Col</button>
+          <button type="button" class="toolbar-text-toggle" tooltip="Move the current column right" container="body" delay=500 (click)="moveTableColumn(1)">Col ▶</button>
+          <button type="button" class="toolbar-text-toggle" tooltip="Delete the whole table" container="body" delay=500 (click)="tableCommand(TiptapTableCommand.DeleteTable)">−Table</button>
+          <span class="toolbar-divider"></span>
+        }
+        <button type="button" tooltip="Clear formatting" container="body" delay=500 (click)="clearFormatting()">
           <fa-icon [icon]="faRemoveFormat"/>
         </button>
         <span class="toolbar-divider"></span>
-        <button type="button" title="Undo" (click)="undo()">
+        <button type="button" tooltip="Undo" container="body" delay=500 (click)="undo()">
           <fa-icon [icon]="faUndo"/>
         </button>
-        <button type="button" title="Redo" (click)="redo()">
+        <button type="button" tooltip="Redo" container="body" delay=500 (click)="redo()">
           <fa-icon [icon]="faRedo"/>
         </button>
       </div>
@@ -456,7 +508,7 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       </div>
       @if (editable && imageSelected && !imageCropperOpen) {
         <div class="image-resize-handle" [style.top.px]="imageHandleTop" [style.left.px]="imageHandleLeft"
-             title="Drag to set the image width" (mousedown)="onImageResizeStart($event)"></div>
+             tooltip="Drag to set the image width" container="body" delay=500 (mousedown)="onImageResizeStart($event)"></div>
       }
       @if (editable && (mergeFieldSelected || linkTokenSelected || insertLinkMode || imageSelected)) {
         <div class="token-editor-popup" [class.above]="tokenEditorAbove"
@@ -484,13 +536,15 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
             </div>
           } @else {
             <div class="token-editor-title">{{ insertLinkMode ? "Add" : "Edit" }}</div>
-            <div class="token-type-toggle">
-              <button type="button" [class.is-active]="tokenPopupType === TokenPopupType.Field" (click)="setTokenType(TokenPopupType.Field)">Merge field</button>
-              <button type="button" [class.is-active]="tokenPopupType === TokenPopupType.Link" (click)="setTokenType(TokenPopupType.Link)">Link</button>
-            </div>
-            @if (tokenPopupType === TokenPopupType.Field) {
+            @if (showMergeFields) {
+              <div class="token-type-toggle">
+                <button type="button" [class.is-active]="tokenPopupType === TokenPopupType.Field" (click)="setTokenType(TokenPopupType.Field)">Merge field</button>
+                <button type="button" [class.is-active]="tokenPopupType === TokenPopupType.Link" (click)="setTokenType(TokenPopupType.Link)">Link</button>
+              </div>
+            }
+            @if (showMergeFields && tokenPopupType === TokenPopupType.Field) {
               <label class="token-editor-label">Field</label>
-              <select title="Pick a merge field" (change)="tokenFieldValue = inputValue($event)">
+              <select tooltip="Pick a merge field" container="body" delay=500 (change)="tokenFieldValue = inputValue($event)">
                 <option value="">Choose a field…</option>
                 @for (group of mergeFieldCatalogue; track group.group) {
                   <optgroup [label]="group.group">
@@ -556,6 +610,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   @Input() placeholder: string = "Start writing…";
   @Input() showMergeFields: boolean = false;
+  @Input({transform: booleanAttribute}) showPageBreak = false;
   @Input() constrainToEmailWidth: boolean = false;
   @Input() editable: boolean = true;
   private _extraLinkDestinations: MemberMergeFieldHint[] = [];
@@ -607,6 +662,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     return TiptapMarkdownEditor.editorInstanceCount += 1;
   }
   protected mergeFieldSelected: boolean = false;
+  protected tableSelected = false;
   protected linkBarOpen: boolean = false;
   protected imageCropperOpen: boolean = false;
   protected imageSelected: boolean = false;
@@ -636,6 +692,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("TiptapMarkdownEditor", NgxLoggerLevel.ERROR);
 
   protected readonly TiptapMark = TiptapMark;
+  protected readonly TiptapTableCommand = TiptapTableCommand;
   protected readonly faBold = faBold;
   protected readonly faBolt = faBolt;
   protected readonly faImage = faImage;
@@ -658,6 +715,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       SpacedImage.configure({ inline: false, allowBase64: false }),
       MergeField,
       LinkToken,
+      PageBreak,
       Markdown,
       Table.configure({ resizable: false, HTMLAttributes: { class: "tiptap-table" } }),
       TableRow,
@@ -710,6 +768,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.editor.on("selectionUpdate", () => {
       this.imageSelected = this.editor?.isActive("image") ?? false;
       this.mergeFieldSelected = this.editor?.isActive(MERGE_FIELD_NODE_NAME) ?? false;
+      this.tableSelected = this.editor?.isActive("table") ?? false;
       this.linkTokenSelected = this.editor?.isActive(LINK_TOKEN_NODE_NAME) ?? false;
       if (this.mergeFieldSelected) {
         this.insertLinkMode = false;
@@ -878,6 +937,60 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   toggleHeading(level: 2 | 3 | 4): void {
     this.editor?.chain().focus().toggleHeading({ level }).run();
+  }
+
+  insertTable(): void {
+    this.editor?.chain().focus().insertTable({rows: 3, cols: 3, withHeaderRow: true}).run();
+  }
+
+  tableCommand(command: TiptapTableCommand): void {
+    const chain = this.editor?.chain().focus();
+    if (command === TiptapTableCommand.AddRowAbove) {
+      chain?.addRowBefore().run();
+    } else if (command === TiptapTableCommand.AddRowBelow) {
+      chain?.addRowAfter().run();
+    } else if (command === TiptapTableCommand.DeleteRow) {
+      chain?.deleteRow().run();
+    } else if (command === TiptapTableCommand.AddColumnLeft) {
+      chain?.addColumnBefore().run();
+    } else if (command === TiptapTableCommand.AddColumnRight) {
+      chain?.addColumnAfter().run();
+    } else if (command === TiptapTableCommand.DeleteColumn) {
+      chain?.deleteColumn().run();
+    } else if (command === TiptapTableCommand.DeleteTable) {
+      chain?.deleteTable().run();
+    }
+  }
+
+  moveTableColumn(direction: number): void {
+    const state = this.editor?.state;
+    if (!state) {
+      return;
+    }
+    const anchor = state.selection.$anchor;
+    const depths = Array.from({length: anchor.depth}, (ignored, index) => anchor.depth - index);
+    const cellDepth = depths.find(depth => ["tableCell", "tableHeader"].includes(anchor.node(depth).type.name));
+    const tableDepth = depths.find(depth => anchor.node(depth).type.name === "table");
+    if (!cellDepth || !tableDepth) {
+      return;
+    }
+    const columnIndex = anchor.index(cellDepth - 1);
+    const table = anchor.node(tableDepth);
+    const targetIndex = columnIndex + direction;
+    if (targetIndex < 0 || targetIndex >= table.child(0).childCount) {
+      return;
+    }
+    const json: any = table.toJSON();
+    json.content.forEach((row: any) => {
+      const moved = row.content.splice(columnIndex, 1)[0];
+      row.content.splice(targetIndex, 0, moved);
+    });
+    const from = anchor.before(tableDepth);
+    this.editor?.chain().focus().insertContentAt({from, to: from + table.nodeSize}, json).run();
+  }
+
+  insertPageBreak(): void {
+    this.editor?.chain().focus().insertContent({type: PAGE_BREAK_NODE_NAME}).run();
   }
 
   insertImage(): void {

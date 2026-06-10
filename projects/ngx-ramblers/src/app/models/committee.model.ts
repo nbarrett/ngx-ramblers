@@ -47,6 +47,29 @@ export interface CommitteeFile extends Identifiable {
   postcode?: string;
   fileType: string;
   fileNameData?: FileNameData;
+  document?: CommitteeDocument;
+}
+
+export interface CommitteeDocument {
+  title?: string;
+  markdown?: string;
+  templateId?: string;
+}
+
+export enum CommitteeFileKind {
+  ATTACHMENT = "attachment",
+  COMPOSED = "composed"
+}
+
+
+export interface DocumentConversionResponse {
+  markdown: string;
+  suggestedTitle?: string;
+}
+
+export interface DocumentConversionApiResponse extends ApiResponse {
+  request: any;
+  response?: DocumentConversionResponse;
 }
 
 export interface CommitteeFileApiResponse extends ApiResponse {

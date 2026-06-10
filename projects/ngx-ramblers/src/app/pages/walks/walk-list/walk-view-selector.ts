@@ -15,10 +15,12 @@ import { HumanisePipe } from "../../../pipes/humanise.pipe";
 import { EventDispatchService } from "../../group-events/group-event-view/event-dispatch-service";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
-import { NavigationEnd, Router } from "@angular/router";
+import { ActivatedRoute, NavigationEnd, Router } from "@angular/router";
 import { Subscription } from "rxjs";
 import { filter } from "rxjs/operators";
 import { GroupEventViewPage } from "../../group-events/group-event-view-page/group-event-view-page";
+import { CommitteeDocumentPage } from "../../committee/document/committee-document-page";
+import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-walks-selector",
@@ -28,9 +30,12 @@ import { GroupEventViewPage } from "../../group-events/group-event-view-page/gro
     StatusIconComponent,
     HumanisePipe,
     GroupEventViewPage,
+    CommitteeDocumentPage,
   ],
   template: `
-    @if (eventView?.eventView === EventViewDispatch.DYNAMIC_CONTENT) {
+    @if (committeeFileViewActive) {
+      <app-committee-document-page/>
+    } @else if (eventView?.eventView === EventViewDispatch.DYNAMIC_CONTENT) {
       <app-dynamic-content-page/>
     } @else if (eventView?.eventView === EventViewDispatch.VIEW) {
       @if (groupEvent?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
@@ -70,11 +75,17 @@ export class WalksViewSelector implements OnInit, OnDestroy {
   protected readonly RamblersEventType = RamblersEventType;
   protected displayedWalk: DisplayedWalk;
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private navigationSubscription?: Subscription;
+  private queryParamSubscription?: Subscription;
+  protected committeeFileViewActive = false;
   private currentPath: string;
 
   async ngOnInit(): Promise<void> {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.queryParamSubscription = this.route.queryParamMap.subscribe(queryParamMap => {
+      this.committeeFileViewActive = !!(queryParamMap.get(StoredValue.COMMITTEE_DOCUMENT) || queryParamMap.get(StoredValue.COMMITTEE_FILE_VIEW));
+    });
     this.currentPath = this.router.url.split("?")[0].split("#")[0];
     await this.loadEventView();
     this.navigationSubscription = this.router.events
@@ -90,6 +101,7 @@ export class WalksViewSelector implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.navigationSubscription?.unsubscribe();
+    this.queryParamSubscription?.unsubscribe();
   }
 
   private async loadEventView(): Promise<void> {

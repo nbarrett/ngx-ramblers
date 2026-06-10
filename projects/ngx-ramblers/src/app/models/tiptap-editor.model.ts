@@ -1,3 +1,13 @@
+export enum TiptapTableCommand {
+  AddRowAbove = "add-row-above",
+  AddRowBelow = "add-row-below",
+  DeleteRow = "delete-row",
+  AddColumnLeft = "add-column-left",
+  AddColumnRight = "add-column-right",
+  DeleteColumn = "delete-column",
+  DeleteTable = "delete-table"
+}
+
 export enum TiptapMark {
   Bold = "bold",
   Italic = "italic",

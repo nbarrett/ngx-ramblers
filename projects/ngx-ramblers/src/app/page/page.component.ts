@@ -14,7 +14,7 @@ import { RouterLink } from "@angular/router";
         @if (pageService.nested()) {
           <ul class="breadcrumb bg-transparent mb-1 ms-0 p-1">
             <span class="d-md-none">...</span>
-            @for (page of pageService.relativePages(); track page.href) {
+            @for (page of pageService.relativePages(includeLastSegment); track page.href) {
               <li class="breadcrumb-item d-none d-md-inline">
                 <a [routerLink]="'/' + page?.href" target="_self">{{ page?.title }}</a>
               </li>
@@ -41,6 +41,8 @@ export class PageComponent implements OnInit {
   public pageTitle: string;
 
   @Input({ transform: booleanAttribute }) autoTitle = false;
+
+  @Input({ transform: booleanAttribute }) includeLastSegment = false;
 
   @Input("pageTitle") set acceptPageTitleChange(pageTitle: string) {
     this.logger.info("Input:pageTitle:", pageTitle);
