@@ -1258,7 +1258,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                               <span>
                                 <strong>{{ file.fileType }}</strong>
                                 <span> - {{ committeeDisplayService.fileTitle(file) }}</span>
-                                <a class="ms-2" [href]="committeeDisplayService.fileUrl(file)" target="_blank">{{ file.fileNameData?.originalFileName || file.fileNameData?.awsFileName }}</a>
+                                <a class="ms-2" [href]="committeeDisplayService.fileUrl(file)" target="_blank">{{ committeeFileDownloadFilename(file) }}</a>
                               </span>
                               <button type="button" class="btn btn-sm btn-danger"
                                       [title]="'Remove ' + committeeDisplayService.fileTitle(file)"
@@ -2194,11 +2194,12 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected committeeFileDownloadLabel(file: CommitteeFile): string {
     const fileType = (file.fileType ?? "").trim();
-    return fileType ? `Download ${fileType}` : "Download";
+    const action = this.committeeDisplayService.isComposedDocument(file) ? "View" : "Download";
+    return fileType ? `${action} ${fileType}` : action;
   }
 
   protected committeeFileDownloadFilename(file: CommitteeFile): string {
-    return file.fileNameData?.originalFileName || file.fileNameData?.awsFileName || "";
+    return file.fileNameData?.originalFileName || file.fileNameData?.awsFileName || file.document?.title || "";
   }
 
   protected onCommitteeFileIdsChanged(fragment: ComposerFragment, ids: string[]): void {

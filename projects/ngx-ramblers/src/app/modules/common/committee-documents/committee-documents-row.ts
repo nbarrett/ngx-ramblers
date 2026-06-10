@@ -2,7 +2,7 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { first, last } from "es-toolkit/compat";
-import { faEdit, faEnvelope, faTrash, faCheck, faBan, faDownload, faUpRightFromSquare, faCaretDown } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faEnvelope, faTrash, faCheck, faBan, faDownload, faUpRightFromSquare, faCaretDown, faFileImport, faPrint } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { AuthService } from "../../../auth/auth.service";
 import { CommitteeFile } from "../../../models/committee.model";
@@ -13,6 +13,7 @@ import { FALLBACK_MEDIA } from "../../../models/walk.model";
 import { ConfirmType, StoredValue } from "../../../models/ui-actions";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { CommitteeFileService } from "../../../services/committee/committee-file.service";
+import { DocumentConversionService } from "../../../services/committee/document-conversion.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -48,6 +49,15 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                        value="Add File">
               }
             </div>
+            @if (notifyTarget.showAlert) {
+              <div class="alert {{ notifyTarget.alert.class }} mb-3">
+                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                @if (notifyTarget.alertTitle) {
+                  <strong>{{ notifyTarget.alertTitle }}: </strong>
+                }
+                {{ notifyTarget.alertMessage }}
+              </div>
+            }
             @if (editingFile) {
               <div class="card bg-light mb-3">
                 <div class="card-body">
@@ -62,7 +72,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
             @for (committeeFile of committeeFiles; track committeeFile.id) {
               <div class="file-item"
                    (mouseover)="selectCommitteeFile(committeeFile)">
-                @if (committeeFile.fileNameData) {
+                @if (committeeFile.fileNameData || committeeFile.document) {
                   <div class="file-download">
                     <div class="file-actions" dropdown container="body">
                       <a dropdownToggle role="button" class="file-actions-toggle">
@@ -80,17 +90,36 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                         @if (display.canViewInBrowser(committeeFile)) {
                           <li>
                             <a class="dropdown-item" target="_blank" rel="noopener"
-                               [href]="display.viewUrl(committeeFile)">
+                               [href]="display.viewUrl(committeeFile, documentsSourcePath)">
                               <fa-icon [icon]="faUpRightFromSquare" class="fa-icon me-2"/>View in new tab
                             </a>
                           </li>
                         }
-                        <li>
-                          <a class="dropdown-item" target="_blank" rel="noopener"
-                             [href]="display.fileUrl(committeeFile)">
-                            <fa-icon [icon]="faDownload" class="fa-icon me-2"/>Download
-                          </a>
-                        </li>
+                        @if (display.isComposedDocument(committeeFile)) {
+                          <li>
+                            <a class="dropdown-item" target="_blank" rel="noopener"
+                               [href]="display.composedDocumentPrintUrl(committeeFile, documentsSourcePath)">
+                              <fa-icon [icon]="faPrint" class="fa-icon me-2"/>Print / A4
+                            </a>
+                          </li>
+                        } @else {
+                          <li>
+                            <a class="dropdown-item" target="_blank" rel="noopener"
+                               [href]="display.fileUrl(committeeFile, documentsSourcePath)">
+                              <fa-icon [icon]="faDownload" class="fa-icon me-2"/>Download
+                            </a>
+                          </li>
+                        }
+                        @if (display.allowEditCommitteeFile(committeeFile) && display.canConvertToComposedDocument(committeeFile)) {
+                          <li><hr class="dropdown-divider my-1"></li>
+                          <li>
+                            <a class="dropdown-item" role="button"
+                               title="Create an editable, re-themeable document from this file - the original is kept"
+                               (click)="convertToComposedDocument(committeeFile)">
+                              <fa-icon [icon]="faFileImport" class="fa-icon me-2"/>Convert to editable document
+                            </a>
+                          </li>
+                        }
                       </ul>
                     </div>
                   </div>
@@ -111,6 +140,14 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <button (click)="sendNotification(committeeFile)"
                                   class="btn btn-warning btn-sm">
                             <fa-icon [icon]="faEnvelope" class="me-1"></fa-icon>Send Email
+                          </button>
+                        }
+                        @if (display.allowEditCommitteeFile(committeeFile) && display.canConvertToComposedDocument(committeeFile)) {
+                          <button (click)="convertToComposedDocument(committeeFile)"
+                                  [disabled]="notifyTarget.busy"
+                                  title="Create an editable, re-themeable document from this file"
+                                  class="btn btn-sunset btn-sm">
+                            <fa-icon [icon]="faFileImport" class="me-1"></fa-icon>Convert to editable document
                           </button>
                         }
                         @if (display.allowDeleteCommitteeFile(committeeFile)) {
@@ -156,11 +193,14 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   faDownload = faDownload;
   faUpRightFromSquare = faUpRightFromSquare;
   faCaretDown = faCaretDown;
+  faFileImport = faFileImport;
+  faPrint = faPrint;
   memberLoginService = inject(MemberLoginService);
   display = inject(CommitteeDisplayService);
   private authService = inject(AuthService);
   actions = inject(PageContentActionsService);
   private committeeFileService = inject(CommitteeFileService);
+  private documentConversionService = inject(DocumentConversionService);
   private pageContentService = inject(PageContentService);
   private pageService = inject(PageService);
   urlService = inject(UrlService);
@@ -175,6 +215,7 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   public pageTitle: string;
   public headingText: string;
   public editingFile: CommitteeFile;
+  public documentsSourcePath: string;
   public editingFileIsNew = false;
 
   public row: PageContentRow;
@@ -206,6 +247,7 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
 
   private applyRowData(): void {
     this.pageTitle = this.pageService.pageSubtitle();
+    this.documentsSourcePath = this.urlService.urlPath();
     this.imageSource = this.committeeDocumentsConfig?.imageSource;
     this.refreshHeading();
     this.loadFiles();
@@ -260,6 +302,7 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
       return;
     }
     this.pageTitle = last(targetPage.path.split("/"));
+    this.documentsSourcePath = targetPage.path;
     this.refreshHeading();
     this.logger.info("loadFilesFromFirstActionButton:using most recent child page:", targetPage.path);
     const committeeDocsRow = targetPage.rows.find(row => this.actions.isCommitteeDocuments(row));
@@ -299,8 +342,38 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   }
 
   editCommitteeFile(committeeFile: CommitteeFile) {
-    this.editingFile = {...committeeFile, fileNameData: committeeFile.fileNameData ? {...committeeFile.fileNameData} : null};
+    this.editingFile = {
+      ...committeeFile,
+      fileNameData: committeeFile.fileNameData ? {...committeeFile.fileNameData} : null,
+      document: committeeFile.document ? {...committeeFile.document} : null
+    };
     this.editingFileIsNew = false;
+  }
+
+  async convertToComposedDocument(committeeFile: CommitteeFile): Promise<void> {
+    this.notify.setBusy();
+    this.notify.progress({title: "Document conversion", message: `converting ${committeeFile.fileNameData?.originalFileName || "file"} - please wait...`});
+    try {
+      const conversion = await this.documentConversionService.convertCommitteeFile(committeeFile.id);
+      this.notify.hide();
+      this.display.confirm.as(ConfirmType.CREATE_NEW);
+      this.editingFile = {
+        ...this.display.defaultCommitteeFile(),
+        eventDate: committeeFile.eventDate,
+        fileType: committeeFile.fileType,
+        postcode: committeeFile.postcode,
+        document: {
+          title: committeeFile.fileNameData?.title || conversion.suggestedTitle || "",
+          markdown: conversion.markdown
+        }
+      };
+      this.editingFileIsNew = true;
+    } catch (error) {
+      this.logger.error("convertToComposedDocument failed:", error);
+      this.notify.error({title: "Conversion failed", message: error?.error?.error || error?.message || "An unexpected error occurred"});
+    } finally {
+      this.notify.clearBusy();
+    }
   }
 
   cancelEdit() {
@@ -330,7 +403,14 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
     if (committeeDocsRow?.committeeDocuments) {
       committeeDocsRow.committeeDocuments.fileIds = [...(committeeDocsRow.committeeDocuments.fileIds || []), fileId];
       await this.pageContentService.createOrUpdate(pageContent);
+      this.syncRowFileIds(committeeDocsRow.committeeDocuments.fileIds);
       this.logger.info("addFileIdToPageContent:added fileId:", fileId, "to page:", pageContent.path, "total fileIds:", committeeDocsRow.committeeDocuments.fileIds.length);
+    }
+  }
+
+  private syncRowFileIds(fileIds: string[]): void {
+    if (!this.committeeDocumentsConfig?.autoFromFirstActionButton && this.row?.committeeDocuments) {
+      this.row.committeeDocuments.fileIds = [...fileIds];
     }
   }
 
@@ -352,10 +432,9 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   }
 
   confirmDeleteCommitteeFile(committeeFile: CommitteeFile) {
-    this.display.confirmDeleteCommitteeFile(this.notify, committeeFile).then(() => {
-      this.removeFileIdFromPageContent(committeeFile.id);
-      this.loadFiles();
-    });
+    this.display.confirmDeleteCommitteeFile(this.notify, committeeFile)
+      .then(() => this.removeFileIdFromPageContent(committeeFile.id))
+      .then(() => this.loadFiles());
   }
 
   private async removeFileIdFromPageContent(fileId: string): Promise<void> {
@@ -367,6 +446,7 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
     if (committeeDocsRow?.committeeDocuments?.fileIds) {
       committeeDocsRow.committeeDocuments.fileIds = committeeDocsRow.committeeDocuments.fileIds.filter(id => id !== fileId);
       await this.pageContentService.createOrUpdate(pageContent);
+      this.syncRowFileIds(committeeDocsRow.committeeDocuments.fileIds);
       this.logger.info("removeFileIdFromPageContent:removed fileId:", fileId, "from page:", pageContent.path);
     }
   }

@@ -34,6 +34,8 @@ export enum StoredValue {
   BANNER = "banner",
   CANCELLED = "cancelled",
   CAROUSEL = "carousel",
+  COMMITTEE_DOCUMENT = "document",
+  COMMITTEE_FILE_VIEW = "file",
   CHART_TYPE = "agm-stats-chart-type",
   CONFIDENCE = "confidence",
   CONTENT_TEMPLATE_VIEW = "content-template-view",

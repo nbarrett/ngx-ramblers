@@ -364,6 +364,11 @@ async function reportArchiveBuffer(bucket: string, key: string): Promise<Buffer>
   return streamToBuffer(response.Body);
 }
 
+export async function objectBufferForKey(key: string): Promise<Buffer> {
+  const response: any = await s3().send(new GetObjectCommand({Bucket: s3Config().bucket, Key: key}));
+  return streamToBuffer(response.Body);
+}
+
 async function streamToBuffer(body: any): Promise<Buffer> {
   if (Buffer.isBuffer(body)) {
     return body;

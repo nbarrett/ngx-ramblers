@@ -1,4 +1,5 @@
 import TurndownService from "turndown";
+import { tables } from "turndown-plugin-gfm";
 import debug from "debug";
 import he from "he";
 import { envConfig } from "../env-config/env-config";
@@ -14,11 +15,15 @@ const UNWANTED_ATTRIBUTES = [
   "leftmargin", "topmargin", "background", "ref"
 ];
 
-export function createTurndownService(): TurndownService {
+export function createTurndownService(withTables = false): TurndownService {
   const turndownService = new TurndownService({
     headingStyle: "atx",
     codeBlockStyle: "fenced"
   });
+
+  if (withTables) {
+    turndownService.use(tables);
+  }
 
   turndownService.remove(["style", "script", "noscript", "iframe", "object", "embed"]);
 
@@ -193,9 +198,9 @@ export function resolveUrls(html: string, baseUrl: string): string {
   return result;
 }
 
-export function htmlToMarkdown(html: string, baseUrl?: string): string {
+export function htmlToMarkdown(html: string, baseUrl?: string, withTables = false): string {
   debugLog("htmlToMarkdown: received html length:", html?.length ?? 0, "html:", html, "baseUrl:", baseUrl);
-  const turndownService = createTurndownService();
+  const turndownService = createTurndownService(withTables);
   const cleanHtml = preprocessHtml(html, baseUrl);
   debugLog("htmlToMarkdown: cleanHtml length:", cleanHtml.length, "cleanHtml:", cleanHtml.slice(0, 500));
   const markdown = turndownService.turndown(cleanHtml);

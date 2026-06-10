@@ -11,6 +11,11 @@ const committeeFileSchema = new mongoose.Schema({
     originalFileName: { type: String },
     awsFileName: { type: String },
     title: { type: String },
+  },
+  document: {
+    title: { type: String },
+    markdown: { type: String },
+    templateId: { type: String },
   }
 }, { collection: "committeeFiles" });
 

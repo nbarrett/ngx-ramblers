@@ -6,6 +6,14 @@ export enum FileServeDisposition {
   INLINE = "inline"
 }
 
+export const BROWSER_VIEWABLE_FILE_EXTENSIONS: string[] = ["pdf", "jpg", "jpeg", "png", "gif", "svg", "txt"];
+
+export const OFFICE_FILE_EXTENSIONS: string[] = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"];
+
+export const CONVERTIBLE_DOCUMENT_EXTENSIONS: string[] = ["docx", "pdf"];
+
+export const FILE_ICON_EXTENSIONS: string[] = ["doc", "docx", "jpg", "pdf", "ppt", "png", "txt", "xls", "xlsx"];
+
 export interface FileNameData {
   originalFileName?: string;
   awsFileName?: string;
