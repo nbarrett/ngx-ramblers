@@ -58,7 +58,7 @@ export interface LocalRunConfig {
   logDir: string | null;
   logTimestamp: boolean;
   logViewer: boolean;
-  s3BucketOverride: string | null;
+  s3BucketOverride: string | false | null;
   dockerWorker?: boolean;
   headless?: boolean;
 }

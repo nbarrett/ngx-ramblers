@@ -5,6 +5,7 @@ import {
   applyTemplateOverrides,
   collapseBlankLines,
   collapseFroalaPlaceholderSpans,
+  composeShellAndBody,
   escapeUnknownTemplateExpressions,
   extractContentBlockKeys,
   renderBrandedTemplate,
@@ -269,6 +270,23 @@ describe("brevo messages", () => {
     it("escapes only the malformed token in mixed content", () => {
       expect(escapeUnknownTemplateExpressions("Hi {{contact.FNAME}}, see {{...}}"))
         .toEqual("Hi {{contact.FNAME}}, see &#123;&#123;...&#125;&#125;");
+    });
+  });
+
+  describe("composeShellAndBody", () => {
+
+    it("omits the top and bottom placeholders when the body already places content via BODY_CONTENT", () => {
+      const result = composeShellAndBody("Some intro text\n\n{{params.messageMergeFields.BODY_CONTENT}}");
+      expect(result).toContain("{{params.messageMergeFields.BODY_CONTENT}}");
+      expect(result).not.toContain("BODY_CONTENT_TOP");
+      expect(result).not.toContain("BODY_CONTENT_BOTTOM");
+    });
+
+    it("wraps the body with top and bottom placeholders when the body has no BODY_CONTENT token", () => {
+      const result = composeShellAndBody("Static template content");
+      expect(result).toContain("{{params.messageMergeFields.BODY_CONTENT_TOP}}");
+      expect(result).toContain("{{params.messageMergeFields.BODY_CONTENT_BOTTOM}}");
+      expect(result).toContain("Static template content");
     });
   });
 

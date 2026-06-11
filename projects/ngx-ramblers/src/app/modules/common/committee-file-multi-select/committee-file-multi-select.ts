@@ -16,6 +16,14 @@ export interface CommitteeFileOption {
 @Component({
   selector: "app-committee-file-multi-select",
   imports: [FormsModule, NgSelectComponent],
+  styles: [`
+    :host ::ng-deep .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value
+      white-space: normal
+
+    :host ::ng-deep .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value .ng-value-label
+      white-space: normal
+      overflow-wrap: anywhere
+  `],
   template: `
     <ng-select [id]="inputId ?? null"
                [items]="displayFiles"

@@ -37,7 +37,7 @@ import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
           <b>Description:</b>
           <span>{{ display.fileTitle(committeeFile) }}</span>
         </p>
-        <p>If you want to download this attachment you can click <a [href]="display.fileUrl(committeeFile)">here</a>,
+        <p>If you want to download this attachment you can click <a [href]="display.fileUrl(committeeFile, sourcePagePath)">here</a>,
         alternatively
         you can view or download it from our {{ group?.shortName }}
         <a [href]="absolutePageUrl()">{{ sourcePageTitle || currentPageTitle() }} page</a>.

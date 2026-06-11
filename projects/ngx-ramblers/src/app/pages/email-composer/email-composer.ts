@@ -476,7 +476,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                             <td align="center"
                                 style="font-family: Arial;font-size: 16px;padding: 12px;"
                                 valign="middle">
-                              <a [href]="committeeDisplayService.fileUrl(file)"
+                              <a [href]="committeeDisplayService.fileUrl(file, committeeFileLinkPath(file))"
                                  [title]="committeeFileDownloadLabel(file)"
                                  style="font-weight:bold;letter-spacing:normal;line-height:100%;text-align:center;text-decoration:none;color:#222222;display:block;">
                                 {{ committeeFileDownloadLabel(file) }}
@@ -1258,7 +1258,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                               <span>
                                 <strong>{{ file.fileType }}</strong>
                                 <span> - {{ committeeDisplayService.fileTitle(file) }}</span>
-                                <a class="ms-2" [href]="committeeDisplayService.fileUrl(file)" target="_blank">{{ committeeFileDownloadFilename(file) }}</a>
+                                <a class="ms-2" [href]="committeeDisplayService.fileUrl(file, committeeFileLinkPath(file))" target="_blank">{{ committeeFileDownloadFilename(file) }}</a>
                               </span>
                               <button type="button" class="btn btn-sm btn-danger"
                                       [title]="'Remove ' + committeeDisplayService.fileTitle(file)"
@@ -1482,7 +1482,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
         }
       </div>
       <div class="row mb-3">
-        <div class="col-sm-12 d-flex flex-nowrap align-items-center flex-wrap-md-wrap">
+        <div class="col-sm-12 d-flex flex-wrap flex-md-nowrap align-items-center">
           <strong class="me-2 text-nowrap">Include information:</strong>
           <div class="form-check form-check-inline text-nowrap">
             <input type="checkbox" class="form-check-input" id="user-events-show-description"
@@ -1511,7 +1511,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
         </div>
       </div>
       <div class="row mb-3">
-        <div class="col-sm-12 d-flex flex-nowrap align-items-center">
+        <div class="col-sm-12 d-flex flex-wrap flex-md-nowrap align-items-center">
           <strong class="me-2 text-nowrap">Include event types:</strong>
           <div class="form-check form-check-inline text-nowrap">
             <input type="checkbox" class="form-check-input" id="include-walks"
@@ -1798,12 +1798,6 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
             </div>
           </div>
         }
-        @if (campaignSendComplete) {
-          <div class="alert alert-success">
-            <fa-icon [icon]="faCheckCircle" class="me-2"/>
-            <strong>Sent:</strong> the campaign was sent successfully.
-          </div>
-        }
       </div>
     </ng-template>
   `
@@ -1950,6 +1944,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.subscriptions.push(this.route.queryParamMap.subscribe((paramMap: ParamMap) => {
       void this.applyContextFromRoute(paramMap, this.route.snapshot.paramMap);
       this.applyUrlStateToComposer(paramMap);
+      void this.applyCompositionFromRoute(paramMap);
     }));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(config => {
       this.mailMessagingConfig = config;
@@ -2025,6 +2020,23 @@ export class EmailComposer implements OnInit, OnDestroy {
     } else {
       this.state.context = { source: EmailComposerContextSource.ADMIN };
       this.state.eventInclusion = EventInclusionMode.NONE;
+    }
+  }
+
+  private routeCompositionKey: string | null = null;
+
+  private async applyCompositionFromRoute(queryParams: ParamMap): Promise<void> {
+    const draftId = queryParams.get(StoredValue.EMAIL_DRAFT);
+    const copyOfId = queryParams.get(StoredValue.EMAIL_COPY_OF);
+    const key = draftId ? `draft:${draftId}` : copyOfId ? `copy-of:${copyOfId}` : null;
+    if (key === this.routeCompositionKey) {
+      return;
+    }
+    this.routeCompositionKey = key;
+    if (draftId) {
+      await this.loadDraft(draftId);
+    } else if (copyOfId) {
+      await this.useAsTemplate(copyOfId);
     }
   }
 
@@ -2119,6 +2131,32 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (missing.length > 0) {
       this.logger.warn("resolveCommitteeFiles:no files found for ids:", missing);
     }
+    void this.resolveCommitteeFilePagePaths(ids);
+  }
+
+  private committeeFilePagePathById = new Map<string, string>();
+
+  private async resolveCommitteeFilePagePaths(ids: string[]): Promise<void> {
+    const unresolved = ids.filter(id => !this.committeeFilePagePathById.has(id));
+    if (unresolved.length === 0) {
+      return;
+    }
+    try {
+      const pages: PageContent[] = await this.pageContentService.all({
+        criteria: {"rows.committeeDocuments.fileIds": {$in: unresolved}}
+      });
+      pages.forEach(page => (page.rows ?? []).forEach(row => (row.committeeDocuments?.fileIds ?? []).forEach(fileId => {
+        if (unresolved.includes(fileId) && !this.committeeFilePagePathById.has(fileId)) {
+          this.committeeFilePagePathById.set(fileId, page.path);
+        }
+      })));
+    } catch (error) {
+      this.logger.warn("resolveCommitteeFilePagePaths failed for ids:", unresolved, error);
+    }
+  }
+
+  protected committeeFileLinkPath(file: CommitteeFile): string {
+    return this.state.context?.sourcePagePath || this.committeeFilePagePathById.get(file.id) || "";
   }
 
   private allFragmentCommitteeFileIds(): string[] {
@@ -2541,20 +2579,12 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected savedAddressesExpanded: boolean = false;
   protected addExternalExpanded: boolean = true;
 
-  private listNameImpliesMembers(list: ListInfo): boolean {
-    return /members?$/i.test(list.name.trim());
-  }
-
   protected listSubscriberCount(list: ListInfo): string {
-    const subscribers = this.subscribedMemberCount(list);
-    return this.listNameImpliesMembers(list) ? `${subscribers}` : this.stringUtils.pluraliseWithCount(subscribers, "member");
+    return this.stringUtils.pluraliseWithCount(this.subscribedMemberCount(list), "subscriber");
   }
 
   protected listNameAndCount(list: ListInfo): string {
-    const subscribers = this.subscribedMemberCount(list);
-    return this.listNameImpliesMembers(list)
-      ? `${list.name} - ${subscribers}`
-      : this.stringUtils.pluraliseWithCount(subscribers, `${list.name} member`);
+    return `${list.name} - ${this.listSubscriberCount(list)}`;
   }
 
   protected subscribedMemberCount(list: ListInfo): number {
@@ -4335,6 +4365,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.currentComposition = null;
       this.composeShared = false;
       this.sentEmailsPanelOpen = false;
+      this.routeCompositionKey = `copy-of:${id}`;
+      this.syncStateToUrl({ [StoredValue.EMAIL_DRAFT]: null, [StoredValue.EMAIL_COPY_OF]: id });
       await this.rehydrateAfterLoad(selectedGroupEventIds);
       this.notify.success({ title: "Loaded as template", message: "Edit and save as a new draft" });
     } catch (error) {
@@ -4364,6 +4396,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.currentDraftId = draft.id;
       this.lastSavedAt = draft.savedAt;
       this.currentComposition = draft;
+      this.routeCompositionKey = `draft:${draft.id}`;
+      this.syncStateToUrl({ [StoredValue.EMAIL_DRAFT]: draft.id, [StoredValue.EMAIL_COPY_OF]: null });
       await this.refreshDrafts();
       this.notify.success({ title: "Draft saved", message: draft.title });
     } catch (error) {
@@ -4389,6 +4423,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.currentComposition = draft;
       this.composeShared = draft.shared;
       this.draftsPanelOpen = false;
+      this.routeCompositionKey = `draft:${draft.id}`;
+      this.syncStateToUrl({ [StoredValue.EMAIL_DRAFT]: draft.id, [StoredValue.EMAIL_COPY_OF]: null });
       await this.rehydrateAfterLoad(selectedGroupEventIds);
       this.notify.success({ title: "Draft loaded", message: draft.title });
     } catch (error) {
@@ -4480,6 +4516,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       if (this.currentDraftId === id) {
         this.currentDraftId = null;
         this.lastSavedAt = null;
+        this.routeCompositionKey = null;
+        this.syncStateToUrl({ [StoredValue.EMAIL_DRAFT]: null });
       }
       await this.refreshDrafts();
     } catch (error) {
@@ -4489,7 +4527,8 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected newComposition(): void {
     this.forcedMemberId = null;
-    this.syncStateToUrl({ [StoredValue.EMAIL_MEMBER]: null });
+    this.routeCompositionKey = null;
+    this.syncStateToUrl({ [StoredValue.EMAIL_MEMBER]: null, [StoredValue.EMAIL_DRAFT]: null, [StoredValue.EMAIL_COPY_OF]: null });
     this.state = defaultEmailComposerState();
     if (this.mailMessagingConfig) {
       this.state.notificationConfigListing = {
@@ -4959,8 +4998,8 @@ export class EmailComposer implements OnInit, OnDestroy {
     await this.recordSentToHistory();
     this.notify.hide();
     this.notify.success({
-      title: "Campaign submitted",
-      message: overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `Campaign sent to ${this.recipientCountSummary(false)}`
+      title: "Campaign sent",
+      message: overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `successfully to ${this.recipientCountSummary(false)}`
     });
   }
 

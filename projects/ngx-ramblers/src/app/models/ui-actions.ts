@@ -55,6 +55,8 @@ export enum StoredValue {
   INBOX_THREAD = "thread",
   EMAIL_PRE_FILTER = "pre-filter",
   EMAIL_CONFIG_ID = "config-id",
+  EMAIL_DRAFT = "draft-id",
+  EMAIL_COPY_OF = "copy-of",
   EMAIL_EVENT_INCLUSION = "event-inclusion",
   EMAIL_SECTION_DIVIDER = "divider",
   EMAIL_COMMITTEE_FILE = "committee-file",

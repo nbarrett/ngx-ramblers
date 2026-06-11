@@ -735,7 +735,9 @@ async function runDev(config: LocalRunConfig): Promise<void> {
   await clearPortForLocalRun(4200, "Frontend");
 
   const completeSecrets = await loadAndEnsureSecrets(config.environmentName, envConfig.appName, envConfig.apiKey);
-  const s3BucketOverride = config.s3BucketOverride ?? await selectS3BucketOverride(config.environmentName, completeSecrets.AWS_BUCKET || "unknown");
+  const s3BucketOverride = config.s3BucketOverride === false
+    ? null
+    : config.s3BucketOverride ?? await selectS3BucketOverride(config.environmentName, completeSecrets.AWS_BUCKET || "unknown");
   const env = buildEnvironmentVariables(completeSecrets, "dev", config.port, s3BucketOverride);
 
   const configuredWorkerUrl = (
@@ -953,7 +955,9 @@ async function runProd(config: LocalRunConfig): Promise<void> {
   await clearPortForLocalRun(config.port, "Server");
 
   const completeSecrets = await loadAndEnsureSecrets(config.environmentName, envConfig.appName, envConfig.apiKey);
-  const s3BucketOverride = config.s3BucketOverride ?? await selectS3BucketOverride(config.environmentName, completeSecrets.AWS_BUCKET || "unknown");
+  const s3BucketOverride = config.s3BucketOverride === false
+    ? null
+    : config.s3BucketOverride ?? await selectS3BucketOverride(config.environmentName, completeSecrets.AWS_BUCKET || "unknown");
   const env = buildEnvironmentVariables(completeSecrets, "prod", config.port, s3BucketOverride);
   const logDir = resolveLogDir(config.logDir);
   const timestamp = buildLogTimestamp(config.logTimestamp);
@@ -1085,6 +1089,7 @@ export function createLocalCommand(): Command {
     .description("Start in development mode with hot reload (ng serve + tsx watch)")
     .option("-p, --port <port>", "Backend port", "5001")
     .option("--s3-bucket <bucket>", "Override S3 bucket name (e.g. ngx-ramblers-north-west-kent)")
+    .option("--no-s3-bucket-override", "Use the environment's own S3 bucket without prompting for an override")
     .option("--log-dir <dir>", "Directory to write frontend.log and backend.log")
     .option("--log-timestamp", "Add timestamp to log filenames")
     .option("--no-log-viewer", "Disable built-in log viewer and stream to stdout")
@@ -1112,7 +1117,7 @@ export function createLocalCommand(): Command {
             logDir: options.logDir || null,
             logTimestamp: options.logTimestamp || false,
             logViewer,
-            s3BucketOverride: options.s3Bucket || null,
+            s3BucketOverride: options.s3BucketOverride === false ? false : options.s3Bucket ?? null,
             dockerWorker,
             headless
           },
@@ -1141,6 +1146,7 @@ export function createLocalCommand(): Command {
     .description("Build and start in production mode")
     .option("-p, --port <port>", "Server port", "5001")
     .option("--s3-bucket <bucket>", "Override S3 bucket name (e.g. ngx-ramblers-north-west-kent)")
+    .option("--no-s3-bucket-override", "Use the environment's own S3 bucket without prompting for an override")
     .option("--log-dir <dir>", "Directory to write frontend.log and backend.log")
     .option("--log-timestamp", "Add timestamp to log filenames")
     .option("--no-log-viewer", "Disable built-in log viewer and stream to stdout")
@@ -1164,7 +1170,7 @@ export function createLocalCommand(): Command {
             logDir: options.logDir || null,
             logTimestamp: options.logTimestamp || false,
             logViewer,
-            s3BucketOverride: options.s3Bucket || null
+            s3BucketOverride: options.s3BucketOverride === false ? false : options.s3Bucket ?? null
           },
           logViewer
         );
