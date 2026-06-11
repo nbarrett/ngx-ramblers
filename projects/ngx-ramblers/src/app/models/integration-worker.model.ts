@@ -112,3 +112,19 @@ export interface HtmlFetchResult {
   finalUrl: string;
   baseHref: string | null;
 }
+
+export interface DocumentConversionWorkerRequest {
+  fileName: string;
+  fileBase64: string;
+}
+
+export interface ConvertedDocumentImage {
+  name: string;
+  base64: string;
+}
+
+export interface DocumentConversionWorkerResponse {
+  markdown: string;
+  suggestedTitle: string;
+  images: ConvertedDocumentImage[];
+}

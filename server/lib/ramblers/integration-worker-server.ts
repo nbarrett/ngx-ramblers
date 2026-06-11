@@ -13,6 +13,7 @@ import { health } from "../health/health";
 import { integrationWorkerRoutes } from "./integration-worker-routes";
 import { integrationWorkerBrowserRoutes } from "./integration-worker-browser-routes";
 import { integrationWorkerMigrationRoutes } from "./integration-worker-migration-routes";
+import { documentConversionWorkerRoutes } from "../document-conversion/document-conversion-worker-routes";
 
 install();
 
@@ -52,7 +53,8 @@ app.get("/", (req, res) => {
       progressCallback: { method: "POST", path: "/api/integration-worker/progress" },
       resultCallback: { method: "POST", path: "/api/integration-worker/result" },
       htmlFetch: { method: "POST", path: "/api/integration-worker/browser/html-fetch" },
-      flickrUserAlbums: { method: "POST", path: "/api/integration-worker/browser/flickr-user-albums" }
+      flickrUserAlbums: { method: "POST", path: "/api/integration-worker/browser/flickr-user-albums" },
+      documentConversion: { method: "POST", path: "/api/integration-worker/document-conversion/convert" }
     },
     documentation: "https://www.ngx-ramblers.org.uk/how-to/technical-articles/2026-04-12-secrets-deployment-and-cloudflare-config"
   });
@@ -61,6 +63,7 @@ app.get("/api/health", health);
 app.use("/api/integration-worker", integrationWorkerRoutes);
 app.use("/api/integration-worker/browser", integrationWorkerBrowserRoutes);
 app.use("/api/integration-worker/migration", integrationWorkerMigrationRoutes);
+app.use("/api/integration-worker/document-conversion", documentConversionWorkerRoutes);
 
 if (app.get("env") === "dev") {
   app.use(errorHandler());

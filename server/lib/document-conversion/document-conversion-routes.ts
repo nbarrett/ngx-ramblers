@@ -8,9 +8,37 @@ import { objectBufferForKey, putBufferDirect } from "../aws/aws-controllers";
 import { v4 as uuid } from "uuid";
 import { ExtractedPdfImage } from "./pdf-styled-extraction";
 import committeeFile from "../mongo/models/committee-file";
-import { convertBufferToMarkdown } from "./document-conversion";
+import { convertBufferToMarkdown, replacePdfImagePlaceholders } from "./document-conversion";
+import { convertDocumentViaIntegrationWorker, documentConversionWorkerConfigured } from "./document-conversion-worker-client";
+import { DocumentConversionResponse } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 
 const CONVERTED_IMAGES_FOLDER = "committeeFiles/converted-images";
+
+async function convertWithBestEngine(buffer: Buffer, fileName: string): Promise<DocumentConversionResponse> {
+  if (documentConversionWorkerConfigured()) {
+    try {
+      const workerResult = await convertDocumentViaIntegrationWorker(buffer, fileName);
+      const imagePaths = new Map<string, string | null>();
+      for (const image of workerResult.images) {
+        const uploadedPath = await uploadConvertedImage({
+          name: image.name,
+          buffer: Buffer.from(image.base64, "base64"),
+          pageNumber: 0,
+          width: 0,
+          height: 0
+        });
+        imagePaths.set(image.name, uploadedPath);
+      }
+      return {
+        markdown: replacePdfImagePlaceholders(workerResult.markdown, imagePaths),
+        suggestedTitle: workerResult.suggestedTitle
+      };
+    } catch (error) {
+      debugLog("integration worker conversion failed, falling back to in-process conversion:", error);
+    }
+  }
+  return convertBufferToMarkdown(buffer, fileName, uploadConvertedImage);
+}
 
 async function uploadConvertedImage(image: ExtractedPdfImage): Promise<string | null> {
   const fileName = `${uuid()}.png`;
@@ -65,7 +93,7 @@ async function convertUploadedFile(req: Request, res: Response): Promise<void> {
   } else {
     try {
       const buffer = await fs.promises.readFile(uploadedFile.path);
-      const response = await convertBufferToMarkdown(buffer, uploadedFile.originalname, uploadConvertedImage);
+      const response = await convertWithBestEngine(buffer, uploadedFile.originalname);
       res.json({request: {fileName: uploadedFile.originalname}, response});
     } catch (error) {
       debugLog("convertUploadedFile failed:", error);
@@ -85,7 +113,7 @@ async function convertCommitteeFile(req: Request, res: Response): Promise<void> 
       res.status(400).json({request: {id}, error: "Committee file has no attachment to convert"});
     } else {
       const buffer = await attachmentBuffer(fileNameData);
-      const response = await convertBufferToMarkdown(buffer, fileNameData.originalFileName || fileNameData.awsFileName, uploadConvertedImage);
+      const response = await convertWithBestEngine(buffer, fileNameData.originalFileName || fileNameData.awsFileName);
       res.json({request: {id}, response});
     }
   } catch (error) {

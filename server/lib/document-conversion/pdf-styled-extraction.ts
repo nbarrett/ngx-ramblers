@@ -220,7 +220,8 @@ export async function extractStyledPdfMarkdown(buffer: Buffer): Promise<StyledPd
         return pageImages.length > 0 ? `${pageText}\n${pageImages}` : pageText;
       })
       .join("\n");
-    return {markdown, pageCount: pdfDocument.numPages, images};
+    const placedImages = images.filter(image => !tablePageNumbers.includes(image.pageNumber) || image.name.startsWith("table-page-"));
+    return {markdown, pageCount: pdfDocument.numPages, images: placedImages};
   } finally {
     await parser.destroy();
   }

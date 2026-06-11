@@ -27,6 +27,14 @@ describe("replacePdfImagePlaceholders", () => {
     expect(replacePdfImagePlaceholders(markdown, imagePaths)).toEqual("## Section\nbody text.");
   });
 
+  it("supports a two-pass substitution: a collector echoing the placeholder defers replacement to a later pass", () => {
+    const markdown = "## Section\n![](pdf-image:img_p0_1)\nbody text.";
+    const collectorPass = replacePdfImagePlaceholders(markdown, new Map([["img_p0_1", "pdf-image:img_p0_1"]]));
+    expect(collectorPass).toEqual(markdown);
+    const finalPass = replacePdfImagePlaceholders(collectorPass, new Map([["img_p0_1", "api/aws/s3/committeeFiles/converted-images/real.png"]]));
+    expect(finalPass).toEqual("## Section\n![](api/aws/s3/committeeFiles/converted-images/real.png)\nbody text.");
+  });
+
   it("leaves ordinary markdown images alone", () => {
     const markdown = "![photo](https://example.com/photo.jpg)";
     expect(replacePdfImagePlaceholders(markdown, new Map())).toEqual(markdown);
