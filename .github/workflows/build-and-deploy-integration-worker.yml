@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "Existing ngx-ramblers image tag to deploy (e.g. a run_number from the main workflow). Leave blank to build a fresh worker-${run_id} image."
+        description: "Existing worker image tag to deploy (e.g. integration-worker-687). A bare run number is auto-prefixed with integration-worker-; plain run-number tags are the browserless website image. Leave blank to build a fresh worker image."
         required: false
         default: ""
         type: string

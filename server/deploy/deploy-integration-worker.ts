@@ -40,7 +40,7 @@ async function deployIntegrationWorker(): Promise<void> {
   const imageRepository = process.env[Environment.INTEGRATION_WORKER_IMAGE_REPOSITORY] || DEPLOYMENT_DEFAULTS.DOCKER_IMAGE.split(":")[0];
   const scaleCount = workerConfig.scaleCount ?? FLYIO_DEFAULTS.SCALE_COUNT;
   const memory = workerConfig.memory || FLYIO_DEFAULTS.MEMORY;
-  const imageTag = imageTagFromArg();
+  const imageTag = workerImageTag();
   const image = `${imageRepository}:${imageTag}`;
   const flyTomlPath = path.resolve(__dirname, "../../fly.integration-worker.toml");
 
@@ -96,6 +96,24 @@ function importWorkerSecrets(
       fs.unlinkSync(tempFile);
     }
   }
+}
+
+const WORKER_TAG_PREFIX = "integration-worker-";
+
+function workerImageTag(): string {
+  const imageTag = imageTagFromArg();
+
+  if (imageTag.startsWith(WORKER_TAG_PREFIX)) {
+    return imageTag;
+  }
+
+  if (/^\d+$/.test(imageTag)) {
+    const normalisedTag = `${WORKER_TAG_PREFIX}${imageTag}`;
+    debugLog(`Image tag ${imageTag} refers to the browserless website image - normalising to ${normalisedTag}`);
+    return normalisedTag;
+  }
+
+  throw new Error(`Image tag ${imageTag} is not a worker image tag - worker images are pushed as ${WORKER_TAG_PREFIX}<run number>`);
 }
 
 function imageTagFromArg(): string {
