@@ -74,14 +74,14 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                    (mouseover)="selectCommitteeFile(committeeFile)">
                 @if (committeeFile.fileNameData || committeeFile.document) {
                   <div class="file-download">
-                    <div class="file-actions" dropdown container="body">
+                    <div class="file-actions" dropdown container="body" placement="bottom right">
                       <a dropdownToggle role="button" class="file-actions-toggle">
                         <img [alt]="display.iconFile(committeeFile)"
                              [src]="'assets/images/ramblers/' + display.iconFile(committeeFile)"
                              class="icon"/>
                         <fa-icon [icon]="faCaretDown" class="file-actions-caret"/>
                       </a>
-                      <ul *dropdownMenu class="dropdown-menu file-actions-menu" role="menu">
+                      <ul *dropdownMenu class="dropdown-menu dropdown-menu-end file-actions-menu" role="menu">
                         <li class="file-actions-heading">
                           <span class="file-actions-type">{{ committeeFile.fileType }}</span>
                           {{ display.fileTitle(committeeFile) }}
@@ -120,6 +120,31 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                             </a>
                           </li>
                         }
+                        @if (allowFileActions(committeeFile)) {
+                          <li class="d-sm-none"><hr class="dropdown-divider my-1"></li>
+                          @if (display.allowEditCommitteeFile(committeeFile)) {
+                            <li class="d-sm-none">
+                              <a class="dropdown-item" role="button"
+                                 (click)="editCommitteeFile(committeeFile)">
+                                <fa-icon [icon]="faEdit" class="fa-icon me-2"/>Edit
+                              </a>
+                            </li>
+                            <li class="d-sm-none">
+                              <a class="dropdown-item" role="button"
+                                 (click)="sendNotification(committeeFile)">
+                                <fa-icon [icon]="faEnvelope" class="fa-icon me-2"/>Send Email
+                              </a>
+                            </li>
+                          }
+                          @if (display.allowDeleteCommitteeFile(committeeFile)) {
+                            <li class="d-sm-none">
+                              <a class="dropdown-item" role="button"
+                                 (click)="requestDeleteCommitteeFile(committeeFile)">
+                                <fa-icon [icon]="faTrash" class="fa-icon me-2"/>Delete
+                              </a>
+                            </li>
+                          }
+                        }
                       </ul>
                     </div>
                   </div>
@@ -128,8 +153,19 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                   <h6>{{ committeeFile.fileType }}</h6>
                   <p>{{ display.fileTitle(committeeFile) }}</p>
                   @if (memberLoginService.allowCommittee() && isActive(committeeFile) && committeeDocumentsConfig?.showFileActions && !editingFile) {
-                    <div class="d-flex gap-2 flex-wrap mt-2">
-                      @if (!display.confirm.deleteConfirmOutstanding()) {
+                    @if (display.confirm.deleteConfirmOutstanding()) {
+                      <div class="d-flex gap-2 flex-wrap mt-2">
+                        <button (click)="confirmDeleteCommitteeFile(committeeFile)"
+                                class="btn btn-danger btn-sm">
+                          <fa-icon [icon]="faCheck" class="me-1"></fa-icon>Confirm Delete
+                        </button>
+                        <button (click)="display.confirm.clear();"
+                                class="btn btn-secondary btn-sm">
+                          <fa-icon [icon]="faBan" class="me-1"></fa-icon>Cancel
+                        </button>
+                      </div>
+                    } @else {
+                      <div class="d-none d-sm-flex gap-2 flex-wrap mt-2">
                         @if (display.allowEditCommitteeFile(committeeFile)) {
                           <button (click)="editCommitteeFile(committeeFile)"
                                   class="btn btn-success btn-sm">
@@ -156,18 +192,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                             <fa-icon [icon]="faTrash" class="me-1"></fa-icon>Delete
                           </button>
                         }
-                      }
-                      @if (display.confirm.deleteConfirmOutstanding()) {
-                        <button (click)="confirmDeleteCommitteeFile(committeeFile)"
-                                class="btn btn-danger btn-sm">
-                          <fa-icon [icon]="faCheck" class="me-1"></fa-icon>Confirm Delete
-                        </button>
-                        <button (click)="display.confirm.clear();"
-                                class="btn btn-secondary btn-sm">
-                          <fa-icon [icon]="faBan" class="me-1"></fa-icon>Cancel
-                        </button>
-                      }
-                    </div>
+                      </div>
+                    }
                   }
                 </div>
               </div>
@@ -333,6 +359,16 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
 
   isActive(committeeFile: CommitteeFile): boolean {
     return committeeFile === this.selectedCommitteeFile;
+  }
+
+  allowFileActions(committeeFile: CommitteeFile): boolean {
+    return Boolean(this.memberLoginService.allowCommittee() && this.committeeDocumentsConfig?.showFileActions && !this.editingFile
+      && (this.display.allowEditCommitteeFile(committeeFile) || this.display.allowDeleteCommitteeFile(committeeFile)));
+  }
+
+  requestDeleteCommitteeFile(committeeFile: CommitteeFile) {
+    this.selectedCommitteeFile = committeeFile;
+    this.deleteCommitteeFile();
   }
 
   addCommitteeFile() {

@@ -231,13 +231,14 @@ export function renderBrandedTemplate(rawHtml: string,
 }
 
 export function composeShellAndBody(bodyMarkdown: string): string {
+  const bodyPlacesContent = /\{\{\s*params\.messageMergeFields\.BODY_CONTENT\s*\}\}/.test(bodyMarkdown ?? "");
   return [
     "<h3>{{params.messageMergeFields.subject}}</h3>",
     "{% if params.messageMergeFields.ADDRESS_LINE %}<p>{{params.messageMergeFields.ADDRESS_LINE}}</p>{% endif %}",
-    "{{params.messageMergeFields.BODY_CONTENT_TOP}}",
+    bodyPlacesContent ? "" : "{{params.messageMergeFields.BODY_CONTENT_TOP}}",
     renderMarkdownPreservingTokens(bodyMarkdown),
-    "{{params.messageMergeFields.BODY_CONTENT_BOTTOM}}"
-  ].join("\n");
+    bodyPlacesContent ? "" : "{{params.messageMergeFields.BODY_CONTENT_BOTTOM}}"
+  ].filter(section => section).join("\n");
 }
 
 export function renderLocalBrandedTemplate(templateName: string,

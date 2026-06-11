@@ -44,6 +44,10 @@ import { SECTION_DIVIDER_OPTIONS, SectionDividerStyle } from "../../../models/em
     :host ::ng-deep ng-select .ng-value-label
       display: block
       width: 100%
+
+    @media (max-width: 575.98px)
+      .section-divider-select ng-select
+        min-width: 0
   `],
   template: `
     <div class="section-divider-select">

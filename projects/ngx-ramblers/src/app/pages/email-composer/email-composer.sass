@@ -5,6 +5,8 @@
   border-radius: 6px
   padding: 14px 18px 16px
   margin: 0 0 20px 0
+  min-inline-size: 0
+  max-width: 100%
   > legend
     float: none
     display: block
@@ -39,6 +41,9 @@
   border: none
   padding: 0
   background: transparent
+
+:host ::ng-deep .p-stepper .p-steppanel-content-wrapper
+  min-width: 0
 
 :host ::ng-deep .p-stepper .p-steplist
   display: flex
