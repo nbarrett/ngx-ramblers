@@ -1,8 +1,8 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, ElementRef, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { NgClass, NgStyle } from "@angular/common";
-import { first } from "es-toolkit/compat";
+import { first, isUndefined } from "es-toolkit/compat";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
@@ -122,23 +122,35 @@ import { CommitteeDocumentView } from "../document/committee-document-view";
                  class="form-control input-md"
                  placeholder="Enter a title for this document">
         </div>
-        <div class="col-md-12 mb-3 d-flex gap-2 flex-wrap">
-          <input type="submit" [disabled]="notifyTarget.busy"
-                 value="Start from a file"
-                 title="Pre-fill the editor from an existing Word or PDF document"
-                 (click)="browseToConversionFile(conversionFileElement)"
-                 class="btn btn-sunset">
-          <input #conversionFileElement class="d-none"
-                 type="file"
-                 [accept]="conversionAccept"
-                 (change)="onConversionFileSelected($event)">
-          <button type="button" [disabled]="notifyTarget.busy"
-                  (click)="togglePreview()"
-                  class="btn btn-secondary">
-            <fa-icon [icon]="previewing ? faEyeSlash : faEye" class="me-1"/>
-            {{ previewing ? "Hide Preview" : "Preview" }}
-          </button>
+      </div>
+      <div #editorActions class="committee-file-editor-actions">
+        <div class="d-flex gap-2 flex-wrap">
+            <input type="submit" value="Save File"
+                   [disabled]="notifyTarget.busy"
+                   (click)="save()"
+                   class="btn btn-primary">
+            <input type="submit" value="Cancel"
+                   [disabled]="notifyTarget.busy"
+                   (click)="cancelled.emit()"
+                   class="btn btn-secondary">
+            <input type="submit" [disabled]="notifyTarget.busy"
+                   value="Start from a file"
+                   title="Pre-fill the editor from an existing Word or PDF document"
+                   (click)="browseToConversionFile(conversionFileElement)"
+                   class="btn btn-sunset">
+            <input #conversionFileElement class="d-none"
+                   type="file"
+                   [accept]="conversionAccept"
+                   (change)="onConversionFileSelected($event)">
+            <button type="button" [disabled]="notifyTarget.busy"
+                    (click)="togglePreview()"
+                    class="btn btn-secondary">
+              <fa-icon [icon]="previewing ? faEyeSlash : faEye" class="me-1"/>
+              {{ previewing ? "Hide Preview" : "Preview" }}
+            </button>
         </div>
+      </div>
+      <div class="row">
         <div class="col-md-12 mb-3">
           @if (!previewing) {
             <div class="committee-document-editing">
@@ -165,16 +177,18 @@ import { CommitteeDocumentView } from "../document/committee-document-view";
         {{ notifyTarget.alertMessage }}
       </div>
     }
-    <div class="d-flex gap-2">
-      <input type="submit" value="Save File"
-             [disabled]="notifyTarget.busy"
-             (click)="save()"
-             class="btn btn-primary">
-      <input type="submit" value="Cancel"
-             [disabled]="notifyTarget.busy"
-             (click)="cancelled.emit()"
-             class="btn btn-secondary">
-    </div>`,
+    @if (kind === CommitteeFileKind.ATTACHMENT) {
+      <div class="d-flex gap-2">
+        <input type="submit" value="Save File"
+               [disabled]="notifyTarget.busy"
+               (click)="save()"
+               class="btn btn-primary">
+        <input type="submit" value="Cancel"
+               [disabled]="notifyTarget.busy"
+               (click)="cancelled.emit()"
+               class="btn btn-secondary">
+      </div>
+    }`,
   imports: [DatePicker, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule, TiptapMarkdownEditor, CommitteeDocumentView, SectionToggle]
 })
 export class CommitteeFileEditor implements OnInit, OnDestroy {
@@ -207,6 +221,20 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
   @Input() committeeFile: CommitteeFile;
   @Output() saved = new EventEmitter<CommitteeFile>();
   @Output() cancelled = new EventEmitter<void>();
+  private hostRef = inject(ElementRef);
+  private actionsResizeObserver: ResizeObserver | null = isUndefined(ResizeObserver) ? null : new ResizeObserver(entries => {
+    const actionsBar = entries[0]?.target as HTMLElement;
+    this.hostRef.nativeElement.style.setProperty("--committee-editor-actions-offset", `${Math.ceil(actionsBar?.offsetHeight ?? 0)}px`);
+  });
+
+  @ViewChild("editorActions") set editorActions(ref: ElementRef<HTMLDivElement> | undefined) {
+    this.actionsResizeObserver?.disconnect();
+    if (ref?.nativeElement && this.actionsResizeObserver) {
+      this.actionsResizeObserver.observe(ref.nativeElement);
+    } else {
+      this.hostRef.nativeElement.style.setProperty("--committee-editor-actions-offset", "0px");
+    }
+  }
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -224,6 +252,7 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.actionsResizeObserver?.disconnect();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 

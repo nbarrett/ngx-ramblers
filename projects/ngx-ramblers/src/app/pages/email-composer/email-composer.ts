@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from "@angular/core";
+import { ChangeDetectorRef, Component, ElementRef, inject, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -1815,6 +1815,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   private memberService = inject(MemberService);
   private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
   private memberLoginService = inject(MemberLoginService);
+  private changeDetector = inject(ChangeDetectorRef);
   private systemConfigService = inject(SystemConfigService);
   protected stringUtils = inject(StringUtilsService);
   protected dateUtils = inject(DateUtilsService);
@@ -2008,7 +2009,7 @@ export class EmailComposer implements OnInit, OnDestroy {
         const matched = this.allCommitteeFiles.find(file => this.committeeDisplayService.committeeFileSlug(file) === committeeFile);
         if (matched) {
           this.ensureCommitteeFileFragmentForIds([matched.id]);
-          this.resolveCommitteeFiles(this.allFragmentCommitteeFileIds());
+          await this.resolveCommitteeFiles(this.allFragmentCommitteeFileIds());
         } else {
           this.logger.warn("applyContextFromRoute:no committee file matched slug:", committeeFile);
         }
@@ -2115,10 +2116,10 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected onPickerFilesLoaded(files: CommitteeFile[]): void {
     this.allCommitteeFiles = files ?? [];
-    this.resolveCommitteeFiles(this.allFragmentCommitteeFileIds());
+    void this.resolveCommitteeFiles(this.allFragmentCommitteeFileIds());
   }
 
-  private resolveCommitteeFiles(ids: string[]): void {
+  private async resolveCommitteeFiles(ids: string[]): Promise<void> {
     this.committeeFiles = new Map();
     if (!ids?.length || !this.allCommitteeFiles?.length) return;
     const wanted = new Set(ids);
@@ -2131,7 +2132,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (missing.length > 0) {
       this.logger.warn("resolveCommitteeFiles:no files found for ids:", missing);
     }
-    void this.resolveCommitteeFilePagePaths(ids);
+    await this.resolveCommitteeFilePagePaths(ids);
   }
 
   private committeeFilePagePathById = new Map<string, string>();
@@ -2157,6 +2158,25 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected committeeFileLinkPath(file: CommitteeFile): string {
     return this.state.context?.sourcePagePath || this.committeeFilePagePathById.get(file.id) || "";
+  }
+
+  private async resolveCommitteeFileLinksForSend(): Promise<void> {
+    const ids = this.allFragmentCommitteeFileIds();
+    if (ids.length > 0) {
+      if (this.allCommitteeFiles.length === 0) {
+        await this.loadAllCommitteeFiles();
+      }
+      await this.resolveCommitteeFiles(ids);
+      this.changeDetector.detectChanges();
+    }
+    const unresolved = ids
+      .map(id => this.committeeFiles.get(id))
+      .filter((file): file is CommitteeFile => !!file)
+      .filter(file => this.committeeDisplayService.isComposedDocument(file) && !this.committeeFileLinkPath(file));
+    if (unresolved.length > 0) {
+      const titles = unresolved.map(file => this.committeeDisplayService.fileTitle(file)).join(", ");
+      throw new Error(`Cannot resolve the committee document page for ${titles}`);
+    }
   }
 
   private allFragmentCommitteeFileIds(): string[] {
@@ -2243,7 +2263,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected onCommitteeFileIdsChanged(fragment: ComposerFragment, ids: string[]): void {
     fragment.committeeFileIds = isArray(ids) ? Array.from(new Set(ids)) : [];
     this.state.fragmentOrder = [...(this.state.fragmentOrder ?? [])];
-    this.resolveCommitteeFiles(this.allFragmentCommitteeFileIds());
+    void this.resolveCommitteeFiles(this.allFragmentCommitteeFileIds());
   }
 
   protected async onCommitteeFileUrlChanged(value: string): Promise<void> {
@@ -4506,7 +4526,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       if (this.allCommitteeFiles.length === 0) {
         await this.loadAllCommitteeFiles();
       }
-      this.resolveCommitteeFiles(allIds);
+      await this.resolveCommitteeFiles(allIds);
     }
   }
 
@@ -4655,6 +4675,13 @@ export class EmailComposer implements OnInit, OnDestroy {
     const isUnbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
     if (!isUnbranded && !this.state.notificationConfig?.templateName) {
       this.emailPreview?.showError("Choose a template to render the preview.");
+      return;
+    }
+    try {
+      await this.resolveCommitteeFileLinksForSend();
+    } catch (error) {
+      this.logger.error("refreshPreview committee file link resolution failed", error);
+      this.emailPreview?.showError(this.errorMessage(error));
       return;
     }
     const { top, bottom, combined } = this.composedBodyParts();
@@ -4959,6 +4986,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     const groupMembers = await this.memberService.privilegedFields(this.memberService.filterFor.GROUP_MEMBERS);
     await this.mailListUpdaterService.updateMailLists(this.notify, groupMembers);
     const member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
+    await this.resolveCommitteeFileLinksForSend();
     const { top, bottom, combined } = this.composedBodyParts();
     const campaignTop = toCampaignContactTokens(top);
     const campaignBottom = toCampaignContactTokens(bottom);
@@ -5018,6 +5046,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private async startBatchTransactionalSend(): Promise<void> {
+    await this.resolveCommitteeFileLinksForSend();
     const { top, bottom, combined } = this.composedBodyParts();
     const isUnbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
     const request: BatchTransactionalSendRequest = {
