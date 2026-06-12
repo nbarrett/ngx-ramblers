@@ -6,7 +6,7 @@
     margin-bottom: 1rem
   ol li, ul li
     margin-bottom: 0.5rem
-  h1, h2, h3
+  h1, h2, h3, h4, h5, h6
     font-weight: 700
     margin: 2rem 0 0.75rem
   h1
@@ -15,6 +15,12 @@
     font-size: 1.6rem
   h3
     font-size: 1.25rem
+  h4
+    font-size: 1.1rem
+  h5
+    font-size: 1rem
+  h6
+    font-size: 0.9rem
   h1, h2
     display: block
     width: fit-content
@@ -172,6 +178,28 @@
 .committee-document-body
   +committee-document-content
   margin: 0 2.5rem 3rem
+  h1, h2
+    width: auto
+    padding: 0
+    margin-left: 0
+    &::after
+      display: none
+
+.committee-document-highlight,
+.committee-document-title span
+  padding: 0 0.5rem 0.06em 0.35rem
+  margin-left: -0.35rem
+  background-image: linear-gradient(rgb(249, 177, 4), rgb(249, 177, 4))
+  background-size: 100% 0.42em
+  background-position: 0 100%
+  background-repeat: no-repeat
+  box-decoration-break: clone
+  -webkit-box-decoration-break: clone
+
+.committee-document-title span
+  display: inline
+  &::after
+    display: none
 
 @media screen
   .committee-document-body
@@ -199,17 +227,24 @@
   align-items: flex-end
   gap: 1.5rem
   flex-wrap: wrap
+  > div:first-child
+    flex: 1 1 auto
+    min-width: 0
 
 .committee-document-footer-group
   font-weight: 700
 
 .committee-document-footer-contact
+  display: flex
+  flex-wrap: wrap
+  column-gap: 0.5rem
   a
     color: rgb(64, 65, 65)
     font-weight: 700
+    white-space: nowrap
 
 .committee-document-footer-separator
-  margin: 0 0.5rem
+  margin: 0
 
 .committee-document-footer-charity
   margin-top: 0.5rem
@@ -222,6 +257,25 @@
 
 .committee-document-page-break
   display: none
+
+@media screen and (max-width: 767.98px)
+  .committee-document-backdrop
+    padding: 1rem 0.75rem
+  .committee-document-sheet
+    margin-bottom: 1rem
+  .committee-document-page-body
+    margin: 0 1.25rem 1rem
+  .committee-document-title-block
+    margin: 1.25rem 1.25rem 1rem
+  .committee-document-title
+    font-size: 1.6rem
+  .committee-document-header
+    left: 1.25rem
+  .committee-document-footer
+    padding: 0.5rem 1.25rem 1.25rem
+  .committee-document-body
+    margin: 0 1.25rem 1.5rem
+    font-size: 1rem
 
 .committee-document-embed
   width: 100%

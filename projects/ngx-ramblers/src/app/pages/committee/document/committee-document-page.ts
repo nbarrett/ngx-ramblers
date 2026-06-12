@@ -1,10 +1,10 @@
-import { Component, inject, OnDestroy, OnInit, Renderer2 } from "@angular/core";
+import { Component, inject, NgZone, OnDestroy, OnInit, Renderer2 } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { DOCUMENT } from "@angular/common";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { faArrowLeft, faDownload, faPrint } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faDownload, faPrint, faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { CommitteeFile } from "../../../models/committee.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -48,8 +48,17 @@ const PRINT_MODE_BODY_CLASS = "committee-document-print-mode";
             </a>
           </div>
           @if (embedUrl) {
-            <iframe class="committee-document-embed" [src]="embedUrl"
-                    [title]="pageTitle()"></iframe>
+            @if (mobileViewport && display.isOfficeViewable(committeeFile)) {
+              <p>This document is best viewed full screen on a phone.</p>
+              <a class="btn btn-primary" target="_blank" rel="noopener"
+                 [href]="display.directViewUrl(committeeFile)">
+                <fa-icon [icon]="faUpRightFromSquare" class="me-1"/>
+                View document
+              </a>
+            } @else {
+              <iframe class="committee-document-embed" [src]="embedUrl"
+                      [title]="pageTitle()"></iframe>
+            }
           } @else {
             <div class="alert alert-warning">
               <strong>Preview not available: </strong>this file type cannot be shown in the browser - use the
@@ -84,11 +93,18 @@ export class CommitteeDocumentPage implements OnInit, OnDestroy {
   public allowViewing = false;
   public notFound = false;
   private autoPrintTriggered = false;
+  protected mobileViewport = false;
+  private zone = inject(NgZone);
+  private mobileViewportQuery = window.matchMedia("(max-width: 767.98px)");
+  private mobileViewportListener = (event: MediaQueryListEvent) => this.zone.run(() => this.mobileViewport = event.matches);
   protected readonly faPrint = faPrint;
   protected readonly faDownload = faDownload;
   protected readonly faArrowLeft = faArrowLeft;
+  protected readonly faUpRightFromSquare = faUpRightFromSquare;
 
   ngOnInit(): void {
+    this.mobileViewport = this.mobileViewportQuery.matches;
+    this.mobileViewportQuery.addEventListener("change", this.mobileViewportListener);
     this.renderer.addClass(this.documentRef.body, PRINT_MODE_BODY_CLASS);
     this.subscriptions.push(this.display.configEvents().subscribe(data => {
       this.committeeReferenceData = data;
@@ -107,6 +123,7 @@ export class CommitteeDocumentPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.mobileViewportQuery.removeEventListener("change", this.mobileViewportListener);
     this.renderer.removeClass(this.documentRef.body, PRINT_MODE_BODY_CLASS);
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }

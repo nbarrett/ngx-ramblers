@@ -147,7 +147,8 @@ export class CommitteeDisplayService {
       const source = this.committeeFileUrl(committeeFile, undefined, this.urlService.publicBaseUrl());
       return source ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(source)}` : "";
     } else {
-      return this.committeeFileUrl(committeeFile, FileServeDisposition.INLINE);
+      const url = this.committeeFileUrl(committeeFile, FileServeDisposition.INLINE);
+      return url && this.fileExtensionIs(committeeFile?.fileNameData?.awsFileName, ["pdf"]) ? `${url}#view=FitH` : url;
     }
   }
 
@@ -164,7 +165,7 @@ export class CommitteeDisplayService {
     return this.fileExtensionIs(committeeFile?.fileNameData?.awsFileName, BROWSER_VIEWABLE_FILE_EXTENSIONS);
   }
 
-  private isOfficeViewable(committeeFile: CommitteeFile): boolean {
+  isOfficeViewable(committeeFile: CommitteeFile): boolean {
     return this.fileExtensionIs(committeeFile?.fileNameData?.awsFileName, OFFICE_FILE_EXTENSIONS);
   }
 
