@@ -211,11 +211,23 @@
 .committee-document-editing .tiptap-editor-shell
   overflow-x: clip
 
-.committee-document-editing .tiptap-toolbar
+.committee-file-editor-actions
   position: sticky
   top: 0
+  z-index: 30
+  background-color: #ffffff
+  padding-top: 0.5rem
+  padding-bottom: 1.5rem
+  .btn + .btn
+    margin-left: 0
+
+.committee-document-editing .tiptap-toolbar
+  position: sticky
+  top: var(--committee-editor-actions-offset, 0)
   z-index: 20
   background-color: #ffffff
+  border-top: 1px solid #ced4da
+  margin-top: -1px
 
 .committee-document-footer
   padding: 0.5rem 2.5rem 2rem
