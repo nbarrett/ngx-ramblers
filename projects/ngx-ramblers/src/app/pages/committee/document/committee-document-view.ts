@@ -221,7 +221,19 @@ export class CommitteeDocumentView implements OnInit, AfterViewInit, OnDestroy {
   onPrintMarkdownReady(): void {
     if (this.printBody?.nativeElement) {
       this.fitTables(this.printBody.nativeElement);
+      this.decorateHeadings(this.printBody.nativeElement);
     }
+  }
+
+  private decorateHeadings(host: HTMLElement): void {
+    Array.from(host.querySelectorAll("h1, h2")).forEach(heading => {
+      if (!heading.querySelector(".committee-document-highlight")) {
+        const span = heading.ownerDocument.createElement("span");
+        span.className = "committee-document-highlight";
+        span.append(...Array.from(heading.childNodes));
+        heading.appendChild(span);
+      }
+    });
   }
 
   private fitTables(host: HTMLElement): void {
@@ -264,6 +276,7 @@ export class CommitteeDocumentView implements OnInit, AfterViewInit, OnDestroy {
   private collectBlocks(): void {
     const content = this.masterContent.nativeElement;
     this.fitTables(content);
+    this.decorateHeadings(content);
     const markdownHost = content.querySelector("markdown");
     this.contentBlocks.forEach(block => {
       if (block.classList.contains("committee-document-title-block")) {
@@ -292,30 +305,33 @@ export class CommitteeDocumentView implements OnInit, AfterViewInit, OnDestroy {
     if (sheetWidth === 0 || this.contentBlocks.length === 0) {
       return;
     }
+    const continuousLayout = window.matchMedia("(max-width: 767.98px)").matches;
     const pageHeight = Math.round(sheetWidth * A4_HEIGHT_TO_WIDTH);
     const headerHeight = this.masterHeader.nativeElement.offsetHeight;
     const footerHeight = this.masterFooter.nativeElement.offsetHeight;
     const breathingSpace = Math.round(sheetWidth * 0.05);
     const contentCapacity = pageHeight - headerHeight - footerHeight - breathingSpace;
-    const distribution = this.contentBlocks.reduce((accumulated: { pages: HTMLElement[][]; used: number }, block) => {
-      const current = accumulated.pages[accumulated.pages.length - 1];
-      if (block.classList?.contains("committee-document-page-break")) {
-        if (current.length > 0) {
-          accumulated.pages.push([]);
-          accumulated.used = 0;
-        }
-      } else {
-        const cost = this.blockCost(block);
-        if (current.length > 0 && accumulated.used + cost > contentCapacity) {
-          accumulated.pages.push([block]);
-          accumulated.used = cost;
+    const distribution = continuousLayout
+      ? {pages: [this.contentBlocks.filter(block => !block.classList?.contains("committee-document-page-break"))], used: 0}
+      : this.contentBlocks.reduce((accumulated: { pages: HTMLElement[][]; used: number }, block) => {
+        const current = accumulated.pages[accumulated.pages.length - 1];
+        if (block.classList?.contains("committee-document-page-break")) {
+          if (current.length > 0) {
+            accumulated.pages.push([]);
+            accumulated.used = 0;
+          }
         } else {
-          current.push(block);
-          accumulated.used += cost;
+          const cost = this.blockCost(block);
+          if (current.length > 0 && accumulated.used + cost > contentCapacity) {
+            accumulated.pages.push([block]);
+            accumulated.used = cost;
+          } else {
+            current.push(block);
+            accumulated.used += cost;
+          }
         }
-      }
-      return accumulated;
-    }, {pages: [[]], used: 0});
+        return accumulated;
+      }, {pages: [[]], used: 0});
     if (distribution.pages[distribution.pages.length - 1].length === 0) {
       distribution.pages.pop();
     }
@@ -323,7 +339,9 @@ export class CommitteeDocumentView implements OnInit, AfterViewInit, OnDestroy {
     distribution.pages.forEach(blocks => {
       const sheet = document.createElement("div");
       sheet.className = "committee-document-sheet";
-      sheet.style.minHeight = `${pageHeight}px`;
+      if (!continuousLayout) {
+        sheet.style.minHeight = `${pageHeight}px`;
+      }
       sheet.appendChild(this.masterHeader.nativeElement.cloneNode(true));
       const body = document.createElement("div");
       body.className = "committee-document-body committee-document-page-body";
