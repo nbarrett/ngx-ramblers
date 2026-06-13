@@ -35,6 +35,7 @@ import {
   faEyeSlash,
   faPencil,
   faPaperPlane,
+  faSpinner,
   faTicket,
   faTrash
 } from "@fortawesome/free-solid-svg-icons";
@@ -57,6 +58,7 @@ import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { kebabCase, values } from "es-toolkit/compat";
 import { enumKeyValues } from "../../../functions/enums";
 import { BookingConfigService } from "../../../services/system/booking-config.service";
+import { NotificationConfigService } from "../../../services/notification-config.service";
 import { GroupEventField } from "../../../models/walk.model";
 import { EventQueryParameters, RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -330,9 +332,17 @@ export enum BookingTab {
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-3">
                       <p class="mb-0 text-muted">{{ eventBookings.length }} bookings for this event</p>
-                      <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-warning btn-sm" (click)="sendBookingEmailsForSelectedType()">
-                          <fa-icon [icon]="faPaperPlane" class="me-1"></fa-icon>Send {{ sendEmailLabelType() }} emails now
+                      <div class="d-flex gap-2 align-items-center">
+                        @if (sendingEmailStatus) {
+                          <small class="text-muted">{{ sendingEmailStatus }}</small>
+                        }
+                        <button type="button" class="btn btn-warning btn-sm" [disabled]="isSendingEmails" (click)="sendBookingEmailsForSelectedType()">
+                          @if (isSendingEmails) {
+                            <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"/>
+                          } @else {
+                            <fa-icon [icon]="faPaperPlane" class="me-1"/>
+                          }
+                          {{ isSendingEmails ? "Sending..." : "Send " + sendEmailLabelType() + " emails now" }}
                         </button>
                         <button type="button" class="btn btn-warning btn-sm" (click)="downloadDetailCsv()">
                           <fa-icon [icon]="faDownload" class="me-1"></fa-icon>Download CSV
@@ -539,6 +549,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private walksAndEventsService = inject(WalksAndEventsService);
   private walkDisplayService = inject(WalkDisplayService);
   private bookingConfigService = inject(BookingConfigService);
+  private notificationConfigService = inject(NotificationConfigService);
   protected stringUtils = inject(StringUtilsService);
   private activatedRoute = inject(ActivatedRoute);
   private router = inject(Router);
@@ -550,6 +561,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   faEyeSlash = faEyeSlash;
   faPencil = faPencil;
   faPaperPlane = faPaperPlane;
+  faSpinner = faSpinner;
   faExclamationTriangle = faExclamationTriangle;
 
   notifyTarget: AlertTarget = {};
@@ -587,6 +599,9 @@ export class BookingsComponent implements OnInit, OnDestroy {
   selectedEventEmailOverrideType: string = BookingEmailType.CONFIRMATION;
   emailTemplateTabs: SectionToggleTab[] = this.emailTemplateTypes.map(type => ({value: type, label: this.stringUtils.asTitle(type)}));
   perEventNotifConfig: NotificationConfig | null = null;
+  siteBookingNotifConfig: NotificationConfig | null = null;
+  isSendingEmails = false;
+  sendingEmailStatus: string | null = null;
   private dirtyEventIds: Set<string> = new Set();
   reassignTargetEventId: string = null;
   reassignTargetRows: BookingSummaryRow[] = [];
@@ -596,7 +611,8 @@ export class BookingsComponent implements OnInit, OnDestroy {
   get selectedEventBlockDefaults(): Record<string, string> {
     const emailType = this.selectedEventEmailOverrideType;
     const blockKey = BOOKING_EMAIL_BLOCK_KEYS[emailType];
-    return { [blockKey]: DEFAULT_BOOKING_EMAIL_BLOCKS[emailType as BookingEmailType] || "" };
+    const siteDefault = this.siteBookingNotifConfig?.templateOverrides?.[blockKey]?.content;
+    return { [blockKey]: siteDefault || DEFAULT_BOOKING_EMAIL_BLOCKS[emailType as BookingEmailType] || "" };
   }
 
   selectedEventContentStateTabs(): SectionToggleTab[] {
@@ -676,6 +692,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   private async loadBookingAdminData() {
+    await this.loadBookingNotificationConfig();
     await this.loadSummary();
     await this.loadFutureEvents();
     const urlEventParam = this.activatedRoute.snapshot.queryParams[StoredValue.EVENT_ID];
@@ -685,6 +702,19 @@ export class BookingsComponent implements OnInit, OnDestroy {
         this.selectedEventId = resolvedEventId;
         this.onSelectedEventChange();
       }
+    }
+  }
+
+  private async loadBookingNotificationConfig(): Promise<void> {
+    try {
+      const configs = await this.notificationConfigService.all();
+      this.siteBookingNotifConfig = configs.find(config =>
+        config.templateOverrides &&
+        values(BOOKING_EMAIL_BLOCK_KEYS).some(key => config.templateOverrides[key])
+      ) || null;
+    } catch (error) {
+      this.logger.error("Failed to load booking notification config:", error);
+      this.siteBookingNotifConfig = null;
     }
   }
 
@@ -880,7 +910,8 @@ export class BookingsComponent implements OnInit, OnDestroy {
       return;
     }
     const emailType = (this.selectedEventEmailOverrideType || BookingEmailType.REMINDER) as BookingEmailType;
-    this.notify.progress({title: "Sending", message: `Dispatching ${this.sendEmailLabelType()} emails...`});
+    this.isSendingEmails = true;
+    this.sendingEmailStatus = `Sending ${this.sendEmailLabelType()} emails...`;
     try {
       const dispatch = emailType === BookingEmailType.REMINDER
         ? await this.bookingService.sendReminders(this.selectedEventId)
@@ -892,10 +923,12 @@ export class BookingsComponent implements OnInit, OnDestroy {
         dispatch.alreadySentCount > 0 ? `${dispatch.alreadySentCount} already sent` : null,
         dispatch.skippedCount > 0 ? `${dispatch.skippedCount} failed` : null
       ].filter(part => !!part);
-      this.notify.success({title: "Emails sent", message: `${dispatch.eventTitle}: ${messageParts.join(", ")}`});
+      this.sendingEmailStatus = `${dispatch.eventTitle}: ${messageParts.join(", ")}`;
     } catch (error) {
-      this.notify.error({title: "Send failed", message: `Could not send ${this.sendEmailLabelType()} emails`});
+      this.sendingEmailStatus = `Send failed for ${this.sendEmailLabelType()} emails`;
       this.logger.error("sendBookingEmailsForSelectedType failed:", error);
+    } finally {
+      this.isSendingEmails = false;
     }
   }
 
@@ -1170,13 +1203,15 @@ export class BookingsComponent implements OnInit, OnDestroy {
     }
     this.syncPerEventNotifConfig();
     try {
+      const overrides = selectedEvent.fields.bookingEmailOverrides;
+      const hasAnyOverrides = overrides && values(overrides).some(v => v?.trim());
       const updatedEvent: ExtendedGroupEvent = {
         ...selectedEvent,
         fields: {
           ...selectedEvent.fields,
           maxCapacity: this.selectedEventMaxCapacity > 0 ? this.selectedEventMaxCapacity : null,
           bookingsEnabled: this.selectedEventBookingsEnabled,
-          bookingEmailOverrides: selectedEvent.fields.bookingEmailOverrides || null
+          bookingEmailOverrides: hasAnyOverrides ? overrides : null
         }
       };
       const savedEvent = await this.walksAndEventsService.update(updatedEvent);
