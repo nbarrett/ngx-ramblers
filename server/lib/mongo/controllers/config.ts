@@ -17,6 +17,7 @@ const controller = crudController.create<ConfigDocument>(config);
 
 const sensitiveKeys = new Set([
   "apiKey",
+  "apiKeysByGroupCode",
   "accessKey",
   "accessKeyId",
   "secretAccessKey",

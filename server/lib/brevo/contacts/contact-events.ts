@@ -1,13 +1,12 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
 import { Request, Response } from "express";
-import http from "http";
 import { isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { BrevoEmailEventReport } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { scheduleBrevo } from "../common/rate-limiting";
+import { Brevo } from "@getbrevo/brevo";
 
 const messageType = "brevo:contact-events";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -36,24 +35,19 @@ export async function contactEvents(req: Request, res: Response): Promise<void> 
     const startDate = isString(req.query.startDate) ? req.query.startDate : undefined;
     const endDate = isString(req.query.endDate) ? req.query.endDate : undefined;
     const sort = req.query.sort === "asc" ? "asc" : "desc";
-    const event = isString(req.query.event) ? req.query.event as any : undefined;
-    const brevoConfig = await configuredBrevo();
-    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => apiInstance.getEmailEventReport(
+    const event = isString(req.query.event) ? req.query.event as Brevo.GetEmailEventReportRequest["event"] : undefined;
+    const client = await brevoClient();
+    const data = await scheduleBrevo(() => client.transactionalEmails.getEmailEventReport({
       limit,
       offset,
       startDate,
       endDate,
       days,
-      identifier,
+      email: identifier,
       event,
-      undefined,
-      undefined,
-      undefined,
       sort
-    ));
-    const body: BrevoEmailEventReport = { events: response.body?.events || [] };
+    }));
+    const body: BrevoEmailEventReport = { events: data.events ?? [] };
     successfulResponse({ req, res, response: body, messageType, debugLog });
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);

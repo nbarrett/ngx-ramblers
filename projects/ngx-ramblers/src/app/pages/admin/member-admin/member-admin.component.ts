@@ -504,6 +504,7 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
     try {
       const deletedMembers = await this.memberService.bulkDelete(this.bulkDeleteMarkedMemberIds);
       this.logger.info("deletedMembers:", deletedMembers);
+      await this.refreshMembers();
       await this.updateLists();
     } finally {
       this.confirm.clear();

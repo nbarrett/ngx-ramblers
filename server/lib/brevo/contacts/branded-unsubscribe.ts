@@ -1,10 +1,10 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
+import { BrevoError } from "@getbrevo/brevo";
 import debug from "debug";
 import { Request, Response } from "express";
 import { isNumber, isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { member } from "../../mongo/models/member";
 import { mailListAudit } from "../../mongo/models/mail-list-audit";
@@ -60,15 +60,11 @@ export function consentWritebackShouldFire(beforeCount: number, afterCount: numb
 }
 
 async function removeContactFromBrevoList(email: string, listId: number): Promise<void> {
-  const brevoConfig = await configuredBrevo();
-  const contactsApi = new SibApiV3Sdk.ContactsApi();
-  contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-  const removal = new SibApiV3Sdk.RemoveContactFromList();
-  removal.emails = [email];
+  const client = await brevoClient();
   try {
-    await scheduleBrevo(() => contactsApi.removeContactFromList(listId, removal));
+    await scheduleBrevo(() => client.contacts.removeContactFromList({listId, body: {emails: [email]}}));
   } catch (error: any) {
-    const status = error?.response?.statusCode;
+    const status = error instanceof BrevoError ? error.statusCode : undefined;
     if (status === 400 || status === 404) {
       debugLog("removeContactFromBrevoList: contact not on list (or list missing), continuing", email, listId, status);
       return;
@@ -79,11 +75,9 @@ async function removeContactFromBrevoList(email: string, listId: number): Promis
 
 async function lookupListName(listId: number): Promise<string | undefined> {
   try {
-    const brevoConfig = await configuredBrevo();
-    const contactsApi = new SibApiV3Sdk.ContactsApi();
-    contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: any = await scheduleBrevo(() => contactsApi.getList(listId));
-    const name = response?.body?.name;
+    const client = await brevoClient();
+    const response = await scheduleBrevo(() => client.contacts.getList({listId}));
+    const name = response.name;
     return isString(name) && name.trim().length > 0 ? name : undefined;
   } catch (error: any) {
     debugLog("lookupListName:failed", listId, error?.message || error);
@@ -314,14 +308,13 @@ export async function submitUnsubscribeFeedback(req: Request, res: Response): Pr
 
 async function emailIsOnList(email: string, listId: number): Promise<boolean> {
   try {
-    const brevoConfig = await configuredBrevo();
-    const contactsApi = new SibApiV3Sdk.ContactsApi();
-    contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: any = await scheduleBrevo(() => contactsApi.getContactInfo(email));
-    const listIds: number[] = response?.body?.listIds || [];
+    const client = await brevoClient();
+    const response = await scheduleBrevo(() => client.contacts.getContactInfo({identifier: email}));
+    const listIds: number[] = response.listIds ?? [];
     return listIds.includes(listId);
   } catch (error: any) {
-    debugLog("emailIsOnList:lookup-failed", email, listId, error?.response?.statusCode || error?.message || error);
+    const status = error instanceof BrevoError ? error.statusCode : undefined;
+    debugLog("emailIsOnList:lookup-failed", email, listId, status || error?.message || error);
     return false;
   }
 }

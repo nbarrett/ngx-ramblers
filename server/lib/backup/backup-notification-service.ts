@@ -1,7 +1,7 @@
 import debug from "debug";
-import * as SibApiV3Sdk from "@getbrevo/brevo";
+import { Brevo } from "@getbrevo/brevo";
 import { envConfig } from "../env-config/env-config";
-import { configuredBrevo } from "../brevo/brevo-config";
+import { brevoClient } from "../brevo/brevo-config";
 import { scheduleBrevo } from "../brevo/common/rate-limiting";
 import { BackupSession } from "../mongo/models/backup-session";
 import { dateTimeFromJsDate } from "../shared/dates";
@@ -83,17 +83,15 @@ export class BackupNotificationService {
 
   private async sendEmail(subject: string, htmlContent: string): Promise<void> {
     try {
-      const brevoConfig = await configuredBrevo();
-      const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-      apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
+      const client = await brevoClient();
+      const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
+        subject,
+        sender: this.options.sender || { email: "backup@ngx-ramblers.org.uk", name: "NGX-Ramblers Backup System" },
+        to: this.options.recipients,
+        htmlContent
+      };
 
-      const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-      sendSmtpEmail.subject = subject;
-      sendSmtpEmail.sender = this.options.sender || { email: "backup@ngx-ramblers.org.uk", name: "NGX-Ramblers Backup System" };
-      sendSmtpEmail.to = this.options.recipients;
-      sendSmtpEmail.htmlContent = htmlContent;
-
-      const response = await scheduleBrevo(() => apiInstance.sendTransacEmail(sendSmtpEmail));
+      const response = await scheduleBrevo(() => client.transactionalEmails.sendTransacEmail(sendSmtpEmail));
       debugLog("Email sent successfully:", response);
     } catch (error) {
       debugLog("Error sending email:", error);

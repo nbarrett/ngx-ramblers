@@ -1,11 +1,11 @@
 import debug from "debug";
 import { createErrorDebugLog } from "../shared/error-debug-log";
-import * as SibApiV3Sdk from "@getbrevo/brevo";
+import { Brevo, BrevoClient } from "@getbrevo/brevo";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { InboxMessage, InboxMessageDirection, InboxThread } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { configuredBrevo } from "../brevo/brevo-config";
+import { brevoClient } from "../brevo/brevo-config";
 import { scheduleBrevo } from "../brevo/common/rate-limiting";
 import { systemConfig } from "../config/system-config";
 import { envConfig } from "../env-config/env-config";
@@ -112,9 +112,7 @@ export async function runInboxMessageDigest(): Promise<number> {
   const systemCfg = await systemConfig();
   const groupHref = systemCfg?.group?.href ?? "";
   const groupShortName = systemCfg?.group?.shortName ?? "NGX Ramblers";
-  const brevoConfig = await configuredBrevo();
-  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-  apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
+  const client = await brevoClient();
 
   const sentMessageIds: string[] = [];
   await Array.from(itemsByMember.entries()).reduce<Promise<void>>(async (acc, [memberId, items]) => {
@@ -124,7 +122,7 @@ export async function runInboxMessageDigest(): Promise<number> {
       return;
     }
     try {
-      await sendDigestEmail(apiInstance, member, items, groupHref, groupShortName);
+      await sendDigestEmail(client, member, items, groupHref, groupShortName);
       items.forEach(item => sentMessageIds.push((item.message as unknown as {_id?: {toString(): string}})._id?.toString() ?? ""));
     } catch (error) {
       errorDebugLog(`digest send failed for member ${memberId}: ${(error as Error).message}`);
@@ -135,7 +133,7 @@ export async function runInboxMessageDigest(): Promise<number> {
   if (validIds.length > 0) {
     await inboxMessageModel.updateMany({_id: {$in: validIds}}, {$set: {notifiedAt: now}});
   }
-  debugLog(`sent ${itemsByMember.size} digest email(s) covering ${validIds.length} message(s)`);
+  debugLog(`sent ${pluraliseWithCount(itemsByMember.size, "digest email")} covering ${pluraliseWithCount(validIds.length, "message")}`);
   return validIds.length;
 }
 
@@ -147,7 +145,7 @@ async function markMessagesNotified(messages: InboxMessage[], now: number): Prom
   await inboxMessageModel.updateMany({_id: {$in: ids}}, {$set: {notifiedAt: now}});
 }
 
-async function sendDigestEmail(apiInstance: SibApiV3Sdk.TransactionalEmailsApi, member: Member, items: DigestItem[], groupHref: string, groupShortName: string): Promise<void> {
+async function sendDigestEmail(client: BrevoClient, member: Member, items: DigestItem[], groupHref: string, groupShortName: string): Promise<void> {
   const role = items[0].role;
   const senderName = role.fullName || role.description || groupShortName;
   const senderEmail = role.email || `noreply@${(groupHref || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "") || "ngx-ramblers.org.uk"}`;
@@ -155,12 +153,13 @@ async function sendDigestEmail(apiInstance: SibApiV3Sdk.TransactionalEmailsApi, 
   const subject = `${pluraliseWithCount(conversationCount, "new inbox message")} for ${role.description || role.type}`;
   const htmlContent = buildDigestHtml(items, groupHref, groupShortName);
   const recipientEmail = digestRecipientEmail(role, member);
-  const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-  sendSmtpEmail.subject = subject;
-  sendSmtpEmail.sender = {name: senderName, email: senderEmail};
-  sendSmtpEmail.to = [{email: recipientEmail, name: [member.firstName, member.lastName].filter(Boolean).join(" ") || member.userName || recipientEmail}];
-  sendSmtpEmail.htmlContent = htmlContent;
-  await scheduleBrevo(() => apiInstance.sendTransacEmail(sendSmtpEmail));
+  const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
+    subject,
+    sender: {name: senderName, email: senderEmail},
+    to: [{email: recipientEmail, name: [member.firstName, member.lastName].filter(Boolean).join(" ") || member.userName || recipientEmail}],
+    htmlContent
+  };
+  await scheduleBrevo(() => client.transactionalEmails.sendTransacEmail(sendSmtpEmail));
 }
 
 function threadIdOf(thread: InboxThread): string {

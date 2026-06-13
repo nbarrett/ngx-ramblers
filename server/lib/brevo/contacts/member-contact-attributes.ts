@@ -1,24 +1,24 @@
 import { toPairs } from "es-toolkit/compat";
-import * as SibApiV3Sdk from "@getbrevo/brevo";
+import { BrevoClient, BrevoError } from "@getbrevo/brevo";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { logBrevoError } from "../common/error-log";
 
 const debugLog = debug(envConfig.logNamespace("brevo:member-contact-attributes"));
 debugLog.enabled = true;
 
+function errorDetail(error: unknown): unknown {
+  if (error instanceof BrevoError) {
+    return error.body ?? error.message;
+  }
+  return error instanceof Error ? error.message : error;
+}
+
 const MEMBER_CONTACT_ATTRIBUTES: string[] = ["MEMBER_NUM", "MEMBER_EXP", "USERNAME"];
 
 let availableMemberAttributes: Set<string> | null = null;
-
-async function configuredContactsApi(): Promise<SibApiV3Sdk.ContactsApi> {
-  const brevoConfig = await configuredBrevo();
-  const apiInstance = new SibApiV3Sdk.ContactsApi();
-  apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-  return apiInstance;
-}
 
 export async function ensureMemberContactAttributes(): Promise<Set<string>> {
   if (availableMemberAttributes) {
@@ -26,28 +26,26 @@ export async function ensureMemberContactAttributes(): Promise<Set<string>> {
   }
   const available = new Set<string>();
   try {
-    const apiInstance = await configuredContactsApi();
-    const existing: { body: any } = await scheduleBrevo(() => apiInstance.getAttributes());
-    const existingNames: string[] = (existing.body?.attributes ?? []).map((attribute: any) => attribute?.name);
+    const client: BrevoClient = await brevoClient();
+    const existing = await scheduleBrevo(() => client.contacts.getAttributes());
+    const existingNames = (existing.attributes ?? []).map(attribute => attribute.name);
     for (const attributeName of MEMBER_CONTACT_ATTRIBUTES) {
       if (existingNames.includes(attributeName)) {
         available.add(attributeName);
       } else {
         try {
-          const createAttribute = new SibApiV3Sdk.CreateAttribute();
-          createAttribute.type = SibApiV3Sdk.CreateAttribute.TypeEnum.Text;
-          await scheduleBrevo(() => apiInstance.createAttribute("normal", attributeName, createAttribute));
+          await scheduleBrevo(() => client.contacts.createAttribute({attributeCategory: "normal", attributeName, type: "text"}));
           available.add(attributeName);
           debugLog("created Brevo contact attribute", attributeName);
-        } catch (error: any) {
+        } catch (error) {
           logBrevoError("brevo:member-contact-attributes", error, {attributeName});
-          debugLog("could not create Brevo contact attribute", attributeName, "- omitting it from contact sync", error?.body ?? error?.message ?? error);
+          debugLog("could not create Brevo contact attribute", attributeName, "- omitting it from contact sync", errorDetail(error));
         }
       }
     }
-  } catch (error: any) {
+  } catch (error) {
     logBrevoError("brevo:member-contact-attributes", error);
-    debugLog("could not resolve Brevo contact attributes - member attributes omitted from contact sync", error?.body ?? error?.message ?? error);
+    debugLog("could not resolve Brevo contact attributes - member attributes omitted from contact sync", errorDetail(error));
   }
   availableMemberAttributes = available;
   return available;

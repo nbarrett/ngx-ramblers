@@ -1,5 +1,4 @@
-import http from "http";
-import { HttpError } from "@getbrevo/brevo";
+import { BrevoError } from "@getbrevo/brevo";
 import { isError } from "es-toolkit/compat";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
 
@@ -7,16 +6,27 @@ export interface BrevoErrorContext {
   [key: string]: unknown;
 }
 
+function headersToObject(headers: Headers | undefined): Record<string, string> | undefined {
+  if (!headers) {
+    return undefined;
+  }
+  const result: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    result[key] = value;
+  });
+  return result;
+}
+
 export function brevoErrorDiagnostics(messageType: string, error: unknown, context: BrevoErrorContext = {}): Record<string, unknown> {
-  const httpError = error instanceof HttpError ? error : null;
-  const httpResponse = httpError?.response as http.IncomingMessage | undefined;
+  const brevoError = error instanceof BrevoError ? error : null;
+  const rawResponse = brevoError?.rawResponse;
   return {
     messageType,
     ...context,
-    statusCode: httpError?.statusCode,
-    httpErrorBody: httpError?.body,
-    responseStatusMessage: httpResponse?.statusMessage,
-    responseHeaders: httpResponse?.headers,
+    statusCode: brevoError?.statusCode,
+    httpErrorBody: brevoError?.body,
+    responseStatusMessage: rawResponse?.statusText,
+    responseHeaders: headersToObject(rawResponse?.headers),
     errorName: isError(error) ? error.name : "NonError",
     errorMessage: isError(error) ? error.message : String(error)
   };

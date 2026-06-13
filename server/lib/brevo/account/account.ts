@@ -1,10 +1,8 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
 import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
-import { AccountResponse } from "../../../../projects/ngx-ramblers/src/app/models/brevo.model";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { Account, AccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
@@ -13,11 +11,9 @@ const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
 
 export async function fetchBrevoAccount(): Promise<Account> {
-  const brevoConfig = await configuredBrevo();
-  const apiInstance = new SibApiV3Sdk.AccountApi();
-  apiInstance.setApiKey(SibApiV3Sdk.AccountApiApiKeys.apiKey, brevoConfig.apiKey);
-  const accountResponse: AccountResponse = await scheduleBrevo(() => apiInstance.getAccount());
-  return accountResponse.body;
+  const client = await brevoClient();
+  const account: Account = await scheduleBrevo(() => client.account.getAccount());
+  return account;
 }
 
 export async function accountMergeFieldsFor(): Promise<AccountMergeFields> {

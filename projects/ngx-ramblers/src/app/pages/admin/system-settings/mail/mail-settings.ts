@@ -18,12 +18,14 @@ import { Subscription } from "rxjs";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
 import { MailService } from "../../../../services/mail/mail.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
+import { MemberService } from "../../../../services/member/member.service";
+import { Member } from "../../../../models/member.model";
 import { Confirm, StoredValue } from "../../../../models/ui-actions";
 import { ActivatedRoute, Router } from "@angular/router";
 import { kebabCase } from "es-toolkit/compat";
 import { NumberUtilsService } from "../../../../services/number-utils.service";
 import { first } from "es-toolkit/compat";
-import { isEmpty, isUndefined } from "es-toolkit/compat";
+import { isEmpty } from "es-toolkit/compat";
 import { PageComponent } from "../../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { MailNotificationTemplateEditor } from "./mail-notification-template-editor";
@@ -119,13 +121,6 @@ import { brevoEmailsSentToday, brevoRemainingDailyEmailCredits } from "../../../
                             type="checkbox" class="form-check-input" id="respect-email-blocks">
                           <label class="form-check-label" for="respect-email-blocks">Respect unsubscribes and blocks (off by default) - members who have <strong>unsubscribed or been blocked</strong> show disabled in the composer picker and are skipped at send. Off by default because a local unsubscribe only reaches Brevo when you run Update Brevo Mailing Lists.</label>
                         </div>
-                      </div>
-                      <div class="form-group">
-                        <label for="daily-campaign-send-limit">Brevo-enforced daily campaign limit</label>
-                        <input [(ngModel)]="mailMessagingConfig.mailConfig.dailyCampaignSendLimit" type="number"
-                          class="form-control input-sm" id="daily-campaign-send-limit" min="1"
-                          placeholder="Leave blank when the Brevo plan has no daily limit">
-                        <small class="form-text text-muted">Set this to the daily limit enforced by your Brevo plan (300 for the free plan). Leave blank when Brevo has no daily hold. NGX sends one whole campaign and does not split it to impose a separate lower limit.</small>
                       </div>
                       <div class="form-group">
                         <label for="base-url">Base Url</label>
@@ -354,7 +349,7 @@ import { brevoEmailsSentToday, brevoRemainingDailyEmailCredits } from "../../../
                           </div>
                         }
                         @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list.id) {
-                          <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig" [notify]="notify" [list]="list"></app-mail-list-settings>
+                          <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig" [notify]="notify" [list]="list" [members]="members"></app-mail-list-settings>
                         }
                       </div>
                     </div>
@@ -407,6 +402,8 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   protected dateUtils: DateUtilsService = inject(DateUtilsService);
   protected mailService: MailService = inject(MailService);
+  private memberService: MemberService = inject(MemberService);
+  protected members: Member[] = [];
   private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   private router: Router = inject(Router);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
@@ -425,6 +422,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.logger.debug("constructed");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.notify.setBusy();
+    this.memberService.all().then(members => this.members = members);
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
       const defaultValue = kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS);
       const tabParameter = params[StoredValue.TAB];
@@ -442,9 +440,6 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       if (!this.mailMessagingConfig || this.acceptNextConfigEmission) {
         this.mailMessagingConfig = mailMessagingConfig;
-        if (isUndefined(this.mailMessagingConfig.mailConfig.dailyCampaignSendLimit)) {
-          this.mailMessagingConfig.mailConfig.dailyCampaignSendLimit = 300;
-        }
         this.acceptNextConfigEmission = false;
         this.pendingApiKeyValidation = false;
       }

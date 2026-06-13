@@ -1,26 +1,19 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
 import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
-import http from "http";
-import { HasListId, HasListType, ListsResponse } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
-
 const messageType = "brevo:lists:list-delete";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = false;
 
 export async function listDelete(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const brevoConfig = await configuredBrevo();
+    const client = await brevoClient();
     const listId: number = +req.query.listId;
-    const apiInstance = new SibApiV3Sdk.ContactsApi();
-    apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: { response: http.IncomingMessage, body?: any } = await scheduleBrevo(() => apiInstance.deleteList(listId));
-    const listsResponse: ListsResponse = response.body;
-    successfulResponse({req, res, response: listsResponse, messageType, debugLog});
+    const response = await scheduleBrevo(() => client.contacts.deleteList({listId}));
+    successfulResponse({req, res, response, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }

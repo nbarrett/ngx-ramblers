@@ -48,6 +48,8 @@ const memberSchema = new mongoose.Schema({
     subscriptions: [MailSubscription],
     email: {type: String},
     id: {type: Number},
+    lastSyncedSignature: {type: String},
+    lastSyncedListIds: [{type: Number}],
   },
   contentAdmin: {type: Boolean},
   passwordResetId: {type: String},
@@ -81,6 +83,9 @@ const memberSchema = new mongoose.Schema({
   memberTerm: {type: String},
   landlineTelephone: {type: String},
   emailMarketingConsent: {type: Boolean},
+  groupMarketingConsent: {type: Boolean},
+  areaMarketingConsent: {type: Boolean},
+  otherMarketingConsent: {type: Boolean},
   emailPermissionLastUpdated: {type: Number},
   emailBlock: {
     reasonCode: {type: String},

@@ -14,22 +14,20 @@ describe("brevo campaign allowance", () => {
     expect(brevoEmailsSentToday(freeEmailAccount)).toEqual(175);
   });
 
-  it("subtracts today's usage when enforcing configured caps", () => {
-    expect(campaignDailyAllowance(freeEmailAccount, 300)).toEqual(125);
-    expect(campaignDailyAllowance(freeEmailAccount, 200)).toEqual(25);
-    expect(campaignDailyAllowance(freeEmailAccount, 100)).toEqual(0);
+  it("reports the remaining daily allowance the account returns", () => {
+    expect(campaignDailyAllowance(freeEmailAccount)).toEqual(125);
   });
 
-  it("does not report a daily allowance for an unlimited paid configuration", () => {
-    expect(campaignDailyAllowance({plan: [{type: "subscription", creditsType: "sendLimit", credits: 10000}]}, null)).toBeNull();
+  it("does not report a daily allowance when the account has no free daily send-limit plan", () => {
+    expect(campaignDailyAllowance({plan: [{type: "subscription", creditsType: "sendLimit", credits: 10000}]})).toBeNull();
   });
 
   it("warns using the remaining credits and following daily releases", () => {
-    expect(campaignOverflowNotice(650, freeEmailAccount, 300)).toEqual({title: "125 recipients can be sent today.", message: "Brevo will hold the remaining 525 recipients and release them automatically over the following 2 days."});
+    expect(campaignOverflowNotice(650, freeEmailAccount)).toEqual({title: "125 recipients can be sent today.", message: "Brevo will hold the remaining 525 recipients and release them automatically over the following 2 days."});
   });
 
   it("warns when automatic releases are disabled", () => {
-    expect(campaignOverflowNotice(650, freeEmailAccount, 300, false)).toEqual({title: "125 recipients can be sent today.", message: "Brevo will hold the remaining 525 recipients. Automatic release is currently paused in Scheduled Tasks."});
-    expect(campaignOverflowNotice(650, freeEmailAccount, 300, null)).toEqual({title: "125 recipients can be sent today.", message: "Brevo will hold the remaining 525 recipients. Automatic release status is still loading; check Scheduled Tasks before sending."});
+    expect(campaignOverflowNotice(650, freeEmailAccount, false)).toEqual({title: "125 recipients can be sent today.", message: "Brevo will hold the remaining 525 recipients. Automatic release is currently paused in Scheduled Tasks."});
+    expect(campaignOverflowNotice(650, freeEmailAccount, null)).toEqual({title: "125 recipients can be sent today.", message: "Brevo will hold the remaining 525 recipients. Automatic release status is still loading; check Scheduled Tasks before sending."});
   });
 });

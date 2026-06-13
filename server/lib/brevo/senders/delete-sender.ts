@@ -1,11 +1,10 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
+import { BrevoClient } from "@getbrevo/brevo";
 import debug from "debug";
 import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
-import http from "http";
 
 const messageType = "brevo:senders:delete";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -16,12 +15,11 @@ function delay(ms: number): Promise<void> {
 }
 
 export async function deleteBrevoSenderById(apiKey: string, senderId: number): Promise<void> {
-  const apiInstance = new SibApiV3Sdk.SendersApi();
-  apiInstance.setApiKey(SibApiV3Sdk.SendersApiApiKeys.apiKey, apiKey);
-  await scheduleBrevo(() => apiInstance.deleteSender(senderId));
+  const client = new BrevoClient({apiKey});
+  await scheduleBrevo(() => client.senders.deleteSender({senderId}));
   await delay(500);
-  const sendersResponse: { response: http.IncomingMessage; body: any } = await scheduleBrevo(() => apiInstance.getSenders());
-  const stillExists = (sendersResponse.body?.senders || []).some((sender: { id: number }) => sender.id === senderId);
+  const sendersResponse = await scheduleBrevo(() => client.senders.getSenders());
+  const stillExists = (sendersResponse.senders ?? []).some(sender => sender.id === senderId);
   if (stillExists) {
     throw new Error(`Brevo did not delete sender ${senderId}. The sender may be protected or still in use.`);
   }

@@ -14,24 +14,16 @@ export function brevoEmailsSentToday(account: Account | null): number | null {
   return isNumber(remainingCredits) ? Math.max(0, BREVO_FREE_DAILY_EMAIL_ALLOWANCE - remainingCredits) : null;
 }
 
-export function campaignDailyAllowance(account: Account | null, configuredDailyLimit: number | null | undefined): number | null {
-  if (configuredDailyLimit === null) {
-    return null;
-  }
-  const dailyLimit = isNumber(configuredDailyLimit) && configuredDailyLimit > 0 ? configuredDailyLimit : BREVO_FREE_DAILY_EMAIL_ALLOWANCE;
-  const availableCredits = brevoRemainingDailyEmailCredits(account);
-  const emailsSentToday = brevoEmailsSentToday(account);
-  return isNumber(availableCredits) && isNumber(emailsSentToday)
-    ? Math.max(0, Math.min(availableCredits, dailyLimit - emailsSentToday))
-    : null;
+export function campaignDailyAllowance(account: Account | null): number | null {
+  return brevoRemainingDailyEmailCredits(account);
 }
 
-export function campaignOverflowNotice(recipientCount: number, account: Account | null, configuredDailyLimit: number | null | undefined, automaticReleaseEnabled: boolean | null = true): CampaignOverflowNotice | null {
-  const allowance = campaignDailyAllowance(account, configuredDailyLimit);
-  if (allowance === null || configuredDailyLimit === null) {
+export function campaignOverflowNotice(recipientCount: number, account: Account | null, automaticReleaseEnabled: boolean | null = true): CampaignOverflowNotice | null {
+  const allowance = campaignDailyAllowance(account);
+  if (allowance === null) {
     return null;
   }
-  const dailyLimit = isNumber(configuredDailyLimit) && configuredDailyLimit > 0 ? configuredDailyLimit : BREVO_FREE_DAILY_EMAIL_ALLOWANCE;
+  const dailyLimit = BREVO_FREE_DAILY_EMAIL_ALLOWANCE;
   const queuedRecipients = Math.max(0, recipientCount - allowance);
   if (queuedRecipients === 0) {
     return null;

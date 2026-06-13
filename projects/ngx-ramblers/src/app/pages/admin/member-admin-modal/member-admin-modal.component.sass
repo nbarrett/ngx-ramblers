@@ -20,3 +20,11 @@ app-member-admin-modal
 
 :host ::ng-deep .custom-tabset .nav-tabs > li > a
   white-space: nowrap
+
+@media (max-width: 767.98px)
+  .modal-lg, .modal-content, app-member-admin-modal
+    min-width: 0 !important
+    max-width: 100% !important
+
+  :host ::ng-deep .custom-tabset .nav-tabs
+    flex-wrap: wrap

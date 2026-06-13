@@ -20,7 +20,6 @@ export interface BrevoCampaignProgress {
 }
 
 export interface BrevoCampaignQueueSummary {
-  dailySendLimit: number | null;
   emailsSentToday: number | null;
   remainingAllowanceToday: number | null;
   pendingCampaigns: BrevoCampaignProgress[];

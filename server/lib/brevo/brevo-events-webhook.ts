@@ -1,12 +1,10 @@
 import { dateTimeNowAsValue } from "../shared/dates";
-import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
-import http from "http";
 import { Request, Response } from "express";
 import { isNumber, isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "./common/messages";
 import { envConfig } from "../env-config/env-config";
-import { configuredBrevo } from "./brevo-config";
+import { brevoClient } from "./brevo-config";
 import { scheduleBrevo } from "./common/rate-limiting";
 import { readBrevoEventsWebhookSecret } from "./brevo-events-webhook-config";
 import { member } from "../mongo/models/member";
@@ -66,13 +64,11 @@ function tsToMillis(ts: number | string | undefined): number {
 
 async function fetchListIdsForEmail(email: string): Promise<number[]> {
   try {
-    const brevoConfig = await configuredBrevo();
-    const contactsApi = new SibApiV3Sdk.ContactsApi();
-    contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => contactsApi.getContactInfo(email));
-    return (response.body?.listIds as number[]) || [];
+    const client = await brevoClient();
+    const response = await scheduleBrevo(() => client.contacts.getContactInfo({identifier: email}));
+    return response.listIds ?? [];
   } catch (error: any) {
-    debugLog("fetchListIdsForEmail:lookup-failed", email, error?.response?.statusCode || error?.message || error);
+    debugLog("fetchListIdsForEmail:lookup-failed", email, error?.statusCode || error?.message || error);
     return [];
   }
 }

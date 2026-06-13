@@ -1,10 +1,8 @@
 import { Request, Response } from "express";
 import debug from "debug";
-import * as SibApiV3Sdk from "@getbrevo/brevo";
-import { CreateSmtpEmail, SendSmtpEmail } from "@getbrevo/brevo";
-import * as http from "http";
+import { Brevo } from "@getbrevo/brevo";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient, configuredBrevo } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { member } from "../../mongo/models/member";
 import * as transforms from "../../mongo/controllers/transforms";
@@ -247,23 +245,20 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
 
   debugLog("Sending forgot password email with request:", emailRequest);
 
-  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-  apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
+  const client = await brevoClient();
 
-  const sendSmtpEmail: SendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-  sendSmtpEmail.subject = emailRequest.subject;
-  sendSmtpEmail.sender = emailRequest.sender;
-  sendSmtpEmail.to = emailRequest.to;
-  sendSmtpEmail.replyTo = emailRequest.replyTo;
-  sendSmtpEmail.params = emailRequest.params;
-  sendSmtpEmail.htmlContent = renderLocalBrandedTemplate("forgot-password", params);
+  const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
+    subject: emailRequest.subject,
+    sender: emailRequest.sender,
+    to: emailRequest.to,
+    replyTo: emailRequest.replyTo,
+    params: emailRequest.params,
+    htmlContent: renderLocalBrandedTemplate("forgot-password", params)
+  };
 
   debugLog("About to send forgot password email:", sendSmtpEmail);
 
-  scheduleBrevo(() => apiInstance.sendTransacEmail(sendSmtpEmail)).then((data: {
-    response: http.IncomingMessage;
-    body: CreateSmtpEmail
-  }) => {
+  scheduleBrevo(() => client.transactionalEmails.sendTransacEmail(sendSmtpEmail)).then((data: Brevo.SendTransacEmailResponse) => {
     debugLog("Forgot password email sent successfully:", JSON.stringify(data));
     const response: ForgotPasswordEmailResponse = { message: GENERIC_SUCCESS_MESSAGE };
     res.status(200).json(response);

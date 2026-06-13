@@ -1,10 +1,8 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
 import { NextFunction, Request, Response } from "express";
 import { handleError, mapStatusMappedResponseSingleInput, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
-import http from "http";
+import { brevoClient } from "../brevo-config";
 import {
   ContactsDeleteRequest,
   NumberOrString,
@@ -13,6 +11,7 @@ import {
 import { isString } from "es-toolkit/compat";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { snapshotBrevoContact } from "./contact-snapshot";
+import { pluraliseWithCount } from "../../shared/string-utils";
 
 interface AuthenticatedDeleteRequest extends Request {
   user?: { memberId?: string; userName?: string };
@@ -24,26 +23,21 @@ debugLog.enabled = true;
 
 export async function contactsDelete(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const brevoConfig = await configuredBrevo();
-    const apiInstance = new SibApiV3Sdk.ContactsApi();
-    apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
+    const client = await brevoClient();
     const request: ContactsDeleteRequest = req.body;
     const snapshotBy = (req as AuthenticatedDeleteRequest).user?.userName;
     const total = request.ids.length;
-    debugLog("Processing", total, "contact deletion request(s)");
+    debugLog("Processing", pluraliseWithCount(total, "contact deletion request"));
     const responses: StatusMappedResponseSingleInput[] = await Promise.all(request.ids.map(async (id: NumberOrString, index: number) => {
       const position = `${index + 1} of ${total}`;
       await snapshotBrevoContact(id, snapshotBy);
       const identifier: string = isString(id) ? encodeURIComponent(id) : id.toString();
-      const response: {
-        response: http.IncomingMessage,
-        body?: any
-      } = await scheduleBrevo(() => apiInstance.deleteContact(identifier));
+      const response = await scheduleBrevo(() => client.contacts.deleteContact({identifier}).withRawResponse());
       const mapped = mapStatusMappedResponseSingleInput(id, response, 204);
       debugLog("Deleted Brevo contact", id, `(${position})`, "status", mapped.status);
       return mapped;
     })).then((statusOnlyResponses: StatusMappedResponseSingleInput[]) => {
-      debugLog("Completed", statusOnlyResponses.length, "of", total, "contact deletion request(s)");
+      debugLog("Completed", statusOnlyResponses.length, "of", pluraliseWithCount(total, "contact deletion request"));
       return statusOnlyResponses;
     });
     successfulResponse({req, res, response: responses, messageType, debugLog});
@@ -51,4 +45,3 @@ export async function contactsDelete(req: Request, res: Response, next: NextFunc
     handleError(req, res, messageType, debugLog, error);
   }
 }
-

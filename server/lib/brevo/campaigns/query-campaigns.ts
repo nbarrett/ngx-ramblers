@@ -1,10 +1,8 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
 import { Request, Response } from "express";
-import http from "http";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { BrevoCampaignListResponse, BrevoCampaignSummary } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
@@ -15,13 +13,11 @@ debugLog.enabled = false;
 export async function queryCampaigns(req: Request, res: Response): Promise<void> {
   try {
     const limit = Math.min(Number.parseInt(String(req.query.limit ?? "100"), 10) || 100, 100);
-    const brevoConfig = await configuredBrevo();
-    const apiInstance = new SibApiV3Sdk.EmailCampaignsApi();
-    apiInstance.setApiKey(SibApiV3Sdk.EmailCampaignsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => apiInstance.getEmailCampaigns(
-      undefined, undefined, undefined, undefined, undefined, limit, 0, "desc", true
-    ));
-    const campaigns: BrevoCampaignSummary[] = (response.body?.campaigns || []).map((campaign: any) => ({
+    const client = await brevoClient();
+    const response = await scheduleBrevo(() => client.emailCampaigns.getEmailCampaigns({
+      limit, offset: 0, sort: "desc", excludeHtmlContent: true
+    }));
+    const campaigns: BrevoCampaignSummary[] = (response?.campaigns || []).map((campaign) => ({
       id: campaign.id,
       name: campaign.name,
       subject: campaign.subject,

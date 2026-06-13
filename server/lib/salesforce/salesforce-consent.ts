@@ -2,8 +2,9 @@ import debug from "debug";
 import { ConsentWritebackContext, ConsentWritebackOutcome, ConsentWritebackSkipReason, SalesforceConfig, SalesforceConsentSource, SalesforceConsentUpdateRequest } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNow } from "../shared/dates";
-import { pushSalesforceConsent } from "./salesforce-client";
-import { configuredSalesforce } from "./salesforce-config";
+import { activeGroupCodeWithToken, pushSalesforceConsent } from "./salesforce-client";
+import { configuredSalesforce, parseGroupCodes } from "./salesforce-config";
+import { systemConfig } from "../config/system-config";
 
 const debugLog = debug(envConfig.logNamespace("salesforce-consent"));
 debugLog.enabled = true;
@@ -35,7 +36,11 @@ export async function notifySalesforceFullyOptedOut(context: ConsentWritebackCon
     return { attempted: false, skippedReason: ConsentWritebackSkipReason.Disabled };
   }
   const request = buildFullOptOutConsentRequest(config, context.reason, dateTimeNow().toISO());
-  const result = await pushSalesforceConsent(config, context.membershipNumber, request);
+  const sys = await systemConfig();
+  const siteGroupCode = sys?.group?.groupCode ?? "";
+  const active = activeGroupCodeWithToken(config, siteGroupCode);
+  const groupCode = active?.groupCode ?? parseGroupCodes(siteGroupCode)[0] ?? "";
+  const result = await pushSalesforceConsent(config, context.membershipNumber, request, groupCode);
   if (result.data) {
     debugLog("notifySalesforceFullyOptedOut:success", context.membershipNumber, "in", result.latencyMs, "ms");
     return {

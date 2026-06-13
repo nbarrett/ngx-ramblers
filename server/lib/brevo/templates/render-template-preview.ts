@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import debug from "debug";
-import { SendSmtpEmail } from "@getbrevo/brevo";
+import { Brevo } from "@getbrevo/brevo";
 import { envConfig } from "../../env-config/env-config";
 import { handleError, performTemplateSubstitution, successfulResponse } from "../common/messages";
 import { TemplateRenderRequest, TemplateRenderResponse } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
@@ -13,7 +13,7 @@ debugLog.enabled = false;
 export async function renderTemplatePreview(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const renderRequest: TemplateRenderRequest = req.body;
-    const sendSmtpEmail = new SendSmtpEmail();
+    const sendSmtpEmail: Brevo.SendTransacEmailRequest = {};
     await performTemplateSubstitution(renderRequest, sendSmtpEmail, debugLog);
     const response: TemplateRenderResponse = {
       htmlContent: sendSmtpEmail.htmlContent || ""

@@ -1,9 +1,7 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
-import { GetSmtpTemplates } from "@getbrevo/brevo";
+import { Brevo, BrevoClient } from "@getbrevo/brevo";
 import debug from "debug";
-import * as http from "http";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { logBrevoError } from "../common/error-log";
 import { systemConfig } from "../../config/system-config";
 import { apexHost } from "../../../../projects/ngx-ramblers/src/app/functions/hosts";
@@ -22,18 +20,12 @@ const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = false;
 const RAMBLERS_TEMPLATE_BACKUP_SUFFIX = "backup-2026-04-06-ramblers-aligned";
 
-async function apiInstance(): Promise<SibApiV3Sdk.TransactionalEmailsApi> {
-  const brevoConfig = await configuredBrevo();
-  const api = new SibApiV3Sdk.TransactionalEmailsApi();
-  api.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
-  return api;
+function apiInstance(): Promise<BrevoClient> {
+  return brevoClient();
 }
 
-async function sendersApiInstance(): Promise<SibApiV3Sdk.SendersApi> {
-  const brevoConfig = await configuredBrevo();
-  const api = new SibApiV3Sdk.SendersApi();
-  api.setApiKey(SibApiV3Sdk.SendersApiApiKeys.apiKey, brevoConfig.apiKey);
-  return api;
+function sendersApiInstance(): Promise<BrevoClient> {
+  return brevoClient();
 }
 
 async function preferredSenderDomain(): Promise<string | null> {
@@ -84,11 +76,8 @@ function newestTemplate(templates: MailTemplate[]): MailTemplate | null {
 export async function listTemplates(templateStatus?: boolean | null): Promise<MailTemplates> {
   const api = await apiInstance();
   const statusValue = isBoolean(templateStatus) ? templateStatus : undefined;
-  const response: {
-    response: http.IncomingMessage;
-    body: GetSmtpTemplates;
-  } = await api.getSmtpTemplates(statusValue);
-  const templates: MailTemplate[] = response.body.templates?.map(template => ({
+  const response: Brevo.GetSmtpTemplatesResponse = await api.transactionalEmails.getSmtpTemplates({templateStatus: statusValue});
+  const templates: MailTemplate[] = response.templates?.map(template => ({
     createdAt: template.createdAt,
     sender: {name: template.sender.name, email: template.sender.email, id: +template.sender.id},
     subject: template.subject,
@@ -104,7 +93,7 @@ export async function listTemplates(templateStatus?: boolean | null): Promise<Ma
     htmlContent: null
   })) || [];
   return {
-    count: response.body.count || 0,
+    count: response.count || 0,
     templates
   };
 }
@@ -112,8 +101,8 @@ export async function listTemplates(templateStatus?: boolean | null): Promise<Ma
 export async function getDefaultSender(): Promise<Sender | null> {
   try {
     const api = await sendersApiInstance();
-    const response: { response: http.IncomingMessage; body: any } = await api.getSenders();
-    const allSenders = response.body?.senders || [];
+    const response = await api.senders.getSenders();
+    const allSenders = response?.senders || [];
     const activeSenders = allSenders.filter((sender: any) => sender.active === true && sender.name && sender.email);
     const preferredDomain = await preferredSenderDomain();
     const domainMatchedSenders = preferredDomain
@@ -139,13 +128,10 @@ export async function findTemplateByName(templateName: string): Promise<MailTemp
   try {
     const api = await apiInstance();
     debugLog("findTemplateByName: fetching templates from Brevo API");
-    const response: {
-      response: http.IncomingMessage;
-      body: GetSmtpTemplates;
-    } = await api.getSmtpTemplates();
+    const response: Brevo.GetSmtpTemplatesResponse = await api.transactionalEmails.getSmtpTemplates();
 
-    debugLog("findTemplateByName: searching for", templateName, "in", response.body.templates?.length || 0, "templates");
-    const matchingTemplates = response.body.templates?.filter(t => t.name === templateName).map(template => ({
+    debugLog("findTemplateByName: searching for", templateName, "in", response.templates?.length || 0, "templates");
+    const matchingTemplates = response.templates?.filter(t => t.name === templateName).map(template => ({
       id: template.id,
       name: template.name,
       subject: template.subject,
@@ -181,21 +167,19 @@ export async function findTemplateByName(templateName: string): Promise<MailTemp
 
 export async function createTemplate(request: CreateTemplateRequest): Promise<CreateTemplateResponse> {
   const api = await apiInstance();
-  const createSmtpTemplate = new SibApiV3Sdk.CreateSmtpTemplate();
-  createSmtpTemplate.templateName = request.templateName;
-  createSmtpTemplate.htmlContent = request.htmlContent;
-  createSmtpTemplate.subject = request.subject;
-  createSmtpTemplate.isActive = request.isActive ?? true;
-
-  if (request.senderName && request.senderEmail) {
-    createSmtpTemplate.sender = { name: request.senderName, email: request.senderEmail };
-  }
+  const createSmtpTemplate: Brevo.CreateSmtpTemplateRequest = {
+    templateName: request.templateName,
+    htmlContent: request.htmlContent,
+    subject: request.subject,
+    isActive: request.isActive ?? true,
+    sender: request.senderName && request.senderEmail ? { name: request.senderName, email: request.senderEmail } : {}
+  };
 
   debugLog("createTemplate: creating template", request.templateName);
   try {
-    const response = await api.createSmtpTemplate(createSmtpTemplate);
-    debugLog("createTemplate: created with id", response.body.id);
-    return { id: response.body.id };
+    const response = await api.transactionalEmails.createSmtpTemplate(createSmtpTemplate);
+    debugLog("createTemplate: created with id", response.id);
+    return { id: response.id };
   } catch (error) {
     logBrevoError(messageType, error, {templateName: request.templateName});
     const apiError = error as any;
@@ -212,7 +196,7 @@ export async function createTemplate(request: CreateTemplateRequest): Promise<Cr
 
 export async function deleteTemplate(templateId: number): Promise<void> {
   const api = await apiInstance();
-  await api.deleteSmtpTemplate(templateId);
+  await api.transactionalEmails.deleteSmtpTemplate({templateId});
 }
 
 export async function archiveTemplate(template: MailTemplate): Promise<void> {
@@ -234,7 +218,7 @@ export async function archiveTemplate(template: MailTemplate): Promise<void> {
 
 export async function updateTemplate(request: UpdateTemplateRequest): Promise<void> {
   const api = await apiInstance();
-  const updateSmtpTemplate = new SibApiV3Sdk.UpdateSmtpTemplate();
+  const updateSmtpTemplate: Brevo.UpdateSmtpTemplateRequest = { templateId: request.templateId };
 
   if (request.htmlContent !== undefined) {
     updateSmtpTemplate.htmlContent = request.htmlContent;
@@ -256,7 +240,7 @@ export async function updateTemplate(request: UpdateTemplateRequest): Promise<vo
 
   debugLog("updateTemplate: updating template", request.templateId, "with senderId", request.senderId);
   try {
-    await api.updateSmtpTemplate(request.templateId, updateSmtpTemplate);
+    await api.transactionalEmails.updateSmtpTemplate(updateSmtpTemplate);
     debugLog("updateTemplate: updated successfully");
   } catch (error) {
     logBrevoError(messageType, error, {templateId: request.templateId});

@@ -9,6 +9,11 @@ export interface SalesforceConfig {
   lastSyncCursor?: string;
 }
 
+export interface GroupCodeToken {
+  groupCode: string;
+  token: string;
+}
+
 export enum SalesforceMemberTerm {
   Life = "life",
   Annual = "annual",
