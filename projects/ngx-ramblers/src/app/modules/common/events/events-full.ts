@@ -328,12 +328,11 @@ export class EventsFull implements OnInit, OnDestroy {
   applyFilter(searchTerm?: NamedEvent<string>): void {
     if (Boolean(searchTerm)) {
       this.pageNumber = 1;
-      if (this.queryParamsActive) {
-        this.replaceQueryParams({
-          [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1,
-          [this.stringUtils.kebabCase(StoredValue.SEARCH)]: this.filterParameters.quickSearch || null
-        });
-      }
+      this.queryParamsActive = true;
+      this.replaceQueryParams({
+        [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1,
+        [this.stringUtils.kebabCase(StoredValue.SEARCH)]: this.filterParameters.quickSearch || null
+      });
     }
     this.performServerSideSearch();
   }

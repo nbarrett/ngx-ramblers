@@ -31,6 +31,7 @@ import { FocalPoint } from "../../../../models/image-cropper.model";
                [ngStyle]="focalPointImageStyles()"
                [src]="urlService.imageSource(imageSource, false, false)"
                [alt]="fileUtils.altFrom(alt, imageSource)"
+               [class.card-img-clickable]="urlService.routerLinkUrl(imageLink)"
                [routerLink]="urlService.routerLinkUrl(imageLink)">
         </div>
       }
@@ -41,6 +42,7 @@ import { FocalPoint } from "../../../../models/image-cropper.model";
                [ngStyle]="cropperImageStyles()"
                [src]="urlService.imageSource(imageSource, false, false)"
                [alt]="fileUtils.altFrom(alt, imageSource)"
+               [class.card-img-clickable]="urlService.routerLinkUrl(imageLink)"
                [routerLink]="urlService.routerLinkUrl(imageLink)">
         </div>
       }
@@ -48,7 +50,7 @@ import { FocalPoint } from "../../../../models/image-cropper.model";
         <img class="card-img-top" (load)="imageLoaded($event)"
              (error)="imageError($event)"
              [ngStyle]="imageStyles()"
-             [ngClass]="{'card-img-fixed-height': fixedHeight}"
+             [ngClass]="{'card-img-fixed-height': fixedHeight, 'card-img-clickable': urlService.routerLinkUrl(imageLink)}"
              [src]="urlService.imageSource(imageSource, false, false)"
              [alt]="fileUtils.altFrom(alt, imageSource)"
              [routerLink]="urlService.routerLinkUrl(imageLink)">
@@ -58,7 +60,7 @@ import { FocalPoint } from "../../../../models/image-cropper.model";
              (load)="imageLoaded($event)"
              (error)="imageError($event)"
              [ngStyle]="imageStyles()"
-             [ngClass]="{'card-img-fixed-height': fixedHeight}"
+             [ngClass]="{'card-img-fixed-height': fixedHeight, 'card-img-clickable': urlService.routerLinkUrl(imageLink)}"
              [src]="urlService.imageSource(imageSource, false, false)"
              [alt]="fileUtils.altFrom(alt, imageSource)"
              [routerLink]="urlService.routerLinkUrl(imageLink)">

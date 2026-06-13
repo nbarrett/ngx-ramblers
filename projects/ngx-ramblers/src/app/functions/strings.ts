@@ -59,6 +59,44 @@ export function extractErrorMessage(err: any): string {
   return "An unexpected error occurred";
 }
 
+export function isQuoted(value: string): boolean {
+  const trimmed = (value || "").trim();
+  return trimmed.length >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"");
+}
+
+export function unquote(value: string): string {
+  return isQuoted(value) ? value.trim().slice(1, -1).trim() : (value || "").trim();
+}
+
+export function plainText(text: string): string {
+  return (text || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/!\[[^\]]*]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)]\([^)]*\)/g, "$1")
+    .replace(/^\s*>+/gm, " ")
+    .replace(/[#*_`~]/g, " ")
+    .replace(/[|:\- ]*-{3,}[|:\- ]*/g, " ")
+    .replace(/\s*\|+\s*/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#3[49];/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function firstLinkHref(text: string): string {
+  const match = /(?<!!)\[[^\]]*]\(([^)\s]+)[^)]*\)/.exec(text || "");
+  return match ? match[1] : null;
+}
+
+export function firstLinkText(text: string): string {
+  const match = /(?<!!)\[([^\]]*)]\([^)]*\)/.exec(text || "");
+  return match ? match[1].trim() : null;
+}
+
 export function booleanOf(value: any, fallback: boolean = false): boolean {
   const normalized = (value == null ? "" : value.toString()).trim().toLowerCase();
   if (isBoolean(value)) {

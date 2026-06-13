@@ -38,6 +38,16 @@ const routes: Routes = [
     canActivate: [SystemHealthyGuard]
   },
   {
+    path: "search", loadComponent: () => import("./pages/search/search-results-page")
+      .then(m => m.SearchResultsPageComponent),
+    canActivate: [SystemHealthyGuard]
+  },
+  {
+    path: "site-map", loadComponent: () => import("./pages/site-map/site-map-page")
+      .then(m => m.SiteMapPageComponent),
+    canActivate: [SystemHealthyGuard]
+  },
+  {
     path: "how-to/committee/email-archives/:subject",
     loadComponent: () => import("./pages/how-to/subject-listing/subject-listing")
       .then(m => m.HowToSubjectListingComponent),

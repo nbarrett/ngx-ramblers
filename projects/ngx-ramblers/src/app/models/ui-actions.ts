@@ -24,6 +24,7 @@ export enum EditMode {
 export enum StoredValue {
   ACCESSIBILITY = "accessibility",
   ADVANCED_SEARCH = "advanced-search",
+  SITE_SEARCH_RECENT = "site-search-recent",
   ALBUM_TAB = "album-tab",
   AREA_MAP_CENTER = "area-map-center",
   AREA_MAP_CLICK_ACTION = "area-map-click-action",
