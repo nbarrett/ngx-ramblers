@@ -277,6 +277,7 @@ function transformEventsResponse(config: SystemConfig): (response: RamblersGroup
         url: event.url,
         walksManagerUrl: event.url.replace(config.national.mainSite.href, config.national.walksManager.href),
         title: event.title,
+        description: event.description,
         startDate: walkDateTime.toFormat(DateFormat.DISPLAY_DATE_FULL),
         startDateValue: walkDateTime.toMillis(),
         start_location: event.start_location,

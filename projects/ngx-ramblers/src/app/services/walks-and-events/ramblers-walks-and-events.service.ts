@@ -665,11 +665,30 @@ export class RamblersWalksAndEventsService {
   }
 
   walkLeader(walk: ExtendedGroupEvent): string {
-    return walk?.fields?.publishing?.ramblers?.contactName ? this.replaceSpecialCharacters(walk?.fields?.publishing?.ramblers?.contactName) : "";
+    return walk?.fields?.publishing?.ramblers?.contactName || "";
   }
+
+  private contractionMap: Record<string, string> = {
+    "don't": "do not", "can't": "cannot", "won't": "will not",
+    "couldn't": "could not", "wouldn't": "would not", "shouldn't": "should not",
+    "isn't": "is not", "aren't": "are not", "wasn't": "was not", "weren't": "were not",
+    "hasn't": "has not", "haven't": "have not", "hadn't": "had not",
+    "doesn't": "does not", "didn't": "did not", "mustn't": "must not", "needn't": "need not",
+    "it's": "it is", "that's": "that is", "there's": "there is", "here's": "here is",
+    "what's": "what is", "who's": "who is", "where's": "where is", "how's": "how is",
+    "let's": "let us",
+    "you're": "you are", "we're": "we are", "they're": "they are",
+    "you've": "you have", "we've": "we have", "they've": "they have",
+    "you'll": "you will", "we'll": "we will", "they'll": "they will",
+    "you'd": "you would", "we'd": "we would", "they'd": "they would", "he'd": "he would", "she'd": "she would"
+  };
 
   replaceSpecialCharacters(value: string): string {
     return value ? value
+      ?.replace(/&#(?:0)?39;/g, "'")
+      ?.replace(/\w+'[\w]+/g, match => this.contractionMap[match.toLowerCase()] || match.replace("'", ""))
+      ?.replace(/'/g, "")
+      ?.replace(/&/g, "and")
       ?.replace(/’/g, "")
       ?.replace(/é/g, "e")
       ?.replace(/â€™/g, "")
@@ -679,6 +698,38 @@ export class RamblersWalksAndEventsService {
       ?.replace(/â€œ/g, "“") : "";
   }
 
+  private descriptionDiff(ramblersDesc: string, websiteDesc: string): string {
+    const wordsA = ramblersDesc.split(/\s+/);
+    const wordsB = websiteDesc.split(/\s+/);
+    const table = [Array(wordsB.length + 1).fill(0)];
+    wordsA.forEach((wordA, i) => {
+      const row = [0];
+      wordsB.forEach((wordB, j) => {
+        row.push(wordA === wordB ? table[i][j] + 1 : Math.max(table[i][j + 1], row[j]));
+      });
+      table.push(row);
+    });
+    const traceback = (i: number, j: number, output: string[]): string[] => {
+      if (i <= 0 && j <= 0) {
+        return output;
+      }
+      if (i > 0 && j > 0 && wordsA[i - 1] === wordsB[j - 1]) {
+        output.unshift(this.escapeHtml(wordsA[i - 1]));
+        return traceback(i - 1, j - 1, output);
+      }
+      if (j > 0 && (i === 0 || table[i][j - 1] >= table[i - 1][j])) {
+        output.unshift(`<span class="text-success">${this.escapeHtml(wordsB[j - 1])}</span>`);
+        return traceback(i, j - 1, output);
+      }
+      output.unshift(`<span class="text-danger text-decoration-line-through">${this.escapeHtml(wordsA[i - 1])}</span>`);
+      return traceback(i - 1, j, output);
+    };
+    return traceback(wordsA.length, wordsB.length, []).join(" ");
+  }
+
+  private escapeHtml(text: string): string {
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
 
   walkToUploadRow(walk: ExtendedGroupEvent): Promise<WalkUploadRow> {
     return this.walkToWalkUploadRow(walk);
@@ -855,6 +906,13 @@ export class RamblersWalksAndEventsService {
         if (walk?.groupEvent?.title && walk?.groupEvent?.title !== ramblersWalk?.title) {
           publishStatus.messages.push(`Ramblers title is ${ramblersWalk?.title} but website title is ${walk?.groupEvent?.title}`);
           publishStatus.publish = publishRequired;
+        }
+        if (walk?.groupEvent?.description) {
+          const ourDescription = this.transformMarkdownLinks(this.replaceSpecialCharacters(this.longerDescriptionPlusSuffixes(walk)));
+          if (ourDescription !== ramblersWalk?.description) {
+            publishStatus.messages.push(`Description difference: ${this.descriptionDiff(ramblersWalk?.description, ourDescription)}`);
+            publishStatus.publish = publishRequired;
+          }
         }
         if (publishStatus.messages.length === 0) {
           publishStatus.messages.push("Walk is published to Ramblers and details are correct");

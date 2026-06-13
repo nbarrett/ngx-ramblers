@@ -19,46 +19,77 @@ export const BOOKING_EMAIL_BLOCK_KEYS: Record<BookingEmailType, string> = {
 };
 
 export const DEFAULT_BOOKING_EMAIL_BLOCKS: Record<BookingEmailType, string> = {
-  [BookingEmailType.CONFIRMATION]: `<p>Hi {{params.bookingMergeFields.ATTENDEE_NAME}},</p>
-<p>Your booking has been confirmed for <strong>{{params.bookingMergeFields.EVENT_TITLE}}</strong>.</p>
-<p><strong>Date:</strong> {{params.bookingMergeFields.EVENT_DATE}}</p>
-<p><strong>Places booked:</strong> {{params.bookingMergeFields.PLACES_COUNT}}</p>
-<p><strong>Attendees:</strong></p>
-{{params.bookingMergeFields.ATTENDEE_LIST}}
-<p>If you need to cancel your booking, you can do so from the <a href="{{params.bookingMergeFields.EVENT_LINK}}">event page</a> using the email address you booked with.</p>`,
+  [BookingEmailType.CONFIRMATION]: `Hi {{params.bookingMergeFields.ATTENDEE_NAME}},
 
-  [BookingEmailType.CANCELLATION]: `<p>Hi {{params.bookingMergeFields.ATTENDEE_NAME}},</p>
-<p>Your booking for <strong>{{params.bookingMergeFields.EVENT_TITLE}}</strong> has been cancelled.</p>
-<p><strong>Date:</strong> {{params.bookingMergeFields.EVENT_DATE}}</p>
-<p><strong>Places released:</strong> {{params.bookingMergeFields.PLACES_COUNT}}</p>
-<p><strong>Attendees removed:</strong></p>
-{{params.bookingMergeFields.ATTENDEE_LIST}}
-<p>If this was done in error, you can rebook from the <a href="{{params.bookingMergeFields.EVENT_LINK}}">event page</a>.</p>`,
+Your booking has been confirmed for **{{params.bookingMergeFields.EVENT_TITLE}}**.
 
-  [BookingEmailType.WAITLISTED]: `<p>Hi {{params.bookingMergeFields.ATTENDEE_NAME}},</p>
-<p>Your booking for <strong>{{params.bookingMergeFields.EVENT_TITLE}}</strong> has been moved to the waiting list.</p>
-<p><strong>Date:</strong> {{params.bookingMergeFields.EVENT_DATE}}</p>
-<p><strong>Places affected:</strong> {{params.bookingMergeFields.PLACES_COUNT}}</p>
-<p><strong>Attendees:</strong></p>
-{{params.bookingMergeFields.ATTENDEE_LIST}}
-<p>This happened because a member has booked during the member priority period and the event was full. If a place becomes available, your booking will be automatically restored and you will be notified by email.</p>
-<p>We apologise for any inconvenience. You can still view the event details on the <a href="{{params.bookingMergeFields.EVENT_LINK}}">event page</a>.</p>`,
+**Date:** {{params.bookingMergeFields.EVENT_DATE}}
 
-  [BookingEmailType.RESTORED]: `<p>Hi {{params.bookingMergeFields.ATTENDEE_NAME}},</p>
-<p>Great news! Your booking for <strong>{{params.bookingMergeFields.EVENT_TITLE}}</strong> has been restored.</p>
-<p><strong>Date:</strong> {{params.bookingMergeFields.EVENT_DATE}}</p>
-<p><strong>Places restored:</strong> {{params.bookingMergeFields.PLACES_COUNT}}</p>
-<p><strong>Attendees:</strong></p>
-{{params.bookingMergeFields.ATTENDEE_LIST}}
-<p>A place became available and your booking has been automatically confirmed. No further action is needed. Event details are on the <a href="{{params.bookingMergeFields.EVENT_LINK}}">event page</a>.</p>`,
+**Places booked:** {{params.bookingMergeFields.PLACES_COUNT}}
 
-  [BookingEmailType.REMINDER]: `<p>Hi {{params.bookingMergeFields.ATTENDEE_NAME}},</p>
-<p>This is a reminder that <strong>{{params.bookingMergeFields.EVENT_TITLE}}</strong> is coming up soon.</p>
-<p><strong>Date:</strong> {{params.bookingMergeFields.EVENT_DATE}}</p>
-<p><strong>Places booked:</strong> {{params.bookingMergeFields.PLACES_COUNT}}</p>
-<p><strong>Attendees:</strong></p>
+**Attendees:**
+
 {{params.bookingMergeFields.ATTENDEE_LIST}}
-<p>View full event details on the <a href="{{params.bookingMergeFields.EVENT_LINK}}">event page</a>.</p>`
+
+If you need to cancel your booking, you can do so from the [event page]({{params.bookingMergeFields.EVENT_LINK}}) using the email address you booked with.`,
+
+  [BookingEmailType.CANCELLATION]: `Hi {{params.bookingMergeFields.ATTENDEE_NAME}},
+
+Your booking for **{{params.bookingMergeFields.EVENT_TITLE}}** has been cancelled.
+
+**Date:** {{params.bookingMergeFields.EVENT_DATE}}
+
+**Places released:** {{params.bookingMergeFields.PLACES_COUNT}}
+
+**Attendees removed:**
+
+{{params.bookingMergeFields.ATTENDEE_LIST}}
+
+If this was done in error, you can rebook from the [event page]({{params.bookingMergeFields.EVENT_LINK}}).`,
+
+  [BookingEmailType.WAITLISTED]: `Hi {{params.bookingMergeFields.ATTENDEE_NAME}},
+
+Your booking for **{{params.bookingMergeFields.EVENT_TITLE}}** has been moved to the waiting list.
+
+**Date:** {{params.bookingMergeFields.EVENT_DATE}}
+
+**Places affected:** {{params.bookingMergeFields.PLACES_COUNT}}
+
+**Attendees:**
+
+{{params.bookingMergeFields.ATTENDEE_LIST}}
+
+This happened because a member has booked during the member priority period and the event was full. If a place becomes available, your booking will be automatically restored and you will be notified by email.
+
+We apologise for any inconvenience. You can still view the event details on the [event page]({{params.bookingMergeFields.EVENT_LINK}}).`,
+
+  [BookingEmailType.RESTORED]: `Hi {{params.bookingMergeFields.ATTENDEE_NAME}},
+
+Great news! Your booking for **{{params.bookingMergeFields.EVENT_TITLE}}** has been restored.
+
+**Date:** {{params.bookingMergeFields.EVENT_DATE}}
+
+**Places restored:** {{params.bookingMergeFields.PLACES_COUNT}}
+
+**Attendees:**
+
+{{params.bookingMergeFields.ATTENDEE_LIST}}
+
+A place became available and your booking has been automatically confirmed. No further action is needed. Event details are on the [event page]({{params.bookingMergeFields.EVENT_LINK}}).`,
+
+  [BookingEmailType.REMINDER]: `Hi {{params.bookingMergeFields.ATTENDEE_NAME}},
+
+This is a reminder that **{{params.bookingMergeFields.EVENT_TITLE}}** is coming up soon.
+
+**Date:** {{params.bookingMergeFields.EVENT_DATE}}
+
+**Places booked:** {{params.bookingMergeFields.PLACES_COUNT}}
+
+**Attendees:**
+
+{{params.bookingMergeFields.ATTENDEE_LIST}}
+
+View full event details on the [event page]({{params.bookingMergeFields.EVENT_LINK}}).`
 };
 
 export enum BookingScope {

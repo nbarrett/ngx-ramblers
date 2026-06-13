@@ -511,8 +511,23 @@ export const MERGE_FIELD_CATALOGUE: MergeFieldGroup[] = [
   }
 ];
 
+export const BOOKING_MERGE_FIELD_CATALOGUE: MergeFieldGroup[] = [
+  {
+    group: "Booking",
+    fields: [
+      { token: "{{params.bookingMergeFields.ATTENDEE_NAME}}", label: "Attendee name" },
+      { token: "{{params.bookingMergeFields.EVENT_TITLE}}", label: "Event title" },
+      { token: "{{params.bookingMergeFields.EVENT_DATE}}", label: "Event date" },
+      { token: "{{params.bookingMergeFields.EVENT_LINK}}", label: "Event page link" },
+      { token: "{{params.bookingMergeFields.ATTENDEE_LIST}}", label: "Attendee list" },
+      { token: "{{params.bookingMergeFields.PLACES_COUNT}}", label: "Places count" }
+    ]
+  }
+];
+
 const FIELD_LABEL_BY_TOKEN: Record<string, string> = {};
 MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(field => FIELD_LABEL_BY_TOKEN[field.token] = field.label));
+BOOKING_MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(field => FIELD_LABEL_BY_TOKEN[field.token] = field.label));
 LINK_DESTINATIONS.forEach(destination => FIELD_LABEL_BY_TOKEN[destination.token] = destination.label);
 
 export function registerLinkDestinations(extras: MemberMergeFieldHint[]): void {

@@ -41,6 +41,7 @@ export interface RamblersEventSummaryResponse {
   url: string;
   walksManagerUrl: string;
   title: string;
+  description: string;
   startDate: string;
   startDateValue: number;
   start_location: LocationDetails;

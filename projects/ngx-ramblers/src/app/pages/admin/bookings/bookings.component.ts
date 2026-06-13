@@ -6,8 +6,8 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import {
   BookingConfig,
   BookingEmailType,
-  BookingPlaceholder,
   BookingScope,
+  BOOKING_EMAIL_BLOCK_KEYS,
   DEFAULT_BOOKING_EMAIL_BLOCKS,
   bookingEnabledForEvent,
   effectiveMaxCapacityForEvent,
@@ -15,7 +15,12 @@ import {
 } from "../../../models/booking-config.model";
 import { EmailPreviewComponent } from "../../../modules/common/email-preview/email-preview.component";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
-import { ContentText, InsertableField, View } from "../../../models/content-text.model";
+import {
+  NotificationConfig,
+  TemplateOverrideState,
+  TemplateOverrideType,
+  TemplateOverrides
+} from "../../../models/mail.model";
 import { Booking, BookingApiResponse, BookingStatus, BookingSummaryRow } from "../../../models/booking.model";
 import { BookingService } from "../../../services/booking.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -27,6 +32,7 @@ import {
   faDownload,
   faExclamationTriangle,
   faEye,
+  faEyeSlash,
   faPencil,
   faPaperPlane,
   faTicket,
@@ -38,10 +44,16 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../../walks/walk-display.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
-import { MarkdownComponent } from "ngx-markdown";
+import { BOOKING_MERGE_FIELD_CATALOGUE } from "../../../models/email-composer.model";
+import {
+  contentBlockState,
+  contentBlockStateTabs,
+  ContentBlockEditorComponent,
+  setContentBlockState
+} from "../system-settings/mail/content-block-editor";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { StoredValue } from "../../../models/ui-actions";
-import { ActivatedRoute, Router } from "@angular/router";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { kebabCase, values } from "es-toolkit/compat";
 import { enumKeyValues } from "../../../functions/enums";
 import { BookingConfigService } from "../../../services/system/booking-config.service";
@@ -288,40 +300,22 @@ export enum BookingTab {
                     </div>
                     <hr class="my-3"/>
                     <h6>Per-event email overrides (optional)</h6>
-                    <p class="text-muted mb-2">Override the default email templates for this event only. Leave blank to use the global templates. Use the <strong>#</strong> button on the toolbar to insert placeholders.</p>
-                    <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
-                      <app-section-toggle
-                        [tabs]="emailTemplateTabs"
-                        [selectedTab]="selectedEventEmailOverrideType"
-                        (selectedTabChange)="onEmailTypeTabChange($event)"/>
-                      <div class="d-flex gap-2">
-                        @if (!selectedEventEmailOverrideValue()) {
-                          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="loadDefaultForOverride(selectedEventEmailOverrideType)">
-                            Override default
-                          </button>
-                        } @else {
-                          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearEventEmailOverride(selectedEventEmailOverrideType)">
-                            Revert to default
-                          </button>
-                        }
-                        <button type="button" class="btn btn-sm"
-                                [class.btn-secondary]="bookingPreviewVisible"
-                                [class.btn-outline-secondary]="!bookingPreviewVisible"
-                                (click)="toggleBookingEmailPreview()">
-                          <fa-icon [icon]="faEye" class="me-1"></fa-icon>{{ bookingPreviewVisible ? "Hide preview" : "Preview" }}
-                        </button>
-                      </div>
+                    <p class="mb-2 text-muted">
+                      These overrides apply only to the selected event. Global booking email wording is configured in
+                      <a routerLink="/admin/mail-settings" [queryParams]="{tab: 'email-configurations', configuration: 'booking-notification'}"><strong>Admin &gt; Mail Settings &gt; Email Configurations &gt; Booking Notification</strong></a>.
+                    </p>
+                    <div class="d-flex align-items-start gap-2 mb-2">
+                      <app-section-toggle [tabs]="emailTemplateTabs" [selectedTab]="selectedEventEmailOverrideType" (selectedTabChange)="onEmailTypeTabChange($event)"/>
+                      @if (perEventNotifConfig && !bookingPreviewVisible) {
+                        <app-section-toggle [tabs]="selectedEventContentStateTabs()" [selectedTab]="selectedEventContentState()" (selectedTabChange)="onSelectedEventContentStateChange($event)" [fullWidth]="false"/>
+                      }
+                      <button type="button" class="btn booking-preview-toggle ms-auto"
+                              (click)="toggleBookingEmailPreview()">
+                        <fa-icon [icon]="bookingPreviewVisible ? faEyeSlash : faEye" class="me-1"></fa-icon>{{ bookingPreviewVisible ? "Hide preview" : "Preview" }}
+                      </button>
                     </div>
-                    @if (selectedEventEmailOverrideValue()) {
-                      <app-markdown-editor [data]="{text: selectedEventEmailOverrideValue()}"
-                                           [name]="'event-' + selectedEventEmailOverrideType + '-override'"
-                                           [initialView]="View.EDIT"
-                                           [rows]="10"
-                                           [insertableFields]="placeholderFields"
-                                           (changed)="eventEmailOverrideChanged(selectedEventEmailOverrideType, $event)"/>
-                    } @else {
-                      <div class="border rounded p-3 booking-default-preview" markdown ngPreserveWhitespaces [data]="defaultEmailTemplateDisplay(selectedEventEmailOverrideType)"></div>
-                      <small class="form-text text-muted d-block mt-1">Using the default {{ stringUtils.asTitle(selectedEventEmailOverrideType) }} template. Click <strong>Override default</strong> to customise for this event.</small>
+                    @if (perEventNotifConfig && !bookingPreviewVisible) {
+                      <app-content-block-editor [notificationConfig]="perEventNotifConfig" [blockKeys]="[BOOKING_EMAIL_BLOCK_KEYS[selectedEventEmailOverrideType]]" [blockDefaults]="selectedEventBlockDefaults" [omitAllowed]="false" [frameless]="true" [mergeFieldCatalogue]="BOOKING_MERGE_FIELD_CATALOGUE" [stateQueryParamKey]="StoredValue.EMAIL_STATE" [showStateToggle]="false"/>
                     }
                     @if (bookingPreviewVisible) {
                       <app-email-preview #bookingEmailPreview/>
@@ -493,7 +487,7 @@ export enum BookingTab {
                             Email templates include their own salutation
                           </label>
                           <div class="form-text">
-                            Tick when your templates start with <code>Hi &#123;&#123;ATTENDEE_NAME&#125;&#125;,</code> so the Brevo layout won't render a duplicate greeting. Untick if your templates omit the salutation and you want the Brevo layout to render it.
+                            Tick when your templates start with <code [textContent]="bookingSalutationExample"></code> so the Brevo layout won't render a duplicate greeting. Untick if your templates omit the salutation and you want the Brevo layout to render it.
                           </div>
                         </div>
                       }
@@ -518,15 +512,24 @@ export enum BookingTab {
       .cursor-pointer
         cursor: pointer
 
-      .booking-default-preview
+      .booking-preview-toggle
+        align-items: center
         background-color: #e9ecef
+        border: 2px solid #adb5bd
         color: #6c757d
-        opacity: 0.85
-        cursor: not-allowed
-        user-select: none
-        min-height: 10rem
+        display: inline-flex
+        font-weight: 700
+        line-height: 1.5
+        margin-bottom: 0.75rem
+        padding: 0.375rem 1rem
+
+      .booking-preview-toggle:hover,
+      .booking-preview-toggle:focus
+        background-color: var(--ramblers-colour-sunrise)
+        border-color: var(--ramblers-colour-sunrise)
+        color: var(--ramblers-colour-black)
     `],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, CsvExportComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, MarkdownComponent, NgSelectComponent, NgOptionTemplateDirective, SectionToggle, EmailPreviewComponent]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, CsvExportComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, ContentBlockEditorComponent, NgSelectComponent, NgOptionTemplateDirective, SectionToggle, EmailPreviewComponent, RouterLink]
 })
 export class BookingsComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("BookingsComponent", NgxLoggerLevel.ERROR);
@@ -544,6 +547,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   faDownload = faDownload;
   faTrash = faTrash;
   faEye = faEye;
+  faEyeSlash = faEyeSlash;
   faPencil = faPencil;
   faPaperPlane = faPaperPlane;
   faExclamationTriangle = faExclamationTriangle;
@@ -565,6 +569,9 @@ export class BookingsComponent implements OnInit, OnDestroy {
   bookingConfig: BookingConfig = this.bookingConfigService.default();
   bookingEventTypes = enabledBookingEventTypes(this.bookingConfig);
   protected readonly BookingScope = BookingScope;
+  protected readonly StoredValue = StoredValue;
+  protected readonly BOOKING_MERGE_FIELD_CATALOGUE = BOOKING_MERGE_FIELD_CATALOGUE;
+  protected readonly bookingSalutationExample = "Hi {{params.bookingMergeFields.ATTENDEE_NAME}},";
   availableEventRows: BookingSummaryRow[] = [];
   pickerEventRows: BookingSummaryRow[] = [];
   csvData: any[] = [];
@@ -575,18 +582,43 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   protected readonly BookingTab = BookingTab;
   protected readonly BookingStatus = BookingStatus;
-  protected readonly View = View;
+
   emailTemplateTypes: BookingEmailType[] = enumKeyValues(BookingEmailType).map(p => p.value as BookingEmailType);
   selectedEventEmailOverrideType: string = BookingEmailType.CONFIRMATION;
   emailTemplateTabs: SectionToggleTab[] = this.emailTemplateTypes.map(type => ({value: type, label: this.stringUtils.asTitle(type)}));
+  perEventNotifConfig: NotificationConfig | null = null;
   private dirtyEventIds: Set<string> = new Set();
-  placeholderFields: InsertableField[] = enumKeyValues(BookingPlaceholder).map(p => ({
-    label: this.stringUtils.asTitle(p.value),
-    value: `{{${p.value}}}`
-  }));
   reassignTargetEventId: string = null;
   reassignTargetRows: BookingSummaryRow[] = [];
   selectedEventOrphaned = false;
+  protected readonly BOOKING_EMAIL_BLOCK_KEYS = BOOKING_EMAIL_BLOCK_KEYS;
+
+  get selectedEventBlockDefaults(): Record<string, string> {
+    const emailType = this.selectedEventEmailOverrideType;
+    const blockKey = BOOKING_EMAIL_BLOCK_KEYS[emailType];
+    return { [blockKey]: DEFAULT_BOOKING_EMAIL_BLOCKS[emailType as BookingEmailType] || "" };
+  }
+
+  selectedEventContentStateTabs(): SectionToggleTab[] {
+    return contentBlockStateTabs(false);
+  }
+
+  selectedEventContentState(): TemplateOverrideState {
+    return this.perEventNotifConfig
+      ? contentBlockState(this.perEventNotifConfig, this.selectedEventContentBlockKey())
+      : TemplateOverrideState.DEFAULT;
+  }
+
+  onSelectedEventContentStateChange(state: string): void {
+    if (this.perEventNotifConfig) {
+      setContentBlockState(this.perEventNotifConfig, this.selectedEventContentBlockKey(), state as TemplateOverrideState, this.selectedEventBlockDefaults);
+      this.syncPerEventNotifConfig();
+    }
+  }
+
+  private selectedEventContentBlockKey(): string {
+    return BOOKING_EMAIL_BLOCK_KEYS[this.selectedEventEmailOverrideType];
+  }
 
   @ViewChild("csvComponent") csvComponent: CsvExportComponent;
   @ViewChild("bookingEmailPreview") bookingEmailPreview: EmailPreviewComponent;
@@ -676,13 +708,16 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   private async loadEvents(eventIds: string[]) {
-    const loadPromises = eventIds.map(async id => {
-      const event = await this.walksAndEventsService.queryById(id);
-      if (event) {
-        this.eventsMap.set(id, event);
-      }
-    });
-    await Promise.all(loadPromises);
+    if (eventIds.length === 0) {
+      return;
+    }
+    const eventQuery: EventQueryParameters = {
+      inputSource: null,
+      suppressEventLinking: false,
+      ids: eventIds
+    };
+    const events = await this.walksAndEventsService.all(eventQuery);
+    events.forEach(event => this.eventsMap.set(event.id, event));
   }
 
   private buildSummaryRows() {
@@ -814,14 +849,16 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return row?.eventId || null;
   }
 
-  onEmailTypeTabChange(emailType: string) {
+  async onEmailTypeTabChange(emailType: string) {
     this.selectedEventEmailOverrideType = emailType;
+    this.buildPerEventNotifConfig();
     this.router.navigate([], {
       queryParams: {[StoredValue.EMAIL_TYPE]: emailType},
       queryParamsHandling: "merge"
     });
     if (this.bookingPreviewVisible) {
-      this.previewSelectedEventEmail();
+      await Promise.resolve();
+      await this.previewSelectedEventEmail();
     }
   }
 
@@ -894,6 +931,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.selectedEventMaxCapacity = event?.fields?.maxCapacity ?? null;
     this.selectedEventBookingsEnabled = !!event?.fields?.bookingsEnabled;
     this.loadEventBookings();
+    this.buildPerEventNotifConfig();
     if (this.bookingPreviewVisible && this.selectedEventId) {
       this.previewSelectedEventEmail();
     }
@@ -1077,49 +1115,44 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return `${this.eventTypeLabel(eventType)}: ${title} (${eventDate})`;
   }
 
-  placeholderList(): string {
-    return enumKeyValues(BookingPlaceholder).map(p => `{{${p.value}}}`).join(", ");
-  }
-
-  selectedEventEmailOverrideValue(): string {
-    const overrides = this.eventsMap.get(this.selectedEventId)?.fields?.bookingEmailOverrides;
-    return overrides?.[this.selectedEventEmailOverrideType] || "";
-  }
-
-  loadDefaultForOverride(emailType: string) {
-    const defaultText = DEFAULT_BOOKING_EMAIL_BLOCKS[emailType as BookingEmailType] || "";
-    if (!defaultText) {
-      this.notify.warning({title: "No default", message: "No default template configured for " + this.stringUtils.asTitle(emailType)});
+  private buildPerEventNotifConfig(): void {
+    const event = this.eventsMap.get(this.selectedEventId);
+    if (!event) {
+      this.perEventNotifConfig = null;
       return;
     }
-    this.eventEmailOverrideChanged(emailType, {text: defaultText});
+    const emailType = this.selectedEventEmailOverrideType;
+    const overrideValue = event.fields?.bookingEmailOverrides?.[emailType] || "";
+    const blockKey = BOOKING_EMAIL_BLOCK_KEYS[emailType];
+    this.perEventNotifConfig = {
+      subject: { prefixParameter: null, text: null, suffixParameter: null },
+      body: "",
+      preSendActions: [],
+      postSendActions: [],
+      defaultMemberSelection: null,
+      bannerId: null,
+      templateOverrides: overrideValue
+        ? { [blockKey]: { type: TemplateOverrideType.CONTENT, state: TemplateOverrideState.CUSTOM, content: overrideValue } }
+        : {}
+    };
   }
 
-  clearEventEmailOverride(emailType: string) {
-    const selectedEvent = this.eventsMap.get(this.selectedEventId);
-    if (!selectedEvent?.fields?.bookingEmailOverrides) {
+  private syncPerEventNotifConfig(): void {
+    const event = this.eventsMap.get(this.selectedEventId);
+    if (!event || !this.perEventNotifConfig) {
       return;
     }
-    delete selectedEvent.fields.bookingEmailOverrides[emailType];
-    this.markSelectedEventDirty();
-    if (this.bookingPreviewVisible) {
-      this.previewSelectedEventEmail();
+    const emailType = this.selectedEventEmailOverrideType;
+    const blockKey = BOOKING_EMAIL_BLOCK_KEYS[emailType];
+    const override = this.perEventNotifConfig.templateOverrides?.[blockKey];
+    if (!event.fields.bookingEmailOverrides) {
+      event.fields.bookingEmailOverrides = {};
     }
-  }
-
-  defaultEmailTemplateDisplay(emailType: string): string {
-    return DEFAULT_BOOKING_EMAIL_BLOCKS[emailType as BookingEmailType] || "*No default template configured.*";
-  }
-
-  eventEmailOverrideChanged(emailType: string, event: ContentText) {
-    const selectedEvent = this.eventsMap.get(this.selectedEventId);
-    if (!selectedEvent) {
-      return;
+    if (override?.state === TemplateOverrideState.CUSTOM && override.content?.trim()) {
+      event.fields.bookingEmailOverrides[emailType] = override.content;
+    } else {
+      delete event.fields.bookingEmailOverrides[emailType];
     }
-    if (!selectedEvent.fields.bookingEmailOverrides) {
-      selectedEvent.fields.bookingEmailOverrides = {};
-    }
-    selectedEvent.fields.bookingEmailOverrides[emailType] = event.text || "";
     this.markSelectedEventDirty();
   }
 
@@ -1135,6 +1168,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
       this.notify.error({title: "Save failed", message: "Please select an event first"});
       return;
     }
+    this.syncPerEventNotifConfig();
     try {
       const updatedEvent: ExtendedGroupEvent = {
         ...selectedEvent,

@@ -1,4 +1,4 @@
-import { values } from "es-toolkit/compat";
+import { values, keys } from "es-toolkit/compat";
 import { Component, EventEmitter, inject, OnDestroy, OnInit, Output } from "@angular/core";
 import {
   MailMessagingConfig,
@@ -49,12 +49,12 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ImageCropperAndResizerComponent } from "../../../../image-cropper-and-resizer/image-cropper-and-resizer";
 import { AwsFileData } from "../../../../models/aws-object.model";
 import { RootFolder } from "../../../../models/system.model";
-import { ActivatedRoute } from "@angular/router";
+import { ActivatedRoute, RouterLink } from "@angular/router";
 import { Location } from "@angular/common";
 import { StoredValue } from "../../../../models/ui-actions";
 import { ContentBlockEditorComponent } from "./content-block-editor";
 import { EmailBodyEditorComponent } from "./email-body-editor";
-import { BOOKING_EMAIL_BLOCK_KEYS } from "../../../../models/booking-config.model";
+import { BOOKING_EMAIL_BLOCK_KEYS, DEFAULT_BOOKING_EMAIL_BLOCKS } from "../../../../models/booking-config.model";
 import { toKebabCase } from "../../../../functions/strings";
 import { ImageActionsDropdownComponent } from "../../../../modules/common/dynamic-content/image-actions-dropdown";
 
@@ -320,9 +320,14 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                   </div>
                 }
                 @if (isBookingConfig()) {
+                  <p class="mb-3 text-muted">
+                    This is the global booking email wording. Per-event booking email overrides live in
+                    <a routerLink="/admin/bookings" [queryParams]="{tab: 'per-event-detail'}"><strong>Admin &gt; Bookings &gt; Per-Event Detail</strong></a>.
+                  </p>
                   <app-content-block-editor [notificationConfig]="notificationConfig"
                                             [blockKeys]="discoveredContentBlockKeys"
-                                            [blockDefaults]="discoveredContentBlockDefaults"/>
+                                            [blockDefaults]="discoveredContentBlockDefaults"
+                                            [omitAllowed]="!isBookingConfig()"/>
                 } @else if (notificationConfig) {
                   <app-email-body-editor [notificationConfig]="notificationConfig"/>
                 }
@@ -436,7 +441,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
         </div>
       }
     `,
-    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, SenderRepliesAndSignoff, BrevoButtonComponent, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule, ImageCropperAndResizerComponent, ImageActionsDropdownComponent, ContentBlockEditorComponent, EmailBodyEditorComponent]
+    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, SenderRepliesAndSignoff, ForgotPasswordNotificationDetailsComponent, FontAwesomeModule, ImageCropperAndResizerComponent, ImageActionsDropdownComponent, ContentBlockEditorComponent, EmailBodyEditorComponent, RouterLink]
 })
 
 export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
@@ -723,15 +728,26 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
       this.discoveredOverrideKeys = [];
       this.discoveredContentBlockKeys = this.bookingBlockKeys();
       this.discoveredContentBlockDefaults = {};
+      this.mergeBookingBlockDefaults();
       return;
     }
     this.mailService.templateDiff({templateName, includeBookingBlocks}).then(response => {
       this.discoveredOverrideKeys = response.overrideKeys || [];
       this.discoveredContentBlockKeys = [...(response.contentBlockKeys || []), ...this.bookingBlockKeys()];
       this.discoveredContentBlockDefaults = response.contentBlockDefaults || {};
+      this.mergeBookingBlockDefaults();
       this.logger.info("template introspection:", response, "overrideKeys:", this.discoveredOverrideKeys, "contentBlockKeys:", this.discoveredContentBlockKeys);
     }).catch(error => {
       this.logger.error("template introspection error:", error);
+    });
+  }
+
+  private mergeBookingBlockDefaults(): void {
+    keys(BOOKING_EMAIL_BLOCK_KEYS).forEach(emailType => {
+      const blockKey = BOOKING_EMAIL_BLOCK_KEYS[emailType];
+      if (!this.discoveredContentBlockDefaults[blockKey]) {
+        this.discoveredContentBlockDefaults[blockKey] = DEFAULT_BOOKING_EMAIL_BLOCKS[emailType] || "";
+      }
     });
   }
 

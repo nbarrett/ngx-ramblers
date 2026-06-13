@@ -64,6 +64,18 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       overflow-x: hidden
       position: relative
 
+    .tiptap-editor-shell-disabled
+      border-color: #adb5bd
+      background-color: #f8f9fa
+      box-shadow: inset 0 0 0 1px rgba(173, 181, 189, 0.35)
+
+    .tiptap-editor-shell-disabled .tiptap-content
+      background-color: #f8f9fa
+      color: #6c757d
+
+    .tiptap-editor-shell-disabled .tiptap-content .ProseMirror
+      cursor: not-allowed
+
     .token-editor-popup
       position: absolute
       z-index: 30
@@ -382,7 +394,7 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       min-width: 160px
   `],
   template: `
-    <div class="tiptap-editor-shell">
+    <div class="tiptap-editor-shell" [class.tiptap-editor-shell-disabled]="!editable" [attr.aria-disabled]="!editable">
       @if (editable) {
       <div class="tiptap-toolbar" role="toolbar" (mousedown)="onToolbarMousedown($event)">
         <button type="button" tooltip="Bold" container="body" delay=500 (click)="toggle(TiptapMark.Bold)" [class.is-active]="isActive('bold')">
@@ -651,7 +663,14 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private pendingValue: string = "";
   private urlService = inject(UrlService);
   private pasteMarked = new Marked();
-  protected mergeFieldCatalogue: MergeFieldGroup[] = MERGE_FIELD_CATALOGUE;
+  private _mergeFieldCatalogue: MergeFieldGroup[] = MERGE_FIELD_CATALOGUE;
+  @Input() set mergeFieldCatalogue(value: MergeFieldGroup[] | undefined) {
+    this._mergeFieldCatalogue = value ?? MERGE_FIELD_CATALOGUE;
+    this.allMergeFields = this._mergeFieldCatalogue.flatMap(group => group.fields);
+  }
+  get mergeFieldCatalogue(): MergeFieldGroup[] {
+    return this._mergeFieldCatalogue;
+  }
   protected allMergeFields: MemberMergeFieldHint[] = MERGE_FIELD_CATALOGUE.flatMap(group => group.fields);
   protected linkDestinations: MemberMergeFieldHint[] = LINK_DESTINATIONS;
   protected linkTextDisplay: string = "";

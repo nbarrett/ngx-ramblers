@@ -311,7 +311,15 @@ describe("brevo messages", () => {
         PW_RESET_LINK: passwordResetLink,
         FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""
       },
-      accountMergeFields: { STREET: "", POSTCODE: "", TOWN: "" }
+      accountMergeFields: { STREET: "", POSTCODE: "", TOWN: "" },
+      bookingMergeFields: {
+        ATTENDEE_NAME: "Jane",
+        EVENT_TITLE: "Evening walk for Summer Solstice",
+        EVENT_DATE: "Sunday, 21 June 2026 at 7:00 PM",
+        EVENT_LINK: "https://ngx-ramblers.org.uk/walks/evening-walk-for-summer-solstice",
+        ATTENDEE_LIST: "<ul><li>Jane Doe</li></ul>",
+        PLACES_COUNT: "1"
+      }
     });
 
     it("renders welcome-to-the-group from the repo file with PW_RESET_LINK resolved and not mangled", () => {
@@ -335,6 +343,14 @@ describe("brevo messages", () => {
       const result = renderLocalBrandedTemplate("fully-automated-text-body", paramsWith("", bodyContent));
       expect(result).toContain("Your booking for the Wye Downs walk is confirmed.");
       expect(result).not.toContain("{{params.messageMergeFields.BODY_CONTENT}}");
+    });
+
+    it("resolves booking merge fields inside the externally supplied booking body", () => {
+      const bodyContent = `<p>If you need to cancel your booking, you can do so from the <a href="{{params.bookingMergeFields.EVENT_LINK}}">event page</a>.</p>`;
+      const result = renderLocalBrandedTemplate("fully-automated-text-body", paramsWith("", bodyContent));
+      expect(result).toContain(`href="https://ngx-ramblers.org.uk/walks/evening-walk-for-summer-solstice"`);
+      expect(result).not.toContain("{{params.bookingMergeFields.EVENT_LINK}}");
+      expect(result).not.toContain("%7B%7B");
     });
 
     it("throws when the template name has no repo file", () => {

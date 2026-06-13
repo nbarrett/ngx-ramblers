@@ -11,7 +11,7 @@ import {
   TemplateOverrideType
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { dateTimeFromIso } from "../../shared/dates";
-import { renderMarkdownToHtml } from "../../shared/markdown-renderer";
+import { renderMarkdownPreservingTokens } from "../common/messages";
 import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
 export { BOOKING_EMAIL_BLOCK_KEYS, DEFAULT_BOOKING_EMAIL_BLOCKS };
@@ -51,15 +51,15 @@ export function buildBookingMergeFields(event: any, bookingRecord: Booking, even
 export function resolveBookingBody(emailType: BookingEmailType, event: any, notifConfig: NotificationConfig | null): string {
   const perEventOverride: string = event?.fields?.bookingEmailOverrides?.[emailType]?.trim();
   if (perEventOverride) {
-    return renderMarkdownToHtml(perEventOverride);
+    return renderMarkdownPreservingTokens(perEventOverride);
   }
   const siteOverride = notifConfig?.templateOverrides?.[BOOKING_EMAIL_BLOCK_KEYS[emailType]];
   if (siteOverride?.state === TemplateOverrideState.CUSTOM
     && siteOverride?.type === TemplateOverrideType.CONTENT
     && siteOverride.content?.trim()) {
-    return renderMarkdownToHtml(siteOverride.content);
+    return renderMarkdownPreservingTokens(siteOverride.content);
   }
-  return DEFAULT_BOOKING_EMAIL_BLOCKS[emailType];
+  return renderMarkdownPreservingTokens(DEFAULT_BOOKING_EMAIL_BLOCKS[emailType]);
 }
 
 export function subjectForType(emailType: BookingEmailType, eventTitle: string): string {
