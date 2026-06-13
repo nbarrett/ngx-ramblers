@@ -15,6 +15,7 @@ import { ramblersUploadAuditRoutes } from "./mongo/routes/ramblers-upload-audit"
 import { ramblersRoutes } from "./ramblers/ramblers-routes";
 import { salesforceRoutes } from "./salesforce/salesforce-routes";
 import { pageContentRoutes } from "./mongo/routes/page-content";
+import { siteSearchRoutes } from "./mongo/routes/site-search";
 import { walksRoutes } from "./mongo/routes/walk";
 import { contentMetadataRoutes } from "./mongo/routes/content-metadata";
 import { brevoRoutes } from "./brevo/brevo-routes";
@@ -194,6 +195,7 @@ app.use("/api/database/notification-config", notificationConfigRoutes);
 app.use("/api/database/content-text", contentTextRoutes);
 app.use("/api/database/migration-history", migrationHistoryRoutes);
 app.use("/api/database/page-content", pageContentRoutes);
+app.use("/api/database/search", siteSearchRoutes);
 app.use("/api/database/content-metadata", contentMetadataRoutes);
 app.use("/api/database/booking", bookingRoutes);
 app.use("/api/database/parish-allocation", parishAllocationRoutes);

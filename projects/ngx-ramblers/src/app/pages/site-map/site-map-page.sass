@@ -1,0 +1,231 @@
+@import "../../assets/styles/colours"
+
+$site-map-line: rgba($ramblers-colour-granite, .22)
+
+.site-map-filter
+  position: relative
+  max-width: 480px
+
+.site-map-filter .form-control
+  min-height: 46px
+  padding-left: 38px
+  padding-right: 38px
+
+.site-map-filter-icon
+  position: absolute
+  left: 13px
+  top: 50%
+  transform: translateY(-50%)
+  color: $ramblers-colour-granite
+  opacity: .55
+  pointer-events: none
+
+.site-map-filter-clear
+  position: absolute
+  right: 6px
+  top: 50%
+  transform: translateY(-50%)
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 32px
+  height: 32px
+  border: none
+  background: transparent
+  color: $ramblers-colour-granite
+  cursor: pointer
+
+:host ::ng-deep mark
+  background: rgba($ramblers-colour-sunrise, .35)
+  color: inherit
+  padding: 0
+  border-radius: 0
+
+.site-map-grid
+  display: grid
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))
+  gap: 1rem
+  align-items: start
+
+.site-map-card
+  border: 1px solid rgba($ramblers-colour-granite, .14)
+  border-radius: 10px
+  background: $ramblers-colour-cloudy
+  overflow: hidden
+  transition: box-shadow .15s ease, border-color .15s ease
+
+.site-map-card:hover
+  box-shadow: 0 4px 14px rgba($ramblers-colour-granite, .12)
+  border-color: rgba($ramblers-colour-sunrise, .55)
+
+.site-map-card.expanded
+  grid-column: 1 / -1
+  border-color: rgba($ramblers-colour-sunrise, .55)
+  box-shadow: 0 4px 14px rgba($ramblers-colour-granite, .12)
+
+.site-map-card-head
+  display: flex
+  align-items: center
+  gap: .75rem
+  width: 100%
+  padding: .9rem 1rem
+  background: transparent
+  border: none
+  text-align: left
+  cursor: pointer
+
+.site-map-card-icon
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 42px
+  height: 42px
+  flex: 0 0 auto
+  border-radius: 9px
+  background: rgba($ramblers-colour-sunrise, .16)
+  color: $ramblers-colour-sunrise-hover-border
+  font-size: 1.1rem
+
+.site-map-card-heading
+  display: flex
+  flex-direction: column
+  flex: 1 1 auto
+  min-width: 0
+
+.site-map-card-title
+  font-weight: 700
+  font-size: 1.1rem
+  color: $ramblers-colour-granite
+
+.site-map-card-count
+  font-size: .8rem
+  color: rgba($ramblers-colour-granite, .6)
+
+.site-map-card-chevron
+  color: rgba($ramblers-colour-granite, .55)
+  flex: 0 0 auto
+
+.site-map-card-teaser
+  padding: 0 1rem 1rem
+  font-size: .85rem
+  color: rgba($ramblers-colour-granite, .7)
+  line-height: 1.5
+
+.site-map-card-open
+  display: inline-block
+  margin: 0 1rem 1rem
+  font-weight: 700
+  color: $ramblers-colour-sunset
+  text-decoration: none
+
+.site-map-card-open:hover
+  text-decoration: underline
+
+.site-map-tree
+  list-style: none
+  margin: 0
+  padding: 0 1rem 1rem 1.4rem
+
+.site-map-children
+  list-style: none
+  margin: 0
+  padding-left: 1.4rem
+  position: relative
+
+.site-map-node
+  position: relative
+
+.site-map-row
+  display: flex
+  align-items: center
+  gap: .4rem
+  padding: .2rem 0
+
+.site-map-toggle
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 22px
+  height: 22px
+  padding: 0
+  border: none
+  background: transparent
+  color: $ramblers-colour-granite
+  cursor: pointer
+  font-size: .8rem
+  flex: 0 0 auto
+
+.site-map-leaf
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 22px
+  height: 22px
+  flex: 0 0 auto
+
+.site-map-leaf::before
+  content: ""
+  width: 5px
+  height: 5px
+  border-radius: 50%
+  background: $site-map-line
+
+.site-map-link
+  color: $ramblers-colour-granite
+  text-decoration: none
+
+.site-map-link:hover
+  color: $ramblers-colour-sunset
+  text-decoration: underline
+
+.site-map-label
+  color: rgba($ramblers-colour-granite, .8)
+
+.site-map-count
+  font-size: .7rem
+  font-weight: 700
+  color: rgba($ramblers-colour-granite, .65)
+  background: rgba($ramblers-colour-granite, .08)
+  border-radius: 10px
+  padding: .02rem .45rem
+
+.site-map-children > .site-map-node::before
+  content: ""
+  position: absolute
+  top: 0
+  left: -1.4rem
+  width: 0
+  height: 100%
+  border-left: 1px solid $site-map-line
+
+.site-map-children > .site-map-node:last-child::before
+  height: 1.05rem
+
+.site-map-children > .site-map-node::after
+  content: ""
+  position: absolute
+  top: 1.05rem
+  left: -1.4rem
+  width: 1rem
+  height: 0
+  border-top: 1px solid $site-map-line
+
+.site-map-building
+  display: flex
+  align-items: center
+  gap: .6rem
+  color: $ramblers-colour-granite
+  opacity: .85
+
+.site-map-spinner
+  flex: 0 0 auto
+  width: 18px
+  height: 18px
+  border: 2px solid rgba($ramblers-colour-sunrise, .3)
+  border-top-color: $ramblers-colour-sunrise
+  border-radius: 50%
+  animation: site-map-spin .8s linear infinite
+
+@keyframes site-map-spin
+  to
+    transform: rotate(360deg)

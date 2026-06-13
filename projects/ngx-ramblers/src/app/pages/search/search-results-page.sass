@@ -1,0 +1,195 @@
+@import "../../assets/styles/colours"
+
+.search-refine
+  width: 100%
+
+.search-toolbar
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: .4rem 1.4rem
+
+.search-scope
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: .4rem
+
+.search-scope-label
+  font-size: .85rem
+  color: rgba($ramblers-colour-granite, .65)
+
+.search-scope-option
+  border: 1px solid rgba($ramblers-colour-granite, .2)
+  background: transparent
+  color: $ramblers-colour-granite
+  border-radius: 14px
+  padding: .2rem .8rem
+  font-size: .82rem
+  cursor: pointer
+
+.search-scope-option.active
+  background: $ramblers-colour-sunrise
+  border-color: $ramblers-colour-sunrise
+  color: $ramblers-colour-black
+  font-weight: 700
+
+.search-indexing
+  display: flex
+  align-items: center
+  gap: .6rem
+
+.search-spinner
+  flex: 0 0 auto
+  width: 18px
+  height: 18px
+  border: 2px solid rgba($ramblers-colour-sunrise, .3)
+  border-top-color: $ramblers-colour-sunrise
+  border-radius: 50%
+  animation: search-spin .8s linear infinite
+
+@keyframes search-spin
+  to
+    transform: rotate(360deg)
+
+.search-refine-input-wrapper
+  position: relative
+  display: flex
+  flex: 1 1 auto
+  width: 1%
+
+.search-refine-input-wrapper .form-control
+  min-height: 48px
+  width: 100%
+  padding-right: 2.75rem
+  border-top-right-radius: 0
+  border-bottom-right-radius: 0
+
+.search-refine-clear
+  position: absolute
+  top: 0
+  right: 0
+  height: 100%
+  width: 2.75rem
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  padding: 0
+  border: none
+  background: transparent
+  color: rgba($ramblers-colour-granite, .55)
+  cursor: pointer
+
+.search-refine-clear:hover
+  color: $ramblers-colour-granite
+
+.search-refine-button
+  min-height: 48px
+  display: inline-flex
+  align-items: center
+  justify-content: center
+
+.search-group-heading
+  display: flex
+  align-items: center
+  color: $ramblers-colour-granite
+  border-bottom: 1px solid rgba($ramblers-colour-granite, .12)
+  padding-bottom: .4rem
+
+.search-count
+  margin-left: .5rem
+  font-size: .8rem
+  font-weight: 700
+  color: $ramblers-colour-granite
+  background: rgba($ramblers-colour-granite, .1)
+  border-radius: 10px
+  padding: .05rem .55rem
+
+.search-result
+  display: block
+  padding: .75rem 1rem
+  margin-bottom: .5rem
+  border: 1px solid rgba($ramblers-colour-granite, .12)
+  border-radius: 8px
+  color: $ramblers-colour-granite
+  text-decoration: none
+  transition: background-color .12s ease, border-color .12s ease
+
+.search-result:hover
+  background: rgba($ramblers-colour-sunrise, .08)
+  border-color: rgba($ramblers-colour-sunrise, .5)
+
+.search-result-type
+  display: inline-block
+  font-size: .7rem
+  font-weight: 700
+  text-transform: uppercase
+  letter-spacing: .03em
+  padding: .1rem .5rem
+  border-radius: 4px
+  margin-right: .5rem
+  vertical-align: middle
+
+.type-page
+  background: rgba($ramblers-colour-granite, .1)
+  color: $ramblers-colour-granite
+
+.type-walk
+  background: rgba($ramblers-colour-sunset, .18)
+  color: $ramblers-colour-sunset
+
+.type-event
+  background: rgba($ramblers-colour-mintcake, .3)
+  color: $ramblers-colour-mintcake-hover-dark
+
+.search-result-title
+  font-weight: 700
+  font-size: 1.1rem
+  vertical-align: middle
+
+.search-result-path
+  display: block
+  font-size: .8rem
+  color: $ramblers-colour-mintcake
+  margin-top: .15rem
+
+.search-result-excerpt
+  margin-top: .35rem
+  color: $ramblers-colour-granite
+
+.search-result-meta
+  margin-top: .45rem
+  font-size: .78rem
+  color: rgba($ramblers-colour-granite, .75)
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: .35rem
+
+.meta-sep
+  opacity: .5
+
+.relevance
+  font-weight: 700
+
+.relevance-high
+  color: $ramblers-colour-sunset
+
+.relevance-medium
+  color: $ramblers-colour-sunrise-hover-border
+
+.relevance-low
+  color: rgba($ramblers-colour-granite, .7)
+
+.search-index-status
+  margin-top: 1.5rem
+  padding-top: .75rem
+  border-top: 1px solid rgba($ramblers-colour-granite, .12)
+  font-size: .8rem
+  color: rgba($ramblers-colour-granite, .7)
+
+:host ::ng-deep mark
+  background: rgba($ramblers-colour-sunrise, .35)
+  color: inherit
+  padding: 0
+  border-radius: 0

@@ -296,6 +296,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
       .pipe(distinctUntilChanged())
       .subscribe(searchTerm => {
         this.ui.saveValueFor(StoredValue.SEARCH, searchTerm || "");
+        this.queryParamsActive = true;
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.APPLY_FILTER, searchTerm));
       }));
   }

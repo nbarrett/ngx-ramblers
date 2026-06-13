@@ -287,6 +287,17 @@ import { ClipboardService } from "../../../services/clipboard.service";
                                type="text" class="form-control"
                                placeholder="Describe image for accessibility">
                       </ng-template>
+                      <ng-template #imageLinkControl>
+                        <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-link')">
+                          Link when clicked</label>
+                        <input [(ngModel)]="column.href"
+                               [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-link')"
+                               type="text" class="form-control"
+                               placeholder="e.g. publications/the-wealdway or https://...">
+                        <small class="form-text text-muted">
+                          Makes the image clickable. Leave the text box empty for an image-only link.
+                        </small>
+                      </ng-template>
                       <ng-template #imageBorderRadiusControl let-styleAttr="style">
                         <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')">
                           Border Radius</label>
@@ -400,6 +411,9 @@ import { ClipboardService } from "../../../services/clipboard.service";
                               <ng-container [ngTemplateOutlet]="imageAltControl"></ng-container>
                             </div>
                             <div class="col-sm-12">
+                              <ng-container [ngTemplateOutlet]="imageLinkControl"></ng-container>
+                            </div>
+                            <div class="col-sm-12">
                               <ng-container [ngTemplateOutlet]="imageBorderRadiusControl"></ng-container>
                             </div>
                           </div>
@@ -421,6 +435,11 @@ import { ClipboardService } from "../../../services/clipboard.service";
                             <div class="col-auto">
                               <ng-container [ngTemplateOutlet]="imageBorderRadiusControl"
                                             [ngTemplateOutletContext]="{style: '140px'}"></ng-container>
+                            </div>
+                          </div>
+                          <div class="row mt-2">
+                            <div class="col-12">
+                              <ng-container [ngTemplateOutlet]="imageLinkControl"></ng-container>
                             </div>
                           </div>
                         }

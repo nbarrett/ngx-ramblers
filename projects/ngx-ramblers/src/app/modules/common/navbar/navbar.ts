@@ -15,6 +15,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import { SvgComponent } from "../svg/svg";
+import { SiteSearchComponent } from "../site-search/site-search";
 import { NavbarContentComponent } from "../navbar-content/navbar-content";
 import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
 import { LoginPanelComponent } from "../../../login-panel/login-panel.component";
@@ -27,14 +28,20 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
       <div [ngClass]="outerClasses()">
         <nav class="navbar navbar-expand-lg px-0">
           <div class="container px-0 d-flex align-items-center">
-            <a class="navbar-brand"
-               [class.me-0]="inlineNavBarVisible()"
-               [class.ps-0]="inlineNavBarVisible()"
-               [href]="urlService.baseUrl()" aria-current="page" target="_self">
-              @if (logo?.awsFileName) {
-                <img [src]="urlService.resourceRelativePathForAWSFileName(logo?.awsFileName)"
-                     [alt]="systemConfig?.group?.shortName" [width]="logo?.width">
-              }</a>
+            <div class="brand-search-wrap">
+              <a class="navbar-brand"
+                 [class.me-0]="inlineNavBarVisible()"
+                 [class.ps-0]="inlineNavBarVisible()"
+                 [href]="urlService.baseUrl()" aria-current="page" target="_self">
+                @if (logo?.awsFileName) {
+                  <img [src]="urlService.resourceRelativePathForAWSFileName(logo?.awsFileName)"
+                       [alt]="systemConfig?.group?.shortName" [width]="logo?.width">
+                }</a>
+              @if (!belowLogoInline()) {
+                <app-site-search class="site-search-anchored"
+                                 [style.color]="systemConfig?.header?.navBar?.class===classBackgroundDark?colourCloudy:colourGranite"/>
+              }
+            </div>
             <button type="button" aria-label="Toggle navigation"
                     class="navbar-toggler border-0 rounded-0 ms-auto"
                     [attr.aria-expanded]="navbarExpanded"
@@ -90,13 +97,25 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
           </div>
         </nav>
         @if (systemConfig?.header?.navBar?.location === NavBarLocation.BELOW_LOGO && !navbarContentWithinCollapse) {
-          <div class="container">
-            <app-navbar-content/>
+          <div class="container d-flex align-items-center">
+            <app-navbar-content class="flex-grow-1"/>
+            <app-site-search class="site-search-anchored"
+                             [style.color]="systemConfig?.header?.navBar?.class===classBackgroundDark?colourCloudy:colourGranite"/>
           </div>
         }
       </div>
     `,
-    imports: [SvgComponent, NavbarContentComponent, HeaderButtonsComponent, LoginPanelComponent, NgClass, NgStyle, SocialMediaLinksComponent]
+    styles: [`
+.brand-search-wrap
+  display: flex
+  align-items: center
+
+.site-search-anchored
+  display: flex
+  align-items: center
+  margin-left: 4px
+`],
+    imports: [SvgComponent, SiteSearchComponent, NavbarContentComponent, HeaderButtonsComponent, LoginPanelComponent, NgClass, NgStyle, SocialMediaLinksComponent]
 })
 export class NavbarComponent implements OnInit, OnDestroy {
 
@@ -165,6 +184,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   inlineNavBarVisible(): boolean {
     return !this.navbarContentWithinCollapse && this.systemConfig?.header?.navBar?.location !== NavBarLocation.BELOW_LOGO;
+  }
+
+  belowLogoInline(): boolean {
+    return !this.navbarContentWithinCollapse && this.systemConfig?.header?.navBar?.location === NavBarLocation.BELOW_LOGO;
   }
 
   rightPanelVisible(): boolean {

@@ -17,6 +17,7 @@ import { AreaMap } from "../../../pages/area-map/area-map";
 import { DynamicContentViewMap } from "./dynamic-content-view-map";
 import { DynamicContentViewIndex } from "./dynamic-content-view-index";
 import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
+import { firstLinkHref, firstLinkText } from "../../../functions/strings";
 
 @Component({
     selector: "app-dynamic-content-view-text-row",
@@ -119,10 +120,11 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
                   <app-card-image
                     [borderRadius]="column.imageBorderRadius"
                     [aspectRatio]="column.imageAspectRatio"
-                    [alt]="column.alt"
+                    [alt]="altFor(column)"
                     [unconstrainedHeight]="!column.imageHeight"
                     [height]="column.imageHeight"
                     [cropperPosition]="column.imageCropperPosition"
+                    [imageLink]="imageLinkFor(column)"
                     [imageSource]="imageSourceFor(column)">
                   </app-card-image>
                 }
@@ -144,10 +146,11 @@ import { YoutubeEmbed } from "../youtube-embed/youtube-embed";
                   <app-card-image
                     [borderRadius]="column.imageBorderRadius"
                     [aspectRatio]="column.imageAspectRatio"
-                    [alt]="column.alt"
+                    [alt]="altFor(column)"
                     [unconstrainedHeight]="!column.imageHeight"
                     [height]="column.imageHeight"
                     [cropperPosition]="column.imageCropperPosition"
+                    [imageLink]="imageLinkFor(column)"
                     [imageSource]="imageSourceFor(column)">
                   </app-card-image>
                 }
@@ -202,6 +205,14 @@ export class DynamicContentViewTextRow implements OnInit {
 
   hasYoutubeVideo(column: PageContentColumn): boolean {
     return !!column.youtubeId;
+  }
+
+  imageLinkFor(column: PageContentColumn): string {
+    return this.siteEditService.active() ? null : (column.href || firstLinkHref(column.contentText));
+  }
+
+  altFor(column: PageContentColumn): string {
+    return column.alt || firstLinkText(column.contentText);
   }
 
   imageSourceFor(column: PageContentColumn): string {

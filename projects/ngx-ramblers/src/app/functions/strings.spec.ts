@@ -1,4 +1,4 @@
-import { toSlug, toKebabCase, booleanOf } from "./strings";
+import { booleanOf, firstLinkHref, firstLinkText, isQuoted, plainText, toKebabCase, toSlug, unquote } from "./strings";
 
 describe("strings", () => {
 
@@ -79,6 +79,85 @@ describe("strings", () => {
     it("should return fallback for unrecognized values", () => {
       expect(booleanOf("unknown")).toBe(false);
       expect(booleanOf("unknown", true)).toBe(true);
+    });
+  });
+
+  describe("isQuoted", () => {
+    it("detects a fully quoted phrase", () => {
+      expect(isQuoted("\"solar array\"")).toBe(true);
+      expect(isQuoted("  \"solar array\"  ")).toBe(true);
+    });
+
+    it("rejects unquoted or partially quoted input", () => {
+      expect(isQuoted("solar array")).toBe(false);
+      expect(isQuoted("\"solar array")).toBe(false);
+      expect(isQuoted("")).toBe(false);
+      expect(isQuoted(null as unknown as string)).toBe(false);
+    });
+  });
+
+  describe("unquote", () => {
+    it("strips surrounding quotes from a quoted phrase", () => {
+      expect(unquote("\"solar array\"")).toBe("solar array");
+    });
+
+    it("trims but otherwise leaves unquoted input unchanged", () => {
+      expect(unquote("  solar array  ")).toBe("solar array");
+      expect(unquote(null as unknown as string)).toBe("");
+    });
+  });
+
+  describe("plainText", () => {
+    it("strips html tags and markdown emphasis", () => {
+      expect(plainText("<p>Hello **world**</p>")).toBe("Hello world");
+    });
+
+    it("removes markdown table pipes and delimiter rows", () => {
+      expect(plainText("| Role | Officer | |------|---------| | Chairman | Colin |")).toBe("Role Officer Chairman Colin");
+    });
+
+    it("preserves single hyphens and em dashes", () => {
+      expect(plainText("Officers 2023-24 - Chairman — Colin")).toBe("Officers 2023-24 - Chairman — Colin");
+    });
+
+    it("renders link text without the url and decodes entities", () => {
+      expect(plainText("See [the map](https://example.com) &amp; more")).toBe("See the map & more");
+    });
+
+    it("handles empty input", () => {
+      expect(plainText("")).toBe("");
+      expect(plainText(null as unknown as string)).toBe("");
+    });
+  });
+
+  describe("firstLinkHref", () => {
+    it("extracts the target of the first markdown link", () => {
+      expect(firstLinkHref("[Guide to the Wealdway](publications/the-wealdway)")).toBe("publications/the-wealdway");
+    });
+
+    it("ignores image markdown and link titles", () => {
+      expect(firstLinkHref("![cover](cover.jpg) then [text](/page \"title\")")).toBe("/page");
+    });
+
+    it("returns null when there is no link", () => {
+      expect(firstLinkHref("just some text")).toBe(null);
+      expect(firstLinkHref("")).toBe(null);
+      expect(firstLinkHref(null as unknown as string)).toBe(null);
+    });
+  });
+
+  describe("firstLinkText", () => {
+    it("extracts the label of the first markdown link", () => {
+      expect(firstLinkText("[Guide to the Wealdway](publications/the-wealdway)")).toBe("Guide to the Wealdway");
+    });
+
+    it("ignores image markdown", () => {
+      expect(firstLinkText("![cover](cover.jpg) [Read more](/page)")).toBe("Read more");
+    });
+
+    it("returns null when there is no link", () => {
+      expect(firstLinkText("plain text")).toBe(null);
+      expect(firstLinkText(null as unknown as string)).toBe(null);
     });
   });
 });
