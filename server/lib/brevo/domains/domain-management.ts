@@ -1,9 +1,8 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
-import * as http from "http";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { logBrevoError } from "../common/error-log";
+import { Brevo, BrevoError } from "@getbrevo/brevo";
 import {
   BrevoDnsRecord,
   BrevoDomainConfiguration,
@@ -16,95 +15,92 @@ const messageType = "brevo:domain-management";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
 
-async function apiInstance(): Promise<SibApiV3Sdk.DomainsApi> {
-  const brevoConfig = await configuredBrevo();
-  const api = new SibApiV3Sdk.DomainsApi();
-  api.setApiKey(SibApiV3Sdk.DomainsApiApiKeys.apiKey, brevoConfig.apiKey);
-  return api;
+const EMPTY_DNS_RECORD: BrevoDnsRecord = {type: "", hostName: "", value: "", status: false};
+
+async function domainsApi() {
+  const client = await brevoClient();
+  return client.domains;
 }
 
-function mapDnsRecord(record: { type?: string; hostName?: string; value?: string; status?: boolean }): BrevoDnsRecord {
+function mapDnsRecord(record: { type: string; host_name: string; value: string; status: boolean }): BrevoDnsRecord {
   return {
-    type: record?.type || "",
-    hostName: record?.hostName || "",
-    value: record?.value || "",
-    status: record?.status || false
+    type: record.type,
+    hostName: record.host_name,
+    value: record.value,
+    status: record.status
   };
 }
 
-function mapDnsRecords(records: { dkimRecord?: any; brevoCode?: any }): BrevoDomainDnsRecords {
+function mapDnsRecords(records: Brevo.CreateDomainResponse.DnsRecords | Brevo.GetDomainConfigurationResponse.DnsRecords | undefined): BrevoDomainDnsRecords {
   return {
-    dkimRecord: mapDnsRecord(records?.dkimRecord),
-    brevoCode: mapDnsRecord(records?.brevoCode)
+    dkimRecord: records ? mapDnsRecord(records.dkim_record) : EMPTY_DNS_RECORD,
+    brevoCode: records ? mapDnsRecord(records.brevo_code) : EMPTY_DNS_RECORD
   };
 }
 
 export async function listDomains(): Promise<BrevoDomainInfo[]> {
-  const api = await apiInstance();
-  const response: { response: http.IncomingMessage; body: any } = await api.getDomains();
-  const domains = response.body?.domains || [];
+  const api = await domainsApi();
+  const response = await api.getDomains();
+  const domains = response.domains ?? [];
   debugLog("listDomains: found", domains.length, "domains");
-  return domains.map((d: any) => ({
-    id: d.id,
-    domainName: d.domainName,
-    authenticated: d.authenticated,
-    verified: d.verified
+  return domains.map(domain => ({
+    id: Number(domain.id),
+    domainName: domain.domain_name,
+    authenticated: domain.authenticated,
+    verified: domain.verified
   }));
 }
 
 export async function registerDomain(name: string): Promise<DomainRegistrationResult> {
-  const api = await apiInstance();
-  const createDomain = new SibApiV3Sdk.CreateDomain();
-  createDomain.name = name;
+  const api = await domainsApi();
   debugLog("registerDomain:", name);
-  const response: { response: http.IncomingMessage; body: any } = await api.createDomain(createDomain);
-  const body = response.body;
+  const body = await api.createDomain({name});
   debugLog("registerDomain raw response:", JSON.stringify(body));
   return {
     id: body.id,
     domainName: name,
     alreadyRegistered: false,
-    dnsRecords: mapDnsRecords(body.dnsRecords)
+    dnsRecords: mapDnsRecords(body.dns_records)
   };
 }
 
 export async function domainConfiguration(domainName: string): Promise<BrevoDomainConfiguration> {
-  const api = await apiInstance();
+  const api = await domainsApi();
   debugLog("domainConfiguration:", domainName);
-  const response: { response: http.IncomingMessage; body: any } = await api.getDomainConfiguration(domainName);
-  const body = response.body;
-  debugLog("domainConfiguration raw dnsRecords:", JSON.stringify(body.dnsRecords));
+  const body = await api.getDomainConfiguration({domainName});
+  debugLog("domainConfiguration raw dnsRecords:", JSON.stringify(body.dns_records));
   return {
     domain: body.domain,
     verified: body.verified,
     authenticated: body.authenticated,
-    dnsRecords: mapDnsRecords(body.dnsRecords)
+    dnsRecords: mapDnsRecords(body.dns_records)
   };
 }
 
 export async function authenticateDomain(domainName: string): Promise<{ domainName: string; message: string }> {
-  const api = await apiInstance();
+  const api = await domainsApi();
   debugLog("authenticateDomain:", domainName);
   try {
-    const response: { response: http.IncomingMessage; body: any } = await api.authenticateDomain(domainName);
-    debugLog("authenticateDomain response:", response.response.statusCode, JSON.stringify(response.body));
+    const body = await api.authenticateDomain({domainName});
     return {
-      domainName: response.body.domainName || domainName,
-      message: response.body.message || "Authentication requested"
+      domainName: body.domain_name || domainName,
+      message: body.message || "Authentication requested"
     };
   } catch (error) {
     logBrevoError(messageType, error, {domainName});
-    const statusCode = error?.response?.statusCode || error?.status || "unknown";
-    const responseBody = error?.response?.body || error?.body || null;
-    debugLog("authenticateDomain error:", statusCode, JSON.stringify(responseBody), error.message);
-    throw new Error(`Authentication failed (HTTP ${statusCode}): ${responseBody?.message || error.message}`);
+    const brevoError = error instanceof BrevoError ? error : null;
+    const statusCode = brevoError?.statusCode ?? "unknown";
+    const responseBody = (brevoError?.body ?? null) as { message?: string } | null;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    debugLog("authenticateDomain error:", statusCode, JSON.stringify(responseBody), errorMessage);
+    throw new Error(`Authentication failed (HTTP ${statusCode}): ${responseBody?.message || errorMessage}`);
   }
 }
 
 export async function deleteDomain(domainName: string): Promise<void> {
-  const api = await apiInstance();
+  const api = await domainsApi();
   debugLog("deleteDomain:", domainName);
-  await api.deleteDomain(domainName);
+  await api.deleteDomain({domainName});
 }
 
 export async function findDomainByName(name: string): Promise<BrevoDomainInfo | null> {

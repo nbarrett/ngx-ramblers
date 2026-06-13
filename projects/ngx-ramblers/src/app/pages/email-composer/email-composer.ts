@@ -110,6 +110,8 @@ import { MemberService } from "../../services/member/member.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { StringUtilsService } from "../../services/string-utils.service";
+import { ListSubscriberService } from "../../services/mail/list-subscriber.service";
+import { ListSubscriberCountComponent } from "../../modules/common/mail/list-subscriber-count";
 import { UrlService } from "../../services/url.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { TiptapMarkdownEditor } from "../../modules/common/tiptap-editor/tiptap-markdown-editor";
@@ -182,6 +184,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
   imports: [
     PageComponent,
     AlertPanelComponent,
+    ListSubscriberCountComponent,
     FormsModule,
     NgClass,
     NgTemplateOutlet,
@@ -645,10 +648,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                              (change)="setNarrowListId(list.id)">
                       <label class="form-check-label" [for]="'narrow-list-unbranded-' + list.id">
                         {{ list.name }}
-                        <span class="email-composer-list-count"
-                              [tooltip]="listMembersTooltip(list)"
-                              containerClass="email-composer-list-tooltip"
-                              placement="right">{{ listSubscriberCount(list) }}</span>
+                        <app-list-subscriber-count [list]="list" [members]="members"/>
                       </label>
                     </div>
                   }
@@ -722,10 +722,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                            [value]="list.id"/>
                     <label class="form-check-label" [for]="'send-list-' + list.id">
                       {{ list.name }}
-                      <span class="email-composer-list-count"
-                            [tooltip]="listMembersTooltip(list)"
-                            containerClass="email-composer-list-tooltip"
-                            placement="right">{{ listSubscriberCount(list) }}</span>
+                      <app-list-subscriber-count [list]="list" [members]="members"/>
                     </label>
                   </div>
                 }
@@ -750,10 +747,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                            (change)="setNarrowListId(list.id)">
                     <label class="form-check-label" [for]="'narrow-list-' + list.id">
                       {{ list.name }}
-                      <span class="email-composer-list-count"
-                            [tooltip]="listMembersTooltip(list)"
-                            containerClass="email-composer-list-tooltip"
-                            placement="right">{{ listSubscriberCount(list) }}</span>
+                      <app-list-subscriber-count [list]="list" [members]="members"/>
                     </label>
                   </div>
                 }
@@ -1682,6 +1676,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected mailMessagingService = inject(MailMessagingService);
   private mailService = inject(MailService);
   private mailListUpdaterService = inject(MailListUpdaterService);
+  private listSubscriberService = inject(ListSubscriberService);
   private memberService = inject(MemberService);
   private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
   private memberLoginService = inject(MemberLoginService);
@@ -2479,7 +2474,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected listSubscriberCount(list: ListInfo): string {
-    return this.stringUtils.pluraliseWithCount(this.subscribedMemberCount(list), "subscriber");
+    return this.listSubscriberService.subscriberCountLabel(this.members, list.id);
   }
 
   protected listNameAndCount(list: ListInfo): string {
@@ -2487,27 +2482,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected subscribedMemberCount(list: ListInfo): number {
-    return this.members
-      .filter(this.memberService.filterFor.GROUP_MEMBERS)
-      .filter(member => this.mailListUpdaterService.memberSubscribed(member, list.id))
-      .length;
-  }
-
-  protected listMembersTooltip(list: ListInfo): string {
-    const subscribers = this.members
-      .filter(this.memberService.filterFor.GROUP_MEMBERS)
-      .filter(member => this.mailListUpdaterService.memberSubscribed(member, list.id))
-      .map(member => `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim())
-      .filter(name => name.length > 0)
-      .sort();
-    if (subscribers.length === 0) {
-      return "No members subscribed";
-    }
-    const previewLimit = 30;
-    const preview = subscribers.slice(0, previewLimit).join(", ");
-    return subscribers.length > previewLimit
-      ? `${preview} and ${subscribers.length - previewLimit} more`
-      : preview;
+    return this.listSubscriberService.subscriberCount(this.members, list.id);
   }
 
   setNarrowListId(listId: number | null): void {
@@ -3725,7 +3700,6 @@ export class EmailComposer implements OnInit, OnDestroy {
     return campaignOverflowNotice(
       this.totalRecipientCount(),
       this.mailMessagingConfig?.brevo?.account,
-      this.mailMessagingConfig?.mailConfig?.dailyCampaignSendLimit,
       this.campaignAutomaticReleaseEnabled()
     );
   }

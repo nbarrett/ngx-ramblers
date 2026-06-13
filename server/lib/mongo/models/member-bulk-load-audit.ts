@@ -22,6 +22,9 @@ const RamblersMemberSchema = new mongoose.Schema({
   type: {type: String},
   landlineTelephone: {type: String},
   emailMarketingConsent: {type: String},
+  groupMarketingConsent: {type: String},
+  areaMarketingConsent: {type: String},
+  otherMarketingConsent: {type: String},
   emailPermissionLastUpdated: {type: String}
 }, {_id: false});
 

@@ -10,6 +10,12 @@ import { MailLinkService } from "../../../../services/mail/mail-link.service";
 import { MailService } from "projects/ngx-ramblers/src/app/services/mail/mail.service";
 import { MailListEditorComponent } from "./list-editor";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
+import { ListSubscriberCountComponent } from "../../../../modules/common/mail/list-subscriber-count";
+import { ListSubscriberService } from "../../../../services/mail/list-subscriber.service";
+import { Member } from "../../../../models/member.model";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
     selector: "app-mail-list-settings",
@@ -20,7 +26,14 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
           <div class="col">
             @if (!listUpdateRequest) {
               <h5>{{ mailMessagingConfig?.brevo?.lists?.lists.indexOf(list) + 1 }}: {{ list.name }}</h5>
-              Subscribers: {{ list.uniqueSubscribers }}
+              <div class="list-subscriber-summary">
+                <app-list-subscriber-count [list]="list" [members]="members"/>
+                @if (subscriberCountsDiffer()) {
+                  <span class="ms-2 brevo-subscriber-count">Brevo: {{ list.uniqueSubscribers }}</span>
+                  <fa-icon class="ms-2 list-sync-warning" [icon]="faTriangleExclamation"
+                           [tooltip]="syncTooltip()" containerClass="list-sync-warning-tooltip" placement="right"/>
+                }
+              </div>
             }
             @if (listUpdateRequest) {
               <app-list-editor [listCreateRequest]="listUpdateRequest"/>
@@ -90,7 +103,20 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
           </div>
         </div>
       }`,
-    imports: [MailListEditorComponent, BrevoButtonComponent]
+    styles: [`
+      .brevo-subscriber-count
+        font-size: 0.85em
+        color: #6c757d
+      .list-sync-warning
+        color: rgb(240, 128, 80)
+        cursor: default
+        vertical-align: -0.05em
+      :host ::ng-deep .list-sync-warning-tooltip .tooltip-inner
+        max-width: 360px
+        text-align: left
+        white-space: normal
+    `],
+    imports: [MailListEditorComponent, BrevoButtonComponent, ListSubscriberCountComponent, FontAwesomeModule, TooltipDirective]
 })
 export class MailListSettingsComponent implements OnInit {
 
@@ -98,8 +124,11 @@ export class MailListSettingsComponent implements OnInit {
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   private mailLinkService = inject(MailLinkService);
   private mailService = inject(MailService);
+  private listSubscriberService = inject(ListSubscriberService);
+  protected readonly faTriangleExclamation = faTriangleExclamation;
   @Input() mailMessagingConfig: MailMessagingConfig;
   @Input() list: ListInfo;
+  @Input() members: Member[] = [];
   @Input() notify: AlertInstance;
   public confirm: Confirm = new Confirm();
   public listUpdateRequest: ListUpdateRequest;
@@ -110,6 +139,16 @@ export class MailListSettingsComponent implements OnInit {
 
   notReady() {
     return !!this.listUpdateRequest || !(this?.mailMessagingConfig?.mailConfig);
+  }
+
+  subscriberCountsDiffer(): boolean {
+    return this.listSubscriberService.subscriberCount(this.members, this.list.id) !== (this.list.uniqueSubscribers ?? 0);
+  }
+
+  syncTooltip(): string {
+    const local = this.listSubscriberService.subscriberCount(this.members, this.list.id);
+    const brevo = this.list.uniqueSubscribers ?? 0;
+    return `This site shows ${local} subscribed, Brevo has ${brevo}. Run Update Brevo Mailing Lists to sync. A remaining difference is usually members without marketing consent (counted here, excluded from Brevo) or Brevo-side unsubscribes and bounces.`;
   }
 
 

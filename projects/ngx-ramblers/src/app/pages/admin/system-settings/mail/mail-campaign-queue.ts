@@ -129,13 +129,7 @@ export class MailCampaignQueueComponent implements OnInit {
   }
 
   protected usageValue(value: number | null): string {
-    if (value !== null) {
-      return `${value}`;
-    } else if (this.summary?.dailySendLimit === null) {
-      return "No configured daily limit";
-    } else {
-      return "Unavailable from Brevo plan usage";
-    }
+    return value !== null ? `${value}` : "No daily send limit on this Brevo plan";
   }
 
   private errorMessage(error: any, fallback: string): string {

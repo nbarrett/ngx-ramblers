@@ -1,17 +1,12 @@
 import { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
-import { configuredBrevo } from "../brevo-config";
-import {
-  CreateContactRequestWithObjectAttributes,
-  MailConfig
-} from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
-import * as SibApiV3Sdk from "@getbrevo/brevo";
-import http from "http";
+import { brevoClient } from "../brevo-config";
+import { CreateContactRequestWithObjectAttributes } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { Brevo } from "@getbrevo/brevo";
 import { handleError, mapStatusMappedResponseSingleInput, successfulResponse } from "../common/messages";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { ensureMemberContactAttributes, stripUnavailableMemberAttributes } from "./member-contact-attributes";
-import { ContactsApi } from "@getbrevo/brevo";
 
 const messageType = "brevo:contacts:create";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -19,25 +14,21 @@ debugLog.enabled = false;
 
 export async function contactsCreate(req: Request, res: Response): Promise<any> {
   try {
-    const brevoConfig: MailConfig = await configuredBrevo();
-    const apiInstance: ContactsApi = new SibApiV3Sdk.ContactsApi();
-    apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
+    const client = await brevoClient();
     const createContactRequests: CreateContactRequestWithObjectAttributes[] = req.body;
     const availableMemberAttributes = await ensureMemberContactAttributes();
     debugLog("received", createContactRequests.length, "createContactRequests:", createContactRequests);
     const responses = await Promise.all(createContactRequests.map(async (createContactRequest: CreateContactRequestWithObjectAttributes) => {
-      const createContact = new SibApiV3Sdk.CreateContact();
-      createContact.email = createContactRequest.email;
-      createContact.listIds = createContactRequest.listIds;
-      createContact.attributes = stripUnavailableMemberAttributes(createContactRequest.attributes, availableMemberAttributes);
-      createContact.extId = createContactRequest.extId;
+      const createContact: Brevo.CreateContactRequest = {
+        email: createContactRequest.email,
+        listIds: createContactRequest.listIds,
+        attributes: stripUnavailableMemberAttributes(createContactRequest.attributes, availableMemberAttributes) as unknown as Brevo.CreateContactRequest["attributes"],
+        ext_id: createContactRequest.extId
+      };
       debugLog("making createContactRequest:", createContactRequests.indexOf(createContactRequest) + 1, "of", createContactRequests.length);
-      const response: {
-        response: http.IncomingMessage,
-        body?: any
-      } = await scheduleBrevo(() => {
+      const response = await scheduleBrevo(() => {
         debugLog("creating contact:", createContact);
-        return apiInstance.createContact(createContact);
+        return client.contacts.createContact(createContact).withRawResponse();
       });
       return mapStatusMappedResponseSingleInput(createContactRequest.email, response, 201, 204);
     }));

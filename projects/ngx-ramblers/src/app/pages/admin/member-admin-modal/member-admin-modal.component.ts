@@ -20,14 +20,13 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { MemberNamingService } from "../../../services/member/member-naming.service";
 import { MemberUpdateAuditService } from "../../../services/member/member-update-audit.service";
 import { MemberService } from "../../../services/member/member.service";
+import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { ProfileConfirmationService } from "../../../services/profile-confirmation.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
-import { BREVO_TAB_SUB_TAB_QUERY_PARAM, MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM, MailListAudit, MailMessagingConfig, MemberAdminModalTab } from "../../../models/mail.model";
-import { BroadcastService } from "../../../services/broadcast-service";
-import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
+import { MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM, MailListAudit, MailMessagingConfig, MemberAdminModalTab } from "../../../models/mail.model";
 import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub";
@@ -73,10 +72,10 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private memberNamingService = inject(MemberNamingService);
   private stringUtils = inject(StringUtilsService);
   private memberService = inject(MemberService);
+  private mailListUpdaterService = inject(MailListUpdaterService);
   private fullNameWithAliasPipe = inject(FullNameWithAliasPipe);
   private memberLoginService = inject(MemberLoginService);
   private mailListAuditService = inject(MailListAuditService);
-  private broadcastService = inject<BroadcastService<MailListAudit>>(BroadcastService);
   private profileConfirmationService = inject(ProfileConfirmationService);
   private memberDefaultsService = inject(MemberDefaultsService);
   private mailMessagingService = inject(MailMessagingService);
@@ -105,7 +104,6 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   public editMode: EditMode;
   public NO_CHANGES_OR_DIFFERENCES = NO_CHANGES_OR_DIFFERENCES;
   public members: Member[] = [];
-  public pendingMailListAudits: MailListAudit[] = [];
   public mailListAudits: MailListAudit[] = [];
   public mailchimpConfig: MailchimpConfig;
   private subscriptions: Subscription[] = [];
@@ -145,11 +143,6 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
       .subscribe((mailMessagingConfig: MailMessagingConfig) => {
         this.mailMessagingConfig = mailMessagingConfig;
         this.logger.info("retrieved MailMessagingConfig event:", mailMessagingConfig?.mailConfig);
-      }));
-    this.subscriptions.push(
-      this.broadcastService.on(NamedEventType.MAIL_SUBSCRIPTION_CHANGED, (namedEvent: NamedEvent<MailListAudit>) => {
-        this.pendingMailListAudits = this.pendingMailListAudits.filter(item => item.listId !== namedEvent.data.listId).concat(namedEvent.data);
-        this.logger.info("event received:", namedEvent, "pendingMailListAudits:", this.pendingMailListAudits);
       }));
     this.logger.info("constructed with member", this.member, this.members.length, "members");
     this.allowEdits = this.memberLoginService.allowMemberAdminEdits();
@@ -203,8 +196,6 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
     this.router.navigate([], {
       queryParams: {
-        [MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM]: null,
-        [BREVO_TAB_SUB_TAB_QUERY_PARAM]: null,
         [this.stringUtils.kebabCase(StoredValue.MEMBER_ID)]: null
       },
       queryParamsHandling: "merge",
@@ -217,10 +208,10 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   }
 
   selectTab(tab: MemberAdminModalTab): void {
-    this.activeTabKey = tab;
-    if (this.activatedRoute.snapshot.queryParamMap.get(MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM) === tab) {
+    if (this.activeTabKey === tab) {
       return;
     }
+    this.activeTabKey = tab;
     this.router.navigate([], {
       queryParams: { [MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM]: tab },
       queryParamsHandling: "merge"
@@ -297,10 +288,15 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     return Promise.resolve(this.notify.success("Saving member", true))
       .then(() => this.preProcessMemberBeforeSave())
       .then(() => this.memberService.createOrUpdate(this.member))
-      .then(() => this.mailListAuditService.createOrUpdateAll(this.pendingMailListAudits))
+      .then((savedMember: Member) => this.syncSavedMemberToBrevo(savedMember))
       .then(() => this.bsModalRef.hide())
       .then(() => this.notify.success("Member saved successfully"))
       .catch((error) => this.handleSaveError(error));
+  }
+
+  private syncSavedMemberToBrevo(savedMember: Member): Promise<void> {
+    return this.mailListUpdaterService.syncChangedMembersToBrevo(this.notify, [savedMember ?? this.member])
+      .catch(error => this.logger.warn("Brevo sync after member save failed; member will reconcile on next send", error));
   }
 
   handleSaveError(errorResponse) {

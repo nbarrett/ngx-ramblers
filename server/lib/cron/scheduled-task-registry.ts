@@ -1,6 +1,6 @@
 import * as cron from "node-cron";
 import debug from "debug";
-import { HttpError } from "@getbrevo/brevo";
+import { BrevoError } from "@getbrevo/brevo";
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
@@ -233,7 +233,7 @@ async function loadHistory(taskId: string): Promise<ScheduledTaskRun[]> {
 }
 
 function detailedErrorMessage(error: any): string {
-  if (error instanceof HttpError) {
+  if (error instanceof BrevoError) {
     const body: any = error.body;
     const detail = body?.message ?? body?.code ?? (isString(body) ? body : undefined);
     return detail ? `${error.message}: ${detail}` : (error.message || `${error}`);
@@ -267,7 +267,7 @@ async function executeTask(registered: RegisteredScheduledTask): Promise<Schedul
   } catch (error: any) {
     run.status = ScheduledTaskRunStatus.FAILED;
     run.message = detailedErrorMessage(error);
-    const body = error instanceof HttpError ? error.body : (error?.response?.body ?? error?.body);
+    const body = error instanceof BrevoError ? error.body : (error?.response?.body ?? error?.body);
     debugLog(`Scheduled task "${registered.definition.name}" (${registered.definition.id}) failed:`, run.message,
       "\nstatusCode:", error?.statusCode ?? error?.response?.statusCode,
       "\nbody:", body,

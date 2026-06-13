@@ -23,7 +23,6 @@ export class MailConfigService {
       apiKey: null,
       allowSendCampaign: true,
       allowSendTransactional: true,
-      dailyCampaignSendLimit: 300,
       respectHeadOfficeConsent: true,
       respectEmailBlocks: false,
       editorUrl: BREVO_DEFAULTS.EDITOR_URL,

@@ -77,6 +77,8 @@ export interface MailchimpSegmentIds {
 
 interface MailSettings extends MailIdentifiers {
   subscriptions: MailSubscription[];
+  lastSyncedSignature?: string;
+  lastSyncedListIds?: number[];
 }
 
 export interface FirstAndLastName {

@@ -1,7 +1,7 @@
-import { toPairs } from "es-toolkit/compat";
 import axios, { AxiosError, AxiosInstance } from "axios";
 import debug from "debug";
 import {
+  GroupCodeToken,
   SalesforceConfig,
   SalesforceConsentUpdateRequest,
   SalesforceConsentUpdateResponse,
@@ -9,6 +9,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { parseGroupCodes } from "./salesforce-config";
 
 const debugLog = debug(envConfig.logNamespace("salesforce-client"));
 debugLog.enabled = false;
@@ -48,10 +49,10 @@ export function tokenForGroupCode(salesforceConfig: SalesforceConfig, groupCode:
   return salesforceConfig?.apiKeysByGroupCode?.[groupCode];
 }
 
-export function firstConfiguredToken(salesforceConfig: SalesforceConfig): { groupCode: string; token: string } | null {
-  const entries = toPairs(salesforceConfig?.apiKeysByGroupCode ?? {});
-  const firstEntry = entries.find(([, token]) => !!token && token.length > 0);
-  return firstEntry ? { groupCode: firstEntry[0], token: firstEntry[1] } : null;
+export function activeGroupCodeWithToken(salesforceConfig: SalesforceConfig, siteGroupCode: string): GroupCodeToken | null {
+  return parseGroupCodes(siteGroupCode)
+    .map(groupCode => ({groupCode, token: tokenForGroupCode(salesforceConfig, groupCode)}))
+    .find((entry): entry is GroupCodeToken => !!entry.token && entry.token.length > 0) ?? null;
 }
 
 export async function pingSalesforce(salesforceConfig: SalesforceConfig, groupCode: string): Promise<SalesforceClientResult<SalesforceMemberListResponse>> {
@@ -93,17 +94,17 @@ export async function pingSalesforce(salesforceConfig: SalesforceConfig, groupCo
   }
 }
 
-export async function pushSalesforceConsent(salesforceConfig: SalesforceConfig, membershipNumber: string, request: SalesforceConsentUpdateRequest): Promise<SalesforceClientResult<SalesforceConsentUpdateResponse>> {
-  const firstToken = firstConfiguredToken(salesforceConfig);
-  if (!firstToken) {
+export async function pushSalesforceConsent(salesforceConfig: SalesforceConfig, membershipNumber: string, request: SalesforceConsentUpdateRequest, groupCode: string): Promise<SalesforceClientResult<SalesforceConsentUpdateResponse>> {
+  const token = tokenForGroupCode(salesforceConfig, groupCode);
+  if (!token) {
     return {
       status: 0,
       errorCode: "TOKEN_MISSING",
-      errorMessage: "No API token configured for any group.",
+      errorMessage: `No API token configured for group ${groupCode || "(none)"}.`,
       latencyMs: 0,
     };
   }
-  const client = buildSalesforceClient(salesforceConfig.endpointBaseUrl, firstToken.token);
+  const client = buildSalesforceClient(salesforceConfig.endpointBaseUrl, token);
   const startedAt = dateTimeNowAsValue();
   try {
     const response = await client.post<SalesforceConsentUpdateResponse | SalesforceErrorBody>(`/api/members/${encodeURIComponent(membershipNumber)}/consent`, request);

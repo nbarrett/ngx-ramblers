@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
-import { CreateEmailCampaign, HttpError, SendSmtpEmail } from "@getbrevo/brevo";
+import { Brevo, BrevoError } from "@getbrevo/brevo";
 import debug from "debug";
-import http from "http";
 import {
   BrandingMode,
   CreateCampaignRequest,
@@ -287,9 +286,9 @@ export function renderLocalBrandedTemplate(templateName: string,
 }
 
 export async function performTemplateSubstitution(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest | TemplateRenderRequest,
-                                                  sendSmtpEmail: SendSmtpEmail | CreateEmailCampaign,
+                                                  sendSmtpEmail: Brevo.SendTransacEmailRequest | Brevo.CreateEmailCampaignRequest,
                                                   debugLog: debug.Debugger,
-                                                  campaign: boolean = false): Promise<SendSmtpEmail | CreateEmailCampaign> {
+                                                  campaign: boolean = false): Promise<Brevo.SendTransacEmailRequest | Brevo.CreateEmailCampaignRequest> {
   const priorDebugValue = debugLog.enabled;
   debugLog.enabled = false;
   try {
@@ -326,20 +325,20 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
 export function mapStatusMappedResponseSingleInput(id: any, response: BrevoResponse, ...expectedHttpResponseCodes: number[]): StatusMappedResponseSingleInput {
   return {
     id,
-    success: expectedHttpResponseCodes.includes(response.response.statusCode) ,
-    status: response.response.statusCode,
-    message: response.response.statusMessage,
-    responseBody: response.body
+    success: expectedHttpResponseCodes.includes(response.rawResponse.status),
+    status: response.rawResponse.status,
+    message: response.rawResponse.statusText ?? "",
+    responseBody: response.data
   };
 }
 
 export function mapStatusMappedResponseMultipleInputs(ids: any[], response: BrevoResponse, ...expectedHttpResponseCodes: number[]): StatusMappedResponseMultipleInputs {
   return {
     ids,
-    success: expectedHttpResponseCodes.includes(response.response.statusCode) ,
-    status: response.response.statusCode,
-    message: response.response.statusMessage,
-    responseBody: response.body
+    success: expectedHttpResponseCodes.includes(response.rawResponse.status),
+    status: response.rawResponse.status,
+    message: response.rawResponse.statusText ?? "",
+    responseBody: response.data
   };
 }
 
@@ -367,13 +366,23 @@ function summariseRequestBody(body: unknown): unknown {
 }
 
 export function handleError(req: Request, res: Response, messageType: string, _debugLog: any, error: unknown) {
-  const httpError = error instanceof HttpError ? error : null;
+  const brevoError = error instanceof BrevoError ? error : null;
   logBrevoError(messageType, error, {request: {method: req?.method, url: req?.originalUrl, body: summariseRequestBody(req?.body)}});
-  if (httpError) {
-    res.status(httpError.statusCode).json({request: {messageType}, error: httpError.body});
+  if (brevoError) {
+    res.status(brevoError.statusCode ?? 500).json({request: {messageType}, error: brevoError.body});
   } else {
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
+}
+
+export function handleErrorAllowingNotFound(req: Request, res: Response, messageType: string, debugLog: debug.Debugger, error: unknown) {
+  const brevoError = error instanceof BrevoError ? error : null;
+  if (brevoError?.statusCode === 404) {
+    debugLog("%s: no Brevo contact for %s", messageType, req?.originalUrl);
+    res.status(404).json({request: {messageType}, error: brevoError.body});
+    return;
+  }
+  handleError(req, res, messageType, debugLog, error);
 }
 
 export interface SuccessfulResponse {
@@ -386,6 +395,6 @@ export interface SuccessfulResponse {
 }
 
 export interface BrevoResponse {
-  response: http.IncomingMessage;
-  body?: any;
+  data?: unknown;
+  rawResponse: { status: number; statusText?: string; headers?: Headers };
 }

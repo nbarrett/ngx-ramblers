@@ -26,7 +26,9 @@ import { MailService } from "./mail.service";
 import { MemberService } from "../member/member.service";
 import { groupBy } from "es-toolkit/compat";
 import { isNumber } from "es-toolkit/compat";
+import { isBoolean } from "es-toolkit/compat";
 import { map } from "es-toolkit/compat";
+import { values } from "es-toolkit/compat";
 import { MailProviderStats } from "../../models/system.model";
 import { cloneDeep } from "es-toolkit/compat";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
@@ -65,6 +67,14 @@ export class MailListUpdaterService {
     this.pendingMailListAudits = [];
     this.logger.info("updateMailLists:members:", members);
     if (this.mailMessagingConfig?.mailConfig?.allowSendCampaign) {
+      const membersRequiringSync: Member[] = members.filter(member => this.memberRequiresBrevoSync(member));
+      if (membersRequiringSync.length === 0) {
+        this.logger.info("updateMailLists: all members already in sync with Brevo - skipping reconcile");
+        notify.success({title: "Brevo updates", message: "Brevo contacts already in sync - no changes to apply"});
+        notify.clearBusy();
+        return;
+      }
+      this.logger.info("updateMailLists:", this.stringUtils.pluraliseWithCount(membersRequiringSync.length, "member"), "require Brevo sync");
       notify.success({
         title: "Brevo updates",
         message: "Synchronising Brevo contacts and lists"
@@ -89,17 +99,17 @@ export class MailListUpdaterService {
       this.logger.info("updatedMemberResponse fields from contact details", this.stringUtils.pluraliseWithCount(updatedMemberResponse.length, "member"), updatedMemberResponse);
       const existingMemberIds = contactsToMembers.filter(item => item.member).map(item => item.member.id);
       const createContactRequests: CreateContactRequest[] = members
-        .filter(member => !existingMemberIds.includes(member.id) && this.memberSubscribedToAnyList(member))
+        .filter(member => !existingMemberIds.includes(member.id) && this.brevoEligibleForAnyList(member))
         .map((member: Member) => this.toCreateContactRequest(member));
       this.logger.info("prepared", this.stringUtils.pluraliseWithCount(createContactRequests.length, "create contact request"), createContactRequests);
 
       const updateContactRequests: CreateContactRequestWithObjectAttributes[] = contactsToMembers
-        .filter((contactToMember: ContactToMember) => contactToMember.member && this.memberSubscribedToAnyList(contactToMember.member) && this.memberToContactMismatch(contactToMember))
+        .filter((contactToMember: ContactToMember) => contactToMember.member && this.brevoEligibleForAnyList(contactToMember.member) && this.memberToContactMismatch(contactToMember))
         .map((contactToMember: ContactToMember) => this.toCreateContactRequestWithObjectAttributes(contactToMember.member));
       this.logger.info("prepared", this.stringUtils.pluraliseWithCount(updateContactRequests.length, "update contact request"), updateContactRequests);
 
       const deleteContactIds: NumberOrString[] = contactsToMembers
-        .filter((contactToMember: ContactToMember) => (contactToMember.member && !this.memberSubscribedToAnyList(contactToMember.member)) || !contactToMember.member)
+        .filter((contactToMember: ContactToMember) => (contactToMember.member && !this.brevoEligibleForAnyList(contactToMember.member)) || !contactToMember.member)
         .map((contactToMember: ContactToMember) => {
           this.logger.info("preparing to delete contact", contactToMember.contact);
           return this.toNumberOrString(contactToMember.contact);
@@ -121,8 +131,9 @@ export class MailListUpdaterService {
         await this.processCreateContactRequests(createContactRequests, members, notify);
         await this.processDeleteContactsRequests(deleteContactIds, members, notify);
         await this.processUpdateContactRequests(updateContactRequests, notify);
-        await this.processContactRemoveRequests(contactRemoveRequests, members, notify);
+        await this.processContactRemoveRequests(contactRemoveRequests, notify);
         await this.processMailListAuditing();
+        await this.stampBrevoSyncStateFor(membersRequiringSync);
       } else {
         this.logger.info("Not performing updates as performUpdates is false");
       }
@@ -140,6 +151,109 @@ export class MailListUpdaterService {
     this.logger.info("saving", this.pendingMailListAudits.length, "pendingMailListAudits:", this.pendingMailListAudits);
     const response = await this.mailListAuditService.createOrUpdateAll(this.pendingMailListAudits);
     this.logger.info("saved", response?.length, "pendingMailListAudits:", response);
+  }
+
+  private respectHeadOfficeConsent(): boolean {
+    return this.mailMessagingConfig?.mailConfig?.respectHeadOfficeConsent !== false;
+  }
+
+  public brevoConsentWithheld(member: Member): boolean {
+    if (isBoolean(member?.groupMarketingConsent)) {
+      return member.groupMarketingConsent === false;
+    }
+    return this.respectHeadOfficeConsent() && member?.emailMarketingConsent === false;
+  }
+
+  private brevoEligibleListIds(member: Member): number[] {
+    return this.brevoConsentWithheld(member) ? [] : this.subscribedListIds(member);
+  }
+
+  private brevoEligibleForAnyList(member: Member): boolean {
+    return !this.brevoConsentWithheld(member) && this.memberSubscribedToAnyList(member);
+  }
+
+  public brevoContactSignature(member: Member): string {
+    const memberMergeFields = this.mailMessagingService.toMemberMergeVariables(member);
+    const subscribedListIds = [...this.brevoEligibleListIds(member)].sort((left, right) => left - right);
+    return JSON.stringify({
+      mailEmail: this.cleanEmail(member?.mail?.email),
+      email: this.cleanEmail(member?.email),
+      firstName: member?.firstName ?? "",
+      lastName: member?.lastName ?? "",
+      memberNumber: memberMergeFields.MEMBER_NUM ?? "",
+      memberExpiry: memberMergeFields.MEMBER_EXP ?? "",
+      userName: memberMergeFields.USERNAME ?? "",
+      consentWithheld: this.brevoConsentWithheld(member),
+      subscribedListIds
+    });
+  }
+
+  public memberRequiresBrevoSync(member: Member): boolean {
+    return this.brevoContactSignature(member) !== member?.mail?.lastSyncedSignature;
+  }
+
+  private stampBrevoSyncState(member: Member): void {
+    if (!member?.mail) {
+      return;
+    }
+    member.mail.lastSyncedSignature = this.brevoContactSignature(member);
+    member.mail.lastSyncedListIds = [...this.brevoEligibleListIds(member)].sort((left, right) => left - right);
+  }
+
+  private async stampBrevoSyncStateFor(members: Member[]): Promise<void> {
+    if (members.length === 0) {
+      return;
+    }
+    members.forEach(member => this.stampBrevoSyncState(member));
+    const response = await this.memberService.createOrUpdateAll(members);
+    this.logger.info("stamped Brevo sync signature on", this.stringUtils.pluraliseWithCount(members.length, "member"), response?.length, "members");
+  }
+
+  private buildListRemovalRequests(members: Member[]): ContactsAddOrRemoveRequest[] {
+    const removals: ContactIdToListId[] = members
+      .filter(member => isNumber(member?.mail?.id))
+      .flatMap(member => {
+        const eligibleListIds = this.brevoEligibleListIds(member);
+        const previouslySyncedListIds = member.mail.lastSyncedListIds ?? [];
+        return previouslySyncedListIds
+          .filter(listId => !eligibleListIds.includes(listId))
+          .map(listId => ({contactId: member.mail.id, listId}));
+      });
+    return values(groupBy(removals, (removal: ContactIdToListId) => removal.listId))
+      .map((group: ContactIdToListId[]) => ({listId: group[0].listId, ids: group.map(removal => removal.contactId)}));
+  }
+
+  async syncChangedMembersToBrevo(notify: AlertInstance, members: Member[]): Promise<void> {
+    if (!this.mailMessagingConfig?.mailConfig?.allowSendCampaign) {
+      return;
+    }
+    this.pendingMailListAudits = [];
+    const changedMembers: Member[] = members.filter(member => this.memberRequiresBrevoSync(member));
+    if (changedMembers.length === 0) {
+      this.logger.info("syncChangedMembersToBrevo: no members require Brevo sync");
+      return;
+    }
+    notify.success({title: "Brevo updates", message: `Synchronising ${this.stringUtils.pluraliseWithCount(changedMembers.length, "member")} with Brevo`}, true);
+    const createContactRequests: CreateContactRequest[] = changedMembers
+      .filter(member => !isNumber(member?.mail?.id) && this.brevoEligibleForAnyList(member))
+      .map(member => this.toCreateContactRequest(member));
+    const updateContactRequests: CreateContactRequestWithObjectAttributes[] = changedMembers
+      .filter(member => isNumber(member?.mail?.id) && this.brevoEligibleForAnyList(member))
+      .map(member => this.toCreateContactRequestWithObjectAttributes(member));
+    const deletableMembers: Member[] = changedMembers
+      .filter(member => isNumber(member?.mail?.id) && !this.brevoEligibleForAnyList(member));
+    const deleteContactIds: NumberOrString[] = deletableMembers.map(member => member.mail.id);
+    const contactRemoveRequests: ContactsAddOrRemoveRequest[] = this.buildListRemovalRequests(
+      changedMembers.filter(member => !deletableMembers.includes(member)));
+    if (this.performUpdates) {
+      await this.processCreateContactRequests(createContactRequests, members, notify);
+      await this.processUpdateContactRequests(updateContactRequests, notify);
+      await this.processDeleteContactsRequests(deleteContactIds, members, notify);
+      await this.processContactRemoveRequests(contactRemoveRequests, notify);
+      await this.processMailListAuditing();
+      await this.stampBrevoSyncStateFor(changedMembers);
+    }
+    notify.success({title: "Brevo updates", message: "Member Brevo sync complete"});
   }
 
   public memberSubscribed(member: Member, listId: number): boolean {
@@ -170,22 +284,14 @@ export class MailListUpdaterService {
     return unsubscribeDates.length > 0 ? Math.max(...unsubscribeDates) : null;
   }
 
-  private async processContactRemoveRequests(contactRemoveRequests: ContactsAddOrRemoveRequest[], members: Member[], notify: AlertInstance) {
+  private async processContactRemoveRequests(contactRemoveRequests: ContactsAddOrRemoveRequest[], notify: AlertInstance) {
     notify.success({
       title: "Brevo updates",
       message: "Processing " + this.stringUtils.pluraliseWithCount(contactRemoveRequests.length, "contact remove request")
     });
-
-    const contactIdToMember = (contactId: number): string => members.find(member => member?.mail?.id === contactId)?.id;
-
     if (contactRemoveRequests.length > 0) {
       const contactAddOrRemoveResponse = await this.mailService.contactsRemoveFromList(contactRemoveRequests);
       this.logger.info("contactAddOrRemoveResponse:", contactAddOrRemoveResponse);
-      const mailListAudits: MailListAudit[] = contactRemoveRequests
-        .map((contactRemoveRequest) => contactRemoveRequest.ids
-          .map(contactId => this.mailListAuditService.createMailListAudit(`Contact removed from ${this.listNameFrom(contactRemoveRequest.listId)} list`, AuditStatus.info, contactIdToMember(contactId), contactRemoveRequest.listId))).flat(2);
-      this.pendingMailListAudits.push(...mailListAudits);
-
     }
   }
 
@@ -481,9 +587,5 @@ export class MailListUpdaterService {
       invalidIds,
       hasNoMailSubscription
     };
-  }
-
-  private listNameFrom(listId: number): string {
-    return this.mailMessagingConfig?.brevo?.lists?.lists.find(item => item.id === listId)?.name;
   }
 }

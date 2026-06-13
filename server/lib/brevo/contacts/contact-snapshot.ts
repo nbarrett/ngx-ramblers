@@ -1,15 +1,15 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
+import { Brevo, BrevoClient } from "@getbrevo/brevo";
 import debug from "debug";
 import { Request, Response } from "express";
 import { isString } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { member } from "../../mongo/models/member";
 import { brevoContactSnapshot } from "../../mongo/models/brevo-contact-snapshot";
-import { BrevoContactDetails, BrevoEmailEvent, NumberOrString } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { BrevoEmailEvent, NumberOrString } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const messageType = "brevo:contact-snapshot";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -19,13 +19,17 @@ const EVENTS_PER_PAGE = 100;
 const EVENT_PAGE_OFFSETS = [0, 1, 2, 3, 4];
 const EVENT_LOOKBACK_DAYS = 90;
 
-async function fetchAllEvents(transactionalApi: SibApiV3Sdk.TransactionalEmailsApi, email: string): Promise<BrevoEmailEvent[]> {
+async function fetchAllEvents(client: BrevoClient, email: string): Promise<BrevoEmailEvent[]> {
   const all: BrevoEmailEvent[] = [];
   for (const page of EVENT_PAGE_OFFSETS) {
-    const response: { body: any } = await scheduleBrevo(() => transactionalApi.getEmailEventReport(
-      EVENTS_PER_PAGE, page * EVENTS_PER_PAGE, undefined, undefined, EVENT_LOOKBACK_DAYS, email,
-      undefined, undefined, undefined, undefined, "desc"));
-    const events: BrevoEmailEvent[] = response.body?.events || [];
+    const data = await scheduleBrevo(() => client.transactionalEmails.getEmailEventReport({
+      limit: EVENTS_PER_PAGE,
+      offset: page * EVENTS_PER_PAGE,
+      days: EVENT_LOOKBACK_DAYS,
+      email,
+      sort: "desc"
+    }));
+    const events: BrevoEmailEvent[] = data.events ?? [];
     all.push(...events);
     if (events.length < EVENTS_PER_PAGE) {
       break;
@@ -36,15 +40,13 @@ async function fetchAllEvents(transactionalApi: SibApiV3Sdk.TransactionalEmailsA
 
 export async function snapshotBrevoContact(identifier: NumberOrString, snapshotBy?: string): Promise<void> {
   try {
-    const brevoConfig = await configuredBrevo();
-    const contactsApi = new SibApiV3Sdk.ContactsApi();
-    contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
+    const client = await brevoClient();
     const identifierString = isString(identifier) ? identifier : identifier.toString();
-    let contactDetails: BrevoContactDetails | null = null;
+    let contactDetails: Brevo.GetContactInfoResponse | null = null;
     let email: string | null = identifierString.includes("@") ? identifierString : null;
     try {
-      const info: { body: any } = await scheduleBrevo(() => contactsApi.getContactInfo(identifierString));
-      contactDetails = info.body as BrevoContactDetails;
+      const info = await scheduleBrevo(() => client.contacts.getContactInfo({identifier: identifierString}));
+      contactDetails = info;
       email = contactDetails?.email || email;
     } catch (error: any) {
       debugLog("snapshotBrevoContact:getContactInfo failed", identifierString, error?.message || error);
@@ -53,9 +55,7 @@ export async function snapshotBrevoContact(identifier: NumberOrString, snapshotB
       debugLog("snapshotBrevoContact:no email resolved - skipping", identifierString);
       return;
     }
-    const transactionalApi = new SibApiV3Sdk.TransactionalEmailsApi();
-    transactionalApi.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const events = await fetchAllEvents(transactionalApi, email);
+    const events = await fetchAllEvents(client, email);
     const memberDoc = await member.findOne({ email: email.toLowerCase() }, { _id: 1 }).lean().exec() as any;
     await brevoContactSnapshot.updateOne(
       { email: email.toLowerCase() },

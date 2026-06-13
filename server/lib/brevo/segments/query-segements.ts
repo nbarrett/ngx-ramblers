@@ -1,16 +1,12 @@
 import { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import {
   DEFAULT_REQUEST_OPTIONS,
-  MailConfig,
   OptionalRequestOptions,
   SegmentsResponse
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
-import * as SibApiV3Sdk from "@getbrevo/brevo";
-import { ContactsApi, GetSegmentsSegments } from "@getbrevo/brevo";
-import http from "http";
 import { handleError, successfulResponse } from "../common/messages";
 import { scheduleBrevo } from "../common/rate-limiting";
 
@@ -20,19 +16,18 @@ debugLog.enabled = false;
 
 export async function querySegments(req: Request, res: Response): Promise<any> {
   try {
-    const brevoConfig: MailConfig = await configuredBrevo();
-    const apiInstance: ContactsApi = new SibApiV3Sdk.ContactsApi();
-    apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
+    const client = await brevoClient();
     const requestOptions: OptionalRequestOptions = req.body || DEFAULT_REQUEST_OPTIONS;
     debugLog("about to query with requestOptions:", requestOptions);
-    const apiResponse: {
-      response: http.IncomingMessage,
-      body?: any
-    } = await scheduleBrevo(() => apiInstance.getSegments(requestOptions.limit, requestOptions.offset, requestOptions.sort, requestOptions.options));
-
+    const apiResponse = await scheduleBrevo(() => client.contacts.getSegments({limit: requestOptions.limit, offset: requestOptions.offset, sort: requestOptions.sort}));
     const response: SegmentsResponse = {
-      count: apiResponse.body.count,
-      segments: apiResponse.body.segments.map((segment: GetSegmentsSegments) => ({segment}))
+      count: apiResponse.count ?? 0,
+      segments: (apiResponse.segments ?? []).map(segment => ({
+        id: segment.id,
+        segmentName: segment.segmentName,
+        categoryName: segment.categoryName,
+        updatedAt: segment.updatedAt ?? ""
+      }))
     };
     debugLog("apiResponse:", apiResponse, "response:", response);
     successfulResponse({req, res, response, messageType, debugLog});

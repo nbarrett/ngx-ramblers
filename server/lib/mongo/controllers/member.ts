@@ -9,9 +9,25 @@ import * as authConfig from "../../auth/auth-config";
 import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { pluraliseWithCount } from "../../shared/string-utils";
+import { auditSubscriptionChanges } from "./member-subscription-audit";
+import { writeBackFullOptOuts } from "../../salesforce/member-consent-writeback";
+import { MailSubscription, MemberSubscriptionChange } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const debugLog = debug(envConfig.logNamespace("member"));
 debugLog.enabled = false;
+
+function actingUser(req: Request): string {
+  return (req as any).user?.memberId ?? "system";
+}
+
+async function priorSubscriptionsById(members: Member[]): Promise<Map<string, MailSubscription[]>> {
+  const ids = members.map(item => item.id).filter(Boolean);
+  if (ids.length === 0) {
+    return new Map();
+  }
+  const existing = await member.find({_id: {$in: ids}}).select("mail.subscriptions").lean().exec();
+  return new Map(existing.map((doc: any) => [doc._id.toString(), doc?.mail?.subscriptions ?? []]));
+}
 
 const controller = crudController.create<Member>(member);
 export const all = controller.all;
@@ -22,27 +38,36 @@ export const deleteAll = controller.deleteAll;
 export async function createOrUpdateAll(req: Request, res: Response) {
   const members: Member[] = req.body;
   const message = `Create or update of ${pluraliseWithCount(members.length, "member")}`;
-  const createOrUpdatedMembers = await Promise.all(members.map(async member => {
-    const hashedMember: Member = await updateHashValue(member);
-    if (member.id) {
-      return controller.updateDocument({body: hashedMember});
-    } else {
-      return controller.createDocument({body: hashedMember});
-    }
-  })).catch(error => {
+  try {
+    const priorById = await priorSubscriptionsById(members);
+    const createOrUpdatedMembers = await Promise.all(members.map(async member => {
+      const hashedMember: Member = await updateHashValue(member);
+      return member.id
+        ? controller.updateDocument({body: hashedMember})
+        : controller.createDocument({body: hashedMember});
+    }));
+    const subscriptionChanges: MemberSubscriptionChange[] = createOrUpdatedMembers.map((saved, index) => ({
+      memberId: saved.id,
+      prior: priorById.get(members[index].id),
+      next: saved.mail?.subscriptions
+    }));
+    await auditSubscriptionChanges(subscriptionChanges, actingUser(req));
+    await writeBackFullOptOuts(createOrUpdatedMembers, priorById, actingUser(req));
+    debugLog("createOrUpdateAll:for:", message, "returning:", createOrUpdatedMembers);
+    res.status(200).json({
+      action: ApiAction.UPSERT,
+      message,
+      response: createOrUpdatedMembers
+    });
+  } catch (error) {
+    debugLog("createOrUpdateAll:error:", message, error);
     res.status(500).json({
       action: ApiAction.UPSERT,
       message,
       request: message,
       error: transforms.parseError(error)
     });
-  });
-  debugLog("createOrUpdateAll:for:", message, "returning:", createOrUpdatedMembers);
-  res.status(200).json({
-    action: ApiAction.UPSERT,
-    message,
-    response: createOrUpdatedMembers
-  });
+  }
 }
 
 async function updateHashValue(member: Member) {
@@ -59,12 +84,34 @@ async function updateHashValue(member: Member) {
 
 export async function update(req: Request, res: Response) {
   const updatedRequest: Member = await updateHashValue(req.body);
-  controller.update({body: updatedRequest}, res);
+  try {
+    const priorById = await priorSubscriptionsById([updatedRequest]);
+    const response = await controller.updateDocument({body: updatedRequest});
+    await auditSubscriptionChanges([{
+      memberId: response.id,
+      prior: priorById.get(updatedRequest.id),
+      next: response.mail?.subscriptions
+    }], actingUser(req));
+    await writeBackFullOptOuts([response], priorById, actingUser(req));
+    res.status(200).json({action: ApiAction.UPDATE, response});
+  } catch (error) {
+    res.status(500).json({message: "Update of member failed", error: transforms.parseError(error)});
+  }
 }
 
 export async function create(req: Request, res: Response) {
   const updatedRequest: Member = await updateHashValue(req.body);
-  controller.create({body: updatedRequest}, res);
+  try {
+    const response = await controller.createDocument({body: updatedRequest});
+    await auditSubscriptionChanges([{
+      memberId: response.id,
+      prior: undefined,
+      next: response.mail?.subscriptions
+    }], actingUser(req));
+    res.status(201).json({action: ApiAction.CREATE, response});
+  } catch (error) {
+    res.status(500).json({message: "Creation of member failed", error: transforms.parseError(error)});
+  }
 }
 
 export function updateEmailSubscription(req: Request, res: Response) {

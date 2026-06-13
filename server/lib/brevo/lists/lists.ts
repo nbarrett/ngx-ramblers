@@ -1,15 +1,12 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
 import { NextFunction, Request, Response } from "express";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
-import http from "http";
 import {
   OptionalRequestOptions,
-  ListCreateRequest,
-  ListsResponse
+  ListCreateRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const messageType = "brevo:lists";
@@ -18,22 +15,14 @@ debugLog.enabled = false;
 
 export async function lists(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const brevoConfig = await configuredBrevo();
-    const apiInstance = new SibApiV3Sdk.ContactsApi();
-    apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const createList = new SibApiV3Sdk.CreateList();
+    const client = await brevoClient();
     const listCreateRequest: ListCreateRequest = req.body;
     debugLog("received listCreateRequest:", listCreateRequest);
-    createList.name = listCreateRequest.name || req.query.name?.toString();
-    createList.folderId = +(listCreateRequest.folderId || req.query.folderId?.toString());
     const opts: OptionalRequestOptions = {limit: 10, offset: 0};
-    const response: {
-      response: http.IncomingMessage,
-      body: any
-    } = await scheduleBrevo(() => apiInstance.getLists(opts.limit, opts.offset, opts.sort));
-    const listsResponse: ListsResponse = {
-      lists: response?.body?.lists || [],
-      count: response?.body?.count || 0
+    const response = await scheduleBrevo(() => client.contacts.getLists({limit: opts.limit, offset: opts.offset, sort: opts.sort}));
+    const listsResponse = {
+      lists: response.lists ?? [],
+      count: response.count ?? 0
     };
     debugLog("returning listsResponse:", listsResponse);
     successfulResponse({req, res, response: listsResponse, messageType, debugLog});

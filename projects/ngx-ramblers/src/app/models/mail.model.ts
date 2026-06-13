@@ -279,7 +279,6 @@ export interface MailConfig extends BuiltInProcessMappings {
   inboundWebhookSecret?: string;
   brevoEventsWebhookSecret?: string;
   unsubscribeTokenSecret?: string;
-  dailyCampaignSendLimit?: number | null;
 }
 
 export interface BuiltInProcessMappings {
@@ -396,7 +395,7 @@ export interface Account {
   address?: { zipCode: string; country: string; city: string; street: string };
   plan?: Plan[];
   relay?: { data: { port: number; relay: string; userName: string }; enabled: boolean };
-  marketingAutomation?: { key: string; enabled: boolean };
+  marketingAutomation?: { key?: string; enabled: boolean };
 }
 
 export function DEFAULT_MAIL_MESSAGING_CONFIG(): MailMessagingConfig {
@@ -1128,6 +1127,17 @@ export interface MailSubscription {
   subscribed?: boolean;
   id?: number;
   unsubscribedAt?: number;
+}
+
+export interface SubscriptionTransition {
+  listId: number;
+  subscribed: boolean;
+}
+
+export interface MemberSubscriptionChange {
+  memberId: string;
+  prior: MailSubscription[] | undefined;
+  next: MailSubscription[] | undefined;
 }
 
 export interface ListSetting {

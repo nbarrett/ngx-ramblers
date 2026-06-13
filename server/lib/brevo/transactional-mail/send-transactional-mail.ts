@@ -1,10 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
-import * as SibApiV3Sdk from "@getbrevo/brevo";
-import { CreateSmtpEmail, SendSmtpEmail } from "@getbrevo/brevo";
+import { Brevo } from "@getbrevo/brevo";
 import { handleError, performTemplateSubstitution, successfulResponse } from "../common/messages";
 import * as http from "http";
 import { SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
@@ -98,25 +97,24 @@ export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailR
                                                     transactionalDebugLog: debug.Debugger,
                                                     unsubscribeBaseUrlOverride?: string): Promise<{
   response: http.IncomingMessage;
-  body: CreateSmtpEmail
+  body: Brevo.SendTransacEmailResponse
 }> {
-  const brevoConfig = await configuredBrevo();
-  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-  apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
-  const sendSmtpEmail: SendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-  sendSmtpEmail.subject = emailRequest.subject;
-  sendSmtpEmail.sender = emailRequest.sender;
-  sendSmtpEmail.to = emailRequest.to;
+  const client = await brevoClient();
+  const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
+    subject: emailRequest.subject,
+    sender: emailRequest.sender,
+    to: emailRequest.to,
+    replyTo: emailRequest.replyTo
+  };
   if (emailRequest.cc?.length > 0) {
     sendSmtpEmail.cc = emailRequest.cc;
   }
   if (emailRequest.bcc?.length > 0) {
     sendSmtpEmail.bcc = emailRequest.bcc;
   }
-  sendSmtpEmail.replyTo = emailRequest.replyTo;
   const { apiUrl: apiUnsubscribeUrl } = await injectUnsubscribeContext(emailRequest, unsubscribeBaseUrlOverride);
-  sendSmtpEmail.headers = mergeHeaders(emailRequest.headers, emailRequest, apiUnsubscribeUrl);
-  sendSmtpEmail.params = emailRequest.params;
+  sendSmtpEmail.headers = mergeHeaders(emailRequest.headers, emailRequest, apiUnsubscribeUrl) as Record<string, unknown>;
+  sendSmtpEmail.params = emailRequest.params as unknown as Record<string, unknown>;
   await performTemplateSubstitution(emailRequest, sendSmtpEmail, transactionalDebugLog);
   if (sendSmtpEmail.htmlContent && !sendSmtpEmail.textContent) {
     const textContent = htmlToPlainText(sendSmtpEmail.htmlContent);
@@ -125,7 +123,8 @@ export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailR
     }
   }
   transactionalDebugLog("About to send mail with supplied sendSmtpEmail:", sendSmtpEmail);
-  return scheduleBrevo(() => apiInstance.sendTransacEmail(sendSmtpEmail));
+  const body = await scheduleBrevo(() => client.transactionalEmails.sendTransacEmail(sendSmtpEmail));
+  return { response: null, body };
 }
 
 export async function sendTransactionalMail(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -134,7 +133,7 @@ export async function sendTransactionalMail(req: Request, res: Response, next: N
     const liveBaseUrl = `${req.protocol}://${req.get("host")}`;
     sendTransactionalEmailRequest(emailRequest, debugLog, liveBaseUrl).then((data: {
       response: http.IncomingMessage;
-      body: CreateSmtpEmail
+      body: Brevo.SendTransacEmailResponse
     }) => {
       debugLog("API called successfully. Returned data: " + JSON.stringify(data));
       successfulResponse({req, res, response: data, messageType, debugLog});

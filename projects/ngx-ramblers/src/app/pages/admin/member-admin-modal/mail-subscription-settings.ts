@@ -163,18 +163,30 @@ export class MailSubscriptionSettingsComponent implements OnInit {
   protected readonly faBan = faBan;
   protected readonly faTriangleExclamation = faTriangleExclamation;
 
+  private respectsHeadOfficeConsent(): boolean {
+    return this.mailMessagingConfig?.mailConfig?.respectHeadOfficeConsent !== false;
+  }
+
+  private respectsEmailBlocks(): boolean {
+    return this.mailMessagingConfig?.mailConfig?.respectEmailBlocks === true;
+  }
+
+  blockExcludesFromSend(): boolean {
+    return !!this.member?.emailBlock && this.respectsEmailBlocks();
+  }
+
   notEmailableReason(): string | null {
-    if (this.member?.emailBlock) {
-      return "They are blocked from email, so Brevo will not deliver any send";
+    if (this.blockExcludesFromSend()) {
+      return "They have unsubscribed or been blocked, so they are excluded from any send that respects blocks";
     }
-    if (this.member && !this.member.emailMarketingConsent) {
+    if (this.consentMissing()) {
       return "Head Office marketing consent has not been given, so they are excluded from any send that respects consent";
     }
     return null;
   }
 
   consentMissing(): boolean {
-    return !!this.member && !this.member.emailBlock && !this.member.emailMarketingConsent;
+    return !!this.member && !this.member.emailMarketingConsent && this.respectsHeadOfficeConsent() && !this.blockExcludesFromSend();
   }
 
   viewConsent(event: Event): void {

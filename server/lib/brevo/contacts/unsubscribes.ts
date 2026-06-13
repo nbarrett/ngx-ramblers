@@ -1,11 +1,10 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
+import { BrevoClient, BrevoError } from "@getbrevo/brevo";
 import debug from "debug";
 import { Request, Response } from "express";
-import http from "http";
 import { isArray, isNumber, isString, keys } from "es-toolkit/compat";
 import { handleError, successfulResponse } from "../common/messages";
 import { envConfig } from "../../env-config/env-config";
-import { configuredBrevo } from "../brevo-config";
+import { brevoClient } from "../brevo-config";
 import { dateTimeFromMillis, dateTimeNowAsValue } from "../../shared/dates";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { member } from "../../mongo/models/member";
@@ -70,7 +69,7 @@ function parseSenders(value: any): string[] | undefined {
 }
 
 async function fetchBlockedContactsPage(
-  apiInstance: SibApiV3Sdk.TransactionalEmailsApi,
+  client: BrevoClient,
   startDate: string | undefined,
   endDate: string | undefined,
   senders: string[] | undefined,
@@ -78,18 +77,17 @@ async function fetchBlockedContactsPage(
   limit: number,
   offset: number
 ): Promise<{ contacts: BlockedContact[]; totalCount: number }> {
-  const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => apiInstance.getTransacBlockedContacts(
+  const data = await scheduleBrevo(() => client.transactionalEmails.getTransacBlockedContacts({
     startDate,
     endDate,
     limit,
     offset,
     senders,
     sort
-  ));
-  const body = response.body || {};
+  }));
   return {
-    contacts: body.contacts || [],
-    totalCount: body.count ?? 0
+    contacts: data.contacts ?? [],
+    totalCount: data.count ?? 0
   };
 }
 
@@ -99,7 +97,7 @@ interface AggregatedBlockedContacts {
 }
 
 async function fetchAllBlockedContacts(
-  apiInstance: SibApiV3Sdk.TransactionalEmailsApi,
+  client: BrevoClient,
   startDate: string | undefined,
   endDate: string | undefined,
   senders: string[] | undefined,
@@ -112,7 +110,7 @@ async function fetchAllBlockedContacts(
     return accumulator;
   }
   const pageLimit = Math.min(BREVO_PAGE_LIMIT, requestedLimit - accumulator.contacts.length);
-  const page = await fetchBlockedContactsPage(apiInstance, startDate, endDate, senders, sort, pageLimit, startOffset);
+  const page = await fetchBlockedContactsPage(client, startDate, endDate, senders, sort, pageLimit, startOffset);
   const nextAccumulator: AggregatedBlockedContacts = {
     contacts: [...accumulator.contacts, ...page.contacts],
     totalCount: page.totalCount || accumulator.totalCount
@@ -121,7 +119,7 @@ async function fetchAllBlockedContacts(
     return nextAccumulator;
   }
   return fetchAllBlockedContacts(
-    apiInstance,
+    client,
     startDate,
     endDate,
     senders,
@@ -169,23 +167,23 @@ async function enrichWithMemberMatches(contacts: BlockedContact[]): Promise<Bloc
 }
 
 async function enrichWithContactInfo(
-  contactsApi: SibApiV3Sdk.ContactsApi,
+  client: BrevoClient,
   contacts: BlockedContact[]
 ): Promise<BlockedContact[]> {
   if (contacts.length === 0) return contacts;
   const lookups = contacts.map(async (contact) => {
     if (!contact.email) return contact;
     try {
-      const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => contactsApi.getContactInfo(contact.email));
-      const body = response.body || {};
+      const data = await scheduleBrevo(() => client.contacts.getContactInfo({identifier: contact.email}));
       return {
         ...contact,
-        listIds: body.listIds || [],
-        emailBlocked: !!body.emailBlacklisted,
-        brevoContactId: isNumber(body.id) ? body.id : undefined
+        listIds: data.listIds ?? [],
+        emailBlocked: !!data.emailBlacklisted,
+        brevoContactId: isNumber(data.id) ? data.id : undefined
       };
     } catch (error: any) {
-      debugLog("enrichWithContactInfo:lookup-failed", contact.email, error?.response?.statusCode || error?.message || error);
+      const status = error instanceof BrevoError ? error.statusCode : undefined;
+      debugLog("enrichWithContactInfo:lookup-failed", contact.email, status || error?.message || error);
       return contact;
     }
   });
@@ -216,16 +214,17 @@ function buildAuditMessage(contact: BlockedContact, listName: string | undefined
   return `${reasonLabel}${listText}${senderText}`;
 }
 
-async function loadBrevoListNames(contactsApi: SibApiV3Sdk.ContactsApi): Promise<Map<number, string>> {
+async function loadBrevoListNames(client: BrevoClient): Promise<Map<number, string>> {
   const namesById = new Map<number, string>();
   try {
-    const response: { response: http.IncomingMessage, body: any } = await scheduleBrevo(() => contactsApi.getLists(50, 0));
-    const lists = (response.body?.lists || []) as Array<{ id: number; name: string }>;
+    const data = await scheduleBrevo(() => client.contacts.getLists({limit: 50, offset: 0}));
+    const lists = data.lists ?? [];
     lists.forEach(list => {
       if (Number.isFinite(list?.id)) namesById.set(list.id, list.name);
     });
   } catch (error: any) {
-    debugLog("loadBrevoListNames:failed", error?.response?.statusCode || error?.message || error);
+    const status = error instanceof BrevoError ? error.statusCode : undefined;
+    debugLog("loadBrevoListNames:failed", status || error?.message || error);
   }
   return namesById;
 }
@@ -524,26 +523,20 @@ export async function removeFromBlocklist(req: Request, res: Response): Promise<
       res.status(400).json({ error: "email path param is required" });
       return;
     }
-    const brevoConfig = await configuredBrevo();
-    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const contactsApi = new SibApiV3Sdk.ContactsApi();
-    contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
+    const client = await brevoClient();
     try {
-      await scheduleBrevo(() => apiInstance.smtpBlockedContactsEmailDelete(email));
+      await scheduleBrevo(() => client.transactionalEmails.unblockOrResubscribeATransactionalContact({email}));
     } catch (error: any) {
-      const status = error?.response?.statusCode;
+      const status = error instanceof BrevoError ? error.statusCode : undefined;
       if (status !== 404) {
         throw error;
       }
       debugLog("removeFromBlocklist:not-on-brevo-blocklist", email);
     }
     try {
-      const update = new SibApiV3Sdk.UpdateContact();
-      update.emailBlacklisted = false;
-      await scheduleBrevo(() => contactsApi.updateContact(email, update));
+      await scheduleBrevo(() => client.contacts.updateContact({identifier: email, emailBlacklisted: false}));
     } catch (error: any) {
-      const status = error?.response?.statusCode;
+      const status = error instanceof BrevoError ? error.statusCode : undefined;
       if (status !== 404) {
         throw error;
       }
@@ -581,13 +574,9 @@ export async function removeFromBlocklist(req: Request, res: Response): Promise<
 export async function clearAllBlocklist(req: Request, res: Response): Promise<void> {
   const clearMessageType = "brevo:unsubscribes:clear-all";
   try {
-    const brevoConfig = await configuredBrevo();
-    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const contactsApi = new SibApiV3Sdk.ContactsApi();
-    contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
+    const client = await brevoClient();
     const aggregated = await fetchAllBlockedContacts(
-      apiInstance,
+      client,
       undefined,
       undefined,
       undefined,
@@ -607,25 +596,24 @@ export async function clearAllBlocklist(req: Request, res: Response): Promise<vo
       if (!email) return;
       try {
         try {
-          await scheduleBrevo(() => apiInstance.smtpBlockedContactsEmailDelete(email));
+          await scheduleBrevo(() => client.transactionalEmails.unblockOrResubscribeATransactionalContact({email}));
         } catch (error: any) {
-          const status = error?.response?.statusCode;
+          const status = error instanceof BrevoError ? error.statusCode : undefined;
           if (status !== 404) throw error;
         }
         try {
-          const update = new SibApiV3Sdk.UpdateContact();
-          update.emailBlacklisted = false;
-          await scheduleBrevo(() => contactsApi.updateContact(email, update));
+          await scheduleBrevo(() => client.contacts.updateContact({identifier: email, emailBlacklisted: false}));
         } catch (error: any) {
-          const status = error?.response?.statusCode;
+          const status = error instanceof BrevoError ? error.statusCode : undefined;
           if (status !== 404) throw error;
         }
         result.brevoCleared++;
       } catch (error: any) {
+        const errorBody = (error instanceof BrevoError ? error.body : undefined) as { message?: string } | undefined;
         result.brevoFailed++;
         result.errors.push({
           email,
-          message: error?.response?.body?.message || error?.message || "unknown error"
+          message: errorBody?.message || error?.message || "unknown error"
         });
         debugLog("clearAllBlocklist:failed", email, error?.message || error);
       }
@@ -660,11 +648,7 @@ export async function clearAllBlocklist(req: Request, res: Response): Promise<vo
 }
 
 export async function runUnsubscribesSync(opts: RunUnsubscribesSyncOptions = {}): Promise<RunUnsubscribesSyncResult> {
-  const brevoConfig = await configuredBrevo();
-  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-  apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, brevoConfig.apiKey);
-  const contactsApi = new SibApiV3Sdk.ContactsApi();
-  contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
+  const client = await brevoClient();
 
   const requestedLimit = Math.min(opts.limit && opts.limit > 0 ? opts.limit : DEFAULT_PAGE_LIMIT, MAX_FETCH_LIMIT);
   const startOffset = opts.offset && opts.offset > 0 ? opts.offset : 0;
@@ -672,7 +656,7 @@ export async function runUnsubscribesSync(opts: RunUnsubscribesSyncOptions = {})
   const noFilters = !opts.startDate && !opts.endDate && (!opts.senders || opts.senders.length === 0) && startOffset === 0;
 
   const aggregated = await fetchAllBlockedContacts(
-    apiInstance,
+    client,
     opts.startDate,
     opts.endDate,
     opts.senders,
@@ -682,8 +666,8 @@ export async function runUnsubscribesSync(opts: RunUnsubscribesSyncOptions = {})
   );
 
   const memberEnriched = await enrichWithMemberMatches(aggregated.contacts);
-  const brevoEnriched = await enrichWithContactInfo(contactsApi, memberEnriched);
-  const listNamesById = await loadBrevoListNames(contactsApi);
+  const brevoEnriched = await enrichWithContactInfo(client, memberEnriched);
+  const listNamesById = await loadBrevoListNames(client);
   await persistAuditRows(brevoEnriched, listNamesById);
   await persistMemberEmailBlocks(brevoEnriched);
   const selfHealed = await selfHealMemberEmailBlocks(
@@ -703,7 +687,7 @@ export async function runUnsubscribesSync(opts: RunUnsubscribesSyncOptions = {})
     opts.senders,
     MAX_FETCH_LIMIT
   );
-  const localEnriched = await enrichWithContactInfo(contactsApi, localOnly);
+  const localEnriched = await enrichWithContactInfo(client, localOnly);
   const combined = [...brevoEnriched, ...localEnriched];
   const withFeedback = await attachUnsubscribeFeedback(combined);
   const merged = withFeedback.sort((a, b) => compareBlockedAt(a, b, sort));
@@ -788,10 +772,8 @@ export async function unsubscribeActivity(req: Request, res: Response): Promise<
       list.push(row);
       feedbackByMember.set(row.memberId, list);
     });
-    const brevoConfig = await configuredBrevo();
-    const contactsApi = new SibApiV3Sdk.ContactsApi();
-    contactsApi.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const listNamesById = await loadBrevoListNames(contactsApi);
+    const client = await brevoClient();
+    const listNamesById = await loadBrevoListNames(client);
     const activity: UnsubscribeActivity[] = rows.map(row => {
       const memberDoc = memberById.get(row.memberId);
       const candidates = feedbackByMember.get(row.memberId) || [];

@@ -1,8 +1,7 @@
 import { Db } from "mongodb";
-import * as SibApiV3Sdk from "@getbrevo/brevo";
 import createMigrationLogger from "../migrations-logger";
 import { CONFIG_COLLECTION, NOTIFICATION_CONFIG_COLLECTION } from "../shared/collection-names";
-import { configuredBrevo } from "../../../brevo/brevo-config";
+import { brevoClient, configuredBrevo } from "../../../brevo/brevo-config";
 
 const debugLog = createMigrationLogger("rename-enquiries-to-contact-us");
 const COMMITTEE_CONFIG_KEY = "committee";
@@ -33,10 +32,9 @@ async function renameBrevoSender(oldEmail: string, newEmail: string, expectedNam
       debugLog("renameBrevoSender skipped: no Brevo apiKey configured");
       return;
     }
-    const sendersApi = new SibApiV3Sdk.SendersApi();
-    sendersApi.setApiKey(SibApiV3Sdk.SendersApiApiKeys.apiKey, brevoConfig.apiKey);
-    const response: any = await sendersApi.getSenders();
-    const senders: any[] = response?.body?.senders || [];
+    const client = await brevoClient();
+    const response = await client.senders.getSenders({});
+    const senders = response.senders ?? [];
     const newEmailLower = newEmail.toLowerCase();
     const oldEmailLower = (oldEmail || "").toLowerCase();
     const matched = senders.find(s => {
@@ -51,10 +49,7 @@ async function renameBrevoSender(oldEmail: string, newEmail: string, expectedNam
       debugLog("renameBrevoSender: sender %d already named %s with email %s — nothing to do", matched.id, expectedName, newEmail);
       return;
     }
-    const opts = new SibApiV3Sdk.UpdateSender();
-    opts.name = expectedName;
-    opts.email = newEmail;
-    await sendersApi.updateSender(matched.id, opts);
+    await client.senders.updateSender({senderId: matched.id, name: expectedName, email: newEmail});
     debugLog(
       "renameBrevoSender: updated Brevo sender %d (name %s -> %s, email %s -> %s)",
       matched.id, matched.name, expectedName, matched.email, newEmail

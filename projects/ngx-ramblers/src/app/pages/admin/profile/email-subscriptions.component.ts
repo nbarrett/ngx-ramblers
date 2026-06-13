@@ -11,17 +11,13 @@ import { ProfileService } from "./profile.service";
 import { faEnvelopeOpenText } from "@fortawesome/free-solid-svg-icons";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
-import { MailListAudit } from "../../../models/mail.model";
-import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { BroadcastService } from "../../../services/broadcast-service";
-import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
+import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { EmailSubscriptionsMailchimpComponent } from "./email-subscriptions-mailchimp.component";
 import { MailSubscriptionSettingComponent } from "../member-admin-modal/mail-subscription-setting";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
-import { NgClass } from "@angular/common";
 
 @Component({
     selector: "app-email-subscriptions",
@@ -104,12 +100,10 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("EmailSubscriptionsComponent", NgxLoggerLevel.ERROR);
   private notifierService = inject(NotifierService);
   private profileConfirmationService = inject(ProfileConfirmationService);
-  private broadcastService = inject<BroadcastService<MailListAudit>>(BroadcastService);
   private systemConfigService = inject(SystemConfigService);
-  private mailListAuditService = inject(MailListAuditService);
+  private mailListUpdaterService = inject(MailListUpdaterService);
   protected mailMessagingService = inject(MailMessagingService);
   profileService = inject(ProfileService);
-  public pendingMailListAudits: MailListAudit[] = [];
   public member: Member;
   private subscriptions: Subscription[] = [];
   faEnvelopeOpenText = faEnvelopeOpenText;
@@ -133,11 +127,6 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
       this.member = member;
       this.notify.clearBusy();
     });
-    this.subscriptions.push(
-      this.broadcastService.on(NamedEventType.MAIL_SUBSCRIPTION_CHANGED, (namedEvent: NamedEvent<MailListAudit>) => {
-        this.pendingMailListAudits = this.pendingMailListAudits.filter(item => item.listId !== namedEvent.data.listId).concat(namedEvent.data);
-        this.logger.info("event received:", namedEvent, "pendingMailListAudits:", this.pendingMailListAudits);
-      }));
   }
 
   undoContactPreferences() {
@@ -148,8 +137,9 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
 
   saveContactPreferences() {
     this.profileConfirmationService.confirmProfile(this.member);
-    this.profileService.saveMemberDetails(this.notify, ProfileUpdateType.CONTACT_PREFERENCES, this.member).then(member => {
-      this.mailListAuditService.createOrUpdateAll(this.pendingMailListAudits);
+    this.profileService.saveMemberDetails(this.notify, ProfileUpdateType.CONTACT_PREFERENCES, this.member).then(() => {
+      this.mailListUpdaterService.syncChangedMembersToBrevo(this.notify, [this.member])
+        .catch(error => this.logger.warn("Brevo sync after subscription save failed; will reconcile on next send", error));
     });
   }
 
