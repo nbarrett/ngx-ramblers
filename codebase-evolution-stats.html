@@ -497,7 +497,66 @@
                 font-size: 1.6rem;
             }
             .header {
-                padding: 12px 20px;
+                padding: 10px 16px;
+            }
+            .header-inner {
+                gap: 10px;
+            }
+            .header-logo {
+                height: 34px;
+            }
+            .header-right {
+                gap: 8px;
+            }
+            .theme-toggle {
+                padding: 7px 11px;
+                font-size: 0.78rem;
+            }
+            .theme-toggle .label {
+                display: none;
+            }
+            .header-link {
+                padding: 8px 14px;
+                font-size: 0.8rem;
+                white-space: nowrap;
+            }
+            .container {
+                padding: 0 16px 32px;
+            }
+            .hero {
+                padding: 28px 16px 24px;
+            }
+            .hero-logo {
+                max-width: 170px;
+            }
+            .subtitle {
+                font-size: 0.95rem;
+            }
+            .stats-hero {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+            .stat-card {
+                padding: 18px 12px;
+            }
+            .stat-value {
+                font-size: 1.85rem;
+            }
+            .section,
+            .chart-card {
+                padding: 20px 16px;
+            }
+            .chart-container,
+            .chart-container.tall {
+                height: 260px;
+            }
+        }
+        @media (max-width: 380px) {
+            .stat-value {
+                font-size: 1.6rem;
+            }
+            .header-link {
+                padding: 7px 11px;
             }
         }
     </style>
@@ -529,19 +588,19 @@
 
         <div class="stats-hero">
             <div class="stat-card">
-                <div class="stat-value highlight">190,611</div>
+                <div class="stat-value highlight">219,685</div>
                 <div class="stat-label">Lines of Code</div>
-                <div class="stat-detail">May 2026</div>
+                <div class="stat-detail">June 2026</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">1,719</div>
+                <div class="stat-value">1,796</div>
                 <div class="stat-label">Total Commits</div>
                 <div class="stat-detail">Across all repos</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">1,307</div>
+                <div class="stat-value">1,501</div>
                 <div class="stat-label">TypeScript Files</div>
-                <div class="stat-detail">190,611 LOC</div>
+                <div class="stat-detail">219,685 LOC</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value highlight">13</div>
@@ -603,11 +662,11 @@
                     <div class="repo-period">Aug 2023 - Present</div>
                     <div class="repo-stats">
                         <div class="repo-stat">
-                            <div class="repo-stat-value">534</div>
+                            <div class="repo-stat-value">611</div>
                             <div class="repo-stat-label">Commits</div>
                         </div>
                         <div class="repo-stat">
-                            <div class="repo-stat-value">191K</div>
+                            <div class="repo-stat-value">220K</div>
                             <div class="repo-stat-label">Current LOC</div>
                         </div>
                     </div>
@@ -668,9 +727,9 @@
             <h3>Project Timeline</h3>
             <div class="timeline-items">
                 <div class="timeline-item modern">
-                    <div class="timeline-year">May 2026</div>
-                    <div class="timeline-title">Salesforce + Email Composer Push <span class="growth-badge">190,611 LOC</span></div>
-                    <div class="timeline-desc">197 commits already in 2026 (matching the entire 2025 total in the first five months). Server doubled again to 58K lines on the back of the Salesforce API and email-composer work.</div>
+                    <div class="timeline-year">June 2026</div>
+                    <div class="timeline-title">Salesforce, Bookings + Committee Work <span class="growth-badge">219,685 LOC</span></div>
+                    <div class="timeline-desc">274 commits in 2026's first six months, already 1.4x the entire 2025 total. Server grew to 72K lines on the back of the Salesforce API, the unified email composer, event bookings, and committee document handling.</div>
                 </div>
                 <div class="timeline-item modern">
                     <div class="timeline-year">March 2026</div>
@@ -719,23 +778,23 @@
                 </div>
                 <div class="insight-card">
                     <h4>13-Year Journey</h4>
-                    <p>From a humble AngularJS app in December 2013 to a modern 191K LOC TypeScript monorepo across three major repository transitions.</p>
+                    <p>From a humble AngularJS app in December 2013 to a modern 220K LOC TypeScript monorepo across three major repository transitions.</p>
                 </div>
                 <div class="insight-card">
-                    <h4>1,719 Commits</h4>
-                    <p>Consistent development: 750 in ekwg, 435 in ng-ekwg, 534 in ngx-ramblers. Peak years: 2014 (370) and 2026 (197 in the first five months).</p>
+                    <h4>1,796 Commits</h4>
+                    <p>Consistent development: 750 in ekwg, 435 in ng-ekwg, 611 in ngx-ramblers. Peak years: 2014 (370) and 2026 (274 in the first six months).</p>
                 </div>
                 <div class="insight-card">
-                    <h4>9x Code Growth</h4>
-                    <p>From ~21K LOC to 191K LOC. Growth has accelerated since July 2024 - the codebase has more than tripled (+229%) in less than two years.</p>
+                    <h4>10x Code Growth</h4>
+                    <p>From ~21K LOC to 220K LOC. Growth has accelerated since July 2024 - the codebase has nearly quadrupled (+279%) in under two years.</p>
                 </div>
                 <div class="insight-card">
                     <h4>Server Transformation</h4>
-                    <p>Server grew from 6K to 58K lines (+849%) since July 2024. Complete JS to TypeScript migration with a Salesforce API layer and email composer.</p>
+                    <p>Server grew from 6K to 72K lines (+1,079%) since July 2024. Complete JS to TypeScript migration with a Salesforce API layer and email composer.</p>
                 </div>
                 <div class="insight-card">
                     <h4>Clean Code Philosophy</h4>
-                    <p>Only 990 comments across 191K TypeScript lines (0.5%). Self-documenting code with meaningful names.</p>
+                    <p>Only 270 comments across 220K TypeScript lines (0.1%). Self-documenting code with meaningful names.</p>
                 </div>
                 <div class="insight-card">
                     <h4>Technology Evolution</h4>
@@ -752,7 +811,7 @@
 
     <footer class="footer">
         NGX-Ramblers | Open-source framework for Ramblers Group and Area websites<br>
-        Snapshot generated 6 May 2026
+        Snapshot generated 13 June 2026
     </footer>
 
     <script>
@@ -805,11 +864,11 @@
             charts.growthChart = new Chart(document.getElementById('growthChart'), {
             type: 'line',
             data: {
-                labels: ['2013', '2014', '2019\nekwg final', '2022\nAngular 7/14', 'Jul 2024', 'Jan 2026', 'May 2026'],
+                labels: ['2013', '2014', '2019\nekwg final', '2022\nAngular 7/14', 'Jul 2024', 'Jan 2026', 'Jun 2026'],
                 datasets: [
                     {
                         label: 'Total LOC',
-                        data: [2000, 8000, 22572, 41223, 57974, 128584, 190611],
+                        data: [2000, 8000, 22572, 41223, 57974, 128584, 219685],
                         borderColor: chartColors.sunrise,
                         backgroundColor: chartColors.sunriseLight,
                         fill: true,
@@ -821,7 +880,7 @@
                     },
                     {
                         label: 'Client',
-                        data: [1800, 7000, 19546, 35641, 50477, 98033, 130519],
+                        data: [1800, 7000, 19546, 35641, 50477, 98033, 145552],
                         borderColor: chartColors.mintcake,
                         backgroundColor: 'transparent',
                         tension: 0.4,
@@ -831,7 +890,7 @@
                     },
                     {
                         label: 'Server',
-                        data: [200, 1000, 1518, 4305, 6122, 28683, 58134],
+                        data: [200, 1000, 1518, 4305, 6122, 28683, 72170],
                         borderColor: chartColors.granite,
                         backgroundColor: 'transparent',
                         tension: 0.4,
@@ -882,7 +941,7 @@
                     },
                     {
                         label: 'ngx-ramblers (Modern)',
-                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 99, 197, 197],
+                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 99, 197, 274],
                         backgroundColor: chartColors.mintcake,
                         borderWidth: 0,
                         borderRadius: 4
@@ -911,9 +970,9 @@
             charts.componentChart = new Chart(document.getElementById('componentChart'), {
             type: 'doughnut',
             data: {
-                labels: ['Client (131K)', 'Server (58K)', 'Serenity E2E (2K)'],
+                labels: ['Client (146K)', 'Server (72K)', 'Serenity E2E (2K)'],
                 datasets: [{
-                    data: [130519, 58134, 1958],
+                    data: [145552, 72170, 1963],
                     backgroundColor: [chartColors.sunrise, chartColors.granite, chartColors.mintcake],
                     borderWidth: 0,
                     hoverOffset: 10
@@ -934,9 +993,9 @@
             charts.languageChart = new Chart(document.getElementById('languageChart'), {
             type: 'doughnut',
             data: {
-                labels: ['TypeScript (191K)', 'Sass (5.4K)', 'HTML (3.1K)', 'Other (1.3K)'],
+                labels: ['TypeScript (220K)', 'Sass (6.7K)', 'HTML (4.5K)', 'Other (1.1K)'],
                 datasets: [{
-                    data: [190611, 5366, 3087, 1299],
+                    data: [219685, 6709, 4513, 1054],
                     backgroundColor: [chartColors.sunrise, chartColors.rosycheeks, chartColors.sunset, chartColors.grey],
                     borderWidth: 0,
                     hoverOffset: 10
@@ -968,7 +1027,7 @@
                     },
                     {
                         label: 'TypeScript',
-                        data: [0, 15000, 35000, 190611],
+                        data: [0, 15000, 35000, 219685],
                         backgroundColor: chartColors.sunrise,
                         borderWidth: 0,
                         borderRadius: 4
@@ -1000,7 +1059,7 @@
             charts.serverEvolutionChart = new Chart(document.getElementById('serverEvolutionChart'), {
             type: 'bar',
             data: {
-                labels: ['2019\nekwg', '2022\nng-ekwg', 'Jul 2024', 'Jan 2026', 'May 2026'],
+                labels: ['2019\nekwg', '2022\nng-ekwg', 'Jul 2024', 'Jan 2026', 'Jun 2026'],
                 datasets: [
                     {
                         label: 'JavaScript',
@@ -1011,7 +1070,7 @@
                     },
                     {
                         label: 'TypeScript',
-                        data: [0, 550, 5365, 28619, 58134],
+                        data: [0, 550, 5365, 28619, 72170],
                         backgroundColor: chartColors.sunrise,
                         borderWidth: 0,
                         borderRadius: 4
