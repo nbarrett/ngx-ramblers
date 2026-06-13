@@ -125,7 +125,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
       }
     }
     `,
-    imports: [FormsModule, FontAwesomeModule, MarkdownComponent, BrevoButtonComponent, ButtonWrapper, RouterLink]
+    imports: [FormsModule, FontAwesomeModule, MarkdownComponent, ButtonWrapper, RouterLink]
 })
 
 export class NotificationConfigSelectorComponent implements OnInit {

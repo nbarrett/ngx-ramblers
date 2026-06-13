@@ -31,7 +31,7 @@ export async function templateDiff(req: Request, res: Response, _next: NextFunct
     }
     if (request.includeBookingBlocks) {
       (keys(BOOKING_EMAIL_BLOCK_KEYS) as BookingEmailType[]).forEach(emailType => {
-        contentBlockDefaults[BOOKING_EMAIL_BLOCK_KEYS[emailType]] = contentBlockHtmlToMarkdown(DEFAULT_BOOKING_EMAIL_BLOCKS[emailType]);
+        contentBlockDefaults[BOOKING_EMAIL_BLOCK_KEYS[emailType]] = DEFAULT_BOOKING_EMAIL_BLOCKS[emailType].trim();
       });
     }
     const response: TemplateDiffResponse = {

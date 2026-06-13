@@ -244,7 +244,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
                                  [class.yellow-icon]="walkExport.publishStatus.actionRequired"
                                  [class.green-icon]="!walkExport.publishStatus.actionRequired"
                                  [icon]="walkExport.publishStatus.actionRequired?faExclamationCircle:faCheckCircle"/>
-                        {{ walkExport.publishStatus.messages.join(", ") }}
+                        <span [innerHTML]="walkExport.publishStatus.messages.join('<br>')"></span>
                       </div>
                     </div>
                   </div>

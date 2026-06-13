@@ -55,6 +55,13 @@ export class Accept {
           Wait.until(WalksPageElements.cookieBannerContainer, not(isVisible()))));
   }
 
+  static dismissCookieBanners(): Task {
+    return Task.where("#actor dismisses cookie banners",
+      Accept.disableCookieBannerPermanently(),
+      Accept.forceDismissCookieBanners(),
+      Accept.cookieBannerIfVisible());
+  }
+
   static forceDismissCookieBanners(): Task {
     return Task.where("#actor force-dismisses cookie banners",
       ExecuteScript.sync(() => {

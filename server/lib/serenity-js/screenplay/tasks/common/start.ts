@@ -26,7 +26,7 @@ export class Start {
   static onWalksAndEventsManager(): Task {
     return Task.where("#actor starts on the walks and events manager",
       StartWithNavigation.to("https://walks-manager.ramblers.org.uk/walks-manager"),
-      Accept.disableCookieBannerPermanently(),
+      Accept.dismissCookieBanners(),
     );
   }
 

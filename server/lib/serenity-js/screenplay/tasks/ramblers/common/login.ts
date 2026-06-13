@@ -45,7 +45,7 @@ export class Login extends Task {
           Enter.theValue(Masked.valueOf(password)).into(WalksPageElements.password),
           ClickWhenReady.on(WalksPageElements.loginSubmitButton),
           Wait.upTo(DEFAULT_WAIT_TIMEOUT).until(AuthErrorCookieBannerOrCreateMenuDropdown.isDisplayed(), equals(true)),
-          Accept.cookieBannerIfVisible(),
+          Accept.dismissCookieBanners(),
           Check.whether(WalksPageElements.createMenuDropdown, isVisible())
             .andIfSo(Ensure.that(Text.of(WalksPageElements.createMenuDropdown), equals("Create"))),
           Check.whether(WalksPageElements.authErrorMessage, isVisible())

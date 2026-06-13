@@ -2,7 +2,6 @@ import expect from "expect";
 import { describe, it } from "mocha";
 import {
   BOOKING_EMAIL_BLOCK_KEYS,
-  DEFAULT_BOOKING_EMAIL_BLOCKS,
   resolveBookingBody
 } from "./booking-template-resolver";
 import { BookingEmailType } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
@@ -24,10 +23,16 @@ describe("booking-template-resolver resolveBookingBody", () => {
     }
   } as unknown as NotificationConfig);
 
-  it("returns the repo default content block when there is no override", () => {
+  it("returns the repo default content block rendered as HTML when there is no override", () => {
     const result = resolveBookingBody(BookingEmailType.CONFIRMATION, {}, null);
-    expect(result).toBe(DEFAULT_BOOKING_EMAIL_BLOCKS[BookingEmailType.CONFIRMATION]);
+    expect(result).toContain("<p>");
     expect(result).toContain("{{params.bookingMergeFields.EVENT_TITLE}}");
+  });
+
+  it("preserves booking merge fields inside markdown link URLs", () => {
+    const result = resolveBookingBody(BookingEmailType.CONFIRMATION, {}, null);
+    expect(result).toContain(`href="{{params.bookingMergeFields.EVENT_LINK}}"`);
+    expect(result).not.toContain("%7B%7Bparams.bookingMergeFields.EVENT_LINK%7D%7D");
   });
 
   it("renders the site-level markdown content block override as HTML", () => {

@@ -98,7 +98,7 @@ export async function sendReminderEmailsForEvent(eventId: string, includePreviou
   }
 
   debugLog("Sending", unsentBookings.length, "reminders for event:", event.groupEvent?.title);
-  const eventLink = event.groupEvent?.url || "";
+  const eventLink = null;
   const reminderResults = await Promise.all(unsentBookings.map(async bookingDoc => {
     try {
       const bookingRecord = transforms.toObjectWithId(bookingDoc);
@@ -155,7 +155,7 @@ export async function sendEmailsByTypeForEvent(eventId: string, emailType: Booki
     };
   }
 
-  const eventLink = event.groupEvent?.url || "";
+  const eventLink = null;
   const sendResults = await Promise.all(candidateBookings.map(async bookingDoc => {
     try {
       const bookingRecord: Booking = transforms.toObjectWithId(bookingDoc);

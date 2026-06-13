@@ -32,10 +32,9 @@ export class UploadWalksSpecifiedWalks {
       Log.message(`Uploading file ${fileName} containing ${pluraliseWithCount(walkCount, "walk")}`),
       ClickWhenReady.on(WalksPageElements.createMenuDropdown),
       ClickWhenReady.on(WalksPageElements.uploadAWalksCSV),
-      Accept.forceDismissCookieBanners(),
-      Accept.cookieBannerIfVisible(),
+      Accept.dismissCookieBanners(),
       SetFileInput.to(fileName).from(WalksPageElements.chooseFilesButton),
-      Accept.forceDismissCookieBanners(),
+      Accept.dismissCookieBanners(),
       ClickWhenReady.on(WalksPageElements.uploadWalksButton),
       Wait.until(ErrorAlertIsDisplayedOrSuccessAlertHasMessage.including(message), equals(true)));
   }

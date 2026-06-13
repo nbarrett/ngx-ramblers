@@ -222,12 +222,19 @@ export function renderBrandedTemplate(rawHtml: string,
   const overriddenHtml = applyTemplateOverrides(sanitisedHtml, templateOverrides);
   const wrappedHtml = ramblersEmailLayout(overriddenHtml);
   const personalisedHtml = campaign ? toCampaignContactTokens(wrappedHtml) : wrappedHtml;
-  const parametersAndValues: KeyValue<any>[] = extractParametersFrom(params, true);
-  const substitutedHtmlContent: string = parametersAndValues.reduce(
-    (templateContent, keyValue) => replaceAll(keyValue.key, keyValue.value, templateContent) as string,
-    personalisedHtml,
-  );
+  const substitutedHtmlContent = substituteTemplateParameters(personalisedHtml, params);
   return escapeUnknownTemplateExpressions(inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, params)));
+}
+
+function substituteTemplateParameters(html: string, params: any): string {
+  const parametersAndValues: KeyValue<any>[] = extractParametersFrom(params, true);
+  return [0, 1, 2].reduce(
+    (content) => parametersAndValues.reduce(
+      (templateContent, keyValue) => replaceAll(keyValue.key, keyValue.value, templateContent) as string,
+      content
+    ),
+    html
+  );
 }
 
 export function composeShellAndBody(bodyMarkdown: string): string {
@@ -265,11 +272,7 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
     if (isUnbranded) {
       debugLog("performing unbranded template substitution");
       const wrappedHtml = unbrandedEmailLayout(emailRequest.htmlContent ?? "");
-      const parametersAndValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, true);
-      const substitutedHtmlContent: string = parametersAndValues.reduce(
-        (templateContent, keyValue) => replaceAll(keyValue.key, keyValue.value, templateContent) as string,
-        wrappedHtml,
-      );
+      const substitutedHtmlContent = substituteTemplateParameters(wrappedHtml, emailRequest.params);
       sendSmtpEmail.htmlContent = inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, emailRequest.params));
     } else if (emailRequest.body) {
       debugLog("performing template substitution from editable body");
