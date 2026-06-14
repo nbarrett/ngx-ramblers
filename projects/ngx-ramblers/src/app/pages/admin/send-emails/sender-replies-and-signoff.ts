@@ -106,6 +106,19 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
           </div>
         </div>
         @if (!omitSignOff) {
+          @if (showSignOffText()) {
+            <div class="col-sm-6">
+              <div class="form-group">
+                <label for="sign-off-text">Sign Off Text</label>
+                <input [(ngModel)]="notificationConfig.signOffText"
+                       (ngModelChange)="rolesChanged.emit()"
+                       id="sign-off-text"
+                       class="form-control input-sm"
+                       placeholder="e.g. Kind regards">
+                <small class="text-muted">Closing line shown above the sign-off names.</small>
+              </div>
+            </div>
+          }
           <div class="col-sm-6">
               <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
                 [label]="'Sign Off Email With Roles'"
@@ -202,6 +215,10 @@ export class SenderRepliesAndSignoff implements OnInit {
 
   private overrideMode(): boolean {
     return this.signOffRolesOverride !== null && this.signOffRolesOverride !== undefined;
+  }
+
+  showSignOffText(): boolean {
+    return !!this.notificationConfig && !this.overrideMode();
   }
 
   private signOffRolesSource(): string[] | null {

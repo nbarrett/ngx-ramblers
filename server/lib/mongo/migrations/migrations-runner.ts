@@ -27,6 +27,8 @@ const CHANGELOG_SIMULATION_COLLECTION = "changelogSimulation";
 
 const normalizeMigrationFileName = (fileName: string) => fileName?.replace(/\.ts$/, ".js");
 
+const MANUAL_FLAG_PATTERN = /(?:export\s+const\s+manual|exports\.manual)\s*(?::[^=]+)?=\s*(?:true|!0)\b/;
+
 function manualMigrationFileNames(): Set<string> {
   return new Set(
     (migrateMongoConfig().manualMigrations || [])
@@ -232,8 +234,8 @@ export class MigrationRunner {
     }
     try {
       const migrationPath = path.join(migrateMongoConfig().migrationsDir, actualFileName);
-      const loadedMigration = await import(migrationPath);
-      const metadata = { manual: Boolean(loadedMigration?.manual) };
+      const source = fs.readFileSync(migrationPath, "utf-8");
+      const metadata = { manual: MANUAL_FLAG_PATTERN.test(source) };
       this.migrationMetadataCache.set(normalizedFileName, metadata);
       return metadata;
     } catch (error) {
@@ -265,13 +267,20 @@ export class MigrationRunner {
       failed: false
     };
 
+    const startedAtMs = dateTimeNow().toMillis();
+    let clientReadyMs = startedAtMs;
+    let collectionResolvedMs = startedAtMs;
+    let changelogQueriedMs = startedAtMs;
     try {
       const client = await mongoClient();
+      clientReadyMs = dateTimeNow().toMillis();
       const db = client.db();
       const collectionName = await activeChangelogCollection();
+      collectionResolvedMs = dateTimeNow().toMillis();
       debugLog("Using collection:", collectionName);
       const changelogCollection = db.collection(collectionName);
       const appliedMigrations = await changelogCollection.find({}).toArray();
+      changelogQueriedMs = dateTimeNow().toMillis();
       debugLog("Found", appliedMigrations.length, "entries in", collectionName);
       const appliedMap = new Map<string, { startedAt?: string; timestamp?: string; error?: string; skippedReason?: string }>();
 
@@ -363,6 +372,15 @@ export class MigrationRunner {
 
       status.files = files;
       status.failed = files.some(f => f.status === MigrationFileStatus.FAILED);
+
+      const fileLoopDoneMs = dateTimeNow().toMillis();
+      debugLog("migrationStatus timings(ms):",
+        "mongoClient=", clientReadyMs - startedAtMs,
+        "activeCollection=", collectionResolvedMs - clientReadyMs,
+        "changelogQuery=", changelogQueriedMs - collectionResolvedMs,
+        "fileLoop=", fileLoopDoneMs - changelogQueriedMs,
+        "total=", fileLoopDoneMs - startedAtMs,
+        "files=", allFiles.length);
 
     } catch (error) {
       status.failed = true;

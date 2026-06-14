@@ -77,7 +77,7 @@ function ensureContentBlockOverrides(notificationConfig: NotificationConfig): Te
           @for (key of blockKeys; track key) {
             @if (!frameless) {
               <div class="col-sm-12 mb-3">
-                <div class="border rounded overflow-hidden">
+                <div class="border rounded overflow-clip">
                   <button type="button"
                           class="btn text-start text-decoration-none w-100 d-flex justify-content-between align-items-center px-3 py-2"
                           (click)="toggleAccordion(key)">
@@ -113,6 +113,7 @@ function ensureContentBlockOverrides(notificationConfig: NotificationConfig): Te
             <app-tiptap-markdown-editor [value]="blockContent(key)"
                                         [showMergeFields]="true"
                                         [mergeFieldCatalogue]="mergeFieldCatalogue"
+                                        [stickyToolbar]="true"
                                         placeholder="Write this section in your own words…"
                                         (valueChange)="blockContentChanged(key, $event)"/>
           }

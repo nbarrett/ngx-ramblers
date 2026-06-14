@@ -24,7 +24,7 @@ import { NgStyle } from "@angular/common";
           'background-repeat': 'no-repeat',
           'background-position': '0px 7px',
           'background-size': '18px'}">
-            {{ committeeMember.fullName }} - {{ committeeMember.description }} -
+            {{ nameAndRole(committeeMember) }} -
             <a [href]="'mailto:' + committeeMember.email"
               [ngStyle]="emailStyle?{'color': '#c05711', 'font-weight': 'normal', 'text-decoration': 'underline'}:null">
               {{ committeeMember.email }}
@@ -67,6 +67,12 @@ export class ContactUsComponent implements OnInit, OnDestroy {
 
   committeeReferenceDataSource() {
     return this.committeeReferenceDataOverride || this.committeeReferenceData;
+  }
+
+  nameAndRole(committeeMember: CommitteeMember): string {
+    return committeeMember.description && committeeMember.description !== committeeMember.fullName
+      ? `${committeeMember.fullName} - ${committeeMember.description}`
+      : committeeMember.fullName;
   }
 
   committeeMembers(): CommitteeMember[] {

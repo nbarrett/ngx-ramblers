@@ -25,7 +25,7 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/booking-config.model";
 import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { buildBookingMergeFields, resolveBookingBody, subjectForType } from "./booking-template-resolver";
-import { signoffNamesHtml } from "./signoff-names";
+import { signoffHtmlForConfig } from "./signoff-names";
 import { accountMergeFieldsFor } from "../account/account";
 import { loadBookingConfig } from "../../config/booking-config";
 import { kebabCase } from "es-toolkit/compat";
@@ -71,7 +71,7 @@ export async function buildBookingEmailRequest(
   const groupShortName = systemCfg?.group?.shortName || "";
   const groupLongName = systemCfg?.group?.longName || "";
   const committeeRoles = committeeCfg?.roles || [];
-  const signoffHtml = signoffNamesHtml(committeeRoles, notifConfig.signOffRoles);
+  const signoffHtml = signoffHtmlForConfig(notifConfig, committeeRoles, groupHref);
   const bodyContent = signoffHtml ? `${renderedBody}\n${signoffHtml}` : renderedBody;
 
   const sender: EmailAddress = emailAddressForRole(committeeRoles, notifConfig.senderRole);

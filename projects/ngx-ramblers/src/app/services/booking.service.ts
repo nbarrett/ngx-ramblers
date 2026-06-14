@@ -94,15 +94,15 @@ export class BookingService {
     return apiResponse.response;
   }
 
-  async sendReminders(eventId: string): Promise<BookingReminderDispatch> {
-    this.logger.debug("sendReminders:eventId", eventId);
-    const apiResponse = await firstValueFrom(this.http.post<{response: BookingReminderDispatch}>(`${this.BASE_URL}/send-reminders/${eventId}`, {}));
+  async sendReminders(eventId: string, includePreviouslySent: boolean = false, bookingIds: string[] | null = null): Promise<BookingReminderDispatch> {
+    this.logger.debug("sendReminders:eventId", eventId, "includePreviouslySent", includePreviouslySent, "bookingIds", bookingIds);
+    const apiResponse = await firstValueFrom(this.http.post<{response: BookingReminderDispatch}>(`${this.BASE_URL}/send-reminders/${eventId}`, {includePreviouslySent, bookingIds}));
     return apiResponse.response;
   }
 
-  async sendEmailsByType(eventId: string, emailType: BookingEmailType): Promise<BookingReminderDispatch> {
-    this.logger.debug("sendEmailsByType:eventId", eventId, "emailType", emailType);
-    const apiResponse = await firstValueFrom(this.http.post<{response: BookingReminderDispatch}>(`${this.BASE_URL}/send-emails/${emailType}/${eventId}`, {}));
+  async sendEmailsByType(eventId: string, emailType: BookingEmailType, includePreviouslySent: boolean = false, bookingIds: string[] | null = null): Promise<BookingReminderDispatch> {
+    this.logger.debug("sendEmailsByType:eventId", eventId, "emailType", emailType, "includePreviouslySent", includePreviouslySent, "bookingIds", bookingIds);
+    const apiResponse = await firstValueFrom(this.http.post<{response: BookingReminderDispatch}>(`${this.BASE_URL}/send-emails/${emailType}/${eventId}`, {includePreviouslySent, bookingIds}));
     return apiResponse.response;
   }
 

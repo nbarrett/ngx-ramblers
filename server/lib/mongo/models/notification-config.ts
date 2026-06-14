@@ -17,6 +17,7 @@ const notificationConfigSchema = new mongoose.Schema({
   monthsInPast: {type: Number},
   defaultListId: {type: Number},
   signOffRoles: [{type: String}],
+  signOffText: {type: String},
   senderRole: {type: String},
   replyToRole: {type: String},
   bccRoles: [{type: String}],

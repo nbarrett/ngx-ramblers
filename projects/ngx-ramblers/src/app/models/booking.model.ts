@@ -37,7 +37,10 @@ export interface Booking extends Identifiable {
   restoredAt?: number;
   memberBooking?: boolean;
   reminderSentAt?: number;
+  emailSends?: BookingEmailSendMap;
 }
+
+export type BookingEmailSendMap = { [emailType: string]: number };
 
 export interface BookingApiResponse extends ApiResponse {
   request: any;

@@ -70,111 +70,90 @@ export async function sendPendingReminders() {
   }));
 }
 
-export async function sendReminderEmailsForEvent(eventId: string, includePreviouslySent: boolean = false, suppliedEvent: any = null): Promise<BookingReminderDispatch> {
+function relevantStatusesForType(emailType: BookingEmailType): BookingStatus[] {
+  return emailType === BookingEmailType.WAITLISTED
+    ? [BookingStatus.WAITLISTED]
+    : emailType === BookingEmailType.CANCELLATION
+      ? [BookingStatus.CANCELLED]
+      : [BookingStatus.ACTIVE];
+}
+
+export function bookingEmailSentAt(bookingDoc: Booking, emailType: BookingEmailType): number | undefined {
+  return bookingDoc.emailSends?.[emailType]
+    ?? (emailType === BookingEmailType.REMINDER ? bookingDoc.reminderSentAt : undefined);
+}
+
+async function recordBookingEmailSent(bookingId: any, emailType: BookingEmailType): Promise<void> {
+  const sentAt = dateTimeNowAsValue();
+  const update: Record<string, number> = {[`emailSends.${emailType}`]: sentAt};
+  if (emailType === BookingEmailType.REMINDER) {
+    update.reminderSentAt = sentAt;
+  }
+  await booking.findByIdAndUpdate(bookingId, {$set: update});
+}
+
+async function sendBookingEmail(emailType: BookingEmailType, bookingRecord: Booking, event: any, eventLink: string | null): Promise<void> {
+  switch (emailType) {
+    case BookingEmailType.CONFIRMATION:
+      return sendBookingConfirmationEmail(bookingRecord, event, eventLink);
+    case BookingEmailType.CANCELLATION:
+      return sendBookingCancellationEmail(bookingRecord, event, eventLink);
+    case BookingEmailType.WAITLISTED:
+      return sendBookingWaitlistedEmail(bookingRecord, event, eventLink);
+    case BookingEmailType.RESTORED:
+      return sendBookingRestoredEmail(bookingRecord, event, eventLink);
+    case BookingEmailType.REMINDER:
+      return sendBookingReminderEmail(bookingRecord, event, eventLink);
+    default:
+      throw new Error(`Unsupported booking email type: ${emailType}`);
+  }
+}
+
+export async function sendReminderEmailsForEvent(eventId: string, includePreviouslySent: boolean = false, suppliedEvent: any = null, bookingIds: string[] | null = null): Promise<BookingReminderDispatch> {
+  return sendEmailsByTypeForEvent(eventId, BookingEmailType.REMINDER, includePreviouslySent, suppliedEvent, bookingIds);
+}
+
+export async function sendEmailsByTypeForEvent(eventId: string, emailType: BookingEmailType, includePreviouslySent: boolean = false, suppliedEvent: any = null, bookingIds: string[] | null = null): Promise<BookingReminderDispatch> {
   const event = suppliedEvent || await extendedGroupEvent.findById(eventId).lean().then(doc => doc ? transforms.toObjectWithId(doc) : null);
 
   if (!event) {
     throw new Error("Event not found");
   }
 
-  const activeBookings = await booking.find({
-    eventIds: event.id,
-    status: BookingStatus.ACTIVE
-  });
-
-  const unsentBookings = includePreviouslySent
-    ? activeBookings
-    : activeBookings.filter(bookingDoc => !bookingDoc.reminderSentAt);
-
-  if (unsentBookings.length === 0) {
-    debugLog("No reminder candidates for event:", event.groupEvent?.title);
-    return {
-      eventId: event.id,
-      eventTitle: event.groupEvent?.title || "Event",
-      sentCount: 0,
-      alreadySentCount: activeBookings.length,
-      skippedCount: 0
-    };
-  }
-
-  debugLog("Sending", unsentBookings.length, "reminders for event:", event.groupEvent?.title);
-  const eventLink = null;
-  const reminderResults = await Promise.all(unsentBookings.map(async bookingDoc => {
-    try {
-      const bookingRecord = transforms.toObjectWithId(bookingDoc);
-      await sendBookingReminderEmail(bookingRecord, event, eventLink);
-      await booking.findByIdAndUpdate(bookingDoc._id, {reminderSentAt: dateTimeNowAsValue()});
-      debugLog("Reminder sent for booking:", bookingDoc._id);
-      return {sent: 1, skipped: 0};
-    } catch (error) {
-      debugLog("Failed to send reminder for booking:", bookingDoc._id, error);
-      return {sent: 0, skipped: 1};
-    }
-  }));
-
-  const sentCount = reminderResults.reduce((sum, result) => sum + result.sent, 0);
-  const skippedCount = reminderResults.reduce((sum, result) => sum + result.skipped, 0);
-
-  return {
-    eventId: event.id,
-    eventTitle: event.groupEvent?.title || "Event",
-    sentCount,
-    alreadySentCount: activeBookings.length - unsentBookings.length,
-    skippedCount
-  };
-}
-
-export async function sendEmailsByTypeForEvent(eventId: string, emailType: BookingEmailType): Promise<BookingReminderDispatch> {
-  if (emailType === BookingEmailType.REMINDER) {
-    return sendReminderEmailsForEvent(eventId, true);
-  }
-
-  const event = await extendedGroupEvent.findById(eventId).lean().then(doc => doc ? transforms.toObjectWithId(doc) : null);
-  if (!event) {
-    throw new Error("Event not found");
-  }
-
-  const relevantStatuses: BookingStatus[] = emailType === BookingEmailType.WAITLISTED
-    ? [BookingStatus.WAITLISTED]
-    : emailType === BookingEmailType.CANCELLATION
-      ? [BookingStatus.CANCELLED]
-      : [BookingStatus.ACTIVE];
-
   const candidateBookings = await booking.find({
     eventIds: event.id,
-    status: {$in: relevantStatuses}
+    status: {$in: relevantStatusesForType(emailType)}
   });
 
-  if (candidateBookings.length === 0) {
+  const explicitSelection = !!bookingIds?.length;
+  const scopedBookings = explicitSelection
+    ? candidateBookings.filter(bookingDoc => bookingIds.includes(String(bookingDoc._id)))
+    : candidateBookings;
+
+  const previouslySentCount = scopedBookings.filter(bookingDoc => !!bookingEmailSentAt(bookingDoc, emailType)).length;
+  const targetBookings = (explicitSelection || includePreviouslySent)
+    ? scopedBookings
+    : scopedBookings.filter(bookingDoc => !bookingEmailSentAt(bookingDoc, emailType));
+
+  if (targetBookings.length === 0) {
+    debugLog("No", emailType, "candidates to send for event:", event.groupEvent?.title);
     return {
       eventId: event.id,
       eventTitle: event.groupEvent?.title || "Event",
       sentCount: 0,
-      alreadySentCount: 0,
+      alreadySentCount: previouslySentCount,
       skippedCount: 0
     };
   }
 
+  debugLog("Sending", targetBookings.length, emailType, "emails for event:", event.groupEvent?.title);
   const eventLink = null;
-  const sendResults = await Promise.all(candidateBookings.map(async bookingDoc => {
+  const sendResults = await Promise.all(targetBookings.map(async bookingDoc => {
     try {
       const bookingRecord: Booking = transforms.toObjectWithId(bookingDoc);
-      switch (emailType) {
-        case BookingEmailType.CONFIRMATION:
-          await sendBookingConfirmationEmail(bookingRecord, event, eventLink);
-          break;
-        case BookingEmailType.CANCELLATION:
-          await sendBookingCancellationEmail(bookingRecord, event, eventLink);
-          break;
-        case BookingEmailType.WAITLISTED:
-          await sendBookingWaitlistedEmail(bookingRecord, event, eventLink);
-          break;
-        case BookingEmailType.RESTORED:
-          await sendBookingRestoredEmail(bookingRecord, event, eventLink);
-          break;
-        default:
-          return {sent: 0, skipped: 1};
-      }
+      await sendBookingEmail(emailType, bookingRecord, event, eventLink);
+      await recordBookingEmailSent(bookingDoc._id, emailType);
+      debugLog(emailType, "sent for booking:", bookingDoc._id);
       return {sent: 1, skipped: 0};
     } catch (error) {
       debugLog("Failed to send", emailType, "for booking:", bookingDoc._id, error);
@@ -189,7 +168,7 @@ export async function sendEmailsByTypeForEvent(eventId: string, emailType: Booki
     eventId: event.id,
     eventTitle: event.groupEvent?.title || "Event",
     sentCount,
-    alreadySentCount: 0,
+    alreadySentCount: (explicitSelection || includePreviouslySent) ? 0 : previouslySentCount,
     skippedCount
   };
 }

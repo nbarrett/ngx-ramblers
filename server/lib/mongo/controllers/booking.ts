@@ -373,8 +373,10 @@ export async function sendEmailsByType(req: Request, res: Response) {
       res.status(400).json({error: "Valid email type is required"});
       return;
     }
-    const dispatch: BookingReminderDispatch = await sendEmailsByTypeForEvent(eventId, emailType);
-    res.json({request: {eventId, emailType}, response: dispatch});
+    const includePreviouslySent = req.body?.includePreviouslySent === true;
+    const bookingIds: string[] | null = Array.isArray(req.body?.bookingIds) ? req.body.bookingIds : null;
+    const dispatch: BookingReminderDispatch = await sendEmailsByTypeForEvent(eventId, emailType, includePreviouslySent, null, bookingIds);
+    res.json({request: {eventId, emailType, includePreviouslySent, bookingIds}, response: dispatch});
   } catch (error) {
     debugLog("sendEmailsByType error:", error);
     res.status(500).json({error: "Failed to send booking emails"});
@@ -437,8 +439,10 @@ export async function sendReminders(req: Request, res: Response) {
       return;
     }
 
-    const reminderDispatch: BookingReminderDispatch = await sendReminderEmailsForEvent(eventId);
-    res.json({request: {eventId}, response: reminderDispatch});
+    const includePreviouslySent = req.body?.includePreviouslySent === true;
+    const bookingIds: string[] | null = Array.isArray(req.body?.bookingIds) ? req.body.bookingIds : null;
+    const reminderDispatch: BookingReminderDispatch = await sendReminderEmailsForEvent(eventId, includePreviouslySent, null, bookingIds);
+    res.json({request: {eventId, includePreviouslySent, bookingIds}, response: reminderDispatch});
   } catch (error) {
     debugLog("sendReminders error:", error);
     res.status(500).json({error: "Failed to send booking reminders"});
