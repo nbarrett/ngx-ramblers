@@ -272,7 +272,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                       </div>
                       @for (key of discoveredOverrideKeys; track key) {
                         <div class="col-sm-12 mb-3">
-                          <div class="border rounded overflow-hidden">
+                          <div class="border rounded overflow-clip">
                             <button type="button"
                                     class="btn text-start text-decoration-none w-100 d-flex justify-content-between align-items-center px-3 py-2 override-accordion-toggle"
                                     [class.override-accordion-toggle-active]="activeOverrideAccordion === key"

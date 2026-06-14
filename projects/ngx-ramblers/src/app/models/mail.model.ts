@@ -64,6 +64,7 @@ export interface NotificationConfig extends Auditable, Identifiable {
   bccRoles?: string[];
   ccRoles?: string[];
   signOffRoles?: string[];
+  signOffText?: string;
   senderRole?: string;
   replyToRole?: string;
   contentPreset?: string;

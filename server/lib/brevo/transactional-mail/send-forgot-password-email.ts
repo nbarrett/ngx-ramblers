@@ -28,7 +28,7 @@ import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/b
 import { banner } from "../../mongo/models/banner";
 import { notificationConfig } from "../../mongo/models/notification-config";
 import { normalisePostcode } from "../../addresses/shared";
-import { signoffNamesHtml } from "./signoff-names";
+import { signoffHtmlForConfig } from "./signoff-names";
 import { accountMergeFieldsFor } from "../account/account";
 
 const messageType = "brevo:send-forgot-password-email";
@@ -209,7 +209,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
       BANNER_IMAGE_SOURCE: bannerImage,
       ADDRESS_LINE: "Hi {{params.memberMergeFields.FNAME}},",
       BODY_CONTENT: "",
-      BODY_CONTENT_BOTTOM: signoffNamesHtml(committeeRoles, notifConfig.signOffRoles),
+      BODY_CONTENT_BOTTOM: signoffHtmlForConfig(notifConfig, committeeRoles, groupHref),
       ACCENT_COLOR: resolveAccentColor(notifConfig?.accentColor),
     },
     memberMergeFields: {

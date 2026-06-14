@@ -18,8 +18,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import {
   NotificationConfig,
   TemplateOverrideState,
-  TemplateOverrideType,
-  TemplateOverrides
+  TemplateOverrideType
 } from "../../../models/mail.model";
 import { Booking, BookingApiResponse, BookingStatus, BookingSummaryRow } from "../../../models/booking.model";
 import { BookingService } from "../../../services/booking.service";
@@ -53,6 +52,7 @@ import {
   setContentBlockState
 } from "../system-settings/mail/content-block-editor";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
+import { StickyControlsDirective } from "../../../modules/common/tiptap-editor/sticky-controls.directive";
 import { StoredValue } from "../../../models/ui-actions";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { kebabCase, values } from "es-toolkit/compat";
@@ -306,7 +306,7 @@ export enum BookingTab {
                       These overrides apply only to the selected event. Global booking email wording is configured in
                       <a routerLink="/admin/mail-settings" [queryParams]="{tab: 'email-configurations', configuration: 'booking-notification'}"><strong>Admin &gt; Mail Settings &gt; Email Configurations &gt; Booking Notification</strong></a>.
                     </p>
-                    <div class="d-flex align-items-start gap-2 mb-2">
+                    <div appStickyControls class="d-flex align-items-start gap-2 mb-2 pt-2">
                       <app-section-toggle [tabs]="emailTemplateTabs" [selectedTab]="selectedEventEmailOverrideType" (selectedTabChange)="onEmailTypeTabChange($event)"/>
                       @if (perEventNotifConfig && !bookingPreviewVisible) {
                         <app-section-toggle [tabs]="selectedEventContentStateTabs()" [selectedTab]="selectedEventContentState()" (selectedTabChange)="onSelectedEventContentStateChange($event)" [fullWidth]="false"/>
@@ -330,6 +330,50 @@ export enum BookingTab {
                         Revert changes
                       </button>
                     </div>
+                    @if (selectedTypeAlreadySent().length > 0) {
+                      <div class="alert alert-warning py-2 px-3 mb-2">
+                        <div>
+                          <fa-icon [icon]="faExclamationTriangle" class="me-1"/>
+                          @if (!resendToAlreadySent) {
+                            <strong>{{ stringUtils.pluraliseWithCount(selectedTypeAlreadySent().length, "booking") }} already sent the {{ sendEmailLabelType() }} email</strong> - these will be skipped.
+                          } @else {
+                            <strong>Re-send is on</strong> - the {{ stringUtils.pluraliseWithCount(selectedTypeAlreadySent().length, "already-sent booking") }} will be included.
+                          }
+                          <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline" (click)="alreadySentDetailsExpanded = !alreadySentDetailsExpanded">
+                            {{ alreadySentDetailsExpanded ? "Hide who" : "Show who" }}
+                          </button>
+                        </div>
+                        @if (alreadySentDetailsExpanded) {
+                          <ul class="mb-0 mt-1">
+                            @for (booking of selectedTypeAlreadySent(); track booking.id) {
+                              <li><small>{{ attendeeDisplayNames(booking) }} - sent {{ emailSentAtFor(booking, selectedEventEmailOverrideType) | displayDate }}</small></li>
+                            }
+                          </ul>
+                        }
+                        <div class="form-check mt-2">
+                          <input class="form-check-input" type="checkbox" id="resend-already-sent"
+                                 [checked]="resendToAlreadySent" (change)="onResendToAlreadySentChange()">
+                          <label class="form-check-label small" for="resend-already-sent">
+                            Re-send to people already sent this {{ sendEmailLabelType() }} email
+                          </label>
+                        </div>
+                      </div>
+                    }
+                    @if (candidateBookingsForSelectedType().length > 0) {
+                      <div class="form-group mb-2">
+                        <label for="booking-recipient-select" class="control-label">Send {{ sendEmailLabelType() }} to specific people (optional)</label>
+                        <ng-select [items]="bookingRecipientOptions"
+                                   bindLabel="label"
+                                   bindValue="id"
+                                   labelForId="booking-recipient-select"
+                                   placeholder="Leave empty to send to everyone, or pick specific people"
+                                   [multiple]="true"
+                                   [closeOnSelect]="false"
+                                   [(ngModel)]="selectedBookingIds">
+                        </ng-select>
+                        <small class="text-muted">Pick individuals to send only to them. Leave empty to use the option above.</small>
+                      </div>
+                    }
                     <div class="d-flex justify-content-between align-items-center mb-3">
                       <p class="mb-0 text-muted">{{ eventBookings.length }} bookings for this event</p>
                       <div class="d-flex gap-2 align-items-center">
@@ -539,7 +583,7 @@ export enum BookingTab {
         border-color: var(--ramblers-colour-sunrise)
         color: var(--ramblers-colour-black)
     `],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, CsvExportComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, ContentBlockEditorComponent, NgSelectComponent, NgOptionTemplateDirective, SectionToggle, EmailPreviewComponent, RouterLink]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, CsvExportComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, ContentBlockEditorComponent, NgSelectComponent, NgOptionTemplateDirective, SectionToggle, EmailPreviewComponent, RouterLink, StickyControlsDirective]
 })
 export class BookingsComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("BookingsComponent", NgxLoggerLevel.ERROR);
@@ -572,6 +616,18 @@ export class BookingsComponent implements OnInit, OnDestroy {
   reportDate: number;
   summaryRows: BookingSummaryRow[] = [];
   allBookings: Booking[] = [];
+  private readonly bookingEventProjection = {
+    [GroupEventField.ID]: 1,
+    [GroupEventField.URL]: 1,
+    [GroupEventField.TITLE]: 1,
+    [GroupEventField.START_DATE]: 1,
+    [GroupEventField.ITEM_TYPE]: 1,
+    [GroupEventField.GROUP_NAME]: 1,
+    [GroupEventField.GROUP_CODE]: 1,
+    "fields.maxCapacity": 1,
+    "fields.bookingsEnabled": 1,
+    "fields.bookingEmailOverrides": 1
+  };
   eventBookings: Booking[] = [];
   selectedEventId: string = null;
   selectedEventMaxCapacity: number = null;
@@ -602,6 +658,11 @@ export class BookingsComponent implements OnInit, OnDestroy {
   siteBookingNotifConfig: NotificationConfig | null = null;
   isSendingEmails = false;
   sendingEmailStatus: string | null = null;
+  resendToAlreadySent = false;
+  alreadySentDetailsExpanded = false;
+  selectedBookingIds: string[] = [];
+  private cachedRecipientOptions: { id: string; label: string; disabled: boolean }[] = [];
+  private cachedRecipientOptionsKey = "";
   private dirtyEventIds: Set<string> = new Set();
   reassignTargetEventId: string = null;
   reassignTargetRows: BookingSummaryRow[] = [];
@@ -692,9 +753,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   private async loadBookingAdminData() {
-    await this.loadBookingNotificationConfig();
+    const notificationConfigLoad = this.loadBookingNotificationConfig();
     await this.loadSummary();
     await this.loadFutureEvents();
+    await notificationConfigLoad;
     const urlEventParam = this.activatedRoute.snapshot.queryParams[StoredValue.EVENT_ID];
     if (urlEventParam && !this.selectedEventId) {
       const resolvedEventId = this.resolveEventIdFromSlug(urlEventParam);
@@ -744,7 +806,8 @@ export class BookingsComponent implements OnInit, OnDestroy {
     const eventQuery: EventQueryParameters = {
       inputSource: null,
       suppressEventLinking: false,
-      ids: eventIds
+      ids: eventIds,
+      dataQueryOptions: {select: this.bookingEventProjection}
     };
     const events = await this.walksAndEventsService.all(eventQuery);
     events.forEach(event => this.eventsMap.set(event.id, event));
@@ -799,6 +862,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
         suppressEventLinking: false,
         types: enabledBookingEventTypes(this.bookingConfigService.bookingConfig()),
         dataQueryOptions: {
+          select: this.bookingEventProjection,
           criteria: {
             [GroupEventField.START_DATE]: {$gte: this.dateUtils.dateTimeNowNoTime().toJSDate()}
           }
@@ -881,6 +945,9 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   async onEmailTypeTabChange(emailType: string) {
     this.selectedEventEmailOverrideType = emailType;
+    this.resendToAlreadySent = false;
+    this.alreadySentDetailsExpanded = false;
+    this.selectedBookingIds = [];
     this.buildPerEventNotifConfig();
     this.router.navigate([], {
       queryParams: {[StoredValue.EMAIL_TYPE]: emailType},
@@ -904,6 +971,56 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return this.stringUtils.asTitle(this.selectedEventEmailOverrideType || BookingEmailType.REMINDER).toLowerCase();
   }
 
+  private relevantStatusesForType(emailType: string): BookingStatus[] {
+    return emailType === BookingEmailType.WAITLISTED
+      ? [BookingStatus.WAITLISTED]
+      : emailType === BookingEmailType.CANCELLATION
+        ? [BookingStatus.CANCELLED]
+        : [BookingStatus.ACTIVE];
+  }
+
+  emailSentAtFor(booking: Booking, emailType: string): number | undefined {
+    return booking.emailSends?.[emailType]
+      ?? (emailType === BookingEmailType.REMINDER ? booking.reminderSentAt : undefined);
+  }
+
+  candidateBookingsForSelectedType(): Booking[] {
+    const emailType = this.selectedEventEmailOverrideType || BookingEmailType.REMINDER;
+    const statuses = this.relevantStatusesForType(emailType);
+    return this.eventBookings.filter(booking => statuses.includes(booking.status ?? BookingStatus.ACTIVE));
+  }
+
+  selectedTypeAlreadySent(): Booking[] {
+    const emailType = this.selectedEventEmailOverrideType || BookingEmailType.REMINDER;
+    return this.candidateBookingsForSelectedType().filter(booking => !!this.emailSentAtFor(booking, emailType));
+  }
+
+  onResendToAlreadySentChange(): void {
+    this.resendToAlreadySent = !this.resendToAlreadySent;
+    if (!this.resendToAlreadySent) {
+      const emailType = this.selectedEventEmailOverrideType || BookingEmailType.REMINDER;
+      this.selectedBookingIds = this.selectedBookingIds.filter(id => {
+        const booking = this.candidateBookingsForSelectedType().find(candidate => candidate.id === id);
+        return booking && !this.emailSentAtFor(booking, emailType);
+      });
+    }
+  }
+
+  get bookingRecipientOptions(): { id: string; label: string; disabled: boolean }[] {
+    const emailType = this.selectedEventEmailOverrideType || BookingEmailType.REMINDER;
+    const candidates = this.candidateBookingsForSelectedType();
+    const key = `${emailType}|${this.resendToAlreadySent}|${candidates.map(booking => `${booking.id}:${this.emailSentAtFor(booking, emailType) ?? 0}`).join(",")}`;
+    if (key !== this.cachedRecipientOptionsKey) {
+      this.cachedRecipientOptionsKey = key;
+      this.cachedRecipientOptions = candidates.map(booking => {
+        const sentAt = this.emailSentAtFor(booking, emailType);
+        const suffix = sentAt ? ` (already sent ${this.dateUtils.displayDate(sentAt)})` : "";
+        return {id: booking.id, label: `${this.attendeeDisplayNames(booking)}${suffix}`, disabled: !!sentAt && !this.resendToAlreadySent};
+      });
+    }
+    return this.cachedRecipientOptions;
+  }
+
   async sendBookingEmailsForSelectedType() {
     if (!this.selectedEventId) {
       this.notify.error({title: "Send failed", message: "Please select an event first"});
@@ -913,11 +1030,13 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.isSendingEmails = true;
     this.sendingEmailStatus = `Sending ${this.sendEmailLabelType()} emails...`;
     try {
+      const bookingIds = this.selectedBookingIds.length ? this.selectedBookingIds : null;
       const dispatch = emailType === BookingEmailType.REMINDER
-        ? await this.bookingService.sendReminders(this.selectedEventId)
-        : await this.bookingService.sendEmailsByType(this.selectedEventId, emailType);
+        ? await this.bookingService.sendReminders(this.selectedEventId, this.resendToAlreadySent, bookingIds)
+        : await this.bookingService.sendEmailsByType(this.selectedEventId, emailType, this.resendToAlreadySent, bookingIds);
       await this.loadSummary();
       this.loadEventBookings();
+      this.selectedBookingIds = [];
       const messageParts = [
         `${dispatch.sentCount} sent`,
         dispatch.alreadySentCount > 0 ? `${dispatch.alreadySentCount} already sent` : null,
@@ -956,6 +1075,9 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   onSelectedEventChange() {
+    this.resendToAlreadySent = false;
+    this.alreadySentDetailsExpanded = false;
+    this.selectedBookingIds = [];
     this.ensureSelectedEventVisibleInPicker();
     const event = this.eventsMap.get(this.selectedEventId);
     this.selectedEventOrphaned = !event && !!this.selectedEventId;

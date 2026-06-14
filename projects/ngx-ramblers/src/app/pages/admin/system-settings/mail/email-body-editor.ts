@@ -53,6 +53,7 @@ function pageLabel(path: string): string {
               <app-tiptap-markdown-editor [value]="notificationConfig.body || ''"
                                           [showMergeFields]="true"
                                           [constrainToEmailWidth]="true"
+                                          [stickyToolbar]="true"
                                           [extraLinkDestinations]="internalPageDestinations"
                                           placeholder="Write the email content…"
                                           (valueChange)="onBodyChange($event)"/>

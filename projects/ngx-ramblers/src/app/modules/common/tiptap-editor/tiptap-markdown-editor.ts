@@ -61,7 +61,7 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       flex-direction: column
       max-width: 100%
       min-width: 0
-      overflow-x: hidden
+      overflow-x: clip
       position: relative
 
     .tiptap-editor-shell-disabled
@@ -396,7 +396,7 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
   template: `
     <div class="tiptap-editor-shell" [class.tiptap-editor-shell-disabled]="!editable" [attr.aria-disabled]="!editable">
       @if (editable) {
-      <div class="tiptap-toolbar" role="toolbar" (mousedown)="onToolbarMousedown($event)">
+      <div class="tiptap-toolbar" [class.tiptap-toolbar-sticky]="stickyToolbar" role="toolbar" (mousedown)="onToolbarMousedown($event)">
         <button type="button" tooltip="Bold" container="body" delay=500 (click)="toggle(TiptapMark.Bold)" [class.is-active]="isActive('bold')">
           <fa-icon [icon]="faBold"/>
         </button>
@@ -624,6 +624,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   @Input() showMergeFields: boolean = false;
   @Input({transform: booleanAttribute}) showPageBreak = false;
   @Input() constrainToEmailWidth: boolean = false;
+  @Input({transform: booleanAttribute}) stickyToolbar = false;
   @Input() editable: boolean = true;
   private _extraLinkDestinations: MemberMergeFieldHint[] = [];
   @Input() set extraLinkDestinations(value: MemberMergeFieldHint[]) {

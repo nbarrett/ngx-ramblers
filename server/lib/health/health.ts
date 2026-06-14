@@ -14,6 +14,9 @@ import {
 const debugLog = debug(envConfig.logNamespace("health"));
 debugLog.enabled = false;
 
+const timingLog = debug(envConfig.logNamespace("health-timing"));
+timingLog.enabled = true;
+
 const MIGRATION_STATUS_TTL_MS = 5 * 60 * 1000;
 const migrationStatusCache: { status: MigrationStatus | null; at: number } = { status: null, at: 0 };
 
@@ -45,10 +48,19 @@ export async function health(req: Request, res: Response) {
 
 export async function systemStatus(req: Request, res: Response<Partial<HealthResponse>>) {
   try {
+    const startedAtMs = dateTimeNow().toMillis();
     const awsConfig = queryAWSConfig();
+    const awsConfigMs = dateTimeNow().toMillis();
     const config = await systemConfigWithoutGeometry();
+    const systemConfigMs = dateTimeNow().toMillis();
 
     const migrationStatus = await migrationStatusCached();
+    const migrationStatusMs = dateTimeNow().toMillis();
+    timingLog("systemStatus timings(ms):",
+      "queryAWSConfig=", awsConfigMs - startedAtMs,
+      "systemConfigWithoutGeometry=", systemConfigMs - awsConfigMs,
+      "migrationStatusCached=", migrationStatusMs - systemConfigMs,
+      "total=", migrationStatusMs - startedAtMs);
 
     const automaticMigrations = migrationStatus.files.filter(f => !f.manual);
     const pending = automaticMigrations.filter(f => f.status === MigrationFileStatus.PENDING).length;
