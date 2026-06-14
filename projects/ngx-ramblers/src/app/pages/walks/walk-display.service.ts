@@ -83,6 +83,7 @@ export class WalkDisplayService {
   public expandedWalks: ExpandedWalk [] = [];
   public walkTypes: WalkType[] = enumValues(WalkType);
   private nextWalkStartDateByGroupCode: Record<string, number> = {};
+  private nextWalkStartDatesRequested = false;
   private viewReturnUrl: string;
   public members: Member[] = [];
   public googleMapsConfig: GoogleMapsConfig;
@@ -91,7 +92,6 @@ export class WalkDisplayService {
 
   constructor() {
     this.applyConfig();
-    this.refreshCachedData();
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
   }
 
@@ -432,6 +432,10 @@ export class WalkDisplayService {
   }
 
   refreshNextWalkStartDate(): void {
+    if (this.nextWalkStartDatesRequested) {
+      return;
+    }
+    this.nextWalkStartDatesRequested = true;
     this.extendedGroupEventQueryService.fetchNextWalkStartDate().subscribe({
       next: (response) => {
         const byGroupCode: Record<string, number> = {};
@@ -443,7 +447,10 @@ export class WalkDisplayService {
         this.nextWalkStartDateByGroupCode = byGroupCode;
         this.logger.info("refreshNextWalkStartDate: per-group next walk start dates:", response.nextWalkStartDates);
       },
-      error: (error) => this.logger.error("refreshNextWalkStartDate: failed to fetch next walk start date:", error)
+      error: (error) => {
+        this.nextWalkStartDatesRequested = false;
+        this.logger.error("refreshNextWalkStartDate: failed to fetch next walk start date:", error);
+      }
     });
   }
 
@@ -477,7 +484,6 @@ export class WalkDisplayService {
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
       this.logger.debug("group:", this.group);
-      this.refreshNextWalkStartDate();
     });
     this.googleMapsService.events().subscribe(config => {
       this.googleMapsConfig = {zoomLevel: 12, apiKey: config.apiKey};
