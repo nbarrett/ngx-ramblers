@@ -111,8 +111,8 @@ export class CommitteeDocumentPage implements OnInit, OnDestroy {
       this.refreshVisibility();
     }));
     this.subscriptions.push(this.route.queryParamMap.subscribe(queryParamMap => {
-      const documentSlug = queryParamMap.get(StoredValue.COMMITTEE_DOCUMENT);
-      const fileSlug = queryParamMap.get(StoredValue.COMMITTEE_FILE_VIEW);
+      const documentSlug = queryParamMap.get(StoredValue.DOCUMENT);
+      const fileSlug = queryParamMap.get(StoredValue.FILE);
       this.expectComposed = !!documentSlug;
       const slug = documentSlug || fileSlug;
       this.logger.info("loading committee file for slug:", slug, "expectComposed:", this.expectComposed);
@@ -176,7 +176,7 @@ export class CommitteeDocumentPage implements OnInit, OnDestroy {
   navigateBack(): void {
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {[StoredValue.COMMITTEE_DOCUMENT]: null, [StoredValue.COMMITTEE_FILE_VIEW]: null, print: null},
+      queryParams: {[StoredValue.DOCUMENT]: null, [StoredValue.FILE]: null, print: null},
       queryParamsHandling: "merge"
     });
   }

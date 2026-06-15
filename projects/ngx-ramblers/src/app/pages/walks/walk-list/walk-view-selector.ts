@@ -84,7 +84,7 @@ export class WalksViewSelector implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.queryParamSubscription = this.route.queryParamMap.subscribe(queryParamMap => {
-      this.committeeFileViewActive = !!(queryParamMap.get(StoredValue.COMMITTEE_DOCUMENT) || queryParamMap.get(StoredValue.COMMITTEE_FILE_VIEW));
+      this.committeeFileViewActive = !!(queryParamMap.get(StoredValue.DOCUMENT) || queryParamMap.get(StoredValue.FILE));
     });
     this.currentPath = this.router.url.split("?")[0].split("#")[0];
     await this.loadEventView();

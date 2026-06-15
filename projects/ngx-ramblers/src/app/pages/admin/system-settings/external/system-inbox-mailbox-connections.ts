@@ -82,27 +82,27 @@ import {
                     By default only messages addressed to a committee role mailbox are loaded. Tick this to also pull in everything
                     else in this Gmail inbox; the extra messages appear under a "general" mailbox visible only to member administrators.
                   </small>
-                  @if (mailboxConnection.importAllMessages) {
-                    <button class="btn btn-sm btn-quiet mt-2" type="button" (click)="rescanGeneralMailbox(mailboxConnection)" [disabled]="busy"
-                            tooltip="Delete every 'general' thread for this Gmail inbox and re-import from Gmail. Use this if existing-thread matches are stopping new messages from appearing.">
-                      {{ rescanPendingConfirm.has(mailboxConnection.id) ? "Click again to confirm" : "Re-scan general mailbox from scratch" }}
-                    </button>
-                  }
                 </div>
+                @if (mailboxConnection.importAllMessages) {
+                  <button class="btn btn-sm btn-quiet mt-2" type="button" (click)="rescanGeneralMailbox(mailboxConnection)" [disabled]="busy"
+                          tooltip="Delete every 'general' thread for this Gmail inbox and re-import from Gmail. Use this if existing-thread matches are stopping new messages from appearing.">
+                    {{ rescanPendingConfirm.has(mailboxConnection.id) ? "Click again to confirm" : "Re-scan general mailbox from scratch" }}
+                  </button>
+                }
               }
               @if (!mailboxConnection.hasRefreshToken) {
                 <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" (click)="connectGmail(mailboxConnection)" [disabled]="busy">
                   Connect Gmail
                 </button>
               }
-              <button class="btn btn-outline-danger text-nowrap flex-shrink-0" type="button" (click)="removeMailbox(mailboxConnection)" [disabled]="busy">
+              <button class="btn btn-grey-danger text-nowrap flex-shrink-0" type="button" (click)="removeMailbox(mailboxConnection)" [disabled]="busy">
                 Remove
               </button>
               @if (mailboxConnection.hasRefreshToken && mailboxConnection.syncMode === InboxSyncMode.WATCH) {
                 <div class="w-100 mt-2">
                   <label class="form-label mb-1" [attr.for]="'inbox-topic-' + mailboxConnection.id">Pub/Sub topic name</label>
-                  <div class="input-group">
-                    <input [id]="'inbox-topic-' + mailboxConnection.id" type="text" class="form-control"
+                  <div class="d-flex gap-2 align-items-start">
+                    <input [id]="'inbox-topic-' + mailboxConnection.id" type="text" class="form-control flex-grow-1"
                            [(ngModel)]="mailboxConnection.pubsubTopicName"
                            placeholder="projects/<project>/topics/<topic>" [disabled]="busy">
                     <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" (click)="applyPushMode(mailboxConnection)" [disabled]="busy">

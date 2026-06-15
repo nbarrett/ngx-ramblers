@@ -1980,16 +1980,16 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private async applyContextFromRoute(queryParams: ParamMap, pathParams: ParamMap): Promise<void> {
-    const slug = queryParams.get(StoredValue.EMAIL_CONFIG_ID);
+    const slug = queryParams.get(StoredValue.CONFIG_ID);
     this.forcedConfigSlug = slug;
     this.forcedConfigId = this.resolveConfigIdFromSlug(slug);
-    const memberParam = queryParams.get(StoredValue.EMAIL_MEMBER);
+    const memberParam = queryParams.get(StoredValue.MEMBER);
     if (memberParam) {
       this.forcedMemberId = memberParam;
     }
-    const sourcePage = queryParams.get(StoredValue.EMAIL_SOURCE_PAGE);
-    const committeeFile = queryParams.get(StoredValue.EMAIL_COMMITTEE_FILE);
-    const eventQuery = queryParams.get(StoredValue.EMAIL_EVENT);
+    const sourcePage = queryParams.get(StoredValue.SOURCE_PAGE);
+    const committeeFile = queryParams.get(StoredValue.COMMITTEE_FILE);
+    const eventQuery = queryParams.get(StoredValue.EVENT);
     const eventPath = pathParams.get("committee-event-id");
     if (eventQuery && !committeeFile && !sourcePage) {
       this.state.context = { source: EmailComposerContextSource.GROUP_EVENT, groupEventId: eventQuery };
@@ -2027,8 +2027,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   private routeCompositionKey: string | null = null;
 
   private async applyCompositionFromRoute(queryParams: ParamMap): Promise<void> {
-    const draftId = queryParams.get(StoredValue.EMAIL_DRAFT);
-    const copyOfId = queryParams.get(StoredValue.EMAIL_COPY_OF);
+    const draftId = queryParams.get(StoredValue.DRAFT_ID);
+    const copyOfId = queryParams.get(StoredValue.COPY_OF);
     const key = draftId ? `draft:${draftId}` : copyOfId ? `copy-of:${copyOfId}` : null;
     if (key === this.routeCompositionKey) {
       return;
@@ -2352,7 +2352,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     } else if (mode === EventInclusionMode.SINGLE_EVENT && this.state.singleEvent) {
       this.state.groupEvents = [this.eventToSummary(this.state.singleEvent)];
     }
-    this.syncStateToUrl({ [StoredValue.EMAIL_EVENT_INCLUSION]: mode });
+    this.syncStateToUrl({ [StoredValue.EVENT_INCLUSION]: mode });
   }
 
   private resetGroupEventsFilterToDefaultRange(): void {
@@ -2920,9 +2920,9 @@ export class EmailComposer implements OnInit, OnDestroy {
       }
       this.autoSelectNotificationConfig();
     }
-    const urlUpdates: Record<string, string | null> = { [StoredValue.EMAIL_BRANDING]: mode };
+    const urlUpdates: Record<string, string | null> = { [StoredValue.BRANDING]: mode };
     if (mode === BrandingMode.UNBRANDED) {
-      urlUpdates[StoredValue.EMAIL_CONFIG_ID] = null;
+      urlUpdates[StoredValue.CONFIG_ID] = null;
     }
     this.syncStateToUrl(urlUpdates);
   }
@@ -3124,7 +3124,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private applyUrlStateToComposer(queryParams: ParamMap): void {
-    const branding = queryParams.get(StoredValue.EMAIL_BRANDING);
+    const branding = queryParams.get(StoredValue.BRANDING);
     if (branding === BrandingMode.UNBRANDED && this.state.brandingMode !== BrandingMode.UNBRANDED) {
       this.setBrandingMode(BrandingMode.UNBRANDED);
     } else if (branding === BrandingMode.BRANDED && this.state.brandingMode !== BrandingMode.BRANDED) {
@@ -3162,18 +3162,18 @@ export class EmailComposer implements OnInit, OnDestroy {
         this.maybeAutoRefreshPreview();
       }
     }
-    const preFilter = queryParams.get(StoredValue.EMAIL_PRE_FILTER);
+    const preFilter = queryParams.get(StoredValue.PRE_FILTER);
     if (preFilter && values(MemberSelection).includes(preFilter as MemberSelection)) {
       this.state.preFilterKey = preFilter as MemberSelection;
     }
-    const eventInclusion = queryParams.get(StoredValue.EMAIL_EVENT_INCLUSION);
+    const eventInclusion = queryParams.get(StoredValue.EVENT_INCLUSION);
     if (eventInclusion && values(EventInclusionMode).includes(eventInclusion as EventInclusionMode)) {
       this.state.eventInclusion = eventInclusion as EventInclusionMode;
       if (this.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE) {
         this.ensureGroupEventsFilter();
       }
     }
-    const divider = queryParams.get(StoredValue.EMAIL_SECTION_DIVIDER);
+    const divider = queryParams.get(StoredValue.DIVIDER);
     if (divider && values(SectionDividerStyle).includes(divider as SectionDividerStyle)) {
       const style = divider as SectionDividerStyle;
       this.state.introDividerAfter = style;
@@ -3654,7 +3654,7 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   onPreFilterKeyChange(key: MemberSelection | null): void {
     this.state.preFilterKey = key;
-    this.syncStateToUrl({ [StoredValue.EMAIL_PRE_FILTER]: key ?? null });
+    this.syncStateToUrl({ [StoredValue.PRE_FILTER]: key ?? null });
   }
 
   onEmailConfigChanged(config: NotificationConfig): void {
@@ -3668,9 +3668,9 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.state.signoffRoles = this.validSignoffRolesFor(config?.signOffRoles ?? []);
     this.applyRecipientDefaultsFrom(config);
     this.syncStateToUrl({
-      [StoredValue.EMAIL_CONFIG_ID]: this.configToSlug(config),
+      [StoredValue.CONFIG_ID]: this.configToSlug(config),
       [StoredValue.LIST_ID]: this.state.recipientMode === RecipientMode.ENTIRE_LIST ? this.state.selectedListId?.toString() ?? null : null,
-      [StoredValue.EMAIL_PRE_FILTER]: this.state.recipientMode === RecipientMode.SELECTED_MEMBERS ? this.state.preFilterKey ?? null : null,
+      [StoredValue.PRE_FILTER]: this.state.recipientMode === RecipientMode.SELECTED_MEMBERS ? this.state.preFilterKey ?? null : null,
       [StoredValue.EMAIL_TYPE]: kebabCase(this.state.recipientMode)
     });
     this.refreshTemplateContent();
@@ -3760,7 +3760,7 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected clearForcedMember(): void {
     this.forcedMemberId = null;
-    this.syncStateToUrl({ [StoredValue.EMAIL_MEMBER]: null });
+    this.syncStateToUrl({ [StoredValue.MEMBER]: null });
   }
 
   protected bulkDeletionPending(): boolean {
@@ -4292,7 +4292,7 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   returnToInbox(): void {
     this.router.navigate(["/admin/inbox"], {
-      queryParams: this.inboxReplyContext?.threadId ? {[StoredValue.INBOX_THREAD]: this.inboxReplyContext.threadId} : {}
+      queryParams: this.inboxReplyContext?.threadId ? {[StoredValue.THREAD]: this.inboxReplyContext.threadId} : {}
     });
   }
 
@@ -4386,7 +4386,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.composeShared = false;
       this.sentEmailsPanelOpen = false;
       this.routeCompositionKey = `copy-of:${id}`;
-      this.syncStateToUrl({ [StoredValue.EMAIL_DRAFT]: null, [StoredValue.EMAIL_COPY_OF]: id });
+      this.syncStateToUrl({ [StoredValue.DRAFT_ID]: null, [StoredValue.COPY_OF]: id });
       await this.rehydrateAfterLoad(selectedGroupEventIds);
       this.notify.success({ title: "Loaded as template", message: "Edit and save as a new draft" });
     } catch (error) {
@@ -4417,7 +4417,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.lastSavedAt = draft.savedAt;
       this.currentComposition = draft;
       this.routeCompositionKey = `draft:${draft.id}`;
-      this.syncStateToUrl({ [StoredValue.EMAIL_DRAFT]: draft.id, [StoredValue.EMAIL_COPY_OF]: null });
+      this.syncStateToUrl({ [StoredValue.DRAFT_ID]: draft.id, [StoredValue.COPY_OF]: null });
       await this.refreshDrafts();
       this.notify.success({ title: "Draft saved", message: draft.title });
     } catch (error) {
@@ -4444,7 +4444,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.composeShared = draft.shared;
       this.draftsPanelOpen = false;
       this.routeCompositionKey = `draft:${draft.id}`;
-      this.syncStateToUrl({ [StoredValue.EMAIL_DRAFT]: draft.id, [StoredValue.EMAIL_COPY_OF]: null });
+      this.syncStateToUrl({ [StoredValue.DRAFT_ID]: draft.id, [StoredValue.COPY_OF]: null });
       await this.rehydrateAfterLoad(selectedGroupEventIds);
       this.notify.success({ title: "Draft loaded", message: draft.title });
     } catch (error) {
@@ -4537,7 +4537,7 @@ export class EmailComposer implements OnInit, OnDestroy {
         this.currentDraftId = null;
         this.lastSavedAt = null;
         this.routeCompositionKey = null;
-        this.syncStateToUrl({ [StoredValue.EMAIL_DRAFT]: null });
+        this.syncStateToUrl({ [StoredValue.DRAFT_ID]: null });
       }
       await this.refreshDrafts();
     } catch (error) {
@@ -4548,7 +4548,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected newComposition(): void {
     this.forcedMemberId = null;
     this.routeCompositionKey = null;
-    this.syncStateToUrl({ [StoredValue.EMAIL_MEMBER]: null, [StoredValue.EMAIL_DRAFT]: null, [StoredValue.EMAIL_COPY_OF]: null });
+    this.syncStateToUrl({ [StoredValue.MEMBER]: null, [StoredValue.DRAFT_ID]: null, [StoredValue.COPY_OF]: null });
     this.state = defaultEmailComposerState();
     if (this.mailMessagingConfig) {
       this.state.notificationConfigListing = {

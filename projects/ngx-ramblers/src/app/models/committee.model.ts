@@ -126,6 +126,7 @@ export enum BuiltInRole {
 
 export enum ForwardEmailTarget {
   MEMBER_EMAIL = "MEMBER_EMAIL",
+  ROLE_EMAIL = "ROLE_EMAIL",
   CUSTOM = "CUSTOM",
   MULTIPLE = "MULTIPLE",
   CATCHALL = "CATCHALL",

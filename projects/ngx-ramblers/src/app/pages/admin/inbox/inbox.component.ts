@@ -470,7 +470,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.threads = listResponse.threads;
       this.threadListUnreadCount = listResponse.unreadCount;
       if (!this.selectedThreadId && this.threads.length > 0) {
-        const requestedSlug = this.route.snapshot.queryParams[StoredValue.INBOX_THREAD];
+        const requestedSlug = this.route.snapshot.queryParams[StoredValue.THREAD];
         const requestedThread = requestedSlug
           ? this.threads.find(thread => this.threadSlug(thread) === requestedSlug || this.threadIdOf(thread) === requestedSlug)
           : null;
@@ -572,7 +572,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private syncThreadToUrl(thread: InboxThread): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {[StoredValue.INBOX_THREAD]: this.threadSlug(thread)},
+      queryParams: {[StoredValue.THREAD]: this.threadSlug(thread)},
       queryParamsHandling: "merge",
       replaceUrl: true
     });
@@ -626,7 +626,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.inboxReplyHandoff.queue(reply);
       this.logger.info("Reply queued, navigating to composer:", reply);
       await this.router.navigate(["/admin/email-composer"], {
-        queryParams: {[StoredValue.EMAIL_BRANDING]: BrandingMode.UNBRANDED, [StoredValue.TAB]: EmailComposerStepKey.COMPOSE}
+        queryParams: {[StoredValue.BRANDING]: BrandingMode.UNBRANDED, [StoredValue.TAB]: EmailComposerStepKey.COMPOSE}
       });
     } catch (error) {
       this.notify.error({title: "Reply", message: (error as Error).message});

@@ -197,13 +197,13 @@ export class PageContentNavigatorComponent implements OnInit {
 
   ngOnInit() {
     this.route.queryParamMap.subscribe(params => {
-      const viewMode = params.get(this.stringUtils.kebabCase(StoredValue.CONTENT_VIEW_MODE));
+      const viewMode = params.get(this.stringUtils.kebabCase(StoredValue.VIEW_MODE));
       const search = params.get(this.stringUtils.kebabCase(StoredValue.SEARCH));
 
       if (viewMode === PageContentViewMode.DUPLICATES || viewMode === PageContentViewMode.ALL) {
         const normalizedViewMode = viewMode as PageContentViewMode;
         this.viewMode.set(normalizedViewMode);
-        this.uiActionsService.saveValueFor(StoredValue.CONTENT_VIEW_MODE, normalizedViewMode);
+        this.uiActionsService.saveValueFor(StoredValue.VIEW_MODE, normalizedViewMode);
       }
 
       if (!isNull(search)) {
@@ -311,8 +311,8 @@ export class PageContentNavigatorComponent implements OnInit {
 
   switchToViewMode(mode: PageContentViewMode) {
     this.viewMode.set(mode);
-    this.uiActionsService.saveValueFor(StoredValue.CONTENT_VIEW_MODE, mode);
-    this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.CONTENT_VIEW_MODE)]: mode });
+    this.uiActionsService.saveValueFor(StoredValue.VIEW_MODE, mode);
+    this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.VIEW_MODE)]: mode });
   }
 
   private replaceQueryParams(params: { [key: string]: any }) {

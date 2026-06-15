@@ -14,6 +14,7 @@ import {
 import { NgxLoggerLevel } from "ngx-logger";
 import { ALERT_ERROR, AlertTarget } from "../../../../models/alert-target.model";
 import {
+  BuiltInRole,
   CommitteeConfig,
   CommitteeFileType,
   CommitteeMember,
@@ -36,7 +37,7 @@ import { EnvironmentSettingsSubTab } from "../../../../models/system.model";
 import { EnvironmentSetupTab } from "../../../../models/environment-setup.model";
 import { StoredValue } from "../../../../models/ui-actions";
 import { sortBy } from "../../../../functions/arrays";
-import { toKebabCase } from "../../../../functions/strings";
+import { extractErrorMessage, toKebabCase } from "../../../../functions/strings";
 import { SortDirection } from "../../../../models/sort.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AlertInstance } from "../../../../services/notifier.service";
@@ -46,6 +47,8 @@ import { CommitteeConfigService } from "../../../../services/committee/commitee-
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { CloudflareUrlService } from "../../../../services/cloudflare/cloudflare-url.service";
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
+import { InboxService } from "../../../../services/inbox/inbox.service";
+import { InboxAliasConnectionStatus } from "../../../../models/inbox.model";
 import { Subscription } from "rxjs";
 import { cloneDeep, isBoolean, isEqual, isString } from "es-toolkit/compat";
 import { PageComponent } from "../../../../page/page.component";
@@ -71,6 +74,8 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
         border: 1px solid rgba(155, 200, 171, 0.4)
         border-radius: 8px
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08)
+      .ngx-data-table th
+        white-space: nowrap
       th .sort-icon
         margin-left: 0.25rem
         opacity: 0.5
@@ -248,7 +253,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                       <table class="ngx-data-table">
                         <thead class="sticky-top">
                           <tr>
-                            <th class="sortable" [class.sorted]="sortField === 'fullName'"
+                            <th style="width: 150px" class="sortable" [class.sorted]="sortField === 'fullName'"
                                 (click)="toggleSort('fullName')">
                               Name
                               <fa-icon [icon]="sortIcon('fullName')" class="sort-icon"></fa-icon>
@@ -258,7 +263,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                               Email
                               <fa-icon [icon]="sortIcon('email')" class="sort-icon"></fa-icon>
                             </th>
-                            <th class="sortable" [class.sorted]="sortField === 'roleType'"
+                            <th style="width: 140px" class="sortable" [class.sorted]="sortField === 'roleType'"
                                 (click)="toggleSort('roleType')">
                               Role
                               <fa-icon [icon]="sortIcon('roleType')" class="sort-icon"></fa-icon>
@@ -274,13 +279,13 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                               <fa-icon [icon]="sortIcon('vacant')" class="sort-icon"></fa-icon>
                             </th>
                             @if (cloudflareEmailRoutingService.emailForwardingAvailable()) {
-                              <th style="width: 130px" class="sortable" [class.sorted]="sortField === 'emailForward'"
+                              <th style="width: 120px" class="sortable" [class.sorted]="sortField === 'emailForward'"
                                   (click)="toggleSort('emailForward')">
                                 Email Forward
                                 <fa-icon [icon]="sortIcon('emailForward')" class="sort-icon"></fa-icon>
                               </th>
                             }
-                            <th style="width: 100px">Actions</th>
+                            <th style="width: 70px">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -294,7 +299,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                         [tooltip]="duplicateMemberIdTooltip(role)">Multiple role mappings</span>
                                 }
                               </td>
-                              <td class="small">{{ role.email || '\u2014' }}</td>
+                              <td class="small text-nowrap">{{ role.email || '\u2014' }}</td>
                               <td>{{ stringUtils.asTitle(role.roleType) }}</td>
                               <td>{{ role.description }}</td>
                               <td class="text-center">
@@ -308,7 +313,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                     @case (EmailForwardStatus.ACTIVE) {
                                       <span class="badge text-style-sunset"
                                             containerClass="email-forward-tooltip"
-                                            tooltip="{{ role.type }}@{{ baseDomain }} &rarr; {{ resolvedForwardEmailFor(role) }}">Active</span>
+                                            tooltip="{{ roleEmailFor(role) }} &rarr; {{ resolvedForwardEmailFor(role) }}">Active</span>
                                     }
                                     @case (EmailForwardStatus.OUTDATED) {
                                       <span class="badge bg-warning"
@@ -317,7 +322,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                     @case (EmailForwardStatus.CATCH_ALL) {
                                       <span class="badge text-style-sunset"
                                             containerClass="email-forward-tooltip"
-                                            tooltip="Routed via catch-all &rarr; {{ catchAllDestination() }}">Catch-all</span>
+                                            tooltip="Routed via catch-all &rarr; {{ catchAllTooltipDestination() }}">Catch-all</span>
                                     }
                                     @case (EmailForwardStatus.WORKER) {
                                       <span class="badge text-style-sunset"
@@ -332,7 +337,14 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                 </td>
                               }
                               <td>
-                                @if (!isSystemRole(role)) {
+                                @if (isContactUsSystemRole(role)) {
+                                  <span class="d-inline-block" (click)="$event.stopPropagation()"
+                                        tooltip="The Contact Us system role is the sender of contact-us emails and is linked across the site, so it can't be deleted.">
+                                    <button class="btn btn-outline-ramblers btn-sm" disabled>
+                                      <fa-icon [icon]="faTrash"></fa-icon>
+                                    </button>
+                                  </span>
+                                } @else {
                                   <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-ramblers" (click)="confirmDeleteRole(role); $event.stopPropagation()"
                                             [disabled]="!!editingRoleDraft || !!pendingDeleteRole" tooltip="Delete role">
@@ -410,10 +422,23 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                               @if (catchAllDraftAction === CatchAllAction.FORWARD) {
                                 <div class="col-sm-8">
                                   <label class="form-label">Destination email</label>
-                                  <input type="email" class="form-control form-control-sm"
-                                         [(ngModel)]="catchAllDraftSingleDestination"
-                                         name="catch-all-destination"
-                                         placeholder="recipient@example.com">
+                                  @if (connectedGmailInboxes.length) {
+                                    <select class="form-select form-select-sm"
+                                            [ngModel]="catchAllDestinationToken()"
+                                            (ngModelChange)="catchAllDestinationChanged($event)"
+                                            name="catch-all-destination-select">
+                                      @for (option of catchAllDestinationOptions(); track option.token) {
+                                        <option [ngValue]="option.token">{{ option.label }}</option>
+                                      }
+                                    </select>
+                                  }
+                                  @if (!connectedGmailInboxes.length || catchAllDestinationToken() === CATCH_ALL_OTHER_DESTINATION) {
+                                    <input type="email" class="form-control form-control-sm"
+                                           [class.mt-2]="connectedGmailInboxes.length"
+                                           [(ngModel)]="catchAllDraftSingleDestination"
+                                           name="catch-all-destination"
+                                           placeholder="recipient@example.com">
+                                  }
                                 </div>
                               }
                               @if (catchAllDraftAction === CatchAllAction.WORKER) {
@@ -585,6 +610,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   protected readonly cloudflareApiTokensUrl = this.cloudflareUrl.apiTokens();
   private committeeQueryService = inject(CommitteeQueryService);
   private environmentSetupService = inject(EnvironmentSetupService);
+  private inboxService = inject(InboxService);
   private subscriptions: Subscription[] = [];
   private pendingEditType: string | null = null;
   private notify: AlertInstance;
@@ -617,6 +643,8 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   catchAllDraftAction: CatchAllAction = CatchAllAction.DISABLED;
   catchAllDraftSingleDestination = "";
   catchAllDraftMultipleDestinations: string[] = [];
+  readonly CATCH_ALL_OTHER_DESTINATION = "__other__";
+  connectedGmailInboxes: string[] = [];
   catchAllSaving = false;
   catchAllError: string | null = null;
   catchAllDeployedRecipients: string[] = [];
@@ -642,6 +670,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.environmentSetupService.status()
       .then(status => this.platformAdminEnabled = status.platformAdminEnabled)
       .catch(err => this.logger.error("Platform admin status not available:", err));
+    this.loadConnectedGmailInboxes();
     this.subscriptions.push(
       this.activatedRoute.queryParams.subscribe(params => {
         const editType = params[StoredValue.EDIT];
@@ -906,20 +935,11 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     }
   }
 
-  private roleEmailFor(role: CommitteeMember): string {
+  protected roleEmailFor(role: CommitteeMember): string {
     if (role.email && this.baseDomain && role.email.endsWith(`@${this.baseDomain}`)) {
       return role.email;
     }
     return `${role.type}@${this.baseDomain}`;
-  }
-
-  workerScriptNameFor(role: CommitteeMember): string {
-    const roleEmail = this.roleEmailFor(role);
-    const matchingRule = this.emailRoutingRules.find(rule =>
-      rule.matchers?.some(m => m.type === EmailRoutingMatcherType.LITERAL && m.field === EmailRoutingMatcherField.TO && m.value === roleEmail)
-    );
-    const workerAction = matchingRule?.actions?.find(a => a.type === EmailRoutingActionType.WORKER);
-    return workerAction?.value?.[0] || "";
   }
 
   emailForwardStatus(role: CommitteeMember): EmailForwardStatus {
@@ -948,6 +968,17 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   catchAllDestination(): string {
     const forwardAction = this.catchAllRule?.actions?.find(a => a.type === EmailRoutingActionType.FORWARD);
     return forwardAction?.value?.[0] || null;
+  }
+
+  catchAllTooltipDestination(): string {
+    const forwardAddress = this.catchAllDestination();
+    if (forwardAddress) {
+      return forwardAddress;
+    }
+    if (this.catchAllResolvedAction() === CatchAllAction.WORKER) {
+      return this.stringUtils.pluraliseWithCount(this.catchAllDeployedRecipientCount(), "recipient");
+    }
+    return this.catchAllStatusLabel();
   }
 
   clearAllForwards(): void {
@@ -1026,6 +1057,40 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.catchAllDraftMultipleDestinations = [];
   }
 
+  private async loadConnectedGmailInboxes(): Promise<void> {
+    try {
+      const connections = await this.inboxService.mailboxConnections();
+      this.connectedGmailInboxes = (connections || [])
+        .filter(connection => connection.connectionStatus === InboxAliasConnectionStatus.CONNECTED)
+        .map(connection => connection.gmailAccountEmail)
+        .filter((email): email is string => !!email);
+    } catch (err) {
+      this.logger.error("Failed to load connected Gmail inboxes:", err);
+      this.connectedGmailInboxes = [];
+    }
+  }
+
+  catchAllDestinationOptions(): { token: string; label: string }[] {
+    const inboxOptions = this.connectedGmailInboxes.map(email => ({token: email, label: `Gmail inbox (${email})`}));
+    return [...inboxOptions, {token: this.CATCH_ALL_OTHER_DESTINATION, label: "Other address…"}];
+  }
+
+  catchAllDestinationToken(): string {
+    return this.connectedGmailInboxes.includes(this.catchAllDraftSingleDestination)
+      ? this.catchAllDraftSingleDestination
+      : this.CATCH_ALL_OTHER_DESTINATION;
+  }
+
+  catchAllDestinationChanged(token: string): void {
+    if (token === this.CATCH_ALL_OTHER_DESTINATION) {
+      if (this.connectedGmailInboxes.includes(this.catchAllDraftSingleDestination)) {
+        this.catchAllDraftSingleDestination = "";
+      }
+    } else {
+      this.catchAllDraftSingleDestination = token;
+    }
+  }
+
   async saveCatchAll(): Promise<void> {
     this.catchAllError = null;
     this.catchAllSaving = true;
@@ -1050,7 +1115,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       await this.refreshDeployedCatchAllWorkerInfo();
     } catch (err) {
       this.logger.error("Failed to save catch-all rule:", err);
-      this.catchAllError = (err && (err.message || err.error?.message)) || "Failed to save catch-all rule.";
+      this.catchAllError = extractErrorMessage(err) || "Failed to save catch-all rule.";
     } finally {
       this.catchAllSaving = false;
     }
@@ -1134,7 +1199,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       await this.refreshDeployedCatchAllWorkerInfo();
     } catch (err) {
       this.logger.error("Failed to redeploy catch-all worker:", err);
-      this.catchAllError = (err && (err.message || err.error?.message)) || "Failed to redeploy catch-all worker.";
+      this.catchAllError = extractErrorMessage(err) || "Failed to redeploy catch-all worker.";
     } finally {
       this.catchAllRedeploying = false;
     }
@@ -1232,12 +1297,12 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.updateQueryParams();
   }
 
-  isSystemRole(role: CommitteeMember): boolean {
-    return role?.roleType === RoleType.SYSTEM_ROLE;
+  isContactUsSystemRole(role: CommitteeMember): boolean {
+    return role?.roleType === RoleType.SYSTEM_ROLE && role?.builtInRoleMapping === BuiltInRole.CONTACT_US;
   }
 
   confirmDeleteRole(role: CommitteeMember) {
-    if (this.isSystemRole(role)) {
+    if (this.isContactUsSystemRole(role)) {
       return;
     }
     this.pendingDeleteRole = role;
@@ -1248,7 +1313,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   executeDeleteRole() {
-    if (this.pendingDeleteRole && !this.isSystemRole(this.pendingDeleteRole)) {
+    if (this.pendingDeleteRole && !this.isContactUsSystemRole(this.pendingDeleteRole)) {
       const role = this.pendingDeleteRole;
       this.pendingDeleteRole = null;
       this.committeeConfig.roles = this.committeeConfig.roles.filter(r => r !== role);
