@@ -5,6 +5,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { DataQueryOptions } from "../models/api-request.model";
 import { AlbumPath, PageContent, PageContentApiResponse } from "../models/content-text.model";
 import { CommonDataService } from "./common-data-service";
+import { ContentCacheService } from "./content-cache.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { MemberLoginService } from "./member/member-login.service";
 import { PageContentActionsService } from "./page-content-actions.service";
@@ -18,6 +19,7 @@ export class PageContentService {
   private logger: Logger = inject(LoggerFactory).createLogger("PageContentService", NgxLoggerLevel.ERROR);
   private http = inject(HttpClient);
   private commonDataService = inject(CommonDataService);
+  private contentCache = inject(ContentCacheService);
   private pageContentActionsService = inject(PageContentActionsService);
   memberLoginService = inject(MemberLoginService);
   private BASE_URL = "/api/database/page-content";
@@ -71,10 +73,16 @@ export class PageContentService {
   }
 
   async findByPath(path: string): Promise<PageContent> {
+    const cached = this.contentCache.getPage(path);
+    if (cached) {
+      this.logger.debug("findByPath cache hit for", path);
+      return cached;
+    }
     const dataQueryOptions: DataQueryOptions = {criteria: {path: {$eq: path}}};
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
     const apiResponse = await this.http.get<{ response: PageContent }>(this.BASE_URL, {params}).toPromise();
     this.logger.debug("for path", path, "- received", apiResponse);
+    this.contentCache.setPage(path, apiResponse.response);
     return apiResponse.response;
   }
 
@@ -90,6 +98,7 @@ export class PageContentService {
     this.logger.debug("creating", pageContent);
     const apiResponse = await this.http.post<{ response: PageContent }>(this.BASE_URL, pageContent).toPromise();
     this.logger.debug("created", pageContent, "- received", apiResponse);
+    this.contentCache.clear();
     return apiResponse.response;
   }
 
@@ -97,6 +106,7 @@ export class PageContentService {
     this.logger.info("updating pageContent payload:", pageContent);
     const apiResponse = await this.http.put<{ response: PageContent }>(`${this.BASE_URL}/${pageContent.id}`, pageContent).toPromise();
     this.logger.info("updated response:", apiResponse);
+    this.contentCache.clear();
     return apiResponse.response;
   }
 
@@ -119,6 +129,7 @@ export class PageContentService {
   async delete(pageContentId: string): Promise<PageContent> {
     const apiResponse = await this.http.delete<{ response: PageContent }>(`${this.BASE_URL}/${pageContentId}`).toPromise();
     this.logger.debug("delete", pageContentId, "- received", apiResponse);
+    this.contentCache.clear();
     return apiResponse.response;
   }
 

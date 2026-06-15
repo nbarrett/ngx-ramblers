@@ -32,6 +32,7 @@ import { UrlService } from "../../../services/url.service";
 import { FileNameData, ServerFileNameData } from "../../../models/aws-object.model";
 import { MapControls, MapControlsConfig, MapControlsState } from "../../../shared/components/map-controls";
 import { MapOverlay } from "../../../shared/components/map-overlay";
+import { MapLoadingOverlay } from "../../../shared/components/map-loading-overlay";
 import {
   DEFAULT_OS_STYLE,
   GeocodeResult,
@@ -144,14 +145,6 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 
     .route-name
       font-size: 0.875rem
-    .map-loading-overlay
-      position: absolute
-      inset: 0
-      background: rgba(255, 255, 255, 0.85)
-      display: flex
-      align-items: center
-      justify-content: center
-      border-radius: 0.5rem
 
     :host ::ng-deep .leaflet-control-attribution
       font-size: 0.75rem
@@ -255,11 +248,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                          [leafletFitBounds]="fitBounds"
                          (leafletMapReady)="onMapReady($event)">
                       @if (loadingRoutes) {
-                        <div class="map-loading-overlay">
-                          <div class="spinner-border text-secondary" role="status">
-                            <span class="visually-hidden">Loading map…</span>
-                          </div>
-                        </div>
+                        <app-map-loading-overlay/>
                       }
                     </div>
                     <app-map-overlay
@@ -429,7 +418,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
       </div>
     }
   `,
-  imports: [LeafletModule, MapControls, MapOverlay, MarkdownComponent, NgClass, FontAwesomeModule, AlertModule, FormsModule, NgSelectComponent, AsyncPipe, NgOptionTemplateDirective]
+  imports: [LeafletModule, MapControls, MapOverlay, MapLoadingOverlay, MarkdownComponent, NgClass, FontAwesomeModule, AlertModule, FormsModule, NgSelectComponent, AsyncPipe, NgOptionTemplateDirective]
 })
 export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCheck {
   @Input() row!: PageContentRow;

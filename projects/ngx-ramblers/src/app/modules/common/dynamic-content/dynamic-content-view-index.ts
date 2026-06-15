@@ -72,6 +72,9 @@ export class DynamicContentViewIndex implements OnInit {
   protected readonly MapProvider = MapProvider;
   protected readonly DEFAULT_OS_STYLE = DEFAULT_OS_STYLE;
   public searchText = "";
+  private memoizedSource: PageContent;
+  private memoizedSearchText: string;
+  private memoizedFilteredPageContent: PageContent;
 
   async ngOnInit() {
     this.actions.ensureAlbumIndexMapConfigDefaults(this.row);
@@ -92,17 +95,25 @@ export class DynamicContentViewIndex implements OnInit {
     if (!this.albumIndexPageContent) {
       return this.albumIndexPageContent;
     }
+    if (this.memoizedFilteredPageContent
+      && this.memoizedSource === this.albumIndexPageContent
+      && this.memoizedSearchText === this.searchText) {
+      return this.memoizedFilteredPageContent;
+    }
     const filteredColumns = filterColumnsBySearchText(
       this.albumIndexPageContent.rows[0].columns,
       this.searchText
     );
-    return {
+    this.memoizedSource = this.albumIndexPageContent;
+    this.memoizedSearchText = this.searchText;
+    this.memoizedFilteredPageContent = {
       ...this.albumIndexPageContent,
       rows: [{
         ...this.albumIndexPageContent.rows[0],
         columns: filteredColumns
       }]
     };
+    return this.memoizedFilteredPageContent;
   }
 
   indexMarkdown(): string | null {

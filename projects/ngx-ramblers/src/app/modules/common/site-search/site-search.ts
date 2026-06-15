@@ -6,11 +6,12 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faClockRotateLeft, faMagnifyingGlass, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { from, of, Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged, switchMap, tap } from "rxjs/operators";
-import { SiteSearchGroup, SiteSearchOutcome, SiteSearchResult } from "../../../models/site-search.model";
+import { SiteSearchGroup, SiteSearchOutcome, SiteSearchResult, SiteSearchResultType } from "../../../models/site-search.model";
 import { isQuoted } from "../../../functions/strings";
 import { SiteSearchService } from "../../../services/search/site-search.service";
 import { UrlService } from "../../../services/url.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { DateUtilsService } from "../../../services/date-utils.service";
 
 const MIN_QUERY_LENGTH = 2;
 const INDEXING_POLL_MS = 600;
@@ -76,8 +77,8 @@ const PANEL_MARGIN = 16;
                        [routerLink]="'/' + result.path"
                        (click)="selectResult()">
                       <div class="site-search-result-title" [innerHTML]="highlight(result.title)"></div>
-                      @if (result.breadcrumb) {
-                        <div class="site-search-result-breadcrumb">{{ result.breadcrumb }}</div>
+                      @if (resultMeta(result)) {
+                        <div class="site-search-result-breadcrumb">{{ resultMeta(result) }}</div>
                       }
                       @if (result.excerpt) {
                         <div class="site-search-result-excerpt" [innerHTML]="highlight(result.excerpt)"></div>
@@ -113,6 +114,7 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private urlService = inject(UrlService);
   private stringUtils = inject(StringUtilsService);
+  private dateUtils = inject(DateUtilsService);
   private elementRef = inject(ElementRef);
 
   faMagnifyingGlass = faMagnifyingGlass;
@@ -353,6 +355,22 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
 
   highlight(text: string): SafeHtml {
     return this.siteSearchService.highlight(text, this.highlightQuery());
+  }
+
+  eventDate(result: SiteSearchResult): string {
+    return result.date ? this.dateUtils.displayDate(result.date) : "";
+  }
+
+  resultMeta(result: SiteSearchResult): string {
+    return [result.breadcrumb, this.eventDate(result), this.contactSummary(result)].filter(part => !!part).join(" · ");
+  }
+
+  private contactSummary(result: SiteSearchResult): string {
+    return result.contactName ? `${this.contactLabel(result)}: ${result.contactName}` : "";
+  }
+
+  private contactLabel(result: SiteSearchResult): string {
+    return result.type === SiteSearchResultType.EVENT ? "Coordinator" : "Leader";
   }
 
   @HostListener("document:mousedown", ["$event"])

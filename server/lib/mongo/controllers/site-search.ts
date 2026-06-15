@@ -55,6 +55,7 @@ interface EventEntry {
   description: string;
   haystack: string;
   date: string;
+  contactName: string;
 }
 
 interface SearchIndex {
@@ -130,6 +131,7 @@ function toEventEntry(event: ExtendedGroupEvent): EventEntry | null {
   const isGroupEvent = groupEvent.item_type === RamblersEventType.GROUP_EVENT;
   const slug = lastItemFrom(groupEvent.url) || (event as any)._id?.toString() || event.id;
   const description = groupEvent.description || groupEvent.additional_details || "";
+  const contactName = event.fields?.contactDetails?.displayName || "";
   return {
     type: isGroupEvent ? SiteSearchResultType.EVENT : SiteSearchResultType.WALK,
     title: groupEvent.title,
@@ -142,9 +144,11 @@ function toEventEntry(event: ExtendedGroupEvent): EventEntry | null {
       groupEvent.additional_details,
       groupEvent.location?.description,
       groupEvent.location?.postcode,
-      groupEvent.start_location?.description
+      groupEvent.start_location?.description,
+      contactName
     ].filter(value => !!value).join(" "),
-    date: groupEvent.start_date_time || ""
+    date: groupEvent.start_date_time || "",
+    contactName
   };
 }
 
@@ -166,7 +170,7 @@ async function buildSearchIndex(): Promise<SearchIndex> {
   const [pages, events] = await Promise.all([
     timed("page-content load", () => pageContent.find({}).select("path rows migrationTemplate").limit(PAGE_INDEX_LIMIT).lean().exec() as Promise<PageContent[]>),
     timed("events load", () => extendedGroupEvent.find(LOCAL_ACTIVE_FILTER)
-      .select("id groupEvent.title groupEvent.description groupEvent.additional_details groupEvent.url groupEvent.item_type groupEvent.location groupEvent.start_location groupEvent.start_date_time")
+      .select("id groupEvent.title groupEvent.description groupEvent.additional_details groupEvent.url groupEvent.item_type groupEvent.location groupEvent.start_location groupEvent.start_date_time fields.contactDetails.displayName")
       .limit(EVENT_INDEX_LIMIT).lean().exec() as Promise<ExtendedGroupEvent[]>)
   ]);
   const includedPages = pages.filter(pathIncluded);
@@ -266,7 +270,8 @@ function scanEvent(entry: EventEntry, rawQuery: string): SiteSearchResult | null
     score: (titleMatch ? 5 : 0) + (descriptionMatch ? 2 : 0) + 1 + overlap * 2,
     relevance: relevanceFor(titleMatch, descriptionMatch ? 2 : 0),
     matchedIn: titleMatch ? "Title" : descriptionMatch ? "Description" : "Location",
-    date: entry.date || undefined
+    date: entry.date || undefined,
+    contactName: entry.contactName || undefined
   };
 }
 

@@ -92,6 +92,10 @@ const INDEXING_POLL_MS = 600;
                       <span class="meta-sep">·</span>
                       <span>{{ eventDate(result) }}</span>
                     }
+                    @if (result.contactName) {
+                      <span class="meta-sep">·</span>
+                      <span>{{ contactLabel(result) }}: {{ result.contactName }}</span>
+                    }
                   </div>
                 </a>
               }
@@ -240,6 +244,10 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
 
   eventDate(result: SiteSearchResult): string {
     return result.date ? this.dateUtils.displayDate(result.date) : "";
+  }
+
+  contactLabel(result: SiteSearchResult): string {
+    return result.type === SiteSearchResultType.EVENT ? "Coordinator" : "Leader";
   }
 
   summaryText(): string {
