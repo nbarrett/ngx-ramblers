@@ -776,7 +776,7 @@ export class GroupEventEdit implements OnInit, OnDestroy {
     const segments = this.urlService.pathSegments();
     const lastSegment = segments[segments.length - 1];
     const viewSegments = lastSegment === PathSegment.EDIT ? segments.slice(0, -1) : segments;
-    void this.urlService.navigateTo([...viewSegments, PathSegment.EMAIL_COMPOSER], { [StoredValue.EMAIL_EVENT]: this.groupEvent?.id });
+    void this.urlService.navigateTo([...viewSegments, PathSegment.EMAIL_COMPOSER], { [StoredValue.EVENT]: this.groupEvent?.id });
   }
 
   inputDisabled() {

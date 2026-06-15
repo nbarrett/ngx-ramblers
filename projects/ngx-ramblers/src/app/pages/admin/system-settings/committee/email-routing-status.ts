@@ -22,12 +22,11 @@ import {
 } from "./email-routing-view-resolver";
 import { FormsModule } from "@angular/forms";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
-import { StringUtilsService } from "../../../../services/string-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { CloudflareButton } from "../../../../modules/common/third-parties/cloudflare-button";
-import { normaliseEmail } from "../../../../functions/strings";
+import { extractErrorMessage, normaliseEmail } from "../../../../functions/strings";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { MailMessagingConfig, MailSettingsTab } from "../../../../models/mail.model";
 import { RouterLink } from "@angular/router";
@@ -56,7 +55,7 @@ function mapResolutionToRouteType(resolution: RoutingResolution): EmailRouteType
     selector: "[app-email-routing-status]",
     template: `
     @if (status && !committeeMemberInternal?.vacant && cloudflareEmailRoutingService.emailForwardingAvailable()) {
-      @if (!memberEmail && !isMultiRecipient() && status?.routeType !== EmailRouteType.WORKER) {
+      @if (committeeMemberInternal?.forwardEmailTarget === ForwardEmailTarget.MEMBER_EMAIL && !memberEmail && !isMultiRecipient() && status?.routeType !== EmailRouteType.WORKER) {
         <div class="d-flex align-items-center">
           <alert type="warning" class="flex-grow-1 mb-0">
             <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
@@ -310,12 +309,21 @@ function mapResolutionToRouteType(resolution: RoutingResolution): EmailRouteType
           }
         }
       }
+      @if (verificationNotice) {
+        <div class="d-flex align-items-center mt-2">
+          <alert type="warning" class="flex-grow-1 mb-0">
+            <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+            <strong class="ms-2">Verification needed</strong>
+            <span class="ms-2">{{ verificationNotice }}</span>
+          </alert>
+        </div>
+      }
       @if (error) {
         <div class="d-flex align-items-center mt-2">
           <alert type="danger" class="flex-grow-1 mb-0">
             <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
             <strong class="ms-2">Error</strong>
-            <span class="ms-2">{{ stringUtilsService.stringify(error) }}</span>
+            <span class="ms-2">{{ errorText() }}</span>
           </alert>
         </div>
       }
@@ -349,10 +357,11 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("EmailRoutingStatusComponent", NgxLoggerLevel.ERROR);
   cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   private mailMessagingService = inject(MailMessagingService);
-  public stringUtilsService = inject(StringUtilsService);
   protected committeeMemberInternal: CommitteeMember;
   public status: EmailRoutingStatus;
   public error: any;
+  public verificationNotice: string = null;
+  private readonly VERIFICATION_PENDING_CODES = ["DestinationVerificationSent", "DestinationNotVerified", "RateLimited"];
   public apiRequestPending = false;
   protected readonly WorkerAction = WorkerAction;
   public workerAction: WorkerAction | null = null;
@@ -369,6 +378,7 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected readonly EmailRouteType = EmailRouteType;
+  protected readonly ForwardEmailTarget = ForwardEmailTarget;
   protected readonly DestinationVerificationStatus = DestinationVerificationStatus;
   protected readonly EmailForwardingMode = EmailForwardingMode;
   public forwardingMode: EmailForwardingMode = EmailForwardingMode.CLOUDFLARE_FORWARD;
@@ -724,6 +734,7 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   async createForward() {
     this.apiRequestPending = true;
     this.error = null;
+    this.verificationNotice = null;
     try {
       await this.cloudflareEmailRoutingService.createRule({
         roleEmail: this.status.roleEmail,
@@ -733,7 +744,7 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
       });
       await this.reloadRules();
     } catch (err) {
-      this.error = err;
+      this.handleForwardError(err);
     } finally {
       this.apiRequestPending = false;
     }
@@ -742,6 +753,7 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   async updateForward() {
     this.apiRequestPending = true;
     this.error = null;
+    this.verificationNotice = null;
     try {
       await this.cloudflareEmailRoutingService.updateRule(this.status.rule.id, {
         roleEmail: this.status.roleEmail,
@@ -751,7 +763,7 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
       });
       await this.reloadRules();
     } catch (err) {
-      this.error = err;
+      this.handleForwardError(err);
     } finally {
       this.apiRequestPending = false;
     }
@@ -772,6 +784,21 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
 
   forwardButtonDisabled(): boolean {
     return this.apiRequestPending || this.status?.destinationVerificationStatus !== DestinationVerificationStatus.VERIFIED;
+  }
+
+  errorText(): string {
+    return this.error ? extractErrorMessage(this.error) : null;
+  }
+
+  private handleForwardError(err: any) {
+    const code = err?.error?.error?.code;
+    if (this.VERIFICATION_PENDING_CODES.includes(code)) {
+      this.verificationNotice = extractErrorMessage(err);
+      this.error = null;
+    } else {
+      this.error = err;
+      this.verificationNotice = null;
+    }
   }
 
   async registerDestination() {

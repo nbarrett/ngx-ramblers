@@ -210,8 +210,9 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
   {
     name: "committee-contact-us-help",
     text: "* Configures how the **Contact Us** form routes messages for this role.\n" +
-      "* The forwarding target options work the same way as the Inbound Forwarding tab — choose between the member's personal email, a custom address, or multiple recipients.\n" +
-      "* The **Contact Link** section provides a markdown link that can be embedded in page content to direct visitors to the Contact Us form pre-filled with this role, e.g. `[Contact John](?contact-us&role=walks-secretary&redirect=...)`.",
+      "* When this role forwards to a connected inbox (set on the **Inbound Forwarding** tab), contact-us is handled automatically — messages go to the role's own address and appear in your inbox grouped under the role, with nothing to configure here.\n" +
+      "* Otherwise, choose where submissions go: the linked member's personal email, the role's own address, a custom address, multiple recipients, the catch-all, or disable contact-us for this role.\n" +
+      "* The **Contact Link** section provides a markdown link you can embed in page content to send visitors to the Contact Us form pre-filled with this role, e.g. `[Contact John](?contact-us&role=walks-secretary&redirect=...)`.",
     category: "admin"
   },
   {

@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { ALERT_WARNING } from "../../../../models/alert-target.model";
+import { ALERT_SUCCESS, ALERT_WARNING } from "../../../../models/alert-target.model";
 import {
   BuiltInRole,
   CommitteeMember,
@@ -31,6 +31,8 @@ import { RecipientMultiSelect } from "./recipient-multi-select";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { MemberNamingService } from "projects/ngx-ramblers/src/app/services/member/member-naming.service";
 import { UrlService } from "../../../../services/url.service";
+import { InboxService } from "../../../../services/inbox/inbox.service";
+import { InboxAliasConnectionStatus } from "../../../../models/inbox.model";
 import { StoredValue } from "../../../../models/ui-actions";
 import { FormsModule } from "@angular/forms";
 import { CommitteeMemberLookupComponent } from "./committee-member-lookup";
@@ -58,19 +60,19 @@ export enum CommitteeMemberTab {
     @if (committeeMember) {
       <div class="p-2 pt-0">
         <ng-template #forwardTargetControls let-label="label">
-          @if (committeeMember.forwardEmailTarget === ForwardEmailTarget.CUSTOM || committeeMember.forwardEmailTarget === ForwardEmailTarget.CATCHALL) {
+          @if (forwardShowsSecondaryField()) {
             <div class="col-sm-12">
               <div class="row">
                 <div class="col-sm-6">
                   <div class="form-group">
                     <label for="forward-target-{{index}}" class="control-label">{{ label }}</label>
                     <select class="form-control input-sm"
-                      [(ngModel)]="committeeMember.forwardEmailTarget"
-                      (ngModelChange)="forwardTargetChanged()"
+                      [ngModel]="forwardSelectionToken()"
+                      (ngModelChange)="forwardSelectionChanged($event)"
                       [disabled]="committeeMember.vacant"
                       id="forward-target-{{index}}">
-                      @for (target of forwardTargets; track target.value) {
-                        <option [ngValue]="target.value">{{ forwardTargetLabel(target.value) }}</option>
+                      @for (option of forwardTargetOptions(); track option.token) {
+                        <option [ngValue]="option.token">{{ option.label }}</option>
                       }
                     </select>
                   </div>
@@ -78,9 +80,9 @@ export enum CommitteeMemberTab {
                 <div class="col-sm-6">
                   <div class="form-group">
                     @if (committeeMember.forwardEmailTarget === ForwardEmailTarget.CATCHALL) {
-                      <label class="control-label">Catchall address (auto)</label>
-                      <input type="email" class="form-control" [value]="catchAllAddress() || ''" disabled>
-                      @if (!catchAllAddress()) {
+                      <label class="control-label">Catchall routing (auto)</label>
+                      <input type="text" class="form-control" [value]="catchAllSummary() || ''" disabled>
+                      @if (!catchAllExists()) {
                         <small class="text-muted">No Cloudflare catch-all rule found yet - configure a catch-all rule pointing at your inbox mailbox.</small>
                       }
                     } @else {
@@ -105,12 +107,12 @@ export enum CommitteeMemberTab {
               <div class="form-group">
                 <label for="forward-target-{{index}}" class="control-label">{{ label }}</label>
                 <select class="form-control input-sm"
-                  [(ngModel)]="committeeMember.forwardEmailTarget"
-                  (ngModelChange)="forwardTargetChanged()"
+                  [ngModel]="forwardSelectionToken()"
+                  (ngModelChange)="forwardSelectionChanged($event)"
                   [disabled]="committeeMember.vacant"
                   id="forward-target-{{index}}">
-                  @for (target of forwardTargets; track target.value) {
-                    <option [ngValue]="target.value">{{ forwardTargetLabel(target.value) }}</option>
+                  @for (option of forwardTargetOptions(); track option.token) {
+                    <option [ngValue]="option.token">{{ option.label }}</option>
                   }
                 </select>
               </div>
@@ -163,10 +165,10 @@ export enum CommitteeMemberTab {
                 <div class="col-sm-6">
                   <div class="form-group">
                     @if (committeeMember.contactUsTarget === ForwardEmailTarget.CATCHALL) {
-                      <label class="control-label">Catchall address (auto)</label>
-                      <input type="email" class="form-control" [value]="catchAllAddress() || ''" disabled>
-                      @if (catchAllAddress()) {
-                        <small class="text-muted">Sent to the catch-all address, addressed to this role; no address is stored on the role.</small>
+                      <label class="control-label">Catchall routing (auto)</label>
+                      <input type="text" class="form-control" [value]="catchAllSummary() || ''" disabled>
+                      @if (catchAllExists()) {
+                        <small class="text-muted">Sent to the catch-all, addressed to this role; no address is stored on the role.</small>
                       } @else {
                         <small class="text-muted">No Cloudflare catch-all rule found yet - configure a catch-all rule pointing at your inbox mailbox.</small>
                       }
@@ -224,7 +226,8 @@ export enum CommitteeMemberTab {
             <hr/>
             @if (isContactUsSystemRole()) {
               <div class="alert alert-warning">
-                <strong>System role.</strong> This is the Contact Us system role used as the sender of contact-us emails. Its identity (Full Name, Role Description, Role Type) is locked to keep contact-us links working across the site. Configure where contact-us replies are routed via the Inbound Forwarding tab.
+                <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+                <strong class="ms-2 me-2">System role.</strong> This is the Contact Us system role used as the sender of contact-us emails. Its identity (Full Name, Role Description, Role Type) is locked to keep contact-us links working across the site. Configure where contact-us replies are routed via the <strong>Inbound Forwarding</strong> tab.
               </div>
             }
             <div class="row">
@@ -369,6 +372,15 @@ export enum CommitteeMemberTab {
                   <small class="text-muted">Shown on the contact-us form ("Contact <em>{{ contactUsDisplayPreview() }}</em>") and as the recipient label on the email.</small>
                 </div>
               </div>
+              @if (roleForwardsToConnectedInbox()) {
+                <div class="col-sm-12">
+                  <div class="alert alert-success mx-1">
+                    <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
+                    <strong class="ms-2 me-2">Handled automatically:</strong>
+                    <span>Contact-us messages go to the role's own address <strong>{{ committeeMember.email }}</strong>, which this role's <strong>Inbound Forwarding</strong> delivers to your connected inbox <strong>{{ committeeMember.forwardEmailCustom }}</strong>, where NGX shows them grouped under this role. Nothing to configure here — to route them elsewhere, change the <strong>Inbound Forwarding</strong> tab.</span>
+                  </div>
+                </div>
+              } @else {
               <ng-container *ngTemplateOutlet="contactUsTargetControls; context: {label: 'Send contact-us submissions to'}"></ng-container>
               <div class="col-sm-12 mt-3 alert alert-warning">
                 <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
@@ -386,6 +398,9 @@ export enum CommitteeMemberTab {
                   @case (ForwardEmailTarget.MEMBER_EMAIL) {
                     <span>Brevo sends to the linked member's personal email. No Cloudflare rule required.</span>
                   }
+                  @case (ForwardEmailTarget.ROLE_EMAIL) {
+                    <span>Brevo sends to the role's own address <strong>{{ committeeMember.email || '(role address)' }}</strong>, which then follows this role's <strong>Inbound Forwarding</strong> to wherever that's configured.</span>
+                  }
                   @case (ForwardEmailTarget.NONE) {
                     <span>Contact-us is disabled for this role. The form will refuse to submit.</span>
                   }
@@ -394,6 +409,7 @@ export enum CommitteeMemberTab {
                   }
                 }
               </div>
+              }
               <div class="col-sm-12 mt-3">
                 <h6 class="section-heading">Contact Link</h6>
                 <div class="row">
@@ -439,6 +455,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private committeeConfigService = inject(CommitteeConfigService);
   private cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   private committeeQueryService = inject(CommitteeQueryService);
+  private inboxService = inject(InboxService);
   public committeeMember: CommitteeMember;
   protected readonly CommitteeMemberTab = CommitteeMemberTab;
   protected readonly StoredValue = StoredValue;
@@ -481,6 +498,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   protected readonly EmailDerivation = EmailDerivation;
   protected readonly BuiltInRole = BuiltInRole;
   protected readonly ALERT_WARNING = ALERT_WARNING;
+  protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
   baseDomain = "";
   private subscriptions: Subscription[] = [];
   private destinationAddresses: DestinationAddress[] = [];
@@ -488,6 +506,8 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private catchAllRule: EmailRoutingRule = null;
   importingRecipients = false;
   private recipientRegistrations = new Set<string>();
+  readonly GMAIL_TOKEN_PREFIX = "gmail:";
+  connectedGmailInboxes: string[] = [];
   forwardTargets = [
     {value: ForwardEmailTarget.MEMBER_EMAIL, label: "Member's personal email"},
     {value: ForwardEmailTarget.CUSTOM, label: "Custom address"},
@@ -497,6 +517,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   ];
   contactUsTargets = [
     {value: ForwardEmailTarget.MEMBER_EMAIL, label: "Linked member's personal email"},
+    {value: ForwardEmailTarget.ROLE_EMAIL, label: "The role's own address"},
     {value: ForwardEmailTarget.CUSTOM, label: "Custom address"},
     {value: ForwardEmailTarget.MULTIPLE, label: "Multiple recipients"},
     {value: ForwardEmailTarget.CATCHALL, label: "Catchall"},
@@ -506,7 +527,10 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   ngOnInit() {
     this.logger.info("ngOnInit", this.committeeMember);
     if (!this.committeeMember.forwardEmailTarget) {
-      this.committeeMember.forwardEmailTarget = ForwardEmailTarget.MEMBER_EMAIL;
+      this.committeeMember.forwardEmailTarget = this.isContactUsSystemRole() ? ForwardEmailTarget.NONE : ForwardEmailTarget.MEMBER_EMAIL;
+    }
+    if (this.isContactUsSystemRole() && this.committeeMember.forwardEmailTarget === ForwardEmailTarget.MEMBER_EMAIL) {
+      this.committeeMember.forwardEmailTarget = ForwardEmailTarget.NONE;
     }
     this.subscriptions.push(
       this.cloudflareEmailRoutingService.cloudflareConfigNotifications().subscribe((config: NonSensitiveCloudflareConfig) => {
@@ -532,9 +556,25 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.cloudflareEmailRoutingService.rulesNotifications().subscribe((rules: EmailRoutingRule[]) => {
         this.emailRoutingRules = rules || [];
+        this.applyContactUsDefaultFromForwarding();
       })
     );
     this.cloudflareEmailRoutingService.queryDestinationAddresses();
+    this.loadConnectedGmailInboxes();
+  }
+
+  private async loadConnectedGmailInboxes(): Promise<void> {
+    try {
+      const connections = await this.inboxService.mailboxConnections();
+      this.connectedGmailInboxes = (connections || [])
+        .filter(connection => connection.connectionStatus === InboxAliasConnectionStatus.CONNECTED)
+        .map(connection => connection.gmailAccountEmail)
+        .filter((email): email is string => !!email);
+      this.applyContactUsDefaultFromForwarding();
+    } catch (error) {
+      this.logger.error("Failed to load connected Gmail inboxes:", error);
+      this.connectedGmailInboxes = [];
+    }
   }
 
   ngOnDestroy(): void {
@@ -640,6 +680,21 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     return forward?.value?.[0] || null;
   }
 
+  catchAllExists(): boolean {
+    return !!this.catchAllRule;
+  }
+
+  catchAllSummary(): string {
+    const forwardAddress = this.catchAllAddress();
+    if (forwardAddress) {
+      return forwardAddress;
+    }
+    if (this.catchAllRule?.actions?.some(action => action.type === EmailRoutingActionType.WORKER)) {
+      return "Multiple recipients (Worker)";
+    }
+    return null;
+  }
+
   resolvedForwardEmail(): string {
     switch (this.committeeMember.forwardEmailTarget) {
       case ForwardEmailTarget.MEMBER_EMAIL:
@@ -692,15 +747,64 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       }
       case ForwardEmailTarget.CUSTOM: {
         const email = this.committeeMember?.forwardEmailCustom;
-        return email ? `${label} (${email})` : label;
+        return email && !this.connectedGmailInboxes.includes(email) ? `${label} (${email})` : label;
       }
       case ForwardEmailTarget.CATCHALL: {
-        const email = this.committeeMember?.forwardEmailCustom || this.catchAllAddress();
+        const email = this.catchAllAddress();
         return email ? `${label} (${email})` : label;
       }
       default:
         return label;
     }
+  }
+
+  forwardTargetOptions(): { token: string; label: string }[] {
+    const targets = this.isContactUsSystemRole()
+      ? this.forwardTargets.filter(target => target.value !== ForwardEmailTarget.MEMBER_EMAIL)
+      : this.forwardTargets;
+    return targets.flatMap(target => {
+      const option = {token: target.value as string, label: this.forwardTargetLabel(target.value)};
+      if (target.value === ForwardEmailTarget.CUSTOM && this.connectedGmailInboxes.length) {
+        const inboxOptions = this.connectedGmailInboxes.map(email => ({token: `${this.GMAIL_TOKEN_PREFIX}${email}`, label: `Gmail inbox (${email})`}));
+        return [...inboxOptions, option];
+      }
+      return [option];
+    });
+  }
+
+  forwardSelectionToken(): string {
+    if (this.committeeMember.forwardEmailTarget === ForwardEmailTarget.CUSTOM
+      && this.committeeMember.forwardEmailCustom
+      && this.connectedGmailInboxes.includes(this.committeeMember.forwardEmailCustom)) {
+      return `${this.GMAIL_TOKEN_PREFIX}${this.committeeMember.forwardEmailCustom}`;
+    }
+    return this.committeeMember.forwardEmailTarget;
+  }
+
+  forwardSelectionChanged(token: string) {
+    if (token.startsWith(this.GMAIL_TOKEN_PREFIX)) {
+      this.committeeMember.forwardEmailTarget = ForwardEmailTarget.CUSTOM;
+      this.committeeMember.forwardEmailCustom = token.slice(this.GMAIL_TOKEN_PREFIX.length);
+    } else if (token === ForwardEmailTarget.CUSTOM) {
+      this.committeeMember.forwardEmailTarget = ForwardEmailTarget.CUSTOM;
+      if (this.committeeMember.forwardEmailCustom && this.connectedGmailInboxes.includes(this.committeeMember.forwardEmailCustom)) {
+        this.committeeMember.forwardEmailCustom = "";
+      }
+    } else {
+      this.committeeMember.forwardEmailTarget = token as ForwardEmailTarget;
+    }
+    this.forwardTargetChanged();
+  }
+
+  forwardIsConnectedInbox(): boolean {
+    return this.committeeMember.forwardEmailTarget === ForwardEmailTarget.CUSTOM
+      && !!this.committeeMember.forwardEmailCustom
+      && this.connectedGmailInboxes.includes(this.committeeMember.forwardEmailCustom);
+  }
+
+  forwardShowsSecondaryField(): boolean {
+    return this.committeeMember.forwardEmailTarget === ForwardEmailTarget.CATCHALL
+      || (this.committeeMember.forwardEmailTarget === ForwardEmailTarget.CUSTOM && !this.forwardIsConnectedInbox());
   }
 
   forwardTargetChanged() {
@@ -722,7 +826,8 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
         this.committeeMember.contactUsRecipients = [currentEmail];
       }
     }
-    if (this.committeeMember.contactUsTarget === ForwardEmailTarget.CATCHALL) {
+    if (this.committeeMember.contactUsTarget === ForwardEmailTarget.CATCHALL
+      || this.committeeMember.contactUsTarget === ForwardEmailTarget.ROLE_EMAIL) {
       this.committeeMember.contactUsCustom = null;
     }
   }
@@ -744,7 +849,11 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
         return email ? `${label} (${email})` : label;
       }
       case ForwardEmailTarget.CATCHALL: {
-        const email = this.committeeMember?.contactUsCustom || this.catchAllAddress();
+        const email = this.catchAllAddress();
+        return email ? `${label} (${email})` : label;
+      }
+      case ForwardEmailTarget.ROLE_EMAIL: {
+        const email = this.committeeMember?.email;
         return email ? `${label} (${email})` : label;
       }
       default:
@@ -813,6 +922,30 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
 
   activeRouteType(): string {
     return this.activeWorkerScriptName() ? EmailRouteType.WORKER : EmailRouteType.NONE;
+  }
+
+  roleHasActiveInboundRule(): boolean {
+    const email = this.roleEmail();
+    if (!email) {
+      return false;
+    }
+    const normalisedEmail = normaliseEmail(email);
+    return this.emailRoutingRules.some(rule =>
+      rule.enabled !== false
+      && rule.matchers?.some(m => m.type === EmailRoutingMatcherType.LITERAL && m.field === EmailRoutingMatcherField.TO && normaliseEmail(m.value) === normalisedEmail));
+  }
+
+  roleForwardsToConnectedInbox(): boolean {
+    return this.committeeMember?.forwardEmailTarget === ForwardEmailTarget.CUSTOM
+      && this.connectedGmailInboxes.includes(this.committeeMember.forwardEmailCustom);
+  }
+
+  private applyContactUsDefaultFromForwarding(): void {
+    if (this.roleForwardsToConnectedInbox()) {
+      this.committeeMember.contactUsTarget = ForwardEmailTarget.ROLE_EMAIL;
+    } else if (!this.committeeMember?.contactUsTarget && this.roleHasActiveInboundRule()) {
+      this.committeeMember.contactUsTarget = ForwardEmailTarget.ROLE_EMAIL;
+    }
   }
 
   deleteRole() {

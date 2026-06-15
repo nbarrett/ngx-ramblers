@@ -490,8 +490,8 @@ export class CommitteeDocumentsRow implements OnInit, OnDestroy {
   sendNotification(committeeFile: CommitteeFile) {
     const slug = this.display.committeeFileSlug(committeeFile);
     this.urlService.navigateTo([...this.urlService.pathSegments(), PathSegment.EMAIL_COMPOSER], {
-      [StoredValue.EMAIL_COMMITTEE_FILE]: slug,
-      [StoredValue.EMAIL_SOURCE_PAGE]: this.urlService.urlPath()
+      [StoredValue.COMMITTEE_FILE]: slug,
+      [StoredValue.SOURCE_PAGE]: this.urlService.urlPath()
     });
   }
 

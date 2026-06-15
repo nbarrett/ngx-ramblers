@@ -418,7 +418,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
 
   composeEmailToMember(memberId: string) {
     this.notify.hide();
-    void this.urlService.navigateTo([...this.urlService.pathSegments(), PathSegment.EMAIL_COMPOSER], { [StoredValue.EMAIL_MEMBER]: memberId });
+    void this.urlService.navigateTo([...this.urlService.pathSegments(), PathSegment.EMAIL_COMPOSER], { [StoredValue.MEMBER]: memberId });
   }
 
 applySortTo(field: string, filterSource: MemberTableFilter) {

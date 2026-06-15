@@ -65,6 +65,10 @@ async function resolveOne(recipient: EmailAddress, roles: CommitteeMember[]): Pr
   const target = effectiveTarget(role);
   const label = nameFor(role);
   switch (target) {
+    case ForwardEmailTarget.ROLE_EMAIL: {
+      debugLog("resolveOne:ROLE_EMAIL keeping role address", role.email);
+      return [{ name: label, email: role.email }];
+    }
     case ForwardEmailTarget.CUSTOM: {
       const custom = effectiveCustom(role);
       if (custom) {

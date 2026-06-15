@@ -160,7 +160,7 @@ export class ContentTemplatesComponent implements OnInit {
 
   ngOnInit() {
     this.route.queryParamMap.subscribe(params => {
-      const viewParam = params.get(this.stringUtils.kebabCase(StoredValue.CONTENT_VIEW_MODE)) ||
+      const viewParam = params.get(this.stringUtils.kebabCase(StoredValue.VIEW_MODE)) ||
         params.get(this.stringUtils.kebabCase(StoredValue.CONTENT_TEMPLATE_VIEW));
       if (viewParam && this.categories.some(cat => cat.id === viewParam)) {
         this.categorySelection.set(viewParam);
@@ -198,7 +198,7 @@ export class ContentTemplatesComponent implements OnInit {
     }
     this.categorySelection.set(category);
     this.uiActionsService.saveValueFor(StoredValue.CONTENT_TEMPLATE_VIEW, category);
-    this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.CONTENT_VIEW_MODE)]: category });
+    this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.VIEW_MODE)]: category });
   }
 
   usagesFor(fragmentPath: string): string[] {

@@ -431,7 +431,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
   }
 
   getAlertClass() {
-    if (!this.migrationStatus) return "alert-info";
+    if (!this.migrationStatus) return "alert-warning";
     if (this.isSystemHealthy()) return "alert-success";
     if (!this.isAdmin) return "alert-warning";
     if (this.migrationStatus.migrations?.failed) return "alert-danger";

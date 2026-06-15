@@ -104,7 +104,7 @@ export class CommitteeDisplayService {
     const slug = this.committeeFileSlug(committeeFile);
     if (committeeFile?.id && slug) {
       const pagePath = sourcePagePath || this.urlService.urlPath();
-      const param = this.isComposedDocument(committeeFile) ? StoredValue.COMMITTEE_DOCUMENT : StoredValue.COMMITTEE_FILE_VIEW;
+      const param = this.isComposedDocument(committeeFile) ? StoredValue.DOCUMENT : StoredValue.FILE;
       return `${base}/${pagePath}?${param}=${slug}`;
     } else {
       return "";
