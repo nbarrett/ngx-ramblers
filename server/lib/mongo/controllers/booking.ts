@@ -23,7 +23,7 @@ import { BookingConfig, BookingEmailType, bookingEnabledForEvent, effectiveMaxCa
 import { loadBookingConfig } from "../../config/booking-config";
 import { sendEmailsByTypeForEvent, sendReminderEmailsForEvent } from "../../cron/booking-reminder-job";
 import { buildBookingEmailRequest } from "../../brevo/transactional-mail/send-booking-email";
-import { values } from "es-toolkit/compat";
+import { isArray, values } from "es-toolkit/compat";
 
 const controller = crudController.create<Booking>(booking);
 const debugLog = debug(envConfig.logNamespace("booking"));
@@ -374,7 +374,7 @@ export async function sendEmailsByType(req: Request, res: Response) {
       return;
     }
     const includePreviouslySent = req.body?.includePreviouslySent === true;
-    const bookingIds: string[] | null = Array.isArray(req.body?.bookingIds) ? req.body.bookingIds : null;
+    const bookingIds: string[] | null = isArray(req.body?.bookingIds) ? req.body.bookingIds : null;
     const dispatch: BookingReminderDispatch = await sendEmailsByTypeForEvent(eventId, emailType, includePreviouslySent, null, bookingIds);
     res.json({request: {eventId, emailType, includePreviouslySent, bookingIds}, response: dispatch});
   } catch (error) {
@@ -440,7 +440,7 @@ export async function sendReminders(req: Request, res: Response) {
     }
 
     const includePreviouslySent = req.body?.includePreviouslySent === true;
-    const bookingIds: string[] | null = Array.isArray(req.body?.bookingIds) ? req.body.bookingIds : null;
+    const bookingIds: string[] | null = isArray(req.body?.bookingIds) ? req.body.bookingIds : null;
     const reminderDispatch: BookingReminderDispatch = await sendReminderEmailsForEvent(eventId, includePreviouslySent, null, bookingIds);
     res.json({request: {eventId, includePreviouslySent, bookingIds}, response: reminderDispatch});
   } catch (error) {
