@@ -7,7 +7,7 @@ import { faChevronDown, faChevronRight, faFolder, faMagnifyingGlass, faXmark } f
 import { SafeHtml } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { SitemapNode } from "../../models/sitemap.model";
+import { SiteMapViewMode, SitemapNode } from "../../models/sitemap.model";
 import { Organisation } from "../../models/system.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { PageService } from "../../services/page.service";
@@ -36,8 +36,23 @@ const BUILDING_POLL_MS = 2500;
           </button>
         }
       </div>
+      @if (roots.length) {
+        <div class="site-map-toolbar mb-4">
+          <span class="site-map-toolbar-label">View:</span>
+          <button type="button" class="site-map-toolbar-option" [class.active]="viewMode === SiteMapViewMode.SECTIONS" (click)="setViewMode(SiteMapViewMode.SECTIONS)">Sections</button>
+          <button type="button" class="site-map-toolbar-option" [class.active]="viewMode === SiteMapViewMode.TREE" (click)="setViewMode(SiteMapViewMode.TREE)">Full tree</button>
+          @if (viewMode === SiteMapViewMode.TREE) {
+            <span class="site-map-toolbar-label site-map-toolbar-divider">Levels:</span>
+            @for (option of depthOptions; track option) {
+              <button type="button" class="site-map-toolbar-option" [class.active]="treeDepth === option" (click)="setTreeDepth(option)">{{ option }}</button>
+            }
+            <button type="button" class="site-map-toolbar-option" [class.active]="treeDepth === ALL_DEPTH" (click)="setTreeDepth(ALL_DEPTH)">All</button>
+          }
+        </div>
+      }
       @if (displayRoots.length) {
-        <div class="site-map-grid">
+        @if (viewMode === SiteMapViewMode.SECTIONS) {
+          <div class="site-map-grid">
           @for (root of displayRoots; track root.key) {
             <div class="site-map-card" [class.expanded]="isExpanded(root)">
               <button type="button" class="site-map-card-head" (click)="toggle(root)" [attr.aria-expanded]="isExpanded(root)">
@@ -64,7 +79,12 @@ const BUILDING_POLL_MS = 2500;
               }
             </div>
           }
-        </div>
+          </div>
+        } @else {
+          <ul class="site-map-tree site-map-tree-full">
+            <ng-container *ngTemplateOutlet="tree; context: {$implicit: displayRoots}"/>
+          </ul>
+        }
       } @else if (filter) {
         <p>No pages match "{{ filter }}".</p>
       } @else if (building) {
@@ -132,6 +152,12 @@ export class SiteMapPageComponent implements OnInit, OnDestroy {
   faXmark = faXmark;
   faFolder = faFolder;
 
+  viewMode: SiteMapViewMode = SiteMapViewMode.SECTIONS;
+  treeDepth = 2;
+  readonly ALL_DEPTH = 99;
+  readonly depthOptions = [1, 2, 3];
+  protected readonly SiteMapViewMode = SiteMapViewMode;
+
   async ngOnInit() {
     this.pageService.setTitle("Site map");
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => {
@@ -190,6 +216,31 @@ export class SiteMapPageComponent implements OnInit, OnDestroy {
     return !!this.filter || this.expanded.has(node.key);
   }
 
+  setViewMode(mode: SiteMapViewMode): void {
+    this.viewMode = mode;
+    if (mode === SiteMapViewMode.TREE) {
+      this.expandToDepth(this.treeDepth);
+    } else {
+      this.expanded.clear();
+    }
+  }
+
+  setTreeDepth(depth: number): void {
+    this.treeDepth = depth;
+    this.expandToDepth(depth);
+  }
+
+  private expandToDepth(depth: number): void {
+    this.expanded.clear();
+    const walk = (nodes: SitemapNode[], level: number) => nodes.forEach(node => {
+      if (level < depth && node.children.length) {
+        this.expanded.add(node.key);
+        walk(node.children, level + 1);
+      }
+    });
+    walk(this.roots, 0);
+  }
+
   highlight(title: string): SafeHtml {
     return this.siteSearchService.highlight(title, this.filter);
   }
@@ -244,6 +295,9 @@ export class SiteMapPageComponent implements OnInit, OnDestroy {
     this.sortChildren(roots);
     this.roots = this.orderedRoots(roots);
     this.onFilterChange(this.filter);
+    if (this.viewMode === SiteMapViewMode.TREE) {
+      this.expandToDepth(this.treeDepth);
+    }
     this.logger.info("built site map tree with", this.roots.length, "top-level sections");
   }
 

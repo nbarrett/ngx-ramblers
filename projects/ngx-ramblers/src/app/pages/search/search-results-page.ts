@@ -15,7 +15,7 @@ import { SiteSearchService } from "../../services/search/site-search.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 
 const MIN_QUERY_LENGTH = 2;
-const INDEXING_POLL_MS = 2500;
+const INDEXING_POLL_MS = 600;
 
 @Component({
   selector: "app-search-results-page",
@@ -269,7 +269,7 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async runSearch(query: string): Promise<void> {
+  private async runSearch(query: string, wait = false): Promise<void> {
     this.clearIndexingPoll();
     const trimmed = (query || "").trim();
     this.submittedQuery = trimmed;
@@ -278,9 +278,11 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
       this.groups = [];
       return;
     }
-    this.searching = true;
+    if (!wait) {
+      this.searching = true;
+    }
     try {
-      const outcome = await this.siteSearchService.search(trimmed, this.scopeActive && this.scopePath ? this.scopePath : undefined, this.phraseMode);
+      const outcome = await this.siteSearchService.search(trimmed, this.scopeActive && this.scopePath ? this.scopePath : undefined, this.phraseMode, wait);
       this.results = outcome.results;
       this.groups = this.siteSearchService.groupResults(outcome.results);
       this.indexing = outcome.indexing;
@@ -301,7 +303,7 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
   private scheduleIndexingPoll(): void {
     this.clearIndexingPoll();
     if (this.indexing && this.results.length === 0 && this.submittedQuery.length >= MIN_QUERY_LENGTH) {
-      this.indexingTimer = setTimeout(() => this.runSearch(this.submittedQuery), INDEXING_POLL_MS);
+      this.indexingTimer = setTimeout(() => this.runSearch(this.submittedQuery, true), INDEXING_POLL_MS);
     }
   }
 

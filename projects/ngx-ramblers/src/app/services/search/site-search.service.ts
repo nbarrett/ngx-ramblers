@@ -28,10 +28,11 @@ export class SiteSearchService {
     {type: SiteSearchResultType.EVENT, title: "Events"}
   ];
 
-  async search(query: string, scope?: string, exact?: boolean): Promise<SiteSearchOutcome> {
+  async search(query: string, scope?: string, exact?: boolean, wait?: boolean): Promise<SiteSearchOutcome> {
     const base = new HttpParams().set("q", query);
     const withScope = scope ? base.set("scope", scope) : base;
-    const params = exact ? withScope.set("exact", "1") : withScope;
+    const withExact = exact ? withScope.set("exact", "1") : withScope;
+    const params = wait ? withExact.set("wait", "1") : withExact;
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<SiteSearchApiResponse>(this.BASE_URL, {params}));
     this.logger.info("search for", query, "scope", scope, "returned", apiResponse?.response);
     const results = (apiResponse?.response as SiteSearchResult[]) || [];
