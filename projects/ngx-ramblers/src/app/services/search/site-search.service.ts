@@ -51,8 +51,20 @@ export class SiteSearchService {
 
   groupResults(results: SiteSearchResult[]): SiteSearchGroup[] {
     return this.groupTitles
-      .map(group => ({...group, results: results.filter(result => result.type === group.type)}))
+      .map(group => ({...group, results: this.orderGroup(group.type, results.filter(result => result.type === group.type))}))
       .filter(group => group.results.length > 0);
+  }
+
+  private orderGroup(type: SiteSearchResultType, results: SiteSearchResult[]): SiteSearchResult[] {
+    if (type === SiteSearchResultType.PAGE) {
+      return results;
+    }
+    return [...results].sort((left, right) => this.startMillis(right) - this.startMillis(left));
+  }
+
+  private startMillis(result: SiteSearchResult): number {
+    const parsed = result.date ? Date.parse(result.date) : NaN;
+    return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
   }
 
   recentSearches(): string[] {

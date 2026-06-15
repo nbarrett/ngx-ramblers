@@ -22,6 +22,7 @@ export interface SiteSearchResult {
   relevance: SiteSearchRelevance;
   matchedIn: string;
   date?: string;
+  contactName?: string;
 }
 
 export interface SiteSearchGroup {

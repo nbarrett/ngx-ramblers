@@ -26,6 +26,7 @@ import { LoggerFactory } from "./logger-factory.service";
 import { StringUtilsService } from "./string-utils.service";
 import { ContentMetadata } from "../models/content-metadata.model";
 import { PageContentService } from "./page-content.service";
+import { ContentCacheService } from "./content-cache.service";
 import { ContentMetadataService } from "./content-metadata.service";
 import { UrlService } from "./url.service";
 import { PageContentActionsService } from "./page-content-actions.service";
@@ -42,6 +43,7 @@ import { YouTubeService } from "./youtube.service";
 export class IndexService {
 
   public pageContentService: PageContentService = inject(PageContentService);
+  private contentCache: ContentCacheService = inject(ContentCacheService);
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public urlService: UrlService = inject(UrlService);
@@ -58,6 +60,12 @@ export class IndexService {
   public async albumIndexToPageContent(pageContentRow: PageContentRow, rowIndex: number): Promise<PageContent> {
     const albumIndex = pageContentRow.albumIndex;
     if (albumIndex?.contentPaths?.length > 0) {
+      const cacheKey = `${rowIndex}:${JSON.stringify(albumIndex)}`;
+      const cached = this.contentCache.getIndex(cacheKey);
+      if (cached) {
+        this.logger.info("albumIndexToPageContent cache hit for", cacheKey);
+        return cached;
+      }
       const contentTypes = albumIndex.contentTypes || [IndexContentType.ALBUMS];
 
       const pathRegex = albumIndex.contentPaths.map(contentPath => ({
@@ -110,6 +118,7 @@ export class IndexService {
 
       const albumIndexPageContent: PageContent = this.pageContentFrom(pageContentRow, finalColumns, rowIndex);
       this.logger.info("Generated index with", finalColumns.length, "items from content types:", contentTypes, "(", allColumns.length, "before deduplication) based on:", pathRegex);
+      this.contentCache.setIndex(cacheKey, albumIndexPageContent);
       return albumIndexPageContent;
     } else {
       this.logger.info("no pages to query as no contentPaths defined in:", albumIndex);

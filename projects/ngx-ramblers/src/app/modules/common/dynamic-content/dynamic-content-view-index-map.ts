@@ -7,6 +7,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NgxLoggerLevel } from "ngx-logger";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
 import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.service";
+import { MapViewCacheService } from "../../../services/maps/map-view-cache.service";
 import { UrlService } from "../../../services/url.service";
 import {
   MapControls,
@@ -16,12 +17,40 @@ import {
 import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 import { MapOverlay } from "../../../shared/components/map-overlay";
 import { UiActionsService } from "../../../services/ui-actions.service";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
   selector: "app-dynamic-content-view-index-map",
   styles: [`
     .map-wrapper
       position: relative
+
+    .map-loading
+      display: flex
+      flex-direction: column
+      align-items: center
+      gap: 12px
+      color: #6c757d
+      font-weight: 600
+      font-size: 1.1rem
+      letter-spacing: 0.01em
+
+    .map-loading-icon
+      font-size: 2.8rem
+      color: var(--ramblers-colour-sunrise, #e2a100)
+      display: inline-flex
+
+    .map-loading-text
+      animation: pulse 2.2s ease-in-out infinite
+
+    @keyframes pulse
+      0%
+        opacity: 0.75
+      50%
+        opacity: 0.95
+      100%
+        opacity: 0.75
 
     .map-controls-docked
       border-bottom: 1px solid #dee2e6
@@ -90,28 +119,38 @@ import { UiActionsService } from "../../../services/ui-actions.service";
       }
       <div [class]="showControls ? 'map-controls-overlap' : 'rounded'">
         <div class="map-wrapper">
-          <div class="card shadow rounded"
-               [style.height.px]="mapHeight"
-               leaflet
-               [leafletOptions]="options"
-               [leafletLayers]="leafletLayers"
-               [leafletFitBounds]="fitBounds"
-               [leafletFitBoundsOptions]="fitBoundsOptions"
-               (leafletMapReady)="onMapReady($event)">
-          </div>
-          @if (allowControlsToggle) {
-            <app-map-overlay
-              [showControls]="showControls"
-              [allowToggle]="allowControlsToggle"
-              [allowWaypointsToggle]="false"
-              (toggleControls)="toggleControls()">
-            </app-map-overlay>
+          @if (loading) {
+            <div class="card shadow rounded d-flex align-items-center justify-content-center"
+                 [style.height.px]="mapHeight">
+              <div class="map-loading">
+                <fa-icon class="map-loading-icon" [icon]="faSpinner" animation="spin-pulse"></fa-icon>
+                <div class="map-loading-text">Loading map…</div>
+              </div>
+            </div>
+          } @else {
+            <div class="card shadow rounded"
+                 [style.height.px]="mapHeight"
+                 leaflet
+                 [leafletOptions]="options"
+                 [leafletLayers]="leafletLayers"
+                 [leafletFitBounds]="fitBounds"
+                 [leafletFitBoundsOptions]="fitBoundsOptions"
+                 (leafletMapReady)="onMapReady($event)">
+            </div>
+            @if (allowControlsToggle) {
+              <app-map-overlay
+                [showControls]="showControls"
+                [allowToggle]="allowControlsToggle"
+                [allowWaypointsToggle]="false"
+                (toggleControls)="toggleControls()">
+              </app-map-overlay>
+            }
           }
         </div>
       </div>
     }
   `,
-  imports: [LeafletModule, MapControls, MapOverlay]
+  imports: [LeafletModule, MapControls, MapOverlay, FontAwesomeModule]
 })
 export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   @Input() pageContent: PageContent;
@@ -131,10 +170,12 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   public options: any;
   public leafletLayers: L.Layer[] = [];
   public fitBounds: L.LatLngBounds | undefined;
-  public fitBoundsOptions: L.FitBoundsOptions = { padding: [50, 50] };
+  public fitBoundsOptions: L.FitBoundsOptions = { padding: [50, 50], animate: false };
   private mapRef: L.Map | undefined;
   public showMap = true;
   public showControls = true;
+  public loading = true;
+  protected readonly faSpinner = faSpinner;
   private clusterGroupRef: any;
   private allMarkers: L.Marker[] = [];
 
@@ -157,6 +198,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewIndexMap", NgxLoggerLevel.ERROR);
   private mapTiles = inject(MapTilesService);
   private markerStyle = inject(MapMarkerStyleService);
+  private mapViewCache = inject(MapViewCacheService);
   private urlService = inject(UrlService);
   private uiActions = inject(UiActionsService);
   private zone = inject(NgZone);
@@ -205,6 +247,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   }
 
   private initializeMap() {
+    this.loading = true;
     const provider = this.mapControlsState.provider;
     const style = this.mapControlsState.osStyle;
     const base = this.mapTiles.createBaseLayer(provider, style);
@@ -223,11 +266,35 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
     this.updateMarkers();
   }
 
+  private mapViewCacheKey(): string {
+    const points = this.allMarkers
+      .map(marker => {
+        const latLng = marker.getLatLng();
+        return `${latLng.lat.toFixed(5)},${latLng.lng.toFixed(5)}`;
+      })
+      .sort()
+      .join("|");
+    return `${this.mapControlsState.provider}:${this.mapControlsState.osStyle}:${this.mapControlsState.mapHeight}:${points}`;
+  }
+
+  private cacheCurrentView() {
+    if (!this.mapRef || this.allMarkers.length === 0) {
+      return;
+    }
+    const center = this.mapRef.getCenter();
+    this.mapViewCache.set(this.mapViewCacheKey(), {
+      center: {lat: center.lat, lng: center.lng},
+      zoom: this.mapRef.getZoom()
+    });
+  }
+
   onMapReady(map: L.Map) {
     this.mapRef = map;
     this.logger.info("Map ready, invalidating size");
+    map.on("moveend zoomend", () => this.cacheCurrentView());
     setTimeout(() => {
       map.invalidateSize();
+      this.cacheCurrentView();
     }, 100);
   }
 
@@ -265,6 +332,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
       this.logger.info("No valid markers to display");
       this.leafletLayers = [];
     }
+    this.loading = false;
   }
 
   private hasValidLocation(column: PageContentColumn): boolean {
@@ -336,9 +404,19 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
       return;
     }
 
-    const latLngs = this.allMarkers.map(marker => marker.getLatLng());
-    this.fitBounds = L.latLngBounds(latLngs);
-    this.logger.info("Fitting map to bounds with", latLngs.length, "points");
+    const cachedView = this.mapViewCache.get(this.mapViewCacheKey());
+    if (cachedView) {
+      this.logger.info("Applying cached map view", cachedView);
+      this.fitBounds = undefined;
+      this.options.center = L.latLng(cachedView.center.lat, cachedView.center.lng);
+      this.options.zoom = cachedView.zoom;
+      return;
+    }
+
+    const bounds = L.latLngBounds(this.allMarkers.map(marker => marker.getLatLng()));
+    this.fitBounds = bounds;
+    this.options.center = bounds.getCenter();
+    this.logger.info("Fitting map to bounds with", this.allMarkers.length, "points");
   }
 
   onProviderChange(provider: MapProvider) {

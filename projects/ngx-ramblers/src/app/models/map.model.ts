@@ -8,6 +8,11 @@ export enum MapProvider {
   OS = "os"
 }
 
+export interface CachedMapView {
+  center: { lat: number; lng: number };
+  zoom: number;
+}
+
 export const MAP_PROVIDER_LABELS: Record<MapProvider, string> = {
   [MapProvider.OSM]: "OpenStreetMap",
   [MapProvider.OS]: "OS Maps"
