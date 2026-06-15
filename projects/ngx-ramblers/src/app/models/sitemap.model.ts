@@ -4,3 +4,8 @@ export interface SitemapNode {
   href: string | null;
   children: SitemapNode[];
 }
+
+export enum SiteMapViewMode {
+  SECTIONS = "sections",
+  TREE = "tree"
+}

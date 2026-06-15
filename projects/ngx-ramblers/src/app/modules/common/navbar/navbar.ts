@@ -114,6 +114,16 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
   display: flex
   align-items: center
   margin-left: 4px
+
+@media (max-width: 991px)
+  .brand-search-wrap
+    flex: 1 1 0
+    min-width: 0
+  .navbar-brand
+    min-width: 0
+  .navbar-brand img
+    max-width: 100%
+    height: auto
 `],
     imports: [SvgComponent, SiteSearchComponent, NavbarContentComponent, HeaderButtonsComponent, LoginPanelComponent, NgClass, NgStyle, SocialMediaLinksComponent]
 })

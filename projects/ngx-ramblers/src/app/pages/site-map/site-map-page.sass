@@ -229,3 +229,34 @@ $site-map-line: rgba($ramblers-colour-granite, .22)
 @keyframes site-map-spin
   to
     transform: rotate(360deg)
+
+.site-map-toolbar
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: .4rem
+
+.site-map-toolbar-label
+  font-size: .85rem
+  color: rgba($ramblers-colour-granite, .7)
+
+.site-map-toolbar-divider
+  margin-left: .6rem
+
+.site-map-toolbar-option
+  border: 1px solid rgba($ramblers-colour-granite, .2)
+  background: transparent
+  color: $ramblers-colour-granite
+  border-radius: 14px
+  padding: .15rem .7rem
+  font-size: .8rem
+  cursor: pointer
+
+.site-map-toolbar-option.active
+  background: $ramblers-colour-sunrise
+  border-color: $ramblers-colour-sunrise
+  color: $ramblers-colour-black
+  font-weight: 700
+
+.site-map-tree-full
+  margin-top: .25rem

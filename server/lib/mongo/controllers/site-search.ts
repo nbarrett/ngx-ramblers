@@ -25,6 +25,7 @@ const MAX_RESULTS = 100;
 const PAGE_INDEX_LIMIT = 3000;
 const EVENT_INDEX_LIMIT = 6000;
 const INDEX_TTL_MS = 30 * 60 * 1000;
+const INDEX_BUILD_WAIT_MS = 25000;
 const APPLICATION_SEGMENTS = [BuiltInPath.ADMIN, USER_TEMPLATES_PATH_PREFIX.split("/")[0]];
 
 const LOCAL_ACTIVE_FILTER = {
@@ -199,6 +200,22 @@ function ensureSearchIndex(): SearchIndex | null {
   return searchIndexCache;
 }
 
+async function ensureSearchIndexReady(): Promise<SearchIndex | null> {
+  const index = ensureSearchIndex();
+  if (index) {
+    return index;
+  }
+  const building = searchIndexBuilding;
+  if (!building) {
+    return null;
+  }
+  searchLog("ensureSearchIndexReady: index cold - awaiting in-flight build (up to", INDEX_BUILD_WAIT_MS, "ms)");
+  return Promise.race([
+    building,
+    new Promise<SearchIndex | null>(resolve => setTimeout(() => resolve(null), INDEX_BUILD_WAIT_MS))
+  ]);
+}
+
 function relevanceFor(titleMatch: boolean, secondaryMatches: number): SiteSearchRelevance {
   if (titleMatch) {
     return SiteSearchRelevance.HIGH;
@@ -306,7 +323,7 @@ export async function search(req: Request, res: Response): Promise<void> {
   const startedAt = dateTimeNowAsValue();
   try {
     const levels = accessibleLevels((req as any).user);
-    const index = ensureSearchIndex();
+    const index = req.query.wait === "1" ? await ensureSearchIndexReady() : ensureSearchIndex();
     if (!index) {
       searchLog("search: query", JSON.stringify(rawQuery), "- index still building, returning indexing flag");
       res.status(200).json({action: ApiAction.QUERY, request: {query: rawQuery}, response: [], total: 0, indexing: true});

@@ -13,7 +13,7 @@ import { UrlService } from "../../../services/url.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 
 const MIN_QUERY_LENGTH = 2;
-const INDEXING_POLL_MS = 2500;
+const INDEXING_POLL_MS = 600;
 const PANEL_MARGIN = 16;
 
 @Component({
@@ -74,7 +74,7 @@ const PANEL_MARGIN = 16;
                     <a class="site-search-result"
                        [class.active]="isActive(result)"
                        [routerLink]="'/' + result.path"
-                       (click)="selectResult(result)">
+                       (click)="selectResult()">
                       <div class="site-search-result-title" [innerHTML]="highlight(result.title)"></div>
                       @if (result.breadcrumb) {
                         <div class="site-search-result-breadcrumb">{{ result.breadcrumb }}</div>
@@ -178,8 +178,7 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
     this.clearIndexingPoll();
     if (this.indexing && this.results.length === 0 && this.query.trim().length >= MIN_QUERY_LENGTH) {
       this.indexingTimer = setTimeout(() => {
-        this.searching = true;
-        this.siteSearchService.search(this.query, this.currentScope(), this.phraseMode).then(outcome => this.applyOutcome(outcome));
+        this.siteSearchService.search(this.query, this.currentScope(), this.phraseMode, true).then(outcome => this.applyOutcome(outcome));
       }, INDEXING_POLL_MS);
     }
   }
@@ -307,7 +306,7 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
 
   private onEnter(): void {
     if (this.activeIndex >= 0 && this.activeIndex < this.results.length) {
-      this.selectResult(this.results[this.activeIndex]);
+      this.goToResult(this.results[this.activeIndex]);
     } else if (this.query.trim().length >= MIN_QUERY_LENGTH) {
       this.viewAllResults();
     }
@@ -317,7 +316,12 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
     return this.results.indexOf(result) === this.activeIndex;
   }
 
-  selectResult(result: SiteSearchResult): void {
+  selectResult(): void {
+    this.siteSearchService.addRecentSearch(this.query);
+    setTimeout(() => this.closeSearch());
+  }
+
+  private goToResult(result: SiteSearchResult): void {
     this.siteSearchService.addRecentSearch(this.query);
     this.closeSearch();
     this.router.navigateByUrl("/" + result.path);
