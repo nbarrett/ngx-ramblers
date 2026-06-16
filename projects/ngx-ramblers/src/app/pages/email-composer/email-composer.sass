@@ -26,6 +26,10 @@
 .branding-mode-option
   margin: 0
 
+.composer-workspace-alert
+  margin-top: 20px
+  margin-bottom: 20px
+
 
 :host ::ng-deep .p-stepper
   padding: 0
@@ -214,6 +218,38 @@
   margin-top: 16px
   margin-bottom: 0
 
+.composer-workspace-bar
+  display: flex
+  align-items: center
+  justify-content: space-between
+  flex-wrap: wrap
+  gap: 8px 16px
+  flex: 1 1 auto
+  min-width: 0
+
+.composer-workspace-status
+  color: #6c757d
+  font-size: 0.95rem
+  min-width: 0
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+
+.composer-workspace-actions
+  display: flex
+  align-items: center
+  justify-content: flex-end
+  flex-wrap: wrap
+  gap: 8px
+  margin-left: auto
+
+.composer-options-strip
+  display: flex
+  align-items: center
+  justify-content: space-between
+  flex-wrap: wrap
+  gap: 8px
+  margin-bottom: 0.5rem
 .email-composer-action-bar
   display: flex
   flex-wrap: nowrap
@@ -242,6 +278,10 @@
 .email-composer-action-bar .email-composer-toolbar .btn
   min-height: 40px
   margin: 0
+  padding: 0.375rem 0.75rem
+  border-radius: 6px
+  font-size: 1rem
+  line-height: 1.5
 
 .email-composer-drafts-panel
   border: 1px solid #dfe7f3
@@ -614,6 +654,21 @@
     display: grid
     grid-template-columns: 1fr 1fr
     gap: 8px
+    width: 100%
+
+  .composer-workspace-bar
+    align-items: stretch
+
+  .composer-workspace-status
+    width: 100%
+
+  .composer-workspace-actions
+    display: grid
+    grid-template-columns: 1fr 1fr
+    width: 100%
+    margin-left: 0
+
+  .composer-workspace-actions .btn
     width: 100%
 
   .email-composer-toolbar .btn

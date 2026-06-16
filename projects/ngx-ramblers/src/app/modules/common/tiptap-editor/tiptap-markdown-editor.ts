@@ -34,7 +34,7 @@ import {
   MERGE_FIELD_CATALOGUE,
   MergeFieldGroup
 } from "../../../models/email-composer.model";
-import { TiptapMark, TiptapTableCommand, TokenPopupType } from "../../../models/tiptap-editor.model";
+import { EditorFocusPosition, TiptapMark, TiptapTableCommand, TokenPopupType } from "../../../models/tiptap-editor.model";
 import { MERGE_FIELD_NODE_NAME, MergeField } from "./merge-field.extension";
 import { LINK_TOKEN_NODE_NAME, LinkToken } from "./link-token.extension";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -612,12 +612,33 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     }
   }
 
+  private pendingFocusPosition: EditorFocusPosition | null = null;
+
   public focusAtStart(): void {
-    this.editor?.commands.focus("start");
+    this.focusWhenReady(EditorFocusPosition.START);
   }
 
   public focusAtEnd(): void {
-    this.editor?.commands.focus("end");
+    this.focusWhenReady(EditorFocusPosition.END);
+  }
+
+  public focusWhenReady(position: EditorFocusPosition = EditorFocusPosition.START): void {
+    if (this.editor) {
+      this.attemptFocus(position, 0);
+    } else {
+      this.pendingFocusPosition = position;
+    }
+  }
+
+  private attemptFocus(position: EditorFocusPosition, attempt: number): void {
+    const editor = this.editor;
+    if (!editor) {
+      return;
+    }
+    editor.commands.focus(position);
+    if (!editor.isFocused && attempt < 12) {
+      requestAnimationFrame(() => this.attemptFocus(position, attempt + 1));
+    }
   }
 
   @Input() placeholder: string = "Start writing…";
@@ -779,7 +800,14 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         transformPastedHTML: (html: string) => this.isInternalPaste(html) ? html : this.sanitiseHtmlForPaste(html)
       },
       content: this.pendingValue,
-      contentType: "markdown"
+      contentType: "markdown",
+      onCreate: () => {
+        if (this.pendingFocusPosition) {
+          const position = this.pendingFocusPosition;
+          this.pendingFocusPosition = null;
+          this.attemptFocus(position, 0);
+        }
+      }
     });
     this.editor.on("update", () => {
       const markdown = this.currentMarkdown();

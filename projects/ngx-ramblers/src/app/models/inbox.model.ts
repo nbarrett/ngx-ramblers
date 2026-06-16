@@ -158,6 +158,7 @@ export interface InboxReplyComposeResponse {
   aliasId: string;
   mailboxConnectionId: string;
   inboxMessageId: string;
+  replyAll?: boolean;
 }
 
 export interface InboxReplyOutboundContext {

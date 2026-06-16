@@ -2,6 +2,8 @@ import { Component, ElementRef, inject, OnDestroy, ViewChild } from "@angular/co
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { isUndefined } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { TemplateRenderRequest } from "../../../models/mail.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MailService } from "../../../services/mail/mail.service";
@@ -9,13 +11,16 @@ import { MailService } from "../../../services/mail/mail.service";
 @Component({
   selector: "app-email-preview",
   standalone: true,
-  imports: [],
+  imports: [FontAwesomeModule],
   template: `
     <div class="print-preview" style="height:auto;overflow:visible;">
       @if (loading) {
         <div class="p-3">Rendering preview...</div>
       } @else if (error) {
-        <div class="alert alert-warning m-3">{{ error }}</div>
+        <div class="alert alert-warning m-3">
+          <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+          <strong>{{ errorTitle }}: </strong>{{ error }}
+        </div>
       } @else if (previewUrl) {
         <iframe
           #previewFrame
@@ -36,8 +41,10 @@ export class EmailPreviewComponent implements OnDestroy {
 
   @ViewChild("previewFrame") previewFrame: ElementRef<HTMLIFrameElement>;
 
+  protected readonly faTriangleExclamation = faTriangleExclamation;
   loading = false;
   error: string | null = null;
+  errorTitle = "Preview problem";
   previewHtml: string | null = null;
   previewUrl: SafeResourceUrl | null = null;
 
@@ -57,6 +64,7 @@ export class EmailPreviewComponent implements OnDestroy {
       this.previewHtml = null;
       this.previewUrl = null;
       this.error = "Preview could not be rendered.";
+      this.errorTitle = "Preview problem";
       this.logger.error("render failed", error);
     } finally {
       this.loading = false;
@@ -72,9 +80,10 @@ export class EmailPreviewComponent implements OnDestroy {
     this.loading = false;
   }
 
-  showError(message: string): void {
+  showError(message: string, title = "Preview problem"): void {
     this.clear();
     this.error = message;
+    this.errorTitle = title;
   }
 
   ngOnDestroy(): void {

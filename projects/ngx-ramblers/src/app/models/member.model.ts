@@ -21,6 +21,8 @@ export interface MemberFilterSelection {
   order?: number;
   member?: Member;
   memberInformation?: string;
+  memberName?: string;
+  memberQualifier?: string;
   text?: string;
   memberGrouping: string;
   disabled: boolean;

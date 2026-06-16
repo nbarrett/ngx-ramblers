@@ -4,7 +4,7 @@ import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faBell, faBellSlash, faEnvelope, faEnvelopeOpen, faInbox, faListCheck, faReply, faRotateRight, faSearch, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faEnvelope, faEnvelopeOpen, faInbox, faListCheck, faReply, faReplyAll, faRotateRight, faSearch, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, values } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -19,6 +19,7 @@ import {
   InboxMessageDirection,
   InboxNewMessageEvent,
   InboxAliasConfigView,
+  InboxReplyComposeResponse,
   InboxThread,
   InboxThreadFolder,
   InboxViewScope,
@@ -36,11 +37,19 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { HtmlFrameComponent } from "../../../modules/common/html-frame/html-frame.component";
 import { ResizerComponent } from "../../../modules/common/resizer/resizer";
+import { MaximisablePanelComponent } from "../../../modules/common/maximisable-panel/maximisable-panel";
 
 @Component({
   selector: "app-inbox",
-  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent],
   styles: [`
+    .maximised .inbox-alert
+      display: none
+    .maximised .inbox-layout
+      height: auto
+      flex: 1 1 auto
+      min-height: 0
+      margin-top: 0.5rem
     .inbox-layout
       display: grid
       gap: 0
@@ -62,7 +71,7 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
       min-height: 0
       overflow-y: auto
     .inbox-thread-row
-      padding: 0.75rem 1rem
+      padding: 0.45rem 0.75rem
       border-bottom: 1px solid #e9ecef
       border-left: 4px solid transparent
       cursor: pointer
@@ -110,6 +119,13 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
     .inbox-thread-time
       font-size: 0.75rem
       color: #888
+      white-space: nowrap
+    .inbox-thread-recipient
+      font-size: 0.78rem
+      color: #8a8a8a
+      overflow: hidden
+      text-overflow: ellipsis
+      white-space: nowrap
     .min-w-0
       min-width: 0
     .inbox-list-toolbar
@@ -129,6 +145,7 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
       flex: 1 1 auto
       min-height: 0
       overflow: auto
+      padding-right: 0.75rem
     .inbox-message
       border-bottom: 1px solid #f0f0f0
       padding-bottom: 1rem
@@ -137,6 +154,61 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
       font-size: 0.85rem
       color: #555
       margin-bottom: 0.5rem
+    .inbox-message-toggle
+      cursor: pointer
+      border-radius: 4px
+      padding: 0.25rem 0.35rem
+      margin: -0.25rem -0.35rem 0.5rem
+    .inbox-message-toggle:hover
+      background-color: rgba(155, 200, 171, 0.15)
+    .inbox-message.collapsed
+      padding-bottom: 0.5rem
+      margin-bottom: 0.5rem
+    .inbox-message-preview
+      color: #777
+      overflow: hidden
+      text-overflow: ellipsis
+      white-space: nowrap
+    .inbox-reply-actions
+      margin-top: 0.4rem
+      margin-right: 0.4rem
+      margin-left: 0.5rem
+      transition: opacity 0.12s ease-in-out
+    .inbox-message.collapsed .inbox-reply-actions
+      opacity: 0
+    .inbox-message.collapsed:hover .inbox-reply-actions
+      opacity: 1
+    .inbox-reply-btn
+      width: 1.8rem
+      height: 1.8rem
+      min-width: 1.8rem
+      min-height: 1.8rem
+      max-height: 1.8rem
+      flex: 0 0 auto
+      padding: 0
+      line-height: 1
+      font-size: 0.8rem
+      display: inline-flex
+      align-items: center
+      justify-content: center
+      color: #404143
+      background-color: #e9ecef
+      border: none
+    .inbox-reply-btn:hover, .inbox-reply-btn:focus
+      background-color: #f9b104
+      color: #212529
+    .inbox-reply-label
+      display: none
+    @media (min-width: 1200px)
+      .inbox-reply-btn
+        width: auto
+        min-width: 0
+        height: auto
+        max-height: none
+        padding: 0.2rem 0.6rem
+        gap: 0.3rem
+      .inbox-reply-label
+        display: inline
     .inbox-message-body
       font-size: 0.95rem
       overflow-wrap: anywhere
@@ -149,13 +221,34 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
       white-space: pre-wrap
       overflow-wrap: anywhere
     .inbox-role-select
-      min-width: 18rem
+      flex: 1 1 auto
+      min-width: 8rem
+      font-size: 0.8rem
+    .inbox-detail-header .btn
+      font-size: 0.8rem
+      padding: 0.35rem 0.65rem
+      min-height: 0
+    @media (max-width: 575.98px)
+      .inbox-toolbar
+        flex-direction: column
+        align-items: stretch
+      .inbox-toolbar .ms-auto
+        flex-direction: column
+        align-items: stretch
+        width: 100%
+        margin-left: 0
+      .inbox-toolbar .btn,
+      .inbox-toolbar .inbox-role-select
+        width: 100%
+        margin-right: 0
+      .inbox-toolbar .inbox-role-select
+        min-width: 0
   `],
   template: `
     <app-page pageTitle="Email inbox">
-      <div class="row mb-3">
-        <div class="col-sm-12 d-flex gap-2 align-items-center">
-          <div class="me-auto d-flex align-items-center gap-2">
+      <app-maximisable-panel #panel="maximisablePanel">
+      <div panelControls class="d-flex flex-nowrap gap-2 align-items-center flex-grow-1 inbox-toolbar">
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
             <fa-icon [icon]="faInbox" class="ramblers" size="lg"></fa-icon>
             @if (threadListUnreadCount > 0) {
               <span class="badge bg-warning text-dark">{{threadListUnreadCount}} unread</span>
@@ -178,6 +271,7 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
               }
             </select>
           }
+          <div class="ms-auto d-flex align-items-center gap-2 flex-shrink-0">
           <button class="btn btn-quiet text-nowrap flex-shrink-0" type="button" (click)="toggleLayout()" [tooltip]="stackedLayout ? 'Switch to side-by-side view' : 'Switch to stacked view'">
             <fa-icon [icon]="stackedLayout ? faTableColumns : faTableList" class="me-1"/>
             {{ stackedLayout ? 'Side-by-side' : 'Stacked' }}
@@ -201,17 +295,17 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
             <fa-icon [icon]="faRotateRight" class="me-1"></fa-icon>
             Refresh
           </button>
-        </div>
+          </div>
       </div>
       @if (aliases.length === 0) {
-        <div class="alert alert-warning">
+        <div class="alert alert-warning inbox-alert">
           <fa-icon [icon]="faTriangleExclamation"/>
           <strong class="ms-2">No role mailboxes connected -</strong>
           <span class="ms-1">An administrator can connect a mailbox in <a [routerLink]="['/admin/system-settings']" [queryParams]="{tab: 'external-systems', 'sub-tab': 'mail'}">System Settings &rarr; External Systems &rarr; Mail</a>, then point each committee role's Inbound Forwarding at it. Roles forwarding to a connected mailbox appear here automatically.</span>
         </div>
       }
       @if (selectedAlias(); as alias) {
-        <div class="alert alert-success py-2">
+        <div class="alert alert-success py-2 inbox-alert">
           <fa-icon [icon]="faEnvelope" class="me-2"/>
           <strong>Viewing mail for {{alias.roleEmail}}</strong>
           @if (!alias.mailboxConnection?.hasRefreshToken) {
@@ -280,15 +374,15 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
               <div class="flex-grow-1 min-w-0">
                 <div class="d-flex align-items-center gap-2">
                   @if (thread.unread) {
-                    <span class="inbox-unread-dot" aria-label="Unread"></span>
+                    <span class="inbox-unread-dot flex-shrink-0" aria-label="Unread"></span>
                   }
-                  <div class="inbox-thread-from flex-grow-1">{{thread.externalAddress.name ?? thread.externalAddress.email}}</div>
+                  <div class="inbox-thread-from flex-grow-1 text-truncate">{{thread.externalAddress.name ?? thread.externalAddress.email}}</div>
+                  <div class="inbox-thread-time flex-shrink-0">{{thread.lastSeenAt | date: "short"}}</div>
                 </div>
                 <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
                 @if (recipientForThread(thread); as roleEmail) {
-                  <div class="inbox-thread-subject">to {{roleEmail}}</div>
+                  <div class="inbox-thread-recipient">to {{roleEmail}}</div>
                 }
-                <div class="inbox-thread-time">{{thread.lastSeenAt | date: "short"}}</div>
               </div>
             </div>
           }
@@ -311,6 +405,14 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
                   <small class="text-muted d-block">To {{recipient}}</small>
                 }
               </div>
+              @if (selectedMessages.length > 1) {
+                <button class="btn btn-sm btn-quiet text-nowrap flex-shrink-0" type="button" (click)="toggleMessageSort()"
+                        placement="left" container="body"
+                        [tooltip]="messageSortDescending ? 'Showing newest first - click for oldest first' : 'Showing oldest first - click for newest first'">
+                  <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort" class="me-1"/>
+                  {{ messageSortDescending ? 'Newest first' : 'Oldest first' }}
+                </button>
+              }
               @if (selectedThread.folder === InboxThreadFolder.JUNK) {
                 <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="moveSelectedToInbox()">
                   <fa-icon [icon]="faInbox" class="me-1"></fa-icon>
@@ -319,11 +421,6 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
                 <button class="btn btn-sm inbox-action-btn text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="deleteCurrentThread()">
                   <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
                   Delete
-                </button>
-              } @else {
-                <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="prepareReply()">
-                  <fa-icon [icon]="faReply" class="me-1"></fa-icon>
-                  Reply
                 </button>
               }
             </div>
@@ -334,26 +431,51 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
           } @else if (loadingThread) {
             <div class="text-muted">Loading conversation...</div>
           } @else {
-            @for (message of selectedMessages; track message.messageId) {
-              <div class="inbox-message" [class.outbound]="message.direction === InboxMessageDirection.OUTBOUND">
-                <div class="inbox-message-headers">
-                  <strong>{{message.direction === InboxMessageDirection.OUTBOUND ? "Sent from this group" : (message.from.name ?? message.from.email)}}</strong>
-                  &middot; {{(message.receivedAt ?? message.sentAt) | date: "medium"}}
-                  <div>From: {{ formatAddresses([message.from]) }}</div>
-                  @if (message.to?.length) {
-                    <div>To: {{ formatAddresses(message.to) }}</div>
-                  }
-                  @if (message.cc?.length) {
-                    <div>Cc: {{ formatAddresses(message.cc) }}</div>
+            @for (message of displayMessages; track message.messageId) {
+              <div class="inbox-message" [class.outbound]="message.direction === InboxMessageDirection.OUTBOUND" [class.collapsed]="!isMessageExpanded(message)">
+                <div class="inbox-message-headers inbox-message-toggle d-flex align-items-start gap-2" (click)="toggleMessage(message)">
+                  <fa-icon [icon]="isMessageExpanded(message) ? faChevronDown : faChevronRight" class="mt-1 text-muted"/>
+                  <div class="flex-grow-1 min-w-0">
+                    <strong>{{message.direction === InboxMessageDirection.OUTBOUND ? "Sent from this group" : (message.from.name ?? message.from.email)}}</strong>
+                    &middot; {{(message.receivedAt ?? message.sentAt) | date: "medium"}}
+                    @if (isMessageExpanded(message)) {
+                      @if (message.cc?.length) {
+                        <div>Cc: {{ formatAddresses(message.cc) }}</div>
+                      }
+                    } @else {
+                      @if (message.to?.length || message.cc?.length) {
+                        <div class="inbox-message-preview">to {{ recipientSummary(message) }}</div>
+                      }
+                      <div class="inbox-message-preview">{{ messagePreview(message) }}</div>
+                    }
+                  </div>
+                  @if (message.direction === InboxMessageDirection.INBOUND) {
+                    <div class="inbox-reply-actions d-flex gap-1 flex-shrink-0">
+                      <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
+                              tooltip="Reply in email composer" placement="left" container="body" (click)="$event.stopPropagation(); prepareReply(message)">
+                        <fa-icon [icon]="faReply"/>
+                        <span class="inbox-reply-label">Reply</span>
+                      </button>
+                      @if (hasMultipleRecipients(message)) {
+                        <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
+                                tooltip="Reply all in email composer" placement="left" container="body" (click)="$event.stopPropagation(); prepareReplyAll(message)">
+                          <fa-icon [icon]="faReplyAll"/>
+                          <span class="inbox-reply-label">Reply all</span>
+                        </button>
+                      }
+                    </div>
                   }
                 </div>
-                <app-html-frame class="inbox-message-body" [html]="renderableBody(message)"/>
+                @if (isMessageExpanded(message)) {
+                  <app-html-frame class="inbox-message-body" [html]="renderableBody(message)"/>
+                }
               </div>
             }
           }
           </div>
         </div>
       </div>
+      </app-maximisable-panel>
       @if (notifyTarget.showAlert) {
         <div class="row mt-3">
           <div class="col-sm-12">
@@ -397,6 +519,12 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected readonly faTrash = faTrash;
   protected readonly faSearch = faSearch;
   protected readonly faListCheck = faListCheck;
+  protected readonly faChevronDown = faChevronDown;
+  protected readonly faChevronRight = faChevronRight;
+  protected readonly faReplyAll = faReplyAll;
+  protected readonly faArrowDownWideShort = faArrowDownWideShort;
+  protected readonly faArrowUpWideShort = faArrowUpWideShort;
+  public messageSortDescending = true;
   protected readonly InboxMessageDirection = InboxMessageDirection;
   protected readonly InboxViewScope = InboxViewScope;
   protected readonly InboxThreadFolder = InboxThreadFolder;
@@ -404,6 +532,22 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   get isInboxAdmin(): boolean {
     return this.memberLoginService.allowMemberAdminEdits();
+  }
+
+  get displayMessages(): InboxMessage[] {
+    return [...this.selectedMessages].sort((left, right) => {
+      const leftAt = left.receivedAt ?? left.sentAt ?? 0;
+      const rightAt = right.receivedAt ?? right.sentAt ?? 0;
+      return this.messageSortDescending ? rightAt - leftAt : leftAt - rightAt;
+    });
+  }
+
+  toggleMessageSort(): void {
+    this.messageSortDescending = !this.messageSortDescending;
+  }
+
+  hasMultipleRecipients(message: InboxMessage): boolean {
+    return ((message.to?.length ?? 0) + (message.cc?.length ?? 0)) > 1;
   }
 
   get viewingJunk(): boolean {
@@ -418,6 +562,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   public selectedThread: InboxThread | null = null;
   public selectedThreadId: string | null = null;
   public selectedMessages: InboxMessage[] = [];
+  public expandedMessageIds = new Set<string>();
   public loadingThread = false;
   public selectedMailboxView: string = InboxViewScope.ALL_ACCESSIBLE;
   public busy = false;
@@ -432,6 +577,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   private subscriptions: Subscription[] = [];
   private openThreadRequestId = 0;
+  private mailboxViewInitialised = false;
 
   async ngOnInit(): Promise<void> {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -512,6 +658,10 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.busy = true;
     try {
       this.aliases = await this.inboxService.listAliases();
+      if (!this.mailboxViewInitialised) {
+        this.applyMailboxViewFromUrl();
+        this.mailboxViewInitialised = true;
+      }
       if (this.viewingJunk && this.isInboxAdmin) {
         const junkResponse = await this.inboxService.listThreads(null, null, false, null, InboxThreadFolder.JUNK);
         this.threads = junkResponse.threads;
@@ -562,7 +712,36 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.selectedThreadId = null;
     this.selectedMessages = [];
     this.loadingThread = false;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {[StoredValue.MAILBOX_VIEW]: this.mailboxViewParam()},
+      queryParamsHandling: "merge",
+      replaceUrl: true
+    });
     await this.refresh();
+  }
+
+  private mailboxViewParam(): string {
+    if (values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope)) {
+      return this.selectedMailboxView;
+    }
+    const alias = this.aliases.find(candidate => candidate.roleType === this.selectedMailboxView);
+    return alias ? alias.roleEmail.split("@")[0] : this.selectedMailboxView;
+  }
+
+  private applyMailboxViewFromUrl(): void {
+    const param = this.route.snapshot.queryParams[StoredValue.MAILBOX_VIEW];
+    if (!param) {
+      return;
+    }
+    if (values(InboxViewScope).includes(param as InboxViewScope)) {
+      this.selectedMailboxView = param;
+    } else {
+      const alias = this.aliases.find(candidate => candidate.roleEmail.split("@")[0] === param);
+      if (alias) {
+        this.selectedMailboxView = alias.roleType;
+      }
+    }
   }
 
   threadIdOf(thread: InboxThread): string {
@@ -742,7 +921,8 @@ export class InboxComponent implements OnInit, OnDestroy {
         return;
       }
       this.selectedThread = response.thread;
-      this.selectedMessages = response.messages;
+      this.selectedMessages = this.collapseSends(response.messages);
+      this.expandedMessageIds = new Set(this.selectedMessages.length ? [this.selectedMessages[this.selectedMessages.length - 1].messageId] : []);
       this.loadingThread = false;
       if (thread.unread) {
         thread.unread = false;
@@ -760,22 +940,33 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
   }
 
-  async prepareReply(): Promise<void> {
+  async prepareReplyAll(message: InboxMessage): Promise<void> {
+    await this.prepareReply(message, true);
+  }
+
+  async prepareReply(message?: InboxMessage, replyAll = false): Promise<void> {
     if (!this.selectedThread || this.selectedMessages.length === 0) {
       return;
     }
-    const lastInbound = [...this.selectedMessages].reverse().find(msg => msg.direction === InboxMessageDirection.INBOUND);
-    if (!lastInbound) {
+    const target = message?.direction === InboxMessageDirection.INBOUND
+      ? message
+      : [...this.selectedMessages].reverse().find(msg => msg.direction === InboxMessageDirection.INBOUND);
+    if (!target) {
       this.notify.warning({title: "Reply", message: "No inbound message on this thread to reply to"});
       return;
     }
     try {
       const threadId = this.selectedThreadId ?? "";
-      const reply = await this.inboxService.composeReply(threadId, {threadId, messageId: lastInbound.messageId});
+      const reply = await this.inboxService.composeReply(threadId, {threadId, messageId: target.messageId});
+      if (replyAll) {
+        reply.cc = this.replyAllRecipients(reply, target);
+        reply.replyAll = true;
+      }
       this.inboxReplyHandoff.queue(reply);
       this.logger.info("Reply queued, navigating to composer:", reply);
+      const maximised = this.route.snapshot.queryParamMap.get(StoredValue.MAXIMISE) === "true";
       await this.router.navigate(["/admin/email-composer"], {
-        queryParams: {[StoredValue.BRANDING]: BrandingMode.UNBRANDED, [StoredValue.TAB]: EmailComposerStepKey.COMPOSE}
+        queryParams: {[StoredValue.BRANDING]: BrandingMode.UNBRANDED, [StoredValue.TAB]: EmailComposerStepKey.COMPOSE, [StoredValue.MAXIMISE]: maximised ? "true" : null}
       });
     } catch (error) {
       this.notify.error({title: "Reply", message: (error as Error).message});
@@ -783,8 +974,100 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
   }
 
+  private replyAllRecipients(reply: InboxReplyComposeResponse, target: InboxMessage): InboxAddress[] {
+    const excluded = new Set([reply.to.email.toLowerCase(), ...this.aliases.map(alias => alias.roleEmail.toLowerCase())]);
+    const seen = new Set<string>();
+    return [...(reply.cc ?? []), ...(target.to ?? []), ...(target.cc ?? [])].filter(address => {
+      const email = address.email.toLowerCase();
+      if (excluded.has(email) || seen.has(email)) {
+        return false;
+      }
+      seen.add(email);
+      return true;
+    });
+  }
+
   formatAddresses(addresses: InboxAddress[]): string {
     return (addresses ?? []).map(address => address.name ? `${address.name} <${address.email}>` : address.email).join(", ");
+  }
+
+  isMessageExpanded(message: InboxMessage): boolean {
+    return this.expandedMessageIds.has(message.messageId);
+  }
+
+  toggleMessage(message: InboxMessage): void {
+    if (this.expandedMessageIds.has(message.messageId)) {
+      this.expandedMessageIds.delete(message.messageId);
+    } else {
+      this.expandedMessageIds.add(message.messageId);
+    }
+  }
+
+  private dedupeMessages(messages: InboxMessage[]): InboxMessage[] {
+    const seen = new Set<string>();
+    return messages.filter(message => {
+      const key = message.externalId ?? message.messageId;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }
+
+  recipientSummary(message: InboxMessage): string {
+    return [...(message.to ?? []), ...(message.cc ?? [])]
+      .map(address => address.name ? address.name.split(" ")[0] : address.email.split("@")[0])
+      .join(", ");
+  }
+
+  private collapseSends(messages: InboxMessage[]): InboxMessage[] {
+    const windowMs = 5 * 60 * 1000;
+    return this.dedupeMessages(messages).reduce<InboxMessage[]>((groups, message) => {
+      const at = message.receivedAt ?? message.sentAt ?? 0;
+      const group = groups.find(existing => this.sendKey(existing) === this.sendKey(message)
+        && existing.direction === message.direction
+        && Math.abs((existing.receivedAt ?? existing.sentAt ?? 0) - at) <= windowMs);
+      if (group) {
+        group.to = this.unionAddresses(group.to, message.to);
+        group.cc = this.unionAddresses(group.cc, message.cc);
+        return groups;
+      }
+      return groups.concat({...message, to: [...(message.to ?? [])], cc: [...(message.cc ?? [])]});
+    }, []);
+  }
+
+  private sendKey(message: InboxMessage): string {
+    const subject = (message.subject ?? "").replace(/^(?:re|fwd?|aw)\s*:\s*/gi, "").trim().toLowerCase();
+    return `${(message.from?.email ?? "").toLowerCase()}|${subject}`;
+  }
+
+  private unionAddresses(existing: InboxAddress[], incoming: InboxAddress[]): InboxAddress[] {
+    const seen = new Set((existing ?? []).map(address => address.email.toLowerCase()));
+    return (incoming ?? []).reduce((merged, address) => {
+      if (seen.has(address.email.toLowerCase())) {
+        return merged;
+      }
+      seen.add(address.email.toLowerCase());
+      return merged.concat(address);
+    }, [...(existing ?? [])]);
+  }
+
+  messagePreview(message: InboxMessage): string {
+    const raw = message.bodyText?.trim() ? message.bodyText : (message.bodyHtml ?? "");
+    const cleaned = raw
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<head[\s\S]*?<\/head>/gi, " ")
+      .replace(/<!--[\s\S]*?-->/g, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&#39;|&apos;/gi, "'")
+      .replace(/&quot;/gi, "\"");
+    return cleaned.replace(/\s+/g, " ").trim().slice(0, 140);
   }
 
   recipientForThread(thread: InboxThread): string | null {
