@@ -1,0 +1,287 @@
+.recipient-field
+  border: 1px solid #dee2e6
+  border-radius: 8px
+  padding: 4px 12px 12px
+
+.recipient-line
+  position: relative
+  display: flex
+  align-items: flex-start
+  gap: 10px
+  padding: 8px 0
+  border-bottom: 1px solid #f0f1f3
+  &.is-active
+    border-bottom-color: #f29401
+
+.recipient-line-label
+  flex: 0 0 auto
+  width: 34px
+  padding-top: 6px
+  font-size: 14px
+  color: #6c757d
+
+.recipient-line-tokens
+  flex: 1 1 auto
+  min-width: 0
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  gap: 6px
+
+.recipient-chip
+  display: inline-flex
+  align-items: center
+  gap: 6px
+  max-width: 100%
+  padding: 3px 4px 3px 12px
+  background: #fff5f0
+  border: 1px solid #f08050
+  border-radius: 16px
+  font-size: 13px
+  cursor: grab
+  user-select: none
+  &:hover
+    border-color: #d85a30
+  &:active
+    cursor: grabbing
+
+.recipient-chip-label
+  max-width: 240px
+  padding: 0
+  border: none
+  background: transparent
+  font-size: 13px
+  font-weight: 600
+  color: #9b2c2c
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+  cursor: pointer
+
+.recipient-chip.is-editing
+  border-color: #d85a30
+  background: #ffe1d2
+
+.recipient-chip-remove
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 18px
+  height: 18px
+  padding: 0
+  border: none
+  border-radius: 50%
+  background: transparent
+  color: #6c757d
+  cursor: pointer
+  &:hover
+    background: #f7ddcf
+    color: #212529
+
+.recipient-input
+  flex: 1 1 120px
+  min-width: 120px
+  height: 30px
+  border: none
+  background: transparent
+  font-size: 14px
+  &:focus
+    outline: none
+
+.recipient-line-aux
+  flex: 0 0 auto
+  display: flex
+  gap: 12px
+  padding-top: 6px
+
+.recipient-reveal
+  padding: 0
+  border: none
+  background: transparent
+  font-size: 13px
+  color: #6c757d
+  cursor: pointer
+  &:hover
+    color: #f29401
+
+.recipient-line-hint
+  position: absolute
+  right: 0
+  bottom: 2px
+  font-size: 11px
+  color: #adb5bd
+
+.recipient-suggestions
+  position: absolute
+  left: 34px
+  right: 0
+  top: 100%
+  z-index: 20
+  margin: 4px 0 0
+  padding: 4px 0
+  list-style: none
+  background: #fff
+  border: 1px solid #dee2e6
+  border-radius: 8px
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08)
+
+.recipient-suggestions-heading
+  padding: 4px 14px
+  font-size: 11px
+  text-transform: uppercase
+  letter-spacing: 0.04em
+  color: #adb5bd
+
+.recipient-suggestion
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 12px
+  width: 100%
+  padding: 7px 14px
+  border: none
+  background: transparent
+  text-align: left
+  cursor: pointer
+  &:hover,
+  &.is-active
+    background: #fff8eb
+
+.recipient-suggestion-main
+  min-width: 0
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+  font-size: 13px
+
+.recipient-suggestion-email
+  margin-left: 8px
+  color: #6c757d
+
+.recipient-suggestion-meta
+  flex: 0 0 auto
+  font-size: 12px
+  color: #adb5bd
+
+.recipient-error
+  margin: 4px 0 0 44px
+  font-size: 13px
+  color: #dc3545
+
+.recipient-save
+  display: flex
+  align-items: center
+  gap: 8px
+  margin: 12px 0 0
+  font-size: 13px
+  color: #6c757d
+  cursor: pointer
+  .form-check-input
+    flex: 0 0 auto
+    margin: 0
+    float: none
+
+.recipient-editor-backdrop
+  position: fixed
+  inset: 0
+  z-index: 30
+
+.recipient-editor
+  position: absolute
+  left: 34px
+  top: 100%
+  z-index: 31
+  width: 280px
+  margin-top: 4px
+  padding: 12px 14px
+  background: #fff
+  border: 1px solid #dee2e6
+  border-radius: 8px
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12)
+
+.recipient-editor-address
+  margin-bottom: 10px
+  padding-bottom: 10px
+  border-bottom: 1px solid #f0f1f3
+  font-size: 13px
+  font-weight: 500
+  color: #343a40
+  word-break: break-all
+
+.recipient-editor-row
+  display: flex
+  align-items: center
+  gap: 10px
+  margin-bottom: 10px
+
+.recipient-editor-caption
+  flex: 0 0 38px
+  font-size: 12px
+  color: #6c757d
+
+.recipient-editor-input
+  flex: 1 1 auto
+  height: 32px
+  padding: 0 8px
+  border: 1px solid #ced4da
+  border-radius: 6px
+  font-size: 13px
+  &:focus
+    outline: none
+    border-color: #f29401
+
+.recipient-editor-switch
+  display: inline-flex
+  border: 1px solid #ced4da
+  border-radius: 6px
+  overflow: hidden
+  button
+    padding: 5px 12px
+    border: none
+    border-left: 1px solid #ced4da
+    background: #fff
+    font-size: 13px
+    color: #495057
+    cursor: pointer
+    &:first-child
+      border-left: none
+    &:hover
+      background: #f8f9fa
+    &.is-current
+      background: #f29401
+      color: #fff
+      cursor: default
+
+.recipient-editor-check
+  display: flex
+  align-items: center
+  gap: 8px
+  margin: 0 0 10px
+  font-size: 13px
+  color: #495057
+  cursor: pointer
+  .form-check-input
+    flex: 0 0 auto
+    margin: 0
+    float: none
+
+.recipient-editor-saved
+  display: flex
+  align-items: center
+  gap: 6px
+  margin: 0 0 10px
+  font-size: 13px
+  color: #1d9e75
+
+.recipient-editor-remove
+  display: inline-flex
+  align-items: center
+  gap: 6px
+  padding: 0
+  border: none
+  background: transparent
+  font-size: 13px
+  color: #dc3545
+  cursor: pointer
+  &:hover
+    text-decoration: underline

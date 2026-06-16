@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
-import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
+import { NgLabelTemplateDirective, NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -15,7 +15,43 @@ import { MemberEmailSendService } from "../../../services/member-email-send/memb
 
 @Component({
   selector: "app-member-multi-select",
-  imports: [FormsModule, NgSelectComponent, NgOptgroupTemplateDirective],
+  imports: [FormsModule, NgSelectComponent, NgOptgroupTemplateDirective, NgLabelTemplateDirective],
+  styles: [`
+    :host ::ng-deep .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value
+      display: inline-flex
+      align-items: center
+      padding: 2px 8px 2px 14px
+      background-color: #fff5f0
+      border: 1px solid #f08050
+      border-radius: 16px
+      font-size: 13px
+      color: #9b2c2c
+      overflow: hidden
+    :host ::ng-deep .ng-select.ng-select-multiple .ng-value .member-chip-name
+      font-weight: 600
+    :host ::ng-deep .ng-select.ng-select-multiple .ng-value .member-chip-qualifier
+      margin-left: 7px
+      font-size: 12.5px
+      font-weight: 400
+      color: #495057
+    :host ::ng-deep .ng-select.ng-select-multiple .ng-value .member-chip-remove
+      display: inline-flex
+      align-items: center
+      justify-content: center
+      width: 18px
+      height: 18px
+      margin-left: 8px
+      border-radius: 50%
+      font-size: 16px
+      line-height: 1
+      color: #6c757d
+      cursor: pointer
+    :host ::ng-deep .ng-select.ng-select-multiple .ng-value .member-chip-remove:hover
+      background-color: #f7ddcf
+      color: #212529
+    :host ::ng-deep .ng-select.ng-select-multiple .ng-value.ng-value-disabled .member-chip-remove
+      display: none
+  `],
   template: `
     @if (!lockedSelection) {
       <div class="mb-2">
@@ -53,13 +89,14 @@ import { MemberEmailSendService } from "../../../services/member-email-send/memb
                    [groupValue]="groupValue"
                    [multiple]="true"
                    [closeOnSelect]="false"
-                   [clearSearchOnAdd]="true"
+                   [clearSearchOnAdd]="false"
                    (change)="onChange()"
                    [(ngModel)]="selectedIds">
           <ng-template ng-optgroup-tmp let-item="item">
             <span class="group-header">{{ groupLabel(item.name) }}</span>
             <span class="ms-1 badge bg-secondary badge-group">{{ item.total }}</span>
           </ng-template>
+          <ng-template ng-label-tmp let-item="item" let-clear="clear"><span class="member-chip-name">{{ item.memberName }}</span>@if (item.memberQualifier) {<span class="member-chip-qualifier">{{ item.memberQualifier }}</span>}<span class="member-chip-remove" role="button" aria-label="Remove" (click)="clear(item)">×</span></ng-template>
         </ng-select>
       </div>
     </div>`
@@ -211,13 +248,13 @@ export class MemberMultiSelect implements OnChanges {
     return !!member.id && isNumber(this.unsubscribedDates[member.id]);
   }
 
-  private suppressionSuffix(member: Member): string | null {
+  private suppressionQualifier(member: Member): string | null {
     const unsubscribedAt = member.id ? this.unsubscribedDates[member.id] : undefined;
     if (isNumber(unsubscribedAt)) {
-      return ` (unsubscribed ${this.dateUtils.displayDate(unsubscribedAt)})`;
+      return `unsubscribed ${this.dateUtils.displayDate(unsubscribedAt)}`;
     }
     if (member.emailBlock?.blockedAt) {
-      return ` (blocked ${this.dateUtils.displayDate(member.emailBlock.blockedAt)})`;
+      return `blocked ${this.dateUtils.displayDate(member.emailBlock.blockedAt)}`;
     }
     return null;
   }
@@ -311,8 +348,20 @@ export class MemberMultiSelect implements OnChanges {
     const today = this.dateUtils.dateTimeNowNoTime().toMillis();
     const expired = !noEmail && !suppressed && !!member.membershipExpiryDate && member.membershipExpiryDate < today;
     const memberGrouping = this.memberGroupingFor(noEmail, suppressed, consentMissing, expired);
-    const memberInformation = `${this.fullNameWithAlias.transform(member)}${this.contextualSuffix(member, preFilterKey, memberGrouping)}`;
-    return { id: member.id, member, memberInformation, memberGrouping, disabled };
+    const memberName = this.fullNameWithAlias.transform(member);
+    const memberQualifier = this.qualifierLabel(this.contextualQualifier(member, preFilterKey, memberGrouping));
+    const memberInformation = memberQualifier ? `${memberName} (${memberQualifier})` : memberName;
+    return { id: member.id, member, memberInformation, memberName, memberQualifier, memberGrouping, disabled };
+  }
+
+  private qualifierLabel(qualifier: string): string {
+    if (qualifier === "active members with consent given") {
+      return "with Head Office consent";
+    }
+    if (qualifier === "members without Head Office consent") {
+      return "without Head Office consent";
+    }
+    return qualifier;
   }
 
   private memberGroupingFor(noEmail: boolean, suppressed: boolean, consentMissing: boolean, expired: boolean): string {
@@ -323,32 +372,32 @@ export class MemberMultiSelect implements OnChanges {
     return "active members with consent given";
   }
 
-  private contextualSuffix(member: Member, preFilterKey: MemberSelection | null, memberGrouping: string): string {
-    const suppressionSuffix = this.suppressionSuffix(member);
-    if (suppressionSuffix) {
-      return suppressionSuffix;
+  private contextualQualifier(member: Member, preFilterKey: MemberSelection | null, memberGrouping: string): string {
+    const suppressionQualifier = this.suppressionQualifier(member);
+    if (suppressionQualifier) {
+      return suppressionQualifier;
     }
     const priorSendDate = this.priorSendDateFor(member);
     if (priorSendDate) {
-      return ` (already sent ${this.dateUtils.displayDate(priorSendDate)})`;
+      return `already sent ${this.dateUtils.displayDate(priorSendDate)}`;
     }
     switch (preFilterKey) {
       case MemberSelection.RECENTLY_ADDED:
         return member.createdDate
-          ? ` (created ${this.dateUtils.displayDate(member.createdDate)})`
-          : ` (${memberGrouping})`;
+          ? `created ${this.dateUtils.displayDate(member.createdDate)}`
+          : memberGrouping;
       case MemberSelection.EXPIRED_MEMBERS:
         return member.membershipExpiryDate
-          ? ` (expired ${this.dateUtils.displayDate(member.membershipExpiryDate)})`
-          : ` (${memberGrouping})`;
+          ? `expired ${this.dateUtils.displayDate(member.membershipExpiryDate)}`
+          : memberGrouping;
       case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS: {
         const lastBulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] : null;
         return lastBulkLoadDate
-          ? ` (last bulk load ${this.dateUtils.displayDate(lastBulkLoadDate)})`
-          : ` (${memberGrouping})`;
+          ? `last bulk load ${this.dateUtils.displayDate(lastBulkLoadDate)}`
+          : memberGrouping;
       }
       default:
-        return ` (${memberGrouping})`;
+        return memberGrouping;
     }
   }
 

@@ -267,6 +267,12 @@ function externalMemberMergeFields(recipient: ComposerExternalRecipient): SendSm
   };
 }
 
+function contentHasMemberMergeFields(request: BatchTransactionalSendRequest): boolean {
+  return [request.subject, request.htmlBody, request.htmlBodyTop, request.htmlBodyBottom]
+    .filter(Boolean)
+    .some(value => String(value).includes("memberMergeFields"));
+}
+
 async function performInboxReplyWriteback(request: BatchTransactionalSendRequest, emailRequest: SendSmtpEmailRequest, brevoMessageId: string | null, transactionalDebugLog: debug.Debugger): Promise<void> {
   const context = request.inboxReplyContext;
   if (!context) {
@@ -417,9 +423,10 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       status: BatchSendEntryStatus.Pending
     } satisfies BatchSendProgressEntry));
 
+    const personalised = contentHasMemberMergeFields(request);
     const workItems: WorkItem[] = [
       ...memberEntries.map(entry => ({ kind: "member" as const, memberRecord: membersById.get(entry.memberId)!, entry })),
-      ...externalEntries.map((entry, idx) => ({ kind: "external" as const, recipient: externalRecipients[idx], entry }))
+      ...(personalised ? externalEntries.map((entry, idx) => ({ kind: "external" as const, recipient: externalRecipients[idx], entry })) : [])
     ];
 
     progress.entries = [...memberEntries, ...externalEntries];
@@ -457,7 +464,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       }
       try {
         const memberMergeFieldsValue = item.kind === "member"
-          ? memberMergeFields(item.memberRecord, item.memberRecord.membershipExpiryDate ? dateTimeFromMillis(item.memberRecord.membershipExpiryDate).toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES) : "")
+          ? memberMergeFields(item.memberRecord, item.memberRecord.membershipExpiryDate ? dateTimeFromMillis(item.memberRecord.membershipExpiryDate).toFormat(UIDateFormat.DISPLAY_DATE) : "")
           : externalMemberMergeFields(item.recipient);
         const params: SendSmtpEmailParams = {
           messageMergeFields: {
@@ -516,6 +523,63 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         progress.failedCount += 1;
       }
       await delay(SEND_DELAY_MS);
+    }
+
+    if (!personalised && !cancelled.has(jobId) && externalRecipients.length > 0) {
+      try {
+        const externalParams: SendSmtpEmailParams = {
+          messageMergeFields: {
+            subject: null as unknown as string,
+            BANNER_IMAGE_SOURCE: bannerImageSrc,
+            ADDRESS_LINE: addressLineFor(request.addresseeType),
+            BODY_CONTENT: request.htmlBody,
+            BODY_CONTENT_TOP: request.htmlBodyTop ?? "",
+            BODY_CONTENT_BOTTOM: request.htmlBodyBottom ?? "",
+            ACCENT_COLOR: resolveAccentColor(notifConfig?.accentColor)
+          },
+          memberMergeFields: externalMemberMergeFields({ email: "", name: "" } as ComposerExternalRecipient),
+          systemMergeFields: systemMergeFields(systemCfg, groupHref, ""),
+          accountMergeFields: accountFields
+        };
+        const externalSubject = notifConfig ? buildSubject(notifConfig, request.subject, externalParams) : request.subject;
+        externalParams.messageMergeFields.subject = externalSubject;
+        const externalReplyHeaders = request.inboxReplyContext
+          ? {"In-Reply-To": request.inboxReplyContext.inReplyTo, "References": request.inboxReplyContext.references.join(" ")}
+          : undefined;
+        const externalEmailRequest: SendSmtpEmailRequest = {
+          subject: externalSubject,
+          sender,
+          to: externalRecipients.map(recipient => ({ email: recipient.email, name: externalRecipientName(recipient).full })),
+          replyTo,
+          cc: ccAddresses.length > 0 ? ccAddresses : undefined,
+          bcc: combinedBcc.length > 0 ? combinedBcc : undefined,
+          listId: notifConfig?.defaultListId,
+          params: externalParams,
+          headers: externalReplyHeaders,
+          brandingMode: request.brandingMode,
+          ...(isUnbranded
+            ? { htmlContent: request.htmlBody }
+            : { templateName: notifConfig!.templateName, templateOverrides: notifConfig!.templateOverrides, body: notifConfig!.body })
+        };
+        const externalSendResult = await sendTransactionalEmailRequest(externalEmailRequest, debugLog, baseUrl);
+        const sentAt = dateTimeNow().toMillis();
+        externalEntries.forEach(entry => { entry.status = BatchSendEntryStatus.Sent; entry.sentAt = sentAt; });
+        progress.sentCount += externalEntries.length;
+        if (request.inboxReplyContext) {
+          await performInboxReplyWriteback(request, externalEmailRequest, externalSendResult?.body?.messageId ?? null, debugLog);
+        }
+        if (currentMemberId) {
+          await externalRecipients.reduce<Promise<void>>(async (acc, recipient) => {
+            await acc;
+            await recordSendUsage({ email: recipient.email, name: recipient.name, createdBy: currentMemberId, saveForReuse: recipient.saveForReuse !== false });
+          }, Promise.resolve());
+        }
+      } catch (error: any) {
+        const failureMessage = describeBrevoError(error);
+        externalEntries.forEach(entry => { entry.status = BatchSendEntryStatus.Failed; entry.errorMessage = failureMessage; });
+        progress.failedCount += externalEntries.length;
+        debugLog("combined external send failed:", failureMessage, "raw:", error);
+      }
     }
 
     progress.completedAt = dateTimeNow().toMillis();

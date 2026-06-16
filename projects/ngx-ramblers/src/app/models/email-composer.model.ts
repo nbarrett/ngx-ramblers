@@ -350,6 +350,12 @@ export enum RecipientField {
   BCC = "bcc"
 }
 
+export interface RecipientFieldConfig {
+  key: RecipientField;
+  label: string;
+  hint: string;
+}
+
 export interface BatchTransactionalSendRequest {
   notificationConfigId?: string;
   bannerId: string | null;

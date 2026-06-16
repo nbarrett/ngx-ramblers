@@ -20,3 +20,8 @@ export enum TokenPopupType {
   Field = "field",
   Link = "link"
 }
+
+export enum EditorFocusPosition {
+  START = "start",
+  END = "end"
+}

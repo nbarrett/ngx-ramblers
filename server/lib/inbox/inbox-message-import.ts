@@ -26,7 +26,13 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
   const existingThread = await findExistingThread(aliasConfig, message, folder);
   const now = dateTimeNow().toMillis();
   const thread = existingThread ?? await createThread(aliasConfig, message, now, folder);
-  const persistedMessage = await inboxMessageModel.create({...message, threadId: thread.id ?? thread["_id"]?.toString() ?? "", mailboxConnectionId: aliasConfig.mailboxConnectionId});
+  const threadId = thread.id ?? thread["_id"]?.toString() ?? "";
+  const alreadyStored = await inboxMessageModel.findOne({threadId, messageId: message.messageId}).lean();
+  if (alreadyStored) {
+    debugLog(`↩︎ message ${message.messageId} already stored on thread ${threadId}; skipping duplicate`);
+    return alreadyStored as unknown as InboxMessage;
+  }
+  const persistedMessage = await inboxMessageModel.create({...message, threadId, mailboxConnectionId: aliasConfig.mailboxConnectionId});
   await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {
     $set: {
       lastSeenAt: now,

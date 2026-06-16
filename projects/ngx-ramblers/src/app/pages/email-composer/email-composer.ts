@@ -26,7 +26,6 @@ import {
   faFolderOpen,
   faGripLines,
   faGripVertical,
-  faInbox,
   faPaperPlane,
   faPlus,
   faSignature,
@@ -112,7 +111,9 @@ import { StringUtilsService } from "../../services/string-utils.service";
 import { UrlService } from "../../services/url.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { TiptapMarkdownEditor } from "../../modules/common/tiptap-editor/tiptap-markdown-editor";
+import { MaximisablePanelComponent } from "../../modules/common/maximisable-panel/maximisable-panel";
 import { MemberMultiSelect } from "../../modules/common/member-multi-select/member-multi-select";
+import { RecipientFieldComponent } from "../../modules/common/recipient-field/recipient-field";
 import { ArticleBlockSingleEditor } from "../../modules/common/article-blocks/article-block-single-editor";
 import { SectionDividerSelectComponent } from "../../modules/common/section-divider-select/section-divider-select";
 import { EmailComposerRenderingService } from "../../services/email-composer/email-composer-rendering.service";
@@ -195,8 +196,10 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
     SiteLinkInputComponent,
     CommitteeFileMultiSelectComponent,
     TiptapMarkdownEditor,
+    MaximisablePanelComponent,
     SectionDividerSelectComponent,
     MemberMultiSelect,
+    RecipientFieldComponent,
     ArticleBlockSingleEditor,
     NotificationConfigSelectorComponent,
     SenderRepliesAndSignoff,
@@ -213,6 +216,32 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
   ],
   template: `
     <app-page autoTitle pageTitle="Email Composer">
+      <app-maximisable-panel #composerPanel="maximisablePanel">
+      <div panelControls class="composer-workspace-bar">
+        <div class="composer-workspace-status">
+          @if (currentComposition) {
+            {{ lastSavedDescription() }}
+          } @else if (inboxReplyContext) {
+            Reply draft
+          } @else {
+            New draft
+          }
+        </div>
+        <div class="composer-workspace-actions">
+          <button type="button" class="btn btn-quiet" (click)="exitComposer()">
+            <fa-icon [icon]="faXmark" class="me-1"/>Exit composer
+          </button>
+        </div>
+      </div>
+      @if (notifyTarget.showAlert) {
+        <div class="alert {{notifyTarget.alertClass}} composer-workspace-alert">
+          <fa-icon [icon]="notifyTarget.alert.icon"/>
+          @if (notifyTarget.alertTitle) {
+            <strong>{{ notifyTarget.alertTitle }}: </strong>
+          }
+          {{ notifyTarget.alertMessage }}
+        </div>
+      }
       <div class="row mb-3">
         <div class="col-sm-12">
           <p-stepper [value]="$any(stepperActiveTab)" (valueChange)="onStepperValueChange($event)" [linear]="false">
@@ -264,19 +293,6 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
           </p-stepper>
         </div>
       </div>
-      @if (notifyTarget.showAlert) {
-        <div class="row">
-          <div class="col-sm-12">
-            <div class="alert {{notifyTarget.alertClass}}">
-              <fa-icon [icon]="notifyTarget.alert.icon"/>
-              @if (notifyTarget.alertTitle) {
-                <strong>{{ notifyTarget.alertTitle }}: </strong>
-              }
-              {{ notifyTarget.alertMessage }}
-            </div>
-          </div>
-        </div>
-      }
       @if (draftsPanelOpen) {
         <div class="email-composer-drafts-panel">
           @if (drafts.length === 0) {
@@ -340,6 +356,16 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
           }
         </div>
       }
+      @if (!sendComplete()) {
+        <div class="composer-options-strip">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" id="composition-shared"
+                   [checked]="composeShared"
+                   (change)="onSharedToggled($any($event.target).checked)">
+            <label class="form-check-label ms-2" for="composition-shared">Other committee members can load, edit and send this email</label>
+          </div>
+        </div>
+      }
       <div class="email-composer-action-bar">
         @if (!sendComplete()) {
           <div class="email-composer-toolbar">
@@ -375,11 +401,6 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
             <button type="button" class="btn btn-quiet" (click)="newComposition()" [disabled]="!hasContentToDraft()">
               <fa-icon [icon]="faFile" class="me-1"/>New
             </button>
-            @if (inboxReplyContext) {
-              <button type="button" class="btn btn-quiet" (click)="returnToInbox()">
-                <fa-icon [icon]="faInbox" class="me-1"/>Back to inbox
-              </button>
-            }
           </div>
         }
         <div class="stepper-nav">
@@ -440,20 +461,6 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
           }
         </div>
       </div>
-      @if (currentComposition && !sendComplete()) {
-        <div class="text-muted small mb-2">{{ lastSavedDescription() }}</div>
-      }
-      @if (!sendComplete()) {
-        <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-          <div class="form-check mb-0">
-            <input class="form-check-input" type="checkbox" id="composition-shared"
-                   [checked]="composeShared"
-                   (change)="onSharedToggled($any($event.target).checked)">
-            <label class="form-check-label ms-2" for="composition-shared">Let other committee members load, edit and send this email</label>
-          </div>
-          <a href="javascript:void(0)" class="small" (click)="copyComposerStateAsJson()">Copy state as JSON</a>
-        </div>
-      }
       <div class="d-none">
         @for (fragment of state.fragmentOrder ?? []; track fragment.id) {
           @if (fragment.kind === ComposerFragmentKind.COMMITTEE_FILE) {
@@ -506,11 +513,14 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
       <div class="d-none">
         <ng-template app-notification-directive/>
       </div>
+      </app-maximisable-panel>
     </app-page>
 
     <ng-template #recipientsStep>
       <div class="email-composer-section">
-        <h3>Who is this email going to?</h3>
+        @if (state.brandingMode !== BrandingMode.UNBRANDED) {
+          <h3>Who is this email going to?</h3>
+        }
         @if (bulkDeletionPending() || recipientsStepErrors().length > 0 || priorSendExclusions.length > 0) {
           <div class="email-composer-validation-summary">
             @if (bulkDeletionPending()) {
@@ -561,205 +571,35 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
           <fieldset class="email-composer-fieldset">
             <legend>
               <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset"
-                      (click)="addExternalExpanded = !addExternalExpanded"
-                      [attr.aria-expanded]="addExternalExpanded">
-                <fa-icon [icon]="addExternalExpanded ? faChevronDown : faChevronRight" class="me-1"/>
-                Send to an email address
+                      (click)="recipientsPanelExpanded = !recipientsPanelExpanded"
+                      [attr.aria-expanded]="recipientsPanelExpanded">
+                <fa-icon [icon]="recipientsPanelExpanded ? faChevronDown : faChevronRight" class="me-1"/>
+                Who is this email going to?
               </button>
             </legend>
-            @if (addExternalExpanded) {
-              <p class="text-muted small mb-2">Type any address you want this message to go to. The name auto-fills from the local part, but you can edit it. Press <kbd>Enter</kbd> or click Add.</p>
-              <div class="row g-2 align-items-end">
-                <div class="col-sm-5">
-                  <label for="external-email" class="form-label fw-bold mb-1">Email address</label>
-                  <input id="external-email" type="email" class="form-control"
-                         [ngModel]="newExternalEmail"
-                         (ngModelChange)="onNewExternalEmailChange($event)"
-                         (keyup.enter)="addExternalRecipient()"
-                         placeholder="name@example.com"
-                         [class.is-invalid]="!!newExternalEmailError">
-                  @if (newExternalEmailError) {
-                    <small class="text-danger">{{ newExternalEmailError }}</small>
-                  }
+            @if (recipientsPanelExpanded) {
+              <app-recipient-field
+                [to]="state.externalRecipients" (toChange)="state.externalRecipients = $event"
+                [cc]="state.ccRecipients" (ccChange)="state.ccRecipients = $event"
+                [bcc]="state.bccRecipients" (bccChange)="state.bccRecipients = $event"
+                [savedRecipients]="savedExternalRecipients"
+                [(saveForReuse)]="newExternalSaveForReuse"/>
+              @if (replyCcSuggestion.length > 0) {
+                <div class="email-composer-validation-summary d-flex align-items-start justify-content-between gap-3 mt-2">
+                  <div>
+                    <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Replying from a shared inbox</h5>
+                    <span>Also Cc the other roles - <strong>{{ replyCcSuggestionLabel() }}</strong>?</span>
+                  </div>
+                  <span class="text-nowrap">
+                    <button type="button" class="btn btn-sm btn-primary me-2" (click)="applyReplyCcSuggestion()">Cc these roles</button>
+                    <button type="button" class="btn btn-sm btn-link text-decoration-none" (click)="replyCcSuggestion = []">Dismiss</button>
+                  </span>
                 </div>
-                <div class="col-sm-4">
-                  <label for="external-name" class="form-label fw-bold mb-1">Name (optional)</label>
-                  <input id="external-name" type="text" class="form-control"
-                         [(ngModel)]="newExternalName"
-                         (input)="newExternalNameEdited = true"
-                         (keyup.enter)="addExternalRecipient()"
-                         placeholder="Recipient name">
-                </div>
-                <div class="col-sm-3">
-                  <button type="button" class="btn btn-primary w-100" (click)="addExternalRecipient()">
-                    <fa-icon [icon]="faPlus"/> Add
-                  </button>
-                </div>
-              </div>
-              <div class="form-check mt-2">
-                <input class="form-check-input" type="checkbox" id="save-for-reuse"
-                       [(ngModel)]="newExternalSaveForReuse">
-                <label class="form-check-label small" for="save-for-reuse">
-                  Save this address for re-use in future unbranded sends (stamped with your name and the date so others can pick it later)
-                </label>
-              </div>
+              }
             } @else {
-              <p class="text-muted small mb-0">Expand to type an individual email address to send this to.</p>
+              <p class="text-muted small mb-0">{{ externalRecipientsSummaryLabel() }}</p>
             }
           </fieldset>
-          @if (state.externalRecipients.length > 0) {
-            <fieldset class="email-composer-fieldset">
-              <legend>
-                <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset"
-                        (click)="recipientsForSendExpanded = !recipientsForSendExpanded"
-                        [attr.aria-expanded]="recipientsForSendExpanded">
-                  <fa-icon [icon]="recipientsForSendExpanded ? faChevronDown : faChevronRight" class="me-1"/>
-                  Recipients for this send ({{ state.externalRecipients.length }})
-                </button>
-              </legend>
-              @if (recipientsForSendExpanded) {
-                <ul class="list-unstyled mb-0">
-                  @for (recipient of state.externalRecipients; track recipient.email; let idx = $index) {
-                    <li class="d-flex align-items-center gap-2 py-1">
-                      <span class="flex-grow-1">
-                        <strong>{{ recipient.email }}</strong>
-                        @if (recipient.name) { <span class="text-muted"> &mdash; {{ recipient.name }}</span> }
-                        @if (recipientAlreadySaved(recipient)) {
-                          <span class="badge bg-light text-muted ms-2">Already saved</span>
-                        } @else if (recipient.saveForReuse) {
-                          <span class="badge bg-light text-muted ms-2">Will be saved for re-use</span>
-                        }
-                      </span>
-                      <span class="text-muted small">Move to</span>
-                      <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.TO, RecipientField.CC)" title="Move to Cc">Cc</button>
-                      <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.TO, RecipientField.BCC)" title="Move to Bcc">Bcc</button>
-                      <button type="button" class="btn btn-sm btn-danger" (click)="removeExternalRecipient(idx)" title="Remove" aria-label="Remove">
-                        <fa-icon [icon]="faXmark"/>
-                      </button>
-                    </li>
-                  }
-                </ul>
-              } @else {
-                <p class="text-muted small mb-0">{{ stringUtils.pluraliseWithCount(state.externalRecipients.length, "recipient") }} added - expand to view or remove.</p>
-              }
-            </fieldset>
-          }
-          @if (replyCcSuggestion.length > 0) {
-            <div class="email-composer-validation-summary d-flex align-items-start justify-content-between gap-3 mt-2">
-              <div>
-                <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Replying from a shared inbox</h5>
-                <span>Also Cc the other roles - <strong>{{ replyCcSuggestionLabel() }}</strong>?</span>
-              </div>
-              <span class="text-nowrap">
-                <button type="button" class="btn btn-sm btn-primary me-2" (click)="applyReplyCcSuggestion()">Cc these roles</button>
-                <button type="button" class="btn btn-sm btn-link text-decoration-none" (click)="replyCcSuggestion = []">Dismiss</button>
-              </span>
-            </div>
-          }
-          <div class="email-composer-recipient-toggles mt-2">
-            @if (!showCc) {
-              <button type="button" class="btn btn-sm btn-quiet email-composer-recipient-toggle" (click)="showCc = true">+ Add Cc</button>
-            }
-            @if (!showBcc) {
-              <button type="button" class="btn btn-sm btn-quiet email-composer-recipient-toggle" (click)="showBcc = true">+ Add Bcc</button>
-            }
-          </div>
-          @if (showCc) {
-            <fieldset class="email-composer-fieldset mt-2">
-              <legend>
-                <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset" (click)="ccExpanded = !ccExpanded" [attr.aria-expanded]="ccExpanded">
-                  <fa-icon [icon]="ccExpanded ? faChevronDown : faChevronRight" class="me-1"/>
-                  Cc <span class="text-muted small">(visible to all recipients)</span>@if (state.ccRecipients.length > 0) {<span class="text-muted small"> ({{ state.ccRecipients.length }})</span>}
-                </button>
-              </legend>
-              @if (ccExpanded) {
-                <div class="input-group">
-                  <input type="email" class="form-control" [(ngModel)]="newCcEmail" (keyup.enter)="addCcRecipient()" placeholder="name@example.com">
-                  <button type="button" class="btn btn-primary px-3 text-nowrap flex-shrink-0" (click)="addCcRecipient()"><fa-icon [icon]="faPlus" class="me-1"/>Add</button>
-                </div>
-                @if (state.ccRecipients.length > 0) {
-                  <ul class="list-unstyled mb-0 mt-2">
-                    @for (recipient of state.ccRecipients; track recipient.email; let idx = $index) {
-                      <li class="d-flex align-items-center gap-2 py-1">
-                        <span class="flex-grow-1"><strong>{{ recipient.email }}</strong>@if (recipient.name) { <span class="text-muted"> &mdash; {{ recipient.name }}</span> }</span>
-                        <span class="text-muted small">Move to</span>
-                        <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.CC, RecipientField.TO)" title="Move to To">To</button>
-                        <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.CC, RecipientField.BCC)" title="Move to Bcc">Bcc</button>
-                        <button type="button" class="btn btn-sm btn-danger" (click)="removeCcRecipient(idx)" aria-label="Remove"><fa-icon [icon]="faXmark"/></button>
-                      </li>
-                    }
-                  </ul>
-                }
-              }
-            </fieldset>
-          }
-          @if (showBcc) {
-            <fieldset class="email-composer-fieldset mt-2">
-              <legend>
-                <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset" (click)="bccExpanded = !bccExpanded" [attr.aria-expanded]="bccExpanded">
-                  <fa-icon [icon]="bccExpanded ? faChevronDown : faChevronRight" class="me-1"/>
-                  Bcc <span class="text-muted small">(hidden from other recipients)</span>@if (state.bccRecipients.length > 0) {<span class="text-muted small"> ({{ state.bccRecipients.length }})</span>}
-                </button>
-              </legend>
-              @if (bccExpanded) {
-                <div class="input-group">
-                  <input type="email" class="form-control" [(ngModel)]="newBccEmail" (keyup.enter)="addBccRecipient()" placeholder="name@example.com">
-                  <button type="button" class="btn btn-primary px-3 text-nowrap flex-shrink-0" (click)="addBccRecipient()"><fa-icon [icon]="faPlus" class="me-1"/>Add</button>
-                </div>
-                @if (state.bccRecipients.length > 0) {
-                  <ul class="list-unstyled mb-0 mt-2">
-                    @for (recipient of state.bccRecipients; track recipient.email; let idx = $index) {
-                      <li class="d-flex align-items-center gap-2 py-1">
-                        <span class="flex-grow-1"><strong>{{ recipient.email }}</strong>@if (recipient.name) { <span class="text-muted"> &mdash; {{ recipient.name }}</span> }</span>
-                        <span class="text-muted small">Move to</span>
-                        <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.BCC, RecipientField.TO)" title="Move to To">To</button>
-                        <button type="button" class="btn btn-sm btn-quiet" (click)="moveRecipient(recipient, RecipientField.BCC, RecipientField.CC)" title="Move to Cc">Cc</button>
-                        <button type="button" class="btn btn-sm btn-danger" (click)="removeBccRecipient(idx)" aria-label="Remove"><fa-icon [icon]="faXmark"/></button>
-                      </li>
-                    }
-                  </ul>
-                }
-              }
-            </fieldset>
-          }
-          @if (unselectedSavedExternalRecipients().length > 0) {
-            <fieldset class="email-composer-fieldset mt-3">
-              <legend>
-                <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset"
-                        (click)="savedAddressesExpanded = !savedAddressesExpanded"
-                        [attr.aria-expanded]="savedAddressesExpanded">
-                  <fa-icon [icon]="savedAddressesExpanded ? faChevronDown : faChevronRight" class="me-1"/>
-                  Pick from previously-saved addresses ({{ unselectedSavedExternalRecipients().length }})
-                </button>
-              </legend>
-              @if (savedAddressesExpanded) {
-                <ul class="list-unstyled mb-0">
-                  @for (recipient of unselectedSavedExternalRecipients(); track recipient.id) {
-                    <li class="d-flex align-items-center gap-2 py-1">
-                      <span class="flex-grow-1">
-                        <strong>{{ recipient.email }}</strong>
-                        @if (recipient.name) { <span class="text-muted"> &mdash; {{ recipient.name }}</span> }
-                        <span class="text-muted small d-block">{{ lastUsedDescription(recipient) }}</span>
-                      </span>
-                      <span class="d-flex gap-2" role="group" aria-label="Add saved address to recipients">
-                        <button type="button" class="btn btn-sm btn-quiet" (click)="addSavedExternalRecipientTo(recipient, RecipientField.TO)">
-                          <fa-icon [icon]="faPlus"/> To
-                        </button>
-                        <button type="button" class="btn btn-sm btn-quiet" (click)="addSavedExternalRecipientTo(recipient, RecipientField.CC)">
-                          <fa-icon [icon]="faPlus"/> Cc
-                        </button>
-                        <button type="button" class="btn btn-sm btn-quiet" (click)="addSavedExternalRecipientTo(recipient, RecipientField.BCC)">
-                          <fa-icon [icon]="faPlus"/> Bcc
-                        </button>
-                      </span>
-                    </li>
-                  }
-                </ul>
-              } @else {
-                <p class="text-muted small mb-0">{{ stringUtils.pluraliseWithCount(unselectedSavedExternalRecipients().length, "saved address", "saved addresses") }} available - expand to pick.</p>
-              }
-            </fieldset>
-          }
           <fieldset class="email-composer-fieldset mt-3">
             <legend>
               <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset"
@@ -813,7 +653,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                 (preFilterKeyChange)="onPreFilterKeyChange($event)"
                 (priorSendExclusionsChange)="onPriorSendExclusionsChange($event)"/>
             } @else {
-              <p class="text-muted small mb-0">Expand to also send this to individual group members alongside any external recipients above.</p>
+              <p class="text-muted small mb-0">Expand to also include group members.</p>
             }
           </fieldset>
         } @else if (forcedMemberId) {
@@ -1109,37 +949,58 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
           <p class="text-muted small mb-2">Drag sections to reorder. Use multi-column rows to place sections side by side.</p>
           <ng-container *ngTemplateOutlet="fragmentListTemplate; context: { $implicit: state.fragmentOrder, parentPath: [] }"/>
           <div class="composer-add-row">
-            <button type="button" class="btn btn-sm btn-primary"
-                    [disabled]="hasFragmentKindAtTopLevel(ComposerFragmentKind.INTRO)" (click)="addIntroFragment()">
-              <fa-icon [icon]="faPlus"/> Add intro
-            </button>
-            @if (state.brandingMode !== BrandingMode.UNBRANDED) {
-              <button type="button" class="btn btn-sm btn-primary" (click)="addArticleFragment([])">
-                <fa-icon [icon]="faPlus"/> Add article block
+            <div class="btn-group" dropdown>
+              <button type="button" class="btn btn-sm btn-quiet dropdown-toggle" dropdownToggle>
+                <fa-icon [icon]="faPlus" class="me-1"/>Add section
               </button>
-              <button type="button" class="btn btn-sm btn-primary"
-                      [disabled]="hasFragmentKindAtTopLevel(ComposerFragmentKind.EVENTS)" (click)="addEventsFragment()">
-                <fa-icon [icon]="faPlus"/> Add events
-              </button>
-            }
-            <button type="button" class="btn btn-sm btn-primary"
-                    [disabled]="hasFragmentKindAtTopLevel(ComposerFragmentKind.SIGNOFF)" (click)="addSignoffFragment()">
-              <fa-icon [icon]="faPlus"/> Add signoff
-            </button>
-            <button type="button" class="btn btn-sm btn-primary" (click)="onAddCommitteeFileFragmentClicked()">
-              <fa-icon [icon]="faFile"/> Add committee file
-            </button>
-            <button type="button" class="btn btn-sm btn-primary" (click)="addDividerFragment([])">
-              <fa-icon [icon]="faPlus"/> Add divider
-            </button>
-            @if (state.brandingMode !== BrandingMode.UNBRANDED) {
-              <button type="button" class="btn btn-sm btn-primary" (click)="addMultiColumnFragment(2)">
-                <fa-icon [icon]="faTableColumns"/> Add 2-column row
-              </button>
-              <button type="button" class="btn btn-sm btn-primary" (click)="addMultiColumnFragment(3)">
-                <fa-icon [icon]="faTableColumns"/> Add 3-column row
-              </button>
-            }
+              <ul *dropdownMenu class="dropdown-menu" role="menu">
+                <li role="menuitem">
+                  <button type="button" class="dropdown-item" [disabled]="hasFragmentKindAtTopLevel(ComposerFragmentKind.INTRO)" (click)="addIntroFragment()">
+                    <fa-icon [icon]="faPlus" class="me-2"/>Intro
+                  </button>
+                </li>
+                @if (state.brandingMode !== BrandingMode.UNBRANDED) {
+                  <li role="menuitem">
+                    <button type="button" class="dropdown-item" (click)="addArticleFragment([])">
+                      <fa-icon [icon]="faPlus" class="me-2"/>Article block
+                    </button>
+                  </li>
+                  <li role="menuitem">
+                    <button type="button" class="dropdown-item" [disabled]="hasFragmentKindAtTopLevel(ComposerFragmentKind.EVENTS)" (click)="addEventsFragment()">
+                      <fa-icon [icon]="faPlus" class="me-2"/>Events
+                    </button>
+                  </li>
+                }
+                <li role="menuitem">
+                  <button type="button" class="dropdown-item" [disabled]="hasFragmentKindAtTopLevel(ComposerFragmentKind.SIGNOFF)" (click)="addSignoffFragment()">
+                    <fa-icon [icon]="faPlus" class="me-2"/>Signoff
+                  </button>
+                </li>
+                <li role="menuitem">
+                  <button type="button" class="dropdown-item" (click)="onAddCommitteeFileFragmentClicked()">
+                    <fa-icon [icon]="faFile" class="me-2"/>Committee file
+                  </button>
+                </li>
+                <li role="menuitem">
+                  <button type="button" class="dropdown-item" (click)="addDividerFragment([])">
+                    <fa-icon [icon]="faPlus" class="me-2"/>Divider
+                  </button>
+                </li>
+                @if (state.brandingMode !== BrandingMode.UNBRANDED) {
+                  <li class="dropdown-divider"></li>
+                  <li role="menuitem">
+                    <button type="button" class="dropdown-item" (click)="addMultiColumnFragment(2)">
+                      <fa-icon [icon]="faTableColumns" class="me-2"/>2-column row
+                    </button>
+                  </li>
+                  <li role="menuitem">
+                    <button type="button" class="dropdown-item" (click)="addMultiColumnFragment(3)">
+                      <fa-icon [icon]="faTableColumns" class="me-2"/>3-column row
+                    </button>
+                  </li>
+                }
+              </ul>
+            </div>
           </div>
         </fieldset>
 
@@ -1209,6 +1070,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                                                 (valueChange)="onIntroMarkdownChange($event)"
                                                 (rawPaste)="onIntroRawPaste($event)"
                                                 placeholder="Write your message here…"
+                                                stickyToolbar
                                                 [showMergeFields]="true"/>
                   }
                   @case (ComposerFragmentKind.SIGNOFF) {
@@ -1867,17 +1729,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected sentEmails: EmailCompositionSummary[] = [];
   protected savedExternalRecipients: ExternalRecipient[] = [];
   protected loggedInMemberRecord: Member | null = null;
-  protected newExternalEmail = "";
-  protected newExternalName = "";
   protected newExternalSaveForReuse = true;
-  protected newExternalEmailError: string | null = null;
-  protected newExternalNameEdited = false;
-  protected showCc = false;
-  protected showBcc = false;
-  protected ccExpanded = true;
-  protected bccExpanded = true;
-  protected newCcEmail = "";
-  protected newBccEmail = "";
   protected replyCcSuggestion: ComposerExternalRecipient[] = [];
   protected draftsPanelOpen = false;
   protected sentEmailsPanelOpen = false;
@@ -1919,7 +1771,6 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected readonly faFloppyDisk = faFloppyDisk;
   protected readonly faFolderOpen = faFolderOpen;
   protected readonly faFile = faFile;
-  protected readonly faInbox = faInbox;
   protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faGripVertical = faGripVertical;
@@ -2175,7 +2026,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       .filter(file => this.committeeDisplayService.isComposedDocument(file) && !this.committeeFileLinkPath(file));
     if (unresolved.length > 0) {
       const titles = unresolved.map(file => this.committeeDisplayService.fileTitle(file)).join(", ");
-      throw new Error(`Cannot resolve the committee document page for ${titles}`);
+      const isPlural = unresolved.length > 1;
+      throw new Error(`This email links to a committee ${isPlural ? "documents" : "document"} (${titles}) that ${isPlural ? "aren't" : "isn't"} published on any committee page yet, so there's no web address for the email to point to. Add ${isPlural ? "them" : "it"} to a committee documents page, or remove ${isPlural ? "them" : "it"} from the email.`);
     }
   }
 
@@ -2595,9 +2447,25 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected narrowMembersExpanded: boolean = false;
-  protected recipientsForSendExpanded: boolean = true;
-  protected savedAddressesExpanded: boolean = false;
-  protected addExternalExpanded: boolean = true;
+  protected recipientsPanelExpanded: boolean = true;
+
+  protected externalRecipientsSummaryLabel(): string {
+    const describe = (label: string, list: ComposerExternalRecipient[]): string | null => {
+      if (list.length === 0) {
+        return null;
+      }
+      const names = list.map(recipient => recipient.name || recipient.email);
+      const shown = names.slice(0, 3).join(", ");
+      const remainder = names.length > 3 ? ` +${names.length - 3} more` : "";
+      return `${label}: ${shown}${remainder}`;
+    };
+    const parts = [
+      describe("To", this.state.externalRecipients ?? []),
+      describe("Cc", this.state.ccRecipients ?? []),
+      describe("Bcc", this.state.bccRecipients ?? [])
+    ].filter((part): part is string => part !== null);
+    return parts.length > 0 ? parts.join(" · ") : "No recipients chosen yet - expand to add.";
+  }
 
   protected listSubscriberCount(list: ListInfo): string {
     return this.stringUtils.pluraliseWithCount(this.subscribedMemberCount(list), "subscriber");
@@ -2705,7 +2573,20 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected pendingForwardedHeaderLines: string[] = [];
-  @ViewChild("introEditor") private introEditor?: TiptapMarkdownEditor;
+  private introEditorRef?: TiptapMarkdownEditor;
+  private pendingIntroFocus = false;
+
+  @ViewChild("introEditor") set introEditor(editor: TiptapMarkdownEditor | undefined) {
+    this.introEditorRef = editor;
+    if (editor && this.pendingIntroFocus) {
+      this.pendingIntroFocus = false;
+      queueMicrotask(() => editor.focusAtStart());
+    }
+  }
+
+  get introEditor(): TiptapMarkdownEditor | undefined {
+    return this.introEditorRef;
+  }
 
   protected onIntroRawPaste(event: { text: string; consume: () => void }): void {
     if (this.state.brandingMode !== BrandingMode.UNBRANDED) return;
@@ -2896,6 +2777,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.unbrandedListSendWarningDismissed = false;
     }
     if (mode === BrandingMode.UNBRANDED) {
+      this.recipientsPanelExpanded = true;
       if (this.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
         this.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
       }
@@ -2971,10 +2853,6 @@ export class EmailComposer implements OnInit, OnDestroy {
     return { name: "", email: "", description: "" };
   }
 
-  protected isValidEmail(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  }
-
   protected nameFromEmail(email: string): string {
     const localPart = email.split("@")[0] ?? "";
     if (!localPart) return "";
@@ -2985,72 +2863,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       .join(" ");
   }
 
-  protected onNewExternalEmailChange(value: string): void {
-    this.newExternalEmail = value ?? "";
-    if (this.newExternalEmailError) this.newExternalEmailError = null;
-    if (this.newExternalNameEdited) return;
-    const trimmed = this.newExternalEmail.trim();
-    this.newExternalName = trimmed ? this.nameFromEmail(trimmed) : "";
-  }
-
-  protected addExternalRecipient(): void {
-    const email = this.newExternalEmail.trim().toLowerCase();
-    if (!email) {
-      this.newExternalEmailError = "Enter an email address";
-      return;
-    }
-    if (!this.isValidEmail(email)) {
-      this.newExternalEmailError = "Enter a valid email address";
-      return;
-    }
-    if (this.state.externalRecipients.some(item => item.email.toLowerCase() === email)) {
-      this.newExternalEmailError = "This email is already in the list";
-      return;
-    }
-    const matched = this.savedExternalRecipients.find(item => item.email.toLowerCase() === email);
-    const name = this.newExternalName.trim() || this.nameFromEmail(email);
-    const entry: ComposerExternalRecipient = matched
-      ? { email: matched.email, name: matched.name || name, existingId: matched.id, saveForReuse: false }
-      : { email, name: name || undefined, saveForReuse: this.newExternalSaveForReuse };
-    this.state.externalRecipients = [...this.state.externalRecipients, entry];
-    this.newExternalEmail = "";
-    this.newExternalName = "";
-    this.newExternalSaveForReuse = true;
-    this.newExternalEmailError = null;
-    this.newExternalNameEdited = false;
-  }
-
   protected readonly RecipientField = RecipientField;
-
-  private recipientField(field: RecipientField): { get: () => ComposerExternalRecipient[]; set: (next: ComposerExternalRecipient[]) => void } {
-    switch (field) {
-      case RecipientField.TO:
-        return { get: () => this.state.externalRecipients, set: (next: ComposerExternalRecipient[]) => this.state.externalRecipients = next };
-      case RecipientField.CC:
-        return { get: () => this.state.ccRecipients, set: (next: ComposerExternalRecipient[]) => { this.state.ccRecipients = next; this.showCc = true; this.ccExpanded = true; } };
-      case RecipientField.BCC:
-        return { get: () => this.state.bccRecipients, set: (next: ComposerExternalRecipient[]) => { this.state.bccRecipients = next; this.showBcc = true; this.bccExpanded = true; } };
-    }
-  }
-
-  protected addSavedExternalRecipientTo(recipient: ExternalRecipient, field: RecipientField): void {
-    const entry: ComposerExternalRecipient = { email: recipient.email, name: recipient.name, existingId: recipient.id, saveForReuse: false };
-    const target = this.recipientField(field);
-    if (target.get().some(item => item.email.toLowerCase() === entry.email.toLowerCase())) return;
-    target.set([...target.get(), entry]);
-  }
-
-  protected moveRecipient(recipient: ComposerExternalRecipient, from: RecipientField, to: RecipientField): void {
-    const source = this.recipientField(from);
-    const destination = this.recipientField(to);
-    source.set(source.get().filter(item => item.email.toLowerCase() !== recipient.email.toLowerCase()));
-    if (destination.get().some(item => item.email.toLowerCase() === recipient.email.toLowerCase())) return;
-    destination.set([...destination.get(), recipient]);
-  }
-
-  protected removeExternalRecipient(index: number): void {
-    this.state.externalRecipients = this.state.externalRecipients.filter((_, idx) => idx !== index);
-  }
 
   protected replyCcSuggestionLabel(): string {
     return this.replyCcSuggestion.map(recipient => recipient.name || recipient.email).join(", ");
@@ -3062,60 +2875,7 @@ export class EmailComposer implements OnInit, OnDestroy {
         ? recipients
         : [...recipients, suggestion], this.state.ccRecipients);
     this.state.ccRecipients = merged;
-    this.showCc = true;
-    this.ccExpanded = true;
     this.replyCcSuggestion = [];
-  }
-
-  protected addCcRecipient(): void {
-    const added = this.appendRecipient(this.state.ccRecipients, this.newCcEmail);
-    if (added) {
-      this.state.ccRecipients = added;
-      this.newCcEmail = "";
-    }
-  }
-
-  protected removeCcRecipient(index: number): void {
-    this.state.ccRecipients = this.state.ccRecipients.filter((_, idx) => idx !== index);
-  }
-
-  protected addBccRecipient(): void {
-    const added = this.appendRecipient(this.state.bccRecipients, this.newBccEmail);
-    if (added) {
-      this.state.bccRecipients = added;
-      this.newBccEmail = "";
-    }
-  }
-
-  protected removeBccRecipient(index: number): void {
-    this.state.bccRecipients = this.state.bccRecipients.filter((_, idx) => idx !== index);
-  }
-
-  private appendRecipient(existing: ComposerExternalRecipient[], rawEmail: string): ComposerExternalRecipient[] | null {
-    const email = rawEmail.trim().toLowerCase();
-    if (!this.isValidEmail(email) || existing.some(item => item.email.toLowerCase() === email)) {
-      return null;
-    }
-    return [...existing, {email, name: this.nameFromEmail(email) || undefined, saveForReuse: false}];
-  }
-
-  protected recipientAlreadySaved(recipient: ComposerExternalRecipient): boolean {
-    return !!recipient.existingId
-      || this.savedExternalRecipients.some(item => item.email.toLowerCase() === recipient.email.toLowerCase());
-  }
-
-  protected unselectedSavedExternalRecipients(): ExternalRecipient[] {
-    const selectedEmails = new Set([
-      ...this.state.externalRecipients,
-      ...this.state.ccRecipients,
-      ...this.state.bccRecipients
-    ].map(item => item.email.toLowerCase()));
-    return this.savedExternalRecipients.filter(item => !selectedEmails.has(item.email.toLowerCase()));
-  }
-
-  protected lastUsedDescription(recipient: ExternalRecipient): string {
-    if (!recipient.lastUsedAt) return "Never sent";
-    return `Last sent ${this.dateUtils.displayDate(recipient.lastUsedAt)}`;
   }
 
   selectList(list: ListInfo): void {
@@ -3217,7 +2977,14 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (!alreadyPresent) {
       this.state.externalRecipients = [recipient, ...this.state.externalRecipients];
     }
-    this.replyCcSuggestion = (reply.cc ?? []).map(address => ({email: address.email, name: address.name ?? undefined, saveForReuse: false}));
+    const replyCc = (reply.cc ?? []).map(address => ({email: address.email, name: address.name ?? undefined, saveForReuse: false}));
+    if (reply.replyAll) {
+      const existingCc = new Set(this.state.ccRecipients.map(existing => existing.email.toLowerCase()));
+      this.state.ccRecipients = [...this.state.ccRecipients, ...replyCc.filter(address => !existingCc.has(address.email.toLowerCase()))];
+      this.replyCcSuggestion = [];
+    } else {
+      this.replyCcSuggestion = replyCc;
+    }
     this.state.subject = reply.subject;
     if (reply.senderRoleType) {
       this.state.unbrandedSenderRoleType = reply.senderRoleType;
@@ -3238,6 +3005,11 @@ export class EmailComposer implements OnInit, OnDestroy {
       references: reply.references
     };
     this.logger.info("Inbox reply handoff applied:", this.inboxReplyContext);
+    if (this.introEditorRef) {
+      queueMicrotask(() => this.introEditorRef?.focusAtStart());
+    } else {
+      this.pendingIntroFocus = true;
+    }
   }
 
   private htmlToReplyMarkdown(html: string | null | undefined): string {
@@ -4224,9 +3996,25 @@ export class EmailComposer implements OnInit, OnDestroy {
       if (key === EmailComposerStepKey.COMPOSE || key === EmailComposerStepKey.REVIEW) {
         this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
       }
+      if (key === EmailComposerStepKey.COMPOSE) {
+        this.focusComposeEditor();
+      }
       if (key === EmailComposerStepKey.REVIEW) {
         this.refreshPreview().catch(error => this.logger.error("preview refresh failed", error));
       }
+    }
+  }
+
+  private focusComposeEditor(): void {
+    const introFragment = (this.state.fragmentOrder ?? []).find(fragment => fragment.kind === ComposerFragmentKind.INTRO);
+    if (!introFragment) {
+      return;
+    }
+    this.expandedFragmentIds.add(introFragment.id);
+    if (this.introEditorRef) {
+      queueMicrotask(() => this.introEditorRef?.focusAtStart());
+    } else {
+      this.pendingIntroFocus = true;
     }
   }
 
@@ -4249,6 +4037,9 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (!key) return;
     this.stepperActiveTab = key;
     this.syncStateToUrl({ [StoredValue.TAB]: key });
+    if (key === EmailComposerStepKey.COMPOSE) {
+      this.focusComposeEditor();
+    }
     if (key === EmailComposerStepKey.REVIEW) {
       this.refreshPreview().catch(error => this.logger.error("preview refresh failed", error));
     }
@@ -4279,20 +4070,47 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   cancel(): void {
+    if (!this.confirmLeaveComposer("Cancel")) {
+      return;
+    }
+    this.leaveComposer();
+  }
+
+  exitComposer(): void {
+    if (!this.confirmLeaveComposer("Exit composer")) {
+      return;
+    }
+    this.leaveComposer();
+  }
+
+  private confirmLeaveComposer(action: string): boolean {
     if (this.hasUnsavedChanges() && !this.cancelArmed) {
       this.cancelArmed = true;
       this.notify.warning({
         title: "Discard email content?",
-        message: "You have unsent email content. Click Cancel again to discard and leave."
+        message: `You have unsent email content. Click ${action} again to discard and leave.`
       });
-      return;
+      return false;
     }
-    this.location.back();
+    return true;
   }
 
-  returnToInbox(): void {
+  private leaveComposer(): void {
+    if (this.inboxReplyContext) {
+      this.navigateToInbox();
+    } else {
+      this.location.back();
+    }
+  }
+
+  private navigateToInbox(): void {
+    const maximised = this.route.snapshot.queryParamMap.get(StoredValue.MAXIMISE) === "true";
     this.router.navigate(["/admin/inbox"], {
-      queryParams: this.inboxReplyContext?.threadId ? {[StoredValue.THREAD]: this.inboxReplyContext.threadId} : {}
+      queryParams: {
+        ...(this.inboxReplyContext?.threadId ? {[StoredValue.THREAD]: this.inboxReplyContext.threadId} : {}),
+        ...(maximised ? {[StoredValue.MAXIMISE]: "true"} : {})
+      },
+      replaceUrl: true
     });
   }
 
@@ -4681,7 +4499,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       await this.resolveCommitteeFileLinksForSend();
     } catch (error) {
       this.logger.error("refreshPreview committee file link resolution failed", error);
-      this.emailPreview?.showError(this.errorMessage(error));
+      this.emailPreview?.showError(this.errorMessage(error), "Committee document can't be linked");
       return;
     }
     const { top, bottom, combined } = this.composedBodyParts();
@@ -5114,11 +4932,9 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   batchProgressBarClass(): string {
-    if (!this.batchProgress) return "";
-    if (this.batchProgress.status === BatchSendStatus.FAILED) return "bg-danger";
-    if (this.batchProgress.status === BatchSendStatus.COMPLETED_WITH_ERRORS) return "bg-warning";
-    if (this.batchProgress.status === BatchSendStatus.COMPLETED) return "bg-success";
-    return "";
+    if (this.batchProgress?.status === BatchSendStatus.FAILED) return "bg-danger";
+    if (this.batchProgress?.status === BatchSendStatus.COMPLETED_WITH_ERRORS) return "bg-warning";
+    return "bg-success";
   }
 
   batchSendComplete(): boolean {
@@ -5131,7 +4947,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   closeAfterSend(): void {
-    this.location.back();
+    this.leaveComposer();
   }
 
   private errorMessage(error: any): string {
