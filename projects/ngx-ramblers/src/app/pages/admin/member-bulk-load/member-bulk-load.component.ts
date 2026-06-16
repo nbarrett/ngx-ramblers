@@ -3,6 +3,7 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { faEnvelopesBulk, faSearch, faCloudArrowDown } from "@fortawesome/free-solid-svg-icons";
 import { first } from "es-toolkit/compat";
+import { isString } from "es-toolkit/compat";
 import { groupBy } from "es-toolkit/compat";
 import { map } from "es-toolkit/compat";
 import { reduce } from "es-toolkit/compat";
@@ -731,7 +732,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       const audit = apiResponse?.response;
       this.salesforceSyncAuditLog = audit?.auditLog ?? [];
       if (apiResponse?.error) {
-        this.notify.error({title: "Salesforce sync failed", message: apiResponse.error});
+        this.notify.error({title: "Salesforce sync failed", message: this.salesforceErrorText(apiResponse.error)});
         if (audit) {
           await this.memberBulkLoadAuditService.create(audit).catch(error => {
             this.logger.error("audit-create-error", error);
@@ -758,6 +759,14 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       this.salesforceSyncing = false;
       this.clearBusy();
     }
+  }
+
+  private salesforceErrorText(error: unknown): string {
+    if (isString(error)) {
+      return error;
+    }
+    const record = error as Record<string, string>;
+    return record?.errorMessage || record?.message || record?.errorCode || JSON.stringify(error);
   }
 
   private filterLists(searchTerm?: string) {
