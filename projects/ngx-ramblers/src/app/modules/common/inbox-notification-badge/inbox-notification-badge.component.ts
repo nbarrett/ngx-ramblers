@@ -3,18 +3,21 @@ import { Component, inject } from "@angular/core";
 import { RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faInbox } from "@fortawesome/free-solid-svg-icons";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
+import { InboxUnreadRole } from "../../../models/inbox.model";
 
 @Component({
   selector: "app-inbox-notification-badge",
   standalone: true,
-  imports: [CommonModule, AsyncPipe, RouterLink, FontAwesomeModule],
+  imports: [CommonModule, AsyncPipe, RouterLink, FontAwesomeModule, TooltipDirective],
   template: `
     @if ((inboxNotificationService.total$ | async); as total) {
       @if (total > 0) {
         <a class="inbox-notification-badge" routerLink="/admin/inbox"
-           [attr.aria-label]="total + ' unread inbox message' + (total === 1 ? '' : 's')"
-           [title]="total + ' unread inbox message' + (total === 1 ? '' : 's')">
+           [attr.aria-label]="tooltipFor(total, (inboxNotificationService.breakdown$ | async))"
+           [tooltip]="tooltipFor(total, (inboxNotificationService.breakdown$ | async))"
+           placement="bottom" container="body">
           <fa-icon [icon]="faInbox" class="inbox-icon"></fa-icon>
           <span class="inbox-count">{{ total }}</span>
         </a>
@@ -55,4 +58,15 @@ export class InboxNotificationBadgeComponent {
 
   protected inboxNotificationService = inject(InboxNotificationService);
   protected readonly faInbox = faInbox;
+
+  tooltipFor(total: number, breakdown: InboxUnreadRole[] | null): string {
+    const heading = `${total} unread inbox message${total === 1 ? "" : "s"}`;
+    if (!breakdown || breakdown.length === 0) {
+      return heading;
+    }
+    if (breakdown.length === 1) {
+      return `${heading} for ${breakdown[0].label}`;
+    }
+    return `${heading} — ${breakdown.map(role => `${role.label} (${role.unreadCount})`).join(", ")}`;
+  }
 }

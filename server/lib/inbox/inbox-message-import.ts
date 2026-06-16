@@ -5,7 +5,8 @@ import {
   InboxMessage,
   InboxMessageDirection,
   InboxNewMessageEvent,
-  InboxThread
+  InboxThread,
+  InboxThreadFolder
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
@@ -20,19 +21,24 @@ import { CommitteeConfig } from "../../../projects/ngx-ramblers/src/app/models/c
 const debugLog = debug(envConfig.logNamespace("inbox-message-import"));
 debugLog.enabled = true;
 
-export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message: InboxMessage): Promise<InboxMessage> {
-  const existingThread = await findExistingThread(aliasConfig, message);
+export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder = InboxThreadFolder.INBOX): Promise<InboxMessage> {
+  const isJunk = folder === InboxThreadFolder.JUNK;
+  const existingThread = await findExistingThread(aliasConfig, message, folder);
   const now = dateTimeNow().toMillis();
-  const thread = existingThread ?? await createThread(aliasConfig, message, now);
+  const thread = existingThread ?? await createThread(aliasConfig, message, now, folder);
   const persistedMessage = await inboxMessageModel.create({...message, threadId: thread.id ?? thread["_id"]?.toString() ?? "", mailboxConnectionId: aliasConfig.mailboxConnectionId});
   await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {
     $set: {
       lastSeenAt: now,
       lastDirection: InboxMessageDirection.INBOUND,
-      unread: true
+      unread: !isJunk
     },
     $addToSet: {messageIds: message.messageId}
   });
+  if (isJunk) {
+    debugLog(`✅ stored junk message ${message.messageId} on thread ${persistedMessage.threadId}`);
+    return persistedMessage.toObject();
+  }
   const unreadCountForRole = await inboxThreadModel.countDocuments({
     tenantSlug: aliasConfig.tenantSlug,
     roleType: aliasConfig.roleType,
@@ -96,12 +102,16 @@ export async function recordOutboundReply(aliasConfig: InboxAliasConfig, replyMe
   return persistedMessage.toObject();
 }
 
-async function findExistingThread(aliasConfig: InboxAliasConfig, message: InboxMessage): Promise<InboxThread | null> {
+async function findExistingThread(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder): Promise<InboxThread | null> {
+  const folderFilter = folder === InboxThreadFolder.JUNK
+    ? {folder: InboxThreadFolder.JUNK}
+    : {folder: {$ne: InboxThreadFolder.JUNK}};
   const messageIdsToTry = [message.inReplyTo, ...message.references].filter((value): value is string => Boolean(value));
   if (messageIdsToTry.length > 0) {
     const threadByReference = await inboxThreadModel.findOne({
       tenantSlug: aliasConfig.tenantSlug,
       roleType: aliasConfig.roleType,
+      ...folderFilter,
       messageIds: {$in: messageIdsToTry}
     });
     if (threadByReference) {
@@ -112,23 +122,26 @@ async function findExistingThread(aliasConfig: InboxAliasConfig, message: InboxM
   const threadByAddress = await inboxThreadModel.findOne({
     tenantSlug: aliasConfig.tenantSlug,
     roleType: aliasConfig.roleType,
+    ...folderFilter,
     "externalAddress.email": message.from.email,
     normalisedSubject
   });
   return threadByAddress ? threadByAddress.toObject() : null;
 }
 
-async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage, now: number): Promise<InboxThread> {
+async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage, now: number, folder: InboxThreadFolder): Promise<InboxThread> {
   const created = await inboxThreadModel.create({
     tenantSlug: aliasConfig.tenantSlug,
     roleType: aliasConfig.roleType,
     externalAddress: message.from,
+    subject: (message.subject ?? "").trim(),
     normalisedSubject: normaliseSubject(message.subject),
+    folder,
     messageIds: [message.messageId],
     firstSeenAt: now,
     lastSeenAt: now,
     lastDirection: InboxMessageDirection.INBOUND,
-    unread: true
+    unread: folder !== InboxThreadFolder.JUNK
   });
   return created.toObject();
 }

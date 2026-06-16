@@ -15,7 +15,7 @@ import {
 import { member } from "../mongo/models/member";
 import { envConfig } from "../env-config/env-config";
 import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
-import { catchAllConnectionEmail, defaultTenantSlug } from "../inbox/inbox-aliases";
+import { catchAllConnectionEmail, connectedInboxEmails, defaultTenantSlug } from "../inbox/inbox-aliases";
 
 const debugLog = debug(envConfig.logNamespace("contact-us:resolve-recipients"));
 debugLog.enabled = false;
@@ -41,8 +41,20 @@ async function linkedMemberEmailFor(memberId: string): Promise<string | null> {
   }
 }
 
-function effectiveTarget(role: CommitteeMember): ForwardEmailTarget | undefined {
-  return role.contactUsTarget ?? role.forwardEmailTarget;
+function forwardsToConnectedInbox(role: CommitteeMember, connectedEmails: Set<string>): boolean {
+  return role.forwardEmailTarget === ForwardEmailTarget.CUSTOM
+    && Boolean(role.forwardEmailCustom)
+    && connectedEmails.has(normaliseEmail(role.forwardEmailCustom));
+}
+
+function effectiveTarget(role: CommitteeMember, connectedEmails: Set<string>): ForwardEmailTarget | undefined {
+  if (role.contactUsTarget != null) {
+    return role.contactUsTarget;
+  }
+  if (forwardsToConnectedInbox(role, connectedEmails)) {
+    return ForwardEmailTarget.ROLE_EMAIL;
+  }
+  return role.forwardEmailTarget;
 }
 
 function effectiveCustom(role: CommitteeMember): string {
@@ -57,12 +69,12 @@ function nameFor(role: CommitteeMember): string {
   return role.contactUsLabel || role.fullName;
 }
 
-async function resolveOne(recipient: EmailAddress, roles: CommitteeMember[]): Promise<EmailAddress[]> {
+async function resolveOne(recipient: EmailAddress, roles: CommitteeMember[], connectedEmails: Set<string>): Promise<EmailAddress[]> {
   const role = findRoleByEmail(roles, recipient.email);
   if (!role) {
     return [recipient];
   }
-  const target = effectiveTarget(role);
+  const target = effectiveTarget(role, connectedEmails);
   const label = nameFor(role);
   switch (target) {
     case ForwardEmailTarget.ROLE_EMAIL: {
@@ -111,11 +123,11 @@ async function resolveOne(recipient: EmailAddress, roles: CommitteeMember[]): Pr
   }
 }
 
-export async function resolveContactRecipients(to: EmailAddress[], roles: CommitteeMember[]): Promise<EmailAddress[]> {
+export async function resolveContactRecipients(to: EmailAddress[], roles: CommitteeMember[], connectedEmails: Set<string>): Promise<EmailAddress[]> {
   if (!to?.length || !roles?.length) {
     return to || [];
   }
-  const resolved = await Promise.all(to.map(recipient => resolveOne(recipient, roles)));
+  const resolved = await Promise.all(to.map(recipient => resolveOne(recipient, roles, connectedEmails)));
   return resolved.flat();
 }
 
@@ -125,7 +137,8 @@ export async function sendContactUsTransactionalMail(req: Request, res: Response
     const committeeConfigDoc = await config.queryKey(ConfigKey.COMMITTEE);
     const committeeCfg: CommitteeConfig = committeeConfigDoc?.value;
     const roles: CommitteeMember[] = committeeCfg?.roles || [];
-    emailRequest.to = await resolveContactRecipients(emailRequest.to || [], roles);
+    const connectedEmails = new Set(await connectedInboxEmails(defaultTenantSlug()));
+    emailRequest.to = await resolveContactRecipients(emailRequest.to || [], roles, connectedEmails);
     debugLog("sendContactUsTransactionalMail:resolved to:", emailRequest.to);
     return sendTransactionalMail(req, res, next);
   } catch (error) {

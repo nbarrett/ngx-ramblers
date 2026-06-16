@@ -26,13 +26,15 @@ export enum GmailEndpoint {
 export const GMAIL_DYNAMIC_ENDPOINTS = {
   MESSAGE: (messageId: string) => `/users/me/messages/${encodeURIComponent(messageId)}`,
   MESSAGE_MODIFY: (messageId: string) => `/users/me/messages/${encodeURIComponent(messageId)}/modify`,
+  MESSAGE_TRASH: (messageId: string) => `/users/me/messages/${encodeURIComponent(messageId)}/trash`,
   ATTACHMENT: (messageId: string, attachmentId: string) => `/users/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`
 };
 
 export enum GmailLabel {
   INBOX = "INBOX",
   SENT = "SENT",
-  UNREAD = "UNREAD"
+  UNREAD = "UNREAD",
+  SPAM = "SPAM"
 }
 
 export enum GmailHistoryType {
@@ -44,7 +46,8 @@ export enum GmailInternalDateSource {
 }
 
 export enum GmailQuery {
-  INBOX = "in:inbox"
+  INBOX = "in:inbox",
+  SPAM = "in:spam"
 }
 
 export const GMAIL_DYNAMIC_QUERIES = {

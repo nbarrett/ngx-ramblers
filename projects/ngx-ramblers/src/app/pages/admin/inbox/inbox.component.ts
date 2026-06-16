@@ -4,7 +4,7 @@ import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faBell, faBellSlash, faEnvelope, faInbox, faReply, faRotateRight, faSearch, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faBell, faBellSlash, faEnvelope, faEnvelopeOpen, faInbox, faListCheck, faReply, faRotateRight, faSearch, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, values } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -14,14 +14,17 @@ import { InboxPushSubscriptionService } from "../../../services/inbox/inbox-push
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { MessageType } from "../../../models/websocket.model";
 import {
+  InboxAddress,
   InboxMessage,
   InboxMessageDirection,
   InboxNewMessageEvent,
   InboxAliasConfigView,
   InboxThread,
+  InboxThreadFolder,
   InboxViewScope,
   isInboxGeneralRoleType
 } from "../../../models/inbox.model";
+import { MemberLoginService } from "../../../services/member/member-login.service";
 import { BrandingMode } from "../../../models/mail.model";
 import { EmailComposerStepKey } from "../../../models/email-composer.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -30,12 +33,13 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { PageComponent } from "../../../page/page.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { HtmlFrameComponent } from "../../../modules/common/html-frame/html-frame.component";
 import { ResizerComponent } from "../../../modules/common/resizer/resizer";
 
 @Component({
   selector: "app-inbox",
-  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, HtmlFrameComponent, ResizerComponent, RouterLink],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink],
   styles: [`
     .inbox-layout
       display: grid
@@ -169,6 +173,9 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
               @for (alias of aliases; track alias.id) {
                 <option [ngValue]="alias.roleType">{{ isInboxGeneralRoleType(alias.roleType) ? "Other inbox mail" : alias.roleEmail }}</option>
               }
+              @if (isInboxAdmin) {
+                <option [ngValue]="InboxThreadFolder.JUNK">Junk mail</option>
+              }
             </select>
           }
           <button class="btn btn-quiet text-nowrap flex-shrink-0" type="button" (click)="toggleLayout()" [tooltip]="stackedLayout ? 'Switch to side-by-side view' : 'Switch to stacked view'">
@@ -236,9 +243,20 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
                      [indeterminate]="selectedThreadIds.size > 0 && !allSelected()"
                      (change)="toggleSelectAll()">
               @if (selectedThreadIds.size > 0) {
-                <button class="btn btn-sm inbox-action-btn text-nowrap" type="button" (click)="deleteSelected()" [disabled]="busy">
-                  <fa-icon [icon]="faTrash" class="me-1"/>Delete {{selectedThreadIds.size}}
-                </button>
+                <div class="btn-group" dropdown [isDisabled]="busy">
+                  <button dropdownToggle type="button" class="btn btn-sm btn-primary dropdown-toggle text-nowrap" [disabled]="busy">
+                    <fa-icon [icon]="faListCheck" class="me-2"/>{{selectedThreadIds.size}} selected
+                  </button>
+                  <ul *dropdownMenu class="dropdown-menu" role="menu">
+                    <li role="menuitem"><button class="dropdown-item" type="button" (click)="markSelected(false)"><fa-icon [icon]="faEnvelopeOpen" class="me-2"/>Mark as read</button></li>
+                    <li role="menuitem"><button class="dropdown-item" type="button" (click)="markSelected(true)"><fa-icon [icon]="faEnvelope" class="me-2"/>Mark as unread</button></li>
+                    @if (viewingJunk) {
+                      <li role="menuitem"><button class="dropdown-item" type="button" (click)="moveSelectedJunk()"><fa-icon [icon]="faInbox" class="me-2"/>Not junk — move to inbox</button></li>
+                    }
+                    <li><hr class="dropdown-divider"></li>
+                    <li role="menuitem"><button class="dropdown-item text-danger" type="button" (click)="deleteSelected()"><fa-icon [icon]="faTrash" class="me-2"/>Delete</button></li>
+                  </ul>
+                </div>
               } @else {
                 <label class="text-muted small mb-0" for="inbox-select-all">Select all</label>
               }
@@ -266,7 +284,10 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
                   }
                   <div class="inbox-thread-from flex-grow-1">{{thread.externalAddress.name ?? thread.externalAddress.email}}</div>
                 </div>
-                <div class="inbox-thread-subject">{{thread.normalisedSubject || "(no subject)"}}</div>
+                <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
+                @if (recipientForThread(thread); as roleEmail) {
+                  <div class="inbox-thread-subject">to {{roleEmail}}</div>
+                }
                 <div class="inbox-thread-time">{{thread.lastSeenAt | date: "short"}}</div>
               </div>
             </div>
@@ -284,13 +305,27 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
           @if (selectedThread) {
             <div class="d-flex align-items-start gap-2 mb-3 inbox-detail-header">
               <div class="me-auto">
-                <h5 class="mb-1">{{selectedThread.normalisedSubject || "(no subject)"}}</h5>
-                <small class="text-muted">{{selectedThread.externalAddress.name ?? selectedThread.externalAddress.email}}</small>
+                <h5 class="mb-1">{{selectedThread.subject || selectedThread.normalisedSubject || "(no subject)"}}</h5>
+                <small class="text-muted d-block">From {{selectedThread.externalAddress.name ?? selectedThread.externalAddress.email}}</small>
+                @if (selectedThreadRecipient(); as recipient) {
+                  <small class="text-muted d-block">To {{recipient}}</small>
+                }
               </div>
-              <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="prepareReply()">
-                <fa-icon [icon]="faReply" class="me-1"></fa-icon>
-                Reply
-              </button>
+              @if (selectedThread.folder === InboxThreadFolder.JUNK) {
+                <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="moveSelectedToInbox()">
+                  <fa-icon [icon]="faInbox" class="me-1"></fa-icon>
+                  Not junk
+                </button>
+                <button class="btn btn-sm inbox-action-btn text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="deleteCurrentThread()">
+                  <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
+                  Delete
+                </button>
+              } @else {
+                <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="prepareReply()">
+                  <fa-icon [icon]="faReply" class="me-1"></fa-icon>
+                  Reply
+                </button>
+              }
             </div>
           }
           <div class="inbox-detail">
@@ -302,8 +337,15 @@ import { ResizerComponent } from "../../../modules/common/resizer/resizer";
             @for (message of selectedMessages; track message.messageId) {
               <div class="inbox-message" [class.outbound]="message.direction === InboxMessageDirection.OUTBOUND">
                 <div class="inbox-message-headers">
-                  <strong>{{message.direction === InboxMessageDirection.OUTBOUND ? "You" : (message.from.name ?? message.from.email)}}</strong>
+                  <strong>{{message.direction === InboxMessageDirection.OUTBOUND ? "Sent from this group" : (message.from.name ?? message.from.email)}}</strong>
                   &middot; {{(message.receivedAt ?? message.sentAt) | date: "medium"}}
+                  <div>From: {{ formatAddresses([message.from]) }}</div>
+                  @if (message.to?.length) {
+                    <div>To: {{ formatAddresses(message.to) }}</div>
+                  }
+                  @if (message.cc?.length) {
+                    <div>Cc: {{ formatAddresses(message.cc) }}</div>
+                  }
                 </div>
                 <app-html-frame class="inbox-message-body" [html]="renderableBody(message)"/>
               </div>
@@ -342,19 +384,31 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected stringUtils = inject(StringUtilsService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private memberLoginService = inject(MemberLoginService);
 
   protected readonly faInbox = faInbox;
   protected readonly faReply = faReply;
   protected readonly faRotateRight = faRotateRight;
   protected readonly faEnvelope = faEnvelope;
+  protected readonly faEnvelopeOpen = faEnvelopeOpen;
   protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly faTableColumns = faTableColumns;
   protected readonly faTableList = faTableList;
   protected readonly faTrash = faTrash;
   protected readonly faSearch = faSearch;
+  protected readonly faListCheck = faListCheck;
   protected readonly InboxMessageDirection = InboxMessageDirection;
   protected readonly InboxViewScope = InboxViewScope;
+  protected readonly InboxThreadFolder = InboxThreadFolder;
   protected readonly isInboxGeneralRoleType = isInboxGeneralRoleType;
+
+  get isInboxAdmin(): boolean {
+    return this.memberLoginService.allowMemberAdminEdits();
+  }
+
+  get viewingJunk(): boolean {
+    return this.selectedMailboxView === InboxThreadFolder.JUNK;
+  }
 
   public aliases: InboxAliasConfigView[] = [];
   public threads: InboxThread[] = [];
@@ -458,6 +512,15 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.busy = true;
     try {
       this.aliases = await this.inboxService.listAliases();
+      if (this.viewingJunk && this.isInboxAdmin) {
+        const junkResponse = await this.inboxService.listThreads(null, null, false, null, InboxThreadFolder.JUNK);
+        this.threads = junkResponse.threads;
+        this.threadListUnreadCount = 0;
+        if (!this.selectedThreadId && this.threads.length > 0) {
+          await this.openThread(this.threads[0]);
+        }
+        return;
+      }
       if (this.aliases.length === 1) {
         this.selectedMailboxView = this.aliases[0].roleType;
       } else if (!values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope)
@@ -564,6 +627,92 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
   }
 
+  async markSelected(unread: boolean): Promise<void> {
+    const ids = [...this.selectedThreadIds];
+    if (ids.length === 0) {
+      return;
+    }
+    this.busy = true;
+    try {
+      await Promise.all(ids.map(id => unread ? this.inboxService.markThreadUnread(id) : this.inboxService.markThreadRead(id)));
+      this.selectedThreadIds.clear();
+      await this.refresh();
+      this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} marked as ${unread ? "unread" : "read"}`});
+    } catch (error) {
+      this.notify.error({title: unread ? "Mark as unread" : "Mark as read", message: (error as Error).message});
+      this.logger.error("Failed to mark conversations:", error);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  async moveSelectedJunk(): Promise<void> {
+    const ids = [...this.selectedThreadIds];
+    if (ids.length === 0) {
+      return;
+    }
+    this.busy = true;
+    try {
+      await Promise.all(ids.map(id => this.inboxService.moveThreadToInbox(id)));
+      if (this.selectedThreadId && ids.includes(this.selectedThreadId)) {
+        this.selectedThread = null;
+        this.selectedThreadId = null;
+        this.selectedMessages = [];
+      }
+      this.selectedThreadIds.clear();
+      await this.refresh();
+      this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} moved out of junk into the inbox`});
+    } catch (error) {
+      this.notify.error({title: "Not junk", message: (error as Error).message});
+      this.logger.error("Failed to move conversations out of junk:", error);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  async moveSelectedToInbox(): Promise<void> {
+    if (!this.selectedThreadId) {
+      return;
+    }
+    const threadId = this.selectedThreadId;
+    this.busy = true;
+    try {
+      await this.inboxService.moveThreadToInbox(threadId);
+      this.selectedThread = null;
+      this.selectedThreadId = null;
+      this.selectedMessages = [];
+      await this.refresh();
+      this.notify.success({title: "Inbox", message: "Moved out of junk into the inbox"});
+    } catch (error) {
+      this.notify.error({title: "Not junk", message: (error as Error).message});
+      this.logger.error("Failed to move thread to inbox:", error);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  async deleteCurrentThread(): Promise<void> {
+    if (!this.selectedThreadId) {
+      return;
+    }
+    const threadId = this.selectedThreadId;
+    this.busy = true;
+    try {
+      await this.inboxService.deleteThread(threadId);
+      this.selectedThread = null;
+      this.selectedThreadId = null;
+      this.selectedMessages = [];
+      this.selectedThreadIds.delete(threadId);
+      await this.refresh();
+      this.notify.success({title: "Inbox", message: "Conversation deleted"});
+    } catch (error) {
+      this.notify.error({title: "Delete", message: (error as Error).message});
+      this.logger.error("Failed to delete conversation:", error);
+    } finally {
+      this.busy = false;
+    }
+  }
+
   threadSlug(thread: InboxThread): string {
     const sanitised = (thread.normalisedSubject || "").replace(/\p{Extended_Pictographic}/gu, "");
     return kebabCase(sanitised) || String(thread.firstSeenAt ?? thread.lastSeenAt ?? "");
@@ -632,6 +781,27 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.notify.error({title: "Reply", message: (error as Error).message});
       this.logger.error("Failed to prepare reply:", error);
     }
+  }
+
+  formatAddresses(addresses: InboxAddress[]): string {
+    return (addresses ?? []).map(address => address.name ? `${address.name} <${address.email}>` : address.email).join(", ");
+  }
+
+  recipientForThread(thread: InboxThread): string | null {
+    const alias = this.aliases.find(candidate => candidate.roleType === thread.roleType);
+    return alias && !isInboxGeneralRoleType(alias.roleType) ? alias.roleEmail : null;
+  }
+
+  selectedThreadRecipient(): string | null {
+    if (!this.selectedThread) {
+      return null;
+    }
+    const aliasEmail = this.recipientForThread(this.selectedThread);
+    if (aliasEmail) {
+      return aliasEmail;
+    }
+    const firstInbound = this.selectedMessages.find(message => message.direction === InboxMessageDirection.INBOUND);
+    return firstInbound?.to?.length ? this.formatAddresses(firstInbound.to) : null;
   }
 
   renderableBody(message: InboxMessage): string {
