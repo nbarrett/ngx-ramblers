@@ -2,7 +2,7 @@ import { inject, Injectable, OnDestroy } from "@angular/core";
 import { BehaviorSubject, Subscription } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { isUndefined } from "es-toolkit/compat";
-import { InboxNewMessageEvent } from "../../models/inbox.model";
+import { InboxNewMessageEvent, InboxUnreadRole, isInboxGeneralRoleType } from "../../models/inbox.model";
 import { MessageType } from "../../models/websocket.model";
 import { AuthService } from "../../auth/auth.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -20,8 +20,11 @@ export class InboxNotificationService implements OnDestroy {
   private authService = inject(AuthService);
 
   private readonly perRoleUnread = new Map<string, number>();
+  private readonly roleLabels = new Map<string, string>();
   private readonly totalSubject = new BehaviorSubject<number>(0);
   public readonly total$ = this.totalSubject.asObservable();
+  private readonly breakdownSubject = new BehaviorSubject<InboxUnreadRole[]>([]);
+  public readonly breakdown$ = this.breakdownSubject.asObservable();
 
   private wsSubscriptions: Subscription[] = [];
   private authSubscription: Subscription | null = null;
@@ -67,7 +70,9 @@ export class InboxNotificationService implements OnDestroy {
 
   private async refreshFromServer(): Promise<void> {
     try {
-      const counts = await this.inboxService.unreadCounts();
+      const [counts, aliases] = await Promise.all([this.inboxService.unreadCounts(), this.inboxService.listAliases()]);
+      this.roleLabels.clear();
+      aliases.forEach(alias => this.roleLabels.set(alias.roleType, isInboxGeneralRoleType(alias.roleType) ? "Other inbox mail" : alias.roleEmail));
       this.perRoleUnread.clear();
       counts.byRole.forEach(row => this.perRoleUnread.set(row.roleType, row.unreadCount));
       this.publishTotal();
@@ -92,7 +97,15 @@ export class InboxNotificationService implements OnDestroy {
   private publishTotal(): void {
     const total = Array.from(this.perRoleUnread.values()).reduce((sum, value) => sum + value, 0);
     this.totalSubject.next(total);
+    this.breakdownSubject.next(this.buildBreakdown());
     this.applyTitle(total);
+  }
+
+  private buildBreakdown(): InboxUnreadRole[] {
+    return Array.from(this.perRoleUnread.entries())
+      .filter(([, unreadCount]) => unreadCount > 0)
+      .map(([roleType, unreadCount]) => ({roleType, label: this.roleLabels.get(roleType) ?? roleType, unreadCount}))
+      .sort((left, right) => right.unreadCount - left.unreadCount);
   }
 
   private applyTitle(total: number): void {

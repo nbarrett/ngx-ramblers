@@ -33,6 +33,11 @@ export enum InboxViewScope {
   ASSIGNED_ROLES = "assigned-roles"
 }
 
+export enum InboxThreadFolder {
+  INBOX = "inbox",
+  JUNK = "junk"
+}
+
 export interface InboxMailboxConnection extends Identifiable {
   tenantSlug: string;
   provider: InboxReaderProvider;
@@ -88,7 +93,9 @@ export interface InboxThread extends Identifiable {
   tenantSlug: string;
   roleType: string;
   externalAddress: InboxAddress;
+  subject: string;
   normalisedSubject: string;
+  folder?: InboxThreadFolder;
   messageIds: string[];
   firstSeenAt: number;
   lastSeenAt: number;
@@ -177,6 +184,12 @@ export interface InboxUnreadCountByRole {
 export interface InboxUnreadCountsResponse {
   total: number;
   byRole: InboxUnreadCountByRole[];
+}
+
+export interface InboxUnreadRole {
+  roleType: string;
+  label: string;
+  unreadCount: number;
 }
 
 export interface InboxPushSubscription extends Identifiable {

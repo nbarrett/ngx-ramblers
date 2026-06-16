@@ -12,6 +12,7 @@ import {
   InboxReplyComposeRequest,
   InboxReplyComposeResponse,
   InboxSyncMode,
+  InboxThreadFolder,
   InboxThreadListResponse,
   InboxThreadMessagesResponse,
   InboxUnreadCountsResponse,
@@ -95,8 +96,11 @@ export class InboxService {
     return (response.response as { importedCount: number }).importedCount;
   }
 
-  async listThreads(roleType: string | null = null, scope: InboxViewScope | null = null, unreadOnly: boolean = false, limit: number | null = null): Promise<InboxThreadListResponse> {
+  async listThreads(roleType: string | null = null, scope: InboxViewScope | null = null, unreadOnly: boolean = false, limit: number | null = null, folder: InboxThreadFolder | null = null): Promise<InboxThreadListResponse> {
     const params: string[] = [];
+    if (folder) {
+      params.push(`folder=${encodeURIComponent(folder)}`);
+    }
     if (roleType) {
       params.push(`roleType=${encodeURIComponent(roleType)}`);
     }
@@ -123,8 +127,16 @@ export class InboxService {
     await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/threads/${threadId}/mark-read`, {}));
   }
 
+  async markThreadUnread(threadId: string): Promise<void> {
+    await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/threads/${threadId}/mark-unread`, {}));
+  }
+
   async deleteThread(threadId: string): Promise<void> {
     await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/threads/${threadId}`));
+  }
+
+  async moveThreadToInbox(threadId: string): Promise<void> {
+    await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/threads/${threadId}/move-to-inbox`, {}));
   }
 
   async composeReply(threadId: string, request: InboxReplyComposeRequest): Promise<InboxReplyComposeResponse> {

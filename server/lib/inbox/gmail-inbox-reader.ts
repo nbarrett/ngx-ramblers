@@ -143,6 +143,26 @@ export async function listAllInboxMessageIds(connection: InboxMailboxConnection,
   return (response.messages ?? []).map(m => m.id ?? "").filter(id => id.length > 0);
 }
 
+export async function listSpamMessageIds(connection: InboxMailboxConnection, maxResults: number = 50): Promise<string[]> {
+  const response = await gmailRequest<GmailMessageListResponse>(connection, GmailEndpoint.MESSAGES, {
+    q: GmailQuery.SPAM,
+    includeSpamTrash: true,
+    maxResults
+  });
+  return (response.messages ?? []).map(m => m.id ?? "").filter(id => id.length > 0);
+}
+
+export async function removeSpamLabel(connection: InboxMailboxConnection, gmailMessageId: string): Promise<void> {
+  await gmailRequest(connection, GMAIL_DYNAMIC_ENDPOINTS.MESSAGE_MODIFY(gmailMessageId), null, {
+    method: GmailRequestMethod.POST,
+    data: {removeLabelIds: [GmailLabel.SPAM], addLabelIds: [GmailLabel.INBOX]}
+  });
+}
+
+export async function trashMessage(connection: InboxMailboxConnection, gmailMessageId: string): Promise<void> {
+  await gmailRequest(connection, GMAIL_DYNAMIC_ENDPOINTS.MESSAGE_TRASH(gmailMessageId), null, {method: GmailRequestMethod.POST, data: {}});
+}
+
 export async function findGmailMessageIdByRfcHeader(connection: InboxMailboxConnection, rfcMessageId: string): Promise<string | null> {
   const stripped = rfcMessageId.replace(/^<|>$/g, "");
   if (!stripped) return null;
@@ -260,6 +280,13 @@ export async function markMessagesRead(connection: InboxMailboxConnection, gmail
     return;
   }
   await gmailRequest(connection, GmailEndpoint.BATCH_MODIFY, null, {method: GmailRequestMethod.POST, data: {ids: gmailMessageIds, removeLabelIds: [GmailLabel.UNREAD]}});
+}
+
+export async function markMessagesUnread(connection: InboxMailboxConnection, gmailMessageIds: string[]): Promise<void> {
+  if (gmailMessageIds.length === 0) {
+    return;
+  }
+  await gmailRequest(connection, GmailEndpoint.BATCH_MODIFY, null, {method: GmailRequestMethod.POST, data: {ids: gmailMessageIds, addLabelIds: [GmailLabel.UNREAD]}});
 }
 
 export async function markMessageRead(connection: InboxMailboxConnection, gmailMessageId: string): Promise<void> {

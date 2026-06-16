@@ -27,15 +27,18 @@ import {
   InboxReplyComposeResponse,
   InboxSyncMode,
   InboxThread,
+  InboxThreadFolder,
   InboxThreadListResponse,
   InboxUnreadCountByRole,
   InboxUnreadCountsResponse,
   InboxThreadMessagesResponse,
   InboxViewScope,
-  inboxGeneralRoleTypeFor
+  inboxGeneralRoleTypeFor,
+  isInboxGeneralRoleType
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { fetchFullMessage, findGmailMessageIdByRfcHeader, markMessageRead, markMessagesRead, registerGmailWatch, stopGmailWatch } from "./gmail-inbox-reader";
+import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { fetchFullMessage, findGmailMessageIdByRfcHeader, markMessagesRead, markMessagesUnread, registerGmailWatch, removeSpamLabel, stopGmailWatch, trashMessage } from "./gmail-inbox-reader";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
@@ -80,8 +83,28 @@ async function accessibleThread(req: Request, res: Response, threadId: string): 
     res.status(404).json({request: {messageType}, error: `Thread ${threadId} not found`});
     return null;
   }
+  if ((thread as InboxThread).folder === InboxThreadFolder.JUNK) {
+    if (inboxConfigurationAdministrator(req)) {
+      return thread as InboxThread;
+    }
+    res.status(403).json({request: {messageType}, error: "Member administrator access is required to view junk mail"});
+    return null;
+  }
   const accessible = await requireInboxRoleAccess(req, res, thread.roleType);
   return accessible ? thread as InboxThread : null;
+}
+
+async function resolveThreadConnection(thread: InboxThread, messages: InboxMessage[]): Promise<InboxMailboxConnection | null> {
+  const alias = await aliasForThread(thread);
+  const viaAlias = alias ? await connectionForAlias(alias) : null;
+  if (viaAlias) {
+    return viaAlias;
+  }
+  const messageConnectionId = messages.map(message => message.mailboxConnectionId).find(Boolean);
+  if (!messageConnectionId) {
+    return null;
+  }
+  return inboxMailboxConnectionModel.findOne({_id: messageConnectionId, tenantSlug: defaultTenantSlug()}).lean() as Promise<InboxMailboxConnection | null>;
 }
 
 async function aliasForThread(thread: InboxThread): Promise<InboxAliasConfig | null> {
@@ -542,6 +565,16 @@ router.get("/unread-counts", authConfig.authenticate(), async (req: Request, res
 
 router.get("/threads", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
+    const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string, 10) || 50, 200) : 50;
+    if (req.query.folder === InboxThreadFolder.JUNK) {
+      if (!inboxConfigurationAdministrator(req)) {
+        res.status(403).json({request: {messageType}, error: "Member administrator access is required to view junk mail"});
+        return;
+      }
+      const junkThreads = await inboxThreadModel.find({tenantSlug: defaultTenantSlug(), folder: InboxThreadFolder.JUNK}).sort({lastSeenAt: -1}).limit(limit).lean();
+      res.json({request: {messageType}, response: {threads: junkThreads as InboxThread[], unreadCount: 0}});
+      return;
+    }
     const allowedRoleTypes = await permittedInboxRoleTypes(req);
     const assignedRoleTypes = await assignedInboxRoleTypesForMember(req.user as Partial<MemberCookie>);
     const roleType = req.query.roleType;
@@ -554,12 +587,12 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
       : allowedRoleTypes;
     const filter: Record<string, unknown> = {
       tenantSlug: defaultTenantSlug(),
-      roleType: isString(roleType) ? roleType : {$in: scopeRoleTypes}
+      roleType: isString(roleType) ? roleType : {$in: scopeRoleTypes},
+      folder: {$ne: InboxThreadFolder.JUNK}
     };
     if (req.query.unreadOnly === "true") {
       filter.unread = true;
     }
-    const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string, 10) || 50, 200) : 50;
     const threads = await inboxThreadModel.find(filter).sort({lastSeenAt: -1}).limit(limit).lean();
     const unreadCount = await inboxThreadModel.countDocuments({...filter, unread: true});
     const response: InboxThreadListResponse = {threads: threads as InboxThread[], unreadCount};
@@ -576,17 +609,12 @@ router.get("/threads/:id", authConfig.authenticate(), async (req: Request, res: 
     if (!thread) {
       return;
     }
-    const alias = await aliasForThread(thread);
-    if (!alias) {
-      res.status(404).json({request: {messageType}, error: `No alias config found for role ${thread.roleType}`});
-      return;
-    }
-    const connection = await connectionForAlias(alias);
+    const storedMessages = await inboxMessageModel.find({threadId: req.params.id}).sort({receivedAt: 1, sentAt: 1}).lean();
+    const connection = await resolveThreadConnection(thread, storedMessages as InboxMessage[]);
     if (!connection) {
       res.status(404).json({request: {messageType}, error: `No Gmail mailbox connection found for role ${thread.roleType}`});
       return;
     }
-    const storedMessages = await inboxMessageModel.find({threadId: req.params.id}).sort({receivedAt: 1, sentAt: 1}).lean();
     const messages = await Promise.all(storedMessages.map(async message => {
       const storedMessage = message as InboxMessage;
       return hydrateMessage(await connectionForMessage(storedMessage, connection), storedMessage);
@@ -599,63 +627,62 @@ router.get("/threads/:id", authConfig.authenticate(), async (req: Request, res: 
   }
 });
 
+async function updateThreadReadState(req: Request, res: Response, unread: boolean): Promise<void> {
+  const thread = await accessibleThread(req, res, req.params.id);
+  if (!thread) {
+    return;
+  }
+  const storedMessages = await inboxMessageModel.find({threadId: req.params.id}).lean() as InboxMessage[];
+  const connection = await resolveThreadConnection(thread, storedMessages);
+  if (!connection) {
+    res.status(404).json({request: {messageType}, error: `No Gmail mailbox connection found for thread ${req.params.id}`});
+    return;
+  }
+  const inboundMessages = storedMessages.filter(message => message.direction === InboxMessageDirection.INBOUND
+    && message.externalSource === InboxReaderProvider.GMAIL_API && Boolean(message.externalId));
+  const defaultConnectionId = connectionId(connection);
+  const idsByConnection = inboundMessages.reduce<Map<string, string[]>>((map, storedMessage) => {
+    const cid = storedMessage.mailboxConnectionId ?? defaultConnectionId;
+    const existing = map.get(cid) ?? [];
+    existing.push(storedMessage.externalId!);
+    map.set(cid, existing);
+    return map;
+  }, new Map());
+  await inboxThreadModel.updateOne({_id: req.params.id}, {$set: {unread}});
+  const unreadCountForRole = await inboxThreadModel.countDocuments({
+    tenantSlug: defaultTenantSlug(),
+    roleType: thread.roleType,
+    unread: true
+  });
+  broadcast(MessageType.INBOX_THREAD_UPDATED, {threadId: req.params.id, messageId: "", roleType: thread.roleType, unreadCountForRole} as InboxNewMessageEvent);
+  res.json({request: {messageType}, response: {marked: true}});
+  Array.from(idsByConnection.entries()).reduce<Promise<void>>(async (acc, [cid, ids]) => {
+    await acc;
+    const targetConnection = cid === defaultConnectionId
+      ? connection
+      : (await inboxMailboxConnectionModel.findOne({_id: cid, tenantSlug: defaultTenantSlug()}).lean() as InboxMailboxConnection | null) ?? connection;
+    try {
+      await (unread ? markMessagesUnread(targetConnection, ids) : markMessagesRead(targetConnection, ids));
+    } catch (markError) {
+      errorDebugLog(`background mark-${unread ? "unread" : "read"} failed:`, (markError as Error).message);
+    }
+  }, Promise.resolve());
+}
+
 router.post("/threads/:id/mark-read", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
-    const thread = await accessibleThread(req, res, req.params.id);
-    if (!thread) {
-      return;
-    }
-    const alias = await aliasForThread(thread);
-    if (!alias) {
-      res.status(404).json({request: {messageType}, error: `No alias config found for role ${thread.roleType}`});
-      return;
-    }
-    const connection = await connectionForAlias(alias);
-    if (!connection) {
-      res.status(404).json({request: {messageType}, error: `No Gmail mailbox connection found for role ${thread.roleType}`});
-      return;
-    }
-    const inboundMessages = await inboxMessageModel.find({
-      threadId: req.params.id,
-      direction: InboxMessageDirection.INBOUND,
-      externalSource: InboxReaderProvider.GMAIL_API,
-      externalId: {$ne: null}
-    }).lean() as InboxMessage[];
-    const defaultConnectionId = connectionId(connection);
-    const idsByConnection = inboundMessages.reduce<Map<string, string[]>>((map, storedMessage) => {
-      const cid = storedMessage.mailboxConnectionId ?? defaultConnectionId;
-      const existing = map.get(cid) ?? [];
-      existing.push(storedMessage.externalId!);
-      map.set(cid, existing);
-      return map;
-    }, new Map());
-    await inboxThreadModel.updateOne({_id: req.params.id}, {$set: {unread: false}});
-    const unreadCountForRole = await inboxThreadModel.countDocuments({
-      tenantSlug: defaultTenantSlug(),
-      roleType: thread.roleType,
-      unread: true
-    });
-    const threadUpdatedEvent: InboxNewMessageEvent = {
-      threadId: req.params.id,
-      messageId: "",
-      roleType: thread.roleType,
-      unreadCountForRole
-    };
-    broadcast(MessageType.INBOX_THREAD_UPDATED, threadUpdatedEvent);
-    res.json({request: {messageType}, response: {marked: true}});
-    Array.from(idsByConnection.entries()).reduce<Promise<void>>(async (acc, [cid, ids]) => {
-      await acc;
-      const targetConnection = cid === defaultConnectionId
-        ? connection
-        : (await inboxMailboxConnectionModel.findOne({_id: cid, tenantSlug: defaultTenantSlug()}).lean() as InboxMailboxConnection | null) ?? connection;
-      try {
-        await markMessagesRead(targetConnection, ids);
-      } catch (markError) {
-        errorDebugLog("background mark-read failed:", (markError as Error).message);
-      }
-    }, Promise.resolve());
+    await updateThreadReadState(req, res, false);
   } catch (error) {
     errorDebugLog("Error marking thread read:", (error as Error).message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+router.post("/threads/:id/mark-unread", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    await updateThreadReadState(req, res, true);
+  } catch (error) {
+    errorDebugLog("Error marking thread unread:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });
@@ -713,6 +740,14 @@ router.delete("/threads/:id", authConfig.authenticate(), async (req: Request, re
     if (!thread) {
       return;
     }
+    const storedMessages = await inboxMessageModel.find({threadId: req.params.id}).lean() as InboxMessage[];
+    if (thread.folder === InboxThreadFolder.JUNK) {
+      const connection = await resolveThreadConnection(thread, storedMessages);
+      if (connection) {
+        await Promise.all(gmailMessageIds(storedMessages).map(externalId =>
+          trashMessage(connection, externalId).catch(trashError => debugLog(`trash failed for ${externalId}: ${(trashError as Error).message}`))));
+      }
+    }
     await inboxMessageModel.deleteMany({threadId: req.params.id});
     const result = await inboxThreadModel.deleteOne({_id: req.params.id, tenantSlug: defaultTenantSlug()});
     res.json({request: {messageType}, response: {deletedCount: result.deletedCount}});
@@ -721,6 +756,47 @@ router.delete("/threads/:id", authConfig.authenticate(), async (req: Request, re
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });
+
+router.post("/threads/:id/move-to-inbox", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    if (!requireInboxConfigurationAdministrator(req, res)) {
+      return;
+    }
+    const thread = await accessibleThread(req, res, req.params.id);
+    if (!thread) {
+      return;
+    }
+    if (thread.folder !== InboxThreadFolder.JUNK) {
+      res.json({request: {messageType}, response: {moved: false, roleType: thread.roleType}});
+      return;
+    }
+    const storedMessages = await inboxMessageModel.find({threadId: req.params.id}).lean() as InboxMessage[];
+    const connection = await resolveThreadConnection(thread, storedMessages);
+    if (!connection) {
+      res.status(404).json({request: {messageType}, error: `No Gmail mailbox connection found for thread ${req.params.id}`});
+      return;
+    }
+    await Promise.all(gmailMessageIds(storedMessages).map(externalId =>
+      removeSpamLabel(connection, externalId).catch(spamError => debugLog(`un-spam failed for ${externalId}: ${(spamError as Error).message}`))));
+    const roleType = await resolveInboxRoleTypeForThread(connection, storedMessages, thread.roleType);
+    await inboxThreadModel.updateOne({_id: req.params.id, tenantSlug: defaultTenantSlug()}, {$set: {folder: InboxThreadFolder.INBOX, roleType, unread: true}});
+    res.json({request: {messageType}, response: {moved: true, roleType}});
+  } catch (error) {
+    errorDebugLog("Error moving inbox thread to inbox:", (error as Error).message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+function gmailMessageIds(messages: InboxMessage[]): string[] {
+  return messages.map(message => message.externalId).filter((externalId): externalId is string => Boolean(externalId));
+}
+
+async function resolveInboxRoleTypeForThread(connection: InboxMailboxConnection, messages: InboxMessage[], currentRoleType: string): Promise<string> {
+  const realAliases = (await derivedAliases()).filter(alias => !isInboxGeneralRoleType(alias.roleType) && alias.mailboxConnectionId === connectionId(connection));
+  const recipients = messages.flatMap(message => message.to.concat(message.cc));
+  const matched = realAliases.find(alias => recipients.some(address => normaliseEmail(address.email) === normaliseEmail(alias.roleEmail)));
+  return matched ? matched.roleType : currentRoleType;
+}
 
 router.post("/mailbox-connections/:id/sync", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {

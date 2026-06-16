@@ -42,7 +42,7 @@ function connectionForRole(role: CommitteeMember, connectionsByEmail: Map<string
   return targetEmail ? connectionsByEmail.get(targetEmail) ?? null : null;
 }
 
-function generalAliasFor(connection: InboxMailboxConnection, tenantSlug: string): InboxAliasConfig {
+export function generalAliasFor(connection: InboxMailboxConnection, tenantSlug: string): InboxAliasConfig {
   const connectionId = connectionIdentifier(connection);
   return {
     id: inboxGeneralRoleTypeFor(connectionId),
@@ -75,6 +75,10 @@ async function connectedMailboxesByEmail(tenantSlug: string): Promise<Map<string
     map.set(normaliseEmail(connection.gmailAccountEmail), connection);
     return map;
   }, new Map<string, InboxMailboxConnection>());
+}
+
+export async function connectedInboxEmails(tenantSlug: string): Promise<string[]> {
+  return Array.from((await connectedMailboxesByEmail(tenantSlug)).keys());
 }
 
 export async function derivedAliases(): Promise<InboxAliasConfig[]> {

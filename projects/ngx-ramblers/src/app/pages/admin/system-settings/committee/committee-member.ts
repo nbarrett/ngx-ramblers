@@ -817,6 +817,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     if (this.committeeMember.forwardEmailTarget === ForwardEmailTarget.CATCHALL) {
       this.committeeMember.forwardEmailCustom = null;
     }
+    this.applyContactUsDefaultFromForwarding();
   }
 
   contactUsTargetChanged() {
