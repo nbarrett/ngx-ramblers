@@ -162,6 +162,14 @@ export class MemberService {
     return apiResponse.response as DeletionResponse[];
   }
 
+  async bulkDelete(memberIds: string[]): Promise<DeletionResponse[]> {
+    this.logger.debug("bulkDelete:requested:", memberIds);
+    const deleteMembersRequest: DeleteDocumentsRequest = {ids: memberIds};
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<DeletionResponseApiResponse>(this.BASE_URL + "/bulk-delete", deleteMembersRequest), this.memberDeletions);
+    this.logger.debug("bulkDelete:received:", apiResponse);
+    return apiResponse.response as DeletionResponse[];
+  }
+
   setPasswordResetId(member: Member) {
     member.passwordResetId = this.numberUtils.generateUid();
     this.logger.debug("member.userName", member.userName, "member.passwordResetId", member.passwordResetId);
