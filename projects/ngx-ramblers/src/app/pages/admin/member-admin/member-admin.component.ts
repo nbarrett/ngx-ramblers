@@ -30,7 +30,6 @@ import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-mo
 import { ProfileService } from "../profile/profile.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
 import { ListInfo, MailMessagingConfig, MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM, MemberAdminModalTab, UnsubscribeHistoryEntry } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
@@ -82,7 +81,6 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private mailService = inject(MailService);
   private notifierService = inject(NotifierService);
   private systemConfigService = inject(SystemConfigService);
-  private memberBulkDeleteService = inject(MemberBulkDeleteService);
   private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private dateUtils = inject(DateUtilsService);
@@ -504,7 +502,7 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
       message: `Deleting ${memberCount} and synchronising email lists - this can take a few minutes for large selections, please wait`
     }, true);
     try {
-      const deletedMembers = await this.memberBulkDeleteService.performBulkDelete(this.members, this.bulkDeleteMarkedMemberIds);
+      const deletedMembers = await this.memberService.bulkDelete(this.bulkDeleteMarkedMemberIds);
       this.logger.info("deletedMembers:", deletedMembers);
       await this.updateLists();
     } finally {

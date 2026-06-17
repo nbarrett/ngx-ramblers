@@ -242,6 +242,67 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
           {{ notifyTarget.alertMessage }}
         </div>
       }
+      @let recipientsValidationVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && (recipientsStepErrors().length > 0 || priorSendExclusions.length > 0);
+      @if (postSendActionWarningVisible() || recipientsValidationVisible) {
+        <div class="email-composer-validation-summary">
+          @if (bulkDeletionPending()) {
+            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow deletes its recipients</h5>
+            <ul class="list-arrow">
+              <li>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete its recipients from the database once the email has gone out. This cannot be undone.</li>
+              <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "selected member") }} will be removed after the send.</li>
+            </ul>
+          }
+          @if (memberDisablePending()) {
+            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow disables its recipients</h5>
+            <ul class="list-arrow">
+              <li>The "{{ state.notificationConfig?.subject?.text }}" email type will remove its recipients from the group (unticking Approved Group Member) once the email has gone out.</li>
+              <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "selected member") }} will be disabled after the send.</li>
+            </ul>
+          }
+          @if (recipientsValidationVisible) {
+            @if (recipientsStepErrors().length > 0) {
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
+              <ul class="list-arrow">
+                @for (error of recipientsStepErrors(); track error) { <li>{{ error }}</li> }
+              </ul>
+            }
+            @if (priorSendExclusions.length > 0) {
+              <h5>
+                <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                @if (!includeAlreadySent) {
+                  {{ priorSendExclusions.length }} {{ priorSendExclusions.length === 1 ? "member was" : "members were" }} excluded because they already received this email{{ priorSendDateRangeLabel() }}.
+                } @else {
+                  Including {{ priorSendExclusions.length }} already-sent {{ priorSendExclusions.length === 1 ? "member" : "members" }} in this re-send (originally sent{{ priorSendDateRangeLabel() }}).
+                }
+                <button type="button" class="email-composer-inline-toggle ms-2"
+                        (click)="togglePriorSendDetails()">
+                  {{ priorSendDetailsExpanded ? "Hide who" : "Show who" }}
+                </button>
+              </h5>
+              @if (priorSendDetailsExpanded) {
+                <ul class="list-arrow mt-1">
+                  @for (exclusion of priorSendExclusions; track exclusion.member.id) {
+                    <li>{{ exclusion.member | fullNameWithAlias }} - sent {{ priorSendDateLabel(exclusion.sentAt) }}</li>
+                  }
+                </ul>
+              }
+              <div class="form-check mt-2">
+                <input class="form-check-input"
+                       type="checkbox"
+                       id="include-already-sent"
+                       [checked]="includeAlreadySent"
+                       (change)="toggleIncludeAlreadySent()">
+                <label class="form-check-label small" for="include-already-sent">Re-send to members already sent this email</label>
+              </div>
+            }
+          }
+          @if (postSendActionWarningVisible()) {
+            <button type="button" class="btn btn-primary btn-sm mt-2" (click)="dismissPostSendActionWarning()">
+              <fa-icon [icon]="faXmark"/> Dismiss
+            </button>
+          }
+        </div>
+      }
       <div class="row mb-3">
         <div class="col-sm-12">
           <p-stepper [value]="$any(stepperActiveTab)" (valueChange)="onStepperValueChange($event)" [linear]="false">
@@ -520,52 +581,6 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
       <div class="email-composer-section">
         @if (state.brandingMode !== BrandingMode.UNBRANDED) {
           <h3>Who is this email going to?</h3>
-        }
-        @if (bulkDeletionPending() || recipientsStepErrors().length > 0 || priorSendExclusions.length > 0) {
-          <div class="email-composer-validation-summary">
-            @if (bulkDeletionPending()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow deletes its recipients:</h5>
-              <ul class="list-arrow">
-                <li>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete the members once the email has gone out.</li>
-                <li>Everyone you choose here will be removed from the database after the send.</li>
-              </ul>
-            }
-            @if (recipientsStepErrors().length > 0) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
-              <ul class="list-arrow">
-                @for (error of recipientsStepErrors(); track error) { <li>{{ error }}</li> }
-              </ul>
-            }
-            @if (priorSendExclusions.length > 0) {
-              <h5>
-                <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
-                @if (!includeAlreadySent) {
-                  {{ priorSendExclusions.length }} {{ priorSendExclusions.length === 1 ? "member was" : "members were" }} excluded because they already received this email{{ priorSendDateRangeLabel() }}.
-                } @else {
-                  Including {{ priorSendExclusions.length }} already-sent {{ priorSendExclusions.length === 1 ? "member" : "members" }} in this re-send (originally sent{{ priorSendDateRangeLabel() }}).
-                }
-                <button type="button" class="email-composer-inline-toggle ms-2"
-                        (click)="togglePriorSendDetails()">
-                  {{ priorSendDetailsExpanded ? "Hide who" : "Show who" }}
-                </button>
-              </h5>
-              @if (priorSendDetailsExpanded) {
-                <ul class="list-arrow mt-1">
-                  @for (exclusion of priorSendExclusions; track exclusion.member.id) {
-                    <li>{{ exclusion.member | fullNameWithAlias }} - sent {{ priorSendDateLabel(exclusion.sentAt) }}</li>
-                  }
-                </ul>
-              }
-              <div class="form-check mt-2">
-                <input class="form-check-input"
-                       type="checkbox"
-                       id="include-already-sent"
-                       [checked]="includeAlreadySent"
-                       (change)="toggleIncludeAlreadySent()">
-                <label class="form-check-label small" for="include-already-sent">Re-send to members already sent this email</label>
-              </div>
-            }
-          </div>
         }
         @if (state.brandingMode === BrandingMode.UNBRANDED) {
           <fieldset class="email-composer-fieldset">
@@ -1527,15 +1542,6 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
             </ul>
           </div>
         }
-        @if (bulkDeletionPending()) {
-          <div class="email-composer-validation-summary">
-            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This send permanently deletes members:</h5>
-            <ul class="list-arrow">
-              <li>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete the members once the email has gone out.</li>
-              <li>Sending now will permanently remove {{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "recipient member") }} from the database. This cannot be undone.</li>
-            </ul>
-          </div>
-        }
         @if (unbrandedListSendBlocked() || showUnbrandedListSendWarning() || subjectStartsWithCopyOf() || subjectUnchangedFromDefault()) {
           <div class="email-composer-validation-summary">
             @if (unbrandedListSendBlocked()) {
@@ -1634,7 +1640,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                           <td>{{ entry.fullName }}</td>
                           <td>{{ entry.email }}</td>
                           <td>{{ entry.status }}</td>
-                          <td>{{ entry.errorMessage || "" }}</td>
+                          <td>{{ entry.note || entry.errorMessage || "" }}</td>
                         </tr>
                       }
                       @for (recipient of state.ccRecipients; track recipient.email) {
@@ -1743,6 +1749,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected readonly UNBRANDED_LIST_SEND_WARNING_THRESHOLD = UNBRANDED_LIST_SEND_WARNING_THRESHOLD;
   protected batchProgress: BatchSendProgress | null = null;
   protected batchSendJobId: string | null = null;
+  protected postSendActionWarningDismissed = false;
   protected notifyTarget: AlertTarget = {};
   private notify!: AlertInstance;
   private subscriptions: Subscription[] = [];
@@ -3433,6 +3440,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     const previousConfigSubject = this.state.notificationConfig?.subject?.text ?? "";
     const userTypedCustomSubject = !!this.state.subject?.trim() && this.state.subject !== previousConfigSubject;
     this.state.notificationConfig = config;
+    this.postSendActionWarningDismissed = false;
     this.state.bannerId = config?.bannerId ?? null;
     if (!userTypedCustomSubject) {
       this.state.subject = config?.subject?.text ?? "";
@@ -3535,13 +3543,28 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.syncStateToUrl({ [StoredValue.MEMBER]: null });
   }
 
-  protected bulkDeletionPending(): boolean {
+  private configHasWorkflowAction(action: WorkflowAction): boolean {
     const config = this.state.notificationConfig;
     if (!config) {
       return false;
     }
-    return [...(config.preSendActions ?? []), ...(config.postSendActions ?? [])]
-      .includes(WorkflowAction.BULK_DELETE_GROUP_MEMBER);
+    return [...(config.preSendActions ?? []), ...(config.postSendActions ?? [])].includes(action);
+  }
+
+  protected bulkDeletionPending(): boolean {
+    return this.configHasWorkflowAction(WorkflowAction.BULK_DELETE_GROUP_MEMBER);
+  }
+
+  protected memberDisablePending(): boolean {
+    return this.configHasWorkflowAction(WorkflowAction.DISABLE_GROUP_MEMBER);
+  }
+
+  protected postSendActionWarningVisible(): boolean {
+    return (this.bulkDeletionPending() || this.memberDisablePending()) && !this.postSendActionWarningDismissed;
+  }
+
+  protected dismissPostSendActionWarning(): void {
+    this.postSendActionWarningDismissed = true;
   }
 
   protected bulkDeletionMemberCount(): number {

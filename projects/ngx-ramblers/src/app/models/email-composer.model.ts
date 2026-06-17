@@ -401,6 +401,7 @@ export interface BatchSendProgressEntry {
   fullName: string;
   status: BatchSendEntryStatus;
   errorMessage?: string;
+  note?: string;
   sentAt?: number;
 }
 
