@@ -415,7 +415,11 @@ router.get("/pubsub/push-config", authConfig.authenticate(), async (req: Request
     if (configured) {
       await ensurePushVerificationToken();
     }
-    const response: InboxPushConfigResponse = {pushUrl: await pushReceiverUrl(), configured};
+    const response: InboxPushConfigResponse = {
+      pushUrl: await pushReceiverUrl(),
+      configured,
+      configuredTopicName: configuredSystem?.googleInbox?.pubsubTopicName ?? null
+    };
     res.json({request: {messageType}, response});
   } catch (error) {
     errorDebugLog("Error resolving inbox push config:", (error as Error).message);

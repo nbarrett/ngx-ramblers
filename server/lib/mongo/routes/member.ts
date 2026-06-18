@@ -2,7 +2,8 @@ import express, { Request, Response } from "express";
 import { isArray, isString } from "es-toolkit/compat";
 import * as authConfig from "../../auth/auth-config";
 import * as member from "../controllers/member";
-import { bulkDeleteMembersCascade } from "../controllers/member-bulk-delete";
+import { applyPostSendActionsToMembers, bulkDeleteMembersCascade } from "../controllers/member-bulk-delete";
+import { WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), member.create);
@@ -18,6 +19,17 @@ router.post("/bulk-delete", authConfig.authenticate(), async (req: Request, res:
     res.status(200).json({action: `Bulk deletion of ${memberIds.length} member(s)`, response: result.deletionResponses});
   } catch (error: any) {
     res.status(500).json({error: error?.message || "bulk-delete failed"});
+  }
+});
+router.post("/apply-post-send-actions", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    const memberIds: string[] = isArray(req.body?.memberIds) ? req.body.memberIds.filter((id: unknown): id is string => isString(id) && id.length > 0) : [];
+    const postSendActions: WorkflowAction[] = isArray(req.body?.postSendActions) ? req.body.postSendActions.filter((action: unknown): action is WorkflowAction => isString(action)) : [];
+    const performedBy: string = (req.user as any)?.memberId ?? "";
+    const result = await applyPostSendActionsToMembers(memberIds, postSendActions, performedBy);
+    res.status(200).json({action: `Post-send actions applied to ${memberIds.length} member(s)`, response: result});
+  } catch (error: any) {
+    res.status(500).json({error: error?.message || "apply-post-send-actions failed"});
   }
 });
 router.put("/:id", authConfig.authenticate(), member.update);

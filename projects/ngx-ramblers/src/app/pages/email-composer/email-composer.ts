@@ -249,14 +249,14 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
             <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow deletes its recipients</h5>
             <ul class="list-arrow">
               <li>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete its recipients from the database once the email has gone out. This cannot be undone.</li>
-              <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "selected member") }} will be removed after the send.</li>
+              <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be removed after the send.</li>
             </ul>
           }
           @if (memberDisablePending()) {
             <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow disables its recipients</h5>
             <ul class="list-arrow">
               <li>The "{{ state.notificationConfig?.subject?.text }}" email type will remove its recipients from the group (unticking Approved Group Member) once the email has gone out.</li>
-              <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "selected member") }} will be disabled after the send.</li>
+              <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be disabled after the send.</li>
             </ul>
           }
           @if (recipientsValidationVisible) {
@@ -662,7 +662,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                 [respectBlocks]="respectsBlocks()"
                 [unsubscribedDates]="unsubscribedMemberDates()"
                 [lockedSelection]="!!forcedMemberId"
-                [autoFill]="false"
+                [autoFill]="state.narrowListId !== null"
                 [includeAlreadySent]="includeAlreadySent"
                 (selectedIdsChange)="onSelectedMemberIdsChange($event)"
                 (preFilterKeyChange)="onPreFilterKeyChange($event)"
@@ -3568,6 +3568,12 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected bulkDeletionMemberCount(): number {
+    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.state.selectedListId !== null) {
+      return this.members
+        .filter(this.memberService.filterFor.GROUP_MEMBERS)
+        .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.state.selectedListId!))
+        .length;
+    }
     return this.state.selectedMemberIds?.length ?? 0;
   }
 
@@ -4862,14 +4868,44 @@ export class EmailComposer implements OnInit, OnDestroy {
     const created: StatusMappedResponseSingleInput = await this.mailService.createCampaign(request);
     const campaignId: number = created?.responseBody?.id;
     await this.mailService.sendCampaign({ campaignId });
+    const postSendSummary = await this.applyCampaignPostSendActions(groupMembers);
     this.campaignSendComplete = true;
     this.sendInProgress = false;
     await this.recordSentToHistory();
     this.notify.hide();
     this.notify.success({
       title: "Campaign sent",
-      message: overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `successfully to ${this.recipientCountSummary(false)}`
+      message: (overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `successfully to ${this.recipientCountSummary(false)}`) + postSendSummary
     });
+  }
+
+  private async applyCampaignPostSendActions(groupMembers: Member[]): Promise<string> {
+    const postSendActions = this.state.notificationConfig?.postSendActions ?? [];
+    if (postSendActions.length === 0 || this.state.selectedListId === null) {
+      return "";
+    }
+    const listMemberIds = groupMembers
+      .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.state.selectedListId!))
+      .map(member => member.id)
+      .filter((id): id is string => !!id);
+    if (listMemberIds.length === 0) {
+      return "";
+    }
+    try {
+      const result = await this.memberService.applyPostSendActions(listMemberIds, postSendActions);
+      const parts: string[] = [];
+      if (result.deleted) {
+        parts.push(`${this.stringUtils.pluraliseWithCount(result.deleted, "member")} removed`);
+      }
+      if (result.disabled) {
+        parts.push(`${this.stringUtils.pluraliseWithCount(result.disabled, "member")} disabled`);
+      }
+      return parts.length ? ` ${parts.join(" and ")} after the send.` : "";
+    } catch (error) {
+      this.logger.error("applyCampaignPostSendActions failed:", error);
+      this.notify.warning({ title: "Post-send actions", message: `The campaign was sent, but applying post-send actions failed: ${this.errorMessage(error)}` });
+      return "";
+    }
   }
 
   private async recordSentToHistory(recipientCount?: number): Promise<void> {

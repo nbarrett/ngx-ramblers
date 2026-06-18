@@ -26,7 +26,7 @@ import {
 import { BrandingMode, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { recordMemberEmailSends } from "../../mongo/controllers/member-email-send";
 import { Member, MemberEmailBlock } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
-import { bulkDeleteMembersCascade } from "../../mongo/controllers/member-bulk-delete";
+import { applyPostSendActionsToMembers } from "../../mongo/controllers/member-bulk-delete";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
@@ -360,17 +360,9 @@ function escapeHeaderName(raw: string): string {
 }
 
 async function applyPostSendActions(notifConfig: NotificationConfig | null, sentMemberIds: string[], currentMemberId: string | null, log: debug.Debugger): Promise<void> {
-  const postSendActions = notifConfig?.postSendActions ?? [];
-  if (postSendActions.length === 0 || sentMemberIds.length === 0) {
-    return;
-  }
-  if (postSendActions.includes(WorkflowAction.DISABLE_GROUP_MEMBER)) {
-    const result = await memberModel.updateMany({ _id: { $in: sentMemberIds } }, { $set: { groupMember: false } });
-    log("postSendAction DISABLE_GROUP_MEMBER: cleared groupMember on", result.modifiedCount, "of", sentMemberIds.length, "emailed members");
-  }
-  if (postSendActions.includes(WorkflowAction.BULK_DELETE_GROUP_MEMBER)) {
-    const result = await bulkDeleteMembersCascade(sentMemberIds, currentMemberId ?? "");
-    log("postSendAction BULK_DELETE_GROUP_MEMBER: deleted", result.deletionResponses.filter(response => response.deleted).length, "members,", result.auditRowsDeleted, "audit rows,", result.orphanRowsDeleted, "orphan audit rows; recorded", result.deletedMemberRows, "deletedMember rows");
+  const result = await applyPostSendActionsToMembers(sentMemberIds, notifConfig?.postSendActions ?? [], currentMemberId ?? "");
+  if (result.disabled || result.deleted) {
+    log("applyPostSendActions: disabled", result.disabled, "and deleted", result.deleted, "of", sentMemberIds.length, "emailed members");
   }
 }
 

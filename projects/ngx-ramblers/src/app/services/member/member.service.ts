@@ -1,7 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Observable, Subject } from "rxjs";
+import { firstValueFrom, Observable, Subject } from "rxjs";
 import { isString } from "es-toolkit/compat";
 import { chain } from "../../functions/chain";
 import { DataQueryOptions } from "../../models/api-request.model";
@@ -22,6 +22,7 @@ import { DbUtilsService } from "../db-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { NumberUtilsService } from "../number-utils.service";
 import { DeletionResponse, DeletionResponseApiResponse } from "../../models/mongo-models";
+import { PostSendActionsResult, WorkflowAction } from "../../models/mail.model";
 
 @Injectable({
   providedIn: "root"
@@ -168,6 +169,13 @@ export class MemberService {
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<DeletionResponseApiResponse>(this.BASE_URL + "/bulk-delete", deleteMembersRequest), this.memberDeletions);
     this.logger.debug("bulkDelete:received:", apiResponse);
     return apiResponse.response as DeletionResponse[];
+  }
+
+  async applyPostSendActions(memberIds: string[], postSendActions: WorkflowAction[]): Promise<PostSendActionsResult> {
+    this.logger.debug("applyPostSendActions:requested:", memberIds, postSendActions);
+    const apiResponse = await firstValueFrom(this.http.post<{ action: string; response: PostSendActionsResult }>(this.BASE_URL + "/apply-post-send-actions", {memberIds, postSendActions}));
+    this.logger.debug("applyPostSendActions:received:", apiResponse);
+    return apiResponse.response;
   }
 
   setPasswordResetId(member: Member) {

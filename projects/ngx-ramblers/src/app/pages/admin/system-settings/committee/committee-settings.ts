@@ -174,12 +174,34 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                               (click)="createNewRole()" tooltip="Add a new committee role">
                         <fa-icon [icon]="faAdd" class="me-1"></fa-icon>Add Role
                       </button>
-                      <button class="btn btn-outline-secondary btn-sm" [disabled]="!!editingRoleDraft || !catchAllRule?.enabled"
-                              (click)="clearAllForwards()" tooltip="Set every role's inbound forwarding to Catchall so all role emails route via the single Cloudflare catch-all">
+                      <button class="btn btn-outline-secondary btn-sm" [disabled]="!!editingRoleDraft || !catchAllRule?.enabled || clearForwardsPending || clearForwardsConfirmPending"
+                              (click)="requestClearAllForwards()" tooltip="Delete every per-role Cloudflare forwarding rule for this domain so all role emails route via the single catch-all">
                         <fa-icon [icon]="faTrash" class="me-1"></fa-icon>Clear all forwards
                       </button>
                     </div>
                   </div>
+                  @if (clearForwardsConfirmPending) {
+                    <div class="alert alert-warning">
+                      <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+                      <strong class="ms-2">Clear all forwards for {{ baseDomain }}?</strong>
+                      <div class="mt-2">
+                        This deletes
+                        <strong>{{ stringUtils.pluraliseWithCount(domainForwardRules().length, "live Cloudflare forwarding rule") }}</strong>
+                        for <strong>{{ baseDomain }}</strong> and sets every role to use the catch-all
+                        @if (catchAllDestination()) {
+                          (<strong>{{ catchAllDestination() }}</strong>)} so all role mail routes there instead.
+                        Forwarding rules for any other domain or subdomain are left untouched. This cannot be undone.
+                      </div>
+                      <div class="d-flex gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-danger" [disabled]="clearForwardsPending || !domainForwardRules().length"
+                                (click)="clearAllForwards()">
+                          <fa-icon [icon]="faTrash" class="me-1"></fa-icon>Delete {{ stringUtils.pluraliseWithCount(domainForwardRules().length, "forward") }}
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="clearForwardsPending"
+                                (click)="cancelClearAllForwards()">Cancel</button>
+                      </div>
+                    </div>
+                  }
                   <div class="row mb-3">
                     <div class="col-sm-8">
                       <div class="input-group">
@@ -981,13 +1003,56 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     return this.catchAllStatusLabel();
   }
 
-  clearAllForwards(): void {
-    (this.committeeConfig?.roles ?? []).forEach(role => {
-      if (!role.vacant) {
-        role.forwardEmailTarget = ForwardEmailTarget.CATCHALL;
-        role.forwardEmailCustom = null;
+  clearForwardsConfirmPending = false;
+  clearForwardsPending = false;
+
+  requestClearAllForwards(): void {
+    this.clearForwardsConfirmPending = true;
+  }
+
+  cancelClearAllForwards(): void {
+    this.clearForwardsConfirmPending = false;
+  }
+
+  domainForwardRules(): EmailRoutingRule[] {
+    const domain = (this.baseDomain || "").toLowerCase();
+    if (!domain) {
+      return [];
+    }
+    return (this.emailRoutingRules || []).filter(rule => rule.matchers?.some(matcher =>
+      matcher.type === EmailRoutingMatcherType.LITERAL
+      && matcher.field === EmailRoutingMatcherField.TO
+      && !!matcher.value
+      && matcher.value.split("@")[1]?.toLowerCase() === domain));
+  }
+
+  async clearAllForwards(): Promise<void> {
+    const rulesToDelete = this.domainForwardRules();
+    this.clearForwardsConfirmPending = false;
+    this.clearForwardsPending = true;
+    try {
+      for (const rule of rulesToDelete) {
+        if (rule.id) {
+          await this.cloudflareEmailRoutingService.deleteRule(rule.id);
+        }
       }
-    });
+      (this.committeeConfig?.roles ?? []).forEach(role => {
+        if (!role.vacant) {
+          role.forwardEmailTarget = ForwardEmailTarget.CATCHALL;
+          role.forwardEmailCustom = null;
+        }
+      });
+      await this.cloudflareEmailRoutingService.queryRules();
+      await this.save();
+      this.notify.success({
+        title: "Forwards cleared",
+        message: `Deleted ${this.stringUtils.pluraliseWithCount(rulesToDelete.length, "Cloudflare forwarding rule")} for ${this.baseDomain}. All role mail now routes via the catch-all.`
+      });
+    } catch (error) {
+      this.notify.error(error);
+    } finally {
+      this.clearForwardsPending = false;
+    }
   }
 
   catchAllWorkerScriptName(): string {

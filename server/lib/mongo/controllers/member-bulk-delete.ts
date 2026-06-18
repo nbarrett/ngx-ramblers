@@ -3,11 +3,30 @@ import { envConfig } from "../../env-config/env-config";
 import { dateTimeNow } from "../../shared/dates";
 import { DeletedMember } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { DeletionResponse } from "../../../../projects/ngx-ramblers/src/app/models/mongo-models";
+import { PostSendActionsResult, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { member as memberModel } from "../models/member";
 import { deletedMember as deletedMemberModel } from "../models/deleted-member";
 import { mailListAudit as mailListAuditModel } from "../models/mail-list-audit";
 
 const debugLog = debug(envConfig.logNamespace("member-bulk-delete"));
+
+export async function applyPostSendActionsToMembers(memberIds: string[], postSendActions: WorkflowAction[], performedBy: string): Promise<PostSendActionsResult> {
+  const result: PostSendActionsResult = { disabled: 0, deleted: 0 };
+  if (!memberIds?.length || !postSendActions?.length) {
+    return result;
+  }
+  if (postSendActions.includes(WorkflowAction.DISABLE_GROUP_MEMBER)) {
+    const updated = await memberModel.updateMany({ _id: { $in: memberIds } }, { $set: { groupMember: false } });
+    result.disabled = updated.modifiedCount || 0;
+    debugLog("applyPostSendActions DISABLE_GROUP_MEMBER: cleared groupMember on", result.disabled, "of", memberIds.length, "members");
+  }
+  if (postSendActions.includes(WorkflowAction.BULK_DELETE_GROUP_MEMBER)) {
+    const cascade = await bulkDeleteMembersCascade(memberIds, performedBy);
+    result.deleted = cascade.deletionResponses.filter(response => response.deleted).length;
+    debugLog("applyPostSendActions BULK_DELETE_GROUP_MEMBER: deleted", result.deleted, "members,", cascade.auditRowsDeleted, "audit rows,", cascade.orphanRowsDeleted, "orphan rows");
+  }
+  return result;
+}
 
 export interface BulkDeleteMembersResult {
   deletionResponses: DeletionResponse[];

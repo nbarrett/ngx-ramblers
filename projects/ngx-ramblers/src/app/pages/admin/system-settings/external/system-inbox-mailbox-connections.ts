@@ -109,6 +109,11 @@ import {
                       Apply push
                     </button>
                   </div>
+                  @if (configuredTopicName) {
+                    <small class="text-muted d-block mt-1">This topic was created on <strong>step 1 (Google Cloud project)</strong> by <strong>Run Google Cloud setup</strong>, which also lets Gmail publish to it and creates the push subscription. It must exist before you Apply push.</small>
+                  } @else {
+                    <small class="text-warning d-block mt-1">No Pub/Sub topic has been set up yet. Go to <strong>step 1 (Google Cloud project)</strong>, enter your project ID and click <strong>Run Google Cloud setup</strong> first — that creates the topic (format <code>projects/your-project-id/topics/ngx-inbox-events</code>), lets Gmail publish to it, and creates the push subscription. Without it, Apply push will fail with "topic not found".</small>
+                  }
                   @if (pushUrl) {
                     <small class="text-muted d-block mt-1">Point your Pub/Sub push subscription at this URL:
                       <code>{{pushUrl}}</code></small>
@@ -149,6 +154,7 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
   public aliases: InboxAliasConfigView[] = [];
   public pushUrl: string | null = null;
   public pushConfigured = false;
+  public configuredTopicName: string | null = null;
   public busy = false;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -186,9 +192,11 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
       const pushConfig = await this.inboxService.pushConfig();
       this.pushUrl = pushConfig.pushUrl;
       this.pushConfigured = pushConfig.configured;
+      this.configuredTopicName = pushConfig.configuredTopicName;
     } catch {
       this.pushUrl = null;
       this.pushConfigured = false;
+      this.configuredTopicName = null;
     }
   }
 
@@ -294,6 +302,9 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
 
   async syncModeChanged(mailboxConnection: InboxMailboxConnectionView, syncMode: InboxSyncMode): Promise<void> {
     if (syncMode === InboxSyncMode.WATCH) {
+      if (!mailboxConnection.pubsubTopicName?.trim() && this.configuredTopicName) {
+        mailboxConnection.pubsubTopicName = this.configuredTopicName;
+      }
       return;
     }
     await this.applySyncMode(mailboxConnection, InboxSyncMode.POLL, null);
@@ -316,10 +327,24 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
       await this.loadPushConfig();
       this.notify.success({title: "Inbox delivery", message: syncMode === InboxSyncMode.WATCH ? "This mailbox now receives mail in real time via Pub/Sub push" : "This mailbox is polled every 30 seconds"});
     } catch (error) {
-      this.notify.error({title: "Inbox delivery", message: (error as Error).message});
+      this.notify.error({title: "Inbox delivery", message: this.syncModeErrorMessage(error, syncMode, pubsubTopicName)});
       await this.refresh();
     } finally {
       this.busy = false;
     }
+  }
+
+  private syncModeErrorMessage(error: unknown, syncMode: InboxSyncMode, pubsubTopicName: string | null): string {
+    const serverMessage = this.stringUtils.stringify(error);
+    if (syncMode === InboxSyncMode.WATCH && this.topicSetupIncomplete(serverMessage)) {
+      const topic = pubsubTopicName ? ` "${pubsubTopicName}"` : "";
+      return `${serverMessage}. The Pub/Sub topic${topic} must already exist and let Gmail publish to it before this mailbox can use push. On step 1 (Google Cloud project), enter your project ID and click "Run Google Cloud setup" — it creates the topic, grants gmail-api-push@system.gserviceaccount.com the Publisher role, and creates the push subscription. Then return here and Apply push.`;
+    }
+    return serverMessage;
+  }
+
+  private topicSetupIncomplete(message: string): boolean {
+    const lower = (message ?? "").toLowerCase();
+    return ["not found", "does not exist", "not authorized", "permission", "publish"].some(token => lower.includes(token));
   }
 }
