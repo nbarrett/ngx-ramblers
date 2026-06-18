@@ -4,7 +4,7 @@ import { isString } from "es-toolkit/compat";
 import { envConfig } from "../../env-config/env-config";
 import { dateTimeFromMillis, dateTimeNow } from "../../shared/dates";
 import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
-import { handleError, successfulResponse } from "../common/messages";
+import { handleError, successfulResponse, withNormalisedOverrideImageHosts } from "../common/messages";
 import { sendTransactionalEmailRequest } from "./send-transactional-mail";
 import {
   BLOCKED_CONTACT_REASON_LABELS,
@@ -381,10 +381,10 @@ function escapeHeaderName(raw: string): string {
   return raw;
 }
 
-async function applyPostSendActions(notifConfig: NotificationConfig | null, sentMemberIds: string[], currentMemberId: string | null, log: debug.Debugger): Promise<void> {
-  const result = await applyPostSendActionsToMembers(sentMemberIds, notifConfig?.postSendActions ?? [], currentMemberId ?? "");
+async function applyPostSendActions(notifConfig: NotificationConfig | null, memberIds: string[], currentMemberId: string | null, log: debug.Debugger): Promise<void> {
+  const result = await applyPostSendActionsToMembers(memberIds, notifConfig?.postSendActions ?? [], currentMemberId ?? "");
   if (result.disabled || result.deleted) {
-    log("applyPostSendActions: disabled", result.disabled, "and deleted", result.deleted, "of", sentMemberIds.length, "emailed members");
+    log("applyPostSendActions: disabled", result.disabled, "and deleted", result.deleted, "of", memberIds.length, "in-scope members");
   }
 }
 
@@ -480,6 +480,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
 
     progress.entries = [...memberEntries, ...externalEntries];
     progress.startedAt = dateTimeNow().toMillis();
+    const notEmailableMemberIds: string[] = [];
 
     for (const item of workItems) {
       if (cancelled.has(jobId)) {
@@ -491,10 +492,18 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       const entry = item.entry;
       if (item.kind === "member") {
         const memberRecord = membersById.get(entry.memberId);
-        if (!memberRecord || !memberRecord.email) {
+        if (!memberRecord) {
           entry.status = BatchSendEntryStatus.Failed;
-          entry.errorMessage = "Member missing email";
+          entry.errorMessage = "Member not found";
           progress.failedCount += 1;
+          continue;
+        }
+        if (!memberRecord.email) {
+          entry.status = BatchSendEntryStatus.Skipped;
+          entry.errorMessage = "No email address";
+          entry.notEmailable = true;
+          notEmailableMemberIds.push(entry.memberId);
+          progress.skippedCount += 1;
           continue;
         }
         const referenceListId = request.narrowListId ?? notifConfig?.defaultListId ?? null;
@@ -502,6 +511,10 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         if (suppressionReason) {
           entry.status = BatchSendEntryStatus.Skipped;
           entry.errorMessage = suppressionReason;
+          if (memberRecord.emailBlock) {
+            entry.notEmailable = true;
+            notEmailableMemberIds.push(entry.memberId);
+          }
           progress.skippedCount += 1;
           continue;
         }
@@ -548,7 +561,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           brandingMode: request.brandingMode,
           ...(isUnbranded
             ? { htmlContent: request.htmlBody }
-            : { templateName: notifConfig!.templateName, templateOverrides: notifConfig!.templateOverrides, body: notifConfig!.body })
+            : { templateName: notifConfig!.templateName, templateOverrides: withNormalisedOverrideImageHosts(notifConfig!.templateOverrides, groupHref), body: notifConfig!.body })
         };
         const sendResult = await sendTransactionalEmailRequest(emailRequest, debugLog, baseUrl);
         entry.status = BatchSendEntryStatus.Sent;
@@ -608,7 +621,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           brandingMode: request.brandingMode,
           ...(isUnbranded
             ? { htmlContent: request.htmlBody }
-            : { templateName: notifConfig!.templateName, templateOverrides: notifConfig!.templateOverrides, body: notifConfig!.body })
+            : { templateName: notifConfig!.templateName, templateOverrides: withNormalisedOverrideImageHosts(notifConfig!.templateOverrides, groupHref), body: notifConfig!.body })
         };
         const externalSendResult = await sendTransactionalEmailRequest(externalEmailRequest, debugLog, baseUrl);
         const sentAt = dateTimeNow().toMillis();
@@ -640,8 +653,11 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       sentBy: currentMemberId,
       entries: sentEntries.map(entry => ({ memberId: entry.memberId, email: entry.email, sentAt: entry.sentAt ?? dateTimeNow().toMillis() }))
     });
-    await applyPostSendActions(notifConfig, sentMemberIds, currentMemberId, debugLog);
+    const postSendMemberIds = Array.from(new Set([...sentMemberIds, ...notEmailableMemberIds]));
+    await applyPostSendActions(notifConfig, postSendMemberIds, currentMemberId, debugLog);
+    const notEmailableEntries = memberEntries.filter(entry => entry.notEmailable);
     annotateWorkflowActionNotes(sentEntries, notifConfig, generatePasswordResetIds);
+    annotateWorkflowActionNotes(notEmailableEntries, notifConfig, false);
     progress.completedAt = dateTimeNow().toMillis();
     progress.status = progress.failedCount === 0 ? BatchSendStatus.COMPLETED : BatchSendStatus.COMPLETED_WITH_ERRORS;
   } catch (error: any) {

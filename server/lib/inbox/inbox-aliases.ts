@@ -1,9 +1,10 @@
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, CommitteeMember, ForwardEmailTarget } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { InboxAccessMode, InboxAliasConfig, inboxGeneralRoleTypeFor, InboxMailboxConnection, isInboxGeneralRoleType } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { InboxAccessMode, InboxAliasConfig, inboxGeneralRoleTypeFor, InboxMailboxConnection, InboxMessage, isInboxGeneralRoleType } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import * as config from "../mongo/controllers/config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
+import { member as memberModel } from "../mongo/models/member";
 import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 export function defaultTenantSlug(): string {
@@ -128,6 +129,49 @@ export async function catchAllConnectionEmail(tenantSlug: string): Promise<strin
   const connectionsByEmail = await connectedMailboxesByEmail(tenantSlug);
   const catchAll = catchAllConnection(Array.from(connectionsByEmail.values()));
   return catchAll?.gmailAccountEmail ?? null;
+}
+
+export async function roleIdentityEmailsByType(): Promise<Map<string, Set<string>>> {
+  const roles = await committeeRoles();
+  const memberIds = Array.from(new Set(roles
+    .map(role => role.memberId)
+    .filter((memberId): memberId is string => Boolean(memberId) && /^[0-9a-fA-F]{24}$/.test(memberId))));
+  const members = memberIds.length > 0
+    ? await memberModel.find({_id: {$in: memberIds}}).select("email").lean() as unknown as { _id: { toString(): string }; email?: string }[]
+    : [];
+  const memberEmailById = members.reduce((map, memberRecord) => {
+    if (memberRecord.email) {
+      map.set(memberRecord._id.toString(), normaliseEmail(memberRecord.email));
+    }
+    return map;
+  }, new Map<string, string>());
+  return roles.reduce((map, role) => {
+    const identityEmails = new Set<string>();
+    if (role.email) {
+      identityEmails.add(normaliseEmail(role.email));
+    }
+    if (role.forwardEmailCustom) {
+      identityEmails.add(normaliseEmail(role.forwardEmailCustom));
+    }
+    (role.forwardEmailRecipients ?? []).forEach(recipient => identityEmails.add(normaliseEmail(recipient)));
+    const memberEmail = role.memberId ? memberEmailById.get(role.memberId) : null;
+    if (memberEmail) {
+      identityEmails.add(memberEmail);
+    }
+    map.set(role.type, identityEmails);
+    return map;
+  }, new Map<string, Set<string>>());
+}
+
+export function messageAddressEmails(message: InboxMessage): string[] {
+  return [message.from, ...message.to, ...message.cc]
+    .filter(Boolean)
+    .map(address => normaliseEmail(address.email));
+}
+
+export function roleMatchesMessageAddresses(roleType: string, roleEmail: string, messageEmails: string[], identityEmailsByType: Map<string, Set<string>>): boolean {
+  const identityEmails = identityEmailsByType.get(roleType) ?? new Set([normaliseEmail(roleEmail)]);
+  return messageEmails.some(email => identityEmails.has(email));
 }
 
 export async function collaborativeRoleTypes(tenantSlug: string): Promise<string[]> {

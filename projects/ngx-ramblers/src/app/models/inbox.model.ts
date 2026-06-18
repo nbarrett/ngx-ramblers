@@ -33,6 +33,12 @@ export enum InboxViewScope {
   ASSIGNED_ROLES = "assigned-roles"
 }
 
+export enum InboxReadFilter {
+  ALL = "all",
+  UNREAD = "unread",
+  READ = "read"
+}
+
 export enum InboxThreadFolder {
   INBOX = "inbox",
   JUNK = "junk"
@@ -101,6 +107,7 @@ export interface InboxThread extends Identifiable {
   lastSeenAt: number;
   lastDirection: InboxMessageDirection;
   unread: boolean;
+  readByMemberIds?: string[];
 }
 
 export interface InboxMessage extends Identifiable {

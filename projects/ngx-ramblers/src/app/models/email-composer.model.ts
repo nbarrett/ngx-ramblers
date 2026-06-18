@@ -403,6 +403,7 @@ export interface BatchSendProgressEntry {
   errorMessage?: string;
   note?: string;
   sentAt?: number;
+  notEmailable?: boolean;
 }
 
 export interface BatchSendProgress {

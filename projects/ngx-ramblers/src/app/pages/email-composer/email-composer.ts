@@ -1638,9 +1638,9 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                       @for (entry of batchProgress.entries; track entry.memberId) {
                         <tr>
                           <td>{{ entry.fullName }}</td>
-                          <td>{{ entry.email }}</td>
-                          <td>{{ entry.status }}</td>
-                          <td>{{ entry.note || entry.errorMessage || "" }}</td>
+                          <td>{{ entry.email || "no email address" }}</td>
+                          <td>{{ entry.notEmailable ? "not emailable" : entry.status }}</td>
+                          <td>{{ entry.errorMessage && entry.note ? (entry.errorMessage + " — " + entry.note) : (entry.note || entry.errorMessage || "") }}</td>
                         </tr>
                       }
                       @for (recipient of state.ccRecipients; track recipient.email) {
@@ -3890,12 +3890,20 @@ export class EmailComposer implements OnInit, OnDestroy {
     return errors;
   }
 
+  protected composeStepOmitted(): boolean {
+    return !!this.state.notificationConfig?.omitComposeStep;
+  }
+
+  protected eventsStepOmitted(): boolean {
+    return this.state.brandingMode === BrandingMode.UNBRANDED || !!this.state.notificationConfig?.omitEventsStep;
+  }
+
   eventsStepValid(): boolean {
-    return this.eventsStepErrors().length === 0;
+    return this.eventsStepOmitted() || this.eventsStepErrors().length === 0;
   }
 
   composeStepValid(): boolean {
-    return this.composeStepErrors().length === 0;
+    return this.composeStepOmitted() || this.composeStepErrors().length === 0;
   }
 
   composeStepValidationMessage(): string {
@@ -3980,7 +3988,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   canAccessStep(stepKey: EmailComposerStepKey): boolean {
-    if (stepKey === EmailComposerStepKey.EVENTS && this.state.brandingMode === BrandingMode.UNBRANDED) return false;
+    if (stepKey === EmailComposerStepKey.EVENTS && this.eventsStepOmitted()) return false;
+    if (stepKey === EmailComposerStepKey.COMPOSE && this.composeStepOmitted()) return false;
     if (stepKey === EmailComposerStepKey.TEMPLATE) return true;
     if (stepKey === EmailComposerStepKey.RECIPIENTS) return this.templateStepValid();
     const isUnbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
@@ -3992,10 +4001,11 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected visibleStepperSteps(): typeof EMAIL_COMPOSER_STEPS {
-    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      return EMAIL_COMPOSER_STEPS.filter(step => step.key !== EmailComposerStepKey.EVENTS);
-    }
-    return EMAIL_COMPOSER_STEPS;
+    return EMAIL_COMPOSER_STEPS.filter(step => {
+      if (step.key === EmailComposerStepKey.EVENTS && this.eventsStepOmitted()) return false;
+      if (step.key === EmailComposerStepKey.COMPOSE && this.composeStepOmitted()) return false;
+      return true;
+    });
   }
 
   protected isStepVisible(key: EmailComposerStepKey): boolean {

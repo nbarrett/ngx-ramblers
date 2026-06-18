@@ -167,6 +167,34 @@ function templateOverrideImageReplacement(override: TemplateOverride | undefined
   return `<em style="color:#757575">[${label} — To Be Added By Your Webmaster]</em>`;
 }
 
+const DEV_IMAGE_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i;
+
+export function normaliseOverrideImageHost(imageUrl: string | undefined, baseHref: string): string | undefined {
+  if (!imageUrl || !baseHref) {
+    return imageUrl;
+  }
+  const base = baseHref.replace(/\/+$/, "");
+  if (DEV_IMAGE_ORIGIN.test(imageUrl)) {
+    return imageUrl.replace(DEV_IMAGE_ORIGIN, base);
+  }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(imageUrl) || imageUrl.startsWith("//")) {
+    return imageUrl;
+  }
+  return `${base}/${imageUrl.replace(/^\/+/, "")}`;
+}
+
+export function withNormalisedOverrideImageHosts(overrides: TemplateOverrides | undefined, baseHref: string): TemplateOverrides | undefined {
+  if (!overrides || !baseHref) {
+    return overrides;
+  }
+  return Object.fromEntries(Object.entries(overrides).map(([key, override]) => {
+    const imageUrl = (override as TemplateOverride)?.imageUrl;
+    return imageUrl
+      ? [key, {...override, imageUrl: normaliseOverrideImageHost(imageUrl, baseHref)}]
+      : [key, override];
+  })) as TemplateOverrides;
+}
+
 export function applyTemplateOverrides(html: string, overrides?: TemplateOverrides): string {
   const keys = extractOverrideKeys(html);
   if (keys.length === 0) {

@@ -264,6 +264,7 @@ export class MemberMultiSelect implements OnChanges {
   }
 
   private memberDisabled(member: Member): boolean {
+    if (this.deliverabilityOptional(this.activePreFilterKey)) return false;
     if (!member.email) return true;
     if ((this.isBlocked(member) || this.isUnsubscribed(member)) && this.respectBlocks) return true;
     if (this.consentMissing(member) && this.requireConsent) return true;
@@ -276,8 +277,12 @@ export class MemberMultiSelect implements OnChanges {
     return !this.priorSendDateFor(member);
   }
 
+  private deliverabilityOptional(key: MemberSelection | null): boolean {
+    return key === MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS;
+  }
+
   private wouldMatchByCriteria(member: Member, key: MemberSelection | null): boolean {
-    if (!member.email) return false;
+    if (!this.deliverabilityOptional(key) && !member.email) return false;
     if (!key) return true;
     switch (key) {
       case MemberSelection.RECENTLY_ADDED:
@@ -349,7 +354,9 @@ export class MemberMultiSelect implements OnChanges {
     const expired = !noEmail && !suppressed && !!member.membershipExpiryDate && member.membershipExpiryDate < today;
     const memberGrouping = this.memberGroupingFor(noEmail, suppressed, consentMissing, expired);
     const memberName = this.fullNameWithAlias.transform(member);
-    const memberQualifier = this.qualifierLabel(this.contextualQualifier(member, preFilterKey, memberGrouping));
+    const statusQualifier = noEmail ? "no email address" : consentMissing ? "without Head Office consent" : null;
+    const contextualLabel = this.qualifierLabel(this.contextualQualifier(member, preFilterKey, memberGrouping));
+    const memberQualifier = [statusQualifier, contextualLabel].filter(Boolean).join(", ");
     const memberInformation = memberQualifier ? `${memberName} (${memberQualifier})` : memberName;
     return { id: member.id, member, memberInformation, memberName, memberQualifier, memberGrouping, disabled };
   }

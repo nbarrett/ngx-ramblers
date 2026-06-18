@@ -1,5 +1,5 @@
 import { AsyncPipe, CommonModule } from "@angular/common";
-import { Component, inject } from "@angular/core";
+import { Component, inject, ViewEncapsulation } from "@angular/core";
 import { RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faInbox } from "@fortawesome/free-solid-svg-icons";
@@ -17,6 +17,7 @@ import { InboxUnreadRole } from "../../../models/inbox.model";
         <a class="inbox-notification-badge" routerLink="/admin/inbox"
            [attr.aria-label]="tooltipFor(total, (inboxNotificationService.breakdown$ | async))"
            [tooltip]="tooltipFor(total, (inboxNotificationService.breakdown$ | async))"
+           containerClass="inbox-unread-tooltip"
            placement="bottom" container="body">
           <fa-icon [icon]="faInbox" class="inbox-icon"></fa-icon>
           <span class="inbox-count">{{ total }}</span>
@@ -52,7 +53,12 @@ import { InboxUnreadRole } from "../../../models/inbox.model";
       justify-content: center
       font-size: 0.8rem
       line-height: 1.3
-  `]
+    .inbox-unread-tooltip .tooltip-inner
+      max-width: none
+      white-space: pre
+      text-align: left
+  `],
+  encapsulation: ViewEncapsulation.None
 })
 export class InboxNotificationBadgeComponent {
 
@@ -67,6 +73,7 @@ export class InboxNotificationBadgeComponent {
     if (breakdown.length === 1) {
       return `${heading} for ${breakdown[0].label}`;
     }
-    return `${heading} — ${breakdown.map(role => `${role.label} (${role.unreadCount})`).join(", ")}`;
+    const roleLines = breakdown.map(role => `${role.label} (${role.unreadCount})`);
+    return [heading, ...roleLines].join("\n");
   }
 }

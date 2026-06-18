@@ -37,7 +37,8 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
     $set: {
       lastSeenAt: now,
       lastDirection: InboxMessageDirection.INBOUND,
-      unread: !isJunk
+      unread: !isJunk,
+      ...(isJunk ? {} : {readByMemberIds: []})
     },
     $addToSet: {messageIds: message.messageId}
   });
