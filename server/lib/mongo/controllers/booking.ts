@@ -315,7 +315,7 @@ export async function eligibility(req: Request, res: Response) {
           eventIds: [eventId],
           totalBooked,
           maxCapacity,
-          fullyBooked: totalBooked >= maxCapacity,
+          fullyBooked: maxCapacity > 0 && totalBooked >= maxCapacity,
           remainingPlaces: Math.max(0, maxCapacity - totalBooked)
         }
       }

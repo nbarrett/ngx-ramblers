@@ -363,7 +363,7 @@ export class BookingFormComponent implements OnInit, OnDestroy {
       eventIds: [this.extendedGroupEvent.id],
       totalBooked: capacityResponse.totalBooked,
       maxCapacity,
-      fullyBooked: capacityResponse.totalBooked >= maxCapacity,
+      fullyBooked: maxCapacity > 0 && capacityResponse.totalBooked >= maxCapacity,
       remainingPlaces: Math.max(0, maxCapacity - capacityResponse.totalBooked)
     };
     this.logger.debug("capacity refreshed:", this.capacity);

@@ -15,6 +15,7 @@ import { dateTimeNow } from "../shared/dates";
 import { isString, isUndefined } from "es-toolkit/compat";
 import { RegisteredScheduledTask, ScheduledTaskDefinition } from "./scheduled-task-registry.model";
 import { scheduledTaskEvents } from "./scheduled-task-events";
+import { humanFileSize } from "../../../projects/ngx-ramblers/src/app/functions/file-utils";
 
 const debugLog = debug(envConfig.logNamespace("cron:scheduled-tasks"));
 debugLog.enabled = true;
@@ -244,6 +245,12 @@ function runtimeEnabled(definition: ScheduledTaskDefinition): boolean {
   return definition.runtimeEnabled ? definition.runtimeEnabled() : true;
 }
 
+function rssDeltaMessage(rssBefore: number, rssAfter: number): string {
+  const deltaBytes = rssAfter - rssBefore;
+  const sign = deltaBytes >= 0 ? "+" : "-";
+  return `rss ${humanFileSize(rssBefore)} -> ${humanFileSize(rssAfter)} (${sign}${humanFileSize(Math.abs(deltaBytes))})`;
+}
+
 async function executeTask(registered: RegisteredScheduledTask): Promise<ScheduledTaskRun> {
   const run: ScheduledTaskRun = {
     startedAt: dateTimeNow().toISO()!,
@@ -253,6 +260,7 @@ async function executeTask(registered: RegisteredScheduledTask): Promise<Schedul
   };
   registered.history = [run, ...registered.history].slice(0, maximumHistoryEntries);
   scheduledTaskEvents.emit("task-updated", { task: summary(registered) });
+  const rssBefore = process.memoryUsage().rss;
   try {
     await registered.definition.run();
     run.status = ScheduledTaskRunStatus.SUCCEEDED;
@@ -266,6 +274,8 @@ async function executeTask(registered: RegisteredScheduledTask): Promise<Schedul
       "\nstack:", error?.stack);
   }
   run.completedAt = dateTimeNow().toISO()!;
+  const memoryNote = rssDeltaMessage(rssBefore, process.memoryUsage().rss);
+  run.message = run.message ? `${run.message} | ${memoryNote}` : memoryNote;
   await persistRun(registered.definition.id, run);
   scheduledTaskEvents.emit("task-updated", { task: summary(registered) });
   return run;
