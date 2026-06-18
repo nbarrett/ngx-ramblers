@@ -259,6 +259,7 @@ export interface InboxSyncModeRequest {
 export interface InboxPushConfigResponse {
   pushUrl: string | null;
   configured: boolean;
+  configuredTopicName: string | null;
 }
 
 export const INBOX_GENERAL_ROLE_TYPE_PREFIX = "_general_";

@@ -87,6 +87,11 @@ export enum WorkflowAction {
   BULK_DELETE_GROUP_MEMBER = "bulk-delete-group-member"
 }
 
+export interface PostSendActionsResult {
+  disabled: number;
+  deleted: number;
+}
+
 export interface MemberSelector {
   name: MemberSelection;
   memberMapper: (member: Member) => MemberFilterSelection;

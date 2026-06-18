@@ -276,10 +276,10 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
       sendSmtpEmail.htmlContent = inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, emailRequest.params));
     } else if (emailRequest.body) {
       debugLog("performing template substitution from editable body");
-      sendSmtpEmail.htmlContent = renderBrandedTemplate(composeShellAndBody(emailRequest.body), emailRequest.params, emailRequest.templateOverrides);
+      sendSmtpEmail.htmlContent = renderBrandedTemplate(composeShellAndBody(emailRequest.body), emailRequest.params, emailRequest.templateOverrides, campaign);
     } else if (localTemplateHtml) {
       debugLog("performing template substitution from local template", emailRequest.templateName);
-      sendSmtpEmail.htmlContent = renderBrandedTemplate(localTemplateHtml, emailRequest.params, emailRequest.templateOverrides);
+      sendSmtpEmail.htmlContent = renderBrandedTemplate(localTemplateHtml, emailRequest.params, emailRequest.templateOverrides, campaign);
     } else {
       debugLog(`Using supplied htmlContent`, emailRequest.htmlContent);
       sendSmtpEmail.htmlContent = emailRequest.htmlContent;
