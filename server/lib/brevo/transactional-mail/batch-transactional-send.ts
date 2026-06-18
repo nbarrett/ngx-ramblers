@@ -60,8 +60,30 @@ const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = false;
 
 const SEND_DELAY_MS = 400;
+const JOB_RETENTION_MS = 30 * 60 * 1000;
+const MAX_RETAINED_JOBS = 100;
 const jobs: Map<string, BatchSendProgress> = new Map();
 const cancelled: Set<string> = new Set();
+
+function forgetJob(jobId: string): void {
+  jobs.delete(jobId);
+  cancelled.delete(jobId);
+}
+
+function pruneCompletedJobs(): void {
+  const now = dateTimeNow().toMillis();
+  const terminalJobs = [...jobs.entries()].filter(([, progress]) => progress.status !== BatchSendStatus.RUNNING);
+  terminalJobs
+    .filter(([, progress]) => now - (progress.completedAt ?? progress.startedAt) > JOB_RETENTION_MS)
+    .forEach(([jobId]) => forgetJob(jobId));
+  if (jobs.size > MAX_RETAINED_JOBS) {
+    [...jobs.entries()]
+      .filter(([, progress]) => progress.status !== BatchSendStatus.RUNNING)
+      .sort((left, right) => (left[1].completedAt ?? left[1].startedAt) - (right[1].completedAt ?? right[1].startedAt))
+      .slice(0, jobs.size - MAX_RETAINED_JOBS)
+      .forEach(([jobId]) => forgetJob(jobId));
+  }
+}
 
 function committeeMemberForRole(roles: CommitteeMember[], role: string): CommitteeMember | undefined {
   return roles?.find(item => item.type === role);
@@ -684,6 +706,7 @@ export async function startBatchTransactionalSend(req: Request, res: Response): 
       startedAt: dateTimeNow().toMillis(),
       entries: []
     };
+    pruneCompletedJobs();
     jobs.set(jobId, progress);
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     const currentMemberId = (req as AuthenticatedRequest).user?.memberId ?? null;
