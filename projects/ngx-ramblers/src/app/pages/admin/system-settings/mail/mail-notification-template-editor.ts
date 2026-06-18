@@ -233,6 +233,26 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                       Default email type - appears first in the composer's Email Type dropdown and is pre-selected when no other config is forced.
                     </label>
                   </div>
+                  <div class="form-check mb-2">
+                    <input type="checkbox"
+                           class="form-check-input"
+                           id="{{heading | kebabCase}-omit-compose-step"
+                           [(ngModel)]="notificationConfig.omitComposeStep">
+                    <label class="form-check-label"
+                           for="{{heading | kebabCase}-omit-compose-step">
+                      Skip the Compose step - for fixed-content emails (e.g. welcome) where there's no message to write.
+                    </label>
+                  </div>
+                  <div class="form-check mb-2">
+                    <input type="checkbox"
+                           class="form-check-input"
+                           id="{{heading | kebabCase}-omit-events-step"
+                           [(ngModel)]="notificationConfig.omitEventsStep">
+                    <label class="form-check-label"
+                           for="{{heading | kebabCase}-omit-events-step">
+                      Skip the Events step - for emails that never attach events (e.g. welcome, expiry).
+                    </label>
+                  </div>
                 </div>
                 <ng-container>
                   <div class="col-sm-12">
@@ -850,7 +870,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
     this.notificationConfig.templateOverrides[key] = {
       type: TemplateOverrideType.IMAGE,
       state: TemplateOverrideState.CUSTOM,
-      imageUrl: this.urlService.imageSource(awsFileData.awsFileName, true)
+      imageUrl: this.urlService.imageSource(awsFileData.awsFileName)
     };
     delete this.pendingOverridePreviews[key];
     this.activeOverrideEditor = null;

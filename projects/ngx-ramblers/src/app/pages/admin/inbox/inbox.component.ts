@@ -4,7 +4,7 @@ import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faEnvelope, faEnvelopeOpen, faInbox, faListCheck, faReply, faReplyAll, faRotateRight, faSearch, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faEnvelope, faEnvelopeOpen, faFilter, faInbox, faListCheck, faReply, faReplyAll, faRotateRight, faSearch, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, values } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -23,6 +23,7 @@ import {
   InboxThread,
   InboxThreadFolder,
   InboxViewScope,
+  InboxReadFilter,
   isInboxGeneralRoleType
 } from "../../../models/inbox.model";
 import { MemberLoginService } from "../../../services/member/member-login.service";
@@ -70,6 +71,8 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
       flex: 1 1 auto
       min-height: 0
       overflow-y: auto
+    .inbox-thread-list:focus
+      outline: none
     .inbox-thread-row
       padding: 0.45rem 0.75rem
       border-bottom: 1px solid #e9ecef
@@ -178,6 +181,19 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
       opacity: 0
     .inbox-message.collapsed:hover .inbox-reply-actions
       opacity: 1
+    .inbox-filter-btn
+      width: 1.8rem
+      height: 1.8rem
+      min-width: 1.8rem
+      min-height: 1.8rem
+      max-height: 1.8rem
+      flex: 0 0 auto
+      padding: 0
+      line-height: 1
+      font-size: 0.8rem
+      display: inline-flex
+      align-items: center
+      justify-content: center
     .inbox-reply-btn
       width: 1.8rem
       height: 1.8rem
@@ -354,19 +370,29 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
               } @else {
                 <label class="text-muted small mb-0" for="inbox-select-all">Select all</label>
               }
+              <button type="button" class="btn btn-quiet inbox-filter-btn ms-auto" [class.active]="readFilter === InboxReadFilter.UNREAD"
+                      (click)="toggleUnreadFilter()"
+                      [tooltip]="readFilter === InboxReadFilter.UNREAD ? 'Showing unread only — click to show all' : 'Show unread only'">
+                <fa-icon [icon]="faFilter"></fa-icon>
+              </button>
             </div>
           }
-          <div class="inbox-thread-list">
+          <div class="inbox-thread-list" tabindex="0" (keydown)="onThreadListKeydown($event)">
           @if (threads.length === 0) {
             <div class="p-3 text-muted">No conversations yet. Once an alias is connected and synced, threads will appear here.</div>
           }
           @if (threads.length > 0 && filteredThreads.length === 0) {
-            <div class="p-3 text-muted">No conversations match "{{conversationSearchTerm}}".</div>
+            @if (conversationSearchTerm) {
+              <div class="p-3 text-muted">No conversations match "{{conversationSearchTerm}}".</div>
+            } @else {
+              <div class="p-3 text-muted">No {{readFilter === InboxReadFilter.ALL ? "" : readFilter + " "}}conversations.</div>
+            }
           }
           @for (thread of filteredThreads; track threadIdOf(thread)) {
             <div class="inbox-thread-row d-flex align-items-center gap-2"
                  [class.active]="threadIdOf(thread) === selectedThreadId"
                  [class.unread]="thread.unread"
+                 [attr.data-thread-id]="threadIdOf(thread)"
                  (click)="openThread(thread)">
               <input type="checkbox" class="form-check-input flex-shrink-0 m-0"
                      [checked]="selectedThreadIds.has(threadIdOf(thread))"
@@ -518,6 +544,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected readonly faTableList = faTableList;
   protected readonly faTrash = faTrash;
   protected readonly faSearch = faSearch;
+  protected readonly faFilter = faFilter;
   protected readonly faListCheck = faListCheck;
   protected readonly faChevronDown = faChevronDown;
   protected readonly faChevronRight = faChevronRight;
@@ -527,6 +554,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   public messageSortDescending = true;
   protected readonly InboxMessageDirection = InboxMessageDirection;
   protected readonly InboxViewScope = InboxViewScope;
+  protected readonly InboxReadFilter = InboxReadFilter;
   protected readonly InboxThreadFolder = InboxThreadFolder;
   protected readonly isInboxGeneralRoleType = isInboxGeneralRoleType;
 
@@ -557,6 +585,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   public aliases: InboxAliasConfigView[] = [];
   public threads: InboxThread[] = [];
   public conversationSearchTerm = "";
+  public readFilter: InboxReadFilter = InboxReadFilter.ALL;
   public selectedThreadIds = new Set<string>();
   public threadListUnreadCount = 0;
   public selectedThread: InboxThread | null = null;
@@ -660,6 +689,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.aliases = await this.inboxService.listAliases();
       if (!this.mailboxViewInitialised) {
         this.applyMailboxViewFromUrl();
+        this.applyReadFilterFromUrl();
         this.mailboxViewInitialised = true;
       }
       if (this.viewingJunk && this.isInboxAdmin) {
@@ -667,7 +697,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.threads = junkResponse.threads;
         this.threadListUnreadCount = 0;
         if (!this.selectedThreadId && this.threads.length > 0) {
-          await this.openThread(this.threads[0]);
+          await this.openThread(this.threads[0], false);
         }
         return;
       }
@@ -687,7 +717,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         const requestedThread = requestedSlug
           ? this.threads.find(thread => this.threadSlug(thread) === requestedSlug || this.threadIdOf(thread) === requestedSlug)
           : null;
-        await this.openThread(requestedThread ?? this.threads[0]);
+        await this.openThread(requestedThread ?? this.threads[0], false);
       }
     } catch (error) {
       this.notify.error({title: "Inbox", message: (error as Error).message});
@@ -749,15 +779,34 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   get filteredThreads(): InboxThread[] {
+    const byReadState = this.threads.filter(thread =>
+      this.readFilter === InboxReadFilter.ALL || (this.readFilter === InboxReadFilter.UNREAD ? thread.unread : !thread.unread));
     const term = this.conversationSearchTerm?.trim().toLowerCase();
     if (!term) {
-      return this.threads;
+      return byReadState;
     }
-    return this.threads.filter(thread =>
+    return byReadState.filter(thread =>
       (thread.normalisedSubject ?? "").toLowerCase().includes(term)
       || (thread.externalAddress?.name ?? "").toLowerCase().includes(term)
       || (thread.externalAddress?.email ?? "").toLowerCase().includes(term)
       || (thread.roleType ?? "").toLowerCase().includes(term));
+  }
+
+  toggleUnreadFilter(): void {
+    this.readFilter = this.readFilter === InboxReadFilter.UNREAD ? InboxReadFilter.ALL : InboxReadFilter.UNREAD;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {[StoredValue.INBOX_FILTER]: this.readFilter === InboxReadFilter.ALL ? null : this.readFilter},
+      queryParamsHandling: "merge",
+      replaceUrl: true
+    });
+  }
+
+  private applyReadFilterFromUrl(): void {
+    const param = this.route.snapshot.queryParams[StoredValue.INBOX_FILTER] as InboxReadFilter;
+    if (param === InboxReadFilter.UNREAD || param === InboxReadFilter.READ) {
+      this.readFilter = param;
+    }
   }
 
   toggleThreadSelection(thread: InboxThread): void {
@@ -906,7 +955,71 @@ export class InboxComponent implements OnInit, OnDestroy {
     });
   }
 
-  async openThread(thread: InboxThread): Promise<void> {
+  onThreadListKeydown(event: KeyboardEvent): void {
+    if (event.key === "Delete" || event.key === "Backspace") {
+      if (this.selectedThreadId) {
+        event.preventDefault();
+        void this.deleteFocusedThread(event.currentTarget as HTMLElement);
+      }
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+      return;
+    }
+    const list = this.filteredThreads;
+    if (list.length === 0) {
+      return;
+    }
+    event.preventDefault();
+    const currentIndex = list.findIndex(thread => this.threadIdOf(thread) === this.selectedThreadId);
+    const nextIndex = currentIndex === -1
+      ? (event.key === "ArrowDown" ? 0 : list.length - 1)
+      : Math.min(list.length - 1, Math.max(0, currentIndex + (event.key === "ArrowDown" ? 1 : -1)));
+    const nextThread = list[nextIndex];
+    if (nextThread && this.threadIdOf(nextThread) !== this.selectedThreadId) {
+      const listElement = event.currentTarget as HTMLElement;
+      void this.openThread(nextThread).then(() => this.scrollThreadRowIntoView(listElement, this.threadIdOf(nextThread)));
+    }
+  }
+
+  private scrollThreadRowIntoView(listElement: HTMLElement, threadId: string): void {
+    listElement.querySelector(`[data-thread-id="${threadId}"]`)?.scrollIntoView({block: "nearest"});
+  }
+
+  private async deleteFocusedThread(listElement: HTMLElement): Promise<void> {
+    const threadId = this.selectedThreadId;
+    if (!threadId) {
+      return;
+    }
+    const list = this.filteredThreads;
+    const currentIndex = list.findIndex(thread => this.threadIdOf(thread) === threadId);
+    const nextThread = list[currentIndex + 1] ?? list[currentIndex - 1] ?? null;
+    this.busy = true;
+    try {
+      await this.inboxService.deleteThread(threadId);
+      this.selectedThreadIds.delete(threadId);
+      this.selectedThreadId = nextThread ? this.threadIdOf(nextThread) : null;
+      this.selectedThread = nextThread;
+      this.selectedMessages = [];
+      await this.refresh();
+      const refreshed = nextThread ? this.filteredThreads.find(thread => this.threadIdOf(thread) === this.threadIdOf(nextThread)) : null;
+      if (refreshed) {
+        await this.openThread(refreshed);
+        this.scrollThreadRowIntoView(listElement, this.threadIdOf(refreshed));
+      } else if (!nextThread) {
+        this.selectedThread = null;
+        this.selectedThreadId = null;
+      }
+      this.notify.success({title: "Inbox", message: "Conversation deleted"});
+    } catch (error) {
+      this.notify.error({title: "Delete", message: (error as Error).message});
+      this.logger.error("Failed to delete conversation:", error);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  async openThread(thread: InboxThread, markRead = true): Promise<void> {
     const threadId = this.threadIdOf(thread);
     const requestId = this.openThreadRequestId + 1;
     this.openThreadRequestId = requestId;
@@ -924,7 +1037,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.selectedMessages = this.collapseSends(response.messages);
       this.expandedMessageIds = new Set(this.selectedMessages.length ? [this.selectedMessages[this.selectedMessages.length - 1].messageId] : []);
       this.loadingThread = false;
-      if (thread.unread) {
+      if (markRead && thread.unread) {
         thread.unread = false;
         this.threadListUnreadCount = Math.max(0, this.threadListUnreadCount - 1);
         this.inboxService.markThreadRead(threadId)
@@ -1100,7 +1213,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private async handleNewMessageEvent(event: InboxNewMessageEvent): Promise<void> {
     this.logger.info("Inbox websocket event:", event);
     await this.refresh();
-    if (this.selectedThreadId === event.threadId) {
+    if (event.messageId && this.selectedThreadId === event.threadId) {
       await this.openThread({...this.selectedThread!, id: this.selectedThreadId} as InboxThread);
     }
   }

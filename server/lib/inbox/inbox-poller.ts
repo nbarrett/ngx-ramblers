@@ -3,7 +3,7 @@ import { createErrorDebugLog } from "../shared/error-debug-log";
 import { envConfig } from "../env-config/env-config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
-import { derivedAliasesForConnection, generalAliasFor } from "./inbox-aliases";
+import { derivedAliasesForConnection, generalAliasFor, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import {
   InboxAliasConfig,
   InboxAliasConnectionStatus,
@@ -27,7 +27,6 @@ import {
 import { storeInboundMessage } from "./inbox-message-import";
 import { dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
-import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debugLog = debug(envConfig.logNamespace("inbox-poller"));
 debugLog.enabled = true;
@@ -111,11 +110,13 @@ async function pollViaHistoryDelta(connection: InboxMailboxConnection, aliases: 
 async function processGmailMessageIds(connection: InboxMailboxConnection, aliases: InboxAliasConfig[], gmailMessageIds: string[]): Promise<string[]> {
   const realAliases = aliases.filter(alias => !isInboxGeneralRoleType(alias.roleType));
   const generalAlias = aliases.find(alias => isInboxGeneralRoleType(alias.roleType)) ?? null;
+  const identityEmailsByType = await roleIdentityEmailsByType();
   return gmailMessageIds.reduce<Promise<string[]>>(async (acc, gmailMessageId) => {
     const accumulator = await acc;
     const parsed = await fetchFullMessage(connection, gmailMessageId);
-    const addressedRealAliases = realAliases.filter(alias => parsed.to.concat(parsed.cc)
-      .some(address => normaliseEmail(address.email) === normaliseEmail(alias.roleEmail)));
+    const messageEmails = messageAddressEmails(parsed);
+    const addressedRealAliases = realAliases.filter(alias =>
+      roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageEmails, identityEmailsByType));
     const aliasesToStoreUnder = addressedRealAliases.length > 0
       ? addressedRealAliases
       : (generalAlias ? [generalAlias] : []);
@@ -142,6 +143,7 @@ async function pollSpamForConnection(connection: InboxMailboxConnection, aliases
   }
   const realAliases = aliases.filter(alias => !isInboxGeneralRoleType(alias.roleType));
   const generalAlias = generalAliasFor(connection, connection.tenantSlug);
+  const identityEmailsByType = await roleIdentityEmailsByType();
   const spamMessageIds = await listSpamMessageIds(connection, 50);
   return spamMessageIds.reduce<Promise<number>>(async (acc, gmailMessageId) => {
     const accumulator = await acc;
@@ -154,8 +156,8 @@ async function pollSpamForConnection(connection: InboxMailboxConnection, aliases
     if (alreadyStored) {
       return accumulator;
     }
-    const addressedRealAliases = realAliases.filter(alias => parsed.to.concat(parsed.cc)
-      .some(address => normaliseEmail(address.email) === normaliseEmail(alias.roleEmail)));
+    const addressedRealAliases = realAliases.filter(alias =>
+      roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageAddressEmails(parsed), identityEmailsByType));
     const alias = addressedRealAliases[0] ?? generalAlias;
     await storeInboundMessage(alias, parsed, InboxThreadFolder.JUNK);
     return accumulator + 1;

@@ -72,6 +72,8 @@ export interface NotificationConfig extends Auditable, Identifiable {
   templateOverrides?: TemplateOverrides;
   body?: string;
   defaultListing?: boolean;
+  omitComposeStep?: boolean;
+  omitEventsStep?: boolean;
 }
 
 export enum MemberSelection {

@@ -37,13 +37,12 @@ import {
   isInboxGeneralRoleType
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { fetchFullMessage, findGmailMessageIdByRfcHeader, markMessagesRead, markMessagesUnread, registerGmailWatch, removeSpamLabel, stopGmailWatch, trashMessage } from "./gmail-inbox-reader";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
 import { assignedInboxRoleTypesForMember, inboxConfigurationAdministrator, permittedInboxRoleTypes, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
-import { derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection } from "./inbox-aliases";
+import { derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import { pollConnection } from "./inbox-poller";
 import { ensurePushVerificationToken, pushReceiverUrl, pushVerificationToken } from "./inbox-push";
 import { registerPushSubscription, unregisterPushSubscription, vapidPublicKey } from "./inbox-web-push";
@@ -62,6 +61,27 @@ const router = express.Router();
 
 function defaultTenantSlug(): string {
   return envConfig.value("APP_NAME" as never) ?? "default";
+}
+
+function requestingMemberId(req: Request): string | null {
+  return (req.user as Partial<MemberCookie>).memberId ?? null;
+}
+
+function threadUnreadForMember(thread: InboxThread, memberId: string | null): boolean {
+  return memberId ? !(thread.readByMemberIds ?? []).includes(memberId) : thread.unread;
+}
+
+function unreadConditionForMember(memberId: string | null): Record<string, unknown> {
+  return memberId ? {readByMemberIds: {$ne: memberId}} : {unread: true};
+}
+
+async function unreadThreadCountForRole(roleType: string, memberId: string | null): Promise<number> {
+  return inboxThreadModel.countDocuments({
+    tenantSlug: defaultTenantSlug(),
+    roleType,
+    folder: {$ne: InboxThreadFolder.JUNK},
+    ...unreadConditionForMember(memberId)
+  });
 }
 
 function sanitiseConnection(record: InboxMailboxConnection): InboxMailboxConnectionView {
@@ -554,7 +574,7 @@ router.get("/unread-counts", authConfig.authenticate(), async (req: Request, res
       return;
     }
     const counts = await inboxThreadModel.aggregate([
-      {$match: {tenantSlug: defaultTenantSlug(), roleType: {$in: allowedRoleTypes}, unread: true}},
+      {$match: {tenantSlug: defaultTenantSlug(), roleType: {$in: allowedRoleTypes}, folder: {$ne: InboxThreadFolder.JUNK}, ...unreadConditionForMember(requestingMemberId(req))}},
       {$group: {_id: "$roleType", unreadCount: {$sum: 1}}}
     ]);
     const byRole: InboxUnreadCountByRole[] = counts.map(row => ({roleType: row._id, unreadCount: row.unreadCount}));
@@ -589,17 +609,19 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
     const scopeRoleTypes = req.query.scope === InboxViewScope.ASSIGNED_ROLES
       ? assignedRoleTypes.filter(assignedRoleType => allowedRoleTypes.includes(assignedRoleType))
       : allowedRoleTypes;
+    const memberId = requestingMemberId(req);
     const filter: Record<string, unknown> = {
       tenantSlug: defaultTenantSlug(),
       roleType: isString(roleType) ? roleType : {$in: scopeRoleTypes},
       folder: {$ne: InboxThreadFolder.JUNK}
     };
     if (req.query.unreadOnly === "true") {
-      filter.unread = true;
+      Object.assign(filter, unreadConditionForMember(memberId));
     }
     const threads = await inboxThreadModel.find(filter).sort({lastSeenAt: -1}).limit(limit).lean();
-    const unreadCount = await inboxThreadModel.countDocuments({...filter, unread: true});
-    const response: InboxThreadListResponse = {threads: threads as InboxThread[], unreadCount};
+    const threadsForMember = (threads as InboxThread[]).map(thread => ({...thread, unread: threadUnreadForMember(thread, memberId)}));
+    const unreadCount = await inboxThreadModel.countDocuments({...filter, ...unreadConditionForMember(memberId)});
+    const response: InboxThreadListResponse = {threads: threadsForMember, unreadCount};
     res.json({request: {messageType}, response});
   } catch (error) {
     errorDebugLog("Error listing inbox threads:", (error as Error).message);
@@ -623,7 +645,8 @@ router.get("/threads/:id", authConfig.authenticate(), async (req: Request, res: 
       const storedMessage = message as InboxMessage;
       return hydrateMessage(await connectionForMessage(storedMessage, connection), storedMessage);
     }));
-    const response: InboxThreadMessagesResponse = {thread, messages};
+    const threadForMember = {...thread, unread: threadUnreadForMember(thread, requestingMemberId(req))};
+    const response: InboxThreadMessagesResponse = {thread: threadForMember, messages};
     res.json({request: {messageType}, response});
   } catch (error) {
     errorDebugLog("Error fetching thread:", (error as Error).message);
@@ -652,12 +675,12 @@ async function updateThreadReadState(req: Request, res: Response, unread: boolea
     map.set(cid, existing);
     return map;
   }, new Map());
-  await inboxThreadModel.updateOne({_id: req.params.id}, {$set: {unread}});
-  const unreadCountForRole = await inboxThreadModel.countDocuments({
-    tenantSlug: defaultTenantSlug(),
-    roleType: thread.roleType,
-    unread: true
-  });
+  const memberId = requestingMemberId(req);
+  const readStateUpdate = memberId
+    ? (unread ? {$pull: {readByMemberIds: memberId}} : {$addToSet: {readByMemberIds: memberId}})
+    : {$set: {unread}};
+  await inboxThreadModel.updateOne({_id: req.params.id}, readStateUpdate);
+  const unreadCountForRole = await unreadThreadCountForRole(thread.roleType, memberId);
   broadcast(MessageType.INBOX_THREAD_UPDATED, {threadId: req.params.id, messageId: "", roleType: thread.roleType, unreadCountForRole} as InboxNewMessageEvent);
   res.json({request: {messageType}, response: {marked: true}});
   Array.from(idsByConnection.entries()).reduce<Promise<void>>(async (acc, [cid, ids]) => {
@@ -783,7 +806,7 @@ router.post("/threads/:id/move-to-inbox", authConfig.authenticate(), async (req:
     await Promise.all(gmailMessageIds(storedMessages).map(externalId =>
       removeSpamLabel(connection, externalId).catch(spamError => debugLog(`un-spam failed for ${externalId}: ${(spamError as Error).message}`))));
     const roleType = await resolveInboxRoleTypeForThread(connection, storedMessages, thread.roleType);
-    await inboxThreadModel.updateOne({_id: req.params.id, tenantSlug: defaultTenantSlug()}, {$set: {folder: InboxThreadFolder.INBOX, roleType, unread: true}});
+    await inboxThreadModel.updateOne({_id: req.params.id, tenantSlug: defaultTenantSlug()}, {$set: {folder: InboxThreadFolder.INBOX, roleType, unread: true, readByMemberIds: []}});
     res.json({request: {messageType}, response: {moved: true, roleType}});
   } catch (error) {
     errorDebugLog("Error moving inbox thread to inbox:", (error as Error).message);
@@ -797,8 +820,9 @@ function gmailMessageIds(messages: InboxMessage[]): string[] {
 
 async function resolveInboxRoleTypeForThread(connection: InboxMailboxConnection, messages: InboxMessage[], currentRoleType: string): Promise<string> {
   const realAliases = (await derivedAliases()).filter(alias => !isInboxGeneralRoleType(alias.roleType) && alias.mailboxConnectionId === connectionId(connection));
-  const recipients = messages.flatMap(message => message.to.concat(message.cc));
-  const matched = realAliases.find(alias => recipients.some(address => normaliseEmail(address.email) === normaliseEmail(alias.roleEmail)));
+  const identityEmailsByType = await roleIdentityEmailsByType();
+  const messageEmails = messages.flatMap(messageAddressEmails);
+  const matched = realAliases.find(alias => roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageEmails, identityEmailsByType));
   return matched ? matched.roleType : currentRoleType;
 }
 

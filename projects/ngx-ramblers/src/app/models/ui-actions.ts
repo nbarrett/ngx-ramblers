@@ -79,6 +79,7 @@ export enum StoredValue {
   GROUP_AREA_TEXT_OPACITY = "group-area-text-opacity",
   GROUP_CODES = "group-codes",
   LEADERS = "leaders",
+  INBOX_FILTER = "inbox-filter",
   LIST_ID = "list-id",
   LOCATION_METHOD = "location-method",
   MAILBOX_VIEW = "mailbox-view",
