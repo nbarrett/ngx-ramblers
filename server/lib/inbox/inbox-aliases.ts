@@ -51,7 +51,10 @@ export function generalAliasFor(connection: InboxMailboxConnection, tenantSlug: 
     roleType: inboxGeneralRoleTypeFor(connectionId),
     roleEmail: connection.gmailAccountEmail ?? "",
     mailboxConnectionId: connectionId,
-    enabled: true
+    enabled: true,
+    inboxMessageNotifications: false,
+    inboxNotificationEmail: null,
+    memberId: null
   };
 }
 
@@ -62,7 +65,10 @@ function aliasFor(role: CommitteeMember, connection: InboxMailboxConnection, ten
     roleType: role.type,
     roleEmail: role.email,
     mailboxConnectionId: connectionIdentifier(connection),
-    enabled: true
+    enabled: true,
+    inboxMessageNotifications: role.inboxMessageNotifications === true,
+    inboxNotificationEmail: role.inboxNotificationEmail?.trim() || null,
+    memberId: role.memberId ?? null
   };
 }
 
@@ -161,6 +167,23 @@ export async function roleIdentityEmailsByType(): Promise<Map<string, Set<string
     map.set(role.type, identityEmails);
     return map;
   }, new Map<string, Set<string>>());
+}
+
+export async function assignedMemberNamesByMemberId(memberIds: (string | null | undefined)[]): Promise<Map<string, string>> {
+  const validMemberIds = Array.from(new Set(memberIds
+    .filter((memberId): memberId is string => Boolean(memberId) && /^[0-9a-fA-F]{24}$/.test(memberId))));
+  if (validMemberIds.length === 0) {
+    return new Map<string, string>();
+  }
+  const members = await memberModel.find({_id: {$in: validMemberIds}})
+    .select("firstName lastName userName email").lean() as unknown as { _id: { toString(): string }; firstName?: string; lastName?: string; userName?: string; email?: string }[];
+  return members.reduce((map, member) => {
+    const name = [member.firstName, member.lastName].filter(Boolean).join(" ") || member.userName || member.email || "";
+    if (name) {
+      map.set(member._id.toString(), name);
+    }
+    return map;
+  }, new Map<string, string>());
 }
 
 export function messageAddressEmails(message: InboxMessage): string[] {

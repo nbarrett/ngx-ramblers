@@ -7,12 +7,71 @@ import {
   GoogleApiService,
   GoogleCloudProvisioningOptions,
   GoogleCloudProvisioningResult,
+  GoogleCloudSetupStatus,
+  GoogleCloudSetupStatusRecord,
   ProvisioningStep,
   ProvisioningStepStatus
 } from "./gmail-inbox.model";
+import { inboxSetupStatus as inboxSetupStatusModel } from "../mongo/models/inbox-setup-status";
+import { defaultTenantSlug } from "./inbox-aliases";
+import { dateTimeNow } from "../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("inbox-google-setup"));
 debugLog.enabled = true;
+
+type ProvisioningStepListener = (step: ProvisioningStep) => Promise<void> | void;
+
+export async function beginGoogleCloudSetupStatus(projectId: string, topicName: string): Promise<void> {
+  const now = dateTimeNow().toMillis();
+  await inboxSetupStatusModel.findOneAndUpdate(
+    {tenantSlug: defaultTenantSlug()},
+    {
+      $set: {
+        status: GoogleCloudSetupStatus.RUNNING,
+        projectId,
+        topicName,
+        topicFullName: null,
+        subscriptionFullName: null,
+        steps: [],
+        errorMessage: null,
+        startedAt: now,
+        updatedAt: now
+      }
+    },
+    {upsert: true});
+}
+
+async function appendGoogleCloudSetupStep(step: ProvisioningStep): Promise<void> {
+  await inboxSetupStatusModel.updateOne(
+    {tenantSlug: defaultTenantSlug()},
+    {$push: {steps: step}, $set: {updatedAt: dateTimeNow().toMillis()}});
+}
+
+export async function completeGoogleCloudSetupStatus(result: GoogleCloudProvisioningResult): Promise<void> {
+  const anyFailed = result.steps.some(step => step.status === ProvisioningStepStatus.FAILED);
+  await inboxSetupStatusModel.updateOne(
+    {tenantSlug: defaultTenantSlug()},
+    {
+      $set: {
+        status: anyFailed ? GoogleCloudSetupStatus.FAILED : GoogleCloudSetupStatus.COMPLETED,
+        projectId: result.projectId,
+        topicFullName: result.topicFullName,
+        subscriptionFullName: result.subscriptionFullName,
+        errorMessage: anyFailed ? result.steps.filter(step => step.status === ProvisioningStepStatus.FAILED).map(step => `${step.step}: ${step.detail}`).join("; ") : null,
+        updatedAt: dateTimeNow().toMillis()
+      }
+    });
+}
+
+export async function failGoogleCloudSetupStatus(message: string): Promise<void> {
+  await inboxSetupStatusModel.updateOne(
+    {tenantSlug: defaultTenantSlug()},
+    {$set: {status: GoogleCloudSetupStatus.FAILED, errorMessage: message, updatedAt: dateTimeNow().toMillis()}});
+}
+
+export async function currentGoogleCloudSetupStatus(): Promise<GoogleCloudSetupStatusRecord | null> {
+  return inboxSetupStatusModel.findOne({tenantSlug: defaultTenantSlug()}).lean() as unknown as GoogleCloudSetupStatusRecord | null;
+}
 
 function bootstrapClient(accessToken: string): OAuth2Client {
   const client = new google.auth.OAuth2();
@@ -24,20 +83,52 @@ function shortSubscriptionName(topicName: string): string {
   return `${topicName}-push`;
 }
 
-export async function runGoogleCloudProvisioning(accessToken: string, options: GoogleCloudProvisioningOptions): Promise<GoogleCloudProvisioningResult> {
+export async function runGoogleCloudProvisioning(accessToken: string, options: GoogleCloudProvisioningOptions, onStep: ProvisioningStepListener = appendGoogleCloudSetupStep): Promise<GoogleCloudProvisioningResult> {
   const auth = bootstrapClient(accessToken);
-  const subscriptionName = options.subscriptionName?.trim() || shortSubscriptionName(options.topicName);
-  const topicFullName = `projects/${options.projectId}/topics/${options.topicName}`;
-  const subscriptionFullName = `projects/${options.projectId}/subscriptions/${subscriptionName}`;
   const steps: ProvisioningStep[] = [];
 
-  steps.push(await enableApi(auth, options.projectId, GoogleApiService.GMAIL));
-  steps.push(await enableApi(auth, options.projectId, GoogleApiService.PUBSUB));
-  steps.push(await ensureTopic(auth, topicFullName));
-  steps.push(await grantTopicPublisher(auth, topicFullName));
-  steps.push(await ensurePushSubscription(auth, subscriptionFullName, topicFullName, options.pushReceiverUrl));
+  const recordStep = async (step: ProvisioningStep): Promise<void> => {
+    steps.push(step);
+    await onStep(step);
+  };
 
-  return {projectId: options.projectId, topicFullName, subscriptionFullName, pushReceiverUrl: options.pushReceiverUrl, steps};
+  const {step: verifyStep, projectId} = await resolveProject(auth, options.projectId);
+  await recordStep(verifyStep);
+  if (verifyStep.status === ProvisioningStepStatus.FAILED) {
+    return {projectId: options.projectId, topicFullName: "", subscriptionFullName: "", pushReceiverUrl: options.pushReceiverUrl, steps};
+  }
+
+  const subscriptionName = options.subscriptionName?.trim() || shortSubscriptionName(options.topicName);
+  const topicFullName = `projects/${projectId}/topics/${options.topicName}`;
+  const subscriptionFullName = `projects/${projectId}/subscriptions/${subscriptionName}`;
+
+  await recordStep(await enableApi(auth, projectId, GoogleApiService.GMAIL));
+  await recordStep(await enableApi(auth, projectId, GoogleApiService.PUBSUB));
+  await recordStep(await ensureTopic(auth, topicFullName));
+  await recordStep(await grantTopicPublisher(auth, topicFullName));
+  await recordStep(await ensurePushSubscription(auth, subscriptionFullName, topicFullName, options.pushReceiverUrl));
+
+  return {projectId, topicFullName, subscriptionFullName, pushReceiverUrl: options.pushReceiverUrl, steps};
+}
+
+async function resolveProject(auth: OAuth2Client, projectIdOrNumber: string): Promise<{step: ProvisioningStep; projectId: string}> {
+  const stepLabel = `Verify project ${projectIdOrNumber}`;
+  try {
+    const resourceManager = google.cloudresourcemanager({version: "v3", auth});
+    const response = await resourceManager.projects.get({name: `projects/${projectIdOrNumber}`});
+    const canonicalId = response.data.projectId ?? projectIdOrNumber;
+    const displayName = response.data.displayName ?? "";
+    return {
+      step: {step: stepLabel, status: ProvisioningStepStatus.OK, detail: `Using project ${canonicalId}${displayName ? ` (${displayName})` : ""}`},
+      projectId: canonicalId
+    };
+  } catch (error) {
+    const httpStatus = (error as {response?: {status?: number}; code?: number})?.response?.status ?? (error as {code?: number})?.code;
+    const detail = (httpStatus === 403 || httpStatus === 404)
+      ? `Project "${projectIdOrNumber}" was not found or you don't have access. Use the project ID or its number, not the project's display name.`
+      : (error as Error).message;
+    return {step: {step: stepLabel, status: ProvisioningStepStatus.FAILED, detail}, projectId: projectIdOrNumber};
+  }
 }
 
 async function enableApi(auth: OAuth2Client, projectId: string, serviceName: string): Promise<ProvisioningStep> {

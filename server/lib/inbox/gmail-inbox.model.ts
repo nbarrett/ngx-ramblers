@@ -228,3 +228,22 @@ export interface GoogleCloudProvisioningResult {
   pushReceiverUrl: string;
   steps: ProvisioningStep[];
 }
+
+export enum GoogleCloudSetupStatus {
+  RUNNING = "running",
+  COMPLETED = "completed",
+  FAILED = "failed"
+}
+
+export interface GoogleCloudSetupStatusRecord {
+  tenantSlug: string;
+  status: GoogleCloudSetupStatus;
+  projectId: string;
+  topicName: string;
+  topicFullName: string | null;
+  subscriptionFullName: string | null;
+  steps: ProvisioningStep[];
+  errorMessage: string | null;
+  startedAt: number;
+  updatedAt: number;
+}

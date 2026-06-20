@@ -156,6 +156,8 @@ export interface CommitteeMember {
   contactUsTarget?: ForwardEmailTarget;
   contactUsCustom?: string;
   contactUsRecipients?: string[];
+  inboxMessageNotifications?: boolean;
+  inboxNotificationEmail?: string;
 }
 
 export interface CommitteeRecipientOption {

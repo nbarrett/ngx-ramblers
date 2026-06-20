@@ -77,10 +77,38 @@ export interface InboxAliasConfig extends Identifiable {
   roleEmail: string;
   mailboxConnectionId: string | null;
   enabled: boolean;
+  inboxMessageNotifications: boolean;
+  inboxNotificationEmail: string | null;
+  memberId: string | null;
 }
 
 export interface InboxAliasConfigView extends InboxAliasConfig {
   mailboxConnection: InboxMailboxConnectionView | null;
+  assignedMemberName: string | null;
+}
+
+export enum GoogleCloudSetupStatusValue {
+  RUNNING = "running",
+  COMPLETED = "completed",
+  FAILED = "failed"
+}
+
+export interface GoogleCloudProvisioningStepView {
+  step: string;
+  status: string;
+  detail: string;
+}
+
+export interface GoogleCloudSetupStatusView {
+  status: GoogleCloudSetupStatusValue;
+  projectId: string;
+  topicName: string;
+  topicFullName: string | null;
+  subscriptionFullName: string | null;
+  steps: GoogleCloudProvisioningStepView[];
+  errorMessage: string | null;
+  startedAt: number;
+  updatedAt: number;
 }
 
 export interface InboxAddress {

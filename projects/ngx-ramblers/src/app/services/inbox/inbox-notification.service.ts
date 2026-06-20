@@ -2,7 +2,7 @@ import { inject, Injectable, OnDestroy } from "@angular/core";
 import { BehaviorSubject, Subscription } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { isUndefined } from "es-toolkit/compat";
-import { InboxNewMessageEvent, InboxUnreadRole, isInboxGeneralRoleType } from "../../models/inbox.model";
+import { InboxNewMessageEvent, InboxUnreadRole, InboxViewScope, isInboxGeneralRoleType } from "../../models/inbox.model";
 import { MessageType } from "../../models/websocket.model";
 import { AuthService } from "../../auth/auth.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -70,7 +70,7 @@ export class InboxNotificationService implements OnDestroy {
 
   private async refreshFromServer(): Promise<void> {
     try {
-      const [counts, aliases] = await Promise.all([this.inboxService.unreadCounts(), this.inboxService.listAliases()]);
+      const [counts, aliases] = await Promise.all([this.inboxService.unreadCounts(InboxViewScope.ASSIGNED_ROLES), this.inboxService.listAliases()]);
       this.roleLabels.clear();
       aliases.forEach(alias => this.roleLabels.set(alias.roleType, isInboxGeneralRoleType(alias.roleType) ? "Other inbox mail" : alias.roleEmail));
       this.perRoleUnread.clear();

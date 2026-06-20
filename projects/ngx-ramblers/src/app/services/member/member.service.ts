@@ -68,7 +68,6 @@ export class MemberService {
       treasuryAdmin: 1,
       walkAdmin: 1,
       walkChangeNotifications: 1,
-      inboxMessageNotifications: 1,
     }
   };
 

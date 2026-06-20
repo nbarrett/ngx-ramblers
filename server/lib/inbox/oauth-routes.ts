@@ -7,7 +7,7 @@ import * as authConfig from "../auth/auth-config";
 import { envConfig } from "../env-config/env-config";
 import { errorResponse } from "../shared/error-response";
 import { buildOauthConsentUrl, exchangeOauthCodeForAccessToken, exchangeOauthCodeForRefreshToken, resolveGoogleInboxOauth } from "./gmail-inbox-reader";
-import { GOOGLE_CLOUD_SCOPES, GoogleInboxOauthStateKind, GoogleInboxSetupStatePayload, OauthAccessType, VerifiedGoogleInboxOauthState } from "./gmail-inbox.model";
+import { GOOGLE_CLOUD_SCOPES, GoogleInboxOauthStateKind, GoogleInboxSetupStatePayload, OauthAccessType, ProvisioningStepStatus, VerifiedGoogleInboxOauthState } from "./gmail-inbox.model";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { GoogleInboxConfig, SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { systemConfig } from "../config/system-config";
@@ -19,6 +19,7 @@ import { dateTimeNow } from "../shared/dates";
 import { isString } from "es-toolkit/compat";
 import { encryptInboxRefreshToken } from "./inbox-oauth-token-crypto";
 import { requireInboxConfigurationAdministrator } from "./inbox-access";
+import { beginGoogleCloudSetupStatus, completeGoogleCloudSetupStatus, currentGoogleCloudSetupStatus, failGoogleCloudSetupStatus, runGoogleCloudProvisioning } from "./inbox-google-setup";
 
 const messageType = "inbox:oauth";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -34,6 +35,11 @@ const router = express.Router();
 
 function stateSecret(): string {
   return envConfig.auth().secret;
+}
+
+function projectNumberFromClientId(clientId: string): string | null {
+  const match = (clientId ?? "").match(/^(\d+)-/);
+  return match ? match[1] : null;
 }
 
 function signStateInternal(kindBody: string): string {
@@ -140,9 +146,10 @@ router.get("/callback", async (req: Request, res: Response) => {
       return;
     }
     if (verified.kind === GoogleInboxOauthStateKind.SETUP && verified.payload) {
-      const result = await completeGoogleCloudSetup(code, verified.payload);
-      const summary = encodeURIComponent(`Project ${result.projectId}, topic ${result.topicFullName}`);
-      res.redirect(`${inboxSettingsPath}&setupCompleted=${summary}`);
+      const {accessToken} = await exchangeOauthCodeForAccessToken(code);
+      await beginGoogleCloudSetupStatus(verified.payload.projectId, verified.payload.topicName);
+      void runGoogleCloudSetupJob(accessToken, verified.payload);
+      res.redirect(`${inboxSettingsPath}&setupStarted=1`);
       return;
     }
     if (!verified.mailboxConnectionId) {
@@ -173,20 +180,16 @@ router.post("/setup/start", authConfig.authenticate(), async (req: Request, res:
     if (!requireInboxConfigurationAdministrator(req, res)) {
       return;
     }
-    const projectId = (req.body?.projectId ?? "").toString().trim();
-    const topicName = (req.body?.topicName ?? "").toString().trim();
+    const topicName = (req.body?.topicName ?? "").toString().trim() || "ngx-inbox-events";
     const subscriptionName = ((req.body?.subscriptionName ?? "") as string).toString().trim() || undefined;
-    if (!projectId) {
-      res.status(400).json({request: {messageType}, error: "projectId is required"});
-      return;
-    }
-    if (!topicName) {
-      res.status(400).json({request: {messageType}, error: "topicName is required"});
-      return;
-    }
     const oauth = await resolveGoogleInboxOauth();
     if (!oauth.configured) {
       res.status(400).json({request: {messageType}, error: "Configure the Google OAuth client (ID, Secret, Redirect URI) before running the Google Cloud setup."});
+      return;
+    }
+    const projectId = (req.body?.projectId ?? "").toString().trim() || projectNumberFromClientId(oauth.clientId) || "";
+    if (!projectId) {
+      res.status(400).json({request: {messageType}, error: "Could not determine the Google Cloud project from the OAuth Client ID. Set the Client ID first, or supply a project ID."});
       return;
     }
     const state = signSetupState({projectId, topicName, subscriptionName});
@@ -199,34 +202,52 @@ router.post("/setup/start", authConfig.authenticate(), async (req: Request, res:
   }
 });
 
-async function completeGoogleCloudSetup(code: string, payload: GoogleInboxSetupStatePayload) {
-  const {accessToken} = await exchangeOauthCodeForAccessToken(code);
-  const receiverUrl = await pushReceiverUrl();
-  if (!receiverUrl) {
-    throw new Error("Cannot derive the NGX push receiver URL — ensure the Google Inbox OAuth redirect URI is configured");
+async function runGoogleCloudSetupJob(accessToken: string, payload: GoogleInboxSetupStatePayload): Promise<void> {
+  try {
+    const receiverUrl = await pushReceiverUrl();
+    if (!receiverUrl) {
+      await failGoogleCloudSetupStatus("Cannot derive the NGX push receiver URL — ensure the Google Inbox OAuth redirect URI is configured");
+      return;
+    }
+    const result = await runGoogleCloudProvisioning(accessToken, {
+      projectId: payload.projectId,
+      topicName: payload.topicName,
+      subscriptionName: payload.subscriptionName,
+      pushReceiverUrl: receiverUrl
+    });
+    const anyStepFailed = result.steps.some(step => step.status === ProvisioningStepStatus.FAILED);
+    const current: SystemConfig = await systemConfig();
+    if (current && !anyStepFailed) {
+      const googleInbox: GoogleInboxConfig = {
+        clientId: current.googleInbox?.clientId ?? "",
+        clientSecret: current.googleInbox?.clientSecret ?? "",
+        redirectUri: current.googleInbox?.redirectUri ?? "",
+        pushVerificationToken: current.googleInbox?.pushVerificationToken,
+        pubsubProjectId: result.projectId,
+        pubsubTopicName: result.topicFullName,
+        pubsubSubscriptionName: result.subscriptionFullName
+      };
+      await config.createOrUpdateKey(ConfigKey.SYSTEM, {...current, googleInbox});
+    }
+    await completeGoogleCloudSetupStatus(result);
+    debugLog(`Google Cloud setup complete: project ${result.projectId}, topic ${result.topicFullName}, subscription ${result.subscriptionFullName}`);
+  } catch (error) {
+    errorDebugLog("Google Cloud setup job failed:", (error as Error).message);
+    await failGoogleCloudSetupStatus((error as Error).message).catch(statusError => errorDebugLog("Could not persist setup failure:", (statusError as Error).message));
   }
-  const {runGoogleCloudProvisioning} = await import("./inbox-google-setup");
-  const result = await runGoogleCloudProvisioning(accessToken, {
-    projectId: payload.projectId,
-    topicName: payload.topicName,
-    subscriptionName: payload.subscriptionName,
-    pushReceiverUrl: receiverUrl
-  });
-  const current: SystemConfig = await systemConfig();
-  if (current) {
-    const googleInbox: GoogleInboxConfig = {
-      clientId: current.googleInbox?.clientId ?? "",
-      clientSecret: current.googleInbox?.clientSecret ?? "",
-      redirectUri: current.googleInbox?.redirectUri ?? "",
-      pushVerificationToken: current.googleInbox?.pushVerificationToken,
-      pubsubProjectId: payload.projectId,
-      pubsubTopicName: result.topicFullName,
-      pubsubSubscriptionName: result.subscriptionFullName
-    };
-    await config.createOrUpdateKey(ConfigKey.SYSTEM, {...current, googleInbox});
-  }
-  debugLog(`Google Cloud setup complete: project ${result.projectId}, topic ${result.topicFullName}, subscription ${result.subscriptionFullName}`);
-  return result;
 }
+
+router.get("/setup/status", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    if (!requireInboxConfigurationAdministrator(req, res)) {
+      return;
+    }
+    const status = await currentGoogleCloudSetupStatus();
+    res.json({request: {messageType}, response: status});
+  } catch (error) {
+    errorDebugLog("Error reading Google Cloud setup status:", (error as Error).message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
 
 export const inboxOauthRoutes = router;
