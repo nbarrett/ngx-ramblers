@@ -169,21 +169,19 @@ export async function roleIdentityEmailsByType(): Promise<Map<string, Set<string
   }, new Map<string, Set<string>>());
 }
 
-export async function assignedMemberNamesByMemberId(memberIds: (string | null | undefined)[]): Promise<Map<string, string>> {
+export async function assignedMembersByMemberId(memberIds: (string | null | undefined)[]): Promise<Map<string, { name: string; email: string | null }>> {
   const validMemberIds = Array.from(new Set(memberIds
     .filter((memberId): memberId is string => Boolean(memberId) && /^[0-9a-fA-F]{24}$/.test(memberId))));
   if (validMemberIds.length === 0) {
-    return new Map<string, string>();
+    return new Map<string, { name: string; email: string | null }>();
   }
   const members = await memberModel.find({_id: {$in: validMemberIds}})
     .select("firstName lastName userName email").lean() as unknown as { _id: { toString(): string }; firstName?: string; lastName?: string; userName?: string; email?: string }[];
   return members.reduce((map, member) => {
     const name = [member.firstName, member.lastName].filter(Boolean).join(" ") || member.userName || member.email || "";
-    if (name) {
-      map.set(member._id.toString(), name);
-    }
+    map.set(member._id.toString(), {name, email: member.email ?? null});
     return map;
-  }, new Map<string, string>());
+  }, new Map<string, { name: string; email: string | null }>());
 }
 
 export function messageAddressEmails(message: InboxMessage): string[] {

@@ -61,3 +61,55 @@ export async function findWorkflowRunByCommit(repo: string, commitSha: string, t
 
   return workflow;
 }
+
+// Build a run-number -> run-URL map for the build/deploy workflow. Release-note headings carry the
+// GitHub run number (e.g. #706), but sibling pages from the same push share that number while only the
+// push tip is any run's head_sha - so a commit-SHA lookup misses them. Listing the workflow's runs and
+// keying by run_number resolves every page. Pages newest-first; stops once every needed number is found.
+export async function fetchWorkflowRunNumberMap(repo: string, neededNumbers: Set<string>, token: string | null): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!token || neededNumbers.size === 0) {
+    if (!token) {
+      debugLog("GitHub token not provided; skipping run-number map");
+    }
+    return map;
+  }
+
+  const remaining = new Set(neededNumbers);
+  const maxPages = 30;
+
+  const fetchPage = async (page: number): Promise<void> => {
+    if (page > maxPages || remaining.size === 0) {
+      return;
+    }
+    const searchParams = new URLSearchParams({ per_page: "100", page: String(page) });
+    const url = `https://api.github.com/repos/${repo}/actions/workflows/${WORKFLOW_FILE}/runs?${searchParams.toString()}`;
+    try {
+      const response = await fetch(url, { headers: githubHeaders(token) });
+      if (!response.ok) {
+        debugLog(`GitHub run list failed on page ${page}: ${response.status} ${response.statusText}`);
+        return;
+      }
+      const payload = await response.json();
+      const runs = payload?.workflow_runs || [];
+      if (runs.length === 0) {
+        return;
+      }
+      runs.forEach((run: { run_number?: number; html_url?: string }) => {
+        const runNumber = run.run_number ? String(run.run_number) : null;
+        if (runNumber && run.html_url && remaining.has(runNumber)) {
+          map.set(runNumber, run.html_url);
+          remaining.delete(runNumber);
+        }
+      });
+      await fetchPage(page + 1);
+    } catch (error) {
+      debugLog(`GitHub run list error on page ${page}: ${error}`);
+    }
+  };
+
+  await fetchPage(1);
+
+  debugLog(`Resolved ${map.size} of ${neededNumbers.size} requested run numbers`);
+  return map;
+}

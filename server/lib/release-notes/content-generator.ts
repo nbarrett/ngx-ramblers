@@ -749,6 +749,48 @@ export function extractExistingBuildMetadata(page: PageContent | null): { buildN
   return metadata;
 }
 
+const PLAINTEXT_BUILD_LINE = /^##\s+(?:GitHub |Build )?#(\d+)\b/;
+const LINKED_BUILD_LINE = /^##\s+\[(?:GitHub |Build )?#\d+]/;
+const COMMIT_SHA_IN_LINE = /\/commit\/([0-9a-fA-F]{7,40})/;
+
+export interface PlaintextBuildRef {
+  buildNumber: string;
+  commitSha: string;
+}
+
+// Detect a release-note build heading that names a GitHub run number as plain text rather than a link,
+// e.g. `## GitHub #706 — [commit abc1234](.../commit/<sha>)`. Returns the run number and the full commit
+// SHA (read from the commit link on the same heading) so the run URL can be looked up. Returns null when
+// the heading is already a link, or no commit SHA is present to look the run up by.
+export function extractPlaintextBuildRef(contentText: string | null | undefined): PlaintextBuildRef | null {
+  if (!contentText) {
+    return null;
+  }
+  for (const line of contentText.split("\n").map(text => text.trim())) {
+    if (LINKED_BUILD_LINE.test(line)) {
+      return null;
+    }
+    const buildMatch = line.match(PLAINTEXT_BUILD_LINE);
+    if (buildMatch) {
+      const shaMatch = line.match(COMMIT_SHA_IN_LINE);
+      return shaMatch ? { buildNumber: buildMatch[1], commitSha: shaMatch[1] } : null;
+    }
+  }
+  return null;
+}
+
+// Rewrite a plain-text build heading into a `[GitHub #NNN](buildUrl)` link, leaving every other line
+// (and any already-linked heading) untouched.
+export function linkPlaintextBuildLine(contentText: string, buildUrl: string): string {
+  return contentText.split("\n").map(line => {
+    const trimmed = line.trim();
+    if (LINKED_BUILD_LINE.test(trimmed) || !PLAINTEXT_BUILD_LINE.test(trimmed)) {
+      return line;
+    }
+    return line.replace(/(##\s+)(?:GitHub |Build )?#(\d+)/, (_match, prefix, number) => `${prefix}[GitHub #${number}](${buildUrl})`);
+  }).join("\n");
+}
+
 export function extractPrimaryIssue(commits: ConventionalCommit[]): string | null {
   for (const commit of commits) {
     if (commit.issueReferences.length > 0) {

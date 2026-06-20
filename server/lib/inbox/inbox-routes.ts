@@ -42,7 +42,7 @@ import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
 import { assignedInboxRoleTypesForMember, inboxConfigurationAdministrator, permittedInboxRoleTypes, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
-import { assignedMemberNamesByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
+import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import { pollConnection } from "./inbox-poller";
 import { ensurePushVerificationToken, pushReceiverUrl, pushVerificationToken } from "./inbox-push";
 import { registerPushSubscription, unregisterPushSubscription, vapidPublicKey } from "./inbox-web-push";
@@ -94,12 +94,15 @@ function connectionId(connection: InboxMailboxConnection): string {
 }
 
 function sanitiseAlias(record: InboxAliasConfig, connection: InboxMailboxConnection | null): InboxAliasConfigView {
-  return {...record, mailboxConnection: connection ? sanitiseConnection(connection) : null, assignedMemberName: null};
+  return {...record, mailboxConnection: connection ? sanitiseConnection(connection) : null, assignedMemberName: null, assignedMemberEmail: null};
 }
 
 async function withAssignedMemberNames(views: InboxAliasConfigView[]): Promise<InboxAliasConfigView[]> {
-  const namesByMemberId = await assignedMemberNamesByMemberId(views.map(view => view.memberId));
-  return views.map(view => ({...view, assignedMemberName: view.memberId ? namesByMemberId.get(view.memberId) ?? null : null}));
+  const membersByMemberId = await assignedMembersByMemberId(views.map(view => view.memberId));
+  return views.map(view => {
+    const assigned = view.memberId ? membersByMemberId.get(view.memberId) ?? null : null;
+    return {...view, assignedMemberName: assigned?.name ?? null, assignedMemberEmail: assigned?.email ?? null};
+  });
 }
 
 async function accessibleThread(req: Request, res: Response, threadId: string): Promise<InboxThread | null> {

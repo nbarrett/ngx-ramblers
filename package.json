@@ -33,6 +33,7 @@
     "test:watch": "ng test --project ngx-ramblers",
     "test:server": "sh -c 'cd server && npm run unit-test:once'",
     "release-notes": "npm --prefix server run release-notes --",
+    "release-notes:refresh-build-links": "npm --prefix server run release-notes:refresh-build-links --",
     "cli": "npx ts-node server/lib/cli/index.ts",
     "push": "bash tools/git-push.sh"
   },

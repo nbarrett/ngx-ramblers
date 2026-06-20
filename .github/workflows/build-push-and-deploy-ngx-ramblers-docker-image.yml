@@ -236,8 +236,8 @@ jobs:
           cd server
           if [ -z "$PREV_SHA" ] || [ "$PREV_SHA" = "0000000000000000000000000000000000000000" ]; then
             echo "No previous push SHA available - falling back to --latest"
-            npm run release-notes -- --latest --build-number ${{ github.run_number }} --include-unassigned
+            npm run release-notes -- --latest --build-number ${{ github.run_number }} --build-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --include-unassigned
           else
             echo "Generating release notes for commits since $PREV_SHA"
-            npm run release-notes -- --since "$PREV_SHA" --build-number ${{ github.run_number }} --include-unassigned
+            npm run release-notes -- --since "$PREV_SHA" --build-number ${{ github.run_number }} --build-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --include-unassigned
           fi

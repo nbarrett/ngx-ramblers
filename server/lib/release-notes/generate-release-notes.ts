@@ -463,12 +463,16 @@ async function generateMultipleReleaseNotes(
   auth: CMSAuth,
   config: ReleaseNotesConfig,
   buildNumber: string | null,
+  buildUrl: string | null,
   dryRun: boolean,
   includeUnassigned: boolean
 ): Promise<void> {
   await groups.reduce(async (previous, group) => {
     await previous;
     const data = createReleaseNotesData(group.commits, buildNumber, config.githubRepo);
+    if (buildUrl) {
+      data.buildUrl = buildUrl;
+    }
     if (group.issueNumber) {
       data.issueNumber = group.issueNumber;
       data.issueUrl = `https://github.com/${config.githubRepo}/issues/${group.issueNumber}`;
@@ -664,7 +668,7 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
   const auth = await cms.login(configWithCreds.cmsUrl, configWithCreds.username, configWithCreds.password);
 
   if (answers.action === "all") {
-    await generateMultipleReleaseNotes(releaseGroups, auth, configWithCreds, null, false, includeUnassigned);
+    await generateMultipleReleaseNotes(releaseGroups, auth, configWithCreds, null, null, false, includeUnassigned);
     debugLog(`Generated ${releaseGroups.length} release notes`);
   } else if (answers.action === "select") {
     const groupAnswers = await inquirer.prompt([
@@ -686,7 +690,7 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
 
     const selectedGroups = groupAnswers.selectedGroups.map((index: number) => releaseGroups[index]);
 
-    await generateMultipleReleaseNotes(selectedGroups, auth, configWithCreds, null, false, includeUnassigned);
+    await generateMultipleReleaseNotes(selectedGroups, auth, configWithCreds, null, null, false, includeUnassigned);
     debugLog(`Generated ${selectedGroups.length} release notes`);
   } else if (answers.action === "range") {
     const rangeAnswers = await inquirer.prompt([
@@ -718,7 +722,7 @@ async function generateInteractiveMode(config: ReleaseNotesConfig, includeUnassi
       return;
     }
 
-    await generateMultipleReleaseNotes(groups, auth, configWithCreds, null, false, includeUnassigned);
+    await generateMultipleReleaseNotes(groups, auth, configWithCreds, null, null, false, includeUnassigned);
     debugLog(`Generated ${pluraliseWithCount(groups.length, "release note")} for commit range`);
   }
 
@@ -763,7 +767,7 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
           debugLog(`Found ${newCount} new release notes`);
         }
 
-        await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+        await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, options.dryRun || false, includeUnassigned);
         debugLog(`Generated ${groupsToProcess.length} release notes`);
       } else {
         const todayGroups = filterReleaseGroupsByDate(releaseGroups);
@@ -772,7 +776,7 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
           debugLog(`Skipping ${skippedCount} release notes from previous days (dry-run mode)`);
         }
         debugLog(`Processing ${todayGroups.length} release notes from today`);
-        await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+        await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, options.dryRun || false, includeUnassigned);
         debugLog(`Generated ${todayGroups.length} release notes`);
       }
     }
@@ -811,7 +815,7 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
             debugLog(`Found ${newCount} new release notes`);
           }
 
-          await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, options.dryRun || false, includeUnassigned);
           debugLog(`Generated ${pluraliseWithCount(groupsToProcess.length, "release note")} for latest commits`);
         } else {
           const todayGroups = filterReleaseGroupsByDate(releaseGroups);
@@ -820,7 +824,7 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
             debugLog(`Skipping ${skippedCount} release notes from previous days (dry-run mode)`);
           }
           debugLog(`Processing ${todayGroups.length} release notes from today`);
-          await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, options.dryRun || false, includeUnassigned);
           debugLog(`Generated ${pluraliseWithCount(todayGroups.length, "release note")} for latest commits`);
         }
       }
@@ -855,7 +859,7 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
             debugLog(`Found ${newCount} new release notes`);
           }
 
-          await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, options.dryRun || false, includeUnassigned);
           debugLog(`Generated ${pluraliseWithCount(groupsToProcess.length, "release note")} for commit range`);
         } else {
           const todayGroups = filterReleaseGroupsByDate(releaseGroups);
@@ -864,7 +868,7 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
             debugLog(`Skipping ${skippedCount} release notes from previous days (dry-run mode)`);
           }
           debugLog(`Processing ${todayGroups.length} release notes from today`);
-          await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, options.dryRun || false, includeUnassigned);
           debugLog(`Generated ${pluraliseWithCount(todayGroups.length, "release note")} for commit range`);
         }
       }
@@ -914,7 +918,7 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
             debugLog(`Found ${newCount} new release notes`);
           }
 
-          await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          await generateMultipleReleaseNotes(groupsToProcess, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, options.dryRun || false, includeUnassigned);
           debugLog(`Generated ${pluraliseWithCount(groupsToProcess.length, "release note")} for commits since ${normalizedSince}`);
         } else {
           const todayGroups = filterReleaseGroupsByDate(releaseGroups);
@@ -923,7 +927,7 @@ async function commandLineMode(options: GenerateOptions, config: ReleaseNotesCon
             debugLog(`Skipping ${skippedCount} release notes from previous days (dry-run mode)`);
           }
           debugLog(`Processing ${todayGroups.length} release notes from today`);
-          await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.dryRun || false, includeUnassigned);
+          await generateMultipleReleaseNotes(todayGroups, auth!, configWithCreds, options.buildNumber || null, options.buildUrl || null, options.dryRun || false, includeUnassigned);
           debugLog(`Generated ${pluraliseWithCount(todayGroups.length, "release note")} for commits since ${normalizedSince}`);
         }
       }
@@ -954,6 +958,7 @@ async function main(): Promise<void> {
     .option("--until-date <date>", "Generate release notes until this calendar date (inclusive)")
     .option("--until <commit>", "Generate release notes until this commit (default: HEAD)")
     .option("--build-number <number>", "GitHub Actions build/run number")
+    .option("--build-url <url>", "GitHub Actions run URL (e.g. https://github.com/<repo>/actions/runs/<run_id>); when set, skips the run lookup so the build heading always links")
     .option("--include-unassigned", "Include commits without issue references when generating release notes")
     .option("--dry-run", "Preview changes without publishing to CMS")
     .option("--preview", "Preview release notes without generating")

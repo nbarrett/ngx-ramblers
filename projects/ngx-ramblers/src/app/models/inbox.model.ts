@@ -39,6 +39,12 @@ export enum InboxReadFilter {
   READ = "read"
 }
 
+export enum InboxNotifyMode {
+  NONE = "none",
+  MEMBER = "member",
+  OVERRIDE = "override"
+}
+
 export enum InboxThreadFolder {
   INBOX = "inbox",
   JUNK = "junk"
@@ -85,6 +91,7 @@ export interface InboxAliasConfig extends Identifiable {
 export interface InboxAliasConfigView extends InboxAliasConfig {
   mailboxConnection: InboxMailboxConnectionView | null;
   assignedMemberName: string | null;
+  assignedMemberEmail: string | null;
 }
 
 export enum GoogleCloudSetupStatusValue {
