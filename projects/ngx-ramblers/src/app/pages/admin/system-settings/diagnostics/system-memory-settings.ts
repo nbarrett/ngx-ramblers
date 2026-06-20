@@ -64,6 +64,29 @@ import { HeapSnapshotResponse, HeapSnapshotStatus, MemoryUsageResponse } from ".
           <div class="alert alert-danger">Heap snapshot failed: {{ snapshotError }}</div>
         }
         @if (memory) {
+          <div class="row mb-3">
+            <div class="col-md-8">
+              <div class="d-flex justify-content-between align-items-baseline mb-1">
+                <strong>Heap usage</strong>
+                <span class="fw-bold"
+                      [class.text-success]="heapPercent < 70"
+                      [class.text-warning]="heapPercent >= 70 && heapPercent < 85"
+                      [class.text-danger]="heapPercent >= 85">
+                  {{ heapPercent }}% of {{ memory.v8HeapMb.heapSizeLimit }} MB heap limit
+                </span>
+              </div>
+              <div class="progress" role="progressbar" [attr.aria-valuenow]="heapPercent" aria-valuemin="0" aria-valuemax="100" style="height: 28px;">
+                <div class="progress-bar fw-bold"
+                     [class.bg-success]="heapPercent < 70"
+                     [class.bg-warning]="heapPercent >= 70 && heapPercent < 85"
+                     [class.bg-danger]="heapPercent >= 85"
+                     [style.width.%]="heapPercent">
+                  {{ memory.processMemoryMb.heapUsed }} MB ({{ heapPercent }}%)
+                </div>
+              </div>
+              <div class="small text-muted mt-1">{{ heapStatusText }}</div>
+            </div>
+          </div>
           <div class="row">
             <div class="col-md-6">
               <table class="table table-sm">
@@ -121,6 +144,22 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  }
+
+  get heapPercent(): number {
+    const limit = this.memory?.v8HeapMb?.heapSizeLimit || 0;
+    return limit > 0 ? Math.round((this.memory.processMemoryMb.heapUsed / limit) * 100) : 0;
+  }
+
+  get heapStatusText(): string {
+    const percent = this.heapPercent;
+    if (percent >= 85) {
+      return "Critical — heap is near its V8 limit. The server will slow down under heavy garbage collection and may restart. Investigate or restart now.";
+    } else if (percent >= 70) {
+      return "Elevated — heap is climbing toward its limit. Worth watching.";
+    } else {
+      return "Healthy — heap is comfortably within its limit.";
+    }
   }
 
   get snapshotElapsedText(): string {
