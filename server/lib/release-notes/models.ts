@@ -55,6 +55,7 @@ export interface GenerateOptions {
   all?: boolean;
   dryRun?: boolean;
   buildNumber?: string;
+  buildUrl?: string;
   includeUnassigned?: boolean;
 }
 

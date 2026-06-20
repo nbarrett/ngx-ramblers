@@ -2,6 +2,7 @@ import { execSync } from "child_process";
 import fs from "fs";
 import madge from "madge";
 import path from "path";
+import ts from "typescript";
 import { keys } from "es-toolkit/compat";
 
 const DEPLOYED_REF_REMOTE = "refs/remotes/origin/worker-deployed";
@@ -15,6 +16,7 @@ enum BaseSource {
 interface DetectResult {
   worker: boolean;
   changedFiles: string[];
+  ignoredTypeOnly: string[];
   workerFileCount: number;
   baseRef: string;
   baseSource: BaseSource;
@@ -85,6 +87,46 @@ function diffChangedFiles(baseRef: string, afterRef: string): string[] {
   return output.split("\n").filter(line => line.length > 0);
 }
 
+function fileAtRef(ref: string, file: string): string {
+  try {
+    return execSync(`git show ${ref}:${file}`, { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    return "";
+  }
+}
+
+function emittedJs(source: string, fileName: string): string | null {
+  try {
+    return ts.transpileModule(source, {
+      fileName,
+      compilerOptions: {
+        module: ts.ModuleKind.ESNext,
+        target: ts.ScriptTarget.ES2022,
+        isolatedModules: true,
+        removeComments: true
+      }
+    }).outputText;
+  } catch {
+    return null;
+  }
+}
+
+function isTranspilable(file: string): boolean {
+  return file.endsWith(".ts") && !file.endsWith(".d.ts");
+}
+
+function affectsRuntime(file: string, baseRef: string, afterRef: string): boolean {
+  if (!isTranspilable(file)) {
+    return true;
+  }
+  const baseJs = emittedJs(fileAtRef(baseRef, file), file);
+  const afterJs = emittedJs(fileAtRef(afterRef, file), file);
+  if (baseJs === null || afterJs === null) {
+    return true;
+  }
+  return baseJs !== afterJs;
+}
+
 async function detect(): Promise<DetectResult> {
   const repoRoot = path.resolve(__dirname, "..", "..");
   process.chdir(repoRoot);
@@ -99,11 +141,22 @@ async function detect(): Promise<DetectResult> {
   console.error(`Comparing ${baseRef} (${baseSource}) .. ${afterRef}`);
 
   const changedAll = diffChangedFiles(baseRef, afterRef);
-  const changedFiles = changedAll.filter(f => workerFileSet.has(f));
+  const changedWorkerFiles = changedAll.filter(f => workerFileSet.has(f));
+
+  const changedFiles: string[] = [];
+  const ignoredTypeOnly: string[] = [];
+  changedWorkerFiles.forEach(f => {
+    if (affectsRuntime(f, baseRef, afterRef)) {
+      changedFiles.push(f);
+    } else {
+      ignoredTypeOnly.push(f);
+    }
+  });
 
   return {
     worker: changedFiles.length > 0,
     changedFiles,
+    ignoredTypeOnly,
     workerFileCount: workerFiles.length,
     baseRef,
     baseSource
@@ -113,11 +166,18 @@ async function detect(): Promise<DetectResult> {
 async function main(): Promise<void> {
   const result = await detect();
 
+  const sinceLabel = result.baseSource === BaseSource.WORKER_DEPLOYED ? "last deploy" : "previous commit (no worker-deployed ref yet)";
+
+  if (result.ignoredTypeOnly.length > 0) {
+    console.error(`Ignoring ${result.ignoredTypeOnly.length} worker-graph file(s) with type-only changes (identical emitted JS):`);
+    result.ignoredTypeOnly.forEach(f => console.error(`  ${f}`));
+  }
+
   if (result.worker) {
-    console.error(`Worker-relevant files changed since ${result.baseSource === BaseSource.WORKER_DEPLOYED ? "last deploy" : "previous commit (no worker-deployed ref yet)"}:`);
+    console.error(`Worker-relevant runtime changes since ${sinceLabel}:`);
     result.changedFiles.forEach(f => console.error(`  ${f}`));
   } else {
-    console.error(`No worker-relevant files changed since ${result.baseSource === BaseSource.WORKER_DEPLOYED ? "last deploy" : "previous commit"}`);
+    console.error(`No worker-relevant runtime changes since ${sinceLabel}`);
   }
 
   const githubOutput = process.env.GITHUB_OUTPUT;

@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { createReleaseNotesData, generateMarkdown, refreshIndexPageContent, updateIndexPageContent } from "./content-generator";
+import { createReleaseNotesData, extractPlaintextBuildRef, generateMarkdown, linkPlaintextBuildLine, refreshIndexPageContent, updateIndexPageContent } from "./content-generator";
 import {
   PageContent,
   PageContentType
@@ -298,5 +298,36 @@ describe("content-generator generateMarkdown commit body paragraphs", () => {
 
     expect(markdown).toContain("Code fix - some/file.ts\n---\nfirst body paragraph after the divider");
     expect(markdown).not.toMatch(/(?:^|\n)- -(?:\n|$)/);
+  });
+});
+
+describe("plain-text build-heading linking", () => {
+  const plainHeading = "## GitHub #706 — [commit abc1234](https://github.com/owner/repo/commit/abc1234def5678901234567890123456789012ab)";
+
+  it("extracts the run number and full commit sha from a plain-text build heading", () => {
+    const ref = extractPlaintextBuildRef(`${plainHeading}\n\n_____\n\nsome body`);
+    expect(ref).toEqual({ buildNumber: "706", commitSha: "abc1234def5678901234567890123456789012ab" });
+  });
+
+  it("returns null when the build heading is already a link", () => {
+    const linked = "## [GitHub #706](https://github.com/owner/repo/actions/runs/123) — [commit abc1234](https://github.com/owner/repo/commit/abc1234def5678901234567890123456789012ab)";
+    expect(extractPlaintextBuildRef(linked)).toBeNull();
+  });
+
+  it("returns null when no commit sha is present to resolve the run", () => {
+    expect(extractPlaintextBuildRef("## GitHub #706 — build")).toBeNull();
+  });
+
+  it("rewrites a plain-text build heading into a link to the workflow run, leaving the rest untouched", () => {
+    const content = `# 20-06-2026 — A title\n\n${plainHeading}\n\n_____\n\n- some change`;
+    const result = linkPlaintextBuildLine(content, "https://github.com/owner/repo/actions/runs/123");
+    expect(result).toContain("## [GitHub #706](https://github.com/owner/repo/actions/runs/123) — [commit abc1234](https://github.com/owner/repo/commit/abc1234def5678901234567890123456789012ab)");
+    expect(result).toContain("# 20-06-2026 — A title");
+    expect(result).toContain("- some change");
+  });
+
+  it("leaves an already-linked build heading unchanged", () => {
+    const linked = "## [GitHub #706](https://github.com/owner/repo/actions/runs/123) — [commit abc1234](https://github.com/owner/repo/commit/abc1234def5678901234567890123456789012ab)";
+    expect(linkPlaintextBuildLine(linked, "https://github.com/owner/repo/actions/runs/999")).toEqual(linked);
   });
 });

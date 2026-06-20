@@ -206,8 +206,15 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                           <div class="col-sm-12">
                             <button class="btn btn-primary btn-sm" type="button" (click)="runSetup()"
                                     [disabled]="busy || !effectiveProjectId()">
-                              Run Google Cloud setup
+                              @if (busy) {
+                                <fa-icon [icon]="faGear" [spin]="true" class="me-2"/>Starting Google Cloud setup…
+                              } @else {
+                                Run Google Cloud setup
+                              }
                             </button>
+                            @if (busy) {
+                              <small class="text-muted ms-2">Redirecting to Google to authorise…</small>
+                            }
                             @if (systemConfigInternal?.googleInbox?.pubsubTopicName) {
                               <small class="text-muted ms-2">Last configured topic:
                                 <code>{{ systemConfigInternal?.googleInbox?.pubsubTopicName }}</code></small>
@@ -406,16 +413,28 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
 
   async runSetup(): Promise<void> {
     const projectId = this.effectiveProjectId();
-    if (!projectId || !this.topicNameInput.trim()) {
+    if (!projectId) {
+      this.errorMessage = "No Google Cloud project detected - set the OAuth Client ID above first.";
+      return;
+    }
+    if (!this.topicNameInput.trim()) {
+      this.errorMessage = "Enter a Pub/Sub topic name before running setup.";
       return;
     }
     this.busy = true;
     this.errorMessage = null;
     this.statusTitle = null;
-    this.statusMessage = null;
+    this.statusMessage = "Starting Google Cloud setup - redirecting to Google to authorise…";
     try {
-      window.location.href = await this.inboxService.startGoogleCloudSetup(projectId, this.topicNameInput.trim());
+      const consentUrl = await this.inboxService.startGoogleCloudSetup(projectId, this.topicNameInput.trim());
+      if (!consentUrl) {
+        this.statusMessage = null;
+        this.errorMessage = "Setup could not start - no authorisation URL was returned. Check the OAuth client configuration.";
+        return;
+      }
+      window.location.href = consentUrl;
     } catch (error) {
+      this.statusMessage = null;
       this.errorMessage = (error as Error).message;
     } finally {
       this.busy = false;

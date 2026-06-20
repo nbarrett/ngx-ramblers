@@ -1,5 +1,4 @@
 import debug from "debug";
-import { google } from "googleapis";
 import { OAuth2Client } from "google-auth-library";
 import { envConfig } from "../env-config/env-config";
 import {
@@ -73,10 +72,23 @@ export async function currentGoogleCloudSetupStatus(): Promise<GoogleCloudSetupS
   return inboxSetupStatusModel.findOne({tenantSlug: defaultTenantSlug()}).lean() as unknown as GoogleCloudSetupStatusRecord | null;
 }
 
+const GOOGLE_API_TIMEOUT_MS = 20000;
+const CLOUD_RESOURCE_MANAGER_ROOT = "https://cloudresourcemanager.googleapis.com/v3";
+const SERVICE_USAGE_ROOT = "https://serviceusage.googleapis.com/v1";
+const PUBSUB_ROOT = "https://pubsub.googleapis.com/v1";
+
 function bootstrapClient(accessToken: string): OAuth2Client {
-  const client = new google.auth.OAuth2();
+  const client = new OAuth2Client();
   client.setCredentials({access_token: accessToken});
   return client;
+}
+
+function googleApiRequest<T = unknown>(auth: OAuth2Client, url: string, method = "GET", data?: unknown): Promise<{data: T; status: number}> {
+  return auth.request<T>({url, method, ...(data === undefined ? {} : {data}), timeout: GOOGLE_API_TIMEOUT_MS});
+}
+
+function httpStatusOf(error: unknown): number | undefined {
+  return (error as {response?: {status?: number}; code?: number})?.response?.status ?? (error as {code?: number})?.code;
 }
 
 function shortSubscriptionName(topicName: string): string {
@@ -114,8 +126,7 @@ export async function runGoogleCloudProvisioning(accessToken: string, options: G
 async function resolveProject(auth: OAuth2Client, projectIdOrNumber: string): Promise<{step: ProvisioningStep; projectId: string}> {
   const stepLabel = `Verify project ${projectIdOrNumber}`;
   try {
-    const resourceManager = google.cloudresourcemanager({version: "v3", auth});
-    const response = await resourceManager.projects.get({name: `projects/${projectIdOrNumber}`});
+    const response = await googleApiRequest<{projectId?: string; displayName?: string}>(auth, `${CLOUD_RESOURCE_MANAGER_ROOT}/projects/${projectIdOrNumber}`);
     const canonicalId = response.data.projectId ?? projectIdOrNumber;
     const displayName = response.data.displayName ?? "";
     return {
@@ -123,7 +134,7 @@ async function resolveProject(auth: OAuth2Client, projectIdOrNumber: string): Pr
       projectId: canonicalId
     };
   } catch (error) {
-    const httpStatus = (error as {response?: {status?: number}; code?: number})?.response?.status ?? (error as {code?: number})?.code;
+    const httpStatus = httpStatusOf(error);
     const detail = (httpStatus === 403 || httpStatus === 404)
       ? `Project "${projectIdOrNumber}" was not found or you don't have access. Use the project ID or its number, not the project's display name.`
       : (error as Error).message;
@@ -134,12 +145,11 @@ async function resolveProject(auth: OAuth2Client, projectIdOrNumber: string): Pr
 async function enableApi(auth: OAuth2Client, projectId: string, serviceName: string): Promise<ProvisioningStep> {
   const stepLabel = `Enable ${serviceName}`;
   try {
-    const serviceUsage = google.serviceusage({version: "v1", auth});
-    const existing = await serviceUsage.services.get({name: `projects/${projectId}/services/${serviceName}`});
+    const existing = await googleApiRequest<{state?: string}>(auth, `${SERVICE_USAGE_ROOT}/projects/${projectId}/services/${serviceName}`);
     if (existing.data.state === "ENABLED") {
       return {step: stepLabel, status: ProvisioningStepStatus.SKIPPED, detail: "API was already enabled"};
     }
-    const operation = await serviceUsage.services.enable({name: `projects/${projectId}/services/${serviceName}`});
+    const operation = await googleApiRequest<{name?: string}>(auth, `${SERVICE_USAGE_ROOT}/projects/${projectId}/services/${serviceName}:enable`, "POST", {});
     debugLog(`${stepLabel}: enable started`, operation.data.name ?? "");
     return {step: stepLabel, status: ProvisioningStepStatus.OK, detail: "API enabled"};
   } catch (error) {
@@ -149,17 +159,17 @@ async function enableApi(auth: OAuth2Client, projectId: string, serviceName: str
 
 async function ensureTopic(auth: OAuth2Client, topicFullName: string): Promise<ProvisioningStep> {
   const stepLabel = `Pub/Sub topic ${topicFullName}`;
-  const pubsub = google.pubsub({version: "v1", auth});
   try {
-    await pubsub.projects.topics.get({topic: topicFullName});
+    await googleApiRequest(auth, `${PUBSUB_ROOT}/${topicFullName}`);
     return {step: stepLabel, status: ProvisioningStepStatus.SKIPPED, detail: "Topic already exists"};
-  } catch (getError: any) {
-    if (getError?.response?.status && getError.response.status !== 404 && getError.code !== 404) {
-      return {step: stepLabel, status: ProvisioningStepStatus.FAILED, detail: getError.message};
+  } catch (getError) {
+    const status = httpStatusOf(getError);
+    if (status && status !== 404) {
+      return {step: stepLabel, status: ProvisioningStepStatus.FAILED, detail: (getError as Error).message};
     }
   }
   try {
-    await pubsub.projects.topics.create({name: topicFullName, requestBody: {}});
+    await googleApiRequest(auth, `${PUBSUB_ROOT}/${topicFullName}`, "PUT", {});
     return {step: stepLabel, status: ProvisioningStepStatus.OK, detail: "Topic created"};
   } catch (createError) {
     return {step: stepLabel, status: ProvisioningStepStatus.FAILED, detail: (createError as Error).message};
@@ -168,9 +178,8 @@ async function ensureTopic(auth: OAuth2Client, topicFullName: string): Promise<P
 
 async function grantTopicPublisher(auth: OAuth2Client, topicFullName: string): Promise<ProvisioningStep> {
   const stepLabel = `Grant Pub/Sub Publisher to ${GmailServiceAccount.PUBLISHER}`;
-  const pubsub = google.pubsub({version: "v1", auth});
   try {
-    const policyResponse = await pubsub.projects.topics.getIamPolicy({resource: topicFullName});
+    const policyResponse = await googleApiRequest<{bindings?: {role?: string; members?: string[]}[]; etag?: string}>(auth, `${PUBSUB_ROOT}/${topicFullName}:getIamPolicy`);
     const bindings = policyResponse.data.bindings ?? [];
     const publisherBinding = bindings.find(binding => binding.role === "roles/pubsub.publisher");
     const member = `serviceAccount:${GmailServiceAccount.PUBLISHER}`;
@@ -180,7 +189,7 @@ async function grantTopicPublisher(auth: OAuth2Client, topicFullName: string): P
     const nextBindings = publisherBinding
       ? bindings.map(binding => binding === publisherBinding ? {...binding, members: [...(binding.members ?? []), member]} : binding)
       : [...bindings, {role: "roles/pubsub.publisher", members: [member]}];
-    await pubsub.projects.topics.setIamPolicy({resource: topicFullName, requestBody: {policy: {bindings: nextBindings, etag: policyResponse.data.etag}}});
+    await googleApiRequest(auth, `${PUBSUB_ROOT}/${topicFullName}:setIamPolicy`, "POST", {policy: {bindings: nextBindings, etag: policyResponse.data.etag}});
     return {step: stepLabel, status: ProvisioningStepStatus.OK, detail: "Publisher role granted on topic"};
   } catch (error) {
     return {step: stepLabel, status: ProvisioningStepStatus.FAILED, detail: (error as Error).message};
@@ -189,29 +198,22 @@ async function grantTopicPublisher(auth: OAuth2Client, topicFullName: string): P
 
 async function ensurePushSubscription(auth: OAuth2Client, subscriptionFullName: string, topicFullName: string, pushReceiverUrl: string): Promise<ProvisioningStep> {
   const stepLabel = `Pub/Sub push subscription ${subscriptionFullName}`;
-  const pubsub = google.pubsub({version: "v1", auth});
   try {
-    const existing = await pubsub.projects.subscriptions.get({subscription: subscriptionFullName});
+    const existing = await googleApiRequest<{pushConfig?: {pushEndpoint?: string}}>(auth, `${PUBSUB_ROOT}/${subscriptionFullName}`);
     const currentEndpoint = existing.data.pushConfig?.pushEndpoint ?? "";
     if (currentEndpoint === pushReceiverUrl) {
       return {step: stepLabel, status: ProvisioningStepStatus.SKIPPED, detail: "Subscription already points at the NGX push receiver"};
     }
-    await pubsub.projects.subscriptions.modifyPushConfig({subscription: subscriptionFullName, requestBody: {pushConfig: {pushEndpoint: pushReceiverUrl}}});
+    await googleApiRequest(auth, `${PUBSUB_ROOT}/${subscriptionFullName}:modifyPushConfig`, "POST", {pushConfig: {pushEndpoint: pushReceiverUrl}});
     return {step: stepLabel, status: ProvisioningStepStatus.OK, detail: "Subscription push endpoint updated"};
-  } catch (getError: any) {
-    if (getError?.response?.status && getError.response.status !== 404 && getError.code !== 404) {
-      return {step: stepLabel, status: ProvisioningStepStatus.FAILED, detail: getError.message};
+  } catch (getError) {
+    const status = httpStatusOf(getError);
+    if (status && status !== 404) {
+      return {step: stepLabel, status: ProvisioningStepStatus.FAILED, detail: (getError as Error).message};
     }
   }
   try {
-    await pubsub.projects.subscriptions.create({
-      name: subscriptionFullName,
-      requestBody: {
-        topic: topicFullName,
-        pushConfig: {pushEndpoint: pushReceiverUrl},
-        ackDeadlineSeconds: 30
-      }
-    });
+    await googleApiRequest(auth, `${PUBSUB_ROOT}/${subscriptionFullName}`, "PUT", {topic: topicFullName, pushConfig: {pushEndpoint: pushReceiverUrl}, ackDeadlineSeconds: 30});
     return {step: stepLabel, status: ProvisioningStepStatus.OK, detail: "Subscription created and pointed at the NGX push receiver"};
   } catch (createError) {
     return {step: stepLabel, status: ProvisioningStepStatus.FAILED, detail: (createError as Error).message};
