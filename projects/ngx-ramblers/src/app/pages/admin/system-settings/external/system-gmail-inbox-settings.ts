@@ -1,6 +1,7 @@
-import { Component, inject, Input } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SystemConfig } from "../../../../models/system.model";
+import { GoogleCloudProvisioningStepView, GoogleCloudSetupStatusValue, GoogleCloudSetupStatusView } from "../../../../models/inbox.model";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FormsModule } from "@angular/forms";
@@ -12,7 +13,7 @@ import { InboxService } from "../../../../services/inbox/inbox.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCircleCheck, faGear, faList, faTrashCan, faTriangleExclamation, faUserPlus } from "@fortawesome/free-solid-svg-icons";
+import { faCircleCheck, faGear, faList, faSpinner, faTrashCan, faTriangleExclamation, faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import { StepperModule } from "primeng/stepper";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../../models/ui-actions";
@@ -159,21 +160,52 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                             <strong>Google Cloud setup did not complete:</strong> {{ errorMessage }}
                           </div>
                         }
+                        @if (setupInProgress || setupSteps.length) {
+                          <div class="alert alert-warning py-2 small mb-2">
+                            @if (setupInProgress) {
+                              <div class="mb-1">
+                                <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>
+                                <strong>Running Google Cloud setup…</strong> This runs in the background — you can leave this page and come back.
+                              </div>
+                            }
+                            <ul class="mb-0 ps-3">
+                              @for (step of setupSteps; track step.step) {
+                                <li>
+                                  <fa-icon [icon]="step.status === 'failed' ? faTriangleExclamation : faCircleCheck" class="me-1"/>
+                                  {{ step.step }} — {{ step.status }}@if (step.detail) {<span class="text-muted"> ({{ step.detail }})</span>}
+                                </li>
+                              }
+                            </ul>
+                          </div>
+                        }
                         <div class="row">
-                          <div class="col-sm-6">
+                          <div class="col-sm-12">
                             <div class="form-group">
-                              <label for="setup-project-id">Google Cloud project ID</label>
-                              <input [(ngModel)]="systemConfigInternal.googleInbox.pubsubProjectId" type="text" class="form-control input-sm"
-                                     id="setup-project-id" name="setupProjectId"
-                                     placeholder="ngx-ramblers-inbox">
-                              @if (systemConfigInternal.googleInbox.pubsubProjectId && !systemConfigInternal.googleInbox.pubsubTopicName) {
-                                <small class="text-muted d-block mt-1">Saved with the configuration, but not active until you Run Google Cloud setup below.</small>
+                              <label class="d-block">Google Cloud project</label>
+                              @if (oauthProjectNumber(); as projectNumber) {
+                                <p class="mb-1 small">
+                                  Detected from your OAuth client — project number <code>{{ projectNumber }}</code>. Setup uses this automatically; you don't need to enter anything. The full project ID is confirmed once you log in.
+                                </p>
+                                <a class="small" [href]="googleConsoleProjectUrl()" target="_blank" rel="noopener">
+                                  <fa-icon [icon]="faGear" class="me-1"/>View this project in Google Console
+                                </a>
+                                <details class="mt-2">
+                                  <summary class="small text-muted">Advanced: provision in a different project</summary>
+                                  <input [(ngModel)]="projectOverride" type="text" class="form-control input-sm mt-1"
+                                         name="setupProjectOverride" placeholder="project ID or number">
+                                  <small class="text-muted d-block mt-1">Leave blank to use the project from your OAuth client.</small>
+                                </details>
+                              } @else {
+                                <div class="alert alert-warning py-2 small mb-0">
+                                  <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                                  Set the OAuth Client ID above first — the project is read from it.
+                                </div>
                               }
                             </div>
                           </div>
                           <div class="col-sm-12">
                             <button class="btn btn-primary btn-sm" type="button" (click)="runSetup()"
-                                    [disabled]="busy || !systemConfigInternal?.googleInbox?.pubsubProjectId">
+                                    [disabled]="busy || !effectiveProjectId()">
                               Run Google Cloud setup
                             </button>
                             @if (systemConfigInternal?.googleInbox?.pubsubTopicName) {
@@ -232,7 +264,7 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
     StepperModule
   ]
 })
-export class SystemGmailInboxSettingsComponent {
+export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
 
   protected systemConfigInternal: SystemConfig;
   private logger = inject(LoggerFactory).createLogger("SystemGmailInboxSettingsComponent", NgxLoggerLevel.ERROR);
@@ -247,16 +279,22 @@ export class SystemGmailInboxSettingsComponent {
   protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly faCircleCheck = faCircleCheck;
   protected readonly faTrashCan = faTrashCan;
+  protected readonly faSpinner = faSpinner;
   protected readonly steps = GMAIL_INBOX_STEPS;
   protected readonly GmailInboxSetupStepKey = GmailInboxSetupStepKey;
+  protected readonly GoogleCloudSetupStatusValue = GoogleCloudSetupStatusValue;
 
   protected stepperActiveIndex = 0;
   protected topicNameInput = "ngx-inbox-events";
+  protected projectOverride = "";
   protected clearConfirmPending = false;
   protected busy = false;
   protected statusTitle: string | null = null;
   protected statusMessage: string | null = null;
   protected errorMessage: string | null = null;
+  protected setupSteps: GoogleCloudProvisioningStepView[] = [];
+  protected setupInProgress = false;
+  private setupPollTimer: ReturnType<typeof setTimeout> | null = null;
   protected notify: AlertInstance;
   protected notifyTarget: AlertTarget = {};
 
@@ -268,10 +306,9 @@ export class SystemGmailInboxSettingsComponent {
       if (step !== null && !isNaN(+step)) {
         this.stepperActiveIndex = Math.min(Math.max(+step, 0), GMAIL_INBOX_STEPS.length - 1);
       }
-      const setupCompleted = url.searchParams.get("setupCompleted");
-      if (setupCompleted) {
-        this.statusTitle = "Google Cloud setup complete";
-        this.statusMessage = setupCompleted;
+      const setupStarted = url.searchParams.get("setupStarted");
+      if (setupStarted) {
+        this.setupInProgress = true;
         this.stepperActiveIndex = 0;
       }
       const oauthError = url.searchParams.get("oauthError");
@@ -282,6 +319,49 @@ export class SystemGmailInboxSettingsComponent {
       if (connectedParam) {
         this.stepperActiveIndex = 1;
       }
+    }
+  }
+
+  async ngOnInit(): Promise<void> {
+    await this.refreshSetupStatus();
+  }
+
+  ngOnDestroy(): void {
+    if (this.setupPollTimer) {
+      clearTimeout(this.setupPollTimer);
+      this.setupPollTimer = null;
+    }
+  }
+
+  private async refreshSetupStatus(): Promise<void> {
+    try {
+      const status = await this.inboxService.googleCloudSetupStatus();
+      this.applySetupStatus(status);
+      if (status?.status === GoogleCloudSetupStatusValue.RUNNING) {
+        this.setupPollTimer = setTimeout(() => void this.refreshSetupStatus(), 2000);
+      }
+    } catch (error) {
+      this.logger.warn("Google Cloud setup status poll failed:", error);
+    }
+  }
+
+  private applySetupStatus(status: GoogleCloudSetupStatusView | null): void {
+    if (!status) {
+      this.setupInProgress = false;
+      return;
+    }
+    this.setupSteps = status.steps ?? [];
+    this.setupInProgress = status.status === GoogleCloudSetupStatusValue.RUNNING;
+    if (status.status === GoogleCloudSetupStatusValue.COMPLETED) {
+      this.statusTitle = "Google Cloud setup complete";
+      this.statusMessage = `Project ${status.projectId}, topic ${status.topicFullName}`;
+      this.errorMessage = null;
+      if (this.systemConfigInternal?.googleInbox) {
+        this.systemConfigInternal.googleInbox.pubsubTopicName = status.topicFullName ?? this.systemConfigInternal.googleInbox.pubsubTopicName;
+        this.systemConfigInternal.googleInbox.pubsubSubscriptionName = status.subscriptionFullName ?? this.systemConfigInternal.googleInbox.pubsubSubscriptionName;
+      }
+    } else if (status.status === GoogleCloudSetupStatusValue.FAILED) {
+      this.errorMessage = status.errorMessage || "Google Cloud setup failed";
     }
   }
 
@@ -325,7 +405,7 @@ export class SystemGmailInboxSettingsComponent {
   }
 
   async runSetup(): Promise<void> {
-    const projectId = this.systemConfigInternal?.googleInbox?.pubsubProjectId?.trim();
+    const projectId = this.effectiveProjectId();
     if (!projectId || !this.topicNameInput.trim()) {
       return;
     }
@@ -340,6 +420,23 @@ export class SystemGmailInboxSettingsComponent {
     } finally {
       this.busy = false;
     }
+  }
+
+  oauthProjectNumber(): string | null {
+    const clientId = this.systemConfigInternal?.googleInbox?.clientId ?? "";
+    const match = clientId.match(/^(\d+)-/);
+    return match ? match[1] : null;
+  }
+
+  effectiveProjectId(): string | null {
+    return this.projectOverride.trim() || this.oauthProjectNumber();
+  }
+
+  googleConsoleProjectUrl(): string {
+    const projectNumber = this.oauthProjectNumber();
+    return projectNumber
+      ? `https://console.cloud.google.com/iam-admin/settings?project=${projectNumber}`
+      : "https://console.cloud.google.com/projectselector2/iam-admin/settings";
   }
 
   private handleConfigChange(systemConfig: SystemConfig) {

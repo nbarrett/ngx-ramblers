@@ -10,6 +10,8 @@ import { scheduleBrevo } from "../brevo/common/rate-limiting";
 import { systemConfig } from "../config/system-config";
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
+import { connectedInboxEmails, defaultTenantSlug, derivedAliases } from "./inbox-aliases";
+import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { member as memberModel } from "../mongo/models/member";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
@@ -26,6 +28,10 @@ interface DigestItem {
   message: InboxMessage;
   thread: InboxThread;
   role: CommitteeMember;
+}
+
+function digestRecipientEmail(role: CommitteeMember, member: Member | undefined): string {
+  return (role.inboxNotificationEmail?.trim() || member?.email || "").trim();
 }
 
 export async function runInboxMessageDigest(): Promise<number> {
@@ -55,11 +61,11 @@ export async function runInboxMessageDigest(): Promise<number> {
   }, new Map());
 
   const candidateMemberIds = Array.from(new Set((committeeConfiguration?.roles ?? [])
+    .filter(role => role.inboxMessageNotifications === true)
     .map(role => role.memberId)
     .filter((memberId): memberId is string => Boolean(memberId) && /^[0-9a-fA-F]{24}$/.test(memberId))));
   const subscribers = await memberModel.find({
-    _id: {$in: candidateMemberIds},
-    inboxMessageNotifications: true
+    _id: {$in: candidateMemberIds}
   }).lean() as unknown as Member[];
   const subscriberById = subscribers.reduce<Map<string, Member>>((map, member) => {
     const memberId = ((member as unknown as {_id?: {toString(): string}; id?: string})._id ?? (member as unknown as {id?: string}).id ?? "").toString();
@@ -67,17 +73,28 @@ export async function runInboxMessageDigest(): Promise<number> {
     return map;
   }, new Map());
 
+  const inboxRoutingAddresses = new Set<string>([
+    ...(committeeConfiguration?.roles ?? []).map(role => role.email).filter((email): email is string => Boolean(email)).map(normaliseEmail),
+    ...(await connectedInboxEmails(defaultTenantSlug())),
+    ...(await derivedAliases()).map(alias => alias.roleEmail).filter((email): email is string => Boolean(email)).map(normaliseEmail)
+  ]);
+  const isInboxRoutingAddress = (email: string): boolean => inboxRoutingAddresses.has(normaliseEmail(email));
+
   const itemsByMember = messages.reduce<Map<string, DigestItem[]>>((map, message) => {
     const thread = threadById.get(message.threadId);
     if (!thread) {
       return map;
     }
     const role = rolesByType.get(thread.roleType);
-    if (!role?.memberId) {
+    if (!role?.memberId || role.inboxMessageNotifications !== true) {
       return map;
     }
     const subscriber = subscriberById.get(role.memberId);
-    if (!subscriber?.email) {
+    if (!subscriber) {
+      return map;
+    }
+    const recipientEmail = digestRecipientEmail(role, subscriber);
+    if (!recipientEmail || isInboxRoutingAddress(recipientEmail)) {
       return map;
     }
     const existing = map.get(role.memberId) ?? [];
@@ -103,7 +120,7 @@ export async function runInboxMessageDigest(): Promise<number> {
   await Array.from(itemsByMember.entries()).reduce<Promise<void>>(async (acc, [memberId, items]) => {
     await acc;
     const member = subscriberById.get(memberId);
-    if (!member?.email) {
+    if (!member) {
       return;
     }
     try {
@@ -136,10 +153,11 @@ async function sendDigestEmail(apiInstance: SibApiV3Sdk.TransactionalEmailsApi, 
   const senderEmail = role.email || `noreply@${(groupHref || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "") || "ngx-ramblers.org.uk"}`;
   const subject = `${pluraliseWithCount(items.length, "new inbox message")} for ${role.description || role.type}`;
   const htmlContent = buildDigestHtml(items, groupHref, groupShortName);
+  const recipientEmail = digestRecipientEmail(role, member);
   const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
   sendSmtpEmail.subject = subject;
   sendSmtpEmail.sender = {name: senderName, email: senderEmail};
-  sendSmtpEmail.to = [{email: member.email ?? "", name: [member.firstName, member.lastName].filter(Boolean).join(" ") || member.userName || member.email || ""}];
+  sendSmtpEmail.to = [{email: recipientEmail, name: [member.firstName, member.lastName].filter(Boolean).join(" ") || member.userName || recipientEmail}];
   sendSmtpEmail.htmlContent = htmlContent;
   await scheduleBrevo(() => apiInstance.sendTransacEmail(sendSmtpEmail));
 }
@@ -159,7 +177,7 @@ function buildDigestHtml(items: DigestItem[], groupHref: string, groupShortName:
     </div>`;
   }).join("");
   const allInboxLink = groupHref ? `<p style="font-family:sans-serif"><a href="${groupHref}/admin/inbox" style="color:#c05711">Open the inbox</a></p>` : "";
-  const footer = `<p style="font-family:sans-serif;color:#888;font-size:0.85em">You're receiving this because you're assigned to this committee role and have opted in to inbox notifications. Turn it off any time on your member profile.</p>`;
+  const footer = `<p style="font-family:sans-serif;color:#888;font-size:0.85em">You're receiving this because you're assigned to the ${escapeHtml(items[0].role.description || items[0].role.type)} committee role and inbox notifications are enabled for it. A member administrator can turn these off in the Gmail inbox settings.</p>`;
   return `<div style="max-width:640px">${heading}${rows}${allInboxLink}${footer}</div>`;
 }
 

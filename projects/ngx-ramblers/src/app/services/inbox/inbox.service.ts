@@ -3,6 +3,7 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ApiResponse } from "../../models/api-response.model";
 import {
+  GoogleCloudSetupStatusView,
   InboxAliasConfigView,
   InboxAccessMode,
   InboxImportAllResponse,
@@ -34,6 +35,16 @@ export class InboxService {
   async listAliases(): Promise<InboxAliasConfigView[]> {
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/aliases`));
     return response.response as InboxAliasConfigView[];
+  }
+
+  async setAliasNotifications(roleType: string, enabled: boolean): Promise<InboxAliasConfigView> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.put<ApiResponse>(`${this.BASE_URL}/aliases/${encodeURIComponent(roleType)}/notifications`, {enabled}));
+    return response.response as InboxAliasConfigView;
+  }
+
+  async setAliasNotificationEmail(roleType: string, email: string | null): Promise<InboxAliasConfigView> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.put<ApiResponse>(`${this.BASE_URL}/aliases/${encodeURIComponent(roleType)}/notification-email`, {email}));
+    return response.response as InboxAliasConfigView;
   }
 
   async mailboxConnections(): Promise<InboxMailboxConnectionView[]> {
@@ -76,13 +87,19 @@ export class InboxService {
     return (response.response as {consentUrl: string}).consentUrl;
   }
 
+  async googleCloudSetupStatus(): Promise<GoogleCloudSetupStatusView | null> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/oauth/setup/status`));
+    return response.response as GoogleCloudSetupStatusView | null;
+  }
+
   async pushConfig(): Promise<InboxPushConfigResponse> {
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/pubsub/push-config`));
     return response.response as InboxPushConfigResponse;
   }
 
-  async unreadCounts(): Promise<InboxUnreadCountsResponse> {
-    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/unread-counts`));
+  async unreadCounts(scope: InboxViewScope | null = null): Promise<InboxUnreadCountsResponse> {
+    const url = scope ? `${this.BASE_URL}/unread-counts?scope=${encodeURIComponent(scope)}` : `${this.BASE_URL}/unread-counts`;
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(url));
     return response.response as InboxUnreadCountsResponse;
   }
 

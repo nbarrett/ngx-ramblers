@@ -42,7 +42,7 @@ import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
 import { assignedInboxRoleTypesForMember, inboxConfigurationAdministrator, permittedInboxRoleTypes, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
-import { derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
+import { assignedMemberNamesByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import { pollConnection } from "./inbox-poller";
 import { ensurePushVerificationToken, pushReceiverUrl, pushVerificationToken } from "./inbox-push";
 import { registerPushSubscription, unregisterPushSubscription, vapidPublicKey } from "./inbox-web-push";
@@ -94,7 +94,12 @@ function connectionId(connection: InboxMailboxConnection): string {
 }
 
 function sanitiseAlias(record: InboxAliasConfig, connection: InboxMailboxConnection | null): InboxAliasConfigView {
-  return {...record, mailboxConnection: connection ? sanitiseConnection(connection) : null};
+  return {...record, mailboxConnection: connection ? sanitiseConnection(connection) : null, assignedMemberName: null};
+}
+
+async function withAssignedMemberNames(views: InboxAliasConfigView[]): Promise<InboxAliasConfigView[]> {
+  const namesByMemberId = await assignedMemberNamesByMemberId(views.map(view => view.memberId));
+  return views.map(view => ({...view, assignedMemberName: view.memberId ? namesByMemberId.get(view.memberId) ?? null : null}));
 }
 
 async function accessibleThread(req: Request, res: Response, threadId: string): Promise<InboxThread | null> {
@@ -554,13 +559,82 @@ router.get("/aliases", authConfig.authenticate(), async (req: Request, res: Resp
       ? aliases
       : aliases.filter(alias => allowedRoleTypes.includes(alias.roleType));
     const connections = await inboxMailboxConnectionModel.find({tenantSlug: defaultTenantSlug()}).lean() as InboxMailboxConnection[];
-    res.json({request: {messageType}, response: visibleAliases.map(alias => {
+    const views = visibleAliases.map(alias => {
       const connection = connections.find(candidate => connectionId(candidate) === alias.mailboxConnectionId) ?? null;
       const visibleConnection = connection && !isConfigAdministrator ? {...connection, gmailAccountEmail: null} : connection;
       return sanitiseAlias(alias, visibleConnection);
-    })});
+    });
+    res.json({request: {messageType}, response: await withAssignedMemberNames(views)});
   } catch (error) {
     errorDebugLog("Error listing inbox aliases:", (error as Error).message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+router.put("/aliases/:roleType/notifications", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    if (!requireInboxConfigurationAdministrator(req, res)) {
+      return;
+    }
+    const enabled = req.body?.enabled;
+    if (!isBoolean(enabled)) {
+      res.status(400).json({request: {messageType}, error: "enabled must be true or false"});
+      return;
+    }
+    const committeeConfigDocument = await config.queryKey(ConfigKey.COMMITTEE);
+    const committeeConfiguration: CommitteeConfig = committeeConfigDocument?.value;
+    const roles: CommitteeMember[] = committeeConfiguration?.roles ?? [];
+    const role = roles.find(candidate => candidate.type === req.params.roleType);
+    if (!role) {
+      res.status(404).json({request: {messageType}, error: `No committee role found for ${req.params.roleType}`});
+      return;
+    }
+    role.inboxMessageNotifications = enabled;
+    await config.createOrUpdateKey(ConfigKey.COMMITTEE, committeeConfiguration);
+    const alias = await derivedAliasForRoleType(req.params.roleType);
+    if (!alias) {
+      res.status(404).json({request: {messageType}, error: `No role mailbox found for ${req.params.roleType}`});
+      return;
+    }
+    const connection = await connectionForAlias(alias);
+    const [view] = await withAssignedMemberNames([sanitiseAlias(alias, connection)]);
+    res.json({request: {messageType}, response: view});
+  } catch (error) {
+    errorDebugLog("Error updating inbox role notifications:", (error as Error).message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+router.put("/aliases/:roleType/notification-email", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    if (!requireInboxConfigurationAdministrator(req, res)) {
+      return;
+    }
+    const email = req.body?.email;
+    if (email !== null && email !== undefined && !isString(email)) {
+      res.status(400).json({request: {messageType}, error: "email must be a string or null"});
+      return;
+    }
+    const committeeConfigDocument = await config.queryKey(ConfigKey.COMMITTEE);
+    const committeeConfiguration: CommitteeConfig = committeeConfigDocument?.value;
+    const roles: CommitteeMember[] = committeeConfiguration?.roles ?? [];
+    const role = roles.find(candidate => candidate.type === req.params.roleType);
+    if (!role) {
+      res.status(404).json({request: {messageType}, error: `No committee role found for ${req.params.roleType}`});
+      return;
+    }
+    role.inboxNotificationEmail = isString(email) && email.trim().length > 0 ? email.trim() : undefined;
+    await config.createOrUpdateKey(ConfigKey.COMMITTEE, committeeConfiguration);
+    const alias = await derivedAliasForRoleType(req.params.roleType);
+    if (!alias) {
+      res.status(404).json({request: {messageType}, error: `No role mailbox found for ${req.params.roleType}`});
+      return;
+    }
+    const connection = await connectionForAlias(alias);
+    const [view] = await withAssignedMemberNames([sanitiseAlias(alias, connection)]);
+    res.json({request: {messageType}, response: view});
+  } catch (error) {
+    errorDebugLog("Error updating inbox role notification email:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });
@@ -568,13 +642,17 @@ router.get("/aliases", authConfig.authenticate(), async (req: Request, res: Resp
 router.get("/unread-counts", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
     const allowedRoleTypes = await permittedInboxRoleTypes(req);
-    if (allowedRoleTypes.length === 0) {
+    const assignedRoleTypes = await assignedInboxRoleTypesForMember(req.user as Partial<MemberCookie>);
+    const scopeRoleTypes = req.query.scope === InboxViewScope.ASSIGNED_ROLES
+      ? assignedRoleTypes.filter(assignedRoleType => allowedRoleTypes.includes(assignedRoleType))
+      : allowedRoleTypes;
+    if (scopeRoleTypes.length === 0) {
       const empty: InboxUnreadCountsResponse = {total: 0, byRole: []};
       res.json({request: {messageType}, response: empty});
       return;
     }
     const counts = await inboxThreadModel.aggregate([
-      {$match: {tenantSlug: defaultTenantSlug(), roleType: {$in: allowedRoleTypes}, folder: {$ne: InboxThreadFolder.JUNK}, ...unreadConditionForMember(requestingMemberId(req))}},
+      {$match: {tenantSlug: defaultTenantSlug(), roleType: {$in: scopeRoleTypes}, folder: {$ne: InboxThreadFolder.JUNK}, ...unreadConditionForMember(requestingMemberId(req))}},
       {$group: {_id: "$roleType", unreadCount: {$sum: 1}}}
     ]);
     const byRole: InboxUnreadCountByRole[] = counts.map(row => ({roleType: row._id, unreadCount: row.unreadCount}));

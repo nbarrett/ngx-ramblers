@@ -1,5 +1,6 @@
 import { Component, inject, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { RouterLink } from "@angular/router";
@@ -15,7 +16,8 @@ import { InboxAliasConfigView, isInboxGeneralRoleType } from "../../../../models
     <div>
       <p class="text-muted">
         Role mailboxes appear here when a committee role's Inbound Forwarding (in <a routerLink="../committee-settings">Committee Settings</a>)
-        points at one of the connected Gmail accounts. This view is read-only.
+        points at one of the connected Gmail accounts. The mailbox mapping is read-only; use the notification toggle to email
+        the member assigned to a role at their personal address whenever new mail arrives for it.
       </p>
       @if (aliases.length === 0) {
         <div class="alert alert-warning mb-0" role="alert">
@@ -27,19 +29,50 @@ import { InboxAliasConfigView, isInboxGeneralRoleType } from "../../../../models
       } @else {
         <div class="d-flex align-items-end gap-3 mb-2 small fw-bold text-muted">
           <span class="flex-grow-1">Role address</span>
-          <span>Receiving Gmail account</span>
+          <span class="mailbox-column">Receiving Gmail account</span>
+          <span class="notify-column">Notify assigned member</span>
         </div>
         @for (alias of aliases; track alias.id) {
           @if (!isInboxGeneralRoleType(alias.roleType)) {
             <div class="d-flex align-items-center gap-3 py-1 border-top">
               <span class="flex-grow-1">{{alias.roleEmail}}</span>
-              <span class="text-muted">{{alias.mailboxConnection?.gmailAccountEmail}}</span>
+              <span class="mailbox-column text-muted">{{alias.mailboxConnection?.gmailAccountEmail}}</span>
+              <span class="notify-column">
+                @if (alias.memberId) {
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="form-check form-switch m-0">
+                      <input type="checkbox" class="form-check-input" role="switch"
+                             [id]="'notify-' + alias.roleType"
+                             [disabled]="saving === alias.roleType"
+                             [ngModel]="alias.inboxMessageNotifications"
+                             (ngModelChange)="toggleNotifications(alias, $event)">
+                    </div>
+                    <span class="small text-muted text-truncate">{{alias.assignedMemberName || "Assigned member"}}</span>
+                  </div>
+                  @if (alias.inboxMessageNotifications) {
+                    <input type="email" class="form-control form-control-sm mt-1"
+                           placeholder="Notify at (personal email)"
+                           [disabled]="saving === alias.roleType"
+                           [(ngModel)]="alias.inboxNotificationEmail"
+                           (blur)="saveNotificationEmail(alias)">
+                  }
+                } @else {
+                  <span class="small text-muted fst-italic">No member assigned</span>
+                }
+              </span>
             </div>
           }
         }
       }
     </div>`,
-  imports: [CommonModule, FontAwesomeModule, RouterLink]
+  styles: [`
+    .mailbox-column
+      min-width: 200px
+    .notify-column
+      min-width: 240px
+      max-width: 240px
+  `],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, RouterLink]
 })
 export class SystemInboxRoleMailboxesComponent implements OnInit {
 
@@ -49,6 +82,7 @@ export class SystemInboxRoleMailboxesComponent implements OnInit {
   protected readonly faTriangleExclamation = faTriangleExclamation;
 
   public aliases: InboxAliasConfigView[] = [];
+  public saving: string | null = null;
 
   async ngOnInit(): Promise<void> {
     try {
@@ -56,6 +90,31 @@ export class SystemInboxRoleMailboxesComponent implements OnInit {
     } catch (error) {
       this.logger.error("Failed to load role mailboxes:", error);
       this.aliases = [];
+    }
+  }
+
+  async toggleNotifications(alias: InboxAliasConfigView, enabled: boolean): Promise<void> {
+    this.saving = alias.roleType;
+    try {
+      const updated = await this.inboxService.setAliasNotifications(alias.roleType, enabled);
+      alias.inboxMessageNotifications = updated.inboxMessageNotifications;
+    } catch (error) {
+      this.logger.error("Failed to update role notifications:", error);
+      alias.inboxMessageNotifications = !enabled;
+    } finally {
+      this.saving = null;
+    }
+  }
+
+  async saveNotificationEmail(alias: InboxAliasConfigView): Promise<void> {
+    this.saving = alias.roleType;
+    try {
+      const updated = await this.inboxService.setAliasNotificationEmail(alias.roleType, alias.inboxNotificationEmail?.trim() || null);
+      alias.inboxNotificationEmail = updated.inboxNotificationEmail;
+    } catch (error) {
+      this.logger.error("Failed to update role notification email:", error);
+    } finally {
+      this.saving = null;
     }
   }
 }
