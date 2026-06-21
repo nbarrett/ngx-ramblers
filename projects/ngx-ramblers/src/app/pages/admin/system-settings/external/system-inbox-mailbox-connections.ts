@@ -279,9 +279,14 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
     }
   }
 
+  private async resolvePushTopicName(mailboxConnection: InboxMailboxConnectionView): Promise<string | null> {
+    await this.loadPushConfig();
+    return this.configuredTopicName?.trim() || mailboxConnection.pubsubTopicName?.trim() || null;
+  }
+
   async syncModeChanged(mailboxConnection: InboxMailboxConnectionView, syncMode: InboxSyncMode): Promise<void> {
     if (syncMode === InboxSyncMode.WATCH) {
-      const topicName = mailboxConnection.pubsubTopicName?.trim() || this.configuredTopicName?.trim();
+      const topicName = await this.resolvePushTopicName(mailboxConnection);
       if (topicName) {
         mailboxConnection.pubsubTopicName = topicName;
         await this.applySyncMode(mailboxConnection, InboxSyncMode.WATCH, topicName);

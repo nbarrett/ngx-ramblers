@@ -61,15 +61,12 @@ export class InboxNotificationService implements OnDestroy {
 
   private async start(): Promise<void> {
     await this.refreshFromServer();
-    try {
-      await this.webSocketClientService.connect();
-      this.wsSubscriptions.push(this.webSocketClientService.receiveMessages<InboxNewMessageEvent>(MessageType.INBOX_NEW_MESSAGE)
-        .subscribe(event => this.applyRoleEvent(event)));
-      this.wsSubscriptions.push(this.webSocketClientService.receiveMessages<InboxNewMessageEvent>(MessageType.INBOX_THREAD_UPDATED)
-        .subscribe(event => this.applyRoleEvent(event)));
-    } catch (error) {
-      this.logger.info("WebSocket connect for inbox notifications failed:", (error as Error).message);
-    }
+    this.wsSubscriptions.push(this.webSocketClientService.receiveMessages<InboxNewMessageEvent>(MessageType.INBOX_NEW_MESSAGE)
+      .subscribe(event => this.applyRoleEvent(event)));
+    this.wsSubscriptions.push(this.webSocketClientService.receiveMessages<InboxNewMessageEvent>(MessageType.INBOX_THREAD_UPDATED)
+      .subscribe(event => this.applyRoleEvent(event)));
+    this.webSocketClientService.connect()
+      .catch(error => this.logger.info("WebSocket connect for inbox notifications failed; it will reconnect automatically:", (error as Error).message));
   }
 
   private async refreshFromServer(): Promise<void> {

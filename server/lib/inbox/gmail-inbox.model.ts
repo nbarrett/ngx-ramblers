@@ -76,7 +76,8 @@ export enum GmailMimePrefix {
 
 export enum GoogleApiService {
   GMAIL = "gmail.googleapis.com",
-  PUBSUB = "pubsub.googleapis.com"
+  PUBSUB = "pubsub.googleapis.com",
+  CLOUD_RESOURCE_MANAGER = "cloudresourcemanager.googleapis.com"
 }
 
 export enum GmailServiceAccount {
