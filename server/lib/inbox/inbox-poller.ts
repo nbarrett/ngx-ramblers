@@ -3,7 +3,7 @@ import { createErrorDebugLog } from "../shared/error-debug-log";
 import { envConfig } from "../env-config/env-config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
-import { derivedAliasesForConnection, generalAliasFor, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
+import { derivedAliasesForConnection, generalAliasFor, messageRecipientEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import {
   InboxAliasConfig,
   InboxAliasConnectionStatus,
@@ -114,7 +114,7 @@ async function processGmailMessageIds(connection: InboxMailboxConnection, aliase
   return gmailMessageIds.reduce<Promise<string[]>>(async (acc, gmailMessageId) => {
     const accumulator = await acc;
     const parsed = await fetchFullMessage(connection, gmailMessageId);
-    const messageEmails = messageAddressEmails(parsed);
+    const messageEmails = messageRecipientEmails(parsed);
     const addressedRealAliases = realAliases.filter(alias =>
       roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageEmails, identityEmailsByType));
     const aliasesToStoreUnder = addressedRealAliases.length > 0
@@ -157,7 +157,7 @@ async function pollSpamForConnection(connection: InboxMailboxConnection, aliases
       return accumulator;
     }
     const addressedRealAliases = realAliases.filter(alias =>
-      roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageAddressEmails(parsed), identityEmailsByType));
+      roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageRecipientEmails(parsed), identityEmailsByType));
     const alias = addressedRealAliases[0] ?? generalAlias;
     await storeInboundMessage(alias, parsed, InboxThreadFolder.JUNK);
     return accumulator + 1;

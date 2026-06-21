@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import debug from "debug";
 import { createErrorDebugLog } from "../shared/error-debug-log";
-import { isBoolean, isString } from "es-toolkit/compat";
+import { isArray, isBoolean, isString } from "es-toolkit/compat";
 import * as authConfig from "../auth/auth-config";
 import { envConfig } from "../env-config/env-config";
 import { errorResponse } from "../shared/error-response";
@@ -19,6 +19,7 @@ import {
   InboxMessage,
   InboxMessageDirection,
   InboxNewMessageEvent,
+  InboxRoleNotificationSetting,
   InboxPushConfigResponse,
   InboxPushSubscribeRequest,
   InboxPushVapidPublicKeyResponse,
@@ -638,6 +639,35 @@ router.put("/aliases/:roleType/notification-email", authConfig.authenticate(), a
     res.json({request: {messageType}, response: view});
   } catch (error) {
     errorDebugLog("Error updating inbox role notification email:", (error as Error).message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+router.put("/aliases/notifications", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    if (!requireInboxConfigurationAdministrator(req, res)) {
+      return;
+    }
+    const changes = req.body?.changes;
+    if (!isArray(changes)) {
+      res.status(400).json({request: {messageType}, error: "changes must be an array"});
+      return;
+    }
+    const committeeConfigDocument = await config.queryKey(ConfigKey.COMMITTEE);
+    const committeeConfiguration: CommitteeConfig = committeeConfigDocument?.value;
+    const roles: CommitteeMember[] = committeeConfiguration?.roles ?? [];
+    (changes as InboxRoleNotificationSetting[]).forEach(change => {
+      const role = roles.find(candidate => candidate.type === change.roleType);
+      if (role) {
+        role.inboxMessageNotifications = change.inboxMessageNotifications === true;
+        const email = change.inboxNotificationEmail;
+        role.inboxNotificationEmail = change.inboxMessageNotifications && isString(email) && email.trim().length > 0 ? email.trim() : undefined;
+      }
+    });
+    await config.createOrUpdateKey(ConfigKey.COMMITTEE, committeeConfiguration);
+    res.json({request: {messageType}, response: {updated: changes.length}});
+  } catch (error) {
+    errorDebugLog("Error updating inbox role notifications:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });
