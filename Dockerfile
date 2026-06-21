@@ -51,7 +51,7 @@ COPY fly.toml ./
 COPY angular.json ./
 COPY projects/ngx-ramblers /usr/src/app/projects/ngx-ramblers
 
-RUN npx ng build --project ngx-ramblers --progress --configuration production
+RUN npm run build:sw && npx ng build --project ngx-ramblers --progress --configuration production
 
 WORKDIR /usr/src/app/server
 

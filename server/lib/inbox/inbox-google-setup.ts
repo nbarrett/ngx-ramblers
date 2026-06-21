@@ -95,6 +95,44 @@ function shortSubscriptionName(topicName: string): string {
   return `${topicName}-push`;
 }
 
+const API_PROPAGATION_DELAYS_MS = [5000, 10000, 20000, 30000, 30000, 30000, 30000];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isApiNotReadyText(text: string): boolean {
+  return /has not been used in project|SERVICE_DISABLED|it is disabled/i.test(text ?? "");
+}
+
+async function withApiPropagationRetry(run: () => Promise<ProvisioningStep>): Promise<ProvisioningStep> {
+  let step = await run();
+  for (const delayMs of API_PROPAGATION_DELAYS_MS) {
+    if (step.status !== ProvisioningStepStatus.FAILED || !isApiNotReadyText(step.detail)) {
+      return step;
+    }
+    debugLog(`step "${step.step}" hit an API-not-ready error; waiting ${delayMs}ms for the newly-enabled API to propagate, then retrying`);
+    await sleep(delayMs);
+    step = await run();
+  }
+  return step;
+}
+
+async function withApiNotReadyRetry<T>(operation: () => Promise<T>): Promise<T> {
+  for (const delayMs of API_PROPAGATION_DELAYS_MS) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!isApiNotReadyText((error as Error).message)) {
+        throw error;
+      }
+      debugLog(`lookup hit an API-not-ready error; waiting ${delayMs}ms for the newly-enabled API to propagate, then retrying`);
+      await sleep(delayMs);
+    }
+  }
+  return operation();
+}
+
 export async function runGoogleCloudProvisioning(accessToken: string, options: GoogleCloudProvisioningOptions, onStep: ProvisioningStepListener = appendGoogleCloudSetupStep): Promise<GoogleCloudProvisioningResult> {
   const auth = bootstrapClient(accessToken);
   const steps: ProvisioningStep[] = [];
@@ -104,6 +142,7 @@ export async function runGoogleCloudProvisioning(accessToken: string, options: G
     await onStep(step);
   };
 
+  await recordStep(await withApiPropagationRetry(() => enableApi(auth, options.projectId, GoogleApiService.CLOUD_RESOURCE_MANAGER)));
   const {step: verifyStep, projectId} = await resolveProject(auth, options.projectId);
   await recordStep(verifyStep);
   if (verifyStep.status === ProvisioningStepStatus.FAILED) {
@@ -116,9 +155,9 @@ export async function runGoogleCloudProvisioning(accessToken: string, options: G
 
   await recordStep(await enableApi(auth, projectId, GoogleApiService.GMAIL));
   await recordStep(await enableApi(auth, projectId, GoogleApiService.PUBSUB));
-  await recordStep(await ensureTopic(auth, topicFullName));
-  await recordStep(await grantTopicPublisher(auth, topicFullName));
-  await recordStep(await ensurePushSubscription(auth, subscriptionFullName, topicFullName, options.pushReceiverUrl));
+  await recordStep(await withApiPropagationRetry(() => ensureTopic(auth, topicFullName)));
+  await recordStep(await withApiPropagationRetry(() => grantTopicPublisher(auth, topicFullName)));
+  await recordStep(await withApiPropagationRetry(() => ensurePushSubscription(auth, subscriptionFullName, topicFullName, options.pushReceiverUrl)));
 
   return {projectId, topicFullName, subscriptionFullName, pushReceiverUrl: options.pushReceiverUrl, steps};
 }
@@ -126,7 +165,7 @@ export async function runGoogleCloudProvisioning(accessToken: string, options: G
 async function resolveProject(auth: OAuth2Client, projectIdOrNumber: string): Promise<{step: ProvisioningStep; projectId: string}> {
   const stepLabel = `Verify project ${projectIdOrNumber}`;
   try {
-    const response = await googleApiRequest<{projectId?: string; displayName?: string}>(auth, `${CLOUD_RESOURCE_MANAGER_ROOT}/projects/${projectIdOrNumber}`);
+    const response = await withApiNotReadyRetry(() => googleApiRequest<{projectId?: string; displayName?: string}>(auth, `${CLOUD_RESOURCE_MANAGER_ROOT}/projects/${projectIdOrNumber}`));
     const canonicalId = response.data.projectId ?? projectIdOrNumber;
     const displayName = response.data.displayName ?? "";
     return {
