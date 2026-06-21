@@ -30,6 +30,7 @@ export class InboxNotificationService implements OnDestroy {
   private authSubscription: Subscription | null = null;
   private started = false;
   private baseTitle: string | null = null;
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.authSubscription = this.authService.authResponse().subscribe(() => this.handleAuthChange());
@@ -39,6 +40,9 @@ export class InboxNotificationService implements OnDestroy {
   ngOnDestroy(): void {
     this.wsSubscriptions.forEach(subscription => subscription.unsubscribe());
     this.authSubscription?.unsubscribe();
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+    }
   }
 
   private async handleAuthChange(): Promise<void> {
@@ -82,11 +86,16 @@ export class InboxNotificationService implements OnDestroy {
   }
 
   private applyRoleEvent(event: InboxNewMessageEvent): void {
-    if (!this.perRoleUnread.has(event.roleType)) {
+    if (this.roleLabels.size > 0 && !this.roleLabels.has(event.roleType)) {
       return;
     }
-    this.perRoleUnread.set(event.roleType, event.unreadCountForRole);
-    this.publishTotal();
+    if (this.refreshTimer) {
+      return;
+    }
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+      void this.refreshFromServer();
+    }, 250);
   }
 
   private resetState(): void {

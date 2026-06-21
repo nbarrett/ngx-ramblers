@@ -24,6 +24,8 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { UrlService } from "../../../services/url.service";
 import { Member } from "../../../models/member.model";
 import { MemberService } from "../../../services/member/member.service";
+import { InboxService } from "../../../services/inbox/inbox.service";
+import { InboxRoleNotificationSetting } from "../../../models/inbox.model";
 import { isString, kebabCase } from "es-toolkit/compat";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../models/ui-actions";
@@ -348,7 +350,9 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
                     @if (showSubTab(ExternalSystemsSubTab.MAIL)) {
                         <app-mail-provider-settings [config]="config"
                                                     (membersPendingSave)="membersPendingSave=$event"/>
-                        <app-system-gmail-inbox-settings [config]="config"/>
+                        <app-system-gmail-inbox-settings [config]="config"
+                                                         [inboxRefreshToken]="inboxRefreshToken"
+                                                         (inboxNotificationsPendingSave)="inboxRoleNotificationsPendingSave=$event"/>
                     }
                     @if (showSubTab(ExternalSystemsSubTab.SOCIAL)) {
                         <app-system-instagram-settings/>
@@ -434,9 +438,12 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   public backgrounds: RootFolder = RootFolder.backgrounds;
   private subscriptions: Subscription[] = [];
   public membersPendingSave: Member[] = [];
+  public inboxRoleNotificationsPendingSave: InboxRoleNotificationSetting[] = [];
+  public inboxRefreshToken = 0;
   public areaMapSyncBusy = false;
   public walksManagerSyncBusy = false;
   private memberService: MemberService = inject(MemberService);
+  private inboxService: InboxService = inject(InboxService);
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private salesforceConfigService: SalesforceConfigService = inject(SalesforceConfigService);
   private notifierService: NotifierService = inject(NotifierService);
@@ -527,6 +534,8 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   undoChanges() {
     this.systemConfigService.refresh();
     this.salesforceConfigService.refresh();
+    this.inboxRoleNotificationsPendingSave = [];
+    this.inboxRefreshToken++;
   }
 
   ngOnDestroy(): void {
@@ -572,9 +581,23 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     }
   }
 
+  async saveInboxRoleNotifications() {
+    if (this.inboxRoleNotificationsPendingSave.length === 0) {
+      return;
+    }
+    try {
+      await this.inboxService.setAliasNotificationsBulk(this.inboxRoleNotificationsPendingSave);
+      this.inboxRoleNotificationsPendingSave = [];
+      this.inboxRefreshToken++;
+    } catch (error) {
+      this.notify.error({title: "Error saving inbox notification settings", message: error});
+    }
+  }
+
   async save() {
     this.logger.debug("saving config", this.config);
     await this.savePendingMembers();
+    await this.saveInboxRoleNotifications();
     await this.systemConfigService.saveConfig(this.config)
       .catch((error) => this.notify.error({title: "Error saving system config", message: error}));
     if (this.salesforceConfigService.hasLoaded()) {

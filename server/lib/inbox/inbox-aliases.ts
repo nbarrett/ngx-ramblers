@@ -190,6 +190,12 @@ export function messageAddressEmails(message: InboxMessage): string[] {
     .map(address => normaliseEmail(address.email));
 }
 
+export function messageRecipientEmails(message: InboxMessage): string[] {
+  return [...message.to, ...message.cc]
+    .filter(Boolean)
+    .map(address => normaliseEmail(address.email));
+}
+
 export function roleMatchesMessageAddresses(roleType: string, roleEmail: string, messageEmails: string[], identityEmailsByType: Map<string, Set<string>>): boolean {
   const identityEmails = identityEmailsByType.get(roleType) ?? new Set([normaliseEmail(roleEmail)]);
   return messageEmails.some(email => identityEmails.has(email));

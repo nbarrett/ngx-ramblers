@@ -94,15 +94,27 @@ export interface InboxAliasConfigView extends InboxAliasConfig {
   assignedMemberEmail: string | null;
 }
 
+export interface InboxRoleNotificationSetting {
+  roleType: string;
+  inboxMessageNotifications: boolean;
+  inboxNotificationEmail: string | null;
+}
+
 export enum GoogleCloudSetupStatusValue {
   RUNNING = "running",
   COMPLETED = "completed",
   FAILED = "failed"
 }
 
+export enum GoogleCloudProvisioningStepStatus {
+  OK = "ok",
+  SKIPPED = "skipped",
+  FAILED = "failed"
+}
+
 export interface GoogleCloudProvisioningStepView {
   step: string;
-  status: string;
+  status: GoogleCloudProvisioningStepStatus;
   detail: string;
 }
 

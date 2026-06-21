@@ -5,6 +5,7 @@ import { ApiResponse } from "../../models/api-response.model";
 import {
   GoogleCloudSetupStatusView,
   InboxAliasConfigView,
+  InboxRoleNotificationSetting,
   InboxAccessMode,
   InboxImportAllResponse,
   InboxMailboxConnectionView,
@@ -45,6 +46,10 @@ export class InboxService {
   async setAliasNotificationEmail(roleType: string, email: string | null): Promise<InboxAliasConfigView> {
     const response = await this.commonDataService.responseFrom(this.logger, this.http.put<ApiResponse>(`${this.BASE_URL}/aliases/${encodeURIComponent(roleType)}/notification-email`, {email}));
     return response.response as InboxAliasConfigView;
+  }
+
+  async setAliasNotificationsBulk(changes: InboxRoleNotificationSetting[]): Promise<void> {
+    await this.commonDataService.responseFrom(this.logger, this.http.put<ApiResponse>(`${this.BASE_URL}/aliases/notifications`, {changes}));
   }
 
   async mailboxConnections(): Promise<InboxMailboxConnectionView[]> {

@@ -2,9 +2,7 @@ import { Component, inject, OnInit } from "@angular/core";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { NgxLoggerLevel } from "ngx-logger";
 import { ActivatedRoute } from "@angular/router";
-import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { InboxService } from "../../../../services/inbox/inbox.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
@@ -100,23 +98,8 @@ import {
               </button>
               @if (mailboxConnection.hasRefreshToken && mailboxConnection.syncMode === InboxSyncMode.WATCH) {
                 <div class="w-100 mt-2">
-                  <label class="form-label mb-1" [attr.for]="'inbox-topic-' + mailboxConnection.id">Pub/Sub topic name</label>
-                  <div class="d-flex gap-2 align-items-start">
-                    <input [id]="'inbox-topic-' + mailboxConnection.id" type="text" class="form-control flex-grow-1"
-                           [(ngModel)]="mailboxConnection.pubsubTopicName"
-                           placeholder="projects/<project>/topics/<topic>" [disabled]="busy">
-                    <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" (click)="applyPushMode(mailboxConnection)" [disabled]="busy">
-                      Apply push
-                    </button>
-                  </div>
-                  @if (configuredTopicName) {
-                    <small class="text-muted d-block mt-1">This topic was created on <strong>step 1 (Google Cloud project)</strong> by <strong>Run Google Cloud setup</strong>, which also lets Gmail publish to it and creates the push subscription. It must exist before you Apply push.</small>
-                  } @else {
-                    <small class="text-warning d-block mt-1">No Pub/Sub topic has been set up yet. Go to <strong>step 1 (Google Cloud project)</strong>, enter your project ID and click <strong>Run Google Cloud setup</strong> first — that creates the topic (format <code>projects/your-project-id/topics/ngx-inbox-events</code>), lets Gmail publish to it, and creates the push subscription. Without it, Apply push will fail with "topic not found".</small>
-                  }
-                  @if (pushUrl) {
-                    <small class="text-muted d-block mt-1">Point your Pub/Sub push subscription at this URL:
-                      <code>{{pushUrl}}</code></small>
+                  @if (mailboxConnection.pubsubTopicName) {
+                    <small class="text-muted d-block">Real-time push via Pub/Sub topic <code>{{mailboxConnection.pubsubTopicName}}</code>, created by <strong>Run Google Cloud setup</strong> on step 1.</small>
                   }
                   @if (mailboxConnection.watchExpiresAt) {
                     <small class="text-muted d-block">Watch renews automatically; current registration expires {{mailboxConnection.watchExpiresAt | date:'medium'}}.</small>
@@ -141,7 +124,6 @@ import {
 })
 export class SystemInboxMailboxConnectionsComponent implements OnInit {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("SystemInboxMailboxConnectionsComponent", NgxLoggerLevel.ERROR);
   private inboxService = inject(InboxService);
   private notifierService = inject(NotifierService);
   private route = inject(ActivatedRoute);
@@ -152,7 +134,6 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
 
   public mailboxConnections: InboxMailboxConnectionView[] = [];
   public aliases: InboxAliasConfigView[] = [];
-  public pushUrl: string | null = null;
   public pushConfigured = false;
   public configuredTopicName: string | null = null;
   public busy = false;
@@ -190,11 +171,9 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
   private async loadPushConfig(): Promise<void> {
     try {
       const pushConfig = await this.inboxService.pushConfig();
-      this.pushUrl = pushConfig.pushUrl;
       this.pushConfigured = pushConfig.configured;
       this.configuredTopicName = pushConfig.configuredTopicName;
     } catch {
-      this.pushUrl = null;
       this.pushConfigured = false;
       this.configuredTopicName = null;
     }
@@ -302,20 +281,17 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
 
   async syncModeChanged(mailboxConnection: InboxMailboxConnectionView, syncMode: InboxSyncMode): Promise<void> {
     if (syncMode === InboxSyncMode.WATCH) {
-      if (!mailboxConnection.pubsubTopicName?.trim() && this.configuredTopicName) {
-        mailboxConnection.pubsubTopicName = this.configuredTopicName;
+      const topicName = mailboxConnection.pubsubTopicName?.trim() || this.configuredTopicName?.trim();
+      if (topicName) {
+        mailboxConnection.pubsubTopicName = topicName;
+        await this.applySyncMode(mailboxConnection, InboxSyncMode.WATCH, topicName);
+      } else {
+        mailboxConnection.syncMode = InboxSyncMode.POLL;
+        this.notify.warning({title: "Inbox delivery", message: "Set up the Pub/Sub topic on step 1 (Run Google Cloud setup) before switching this mailbox to push."});
       }
       return;
     }
     await this.applySyncMode(mailboxConnection, InboxSyncMode.POLL, null);
-  }
-
-  async applyPushMode(mailboxConnection: InboxMailboxConnectionView): Promise<void> {
-    if (!mailboxConnection.pubsubTopicName?.trim()) {
-      this.notify.error({title: "Inbox delivery", message: "Enter the Google Cloud Pub/Sub topic name before switching this mailbox to push"});
-      return;
-    }
-    await this.applySyncMode(mailboxConnection, InboxSyncMode.WATCH, mailboxConnection.pubsubTopicName.trim());
   }
 
   private async applySyncMode(mailboxConnection: InboxMailboxConnectionView, syncMode: InboxSyncMode, pubsubTopicName: string | null): Promise<void> {

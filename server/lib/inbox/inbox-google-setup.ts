@@ -134,11 +134,14 @@ async function resolveProject(auth: OAuth2Client, projectIdOrNumber: string): Pr
       projectId: canonicalId
     };
   } catch (error) {
-    const httpStatus = httpStatusOf(error);
-    const detail = (httpStatus === 403 || httpStatus === 404)
-      ? `Project "${projectIdOrNumber}" was not found or you don't have access. Use the project ID or its number, not the project's display name.`
-      : (error as Error).message;
-    return {step: {step: stepLabel, status: ProvisioningStepStatus.FAILED, detail}, projectId: projectIdOrNumber};
+    return {
+      step: {
+        step: stepLabel,
+        status: ProvisioningStepStatus.SKIPPED,
+        detail: `Could not look up the project name via Cloud Resource Manager (${(error as Error).message}); continuing with project ${projectIdOrNumber}. Pub/Sub and Service Usage accept the project number directly.`
+      },
+      projectId: projectIdOrNumber
+    };
   }
 }
 

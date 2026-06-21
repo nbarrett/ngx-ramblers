@@ -1,7 +1,13 @@
-import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SystemConfig } from "../../../../models/system.model";
-import { GoogleCloudProvisioningStepView, GoogleCloudSetupStatusValue, GoogleCloudSetupStatusView } from "../../../../models/inbox.model";
+import {
+  GoogleCloudProvisioningStepStatus,
+  GoogleCloudProvisioningStepView,
+  GoogleCloudSetupStatusValue,
+  GoogleCloudSetupStatusView,
+  InboxRoleNotificationSetting
+} from "../../../../models/inbox.model";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FormsModule } from "@angular/forms";
@@ -13,7 +19,15 @@ import { InboxService } from "../../../../services/inbox/inbox.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCircleCheck, faGear, faList, faSpinner, faTrashCan, faTriangleExclamation, faUserPlus } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCircleCheck,
+  faGear,
+  faList,
+  faSpinner,
+  faTrashCan,
+  faTriangleExclamation,
+  faUserPlus
+} from "@fortawesome/free-solid-svg-icons";
 import { StepperModule } from "primeng/stepper";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../../models/ui-actions";
@@ -154,7 +168,7 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                             {{ statusMessage }}
                           </div>
                         }
-                        @if (errorMessage) {
+                        @if (errorMessage && !setupSteps.length) {
                           <div class="alert alert-warning py-2 small mb-2">
                             <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
                             <strong>Google Cloud setup did not complete:</strong> {{ errorMessage }}
@@ -167,11 +181,16 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                                 <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>
                                 <strong>Running Google Cloud setup…</strong> This runs in the background — you can leave this page and come back.
                               </div>
+                            } @else if (errorMessage) {
+                              <div class="mb-1">
+                                <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                                <strong>Google Cloud setup did not complete</strong> — see the step that failed below.
+                              </div>
                             }
                             <ul class="mb-0 ps-3">
                               @for (step of setupSteps; track step.step) {
                                 <li>
-                                  <fa-icon [icon]="step.status === 'failed' ? faTriangleExclamation : faCircleCheck" class="me-1"/>
+                                  <fa-icon [icon]="step.status === GoogleCloudProvisioningStepStatus.FAILED ? faTriangleExclamation : faCircleCheck" class="me-1"/>
                                   {{ step.step }} — {{ step.status }}@if (step.detail) {<span class="text-muted"> ({{ step.detail }})</span>}
                                 </li>
                               }
@@ -245,7 +264,9 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                     @if (step.key === GmailInboxSetupStepKey.ROLE_MAILBOXES) {
                       <div class="mt-3">
                         <h6 class="mb-2"><fa-icon [icon]="faList" class="me-2"/>Role mailboxes</h6>
-                        <app-system-inbox-role-mailboxes/>
+                        <app-system-inbox-role-mailboxes
+                          [refreshToken]="inboxRefreshToken"
+                          (pendingChanges)="inboxNotificationsPendingSave.emit($event)"/>
                         <div class="mt-3 d-flex justify-content-start">
                           <button class="btn btn-sm btn-quiet" type="button" (click)="goToStep(1)">
                             &larr; Back: Connected Gmail accounts
@@ -289,7 +310,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected readonly faSpinner = faSpinner;
   protected readonly steps = GMAIL_INBOX_STEPS;
   protected readonly GmailInboxSetupStepKey = GmailInboxSetupStepKey;
-  protected readonly GoogleCloudSetupStatusValue = GoogleCloudSetupStatusValue;
+  protected readonly GoogleCloudProvisioningStepStatus = GoogleCloudProvisioningStepStatus;
 
   protected stepperActiveIndex = 0;
   protected topicNameInput = "ngx-inbox-events";
@@ -301,9 +322,20 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected errorMessage: string | null = null;
   protected setupSteps: GoogleCloudProvisioningStepView[] = [];
   protected setupInProgress = false;
+  private showSetupRun = false;
   private setupPollTimer: ReturnType<typeof setTimeout> | null = null;
   protected notify: AlertInstance;
   protected notifyTarget: AlertTarget = {};
+
+  @Input() inboxRefreshToken: number | null = null;
+  @Output() inboxNotificationsPendingSave = new EventEmitter<InboxRoleNotificationSetting[]>();
+
+  @Input({
+    alias: "config",
+    required: true
+  }) set configValue(systemConfig: SystemConfig) {
+    this.handleConfigChange(systemConfig);
+  }
 
   constructor() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -315,6 +347,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
       }
       const setupStarted = url.searchParams.get("setupStarted");
       if (setupStarted) {
+        this.showSetupRun = true;
         this.setupInProgress = true;
         this.stepperActiveIndex = 0;
       }
@@ -331,6 +364,13 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     await this.refreshSetupStatus();
+    this.clearSetupStartedParam();
+  }
+
+  private clearSetupStartedParam(): void {
+    if (!isUndefined(window) && new URL(window.location.href).searchParams.has("setupStarted")) {
+      void this.router.navigate([], {relativeTo: this.route, queryParams: {setupStarted: null}, queryParamsHandling: "merge", replaceUrl: true});
+    }
   }
 
   ngOnDestroy(): void {
@@ -353,13 +393,20 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   }
 
   private applySetupStatus(status: GoogleCloudSetupStatusView | null): void {
-    if (!status) {
+    const running = status?.status === GoogleCloudSetupStatusValue.RUNNING;
+    if (running) {
+      this.showSetupRun = true;
+    }
+    if (!status || (!this.showSetupRun && !running)) {
       this.setupInProgress = false;
+      this.setupSteps = [];
       return;
     }
-    this.setupSteps = status.steps ?? [];
-    this.setupInProgress = status.status === GoogleCloudSetupStatusValue.RUNNING;
-    if (status.status === GoogleCloudSetupStatusValue.COMPLETED) {
+    this.setupInProgress = running;
+    if (running) {
+      this.setupSteps = status.steps ?? [];
+    } else if (status.status === GoogleCloudSetupStatusValue.COMPLETED) {
+      this.setupSteps = [];
       this.statusTitle = "Google Cloud setup complete";
       this.statusMessage = `Project ${status.projectId}, topic ${status.topicFullName}`;
       this.errorMessage = null;
@@ -368,15 +415,9 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
         this.systemConfigInternal.googleInbox.pubsubSubscriptionName = status.subscriptionFullName ?? this.systemConfigInternal.googleInbox.pubsubSubscriptionName;
       }
     } else if (status.status === GoogleCloudSetupStatusValue.FAILED) {
+      this.setupSteps = (status.steps ?? []).filter(step => step.status === GoogleCloudProvisioningStepStatus.FAILED);
       this.errorMessage = status.errorMessage || "Google Cloud setup failed";
     }
-  }
-
-  @Input({
-    alias: "config",
-    required: true
-  }) set configValue(systemConfig: SystemConfig) {
-    this.handleConfigChange(systemConfig);
   }
 
   deploymentHost(): string {
