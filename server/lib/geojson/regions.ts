@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import { queryKey } from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { isArray, isString, keys } from "es-toolkit/compat";
+import { toPairs, isArray, isString, keys } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("regions"));
 debugLog.enabled = false;
@@ -76,7 +76,7 @@ export async function regions(req: Request, res: Response) {
     });
 
     const sharedDistricts: Record<string, SharedDistrictInfo> = {};
-    Object.entries(districtToGroups).forEach(([district, groups]) => {
+    toPairs(districtToGroups).forEach(([district, groups]) => {
       if (groups.length > 1) {
         sharedDistricts[district] = { groups };
       }

@@ -1,3 +1,4 @@
+import { dateTimeNowAsValue } from "../shared/dates";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
 import http from "http";
@@ -60,7 +61,7 @@ function tsToMillis(ts: number | string | undefined): number {
     const parsed = Date.parse(ts);
     if (Number.isFinite(parsed)) return parsed;
   }
-  return Date.now();
+  return dateTimeNowAsValue();
 }
 
 async function fetchListIdsForEmail(email: string): Promise<number[]> {
@@ -108,7 +109,7 @@ async function applyBlockEvent(payload: any): Promise<{ applied: boolean; reason
     reasonMessage,
     senderEmail,
     blockedAt,
-    syncedAt: Date.now(),
+    syncedAt: dateTimeNowAsValue(),
     source: MailListAuditSource.BREVO_EVENTS_WEBHOOK
   };
 
@@ -157,7 +158,7 @@ async function applyClearEvent(payload: any): Promise<{ applied: boolean; reason
   await mailListAudit.create({
     memberId,
     listId: 0,
-    timestamp: Date.now(),
+    timestamp: dateTimeNowAsValue(),
     createdBy: MailListAuditSource.BREVO_EVENTS_WEBHOOK,
     listType: MailListAuditListType.BREVO_BLOCKLIST_CLEARED,
     status: AuditStatus.info,

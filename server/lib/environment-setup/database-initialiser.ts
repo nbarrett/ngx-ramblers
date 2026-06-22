@@ -1,5 +1,5 @@
 import debug from "debug";
-import { keys } from "es-toolkit/compat";
+import { toPairs, keys } from "es-toolkit/compat";
 import { Db, MongoClient } from "mongodb";
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
@@ -309,7 +309,7 @@ export async function wireNotificationConfigsToProcesses(db: Db): Promise<{ wire
 
   const updates: Record<string, string> = {};
 
-  for (const [processKey, subjectText] of Object.entries(BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS)) {
+  for (const [processKey, subjectText] of toPairs(BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS)) {
     const config = await notificationConfigsCollection.findOne({"subject.text": subjectText});
     if (config?._id) {
       updates[`value.${processKey}`] = config._id.toString();

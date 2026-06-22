@@ -1,3 +1,4 @@
+import { toPairs } from "es-toolkit/compat";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
@@ -57,7 +58,7 @@ export function stripUnavailableMemberAttributes<T>(attributes: T, available: Se
     return attributes;
   }
   return Object.fromEntries(
-    Object.entries(attributes as Record<string, any>)
+    toPairs(attributes as Record<string, any>)
       .filter(([key]) => !MEMBER_CONTACT_ATTRIBUTES.includes(key) || available.has(key))
   ) as T;
 }

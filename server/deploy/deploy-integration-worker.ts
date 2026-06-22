@@ -1,3 +1,4 @@
+import { dateTimeNowAsValue } from "../lib/shared/dates";
 import debug from "debug";
 import fs from "fs";
 import os from "os";
@@ -85,7 +86,7 @@ function importWorkerSecrets(
     return;
   }
 
-  const tempFile = path.join(os.tmpdir(), `integration-worker-secrets-${Date.now()}.env`);
+  const tempFile = path.join(os.tmpdir(), `integration-worker-secrets-${dateTimeNowAsValue()}.env`);
   const lines = entries(secrets).map(([key, value]) => `${key}=${value}`);
 
   try {

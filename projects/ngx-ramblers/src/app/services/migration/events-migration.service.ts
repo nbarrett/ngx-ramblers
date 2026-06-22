@@ -20,7 +20,7 @@ import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-gro
 import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
 import { WalksConfigService } from "../system/walks-config.service";
 import { WalksConfig } from "../../models/walks-config.model";
-import { groupBy } from "es-toolkit/compat";
+import { toPairs, groupBy } from "es-toolkit/compat";
 import { firstPopulated, sortBy } from "../../functions/arrays";
 import { last } from "es-toolkit/compat";
 import { GroupEventsLocalLegacyService } from "../group-events/group-events-local-legacy.service";
@@ -299,7 +299,7 @@ export class EventsMigrationService {
     const ramblersWalks: ExtendedGroupEvent[] = await this.allRamblersWalks();
     this.logger.info("Found Ramblers Walks and Events:", ramblersWalks);
     const walks: Walk[] = await this.walksLocalLegacyService.all();
-    const walksByDate: Walk[] = Object.entries(groupBy(walks, walk => walk.walkDate))
+    const walksByDate: Walk[] = toPairs(groupBy(walks, walk => walk.walkDate))
       .map((entry: [path: string, duplicates: Walk[]]) => (last(entry[1].sort(sortBy("walkDate")))));
     this.logger.info("walks:", walks, "walksByDate:", walksByDate);
     const migratedWalks = walksByDate.map(walk => ({
@@ -339,7 +339,7 @@ export class EventsMigrationService {
   public async migrateSocialEvents(saveData: boolean): Promise<ExtendedGroupEvent[]> {
     this.logger.info("Starting Migration of social events");
     const socialEvents: SocialEvent[] = await this.socialEventsLocalLegacyService.all();
-    const socialEventsByDate: SocialEvent[] = Object.entries(groupBy(socialEvents, walk => walk.eventDate))
+    const socialEventsByDate: SocialEvent[] = toPairs(groupBy(socialEvents, walk => walk.eventDate))
       .map((entry: [path: string, duplicates: SocialEvent[]]) => (last(entry[1].sort(sortBy("eventDate")))));
     this.logger.info("socialEvents:", socialEvents, "socialEventsByDate:", socialEventsByDate);
     const migratedSocialEvents = socialEventsByDate.map(socialEvent => ({

@@ -27,7 +27,7 @@ import { readLocalTemplate } from "../templates/local-template-reader";
 import { renderMarkdownToHtml } from "../../shared/markdown-renderer";
 import { errorResponse } from "../../shared/error-response";
 import { logBrevoError } from "./error-log";
-import { isObject, isString, keys } from "es-toolkit/compat";
+import { toPairs, isObject, isString, keys } from "es-toolkit/compat";
 
 function valueAtPath(source: Record<string, any>, path: string): any {
   return path.split(".").reduce((value, key) => value?.[key], source);
@@ -187,7 +187,7 @@ export function withNormalisedOverrideImageHosts(overrides: TemplateOverrides | 
   if (!overrides || !baseHref) {
     return overrides;
   }
-  return Object.fromEntries(Object.entries(overrides).map(([key, override]) => {
+  return Object.fromEntries(toPairs(overrides).map(([key, override]) => {
     const imageUrl = (override as TemplateOverride)?.imageUrl;
     return imageUrl
       ? [key, {...override, imageUrl: normaliseOverrideImageHost(imageUrl, baseHref)}]

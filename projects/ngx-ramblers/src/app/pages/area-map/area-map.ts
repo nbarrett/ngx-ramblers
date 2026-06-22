@@ -41,7 +41,7 @@ import {
   PageContentRow
 } from "../../models/content-text.model";
 import { forkJoin, of, Subscription } from "rxjs";
-import { isArray, isFunction, isNull, isNumber, isString, keys } from "es-toolkit/compat";
+import { toPairs, isArray, isFunction, isNull, isNumber, isString, keys } from "es-toolkit/compat";
 import { range } from "es-toolkit";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { SystemConfigService } from "../../services/system/system-config.service";
@@ -1349,7 +1349,7 @@ export class AreaMap implements OnInit, OnDestroy, OnChanges {
 
         const sharedDistrictPatterns: Record<string, string> = {};
         if (this.sharedDistrictStyle === SharedDistrictStyle.STRIPES || this.sharedDistrictStyle === SharedDistrictStyle.GRADIENT) {
-          Object.entries(this.sharedDistricts).forEach(([district, info]) => {
+          toPairs(this.sharedDistricts).forEach(([district, info]) => {
             const colors = info.groups.map(g => g.color);
             sharedDistrictPatterns[district] = this.sharedDistrictStyle === SharedDistrictStyle.STRIPES
               ? this.createStripePattern(colors)

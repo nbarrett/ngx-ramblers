@@ -1,3 +1,4 @@
+import { dateTimeNowAsValue } from "../../shared/dates";
 import { Request, Response } from "express";
 import debug from "debug";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
@@ -82,7 +83,7 @@ export async function create(req: AuthenticatedRequest, res: Response): Promise<
     res.status(401).json({ message: "Authentication required" });
     return;
   }
-  const now = Date.now();
+  const now = dateTimeNowAsValue();
   try {
     const body = req.body ?? {};
     const doc = await emailComposition.create({
@@ -126,10 +127,10 @@ export async function update(req: AuthenticatedRequest, res: Response): Promise<
     if (body.shared !== undefined) existing.shared = body.shared === true;
     if (body.status === EmailCompositionStatus.Sent && existing.status !== EmailCompositionStatus.Sent) {
       existing.status = EmailCompositionStatus.Sent;
-      existing.sentAt = Date.now();
+      existing.sentAt = dateTimeNowAsValue();
       if (body.sentRecipientCount !== undefined) existing.sentRecipientCount = body.sentRecipientCount;
     }
-    existing.updatedAt = Date.now();
+    existing.updatedAt = dateTimeNowAsValue();
     existing.updatedBy = memberId;
     await existing.save();
     res.status(200).json({ action: ApiAction.UPDATE, response: transforms.toObjectWithId(existing) });

@@ -1,3 +1,4 @@
+import { toPairs } from "es-toolkit/compat";
 import { Check, PerformsActivities, Task, Wait } from "@serenity-js/core";
 import { WalksPageElements } from "../../../ui/ramblers/walks-page-elements";
 import { RequestParameterExtractor } from "../common/request-parameter-extractor";
@@ -33,7 +34,7 @@ export class CancelWalksWithReasons extends Task {
 
     const groupedByReason = this.groupByReason(this.walkCancellations);
 
-    for (const [reason, walkIds] of Object.entries(groupedByReason)) {
+    for (const [reason, walkIds] of toPairs(groupedByReason)) {
       await actor.attemptsTo(
         Log.message(`Cancelling ${walkIds.length} walk(s) with reason: "${reason}"`),
         Wait.until(WalksPageElements.walkListTable, isPresent()),

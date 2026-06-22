@@ -1,3 +1,4 @@
+import { toPairs } from "es-toolkit/compat";
 import debug from "debug";
 import * as fs from "fs";
 import * as path from "path";
@@ -55,7 +56,7 @@ function stripImports(source: string): string {
 }
 
 function substitutePlaceholders(source: string, values: Record<string, string>): string {
-  return Object.entries(values).reduce(
+  return toPairs(values).reduce(
     (acc, [key, jsonValue]) => acc.replace(new RegExp(key, "g"), () => jsonValue),
     source
   );

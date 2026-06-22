@@ -1,3 +1,4 @@
+import { dateTimeNowAsValue } from "../shared/dates";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
@@ -52,7 +53,7 @@ export async function submitRamblersUploadJobToWorker(job: RamblersUploadJob, cr
   const body = JSON.stringify(request);
   const signature = signRamblersUploadBody(body, sharedSecret);
   debugLog("submitRamblersUploadJobToWorker: jobId:", job.jobId, "workerUrl:", workerUrl, "callbackBaseUrl:", callbackBaseUrl, "bodyBytes:", body.length, "fileName:", job.data?.fileName, "rowCount:", job.data?.rows?.length, "uploads:", job.data?.walkIdUploadList?.length, "deletions:", job.data?.walkIdDeletionList?.length);
-  const submissionStart = Date.now();
+  const submissionStart = dateTimeNowAsValue();
   let response: Awaited<ReturnType<typeof fetch>>;
   try {
     response = await fetch(`${workerUrl}/api/integration-worker/jobs`, {
@@ -64,10 +65,10 @@ export async function submitRamblersUploadJobToWorker(job: RamblersUploadJob, cr
       body
     });
   } catch (error) {
-    debugLog("submitRamblersUploadJobToWorker: fetch failed for jobId:", job.jobId, "elapsedMs:", Date.now() - submissionStart, "error:", (error as Error).message);
+    debugLog("submitRamblersUploadJobToWorker: fetch failed for jobId:", job.jobId, "elapsedMs:", dateTimeNowAsValue() - submissionStart, "error:", (error as Error).message);
     throw error;
   }
-  debugLog("submitRamblersUploadJobToWorker: response for jobId:", job.jobId, "status:", response.status, "elapsedMs:", Date.now() - submissionStart);
+  debugLog("submitRamblersUploadJobToWorker: response for jobId:", job.jobId, "status:", response.status, "elapsedMs:", dateTimeNowAsValue() - submissionStart);
 
   if (!response.ok) {
     const responseBody = await response.text();

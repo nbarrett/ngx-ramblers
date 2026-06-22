@@ -1,3 +1,5 @@
+import { toPairs } from "es-toolkit/compat";
+import { dateTimeNowAsValue } from "../shared/dates";
 import expect from "expect";
 import { describe, it } from "mocha";
 import * as fs from "fs/promises";
@@ -56,7 +58,7 @@ function makeStubClient(options: { delayMs?: number; failOnKey?: string } = {}):
 
 async function makeTempDir(files: Record<string, string>): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "s3-utils-spec-"));
-  for (const [relative, content] of Object.entries(files)) {
+  for (const [relative, content] of toPairs(files)) {
     const full = path.join(root, relative);
     await fs.mkdir(path.dirname(full), { recursive: true });
     await fs.writeFile(full, content);
@@ -97,13 +99,13 @@ describe("uploadDirectoryToS3", () => {
     );
     const dir = await makeTempDir(files);
     const { client, puts, inFlightPeak } = makeStubClient({ delayMs: 30 });
-    const start = Date.now();
+    const start = dateTimeNowAsValue();
     try {
       await uploadDirectoryToS3(client, dir, "bucket", "prefix", undefined, 2);
     } finally {
       await removeDir(dir);
     }
-    const elapsed = Date.now() - start;
+    const elapsed = dateTimeNowAsValue() - start;
     expect(puts.length).toEqual(10);
     expect(inFlightPeak()).toBeLessThanOrEqual(2);
     expect(inFlightPeak()).toBeGreaterThanOrEqual(2);

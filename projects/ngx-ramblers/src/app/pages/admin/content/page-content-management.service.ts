@@ -7,7 +7,7 @@ import {
   PageContentGroup,
   PageContent
 } from "../../../models/content-text.model";
-import { groupBy } from "es-toolkit/compat";
+import { toPairs, groupBy } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { first } from "es-toolkit/compat";
@@ -24,7 +24,7 @@ export class PageContentManagementService {
   async findDuplicates(): Promise<PageContentGroup[]> {
     const allContent: PageContent[] = await this.pageContentService.all();
     const filteredContent = allContent.filter(item => this.notABuiltInPath(item.path));
-    const duplicates: PageContentGroup[] = Object.entries(groupBy(filteredContent, (item: PageContent) => first(item.path.split("#") || BuiltInPath.HOME)))
+    const duplicates: PageContentGroup[] = toPairs(groupBy(filteredContent, (item: PageContent) => first(item.path.split("#") || BuiltInPath.HOME)))
       .filter((entry: [key: string, values: PageContent[]]) => entry[1].length > 1)
       .map((entry: [path: string, contents: PageContent[]]) => ({path: entry[0], pageContents: entry[1]}));
     this.logger.info("allContent:", allContent, "filteredContent:", filteredContent, "duplicates:", duplicates);

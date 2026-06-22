@@ -1,3 +1,4 @@
+import { dateTimeNowAsValue } from "../shared/dates";
 import debug from "debug";
 import { install } from "source-map-support";
 import express from "express";
@@ -13,6 +14,7 @@ import { health } from "../health/health";
 import { integrationWorkerRoutes } from "./integration-worker-routes";
 import { integrationWorkerBrowserRoutes } from "./integration-worker-browser-routes";
 import { integrationWorkerMigrationRoutes } from "./integration-worker-migration-routes";
+import { integrationWorkerResizeRoutes } from "./integration-worker-resize-routes";
 import { documentConversionWorkerRoutes } from "../document-conversion/document-conversion-worker-routes";
 
 install();
@@ -35,10 +37,10 @@ app.use((req, res, next) => {
     next();
     return;
   }
-  const startedAt = Date.now();
+  const startedAt = dateTimeNowAsValue();
   debugLog("->", req.method, req.originalUrl, "from:", req.ip, "contentLength:", req.headers["content-length"] ?? "-");
   res.on("finish", () => {
-    debugLog("<-", req.method, req.originalUrl, "status:", res.statusCode, "elapsedMs:", Date.now() - startedAt);
+    debugLog("<-", req.method, req.originalUrl, "status:", res.statusCode, "elapsedMs:", dateTimeNowAsValue() - startedAt);
   });
   next();
 });
@@ -52,6 +54,7 @@ app.get("/", (req, res) => {
       submitJob: { method: "POST", path: "/api/integration-worker/jobs" },
       progressCallback: { method: "POST", path: "/api/integration-worker/progress" },
       resultCallback: { method: "POST", path: "/api/integration-worker/result" },
+      resizeJob: { method: "POST", path: "/api/integration-worker/resize/jobs" },
       htmlFetch: { method: "POST", path: "/api/integration-worker/browser/html-fetch" },
       flickrUserAlbums: { method: "POST", path: "/api/integration-worker/browser/flickr-user-albums" },
       documentConversion: { method: "POST", path: "/api/integration-worker/document-conversion/convert" }
@@ -63,6 +66,7 @@ app.get("/api/health", health);
 app.use("/api/integration-worker", integrationWorkerRoutes);
 app.use("/api/integration-worker/browser", integrationWorkerBrowserRoutes);
 app.use("/api/integration-worker/migration", integrationWorkerMigrationRoutes);
+app.use("/api/integration-worker/resize", integrationWorkerResizeRoutes);
 app.use("/api/integration-worker/document-conversion", documentConversionWorkerRoutes);
 
 if (app.get("env") === "dev") {

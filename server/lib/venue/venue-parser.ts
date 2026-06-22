@@ -1,6 +1,6 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { isArray, isEmpty, isString } from "es-toolkit/compat";
+import { toPairs, isArray, isEmpty, isString } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("venue-parser"));
 
@@ -53,7 +53,7 @@ export function inferVenueTypeFromName(name: string): VenueTypeValue {
     return VenueTypeValue.OTHER;
   }
   const nameLower = name.toLowerCase();
-  const entries = Object.entries(VENUE_TYPE_TERMS) as [VenueTypeValue, string[]][];
+  const entries = toPairs(VENUE_TYPE_TERMS) as [VenueTypeValue, string[]][];
   const foundEntry = entries.find(([, terms]) => {
     if (terms.length === 0) {
       return false;

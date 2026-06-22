@@ -1,6 +1,6 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
-import { keys } from "es-toolkit/compat";
+import { toPairs, keys } from "es-toolkit/compat";
 
 import { CONFIG_COLLECTION } from "../shared/collection-names";
 
@@ -261,7 +261,7 @@ function mergeConfig(existing: any, newValues: any): any {
   if (!newValues) return existing;
 
   const merged = { ...existing };
-  for (const [key, value] of Object.entries(newValues)) {
+  for (const [key, value] of toPairs(newValues)) {
     if (!merged[key] && value) {
       merged[key] = value;
     }

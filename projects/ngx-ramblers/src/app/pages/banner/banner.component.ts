@@ -406,7 +406,7 @@ export class BannerComponent implements OnInit, OnDestroy {
               this.banners = [bannerConfigSaveResponse, ...this.banners];
             }
             this.bannerSelected(bannerConfigSaveResponse);
-            this.savedImageVersion = Date.now();
+            this.savedImageVersion = this.dateUtils.nowAsValue();
             this.savedImageBytesSrc = null;
             this.imageDisplay.saved = true;
           } else {
@@ -568,14 +568,14 @@ export class BannerComponent implements OnInit, OnDestroy {
       this.updateAudit();
       const saved = await this.saveBanner();
       this.bannerSelected(saved);
-      this.savedImageVersion = Date.now();
+      this.savedImageVersion = this.dateUtils.nowAsValue();
       this.savedImageBytesSrc = null;
       this.imageDisplay.saved = true;
     }
     this.exitSavedImageEdit();
   }
 
-  public savedImageVersion: number = Date.now();
+  public savedImageVersion: number = this.dateUtils.nowAsValue();
 
   savedImageSrc(): string {
     if (!this.editableBanner?.fileNameData) {

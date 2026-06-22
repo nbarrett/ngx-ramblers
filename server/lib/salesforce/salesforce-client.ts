@@ -1,3 +1,4 @@
+import { toPairs } from "es-toolkit/compat";
 import axios, { AxiosError, AxiosInstance } from "axios";
 import debug from "debug";
 import {
@@ -48,7 +49,7 @@ export function tokenForGroupCode(salesforceConfig: SalesforceConfig, groupCode:
 }
 
 export function firstConfiguredToken(salesforceConfig: SalesforceConfig): { groupCode: string; token: string } | null {
-  const entries = Object.entries(salesforceConfig?.apiKeysByGroupCode ?? {});
+  const entries = toPairs(salesforceConfig?.apiKeysByGroupCode ?? {});
   const firstEntry = entries.find(([, token]) => !!token && token.length > 0);
   return firstEntry ? { groupCode: firstEntry[0], token: firstEntry[1] } : null;
 }
