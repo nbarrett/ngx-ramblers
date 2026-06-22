@@ -3,7 +3,7 @@ import { createErrorDebugLog } from "../shared/error-debug-log";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { InboxAliasConfig, InboxMessage, InboxMessageDirection, InboxThread } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { InboxMessage, InboxMessageDirection, InboxThread } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { configuredBrevo } from "../brevo/brevo-config";
 import { scheduleBrevo } from "../brevo/common/rate-limiting";
@@ -151,7 +151,8 @@ async function sendDigestEmail(apiInstance: SibApiV3Sdk.TransactionalEmailsApi, 
   const role = items[0].role;
   const senderName = role.fullName || role.description || groupShortName;
   const senderEmail = role.email || `noreply@${(groupHref || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "") || "ngx-ramblers.org.uk"}`;
-  const subject = `${pluraliseWithCount(items.length, "new inbox message")} for ${role.description || role.type}`;
+  const conversationCount = new Set(items.map(item => digestDedupeKey(item))).size;
+  const subject = `${pluraliseWithCount(conversationCount, "new inbox message")} for ${role.description || role.type}`;
   const htmlContent = buildDigestHtml(items, groupHref, groupShortName);
   const recipientEmail = digestRecipientEmail(role, member);
   const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
@@ -162,13 +163,29 @@ async function sendDigestEmail(apiInstance: SibApiV3Sdk.TransactionalEmailsApi, 
   await scheduleBrevo(() => apiInstance.sendTransacEmail(sendSmtpEmail));
 }
 
+function threadIdOf(thread: InboxThread): string {
+  return ((thread as unknown as {_id?: {toString(): string}; id?: string})._id ?? (thread as unknown as {id?: string}).id ?? "").toString();
+}
+
+function digestDedupeKey(item: DigestItem): string {
+  return `${(item.message.from.email ?? "").toLowerCase()}|${item.thread.normalisedSubject ?? ""}`;
+}
+
 function buildDigestHtml(items: DigestItem[], groupHref: string, groupShortName: string): string {
   const heading = `<h2 style="font-family:sans-serif;color:#333">New inbox mail in ${escapeHtml(groupShortName)}</h2>`;
-  const rows = items.map(item => {
+  const latestByContent = items.reduce<Map<string, DigestItem>>((map, item) => {
+    const key = digestDedupeKey(item);
+    const existing = map.get(key);
+    if (!existing || (item.message.receivedAt ?? 0) > (existing.message.receivedAt ?? 0)) {
+      map.set(key, item);
+    }
+    return map;
+  }, new Map());
+  const rows = Array.from(latestByContent.values()).map(item => {
     const sender = escapeHtml(item.message.from.name || item.message.from.email || "(unknown)");
     const subject = escapeHtml(item.message.subject || "(no subject)");
     const snippet = escapeHtml(buildSnippet(item.message));
-    const threadId = ((item.thread as unknown as {_id?: {toString(): string}; id?: string})._id ?? (item.thread as unknown as {id?: string}).id ?? "").toString();
+    const threadId = threadIdOf(item.thread);
     const link = `${groupHref}/admin/inbox?thread=${encodeURIComponent(threadId)}`;
     return `<div style="border-top:1px solid #e0e0e0;padding:0.75em 0;font-family:sans-serif">
       <div><strong>${sender}</strong> &mdash; <span style="color:#555">${subject}</span></div>
@@ -182,16 +199,33 @@ function buildDigestHtml(items: DigestItem[], groupHref: string, groupShortName:
 }
 
 function buildSnippet(message: InboxMessage): string {
-  const source = message.bodyText ?? stripHtml(message.bodyHtml ?? "");
+  const source = message.bodyHtml ? stripHtml(message.bodyHtml) : (message.bodyText ?? "");
   if (!source) {
     return "";
   }
-  const collapsed = source.replace(/\s+/g, " ").trim();
+  const collapsed = source
+    .replace(/\bhttps?:\/\/\S+/gi, " ")
+    .replace(/\bmailto:\S+/gi, " ")
+    .replace(/view this email in your browser/gi, " ")
+    .replace(/\(\s*\)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return collapsed.length > 200 ? `${collapsed.slice(0, 200)}…` : collapsed;
 }
 
 function stripHtml(html: string): string {
-  return html.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<[^>]+>/g, " ");
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<head[\s\S]*?<\/head>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&quot;/gi, "\"");
 }
 
 function escapeHtml(raw: string): string {

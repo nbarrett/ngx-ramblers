@@ -162,6 +162,7 @@ export interface GmailAttachmentRef {
   contentType: string;
   sizeBytes: number;
   attachmentId: string;
+  contentId: string | null;
 }
 
 export interface GmailWatchResponse {
