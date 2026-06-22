@@ -1,10 +1,10 @@
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { Component, HostListener, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faEnvelope, faEnvelopeOpen, faFilter, faInbox, faListCheck, faReply, faReplyAll, faRotateRight, faSearch, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faCompress, faEnvelope, faEnvelopeOpen, faExpand, faFilter, faInbox, faListCheck, faReply, faReplyAll, faRotateRight, faSearch, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, values } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -15,6 +15,7 @@ import { WebSocketClientService } from "../../../services/websockets/websocket-c
 import { MessageType } from "../../../models/websocket.model";
 import {
   InboxAddress,
+  InboxAttachment,
   InboxMessage,
   InboxMessageDirection,
   InboxNewMessageEvent,
@@ -30,6 +31,8 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { BrandingMode } from "../../../models/mail.model";
 import { EmailComposerStepKey } from "../../../models/email-composer.model";
 import { StoredValue } from "../../../models/ui-actions";
+import { DeviceSize } from "../../../models/page.model";
+import { UrlService } from "../../../services/url.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -37,238 +40,19 @@ import { PageComponent } from "../../../page/page.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { HtmlFrameComponent } from "../../../modules/common/html-frame/html-frame.component";
-import { ResizerComponent } from "../../../modules/common/resizer/resizer";
+import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../../modules/common/resizer/resizer";
 import { MaximisablePanelComponent } from "../../../modules/common/maximisable-panel/maximisable-panel";
 
 @Component({
   selector: "app-inbox",
   imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent],
-  styles: [`
-    .maximised .inbox-alert
-      display: none
-    .maximised .inbox-layout
-      height: auto
-      flex: 1 1 auto
-      min-height: 0
-      margin-top: 0.5rem
-    .inbox-layout
-      display: grid
-      gap: 0
-      height: 72vh
-      margin-top: 1.75rem
-    .inbox-pane
-      min-width: 0
-      min-height: 0
-      display: flex
-      flex-direction: column
-      overflow: hidden
-      padding-top: 2.25rem
-    .inbox-pane-messages
-      padding-top: 1rem
-    .inbox-layout .inbox-pane
-      margin: 0
-    .inbox-thread-list
-      flex: 1 1 auto
-      min-height: 0
-      overflow-y: auto
-    .inbox-thread-list:focus
-      outline: none
-    .inbox-thread-row
-      padding: 0.45rem 0.75rem
-      border-bottom: 1px solid #e9ecef
-      border-left: 4px solid transparent
-      cursor: pointer
-    .inbox-thread-row:nth-child(even)
-      background-color: #fafafa
-    .inbox-thread-row:hover
-      background-color: rgba(155, 200, 171, 0.15)
-    .inbox-thread-row.active
-      background-color: rgba(155, 200, 171, 0.28)
-      border-left-color: #5e9c76
-    .inbox-thread-row.active .inbox-thread-from,
-    .inbox-thread-row.active .inbox-thread-subject
-      font-weight: 700
-      color: #2f5e43
-    .inbox-thread-row.unread
-      background-color: rgba(249, 177, 4, 0.08)
-      border-left-color: #f9b104
-    .inbox-thread-row.unread:nth-child(even)
-      background-color: rgba(249, 177, 4, 0.12)
-    .inbox-thread-row.unread .inbox-thread-from
-      font-weight: 700
-      color: #1f2933
-    .inbox-thread-row.unread .inbox-thread-subject
-      font-weight: 600
-      color: #1f2933
-    .inbox-unread-dot
-      display: inline-block
-      width: 0.55rem
-      height: 0.55rem
-      border-radius: 50%
-      background-color: #f9b104
-      box-shadow: 0 0 0 1px rgba(31, 41, 51, 0.15)
-      flex-shrink: 0
-    .inbox-thread-from
-      font-size: 0.95rem
-      font-weight: 400
-      color: #555
-    .inbox-thread-subject
-      font-size: 0.85rem
-      color: #777
-      font-weight: 400
-      overflow: hidden
-      text-overflow: ellipsis
-      white-space: nowrap
-    .inbox-thread-time
-      font-size: 0.75rem
-      color: #888
-      white-space: nowrap
-    .inbox-thread-recipient
-      font-size: 0.78rem
-      color: #8a8a8a
-      overflow: hidden
-      text-overflow: ellipsis
-      white-space: nowrap
-    .min-w-0
-      min-width: 0
-    .inbox-list-toolbar
-      cursor: default
-    .inbox-action-btn
-      color: #888
-      border: 1px solid #d0d0d0
-      background-color: transparent
-    .inbox-action-btn:hover, .inbox-action-btn:focus
-      color: #fff
-      background-color: #dc3545
-      border-color: #dc3545
-    .inbox-detail-header
-      padding-bottom: 0.75rem
-      border-bottom: 1px solid #e9ecef
-    .inbox-detail
-      flex: 1 1 auto
-      min-height: 0
-      overflow: auto
-      padding-right: 0.75rem
-    .inbox-message
-      border-bottom: 1px solid #f0f0f0
-      padding-bottom: 1rem
-      margin-bottom: 1rem
-    .inbox-message-headers
-      font-size: 0.85rem
-      color: #555
-      margin-bottom: 0.5rem
-    .inbox-message-toggle
-      cursor: pointer
-      border-radius: 4px
-      padding: 0.25rem 0.35rem
-      margin: -0.25rem -0.35rem 0.5rem
-    .inbox-message-toggle:hover
-      background-color: rgba(155, 200, 171, 0.15)
-    .inbox-message.collapsed
-      padding-bottom: 0.5rem
-      margin-bottom: 0.5rem
-    .inbox-message-preview
-      color: #777
-      overflow: hidden
-      text-overflow: ellipsis
-      white-space: nowrap
-    .inbox-reply-actions
-      margin-top: 0.4rem
-      margin-right: 0.4rem
-      margin-left: 0.5rem
-      transition: opacity 0.12s ease-in-out
-    .inbox-message.collapsed .inbox-reply-actions
-      opacity: 0
-    .inbox-message.collapsed:hover .inbox-reply-actions
-      opacity: 1
-    .inbox-filter-btn
-      width: 1.8rem
-      height: 1.8rem
-      min-width: 1.8rem
-      min-height: 1.8rem
-      max-height: 1.8rem
-      flex: 0 0 auto
-      padding: 0
-      line-height: 1
-      font-size: 0.8rem
-      display: inline-flex
-      align-items: center
-      justify-content: center
-    .inbox-reply-btn
-      width: 1.8rem
-      height: 1.8rem
-      min-width: 1.8rem
-      min-height: 1.8rem
-      max-height: 1.8rem
-      flex: 0 0 auto
-      padding: 0
-      line-height: 1
-      font-size: 0.8rem
-      display: inline-flex
-      align-items: center
-      justify-content: center
-      color: #404143
-      background-color: #e9ecef
-      border: none
-    .inbox-reply-btn:hover, .inbox-reply-btn:focus
-      background-color: #f9b104
-      color: #212529
-    .inbox-reply-label
-      display: none
-    @media (min-width: 1200px)
-      .inbox-reply-btn
-        width: auto
-        min-width: 0
-        height: auto
-        max-height: none
-        padding: 0.2rem 0.6rem
-        gap: 0.3rem
-      .inbox-reply-label
-        display: inline
-    .inbox-message-body
-      font-size: 0.95rem
-      overflow-wrap: anywhere
-    .inbox-message-body ::ng-deep img
-      max-width: 100%
-      height: auto
-    .inbox-message-body ::ng-deep table
-      max-width: 100%
-    .inbox-message-body ::ng-deep pre
-      white-space: pre-wrap
-      overflow-wrap: anywhere
-    .inbox-role-select
-      flex: 1 1 auto
-      min-width: 8rem
-      font-size: 0.8rem
-    .inbox-detail-header .btn
-      font-size: 0.8rem
-      padding: 0.35rem 0.65rem
-      min-height: 0
-    @media (max-width: 575.98px)
-      .inbox-toolbar
-        flex-direction: column
-        align-items: stretch
-      .inbox-toolbar .ms-auto
-        flex-direction: column
-        align-items: stretch
-        width: 100%
-        margin-left: 0
-      .inbox-toolbar .btn,
-      .inbox-toolbar .inbox-role-select
-        width: 100%
-        margin-right: 0
-      .inbox-toolbar .inbox-role-select
-        min-width: 0
-  `],
+  styleUrls: ["./inbox.component.sass"],
   template: `
-    <app-page pageTitle="Email inbox">
-      <app-maximisable-panel #panel="maximisablePanel">
-      <div panelControls class="d-flex flex-nowrap gap-2 align-items-center flex-grow-1 inbox-toolbar">
-          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+    <app-page pageTitle="Email inbox" [showTitle]="!mobile" [showBreadcrumb]="!mobile">
+      <app-maximisable-panel #panel="maximisablePanel" [showToggleButton]="false">
+      <div panelControls class="d-flex gap-2 align-items-center flex-grow-1 inbox-toolbar">
+          <div class="d-flex align-items-center gap-2 flex-shrink-0 inbox-toolbar-brand">
             <fa-icon [icon]="faInbox" class="ramblers" size="lg"></fa-icon>
-            @if (threadListUnreadCount > 0) {
-              <span class="badge bg-warning text-dark">{{threadListUnreadCount}} unread</span>
-            }
           </div>
           @if (aliases.length > 0) {
             <label class="visually-hidden" for="inbox-role">Inbox view</label>
@@ -287,30 +71,46 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
               }
             </select>
           }
-          <div class="ms-auto d-flex align-items-center gap-2 flex-shrink-0">
-          <button class="btn btn-quiet text-nowrap flex-shrink-0" type="button" (click)="toggleLayout()" [tooltip]="stackedLayout ? 'Switch to side-by-side view' : 'Switch to stacked view'">
-            <fa-icon [icon]="stackedLayout ? faTableColumns : faTableList" class="me-1"/>
-            {{ stackedLayout ? 'Side-by-side' : 'Stacked' }}
-          </button>
+          <div class="ms-auto d-flex align-items-center gap-2 inbox-toolbar-actions">
+          @if (mobile && mobileShowDetail) {
+            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="backToList()" tooltip="Back to inbox">
+              <fa-icon [icon]="faArrowLeft"/>Inbox
+            </button>
+          }
+          @if (threads.length > 0) {
+            <button type="button" class="btn btn-quiet inbox-filter-toggle d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" [class.active]="readFilter === InboxReadFilter.UNREAD"
+                    (click)="toggleUnreadFilter()"
+                    [tooltip]="readFilter === InboxReadFilter.UNREAD ? 'Showing unread only — click to show all' : 'Show unread only'">
+              <fa-icon [icon]="faFilter"/>{{ readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All messages' }}
+            </button>
+          }
+          @if (!mobile) {
+            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="toggleLayout()" [tooltip]="stackedLayout ? 'Switch to side-by-side view' : 'Switch to stacked view'">
+              <fa-icon [icon]="stackedLayout ? faTableColumns : faTableList"/>
+              {{ stackedLayout ? 'Side-by-side' : 'Stacked' }}
+            </button>
+          }
           @if ((pushStatus$ | async); as pushStatus) {
             @if (pushStatus.supported) {
               @if (pushStatus.subscribed) {
-                <button class="btn btn-quiet text-nowrap flex-shrink-0" type="button" (click)="disableBrowserNotifications()" [disabled]="busy" tooltip="Stop showing browser notifications for new inbox messages">
-                  <fa-icon [icon]="faBellSlash" class="me-1"></fa-icon>
-                  Disable notifications
+                <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="disableBrowserNotifications()" [disabled]="busy" tooltip="Stop showing browser notifications for new inbox messages">
+                  <fa-icon [icon]="faBellSlash"/>Notifications
                 </button>
               } @else if (pushStatus.permission !== 'denied') {
-                <button class="btn btn-quiet text-nowrap flex-shrink-0" type="button" (click)="enableBrowserNotifications()" [disabled]="busy" tooltip="Get a desktop or phone notification when new inbox mail arrives">
-                  <fa-icon [icon]="faBell" class="me-1"></fa-icon>
-                  Enable notifications
+                <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="enableBrowserNotifications()" [disabled]="busy" tooltip="Get a desktop or phone notification when new inbox mail arrives">
+                  <fa-icon [icon]="faBell"/>Notifications
                 </button>
               }
             }
           }
-          <button class="btn btn-quiet text-nowrap flex-shrink-0" type="button" (click)="refresh()" [disabled]="busy">
-            <fa-icon [icon]="faRotateRight" class="me-1"></fa-icon>
-            Refresh
+          <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="refresh()" [disabled]="busy" tooltip="Refresh the inbox">
+            <fa-icon [icon]="faRotateRight"/>Refresh
           </button>
+          @if (!mobile) {
+            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="panel.toggle()" [tooltip]="panel.maximised ? panel.restoreTooltip : panel.maximiseTooltip">
+              <fa-icon [icon]="panel.maximised ? faCompress : faExpand"/>{{ panel.maximised ? 'Restore' : 'Maximise' }}
+            </button>
+          }
           </div>
       </div>
       @if (aliases.length === 0) {
@@ -330,8 +130,9 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
         </div>
       }
       <div class="inbox-layout" [class.stacked]="stackedLayout"
-           [style.grid-template-columns]="stackedLayout ? 'minmax(0, 1fr)' : (listSize + 'px 8px minmax(0, 1fr)')"
-           [style.grid-template-rows]="stackedLayout ? (listSize + 'px 8px minmax(0, 1fr)') : 'minmax(0, 1fr)'">
+           [style.grid-template-columns]="gridTemplateColumns"
+           [style.grid-template-rows]="gridTemplateRows">
+        @if (!mobile || !mobileShowDetail) {
         <div class="thumbnail-heading-frame-compact inbox-pane">
           <div class="thumbnail-heading">Conversations</div>
           @if (threads.length > 0 || conversationSearchTerm) {
@@ -370,11 +171,6 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
               } @else {
                 <label class="text-muted small mb-0" for="inbox-select-all">Select all</label>
               }
-              <button type="button" class="btn btn-quiet inbox-filter-btn ms-auto" [class.active]="readFilter === InboxReadFilter.UNREAD"
-                      (click)="toggleUnreadFilter()"
-                      [tooltip]="readFilter === InboxReadFilter.UNREAD ? 'Showing unread only — click to show all' : 'Show unread only'">
-                <fa-icon [icon]="faFilter"></fa-icon>
-              </button>
             </div>
           }
           <div class="inbox-thread-list" tabindex="0" (keydown)="onThreadListKeydown($event)">
@@ -393,7 +189,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                  [class.active]="threadIdOf(thread) === selectedThreadId"
                  [class.unread]="thread.unread"
                  [attr.data-thread-id]="threadIdOf(thread)"
-                 (click)="openThread(thread)">
+                 (click)="selectThread(thread)">
               <input type="checkbox" class="form-check-input flex-shrink-0 m-0"
                      [checked]="selectedThreadIds.has(threadIdOf(thread))"
                      (click)="$event.stopPropagation(); toggleThreadSelection(thread)">
@@ -405,22 +201,26 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                   <div class="inbox-thread-from flex-grow-1 text-truncate">{{thread.externalAddress.name ?? thread.externalAddress.email}}</div>
                   <div class="inbox-thread-time flex-shrink-0">{{thread.lastSeenAt | date: "short"}}</div>
                 </div>
-                <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
+                <div class="inbox-thread-subject text-truncate">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
                 @if (recipientForThread(thread); as roleEmail) {
-                  <div class="inbox-thread-recipient">to {{roleEmail}}</div>
+                  <div class="inbox-thread-recipient text-truncate">to {{roleEmail}}</div>
                 }
               </div>
             </div>
           }
           </div>
         </div>
-        <app-resizer variant="bar"
-                     [orientation]="stackedLayout ? 'vertical' : 'horizontal'"
-                     [size]="listSize"
-                     [minSize]="minListSize"
-                     [maxSize]="maxListSize"
-                     (sizeChange)="listSize = $event"
-                     (resizeEnd)="persistListSize()"/>
+        }
+        @if (!mobile) {
+          <app-resizer [variant]="ResizerVariant.BAR"
+                       [orientation]="stackedLayout ? ResizerOrientation.VERTICAL : ResizerOrientation.HORIZONTAL"
+                       [size]="listSize"
+                       [minSize]="minListSize"
+                       [maxSize]="maxListSize"
+                       (sizeChange)="listSize = $event"
+                       (resizeEnd)="persistListSize()"/>
+        }
+        @if (!mobile || mobileShowDetail) {
         <div class="thumbnail-heading-frame-compact inbox-pane inbox-pane-messages">
           @if (selectedThread) {
             <div class="d-flex align-items-start gap-2 mb-3 inbox-detail-header">
@@ -444,7 +244,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                   <fa-icon [icon]="faInbox" class="me-1"></fa-icon>
                   Not junk
                 </button>
-                <button class="btn btn-sm inbox-action-btn text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="deleteCurrentThread()">
+                <button class="btn btn-sm btn-grey-danger text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="deleteCurrentThread()">
                   <fa-icon [icon]="faTrash" class="me-1"></fa-icon>
                   Delete
                 </button>
@@ -453,7 +253,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
           }
           <div class="inbox-detail">
           @if (!selectedThread) {
-            <div class="text-muted">Select a conversation on the left to see its messages.</div>
+            <div class="text-muted">Select a conversation to read it.</div>
           } @else if (loadingThread) {
             <div class="text-muted">Loading conversation...</div>
           } @else {
@@ -470,27 +270,25 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                       }
                     } @else {
                       @if (message.to?.length || message.cc?.length) {
-                        <div class="inbox-message-preview">to {{ recipientSummary(message) }}</div>
+                        <div class="inbox-message-preview text-truncate">to {{ recipientSummary(message) }}</div>
                       }
-                      <div class="inbox-message-preview">{{ messagePreview(message) }}</div>
+                      <div class="inbox-message-preview text-truncate">{{ messagePreview(message) }}</div>
                     }
                   </div>
-                  @if (message.direction === InboxMessageDirection.INBOUND) {
-                    <div class="inbox-reply-actions d-flex gap-1 flex-shrink-0">
+                  <div class="inbox-reply-actions d-flex gap-1 flex-shrink-0">
+                    <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
+                            tooltip="Reply in email composer" placement="left" container="body" (click)="$event.stopPropagation(); prepareReply(message)">
+                      <fa-icon [icon]="faReply"/>
+                      <span class="inbox-reply-label">Reply</span>
+                    </button>
+                    @if (hasMultipleRecipients(message)) {
                       <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
-                              tooltip="Reply in email composer" placement="left" container="body" (click)="$event.stopPropagation(); prepareReply(message)">
-                        <fa-icon [icon]="faReply"/>
-                        <span class="inbox-reply-label">Reply</span>
+                              tooltip="Reply all in email composer" placement="left" container="body" (click)="$event.stopPropagation(); prepareReplyAll(message)">
+                        <fa-icon [icon]="faReplyAll"/>
+                        <span class="inbox-reply-label">Reply all</span>
                       </button>
-                      @if (hasMultipleRecipients(message)) {
-                        <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
-                                tooltip="Reply all in email composer" placement="left" container="body" (click)="$event.stopPropagation(); prepareReplyAll(message)">
-                          <fa-icon [icon]="faReplyAll"/>
-                          <span class="inbox-reply-label">Reply all</span>
-                        </button>
-                      }
-                    </div>
-                  }
+                    }
+                  </div>
                 </div>
                 @if (isMessageExpanded(message)) {
                   <app-html-frame class="inbox-message-body" [html]="renderableBody(message)"/>
@@ -500,6 +298,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
           }
           </div>
         </div>
+        }
       </div>
       </app-maximisable-panel>
       @if (notifyTarget.showAlert) {
@@ -533,6 +332,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private memberLoginService = inject(MemberLoginService);
+  private urlService = inject(UrlService);
 
   protected readonly faInbox = faInbox;
   protected readonly faReply = faReply;
@@ -551,11 +351,16 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected readonly faReplyAll = faReplyAll;
   protected readonly faArrowDownWideShort = faArrowDownWideShort;
   protected readonly faArrowUpWideShort = faArrowUpWideShort;
+  protected readonly faArrowLeft = faArrowLeft;
+  protected readonly faExpand = faExpand;
+  protected readonly faCompress = faCompress;
   public messageSortDescending = true;
   protected readonly InboxMessageDirection = InboxMessageDirection;
   protected readonly InboxViewScope = InboxViewScope;
   protected readonly InboxReadFilter = InboxReadFilter;
   protected readonly InboxThreadFolder = InboxThreadFolder;
+  protected readonly ResizerOrientation = ResizerOrientation;
+  protected readonly ResizerVariant = ResizerVariant;
   protected readonly isInboxGeneralRoleType = isInboxGeneralRoleType;
 
   get isInboxAdmin(): boolean {
@@ -599,6 +404,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget = {};
 
   public stackedLayout = false;
+  public mobile = false;
+  public mobileShowDetail = false;
   public listSize = 352;
   public readonly minListSize = 140;
   private static readonly LAYOUT_KEY = "inbox-layout";
@@ -608,8 +415,19 @@ export class InboxComponent implements OnInit, OnDestroy {
   private openThreadRequestId = 0;
   private mailboxViewInitialised = false;
 
+  @HostListener("window:resize")
+  onResize(): void {
+    this.updateMobile();
+  }
+
+  private updateMobile(): void {
+    this.mobile = !isUndefined(window) && (window.innerWidth < DeviceSize.MEDIUM
+      || (window.innerWidth > window.innerHeight && window.innerHeight < DeviceSize.SMALL));
+  }
+
   async ngOnInit(): Promise<void> {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.updateMobile();
     this.restoreLayout();
     await this.refresh();
     await this.pushSubscriptionService.refresh();
@@ -646,6 +464,29 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  get gridTemplateColumns(): string {
+    return this.mobile
+      ? "minmax(0, 1fr)"
+      : this.stackedLayout ? "minmax(0, 1fr)" : `${this.listSize}px 8px minmax(0, 1fr)`;
+  }
+
+  get gridTemplateRows(): string {
+    return this.mobile
+      ? "minmax(0, 1fr)"
+      : this.stackedLayout ? `${this.listSize}px 8px minmax(0, 1fr)` : "minmax(0, 1fr)";
+  }
+
+  selectThread(thread: InboxThread): void {
+    if (this.mobile) {
+      this.mobileShowDetail = true;
+    }
+    void this.openThread(thread);
+  }
+
+  backToList(): void {
+    this.mobileShowDetail = false;
   }
 
   get maxListSize(): number {
@@ -717,6 +558,9 @@ export class InboxComponent implements OnInit, OnDestroy {
         const requestedThread = requestedSlug
           ? this.threads.find(thread => this.threadSlug(thread) === requestedSlug || this.threadIdOf(thread) === requestedSlug)
           : null;
+        if (this.mobile && requestedThread) {
+          this.mobileShowDetail = true;
+        }
         await this.openThread(requestedThread ?? this.threads[0], false);
       }
     } catch (error) {
@@ -909,6 +753,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.selectedThread = null;
       this.selectedThreadId = null;
       this.selectedMessages = [];
+      this.mobileShowDetail = false;
       await this.refresh();
       this.notify.success({title: "Inbox", message: "Moved out of junk into the inbox"});
     } catch (error) {
@@ -931,6 +776,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.selectedThreadId = null;
       this.selectedMessages = [];
       this.selectedThreadIds.delete(threadId);
+      this.mobileShowDetail = false;
       await this.refresh();
       this.notify.success({title: "Inbox", message: "Conversation deleted"});
     } catch (error) {
@@ -1035,7 +881,11 @@ export class InboxComponent implements OnInit, OnDestroy {
       }
       this.selectedThread = response.thread;
       this.selectedMessages = this.collapseSends(response.messages);
-      this.expandedMessageIds = new Set(this.selectedMessages.length ? [this.selectedMessages[this.selectedMessages.length - 1].messageId] : []);
+      const newestMessage = this.selectedMessages.length
+        ? this.selectedMessages.reduce((latest, candidate) =>
+          (candidate.receivedAt ?? candidate.sentAt ?? 0) > (latest.receivedAt ?? latest.sentAt ?? 0) ? candidate : latest)
+        : null;
+      this.expandedMessageIds = new Set(newestMessage ? [newestMessage.messageId] : []);
       this.loadingThread = false;
       if (markRead && thread.unread) {
         thread.unread = false;
@@ -1061,11 +911,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (!this.selectedThread || this.selectedMessages.length === 0) {
       return;
     }
-    const target = message?.direction === InboxMessageDirection.INBOUND
-      ? message
-      : [...this.selectedMessages].reverse().find(msg => msg.direction === InboxMessageDirection.INBOUND);
+    const target = message ?? this.selectedMessages[this.selectedMessages.length - 1];
     if (!target) {
-      this.notify.warning({title: "Reply", message: "No inbound message on this thread to reply to"});
+      this.notify.warning({title: "Reply", message: "No message on this thread to reply to"});
       return;
     }
     try {
@@ -1077,9 +925,13 @@ export class InboxComponent implements OnInit, OnDestroy {
       }
       this.inboxReplyHandoff.queue(reply);
       this.logger.info("Reply queued, navigating to composer:", reply);
-      const maximised = this.route.snapshot.queryParamMap.get(StoredValue.MAXIMISE) === "true";
+      const maximised = this.route.snapshot.queryParams[StoredValue.MAXIMISE] === "true";
       await this.router.navigate(["/admin/email-composer"], {
-        queryParams: {[StoredValue.BRANDING]: BrandingMode.UNBRANDED, [StoredValue.TAB]: EmailComposerStepKey.COMPOSE, [StoredValue.MAXIMISE]: maximised ? "true" : null}
+        queryParams: {
+          [StoredValue.BRANDING]: BrandingMode.UNBRANDED,
+          [StoredValue.TAB]: EmailComposerStepKey.COMPOSE,
+          ...(maximised ? {[StoredValue.MAXIMISE]: "true"} : {})
+        }
       });
     } catch (error) {
       this.notify.error({title: "Reply", message: (error as Error).message});
@@ -1202,12 +1054,24 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   renderableBody(message: InboxMessage): string {
     if (message.bodyHtml) {
-      return message.bodyHtml;
+      return this.resolveInlineImages(message.bodyHtml, message.attachments);
     }
     if (message.bodyText) {
       return `<pre>${message.bodyText}</pre>`;
     }
     return "<em>(empty message body)</em>";
+  }
+
+  private resolveInlineImages(html: string, attachments: InboxAttachment[]): string {
+    const inlineImages = (attachments ?? []).filter(attachment => attachment.contentId && attachment.s3Key);
+    if (inlineImages.length === 0) {
+      return html;
+    }
+    return html.replace(/(["'])cid:([^"']+)\1/gi, (match, quote, cid) => {
+      const target = cid.trim().toLowerCase();
+      const attachment = inlineImages.find(candidate => candidate.contentId?.toLowerCase() === target);
+      return attachment ? `${quote}${this.urlService.resourceRelativePathForAWSFileName(attachment.s3Key)}${quote}` : match;
+    });
   }
 
   private async handleNewMessageEvent(event: InboxNewMessageEvent): Promise<void> {

@@ -21,6 +21,8 @@ import {
   faChevronDown,
   faChevronRight,
   faCircleInfo,
+  faCompress,
+  faExpand,
   faFile,
   faFloppyDisk,
   faFolderOpen,
@@ -112,6 +114,7 @@ import { UrlService } from "../../services/url.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { TiptapMarkdownEditor } from "../../modules/common/tiptap-editor/tiptap-markdown-editor";
 import { MaximisablePanelComponent } from "../../modules/common/maximisable-panel/maximisable-panel";
+import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { MemberMultiSelect } from "../../modules/common/member-multi-select/member-multi-select";
 import { RecipientFieldComponent } from "../../modules/common/recipient-field/recipient-field";
 import { ArticleBlockSingleEditor } from "../../modules/common/article-blocks/article-block-single-editor";
@@ -178,6 +181,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
   styleUrls: ["./email-composer.sass"],
   imports: [
     PageComponent,
+    AlertPanelComponent,
     FormsModule,
     NgClass,
     NgTemplateOutlet,
@@ -215,19 +219,20 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
     FullNameWithAliasPipe
   ],
   template: `
-    <app-page autoTitle pageTitle="Email Composer">
-      <app-maximisable-panel #composerPanel="maximisablePanel">
+    <app-page autoTitle pageTitle="Email Composer" [showTitle]="false">
+      <app-maximisable-panel #composerPanel="maximisablePanel" [showToggleButton]="false">
       <div panelControls class="composer-workspace-bar">
-        <div class="composer-workspace-status">
+        <div class="composer-workspace-heading">
+          <h1 class="composer-workspace-title">Email Composer</h1>
           @if (currentComposition) {
-            {{ lastSavedDescription() }}
-          } @else if (inboxReplyContext) {
-            Reply draft
-          } @else {
-            New draft
+            <div class="composer-workspace-status">{{ lastSavedDescription() }}</div>
           }
         </div>
         <div class="composer-workspace-actions">
+          <button type="button" class="btn btn-quiet d-none d-md-inline-block" (click)="composerPanel.toggle()"
+                  [tooltip]="composerPanel.maximised ? composerPanel.restoreTooltip : composerPanel.maximiseTooltip">
+            <fa-icon [icon]="composerPanel.maximised ? faCompress : faExpand" class="me-1"/>{{ composerPanel.maximised ? 'Restore' : 'Maximise' }}
+          </button>
           <button type="button" class="btn btn-quiet" (click)="exitComposer()">
             <fa-icon [icon]="faXmark" class="me-1"/>Exit composer
           </button>
@@ -510,11 +515,11 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                     <fa-icon [icon]="faXmark"/> Cancel
                   </button>
                 } @else {
-                  <button type="button" class="btn btn-primary"
+                  <button type="button" class="btn btn-primary text-nowrap"
                           (click)="confirmAndSend()"
                           [disabled]="sendInProgress || sendDisabled() || hasSendBlockers()"
-                          [title]="sendDisabledReason()">
-                    <fa-icon [icon]="faPaperPlane"/> Send {{ sendingChannelLabel() }}
+                          [title]="sendDisabledReason() || ('Send ' + sendingChannelLabel())">
+                    <fa-icon [icon]="faPaperPlane"/> Send
                   </button>
                 }
               }
@@ -600,16 +605,13 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                 [savedRecipients]="savedExternalRecipients"
                 [(saveForReuse)]="newExternalSaveForReuse"/>
               @if (replyCcSuggestion.length > 0) {
-                <div class="email-composer-validation-summary d-flex align-items-start justify-content-between gap-3 mt-2">
-                  <div>
-                    <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Replying from a shared inbox</h5>
-                    <span>Also Cc the other roles - <strong>{{ replyCcSuggestionLabel() }}</strong>?</span>
-                  </div>
-                  <span class="text-nowrap">
-                    <button type="button" class="btn btn-sm btn-primary me-2" (click)="applyReplyCcSuggestion()">Cc these roles</button>
+                <app-alert-panel class="mt-2" title="Replying from a shared inbox">
+                  Also Cc the other roles - <strong>{{ replyCcSuggestionLabel() }}</strong>?
+                  <span alertActions>
+                    <button type="button" class="btn btn-sm btn-primary" (click)="applyReplyCcSuggestion()">Cc these roles</button>
                     <button type="button" class="btn btn-sm btn-link text-decoration-none" (click)="replyCcSuggestion = []">Dismiss</button>
                   </span>
-                </div>
+                </app-alert-panel>
               }
             } @else {
               <p class="text-muted small mb-0">{{ externalRecipientsSummaryLabel() }}</p>
@@ -1775,6 +1777,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected readonly faAngleDoubleRight = faAngleDoubleRight;
   protected readonly faPaperPlane = faPaperPlane;
   protected readonly faXmark = faXmark;
+  protected readonly faExpand = faExpand;
+  protected readonly faCompress = faCompress;
   protected readonly faFloppyDisk = faFloppyDisk;
   protected readonly faFolderOpen = faFolderOpen;
   protected readonly faFile = faFile;
@@ -2979,6 +2983,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     }
     this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
     this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+    this.state.addresseeType = AddresseeType.NONE;
     const recipient = {email: reply.to.email, name: reply.to.name ?? undefined, saveForReuse: false};
     const alreadyPresent = this.state.externalRecipients.some(existing => existing.email.toLowerCase() === reply.to.email.toLowerCase());
     if (!alreadyPresent) {

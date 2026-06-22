@@ -844,11 +844,10 @@ router.post("/threads/:id/compose-reply", authConfig.authenticate(), async (req:
     }
     const selected = await inboxMessageModel.findOne({
       threadId: req.params.id,
-      direction: InboxMessageDirection.INBOUND,
       ...(composeRequest?.messageId ? {messageId: composeRequest.messageId} : {})
-    }).sort({receivedAt: -1}).lean();
+    }).sort({receivedAt: -1, sentAt: -1}).lean();
     if (!selected) {
-      res.status(404).json({request: {messageType}, error: "No inbound message found on this thread"});
+      res.status(404).json({request: {messageType}, error: "No message found on this thread"});
       return;
     }
     const storedMessage = selected as InboxMessage;
@@ -864,7 +863,7 @@ router.post("/threads/:id/compose-reply", authConfig.authenticate(), async (req:
       .filter(connectionAlias => connectionAlias.roleEmail.toLowerCase() !== (connection.gmailAccountEmail ?? "").toLowerCase())
       .filter(connectionAlias => rolesByType.has(connectionAlias.roleType))
       .map(connectionAlias => ({name: rolesByType.get(connectionAlias.roleType)?.description ?? null, email: connectionAlias.roleEmail}));
-    const reply = buildComposeResponse(hydratedMessage, req.params.id, aliasId, connectionId(sourceConnection), thread.roleType, otherRoleCc);
+    const reply = buildComposeResponse(hydratedMessage, thread.externalAddress, req.params.id, aliasId, connectionId(sourceConnection), thread.roleType, otherRoleCc);
     res.json({request: {messageType}, response: reply});
   } catch (error) {
     errorDebugLog("Error composing reply:", (error as Error).message);
@@ -959,20 +958,20 @@ router.post("/mailbox-connections/:id/sync", authConfig.authenticate(), async (r
   }
 });
 
-function buildComposeResponse(inboundMessage: InboxMessage, threadId: string, aliasId: string, mailboxConnectionId: string, senderRoleType: string, cc: InboxAddress[]): InboxReplyComposeResponse {
-  const {inReplyTo, references, subject} = buildReplyHeaders(inboundMessage);
+function buildComposeResponse(selectedMessage: InboxMessage, replyTo: InboxAddress, threadId: string, aliasId: string, mailboxConnectionId: string, senderRoleType: string, cc: InboxAddress[]): InboxReplyComposeResponse {
+  const {inReplyTo, references, subject} = buildReplyHeaders(selectedMessage);
   return {
-    to: inboundMessage.from,
+    to: replyTo,
     cc,
     subject,
     inReplyTo,
     references,
-    quotedHtml: buildQuotedReplyHtml(inboundMessage),
+    quotedHtml: buildQuotedReplyHtml(selectedMessage),
     senderRoleType,
     threadId,
     aliasId,
     mailboxConnectionId,
-    inboxMessageId: inboundMessage.messageId
+    inboxMessageId: selectedMessage.messageId
   };
 }
 

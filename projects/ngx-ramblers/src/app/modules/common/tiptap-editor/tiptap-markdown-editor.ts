@@ -157,6 +157,7 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       padding: 4px 8px
       min-height: 32px
       cursor: pointer
+      color: #495057
 
     .tiptap-toolbar button:hover
       border-color: #adb5bd
@@ -178,6 +179,7 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       border-radius: 3px
       border: 1px solid #ced4da
       background-color: #ffffff
+      color: #495057
 
     .tiptap-toolbar app-image-actions-dropdown button.dropdown-toggle
       color: #495057

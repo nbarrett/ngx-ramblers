@@ -5,6 +5,7 @@ export interface CommitteeReferenceDataLike {
   committeeMembers(): CommitteeMember[];
   loggedOnRole(): CommitteeMember;
   loggedOnRoles(): CommitteeMember[];
+  committeeMemberForMember(memberId: string): CommitteeMember;
   fileTypes(): { description?: string; public?: boolean }[];
   expensesConfig(): ExpensesConfig;
   committeeMembersForRole(role: string[] | string): CommitteeMember[];

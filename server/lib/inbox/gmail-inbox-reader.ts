@@ -206,15 +206,25 @@ function collectAttachmentRefs(part: GmailMessagePart | null): GmailAttachmentRe
   if (!part) {
     return [];
   }
-  const direct: GmailAttachmentRef[] = isAttachment(part) && part.body?.attachmentId
+  const contentId = contentIdOf(part);
+  const downloadable = Boolean(part.body?.attachmentId) && (isAttachment(part) || !!contentId);
+  const direct: GmailAttachmentRef[] = downloadable
     ? [{
       filename: part.filename ?? "",
       contentType: part.mimeType ?? "application/octet-stream",
       sizeBytes: part.body?.size ?? 0,
-      attachmentId: part.body.attachmentId
+      attachmentId: part.body.attachmentId,
+      contentId
     }]
     : [];
   return direct.concat((part.parts ?? []).flatMap(collectAttachmentRefs));
+}
+
+function contentIdOf(part: GmailMessagePart): string | null {
+  const header = (part.headers ?? []).find(candidate => (candidate.name ?? "").toLowerCase() === "content-id");
+  const raw = header?.value ?? null;
+  const stripped = raw ? raw.replace(/[<>]/g, "").trim() : "";
+  return stripped.length > 0 ? stripped : null;
 }
 
 async function downloadAttachmentsToS3(connection: InboxMailboxConnection, gmailMessageId: string, payload: GmailMessage): Promise<InboxAttachment[]> {
@@ -226,7 +236,7 @@ async function downloadAttachmentsToS3(connection: InboxMailboxConnection, gmail
 }
 
 async function downloadAttachmentToS3(connection: InboxMailboxConnection, gmailMessageId: string, ref: GmailAttachmentRef): Promise<InboxAttachment> {
-  const metadataOnly: InboxAttachment = {filename: ref.filename, contentType: ref.contentType, sizeBytes: ref.sizeBytes, s3Key: ""};
+  const metadataOnly: InboxAttachment = {filename: ref.filename, contentType: ref.contentType, sizeBytes: ref.sizeBytes, s3Key: "", contentId: ref.contentId};
   try {
     const attachment = await gmailRequest<GmailAttachment>(connection, GMAIL_DYNAMIC_ENDPOINTS.ATTACHMENT(gmailMessageId, ref.attachmentId));
     const data = attachment.data;
@@ -249,7 +259,7 @@ async function downloadAttachmentToS3(connection: InboxMailboxConnection, gmailM
       debugLog("attachment upload to S3 failed for", ref.filename, "->", uploadResult.error);
       return {...metadataOnly, sizeBytes: ref.sizeBytes || buffer.length};
     }
-    return {filename: ref.filename, contentType: ref.contentType, sizeBytes: ref.sizeBytes || buffer.length, s3Key: `${RootFolder.inboxAttachments}/${awsFileName}`};
+    return {filename: ref.filename, contentType: ref.contentType, sizeBytes: ref.sizeBytes || buffer.length, s3Key: `${RootFolder.inboxAttachments}/${awsFileName}`, contentId: ref.contentId};
   } catch (error) {
     debugLog("attachment download failed for", ref.filename, "->", (error as Error).message);
     return metadataOnly;
@@ -382,7 +392,8 @@ function attachmentFor(part: GmailMessagePart): InboxAttachment {
     filename: part.filename ?? "",
     contentType: part.mimeType ?? "application/octet-stream",
     sizeBytes: part.body?.size ?? 0,
-    s3Key: ""
+    s3Key: "",
+    contentId: contentIdOf(part)
   };
 }
 

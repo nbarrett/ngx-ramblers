@@ -34,6 +34,7 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
                 <label for="user-name">Email address or username</label>
                 <input #userNameInput [(ngModel)]="userName" type="text" (keyup.enter)="login()"
                   class="form-control input-sm" id="user-name" autocomplete="username" name="user-name"
+                  autocapitalize="none" autocorrect="off" spellcheck="false"
                   placeholder="Enter your email address or username">
               </div>
               <div class="form-group">

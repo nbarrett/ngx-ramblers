@@ -34,6 +34,10 @@ export class CommitteeReferenceData {
     return this.committeeMembers().filter(role => role.memberId === memberId);
   }
 
+  committeeMemberForMember(memberId: string): CommitteeMember {
+    return memberId ? this.committeeMembers().find(role => role.memberId === memberId && !!role.email) : undefined;
+  }
+
   fileTypes(): FileType[] {
     return this.injectedFileTypes;
   }

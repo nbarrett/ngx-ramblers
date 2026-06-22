@@ -12,7 +12,8 @@ const inboxAttachment = new Schema({
   filename: {type: String, required: true},
   contentType: {type: String, required: true},
   sizeBytes: {type: Number, required: true},
-  s3Key: {type: String, required: true}
+  s3Key: {type: String, required: true},
+  contentId: {type: String, default: null}
 }, {_id: false});
 
 const inboxMessageSchema = new mongoose.Schema({
