@@ -22,7 +22,7 @@ import { putObjectDirect } from "../aws/aws-controllers";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
 import { SpatialFeatureModel } from "../mongo/models/spatial-feature";
 import { dateTimeNowAsValue } from "../shared/dates";
-import { isArray, isNumber, isString, keys } from "es-toolkit/compat";
+import { toPairs, isArray, isNumber, isString, keys } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("map-route-import-ws"));
 debugLog.enabled = true;
@@ -80,7 +80,7 @@ export async function handleEsriRouteImport(ws: WebSocket, data: any): Promise<v
     sendProgress(`Successfully parsed ${geoJson.features.length} features`, 20);
 
     const grouped = groupFeaturesByProperty(geoJson.features, "StatusDesc");
-    const groupCounts = Object.entries(grouped).map(([key, features]) => `${key}: ${features.length}`).join(", ");
+    const groupCounts = toPairs(grouped).map(([key, features]) => `${key}: ${features.length}`).join(", ");
     sendProgress(`Grouped features by type: ${groupCounts}`, 25);
 
     const projection = ensureWgs84(geoJson, sendProgress);
@@ -97,7 +97,7 @@ export async function handleEsriRouteImport(ws: WebSocket, data: any): Promise<v
     const groupKeys = keys(grouped);
     let processedGroups = 0;
 
-    for (const [statusDesc, features] of Object.entries(grouped)) {
+    for (const [statusDesc, features] of toPairs(grouped)) {
       const groupCollection: FeatureCollection = {
         type: "FeatureCollection",
         features: features.map(f => ({

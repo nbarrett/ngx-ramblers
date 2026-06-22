@@ -1,4 +1,4 @@
-import { isObject } from "es-toolkit/compat";
+import { toPairs, isObject } from "es-toolkit/compat";
 import { Member, MemberFilterSelection } from "./member.model";
 import { BrandingMode, ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
 import { ApiResponse } from "./api-response.model";
@@ -571,7 +571,7 @@ const EXAMPLE_VALUE_BY_TOKEN: Record<string, string> = {};
 export function registerExampleValues(params: unknown): void {
   const walk = (node: unknown, path: string): void => {
     if (isObject(node)) {
-      Object.entries(node as Record<string, unknown>).forEach(([key, value]) => {
+      toPairs(node as Record<string, unknown>).forEach(([key, value]) => {
         const nextPath = path ? `${path}.${key}` : key;
         if (isObject(value)) {
           walk(value, nextPath);

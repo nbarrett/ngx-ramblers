@@ -1,7 +1,7 @@
 import WebSocket, { Server as WebSocketServer } from "ws";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { resizeSavedImages, resizeUnsavedImages } from "../aws/bulk-image-resizer";
+import { dispatchResizeSavedImages, dispatchResizeUnsavedImages } from "../aws/image-resize-dispatcher";
 import { ContentMetadataResizeRequest } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 import { IncomingMessage, Server } from "node:http";
 import {
@@ -39,8 +39,8 @@ const messageHandlers: MessageHandlers = {
       data: { cancelled: true, ...result }
     }));
   },
-  [EventType.RESIZE_SAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeSavedImages(ws, data),
-  [EventType.RESIZE_UNSAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeUnsavedImages(ws, data),
+  [EventType.RESIZE_SAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => dispatchResizeSavedImages(ws, data),
+  [EventType.RESIZE_UNSAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => dispatchResizeUnsavedImages(ws, data),
   [EventType.SITE_MIGRATION]: async (ws: WebSocket, data: any) => handleSiteMigration(ws, data),
   [EventType.BACKUP_RESTORE]: async (ws: WebSocket, data: any) => handleBackupRestoreWebSocket(ws, data),
   [EventType.BACKUP_EVENTS]: async (ws: WebSocket, data: any) => handleBackupEventsWebSocket(ws, data),

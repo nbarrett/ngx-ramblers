@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { first, isEmpty, last } from "es-toolkit/compat";
+import { chunk, first, isEmpty, last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "./services/date-utils.service";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
@@ -23,6 +23,7 @@ import { IMAGE_JPEG, IMAGE_PNG, IMAGE_SVG } from "./models/content-metadata.mode
 })
 export class FileUtilsService {
 
+  private static readonly FILE_READ_CONCURRENCY = 6;
   private logger: Logger = inject(LoggerFactory).createLogger("FileUtilsService", NgxLoggerLevel.ERROR);
   protected dateUtils = inject(DateUtilsService);
   private urlService = inject(UrlService);
@@ -57,6 +58,35 @@ export class FileUtilsService {
     return !!attrs && attrs.contentType !== IMAGE_SVG;
   }
 
+  public async downscaleBase64Image(base64Content: string, fileName: string, maxWidth: number, quality = 0.92): Promise<string | null> {
+    try {
+      const img = await this.loadImageFromBase64(base64Content);
+      if (!(maxWidth > 0) || img.width <= maxWidth) {
+        return null;
+      }
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        return null;
+      }
+      const width = maxWidth;
+      const height = Math.round(img.height * (width / img.width));
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      const contentType = this.fileTypeAttributesForName(fileName)?.contentType || IMAGE_JPEG;
+      const outputType = contentType === IMAGE_PNG ? "image/webp" : IMAGE_JPEG;
+      return await new Promise<string>((resolve) => canvas.toBlob(blob => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob as Blob);
+      }, outputType, quality));
+    } catch (e) {
+      this.logger.error("downscaleBase64Image error", e);
+      return null;
+    }
+  }
+
   public async resizeBase64Image(base64Content: string, fileName: string, maxBytes: number, maxWidth = 1200): Promise<string | null> {
     try {
       const contentType = this.fileTypeAttributesForName(fileName)?.contentType || IMAGE_JPEG;
@@ -87,7 +117,8 @@ export class FileUtilsService {
       };
 
       const targetBytes = Math.max(1, maxBytes);
-      const base64BudgetFromBytes = (bytes: number) => Math.floor(bytes * 0.98);
+      const base64CharsPerByte = 4 / 3;
+      const base64BudgetFromBytes = (bytes: number) => Math.floor(bytes * base64CharsPerByte * 0.98);
       const targetChars = base64BudgetFromBytes(targetBytes);
       const encodeAt = async (type: string, q: number): Promise<{data: string; size: number}> => {
         const data = await new Promise<string>((resolve) => canvas.toBlob(async blob => {
@@ -202,27 +233,51 @@ export class FileUtilsService {
 
   public async fileListToBase64Files(fileList: any): Promise<Base64File[]> {
     const files: File[] = Array.from(fileList as FileList);
-    this.logger.info("fileList:", fileList);
-    const base64Files = await Promise.all(files.map(file => {
-      this.logger.info("file:", file);
-      return this.loadBase64ImageFromFile(file);
-    }));
-    this.logger.info("processed:", base64Files);
-    return base64Files;
+    this.logger.info("fileListToBase64Files:", files.length, "files");
+    const loaded: Base64File[] = [];
+    const failures: string[] = [];
+    for (const batch of chunk(files, FileUtilsService.FILE_READ_CONCURRENCY)) {
+      const outcomes = await Promise.all(batch.map(file => this.readFileOrNull(file)));
+      outcomes.forEach((base64File, index) => {
+        if (base64File) {
+          loaded.push(base64File);
+        } else {
+          failures.push(batch[index]?.name || "unknown file");
+        }
+      });
+    }
+    if (failures.length > 0) {
+      this.logger.warn(`fileListToBase64Files: ${failures.length} of ${files.length} files could not be read:`, failures);
+    }
+    this.logger.info("fileListToBase64Files: loaded", loaded.length, "of", files.length, "files");
+    return loaded;
+  }
+
+  private async readFileOrNull(file: File): Promise<Base64File | null> {
+    try {
+      return await this.loadBase64ImageFromFile(file);
+    } catch (error) {
+      this.logger.warn("fileListToBase64Files: could not read", file?.name, error);
+      return null;
+    }
   }
 
   public async loadBase64ImageFromFile(file: File): Promise<Base64File> {
+    try {
+      return await this.readFileAsBase64(file);
+    } catch (firstError) {
+      this.logger.warn("loadBase64ImageFromFile: retrying read for", file?.name, "after error:", firstError);
+      await new Promise(resolve => setTimeout(resolve, 150));
+      return this.readFileAsBase64(file);
+    }
+  }
+
+  private readFileAsBase64(file: File): Promise<Base64File> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64File: Base64File = {file, base64Content: reader.result as string};
-        this.logger.info("loadBase64ImageFromFile:", file, "base64File:", base64File);
-        resolve(base64File);
-      };
-      reader.onerror = (error: ProgressEvent<FileReader>) => {
-        reject(error);
-      };
+      reader.onload = () => resolve({file, base64Content: reader.result as string});
+      reader.onerror = () => reject(reader.error || new Error(`Could not read file ${file?.name}`));
     });
   }
 

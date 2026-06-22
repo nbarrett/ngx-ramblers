@@ -1,3 +1,4 @@
+import { dateTimeNowAsValue } from "../shared/dates";
 import debug from "debug";
 import { isString } from "es-toolkit/compat";
 import express, { Request, Response } from "express";
@@ -190,7 +191,7 @@ export const integrationWorkerRoutes = router;
 
 async function executeWorkerJob(queuedJob: QueuedWorkerJob): Promise<void> {
   const jobId = queuedJob.request.job.jobId;
-  const startedAt = Date.now();
+  const startedAt = dateTimeNowAsValue();
   debugLog("executeWorkerJob: starting jobId:", jobId);
   try {
     await executeRamblersUploadJobOnWorker(
@@ -201,9 +202,9 @@ async function executeWorkerJob(queuedJob: QueuedWorkerJob): Promise<void> {
       queuedJob.request.reportUpload,
       queuedJob.reportUploadCredentials
     );
-    debugLog("executeWorkerJob: finished jobId:", jobId, "elapsedMs:", Date.now() - startedAt);
+    debugLog("executeWorkerJob: finished jobId:", jobId, "elapsedMs:", dateTimeNowAsValue() - startedAt);
   } catch (error) {
-    debugLog("executeWorkerJob: failed jobId:", jobId, "elapsedMs:", Date.now() - startedAt, "error:", (error as Error).message);
+    debugLog("executeWorkerJob: failed jobId:", jobId, "elapsedMs:", dateTimeNowAsValue() - startedAt, "error:", (error as Error).message);
   } finally {
     activeJobId = null;
     void runNextQueuedWorkerJob().catch(error => {

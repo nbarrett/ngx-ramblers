@@ -165,6 +165,10 @@ const sharedSyntaxRestrictions = [
     "message": "Use values() from es-toolkit/compat instead of Object.values() for better type safety."
   },
   {
+    "selector": "MemberExpression[object.name='Object'][property.name='entries']",
+    "message": "Use toPairs() from es-toolkit/compat instead of Object.entries() for better type safety."
+  },
+  {
     "selector": "CallExpression[callee.object.name='Array'][callee.property.name='isArray']",
     "message": "Use isArray() from es-toolkit/compat instead of Array.isArray() for consistency."
   },
@@ -222,6 +226,10 @@ export default defineConfig([
         {
           "selector": "CallExpression[callee.object.name='DateTime'][callee.property.name='now']",
           "message": "Direct use of 'DateTime.now()' is not allowed. Use dateTimeNow() from server/lib/shared/dates.ts instead."
+        },
+        {
+          "selector": "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+          "message": "Direct use of 'Date.now()' is not allowed. Use dateTimeNowAsValue() from server/lib/shared/dates.ts instead."
         }
       ],
     },
@@ -251,6 +259,10 @@ export default defineConfig([
         {
           "selector": "NewExpression[callee.name='Date']",
           "message": "Direct use of 'new Date()' is not allowed. Use this.dateUtils.dateTimeNow() from DateUtilsService (frontend) instead."
+        },
+        {
+          "selector": "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+          "message": "Direct use of 'Date.now()' is not allowed. Use this.dateUtils.nowAsValue() (numeric) or this.dateUtils.dateTimeNow() from DateUtilsService (frontend) instead."
         }
       ],
     },

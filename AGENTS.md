@@ -38,7 +38,7 @@ These cause build failures - use the listed replacements:
 | Banned | Use instead |
 |--------|------------|
 | `new Date()` / `Date.now()` | Backend: `dateTimeNow()` from `server/lib/shared/dates.ts`. Frontend: `this.dateUtils.dateTimeNow()` |
-| `Object.keys/values/entries()` | `keys/values/entries()` from `es-toolkit/compat` |
+| `Object.keys/values/entries()` | `keys()`/`values()`/`toPairs()` from `es-toolkit/compat` (note: the entries equivalent is `toPairs`, not `entries`) |
 | `typeof x === "string"` (etc.) | `isString/isNumber/isBoolean/isObject/isUndefined()` from `es-toolkit/compat` |
 | `Array.isArray()` | `isArray()` from `es-toolkit/compat` |
 | `for` / `while` / `for...in` loops | `map()`, `reduce()`, `filter()`, `forEach()`. `for...of` is allowed |

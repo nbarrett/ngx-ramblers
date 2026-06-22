@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { ADMIN_SET_PASSWORD_PATH } from "../../models/system.model";
 import { NgxLoggerLevel } from "ngx-logger";
-import { isBoolean, isNumber, isString } from "es-toolkit/compat";
+import { toPairs, isBoolean, isNumber, isString } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { Member } from "../../models/member.model";
@@ -549,7 +549,7 @@ export class MailMessagingService {
     }
     const publicBaseUrl = this.urlService.publicBaseUrl();
     const resolved: TemplateOverrides = {};
-    for (const [key, override] of Object.entries(overrides)) {
+    for (const [key, override] of toPairs(overrides)) {
       resolved[key] = this.resolveOverrideImageUrl(override, publicBaseUrl);
     }
     return resolved;

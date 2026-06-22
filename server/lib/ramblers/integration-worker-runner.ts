@@ -1,3 +1,4 @@
+import { dateTimeNowAsValue } from "../shared/dates";
 import { spawn } from "child_process";
 import debug from "debug";
 import AdmZip from "adm-zip";
@@ -103,35 +104,35 @@ async function uploadSerenityReportToS3(
     }
   });
 
-  const startedAt = Date.now();
+  const startedAt = dateTimeNowAsValue();
   try {
     await safePostProgress(callback, sharedSecret, {
       jobId,
       type: IntegrationWorkerEventType.LIFECYCLE,
       payload: `Test report archive upload to S3 starting: ${totalFiles} files to s3://${reportUpload.bucket}/${archiveKey}${playwrightIncluded ? " (including Playwright artifacts)" : ""}`
     });
-    const zipStart = Date.now();
+    const zipStart = dateTimeNowAsValue();
     const archiveBuffer = archiveTestReports(serenityPath, playwrightPath);
-    const zipElapsed = Date.now() - zipStart;
+    const zipElapsed = dateTimeNowAsValue() - zipStart;
     await safePostProgress(callback, sharedSecret, {
       jobId,
       type: IntegrationWorkerEventType.LIFECYCLE,
       payload: `Test report archive built: ${totalFiles} files compressed into ${archiveBuffer.length} bytes in ${zipElapsed} ms; starting S3 PUT`
     });
-    const putStart = Date.now();
+    const putStart = dateTimeNowAsValue();
     await client.send(new PutObjectCommand({
       Bucket: reportUpload.bucket,
       Key: archiveKey,
       Body: archiveBuffer,
       ContentType: "application/zip"
     }));
-    const putElapsed = Date.now() - putStart;
+    const putElapsed = dateTimeNowAsValue() - putStart;
     await safePostProgress(callback, sharedSecret, {
       jobId,
       type: IntegrationWorkerEventType.LIFECYCLE,
-      payload: `Test report archive upload to S3 complete: zip ${zipElapsed} ms, PUT ${putElapsed} ms, total ${Date.now() - startedAt} ms`
+      payload: `Test report archive upload to S3 complete: zip ${zipElapsed} ms, PUT ${putElapsed} ms, total ${dateTimeNowAsValue() - startedAt} ms`
     });
-    debugLog("uploaded test report archive to S3 for jobId:", jobId, "bucket:", reportUpload.bucket, "key:", archiveKey, "files:", totalFiles, "archiveBytes:", archiveBuffer.length, "zipMs:", zipElapsed, "putMs:", putElapsed, "elapsedMs:", Date.now() - startedAt);
+    debugLog("uploaded test report archive to S3 for jobId:", jobId, "bucket:", reportUpload.bucket, "key:", archiveKey, "files:", totalFiles, "archiveBytes:", archiveBuffer.length, "zipMs:", zipElapsed, "putMs:", putElapsed, "elapsedMs:", dateTimeNowAsValue() - startedAt);
     return true;
   } catch (error) {
     await safePostProgress(callback, sharedSecret, {

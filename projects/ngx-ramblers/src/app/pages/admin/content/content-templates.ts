@@ -13,7 +13,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
 import { ActivatedRoute, Router } from "@angular/router";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
-import { isNull, isUndefined } from "es-toolkit/compat";
+import { toPairs, isNull, isUndefined } from "es-toolkit/compat";
 
 @Component({
   selector: "app-content-templates",
@@ -328,7 +328,7 @@ export class ContentTemplatesComponent implements OnInit {
   }
 
   private replaceQueryParams(params: { [key: string]: any }) {
-    const queryParams = Object.fromEntries(Object.entries(params).filter(([, value]) => !isUndefined(value)));
+    const queryParams = Object.fromEntries(toPairs(params).filter(([, value]) => !isUndefined(value)));
     this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: "merge" });
   }
 

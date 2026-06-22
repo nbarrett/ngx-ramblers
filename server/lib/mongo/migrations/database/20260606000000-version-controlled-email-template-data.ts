@@ -1,4 +1,4 @@
-import { isObject, isString, keys, values } from "es-toolkit/compat";
+import { toPairs, isObject, isString, keys, values } from "es-toolkit/compat";
 import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { CONFIG_COLLECTION, NOTIFICATION_CONFIG_COLLECTION } from "../shared/collection-names";
@@ -64,7 +64,7 @@ async function convertOverridesToTypedShape(db: Db): Promise<void> {
     const overrides: Record<string, any> = config.templateOverrides || {};
     const converted: Record<string, any> = {};
     let changed = false;
-    for (const [key, value] of Object.entries(overrides)) {
+    for (const [key, value] of toPairs(overrides)) {
       if (isString(value)) {
         converted[key] = {type: TemplateOverrideType.IMAGE, state: TemplateOverrideState.CUSTOM, imageUrl: value};
         changed = true;
@@ -113,7 +113,7 @@ async function migrateBookingTemplatesToContentBlocks(db: Db): Promise<void> {
     const overrides: Record<string, string> = event.fields?.bookingEmailOverrides || {};
     const converted: Record<string, string> = {};
     let changed = false;
-    for (const [emailType, value] of Object.entries(overrides)) {
+    for (const [emailType, value] of toPairs(overrides)) {
       if (isString(value) && value.trim() && !alreadyConverted(value)) {
         converted[emailType] = rewriteBookingTokens(value);
         changed = true;
@@ -163,7 +163,7 @@ async function revertOverridesToPlainUrls(db: Db): Promise<void> {
     const overrides: Record<string, any> = config.templateOverrides || {};
     const reverted: Record<string, any> = {};
     let changed = false;
-    for (const [key, value] of Object.entries(overrides)) {
+    for (const [key, value] of toPairs(overrides)) {
       const imageOverride = value as { imageUrl?: string };
       if (isObject(value) && isString(imageOverride.imageUrl)) {
         reverted[key] = imageOverride.imageUrl;

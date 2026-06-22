@@ -1,3 +1,4 @@
+import { dateTimeNowAsValue } from "../lib/shared/dates";
 import debug from "debug";
 import {
   configureEnvironment,
@@ -87,7 +88,7 @@ async function importSecretsFromDatabase(environmentName: string, appName: strin
     return false;
   }
   const content = buildSecretsContent(secretsFile.secrets);
-  const tempFile = path.join(os.tmpdir(), `secrets-${appName}-${Date.now()}.env`);
+  const tempFile = path.join(os.tmpdir(), `secrets-${appName}-${dateTimeNowAsValue()}.env`);
   try {
     fs.writeFileSync(tempFile, content, { encoding: "utf-8" });
     await runCommandWithRetry(`flyctl secrets import --app ${appName} < ${tempFile}`);

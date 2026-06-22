@@ -3,6 +3,8 @@ import { RamblersUploadJob } from "./ramblers-upload-job.model";
 import { RamblersUploadAudit } from "./ramblers-upload-audit.model";
 import { SiteMigrationConfig } from "./migration-config.model";
 import { MigrationResult } from "./migration-scraping.model";
+import { ContentMetadata, ContentMetadataItem, ContentMetadataResizeRequest } from "./content-metadata.model";
+import { ApiAction } from "./api-response.model";
 
 export enum IntegrationWorkerEventType {
   STANDARD_OUT = "standard-out",
@@ -127,4 +129,40 @@ export interface DocumentConversionWorkerResponse {
   markdown: string;
   suggestedTitle: string;
   images: ConvertedDocumentImage[];
+}
+
+export enum ResizeImageMode {
+  SAVED = "saved",
+  UNSAVED = "unsaved"
+}
+
+export interface IntegrationWorkerResizeAwsConfig {
+  bucket: string;
+  region: string;
+}
+
+export interface IntegrationWorkerResizeJobRequest {
+  jobId: string;
+  mode: ResizeImageMode;
+  resizeRequest: ContentMetadataResizeRequest;
+  sourceContentMetadata?: ContentMetadata;
+  awsConfig?: IntegrationWorkerResizeAwsConfig;
+  encryptedAwsCredentials?: string;
+  callback: IntegrationWorkerCallbackConfig;
+}
+
+export interface IntegrationWorkerResizeProgressCallback {
+  jobId: string;
+  level: IntegrationWorkerLogLevel;
+  message: string;
+  percent: number;
+}
+
+export interface IntegrationWorkerResizeResultCallback {
+  jobId: string;
+  status: IntegrationWorkerResultStatus;
+  action?: ApiAction;
+  contentMetadata?: ContentMetadata;
+  outputItems?: ContentMetadataItem[];
+  errorMessage?: string;
 }

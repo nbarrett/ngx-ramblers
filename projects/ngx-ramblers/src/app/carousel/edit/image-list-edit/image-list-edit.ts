@@ -392,6 +392,8 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
 })
 export class ImageListEditComponent implements OnInit, OnDestroy {
 
+  private static readonly EDIT_WORKING_MAX_WIDTH = 2400;
+
   @Input("name") set nameValue(name: string) {
     this.logger.info("name changed:", name);
     this.initialiseImagesForName(name);
@@ -983,7 +985,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
     this.logger.info("insert:new items", items, "after:", this.contentMetadata.files);
     this.addToChangedItems(...items);
-    this.resizeUnsavedImages(items);
+    this.downscaleUnsavedImagesForEditing(items);
   }
 
   alertWarnings() {
@@ -1068,26 +1070,41 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   async onFileSelectOrDropped(fileList: any) {
     if (!this.uploader?.isUploading) {
-      this.logger.debug("onFileSelectOrDropped:", fileList);
-      this.notify.success({
-        title: "Uploading Files",
-        message: "Processing " + this.stringUtils.pluraliseWithCount(fileList?.length, "file")
-      });
-      this.setBusy();
-      const allBase64Files: Base64File[] = await this.fileUtils.fileListToBase64Files(fileList);
-      const checkedResults: CheckedImage[] = await Promise.all(allBase64Files.map(async file => {
-        if (file.file.type === IMAGE_HEIC) {
-          return await this.fileUtils.convertHEICFile(file);
-        } else {
-          return {file, isImage: this.urlService.isBase64Image(file.base64Content)};
+      try {
+        const droppedCount = fileList?.length || 0;
+        this.logger.debug("onFileSelectOrDropped:", fileList);
+        this.notify.success({
+          title: "Uploading Files",
+          message: "Processing " + this.stringUtils.pluraliseWithCount(droppedCount, "file")
+        });
+        this.setBusy();
+        const allBase64Files: Base64File[] = await this.fileUtils.fileListToBase64Files(fileList);
+        const unreadableCount = droppedCount - allBase64Files.length;
+        if (unreadableCount > 0) {
+          this.notify.warning({
+            title: "Some files could not be read",
+            message: `${this.stringUtils.pluraliseWithCount(unreadableCount, "file")} could not be read and ${this.stringUtils.pluralise(unreadableCount, "was", "were")} skipped. This can happen when dropping many files at once - try again or drop fewer at a time.`,
+            continue: true
+          });
         }
-      }));
-      this.logger.debug("checkedResults:", checkedResults);
-      this.base64Files = checkedResults.filter(result => result.isImage).map(result => result.file);
-      this.nonImageFiles = checkedResults.filter(result => !result.isImage).map(result => result.file);
-      this.logger.info("there are", this.stringUtils.pluraliseWithCount(this.base64Files.length, "image"), "and", this.stringUtils.pluraliseWithCount(this.nonImageFiles.length, "non-image"), "non-images:", this.nonImageFiles);
-      this.setBusy();
-      this.imageInsert(...this.base64Files.map(item => this.fileUtils.contentMetadataItemFromBase64File(item)));
+        const checkedResults: CheckedImage[] = await Promise.all(allBase64Files.map(async file => {
+          if (file.file.type === IMAGE_HEIC) {
+            return await this.fileUtils.convertHEICFile(file);
+          } else {
+            return {file, isImage: this.urlService.isBase64Image(file.base64Content)};
+          }
+        }));
+        this.logger.debug("checkedResults:", checkedResults);
+        this.base64Files = checkedResults.filter(result => result.isImage).map(result => result.file);
+        this.nonImageFiles = checkedResults.filter(result => !result.isImage).map(result => result.file);
+        this.logger.info("there are", this.stringUtils.pluraliseWithCount(this.base64Files.length, "image"), "and", this.stringUtils.pluraliseWithCount(this.nonImageFiles.length, "non-image"), "non-images:", this.nonImageFiles);
+        this.setBusy();
+        this.imageInsert(...this.base64Files.map(item => this.fileUtils.contentMetadataItemFromBase64File(item)));
+      } catch (error) {
+        this.logger.error("onFileSelectOrDropped failed:", error);
+        this.notify.error({title: "Failed to load files", message: error});
+        this.clearBusy();
+      }
     }
   }
 
@@ -1097,7 +1114,12 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  private prepareFilesAndPerformUpload() {
+  private async prepareFilesAndPerformUpload() {
+    try {
+      await this.compressUnsavedImagesToMaxSize();
+    } catch (error) {
+      this.handleResizeError(error as any);
+    }
     const queuedFiles: File[] = this.unsavedImages()
       .map(item => this.fileUtils.awsFileData(item.originalFileName, item.base64Content, this.fileForBase64Content(item)))
       .map(item => item.file);
@@ -1141,45 +1163,46 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       .catch(error => this.handleResizeError(error));
   }
 
-  private resizeUnsavedImages(items: ContentMetadataItem[]) {
+  private downscaleUnsavedImagesForEditing(items: ContentMetadataItem[]) {
     try {
-      this.logger.info("resizeUnsavedImages called with items:", items);
-      if ((this.contentMetadata.maxImageSize || 0) > 0 && items?.length > 0) {
-        this.setBusy();
-        const resizable = items.filter(i => this.fileUtils.isResizableName(i.originalFileName || ""));
-        this.notify.success({
-          title: "Auto-Resizing Uploaded Files",
-          message: "Processing " + this.stringUtils.pluraliseWithCount(resizable.length, "file")
-        });
-        const maxBytes = this.contentMetadata.maxImageSize;
-        const resized: ContentMetadataItem[] = [];
-        if (resizable.length === 0) {
-          this.notify.success({ title: "Task completed", message: "No files eligible for resizing" });
-          this.clearBusy();
-          return;
-        }
-        const tasks = resizable.map(async item => {
-          const updated = await this.fileUtils.resizeBase64Image(item.base64Content, item.originalFileName, maxBytes, 1200);
-          if (updated) {
-            item.base64Content = updated;
-            resized.push(item);
-          }
-        });
-        Promise.all(tasks).then(() => {
-          if (resized.length > 0) {
-            this.processResizeItemsResponse(resized);
-          } else {
-            this.notify.success({ title: "Task completed", message: "No resizing required" });
-          }
-          this.clearBusy();
-        }).catch(error => this.handleResizeError(error));
-      } else {
-        this.logger.info("image list not configured for auto-resizing or no images supplied for resizing");
-        this.clearBusy();
+      this.logger.info("downscaleUnsavedImagesForEditing called with items:", items);
+      const resizable = (items || []).filter(i => this.fileUtils.isResizableName(i.originalFileName || "") && this.urlService.isBase64Image(i.base64Content));
+      if (resizable.length === 0) {
+        this.logger.info("no images eligible for downscaling on drop");
+        return;
       }
+      this.setBusy();
+      const tasks = resizable.map(async item => {
+        const updated = await this.fileUtils.downscaleBase64Image(item.base64Content, item.originalFileName, ImageListEditComponent.EDIT_WORKING_MAX_WIDTH);
+        if (updated) {
+          item.base64Content = updated;
+        }
+      });
+      Promise.all(tasks).then(() => this.clearBusy()).catch(error => this.handleResizeError(error));
     } catch (error) {
       this.handleResizeError(error as any);
     }
+  }
+
+  private async compressUnsavedImagesToMaxSize(): Promise<void> {
+    const maxBytes = this.contentMetadata?.maxImageSize || 0;
+    if (!(maxBytes > 0)) {
+      return;
+    }
+    const compressible = this.unsavedImages().filter(item => this.fileUtils.isResizableName(item.originalFileName || ""));
+    if (compressible.length === 0) {
+      return;
+    }
+    this.notify.success({
+      title: "Resizing Images",
+      message: "Resizing " + this.stringUtils.pluraliseWithCount(compressible.length, "image") + " to a maximum size of " + this.numberUtils.humanFileSize(maxBytes)
+    });
+    await Promise.all(compressible.map(async item => {
+      const updated = await this.fileUtils.resizeBase64Image(item.base64Content, item.originalFileName, maxBytes, 1200);
+      if (updated) {
+        item.base64Content = updated;
+      }
+    }));
   }
 
   private handleResizeError(error: Error) {

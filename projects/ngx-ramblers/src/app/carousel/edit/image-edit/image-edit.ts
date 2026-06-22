@@ -89,7 +89,7 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                     @if (showImageSize()) {
                       <div>Image Size {{ imageSize() }}</div>
                     }
-                    @if (!item.youtubeId && imagedIsCropped()) {
+                    @if (!item.youtubeId && imagedIsCropped() && croppedSize()) {
                       <div class="ms-2">Cropped Size {{ croppedSize() }}</div>
                     }
                   </div>
@@ -587,7 +587,17 @@ export class ImageEditComponent implements OnInit {
   }
 
   croppedSize() {
-    return this.numberUtils.humanFileSize(this.awsFileDataFromEdit?.file?.size);
+    const size = this.awsFileDataFromEdit?.file?.size ?? this.base64ByteSize(this.item?.base64Content);
+    return size ? this.numberUtils.humanFileSize(size) : null;
+  }
+
+  private base64ByteSize(base64Content: string): number {
+    const payload = base64Content?.split(",")[1];
+    if (!payload) {
+      return null;
+    }
+    const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
+    return Math.floor(payload.length * 3 / 4) - padding;
   }
 
   showImageSize() {

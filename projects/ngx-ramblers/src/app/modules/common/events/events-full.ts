@@ -2,7 +2,7 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { Location } from "@angular/common";
 import { range } from "es-toolkit";
-import { isArray, isNull, isUndefined } from "es-toolkit/compat";
+import { toPairs, isArray, isNull, isUndefined } from "es-toolkit/compat";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -613,7 +613,7 @@ export class EventsFull implements OnInit, OnDestroy {
     this.logger.info("replaceQueryParams called with:", params, "queryParamsActive:", this.queryParamsActive);
     const currentTree = this.router.parseUrl(this.location.path());
     const merged = {...currentTree.queryParams, ...params};
-    const queryParams = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== null && !isUndefined(v)));
+    const queryParams = Object.fromEntries(toPairs(merged).filter(([, v]) => v !== null && !isUndefined(v)));
     const urlTree = this.router.createUrlTree([], {
       relativeTo: this.route,
       queryParams,

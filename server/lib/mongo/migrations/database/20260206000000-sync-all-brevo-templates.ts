@@ -2,7 +2,7 @@ import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
 import { configuredBrevo } from "../../../brevo/brevo-config";
 import { seedBrevoTemplatesFromLocal } from "../../../brevo/templates/template-seeding";
-import { isObject, keys } from "es-toolkit/compat";
+import { toPairs, isObject, keys } from "es-toolkit/compat";
 import { MigrationUpResult } from "../../../../../projects/ngx-ramblers/src/app/models/mongo-migration-model";
 
 import { NOTIFICATION_CONFIG_COLLECTION } from "../shared/collection-names";
@@ -34,7 +34,7 @@ async function autoMatchTemplatesToNotificationConfigs(db: Db, templateIdMap: Re
     if (!subjectText) continue;
 
     let matchedTemplateName: string | null = null;
-    for (const [templateName, subjects] of Object.entries(TEMPLATE_TO_SUBJECTS)) {
+    for (const [templateName, subjects] of toPairs(TEMPLATE_TO_SUBJECTS)) {
       if (subjects.includes(subjectText)) {
         matchedTemplateName = templateName;
         break;

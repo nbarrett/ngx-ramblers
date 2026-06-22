@@ -1,3 +1,4 @@
+import { dateTimeNowAsValue } from "../shared/dates";
 import path from "path";
 import debug from "debug";
 import { execSync, spawn, ChildProcess } from "child_process";
@@ -82,7 +83,7 @@ export function listAppMachines(appName: string): MachineSummary[] {
 }
 
 export async function waitForStableMachines(appName: string, expectedCount: number, timeoutMs: number = 90000, pollIntervalMs: number = 3000): Promise<MachineSummary[]> {
-  const start = Date.now();
+  const start = dateTimeNowAsValue();
   const isStable = (machines: MachineSummary[]) =>
     machines.length === expectedCount && machines.every(machine => machine.state === STABLE_STATE);
   const poll = async (): Promise<MachineSummary[]> => {
@@ -90,7 +91,7 @@ export async function waitForStableMachines(appName: string, expectedCount: numb
     if (isStable(machines)) {
       return machines;
     }
-    if (Date.now() - start >= timeoutMs) {
+    if (dateTimeNowAsValue() - start >= timeoutMs) {
       debugLog(`waitForStableMachines: timeout after ${timeoutMs}ms for ${appName}; proceeding. Current:`, machines.map(machine => `${machine.id}=${machine.state}/${machine.memoryMb}mb`));
       return machines;
     }

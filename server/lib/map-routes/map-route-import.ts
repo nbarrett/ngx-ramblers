@@ -20,7 +20,7 @@ import {
 import { generateUid } from "../shared/string-utils";
 import { putObjectDirect } from "../aws/aws-controllers";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
-import { isString, keys } from "es-toolkit/compat";
+import { toPairs, isString, keys } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("map-route-import"));
 debugLog.enabled = true;
@@ -57,7 +57,7 @@ export async function importEsriRoute(req: Request, res: Response) {
 
     const gpxFiles: {type: string; count: number; file: ServerFileNameData}[] = [];
 
-    for (const [statusDesc, features] of Object.entries(grouped)) {
+    for (const [statusDesc, features] of toPairs(grouped)) {
       const groupCollection: FeatureCollection = {
         type: "FeatureCollection",
         features: features.map(f => ({

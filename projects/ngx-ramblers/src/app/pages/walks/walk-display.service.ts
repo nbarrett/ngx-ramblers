@@ -2,7 +2,7 @@ import { Location } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { Params, Router } from "@angular/router";
-import { find, isEmpty, isNumber, isUndefined } from "es-toolkit/compat";
+import { toPairs, find, isEmpty, isNumber, isUndefined } from "es-toolkit/compat";
 import { PathSegment } from "../../models/content-text.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../../models/member.model";
@@ -439,7 +439,7 @@ export class WalkDisplayService {
     this.extendedGroupEventQueryService.fetchNextWalkStartDate().subscribe({
       next: (response) => {
         const byGroupCode: Record<string, number> = {};
-        Object.entries(response.nextWalkStartDates || {}).forEach(([groupCode, startDate]) => {
+        toPairs(response.nextWalkStartDates || {}).forEach(([groupCode, startDate]) => {
           if (startDate) {
             byGroupCode[groupCode] = this.dateUtils.asValueNoTime(startDate);
           }

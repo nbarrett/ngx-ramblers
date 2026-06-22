@@ -1,4 +1,4 @@
-import { escapeRegExp, isBoolean, isNumber } from "es-toolkit/compat";
+import { toPairs, escapeRegExp, isBoolean, isNumber } from "es-toolkit/compat";
 
 export const uidFormat = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
 
@@ -177,7 +177,7 @@ export function htmlToPlainText(html: string): string {
     .replace(/<\s*(hr)\s*\/?>/gi, "\n---\n")
     .replace(/<\s*li\b[^>]*>/gi, "- ");
   const stripped = blockBreaks.replace(/<[^>]+>/g, "");
-  const decoded = Object.entries(HTML_ENTITY_MAP).reduce(
+  const decoded = toPairs(HTML_ENTITY_MAP).reduce(
     (text, [entity, replacement]) => text.split(entity).join(replacement),
     stripped
   ).replace(/&#(\d+);/g, (_m, code) => String.fromCharCode(parseInt(code, 10)));

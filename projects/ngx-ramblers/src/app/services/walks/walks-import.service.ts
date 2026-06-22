@@ -9,7 +9,7 @@ import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-
 import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
 import { Organisation, RootFolder, SystemConfig } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
-import { first, groupBy, isEqual, last, omit } from "es-toolkit/compat";
+import { toPairs, first, groupBy, isEqual, last, omit } from "es-toolkit/compat";
 import { DateUtilsService } from "../date-utils.service";
 import { GroupEventService } from "../walks-and-events/group-event.service";
 import { MemberService } from "../member/member.service";
@@ -561,7 +561,7 @@ export class WalksImportService {
   }
 
   private duplicateKeys(walksToImport: ExtendedGroupEvent[]): TypedKeyValue<GroupEventUniqueKey, ExtendedGroupEvent[]>[] {
-    const duplicateWalkDates = Object.entries(groupBy(walksToImport, walkToImport => JSON.stringify(this.toGroupEventUniqueKey(walkToImport))))
+    const duplicateWalkDates = toPairs(groupBy(walksToImport, walkToImport => JSON.stringify(this.toGroupEventUniqueKey(walkToImport))))
       .filter((entry: [path: string, duplicates: ExtendedGroupEvent[]]) => entry[1].length > 1)
       .map(item => ({key: JSON.parse(item[0]), value: item[1]}));
     this.logger.info("walksToImport:", walksToImport, "duplicateWalkDates:", duplicateWalkDates);

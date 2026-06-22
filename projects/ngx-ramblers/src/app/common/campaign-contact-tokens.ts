@@ -1,3 +1,4 @@
+import { toPairs } from "es-toolkit/compat";
 export function toCampaignContactTokens(html: string): string {
   const contactTokenByMergeField: Record<string, string> = {
     FULL_NAME: "{{contact.FIRSTNAME}} {{contact.LASTNAME}}",
@@ -8,7 +9,7 @@ export function toCampaignContactTokens(html: string): string {
     MEMBER_EXP: "{{contact.MEMBER_EXP}}",
     USERNAME: "{{contact.USERNAME}}"
   };
-  return Object.entries(contactTokenByMergeField).reduce(
+  return toPairs(contactTokenByMergeField).reduce(
     (content, [mergeField, contactToken]) =>
       content.replace(new RegExp(`\\{\\{\\s*params\\.memberMergeFields\\.${mergeField}\\s*}}`, "g"), contactToken),
     html

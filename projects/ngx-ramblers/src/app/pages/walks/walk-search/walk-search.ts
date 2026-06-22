@@ -4,7 +4,7 @@ import { Location } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
-import { isNumber, isUndefined } from "es-toolkit/compat";
+import { toPairs, isNumber, isUndefined } from "es-toolkit/compat";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { RouteParam } from "../../../models/content-text.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
@@ -420,7 +420,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
     this.logger.info("replaceQueryParams called with:", params, "queryParamsActive:", this.queryParamsActive);
     const currentTree = this.router.parseUrl(this.location.path());
     const merged = {...currentTree.queryParams, ...params};
-    const queryParams = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== null && !isUndefined(v)));
+    const queryParams = Object.fromEntries(toPairs(merged).filter(([, v]) => v !== null && !isUndefined(v)));
     const urlTree = this.router.createUrlTree([], {
       relativeTo: this.route,
       queryParams,

@@ -68,7 +68,7 @@ export async function handleSiteMigration(ws: WebSocket, data: any): Promise<voi
       siteIdentifier: siteConfig.siteIdentifier,
       siteName: siteConfig.name,
       historyId: (history as any).id,
-      startedAt: Date.now()
+      startedAt: dateTimeNowAsValue()
     });
 
     const historyLite = {

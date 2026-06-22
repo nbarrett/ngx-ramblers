@@ -22,7 +22,7 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../models/ui-actions";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { sortBy } from "../../../functions/arrays";
-import { isNull, isUndefined } from "es-toolkit/compat";
+import { toPairs, isNull, isUndefined } from "es-toolkit/compat";
 import { PageContentViewMode } from "../../../models/page-content-navigator.model";
 
 @Component({
@@ -316,7 +316,7 @@ export class PageContentNavigatorComponent implements OnInit {
   }
 
   private replaceQueryParams(params: { [key: string]: any }) {
-    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => !isUndefined(v)));
+    const queryParams = Object.fromEntries(toPairs(params).filter(([, v]) => !isUndefined(v)));
     this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: "merge" });
   }
 
