@@ -3,7 +3,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { PageService } from "../services/page.service";
 import { isEmpty } from "es-toolkit/compat";
-import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { RouterLink } from "@angular/router";
 
 @Component({
@@ -11,7 +10,7 @@ import { RouterLink } from "@angular/router";
     template: `
     <main>
       <div>
-        @if (pageService.nested()) {
+        @if (pageService.nested() && showBreadcrumb) {
           <ul class="breadcrumb bg-transparent mb-1 ms-0 p-1">
             <span class="d-md-none">...</span>
             @for (page of pageService.relativePages(includeLastSegment); track page.href) {
@@ -22,7 +21,7 @@ import { RouterLink } from "@angular/router";
             <li class="breadcrumb-item d-none d-md-inline active">{{ suppliedOrDefaultPageTitle() }}</li>
           </ul>
         }
-        @if (pageTitle) {
+        @if (pageTitle && showTitle) {
           <h1>{{ pageTitle }}</h1>
         }
         <ng-content></ng-content>
@@ -41,6 +40,10 @@ export class PageComponent implements OnInit {
   public pageTitle: string;
 
   @Input({ transform: booleanAttribute }) autoTitle = false;
+
+  @Input({ transform: booleanAttribute }) showTitle = true;
+
+  @Input({ transform: booleanAttribute }) showBreadcrumb = true;
 
   @Input({ transform: booleanAttribute }) includeLastSegment = false;
 

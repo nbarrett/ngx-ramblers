@@ -369,10 +369,7 @@ export class MailMessagingService {
 
   public createEmailRequest(createSendSmtpEmailRequest: CreateSendSmtpEmailRequest): SendSmtpEmailRequest {
     const sender: EmailAddress = createSendSmtpEmailRequest.sender || this.createBrevoAddress(createSendSmtpEmailRequest.notificationConfig.senderRole);
-    const to: EmailAddress[] = createSendSmtpEmailRequest.to || [{
-      email: createSendSmtpEmailRequest.member.email,
-      name: this.fullNamePipe.transform(createSendSmtpEmailRequest.member)
-    }];
+    const to: EmailAddress[] = createSendSmtpEmailRequest.to || [this.committeeOutboundOrPersonalAddress(createSendSmtpEmailRequest.member)];
     const replyTo: EmailAddress = createSendSmtpEmailRequest.replyTo || this.createBrevoAddress(createSendSmtpEmailRequest.notificationConfig.replyToRole);
     const signoffRoles = createSendSmtpEmailRequest.notificationConfig.signOffRoles ?? [];
     const signoffHtml = signoffRoles.length > 0 ? this.signoffNames(signoffRoles, createSendSmtpEmailRequest.notificationDirective) : "";
@@ -462,6 +459,14 @@ export class MailMessagingService {
   public createBrevoAddress(role: string): EmailAddress {
     const committeeMember = this.mailMessagingConfig.committeeReferenceData.committeeMemberForRole(role);
     return {name: committeeMember?.fullName, email: committeeMember?.email};
+  }
+
+  public committeeOutboundOrPersonalAddress(member: Member): EmailAddress {
+    const committeeRole = this.mailMessagingConfig?.committeeReferenceData?.committeeMemberForMember(member.memberId);
+    return {
+      email: committeeRole?.email || member.email,
+      name: this.fullNamePipe.transform(member)
+    };
   }
 
   public resolveContactRecipients(member: CommitteeMember): EmailAddress[] {

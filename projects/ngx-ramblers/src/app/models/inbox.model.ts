@@ -140,6 +140,7 @@ export interface InboxAttachment {
   contentType: string;
   sizeBytes: number;
   s3Key: string;
+  contentId?: string | null;
 }
 
 export interface InboxThread extends Identifiable {

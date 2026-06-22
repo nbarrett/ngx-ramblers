@@ -1,0 +1,53 @@
+@import "../../../assets/styles/colours"
+
+:host
+  display: block
+
+.alert-panel
+  border-radius: 6px
+  padding: 12px 16px
+  border: 1px solid transparent
+
+.alert-panel-warning
+  background: #fff5f0
+  border-color: $ramblers-colour-sunset
+
+.alert-panel-success
+  background: rgba(155, 200, 171, 0.18)
+  border-color: $ramblers-colour-mintcake
+
+.alert-panel-danger
+  background: #fdf0f0
+  border-color: $confirm-initial
+
+.alert-panel-title
+  display: flex
+  align-items: center
+  gap: 8px
+  font-size: 14px
+  font-weight: 700
+  margin-bottom: 6px
+
+.alert-panel-warning .alert-panel-title
+  color: #9b2c2c
+
+.alert-panel-success .alert-panel-title
+  color: $ramblers-colour-mintcake-hover-dark
+
+.alert-panel-danger .alert-panel-title
+  color: $confirm-initial
+
+.alert-panel-message
+  font-size: 14px
+  line-height: 1.5
+  overflow-wrap: anywhere
+
+.alert-panel-actions
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  gap: 8px
+  margin-top: 12px
+
+.alert-panel-actions:empty
+  display: none

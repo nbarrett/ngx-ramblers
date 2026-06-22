@@ -45,7 +45,9 @@ import { NgxGoogleAnalyticsModule, NgxGoogleAnalyticsRouterModule } from "ngx-go
 import { CustomReuseStrategy } from "../../routing/custom-reuse-strategy";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { initializeGtag } from "../../pages/admin/system-settings/google-analytics/tag-manager";
-import { initializeCloudflareBeacon } from "../../pages/admin/system-settings/cloudflare-web-analytics/cloudflare-beacon";
+import {
+  initializeCloudflareBeacon
+} from "../../pages/admin/system-settings/cloudflare-web-analytics/cloudflare-beacon";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { checkMigrationStatus } from "../../services/site-maintenance-initializer";
@@ -173,6 +175,8 @@ import { ngxIconPack } from "../../icons/custom-icon-pack";
   ]
 })
 export class AppModule implements DoBootstrap {
+  private mermaidRenderQueue: Promise<void> = Promise.resolve();
+
   constructor() {
     setTheme("bs5");
     globalThis.mermaid = mermaid;
@@ -182,6 +186,18 @@ export class AppModule implements DoBootstrap {
         {name: "logos", icons: logos.icons}
       ]);
     }
+    this.serialiseMermaidRendering();
+  }
+
+  private serialiseMermaidRendering() {
+    const originalRun = mermaid.run.bind(mermaid);
+    mermaid.run = (): Promise<void> => {
+      const queued = this.mermaidRenderQueue
+        .then(() => originalRun({querySelector: ".mermaid:not([data-processed=\"true\"])"}))
+        .catch((): void => undefined);
+      this.mermaidRenderQueue = queued;
+      return queued;
+    };
   }
 
   ngDoBootstrap(appRef: ApplicationRef) {
