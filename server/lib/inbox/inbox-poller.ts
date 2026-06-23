@@ -25,6 +25,7 @@ import {
   registerGmailWatch
 } from "./gmail-inbox-reader";
 import { storeInboundMessage } from "./inbox-message-import";
+import { sendInboxAlertToAllSubscribers } from "./inbox-web-push";
 import { dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
 
@@ -78,6 +79,7 @@ export async function pollConnection(connection: InboxMailboxConnection): Promis
         lastErrorMessage: message
       }
     });
+    await alertIfTokenJustRevoked(connection, status, message);
     errorDebugLog(`poll failed for Gmail inbox ${connection.gmailAccountEmail}: ${message}`);
     return {mailboxConnectionId, importedCount: 0, error: message};
   }
@@ -176,7 +178,7 @@ export async function runInboxTokenHealthCheck(): Promise<InboxConnectionHealthR
   }, Promise.resolve([]));
 }
 
-async function checkConnectionHealth(connection: InboxMailboxConnection): Promise<InboxConnectionHealthResult> {
+export async function checkConnectionHealth(connection: InboxMailboxConnection): Promise<InboxConnectionHealthResult> {
   const mailboxConnectionId = identifier(connection);
   const checkedAt = dateTimeNow().toMillis();
   try {
@@ -199,6 +201,7 @@ async function checkConnectionHealth(connection: InboxMailboxConnection): Promis
         lastHealthCheckAt: checkedAt
       }
     });
+    await alertIfTokenJustRevoked(connection, status, message);
     errorDebugLog(`token health check failed for Gmail inbox ${connection.gmailAccountEmail}: ${message}`);
     return {mailboxConnectionId, gmailAccountEmail: connection.gmailAccountEmail, healthy: false, connectionStatus: status, error: message};
   }
@@ -236,6 +239,31 @@ async function renewWatch(connection: InboxMailboxConnection): Promise<void> {
   } catch (error) {
     errorDebugLog(`failed to renew Gmail watch for ${connection.gmailAccountEmail}: ${(error as Error).message}`);
   }
+}
+
+export async function activateConnectionAfterReconnect(mailboxConnectionId: string): Promise<void> {
+  const connection = await inboxMailboxConnectionModel.findById(mailboxConnectionId).lean() as InboxMailboxConnection | null;
+  if (!connection) {
+    errorDebugLog(`activate after reconnect skipped - connection ${mailboxConnectionId} not found`);
+    return;
+  }
+  if (connection.syncMode === InboxSyncMode.WATCH) {
+    await renewWatch(connection);
+  } else {
+    await pollConnection(connection);
+  }
+  debugLog(`activated Gmail inbox ${connection.gmailAccountEmail} after reconnect (${connection.syncMode} mode)`);
+}
+
+async function alertIfTokenJustRevoked(connection: InboxMailboxConnection, newStatus: InboxAliasConnectionStatus, message: string): Promise<void> {
+  if (newStatus !== InboxAliasConnectionStatus.TOKEN_REVOKED || connection.connectionStatus === InboxAliasConnectionStatus.TOKEN_REVOKED) {
+    return;
+  }
+  await sendInboxAlertToAllSubscribers({
+    title: "Gmail inbox disconnected",
+    body: `${connection.gmailAccountEmail} needs reconnecting. Google rejected the saved access (${message}).`,
+    url: "/admin/system-settings?tab=external-systems&sub-tab=mail"
+  }).catch(alertError => errorDebugLog(`failed to send inbox revocation alert: ${(alertError as Error).message}`));
 }
 
 function identifier(connection: InboxMailboxConnection): string {

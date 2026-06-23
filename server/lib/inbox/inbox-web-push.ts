@@ -73,20 +73,20 @@ export async function unregisterPushSubscription(memberId: string, endpoint: str
 export interface InboxPushPayload {
   title: string;
   body: string;
-  threadId: string;
-  roleType: string;
+  threadId?: string;
+  roleType?: string;
+  url?: string;
 }
 
-export async function sendInboxPushToMember(memberId: string, payload: InboxPushPayload): Promise<number> {
-  const inboxPush = await ensureVapidConfig();
-  await applyVapidDetails(inboxPush);
-  const subscriptions = await inboxPushSubscriptionModel.find({memberId, tenantSlug: defaultTenantSlug()}).lean() as InboxPushSubscription[];
+async function deliverToSubscriptions(subscriptions: InboxPushSubscription[], payload: InboxPushPayload): Promise<number> {
   if (subscriptions.length === 0) {
     return 0;
   }
+  const inboxPush = await ensureVapidConfig();
+  await applyVapidDetails(inboxPush);
   const body = JSON.stringify(payload);
   const now = dateTimeNow().toMillis();
-  const successCount = await subscriptions.reduce<Promise<number>>(async (acc, subscription) => {
+  return subscriptions.reduce<Promise<number>>(async (acc, subscription) => {
     const accumulator = await acc;
     try {
       await webpush.sendNotification({endpoint: subscription.endpoint, keys: {p256dh: subscription.p256dh, auth: subscription.auth}}, body);
@@ -96,12 +96,21 @@ export async function sendInboxPushToMember(memberId: string, payload: InboxPush
       const status = (error as {statusCode?: number}).statusCode;
       if (status === 404 || status === 410) {
         await inboxPushSubscriptionModel.deleteOne({_id: (subscription as unknown as {_id: unknown})._id});
-        debugLog(`pruned expired inbox push subscription for member ${memberId}`);
+        debugLog("pruned expired inbox push subscription");
       } else {
-        errorDebugLog(`inbox push send failed for member ${memberId}: ${(error as Error).message}`);
+        errorDebugLog(`inbox push send failed: ${(error as Error).message}`);
       }
       return accumulator;
     }
   }, Promise.resolve(0));
-  return successCount;
+}
+
+export async function sendInboxPushToMember(memberId: string, payload: InboxPushPayload): Promise<number> {
+  const subscriptions = await inboxPushSubscriptionModel.find({memberId, tenantSlug: defaultTenantSlug()}).lean() as InboxPushSubscription[];
+  return deliverToSubscriptions(subscriptions, payload);
+}
+
+export async function sendInboxAlertToAllSubscribers(payload: InboxPushPayload): Promise<number> {
+  const subscriptions = await inboxPushSubscriptionModel.find({tenantSlug: defaultTenantSlug()}).lean() as InboxPushSubscription[];
+  return deliverToSubscriptions(subscriptions, payload);
 }

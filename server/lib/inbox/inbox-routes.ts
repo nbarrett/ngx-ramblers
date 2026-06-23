@@ -44,7 +44,7 @@ import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/webso
 import { buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
 import { assignedInboxRoleTypesForMember, inboxConfigurationAdministrator, permittedInboxRoleTypes, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
 import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
-import { pollConnection } from "./inbox-poller";
+import { checkConnectionHealth, pollConnection } from "./inbox-poller";
 import { ensurePushVerificationToken, pushReceiverUrl, pushVerificationToken } from "./inbox-push";
 import { registerPushSubscription, unregisterPushSubscription, vapidPublicKey } from "./inbox-web-push";
 import { dateTimeNow } from "../shared/dates";
@@ -339,6 +339,11 @@ router.post("/mailbox-connections/:id/rescan-general", authConfig.authenticate()
     const connection = await inboxMailboxConnectionModel.findOne({_id: req.params.id, tenantSlug: defaultTenantSlug()}).lean() as InboxMailboxConnection | null;
     if (!connection) {
       res.status(404).json({request: {messageType}, error: "Gmail mailbox connection not found"});
+      return;
+    }
+    const health = await checkConnectionHealth(connection);
+    if (!health.healthy) {
+      res.json({request: {messageType}, response: {deletedThreads: 0, deletedMessages: 0, importedCount: 0, pollError: health.error, connection: sanitiseConnection(connection)}});
       return;
     }
     const generalRoleType = inboxGeneralRoleTypeFor(connectionId(connection));

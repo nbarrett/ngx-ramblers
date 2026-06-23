@@ -19,6 +19,7 @@ import { dateTimeNow } from "../shared/dates";
 import { isString } from "es-toolkit/compat";
 import { encryptInboxRefreshToken } from "./inbox-oauth-token-crypto";
 import { requireInboxConfigurationAdministrator } from "./inbox-access";
+import { activateConnectionAfterReconnect } from "./inbox-poller";
 import { beginGoogleCloudSetupStatus, completeGoogleCloudSetupStatus, currentGoogleCloudSetupStatus, failGoogleCloudSetupStatus, runGoogleCloudProvisioning } from "./inbox-google-setup";
 
 const messageType = "inbox:oauth";
@@ -163,11 +164,14 @@ router.get("/callback", async (req: Request, res: Response) => {
         oauthRefreshTokenEncrypted: encryptInboxRefreshToken(refreshToken),
         connectionStatus: InboxAliasConnectionStatus.CONNECTED,
         lastErrorMessage: null,
+        lastHistoryId: null,
         updatedAt: dateTimeNow().toMillis(),
         updatedBy: "google-oauth-callback"
       }
     });
     debugLog(`stored encrypted refresh token for Gmail inbox mailbox ${verified.mailboxConnectionId} (${emailAddress})`);
+    void activateConnectionAfterReconnect(verified.mailboxConnectionId)
+      .catch(activateError => errorDebugLog("Failed to activate inbox connection after reconnect:", (activateError as Error).message));
     res.redirect(`${inboxSettingsPath}&connected=${encodeURIComponent(emailAddress)}`);
   } catch (error) {
     errorDebugLog("Error completing OAuth callback:", (error as Error).message);
