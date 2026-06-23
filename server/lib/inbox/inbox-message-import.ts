@@ -25,7 +25,8 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
   const isJunk = folder === InboxThreadFolder.JUNK;
   const existingThread = await findExistingThread(aliasConfig, message, folder);
   const now = dateTimeNow().toMillis();
-  const thread = existingThread ?? await createThread(aliasConfig, message, now, folder);
+  const messageAt = message.receivedAt ?? message.sentAt ?? now;
+  const thread = existingThread ?? await createThread(aliasConfig, message, messageAt, folder);
   const threadId = thread.id ?? thread["_id"]?.toString() ?? "";
   const alreadyStored = await inboxMessageModel.findOne({threadId, messageId: message.messageId}).lean();
   if (alreadyStored) {
@@ -35,11 +36,12 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
   const persistedMessage = await inboxMessageModel.create({...message, threadId, mailboxConnectionId: aliasConfig.mailboxConnectionId});
   await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {
     $set: {
-      lastSeenAt: now,
       lastDirection: InboxMessageDirection.INBOUND,
       unread: !isJunk,
       ...(isJunk ? {} : {readByMemberIds: []})
     },
+    $max: {lastSeenAt: messageAt},
+    $min: {firstSeenAt: messageAt},
     $addToSet: {messageIds: message.messageId}
   });
   if (isJunk) {
@@ -136,7 +138,7 @@ async function findExistingThread(aliasConfig: InboxAliasConfig, message: InboxM
   return threadByAddress ? threadByAddress.toObject() : null;
 }
 
-async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage, now: number, folder: InboxThreadFolder): Promise<InboxThread> {
+async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage, seenAt: number, folder: InboxThreadFolder): Promise<InboxThread> {
   const created = await inboxThreadModel.create({
     tenantSlug: aliasConfig.tenantSlug,
     roleType: aliasConfig.roleType,
@@ -145,8 +147,8 @@ async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage
     normalisedSubject: normaliseSubject(message.subject),
     folder,
     messageIds: [message.messageId],
-    firstSeenAt: now,
-    lastSeenAt: now,
+    firstSeenAt: seenAt,
+    lastSeenAt: seenAt,
     lastDirection: InboxMessageDirection.INBOUND,
     unread: folder !== InboxThreadFolder.JUNK
   });

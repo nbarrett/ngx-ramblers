@@ -84,6 +84,12 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
               <fa-icon [icon]="faFilter"/>{{ readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All messages' }}
             </button>
           }
+          @if (threads.length > 0) {
+            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="toggleMessageSort()"
+                    [tooltip]="messageSortDescending ? 'Showing newest first — click for oldest first' : 'Showing oldest first — click for newest first'">
+              <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort"/>{{ messageSortDescending ? 'Newest first' : 'Oldest first' }}
+            </button>
+          }
           @if (!mobile) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="toggleLayout()" [tooltip]="stackedLayout ? 'Switch to side-by-side view' : 'Switch to stacked view'">
               <fa-icon [icon]="stackedLayout ? faTableColumns : faTableList"/>
@@ -133,18 +139,22 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
            [style.grid-template-columns]="gridTemplateColumns"
            [style.grid-template-rows]="gridTemplateRows">
         @if (!mobile || !mobileShowDetail) {
-        <div class="thumbnail-heading-frame-compact inbox-pane">
-          <div class="thumbnail-heading">Conversations</div>
+        <div class="thumbnail-heading-frame-compact inbox-pane" [class.inbox-list-flush]="mobile">
+          @if (!mobile) {
+            <div class="thumbnail-heading">Conversations</div>
+          }
           @if (threads.length > 0 || conversationSearchTerm) {
-            <div class="px-2 pb-2">
+            <div class="p-2">
               <div class="input-group input-group-sm">
                 <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
                 <input type="text" class="form-control" [(ngModel)]="conversationSearchTerm"
                        placeholder="Search conversations...">
               </div>
-              <div class="small text-muted mt-1">
-                {{filteredThreads.length}} of {{stringUtils.pluraliseWithCount(threads.length, "conversation")}}
-              </div>
+              @if (!mobile || conversationSearchTerm) {
+                <div class="small text-muted mt-1">
+                  {{filteredThreads.length}} of {{stringUtils.pluraliseWithCount(threads.length, "conversation")}}
+                </div>
+              }
             </div>
           }
           @if (threads.length > 0) {
@@ -231,14 +241,6 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                   <small class="text-muted d-block">To {{recipient}}</small>
                 }
               </div>
-              @if (selectedMessages.length > 1) {
-                <button class="btn btn-sm btn-quiet text-nowrap flex-shrink-0" type="button" (click)="toggleMessageSort()"
-                        placement="left" container="body"
-                        [tooltip]="messageSortDescending ? 'Showing newest first - click for oldest first' : 'Showing oldest first - click for newest first'">
-                  <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort" class="me-1"/>
-                  {{ messageSortDescending ? 'Newest first' : 'Oldest first' }}
-                </button>
-              }
               @if (selectedThread.folder === InboxThreadFolder.JUNK) {
                 <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="moveSelectedToInbox()">
                   <fa-icon [icon]="faInbox" class="me-1"></fa-icon>
@@ -626,14 +628,16 @@ export class InboxComponent implements OnInit, OnDestroy {
     const byReadState = this.threads.filter(thread =>
       this.readFilter === InboxReadFilter.ALL || (this.readFilter === InboxReadFilter.UNREAD ? thread.unread : !thread.unread));
     const term = this.conversationSearchTerm?.trim().toLowerCase();
-    if (!term) {
-      return byReadState;
-    }
-    return byReadState.filter(thread =>
+    const matched = !term ? byReadState : byReadState.filter(thread =>
       (thread.normalisedSubject ?? "").toLowerCase().includes(term)
       || (thread.externalAddress?.name ?? "").toLowerCase().includes(term)
       || (thread.externalAddress?.email ?? "").toLowerCase().includes(term)
       || (thread.roleType ?? "").toLowerCase().includes(term));
+    return [...matched].sort((left, right) => {
+      const leftAt = left.lastSeenAt ?? left.firstSeenAt ?? 0;
+      const rightAt = right.lastSeenAt ?? right.firstSeenAt ?? 0;
+      return this.messageSortDescending ? rightAt - leftAt : leftAt - rightAt;
+    });
   }
 
   toggleUnreadFilter(): void {
