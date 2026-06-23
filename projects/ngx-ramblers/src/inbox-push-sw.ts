@@ -6,6 +6,7 @@ interface InboxPushPayload {
   title?: string;
   body?: string;
   threadId?: string;
+  url?: string;
 }
 
 sw.addEventListener("install", () => {
@@ -37,10 +38,11 @@ sw.addEventListener("push", event => {
 sw.addEventListener("notificationclick", event => {
   event.notification.close();
   const data = (event.notification.data as InboxPushPayload | null) || {};
-  const url = data.threadId ? "/admin/inbox?thread=" + encodeURIComponent(data.threadId) : "/admin/inbox";
+  const url = data.url || (data.threadId ? "/admin/inbox?thread=" + encodeURIComponent(data.threadId) : "/admin/inbox");
+  const focusMatch = data.url ? data.url.split("?")[0] : "/admin/inbox";
   event.waitUntil((async () => {
     const windowClients = await sw.clients.matchAll({type: "window", includeUncontrolled: true});
-    const focusable = windowClients.find(client => client.url.includes("/admin/inbox"));
+    const focusable = windowClients.find(client => client.url.includes(focusMatch));
     if (focusable) {
       await focusable.focus();
       await focusable.navigate(url);
