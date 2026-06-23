@@ -92,6 +92,11 @@ import {
                 <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" (click)="connectGmail(mailboxConnection)" [disabled]="busy">
                   Connect Gmail
                 </button>
+              } @else {
+                <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" (click)="connectGmail(mailboxConnection)" [disabled]="busy"
+                        tooltip="Re-run Google consent for this mailbox to replace a revoked or expired token, keeping its settings and Pub/Sub watch.">
+                  Reconnect
+                </button>
               }
               <button class="btn btn-grey-danger text-nowrap flex-shrink-0" type="button" (click)="removeMailbox(mailboxConnection)" [disabled]="busy">
                 Remove
