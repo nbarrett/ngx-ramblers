@@ -874,7 +874,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       this.updateMapSize();
       this.loadingRoutes = false;
       this.loadRoutesInProgress = false;
-      setTimeout(() => this.suppressViewportHandler = false, 200);
+      setTimeout(() => this.suppressViewportHandler = false, 600);
     } else {
       this.showMap = false;
       this.logger.info("loadRoutes: No layers or markers, hiding map");
@@ -1161,7 +1161,8 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   private calculateFitBounds() {
-    const allLatLngs: L.LatLng[] = [];
+    const routeLatLngs: L.LatLng[] = [];
+    const markerLatLngs: L.LatLng[] = [];
     this.logger.info("calculateFitBounds: Processing", this.leafletLayers.length, "layers");
     this.leafletLayers.forEach((layer, index) => {
       if (!layer) {
@@ -1169,11 +1170,12 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
         return;
       }
       const layerLatLngs = this.latLngsFromLayer(layer);
-      this.logger.info(`calculateFitBounds: Layer ${index} (${layer.constructor.name}) contributed ${layerLatLngs.length} points`);
-      allLatLngs.push(...layerLatLngs);
+      const target = (layer instanceof L.Marker || layer instanceof L.CircleMarker) ? markerLatLngs : routeLatLngs;
+      target.push(...layerLatLngs);
     });
 
-    this.logger.info("calculateFitBounds: Total points collected:", allLatLngs.length);
+    const allLatLngs = routeLatLngs.length > 0 ? routeLatLngs : markerLatLngs;
+    this.logger.info("calculateFitBounds: Fitting to", routeLatLngs.length > 0 ? "route" : "markers", "-", allLatLngs.length, "points");
     if (allLatLngs.length > 0) {
       const bounds = L.latLngBounds(allLatLngs);
       this.fitBounds = bounds.pad(0.15);
@@ -1241,6 +1243,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
       return;
     }
     this.logger.info("applyOverlayConfigFromEditor: received config", config);
+    this.suppressViewportHandler = true;
     const provider = (config.provider as MapProvider) || this.mapControlsState.provider;
     const style = config.osStyle || this.mapControlsState.osStyle;
     const providerChanged = provider !== this.mapControlsState.provider;
@@ -1299,6 +1302,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
         this.mapRef.fitBounds(this.fitBounds);
       }
     }
+    setTimeout(() => this.suppressViewportHandler = false, 400);
   }
 
   private updateLayersForWaypoints() {
@@ -1338,13 +1342,19 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   onProviderChange(provider: MapProvider) {
     this.mapControlsState = {...this.mapControlsState, provider};
     this.updateRowMap({provider});
-    this.initialiseMap();
+    this.rebuildMap();
   }
 
   onStyleChange(style: string) {
     this.mapControlsState = {...this.mapControlsState, osStyle: style};
     this.updateRowMap({osStyle: style});
-    this.initialiseMap();
+    this.rebuildMap();
+  }
+
+  private rebuildMap() {
+    this.options = undefined;
+    this.mapRef = undefined;
+    setTimeout(() => this.initialiseMap(), 0);
   }
 
   onHeightChange(height: number) {
@@ -1426,7 +1436,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   }
 
   private captureMapView() {
-    if (!this.mapRef || !this.row?.map) {
+    if (!this.mapRef || !this.row?.map || this.suppressViewportHandler) {
       return;
     }
 
@@ -1511,7 +1521,9 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     const icon = this.mapMarkerStyle.markerIcon(provider, osStyle);
     return markers.map(marker => {
       const latlng: [number, number] = [marker.latitude, marker.longitude];
-      const leafletMarker = L.marker(latlng, {icon});
+      const label = marker.label?.trim();
+      const markerIcon = label && label.length <= 3 ? this.mapMarkerStyle.numberedMarkerIcon(label, provider, osStyle) : icon;
+      const leafletMarker = L.marker(latlng, {icon: markerIcon});
       if (marker.label) {
         leafletMarker.bindPopup(`<div><strong>${this.escapeHtml(marker.label)}</strong></div>`);
       }
@@ -1574,8 +1586,10 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     let unnamedIndex = 1;
     waypoints.forEach(waypoint => {
       const label = waypoint.name || `${route.name || "Waypoint"} ${unnamedIndex++}`;
+      const shortLabel = waypoint.name?.trim();
+      const waypointIcon = shortLabel && shortLabel.length <= 3 ? this.mapMarkerStyle.numberedMarkerIcon(shortLabel, provider, osStyle) : icon;
       const popup = this.createWaypointPopupContent(label, waypoint.description);
-      const marker = L.marker([waypoint.latitude, waypoint.longitude], {icon});
+      const marker = L.marker([waypoint.latitude, waypoint.longitude], {icon: waypointIcon});
       marker.bindPopup(popup);
       markers.push(marker);
     });

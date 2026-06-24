@@ -18,10 +18,17 @@ export interface MapRouteImportGroupedFile {
   routeId?: string;
 }
 
+export interface MapRouteImportMarker {
+  latitude: number;
+  longitude: number;
+  label?: string;
+}
+
 export interface MapRouteImportResponse {
   routeName: string;
   gpxFile: ServerFileNameData;
   gpxFiles?: MapRouteImportGroupedFile[];
   esriFile: ServerFileNameData;
   metadata: MapRouteImportMetadata;
+  markers?: MapRouteImportMarker[];
 }

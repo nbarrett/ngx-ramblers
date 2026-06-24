@@ -11,7 +11,7 @@ import os from "os";
 import { envConfig } from "../env-config/env-config";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { EPSG_27700_PROJ4, MapProjectionCode } from "../../../projects/ngx-ramblers/src/app/common/maps/map-projection.constants";
-import { MapRouteImportResponse } from "../../../projects/ngx-ramblers/src/app/models/map-route-import.model";
+import { MapRouteImportMarker, MapRouteImportResponse } from "../../../projects/ngx-ramblers/src/app/models/map-route-import.model";
 import {
   AwsInfo,
   AwsUploadErrorResponse,
@@ -55,12 +55,19 @@ export async function importEsriRoute(req: Request, res: Response) {
     const esriFile = await uploadLocalFile(RootFolder.esriRoutes, upload.originalname, upload.path);
     debugLog("importEsriRoute: uploaded original ESRI file:", esriFile);
 
+    const markers = markersFromPointFeatures(geoJson.features, projection);
+    debugLog("importEsriRoute: extracted point markers:", markers.length);
+
     const gpxFiles: {type: string; count: number; file: ServerFileNameData}[] = [];
 
     for (const [statusDesc, features] of toPairs(grouped)) {
+      const lineFeatures = features.filter(f => f.geometry && !isPointGeometry(f.geometry));
+      if (lineFeatures.length === 0) {
+        continue;
+      }
       const groupCollection: FeatureCollection = {
         type: "FeatureCollection",
-        features: features.map(f => ({
+        features: lineFeatures.map(f => ({
           ...f,
           geometry: f.geometry ? transformGeometryIfNeeded(f.geometry, projection) : f.geometry
         }))
@@ -69,14 +76,14 @@ export async function importEsriRoute(req: Request, res: Response) {
       const sanitizedType = sanitizeFilename(statusDesc);
       const routeName = `${baseRouteName}-${sanitizedType}`;
       const gpxContent = convertToGpx(groupCollection, routeName);
-      debugLog(`importEsriRoute: converted ${statusDesc} to GPX, features: ${features.length}, content length: ${gpxContent.length}`);
+      debugLog(`importEsriRoute: converted ${statusDesc} to GPX, features: ${lineFeatures.length}, content length: ${gpxContent.length}`);
 
       const gpxFile = await uploadGeneratedGpx(routeName, gpxContent);
       debugLog(`importEsriRoute: uploaded GPX for ${statusDesc}:`, gpxFile);
 
       gpxFiles.push({
         type: statusDesc,
-        count: features.length,
+        count: lineFeatures.length,
         file: gpxFile
       });
     }
@@ -87,7 +94,8 @@ export async function importEsriRoute(req: Request, res: Response) {
       gpxFile: gpxFiles[0]?.file,
       gpxFiles,
       esriFile,
-      metadata
+      metadata,
+      markers
     };
     debugLog("importEsriRoute: responding with success:", response);
     res.status(200).json(response);
@@ -134,7 +142,9 @@ async function parseShapefileZip(zipPath: string): Promise<FeatureCollection> {
     }
     debugLog("parseShapefileZip: found shapefile parts:", shapefilePaths);
     debugLog("parseShapefileZip: opening shapefile with .open()");
-    const source = await shapefile.open(shapefilePaths.shp, shapefilePaths.dbf);
+    const shpBytes = new Uint8Array(await fs.promises.readFile(shapefilePaths.shp));
+    const dbfBytes = new Uint8Array(await fs.promises.readFile(shapefilePaths.dbf));
+    const source = await shapefile.open(shpBytes, dbfBytes);
     debugLog("parseShapefileZip: shapefile opened, reading features");
     const collectFeatures = async (acc: Feature[]): Promise<Feature[]> => {
       const result = await source.read();
@@ -239,9 +249,28 @@ function featureName(feature: Feature): string | undefined {
   if (!feature.properties) {
     return undefined;
   }
-  const candidates = ["name", "Name", "TITLE", "title"];
+  const candidates = ["name", "Name", "TITLE", "title", "Text", "text"];
   return candidates.map(key => feature.properties?.[key])
     .find(value => isString(value) && value.trim().length > 0);
+}
+
+function isPointGeometry(geometry: Geometry | null | undefined): boolean {
+  return !!geometry && (geometry.type === "Point" || geometry.type === "MultiPoint");
+}
+
+function markersFromPointFeatures(features: Feature[], projection: ProjectionMetadata): MapRouteImportMarker[] {
+  return features
+    .filter(feature => isPointGeometry(feature.geometry))
+    .reduce<MapRouteImportMarker[]>((markers, feature) => {
+      const transformed = transformGeometryIfNeeded(feature.geometry as Geometry, projection);
+      const coordinates = transformed.type === "Point"
+        ? (transformed.coordinates as number[])
+        : ((transformed as any).coordinates?.[0] as number[]);
+      if (coordinates && isFinite(coordinates[0]) && isFinite(coordinates[1])) {
+        markers.push({latitude: coordinates[1], longitude: coordinates[0], label: featureName(feature)});
+      }
+      return markers;
+    }, []);
 }
 
 function groupFeaturesByProperty(features: Feature[], propertyKey: string): GroupedFeatures {
