@@ -13,6 +13,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import {
   EM_DASH_WITH_SPACES,
   MapData,
+  MapMarker,
   MapRoute,
   PageContent,
   PageContentRow,
@@ -516,11 +517,20 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
           }
         });
         this.importProgressMessages.set(route.id, `✓ Created ${response.gpxFiles.length} routes - toggle visibility to view (large files!)`);
-      } else {
+      } else if (response.gpxFile) {
         route.gpxFile = response.gpxFile;
         route.esriFile = response.esriFile;
         route.name = response.routeName;
         this.importProgressMessages.set(route.id, `✓ Imported 1 route`);
+      }
+
+      if (response.markers && response.markers.length > 0 && this.row.map) {
+        const importedMarkers: MapMarker[] = response.markers.map(marker => ({latitude: marker.latitude, longitude: marker.longitude, label: marker.label}));
+        this.row.map.markers = [...(this.row.map.markers || []), ...importedMarkers];
+        if (!response.gpxFile) {
+          this.removeRoute(route);
+        }
+        this.importProgressMessages.set(route.id, `✓ Imported ${importedMarkers.length} numbered markers`);
       }
 
       this.broadcastChange();
