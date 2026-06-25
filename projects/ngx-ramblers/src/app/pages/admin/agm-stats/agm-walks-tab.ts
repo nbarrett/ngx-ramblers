@@ -13,8 +13,7 @@ import {
   SortedRowsFn,
   SortIconFn,
   SummaryRow,
-  ToggleSortFn,
-  RankedLeaderRow
+  ToggleSortFn
 } from "../../../models/agm-stats.model";
 import { LeaderStats, WalkListItem } from "../../../models/group-event.model";
 import { UIDateFormat } from "../../../models/date-format.model";
@@ -89,9 +88,9 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
               Walk Slots Not Filled ({{ unfilledSlotsList.length }})
             </h4>
             @if (showUnfilled) {
-              <div class="table-responsive">
-                <table class="table table-sm table-striped table-bordered">
-                  <thead class="table-dark">
+              <div class="ngx-data-table-card">
+                <table class="ngx-data-table">
+                  <thead>
                   <tr>
                     <th class="sortable" (click)="toggleSortFn('unfilledSlots', 'startDate')">
                       Date
@@ -140,9 +139,9 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
               Morning Walks ({{ morningWalksList.length }})
             </h4>
             @if (showConfirmed) {
-              <div class="table-responsive">
-                <table class="table table-sm table-striped table-bordered">
-                  <thead class="table-dark">
+              <div class="ngx-data-table-card">
+                <table class="ngx-data-table">
+                  <thead>
                   <tr>
                     <th class="sortable" (click)="toggleSortFn('confirmedWalks', 'startDate')">
                       Date
@@ -198,9 +197,9 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
               Cancelled Walks ({{ cancelledWalksList.length }})
             </h4>
             @if (showCancelled) {
-              <div class="table-responsive">
-                <table class="table table-sm table-striped table-bordered">
-                  <thead class="table-dark">
+              <div class="ngx-data-table-card">
+                <table class="ngx-data-table">
+                  <thead>
                   <tr>
                     <th class="sortable" (click)="toggleSortFn('cancelledWalks', 'startDate')">
                       Date
@@ -258,9 +257,9 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
               Evening Walks ({{ eveningWalksList.length }})
             </h4>
             @if (showEvening) {
-              <div class="table-responsive">
-                <table class="table table-sm table-striped table-bordered">
-                  <thead class="table-dark">
+              <div class="ngx-data-table-card">
+                <table class="ngx-data-table">
+                  <thead>
                   <tr>
                     <th class="sortable" (click)="toggleSortFn('eveningWalks', 'startDate')">
                       Date
@@ -314,9 +313,9 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
         <div class="row mb-4">
           <div class="col-12">
             <h3>New Walk Leaders (Current Year)</h3>
-            <div class="table-responsive">
-              <table class="table table-striped table-bordered">
-                <thead class="table-dark">
+            <div class="ngx-data-table-card">
+              <table class="ngx-data-table">
+                <thead>
                 <tr>
                   <th class="sortable" (click)="toggleSortFn('newLeaders', 'name')">
                     Leader
@@ -359,9 +358,9 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
       <div class="row mb-4">
         <div class="col-12">
           <h3>Top Walk Leaders (Current Year)</h3>
-          <div class="table-responsive">
-            <table class="table table-striped table-bordered">
-              <thead class="table-dark">
+          <div class="ngx-data-table-card">
+            <table class="ngx-data-table">
+              <thead>
               <tr>
                 <th class="sortable" (click)="toggleSortFn('leaders', 'rank')">
                   Rank
@@ -410,9 +409,9 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
       <div class="row mb-4">
         <div class="col-12">
           <h3>Aggregate Walk Leaders ({{ aggregateYearsLabel }})</h3>
-          <div class="table-responsive">
-            <table class="table table-striped table-bordered">
-              <thead class="table-dark">
+          <div class="ngx-data-table-card">
+            <table class="ngx-data-table">
+              <thead>
               <tr>
                 <th class="sortable" (click)="toggleSortFn('aggregateLeaders', 'rank')">
                   Rank

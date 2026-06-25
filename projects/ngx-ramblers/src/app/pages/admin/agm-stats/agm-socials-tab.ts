@@ -69,9 +69,9 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
       <div class="row mb-4">
         <div class="col-12">
           <h3>Social Events ({{ fromDate | date: UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED }} - {{ toDate | date: UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED }})</h3>
-          <div class="table-responsive">
-            <table class="table table-striped table-bordered">
-              <thead class="table-dark">
+          <div class="ngx-data-table-card">
+            <table class="ngx-data-table">
+              <thead>
                 <tr>
                   <th class="sortable" (click)="toggleSortFn('socialEvents', 'date')">
                     Date
@@ -118,9 +118,9 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
       <div class="row mb-4">
         <div class="col-12">
           <h3>Social Organisers</h3>
-          <div class="table-responsive">
-            <table class="table table-striped table-bordered">
-              <thead class="table-dark">
+          <div class="ngx-data-table-card">
+            <table class="ngx-data-table">
+              <thead>
                 <tr>
                   <th class="sortable" (click)="toggleSortFn('organisers', 'name')">
                     Organiser

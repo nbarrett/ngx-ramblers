@@ -15,8 +15,9 @@ import {
   standalone: true,
   imports: [CommonModule, FontAwesomeModule],
   template: `
-    <table class="table table-striped table-bordered">
-      <thead class="table-dark">
+    <div class="ngx-data-table-card">
+    <table class="ngx-data-table">
+      <thead>
         <tr>
           <th class="sortable" (click)="toggleSortFn(summaryKey, 'metric')">
             Metric
@@ -67,6 +68,7 @@ import {
         }
       </tbody>
     </table>
+    </div>
   `
 })
 export class AGMSummaryTableComponent {

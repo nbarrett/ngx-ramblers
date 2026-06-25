@@ -11,7 +11,6 @@ import {
   SortIconFn,
   SummaryRow,
   ToggleSortFn,
-  PayeeRow,
   ExpenseYearStats
 } from "../../../models/agm-stats.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -54,9 +53,9 @@ import { UnpaidExpenseItem } from "../../../models/group-event.model";
               Unpaid Expenses ({{ unpaidExpenses.length }})
             </h4>
             @if (showUnpaid) {
-              <div class="table-responsive">
-                <table class="table table-sm table-striped table-bordered">
-                  <thead class="table-dark">
+              <div class="ngx-data-table-card">
+                <table class="ngx-data-table">
+                  <thead>
                   <tr>
                     <th class="sortable" (click)="toggleSortFn('unpaidExpenses', 'claimantName')">
                       Claimant
@@ -104,9 +103,9 @@ import { UnpaidExpenseItem } from "../../../models/group-event.model";
         <div class="row mb-4">
           <div class="col-12">
             <h3>Paid Expenses by Claimant {{ periodLabel(yearStats.periodFrom, yearStats.periodTo) }}</h3>
-            <div class="table-responsive">
-              <table class="table table-striped table-bordered">
-                <thead class="table-dark">
+            <div class="ngx-data-table-card">
+              <table class="ngx-data-table">
+                <thead>
                   <tr>
                     <th class="sortable" (click)="toggleSortFn('payees-' + yearStats.year, 'name')">
                       Claimant

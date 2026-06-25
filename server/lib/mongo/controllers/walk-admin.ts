@@ -675,7 +675,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
       return "";
     };
 
-    const normalizeText = (value: string) => value ? value.trim().replace(/\.$/, "") : "";
+    const normalizeText = (value: string | number) => value ? String(value).trim().replace(/\.$/, "") : "";
 
     const addLeaderCount = (id: string, name: string, email: string, walkCount: number, miles: number) => {
       const normalizedId = normalizeText(id);
