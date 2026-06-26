@@ -195,7 +195,7 @@ async function convertPdf(buffer: Buffer, imageUploader?: PdfImageUploader): Pro
     const response = pdfResponseFrom(styled.markdown, styled.pageCount);
     return {...response, markdown: replacePdfImagePlaceholders(response.markdown, imagePaths)};
   } else {
-    const parser = new PDFParse({data: buffer});
+    const parser = new PDFParse({data: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)});
     try {
       const result = await parser.getText({parseHyperlinks: true});
       debugLog("pdf-parse extracted", result.text?.length || 0, "characters from", result.total, "pages");

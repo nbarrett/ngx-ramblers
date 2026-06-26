@@ -154,7 +154,7 @@ function isTablePage(lines: StyledLine[]): boolean {
 }
 
 export async function extractStyledPdfMarkdown(buffer: Buffer): Promise<StyledPdfExtraction> {
-  const parser = new PDFParse({data: buffer});
+  const parser = new PDFParse({data: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)});
   try {
     await parser.getInfo();
     const pdfDocument = (parser as any).doc;
