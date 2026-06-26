@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
-import { CommitteeConfig, CommitteeMember, DEFAULT_COST_PER_MILE, RoleType } from "../../models/committee.model";
+import { BuiltInRole, CommitteeConfig, CommitteeMember, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, RoleType } from "../../models/committee.model";
 import { ConfigKey } from "../../models/config.model";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -91,10 +91,26 @@ export class CommitteeConfigService {
     }
     return {
       ...config,
-      roles: config.roles.map(role => ({
-        ...role,
-        nameAndDescription: this.nameAndDescriptionFrom(role)
-      }))
+      roles: config.roles.map(role => {
+        const normalised = this.normaliseContactUsSystemRole(role);
+        return {...normalised, nameAndDescription: this.nameAndDescriptionFrom(normalised)};
+      })
+    };
+  }
+
+  private normaliseContactUsSystemRole(role: CommitteeMember): CommitteeMember {
+    const isContactUs = role.builtInRoleMapping === BuiltInRole.CONTACT_US || role.type === CONTACT_US_TYPE;
+    if (!isContactUs) {
+      return role;
+    }
+    return {
+      ...role,
+      type: CONTACT_US_TYPE,
+      builtInRoleMapping: BuiltInRole.CONTACT_US,
+      roleType: RoleType.SYSTEM_ROLE,
+      description: CONTACT_US_LABEL,
+      fullName: CONTACT_US_LABEL,
+      vacant: false
     };
   }
 

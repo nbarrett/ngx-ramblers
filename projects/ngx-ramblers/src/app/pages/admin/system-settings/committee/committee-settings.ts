@@ -19,10 +19,12 @@ import {
   CommitteeFileType,
   CommitteeMember,
   DEFAULT_COST_PER_MILE,
+  EmailDerivation,
   ForwardEmailTarget,
   Notification,
   RoleType
 } from "../../../../models/committee.model";
+import { Member } from "../../../../models/member.model";
 import {
   CatchAllAction,
   EmailForwardStatus,
@@ -37,7 +39,7 @@ import { EnvironmentSettingsSubTab } from "../../../../models/system.model";
 import { EnvironmentSetupTab } from "../../../../models/environment-setup.model";
 import { StoredValue } from "../../../../models/ui-actions";
 import { sortBy } from "../../../../functions/arrays";
-import { extractErrorMessage, toKebabCase } from "../../../../functions/strings";
+import { extractErrorMessage, toDotCase, toKebabCase } from "../../../../functions/strings";
 import { SortDirection } from "../../../../models/sort.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AlertInstance } from "../../../../services/notifier.service";
@@ -67,6 +69,8 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
 @Component({
     selector: "app-committee-settings",
     styles: [`
+      .committee-roles-alert
+        padding: 1.25rem
       .table-container
         max-height: calc(100vh - 520px)
         overflow-y: auto
@@ -174,6 +178,14 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                               (click)="createNewRole()" tooltip="Add a new committee role">
                         <fa-icon [icon]="faAdd" class="me-1"></fa-icon>Add Role
                       </button>
+                      <button class="btn btn-success btn-sm" [disabled]="!!editingRoleDraft || !committeeMembersWithoutRole.length || !committeeRolesAlertDismissed"
+                              (click)="addMissingCommitteeRoles()"
+                              tooltip="Add a role for each member flagged as Committee Member in Member Admin who is not yet linked to a role">
+                        <fa-icon [icon]="faAdd" class="me-1"></fa-icon>Add missing roles
+                        @if (committeeMembersWithoutRole.length) {
+                          ({{ committeeMembersWithoutRole.length }})
+                        }
+                      </button>
                       <button class="btn btn-outline-secondary btn-sm" [disabled]="!!editingRoleDraft || !catchAllRule?.enabled || clearForwardsPending || clearForwardsConfirmPending"
                               (click)="requestClearAllForwards()" tooltip="Delete every per-role Cloudflare forwarding rule for this domain so all role emails route via the single catch-all">
                         <fa-icon [icon]="faTrash" class="me-1"></fa-icon>Clear all forwards
@@ -218,6 +230,29 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                       </div>
                     </div>
                   </div>
+                  @if (committeeMembersLoaded && !editingRoleDraft && committeeMembersWithoutRole.length && !committeeRolesAlertDismissed) {
+                    <div class="alert alert-warning committee-roles-alert">
+                      <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+                      <strong class="ms-2">{{ stringUtils.pluraliseWithCount(committeeMembersWithoutRole.length, "committee member") }} not yet linked to a role</strong>
+                      <div class="mt-2">
+                        These members have the <strong>Committee Member</strong> privilege ticked in Member Admin but are not
+                        linked to any role here, so they do not yet appear in the list. Add a role for each of them in one
+                        click, then set the actual role (Secretary, Treasurer, etc.) and Save.
+                      </div>
+                      <ul class="mt-2 mb-2">
+                        @for (member of committeeMembersWithoutRole; track member.id) {
+                          <li>{{ memberFullName(member) }}</li>
+                        }
+                      </ul>
+                      <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-primary" (click)="addMissingCommitteeRoles()">
+                          <fa-icon [icon]="faAdd" class="me-1"></fa-icon>Add {{ stringUtils.pluraliseWithCount(committeeMembersWithoutRole.length, "role") }}
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                (click)="committeeRolesAlertDismissed = true">Dismiss</button>
+                      </div>
+                    </div>
+                  }
                   @if (platformAdminEnabled && orphanedWorkerScripts.length) {
                     <div class="mb-3">
                       <h6 class="mb-2">Orphaned Cloudflare Workers</h6>
@@ -678,8 +713,13 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   cloudflareAccountId: string = "";
   cloudflareZoneId: string = "";
   platformAdminEnabled = false;
+  committeeMembersLoaded = false;
+  committeeRolesAlertDismissed = false;
 
   ngOnInit() {
+    this.committeeQueryService.queryCommitteeMembers()
+      .then(() => this.committeeMembersLoaded = true)
+      .catch(err => this.logger.error("Committee members not available:", err));
     this.cloudflareEmailRoutingService.queryCloudflareConfig()
       .then(config => {
         if (config?.configured !== false) {
@@ -762,6 +802,42 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
   get vacantCount(): number {
     return this.committeeConfig?.roles?.filter(r => r.vacant).length || 0;
+  }
+
+  get committeeMembersWithoutRole(): Member[] {
+    const linkedMemberIds = new Set((this.committeeConfig?.roles ?? []).map(role => role.memberId).filter(Boolean));
+    return (this.committeeQueryService.committeeMembers ?? []).filter(member => !linkedMemberIds.has(member.id));
+  }
+
+  memberFullName(member: Member): string {
+    const firstName = member?.firstName || member?.title || "";
+    const lastName = member?.lastName || "";
+    return `${firstName} ${firstName === lastName ? "" : lastName}`.trim();
+  }
+
+  private roleForMember(member: Member): CommitteeMember {
+    const fullName = this.memberFullName(member);
+    const role = this.committeeConfigService.emptyCommitteeMember();
+    role.memberId = member.id;
+    role.fullName = fullName;
+    role.roleType = RoleType.COMMITTEE_MEMBER;
+    role.description = fullName;
+    role.type = toKebabCase(fullName);
+    role.emailDerivation = EmailDerivation.FULL_NAME;
+    role.vacant = false;
+    if (this.baseDomain) {
+      role.email = `${toDotCase(fullName)}@${this.baseDomain}`;
+    }
+    role.nameAndDescription = this.committeeConfigService.nameAndDescriptionFrom(role);
+    return role;
+  }
+
+  addMissingCommitteeRoles(): void {
+    const newRoles = this.committeeMembersWithoutRole.map(member => this.roleForMember(member));
+    if (!newRoles.length) {
+      return;
+    }
+    this.committeeConfig.roles = [...this.committeeConfig.roles, ...newRoles];
   }
 
   isDuplicateMemberIdRole(role: CommitteeMember): boolean {
@@ -1312,6 +1388,9 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   editingRoleHeading(): string {
     if (!this.editingRoleDraft) {
       return "New Role";
+    }
+    if (this.isContactUsSystemRole(this.editingRoleDraft)) {
+      return `${this.editingRoleDraft.description || "Contact Us"} system role`;
     }
     if (this.editingRoleDraft.fullName && this.editingRoleDraft.roleType) {
       return `${this.editingRoleDraft.fullName}'s ${this.stringUtils.asTitle(this.editingRoleDraft.roleType)} role`;

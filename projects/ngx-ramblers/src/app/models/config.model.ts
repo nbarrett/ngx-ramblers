@@ -12,6 +12,7 @@ export enum ConfigKey {
   MIGRATION = "migration",
   RAMBLERS_AREAS_CACHE = "ramblers-areas-cache",
   SALESFORCE = "salesforce",
+  MEMBER_SYNC_POLICY = "member-sync-policy",
   SYSTEM = "system",
   LEGACY_REDIRECT = "legacy-redirect",
   WALKS = "walks",

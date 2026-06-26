@@ -288,6 +288,7 @@ export interface BuiltInProcessMappings {
   contactUsNotificationConfigId: string;
   backupNotificationConfigId: string;
   bookingNotificationConfigId: string;
+  memberSyncNotificationConfigId: string;
 }
 
 export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltInProcessMappings, string>> = {
@@ -295,7 +296,8 @@ export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltI
   walkNotificationConfigId: "Walk Change Notification",
   expenseNotificationConfigId: "Expense Notification",
   contactUsNotificationConfigId: "Contact Us",
-  bookingNotificationConfigId: "Booking Notification"
+  bookingNotificationConfigId: "Booking Notification",
+  memberSyncNotificationConfigId: "Member Sync Notification"
 };
 
 export interface NotificationConfigurationApiResponse extends ApiResponse {
@@ -597,6 +599,20 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     senderRole: "walks",
     replyToRole: "walks",
     signOffRoles: ["walks"],
+    bannerId: null
+  },
+  {
+    subject: {
+      prefixParameter: APP_SHORT_NAME_PREFIX_PARAMETER,
+      text: "Your membership details and Head Office records",
+      suffixParameter: FULL_NAME_SUFFIX_PARAMETER
+    },
+    preSendActions: [],
+    postSendActions: [],
+    defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
+    senderRole: "membership",
+    replyToRole: "membership",
+    signOffRoles: ["membership"],
     bannerId: null
   }
 ];

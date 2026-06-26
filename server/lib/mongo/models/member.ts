@@ -29,6 +29,7 @@ const memberSchema = new mongoose.Schema({
   mobileNumber: {type: String},
   displayName: {type: String, required: true},
   contactId: {type: String},
+  salesforceId: {type: String, index: true, sparse: true},
   firstName: {type: String, required: true},
   lastName: {type: String, required: true},
   memberAdmin: {type: Boolean},

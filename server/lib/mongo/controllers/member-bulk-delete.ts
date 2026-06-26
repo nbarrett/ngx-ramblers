@@ -8,6 +8,7 @@ import { NumberOrString, PostSendActionsResult, WorkflowAction } from "../../../
 import { member as memberModel } from "../models/member";
 import { deletedMember as deletedMemberModel } from "../models/deleted-member";
 import { mailListAudit as mailListAuditModel } from "../models/mail-list-audit";
+import { memberSyncNotification as memberSyncNotificationModel } from "../models/member-sync-notification";
 import { deleteBrevoContacts } from "../../brevo/contacts/contact-delete";
 import { writeBackOptOutsForRemovedMembers } from "../../salesforce/member-consent-writeback";
 
@@ -38,6 +39,7 @@ export interface BulkDeleteMembersResult {
   deletedMemberRows: number;
   auditRowsDeleted: number;
   orphanRowsDeleted: number;
+  syncNotificationRowsDeleted: number;
 }
 
 async function removeFromBrevoAndWriteBackConsent(memberDocs: Member[], performedBy: string): Promise<void> {
@@ -59,7 +61,7 @@ async function removeFromBrevoAndWriteBackConsent(memberDocs: Member[], performe
 
 export async function bulkDeleteMembersCascade(memberIds: string[], deletedBy: string): Promise<BulkDeleteMembersResult> {
   if (!memberIds?.length) {
-    return {deletionResponses: [], deletedMemberRows: 0, auditRowsDeleted: 0, orphanRowsDeleted: 0};
+    return {deletionResponses: [], deletedMemberRows: 0, auditRowsDeleted: 0, orphanRowsDeleted: 0, syncNotificationRowsDeleted: 0};
   }
   const existing = await memberModel.find({_id: {$in: memberIds}}).lean();
   const existingById = new Map(existing.map((doc: any) => [doc._id.toString(), doc]));
@@ -80,11 +82,15 @@ export async function bulkDeleteMembersCascade(memberIds: string[], deletedBy: s
   const auditDeleteResult = await mailListAuditModel.deleteMany({memberId: {$in: deletedIds}});
   const validIds: string[] = (await memberModel.distinct("_id")).map((id: any) => id?.toString()).filter(Boolean);
   const orphanResult = await mailListAuditModel.deleteMany({memberId: {$exists: true, $ne: null, $nin: validIds}});
-  debugLog("bulkDeleteMembersCascade: deleted", deletedIds.length, "of", memberIds.length, "members,", deletedMemberRows.length, "deletedMember rows,", auditDeleteResult.deletedCount, "mailListAudit rows,", orphanResult.deletedCount, "orphan rows");
+  const syncDeleteResult = await memberSyncNotificationModel.deleteMany({memberId: {$in: deletedIds}});
+  const syncOrphanResult = await memberSyncNotificationModel.deleteMany({memberId: {$exists: true, $ne: null, $nin: validIds}});
+  const syncNotificationRowsDeleted = (syncDeleteResult.deletedCount || 0) + (syncOrphanResult.deletedCount || 0);
+  debugLog("bulkDeleteMembersCascade: deleted", deletedIds.length, "of", memberIds.length, "members,", deletedMemberRows.length, "deletedMember rows,", auditDeleteResult.deletedCount, "mailListAudit rows,", orphanResult.deletedCount, "orphan rows,", syncNotificationRowsDeleted, "member sync notification rows");
   return {
     deletionResponses,
     deletedMemberRows: deletedMemberRows.length,
     auditRowsDeleted: auditDeleteResult.deletedCount || 0,
-    orphanRowsDeleted: orphanResult.deletedCount || 0
+    orphanRowsDeleted: orphanResult.deletedCount || 0,
+    syncNotificationRowsDeleted
   };
 }

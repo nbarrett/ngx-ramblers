@@ -12,6 +12,10 @@ function salesforceMember(membershipNumber: string): SalesforceMember {
   return { membershipNumber } as SalesforceMember;
 }
 
+function salesforceRamblersMember(salesforceId: string, membershipNumber: string | null, firstName = "Member"): RamblersMember {
+  return { salesforceId, membershipNumber, firstName } as RamblersMember;
+}
+
 describe("salesforce-sync rebuildFullMemberList", () => {
 
   it("subtracts removed members from the previously loaded list", () => {
@@ -44,6 +48,29 @@ describe("salesforce-sync rebuildFullMemberList", () => {
     const previous = [ramblersMember("1"), ramblersMember("2")];
     const result = rebuildFullMemberList(previous, [], []);
     expect(result.map(member => member.membershipNumber)).toEqual(["1", "2"]);
+  });
+
+  it("retains members with no identity keys (manually created or non-Ramblers) when a sync runs", () => {
+    const manual = { firstName: "Manual" } as RamblersMember;
+    const previous = [ramblersMember("1"), manual];
+    const result = rebuildFullMemberList(previous, [ramblersMember("9")], [salesforceMember("1")]);
+    expect(result).toHaveLength(2);
+    expect(result.map(member => member.firstName)).toContain("Manual");
+  });
+
+  it("replaces a member matched on salesforceId even when its membership number changes", () => {
+    const previous = [salesforceRamblersMember("SF1", "1", "Old")];
+    const result = rebuildFullMemberList(previous, [salesforceRamblersMember("SF1", "2", "New")], []);
+    expect(result).toHaveLength(1);
+    expect(result[0].membershipNumber).toEqual("2");
+    expect(result[0].firstName).toEqual("New");
+  });
+
+  it("supersedes a legacy member whose salesforceId had been stored as its membership number", () => {
+    const legacy = ramblersMember("SF1", "Legacy");
+    const result = rebuildFullMemberList([legacy], [salesforceRamblersMember("SF1", null, "Reconciled")], []);
+    expect(result).toHaveLength(1);
+    expect(result[0].firstName).toEqual("Reconciled");
   });
 
 });

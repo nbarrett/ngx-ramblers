@@ -32,6 +32,7 @@ describe("salesforce-member-mapper", () => {
 
     it("should map identity, contact and membership fields onto RamblersMember", () => {
       const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember());
+      expect(result.salesforceId).toEqual("003Dn00000A1b2cDEF");
       expect(result.membershipNumber).toEqual("3300001");
       expect(result.firstName).toEqual("Jane");
       expect(result.lastName).toEqual("Smith");
@@ -45,9 +46,10 @@ describe("salesforce-member-mapper", () => {
       expect(result.memberTerm).toEqual("annual");
     });
 
-    it("should fall back to salesforceId when membershipNumber is absent", () => {
+    it("should map salesforceId onto its own field, leaving membershipNumber null when Salesforce omits it", () => {
       const result = mapSalesforceMemberToRamblersMember(baseSalesforceMember({ membershipNumber: undefined }));
-      expect(result.membershipNumber).toEqual("003Dn00000A1b2cDEF");
+      expect(result.salesforceId).toEqual("003Dn00000A1b2cDEF");
+      expect(result.membershipNumber).toBeNull();
     });
 
     it("should convert membershipExpiryDate from ISO to dd/MM/yy", () => {

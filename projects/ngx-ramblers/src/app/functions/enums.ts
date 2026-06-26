@@ -1,10 +1,10 @@
 import { toPairs } from "es-toolkit/compat";
 
 export function enumForKey<E>(enumValue: E, value: string): E[keyof E] {
-  const resolvedEnum = toPairs(enumValue as object)?.find((entry: any) => {
-    return value?.toUpperCase() === entry[0]?.toUpperCase();
-  });
-  return resolvedEnum && resolvedEnum[1];
+  const match = enumKeyValues(enumValue)?.find(item =>
+    value?.toUpperCase() === item.key?.toUpperCase()
+    || value?.toLowerCase() === `${item.value}`.toLowerCase());
+  return match?.value as E[keyof E];
 }
 
 export function enumValues<E>(enumValue: E): any[] {

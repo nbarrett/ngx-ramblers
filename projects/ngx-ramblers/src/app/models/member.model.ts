@@ -86,6 +86,19 @@ export interface FirstAndLastName {
   lastName: string;
 }
 
+export enum MarketingConsentField {
+  EMAIL = "emailMarketingConsent",
+  GROUP = "groupMarketingConsent",
+  AREA = "areaMarketingConsent",
+  OTHER = "otherMarketingConsent",
+}
+
+export const GRANULAR_MARKETING_CONSENT_FIELDS: MarketingConsentField[] = [
+  MarketingConsentField.GROUP,
+  MarketingConsentField.AREA,
+  MarketingConsentField.OTHER,
+];
+
 export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Auditable, Identifiable {
   memberId?: string;
   hideSurname?: boolean;
@@ -95,6 +108,7 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   mobileNumber?: string;
   displayName?: string;
   contactId?: string;
+  salesforceId?: string;
   membershipExpiryDate?: number;
   membershipNumber?: string;
   postcode?: string;
@@ -199,6 +213,7 @@ export interface RamblersMemberAndContact {
 
 export interface RamblersMember extends HasEmailFirstAndLastName {
   membershipExpiryDate?: string;
+  salesforceId?: string;
   membershipNumber: string;
   mobileNumber: string;
   postcode: string;
@@ -253,10 +268,17 @@ export enum MemberTerm {
   ANNUAL = "annual"
 }
 
+export interface MemberAuditFieldChange {
+  fieldName: string;
+  from: string;
+  to: string;
+  resolution: string;
+}
+
 export interface UpdateAudit {
   fieldsChanged: number;
   fieldsSkipped: number;
-  auditMessages: any[];
+  fieldChanges: MemberAuditFieldChange[];
 }
 
 export interface MemberUpdateAudit extends Auditable {
@@ -266,7 +288,7 @@ export interface MemberUpdateAudit extends Auditable {
   memberAction: MemberAction;
   rowNumber: number;
   changes: number;
-  auditMessage: string;
+  fieldChanges?: MemberAuditFieldChange[];
   memberId?: string;
   member?: Member;
   auditErrorMessage?: object;

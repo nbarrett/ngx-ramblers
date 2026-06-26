@@ -1,0 +1,186 @@
+<app-page autoTitle>
+  <div class="row">
+    <div class="col-sm-12">
+      <p class="form-text text-muted">
+        Members whose local record differs from Head Office during a sync are queued here. Sending is always manual: no
+        email goes out during a sync. Each send emails the member a summary of the differing fields and marks them as sent.
+      </p>
+    </div>
+  </div>
+  <div class="row align-items-end g-2 mb-3">
+    <div class="col-sm-4">
+      <label for="status-filter">Status</label>
+      <select id="status-filter" class="form-control input-sm" [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()">
+        <option [ngValue]="''">All</option>
+        <option [ngValue]="MemberSyncNotificationStatus.PENDING">Pending</option>
+        <option [ngValue]="MemberSyncNotificationStatus.SENT">Sent</option>
+        <option [ngValue]="MemberSyncNotificationStatus.SUPERSEDED">Superseded</option>
+      </select>
+    </div>
+    <div class="col-sm-4">
+      <label for="field-filter">Field</label>
+      <select id="field-filter" class="form-control input-sm" [(ngModel)]="fieldNameFilter" (ngModelChange)="applyFilters()">
+        <option [ngValue]="''">All fields</option>
+        @for (fieldName of fieldNames; track fieldName) {
+          <option [ngValue]="fieldName">{{ fieldName }}</option>
+        }
+      </select>
+    </div>
+    <div class="col-sm-4">
+      <label for="name-search">Search</label>
+      <input id="name-search" type="text" class="form-control input-sm" [(ngModel)]="nameSearch" (ngModelChange)="applyFilters()"
+             placeholder="name or email">
+    </div>
+  </div>
+  <div class="row mb-3">
+    <div class="col-sm-12 d-flex align-items-end flex-wrap gap-4">
+      <div>
+        <label for="date-preset">Quick range</label>
+        <select id="date-preset" class="form-control input-sm" [(ngModel)]="datePreset" (ngModelChange)="applyDatePreset($event)">
+          <option value="all">All time</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="365">Last year</option>
+          <option value="custom" disabled>Custom</option>
+        </select>
+      </div>
+      <div class="flex-grow-1">
+        <label>Date range</label>
+        <app-date-range-slider
+          [minDate]="dateFilterMinDate"
+          [maxDate]="dateFilterMaxDate"
+          [range]="dateFilterRange"
+          (rangeChange)="onDateRangeChange($event)"/>
+      </div>
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+        <div class="btn-group" dropdown [isDisabled]="sending">
+        <button dropdownToggle type="button" class="btn btn-sunrise dropdown-toggle" [disabled]="sending">
+          <fa-icon [icon]="faPaperPlane" class="me-2"/>Send
+        </button>
+        <ul *dropdownMenu class="dropdown-menu" role="menu">
+          <li role="menuitem">
+            <button class="dropdown-item" type="button" [disabled]="selectedSendableCount === 0" (click)="sendSelected()">
+              <fa-icon [icon]="faPaperPlane" class="me-2"/>Send to selected ({{ selectedSendableCount }})
+            </button>
+          </li>
+          <li role="menuitem">
+            <button class="dropdown-item" type="button" (click)="sendAllPending()">
+              <fa-icon [icon]="faPaperPlane" class="me-2"/>Send all pending
+            </button>
+          </li>
+          <li class="dropdown-divider"></li>
+          <li role="menuitem">
+            <button class="dropdown-item" type="button" [disabled]="selectedResendableCount === 0" (click)="resendSelected()">
+              <fa-icon [icon]="faPaperPlane" class="me-2"/>Resend to selected ({{ selectedResendableCount }})
+            </button>
+          </li>
+        </ul>
+      </div>
+        @if (selectedMemberIds.size > 0) {
+          <span class="text-muted">{{ selectedMemberIds.size }} selected</span>
+        }
+        <span class="text-muted">{{ stringUtils.pluraliseWithCount(groups.length, "member") }} shown</span>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-12">
+      <div class="table-responsive">
+      <table class="round tbl-green-g table-striped table-hover table-sm align-middle">
+        <thead>
+          <tr>
+            <th>
+              <input type="checkbox" class="form-check-input" [checked]="allVisibleSelected"
+                     (change)="toggleSelectAll()" [disabled]="!groups.length" title="Select all">
+            </th>
+            <th></th>
+            <th>Member</th>
+            <th>Email</th>
+            <th>Pending fields</th>
+            <th>Total in view</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (group of groups; track group.memberId) {
+            <tr>
+              <td>
+                <input type="checkbox" class="form-check-input" [checked]="isSelected(group.memberId)"
+                       (change)="toggleSelection(group.memberId)">
+              </td>
+              <td>
+                <fa-icon role="button" [icon]="isExpanded(group.memberId) ? faChevronDown : faChevronRight"
+                         (click)="toggleExpand(group.memberId)"/>
+              </td>
+              <td>{{ group.fullName }}</td>
+              <td>
+                @if (group.hasEmail) {
+                  {{ group.email }}
+                } @else {
+                  <span class="text-danger">
+                    <fa-icon [icon]="faTriangleExclamation" class="me-1"/>no email on file
+                  </span>
+                }
+              </td>
+              <td>{{ group.pendingCount }}</td>
+              <td>{{ group.notifications.length }}</td>
+            </tr>
+            @if (isExpanded(group.memberId)) {
+              <tr>
+                <td colspan="6">
+                  <table class="table table-sm table-striped table-hover mb-0">
+                    <thead>
+                      <tr>
+                        <th>Field</th>
+                        <th>What we held</th>
+                        <th>What Head Office says</th>
+                        <th>Resolution</th>
+                        <th>Status</th>
+                        <th>First seen</th>
+                        <th>Sent</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (notification of group.notifications; track notification.id) {
+                        <tr>
+                          <td><code>{{ notification.fieldName }}</code></td>
+                          <td>{{ notification.localValue ?? "(not held)" }}</td>
+                          <td>{{ notification.headOfficeValue ?? "(not provided)" }}</td>
+                          <td>{{ resolutionLabel(notification.resolution) }}</td>
+                          <td>{{ notification.status }}</td>
+                          <td>{{ dateUtils.displayDateAndTime(notification.firstSeenAt) }}</td>
+                          <td>
+                            @if (notification.sentAt) {
+                              {{ dateUtils.displayDateAndTime(notification.sentAt) }}
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            }
+          } @empty {
+            <tr>
+              <td colspan="6" class="text-muted">No member sync notifications match the current filters.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+  @if (notifyTarget.showAlert) {
+    <div class="row">
+      <div class="col-sm-12">
+        <div class="alert {{notifyTarget.alertClass}}">
+          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+          @if (notifyTarget.alertTitle) {
+            <strong>{{ notifyTarget.alertTitle }}: </strong>
+          } {{ notifyTarget.alertMessage }}
+        </div>
+      </div>
+    </div>
+  }
+</app-page>

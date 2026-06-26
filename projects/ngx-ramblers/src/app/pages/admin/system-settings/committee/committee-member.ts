@@ -297,6 +297,7 @@ export enum CommitteeMemberTab {
                   <div class="form-check">
                     <input type="checkbox" class="form-check-input"
                       [(ngModel)]="committeeMember.vacant"
+                      [disabled]="isContactUsSystemRole()"
                       (ngModelChange)="roleChange()"
                       id="committee-member-vacant-{{index}}">
                   </div>

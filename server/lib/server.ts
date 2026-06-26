@@ -1,5 +1,6 @@
 import debug from "debug";
 import { install } from "source-map-support";
+import { pluraliseWithCount } from "./shared/string-utils";
 import { addresses } from "./addresses/addresses";
 import { awsRoutes } from "./aws/aws-routes";
 import { mongoBackupRoutes } from "./backup/mongo-backup-routes";
@@ -30,6 +31,7 @@ import { memberRoutes } from "./mongo/routes/member";
 import { memberAuthAuditRoutes } from "./mongo/routes/member-auth-audit";
 import { memberUpdateAuditRoutes } from "./mongo/routes/member-update-audit";
 import { mailListAuditRoutes } from "./mongo/routes/mail-list-audit";
+import { memberSyncNotificationRoutes } from "./mongo/routes/member-sync-notification";
 import { deletedMemberRoutes } from "./mongo/routes/deleted-member";
 import { memberBulkLoadAuditRoutes } from "./mongo/routes/member-bulk-load-update";
 import { socialEventsRoutes } from "./mongo/routes/social-event";
@@ -211,6 +213,7 @@ app.use("/api/database/member-bulk-load-audit", memberBulkLoadAuditRoutes);
 app.use("/api/database/member-auth-audit", memberAuthAuditRoutes);
 app.use("/api/database/mailchimp-list-audit", mailchimpListAuditRoutes);
 app.use("/api/database/mail-list-audit", mailListAuditRoutes);
+app.use("/api/database/member-sync-notifications", memberSyncNotificationRoutes);
 app.use("/api/database/member-resource", memberResource);
 app.use("/api/database/member-update-audit", memberUpdateAuditRoutes);
 app.use("/api/database/ramblers-upload-audit", ramblersUploadAuditRoutes);
@@ -271,7 +274,7 @@ async function runMigrationsInBackground() {
     const migrationResult = await migrationRunner.runPendingMigrations();
 
     if (migrationResult.appliedFiles.length > 0) {
-      debugLog(`✅ Applied ${migrationResult.appliedFiles.length} migration(s):`, migrationResult.appliedFiles);
+      debugLog(`✅ Applied ${pluraliseWithCount(migrationResult.appliedFiles.length, "migration")}:`, migrationResult.appliedFiles);
     }
 
     if (!migrationResult.success) {
@@ -317,7 +320,7 @@ async function startServer() {
 
       createEnvironmentMigrationService().reconcileOrphanedMigrations().then(count => {
         if (count > 0) {
-          debugLog(`⚠️ Reconciled ${count} orphaned environment migration(s) after server restart`);
+          debugLog(`⚠️ Reconciled ${pluraliseWithCount(count, "orphaned environment migration")} after server restart`);
         }
       }).catch(error => {
         debugLog("❌ Failed to reconcile orphaned environment migrations:", error);

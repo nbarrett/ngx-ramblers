@@ -12,6 +12,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
+import { MemberSyncPolicyService } from "../../../services/member/member-sync-policy.service";
+import { MemberSyncPolicyMode } from "../../../models/member-sync-policy.model";
 
 @Component({
     selector: "app-contact-details",
@@ -23,6 +25,7 @@ export class ContactDetailsComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("ContactDetailsComponent", NgxLoggerLevel.ERROR);
   private notifierService = inject(NotifierService);
+  private memberSyncPolicyService = inject(MemberSyncPolicyService);
   profileService = inject(ProfileService);
 
   public member: Member;
@@ -35,11 +38,16 @@ export class ContactDetailsComponent implements OnInit, OnDestroy {
     this.logger.debug("ngOnInit");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.profileService.subscribeToLogout(this.logger));
+    this.memberSyncPolicyService.refresh();
     this.notify.setBusy();
     this.profileService.queryMember(this.notify, ProfileUpdateType.PERSONAL_DETAILS).then(member => {
       this.member = member;
       this.notify.clearBusy();
     });
+  }
+
+  isFieldReadonly(fieldName: string): boolean {
+    return this.memberSyncPolicyService.effectiveMode(fieldName) === MemberSyncPolicyMode.ALWAYS_APPLY_HEAD_OFFICE;
   }
 
   savePersonalDetails() {
