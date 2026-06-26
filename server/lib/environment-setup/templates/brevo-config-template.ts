@@ -21,6 +21,7 @@ export function createBrevoConfig(params: BrevoConfigTemplateParams): MailConfig
     walkNotificationConfigId: "",
     contactUsNotificationConfigId: "",
     backupNotificationConfigId: "",
-    bookingNotificationConfigId: ""
+    bookingNotificationConfigId: "",
+    memberSyncNotificationConfigId: ""
   };
 }

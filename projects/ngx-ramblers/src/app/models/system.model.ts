@@ -37,6 +37,7 @@ export enum ExternalSystemsSubTab {
   SOCIAL = "social",
   MAPS = "maps",
   SALESFORCE = "salesforce",
+  MEMBER_SYNC_POLICY = "member-sync-policy",
   CLOUDFLARE = "cloudflare",
   SECURITY = "security"
 }

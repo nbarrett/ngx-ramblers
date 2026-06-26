@@ -34,7 +34,11 @@
               <input [(ngModel)]="member.firstName" type="text" class="form-control input-sm"
                      name="firstName"
                      id="prof-first-name"
+                     [disabled]="isFieldReadonly('firstName')"
                      placeholder="Enter First Name here">
+              @if (isFieldReadonly('firstName')) {
+                <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
+              }
             </div>
           </div>
           <div class="col-sm-12">
@@ -43,7 +47,11 @@
               <input [(ngModel)]="member.lastName" type="text" required class="form-control input-sm"
                      id="prof-last-name"
                      name="lastName"
+                     [disabled]="isFieldReadonly('lastName')"
                      placeholder="Enter Last Name here">
+              @if (isFieldReadonly('lastName')) {
+                <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
+              }
             </div>
           </div>
           <div class="col-sm-12">
@@ -52,7 +60,11 @@
               <input [(ngModel)]="member.mobileNumber" type="text" required class="form-control input-sm"
                      id="prof-mobile-number"
                      name="mobileNumber"
+                     [disabled]="isFieldReadonly('mobileNumber')"
                      placeholder="Enter mobile number here">
+              @if (isFieldReadonly('mobileNumber')) {
+                <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
+              }
             </div>
           </div>
           <div class="col-sm-12">
@@ -61,7 +73,11 @@
               <input [(ngModel)]="member.email" type="text" required class="form-control input-sm"
                      id="prof-contact-email"
                      name="email"
+                     [disabled]="isFieldReadonly('email')"
                      placeholder="Enter contact email here">
+              @if (isFieldReadonly('email')) {
+                <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
+              }
             </div>
           </div>
           <div class="col-sm-12">
@@ -69,7 +85,12 @@
               <label for="prof-postcode">Home postcode</label>
               <input [(ngModel)]="member.postcode" type="text" required class="form-control input-sm"
                      id="prof-postcode"
+                     name="postcode"
+                     [disabled]="isFieldReadonly('postcode')"
                      placeholder="Enter home postcode here">
+              @if (isFieldReadonly('postcode')) {
+                <small class="form-text text-muted">Maintained at Ramblers Head Office. Contact Head Office to change.</small>
+              }
             </div>
           </div>
         </div>

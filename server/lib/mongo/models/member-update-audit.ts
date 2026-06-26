@@ -9,7 +9,7 @@ const memberUpdateAuditSchema = new mongoose.Schema({
   memberAction: {type: String},
   rowNumber: {type: Number},
   changes: {type: Number},
-  auditMessage: {type: String},
+  fieldChanges: [{fieldName: String, from: String, to: String, resolution: String}],
   memberId: {type: String},
   member: {type: Object},
   auditErrorMessage: {type: Object}

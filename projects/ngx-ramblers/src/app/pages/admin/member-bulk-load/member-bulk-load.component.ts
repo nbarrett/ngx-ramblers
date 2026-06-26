@@ -54,7 +54,6 @@ import { cloneDeep } from "es-toolkit/compat";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { IconService } from "../../../services/icon-service/icon-service";
-import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub";
 import { PageComponent } from "../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -221,8 +220,8 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                             this; whichever sync runs last wins on overlapping records.
                           </p>
                           <ul class="list-arrow ms-0">
-                            <li><b>Incremental sync</b> uses the cursor recorded after the last successful run. Pick this for routine refreshes.</li>
-                            <li><b>Full sync</b> ignores the cursor and re-fetches the full member list. Use after a config change or when the cursor is suspect.</li>
+                            <li><b>Incremental sync</b> only brings in members that have changed since the last successful sync. Pick this for routine refreshes.</li>
+                            <li><b>Full sync</b> re-fetches the entire member list from scratch. Use after a config change, or if a routine sync looks like it has missed something.</li>
                           </ul>
                           <button type="button"
                                   class="btn btn-primary me-2"
@@ -246,7 +245,7 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                             <strong>Last Salesforce sync:</strong>
                             {{ salesforceConfig.lastSyncedAt | displayDateAndTime }}
                             @if (salesforceConfig.lastSyncCursor) {
-                              <span class="text-muted ms-2">cursor: {{ salesforceConfig.lastSyncCursor | displayDateAndTime }}</span>
+                              <span class="text-muted ms-2">changes synced up to: {{ salesforceConfig.lastSyncCursor | displayDateAndTime }}</span>
                             }
                           </div>
                         </div>
@@ -509,11 +508,7 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                                   </div>
                                 </th>
                                 <th>
-                                  <div (click)="sortMemberUpdateAuditBy('auditMessage')">Audit Message
-                                    @if (showMemberUpdateAuditColumn('auditMessage')) {
-                                      <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
-                                    }
-                                  </div>
+                                  <div>Fields Changed</div>
                                 </th>
                               </tr>
                               </thead>
@@ -528,7 +523,7 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                                     <td>{{ memberUpdateAudit.rowNumber }}</td>
                                     <td>{{ memberUpdateAudit.memberId || (memberUpdateAudit.member && memberUpdateAudit.member.id) | memberIdToFullName : members : '': true }}</td>
                                     <td>{{ memberUpdateAudit.changes }}</td>
-                                    <td>{{ memberUpdateAudit.auditMessage || NO_CHANGES_OR_DIFFERENCES }}
+                                    <td>{{ auditChangeSummary(memberUpdateAudit) }}
                                       @if (memberUpdateAudit.auditErrorMessage) {
                                         <span>
                                     <strong>Error Message: </strong>
@@ -551,6 +546,17 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                       }
                     </div>
                   </div>
+                </div>
+              </tab>
+              <tab heading="Sync notifications">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <p class="form-text text-muted">
+                    When a sync finds a member whose local record differs from Head Office, it queues a notification
+                    instead of emailing. Review the queue and send on demand from the dedicated page.
+                  </p>
+                  <button type="button" class="btn btn-primary"
+                          (click)="openMemberSyncNotifications()">Open member sync notifications
+                  </button>
                 </div>
               </tab>
             </tabset>
@@ -621,7 +627,6 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   salesforceSyncing = false;
   lastSalesforceFullSync = false;
   salesforceSyncAuditLog: StatusMessage[] = [];
-  protected readonly NO_CHANGES_OR_DIFFERENCES = NO_CHANGES_OR_DIFFERENCES;
 
   ngOnInit() {
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse) => {
@@ -717,6 +722,10 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  openMemberSyncNotifications() {
+    this.urlService.navigateTo(["admin", "member-sync-notifications"]);
   }
 
   async triggerSalesforceSync(fullSync: boolean) {
@@ -824,6 +833,10 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
 
   sortMemberUpdateAuditBy(field: string) {
     this.applySortTo(field, this.filters.memberUpdateAudit, this.memberUpdateAudits);
+  }
+
+  protected auditChangeSummary(audit: MemberUpdateAudit): string {
+    return this.memberBulkLoadService.summariseFieldChanges(audit.fieldChanges);
   }
 
   memberUpdateAuditSummary() {

@@ -89,6 +89,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
+      path: "member-sync-notifications",
+      loadComponent: () => import("../../pages/admin/member-sync-notifications/member-sync-notifications.component")
+        .then(m => m.MemberSyncNotificationsComponent),
+      canActivate: [SystemHealthyGuard, AdminAuthGuard]
+    },
+    {
       path: "system-settings", loadComponent: () => import("../../pages/admin/system-settings/system-settings")
         .then(m => m.SystemSettingsComponent), canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },

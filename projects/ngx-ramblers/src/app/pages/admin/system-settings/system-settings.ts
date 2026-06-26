@@ -61,6 +61,8 @@ import { SectionToggle, SectionToggleTab } from "../../../shared/components/sect
 import { FooterLinkSetting } from "./footer-link-setting";
 import { SalesforceSettings } from "./salesforce/salesforce-settings";
 import { SalesforceConfigService } from "../../../services/salesforce/salesforce-config.service";
+import { MemberSyncPolicySettings } from "./member-sync-policy/member-sync-policy-settings";
+import { MemberSyncPolicyService } from "../../../services/member/member-sync-policy.service";
 import { ScheduledTasksComponent } from "./scheduled-tasks/scheduled-tasks";
 import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-settings";
 
@@ -366,6 +368,9 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
                     @if (showSubTab(ExternalSystemsSubTab.SALESFORCE)) {
                         <app-salesforce-settings/>
                     }
+                    @if (showSubTab(ExternalSystemsSubTab.MEMBER_SYNC_POLICY)) {
+                        <app-member-sync-policy-settings/>
+                    }
                     @if (showSubTab(ExternalSystemsSubTab.CLOUDFLARE)) {
                         <app-system-cloudflare-settings/>
                         <app-system-cloudflare-web-analytics-settings [config]="config"/>
@@ -426,7 +431,7 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, ScheduledTasksComponent, SystemGmailInboxSettingsComponent, SystemMemorySettingsComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemGmailInboxSettingsComponent, SystemMemorySettingsComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -446,6 +451,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   private inboxService: InboxService = inject(InboxService);
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private salesforceConfigService: SalesforceConfigService = inject(SalesforceConfigService);
+  private memberSyncPolicyService: MemberSyncPolicyService = inject(MemberSyncPolicyService);
   private notifierService: NotifierService = inject(NotifierService);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   private urlService: UrlService = inject(UrlService);
@@ -489,6 +495,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     {value: ExternalSystemsSubTab.SOCIAL, label: "Social Media"},
     {value: ExternalSystemsSubTab.MAPS, label: "Maps"},
     {value: ExternalSystemsSubTab.SALESFORCE, label: "Salesforce"},
+    {value: ExternalSystemsSubTab.MEMBER_SYNC_POLICY, label: "Member Sync Policy"},
     {value: ExternalSystemsSubTab.CLOUDFLARE, label: "Cloudflare"},
     {value: ExternalSystemsSubTab.SECURITY, label: "Security"}
   ];
@@ -497,6 +504,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     this.logger.info("constructed");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.salesforceConfigService.refresh();
+    this.memberSyncPolicyService.refresh();
     this.broadcastService.on(NamedEventType.DEFAULT_LOGO_CHANGED, (namedEvent: NamedEvent<string>) => {
       this.logger.debug("event received:", namedEvent);
       this.headerLogoChanged(namedEvent.data);
@@ -534,6 +542,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   undoChanges() {
     this.systemConfigService.refresh();
     this.salesforceConfigService.refresh();
+    this.memberSyncPolicyService.refresh();
     this.inboxRoleNotificationsPendingSave = [];
     this.inboxRefreshToken++;
   }
@@ -604,11 +613,16 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
       await this.salesforceConfigService.save(this.salesforceConfigService.cached())
         .catch((error) => this.notify.error({title: "Error saving Salesforce config", message: error}));
     }
+    if (this.memberSyncPolicyService.hasLoaded()) {
+      await this.memberSyncPolicyService.save(this.memberSyncPolicyService.cached())
+        .catch((error) => this.notify.error({title: "Error saving member sync policy", message: error}));
+    }
   }
 
   cancel() {
     this.systemConfigService.refresh();
     this.salesforceConfigService.refresh();
+    this.memberSyncPolicyService.refresh();
     this.urlService.navigateTo(["admin"]);
   }
 

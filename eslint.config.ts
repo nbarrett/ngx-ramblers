@@ -3,6 +3,32 @@ import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 import angular from "angular-eslint";
 
+const ngxConventions = {
+  rules: {
+    "no-native-date-input": {
+      meta: {
+        type: "problem" as const,
+        docs: {description: "Disallow the native <input type=\"date\"> field; use the app-date-range-slider or app-date-picker components."},
+        messages: {banned: "Native date input is banned because it breaks the date-component convention. Use app-date-range-slider or app-date-picker instead."},
+        schema: [],
+      },
+      create(context: any) {
+        const sourceCode = context.sourceCode ?? context.getSourceCode();
+        const reportNativeDateInputs = () => {
+          const text: string = sourceCode.getText();
+          const matcher = /type\s*=\s*["']date["']/g;
+          let match: RegExpExecArray | null = matcher.exec(text);
+          while (match !== null) {
+            context.report({loc: sourceCode.getLocFromIndex(match.index), messageId: "banned"});
+            match = matcher.exec(text);
+          }
+        };
+        return {Program: reportNativeDateInputs};
+      },
+    },
+  },
+};
+
 const sharedTypescriptRulesOff: Record<string, "off"> = {
   "@typescript-eslint/consistent-generic-constructors": "off",
   "@typescript-eslint/no-empty-object-type": "off",
@@ -303,6 +329,14 @@ export default defineConfig([
       "@typescript-eslint/no-empty-function": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+  {
+    files: ["projects/ngx-ramblers/**/*.ts", "projects/ngx-ramblers/**/*.html"],
+    ignores: ["**/*.spec.ts"],
+    plugins: {ngx: ngxConventions},
+    rules: {
+      "ngx/no-native-date-input": "error",
     },
   }
 ]);

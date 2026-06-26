@@ -20,6 +20,8 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { MemberNamingService } from "../../../services/member/member-naming.service";
 import { MemberUpdateAuditService } from "../../../services/member/member-update-audit.service";
 import { MemberService } from "../../../services/member/member.service";
+import { MemberSyncNotificationService } from "../../../services/member/member-sync-notification.service";
+import { MemberSyncNotificationStatus } from "../../../models/member-sync-notification.model";
 import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { ProfileConfirmationService } from "../../../services/profile-confirmation.service";
@@ -29,7 +31,6 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
 import { MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM, MailListAudit, MailMessagingConfig, MemberAdminModalTab } from "../../../models/mail.model";
 import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
-import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FormsModule } from "@angular/forms";
 import { DatePicker } from "../../../date-and-time/date-picker";
@@ -49,10 +50,7 @@ import { UpdatedAuditPipe } from "../../../pipes/updated-audit-pipe";
 import { FormatAuditPipe } from "../../../pipes/format-audit-pipe";
 import { DeletedMemberService } from "../../../services/member/deleted-member.service";
 import { InputSize } from "../../../models/ui-size.model";
-import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
-import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
-import { SortableTableColumn } from "../../../modules/common/sortable-table/sortable-table.model";
-import { DESCENDING } from "../../../models/table-filtering.model";
+import { MemberAuditHistoryComponent } from "./member-audit-history";
 
 @Component({
   selector: "app-member-admin-modal",
@@ -61,7 +59,7 @@ import { DESCENDING } from "../../../models/table-filtering.model";
   providers: [FormatAuditPipe],
   imports: [TabsetComponent, TabDirective, FormsModule, DatePicker, MarkdownEditorComponent, TooltipDirective,
     FontAwesomeModule, MailChimpSubscriptionSettingsComponent, MailSubscriptionSettingsComponent, SwitchIconComponent,
-    SecretInputComponent, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, DisplayDatePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe, SortableTableComponent, SortableTableCellDirective]
+    SecretInputComponent, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, DisplayDatePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe, MemberAuditHistoryComponent]
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberAdminModalComponent", NgxLoggerLevel.ERROR);
@@ -70,8 +68,9 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private memberUpdateAuditService = inject(MemberUpdateAuditService);
   private memberAuthAuditService = inject(MemberAuthAuditService);
   private memberNamingService = inject(MemberNamingService);
-  private stringUtils = inject(StringUtilsService);
+  protected stringUtils = inject(StringUtilsService);
   private memberService = inject(MemberService);
+  private memberSyncNotificationService = inject(MemberSyncNotificationService);
   private mailListUpdaterService = inject(MailListUpdaterService);
   private fullNameWithAliasPipe = inject(FullNameWithAliasPipe);
   private memberLoginService = inject(MemberLoginService);
@@ -99,10 +98,10 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   public allowConfirmDelete = false;
   public saveInProgress: boolean;
   public member: Member;
+  public pendingSyncNotificationCount = 0;
   public receivedInLastBulkLoad: boolean;
   public lastBulkLoadDate: number;
   public editMode: EditMode;
-  public NO_CHANGES_OR_DIFFERENCES = NO_CHANGES_OR_DIFFERENCES;
   public members: Member[] = [];
   public mailListAudits: MailListAudit[] = [];
   public mailchimpConfig: MailchimpConfig;
@@ -113,12 +112,6 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   protected rawMemberDataVisible = false;
   protected readonly MailProvider = MailProvider;
   protected readonly InputSize = InputSize;
-  protected readonly DESCENDING = DESCENDING;
-  protected readonly memberUpdateAuditColumns: SortableTableColumn<MemberUpdateAudit>[] = [
-    {key: "updateTime", label: "Update Time", sortKey: "updateTime"},
-    {key: "memberAction", label: "Member Action", sortKey: "memberAction", cellGetter: row => row.memberAction},
-    {key: "auditMessage", label: "Audit Message", sortKey: "auditMessage"}
-  ];
   protected isLifeMember(): boolean {
     return (this.member?.memberTerm?.toString()?.toLowerCase() === MemberTerm.LIFE);
   }
@@ -156,9 +149,19 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     if (memberId) {
       this.refreshMemberUpdateAuditsForMember(memberId);
       this.refreshMailListAuditsForMember(memberId);
+      this.refreshPendingSyncNotifications(memberId);
     } else {
       this.logger.debug("new member with default values", this.member);
     }
+  }
+
+  private refreshPendingSyncNotifications(memberId: string) {
+    this.memberSyncNotificationService.all({criteria: {memberId, status: MemberSyncNotificationStatus.PENDING}})
+      .then(notifications => {
+        this.pendingSyncNotificationCount = notifications.length;
+        this.logger.debug("pending sync notifications for member", memberId, "=", this.pendingSyncNotificationCount);
+      })
+      .catch(error => this.logger.error("refreshPendingSyncNotifications:error", error));
   }
 
   private refreshMemberUpdateAuditsForMember(memberId: string) {

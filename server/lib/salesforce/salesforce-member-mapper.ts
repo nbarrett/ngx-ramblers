@@ -39,7 +39,8 @@ function tristateBoolean(value: boolean | undefined): string | undefined {
 
 export function mapSalesforceMemberToRamblersMember(salesforceMember: SalesforceMember, options: SalesforceMapperOptions = {}): RamblersMember {
   const ramblersMember: RamblersMember = {
-    membershipNumber: salesforceMember.membershipNumber || salesforceMember.salesforceId,
+    salesforceId: salesforceMember.salesforceId || null,
+    membershipNumber: salesforceMember.membershipNumber || null,
     membershipExpiryDate: formatIsoDateAs(salesforceMember.membershipExpiryDate, "dd/MM/yy"),
     email: salesforceMember.email || null,
     firstName: salesforceMember.firstName || null,

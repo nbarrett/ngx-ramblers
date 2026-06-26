@@ -1,6 +1,13 @@
 <div class="modal-content">
   <div class="modal-header">
-    <h4 class="modal-title">{{editMode}} <em>Member</em> Details</h4>
+    <h4 class="modal-title">{{editMode}} <em>Member</em> Details
+      @if (pendingSyncNotificationCount > 0) {
+        <span class="badge bg-warning text-dark ms-2"
+              tooltip="This member has {{ stringUtils.pluraliseWithCount(pendingSyncNotificationCount, 'pending Head Office sync notification') }} awaiting send">
+          {{ stringUtils.pluraliseWithCount(pendingSyncNotificationCount, 'pending sync notification') }}
+        </span>
+      }
+    </h4>
     <button type="button" class="close" data-bs-dismiss="modal" (click)="bsModalRef.hide();"
             aria-hidden="true">&times;
     </button>
@@ -474,15 +481,7 @@
             </div>
             <div class="row">
               <div class="col col-sm-12">
-                <app-sortable-table
-                  [columns]="memberUpdateAuditColumns"
-                  [rows]="memberUpdateAudits"
-                  [defaultSortKey]="'updateTime'"
-                  [defaultSortDirection]="DESCENDING"
-                  emptyMessage="No member audit entries">
-                  <ng-template appSortableTableCell="updateTime" let-row>{{ row.updateTime | displayDateAndTime }}</ng-template>
-                  <ng-template appSortableTableCell="auditMessage" let-row>{{ row.auditMessage || NO_CHANGES_OR_DIFFERENCES }}</ng-template>
-                </app-sortable-table>
+                <app-member-audit-history [audits]="memberUpdateAudits"/>
               </div>
             </div>
           </div>

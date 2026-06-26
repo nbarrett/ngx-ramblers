@@ -124,6 +124,9 @@ export enum BuiltInRole {
   CONTACT_US = "CONTACT_US"
 }
 
+export const CONTACT_US_TYPE = "contact-us";
+export const CONTACT_US_LABEL = "Contact Us";
+
 export enum ForwardEmailTarget {
   MEMBER_EMAIL = "MEMBER_EMAIL",
   ROLE_EMAIL = "ROLE_EMAIL",
