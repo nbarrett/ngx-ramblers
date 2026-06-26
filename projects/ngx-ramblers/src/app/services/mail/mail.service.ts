@@ -213,6 +213,10 @@ export class MailService {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/local-content`, {templateName}))).response;
   }
 
+  async queryLocalTemplateNames(): Promise<string[]> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/templates/local-names`))).response?.templateNames ?? [];
+  }
+
   async renderTemplate(request: TemplateRenderRequest): Promise<TemplateRenderResponse> {
     this.logger.info("renderTemplate:", request);
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates/render`, request))).response;

@@ -422,7 +422,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.logger.debug("constructed");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.notify.setBusy();
-    this.memberService.all().then(members => this.members = members);
+    this.refreshMembers();
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
       const defaultValue = kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS);
       const tabParameter = params[StoredValue.TAB];
@@ -446,7 +446,11 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     }));
     this.broadcastService.on(NamedEventType.MAIL_LISTS_CHANGED, () => {
       this.logger.info("event received:", NamedEventType.MAIL_LISTS_CHANGED);
-      this.mailMessagingService.initialise();
+      this.refreshMailListData();
+    });
+    this.broadcastService.on(NamedEventType.MAIL_SUBSCRIPTION_CHANGED, () => {
+      this.logger.info("event received:", NamedEventType.MAIL_SUBSCRIPTION_CHANGED);
+      this.refreshMailListData();
     });
     this.broadcastService.on(NamedEventType.NOTIFY_MESSAGE, (namedEvent: NamedEvent<AlertMessageAndType>) => {
       this.logger.info("event received:", namedEvent);
@@ -476,6 +480,16 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  private async refreshMembers(): Promise<void> {
+    this.members = await this.memberService.all();
+  }
+
+  private refreshMailListData(): void {
+    this.acceptNextConfigEmission = true;
+    this.refreshMembers();
+    this.mailMessagingService.initialise();
   }
 
   confirmCreateList() {

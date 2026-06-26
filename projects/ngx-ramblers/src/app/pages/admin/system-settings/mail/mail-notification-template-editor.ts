@@ -33,6 +33,7 @@ import {
   faEraser,
   faForward,
   faImage,
+  faPaperPlane,
   faSpinner,
   faTrash,
   faTriangleExclamation
@@ -52,6 +53,7 @@ import { RootFolder } from "../../../../models/system.model";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { Location } from "@angular/common";
 import { StoredValue } from "../../../../models/ui-actions";
+import { PathSegment } from "../../../../models/content-text.model";
 import { ContentBlockEditorComponent } from "./content-block-editor";
 import { EmailBodyEditorComponent } from "./email-body-editor";
 import { BOOKING_EMAIL_BLOCK_KEYS, DEFAULT_BOOKING_EMAIL_BLOCKS } from "../../../../models/booking-config.model";
@@ -137,6 +139,12 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                   <option [ngValue]="configSelectionValue(mapping, index)">{{ cachedConfigLabels.get(mapping) || mapping?.subject?.text }}</option>
                 }
               </select>
+              @if (notificationConfig?.id && !isWorkflowConfig) {
+                <button type="button" class="btn btn-sm btn-primary text-nowrap" (click)="composeEmail()"
+                        title="Create an email using this configuration in the Email Composer">
+                  <fa-icon [icon]="faPaperPlane" class="me-1"/>Compose email
+                </button>
+              }
             </div>
           </div>
           <div class="col-sm-12 mt-2 mb-2">
@@ -349,7 +357,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                                             [blockDefaults]="discoveredContentBlockDefaults"
                                             [omitAllowed]="!isBookingConfig()"/>
                 } @else if (notificationConfig) {
-                  <app-email-body-editor [notificationConfig]="notificationConfig"/>
+                  <app-email-body-editor [notificationConfig]="notificationConfig" [isBuiltInProcess]="isWorkflowConfig"/>
                 }
               </div>
               <div class="thumbnail-heading-frame">
@@ -496,6 +504,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   protected readonly faSpinner = faSpinner;
   protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly faImage = faImage;
+  protected readonly faPaperPlane = faPaperPlane;
   protected readonly faTrash = faTrash;
   protected readonly faChevronDown = faChevronDown;
   protected readonly faChevronUp = faChevronUp;
@@ -657,6 +666,15 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   previousConfig() {
     if (!this.previousConfigDisabled()) {
       this.select(this.mailMessagingConfig.notificationConfigs[this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) - 1]);
+    }
+  }
+
+  composeEmail() {
+    if (this.notificationConfig?.id && !this.isWorkflowConfig) {
+      this.urlService.navigateTo([...this.urlService.pathSegments(), PathSegment.EMAIL_COMPOSER], {
+        [StoredValue.CONFIG_ID]: this.notificationConfig.id,
+        [StoredValue.SOURCE_PAGE]: this.urlService.urlPath()
+      });
     }
   }
 

@@ -26,15 +26,21 @@ export async function writeBackFullOptOuts(savedMembers: Member[], priorSubscrip
   await Promise.all(fullOptOuts.map(member => writeBackOne(member, createdBy)));
 }
 
+export async function writeBackOptOutsForRemovedMembers(removedMembers: Member[], createdBy: string): Promise<void> {
+  const optOuts = removedMembers.filter(member => !!member.membershipNumber && activeSubscribedCount(member.mail?.subscriptions) > 0);
+  await Promise.all(optOuts.map(member => writeBackOne(member, createdBy)));
+}
+
 async function writeBackOne(member: Member, createdBy: string): Promise<void> {
   try {
     const outcome = await notifySalesforceFullyOptedOut({membershipNumber: member.membershipNumber, reason: FULL_OPT_OUT_REASON});
     if (!outcome.attempted) {
       return;
     }
+    debugLog("writeBackOne:outcome", member.membershipNumber, outcome.success ? "success" : "failed", `HTTP ${outcome.status ?? "n/a"}`, `${outcome.latencyMs}ms`, outcome.errorCode ?? "", outcome.errorMessage ?? "");
     const auditMessage = outcome.success
-      ? `Salesforce consent writeback succeeded after ${FULL_OPT_OUT_REASON} (HTTP ${outcome.status}, ${outcome.latencyMs}ms)`
-      : `Salesforce consent writeback failed after ${FULL_OPT_OUT_REASON}: ${outcome.errorCode || "UNKNOWN"} - ${outcome.errorMessage || "no detail"} (HTTP ${outcome.status ?? "n/a"}, ${outcome.latencyMs}ms)`;
+      ? `Email marketing consent withdrawal sent to Ramblers Head Office after all mailing list subscriptions were removed (${outcome.latencyMs}ms).`
+      : `Email marketing consent withdrawal could not be sent to Ramblers Head Office after all mailing list subscriptions were removed (${outcome.latencyMs}ms)${outcome.errorMessage ? `: ${outcome.errorMessage}` : ""}.`;
     await mailListAudit.create({
       memberId: member.id,
       listId: 0,

@@ -7,6 +7,7 @@ import { Brevo } from "@getbrevo/brevo";
 import { handleError, mapStatusMappedResponseSingleInput, successfulResponse } from "../common/messages";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { ensureMemberContactAttributes, stripUnavailableMemberAttributes } from "./member-contact-attributes";
+import { fetchExistingListIds, filterToExistingListIds } from "../lists/existing-list-ids";
 
 const messageType = "brevo:contacts:create";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -17,11 +18,16 @@ export async function contactsCreate(req: Request, res: Response): Promise<any> 
     const client = await brevoClient();
     const createContactRequests: CreateContactRequestWithObjectAttributes[] = req.body;
     const availableMemberAttributes = await ensureMemberContactAttributes();
+    const existingListIds = await fetchExistingListIds(client);
     debugLog("received", createContactRequests.length, "createContactRequests:", createContactRequests);
     const responses = await Promise.all(createContactRequests.map(async (createContactRequest: CreateContactRequestWithObjectAttributes) => {
+      const {valid: listIds, missing: missingListIds} = filterToExistingListIds(createContactRequest.listIds, existingListIds);
+      if (missingListIds.length > 0) {
+        debugLog("skipping list ids not present in the connected Brevo account:", missingListIds, "for", createContactRequest.email);
+      }
       const createContact: Brevo.CreateContactRequest = {
         email: createContactRequest.email,
-        listIds: createContactRequest.listIds,
+        listIds: listIds.length > 0 ? listIds : undefined,
         attributes: stripUnavailableMemberAttributes(createContactRequest.attributes, availableMemberAttributes) as unknown as Brevo.CreateContactRequest["attributes"],
         ext_id: createContactRequest.extId
       };
