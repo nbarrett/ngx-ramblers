@@ -8,7 +8,7 @@ import { Member, MemberBulkLoadDateMap, MemberFilterSelection, MemberTerm, SORT_
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { MemberSelection, NotificationConfig } from "../../../models/mail.model";
+import { MemberSelection, NotificationConfig, WorkflowAction } from "../../../models/mail.model";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { PriorSendExclusion, RECIPIENT_PRE_FILTERS, RecipientPreFilter } from "../../../models/email-composer.model";
 import { MemberEmailSendService } from "../../../services/member-email-send/member-email-send.service";
@@ -278,7 +278,12 @@ export class MemberMultiSelect implements OnChanges {
   }
 
   private deliverabilityOptional(key: MemberSelection | null): boolean {
-    return key === MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS;
+    return key === MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS || this.workflowRemovesRecipients();
+  }
+
+  private workflowRemovesRecipients(): boolean {
+    const postSendActions = this.notificationConfig?.postSendActions ?? [];
+    return postSendActions.includes(WorkflowAction.BULK_DELETE_GROUP_MEMBER) || postSendActions.includes(WorkflowAction.DISABLE_GROUP_MEMBER);
   }
 
   private wouldMatchByCriteria(member: Member, key: MemberSelection | null): boolean {
@@ -394,9 +399,12 @@ export class MemberMultiSelect implements OnChanges {
           ? `created ${this.dateUtils.displayDate(member.createdDate)}`
           : memberGrouping;
       case MemberSelection.EXPIRED_MEMBERS:
-        return member.membershipExpiryDate
+        if (!member.membershipExpiryDate) {
+          return memberGrouping;
+        }
+        return member.membershipExpiryDate < this.dateUtils.dateTimeNowNoTime().toMillis()
           ? `expired ${this.dateUtils.displayDate(member.membershipExpiryDate)}`
-          : memberGrouping;
+          : `expires ${this.dateUtils.displayDate(member.membershipExpiryDate)}`;
       case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS: {
         const lastBulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] : null;
         return lastBulkLoadDate

@@ -1721,6 +1721,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected committeeFileUrlError: string | null = null;
   protected committeeFileUrlAllowedIds: string[] | null = null;
   protected members: Member[] = [];
+  protected allMembers: Member[] = [];
   protected memberBulkLoadDateMap: MemberBulkLoadDateMap | null = null;
   protected senderExists = false;
   protected forcedConfigId: string | null = null;
@@ -1821,7 +1822,8 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.systemConfig = systemConfig;
     }));
-    this.members = await this.memberService.privilegedFields(this.memberService.filterFor.GROUP_MEMBERS);
+    this.allMembers = await this.memberService.privilegedFields();
+    this.members = this.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
     try {
       this.memberBulkLoadDateMap = await this.memberBulkLoadAuditService.createMemberBulkLoadDateMap();
     } catch (error) {
@@ -2497,6 +2499,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   private cachedNarrowListId: number | null | undefined = undefined;
   private cachedMembersRef: Member[] = [];
   private cachedReferenceListId: number | null | undefined = undefined;
+  private cachedRemovesRecipients: boolean | undefined = undefined;
 
   private unsubscribeReferenceListId(): number | null {
     const narrowListId = this.state.narrowListId;
@@ -2510,10 +2513,12 @@ export class EmailComposer implements OnInit, OnDestroy {
   private recomputeCandidateMembers(): void {
     const narrowListId = this.state.narrowListId;
     const referenceListId = this.unsubscribeReferenceListId();
+    const removesRecipients = this.workflowRemovesRecipients();
+    const basePool = removesRecipients ? this.allMembers : this.members;
     if (narrowListId === null) {
-      this.cachedCandidateMembers = this.members;
+      this.cachedCandidateMembers = basePool;
     } else {
-      this.cachedCandidateMembers = this.members.filter(member =>
+      this.cachedCandidateMembers = basePool.filter(member =>
         this.mailListUpdaterService.memberSubscribed(member, narrowListId));
     }
     this.cachedUnsubscribedDates = this.cachedCandidateMembers.reduce((dates, member) => {
@@ -2528,6 +2533,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.cachedNarrowListId = narrowListId;
     this.cachedMembersRef = this.members;
     this.cachedReferenceListId = referenceListId;
+    this.cachedRemovesRecipients = removesRecipients;
   }
 
   candidateMembers(): Member[] {
@@ -2547,7 +2553,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   private candidateCacheStale(): boolean {
     return this.cachedNarrowListId !== this.state.narrowListId
       || this.cachedMembersRef !== this.members
-      || this.cachedReferenceListId !== this.unsubscribeReferenceListId();
+      || this.cachedReferenceListId !== this.unsubscribeReferenceListId()
+      || this.cachedRemovesRecipients !== this.workflowRemovesRecipients();
   }
 
   setRecipientMode(mode: RecipientMode): void {
@@ -3539,6 +3546,10 @@ export class EmailComposer implements OnInit, OnDestroy {
     return this.configHasWorkflowAction(WorkflowAction.DISABLE_GROUP_MEMBER);
   }
 
+  private workflowRemovesRecipients(): boolean {
+    return this.bulkDeletionPending() || this.memberDisablePending();
+  }
+
   protected postSendActionWarningVisible(): boolean {
     return (this.bulkDeletionPending() || this.memberDisablePending()) && !this.postSendActionWarningDismissed;
   }
@@ -3567,7 +3578,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.templateContentHtml = null;
       this.templateContentError = null;
       this.lastTemplateContentTemplateName = null;
-      this.removeTemplateContentFragment();
+      this.applyTemplateContentFragmentPresence();
       return;
     }
     if (this.lastTemplateContentTemplateName === templateName && this.templateContentHtml) {
@@ -3596,7 +3607,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private applyTemplateContentFragmentPresence(): void {
-    if (this.templateHasTopBottomPlaceholders()) {
+    if (this.templateHasTopBottomPlaceholders() || !!this.state.notificationConfig?.body) {
       this.ensureTemplateContentFragment();
     } else {
       this.removeTemplateContentFragment();
@@ -3751,7 +3762,7 @@ export class EmailComposer implements OnInit, OnDestroy {
           ? "Select at least one member or add an external recipient"
           : "Select at least one member");
       }
-      const blockedMembers = this.blockedSelectedMembers();
+      const blockedMembers = this.workflowRemovesRecipients() ? [] : this.blockedSelectedMembers();
       if (blockedMembers.length === 1) {
         errors.push(`${this.memberFullName(blockedMembers[0].member)} ${blockedMembers[0].reason} and cannot be emailed - choose a different recipient`);
       } else if (blockedMembers.length > 1) {
@@ -4857,7 +4868,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     const created: StatusMappedResponseSingleInput = await this.mailService.createCampaign(request);
     const campaignId: number = created?.responseBody?.id;
     await this.mailService.sendCampaign({ campaignId });
-    const postSendSummary = await this.applyCampaignPostSendActions(groupMembers);
+    const postSendSummary = await this.applyCampaignPostSendActions();
     this.campaignSendComplete = true;
     this.sendInProgress = false;
     await this.recordSentToHistory();
@@ -4868,16 +4879,19 @@ export class EmailComposer implements OnInit, OnDestroy {
     });
   }
 
-  private async applyCampaignPostSendActions(groupMembers: Member[]): Promise<string> {
+  private async applyCampaignPostSendActions(): Promise<string> {
     const postSendActions = this.state.notificationConfig?.postSendActions ?? [];
     if (postSendActions.length === 0 || this.state.selectedListId === null) {
       return "";
     }
-    const listMemberIds = groupMembers
+    const listMemberIds = this.members
+      .filter(this.memberService.filterFor.GROUP_MEMBERS)
       .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.state.selectedListId!))
       .map(member => member.id)
       .filter((id): id is string => !!id);
+    this.logger.info("applyCampaignPostSendActions: resolved", listMemberIds.length, "list members subscribed to list", this.state.selectedListId, "for post-send actions", postSendActions);
     if (listMemberIds.length === 0) {
+      this.notify.warning({title: "Post-send actions", message: `The campaign was sent, but no members were found subscribed to the list for the configured post-send action - nothing was deleted or disabled.`});
       return "";
     }
     try {

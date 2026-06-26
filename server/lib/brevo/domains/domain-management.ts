@@ -22,7 +22,10 @@ async function domainsApi() {
   return client.domains;
 }
 
-function mapDnsRecord(record: { type: string; host_name: string; value: string; status: boolean }): BrevoDnsRecord {
+function mapDnsRecord(record: { type: string; host_name: string; value: string; status: boolean } | null | undefined): BrevoDnsRecord {
+  if (!record) {
+    return EMPTY_DNS_RECORD;
+  }
   return {
     type: record.type,
     hostName: record.host_name,
@@ -33,8 +36,8 @@ function mapDnsRecord(record: { type: string; host_name: string; value: string; 
 
 function mapDnsRecords(records: Brevo.CreateDomainResponse.DnsRecords | Brevo.GetDomainConfigurationResponse.DnsRecords | undefined): BrevoDomainDnsRecords {
   return {
-    dkimRecord: records ? mapDnsRecord(records.dkim_record) : EMPTY_DNS_RECORD,
-    brevoCode: records ? mapDnsRecord(records.brevo_code) : EMPTY_DNS_RECORD
+    dkimRecord: mapDnsRecord(records?.dkim_record),
+    brevoCode: mapDnsRecord(records?.brevo_code)
   };
 }
 

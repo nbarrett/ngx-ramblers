@@ -206,12 +206,12 @@ function memberSuppressionReason(member: Member, referenceListId: number | null)
   const subscriptions = member.mail?.subscriptions ?? [];
   if (referenceListId !== null) {
     return subscriptions.some(subscription => subscription.id === referenceListId && !subscription.subscribed && !!subscription.unsubscribedAt)
-      ? "Unsubscribed from this mailing list"
+      ? "Already unsubscribed from this mailing list"
       : null;
   }
   const hasGenuineUnsubscribe = subscriptions.some(subscription => !subscription.subscribed && !!subscription.unsubscribedAt);
   return hasGenuineUnsubscribe && !subscriptions.some(subscription => subscription.subscribed)
-    ? "Unsubscribed from all mailing lists"
+    ? "Already unsubscribed from all mailing lists"
     : null;
 }
 
@@ -388,7 +388,7 @@ async function applyPostSendActions(notifConfig: NotificationConfig | null, memb
   }
 }
 
-function annotateWorkflowActionNotes(sentEntries: BatchSendProgressEntry[], notifConfig: NotificationConfig | null, passwordResetGenerated: boolean): void {
+function annotateWorkflowActionNotes(entries: BatchSendProgressEntry[], notifConfig: NotificationConfig | null, passwordResetGenerated: boolean): void {
   const postSendActions = notifConfig?.postSendActions ?? [];
   const notes: string[] = [];
   if (passwordResetGenerated) {
@@ -403,8 +403,8 @@ function annotateWorkflowActionNotes(sentEntries: BatchSendProgressEntry[], noti
   if (notes.length === 0) {
     return;
   }
-  const note = notes.join("; ");
-  sentEntries.forEach(entry => { entry.note = note; });
+  const actionNote = notes.join("; ");
+  entries.forEach(entry => { entry.note = actionNote; });
 }
 
 async function processBatch(jobId: string, request: BatchTransactionalSendRequest, baseUrl: string, currentMemberId: string | null): Promise<void> {
@@ -480,7 +480,6 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
 
     progress.entries = [...memberEntries, ...externalEntries];
     progress.startedAt = dateTimeNow().toMillis();
-    const notEmailableMemberIds: string[] = [];
 
     for (const item of workItems) {
       if (cancelled.has(jobId)) {
@@ -502,7 +501,6 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           entry.status = BatchSendEntryStatus.Skipped;
           entry.errorMessage = "No email address";
           entry.notEmailable = true;
-          notEmailableMemberIds.push(entry.memberId);
           progress.skippedCount += 1;
           continue;
         }
@@ -513,7 +511,6 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           entry.errorMessage = suppressionReason;
           if (memberRecord.emailBlock) {
             entry.notEmailable = true;
-            notEmailableMemberIds.push(entry.memberId);
           }
           progress.skippedCount += 1;
           continue;
@@ -653,11 +650,12 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       sentBy: currentMemberId,
       entries: sentEntries.map(entry => ({ memberId: entry.memberId, email: entry.email, sentAt: entry.sentAt ?? dateTimeNow().toMillis() }))
     });
-    const postSendMemberIds = Array.from(new Set([...sentMemberIds, ...notEmailableMemberIds]));
+    const skippedEntries = memberEntries.filter(entry => entry.status === BatchSendEntryStatus.Skipped);
+    const skippedMemberIds = skippedEntries.map(entry => entry.memberId);
+    const postSendMemberIds = Array.from(new Set([...sentMemberIds, ...skippedMemberIds]));
     await applyPostSendActions(notifConfig, postSendMemberIds, currentMemberId, debugLog);
-    const notEmailableEntries = memberEntries.filter(entry => entry.notEmailable);
     annotateWorkflowActionNotes(sentEntries, notifConfig, generatePasswordResetIds);
-    annotateWorkflowActionNotes(notEmailableEntries, notifConfig, false);
+    annotateWorkflowActionNotes(skippedEntries, notifConfig, false);
     progress.completedAt = dateTimeNow().toMillis();
     progress.status = progress.failedCount === 0 ? BatchSendStatus.COMPLETED : BatchSendStatus.COMPLETED_WITH_ERRORS;
   } catch (error: any) {

@@ -26,7 +26,7 @@ import { MailService } from "./mail.service";
 import { MemberService } from "../member/member.service";
 import { groupBy } from "es-toolkit/compat";
 import { isNumber } from "es-toolkit/compat";
-import { isBoolean } from "es-toolkit/compat";
+import { booleanOf } from "../../functions/strings";
 import { map } from "es-toolkit/compat";
 import { values } from "es-toolkit/compat";
 import { MailProviderStats } from "../../models/system.model";
@@ -37,6 +37,9 @@ import { AuditStatus } from "../../models/audit";
 import { omit } from "es-toolkit/compat";
 import { first } from "es-toolkit/compat";
 import { MailMessagingService } from "./mail-messaging.service";
+import { SalesforceConfigService } from "../salesforce/salesforce-config.service";
+import { BroadcastService } from "../broadcast-service";
+import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 
 
 @Injectable({
@@ -50,6 +53,8 @@ export class MailListUpdaterService {
   private mailService: MailService = inject(MailService);
   private fullNamePipe: FullNamePipe = inject(FullNamePipe);
   private memberService: MemberService = inject(MemberService);
+  private salesforceConfigService: SalesforceConfigService = inject(SalesforceConfigService);
+  private broadcastService: BroadcastService<any> = inject(BroadcastService);
   private mailListAuditService: MailListAuditService = inject(MailListAuditService);
   private stringUtils: StringUtilsService = inject(StringUtilsService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
@@ -68,13 +73,7 @@ export class MailListUpdaterService {
     this.logger.info("updateMailLists:members:", members);
     if (this.mailMessagingConfig?.mailConfig?.allowSendCampaign) {
       const membersRequiringSync: Member[] = members.filter(member => this.memberRequiresBrevoSync(member));
-      if (membersRequiringSync.length === 0) {
-        this.logger.info("updateMailLists: all members already in sync with Brevo - skipping reconcile");
-        notify.success({title: "Brevo updates", message: "Brevo contacts already in sync - no changes to apply"});
-        notify.clearBusy();
-        return;
-      }
-      this.logger.info("updateMailLists:", this.stringUtils.pluraliseWithCount(membersRequiringSync.length, "member"), "require Brevo sync");
+      this.logger.info("updateMailLists:", this.stringUtils.pluraliseWithCount(membersRequiringSync.length, "member"), "with changed local data; reconciling Brevo against the NGX database");
       notify.success({
         title: "Brevo updates",
         message: "Synchronising Brevo contacts and lists"
@@ -127,6 +126,13 @@ export class MailListUpdaterService {
       })));
       this.logger.info("contactRemoveRequests", contactRemoveRequests);
       this.logger.info("prepared", this.stringUtils.pluraliseWithCount(contactRemoveRequests.length, "contact remove from list request"), contactRemoveRequests);
+      const pendingChanges = createAllRequests.length + createContactRequests.length + updateContactRequests.length + deleteContactIds.length + contactRemoveRequests.length;
+      if (pendingChanges === 0) {
+        this.logger.info("updateMailLists: Brevo already matches the NGX database - no changes to apply");
+        notify.success({title: "Brevo updates", message: "Brevo contacts already in sync - no changes to apply"});
+        notify.clearBusy();
+        return;
+      }
       if (this.performUpdates) {
         await this.processCreateContactRequests(createContactRequests, members, notify);
         await this.processDeleteContactsRequests(deleteContactIds, members, notify);
@@ -154,22 +160,26 @@ export class MailListUpdaterService {
   }
 
   private respectHeadOfficeConsent(): boolean {
-    return this.mailMessagingConfig?.mailConfig?.respectHeadOfficeConsent !== false;
+    return booleanOf(this.mailMessagingConfig?.mailConfig?.respectHeadOfficeConsent, true);
+  }
+
+  private granularConsentEnabled(): boolean {
+    return booleanOf(this.salesforceConfigService.cached()?.enableGranularConsent);
   }
 
   public brevoConsentWithheld(member: Member): boolean {
-    if (isBoolean(member?.groupMarketingConsent)) {
-      return member.groupMarketingConsent === false;
+    if (this.granularConsentEnabled() && member?.groupMarketingConsent != null) {
+      return !booleanOf(member.groupMarketingConsent);
     }
-    return this.respectHeadOfficeConsent() && member?.emailMarketingConsent === false;
+    return this.respectHeadOfficeConsent() && !booleanOf(member?.emailMarketingConsent);
   }
 
   private brevoEligibleListIds(member: Member): number[] {
-    return this.brevoConsentWithheld(member) ? [] : this.subscribedListIds(member);
+    return this.subscribedListIds(member);
   }
 
   private brevoEligibleForAnyList(member: Member): boolean {
-    return !this.brevoConsentWithheld(member) && this.memberSubscribedToAnyList(member);
+    return this.memberSubscribedToAnyList(member);
   }
 
   public brevoContactSignature(member: Member): string {
@@ -254,6 +264,7 @@ export class MailListUpdaterService {
       await this.stampBrevoSyncStateFor(changedMembers);
     }
     notify.success({title: "Brevo updates", message: "Member Brevo sync complete"});
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAIL_SUBSCRIPTION_CHANGED, changedMembers));
   }
 
   public memberSubscribed(member: Member, listId: number): boolean {

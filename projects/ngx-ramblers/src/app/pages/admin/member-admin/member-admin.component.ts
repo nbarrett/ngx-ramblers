@@ -25,6 +25,8 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-modal.component";
 import { ProfileService } from "../profile/profile.service";
@@ -72,6 +74,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private apiResponseProcessorLogger: Logger = this.loggerFactory.createLogger("MemberAdminComponentResponseProcessor", NgxLoggerLevel.ERROR);
   protected stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private mailchimpConfigService = inject(MailchimpConfigService);
+  private broadcastService: BroadcastService<any> = inject(BroadcastService);
   private memberService = inject(MemberService);
   private apiResponseProcessor = inject(ApiResponseProcessor);
   private mailListUpdaterService = inject(MailListUpdaterService);
@@ -118,6 +121,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private storedSortField = "";
   private storedSortDescending = false;
   private storedSortParamField = "";
+  private storedFilterTitleParam = "";
   private pendingMembershipNumberToOpen: string | null = null;
   private lastOpenedMembershipNumber: string | null = null;
 
@@ -145,6 +149,8 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       const storedSortOrder = sortOrderParam || this.uiActionsService.initialValueFor(StoredValue.SORT_ORDER, "") as string;
       this.storedSortParamField = sortFieldParam || "";
       this.parseStoredSort(storedSortField, storedSortOrder);
+      this.storedFilterTitleParam = params.get(this.stringUtilsService.kebabCase(StoredValue.FILTER)) || "";
+      this.applySelectedFilterFromParam();
     }));
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.mailchimpConfig = await this.mailchimpConfigService.getConfig();
@@ -283,6 +289,9 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
         title: "Committee Member", group: "Administrators", filter: (member: Member) => member.committee
       },
       {
+        title: "Not Committee Member", group: "Administrators", filter: (member: Member) => !member.committee
+      },
+      {
         title: "Walk Leader", group: "Administrators", filter: (member: Member) => this.isWalkLeader(member)
       }
     ];
@@ -296,7 +305,28 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     };
     this.applyStoredSort();
     this.logger.info("filters:", filter1, filter2, filter3);
-    this.memberFilter.selectedFilter = this.memberFilter.availableFilters[0];
+    this.memberFilter.selectedFilter = this.resolveSelectedFilter();
+  }
+
+  private resolveSelectedFilter() {
+    const available = this.memberFilter.availableFilters;
+    const wantedKebab = this.storedFilterTitleParam
+      || (this.uiActionsService.initialValueFor(StoredValue.FILTER, "") as string);
+    const matched = wantedKebab
+      ? available.find(filter => this.stringUtilsService.kebabCase(filter.title) === wantedKebab)
+      : null;
+    return matched ?? available[0];
+  }
+
+  private applySelectedFilterFromParam() {
+    if (!this.memberFilter) {
+      return;
+    }
+    const target = this.resolveSelectedFilter();
+    if (target && target !== this.memberFilter.selectedFilter) {
+      this.memberFilter.selectedFilter = target;
+      this.applyFilterToMembers();
+    }
   }
 
   ngOnDestroy(): void {
@@ -506,6 +536,7 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
       this.logger.info("deletedMembers:", deletedMembers);
       await this.refreshMembers();
       await this.updateLists();
+      this.broadcastService.broadcast(NamedEvent.named(NamedEventType.MAIL_SUBSCRIPTION_CHANGED));
     } finally {
       this.confirm.clear();
       this.bulkDeleteMarkedMemberIds = [];
@@ -595,13 +626,18 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
     }
     const sortField = this.memberFilter.sortField;
     const sortOrder = this.memberFilter.reverseSort ? SortDirection.DESC : SortDirection.ASC;
+    const filterTitleKebab = this.memberFilter.selectedFilter?.title
+      ? this.stringUtilsService.kebabCase(this.memberFilter.selectedFilter.title)
+      : "";
     this.uiActionsService.saveValueFor(StoredValue.SEARCH, this.quickSearch || "");
     this.uiActionsService.saveValueFor(StoredValue.SORT, sortField);
     this.uiActionsService.saveValueFor(StoredValue.SORT_ORDER, sortOrder);
+    this.uiActionsService.saveValueFor(StoredValue.FILTER, filterTitleKebab);
     this.replaceQueryParams({
       [this.stringUtilsService.kebabCase(StoredValue.SEARCH)]: this.quickSearch || null,
       [this.stringUtilsService.kebabCase(StoredValue.SORT)]: this.stringUtilsService.kebabCase(sortField) || null,
-      [this.stringUtilsService.kebabCase(StoredValue.SORT_ORDER)]: sortOrder
+      [this.stringUtilsService.kebabCase(StoredValue.SORT_ORDER)]: sortOrder,
+      [this.stringUtilsService.kebabCase(StoredValue.FILTER)]: filterTitleKebab || null
     });
   }
 

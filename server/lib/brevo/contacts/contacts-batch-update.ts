@@ -12,13 +12,15 @@ import {
   mapStatusMappedResponseMultipleInputs,
   successfulResponse
 } from "../common/messages";
-import { groupBy, values } from "es-toolkit/compat";
+import { chunk, groupBy, values } from "es-toolkit/compat";
+import { fetchExistingListIds, filterToExistingListIds } from "../lists/existing-list-ids";
 
 const messageType = "brevo:contacts:batch-update";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = false;
 
 const IMPORT_ACCEPTED_HTTP_RESPONSE_CODES = [200, 201, 202, 204];
+const UPDATE_BATCH_CONTACT_LIMIT = 100;
 
 function listIdsOf(request: CreateContactRequestWithObjectAttributes): number[] {
   return request.listIds ?? [];
@@ -39,9 +41,24 @@ export async function contactsBatchUpdate(req: Request, res: Response): Promise<
       return;
     }
     const availableMemberAttributes = await ensureMemberContactAttributes();
+    const existingListIds = await fetchExistingListIds(client);
     const requestsGroupedByListIds = values(groupBy(createContactRequests, request => JSON.stringify([...listIdsOf(request)].sort())));
     const groupedResponses: BrevoResponse[] = await Promise.all(requestsGroupedByListIds.map(async groupedRequests => {
-      const listIds = listIdsOf(groupedRequests[0]);
+      const {valid: listIds, missing: missingListIds} = filterToExistingListIds(listIdsOf(groupedRequests[0]), existingListIds);
+      if (missingListIds.length > 0) {
+        debugLog("list ids not present in the connected Brevo account:", missingListIds, "valid:", listIds);
+      }
+      if (listIds.length === 0) {
+        const contacts = groupedRequests.map(request => ({
+          email: request.email,
+          ext_id: request.extId,
+          attributes: stripUnavailableMemberAttributes(request.attributes, availableMemberAttributes) as Record<string, unknown>
+        }));
+        debugLog("no valid list for group - updating contact attributes only (import requires a list) for", contacts.length, "contacts");
+        const batchResponses = await Promise.all(chunk(contacts, UPDATE_BATCH_CONTACT_LIMIT).map(batch =>
+          scheduleBrevo(() => client.contacts.updateBatchContacts({contacts: batch}).withRawResponse())));
+        return batchResponses.find(response => !IMPORT_ACCEPTED_HTTP_RESPONSE_CODES.includes(response.rawResponse.status)) ?? batchResponses[0];
+      }
       const jsonBody: Brevo.ImportContactsRequest["jsonBody"] = groupedRequests.map(request => ({
         email: request.email,
         attributes: stripUnavailableMemberAttributes(request.attributes, availableMemberAttributes) as Record<string, unknown>
@@ -50,7 +67,8 @@ export async function contactsBatchUpdate(req: Request, res: Response): Promise<
         jsonBody,
         updateExistingContacts: true,
         emptyContactsAttributes: false,
-        ...(listIds.length > 0 ? {listIds} : {})
+        disableNotification: true,
+        listIds
       };
       debugLog("importContacts request for listIds", listIds, "contacts:", jsonBody.length);
       return scheduleBrevo(() => client.contacts.importContacts(importRequest).withRawResponse());

@@ -1,6 +1,8 @@
 import { Component, Input, OnChanges, OnInit, inject } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faRotateLeft } from "@fortawesome/free-solid-svg-icons";
+import { startCase } from "es-toolkit/compat";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { NotificationConfig } from "../../../../models/mail.model";
 import { MemberMergeFieldHint, registerExampleValues, registerLinkDestinations } from "../../../../models/email-composer.model";
 import { TiptapMarkdownEditor } from "../../../../modules/common/tiptap-editor/tiptap-markdown-editor";
@@ -22,42 +24,55 @@ function pageLabel(path: string): string {
 @Component({
   selector: "app-email-body-editor",
   standalone: true,
-  imports: [FontAwesomeModule, TiptapMarkdownEditor, SectionToggle],
+  imports: [FontAwesomeModule, TiptapMarkdownEditor, SectionToggle, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective],
   template: `
     <div class="col-sm-12 mt-2">
       <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Email content</div>
-        <div class="col-sm-12">
-          <app-section-toggle [tabs]="contentSourceTabs"
-                              [selectedTab]="isComposerDriven() ? 'composer' : 'written'"
-                              (selectedTabChange)="setContentSource($event)"/>
-        </div>
-        @if (isComposerDriven()) {
+        @if (isAutomaticallyGenerated) {
           <div class="col-sm-12 mb-2">
-            <small class="text-muted">This email's content is written fresh each time it is sent, in the Email
-              Composer. There is nothing to edit here - the body is just a placeholder that the composer fills in.</small>
+            <small class="text-muted">This email's content is generated automatically by the built-in process when it is sent — there is nothing to edit here.</small>
           </div>
         } @else {
-          <div class="col-sm-12 mb-2 d-flex justify-content-between align-items-start gap-2">
-            <small class="text-muted">Edit the whole email as one document. Insert or change merge fields and
-              links from the toolbar, drop in images, and delete anything you don't want.@if (notificationConfig?.templateName) {
-                Reset to default to start again from the centrally maintained wording.}</small>
-            @if (notificationConfig?.templateName) {
-              <button type="button" class="btn btn-sm btn-primary text-nowrap" [disabled]="busy" (click)="resetToDefault()">
-                <fa-icon [icon]="faRotateLeft"/> Reset to default
-              </button>
-            }
+          <div class="col-sm-12">
+            <app-section-toggle [tabs]="contentSourceTabs"
+                                [selectedTab]="isComposerDriven() ? 'composer' : 'written'"
+                                (selectedTabChange)="setContentSource($event)"/>
           </div>
-          @if (ready) {
-            <div class="col-sm-12">
-              <app-tiptap-markdown-editor [value]="notificationConfig.body || ''"
-                                          [showMergeFields]="true"
-                                          [constrainToEmailWidth]="true"
-                                          [stickyToolbar]="true"
-                                          [extraLinkDestinations]="internalPageDestinations"
-                                          placeholder="Write the email content…"
-                                          (valueChange)="onBodyChange($event)"/>
+          @if (isComposerDriven()) {
+            <div class="col-sm-12 mb-2">
+              <small class="text-muted">This email's content is written fresh each time it is sent, in the Email
+                Composer. There is nothing to edit here - the body is just a placeholder that the composer fills in.</small>
             </div>
+          } @else {
+            <div class="col-sm-12 mb-2 d-flex justify-content-between align-items-start gap-2">
+              <small class="text-muted">Edit the whole email as one document. Insert or change merge fields and
+                links from the toolbar, drop in images, and delete anything you don't want.@if (notificationConfig?.templateName) {
+                  Reset to default to start again from the centrally maintained wording.}</small>
+              @if (notificationConfig?.templateName) {
+                <div class="btn-group" dropdown [isDisabled]="busy">
+                  <button dropdownToggle type="button" class="btn btn-sm btn-primary dropdown-toggle text-nowrap" [disabled]="busy">
+                    <fa-icon [icon]="faRotateLeft"/> Reset to default
+                  </button>
+                  <ul *dropdownMenu class="dropdown-menu dropdown-menu-end">
+                    @for (name of templateNames; track name) {
+                      <li><a class="dropdown-item pointer" (click)="resetToTemplate(name)">{{ humanise(name) }}</a></li>
+                    }
+                  </ul>
+                </div>
+              }
+            </div>
+            @if (ready) {
+              <div class="col-sm-12">
+                <app-tiptap-markdown-editor [value]="notificationConfig.body || ''"
+                                            [showMergeFields]="true"
+                                            [constrainToEmailWidth]="true"
+                                            [stickyToolbar]="true"
+                                            [extraLinkDestinations]="internalPageDestinations"
+                                            placeholder="Write the email content…"
+                                            (valueChange)="onBodyChange($event)"/>
+              </div>
+            }
           }
         }
       </div>
@@ -65,6 +80,7 @@ function pageLabel(path: string): string {
 })
 export class EmailBodyEditorComponent implements OnInit, OnChanges {
   @Input() notificationConfig: NotificationConfig;
+  @Input() isBuiltInProcess = false;
   private mailService = inject(MailService);
   private mailMessagingService = inject(MailMessagingService);
   private legacyUrlMappingService = inject(LegacyUrlMappingService);
@@ -79,10 +95,39 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
   ];
   private loadedForTemplate: string | null = null;
   private stashedWrittenBody: string | null = null;
+  protected templateNames: string[] = [];
+  protected isAutomaticallyGenerated = false;
 
   ngOnInit(): void {
     this.loadInternalPages();
     this.registerExampleParams();
+    this.loadTemplateNames();
+  }
+
+  private async loadTemplateNames(): Promise<void> {
+    try {
+      this.templateNames = await this.mailService.queryLocalTemplateNames();
+    } catch (error) {
+      this.logger.error("failed to load template names", error);
+    }
+  }
+
+  protected humanise(templateName: string): string {
+    return startCase(templateName);
+  }
+
+  async resetToTemplate(templateName: string): Promise<void> {
+    this.busy = true;
+    this.ready = false;
+    try {
+      const response = await this.mailService.editableBody({templateName});
+      this.notificationConfig.body = response.body;
+    } catch (error) {
+      this.logger.error("failed to reset to template", templateName, error);
+    } finally {
+      this.busy = false;
+      this.ready = true;
+    }
   }
 
   private registerExampleParams(): void {
@@ -145,22 +190,32 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
       this.ready = false;
       return;
     }
-    if (this.notificationConfig.body == null) {
-      if (this.notificationConfig.templateName && this.loadedForTemplate !== this.notificationConfig.templateName) {
+    if (this.notificationConfig.templateName) {
+      if (this.loadedForTemplate !== this.notificationConfig.templateName) {
         this.loadedForTemplate = this.notificationConfig.templateName;
         await this.loadBody(this.notificationConfig.templateOverrides);
-      } else {
+      }
+    } else {
+      this.isAutomaticallyGenerated = false;
+      if (this.notificationConfig.body == null) {
         this.notificationConfig.body = "";
       }
     }
     this.ready = true;
   }
 
+  private isPlaceholderOrEmpty(body: string): boolean {
+    return (body || "").split(BODY_CONTENT_PLACEHOLDER).join("").trim() === "";
+  }
+
   private async loadBody(overrides?: NotificationConfig["templateOverrides"]): Promise<void> {
     this.busy = true;
     try {
       const response = await this.mailService.editableBody({templateName: this.notificationConfig.templateName, templateOverrides: overrides});
-      this.notificationConfig.body = response.body;
+      this.isAutomaticallyGenerated = this.isBuiltInProcess && this.isPlaceholderOrEmpty(response.body);
+      if (!this.isAutomaticallyGenerated && this.notificationConfig.body == null) {
+        this.notificationConfig.body = response.body;
+      }
     } catch (error) {
       this.logger.error("failed to load editable body", error);
     } finally {
@@ -170,11 +225,5 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
 
   onBodyChange(value: string): void {
     this.notificationConfig.body = value;
-  }
-
-  async resetToDefault(): Promise<void> {
-    this.ready = false;
-    await this.loadBody();
-    this.ready = true;
   }
 }

@@ -1,7 +1,8 @@
 import { inject, Injectable } from "@angular/core";
 import { ADMIN_SET_PASSWORD_PATH } from "../../models/system.model";
 import { NgxLoggerLevel } from "ngx-logger";
-import { toPairs, isBoolean, isNumber, isString } from "es-toolkit/compat";
+import { toPairs, isNumber, isString } from "es-toolkit/compat";
+import { booleanOf } from "../../functions/strings";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { Member } from "../../models/member.model";
@@ -261,7 +262,8 @@ export class MailMessagingService {
       mailConfig.expenseNotificationConfigId,
       mailConfig.contactUsNotificationConfigId,
       mailConfig.backupNotificationConfigId,
-      mailConfig.bookingNotificationConfigId
+      mailConfig.bookingNotificationConfigId,
+      mailConfig.memberSyncNotificationConfigId
     ];
   }
 
@@ -599,11 +601,9 @@ export class MailMessagingService {
     if (!this.mailMessagingConfig?.mailConfig?.listSettings) {
       this.mailMessagingConfig.mailConfig.listSettings = [];
     }
-    if (this.mailMessagingConfig?.mailConfig && !isBoolean(this.mailMessagingConfig.mailConfig.respectHeadOfficeConsent)) {
-      this.mailMessagingConfig.mailConfig.respectHeadOfficeConsent = true;
-    }
-    if (this.mailMessagingConfig?.mailConfig && !isBoolean(this.mailMessagingConfig.mailConfig.respectEmailBlocks)) {
-      this.mailMessagingConfig.mailConfig.respectEmailBlocks = false;
+    if (this.mailMessagingConfig?.mailConfig) {
+      this.mailMessagingConfig.mailConfig.respectHeadOfficeConsent = booleanOf(this.mailMessagingConfig.mailConfig.respectHeadOfficeConsent, true);
+      this.mailMessagingConfig.mailConfig.respectEmailBlocks = booleanOf(this.mailMessagingConfig.mailConfig.respectEmailBlocks, false);
     }
     this.mailMessagingConfig?.brevo?.lists?.lists.forEach(list => {
       if (!this.mailMessagingConfig?.mailConfig?.listSettings.find(item => item.id === list.id)) {

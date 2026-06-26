@@ -67,6 +67,7 @@ export enum StoredValue {
   EXPANDED_SESSIONS = "expanded-sessions",
   FACILITIES = "facilities",
   FILE = "file",
+  FILTER = "filter",
   FREE_ONLY = "free-only",
   GRID_COLUMNS = "grid-columns",
   GRID_GAP = "grid-gap",

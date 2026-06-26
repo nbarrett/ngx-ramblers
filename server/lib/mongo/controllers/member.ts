@@ -1,16 +1,19 @@
 import debug from "debug";
+import { isString } from "es-toolkit/compat";
 import { Request, Response } from "express";
+import { booleanOf } from "../../shared/string-utils";
 import { envConfig } from "../../env-config/env-config";
 import { member } from "../models/member";
 import * as crudController from "./crud-controller";
 import * as transforms from "./transforms";
 import * as querystring from "querystring";
 import * as authConfig from "../../auth/auth-config";
-import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
+import { DeleteDocumentsRequest, Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { pluraliseWithCount } from "../../shared/string-utils";
 import { auditSubscriptionChanges } from "./member-subscription-audit";
 import { writeBackFullOptOuts } from "../../salesforce/member-consent-writeback";
+import { bulkDeleteMembersCascade } from "./member-bulk-delete";
 import { MailSubscription, MemberSubscriptionChange } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const debugLog = debug(envConfig.logNamespace("member"));
@@ -18,6 +21,18 @@ debugLog.enabled = false;
 
 function actingUser(req: Request): string {
   return (req as any).user?.memberId ?? "system";
+}
+
+const CONSENT_FIELDS: (keyof Member)[] = ["emailMarketingConsent", "groupMarketingConsent", "areaMarketingConsent", "otherMarketingConsent"];
+
+function normaliseConsentFields(member: Member): Member {
+  CONSENT_FIELDS.forEach(field => {
+    const value = member[field];
+    if (isString(value)) {
+      (member as any)[field] = booleanOf(value);
+    }
+  });
+  return member;
 }
 
 async function priorSubscriptionsById(members: Member[]): Promise<Map<string, MailSubscription[]>> {
@@ -31,9 +46,30 @@ async function priorSubscriptionsById(members: Member[]): Promise<Map<string, Ma
 
 const controller = crudController.create<Member>(member);
 export const all = controller.all;
-export const deleteOne = controller.deleteOne;
 export const findById = controller.findById;
-export const deleteAll = controller.deleteAll;
+
+export async function deleteOne(req: Request, res: Response) {
+  const id: string = req.params.id;
+  try {
+    const result = await bulkDeleteMembersCascade([id], actingUser(req));
+    res.status(200).json({action: ApiAction.DELETE, response: result.deletionResponses[0] ?? {id, deleted: false}});
+  } catch (error) {
+    debugLog("deleteOne: member delete failed:", error);
+    res.status(500).json({message: "Delete of member failed", error: transforms.parseError(error)});
+  }
+}
+
+export async function deleteAll(req: Request, res: Response) {
+  const deleteDocumentsRequest: DeleteDocumentsRequest = req.body;
+  const message = "Deletion of " + pluraliseWithCount(deleteDocumentsRequest?.ids?.length ?? 0, "member");
+  try {
+    const result = await bulkDeleteMembersCascade(deleteDocumentsRequest?.ids ?? [], actingUser(req));
+    res.status(200).json({action: message, response: result.deletionResponses});
+  } catch (error) {
+    debugLog("deleteAll:", message, "error:", error);
+    res.status(500).json({message, request: message, error: transforms.parseError(error)});
+  }
+}
 
 export async function createOrUpdateAll(req: Request, res: Response) {
   const members: Member[] = req.body;
@@ -41,7 +77,7 @@ export async function createOrUpdateAll(req: Request, res: Response) {
   try {
     const priorById = await priorSubscriptionsById(members);
     const createOrUpdatedMembers = await Promise.all(members.map(async member => {
-      const hashedMember: Member = await updateHashValue(member);
+      const hashedMember: Member = normaliseConsentFields(await updateHashValue(member));
       return member.id
         ? controller.updateDocument({body: hashedMember})
         : controller.createDocument({body: hashedMember});
@@ -83,7 +119,7 @@ async function updateHashValue(member: Member) {
 }
 
 export async function update(req: Request, res: Response) {
-  const updatedRequest: Member = await updateHashValue(req.body);
+  const updatedRequest: Member = normaliseConsentFields(await updateHashValue(req.body));
   try {
     const priorById = await priorSubscriptionsById([updatedRequest]);
     const response = await controller.updateDocument({body: updatedRequest});
@@ -100,7 +136,7 @@ export async function update(req: Request, res: Response) {
 }
 
 export async function create(req: Request, res: Response) {
-  const updatedRequest: Member = await updateHashValue(req.body);
+  const updatedRequest: Member = normaliseConsentFields(await updateHashValue(req.body));
   try {
     const response = await controller.createDocument({body: updatedRequest});
     await auditSubscriptionChanges([{

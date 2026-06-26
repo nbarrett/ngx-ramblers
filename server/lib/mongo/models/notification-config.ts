@@ -27,6 +27,8 @@ const notificationConfigSchema = new mongoose.Schema({
   templateOverrides: {type: Object},
   body: {type: String},
   defaultListing: {type: Boolean},
+  omitComposeStep: {type: Boolean},
+  omitEventsStep: {type: Boolean},
   createdAt: {type: Number},
   createdBy: {type: String},
   updatedAt: {type: Number},
