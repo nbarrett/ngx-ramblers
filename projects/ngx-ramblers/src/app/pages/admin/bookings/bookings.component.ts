@@ -96,9 +96,14 @@ export enum BookingTab {
                   </div>
                   <div class="d-flex justify-content-between align-items-center mb-3">
                     <p class="mb-0 text-muted">Report generated: {{ reportDate | displayDate }}</p>
-                    <button type="button" class="btn btn-warning btn-sm" (click)="downloadSummaryCsv()">
-                      <fa-icon [icon]="faDownload" class="me-1"></fa-icon>Download CSV
-                    </button>
+                    <div class="d-flex gap-2">
+                      <button type="button" class="btn btn-warning btn-sm" (click)="downloadSummaryCsv()">
+                        <fa-icon [icon]="faDownload" class="me-1"></fa-icon>Download summary CSV
+                      </button>
+                      <button type="button" class="btn btn-warning btn-sm" [disabled]="allBookings.length === 0" (click)="downloadAllAttendeesCsv()">
+                        <fa-icon [icon]="faDownload" class="me-1"></fa-icon>Download all attendees CSV
+                      </button>
+                    </div>
                   </div>
                   <div class="table-responsive">
                     <table class="table table-striped table-hover">
@@ -1199,6 +1204,30 @@ export class BookingsComponent implements OnInit, OnDestroy {
     }));
     const eventTitle = this.eventsMap.get(this.selectedEventId)?.groupEvent?.title || "event";
     this.csvFilename = `bookings-${eventTitle}`;
+    this.csvConfig = this.buildCsvOptions(csvHeaders, csvHeaders);
+    setTimeout(() => this.csvComponent.generateCsv());
+  }
+
+  downloadAllAttendeesCsv() {
+    const csvHeaders = ["Event", "Date", "Time", "Group", "Attendee", "Email", "Phone", "Status", "Booked"];
+    const rowByEventId = new Map(this.summaryRows.map(row => [row.eventIds[0], row]));
+    this.csvData = this.allBookings.flatMap(booking =>
+      booking.eventIds.flatMap(eventId => {
+        const eventRow = rowByEventId.get(eventId);
+        const groupLabel = eventRow ? `${eventRow.groupName || ""}${eventRow.groupCode ? ` (${eventRow.groupCode})` : ""}`.trim() : "";
+        return booking.attendees.map(attendee => ({
+          "Event": eventRow?.eventTitle || "Unknown event",
+          "Date": eventRow?.eventDate || "",
+          "Time": eventRow?.eventTime || "",
+          "Group": groupLabel,
+          "Attendee": attendee.displayName,
+          "Email": attendee.email || "",
+          "Phone": attendee.phone || "",
+          "Status": booking.status === BookingStatus.WAITLISTED ? "Waitlisted" : "Active",
+          "Booked": this.dateUtils.displayDate(booking.createdAt)
+        }));
+      }));
+    this.csvFilename = "all-booking-attendees";
     this.csvConfig = this.buildCsvOptions(csvHeaders, csvHeaders);
     setTimeout(() => this.csvComponent.generateCsv());
   }
