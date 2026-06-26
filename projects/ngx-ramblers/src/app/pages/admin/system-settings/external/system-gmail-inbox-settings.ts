@@ -205,8 +205,11 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                                 <p class="mb-1 small">
                                   Detected from your OAuth client — project number <code>{{ projectNumber }}</code>. Setup uses this automatically; you don't need to enter anything. The full project ID is confirmed once you log in.
                                 </p>
-                                <a class="small" [href]="googleConsoleProjectUrl()" target="_blank" rel="noopener">
+                                <a class="small d-block" [href]="googleConsoleProjectUrl()" target="_blank" rel="noopener">
                                   <fa-icon [icon]="faGear" class="me-1"/>View this project in Google Console
+                                </a>
+                                <a class="small d-block mt-1" [href]="googleAudienceUrl()" target="_blank" rel="noopener">
+                                  <fa-icon [icon]="faGear" class="me-1"/>Check OAuth publishing status — must be "In production", not "Testing"
                                 </a>
                                 <details class="mt-2">
                                   <summary class="small text-muted">Advanced: provision in a different project</summary>
@@ -250,7 +253,7 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                     @if (step.key === GmailInboxSetupStepKey.GMAIL_ACCOUNTS) {
                       <div class="mt-3">
                         <h6 class="mb-2"><fa-icon [icon]="faUserPlus" class="me-2"/>Connect Gmail accounts</h6>
-                        <app-system-inbox-mailbox-connections/>
+                        <app-system-inbox-mailbox-connections [projectNumber]="oauthProjectNumber()"/>
                         <div class="mt-3 d-flex justify-content-between">
                           <button class="btn btn-sm btn-quiet" type="button" (click)="goToStep(0)">
                             &larr; Back: Google Cloud project
@@ -497,6 +500,13 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     return projectNumber
       ? `https://console.cloud.google.com/iam-admin/settings?project=${projectNumber}`
       : "https://console.cloud.google.com/projectselector2/iam-admin/settings";
+  }
+
+  googleAudienceUrl(): string {
+    const projectNumber = this.oauthProjectNumber();
+    return projectNumber
+      ? `https://console.cloud.google.com/auth/audience?project=${projectNumber}`
+      : "https://console.cloud.google.com/auth/audience";
   }
 
   private handleConfigChange(systemConfig: SystemConfig) {

@@ -35,6 +35,8 @@ const errorDebugLog = createErrorDebugLog("inbox-poller");
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let pollInProgress = false;
+const connectionSyncInFlight = new Set<string>();
+const connectionSyncRerunRequested = new Set<string>();
 
 export async function pollAllAliases(): Promise<InboxPollResult[]> {
   const enabledConnections = await inboxMailboxConnectionModel.find({
@@ -82,6 +84,38 @@ export async function pollConnection(connection: InboxMailboxConnection): Promis
     await alertIfTokenJustRevoked(connection, status, message);
     errorDebugLog(`poll failed for Gmail inbox ${connection.gmailAccountEmail}: ${message}`);
     return {mailboxConnectionId, importedCount: 0, error: message};
+  }
+}
+
+export function syncConnectionCoalesced(connection: InboxMailboxConnection): void {
+  const mailboxConnectionId = identifier(connection);
+  if (!mailboxConnectionId) {
+    errorDebugLog("push sync skipped - connection has no identifier");
+    return;
+  }
+  if (connectionSyncInFlight.has(mailboxConnectionId)) {
+    connectionSyncRerunRequested.add(mailboxConnectionId);
+    debugLog(`push sync for ${connection.gmailAccountEmail} already running; coalescing into a single rerun`);
+    return;
+  }
+  void runConnectionSync(connection, mailboxConnectionId);
+}
+
+async function runConnectionSync(connection: InboxMailboxConnection, mailboxConnectionId: string): Promise<void> {
+  connectionSyncInFlight.add(mailboxConnectionId);
+  try {
+    const result = await pollConnection(connection);
+    debugLog(`push sync for ${connection.gmailAccountEmail}: imported ${result.importedCount}`);
+  } catch (error) {
+    errorDebugLog(`push sync failed for ${connection.gmailAccountEmail}: ${(error as Error).message}`);
+  } finally {
+    connectionSyncInFlight.delete(mailboxConnectionId);
+    if (connectionSyncRerunRequested.delete(mailboxConnectionId)) {
+      const refreshed = await inboxMailboxConnectionModel.findById(mailboxConnectionId).lean() as InboxMailboxConnection | null;
+      if (refreshed) {
+        void runConnectionSync(refreshed, mailboxConnectionId);
+      }
+    }
   }
 }
 

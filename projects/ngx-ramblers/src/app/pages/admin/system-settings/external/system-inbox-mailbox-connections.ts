@@ -1,7 +1,8 @@
-import { Component, inject, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faArrowUpRightFromSquare, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute } from "@angular/router";
 import { InboxService } from "../../../../services/inbox/inbox.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
@@ -10,6 +11,7 @@ import { AlertTarget } from "../../../../models/alert-target.model";
 import {
   InboxAccessMode,
   InboxAliasConfigView,
+  InboxAliasConnectionStatus,
   InboxMailboxConnectionView,
   InboxSyncMode
 } from "../../../../models/inbox.model";
@@ -38,6 +40,23 @@ import {
                 {{mailboxConnection.gmailAccountEmail}}
               }
             </div>
+            @if (mailboxConnection.hasRefreshToken && mailboxConnection.connectionStatus === InboxAliasConnectionStatus.TOKEN_REVOKED) {
+              <div class="alert alert-warning mt-2 mb-3">
+                <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                <strong>Authorisation expired — mail is not importing</strong>
+                <p class="mb-2 mt-1">Google has revoked this mailbox's access{{mailboxConnection.lastErrorMessage ? " (" + mailboxConnection.lastErrorMessage + ")" : ""}}, so new emails stop appearing in the inbox. This happens 7 days after connecting while the Google Cloud OAuth consent screen is still in "Testing".</p>
+                <p class="mb-2">Fix it in two steps:</p>
+                <ol class="mb-2">
+                  <li>
+                    <a [href]="audienceUrl()" target="_blank" rel="noopener">
+                      <fa-icon [icon]="faArrowUpRightFromSquare" class="me-1"/>Open the OAuth publishing screen
+                    </a>
+                    and set <strong>Publishing status</strong> to <strong>In production</strong> (this stops the 7-day expiry recurring).
+                  </li>
+                  <li>Click <strong>Reconnect</strong> below to issue a fresh token and pull in the backlog.</li>
+                </ol>
+              </div>
+            }
             <div class="d-flex align-items-end gap-3 flex-wrap">
               <div class="me-auto">
                 @if (!mailboxConnection.hasRefreshToken) {
@@ -136,6 +155,11 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
 
   protected readonly InboxAccessMode = InboxAccessMode;
   protected readonly InboxSyncMode = InboxSyncMode;
+  protected readonly InboxAliasConnectionStatus = InboxAliasConnectionStatus;
+  protected readonly faTriangleExclamation = faTriangleExclamation;
+  protected readonly faArrowUpRightFromSquare = faArrowUpRightFromSquare;
+
+  @Input() projectNumber: string | null = null;
 
   public mailboxConnections: InboxMailboxConnectionView[] = [];
   public aliases: InboxAliasConfigView[] = [];
@@ -149,6 +173,12 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     await this.refresh();
     this.applyOauthOutcome();
+  }
+
+  audienceUrl(): string {
+    return this.projectNumber
+      ? `https://console.cloud.google.com/auth/audience?project=${this.projectNumber}`
+      : "https://console.cloud.google.com/auth/audience";
   }
 
   private applyOauthOutcome(): void {
