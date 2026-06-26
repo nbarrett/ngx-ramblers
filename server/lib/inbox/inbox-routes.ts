@@ -44,7 +44,7 @@ import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/webso
 import { buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
 import { assignedInboxRoleTypesForMember, inboxConfigurationAdministrator, permittedInboxRoleTypes, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
 import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
-import { checkConnectionHealth, pollConnection } from "./inbox-poller";
+import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
 import { ensurePushVerificationToken, pushReceiverUrl, pushVerificationToken } from "./inbox-push";
 import { registerPushSubscription, unregisterPushSubscription, vapidPublicKey } from "./inbox-web-push";
 import { dateTimeNow } from "../shared/dates";
@@ -484,9 +484,7 @@ router.post("/pubsub/push", async (req: Request, res: Response) => {
       debugLog("inbox push: no push-enabled connection for", emailAddress);
       return;
     }
-    pollConnection(connection)
-      .then(result => debugLog(`inbox push: synced ${emailAddress}, imported ${result.importedCount}`))
-      .catch(pushSyncError => errorDebugLog("inbox push sync failed:", (pushSyncError as Error).message));
+    syncConnectionCoalesced(connection);
   } catch (error) {
     errorDebugLog("Error handling inbox push notification:", (error as Error).message);
     if (!res.headersSent) {

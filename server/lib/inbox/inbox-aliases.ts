@@ -88,19 +88,24 @@ export async function connectedInboxEmails(tenantSlug: string): Promise<string[]
   return Array.from((await connectedMailboxesByEmail(tenantSlug)).keys());
 }
 
-export async function derivedAliases(): Promise<InboxAliasConfig[]> {
-  const tenantSlug = defaultTenantSlug();
-  const connectionsByEmail = await connectedMailboxesByEmail(tenantSlug);
-  const catchAll = catchAllConnection(Array.from(connectionsByEmail.values()));
-  const roles = await committeeRoles();
+export function deriveAliasesFrom(connectionsByEmail: Map<string, InboxMailboxConnection>, roles: CommitteeMember[], tenantSlug: string): InboxAliasConfig[] {
+  const connections = Array.from(connectionsByEmail.values());
+  const catchAll = catchAllConnection(connections);
   const roleAliases = roles.reduce<InboxAliasConfig[]>((aliases, role) => {
     const connection = connectionForRole(role, connectionsByEmail, catchAll);
     return connection ? aliases.concat(aliasFor(role, connection, tenantSlug)) : aliases;
   }, []);
-  const generalAliases = Array.from(connectionsByEmail.values())
+  const generalAliases = connections
     .filter(connection => connection.importAllMessages)
     .map(connection => generalAliasFor(connection, tenantSlug));
   return roleAliases.concat(generalAliases);
+}
+
+export async function derivedAliases(): Promise<InboxAliasConfig[]> {
+  const tenantSlug = defaultTenantSlug();
+  const connectionsByEmail = await connectedMailboxesByEmail(tenantSlug);
+  const roles = await committeeRoles();
+  return deriveAliasesFrom(connectionsByEmail, roles, tenantSlug);
 }
 
 export async function derivedAliasForRoleType(roleType: string): Promise<InboxAliasConfig | null> {
@@ -116,19 +121,15 @@ export async function derivedAliasForRoleType(roleType: string): Promise<InboxAl
 }
 
 export async function derivedAliasesForConnection(connection: InboxMailboxConnection): Promise<InboxAliasConfig[]> {
-  const tenantSlug = defaultTenantSlug();
   if (!connection.gmailAccountEmail) {
     return [];
   }
+  const tenantSlug = defaultTenantSlug();
   const connectionsByEmail = await connectedMailboxesByEmail(tenantSlug);
-  const catchAll = catchAllConnection(Array.from(connectionsByEmail.values()));
-  const connectionId = connectionIdentifier(connection);
   const roles = await committeeRoles();
-  const roleAliases = roles.reduce<InboxAliasConfig[]>((aliases, role) => {
-    const resolved = connectionForRole(role, connectionsByEmail, catchAll);
-    return resolved && connectionIdentifier(resolved) === connectionId ? aliases.concat(aliasFor(role, connection, tenantSlug)) : aliases;
-  }, []);
-  return connection.importAllMessages ? roleAliases.concat(generalAliasFor(connection, tenantSlug)) : roleAliases;
+  const connectionId = connectionIdentifier(connection);
+  return deriveAliasesFrom(connectionsByEmail, roles, tenantSlug)
+    .filter(alias => alias.mailboxConnectionId === connectionId);
 }
 
 export async function catchAllConnectionEmail(tenantSlug: string): Promise<string | null> {
