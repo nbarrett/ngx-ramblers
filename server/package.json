@@ -151,6 +151,10 @@
     "node": "v24.14.0",
     "npm": "11.9.0"
   },
+  "overrides": {
+    "@types/express": "4.17.25",
+    "@types/express-serve-static-core": "4.17.39"
+  },
   "devDependencies": {
     "@types/node-cron": "3.0.11",
     "@types/web-push": "^3.6.4",
