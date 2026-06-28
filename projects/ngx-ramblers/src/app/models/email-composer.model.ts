@@ -74,8 +74,9 @@ export interface RecipientPreFilter {
 export const RECIPIENT_PRE_FILTERS: RecipientPreFilter[] = [
   { key: null, label: "All with email" },
   { key: MemberSelection.RECENTLY_ADDED, label: "Recently added" },
-  { key: MemberSelection.EXPIRED_MEMBERS, label: "Expired members" },
-  { key: MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS, label: "Missing from bulk load" }
+  { key: MemberSelection.ADDED_IN_LAST_BULK_LOAD_MEMBERS, label: "Added in last bulk load" },
+  { key: MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS, label: "Missing from bulk load" },
+  { key: MemberSelection.EXPIRED_MEMBERS, label: "Expired members" }
 ];
 
 export interface ArticleBlockImage {

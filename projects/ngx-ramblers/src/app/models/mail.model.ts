@@ -6,6 +6,7 @@ import { AuditStatus } from "./audit";
 import { SortDirection } from "./sort.model";
 import { CommitteeReferenceDataLike } from "./committee-reference-data.model";
 import { NotificationHost } from "./notification-host.model";
+import { DateRangeUnit, NotificationTimeUnit } from "./search.model";
 
 export enum MailSettingsTab {
   EMAIL_CONFIGURATIONS = "Email Configurations",
@@ -60,6 +61,7 @@ export interface NotificationConfig extends Auditable, Identifiable {
   defaultMemberSelection: MemberSelection;
   postSendActions: WorkflowAction[];
   monthsInPast?: number;
+  timeUnit?: NotificationTimeUnit;
   defaultListId?: number;
   bccRoles?: string[];
   ccRoles?: string[];
@@ -77,10 +79,11 @@ export interface NotificationConfig extends Auditable, Identifiable {
 }
 
 export enum MemberSelection {
+  RECENTLY_ADDED = "recently-added",
+  ADDED_IN_LAST_BULK_LOAD_MEMBERS = "added-in-last-bulk-load-members",
+  MISSING_FROM_BULK_LOAD_MEMBERS = "missing-from-bulk-load-members",
   EXPIRED_MEMBERS = "expired-members",
   MAILING_LIST = "mailing-list",
-  MISSING_FROM_BULK_LOAD_MEMBERS = "missing-from-bulk-load-members",
-  RECENTLY_ADDED = "recently-added",
 }
 
 export enum WorkflowAction {
@@ -431,6 +434,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     contentPreset: null,
     monthsInPast: 1,
+    timeUnit: DateRangeUnit.MONTHS,
     bannerId: null,
     senderRole: "membership",
     replyToRole: "support",
@@ -446,6 +450,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
+    timeUnit: DateRangeUnit.MONTHS,
     bannerId: null,
     signOffRoles: ["membership"],
     senderRole: "membership",
@@ -461,6 +466,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
+    timeUnit: DateRangeUnit.MONTHS,
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["chairman", "secretary", "treasurer", "membership", "social", "walks", "support"],
@@ -476,6 +482,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.EXPIRED_MEMBERS,
     monthsInPast: 1,
+    timeUnit: DateRangeUnit.MONTHS,
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["membership"],
@@ -491,6 +498,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.EXPIRED_MEMBERS,
     monthsInPast: 1,
+    timeUnit: DateRangeUnit.MONTHS,
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["membership"],
@@ -506,6 +514,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
+    timeUnit: DateRangeUnit.MONTHS,
     senderRole: "walks",
     replyToRole: "walks",
     signOffRoles: ["walks"],
@@ -521,6 +530,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
+    timeUnit: DateRangeUnit.MONTHS,
     senderRole: "support",
     replyToRole: "support",
     signOffRoles: ["support"],
@@ -536,6 +546,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
+    timeUnit: DateRangeUnit.MONTHS,
     senderRole: "treasurer",
     replyToRole: "treasurer",
     signOffRoles: ["treasurer"],
@@ -551,6 +562,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.MAILING_LIST,
     monthsInPast: 1,
+    timeUnit: DateRangeUnit.MONTHS,
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["chairman", "secretary", "membership"],
@@ -566,6 +578,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.MAILING_LIST,
     monthsInPast: 2,
+    timeUnit: DateRangeUnit.MONTHS,
     senderRole: "social",
     replyToRole: "social",
     signOffRoles: ["social"],
@@ -581,6 +594,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 2,
+    timeUnit: DateRangeUnit.MONTHS,
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["membership"],
@@ -596,6 +610,7 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     postSendActions: [],
     defaultMemberSelection: MemberSelection.RECENTLY_ADDED,
     monthsInPast: 1,
+    timeUnit: DateRangeUnit.MONTHS,
     senderRole: "walks",
     replyToRole: "walks",
     signOffRoles: ["walks"],

@@ -15,6 +15,7 @@ const notificationConfigSchema = new mongoose.Schema({
   defaultMemberSelection: {type: String},
   postSendActions: [{type: String}],
   monthsInPast: {type: Number},
+  timeUnit: {type: String},
   defaultListId: {type: Number},
   signOffRoles: [{type: String}],
   signOffText: {type: String},

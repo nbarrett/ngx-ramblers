@@ -34,6 +34,7 @@ import {
 import { CommitteeMember, ForwardEmailTarget } from "../../models/committee.model";
 import { resolveAccentColor } from "../../models/email-accent-palette";
 import { NotificationHost } from "../../models/notification-host.model";
+import { DateRangeUnit } from "../../models/search.model";
 import { DateUtilsService } from "../date-utils.service";
 import { CommitteeConfigService } from "../committee/commitee-config.service";
 import { SystemConfigService } from "../system/system-config.service";
@@ -306,12 +307,14 @@ export class MailMessagingService {
 
   private normaliseNotificationConfig(notificationConfig: NotificationConfig): NotificationConfig {
     const monthsInPast = isNumber(notificationConfig?.monthsInPast) ? notificationConfig.monthsInPast : 1;
+    const timeUnit = notificationConfig?.timeUnit || DateRangeUnit.MONTHS;
     const defaultMemberSelection = notificationConfig?.defaultMemberSelection || MemberSelection.RECENTLY_ADDED;
     const bccRoles = notificationConfig?.bccRoles?.length > 0 ? notificationConfig.bccRoles : notificationConfig?.ccRoles || [];
     return {
       ...notificationConfig,
       bccRoles,
       monthsInPast,
+      timeUnit,
       defaultMemberSelection
     };
   }

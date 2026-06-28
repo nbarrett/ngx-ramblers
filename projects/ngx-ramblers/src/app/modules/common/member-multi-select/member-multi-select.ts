@@ -3,12 +3,14 @@ import { NgLabelTemplateDirective, NgOptgroupTemplateDirective, NgSelectComponen
 import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { isNumber } from "es-toolkit/compat";
+import { isNumber, values } from "es-toolkit/compat";
 import { Member, MemberBulkLoadDateMap, MemberFilterSelection, MemberTerm, SORT_BY_NAME } from "../../../models/member.model";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MemberSelection, NotificationConfig, WorkflowAction } from "../../../models/mail.model";
+import { DateRangeUnit, NO_DATE_FILTER, NotificationTimeUnit } from "../../../models/search.model";
+import { DurationLike } from "luxon";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { PriorSendExclusion, RECIPIENT_PRE_FILTERS, RecipientPreFilter } from "../../../models/email-composer.model";
 import { MemberEmailSendService } from "../../../services/member-email-send/member-email-send.service";
@@ -291,11 +293,13 @@ export class MemberMultiSelect implements OnChanges {
     if (!key) return true;
     switch (key) {
       case MemberSelection.RECENTLY_ADDED:
-        return !!(member.groupMember && member.createdDate && member.createdDate >= this.filterDateMillis());
+        return !!(member.groupMember && member.createdDate && (this.noDateFilter() || member.createdDate >= this.filterDateMillis()));
       case MemberSelection.EXPIRED_MEMBERS:
         return this.isExpiredMember(member);
       case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS:
         return this.missingFromBulkLoad(member);
+      case MemberSelection.ADDED_IN_LAST_BULK_LOAD_MEMBERS:
+        return this.addedInLastBulkLoad(member);
       default:
         return false;
     }
@@ -305,13 +309,14 @@ export class MemberMultiSelect implements OnChanges {
     const memberStatus = member.memberStatus?.toLowerCase();
     const paymentPending = memberStatus === "payment pending";
     const lifeMember = member.memberTerm === MemberTerm.LIFE;
-    const recentlyLoadedDate = this.dateUtils.dateTimeNowNoTime().minus({ months: 1 }).toMillis();
+    if (!member.groupMember || !member.membershipExpiryDate || paymentPending || lifeMember) return false;
+    if (this.noDateFilter()) return member.membershipExpiryDate < this.dateUtils.dateTimeNowNoTime().toMillis();
+    const recentlyLoadedDate = this.dateUtils.dateTimeNowNoTime().minus(this.windowDurationSpec()).toMillis();
     const recentlyLoaded = !!member.createdDate && member.createdDate >= recentlyLoadedDate;
-    if (!member.groupMember || !member.membershipExpiryDate || paymentPending || lifeMember || recentlyLoaded) return false;
+    if (recentlyLoaded) return false;
     const expirationExceeded = member.membershipExpiryDate < this.filterDateMillis();
-    const gracePeriodDate = recentlyLoadedDate;
-    const recentlyCreated = !!member.createdDate && member.createdDate >= gracePeriodDate;
-    const recentlyUpdated = !!member.updatedDate && member.updatedDate >= gracePeriodDate;
+    const recentlyCreated = !!member.createdDate && member.createdDate >= recentlyLoadedDate;
+    const recentlyUpdated = !!member.updatedDate && member.updatedDate >= recentlyLoadedDate;
     return expirationExceeded && !recentlyCreated && !recentlyUpdated;
   }
 
@@ -320,31 +325,61 @@ export class MemberMultiSelect implements OnChanges {
       return false;
     }
     const lastBulkLoadDate = this.memberBulkLoadDateMap?.[member.membershipNumber];
-    return !!lastBulkLoadDate && lastBulkLoadDate < this.filterDateMillis();
+    return !!lastBulkLoadDate && (this.noDateFilter() || lastBulkLoadDate < this.filterDateMillis());
+  }
+
+  private latestBulkLoadDateMillis(): number | undefined {
+    const dates = values(this.memberBulkLoadDateMap ?? {});
+    return dates.length ? Math.max(...dates) : undefined;
+  }
+
+  private addedInLastBulkLoad(member: Member): boolean {
+    if (!member.groupMember || !member.membershipNumber) return false;
+    const latestBulkLoadDate = this.latestBulkLoadDateMillis();
+    const memberBulkLoadDate = this.memberBulkLoadDateMap?.[member.membershipNumber];
+    return !!latestBulkLoadDate && memberBulkLoadDate === latestBulkLoadDate && !!member.createdDate && member.createdDate >= latestBulkLoadDate;
   }
 
   private priorSendDateFor(member: Member): number | undefined {
     return member.id ? this.priorSendDateMap[member.id] : undefined;
   }
 
-  private monthsInPast(): number {
-    const months = this.notificationConfig?.monthsInPast;
-    return isNumber(months) ? months : 1;
+  private amountInPast(): number {
+    const amount = this.notificationConfig?.monthsInPast;
+    return isNumber(amount) ? amount : 1;
+  }
+
+  private timeUnit(): NotificationTimeUnit {
+    return this.notificationConfig?.timeUnit ?? DateRangeUnit.MONTHS;
+  }
+
+  private noDateFilter(): boolean {
+    return this.timeUnit() === NO_DATE_FILTER;
+  }
+
+  private unitSingular(): string {
+    return this.timeUnit().replace(/s$/, "");
+  }
+
+  private windowDurationSpec(): DurationLike {
+    return { [this.timeUnit()]: this.amountInPast() } as DurationLike;
   }
 
   private filterDateMillis(): number {
-    return this.dateUtils.dateTimeNowNoTime().minus({ months: this.monthsInPast() }).toMillis();
+    return this.dateUtils.dateTimeNowNoTime().minus(this.windowDurationSpec()).toMillis();
   }
 
   protected labelFor(filter: RecipientPreFilter): string {
-    const months = this.monthsInPast();
+    const amount = this.amountInPast();
+    const unit = this.unitSingular();
+    const noSuffix = this.noDateFilter() || amount === 0;
     switch (filter.key) {
       case MemberSelection.RECENTLY_ADDED:
-        return `Added in last ${this.stringUtils.pluraliseWithCount(months, "month")}`;
+        return noSuffix ? "Added recently" : `Added in last ${this.stringUtils.pluraliseWithCount(amount, unit)}`;
       case MemberSelection.EXPIRED_MEMBERS:
-        return `Expired (${this.stringUtils.pluraliseWithCount(months, "month")} past expiry)`;
+        return noSuffix ? "Expired" : `Expired (${this.stringUtils.pluraliseWithCount(amount, unit)} past expiry)`;
       case MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS:
-        return `Missing from bulk load (${this.stringUtils.pluraliseWithCount(months, "month")} or more)`;
+        return noSuffix ? "Missing from bulk load" : `Missing from bulk load (${this.stringUtils.pluraliseWithCount(amount, unit)} or more)`;
       default:
         return filter.label;
     }
@@ -409,6 +444,12 @@ export class MemberMultiSelect implements OnChanges {
         const lastBulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] : null;
         return lastBulkLoadDate
           ? `last bulk load ${this.dateUtils.displayDate(lastBulkLoadDate)}`
+          : memberGrouping;
+      }
+      case MemberSelection.ADDED_IN_LAST_BULK_LOAD_MEMBERS: {
+        const memberBulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] : null;
+        return memberBulkLoadDate
+          ? `added in bulk load ${this.dateUtils.displayDate(memberBulkLoadDate)}`
           : memberGrouping;
       }
       default:
