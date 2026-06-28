@@ -119,6 +119,22 @@ describe("MemberNamingService", () => {
     expect(service.firstAndLastNameFrom(null)).toEqual(null);
   });
 
+  it("abbreviatedWalksManagerContactName should detect first name plus surname initial", () => {
+    expect(service.abbreviatedWalksManagerContactName("Jenny B")).toBe(true);
+  });
+
+  it("abbreviatedWalksManagerContactName should detect first initial plus surname", () => {
+    expect(service.abbreviatedWalksManagerContactName("M Daniels")).toBe(true);
+  });
+
+  it("abbreviatedWalksManagerContactName should allow a full first name and surname", () => {
+    expect(service.abbreviatedWalksManagerContactName("Jenny Brown")).toBe(false);
+  });
+
+  it("abbreviatedWalksManagerContactName should ignore names that are not two-part contact names", () => {
+    expect(service.abbreviatedWalksManagerContactName("Sally Tyler Brindley")).toBe(false);
+  });
+
   it("should remove spaces and trailing dots", () => {
     const result = service.removeCharactersNotPartOfName("carol m.");
     expect(result).toBe("carol m");

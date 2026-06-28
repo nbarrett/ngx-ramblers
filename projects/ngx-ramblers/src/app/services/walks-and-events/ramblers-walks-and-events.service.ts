@@ -544,10 +544,10 @@ export class RamblersWalksAndEventsService {
 
       if (isEmpty(walk?.fields?.publishing?.ramblers?.contactName)) {
         validationMessages.push(`Walk leader has no Walks Manager Contact Name entered on their member record. ${contactIdMessage}`);
-      }
-
-      if (!isNaN(+walk?.fields?.publishing?.ramblers?.contactName)) {
+      } else if (!isNaN(+walk?.fields?.publishing?.ramblers?.contactName)) {
         validationMessages.push(`Walk leader has an old Ramblers contact Id (${walk?.fields.publishing.ramblers.contactName}) setup on their member record. This needs to be updated to an Walks Manager Contact Name. ${contactIdMessage}`);
+      } else if (this.memberNamingService.abbreviatedWalksManagerContactName(walk?.fields?.publishing?.ramblers?.contactName)) {
+        validationMessages.push(`Walk leader Walks Manager Contact Name (${walk.fields.publishing.ramblers.contactName}) appears to be abbreviated. Enter the full first name and surname used in Walks Manager. ${contactIdMessage}`);
       }
       if (this.walksConfigService.walksConfig()?.requireFinishTime !== false) {
         if (!walk?.groupEvent?.end_date_time) {

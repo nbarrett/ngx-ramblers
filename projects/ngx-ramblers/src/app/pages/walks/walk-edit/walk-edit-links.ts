@@ -36,208 +36,191 @@ import { SectionToggle } from "../../../shared/components/section-toggle";
   ],
   template: `
     @if (displayedWalk?.walk?.fields) {
-    <div class="img-thumbnail thumbnail-admin-edit">
-      <div class="row">
-        <div class="col-sm-12">
-          <app-section-toggle
-            [tabs]="tabs"
-            [(selectedTab)]="selectedTab"
-            [queryParamKey]="'sub-tab'"/>
-          <div class="img-thumbnail thumbnail-walk-edit">
-            @if (selectedTab === RelatedLinksTab.RAMBLERS) {
-            <div class="thumbnail-heading">Ramblers</div>
-            <div class="form-group">
-              @if (showDiagnosticData) {
-                <div>id: {{ displayedWalk?.walk?.groupEvent.id }}</div>
-                <div>url: {{ displayedWalk?.walk?.groupEvent.url }}</div>
-              }
-              @if (!insufficientDataToUploadToRamblers() && !ramblersWalkExists()) {
-                @if (walkIsInPast()) {
-                  <p>This walk was not uploaded to Ramblers.</p>
-                } @else {
-                  <p>This walk has not been uploaded to Ramblers yet - check back when date is closer to
-                    <b>{{ displayedWalk?.walk?.groupEvent.start_date_time | displayDate }}</b>.
-                  </p>
-                }
-              }
-              @if (walkExportSignal().validationMessages.length > 0) {
-                <p>
-                  {{ walkValidations() }}
-                </p>
-              }
-              @if (canUnlinkRamblers()) {
-                <div>
+      <div class="img-thumbnail thumbnail-admin-edit">
+        <div class="row">
+          <div class="col-sm-12">
+            <app-section-toggle [tabs]="tabs"
+                                [(selectedTab)]="selectedTab"
+                                [queryParamKey]="'sub-tab'"/>
+            <div class="img-thumbnail thumbnail-walk-edit mt-3">
+              @if (selectedTab === RelatedLinksTab.RAMBLERS) {
+                <div class="thumbnail-heading">Ramblers</div>
+                <div class="form-group">
+                  <app-markdown-editor standalone category="walks-admin" name="ramblers-publishing-help"
+                                       description="Ramblers publishing help"/>
+                  @if (showDiagnosticData) {
+                    <div>id: {{ displayedWalk?.walk?.groupEvent.id }}</div>
+                    <div>url: {{ displayedWalk?.walk?.groupEvent.url }}</div>
+                  }
+                  @if (!insufficientDataToUploadToRamblers() && !ramblersWalkExists()) {
+                    @if (walkIsInPast()) {
+                      <p>This walk was not uploaded to Ramblers.</p>
+                    } @else {
+                      <p>This walk has not been uploaded to Ramblers yet - check back when date is closer to
+                        <b>{{ displayedWalk?.walk?.groupEvent.start_date_time | displayDate }}</b>.
+                      </p>
+                    }
+                  }
+                  @if (walkExportSignal().validationMessages.length > 0) {
+                    <p>
+                      {{ walkValidations() }}
+                    </p>
+                  }
+                </div>
+                <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+                  @if (display.allowEdits(displayedWalk.walk)) {
+                    <div>
+                      <div class="form-check">
+                        <input [disabled]="inputDisabled || saveInProgress"
+                               [(ngModel)]="displayedWalk.walk.fields.publishing.ramblers.publish"
+                               (ngModelChange)="logLinkChange()"
+                               type="checkbox" class="form-check-input" id="publish-ramblers">
+                        <label class="form-check-label" for="publish-ramblers">Publish to Ramblers
+                        </label>
+                      </div>
+                    </div>
+                  }
+                  @if (ramblersWalkExists()) {
+                    <div>
+                      <div class="d-inline-flex align-items-center flex-wrap">
+                        <label class="me-2">Link preview:</label>
+                        <img class="related-links-ramblers-image"
+                             src="favicon.ico"
+                             alt="Click to view on Ramblers Walks and Events Manager"/>
+                        <a target="_blank"
+                           class="ms-2"
+                           tooltip="Click to view on Ramblers Walks and Events Manager"
+                           [href]="display.ramblersLink(displayedWalk.walk)">Ramblers</a>
+                      </div>
+                    </div>
+                  }
+                  @if (display.allowEdits(displayedWalk.walk)) {
+                    <div>
+                      <div class="form-check">
+                        <input id="walk-cancelled-related" type="checkbox" class="form-check-input"
+                               [disabled]="syncDisabled"
+                               [(ngModel)]="walkCancelled"
+                               (change)="onCancelledChange()">
+                        <label class="form-check-label" for="walk-cancelled-related">Mark this walk as cancelled</label>
+                      </div>
+                    </div>
+                  }
+                </div>
+                @if (walkCancelled && display.allowEdits(displayedWalk.walk)) {
                   <div class="row">
-                    <div class="col-sm-2">
-                      <input type="submit" value="Unlink"
-                             (click)="unlinkRamblersDataFromCurrentWalk()"
-                             title="Remove link between this walk and Ramblers"
-                             [disabled]="inputDisabled || saveInProgress"
-                             class="btn btn-primary">
-                    </div>
-                    <div class="col-sm-10">
-                      <app-markdown-editor standalone name="ramblers-help"
-                                           description="Linking to Ramblers"/>
-                    </div>
-                  </div>
-                </div>
-              }
-            </div>
-            <div class="row">
-              @if (display.allowEdits(displayedWalk.walk)) {
-                <div class="col-sm-6">
-                  <div class="form-check">
-                    <input [disabled]="inputDisabled || saveInProgress"
-                           [(ngModel)]="displayedWalk.walk.fields.publishing.ramblers.publish"
-                           (ngModelChange)="logLinkChange()"
-                           type="checkbox" class="form-check-input" id="publish-ramblers">
-                    <label class="form-check-label" for="publish-ramblers">Publish to Ramblers
-                    </label>
-                  </div>
-                </div>
-              }
-              @if (ramblersWalkExists()) {
-                <div class="col-sm-6">
-                  <div class="form-group">
-                    <label class="me-2">Link preview:</label>
-                    <img class="related-links-ramblers-image"
-                         src="favicon.ico"
-                         alt="Click to view on Ramblers Walks and Events Manager"/>
-                    <a target="_blank"
-                       class="ms-2"
-                       tooltip="Click to view on Ramblers Walks and Events Manager"
-                       [href]="display.ramblersLink(displayedWalk.walk)">Ramblers</a>
-                  </div>
-                </div>
-              }
-            </div>
-            @if (display.allowEdits(displayedWalk.walk)) {
-              <div class="row mt-2">
-                <div class="col-sm-12">
-                  <div class="form-check">
-                    <input id="walk-cancelled-related" type="checkbox" class="form-check-input"
-                           [disabled]="syncDisabled"
-                           [(ngModel)]="walkCancelled"
-                           (change)="onCancelledChange()">
-                    <label class="form-check-label" for="walk-cancelled-related">Mark this walk as cancelled</label>
-                  </div>
-                </div>
-              </div>
-            }
-            @if (walkCancelled && display.allowEdits(displayedWalk.walk)) {
-              <div class="row">
-                <div class="col-sm-12">
-                  <div class="form-group">
-                    <label for="cancellation-reason-related">Cancellation Reason</label>
-                    <textarea [disabled]="syncDisabled"
-                              [(ngModel)]="displayedWalk.walk.groupEvent.cancellation_reason"
-                              class="form-control input-sm"
-                              id="cancellation-reason-related"
-                              rows="3"
-                              placeholder="Enter reason for cancellation (will be shown to members)">
+                    <div class="col-sm-12">
+                      <div class="form-group">
+                        <label for="cancellation-reason-related">Cancellation Reason</label>
+                        <textarea [disabled]="syncDisabled"
+                                  [(ngModel)]="displayedWalk.walk.groupEvent.cancellation_reason"
+                                  class="form-control input-sm"
+                                  id="cancellation-reason-related"
+                                  rows="3"
+                                  placeholder="Enter reason for cancellation (will be shown to members)">
                     </textarea>
-                  </div>
-                </div>
-              </div>
-            }
-            @if ((displayedWalk?.walk?.groupEvent?.id || displayedWalk?.walk?.groupEvent?.url)) {
-              <div class="row mt-2">
-                <div class="col-sm-3">
-                  <div class="form-group">
-                    <label for="ramblers-id-related">Ramblers Id</label>
-                    <input [(ngModel)]="displayedWalk.walk.groupEvent.id" type="text"
-                           name="ramblers-id-related"
-                           class="form-control input-sm"
-                           id="ramblers-id-related"
-                           disabled/>
-                  </div>
-                </div>
-                <div class="col-sm-9">
-                  <div class="form-group">
-                    <label for="ramblers-url-related">Ramblers Url</label>
-                    <a [href]="displayedWalk.walk.groupEvent.url"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="form-control input-sm d-block text-truncate"
-                       id="ramblers-url-related"
-                       [title]="displayedWalk.walk.groupEvent.url">
-                      {{ displayedWalk.walk.groupEvent.url }}
-                    </a>
-                  </div>
-                </div>
-              </div>
-            }
-            }
-            @if (selectedTab === RelatedLinksTab.MEETUP) {
-              <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress" [inputDisabled]="inputDisabled"/>
-            }
-            @if (selectedTab === RelatedLinksTab.OS_MAPS) {
-            <div class="thumbnail-heading">OS Maps</div>
-            <div class="col-sm-12">
-              <app-markdown-editor standalone name="os-maps-help" description="Linking to OS Maps"/>
-            </div>
-            <div class="col-sm-12">
-              <div class="row">
-                @if (linkExists(LinkSource.OS_MAPS)) {
-                  <div class="col-sm-6">
-                    <div class="form-group">
-                      <label for="os-maps-route">Url</label>
-                      <input
-                        [(ngModel)]="links.osMapsRoute.href"
-                        [disabled]="inputDisabled"
-                        (ngModelChange)="logLinkChange()"
-                        type="text" value="" class="form-control input-sm"
-                        id="os-maps-route"
-                        placeholder="Enter URL to OS Maps Route">
+                      </div>
                     </div>
-                  </div>
-                  <div class="col-sm-6">
-                    <div class="form-group">
-                      <label for="related-links-title">Title</label>
-                      <input [(ngModel)]="links.osMapsRoute.title"
-                             [disabled]="inputDisabled"
-                             (ngModelChange)="logLinkChange()"
-                             type="text" value="" class="form-control input-sm"
-                             id="related-links-title"
-                             placeholder="Enter optional title for OS Maps link">
-                    </div>
-                  </div>
-                  <div class="col-sm-12">
-                    <div class="d-inline-flex align-items-center flex-wrap">
-                      <input type="submit" value="Unlink"
-                             (click)="unlinkOSMapsFromCurrentWalk()"
-                             title="Remove link between this walk and OS Maps"
-                             [disabled]="!canUnlinkOSMaps() || inputDisabled"
-                             class="btn btn-primary me-2">
-                      <label>Link preview:</label>
-                      <img class="related-links-image"
-                           src="/assets/images/local/ordnance-survey.png"
-                           alt=""/>
-                      <a target="_blank"
-                         class="ms-2"
-                         [href]="links.osMapsRoute.href"
-                         tooltip="Click to view the route for this walk on Ordnance Survey Maps">
-                        {{ links.osMapsRoute.title || displayedWalk?.walk?.groupEvent.title }}
-                      </a>
-                    </div>
-                  </div>
-                } @else {
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                      <input type="submit" value="Create"
-                             (click)="createLink()"
-                             title="Remove link between this walk and OS Maps"
-                             [disabled]="inputDisabled"
-                             class="btn btn-primary"></div>
                   </div>
                 }
-              </div>
+                @if ((displayedWalk?.walk?.groupEvent?.id || displayedWalk?.walk?.groupEvent?.url)) {
+                  <div class="row mt-2">
+                    <div class="col-sm-3">
+                      <div class="form-group">
+                        <label for="ramblers-id-related">Ramblers Id</label>
+                        <input [(ngModel)]="displayedWalk.walk.groupEvent.id" type="text"
+                               name="ramblers-id-related"
+                               class="form-control input-sm"
+                               id="ramblers-id-related"
+                               disabled/>
+                      </div>
+                    </div>
+                    <div class="col-sm-9">
+                      <div class="form-group">
+                        <label for="ramblers-url-related">Ramblers Url</label>
+                        <a [href]="displayedWalk.walk.groupEvent.url"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="form-control input-sm d-block text-truncate"
+                           id="ramblers-url-related"
+                           [title]="displayedWalk.walk.groupEvent.url">
+                          {{ displayedWalk.walk.groupEvent.url }}
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                }
+              }
+              @if (selectedTab === RelatedLinksTab.MEETUP) {
+                <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress"
+                                 [inputDisabled]="inputDisabled"/>
+              }
+              @if (selectedTab === RelatedLinksTab.OS_MAPS) {
+                <div class="thumbnail-heading">OS Maps</div>
+                <div class="col-sm-12">
+                  <app-markdown-editor standalone name="os-maps-help" description="Linking to OS Maps"/>
+                </div>
+                <div class="col-sm-12">
+                  <div class="row">
+                    @if (linkExists(LinkSource.OS_MAPS)) {
+                      <div class="col-sm-6">
+                        <div class="form-group">
+                          <label for="os-maps-route">Url</label>
+                          <input
+                            [(ngModel)]="links.osMapsRoute.href"
+                            [disabled]="inputDisabled"
+                            (ngModelChange)="logLinkChange()"
+                            type="text" value="" class="form-control input-sm"
+                            id="os-maps-route"
+                            placeholder="Enter URL to OS Maps Route">
+                        </div>
+                      </div>
+                      <div class="col-sm-6">
+                        <div class="form-group">
+                          <label for="related-links-title">Title</label>
+                          <input [(ngModel)]="links.osMapsRoute.title"
+                                 [disabled]="inputDisabled"
+                                 (ngModelChange)="logLinkChange()"
+                                 type="text" value="" class="form-control input-sm"
+                                 id="related-links-title"
+                                 placeholder="Enter optional title for OS Maps link">
+                        </div>
+                      </div>
+                      <div class="col-sm-12">
+                        <div class="d-inline-flex align-items-center flex-wrap">
+                          <input type="submit" value="Unlink"
+                                 (click)="unlinkOSMapsFromCurrentWalk()"
+                                 title="Remove link between this walk and OS Maps"
+                                 [disabled]="!canUnlinkOSMaps() || inputDisabled"
+                                 class="btn btn-primary me-2">
+                          <label>Link preview:</label>
+                          <img class="related-links-image"
+                               src="/assets/images/local/ordnance-survey.png"
+                               alt=""/>
+                          <a target="_blank"
+                             class="ms-2"
+                             [href]="links.osMapsRoute.href"
+                             tooltip="Click to view the route for this walk on Ordnance Survey Maps">
+                            {{ links.osMapsRoute.title || displayedWalk?.walk?.groupEvent.title }}
+                          </a>
+                        </div>
+                      </div>
+                    } @else {
+                      <div class="col-sm-12">
+                        <div class="form-group">
+                          <input type="submit" value="Create"
+                                 (click)="createLink()"
+                                 title="Remove link between this walk and OS Maps"
+                                 [disabled]="inputDisabled"
+                                 class="btn btn-primary"></div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
             </div>
-            }
           </div>
         </div>
       </div>
-    </div>
     }
   `
 })
@@ -280,7 +263,6 @@ export class WalkEditRelatedLinksComponent implements OnInit {
   protected readonly RelatedLinksTab = RelatedLinksTab;
   protected walkSignal: WritableSignal<ExtendedGroupEvent>;
   protected allowEditsSignal: WritableSignal<boolean>;
-  protected ramblersWalkExistsSignal: WritableSignal<boolean>;
   protected walkExportSignal: Signal<WalkExportData>;
   public walkCancelled = false;
   public tabs: RelatedLinksTab[] = enumValues(RelatedLinksTab);
@@ -300,7 +282,6 @@ export class WalkEditRelatedLinksComponent implements OnInit {
   ngOnInit() {
     this.walkSignal = signal(this.displayedWalk?.walk);
     this.allowEditsSignal = signal(this.memberLoginService.allowWalkAdminEdits());
-    this.ramblersWalkExistsSignal = signal(false);
     this.walkExportSignal = computed(() =>
       this.ramblersWalksAndEventsService.toWalkExport({
         localWalk: this.walkSignal(),
@@ -309,7 +290,6 @@ export class WalkEditRelatedLinksComponent implements OnInit {
     );
     this.initialiseLinks();
     this.logger.info("constructed with walk links:", this.displayedWalk?.walk?.fields?.links, "links object:", this.links);
-    this.ramblersWalkExistsSignal.set(this.walkExportSignal().publishedOnRamblers);
     this.walkCancelled = this.displayedWalk?.walk?.groupEvent?.status === WalkStatus.CANCELLED;
     this.broadcastService.on(NamedEventType.WALK_CHANGED, (namedEvent) => {
       this.logger.info("received:", namedEvent);
@@ -368,20 +348,8 @@ export class WalkEditRelatedLinksComponent implements OnInit {
     }
   }
 
-  canUnlinkRamblers() {
-    return this.memberLoginService.allowWalkAdminEdits() && this.ramblersWalkExistsSignal() && !this.display.walkPopulationWalksManager();
-  }
-
   canUnlinkOSMaps() {
     return !!this.linksService.linkWithSourceFrom(this.displayedWalk.walk.fields, LinkSource.OS_MAPS);
-  }
-
-  unlinkRamblersDataFromCurrentWalk() {
-    this.displayedWalk.walk.groupEvent.id = null;
-    this.displayedWalk.walk.groupEvent.url = null;
-    this.linksService.deleteLink(this.displayedWalk.walk.fields, LinkSource.RAMBLERS);
-    this.initialiseLinks();
-    this.notify.progress({title: "Unlink walk", message: "Previous Ramblers walk has now been unlinked."});
   }
 
   unlinkOSMapsFromCurrentWalk() {

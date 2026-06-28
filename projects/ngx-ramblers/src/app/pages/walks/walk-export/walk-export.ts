@@ -386,7 +386,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
                         @for (audit of filteredAudits; track audit.id) {
                           <tr>
                             <td>
-                              <app-status-icon noLabel [status]="audit.status"/>
+                              <app-status-icon noLabel [status]="auditDisplayStatus(audit)"/>
                             </td>
                             <td class="nowrap">{{ audit.auditTime | displayTimeWithSeconds }}</td>
                             <td class="nowrap">{{ timing(audit) }}</td>
@@ -403,7 +403,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
                   @for (audit of filteredAudits; track audit.id) {
                     <div class="border rounded p-2 mb-2">
                       <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                        <app-status-icon noLabel [status]="audit.status"/>
+                        <app-status-icon noLabel [status]="auditDisplayStatus(audit)"/>
                         <span class="fw-semibold">{{ audit.auditTime | displayTimeWithSeconds }}</span>
                         <span>{{ timing(audit) }}</span>
                       </div>
@@ -1192,6 +1192,10 @@ export class WalkExport implements OnInit, OnDestroy {
     const currentIndex = chronologicalAll.findIndex(item => item.id === audit.id);
     const previousAudit = chronologicalAll?.[currentIndex + 1];
     return this.dateUtils.formatDuration(previousAudit?.auditTime, audit?.auditTime);
+  }
+
+  auditDisplayStatus(audit: RamblersUploadAudit): Status {
+    return audit?.errorResponse ? Status.ERROR : audit?.status;
   }
 
   selectTab(tab: WalkExportTab): void {

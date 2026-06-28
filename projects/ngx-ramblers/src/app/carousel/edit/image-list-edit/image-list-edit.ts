@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse } from "@angular/common/http";
+import { HttpClient, HttpErrorResponse, HttpStatusCode } from "@angular/common/http";
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { isEmpty, keys, min } from "es-toolkit/compat";
@@ -480,6 +480,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   private systemConfig: SystemConfig;
   protected progressResponse: ProgressResponse;
   protected resizeInProgress = false;
+  private resizePollTimer: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit() {
     this.logger.info("ngOnInit:this.contentMetadata", this.contentMetadata, "name:", this.name, "story:", this.story);
@@ -502,6 +503,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.webSocketClientService.receiveMessages<ProgressResponse>(MessageType.PROGRESS).subscribe((progressResponse: ProgressResponse) => {
       this.progressResponse = progressResponse;
       this.resizeInProgress = true;
+      this.startResizePolling();
       this.logger.info(`Progress: ${progressResponse.message}`);
       this.notify.success({title: progressResponse.queued ? "Resize Queued" : "Progress", message: progressResponse.message});
     }));
@@ -706,6 +708,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.stopResizePolling();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
@@ -806,7 +809,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   private postMetadataRetrieveMapping() {
     this.syncTagWithStory();
-    this.restoreResizeState();
+    this.pollResizeStatus();
+    this.startResizePolling();
     this.pageContentService.albumNames()
       .then(albumPaths => {
         this.pageUsages = albumPaths.filter(ap => ap.albumName === this.name).map(ap => ap.contentPath);
@@ -1166,8 +1170,9 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     return this.unsavedImages().length === 0;
   }
 
-  private restoreResizeState(): void {
+  private pollResizeStatus(): void {
     if (!this.contentMetadata?.id) {
+      this.stopResizePolling();
       return;
     }
     this.http.get<ProgressResponse>(`api/integration-worker/resize/status/${this.contentMetadata.id}`).subscribe({
@@ -1175,16 +1180,40 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
         if (state) {
           this.resizeInProgress = true;
           this.progressResponse = state;
-          this.logger.info(`Restored resize queue state from backend: queued=${state.queued}, message=${state.message}`);
+          this.logger.info(`Resize state: queued=${state.queued}, message=${state.message}`);
+        } else {
+          this.resizeInProgress = false;
+          this.progressResponse = null;
+          this.stopResizePolling();
         }
       },
       error: (error) => {
-        this.logger.info("No active resize queue state on backend:", (error as Error).message);
+        if ((error as HttpErrorResponse).status === HttpStatusCode.NotFound) {
+          this.logger.info("Resize complete - no active state on backend");
+          this.resizeInProgress = false;
+          this.progressResponse = null;
+          this.stopResizePolling();
+        }
       }
     });
   }
 
+  private startResizePolling(): void {
+    if (this.resizePollTimer) {
+      return;
+    }
+    this.resizePollTimer = setInterval(() => this.pollResizeStatus(), 3000);
+  }
+
+  private stopResizePolling(): void {
+    if (this.resizePollTimer) {
+      clearInterval(this.resizePollTimer);
+      this.resizePollTimer = null;
+    }
+  }
+
   private clearResizeState(): void {
+    this.stopResizePolling();
   }
 
   public async resizeSavedImages(): Promise<void> {

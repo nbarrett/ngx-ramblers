@@ -414,7 +414,7 @@
                     <input autocomplete="new-password" name="contactId" [(ngModel)]="member.contactId" type="text"
                            class="form-control input-sm" id="ramblers-contact-name"
                            placeholder="The first name and last name used in Ramblers Walks Manager">
-                    <button type="button" class="btn btn-outline-secondary" tooltip="Set this field to be {{member | fullNameWithAlias}}" (click)="defaultContactName()">
+                    <button type="button" class="btn btn-outline-secondary" tooltip="Set this field to be {{member | fullName}}" (click)="defaultContactName()">
                       <fa-icon [icon]="faPaste" class="fa-icon"></fa-icon>
                     </button>
                   </div>

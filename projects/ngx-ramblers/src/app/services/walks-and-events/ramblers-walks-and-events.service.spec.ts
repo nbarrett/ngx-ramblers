@@ -23,6 +23,7 @@ import { CommitteeConfigService } from "../committee/commitee-config.service";
 import { of } from "rxjs";
 import { WalksConfigService } from "../system/walks-config.service";
 import { LinkSource } from "../../models/walk.model";
+import { MemberLoginService } from "../member/member-login.service";
 
 describe("RamblersWalksAndEventsService", () => {
   beforeEach(() => TestBed.configureTestingModule({
@@ -31,7 +32,13 @@ describe("RamblersWalksAndEventsService", () => {
       RamblersWalksAndEventsService,
       DisplayDatePipe,
       DateUtilsService,
-      WalkDisplayService,
+      {
+        provide: WalkDisplayService,
+        useValue: {
+          gridReferenceFrom: () => null,
+          toDisplayedWalk: walk => ({walk})
+        }
+      },
       StringUtilsService,
       MemberNamingService,
       WalksReferenceService,
@@ -69,6 +76,12 @@ describe("RamblersWalksAndEventsService", () => {
           events: () => of({}),
           walksConfig: () => ({milesPerHour: 2.13, requireRiskAssessment: true, requireFinishTime: true, requireWalkLeaderDisplayName: true})
         }
+      },
+      {
+        provide: MemberLoginService,
+        useValue: {
+          allowWalkAdminEdits: () => true
+        }
       }
     ]
   }));
@@ -79,6 +92,25 @@ describe("RamblersWalksAndEventsService", () => {
   });
 
   describe("toWalkExport", () => {
+    const exportableWalkWithContactName = (contactName: string) => ({
+      localWalk: {
+        groupEvent: {
+          title: "Coastal walk",
+          start_date_time: "2026-07-04T10:00:00.000Z",
+          end_date_time: "12:30",
+          difficulty: "Leisurely",
+          description: "A coastal walk",
+          start_location: {postcode: "CT1 1AA"},
+          shape: "Circular"
+        },
+        fields: {
+          riskAssessment: [],
+          publishing: {ramblers: {publish: true, contactName}}
+        },
+        events: []
+      }
+    });
+
     it("should return a validation message if the title is longer than 100 characters", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       const walk = {
@@ -93,6 +125,30 @@ describe("RamblersWalksAndEventsService", () => {
       };
       const walkExport = service.toWalkExport(walk as any);
       expect(walkExport.validationMessages).toContain("title must not exceed 100 characters");
+    });
+
+    it("should return a validation message if the Walks Manager Contact Name is first name plus surname initial", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(exportableWalkWithContactName("Jenny B") as any);
+      expect(walkExport.validationMessages).toContain("Walk leader Walks Manager Contact Name (Jenny B) appears to be abbreviated. Enter the full first name and surname used in Walks Manager. This can be entered on the Walk Leader tab");
+    });
+
+    it("should return a validation message if the Walks Manager Contact Name is first initial plus surname", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(exportableWalkWithContactName("M Daniels") as any);
+      expect(walkExport.validationMessages).toContain("Walk leader Walks Manager Contact Name (M Daniels) appears to be abbreviated. Enter the full first name and surname used in Walks Manager. This can be entered on the Walk Leader tab");
+    });
+
+    it("should allow a full Walks Manager Contact Name", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(exportableWalkWithContactName("Jenny Brown") as any);
+      expect(walkExport.validationMessages.find(message => message.includes("appears to be abbreviated"))).toBeUndefined();
+    });
+
+    it("should keep the old numeric Ramblers contact Id validation", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(exportableWalkWithContactName("12345") as any);
+      expect(walkExport.validationMessages).toContain("Walk leader has an old Ramblers contact Id (12345) setup on their member record. This needs to be updated to an Walks Manager Contact Name. This can be entered on the Walk Leader tab");
     });
   });
 
