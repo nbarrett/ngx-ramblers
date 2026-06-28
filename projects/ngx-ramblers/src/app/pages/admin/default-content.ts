@@ -10,6 +10,17 @@ export const MAIL_SETTINGS_UNSUBSCRIBES_HELP: ContentText = {
     "* Full detail in the [release notes for 27 April 2026](https://ngx-ramblers.org.uk/how-to/committee/release-notes/2026-04-27)."
 };
 
+export const RAMBLERS_PUBLISHING_HELP: ContentText = {
+  name: "ramblers-publishing-help",
+  category: "walks-admin",
+  text:
+    "* **Publish to Ramblers** controls whether this walk is included when the Walk upload selection page sends changes to Ramblers Walks Manager.\n" +
+    "* Leave it ticked to publish a new walk or update an existing Ramblers entry. The Walk upload selection page reconciles Ramblers links automatically before upload.\n" +
+    "* Untick it only when the walk should be removed from Ramblers. The deletion is sent when the walk is selected and uploaded from the Walk upload selection page.\n" +
+    "* **Mark this walk as cancelled** keeps the walk linked and sends a cancellation to Ramblers, including the cancellation reason shown below.\n" +
+    "* More detail is available in the [Walks export guide](https://www.ngx-ramblers.org.uk/how-to/committee/walks/export) and the [11 November 2025 release notes](https://www.ngx-ramblers.org.uk/how-to/committee/release-notes/2025-11-11)."
+};
+
 export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
   {
     category: "template-type",
@@ -230,6 +241,7 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
       "* Review audits of previous upload sessions",
     category: "walks-admin"
   },
+  RAMBLERS_PUBLISHING_HELP,
   {
     name: "how-to-documentation-help",
     text: "* Import walks from [Ramblers  Walks Manager](https://walks-manager.ramblers.org.uk/walks-manager)\n" +

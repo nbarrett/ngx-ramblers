@@ -11,6 +11,7 @@ import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { Member, MemberTerm, MemberUpdateAudit } from "../../../models/member.model";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
 import { EditMode, StoredValue } from "../../../models/ui-actions";
+import { FullNamePipe } from "../../../pipes/full-name.pipe";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { DbUtilsService } from "../../../services/db-utils.service";
@@ -59,7 +60,7 @@ import { MemberAuditHistoryComponent } from "./member-audit-history";
   providers: [FormatAuditPipe],
   imports: [TabsetComponent, TabDirective, FormsModule, DatePicker, MarkdownEditorComponent, TooltipDirective,
     FontAwesomeModule, MailChimpSubscriptionSettingsComponent, MailSubscriptionSettingsComponent, SwitchIconComponent,
-    SecretInputComponent, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, DisplayDatePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe, MemberAuditHistoryComponent]
+    SecretInputComponent, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, DisplayDatePipe, FullNamePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe, MemberAuditHistoryComponent]
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberAdminModalComponent", NgxLoggerLevel.ERROR);
@@ -326,6 +327,9 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   }
 
   preProcessMemberBeforeSave() {
+    if (!this.member.contactId) {
+      this.defaultContactName();
+    }
     return this.memberDefaultsService.resetUpdateStatusForMember(this.member, this.systemConfig);
   }
 
@@ -355,7 +359,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   }
 
   defaultContactName() {
-    this.member.contactId = this.fullNameWithAliasPipe.transform(this.member);
+    this.member.contactId = this.memberNamingService.memberFullName(this.member);
   }
 
   jointWith(jointWith: string): string {

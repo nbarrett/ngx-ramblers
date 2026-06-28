@@ -53,9 +53,9 @@ describe("Walks Upload", () => {
       Check.whether(RequestParameters.hasWalkCount(), equals(true))
         .andIfSo(
           UploadWalks.requested(),
-          CheckAndReportOn.uploadErrors(),
-          Publish.walksInDraftState()
-        )
+          CheckAndReportOn.uploadErrors()
+        ),
+      Publish.walksInDraftState()
     );
   });
 });

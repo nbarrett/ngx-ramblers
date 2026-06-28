@@ -30,6 +30,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
+import { MemberService } from "../../../services/member/member.service";
 import { enumValueForKey } from "../../../functions/enums";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
@@ -347,6 +348,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   private addressQueryService = inject(AddressQueryService);
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private memberLoginService = inject(MemberLoginService);
+  private memberService = inject(MemberService);
   route = inject(ActivatedRoute);
   private router = inject(Router);
   private walkNotificationService = inject(WalkNotificationService);
@@ -947,11 +949,27 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.logger.debug("saveAndCloseIfNotSent:saving walk:notificationSent", notificationSent);
     this.normaliseWalkFieldsForEdit();
     this.ensureImageConfig();
+    await this.syncWalksManagerContactNameToMember();
     const savedWalk: ExtendedGroupEvent = await this.walksAndEventsService.createOrUpdate(this.displayedWalk.walk);
     await this.persistVenueToCollection();
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_SAVED, savedWalk));
     this.afterSaveWith(notificationSent);
     return notificationSent;
+  }
+
+  private async syncWalksManagerContactNameToMember(): Promise<void> {
+    const memberId = this.displayedWalk?.walk?.fields?.contactDetails?.memberId;
+    const contactName = this.displayedWalk?.walk?.fields?.publishing?.ramblers?.contactName?.trim();
+    if (!memberId || !contactName) {
+      return;
+    }
+    const member = this.display.members.find(member => member.id === memberId);
+    if (!member || member.contactId === contactName) {
+      return;
+    }
+    member.contactId = contactName;
+    this.displayedWalk.walk.fields.contactDetails.contactId = contactName;
+    await this.memberService.update(member);
   }
 
   private async persistVenueToCollection(): Promise<void> {

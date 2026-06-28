@@ -1,6 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
+import { abbreviatedWalksManagerContactName, memberFullName } from "../../functions/member-names";
 import { FirstAndLastName, HasEmailFirstAndLastName, Member, RamblersMember } from "../../models/member.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 
@@ -29,6 +30,14 @@ export class MemberNamingService {
     } else {
       return null;
     }
+  }
+
+  public memberFullName(member: Member, defaultValue = ""): string {
+    return memberFullName(member, defaultValue);
+  }
+
+  public abbreviatedWalksManagerContactName(contactName: string): boolean {
+    return abbreviatedWalksManagerContactName(contactName);
   }
 
   createUniqueUserName(member: RamblersMember | Member, members: Member[]) {
