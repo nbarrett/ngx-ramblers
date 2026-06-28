@@ -22,6 +22,7 @@ import { SearchFilterPipe } from "../../pipes/search-filter.pipe";
 import { CommitteeConfigService } from "../committee/commitee-config.service";
 import { of } from "rxjs";
 import { WalksConfigService } from "../system/walks-config.service";
+import { LinkSource } from "../../models/walk.model";
 
 describe("RamblersWalksAndEventsService", () => {
   beforeEach(() => TestBed.configureTestingModule({
@@ -106,6 +107,46 @@ describe("RamblersWalksAndEventsService", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       expect(service.walkTitle({groupEvent: {title: "Dover to St Margaret's Bay on the White Cliffs"}} as any))
         .toEqual("Dover to St Margarets Bay on the White Cliffs");
+    });
+  });
+
+  describe("updateWalksWithRamblersWalkData date change handling", () => {
+    const ramblersUrl = "https://www.ramblers.org.uk/sunday-walk";
+    const linkedLocalWalk = () => ({
+      id: "local-mongo-id",
+      groupEvent: {
+        id: "ramblers-123",
+        url: ramblersUrl,
+        title: "Coastal walk",
+        start_date_time: "2026-07-04T10:00:00.000Z",
+        media: []
+      },
+      fields: {
+        riskAssessment: [],
+        links: [{source: LinkSource.RAMBLERS, href: ramblersUrl, title: "Coastal walk"}]
+      },
+      events: []
+    });
+
+    it("keeps a still-linked walk linked when its date no longer matches the Ramblers entry", async () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      (service as any).dryRun = true;
+      const localWalk = linkedLocalWalk();
+      const ramblersResponse = {id: "ramblers-123", url: ramblersUrl, title: "Coastal walk", startDate: "Sun 28-Jun-2026", media: []};
+      await service.updateWalksWithRamblersWalkData([ramblersResponse] as any, [localWalk] as any);
+      expect(localWalk.groupEvent.id).toEqual("ramblers-123");
+      expect(localWalk.groupEvent.url).toEqual(ramblersUrl);
+      expect(localWalk.fields.links.find(link => link.source === LinkSource.RAMBLERS)).toBeTruthy();
+    });
+
+    it("unlinks a walk whose Ramblers entry no longer exists", async () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      (service as any).dryRun = true;
+      const localWalk = linkedLocalWalk();
+      await service.updateWalksWithRamblersWalkData([], [localWalk] as any);
+      expect(localWalk.groupEvent.id).toBeUndefined();
+      expect(localWalk.groupEvent.url).toBeUndefined();
+      expect(localWalk.fields.links.find(link => link.source === LinkSource.RAMBLERS)).toBeUndefined();
     });
   });
 
