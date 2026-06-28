@@ -65,11 +65,12 @@ router.post("/jobs", async (req: Request, res: Response) => {
       }
     }
 
+    const enqueuedAt = dateTimeNowAsValue();
     const queueResult = integrationWorkerHeavyJobQueue.enqueue({
       jobId: request.job.jobId,
       type: IntegrationWorkerHeavyJobType.Upload,
       label: request.job.data?.fileName || request.job.jobId,
-      run: () => executeWorkerJob({ request, credentials, reportUploadCredentials })
+      run: () => executeWorkerJob({ request, credentials, reportUploadCredentials, enqueuedAt })
     });
     debugLog("POST /jobs queued response: jobId:", request.job.jobId, "queued:", queueResult.queued, "queuePosition:", queueResult.queuePosition, "activeJobId:", queueResult.activeJobId, "activeJobType:", queueResult.activeJobType);
     res.json({
@@ -180,7 +181,8 @@ export const integrationWorkerRoutes = router;
 async function executeWorkerJob(queuedJob: IntegrationWorkerQueuedUploadJob): Promise<void> {
   const jobId = queuedJob.request.job.jobId;
   const startedAt = dateTimeNowAsValue();
-  debugLog("executeWorkerJob: starting jobId:", jobId);
+  const queueWaitMs = startedAt - queuedJob.enqueuedAt;
+  debugLog("executeWorkerJob: starting jobId:", jobId, "queueWaitMs:", queueWaitMs);
   try {
     await executeRamblersUploadJobOnWorker(
       queuedJob.request.job,
@@ -190,9 +192,9 @@ async function executeWorkerJob(queuedJob: IntegrationWorkerQueuedUploadJob): Pr
       queuedJob.request.reportUpload,
       queuedJob.reportUploadCredentials
     );
-    debugLog("executeWorkerJob: finished jobId:", jobId, "elapsedMs:", dateTimeNowAsValue() - startedAt);
+    debugLog("executeWorkerJob: finished jobId:", jobId, "elapsedMs:", dateTimeNowAsValue() - startedAt, "queueWaitMs:", queueWaitMs);
   } catch (error) {
-    debugLog("executeWorkerJob: failed jobId:", jobId, "elapsedMs:", dateTimeNowAsValue() - startedAt, "error:", (error as Error).message);
+    debugLog("executeWorkerJob: failed jobId:", jobId, "elapsedMs:", dateTimeNowAsValue() - startedAt, "queueWaitMs:", queueWaitMs, "error:", (error as Error).message);
   }
 }
 

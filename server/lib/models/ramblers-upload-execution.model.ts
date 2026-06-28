@@ -22,4 +22,5 @@ export interface IntegrationWorkerQueuedUploadJob {
   credentials: RamblersUploadCredentials;
   reportUploadCredentials?: IntegrationWorkerAwsCredentials;
   request: IntegrationWorkerJobRequest;
+  enqueuedAt: number;
 }
