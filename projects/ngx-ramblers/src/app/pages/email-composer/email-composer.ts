@@ -2427,7 +2427,7 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   private renderedEventsHtml(): string {
-    if (this.state.eventInclusion === EventInclusionMode.NONE) return "";
+    if (this.eventsStepOmitted() || this.state.eventInclusion === EventInclusionMode.NONE) return "";
     return this.eventsContent?.nativeElement?.innerHTML ?? "";
   }
 
@@ -3429,6 +3429,9 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.state.notificationConfig = config;
     this.postSendActionWarningDismissed = false;
     this.state.bannerId = config?.bannerId ?? null;
+    if (this.eventsStepOmitted() && this.state.eventInclusion !== EventInclusionMode.NONE) {
+      this.setEventInclusionMode(EventInclusionMode.NONE);
+    }
     if (!userTypedCustomSubject) {
       this.state.subject = config?.subject?.text ?? "";
     }

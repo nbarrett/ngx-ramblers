@@ -161,6 +161,8 @@ export enum DistanceUnit {
 }
 
 export enum DateRangeUnit {
+  MINUTES = "minutes",
+  HOURS = "hours",
   DAYS = "days",
   WEEKS = "weeks",
   MONTHS = "months",
@@ -177,6 +179,21 @@ export const RANGE_UNIT_OPTIONS: { value: DateRangeUnit; label: string }[] = [
   { value: DateRangeUnit.WEEKS, label: "Weeks" },
   { value: DateRangeUnit.MONTHS, label: "Months" },
   { value: DateRangeUnit.YEARS, label: "Years" }
+];
+
+export const RANGE_UNIT_OPTIONS_WITH_TIME: { value: DateRangeUnit; label: string }[] = [
+  { value: DateRangeUnit.MINUTES, label: "Minutes" },
+  { value: DateRangeUnit.HOURS, label: "Hours" },
+  ...RANGE_UNIT_OPTIONS
+];
+
+export const NO_DATE_FILTER = "none";
+
+export type NotificationTimeUnit = DateRangeUnit | typeof NO_DATE_FILTER;
+
+export const NOTIFICATION_TIME_UNIT_OPTIONS: { value: NotificationTimeUnit; label: string }[] = [
+  { value: NO_DATE_FILTER, label: "No date" },
+  ...RANGE_UNIT_OPTIONS_WITH_TIME
 ];
 
 export const CUSTOM_PRESET_LABEL = "custom-range";

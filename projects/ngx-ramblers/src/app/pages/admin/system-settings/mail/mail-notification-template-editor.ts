@@ -53,6 +53,7 @@ import { RootFolder } from "../../../../models/system.model";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { Location } from "@angular/common";
 import { StoredValue } from "../../../../models/ui-actions";
+import { DateRangeUnit, NO_DATE_FILTER, NOTIFICATION_TIME_UNIT_OPTIONS } from "../../../../models/search.model";
 import { PathSegment } from "../../../../models/content-text.model";
 import { ContentBlockEditorComponent } from "./content-block-editor";
 import { EmailBodyEditorComponent } from "./email-body-editor";
@@ -391,13 +392,31 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                       </div>
                     </div>
                     <div class="col-sm-6">
-                      @if (notificationConfig.defaultMemberSelection !== MemberSelection.MAILING_LIST) {
-                        <div
-                          class="form-group">
-                          <label for="campaign-months-in-past-filter">Months In Past</label>
-                          <input [(ngModel)]="notificationConfig.monthsInPast"
-                                 type="number" id="campaign-months-in-past-filter"
-                                 class="form-control input-sm">
+                      @if (notificationConfig.defaultMemberSelection !== MemberSelection.MAILING_LIST && notificationConfig.defaultMemberSelection !== MemberSelection.ADDED_IN_LAST_BULK_LOAD_MEMBERS) {
+                        <div class="row">
+                          @if (notificationConfig.timeUnit !== NO_DATE_FILTER) {
+                            <div class="col-sm-6">
+                              <div class="form-group">
+                                <label for="campaign-time-amount-filter">Filter Window Amount</label>
+                                <input [(ngModel)]="notificationConfig.monthsInPast"
+                                       type="number" id="campaign-time-amount-filter"
+                                       class="form-control input-sm">
+                              </div>
+                            </div>
+                          }
+                          <div [class.col-sm-6]="notificationConfig.timeUnit !== NO_DATE_FILTER"
+                               [class.col-sm-12]="notificationConfig.timeUnit === NO_DATE_FILTER">
+                            <div class="form-group">
+                              <label for="campaign-time-unit-filter">Filter Window Unit</label>
+                              <select [(ngModel)]="notificationConfig.timeUnit"
+                                      id="campaign-time-unit-filter"
+                                      class="form-control input-sm">
+                                @for (option of rangeUnitOptions; track option.value) {
+                                  <option [ngValue]="option.value">{{ option.label }}</option>
+                                }
+                              </select>
+                            </div>
+                          </div>
                         </div>
                       }
                       @if (notificationConfig.defaultMemberSelection === MemberSelection.MAILING_LIST) {
@@ -476,6 +495,8 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MailNotificationTemplateEditor", NgxLoggerLevel.ERROR);
 
   memberSelections: KeyValue<string>[] = [KEY_NULL_VALUE_NONE].concat(enumKeyValues(MemberSelection));
+  rangeUnitOptions = NOTIFICATION_TIME_UNIT_OPTIONS;
+  protected readonly NO_DATE_FILTER = NO_DATE_FILTER;
   workflowActions: KeyValue<string>[] = [KEY_NULL_VALUE_NONE].concat(enumKeyValues(WorkflowAction));
   workflowActionValues: Map<string, string[]> = new Map(
     this.workflowActions.map(item => [item.key, item.key ? [item.value] : []])
@@ -645,6 +666,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
       defaultMemberSelection: null,
       contentPreset: null,
       monthsInPast: 2,
+      timeUnit: DateRangeUnit.MONTHS,
       bannerId: null,
       senderRole: "membership",
       replyToRole: "membership",
