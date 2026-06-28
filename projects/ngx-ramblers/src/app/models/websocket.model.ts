@@ -11,6 +11,7 @@ export type MessageHandlers = { [key in EventType]: (ws: WebSocket, data: any) =
 export interface ProgressResponse {
   message: string;
   percent?: number;
+  queued?: boolean;
 }
 
 export interface RamblersUploadAuditProgressResponse {

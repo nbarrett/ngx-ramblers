@@ -22,4 +22,4 @@ path = "/api/health"
 [[vm]]
 memory = "1024mb"
 cpu_kind = "shared"
-cpus = 1
+cpus = 2

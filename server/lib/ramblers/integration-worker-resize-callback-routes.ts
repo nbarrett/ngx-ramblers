@@ -63,7 +63,7 @@ function emitProgress(session: ImageResizeSession, event: IntegrationWorkerResiz
     sendToSession(session, { type: MessageType.ERROR, data: { message: event.message, request: session.resizeRequest } });
     return;
   }
-  const progressResponse: ProgressResponse = { message: event.message, percent: event.percent };
+  const progressResponse: ProgressResponse = { message: event.message, percent: event.percent, queued: event.queued };
   sendToSession(session, { type: MessageType.PROGRESS, data: progressResponse });
 }
 

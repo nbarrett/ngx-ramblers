@@ -177,9 +177,9 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
         </div>
         <div class="flex-fill">
           <div class="btn-group w-100" dropdown>
-            <button [disabled]="disabled()" aria-controls="dropdown-animated"
+            <button [disabled]="imageActionsDisabled()" aria-controls="dropdown-animated"
                     class="dropdown-toggle badge-button w-100 border-0"
-                    [ngClass]="{'disabled': disabled()}"
+                    [ngClass]="{'disabled': imageActionsDisabled()}"
                     dropdownToggle
                     type="button">
               <fa-icon [icon]="faTableCells"/>
@@ -189,9 +189,9 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
               @if (imagesExist()) {
                 @if (contentMetadata?.maxImageSize > 0) {
                   <li role="menuitem">
-                    <a (click)="resizeSavedImages()" class="dropdown-item">
+                    <a (click)="resizeSavedImages()" class="dropdown-item" [ngClass]="{'disabled': resizeInProgress}">
                       <fa-icon [icon]="faCompress"/>
-                      Resize Existing Images To {{ numberUtils.humanFileSize(contentMetadata.maxImageSize) }}
+                      {{ resizeInProgress ? resizeActionCaption() : "Resize Existing Images To " + numberUtils.humanFileSize(contentMetadata.maxImageSize) }}
                     </a>
                   </li>
                 }
@@ -250,9 +250,12 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
         </div>
         @if (progressResponse) {
           <div class="col-sm-12 mt-2">
+            <div class="alert mb-2" [ngClass]="progressResponse.queued ? 'alert-warning' : 'alert-success'">
+              {{ progressResponse.message }}
+            </div>
             <div class="progress">
-              <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': progressResponse.percent + '%' }">
-                {{ progressResponse.percent }}%
+              <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': progressPercent() + '%' }">
+                {{ progressResponse.queued ? "Queued" : progressPercent() + "%" }}
               </div>
             </div>
           </div>
@@ -469,6 +472,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   protected readonly saveToNew = false;
   private systemConfig: SystemConfig;
   protected progressResponse: ProgressResponse;
+  protected resizeInProgress = false;
 
   ngOnInit() {
     this.logger.info("ngOnInit:this.contentMetadata", this.contentMetadata, "name:", this.name, "story:", this.story);
@@ -491,15 +495,19 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.webSocketClientService.receiveMessages<ProgressResponse>(MessageType.PROGRESS).subscribe((progressResponse: ProgressResponse) => {
       this.progressResponse = progressResponse;
       this.logger.info(`Progress: ${progressResponse.message}`);
-      this.notify.success({title: "Progress", message: progressResponse.message});
+      this.notify.success({title: progressResponse.queued ? "Resize Queued" : "Progress", message: progressResponse.message});
     }));
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.ERROR).subscribe(error => {
         this.logger.error(`Error:`, error);
+        this.resizeInProgress = false;
+        this.progressResponse = null;
+        this.clearBusy();
         this.notify.error({title: "Error", message: error});
       })
     );
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.COMPLETE).subscribe((message: ApiResponse) => {
         this.logger.info(`Task completed:`, message);
+        this.resizeInProgress = false;
         this.progressResponse = null;
         if (isArray(message.response)) {
           this.processResizeItemsResponse(message.response);
@@ -1148,19 +1156,28 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   public async resizeSavedImages(): Promise<void> {
-    await this.saveChanges();
-    const contentMetadataResizeRequest: ContentMetadataResizeRequest = {
-      maxFileSize: this.contentMetadata.maxImageSize,
-      id: this.contentMetadata.id,
-      output: this.saveToNew ? {
-        name: this.contentMetadata.name + "-resized",
-        rootFolder: this.contentMetadata.rootFolder
-      } : null
-    };
-    this.setBusy();
-    this.webSocketClientService.connect()
-      .then(() => this.webSocketClientService.sendMessage(EventType.RESIZE_SAVED_IMAGES, contentMetadataResizeRequest))
-      .catch(error => this.handleResizeError(error));
+    if (this.resizeInProgress) {
+      this.notify.warning({title: "Resize already queued", message: "Please wait for the current resize job to finish before starting another one"});
+      return;
+    }
+    this.resizeInProgress = true;
+    try {
+      await this.saveChanges();
+      const contentMetadataResizeRequest: ContentMetadataResizeRequest = {
+        maxFileSize: this.contentMetadata.maxImageSize,
+        id: this.contentMetadata.id,
+        output: this.saveToNew ? {
+          name: this.contentMetadata.name + "-resized",
+          rootFolder: this.contentMetadata.rootFolder
+        } : null
+      };
+      this.setBusy();
+      this.webSocketClientService.connect()
+        .then(() => this.webSocketClientService.sendMessage(EventType.RESIZE_SAVED_IMAGES, contentMetadataResizeRequest))
+        .catch(error => this.handleResizeError(error));
+    } catch (error) {
+      this.handleResizeError(error as Error);
+    }
   }
 
   private downscaleUnsavedImagesForEditing(items: ContentMetadataItem[]) {
@@ -1206,6 +1223,9 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   private handleResizeError(error: Error) {
+    this.resizeInProgress = false;
+    this.progressResponse = null;
+    this.clearBusy();
     this.logger.error(error);
     this.notify.error({title: "Image Resizing failed", message: error});
   }
@@ -1228,5 +1248,17 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   disabled() {
     return !this.uploader || this.uploader.isUploading || this.notifyTarget.busy;
+  }
+
+  imageActionsDisabled() {
+    return this.disabled() || this.resizeInProgress;
+  }
+
+  resizeActionCaption(): string {
+    return this.progressResponse?.queued ? "Resize queued" : "Resize in progress";
+  }
+
+  progressPercent(): number {
+    return this.progressResponse?.queued ? 100 : (this.progressResponse?.percent || 0);
   }
 }

@@ -19,23 +19,19 @@ import * as auditParser from "./ramblers-audit-parser";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { Status } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
 import { activateRamblersUploadSession, currentRamblersUploadSession } from "./ramblers-upload-session-registry";
+import { IntegrationWorkerQueuedUploadJob } from "../models/ramblers-upload-execution.model";
+import { integrationWorkerHeavyJobQueue } from "./integration-worker-heavy-job-queue";
+import { IntegrationWorkerHeavyJobType } from "../models/integration-worker-heavy-job.model";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-routes"));
 debugLog.enabled = true;
 
 const router = express.Router();
-const queuedJobs: QueuedWorkerJob[] = [];
-let activeJobId: string | null = null;
-
-interface QueuedWorkerJob {
-  credentials: RamblersUploadCredentials;
-  reportUploadCredentials?: IntegrationWorkerAwsCredentials;
-  request: IntegrationWorkerJobRequest;
-}
 
 router.post("/jobs", async (req: Request, res: Response) => {
   const incomingJobId = (req.body as IntegrationWorkerJobRequest | undefined)?.job?.jobId;
-  debugLog("POST /jobs received: jobId:", incomingJobId, "activeJobId:", activeJobId, "queueDepth:", queuedJobs.length);
+  const activeJob = integrationWorkerHeavyJobQueue.activeJob();
+  debugLog("POST /jobs received: jobId:", incomingJobId, "activeJobId:", activeJob?.jobId, "activeJobType:", activeJob?.type, "queueDepth:", integrationWorkerHeavyJobQueue.queuedJobs().length);
   try {
     if (!requestIsSigned(req, requiredValue(Environment.INTEGRATION_WORKER_SHARED_SECRET))) {
       debugLog("POST /jobs rejected: invalid signature for jobId:", incomingJobId);
@@ -69,26 +65,18 @@ router.post("/jobs", async (req: Request, res: Response) => {
       }
     }
 
-    if (activeJobId) {
-      queuedJobs.push({ request, credentials, reportUploadCredentials });
-      debugLog("POST /jobs queued: jobId:", request.job.jobId, "queuePosition:", queuedJobs.length, "activeJobId:", activeJobId);
-      res.json({
-        jobId: request.job.jobId,
-        queued: true,
-        queuePosition: queuedJobs.length,
-        activeJobId
-      });
-      return;
-    }
-
-    activeJobId = request.job.jobId;
-    debugLog("POST /jobs starting immediately: jobId:", activeJobId, "fileName:", request.job.data?.fileName, "rowCount:", request.job.data?.rows?.length);
-    void executeWorkerJob({ request, credentials, reportUploadCredentials });
+    const queueResult = integrationWorkerHeavyJobQueue.enqueue({
+      jobId: request.job.jobId,
+      type: IntegrationWorkerHeavyJobType.Upload,
+      label: request.job.data?.fileName || request.job.jobId,
+      run: () => executeWorkerJob({ request, credentials, reportUploadCredentials })
+    });
+    debugLog("POST /jobs queued response: jobId:", request.job.jobId, "queued:", queueResult.queued, "queuePosition:", queueResult.queuePosition, "activeJobId:", queueResult.activeJobId, "activeJobType:", queueResult.activeJobType);
     res.json({
       jobId: request.job.jobId,
-      queued: false,
-      queuePosition: 0,
-      activeJobId
+      queued: queueResult.queued,
+      queuePosition: queueResult.queuePosition,
+      activeJobId: queueResult.activeJobId
     });
   } catch (error) {
     debugLog("POST /jobs error for jobId:", incomingJobId, "error:", (error as Error).message);
@@ -189,7 +177,7 @@ router.post("/result", async (req: Request, res: Response) => {
 
 export const integrationWorkerRoutes = router;
 
-async function executeWorkerJob(queuedJob: QueuedWorkerJob): Promise<void> {
+async function executeWorkerJob(queuedJob: IntegrationWorkerQueuedUploadJob): Promise<void> {
   const jobId = queuedJob.request.job.jobId;
   const startedAt = dateTimeNowAsValue();
   debugLog("executeWorkerJob: starting jobId:", jobId);
@@ -205,30 +193,7 @@ async function executeWorkerJob(queuedJob: QueuedWorkerJob): Promise<void> {
     debugLog("executeWorkerJob: finished jobId:", jobId, "elapsedMs:", dateTimeNowAsValue() - startedAt);
   } catch (error) {
     debugLog("executeWorkerJob: failed jobId:", jobId, "elapsedMs:", dateTimeNowAsValue() - startedAt, "error:", (error as Error).message);
-  } finally {
-    activeJobId = null;
-    void runNextQueuedWorkerJob().catch(error => {
-      debugLog("runNextQueuedWorkerJob: unexpected error:", (error as Error).message);
-    });
   }
-}
-
-async function runNextQueuedWorkerJob(): Promise<void> {
-  if (activeJobId) {
-    debugLog("runNextQueuedWorkerJob: skip - activeJobId still:", activeJobId);
-    return;
-  }
-
-  const nextJob = queuedJobs.shift();
-
-  if (!nextJob) {
-    debugLog("runNextQueuedWorkerJob: queue empty");
-    return;
-  }
-
-  activeJobId = nextJob.request.job.jobId;
-  debugLog("runNextQueuedWorkerJob: dequeued jobId:", activeJobId, "remainingQueueDepth:", queuedJobs.length);
-  await executeWorkerJob(nextJob);
 }
 
 function callbackSecret(): string {
