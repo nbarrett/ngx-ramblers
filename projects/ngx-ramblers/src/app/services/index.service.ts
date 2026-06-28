@@ -252,6 +252,7 @@ export class IndexService {
           accessLevel: AccessLevel.PUBLIC,
           location,
           createdAt: row.carousel?.createdAt,
+          eventDate: row.carousel?.eventDate,
           albumName: row.carousel?.name
         });
         if (childIndexRow && this.withinPreviewImageSearchDepth(depth) && (!imageSource || imageSource === "null")) {
@@ -634,7 +635,8 @@ export class IndexService {
       return {
         title: carouselRow?.carousel?.title || this.stringUtils.asPathSegmentTitle(last(this.urlService.pathSegmentsForUrl(page.path))),
         href: page.path,
-        createdAt: carouselRow?.carousel?.createdAt
+        createdAt: carouselRow?.carousel?.createdAt,
+        eventDate: carouselRow?.carousel?.eventDate
       } as PageContentColumn;
     });
     return this.sortColumns(sortable, sortConfig).map(c => pageByPath.get(c.href)).filter(p => !!p);
