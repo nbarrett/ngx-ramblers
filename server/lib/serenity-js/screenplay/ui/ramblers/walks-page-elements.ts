@@ -133,7 +133,7 @@ export class WalksPageElements {
   }
 
   public static checkboxSelector(tableRow: PageElement, date: string) {
-    return PageElement.located(By.css("[id^=edit-views-bulk-operations-bulk-form-]").describedAs(`Checkbox for ${date} walk`)).of(tableRow);
+    return PageElement.located(By.css("[id^=edit-views-bulk-operations-bulk-form-]")).of(tableRow).describedAs(`Checkbox for ${date} walk`);
   }
 
 }

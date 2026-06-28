@@ -139,5 +139,26 @@ describe("RamblersWalksAndEventsService", () => {
       expect(walkExport.publishStatus.messages.some(message => message.startsWith("Ramblers title is"))).toBe(true);
       expect(walkExport.publishStatus.publish).toBe(true);
     });
+
+    it("flags a date difference and marks the walk for republishing", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport({
+        localWalk: {
+          groupEvent: {
+            title: "Evening Walk: New Luckhurst Wood",
+            start_date_time: "2026-07-16T18:30:00.000+01:00"
+          },
+          fields: {riskAssessment: [], publishing: {ramblers: {publish: true}}},
+          events: []
+        },
+        ramblersWalk: {
+          title: "Evening Walk: New Luckhurst Wood",
+          startDate: "Thursday, 23 July 2026",
+          startDateValue: 1784761200000
+        }
+      } as any);
+      expect(walkExport.publishStatus.messages).toContain("Ramblers date is Thursday, 23 July 2026 but group website date is Thursday, 16 July 2026");
+      expect(walkExport.publishStatus.publish).toBe(true);
+    });
   });
 });

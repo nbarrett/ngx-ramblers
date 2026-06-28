@@ -17,16 +17,18 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { resizeSavedImagesToS3, resizeUnsavedImageItems, ResizeReporter } from "../aws/image-resize-engine";
 import { dateTimeNowAsValue } from "../shared/dates";
+import { integrationWorkerHeavyJobQueue } from "./integration-worker-heavy-job-queue";
+import { IntegrationWorkerHeavyJobType } from "../models/integration-worker-heavy-job.model";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-resize-routes"));
 debugLog.enabled = true;
 
 const router = express.Router();
-let activeResizeJobId: string | null = null;
 
 router.post("/jobs", async (req: Request, res: Response) => {
   const incomingJobId = (req.body as IntegrationWorkerResizeJobRequest | undefined)?.jobId;
-  debugLog("POST /resize/jobs received: jobId:", incomingJobId, "activeJobId:", activeResizeJobId);
+  const activeJob = integrationWorkerHeavyJobQueue.activeJob();
+  debugLog("POST /resize/jobs received: jobId:", incomingJobId, "activeJobId:", activeJob?.jobId, "activeJobType:", activeJob?.type, "queueDepth:", integrationWorkerHeavyJobQueue.queuedJobs().length);
   if (!requestIsSigned(req)) {
     res.status(401).json({ error: "Invalid integration worker request signature" });
     return;
@@ -36,14 +38,29 @@ router.post("/jobs", async (req: Request, res: Response) => {
     res.status(400).json({ error: "jobId, mode, resizeRequest and callback are required" });
     return;
   }
-  if (activeResizeJobId) {
-    res.status(409).json({ error: `Resize job already active: ${activeResizeJobId}` });
-    return;
+  const queueResult = integrationWorkerHeavyJobQueue.enqueue({
+    jobId: request.jobId,
+    type: IntegrationWorkerHeavyJobType.Resize,
+    label: `${request.mode} resize`,
+    run: () => runResize(request)
+  });
+  debugLog("POST /resize/jobs queued response: jobId:", request.jobId, "queued:", queueResult.queued, "queuePosition:", queueResult.queuePosition, "activeJobId:", queueResult.activeJobId, "activeJobType:", queueResult.activeJobType);
+  if (queueResult.queued) {
+    const sharedSecret = envConfig.value(Environment.INTEGRATION_WORKER_SHARED_SECRET) || "";
+    void postProgress(request.callback, sharedSecret, {
+      jobId: request.jobId,
+      level: IntegrationWorkerLogLevel.Info,
+      message: `Resize job queued at position ${queueResult.queuePosition} behind ${queueResult.activeJobType} job ${queueResult.activeJobId}`,
+      percent: 0,
+      queued: true
+    });
   }
-  activeResizeJobId = request.jobId;
-  res.json({ accepted: true, jobId: request.jobId });
-  void runResize(request).finally(() => {
-    activeResizeJobId = null;
+  res.json({
+    accepted: true,
+    jobId: request.jobId,
+    queued: queueResult.queued,
+    queuePosition: queueResult.queuePosition,
+    activeJobId: queueResult.activeJobId
   });
 });
 

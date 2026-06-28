@@ -1,6 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep, isEmpty, isEqual, isNaN, isString, isUndefined, keys, without } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isEqual, isNaN, isNumber, isString, isUndefined, keys, without } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import {
@@ -903,6 +903,10 @@ export class RamblersWalksAndEventsService {
           publishStatus.messages.push(`Ramblers grid reference is ${ramblersWalk?.end_location?.grid_reference_10} but website grid reference is ${walk?.groupEvent?.end_location?.grid_reference_10}`);
           publishStatus.publish = publishRequired;
         }
+        if (this.walkDateMismatch(walk, ramblersWalk)) {
+          publishStatus.messages.push(`Ramblers date is ${ramblersWalk.startDate} but group website date is ${this.dateUtils.displayDate(walk.groupEvent.start_date_time)}`);
+          publishStatus.publish = publishRequired;
+        }
         if (walk?.groupEvent?.title) {
           const ourTitle = this.walkTitle(walk);
           if (ourTitle !== ramblersWalk?.title) {
@@ -934,6 +938,19 @@ export class RamblersWalksAndEventsService {
     }
     this.logger.off("toPublishStatus:walk:", walk, "ramblersWalk:", ramblersWalk, "toPublishStatus:", publishStatus);
     return publishStatus;
+  }
+
+  private walkDateMismatch(walk: ExtendedGroupEvent, ramblersWalk: RamblersEventSummaryResponse): boolean {
+    if (!walk?.groupEvent?.start_date_time || !ramblersWalk) {
+      return false;
+    }
+    const websiteDate = this.dateUtils.asValueNoTime(walk?.groupEvent?.start_date_time);
+    const ramblersDate = isNumber(ramblersWalk.startDateValue) ? this.dateUtils.asValueNoTime(ramblersWalk.startDateValue) : null;
+    if (isNumber(ramblersDate)) {
+      return websiteDate !== ramblersDate;
+    } else {
+      return this.dateUtils.displayDate(walk?.groupEvent?.start_date_time) !== ramblersWalk?.startDate;
+    }
   }
 
   toExtendedGroupEvent(groupEvent: GroupEvent, inputSource: InputSource, migratedFromId?: string): ExtendedGroupEvent {

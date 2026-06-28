@@ -156,6 +156,7 @@ export interface IntegrationWorkerResizeProgressCallback {
   level: IntegrationWorkerLogLevel;
   message: string;
   percent: number;
+  queued?: boolean;
 }
 
 export interface IntegrationWorkerResizeResultCallback {
