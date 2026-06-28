@@ -14,12 +14,22 @@ import { ContentMetadata } from "../../../projects/ngx-ramblers/src/app/models/c
 import * as crudController from "../mongo/controllers/crud-controller";
 import { contentMetadata as contentMetadataModel } from "../mongo/models/content-metadata";
 import * as transforms from "../mongo/controllers/transforms";
-import { completeResizeSession, currentResizeSession, ImageResizeSession } from "../aws/image-resize-session-registry";
+import { clearResizeQueueState, completeResizeSession, currentResizeSession, ImageResizeSession, resizeQueueState, setResizeQueueState } from "../aws/image-resize-session-registry";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-resize-callback-routes"));
 debugLog.enabled = true;
 
 const router = express.Router();
+
+router.get("/status/:contentMetadataId", async (req: Request, res: Response) => {
+  const { contentMetadataId } = req.params;
+  const state = resizeQueueState(contentMetadataId);
+  if (state) {
+    res.json(state);
+  } else {
+    res.status(404).json({ message: "No active resize queue state for this content metadata" });
+  }
+});
 
 router.post("/progress", async (req: Request, res: Response) => {
   if (!requestIsSigned(req)) {
@@ -64,11 +74,23 @@ function emitProgress(session: ImageResizeSession, event: IntegrationWorkerResiz
     return;
   }
   const progressResponse: ProgressResponse = { message: event.message, percent: event.percent, queued: event.queued };
+  const contentMetadataId = session.resizeRequest.id;
+  if (contentMetadataId) {
+    setResizeQueueState(contentMetadataId, progressResponse);
+  }
   sendToSession(session, { type: MessageType.PROGRESS, data: progressResponse });
+}
+
+function clearStateForSession(session: ImageResizeSession): void {
+  const contentMetadataId = session.resizeRequest.id;
+  if (contentMetadataId) {
+    clearResizeQueueState(contentMetadataId);
+  }
 }
 
 async function emitResult(session: ImageResizeSession, result: IntegrationWorkerResizeResultCallback): Promise<void> {
   if (result.status === "error") {
+    clearStateForSession(session);
     sendToSession(session, {
       type: MessageType.ERROR,
       data: { message: "Image resize operation failed", error: result.errorMessage, request: session.resizeRequest }
@@ -76,6 +98,7 @@ async function emitResult(session: ImageResizeSession, result: IntegrationWorker
     return;
   }
   if (session.mode === ResizeImageMode.UNSAVED) {
+    clearStateForSession(session);
     sendToSession(session, {
       type: MessageType.COMPLETE,
       data: { request: session.resizeRequest, action: ApiAction.UPDATE, response: result.outputItems || [] }
@@ -88,6 +111,7 @@ async function emitResult(session: ImageResizeSession, result: IntegrationWorker
     const response = contentMetadata.id
       ? await controller.updateDocument({ body: contentMetadata })
       : await controller.createDocument({ body: contentMetadata });
+    clearStateForSession(session);
     sendToSession(session, {
       type: MessageType.COMPLETE,
       data: { request: session.resizeRequest, action: result.action, response }

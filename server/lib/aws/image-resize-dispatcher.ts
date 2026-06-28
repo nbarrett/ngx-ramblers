@@ -13,7 +13,7 @@ import { contentMetadata as contentMetadataModel } from "../mongo/models/content
 import * as transforms from "../mongo/controllers/transforms";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { resizeSavedImages, resizeUnsavedImages } from "./bulk-image-resizer";
-import { completeResizeSession, registerResizeSession } from "./image-resize-session-registry";
+import { clearResizeQueueState, completeResizeSession, registerResizeSession } from "./image-resize-session-registry";
 import { integrationWorkerConfiguredForResize, submitResizeJobToIntegrationWorker } from "../ramblers/integration-worker-resize-client";
 
 const debugLog = debug(envConfig.logNamespace("image-resize-dispatcher"));
@@ -35,6 +35,9 @@ export async function dispatchResizeSavedImages(ws: WebSocket, request: ContentM
     try {
       await submitResizeJobToIntegrationWorker(jobId, ResizeImageMode.SAVED, request, source);
     } catch (submitError) {
+      if (request.id) {
+        clearResizeQueueState(request.id);
+      }
       completeResizeSession(jobId);
       jobId = null;
       throw submitError;
@@ -75,6 +78,9 @@ export async function dispatchResizeUnsavedImages(ws: WebSocket, request: Conten
 
 function reportDispatchError(ws: WebSocket, request: ContentMetadataResizeRequest, error: unknown): void {
   debugLog("resize dispatch error:", (error as Error)?.message);
+  if (request.id) {
+    clearResizeQueueState(request.id);
+  }
   try {
     ws.send(JSON.stringify({
       type: MessageType.ERROR,

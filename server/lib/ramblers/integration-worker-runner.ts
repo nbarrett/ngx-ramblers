@@ -155,6 +155,7 @@ export async function executeRamblersUploadJobOnWorker(
   reportUpload?: IntegrationWorkerReportUploadConfig,
   awsCredentials?: IntegrationWorkerAwsCredentials
 ): Promise<void> {
+  const jobStartedAt = dateTimeNowAsValue();
   const preparedFiles = prepareRamblersUploadJobFiles(job);
   process.env[Environment.RAMBLERS_METADATA_FILE] = preparedFiles.metadataPath;
   process.env[Environment.RAMBLERS_FEATURE] = job.data.feature;
@@ -171,6 +172,12 @@ export async function executeRamblersUploadJobOnWorker(
     logStandardOut: true,
     sharedSecret
   });
+  void safePostProgress(callback, sharedSecret, {
+    jobId: job.jobId,
+    type: IntegrationWorkerEventType.LIFECYCLE,
+    payload: `Job execution started for ${job.data.fileName}`
+  });
+  const serenityStartedAt = dateTimeNowAsValue();
   const subprocess = spawn("npm", ["run", "serenity"], {
     stdio: ["pipe", "pipe", "pipe", "ipc"]
   });
@@ -198,10 +205,11 @@ export async function executeRamblersUploadJobOnWorker(
         reportStartAnnounced = true;
         const state = remoteRamblersUploadExecutionState();
         if (state) {
+          const serenityElapsed = dateTimeNowAsValue() - serenityStartedAt;
           void safePostProgress(state.callback, state.sharedSecret, {
             jobId: state.jobId,
             type: IntegrationWorkerEventType.LIFECYCLE,
-            payload: "Scenario execution complete"
+            payload: `Scenario execution complete [${formatElapsed(serenityElapsed)}]`
           });
           void safePostProgress(state.callback, state.sharedSecret, {
             jobId: state.jobId,
@@ -213,7 +221,7 @@ export async function executeRamblersUploadJobOnWorker(
     });
 
     subprocess.on("error", error => {
-      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, IntegrationWorkerEventType.ERROR, Status.ERROR, error.message)
+      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, IntegrationWorkerEventType.ERROR, Status.ERROR, error.message, jobStartedAt)
         .finally(() => {
           clearRemoteRamblersUploadExecutionState();
           reject(error);
@@ -223,8 +231,9 @@ export async function executeRamblersUploadJobOnWorker(
     subprocess.on("exit", code => {
       const status = code === 0 ? Status.SUCCESS : Status.ERROR;
       const type = code === 0 ? IntegrationWorkerEventType.COMPLETE : IntegrationWorkerEventType.ERROR;
-      const payload = `Upload completed with ${status} for ${job.data.fileName}${code === 0 ? "" : ` with code ${code}`}`;
-      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, type, status, payload)
+      const elapsed = formatElapsed(dateTimeNowAsValue() - jobStartedAt);
+      const payload = `Upload completed with ${status} for ${job.data.fileName}${code === 0 ? "" : ` with code ${code}`} [${elapsed}]`;
+      void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, type, status, payload, jobStartedAt)
         .finally(() => {
           clearRemoteRamblersUploadExecutionState();
           if (code === 0) {
@@ -237,6 +246,13 @@ export async function executeRamblersUploadJobOnWorker(
   });
 }
 
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${seconds}s (${ms}ms)`;
+}
+
 async function finishJob(
   job: RamblersUploadJob,
   callback: IntegrationWorkerCallbackConfig,
@@ -245,7 +261,8 @@ async function finishJob(
   awsCredentials: IntegrationWorkerAwsCredentials | undefined,
   type: IntegrationWorkerEventType.COMPLETE | IntegrationWorkerEventType.ERROR,
   status: string,
-  payload: string
+  payload: string,
+  jobStartedAt: number
 ): Promise<void> {
   let reportKeyPrefix: string | undefined;
   let reportBucket: string | undefined;
@@ -255,16 +272,24 @@ async function finishJob(
       type: IntegrationWorkerEventType.LIFECYCLE,
       payload: "Serenity report generation complete, uploading to S3"
     });
+    const reportUploadStartedAt = dateTimeNowAsValue();
     const uploaded = await uploadSerenityReportToS3(job.jobId, reportUpload, awsCredentials, callback, sharedSecret);
     if (uploaded) {
+      const reportUploadElapsed = formatElapsed(dateTimeNowAsValue() - reportUploadStartedAt);
+      await safePostProgress(callback, sharedSecret, {
+        jobId: job.jobId,
+        type: IntegrationWorkerEventType.LIFECYCLE,
+        payload: `Report upload to S3 complete [${reportUploadElapsed}]`
+      });
       reportKeyPrefix = reportUpload.keyPrefix;
       reportBucket = reportUpload.bucket;
     }
   }
+  const totalElapsed = formatElapsed(dateTimeNowAsValue() - jobStartedAt);
   await safePostResult(callback, sharedSecret, {
     jobId: job.jobId,
     type,
-    payload,
+    payload: `${payload} total ${totalElapsed}`,
     status,
     reportKeyPrefix,
     reportBucket

@@ -50,7 +50,7 @@ router.post("/jobs", async (req: Request, res: Response) => {
     void postProgress(request.callback, sharedSecret, {
       jobId: request.jobId,
       level: IntegrationWorkerLogLevel.Info,
-      message: `Resize job queued at position ${queueResult.queuePosition} behind ${queueResult.activeJobType} job ${queueResult.activeJobId}`,
+      message: "Your image resize has been queued and will start once the current job finishes.",
       percent: 0,
       queued: true
     });

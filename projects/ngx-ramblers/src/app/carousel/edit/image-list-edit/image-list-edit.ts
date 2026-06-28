@@ -1,4 +1,4 @@
-import { HttpErrorResponse } from "@angular/common/http";
+import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { isEmpty, keys, min } from "es-toolkit/compat";
@@ -11,6 +11,8 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
   faAdd,
+  faCircleCheck,
+  faCircleInfo,
   faCompress,
   faEraser,
   faFile,
@@ -251,6 +253,8 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
         @if (progressResponse) {
           <div class="col-sm-12 mt-2">
             <div class="alert mb-2" [ngClass]="progressResponse.queued ? 'alert-warning' : 'alert-success'">
+              <fa-icon [icon]="progressResponse.queued ? faCircleInfo : faCircleCheck"/>
+              <strong>{{ progressResponse.queued ? "Resize queued" : "Resizing images" }}: </strong>
               {{ progressResponse.message }}
             </div>
             <div class="progress">
@@ -422,6 +426,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   private memberLoginService: MemberLoginService = inject(MemberLoginService);
   public dateUtils: DateUtilsService = inject(DateUtilsService);
   private urlService: UrlService = inject(UrlService);
+  private http: HttpClient = inject(HttpClient);
   public name: string;
   public pageUsages: string[] = [];
   private changeUrlOnChangeOfTag = false;
@@ -468,6 +473,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   protected readonly faTags = faTags;
   protected readonly faFile = faFile;
   protected readonly faTableCells = faTableCells;
+  protected readonly faCircleCheck = faCircleCheck;
+  protected readonly faCircleInfo = faCircleInfo;
   protected readonly faCompress = faCompress;
   protected readonly saveToNew = false;
   private systemConfig: SystemConfig;
@@ -494,6 +501,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => this.systemConfig = systemConfig));
     this.subscriptions.push(this.webSocketClientService.receiveMessages<ProgressResponse>(MessageType.PROGRESS).subscribe((progressResponse: ProgressResponse) => {
       this.progressResponse = progressResponse;
+      this.resizeInProgress = true;
       this.logger.info(`Progress: ${progressResponse.message}`);
       this.notify.success({title: progressResponse.queued ? "Resize Queued" : "Progress", message: progressResponse.message});
     }));
@@ -501,6 +509,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
         this.logger.error(`Error:`, error);
         this.resizeInProgress = false;
         this.progressResponse = null;
+        this.clearResizeState();
         this.clearBusy();
         this.notify.error({title: "Error", message: error});
       })
@@ -509,6 +518,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
         this.logger.info(`Task completed:`, message);
         this.resizeInProgress = false;
         this.progressResponse = null;
+        this.clearResizeState();
         if (isArray(message.response)) {
           this.processResizeItemsResponse(message.response);
           this.clearBusy();
@@ -796,6 +806,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   private postMetadataRetrieveMapping() {
     this.syncTagWithStory();
+    this.restoreResizeState();
     this.pageContentService.albumNames()
       .then(albumPaths => {
         this.pageUsages = albumPaths.filter(ap => ap.albumName === this.name).map(ap => ap.contentPath);
@@ -1155,9 +1166,30 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     return this.unsavedImages().length === 0;
   }
 
+  private restoreResizeState(): void {
+    if (!this.contentMetadata?.id) {
+      return;
+    }
+    this.http.get<ProgressResponse>(`api/integration-worker/resize/status/${this.contentMetadata.id}`).subscribe({
+      next: (state) => {
+        if (state) {
+          this.resizeInProgress = true;
+          this.progressResponse = state;
+          this.logger.info(`Restored resize queue state from backend: queued=${state.queued}, message=${state.message}`);
+        }
+      },
+      error: (error) => {
+        this.logger.info("No active resize queue state on backend:", (error as Error).message);
+      }
+    });
+  }
+
+  private clearResizeState(): void {
+  }
+
   public async resizeSavedImages(): Promise<void> {
     if (this.resizeInProgress) {
-      this.notify.warning({title: "Resize already queued", message: "Please wait for the current resize job to finish before starting another one"});
+      this.notify.warning({title: "Resize in progress", message: "An image resize is already queued or running. Please wait for it to finish before starting another."});
       return;
     }
     this.resizeInProgress = true;
@@ -1225,6 +1257,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   private handleResizeError(error: Error) {
     this.resizeInProgress = false;
     this.progressResponse = null;
+    this.clearResizeState();
     this.clearBusy();
     this.logger.error(error);
     this.notify.error({title: "Image Resizing failed", message: error});
