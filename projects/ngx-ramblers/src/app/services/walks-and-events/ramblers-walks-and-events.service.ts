@@ -626,7 +626,7 @@ export class RamblersWalksAndEventsService {
     if (walk.groupEvent.title) {
       walkDescription.push(walk.groupEvent.title);
     }
-    return walkDescription.map(this.replaceSpecialCharacters).join(". ");
+    return walkDescription.map(title => this.replaceSpecialCharacters(title)).join(". ");
   }
 
   async walkDescription(walk: ExtendedGroupEvent): Promise<string> {
@@ -903,9 +903,12 @@ export class RamblersWalksAndEventsService {
           publishStatus.messages.push(`Ramblers grid reference is ${ramblersWalk?.end_location?.grid_reference_10} but website grid reference is ${walk?.groupEvent?.end_location?.grid_reference_10}`);
           publishStatus.publish = publishRequired;
         }
-        if (walk?.groupEvent?.title && walk?.groupEvent?.title !== ramblersWalk?.title) {
-          publishStatus.messages.push(`Ramblers title is ${ramblersWalk?.title} but website title is ${walk?.groupEvent?.title}`);
-          publishStatus.publish = publishRequired;
+        if (walk?.groupEvent?.title) {
+          const ourTitle = this.walkTitle(walk);
+          if (ourTitle !== ramblersWalk?.title) {
+            publishStatus.messages.push(`Ramblers title is ${ramblersWalk?.title} but website title is ${ourTitle}`);
+            publishStatus.publish = publishRequired;
+          }
         }
         if (walk?.groupEvent?.description) {
           const ourDescription = this.transformMarkdownLinks(this.replaceSpecialCharacters(this.longerDescriptionPlusSuffixes(walk)));

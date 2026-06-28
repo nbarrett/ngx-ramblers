@@ -214,8 +214,7 @@ export class WalkDisplayService {
   edit(walkDisplay: DisplayedWalk, options?: { bypassLeaderInit?: boolean }): void {
     const queryParams = options?.bypassLeaderInit ? {as: WalksReferenceService.walkAccessModes.edit.caption} : undefined;
     if (walkDisplay?.walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
-      const groupEventSlug = this.stringUtils.lastItemFrom(walkDisplay?.walk?.groupEvent?.url) || this.stringUtils.kebabCase(walkDisplay?.walk?.groupEvent?.title) || walkDisplay?.walk?.groupEvent?.id || walkDisplay?.walk?.id;
-      void this.urlService.navigateTo([this.groupEventArea(), groupEventSlug, PathSegment.EDIT], queryParams);
+      void this.urlService.navigateTo([this.groupEventArea(), this.editIdentifierFor(walkDisplay?.walk), PathSegment.EDIT], queryParams);
     } else {
       void this.editFullScreen(walkDisplay.walk, queryParams);
     }
@@ -237,7 +236,7 @@ export class WalkDisplayService {
   async editFullScreen(walk: ExtendedGroupEvent, queryParams?: Params): Promise<ExpandedWalk> {
     this.logger.debug("editing walk fullscreen:", walk);
     this.viewReturnUrl = this.location.path();
-    await this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, this.walkSlug(walk)], queryParams ? {queryParams} : undefined);
+    await this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, this.editIdentifierFor(walk)], queryParams ? {queryParams} : undefined);
     this.logger.debug("area is now", this.urlService.area());
     return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
   }
@@ -364,6 +363,10 @@ export class WalkDisplayService {
     displayedWalk.latestEventType = this.latestEventTypeFor(displayedWalk.walk);
     displayedWalk.walkLink = this.walkLink(displayedWalk.walk);
     displayedWalk.ramblersLink = this.ramblersLink(displayedWalk.walk);
+  }
+
+  editIdentifierFor(extendedGroupEvent: ExtendedGroupEvent): string {
+    return extendedGroupEvent?.id || this.walkSlug(extendedGroupEvent);
   }
 
   walkSlug(extendedGroupEvent: ExtendedGroupEvent): string {
