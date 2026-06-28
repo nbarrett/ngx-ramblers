@@ -348,7 +348,8 @@ export class IndexSiteEdit implements OnInit {
   sortFieldValues: {value: AlbumIndexSortField; title: string}[] = [
     {value: AlbumIndexSortField.TITLE, title: "Title"},
     {value: AlbumIndexSortField.HREF, title: "Path"},
-    {value: AlbumIndexSortField.CREATED_AT, title: "Date Created"}
+    {value: AlbumIndexSortField.CREATED_AT, title: "Date Created"},
+    {value: AlbumIndexSortField.EVENT_DATE, title: "Event Date"}
   ];
   sortDirectionValues: {value: SortDirection; title: string}[] = [
     {value: SortDirection.ASC, title: "Ascending"},

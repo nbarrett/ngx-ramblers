@@ -27,7 +27,8 @@ export enum StringMatch {
 export enum AlbumIndexSortField {
   TITLE = "title",
   HREF = "href",
-  CREATED_AT = "createdAt"
+  CREATED_AT = "createdAt",
+  EVENT_DATE = "eventDate"
 }
 
 export interface AlbumIndexSortConfig {
@@ -285,6 +286,7 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   styles?: ContentTextStyles;
   location?: LocationDetails;
   createdAt?: number;
+  eventDate?: number;
   albumName?: string;
 }
 
