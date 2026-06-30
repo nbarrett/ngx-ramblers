@@ -9,7 +9,7 @@ import { StringUtilsService } from "../string-utils.service";
 import { GroupEventService } from "./group-event.service";
 import { DateUtilsService } from "../date-utils.service";
 import { EventType, GroupEventField } from "../../models/walk.model";
-import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { WalksConfigService } from "../system/walks-config.service";
 import { createExtendedGroupEvent } from "../../testing/create-extended-group-event";
 
@@ -150,6 +150,47 @@ describe("GroupEventService", () => {
         currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
         const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
         expect(audit.changedItems.find(item => item.fieldName === "fields.links")).toBeUndefined();
+    });
+
+    describe("statusFor", () => {
+        it("returns the latest status change event type when event history exists", () => {
+            const service = TestBed.inject(GroupEventService);
+            const walk = walkWithContact(null);
+            walk.events = [{ eventType: EventType.APPROVED, memberId: "member-id", date: 1, data: {} }];
+            expect(service.statusFor(walk)).toBe(EventType.APPROVED);
+        });
+
+        it("returns approved for a walks-manager-cache walk with no event history", () => {
+            const service = TestBed.inject(GroupEventService);
+            const walk = walkWithContact(null);
+            walk.events = [];
+            walk.fields.inputSource = InputSource.WALKS_MANAGER_CACHE;
+            expect(service.statusFor(walk)).toBe(EventType.APPROVED);
+        });
+
+        it("returns approved for a file-import walk with no event history", () => {
+            const service = TestBed.inject(GroupEventService);
+            const walk = walkWithContact(null);
+            walk.events = [];
+            walk.fields.inputSource = InputSource.FILE_IMPORT;
+            expect(service.statusFor(walk)).toBe(EventType.APPROVED);
+        });
+
+        it("returns awaiting walk details for a manually created walk with no event history", () => {
+            const service = TestBed.inject(GroupEventService);
+            const walk = walkWithContact(null);
+            walk.events = [];
+            walk.fields.inputSource = InputSource.MANUALLY_CREATED;
+            expect(service.statusFor(walk)).toBe(EventType.AWAITING_WALK_DETAILS);
+        });
+
+        it("prefers event history over the imported walk fallback", () => {
+            const service = TestBed.inject(GroupEventService);
+            const walk = walkWithContact(null);
+            walk.events = [{ eventType: EventType.DELETED, memberId: "member-id", date: 1, data: {} }];
+            walk.fields.inputSource = InputSource.WALKS_MANAGER_CACHE;
+            expect(service.statusFor(walk)).toBe(EventType.DELETED);
+        });
     });
 
     describe("venue isMeetingPlace change detection", () => {

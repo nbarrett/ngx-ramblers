@@ -15,7 +15,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { LoginResponse } from "../../../models/member.model";
 import { DeviceSize } from "../../../models/page.model";
 import { EventPopulation } from "../../../models/system.model";
-import { DisplayedWalk, EventField, GroupEventField, WalkListView } from "../../../models/walk.model";
+import { DisplayedWalk, EventEventField, EventField, GroupEventField, WalkListView } from "../../../models/walk.model";
 import { EventsData } from "../../../models/group-events.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -391,8 +391,7 @@ export class EventsFull implements OnInit, OnDestroy {
       }
 
       if (walkPopulation === EventPopulation.LOCAL) {
-        criteriaParts.push({[EventField.INPUT_SOURCE]: InputSource.MANUALLY_CREATED});
-        criteriaParts.push({"events.eventType": {$ne: "deleted"}});
+        criteriaParts.push({[EventEventField.EVENT_TYPE]: {$ne: "deleted"}});
       } else if (walkPopulation === EventPopulation.WALKS_MANAGER) {
         criteriaParts.push({[EventField.INPUT_SOURCE]: {$ne: InputSource.MANUALLY_CREATED}});
       }

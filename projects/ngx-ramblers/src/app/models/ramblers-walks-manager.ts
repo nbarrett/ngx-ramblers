@@ -36,6 +36,9 @@ export interface PublishStatus {
   publish: boolean;
 }
 
+export const WALK_PUBLISHED_AND_MATCHING = "Walk is published to Ramblers and the date, location, title and description match";
+export const WALK_PUBLISHED_WITH_PROBLEMS = `${WALK_PUBLISHED_AND_MATCHING} — but it can't be re-uploaded until the problems above are fixed`;
+
 export interface RamblersEventSummaryResponse {
   id: string;
   url: string;

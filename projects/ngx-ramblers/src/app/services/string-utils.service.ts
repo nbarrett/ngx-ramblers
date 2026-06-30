@@ -135,6 +135,17 @@ StringUtilsService {
     return andTrim && replacedValue ? replacedValue.trim() : replacedValue;
   }
 
+  htmlToPlainText(value: string): string {
+    if (!value) {
+      return "";
+    }
+    const withoutTags = value
+      .replace(/<br\s*\/?>/gi, " ")
+      .replace(/<\/(p|div|li|ul|ol|h[1-6]|tr|table)>/gi, " ")
+      .replace(/<[^>]+>/g, "");
+    return he.decode(withoutTags).replace(/\s+/g, " ").trim();
+  }
+
   truncate(str: string, chars: number = 20) {
     return str ? this.left(str, chars) + (str.length > chars ? "..." : "") : "";
   }

@@ -277,4 +277,30 @@ describe("StringUtilsService", () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe("htmlToPlainText", () => {
+    it("should strip wrapping paragraph tags and trailing newline", () => {
+      expect(service.htmlToPlainText("<p>Starts Lambridge Wood Road. Two stiles</p>\n"))
+        .toBe("Starts Lambridge Wood Road. Two stiles");
+    });
+
+    it("should decode html entities", () => {
+      expect(service.htmlToPlainText("<p>IPSDEN &amp; HAILEY &lt;short&gt;</p>"))
+        .toBe("IPSDEN & HAILEY <short>");
+    });
+
+    it("should convert non-breaking spaces and line breaks to spaces", () => {
+      expect(service.htmlToPlainText("Coming&nbsp;from Kingsclere.<br>Bring lunch"))
+        .toBe("Coming from Kingsclere. Bring lunch");
+    });
+
+    it("should leave plain text untouched", () => {
+      expect(service.htmlToPlainText("A simple riverside stroll")).toBe("A simple riverside stroll");
+    });
+
+    it("should handle empty input", () => {
+      expect(service.htmlToPlainText("")).toBe("");
+      expect(service.htmlToPlainText(null)).toBe("");
+    });
+  });
 });

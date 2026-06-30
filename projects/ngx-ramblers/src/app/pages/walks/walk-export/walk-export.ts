@@ -178,7 +178,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
                       <dl (click)="toggleWalkExportSelection(walkExport)" class="d-flex pointer checkbox-toggle my-2">
                         <dt class="font-weight-bold me-2 flex-nowrap checkbox-toggle">Publish this walk:</dt>
                         <div class="form-check">
-                          <input [ngModel]="walkExport.selected"
+                          <input [checked]="walkExport.selected"
                                  [disabled]="!isActionable(walkExport)"
                                  type="checkbox" class="form-check-input"/>
                           <label class="form-check-label"></label>
@@ -478,6 +478,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
       margin-top: 0
       width: 1.1rem
       height: 1.1rem
+      pointer-events: none
 
     .audit-table-scroll
       position: relative
