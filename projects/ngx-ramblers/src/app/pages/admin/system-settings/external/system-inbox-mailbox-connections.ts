@@ -57,6 +57,13 @@ import {
                 </ol>
               </div>
             }
+            @if (mailboxConnection.hasRefreshToken && mailboxConnection.connectionStatus === InboxAliasConnectionStatus.ERROR) {
+              <div class="alert alert-warning mt-2 mb-3">
+                <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                <strong>Mail is not importing</strong>
+                <p class="mb-0 mt-1">The last sync failed{{mailboxConnection.lastErrorMessage ? " (" + mailboxConnection.lastErrorMessage + ")" : ""}}. If it does not clear on its own shortly, click <strong>Re-scan general mailbox from scratch</strong> below to re-import recent messages.</p>
+              </div>
+            }
             <div class="d-flex align-items-end gap-3 flex-wrap">
               <div class="me-auto">
                 @if (!mailboxConnection.hasRefreshToken) {

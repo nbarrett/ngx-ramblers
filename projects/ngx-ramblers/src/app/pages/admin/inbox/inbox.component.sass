@@ -160,13 +160,14 @@
   color: var(--bs-secondary-color)
 
 .inbox-reply-actions
+  margin-top: 0.35rem
   transition: opacity 0.12s ease-in-out
 
 .inbox-message.collapsed .inbox-reply-actions
-  opacity: 0
+  display: none !important
 
 .inbox-message.collapsed:hover .inbox-reply-actions
-  opacity: 1
+  display: flex !important
 
 .inbox-reply-btn
   width: 1.8rem

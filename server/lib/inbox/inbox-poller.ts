@@ -136,12 +136,21 @@ async function pollViaListing(connection: InboxMailboxConnection, aliases: Inbox
 
 async function pollViaHistoryDelta(connection: InboxMailboxConnection, aliases: InboxAliasConfig[]): Promise<string[]> {
   const startHistoryId = connection.lastHistoryId ?? "";
-  const {newMessageIds, latestHistoryId} = await listHistoryDelta(connection, startHistoryId);
-  const imported = await processGmailMessageIds(connection, aliases, newMessageIds);
-  if (latestHistoryId) {
-    await inboxMailboxConnectionModel.updateOne({_id: identifier(connection)}, {$set: {lastHistoryId: latestHistoryId}});
+  try {
+    const {newMessageIds, latestHistoryId} = await listHistoryDelta(connection, startHistoryId);
+    const imported = await processGmailMessageIds(connection, aliases, newMessageIds);
+    if (latestHistoryId) {
+      await inboxMailboxConnectionModel.updateOne({_id: identifier(connection)}, {$set: {lastHistoryId: latestHistoryId}});
+    }
+    return imported;
+  } catch (error) {
+    if (!looksLikeExpiredHistory((error as Error).message)) {
+      throw error;
+    }
+    errorDebugLog(`history cursor expired for Gmail inbox ${connection.gmailAccountEmail}; resetting and re-listing in full`);
+    await inboxMailboxConnectionModel.updateOne({_id: identifier(connection)}, {$set: {lastHistoryId: null}});
+    return pollViaListing({...connection, lastHistoryId: null}, aliases);
   }
-  return imported;
 }
 
 async function processGmailMessageIds(connection: InboxMailboxConnection, aliases: InboxAliasConfig[], gmailMessageIds: string[]): Promise<string[]> {
@@ -310,6 +319,11 @@ function identifier(connection: InboxMailboxConnection): string {
 function looksLikeAuthFailure(message: string): boolean {
   const lowered = message.toLowerCase();
   return lowered.includes("invalid_grant") || lowered.includes("token has been expired or revoked") || lowered.includes("invalid credentials");
+}
+
+function looksLikeExpiredHistory(message: string): boolean {
+  const lowered = message.toLowerCase();
+  return lowered.includes("requested entity was not found") || lowered.includes("\"code\": 404") || lowered.includes("failedprecondition");
 }
 
 export function startInboxPolling(intervalMs: number = 30_000): void {
