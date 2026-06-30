@@ -23,25 +23,20 @@ const normalizeTitle = (title: string): string => {
 };
 
 const normalizeDate = (dateStr: string): string => {
-  if (!dateStr) return "";
-
-  let parsed: DateTime | null = null;
-
-  parsed = dateTimeInTimezone(dateStr, UIDateFormat.WEEKDAY_DAY_MONTH_YEAR_ABBREVIATED);
-  if (parsed.isValid) {
+  if (!dateStr) {
+    return "";
+  }
+  const candidates: DateTime[] = [
+    dateTimeInTimezone(dateStr, UIDateFormat.WEEKDAY_DAY_MONTH_YEAR),
+    dateTimeInTimezone(dateStr, UIDateFormat.WEEKDAY_DAY_MONTH_YEAR_APOSTROPHE),
+    dateTimeInTimezone(dateStr, UIDateFormat.WEEKDAY_DAY_MONTH_YEAR_ABBREVIATED),
+    dateTimeInTimezone(dateStr, UIDateFormat.DAY_MONTH_YEAR_WITH_SLASHES),
+    dateTimeFromIso(dateStr)
+  ];
+  const parsed = candidates.find(candidate => candidate?.isValid);
+  if (parsed) {
     return parsed.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
   }
-
-  parsed = dateTimeInTimezone(dateStr, UIDateFormat.DAY_MONTH_YEAR_WITH_SLASHES);
-  if (parsed.isValid) {
-    return parsed.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
-  }
-
-  parsed = dateTimeFromIso(dateStr);
-  if (parsed.isValid) {
-    return parsed.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
-  }
-
   debugLog(`Warning: Could not parse date "${dateStr}"`);
   return "";
 };
