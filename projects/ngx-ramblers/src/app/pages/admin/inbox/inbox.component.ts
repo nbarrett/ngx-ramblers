@@ -265,7 +265,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                 <div class="inbox-message-headers inbox-message-toggle d-flex align-items-start gap-2" (click)="toggleMessage(message)">
                   <fa-icon [icon]="isMessageExpanded(message) ? faChevronDown : faChevronRight" class="mt-1 text-muted"/>
                   <div class="flex-grow-1 min-w-0">
-                    <strong>{{message.direction === InboxMessageDirection.OUTBOUND ? "Sent from this group" : formatAddress(message.from)}}</strong>
+                    <strong>{{message.direction === InboxMessageDirection.OUTBOUND ? "Sent from Email Composer — " + formatAddress(message.from) : formatAddress(message.from)}}</strong>
                     &middot; {{(message.receivedAt ?? message.sentAt) | date: "medium"}}
                     @if (isMessageExpanded(message)) {
                       @if (message.cc?.length) {
@@ -1046,7 +1046,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       .replace(/&gt;/gi, ">")
       .replace(/&#39;|&apos;/gi, "'")
       .replace(/&quot;/gi, "\"");
-    return cleaned.replace(/\s+/g, " ").trim().slice(0, 140);
+    return cleaned.replace(/\s+/g, " ").trim().slice(0, 500);
   }
 
   recipientForThread(thread: InboxThread): string | null {
