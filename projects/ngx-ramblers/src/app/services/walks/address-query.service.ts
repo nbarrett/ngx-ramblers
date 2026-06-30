@@ -47,6 +47,14 @@ export class AddressQueryService {
     return response.response as GridReferenceLookupResponse;
   }
 
+  async geocodeFromText(query: string, preferredCounty?: string): Promise<GridReferenceLookupResponse> {
+    const params = this.commonDataService.toHttpParams(preferredCounty ? {query, preferredCounty} : {query});
+    this.logger.info("geocodeFromText:query", query, "preferredCounty", preferredCounty);
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<GridReferenceLookupApiResponse>(`${this.BASE_URL}/geocode-from-text`, {params}), this.postcodeNotifications);
+    this.logger.info("geocodeFromText:response", response);
+    return response.response as GridReferenceLookupResponse;
+  }
+
   async venueSearch(query: string, lat?: number, lon?: number): Promise<VenueSearchResult[]> {
     const params: Record<string, string> = { q: query };
     if (lat !== undefined && lon !== undefined) {

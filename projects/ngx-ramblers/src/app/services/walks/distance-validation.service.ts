@@ -37,7 +37,7 @@ export class DistanceValidationService {
     if (extendedGroupEvent?.groupEvent?.distance_miles > 0) {
       return extendedGroupEvent?.groupEvent?.distance_miles;
     } else if (extendedGroupEvent?.groupEvent?.distance_km > 0) {
-      return extendedGroupEvent?.groupEvent?.distance_km / this.MILES_TO_KILOMETRES_FACTOR;
+      return this.convertKmToMiles(extendedGroupEvent?.groupEvent?.distance_km);
     } else return 0;
   }
 
@@ -45,7 +45,7 @@ export class DistanceValidationService {
     if (extendedGroupEvent?.groupEvent?.distance_km > 0) {
       return extendedGroupEvent?.groupEvent?.distance_km;
     } else if (extendedGroupEvent?.groupEvent?.distance_miles > 0) {
-      return extendedGroupEvent?.groupEvent?.distance_miles * this.MILES_TO_KILOMETRES_FACTOR;
+      return this.convertMilesToKm(extendedGroupEvent?.groupEvent?.distance_miles);
     } else return 0;
   }
 
@@ -78,15 +78,17 @@ export class DistanceValidationService {
   }
 
   walkDistances(extendedGroupEvent: ExtendedGroupEvent) {
-    const delimiter = extendedGroupEvent?.groupEvent?.distance_miles && extendedGroupEvent?.groupEvent?.distance_km ? " / " : "";
-    return `${this.walkDistanceMilesAsString(extendedGroupEvent)}${delimiter}${this.walkDistanceKilometresAsString(extendedGroupEvent)}`.trim();
+    const miles = this.walkDistanceMilesAsString(extendedGroupEvent);
+    const kilometres = this.walkDistanceKilometresAsString(extendedGroupEvent);
+    const delimiter = miles && kilometres ? " / " : "";
+    return `${miles}${delimiter}${kilometres}`.trim();
   }
 
-  walkDistanceMilesAsString(walk) {
+  walkDistanceMilesAsString(walk: ExtendedGroupEvent) {
     return this.distanceMiles(walk) > 0 ? `${this.distanceMiles(walk)} ${DistanceUnit.MILES}` : "";
   }
 
-  walkDistanceKilometresAsString(walk) {
+  walkDistanceKilometresAsString(walk: ExtendedGroupEvent) {
     return this.distanceKilometres(walk) > 0 ? `${this.distanceKilometres(walk)} ${DistanceUnit.KILOMETRES}` : "";
   }
 

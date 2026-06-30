@@ -197,7 +197,7 @@ export class ExtendedGroupEventQueryService {
   }
 
   approvedWalk(walk: ExtendedGroupEvent) {
-    return this.groupEventService.latestEventWithStatusChangeIs(walk, EventType.APPROVED);
+    return this.groupEventService.statusFor(walk) === EventType.APPROVED;
   }
 
   activeEvents(extendedGroupEvents: ExtendedGroupEvent[]): ExtendedGroupEvent[] {

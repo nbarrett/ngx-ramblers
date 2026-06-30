@@ -20,7 +20,6 @@ import { Location, NgClass, NgStyle, NgTemplateOutlet, TitleCasePipe } from "@an
 import { SystemConfig } from "../../../models/system.model";
 import { WalkImportFromFile } from "./walk-import-from-file";
 import { GroupEventField, ImportData, ImportStage, WalkImportField } from "../../../models/walk.model";
-import { WalkImportFromWalksManager } from "./walk-import-from-walks-manager";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { StatusIconComponent } from "../../admin/status-icon";
 import { FullNamePipe } from "../../../pipes/full-name.pipe";
@@ -82,54 +81,15 @@ import { first } from "es-toolkit/compat";
                   <ng-template pTemplate="content">
                     @if (step.key === ImportStepperKey.UPLOAD) {
                       <div>
-                          <div class="row mb-3">
-                            <div class="col-md-12">
-                              <label class="me-2">Import Type:</label>
-                              <div class="form-check form-check-inline">
-                                <input class="form-check-input"
-                                       id="import-source-walks-manager"
-                                       name="import-source"
-                                       type="radio"
-                                       [value]="ImportSource.WALKS_MANAGER_CACHE"
-                                       (ngModelChange)="reset()"
-                                       [disabled]="importData.importStage !== ImportStage.NONE"
-                                       [(ngModel)]="importData.inputSource"/>
-                                <label class="form-check-label" for="import-source-walks-manager">From Walks Manager (Group
-                                  Code {{ systemConfig?.group?.groupCode }})</label>
-                              </div>
-                              <div class="form-check form-check-inline">
-                                <input class="form-check-input"
-                                       id="import-source-file"
-                                       name="import-source"
-                                       type="radio"
-                                       [value]="ImportSource.FILE_IMPORT"
-                                       (ngModelChange)="reset()"
-                                       [disabled]="importData.importStage !== ImportStage.NONE"
-                                       [(ngModel)]="importData.inputSource"/>
-                                <label class="form-check-label" for="import-source-file">From CSV Import File</label>
-                              </div>
-                            </div>
-                          </div>
                           <div class="row">
                             <div class="col-sm-12 mb-3 mx-2">
-                              @if (importData.inputSource === ImportSource.WALKS_MANAGER_CACHE) {
-                                <app-markdown-editor standalone name="ramblers-import-help-page" description="Ramblers import help page"/>
-                              } @else {
-                                <app-markdown-editor standalone name="file-import-help-page" description="File import help page"/>
-                              }
+                              <app-markdown-editor standalone name="file-import-help-page" description="File import help page"/>
                             </div>
                           </div>
-                          @if (importData.inputSource === ImportSource.WALKS_MANAGER_CACHE) {
-                            <app-walk-import-from-walks-manager [importData]="importData" [notify]="notify"
-                                                                (postImportPreparation)="postImportPreparation($event)">
-                              <ng-container *ngTemplateOutlet="backAndResetButtons"/>
-                            </app-walk-import-from-walks-manager>
-                          } @else if (importData.inputSource === ImportSource.FILE_IMPORT) {
-                            <app-walk-import-from-file [importData]="importData" [notify]="notify"
-                                                       (postImportPreparation)="postImportPreparation($event)">
-                              <ng-container *ngTemplateOutlet="backAndResetButtons"/>
-                            </app-walk-import-from-file>
-                          }
+                          <app-walk-import-from-file [importData]="importData" [notify]="notify"
+                                                     (postImportPreparation)="postImportPreparation($event)">
+                            <ng-container *ngTemplateOutlet="backAndResetButtons"/>
+                          </app-walk-import-from-file>
                           <div class="stepper-nav">
                             <button type="button" class="btn btn-secondary" (click)="navigateBackToAdmin()" [disabled]="navigationLocked()">Back</button>
                             <button type="button" class="btn btn-primary" (click)="goToStep(1)" [disabled]="navigationLocked() || !canAccessStep(ImportStepperKey.MATCH)">Next</button>
@@ -375,7 +335,7 @@ import { first } from "es-toolkit/compat";
       </div>
     </app-page>`,
   styleUrls: ["./walk-import.sass"],
-  imports: [PageComponent, MarkdownEditorComponent, FontAwesomeModule, FileUploadModule, FormsModule, NgTemplateOutlet, WalkImportFromFile, WalkImportFromWalksManager, DisplayDatePipe, StatusIconComponent, FullNamePipe, NgSelectComponent, NgLabelTemplateDirective, NgOptionTemplateDirective, HumanisePipe, TitleCasePipe, NgClass, StepperModule, FileSizeSelectorComponent, NgStyle]
+  imports: [PageComponent, MarkdownEditorComponent, FontAwesomeModule, FileUploadModule, FormsModule, NgTemplateOutlet, WalkImportFromFile, DisplayDatePipe, StatusIconComponent, FullNamePipe, NgSelectComponent, NgLabelTemplateDirective, NgOptionTemplateDirective, HumanisePipe, TitleCasePipe, NgClass, StepperModule, FileSizeSelectorComponent, NgStyle]
 })
 
 export class WalkImport implements OnInit, OnDestroy {
@@ -560,12 +520,12 @@ export class WalkImport implements OnInit, OnDestroy {
         if (this.importData?.errorMessages?.length > 0) {
           this.notify.warning({
             title: "Walks Import Completed With Errors",
-            message: `Imported completed with ${this.stringUtilsService.pluraliseWithCount(this.importData?.errorMessages?.length, "error")}`
+            message: `Import completed with ${this.stringUtilsService.pluraliseWithCount(this.importData?.errorMessages?.length, "error")}: ${this.importData.errorMessages.join("; ")}`
           });
         } else {
           this.notify.success({
             title: "Walks Import Complete",
-            message: "Imported completed successfully"
+            message: "Import completed successfully"
           });
         }
       })

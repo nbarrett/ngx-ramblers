@@ -230,7 +230,7 @@ export class WalkDisplayService {
   }
 
   statusFor(walk: ExtendedGroupEvent): EventType {
-    return this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
+    return this.walkEventService.statusFor(walk);
   }
 
   async editFullScreen(walk: ExtendedGroupEvent, queryParams?: Params): Promise<ExpandedWalk> {
@@ -295,18 +295,10 @@ export class WalkDisplayService {
   }
 
   latestEventTypeFor(walk: ExtendedGroupEvent): WalkEventType {
-    const latestEventWithStatusChange = this.walkEventService.latestEventWithStatusChange(walk);
-    let lookupType: EventType;
-    if (latestEventWithStatusChange) {
-      lookupType = latestEventWithStatusChange.eventType;
-    } else {
-      const isImportedWalk = [InputSource.WALKS_MANAGER_CACHE, InputSource.FILE_IMPORT].includes(walk?.fields?.inputSource);
-      lookupType = isImportedWalk ? EventType.APPROVED : EventType.AWAITING_WALK_DETAILS;
-    }
+    const lookupType: EventType = this.walkEventService.statusFor(walk);
     const eventType = this.walksReferenceService.toWalkEventType(lookupType) as WalkEventType;
     if (!eventType) {
-      this.logger.error("given lookupType", lookupType, "-> latestEventWithStatusChange",
-        latestEventWithStatusChange, "eventType", eventType, "walk.events", walk.events);
+      this.logger.error("given lookupType", lookupType, "eventType", eventType, "walk.events", walk.events);
     }
     return eventType;
   }
@@ -366,7 +358,7 @@ export class WalkDisplayService {
   }
 
   editIdentifierFor(extendedGroupEvent: ExtendedGroupEvent): string {
-    return extendedGroupEvent?.id || this.walkSlug(extendedGroupEvent);
+    return this.walkSlug(extendedGroupEvent) || extendedGroupEvent?.id;
   }
 
   walkSlug(extendedGroupEvent: ExtendedGroupEvent): string {

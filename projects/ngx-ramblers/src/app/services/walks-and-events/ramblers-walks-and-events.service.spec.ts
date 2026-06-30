@@ -24,6 +24,7 @@ import { of } from "rxjs";
 import { WalksConfigService } from "../system/walks-config.service";
 import { LinkSource } from "../../models/walk.model";
 import { MemberLoginService } from "../member/member-login.service";
+import { WALK_PUBLISHED_AND_MATCHING, WALK_PUBLISHED_WITH_PROBLEMS } from "../../models/ramblers-walks-manager";
 
 describe("RamblersWalksAndEventsService", () => {
   beforeEach(() => TestBed.configureTestingModule({
@@ -206,6 +207,68 @@ describe("RamblersWalksAndEventsService", () => {
     });
   });
 
+  describe("toWalkExport selection guarding and publish status messaging", () => {
+    const publishedWalk = (groupEventOverrides: object = {}, ramblersWalkOverrides: object = {}) => ({
+      localWalk: {
+        groupEvent: {
+          id: "ramblers-123",
+          title: "Coastal walk",
+          start_date_time: "2026-07-04T10:00:00.000Z",
+          end_date_time: "12:30",
+          difficulty: "Leisurely",
+          description: "A coastal walk",
+          distance_miles: 5,
+          start_location: {postcode: "CT1 1AA"},
+          shape: "Circular",
+          ...groupEventOverrides
+        },
+        fields: {
+          riskAssessment: [],
+          publishing: {ramblers: {publish: true, contactName: "Jenny Brown"}}
+        },
+        events: []
+      },
+      ramblersWalk: {
+        title: "Coastal walk",
+        description: "A coastal walk",
+        startDate: "Saturday, 4 July 2026",
+        start_location: {postcode: "CT1 1AA"},
+        ...ramblersWalkOverrides
+      }
+    });
+
+    it("preselects a walk that requires republishing when it has no validation problems", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk({}, {title: "Coastal walk extended"}) as any);
+      expect(walkExport.validationMessages).toEqual([]);
+      expect(walkExport.publishStatus.publish).toBe(true);
+      expect(walkExport.selected).toBe(true);
+    });
+
+    it("does not preselect a walk that requires republishing when it has validation problems", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk({distance_miles: null}, {title: "Coastal walk extended"}) as any);
+      expect(walkExport.validationMessages).toContain("Distance is missing");
+      expect(walkExport.publishStatus.publish).toBe(true);
+      expect(walkExport.selected).toBe(false);
+    });
+
+    it("describes a matching published walk without overclaiming that all details are correct", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk() as any);
+      expect(walkExport.publishStatus.messages).toEqual([WALK_PUBLISHED_AND_MATCHING]);
+      expect(walkExport.selected).toBe(false);
+    });
+
+    it("acknowledges validation problems on a matching published walk", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk({distance_miles: null}) as any);
+      expect(walkExport.validationMessages).toContain("Distance is missing");
+      expect(walkExport.publishStatus.messages).toEqual([WALK_PUBLISHED_WITH_PROBLEMS]);
+      expect(walkExport.selected).toBe(false);
+    });
+  });
+
   describe("toPublishStatus title comparison", () => {
     const publishedWalkWith = (websiteTitle: string, ramblersTitle: string) => ({
       localWalk: {
@@ -226,6 +289,15 @@ describe("RamblersWalksAndEventsService", () => {
     it("does not flag a title difference when the only difference is an apostrophe cleaned on upload", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       const walkExport = service.toWalkExport(publishedWalkWith("Dover to St Margaret's Bay on the White Cliffs", "Dover to St Margarets Bay on the White Cliffs") as any);
+      expect(walkExport.publishStatus.messages.find(message => message.includes("Ramblers title is"))).toBeUndefined();
+      expect(walkExport.publishStatus.publish).toBe(false);
+    });
+
+    it("does not flag a title difference when Ramblers holds an ampersand that the website stores as the word and", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalkWith(
+        "Iver to West Drayton via River Colne and Grand Union Canal",
+        "Iver to West Drayton via River Colne & Grand Union Canal") as any);
       expect(walkExport.publishStatus.messages.find(message => message.includes("Ramblers title is"))).toBeUndefined();
       expect(walkExport.publishStatus.publish).toBe(false);
     });
@@ -255,6 +327,56 @@ describe("RamblersWalksAndEventsService", () => {
         }
       } as any);
       expect(walkExport.publishStatus.messages).toContain("Ramblers date is Thursday, 23 July 2026 but group website date is Thursday, 16 July 2026");
+      expect(walkExport.publishStatus.publish).toBe(true);
+    });
+  });
+
+  describe("toPublishStatus description comparison", () => {
+    const publishedWalkWithDescriptions = (websiteDescription: string, ramblersDescription: string) => ({
+      localWalk: {
+        groupEvent: {title: "Coastal walk", description: websiteDescription},
+        fields: {riskAssessment: [], publishing: {ramblers: {publish: true}}},
+        events: []
+      },
+      ramblersWalk: {title: "Coastal walk", description: ramblersDescription}
+    });
+
+    it("does not flag a description difference when the website description contains HTML that is stripped on upload", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalkWithDescriptions(
+        "<p>A lovely walk along the towpath.</p><p>Bring a packed lunch.</p>",
+        "A lovely walk along the towpath. Bring a packed lunch.") as any);
+      expect(walkExport.publishStatus.messages.find(message => message.includes("Description difference"))).toBeUndefined();
+      expect(walkExport.publishStatus.publish).toBe(false);
+    });
+
+    it("does not flag a description difference when Ramblers holds HTML-entity apostrophes that the website cleans on upload", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalkWithDescriptions(
+        "Passing Crow's Nest and St Mary's church, ideal for pensioners' outings",
+        "Passing Crow&#039;s Nest and St Mary&#039;s church, ideal for pensioners&#039; outings") as any);
+      expect(walkExport.publishStatus.messages.find(message => message.includes("Description difference"))).toBeUndefined();
+      expect(walkExport.publishStatus.publish).toBe(false);
+    });
+
+    it("does not flag a description difference when Ramblers holds an ampersand that the website stores as the word and", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalkWithDescriptions(
+        "A walk beside the River Colne and Grand Union Canal",
+        "A walk beside the River Colne &amp; Grand Union Canal") as any);
+      expect(walkExport.publishStatus.messages.find(message => message.includes("Description difference"))).toBeUndefined();
+      expect(walkExport.publishStatus.publish).toBe(false);
+    });
+
+    it("flags a genuine description difference using the values that would be uploaded rather than raw HTML", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalkWithDescriptions(
+        "<p>Meet at the car park.</p>",
+        "Meet at the village hall.") as any);
+      const message = walkExport.publishStatus.messages.find(item => item.includes("Description difference"));
+      expect(message).toBeDefined();
+      expect(message).not.toContain("&lt;p&gt;");
+      expect(message).toContain("car");
       expect(walkExport.publishStatus.publish).toBe(true);
     });
   });

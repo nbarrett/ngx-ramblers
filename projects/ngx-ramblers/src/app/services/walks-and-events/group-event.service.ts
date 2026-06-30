@@ -17,7 +17,7 @@ import { ChangedItem } from "../../models/changed-item.model";
 import { CurrentPreviousData } from "../../models/walk-notification.model";
 import { DateUtilsService } from "../date-utils.service";
 import { EventType } from "../../models/walk.model";
-import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -44,6 +44,15 @@ export class GroupEventService {
     });
     this.logger.debug("latestEventWithStatusChange:extendedGroupEvent", extendedGroupEvent?.id, "eventType =>", eventType);
     return eventType;
+  }
+
+  public statusFor(extendedGroupEvent: ExtendedGroupEvent): EventType {
+    const latestEventWithStatusChange = this.latestEventWithStatusChange(extendedGroupEvent);
+    if (latestEventWithStatusChange) {
+      return latestEventWithStatusChange.eventType;
+    }
+    const importedWalk = [InputSource.WALKS_MANAGER_CACHE, InputSource.FILE_IMPORT].includes(extendedGroupEvent?.fields?.inputSource);
+    return importedWalk ? EventType.APPROVED : EventType.AWAITING_WALK_DETAILS;
   }
 
   public walkDataAuditFor(extendedGroupEvent: ExtendedGroupEvent, status: EventType, basedOnUnsavedData: boolean): WalkDataAudit {

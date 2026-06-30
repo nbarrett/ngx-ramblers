@@ -2,6 +2,7 @@ import { MapRoute } from "./content-text.model";
 import { GeocodeMatchType } from "./address-model";
 import { values } from "es-toolkit/compat";
 import { KeyValue } from "../functions/enums";
+import { EventEventField } from "./walk.model";
 
 export enum MapProvider {
   OSM = "osm",
@@ -152,10 +153,10 @@ export const MAP_VIEW_MAX_EVENTS = 1000;
 export const MAP_VIEW_SELECT: Record<string, number> = {
     groupEvent: 1,
     fields: 1,
-    "events.eventType": 1,
-    "events.date": 1,
-    "events.reason": 1,
-    "events.memberId": 1
+    [EventEventField.EVENT_TYPE]: 1,
+    [EventEventField.DATE]: 1,
+    [EventEventField.REASON]: 1,
+    [EventEventField.MEMBER_ID]: 1
 };
 
 export enum LocationType {

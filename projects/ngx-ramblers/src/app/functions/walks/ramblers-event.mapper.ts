@@ -1,6 +1,7 @@
 import { ExtendedFields, ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
 import { LinkSource, LinkWithSource } from "../../models/walk.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
+import { isArray } from "es-toolkit/compat";
 
 export function isMeetupUrl(url: string): boolean {
   return !!url?.includes("meetup.com");
@@ -22,7 +23,13 @@ interface ContactDetailsResult {
   contactId: string;
 }
 
+function normalisedContact<T>(value: T | T[]): T {
+  return isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
 export function mapRamblersEventToExtendedGroupEvent(groupEvent: GroupEvent, options: RamblersEventMapperOptions): ExtendedGroupEvent {
+  groupEvent.walk_leader = normalisedContact(groupEvent.walk_leader);
+  groupEvent.event_organiser = normalisedContact(groupEvent.event_organiser);
   const contactDetails = contactDetailsFrom(groupEvent, options.displayNameBuilder);
   const links = createLinks(groupEvent, options);
 

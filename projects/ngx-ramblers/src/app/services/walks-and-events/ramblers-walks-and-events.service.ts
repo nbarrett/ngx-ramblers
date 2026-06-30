@@ -21,6 +21,8 @@ import {
   RamblersGroupsApiResponse,
   RamblersGroupsApiResponseApiResponse,
   RamblersWalksUploadRequest,
+  WALK_PUBLISHED_AND_MATCHING,
+  WALK_PUBLISHED_WITH_PROBLEMS,
   WalkCancellation,
   WalkLeaderContact,
   WALKS_MANAGER_GO_LIVE_DATE,
@@ -592,7 +594,7 @@ export class RamblersWalksAndEventsService {
     const needsUncancelOnRamblers = !isCancelledLocally && !!localAndRamblersWalk.ramblersWalk && ramblersStatus === WalkStatus.CANCELLED;
     if (needsCancellationOnRamblers) {
       const cancellationMsg = "Walk is cancelled locally but is active on Ramblers";
-      publishStatus.messages = [cancellationMsg].concat((publishStatus.messages || []).filter(m => !/details are correct/i.test(m)));
+      publishStatus.messages = [cancellationMsg].concat((publishStatus.messages || []).filter(m => m !== WALK_PUBLISHED_AND_MATCHING));
       publishStatus.actionRequired = true;
       const reason = walk?.groupEvent?.cancellation_reason?.trim();
       if (!isEmpty(reason)) {
@@ -603,16 +605,19 @@ export class RamblersWalksAndEventsService {
       validationMessages = validationMessages.filter(msg => /cancellation reason/i.test(msg));
     }
     if (needsUncancelOnRamblers) {
-      publishStatus.messages = ["Walk is active locally but is cancelled on Ramblers"].concat((publishStatus.messages || []).filter(m => !/details are correct/i.test(m)));
+      publishStatus.messages = ["Walk is active locally but is cancelled on Ramblers"].concat((publishStatus.messages || []).filter(m => m !== WALK_PUBLISHED_AND_MATCHING));
       publishStatus.actionRequired = true;
       validationMessages = [];
+    }
+    if (validationMessages.length > 0) {
+      publishStatus.messages = publishStatus.messages.map(message => message === WALK_PUBLISHED_AND_MATCHING ? WALK_PUBLISHED_WITH_PROBLEMS : message);
     }
     const returnValue = {
       publishStatus,
       displayedWalk: this.walkDisplayService.toDisplayedWalk(walk),
       validationMessages,
       publishedOnRamblers: walk && !isEmpty(walk.groupEvent.id),
-      selected: needsCancellationOnRamblers || needsUncancelOnRamblers || (publishStatus.publish && validationMessages.length === 0),
+      selected: (needsCancellationOnRamblers || needsUncancelOnRamblers || publishStatus.publish) && validationMessages.length === 0,
       ramblersStatus,
       ramblersUrl: localAndRamblersWalk.ramblersWalk?.walksManagerUrl || localAndRamblersWalk.ramblersWalk?.url
     };
@@ -633,11 +638,15 @@ export class RamblersWalksAndEventsService {
     if (walk.groupEvent.title) {
       walkDescription.push(walk.groupEvent.title);
     }
-    return walkDescription.map(title => this.replaceSpecialCharacters(title)).join(". ");
+    return walkDescription.map(title => this.plainTextForUpload(title)).join(". ");
+  }
+
+  plainTextForUpload(value: string): string {
+    return this.replaceSpecialCharacters(this.stringUtilsService.htmlToPlainText(value));
   }
 
   async walkDescription(walk: ExtendedGroupEvent): Promise<string> {
-    return this.renderValueAsHtml(this.replaceSpecialCharacters(this.longerDescriptionPlusSuffixes(walk)));
+    return this.renderValueAsHtml(this.plainTextForUpload(this.longerDescriptionPlusSuffixes(walk)));
   }
 
   private longerDescriptionPlusSuffixes(walk: ExtendedGroupEvent) {
@@ -880,8 +889,8 @@ export class RamblersWalksAndEventsService {
     const publishStatus: PublishStatus = {actionRequired: false, publish: false, messages: []};
     const walk: ExtendedGroupEvent = localAndRamblersWalk.localWalk;
     const ramblersWalk: RamblersEventSummaryResponse = localAndRamblersWalk.ramblersWalk;
-    const eventType: EventType = this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
-    const isApproved = this.walkEventService.latestEventWithStatusChangeIs(walk, EventType.APPROVED);
+    const eventType: EventType = this.walkEventService.statusFor(walk);
+    const isApproved = eventType === EventType.APPROVED;
     const publishRequired = true;
     const actionRequired = true;
     if (walk?.fields?.publishing?.ramblers?.publish) {
@@ -916,20 +925,22 @@ export class RamblersWalksAndEventsService {
         }
         if (walk?.groupEvent?.title) {
           const ourTitle = this.walkTitle(walk);
-          if (ourTitle !== ramblersWalk?.title) {
-            publishStatus.messages.push(`Ramblers title is ${ramblersWalk?.title} but website title is ${ourTitle}`);
+          const ramblersTitle = this.plainTextForUpload(ramblersWalk?.title);
+          if (ourTitle !== ramblersTitle) {
+            publishStatus.messages.push(`Ramblers title is ${ramblersTitle} but website title is ${ourTitle}`);
             publishStatus.publish = publishRequired;
           }
         }
         if (walk?.groupEvent?.description) {
-          const ourDescription = this.transformMarkdownLinks(this.replaceSpecialCharacters(this.longerDescriptionPlusSuffixes(walk)));
-          if (ourDescription !== ramblersWalk?.description) {
-            publishStatus.messages.push(`Description difference: ${this.descriptionDiff(ramblersWalk?.description, ourDescription)}`);
+          const ourDescription = this.transformMarkdownLinks(this.plainTextForUpload(this.longerDescriptionPlusSuffixes(walk)));
+          const ramblersDescription = this.plainTextForUpload(ramblersWalk?.description);
+          if (ourDescription !== ramblersDescription) {
+            publishStatus.messages.push(`Description difference: ${this.descriptionDiff(ramblersDescription, ourDescription)}`);
             publishStatus.publish = publishRequired;
           }
         }
         if (publishStatus.messages.length === 0) {
-          publishStatus.messages.push("Walk is published to Ramblers and details are correct");
+          publishStatus.messages.push(WALK_PUBLISHED_AND_MATCHING);
         }
       }
     } else {

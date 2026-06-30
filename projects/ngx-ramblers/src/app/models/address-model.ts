@@ -113,3 +113,16 @@ export interface NominatimPlaceResult {
     village?: string;
   };
 }
+
+export interface NominatimLookupOptions {
+  query: string;
+  preferredCounty?: string;
+  userAgent: string;
+  logPrefix: string;
+  debugLog: (...args: any[]) => void;
+}
+
+export interface NominatimLookupResult {
+  apiStatusCode: number;
+  response?: GridReferenceLookupResponse;
+}

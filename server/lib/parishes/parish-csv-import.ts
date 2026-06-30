@@ -62,7 +62,9 @@ export async function importParishAllocations(req: Request, res: Response) {
       delimiter: ",",
       escape: "\"",
       skip_empty_lines: true,
-      trim: true
+      trim: true,
+      record_delimiter: ["\r\n", "\n", "\r"],
+      bom: true
     });
 
     debugLog(`Parsed ${rows.length} rows from CSV for group ${groupCode}`);

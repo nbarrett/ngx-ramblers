@@ -9,7 +9,7 @@ import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-
 import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
 import { Organisation, RootFolder, SystemConfig } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
-import { toPairs, first, groupBy, isEqual, last, omit } from "es-toolkit/compat";
+import { chunk, toPairs, first, groupBy, isEqual, last, omit } from "es-toolkit/compat";
 import { DateUtilsService } from "../date-utils.service";
 import { GroupEventService } from "../walks-and-events/group-event.service";
 import { MemberService } from "../member/member.service";
@@ -26,7 +26,7 @@ import {
 import { MemberNamingService } from "../member/member-naming.service";
 import { DataQueryOptions, FilterCriteria } from "../../models/api-request.model";
 import { StringUtilsService } from "../string-utils.service";
-import { Contact, RamblersEventType, WalkStatus, WalkUploadColumnHeading } from "../../models/ramblers-walks-manager";
+import { Contact, LocationDetails, RamblersEventType, WalkStatus, WalkUploadColumnHeading } from "../../models/ramblers-walks-manager";
 import { AlertInstance } from "../notifier.service";
 import {
   ExtendedGroupEvent,
@@ -38,6 +38,12 @@ import {
 import { AwsFileUploadResponse, AwsFileUploadResponseData, ServerFileNameData } from "../../models/aws-object.model";
 import { enumValues, TypedKeyValue } from "../../functions/enums";
 import { mergeFieldsOnSync } from "../../functions/walks/ramblers-event.mapper";
+import { extractErrorMessage } from "../../functions/strings";
+import {
+  firstWalkLeaderName,
+  isJointWalkLeaderName,
+  normalisedWalkLeaderName
+} from "../../functions/walks/joint-walk-leaders";
 import {
   leaderMatchResult,
   priorMatchesFromWalks,
@@ -47,6 +53,9 @@ import { PriorContactMemberMatch, WalkLeaderMatchConfidence } from "../../models
 import { Feature } from "../../models/walk-feature.model";
 import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-group-event-query.service";
 import { EventDefaultsService } from "../event-defaults.service";
+import { DistanceValidationService } from "./distance-validation.service";
+import { AddressQueryService } from "./address-query.service";
+import { GridReferenceLookupResponse } from "../../models/address-model";
 import { MediaQueryService } from "../committee/media-query.service";
 import { S3_BASE_URL } from "../../models/content-metadata.model";
 import { FileUtilsService } from "../../file-utils.service";
@@ -71,6 +80,9 @@ export class WalksImportService {
   private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private eventDefaultsService = inject(EventDefaultsService);
+  private distanceValidationService = inject(DistanceValidationService);
+  private addressQueryService = inject(AddressQueryService);
+  private readonly locationLookupCache = new Map<string, GridReferenceLookupResponse>();
   private mediaQueryService = inject(MediaQueryService);
   private injector = inject(Injector);
   public group: Organisation;
@@ -86,7 +98,9 @@ export class WalksImportService {
     return parse(csvText, {
       columns: true,
       skip_empty_lines: true,
-      relax_column_count: true
+      relax_column_count: true,
+      record_delimiter: ["\r\n", "\n", "\r"],
+      bom: true
     }) as Record<string, string>[];
   }
 
@@ -166,7 +180,7 @@ export class WalksImportService {
     importData.messages.push(`${this.stringUtils.pluraliseWithCount(importData.existingWalksWithinRange.length, "existing walk")} within range of import will be updated; new walks will be added`);
     this.logger.info("existingWalks:", existingWalks, "walks to import within range");
     const bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalk[] = walksToImport.map(event => {
-      const contact: Contact = this.eventDefaultsService.nameToContact(event.fields.contactDetails?.displayName);
+      const contact: Contact = this.eventDefaultsService.nameToContact(firstWalkLeaderName(event.fields.contactDetails?.displayName));
       const firstAndLastName = this.memberNamingService.firstAndLastNameFrom(contact.name);
       const ramblersMember: RamblersMember = {
         mobileNumber: contact.telephone,
@@ -246,7 +260,85 @@ export class WalksImportService {
     walkLeaders.push(...contacts);
   }
 
+  private locationNeedsEnrichment(location: LocationDetails): boolean {
+    return !!location && !(location.latitude && location.longitude)
+      && !!(this.gridReferenceFrom(location) || location.postcode?.trim() || location.description?.trim());
+  }
+
+  private gridReferenceFrom(location: LocationDetails): string {
+    return location.grid_reference_10?.trim() || location.grid_reference_8?.trim() || location.grid_reference_6?.trim() || "";
+  }
+
+  private preferredCounty(): string | undefined {
+    const configured = this.systemConfig?.area?.shortName || this.systemConfig?.area?.longName;
+    const normalised = configured?.trim().replace(/\s+area$/i, "").trim();
+    return normalised?.length ? normalised : undefined;
+  }
+
+  private async resolveLocation(query: string, lookup: (query: string) => Promise<GridReferenceLookupResponse>): Promise<GridReferenceLookupResponse> {
+    const cached = this.locationLookupCache.get(query);
+    if (cached) {
+      return cached;
+    }
+    const result = await lookup(query);
+    if (result && !result.error && result.latlng) {
+      this.locationLookupCache.set(query, result);
+    }
+    return result;
+  }
+
+  private async enrichLocation(location: LocationDetails): Promise<boolean> {
+    try {
+      const gridReference = this.gridReferenceFrom(location);
+      const postcode = location.postcode?.trim();
+      const description = location.description?.trim();
+      const result = gridReference
+        ? await this.resolveLocation(gridReference, query => this.addressQueryService.placeNameLookup(query))
+        : postcode
+          ? await this.resolveLocation(postcode, query => this.addressQueryService.gridReferenceLookup(query))
+          : description
+            ? await this.resolveLocation(description, query => this.addressQueryService.geocodeFromText(query, this.preferredCounty()))
+            : null;
+      if (!result || result.error || !result.latlng) {
+        return false;
+      }
+      location.latitude = result.latlng.lat;
+      location.longitude = result.latlng.lng;
+      location.grid_reference_6 = result.gridReference6 || location.grid_reference_6;
+      location.grid_reference_8 = result.gridReference8 || location.grid_reference_8;
+      location.grid_reference_10 = result.gridReference10 || location.grid_reference_10;
+      if (!location.postcode && result.postcode) {
+        location.postcode = result.postcode;
+      }
+      if (!location.description && result.description) {
+        location.description = result.description;
+      }
+      return true;
+    } catch (error) {
+      this.logger.error("enrichLocation failed:", error);
+      return false;
+    }
+  }
+
+  private async enrichWalkLocations(importData: ImportData, notify: AlertInstance): Promise<void> {
+    const locations = importData.bulkLoadMembersAndMatchesToWalks
+      .filter(item => item.include && item.event)
+      .flatMap(item => [item.event.groupEvent?.start_location, item.event.groupEvent?.end_location])
+      .filter(location => this.locationNeedsEnrichment(location));
+    if (!locations.length) {
+      return;
+    }
+    notify.progress({title: "Walks Import", message: `Resolving map locations for ${this.stringUtils.pluraliseWithCount(locations.length, "location")} from grid references, postcodes and place names`}, true);
+    const enrichedCount = await chunk(locations, 5).reduce(async (previousPromise: Promise<number>, batch: LocationDetails[]) => {
+      const total = await previousPromise;
+      const results = await Promise.all(batch.map(location => this.enrichLocation(location)));
+      return total + results.filter(Boolean).length;
+    }, Promise.resolve(0));
+    importData.messages.push(`Resolved map locations for ${enrichedCount} of ${this.stringUtils.pluraliseWithCount(locations.length, "imported location")}`);
+  }
+
   async saveImportedWalks(importData: ImportData, notify: AlertInstance): Promise<void> {
+    await this.enrichWalkLocations(importData, notify);
     let createdWalks = 0;
     let createdMembers = 0;
     let failedWalks = 0;
@@ -266,6 +358,21 @@ export class WalksImportService {
         .filter(walk => walk.groupEvent?.id)
         .map(walk => [walk.groupEvent.id, walk])
     );
+    const existingByMigratedFromId = new Map<string, ExtendedGroupEvent>(
+      importData.existingWalksWithinRange
+        .filter(walk => walk.fields?.migratedFromId)
+        .map(walk => [walk.fields.migratedFromId, walk])
+    );
+    const naturalKeyFor = (event: ExtendedGroupEvent): string => `${event?.groupEvent?.title?.trim()?.toLowerCase()}|${this.dateUtils.asDateTime(event?.groupEvent?.start_date_time).toMillis()}`;
+    const existingByNaturalKey = new Map<string, ExtendedGroupEvent>(
+      importData.existingWalksWithinRange
+        .filter(walk => walk.groupEvent?.title && walk.groupEvent?.start_date_time)
+        .map(walk => [naturalKeyFor(walk), walk])
+    );
+    const existingWalkFor = (incomingWalk: ExtendedGroupEvent): ExtendedGroupEvent =>
+      existingById.get(incomingWalk.groupEvent?.id)
+      || existingByMigratedFromId.get(incomingWalk.fields?.migratedFromId)
+      || existingByNaturalKey.get(naturalKeyFor(incomingWalk));
     await Promise.all(importData.bulkLoadMembersAndMatchesToWalks
       .filter(item => item.include)
       .map(async bulkLoadMemberAndMatchToWalks => {
@@ -273,12 +380,12 @@ export class WalksImportService {
         const overwriteContactDetailsWithMember = importData.inputSource === InputSource.FILE_IMPORT;
         if (this.isAMatchFor(bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch)) {
           try {
-            bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndMergeWalk(bulkLoadMemberAndMatchToWalks.event, existingById, member, overwriteContactDetailsWithMember);
+            bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndMergeWalk(bulkLoadMemberAndMatchToWalks.event, existingWalkFor, member, overwriteContactDetailsWithMember);
             createdWalks++;
           } catch (error) {
             failedWalks++;
             const walkTitle = bulkLoadMemberAndMatchToWalks.event?.groupEvent?.title || "Unknown walk";
-            const errorMessage = `Failed to save walk: ${walkTitle}`;
+            const errorMessage = `Failed to save walk: ${walkTitle} (${extractErrorMessage(error)})`;
             this.logger.error(errorMessage, error);
             importData.errorMessages.push(errorMessage);
           }
@@ -300,13 +407,13 @@ export class WalksImportService {
             });
           if (createdMember) {
             try {
-              bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndMergeWalk(bulkLoadMemberAndMatchToWalks.event, existingById, createdMember, overwriteContactDetailsWithMember);
+              bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndMergeWalk(bulkLoadMemberAndMatchToWalks.event, existingWalkFor, createdMember, overwriteContactDetailsWithMember);
               createdMembers++;
               createdWalks++;
             } catch (error) {
               failedWalks++;
               const walkTitle = bulkLoadMemberAndMatchToWalks.event?.groupEvent?.title || "Unknown walk";
-              const errorMessage = `Failed to save walk: ${walkTitle}`;
+              const errorMessage = `Failed to save walk: ${walkTitle} (${extractErrorMessage(error)})`;
               this.logger.error(errorMessage, error);
               importData.errorMessages.push(errorMessage);
             }
@@ -319,12 +426,12 @@ export class WalksImportService {
         } else {
           try {
             this.logger.info("processing memberAction:", bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch, "with event", bulkLoadMemberAndMatchToWalks.event);
-            bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndMergeWalk(bulkLoadMemberAndMatchToWalks.event, existingById, undefined, overwriteContactDetailsWithMember);
+            bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndMergeWalk(bulkLoadMemberAndMatchToWalks.event, existingWalkFor, undefined, overwriteContactDetailsWithMember);
             createdWalks++;
           } catch (error) {
             failedWalks++;
             const walkTitle = bulkLoadMemberAndMatchToWalks.event?.groupEvent?.title || "Unknown walk";
-            const errorMessage = `Failed to save walk: ${walkTitle}`;
+            const errorMessage = `Failed to save walk: ${walkTitle} (${extractErrorMessage(error)})`;
             this.logger.error(errorMessage, error);
             importData.errorMessages.push(errorMessage);
           }
@@ -345,8 +452,8 @@ export class WalksImportService {
     }
   }
 
-  private async applyWalkLeaderIfSuppliedAndMergeWalk(incomingWalk: ExtendedGroupEvent, existingById: Map<string, ExtendedGroupEvent>, member?: Member, overwriteContactDetailsWithMember = true): Promise<ExtendedGroupEvent> {
-    const existingWalk = existingById.get(incomingWalk.groupEvent?.id);
+  private async applyWalkLeaderIfSuppliedAndMergeWalk(incomingWalk: ExtendedGroupEvent, existingWalkFor: (incomingWalk: ExtendedGroupEvent) => ExtendedGroupEvent, member?: Member, overwriteContactDetailsWithMember = true): Promise<ExtendedGroupEvent> {
+    const existingWalk = existingWalkFor(incomingWalk);
     if (existingWalk) {
       const mergedWalk: ExtendedGroupEvent = {
         ...omit(incomingWalk, ["_id", "id"]) as ExtendedGroupEvent,
@@ -355,8 +462,7 @@ export class WalksImportService {
       };
       if (member) {
         if (overwriteContactDetailsWithMember) {
-          mergedWalk.groupEvent.walk_leader = this.eventDefaultsService.memberToContact(member);
-          mergedWalk.fields.contactDetails = this.eventDefaultsService.contactDetailsFrom(member);
+          this.applyMemberContactDetailsPreservingJointLeaders(mergedWalk, member);
         } else {
           mergedWalk.fields.contactDetails.memberId = member.id;
         }
@@ -369,8 +475,7 @@ export class WalksImportService {
       const unsavedWalk: ExtendedGroupEvent = omit(incomingWalk, ["_id", "id"]) as ExtendedGroupEvent;
       if (member) {
         if (overwriteContactDetailsWithMember) {
-          unsavedWalk.groupEvent.walk_leader = this.eventDefaultsService.memberToContact(member);
-          unsavedWalk.fields.contactDetails = this.eventDefaultsService.contactDetailsFrom(member);
+          this.applyMemberContactDetailsPreservingJointLeaders(unsavedWalk, member);
         } else {
           unsavedWalk.fields.contactDetails.memberId = member.id;
         }
@@ -380,6 +485,15 @@ export class WalksImportService {
       this.walkEventService.writeEventIfRequired(unsavedWalk, event);
       return this.localWalksAndEventsService.create(unsavedWalk);
     }
+  }
+
+  private applyMemberContactDetailsPreservingJointLeaders(walk: ExtendedGroupEvent, member: Member): void {
+    const importedLeaderName = walk.fields?.contactDetails?.displayName || walk.groupEvent?.walk_leader?.name;
+    const memberContact = this.eventDefaultsService.memberToContact(member);
+    const memberContactDetails = this.eventDefaultsService.contactDetailsFrom(member);
+    const jointLeaderName = isJointWalkLeaderName(importedLeaderName) ? normalisedWalkLeaderName(importedLeaderName) : null;
+    walk.groupEvent.walk_leader = jointLeaderName ? {...memberContact, name: jointLeaderName} : memberContact;
+    walk.fields.contactDetails = jointLeaderName ? {...memberContactDetails, displayName: jointLeaderName} : memberContactDetails;
   }
 
   public importWalksFromFile(file: File, fileNameData: ServerFileNameData): Promise<Record<string, string>[]> {
@@ -437,6 +551,8 @@ export class WalksImportService {
     });
 
     const walkId = csv[WalkUploadColumnHeading.WALK_ID];
+    const distanceMiles = this.numberUtils.asNumber(csv[WalkUploadColumnHeading.DISTANCE_MILES]);
+    const distanceKm = this.numberUtils.asNumber(csv[WalkUploadColumnHeading.DISTANCE_KM]);
     const groupEvent: GroupEvent = {
       additional_details: this.htmlToMarkdown(csv[WalkUploadColumnHeading.ADDITIONAL_DETAILS]),
       area_code: "",
@@ -456,7 +572,7 @@ export class WalksImportService {
       status: WalkStatus.CONFIRMED,
       transport: [],
       url: this.stringUtilsService.kebabCase(csv[WalkUploadColumnHeading.TITLE]),
-      walk_leader: this.eventDefaultsService.nameToContact(csv[WalkUploadColumnHeading.WALK_LEADERS]),
+      walk_leader: this.eventDefaultsService.nameToContact(normalisedWalkLeaderName(csv[WalkUploadColumnHeading.WALK_LEADERS])),
       title: csv[WalkUploadColumnHeading.TITLE],
       description: this.htmlToMarkdown(csv[WalkUploadColumnHeading.DESCRIPTION]),
       start_date_time: this.dateUtils.parseCsvDate(csv[WalkUploadColumnHeading.DATE], csv[WalkUploadColumnHeading.START_TIME]),
@@ -464,7 +580,7 @@ export class WalksImportService {
       start_location: {
         postcode: csv[WalkUploadColumnHeading.STARTING_POSTCODE],
         grid_reference_10: csv[WalkUploadColumnHeading.STARTING_GRIDREF],
-        description: csv[WalkUploadColumnHeading.STARTING_LOCATION_DETAILS],
+        description: csv[WalkUploadColumnHeading.STARTING_LOCATION_DETAILS] || csv[WalkUploadColumnHeading.STARTING_LOCATION],
         latitude: 0,
         longitude: 0,
         grid_reference_6: null,
@@ -474,7 +590,7 @@ export class WalksImportService {
       end_location: {
         postcode: csv[WalkUploadColumnHeading.FINISHING_POSTCODE],
         grid_reference_10: csv[WalkUploadColumnHeading.FINISHING_GRIDREF],
-        description: csv[WalkUploadColumnHeading.FINISHING_LOCATION_DETAILS],
+        description: csv[WalkUploadColumnHeading.FINISHING_LOCATION_DETAILS] || csv[WalkUploadColumnHeading.FINISHING_LOCATION],
         latitude: 0,
         longitude: 0,
         grid_reference_6: null,
@@ -482,8 +598,8 @@ export class WalksImportService {
         w3w: null
       },
       difficulty: {description: csv[WalkUploadColumnHeading.DIFFICULTY]},
-      distance_miles: this.numberUtils.asNumber(csv[WalkUploadColumnHeading.DISTANCE_MILES]),
-      distance_km: this.numberUtils.asNumber(csv[WalkUploadColumnHeading.DISTANCE_KM]),
+      distance_miles: distanceMiles || (distanceKm ? this.distanceValidationService.convertKmToMiles(distanceKm) : 0),
+      distance_km: distanceKm || (distanceMiles ? this.distanceValidationService.convertMilesToKm(distanceMiles) : 0),
       ascent_metres: this.numberUtils.asNumber(csv[WalkUploadColumnHeading.ASCENT_METRES]),
       ascent_feet: this.numberUtils.asNumber(csv[WalkUploadColumnHeading.ASCENT_FEET]),
       shape: csv[WalkUploadColumnHeading.LINEAR_OR_CIRCULAR],
@@ -501,7 +617,11 @@ export class WalksImportService {
         (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.TOILETS_AVAILABLE]) ? this.ramblersWalksAndEventsService.toFeature(Feature.TOILETS) : null),
       ].filter(Boolean)
     };
-    return this.ramblersWalksAndEventsService.toExtendedGroupEvent(groupEvent, InputSource.FILE_IMPORT, walkId);
+    const extendedGroupEvent = this.ramblersWalksAndEventsService.toExtendedGroupEvent(groupEvent, InputSource.FILE_IMPORT, walkId);
+    if (isJointWalkLeaderName(groupEvent.walk_leader?.name)) {
+      extendedGroupEvent.fields.contactDetails.displayName = groupEvent.walk_leader.name;
+    }
+    return extendedGroupEvent;
   }
 
   private isAMatchFor(memberMatch: MemberAction) {

@@ -4,9 +4,9 @@ import * as messageHandlers from "../shared/message-handlers";
 import url from "url";
 import querystring from "querystring";
 import { isArray, isNumber, isString, isEmpty } from "es-toolkit/compat";
+import { NOMINATIM_ENDPOINT } from "./nominatim-lookup";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("venue-search"));
-const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org";
 const nominatimUrl = url.parse(NOMINATIM_ENDPOINT, false);
 
 interface NominatimSearchResult {
