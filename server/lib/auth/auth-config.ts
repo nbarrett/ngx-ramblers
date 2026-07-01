@@ -1,4 +1,5 @@
 import { compare, hash } from "bcryptjs";
+import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { uid } from "rand-token";
 import passport from "passport";
@@ -64,6 +65,17 @@ export function compareValue(inputValue: string, storedValue: string) {
 export function authenticate() {
   initialisePassport();
   return passport.authenticate("jwt");
+}
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = req.user as Partial<Member>;
+  const isAdmin = !!(user?.memberAdmin || user?.contentAdmin || user?.fileAdmin ||
+    user?.walkAdmin || user?.socialAdmin || user?.treasuryAdmin || user?.financeAdmin);
+  if (!isAdmin) {
+    res.status(403).json({error: "Admin access required"});
+    return;
+  }
+  next();
 }
 
 export function optionalAuthenticate() {

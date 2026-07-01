@@ -127,3 +127,67 @@ export enum HeapSnapshotStatus {
   STOPPED = "stopped",
   FAILED = "failed"
 }
+
+export interface FlyMachineStats {
+  available: boolean;
+  error?: string;
+  appName?: string;
+  machineId?: string;
+  memoryUsedMb?: number;
+  memoryTotalMb?: number;
+}
+
+export interface FlyMetricSample {
+  time: number;
+  value: number;
+}
+
+export interface FlyMetricSeries {
+  label: string;
+  dashed?: boolean;
+  samples: FlyMetricSample[];
+}
+
+export interface FlyMetricHistory {
+  available: boolean;
+  error?: string;
+  appName?: string;
+  machineId?: string;
+  metric?: string;
+  unit?: string;
+  series: FlyMetricSeries[];
+}
+
+export interface FlyHistoryPreset {
+  label: string;
+  minutes: number;
+}
+
+export interface FlyMetricTab {
+  label: string;
+  key: string;
+}
+
+export enum FlyTargetApp {
+  ENVIRONMENT = "environment",
+  WORKER = "worker"
+}
+
+export interface FlyMachineState {
+  available: boolean;
+  error?: string;
+  machineId?: string;
+  state?: string;
+  updatedAt?: number;
+}
+
+export enum FlyRestartStatus {
+  IDLE = "idle",
+  RESTARTING = "restarting",
+  DONE = "done",
+  FAILED = "failed"
+}
+
+export interface FlyRestartResponse {
+  message: string;
+}

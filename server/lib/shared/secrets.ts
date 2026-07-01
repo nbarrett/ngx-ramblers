@@ -14,6 +14,8 @@ import { entries } from "../../../projects/ngx-ramblers/src/app/functions/object
 import { pullMissingSecrets } from "../fly/fly-secrets";
 import { parseEnvContent } from "./env-parser";
 import { encryptCloudflareConfig } from "../cloudflare/cloudflare-crypto";
+import { encryptJsonConfig } from "./config-crypto";
+import { FlySecureConfig } from "../fly/fly.model";
 
 const debugLog = debug(envConfig.logNamespace("shared:secrets"));
 
@@ -105,6 +107,18 @@ export function buildSecretsFromDatabaseConfig(
 
   if (!secrets.INTEGRATION_WORKER_CALLBACK_BASE_URL && envConfig.flyio?.appName) {
     secrets.INTEGRATION_WORKER_CALLBACK_BASE_URL = `https://${envConfig.flyio.appName}.fly.dev`;
+  }
+
+  if (!secrets.FLY_CONFIG && envConfig.flyio?.apiKey) {
+    const flyEncryptionKey = secrets.ENVIRONMENT_SETUP_API_KEY || globalConfig?.secrets?.ENVIRONMENT_SETUP_API_KEY;
+    if (flyEncryptionKey) {
+      secrets.FLY_CONFIG = encryptJsonConfig<FlySecureConfig>({
+        apiToken: envConfig.flyio.apiKey,
+        appName: envConfig.flyio.appName,
+        metricsToken: envConfig.flyio.metricsToken
+      }, flyEncryptionKey);
+      debugLog("Added encrypted FLY_CONFIG for environment:", envConfig.environment);
+    }
   }
 
   if (globalConfig?.cloudflare) {

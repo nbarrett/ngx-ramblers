@@ -7,6 +7,7 @@ import debug from "debug";
 import { booleanOf } from "../shared/string-utils";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { env, environmentVariable, isProduction, logNamespace } from "./env-core";
+import { FlyRuntimeConfig } from "../fly/fly.model";
 
 const debugLog = debug(logNamespace("env-config"));
 if (process.env.LOG_ENV_CONFIG === "false") {
@@ -64,6 +65,16 @@ function mongo() {
   };
 }
 
+function fly(): FlyRuntimeConfig {
+  return {
+    apiToken: environmentVariable(Environment.FLY_API_TOKEN),
+    appName: environmentVariable(Environment.FLY_APP_NAME),
+    machineId: environmentVariable(Environment.FLY_MACHINE_ID),
+    organisation: environmentVariable(Environment.FLY_ORGANISATION),
+    metricsToken: environmentVariable(Environment.FLY_METRICS_TOKEN),
+  };
+}
+
 export const envConfig = {
   booleanValue: booleanEnvironmentVariable,
   isProduction,
@@ -74,6 +85,7 @@ export const envConfig = {
   aws,
   dev: env !== "production",
   env,
+  fly,
   mongo,
   server: {
     listenPort: +(process.env.PORT || 5001),
