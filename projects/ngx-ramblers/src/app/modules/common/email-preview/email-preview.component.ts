@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, OnDestroy, ViewChild } from "@angular/core";
+import { Component, ElementRef, inject, Input, OnDestroy, ViewChild } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { isUndefined } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -51,6 +51,22 @@ export class EmailPreviewComponent implements OnDestroy {
   private objectUrl: string | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private mutationObserver: MutationObserver | null = null;
+
+  @Input() set html(value: string | null) {
+    if (value) {
+      this.renderHtml(value);
+    } else {
+      this.clear();
+    }
+  }
+
+  renderHtml(html: string): void {
+    this.clearObservers();
+    this.loading = false;
+    this.error = null;
+    this.previewHtml = html;
+    this.previewUrl = this.toPreviewUrl(this.withBaseHref(this.rewriteDevHostUrls(html)));
+  }
 
   async render(request: TemplateRenderRequest): Promise<void> {
     this.loading = true;

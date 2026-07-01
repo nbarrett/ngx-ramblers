@@ -1,3 +1,4 @@
+import { AdminPath } from "../../../../models/admin-route-paths.model";
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -250,7 +251,7 @@ function mapResolutionToRouteType(resolution: RoutingResolution): EmailRouteType
                 <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
                 <strong class="ms-2">SMTP credentials not set</strong>
                 <span class="ms-2">Brevo re-send needs an SMTP login and key before it can deliver. Set both in
-                  <a routerLink="/admin/mail-settings" [queryParams]="{tab: mailApiSettingsTab}">Mail Settings &rarr; Mail API Settings</a>, then return here to deploy.</span>
+                  <a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="{tab: mailApiSettingsTab}">Mail Settings &rarr; Mail API Settings</a>, then return here to deploy.</span>
               </alert>
             </div>
           }
@@ -354,6 +355,7 @@ function mapResolutionToRouteType(resolution: RoutingResolution): EmailRouteType
     imports: [AlertComponent, FontAwesomeModule, CloudflareButton, FormsModule, RouterLink]
 })
 export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
+  adminMailSettingsPath = AdminPath.MAIL_SETTINGS;
   private logger: Logger = inject(LoggerFactory).createLogger("EmailRoutingStatusComponent", NgxLoggerLevel.ERROR);
   cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   private mailMessagingService = inject(MailMessagingService);

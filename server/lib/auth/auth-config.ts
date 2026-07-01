@@ -5,7 +5,7 @@ import passport from "passport";
 import { envConfig } from "../env-config/env-config";
 import passportJwt from "passport-jwt";
 import { DateTime } from "luxon";
-import { dateTimeNow } from "../shared/dates";
+import { dateTimeFromMillis, dateTimeNow } from "../shared/dates";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 
 let passportInitialised = false;
@@ -25,7 +25,7 @@ function initialisePassport() {
   };
 
   passport.use(new passportJwt.Strategy(passportOpts, (jwtPayload, done) => {
-    const expirationDate: DateTime = DateTime.fromMillis(jwtPayload.exp * 1000);
+    const expirationDate: DateTime = dateTimeFromMillis(jwtPayload.exp * 1000);
     if (expirationDate.toMillis() < dateTimeNow().toMillis()) {
       return done(null, false);
     }

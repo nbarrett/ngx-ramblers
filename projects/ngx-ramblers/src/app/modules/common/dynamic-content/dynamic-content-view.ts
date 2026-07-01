@@ -134,6 +134,9 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
         this.filterAndSet(this.pageContentRawData);
       }
     }));
+    this.subscriptions.push(this.memberResourcesReferenceData.platformAdminEnabledChanges().subscribe(() => {
+      this.filterAndSet(this.pageContentRawData);
+    }));
   }
 
   ngOnDestroy(): void {

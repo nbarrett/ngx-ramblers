@@ -4,7 +4,7 @@ import type { PageContent } from "../../../projects/ngx-ramblers/src/app/models/
 import type { AuthResponse } from "../../../projects/ngx-ramblers/src/app/models/auth-data.model";
 import { pluraliseWithCount } from "./string-utils";
 import { isArray, keys } from "es-toolkit/compat";
-import { DateTime } from "luxon";
+import { dateTimeFromIsoWithZone } from "./dates";
 
 const debugLog = debug(envConfig.logNamespace("shared:cms-client"));
 debugLog.enabled = true;
@@ -263,7 +263,7 @@ export async function groupEventBySlug(baseUrl: string, slug: string): Promise<a
 }
 
 export async function groupEventsByDate(baseUrl: string, isoDate: string): Promise<any[]> {
-  const startDt = DateTime.fromISO(`${isoDate}T00:00:00+00:00`, { setZone: true });
+  const startDt = dateTimeFromIsoWithZone(`${isoDate}T00:00:00+00:00`);
   const start = startDt.toISO();
   const end = startDt.plus({ days: 1 }).toISO();
   return groupEventsByCriteria(baseUrl, { "groupEvent.start_date_time": { $gte: start, $lt: end } });

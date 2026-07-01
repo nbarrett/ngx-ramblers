@@ -10,6 +10,7 @@ import { LoginRequiredComponent } from "../../../modules/common/login-required/l
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { ImageListSelectorComponent } from "../carousel-selector/image-list-selector";
 import { ImageListEditComponent } from "../image-list-edit/image-list-edit";
+import { AdminContentPath } from "../../../models/admin-route-paths.model";
 
 @Component({
     selector: "app-list-edit-page",
@@ -56,6 +57,6 @@ export class ImageListEditPageComponent implements OnInit, OnDestroy {
   }
 
   backToEditorHome() {
-    this.urlService.navigateUnconditionallyTo(["admin", "carousel-editor"], {[StoredValue.CAROUSEL]: null});
+    this.urlService.navigateUnconditionallyTo(AdminContentPath.CAROUSEL_EDITOR.split("/"), {[StoredValue.CAROUSEL]: null});
   }
 }

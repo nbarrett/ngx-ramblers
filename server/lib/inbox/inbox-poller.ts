@@ -26,6 +26,7 @@ import {
 } from "./gmail-inbox-reader";
 import { storeInboundMessage } from "./inbox-message-import";
 import { sendInboxAlertToAllSubscribers } from "./inbox-web-push";
+import { AdminPath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import { dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
 
@@ -147,12 +148,13 @@ async function processGmailMessageIds(connection: InboxMailboxConnection, aliase
   const realAliases = aliases.filter(alias => !isInboxGeneralRoleType(alias.roleType));
   const generalAlias = aliases.find(alias => isInboxGeneralRoleType(alias.roleType)) ?? null;
   const identityEmailsByType = await roleIdentityEmailsByType();
+  const mailboxEmails = connection.gmailAccountEmail ? [connection.gmailAccountEmail] : [];
   return gmailMessageIds.reduce<Promise<string[]>>(async (acc, gmailMessageId) => {
     const accumulator = await acc;
     const parsed = await fetchFullMessage(connection, gmailMessageId);
     const messageEmails = messageRecipientEmails(parsed);
     const addressedRealAliases = realAliases.filter(alias =>
-      roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageEmails, identityEmailsByType));
+      roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageEmails, identityEmailsByType, mailboxEmails));
     const aliasesToStoreUnder = addressedRealAliases.length > 0
       ? addressedRealAliases
       : (generalAlias ? [generalAlias] : []);
@@ -180,6 +182,7 @@ async function pollSpamForConnection(connection: InboxMailboxConnection, aliases
   const realAliases = aliases.filter(alias => !isInboxGeneralRoleType(alias.roleType));
   const generalAlias = generalAliasFor(connection, connection.tenantSlug);
   const identityEmailsByType = await roleIdentityEmailsByType();
+  const mailboxEmails = connection.gmailAccountEmail ? [connection.gmailAccountEmail] : [];
   const spamMessageIds = await listSpamMessageIds(connection, 50);
   return spamMessageIds.reduce<Promise<number>>(async (acc, gmailMessageId) => {
     const accumulator = await acc;
@@ -193,7 +196,7 @@ async function pollSpamForConnection(connection: InboxMailboxConnection, aliases
       return accumulator;
     }
     const addressedRealAliases = realAliases.filter(alias =>
-      roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageRecipientEmails(parsed), identityEmailsByType));
+      roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageRecipientEmails(parsed), identityEmailsByType, mailboxEmails));
     const alias = addressedRealAliases[0] ?? generalAlias;
     await storeInboundMessage(alias, parsed, InboxThreadFolder.JUNK);
     return accumulator + 1;
@@ -296,7 +299,7 @@ async function alertIfTokenJustRevoked(connection: InboxMailboxConnection, newSt
   await sendInboxAlertToAllSubscribers({
     title: "Gmail inbox disconnected",
     body: `${connection.gmailAccountEmail} needs reconnecting. Google rejected the saved access (${message}).`,
-    url: "/admin/system-settings?tab=external-systems&sub-tab=mail"
+    url: "/" + AdminPath.MAIL_SETTINGS + "?tab=inbox"
   }).catch(alertError => errorDebugLog(`failed to send inbox revocation alert: ${(alertError as Error).message}`));
 }
 

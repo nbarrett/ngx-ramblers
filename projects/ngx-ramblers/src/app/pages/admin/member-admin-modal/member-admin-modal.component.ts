@@ -1,3 +1,4 @@
+import { AdminPath } from "../../../models/admin-route-paths.model";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faEye, faEyeSlash, faPaste } from "@fortawesome/free-solid-svg-icons";
@@ -268,7 +269,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
 
   goToUnsubscribesPage() {
     this.bsModalRef.hide();
-    this.router.navigate(["/admin/mail-settings"], { queryParams: { tab: "unsubscribes" } });
+    this.router.navigate(["/" + AdminPath.MAIL_SETTINGS], { queryParams: { tab: "unsubscribes" } });
   }
 
   onMembershipDateChange(dateValue: DateValue) {

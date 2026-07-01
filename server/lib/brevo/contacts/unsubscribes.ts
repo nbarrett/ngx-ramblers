@@ -61,7 +61,6 @@ function parseSenders(value: any): string[] | undefined {
         return fromJson.length > 0 ? fromJson : undefined;
       }
     } catch {
-      // fall through to comma-separated parse
     }
   }
   const senders = stringValue.split(",").map(entry => entry.trim()).filter(entry => entry.length > 0);

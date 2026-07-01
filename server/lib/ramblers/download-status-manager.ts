@@ -1,9 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
 import debug from "debug";
-import { DateTime, Duration } from "luxon";
+import { Duration } from "luxon";
 import { envConfig } from "../env-config/env-config";
-import { dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
+import { dateTimeFromMillis, dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
 import { ServerDownloadStatus, ServerDownloadStatusType, OperationResult, DownloadConflictResponse } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 
 const debugLog = debug(envConfig.logNamespace("download-status-manager"));
@@ -52,9 +52,9 @@ class DownloadStatusManager {
     this.loadStatus();
 
     if (this.currentStatus && (this.currentStatus.status === ServerDownloadStatusType.ACTIVE || this.currentStatus.status === ServerDownloadStatusType.HUNG)) {
-      const startTime = DateTime.fromMillis(this.currentStatus.startTime);
+      const startTime = dateTimeFromMillis(this.currentStatus.startTime);
       const lastActivity = this.currentStatus.lastActivity
-        ? DateTime.fromMillis(this.currentStatus.lastActivity)
+        ? dateTimeFromMillis(this.currentStatus.lastActivity)
         : startTime;
 
       const timeSinceActivity = dateTimeNow().diff(lastActivity);
@@ -170,8 +170,8 @@ class DownloadStatusManager {
 
     if (!currentStatus.canOverride && currentStatus.status === ServerDownloadStatusType.ACTIVE) {
       const lastActivity = currentStatus.lastActivity
-        ? DateTime.fromMillis(currentStatus.lastActivity)
-        : DateTime.fromMillis(currentStatus.startTime);
+        ? dateTimeFromMillis(currentStatus.lastActivity)
+        : dateTimeFromMillis(currentStatus.startTime);
 
       const timeSinceActivity = dateTimeNow().diff(lastActivity);
       const safeOverrideThreshold = Duration.fromObject({ minutes: 5 });

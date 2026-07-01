@@ -1,11 +1,10 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
-import { DateTime } from "luxon";
 import { EventType, GroupEventField, EventField } from "../../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { InputSource } from "../../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { RamblersEventType } from "../../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { WalkEvent } from "../../../../../projects/ngx-ramblers/src/app/models/walk-event.model";
-import { dateTimeNowAsValue } from "../../../shared/dates";
+import { dateTimeFromIso, dateTimeFromMillis, dateTimeNowAsValue } from "../../../shared/dates";
 import { walkEventDataFrom } from "../migration-walk-event";
 
 const debugLog = createMigrationLogger("fix-invalid-finish-times");
@@ -18,11 +17,11 @@ function durationInMsecsForDistanceInMiles(distance: number, milesPerHour: numbe
 }
 
 function calculateFinishTime(startDateTime: string, distanceMiles: number, milesPerHour: number): string {
-  const startMillis = DateTime.fromISO(startDateTime).toMillis();
+  const startMillis = dateTimeFromIso(startDateTime).toMillis();
   const durationMillis = durationInMsecsForDistanceInMiles(distanceMiles, milesPerHour || DEFAULT_MILES_PER_HOUR);
   const finishMillis = startMillis + durationMillis;
 
-  let finishDateTime = DateTime.fromMillis(finishMillis);
+  let finishDateTime = dateTimeFromMillis(finishMillis);
   const minutes = finishDateTime.minute;
   const remainder = minutes % 15;
   if (remainder !== 0) {
@@ -37,8 +36,8 @@ function isInvalidFinishTime(startDateTime: string, endDateTime: string): boolea
   if (!startDateTime || !endDateTime) {
     return false;
   }
-  const start = DateTime.fromISO(startDateTime);
-  const end = DateTime.fromISO(endDateTime);
+  const start = dateTimeFromIso(startDateTime);
+  const end = dateTimeFromIso(endDateTime);
 
   if (!start.isValid || !end.isValid) {
     return false;

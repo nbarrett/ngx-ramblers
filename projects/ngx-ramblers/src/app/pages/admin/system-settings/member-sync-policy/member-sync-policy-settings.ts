@@ -31,7 +31,7 @@ interface PolicyModeOption {
         <ul class="form-text text-muted mb-3">
           <li><strong>Use legacy rules</strong> — apply today's per-field write rule. May write or skip depending on the rule.</li>
           <li><strong>Always apply Head Office</strong> — write the incoming value unconditionally. The field becomes
-            read-only on <code>/admin/contact-details</code>.</li>
+            read-only on <code>/admin/profile/contact-details</code>.</li>
           <li><strong>Skip</strong> — ignore the incoming value for this field entirely. The local value is preserved and
             stays editable.</li>
         </ul>

@@ -19,6 +19,7 @@ import { WalkDisplayService } from "../walk-display.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { GroupEventService } from "../../../services/walks-and-events/group-event.service";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
+import { UIDateFormat } from "../../../models/date-format.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { cloneDeep } from "es-toolkit/compat";
@@ -271,7 +272,7 @@ export class WalkEditCopyFromComponent implements OnInit, OnDestroy {
   private applyTimeOfDayToTargetDate(groupEvent: GroupEvent, field: GroupEventDateTimeField, targetDate: string) {
     const sourceDateTime = groupEvent[field];
     if (sourceDateTime && targetDate) {
-      const timeOfDay = this.dateUtils.asDateTime(sourceDateTime).toFormat("HH:mm");
+      const timeOfDay = this.dateUtils.asDateTime(sourceDateTime).toFormat(UIDateFormat.RAMBLERS_TIME);
       groupEvent[field] = this.dateUtils.startTimeFrom(timeOfDay, this.dateUtils.asValueNoTime(targetDate));
     } else {
       delete groupEvent[field];

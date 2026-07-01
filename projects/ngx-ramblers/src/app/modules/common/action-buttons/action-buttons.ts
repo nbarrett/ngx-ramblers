@@ -20,6 +20,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { PageContentEditService } from "../../../services/page-content-edit.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { adminPathAllowedInNgxLite } from "../../../models/admin-route-paths.model";
+import { NgxLiteService } from "../../../services/ngx-lite.service";
 import { SvgComponent } from "../svg/svg";
 import { CardEditorComponent } from "../card-editor/card-editor";
 import {
@@ -139,6 +141,7 @@ export class ActionButtons implements OnInit, AfterViewInit, OnDestroy {
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public urlService: UrlService = inject(UrlService);
   public actions: PageContentActionsService = inject(PageContentActionsService);
+  private ngxLiteService: NgxLiteService = inject(NgxLiteService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   public logger = this.loggerFactory.createLogger("ActionButtons", NgxLoggerLevel.ERROR);
   public instance = this;
@@ -218,7 +221,10 @@ export class ActionButtons implements OnInit, AfterViewInit, OnDestroy {
   }
 
   pageContentColumns(): PageContentColumn[] {
-    return filterColumnsBySearchText(this.row?.columns || [], this.searchText);
+    const columns = filterColumnsBySearchText(this.row?.columns || [], this.searchText);
+    return this.ngxLiteService.ngxLite
+      ? columns.filter(column => adminPathAllowedInNgxLite(column.href))
+      : columns;
   }
 
   private determineMaxViewableSlideCount(): number {

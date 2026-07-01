@@ -1,5 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
+import { BehaviorSubject, Observable } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpCampaign, MailchimpCampaignVersion2 } from "../../models/mailchimp.model";
 import { isUndefined } from "es-toolkit/compat";
@@ -27,21 +28,29 @@ export class MemberResourcesReferenceDataService {
   protected dateUtils = inject(DateUtilsService);
   private memberLoginService = inject(MemberLoginService);
   private http = inject(HttpClient);
-  private platformAdminEnabled = false;
+  private platformAdminEnabledSubject = new BehaviorSubject<boolean>(false);
+
+  private get platformAdminEnabled(): boolean {
+    return this.platformAdminEnabledSubject.value;
+  }
 
   constructor() {
     this.loadPlatformAdminStatus();
+  }
+
+  platformAdminEnabledChanges(): Observable<boolean> {
+    return this.platformAdminEnabledSubject.asObservable();
   }
 
   private loadPlatformAdminStatus() {
     this.http.get<{ platformAdminEnabled: boolean }>("/api/environment-setup/status")
       .subscribe({
         next: response => {
-          this.platformAdminEnabled = response?.platformAdminEnabled || false;
+          this.platformAdminEnabledSubject.next(response?.platformAdminEnabled || false);
           this.logger.info("platformAdminEnabled:", this.platformAdminEnabled);
         },
         error: () => {
-          this.platformAdminEnabled = false;
+          this.platformAdminEnabledSubject.next(false);
         }
       });
   }

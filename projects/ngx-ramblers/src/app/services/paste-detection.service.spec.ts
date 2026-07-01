@@ -1,6 +1,7 @@
 import { TestBed } from "@angular/core/testing";
 import { PasteDetectionService } from "./paste-detection.service";
 import { LoggerTestingModule } from "ngx-logger/testing";
+import { AdminSettingsPath } from "../models/admin-route-paths.model";
 
 describe("PasteDetectionService", () => {
   let service: PasteDetectionService;
@@ -169,7 +170,7 @@ Hever Castle`;
   describe("isLocalPath", () => {
     it("should return true for local paths", () => {
       expect(service.isLocalPath("/publications/article")).toBe(true);
-      expect(service.isLocalPath("/admin/settings")).toBe(true);
+      expect(service.isLocalPath("/" + AdminSettingsPath.ROOT)).toBe(true);
       expect(service.isLocalPath("/path/to/file.html")).toBe(true);
       expect(service.isLocalPath("/path?query=value")).toBe(true);
       expect(service.isLocalPath("/path#anchor")).toBe(true);

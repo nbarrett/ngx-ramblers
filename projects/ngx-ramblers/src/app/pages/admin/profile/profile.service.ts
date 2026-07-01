@@ -42,7 +42,7 @@ export class ProfileService  {
   }
 
   backToAdmin() {
-    this.urlService.navigateTo(["admin"]);
+    this.urlService.backToAdmin();
   }
 
   queryMember(notify: AlertInstance, profileUpdateType: ProfileUpdateType): Promise<Member> {

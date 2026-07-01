@@ -2,7 +2,7 @@ import { inject, Injectable } from "@angular/core";
 import { BehaviorSubject, Observable } from "rxjs";
 import { HttpClient } from "@angular/common/http";
 import { NgxLoggerLevel } from "ngx-logger";
-import { DateTime, Duration } from "luxon";
+import { Duration } from "luxon";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
 import { DateUtilsService } from "../date-utils.service";
@@ -67,9 +67,9 @@ export class ServerDownloadStatusService {
     }
 
     if (currentStatus.status === ServerDownloadStatusType.ACTIVE) {
-      const startTime = DateTime.fromMillis(currentStatus.startTime);
+      const startTime = this.dateUtils.asDateTime(currentStatus.startTime);
       const lastActivity = currentStatus.lastActivity
-        ? DateTime.fromMillis(currentStatus.lastActivity)
+        ? this.dateUtils.asDateTime(currentStatus.lastActivity)
         : startTime;
 
       const timeSinceActivity = this.dateUtils.dateTimeNow().diff(lastActivity);

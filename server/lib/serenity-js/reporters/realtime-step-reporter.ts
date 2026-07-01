@@ -1,9 +1,9 @@
 import type { Reporter, TestCase, TestResult, TestStep } from "@playwright/test/reporter";
 import debug from "debug";
-import { DateTime } from "luxon";
 import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { IntegrationWorkerEventType } from "../../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
 import { signRamblersUploadBody } from "../../ramblers/integration-worker-crypto";
+import { dateTimeFromMillis } from "../../shared/dates";
 
 const debugLog = debug("ngx-ramblers:realtime-step-reporter");
 debugLog.enabled = true;
@@ -36,7 +36,7 @@ export default class RealtimeStepReporter implements Reporter {
     if (step.category !== "test.step") {
       return;
     }
-    const timestamp = DateTime.fromMillis(step.startTime.getTime() + (step.duration || 0)).toUTC().toISO() ?? "";
+    const timestamp = dateTimeFromMillis(step.startTime.getTime() + (step.duration || 0)).toUTC().toISO() ?? "";
     const payload = {
       eventData: {
         timestamp,

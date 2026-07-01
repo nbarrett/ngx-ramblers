@@ -1,15 +1,16 @@
-import { DateTime } from "luxon";
 import {
   RamblersMember,
   MemberTerm
 } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { SalesforceMember } from "../../../projects/ngx-ramblers/src/app/models/salesforce.model";
+import { RamblersInsightHubDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
+import { dateTimeFromIso } from "../shared/dates";
 
 function formatIsoDateAs(value: string | undefined, format: string): string | undefined {
   if (!value) {
     return undefined;
   }
-  const parsed = DateTime.fromISO(value, { zone: "Europe/London" });
+  const parsed = dateTimeFromIso(value);
   if (!parsed.isValid) {
     return undefined;
   }
@@ -41,7 +42,7 @@ export function mapSalesforceMemberToRamblersMember(salesforceMember: Salesforce
   const ramblersMember: RamblersMember = {
     salesforceId: salesforceMember.salesforceId || null,
     membershipNumber: salesforceMember.membershipNumber || null,
-    membershipExpiryDate: formatIsoDateAs(salesforceMember.membershipExpiryDate, "dd/MM/yy"),
+    membershipExpiryDate: formatIsoDateAs(salesforceMember.membershipExpiryDate, RamblersInsightHubDateFormat.TWO_DIGIT_YEAR),
     email: salesforceMember.email || null,
     firstName: salesforceMember.firstName || null,
     lastName: salesforceMember.lastName || null,
@@ -54,7 +55,7 @@ export function mapSalesforceMemberToRamblersMember(salesforceMember: Salesforce
     memberStatus: salesforceMember.memberStatus || null,
     memberTerm: memberTermFor(salesforceMember.memberTerm),
     emailMarketingConsent: salesforceMember.emailMarketingConsent ? "true" : "false",
-    emailPermissionLastUpdated: formatIsoDateAs(salesforceMember.emailPermissionLastUpdated, "dd/MM/yyyy"),
+    emailPermissionLastUpdated: formatIsoDateAs(salesforceMember.emailPermissionLastUpdated, RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR),
   } as RamblersMember;
   if (options.enableGranularConsent) {
     const groupConsent = tristateBoolean(salesforceMember.groupMarketingConsent);

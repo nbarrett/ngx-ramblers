@@ -10,6 +10,14 @@ import { HasNgSelectAttributes, LocationDetails } from "./ramblers-walks-manager
 import { SharedDistrictStyle } from "./system.model";
 import { MapProvider } from "./map.model";
 import { SortDirection } from "./sort.model";
+import {
+  AdminContentPath,
+  AdminMembersPath,
+  AdminPath,
+  AdminPlatformPath,
+  AdminProfilePath,
+  AdminSettingsPath
+} from "./admin-route-paths.model";
 
 export const EM_DASH = " — ";
 export const EM_DASH_WITH_SPACES = ` ${EM_DASH} `;
@@ -544,8 +552,13 @@ export enum RouteParam {
 }
 
 export enum BuiltInPath {
-  ADMIN = "admin",
-  ENVIRONMENT_MANAGEMENT = "admin/environment-management",
+  ADMIN = AdminPath.ADMIN,
+  ADMIN_PROFILE = AdminProfilePath.ROOT,
+  ADMIN_MEMBERS = AdminMembersPath.ROOT,
+  ADMIN_CONTENT = AdminContentPath.ROOT,
+  ADMIN_SETTINGS = AdminSettingsPath.ROOT,
+  ADMIN_PLATFORM = AdminPlatformPath.ROOT,
+  ENVIRONMENT_MANAGEMENT = AdminPlatformPath.ENVIRONMENT_MANAGEMENT,
   HOME = "home",
 }
 
@@ -563,6 +576,26 @@ export const BuiltInContentConfigs: { [key in BuiltInPath]: BuiltInPageContentCo
     contentPath: BuiltInPath.ADMIN,
     anchors: [BuiltInAnchor.ACTION_BUTTONS]
   },
+  [BuiltInPath.ADMIN_PROFILE]: {
+    contentPath: BuiltInPath.ADMIN_PROFILE,
+    anchors: [BuiltInAnchor.ACTION_BUTTONS]
+  },
+  [BuiltInPath.ADMIN_MEMBERS]: {
+    contentPath: BuiltInPath.ADMIN_MEMBERS,
+    anchors: [BuiltInAnchor.ACTION_BUTTONS]
+  },
+  [BuiltInPath.ADMIN_CONTENT]: {
+    contentPath: BuiltInPath.ADMIN_CONTENT,
+    anchors: [BuiltInAnchor.ACTION_BUTTONS]
+  },
+  [BuiltInPath.ADMIN_SETTINGS]: {
+    contentPath: BuiltInPath.ADMIN_SETTINGS,
+    anchors: [BuiltInAnchor.ACTION_BUTTONS]
+  },
+  [BuiltInPath.ADMIN_PLATFORM]: {
+    contentPath: BuiltInPath.ADMIN_PLATFORM,
+    anchors: [BuiltInAnchor.ACTION_BUTTONS]
+  },
   [BuiltInPath.ENVIRONMENT_MANAGEMENT]: {
     contentPath: BuiltInPath.ENVIRONMENT_MANAGEMENT,
     anchors: [BuiltInAnchor.ACTION_BUTTONS]
@@ -571,6 +604,11 @@ export const BuiltInContentConfigs: { [key in BuiltInPath]: BuiltInPageContentCo
 
 export enum PageContentPath {
   ADMIN_ACTION_BUTTONS = `${BuiltInPath.ADMIN}#${BuiltInAnchor.ACTION_BUTTONS}`,
+  ADMIN_PROFILE_ACTION_BUTTONS = `${BuiltInPath.ADMIN_PROFILE}#${BuiltInAnchor.ACTION_BUTTONS}`,
+  ADMIN_MEMBERS_ACTION_BUTTONS = `${BuiltInPath.ADMIN_MEMBERS}#${BuiltInAnchor.ACTION_BUTTONS}`,
+  ADMIN_CONTENT_ACTION_BUTTONS = `${BuiltInPath.ADMIN_CONTENT}#${BuiltInAnchor.ACTION_BUTTONS}`,
+  ADMIN_SETTINGS_ACTION_BUTTONS = `${BuiltInPath.ADMIN_SETTINGS}#${BuiltInAnchor.ACTION_BUTTONS}`,
+  ADMIN_PLATFORM_ACTION_BUTTONS = `${BuiltInPath.ADMIN_PLATFORM}#${BuiltInAnchor.ACTION_BUTTONS}`,
   ENVIRONMENT_MANAGEMENT_ACTION_BUTTONS = `${BuiltInPath.ENVIRONMENT_MANAGEMENT}#${BuiltInAnchor.ACTION_BUTTONS}`,
 }
 
@@ -826,3 +864,13 @@ export interface Transformation {
   };
   contentText: string;
 }
+
+export interface ActionButtonColumn {
+  accessLevel?: string;
+  title?: string;
+  icon?: string;
+  href?: string;
+  contentText?: string;
+}
+
+export const PAGE_CONTENT_COLLECTION = "pageContent";

@@ -7,11 +7,13 @@ import {
   FLYIO_DEFAULTS
 } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { EnvironmentSummary } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { MongoClient } from "mongodb";
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
 import { connect as connectToDatabase } from "../mongo/mongoose-client";
 import type { EnvironmentConfig as DeployEnvironmentConfig } from "../../deploy/types";
 import { resolveClientPath } from "../shared/path-utils";
+import { parseMongoUri } from "../shared/mongodb-uri";
 
 const debugLog = debug(envConfig.logNamespace("environments-config"));
 debugLog.enabled = true;
@@ -59,6 +61,48 @@ function loadFromLocalManifest(): EnvironmentsConfig | null {
   }
 }
 
+function readServerEnvMongoUri(): string | null {
+  try {
+    const envPath = resolveClientPath("server", ".env");
+    if (!fs.existsSync(envPath)) {
+      return null;
+    }
+    const line = fs.readFileSync(envPath, "utf-8").split(/\r?\n/).find(entry => entry.startsWith("MONGODB_URI="));
+    return line ? line.substring("MONGODB_URI=".length).trim().replace(/^["']|["']$/g, "") : null;
+  } catch (error) {
+    debugLog("Failed to read server/.env MONGODB_URI:", error.message);
+    return null;
+  }
+}
+
+async function loadFromStagingEnvFile(): Promise<EnvironmentsConfig | null> {
+  const stagingUri = readServerEnvMongoUri();
+  if (!stagingUri) {
+    return null;
+  }
+  const client = await MongoClient.connect(stagingUri).catch(error => {
+    debugLog("Staging env-file connection failed:", error.message);
+    return null;
+  });
+  if (!client) {
+    return null;
+  }
+  try {
+    const doc = await client.db(parseMongoUri(stagingUri)?.database).collection("config").findOne({ key: ConfigKey.ENVIRONMENTS });
+    const value = doc?.value as EnvironmentsConfig | undefined;
+    if (value?.environments?.length) {
+      debugLog("Loaded environments config from server/.env staging connection: %d environments", value.environments.length);
+      return value;
+    }
+    return null;
+  } catch (error) {
+    debugLog("Staging env-file environments query failed:", error.message);
+    return null;
+  } finally {
+    await client.close();
+  }
+}
+
 function sortEnvironments(config: EnvironmentsConfig): EnvironmentsConfig {
   if (config.environments) {
     return { ...config, environments: [...config.environments].sort((a, b) => a.environment.localeCompare(b.environment)) };
@@ -71,14 +115,16 @@ export async function configuredEnvironments(): Promise<EnvironmentsConfig> {
   const dbConfig = await loadFromDatabase();
   if (dbConfig) {
     return sortEnvironments(dbConfig);
-  } else {
-    const localConfig = loadFromLocalManifest();
-    if (localConfig) {
-      return sortEnvironments(localConfig);
-    } else {
-      throw new Error("No environments configuration found in database or local manifest. Configure environments via /admin/environment-management, or add non-vcs/secrets/environments.local.json for offline development.");
-    }
   }
+  const stagingConfig = await loadFromStagingEnvFile();
+  if (stagingConfig) {
+    return sortEnvironments(stagingConfig);
+  }
+  const localConfig = loadFromLocalManifest();
+  if (localConfig) {
+    return sortEnvironments(localConfig);
+  }
+  throw new Error("No environments configuration found in database or local manifest. Configure environments via /admin/environment-management, or add non-vcs/secrets/environments.local.json for offline development.");
 }
 
 export async function findEnvironmentFromDatabase(environmentName: string): Promise<DeployEnvironmentConfig | null> {

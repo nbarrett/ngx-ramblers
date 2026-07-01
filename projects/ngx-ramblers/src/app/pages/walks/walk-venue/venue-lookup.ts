@@ -1,6 +1,7 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { RouterLink } from "@angular/router";
+import { AdminSettingsPath } from "../../../models/admin-route-paths.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
@@ -45,7 +46,7 @@ export enum VenueLookupMode {
           [queryParamKey]="StoredValue.VENUE_MODE"
           (selectedTabChange)="onModeChange($event)"/>
         @if (showManageVenuesButton) {
-          <a routerLink="/admin/venue-settings"
+          <a [routerLink]="'/' + adminSettingsVenueSettingsPath"
              class="btn btn-primary text-nowrap manage-venues-btn"
              [class.disabled]="disabled"
              [attr.tabindex]="disabled ? -1 : null"
@@ -214,6 +215,7 @@ export enum VenueLookupMode {
   `]
 })
 export class VenueLookupComponent implements OnInit {
+  adminSettingsVenueSettingsPath = AdminSettingsPath.VENUE_SETTINGS;
   private logger: Logger = inject(LoggerFactory).createLogger("VenueLookupComponent", NgxLoggerLevel.ERROR);
   private venueParserService = inject(VenueParserService);
   private venueScraperService = inject(VenueScraperService);

@@ -55,7 +55,7 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
   {
     category: "admin",
     name: "committee-expenses-help",
-    text: "When creating [expense claims](/admin/expenses) and mileage allowance is chosen as the expense type, the item cost is based on the mileage multiplied by the Cost Per Mile. On this screen, it's possible to change the Cost Per Mile (in £) for future expense claims."
+    text: "When creating [expense claims](/admin/profile/expenses) and mileage allowance is chosen as the expense type, the item cost is based on the mileage multiplied by the Cost Per Mile. On this screen, it's possible to change the Cost Per Mile (in £) for future expense claims."
   },
   {
     category: "admin",
@@ -241,10 +241,17 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
       "* Review audits of previous upload sessions",
     category: "walks-admin"
   },
+  {
+    name: "ramblers-import-help",
+    text: "* Upload a walks CSV exported from [Ramblers Walks Manager](https://walks-manager.ramblers.org.uk/walks-manager)\n" +
+      "* Match imported walk leaders to members in your database\n" +
+      "* Review and save the imported walks into your local database",
+    category: "walks-admin"
+  },
   RAMBLERS_PUBLISHING_HELP,
   {
     name: "how-to-documentation-help",
-    text: "* Import walks from [Ramblers  Walks Manager](https://walks-manager.ramblers.org.uk/walks-manager)\n" +
+    text: "* Import walks via a CSV exported from [Ramblers Walks Manager](https://walks-manager.ramblers.org.uk/walks-manager)\n" +
       "* You can do this when you want to change your website usage from the read-only view of Ramblers walks to when you create walks on this website and push them in bulk to Ramblers.",
     category: "walks-admin"
   },

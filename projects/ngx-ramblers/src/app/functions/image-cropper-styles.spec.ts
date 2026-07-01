@@ -27,9 +27,7 @@ describe("isUsefulCropperPosition", () => {
   });
 
   it("rejects narrow crops in either dimension", () => {
-    // Narrow horizontal slice would zoom width 4x
     expect(isUsefulCropperPosition({x1: 0, y1: 0, x2: 25, y2: 100} as any)).toBe(false);
-    // Narrow vertical slice would zoom height 4x
     expect(isUsefulCropperPosition({x1: 0, y1: 0, x2: 100, y2: 25} as any)).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import { AdminPath } from "../../../models/admin-route-paths.model";
 import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -309,7 +310,7 @@ export enum BookingTab {
                     <h6>Per-event email overrides (optional)</h6>
                     <p class="mb-2 text-muted">
                       These overrides apply only to the selected event. Global booking email wording is configured in
-                      <a routerLink="/admin/mail-settings" [queryParams]="{tab: 'email-configurations', configuration: 'booking-notification'}"><strong>Admin &gt; Mail Settings &gt; Email Configurations &gt; Booking Notification</strong></a>.
+                      <a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="{tab: 'email-configurations', configuration: 'booking-notification'}"><strong>Admin &gt; Mail Settings &gt; Email Configurations &gt; Booking Notification</strong></a>.
                     </p>
                     <div appStickyControls class="d-flex align-items-start gap-2 mb-2 pt-2">
                       <app-section-toggle [tabs]="emailTemplateTabs" [selectedTab]="selectedEventEmailOverrideType" (selectedTabChange)="onEmailTypeTabChange($event)"/>
@@ -591,6 +592,7 @@ export enum BookingTab {
     imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, CsvExportComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, ContentBlockEditorComponent, NgSelectComponent, NgOptionTemplateDirective, SectionToggle, EmailPreviewComponent, RouterLink, StickyControlsDirective]
 })
 export class BookingsComponent implements OnInit, OnDestroy {
+  adminMailSettingsPath = AdminPath.MAIL_SETTINGS;
   private logger: Logger = inject(LoggerFactory).createLogger("BookingsComponent", NgxLoggerLevel.ERROR);
   private bookingService = inject(BookingService);
   private dateUtils = inject(DateUtilsService);

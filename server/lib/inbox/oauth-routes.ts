@@ -16,6 +16,7 @@ import { pushReceiverUrl } from "./inbox-push";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { InboxAliasConnectionStatus } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { dateTimeNow } from "../shared/dates";
+import { AdminPath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import { isString } from "es-toolkit/compat";
 import { encryptInboxRefreshToken } from "./inbox-oauth-token-crypto";
 import { requireInboxConfigurationAdministrator } from "./inbox-access";
@@ -30,7 +31,7 @@ const errorDebugLog = createErrorDebugLog(messageType);
 const STATE_TTL_MS = 10 * 60 * 1000;
 const STATE_KIND_MAILBOX = "m";
 const STATE_KIND_SETUP = "s";
-const inboxSettingsPath = "/admin/system-settings?tab=external-systems&sub-tab=mail";
+const inboxSettingsPath = "/" + AdminPath.MAIL_SETTINGS + "?tab=inbox";
 
 const router = express.Router();
 

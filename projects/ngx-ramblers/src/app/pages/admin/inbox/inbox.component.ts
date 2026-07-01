@@ -5,6 +5,7 @@ import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faCompress, faEnvelope, faEnvelopeOpen, faExpand, faFilter, faInbox, faListCheck, faReply, faReplyAll, faRotateRight, faSearch, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { AdminSettingsPath, AdminPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, values } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -123,7 +124,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
         <div class="alert alert-warning inbox-alert">
           <fa-icon [icon]="faTriangleExclamation"/>
           <strong class="ms-2">No role mailboxes connected -</strong>
-          <span class="ms-1">An administrator can connect a mailbox in <a [routerLink]="['/admin/system-settings']" [queryParams]="{tab: 'external-systems', 'sub-tab': 'mail'}">System Settings &rarr; External Systems &rarr; Mail</a>, then point each committee role's Inbound Forwarding at it. Roles forwarding to a connected mailbox appear here automatically.</span>
+          <span class="ms-1">An administrator can connect a mailbox in <a [routerLink]="['/' + adminSettingsSystemSettingsPath]" [queryParams]="{tab: 'external-systems', 'sub-tab': 'mail'}">System Settings &rarr; External Systems &rarr; Mail</a>, then point each committee role's Inbound Forwarding at it. Roles forwarding to a connected mailbox appear here automatically.</span>
         </div>
       }
       @if (selectedAlias(); as alias) {
@@ -236,7 +237,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
             <div class="d-flex align-items-start gap-2 mb-3 inbox-detail-header">
               <div class="me-auto">
                 <h5 class="mb-1">{{selectedThread.subject || selectedThread.normalisedSubject || "(no subject)"}}</h5>
-                <small class="text-muted d-block">From {{selectedThread.externalAddress.name ?? selectedThread.externalAddress.email}}</small>
+                <small class="text-muted d-block">From {{ formatAddress(selectedThread.externalAddress) }}</small>
                 @if (selectedThreadRecipient(); as recipient) {
                   <small class="text-muted d-block">To {{recipient}}</small>
                 }
@@ -264,7 +265,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                 <div class="inbox-message-headers inbox-message-toggle d-flex align-items-start gap-2" (click)="toggleMessage(message)">
                   <fa-icon [icon]="isMessageExpanded(message) ? faChevronDown : faChevronRight" class="mt-1 text-muted"/>
                   <div class="flex-grow-1 min-w-0">
-                    <strong>{{message.direction === InboxMessageDirection.OUTBOUND ? "Sent from this group" : (message.from.name ?? message.from.email)}}</strong>
+                    <strong>{{message.direction === InboxMessageDirection.OUTBOUND ? "Sent from this group" : formatAddress(message.from)}}</strong>
                     &middot; {{(message.receivedAt ?? message.sentAt) | date: "medium"}}
                     @if (isMessageExpanded(message)) {
                       @if (message.cc?.length) {
@@ -413,6 +414,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private static readonly LAYOUT_KEY = "inbox-layout";
   private static readonly SIZE_KEY = "inbox-list-size";
 
+  adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
   private subscriptions: Subscription[] = [];
   private openThreadRequestId = 0;
   private mailboxViewInitialised = false;
@@ -930,7 +932,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.inboxReplyHandoff.queue(reply);
       this.logger.info("Reply queued, navigating to composer:", reply);
       const maximised = this.route.snapshot.queryParams[StoredValue.MAXIMISE] === "true";
-      await this.router.navigate(["/admin/email-composer"], {
+      await this.router.navigate(["/" + AdminPath.EMAIL_COMPOSER], {
         queryParams: {
           [StoredValue.BRANDING]: BrandingMode.UNBRANDED,
           [StoredValue.TAB]: EmailComposerStepKey.COMPOSE,
@@ -957,7 +959,15 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   formatAddresses(addresses: InboxAddress[]): string {
-    return (addresses ?? []).map(address => address.name ? `${address.name} <${address.email}>` : address.email).join(", ");
+    return (addresses ?? []).map(address => this.formatAddress(address)).join(", ");
+  }
+
+  formatAddress(address: InboxAddress): string {
+    if (address?.name && address.name.trim() && address.name.trim().toLowerCase() !== address.email?.toLowerCase()) {
+      return `${address.name.trim()} <${address.email}>`;
+    } else {
+      return address?.email ?? "";
+    }
   }
 
   isMessageExpanded(message: InboxMessage): boolean {

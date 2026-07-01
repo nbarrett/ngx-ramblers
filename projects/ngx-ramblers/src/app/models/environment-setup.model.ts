@@ -179,6 +179,18 @@ export interface SetupStatusResponse extends ApiResponse {
   platformAdminEnabled: boolean;
   requiresApiKey: boolean;
   awsAdminConfigured: boolean;
+  ngxLite: boolean;
+  hasLocalSocialEvents: boolean;
+}
+
+export interface NgxLiteAppliedEnvironment {
+  environment: string;
+  ngxLite: boolean;
+}
+
+export interface NgxLiteSyncResponse {
+  applied: NgxLiteAppliedEnvironment[];
+  failed: string[];
 }
 
 export interface EnvironmentDefaults {

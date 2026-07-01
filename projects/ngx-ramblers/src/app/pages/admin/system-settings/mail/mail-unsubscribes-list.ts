@@ -21,6 +21,7 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgClass } from "@angular/common";
+import { AdminMembersPath, AdminPath } from "../../../../models/admin-route-paths.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { MailService } from "../../../../services/mail/mail.service";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
@@ -48,6 +49,7 @@ import { BrevoDropdownItem } from "../../../../models/brevo-dropdown.model";
 import { SectionToggle, SectionToggleTab } from "../../../../shared/components/section-toggle";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { DateRange, DateRangeSlider } from "../../../../components/date-range-slider/date-range-slider";
+import { UIDateFormat } from "../../../../models/date-format.model";
 import { DateTime } from "luxon";
 
 const ALL_REASONS = "all";
@@ -328,7 +330,7 @@ const ALL_SENDERS = "all";
                     }
                     <span class="d-inline-block align-top">
                       @if (contact.matchedMember?.membershipNumber) {
-                        <a [routerLink]="['/admin/member-admin']"
+                        <a [routerLink]="['/' + adminMembersMemberAdminPath]"
                            [queryParams]="memberAdminQueryParams(contact.matchedMember.membershipNumber)"
                            [tooltip]="contact.email || 'Open this member in Member Admin'">{{ contactDisplay(contact) }}</a>
                         <div class="text-muted small">{{ contact.matchedMember.membershipNumber }}</div>
@@ -423,8 +425,8 @@ const ALL_SENDERS = "all";
                     <td class="truncate">
                       <span class="d-inline-block align-top">
                         @if (event.membershipNumber) {
-                          <a [routerLink]="['/admin/member-admin']"
-                             [queryParams]="memberAdminQueryParams(event.membershipNumber)"
+<a [routerLink]="['/' + adminMembersMemberAdminPath]"
+                              [queryParams]="memberAdminQueryParams(event.membershipNumber)"
                              [tooltip]="event.email || 'Open this member in Member Admin'">{{ activityDisplay(event) }}</a>
                           <div class="text-muted small">{{ event.membershipNumber }}</div>
                         } @else {
@@ -458,6 +460,7 @@ const ALL_SENDERS = "all";
   imports: [FormsModule, BrevoButtonComponent, FontAwesomeModule, TooltipDirective, MarkdownEditorComponent, NgClass, DateRangeSlider, RouterLink, SectionToggle]
 })
 export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
+  adminMembersMemberAdminPath = AdminMembersPath.MEMBER_ADMIN;
 
   private logger: Logger = inject(LoggerFactory).createLogger("MailUnsubscribesListComponent", NgxLoggerLevel.ERROR);
   private mailService = inject(MailService);
@@ -546,8 +549,8 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
           this.mode = subTab as UnsubscribesListMode;
         }
         if (startDate || endDate) {
-          const fromMs = startDate ? DateTime.fromISO(startDate).startOf("day").toMillis() : this.dateFilterRange?.from;
-          const toMs = endDate ? DateTime.fromISO(endDate).endOf("day").toMillis() : this.dateFilterRange?.to;
+          const fromMs = startDate ? this.dateUtils.asDateTime(startDate).startOf("day").toMillis() : this.dateFilterRange?.from;
+          const toMs = endDate ? this.dateUtils.asDateTime(endDate).endOf("day").toMillis() : this.dateFilterRange?.to;
           if (Number.isFinite(fromMs) || Number.isFinite(toMs)) {
             this.dateFilterRange = { from: fromMs, to: toMs };
           }
@@ -699,7 +702,7 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
 
   private formatRangeDate(millis: number | undefined): string | undefined {
     if (!millis || !Number.isFinite(millis)) return undefined;
-    return DateTime.fromMillis(millis).toFormat("yyyy-MM-dd");
+    return this.dateUtils.asDateTime(millis).toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
   }
 
   private dateRangeOverridesDefault(): boolean {

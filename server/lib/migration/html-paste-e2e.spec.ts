@@ -230,12 +230,10 @@ describe("HTML Paste E2E", () => {
       expect(markdown).toMatch(/Distance.*2\.7 miles/);
       expect(markdown).toMatch(/OS Map.*Explorer 125/);
 
-      // Check that relative image URLs were converted to absolute
       expect(markdown).toMatch(/!\[\]\(https:\/\/www\.kentramblers\.org\.uk\/walks\/walk-81\/images\/banner_081\.jpg\)/);
       expect(markdown).toMatch(/!\[\]\(https:\/\/www\.kentramblers\.org\.uk\/walks\/walk-81\/map_081\.jpg\)/);
       expect(markdown).toMatch(/!\[\]\(https:\/\/www\.kentramblers\.org\.uk\/walks\/walk-81\/images\/P081a\.jpg\)/);
 
-      // Check Points of Interest content
       expect(markdown).toMatch(/Points of Interest/);
       expect(markdown).toMatch(/Benenden School/);
       expect(markdown).toMatch(/The Grange/);
@@ -249,7 +247,6 @@ describe("HTML Paste E2E", () => {
 
       const imageSegments = segments.filter(s => s.image);
 
-      // Should have logo, banner, map, and school image at minimum
       expect(imageSegments.length).toBeGreaterThanOrEqual(4);
 
       const logoImage = imageSegments.find(s => s.image?.src.includes("ramblers-logo.gif"));
@@ -340,7 +337,6 @@ describe("HTML Paste E2E", () => {
       expect(result.rows.length).toBe(1);
 
       const imageColumn = result.rows[0].columns[0];
-      // First image is the ramblers logo
       expect(imageColumn.imageSource).toBe("uploaded:ramblers-logo.gif");
     });
 
@@ -389,8 +385,6 @@ describe("HTML Paste E2E", () => {
       expect(result.rows.length).toBe(1);
 
       const mainColumn = result.rows[0].columns[0];
-      // The HTML has both "Walk 87" in the title and "Walk 81" in the h1
-      // ALL_TEXT_UNTIL_IMAGE stops at the first image (ramblers logo)
       expect(mainColumn.contentText).toMatch(/Kent Ramblers.*Walk (81|87)/);
       expect(mainColumn.contentText.length).toBeGreaterThan(0);
 
@@ -398,11 +392,9 @@ describe("HTML Paste E2E", () => {
       expect(sideColumn.rows).toBeTruthy();
       expect(sideColumn.rows.length).toBeGreaterThan(0);
 
-      // Find image rows in the sidebar - should have at least one image
       const imageRows = sideColumn.rows.filter(r => r.columns[0].imageSource);
       expect(imageRows.length).toBeGreaterThan(0);
 
-      // Verify at least one image is from the walk content
       const walkImages = imageRows.filter(r =>
         r.columns[0].imageSource.includes("banner") ||
         r.columns[0].imageSource.includes("map") ||
@@ -415,7 +407,6 @@ describe("HTML Paste E2E", () => {
       const baseUrl = "https://www.kentramblers.org.uk/walks/walk-81/";
       const markdown = htmlToMarkdown(html, baseUrl);
 
-      // Check that key walking directions are preserved
       expect(markdown).toMatch(/Park in the street or around village green/);
       expect(markdown).toMatch(/walk westwards to cross-roads/);
       expect(markdown).toMatch(/Turn right in direction of Benenden Golf Course/);

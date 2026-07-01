@@ -12,6 +12,7 @@ import {
 } from "../../../../models/system.model";
 import { StatusIconComponent } from "../../status-icon";
 import { VisibilityToggleButton } from "../../../../shared/components/visibility-toggle-button";
+import { AdminContentPath } from "../../../../models/admin-route-paths.model";
 
 @Component({
   selector: "app-content-migration-group",
@@ -286,7 +287,7 @@ export class ContentMigrationGroupComponent {
     }
     switch (group.sourceType) {
       case ContentMigrationSourceType.CONTENT_METADATA:
-        return `/admin/carousel-editor?carousel=${encodeURIComponent(group.sourceTitle)}`;
+        return `/${AdminContentPath.CAROUSEL_EDITOR}?carousel=${encodeURIComponent(group.sourceTitle)}`;
       case ContentMigrationSourceType.PAGE_CONTENT:
         return `/${group.sourcePath}`;
       case ContentMigrationSourceType.GROUP_EVENT:

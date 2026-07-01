@@ -1,3 +1,4 @@
+import { AdminPath } from "../../models/admin-route-paths.model";
 import { ChangeDetectorRef, Component, ElementRef, inject, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
@@ -2251,8 +2252,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   }
 
   protected dateInputMode: DateInputMode = DateInputMode.Slider;
-  protected eventSliderMinDate: DateTime = DateTime.now().startOf("day").minus({ months: 3 });
-  protected eventSliderMaxDate: DateTime = DateTime.now().startOf("day").plus({ years: 2 });
+  protected eventSliderMinDate: DateTime = this.dateUtils.dateTimeNow().startOf("day").minus({ months: 3 });
+  protected eventSliderMaxDate: DateTime = this.dateUtils.dateTimeNow().startOf("day").plus({ years: 2 });
 
   protected setDateInputMode(mode: DateInputMode): void {
     this.dateInputMode = mode;
@@ -2282,8 +2283,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   private rescaleSliderToRange(fromMillis: number, toMillis: number): void {
     const span = Math.max(toMillis - fromMillis, 24 * 60 * 60 * 1000);
     const padding = Math.max(span * 0.25, 24 * 60 * 60 * 1000);
-    this.eventSliderMinDate = DateTime.fromMillis(fromMillis - padding).startOf("day");
-    this.eventSliderMaxDate = DateTime.fromMillis(toMillis + padding).startOf("day");
+    this.eventSliderMinDate = this.dateUtils.asDateTime(fromMillis - padding).startOf("day");
+    this.eventSliderMaxDate = this.dateUtils.asDateTime(toMillis + padding).startOf("day");
   }
 
   private recomputeSliderBoundsFromCurrentRange(): void {
@@ -2302,16 +2303,16 @@ export class EmailComposer implements OnInit, OnDestroy {
     createPastPreset("Past 3 months", { months: 3 }),
     createAllTimePreset(
       "All upcoming",
-      DateTime.now().startOf("day"),
-      DateTime.now().plus({ years: 2 }).endOf("day")
+      this.dateUtils.dateTimeNow().startOf("day"),
+      this.dateUtils.dateTimeNow().plus({ years: 2 }).endOf("day")
     )
   ];
 
   protected customDateRangePreset: AdvancedSearchPreset = {
     label: "Custom",
     range: () => ({
-      from: this.state.groupEventsFilter?.fromDate?.value ?? DateTime.now().startOf("day").toMillis(),
-      to: this.state.groupEventsFilter?.toDate?.value ?? DateTime.now().startOf("day").toMillis()
+      from: this.state.groupEventsFilter?.fromDate?.value ?? this.dateUtils.dateTimeNow().startOf("day").toMillis(),
+      to: this.state.groupEventsFilter?.toDate?.value ?? this.dateUtils.dateTimeNow().startOf("day").toMillis()
     })
   };
 
@@ -3823,7 +3824,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     return {
       before,
       linkText,
-      linkRouterLink: "/admin/mail-settings",
+      linkRouterLink: "/" + AdminPath.MAIL_SETTINGS,
       linkQueryParams: this.mailSettingsQueryParams(),
       linkTarget: "_blank"
     };
@@ -4137,7 +4138,7 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   private navigateToInbox(): void {
     const maximised = this.route.snapshot.queryParamMap.get(StoredValue.MAXIMISE) === "true";
-    this.router.navigate(["/admin/inbox"], {
+      this.router.navigate(["/" + AdminPath.INBOX], {
       queryParams: {
         ...(this.inboxReplyContext?.threadId ? {[StoredValue.THREAD]: this.inboxReplyContext.threadId} : {}),
         ...(maximised ? {[StoredValue.MAXIMISE]: "true"} : {})

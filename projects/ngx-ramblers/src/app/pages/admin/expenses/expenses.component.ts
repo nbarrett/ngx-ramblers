@@ -468,7 +468,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   }
 
   backToAdmin() {
-    this.urlService.navigateTo(["admin"]);
+    this.urlService.backToAdmin();
   }
 
   expand() {

@@ -153,7 +153,7 @@ function formatIsoDateString(dateStr: string): string | null {
     return isoParsed.toISODate();
   }
 
-  const shortMonthParsed = dateTimeInTimezone(trimmed, "d-MMM-yyyy");
+  const shortMonthParsed = dateTimeInTimezone(trimmed, UIDateFormat.DAY_MONTH_YEAR_DASHED);
   if (shortMonthParsed.isValid) {
     return shortMonthParsed.toISODate();
   }

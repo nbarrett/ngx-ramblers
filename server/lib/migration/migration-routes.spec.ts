@@ -5,8 +5,6 @@ import * as path from "path";
 import { createTurndownService, htmlToMarkdown } from "./turndown-service-factory";
 
 describe("HTML to Markdown Conversion", () => {
-  const turndownService = createTurndownService();
-
   describe("Kent Ramblers Walk 81 HTML conversion", () => {
     let html: string;
     let markdown: string;
@@ -142,8 +140,7 @@ describe("HTML to Markdown Conversion", () => {
       expect(markdown).toMatch(/Benenden is served by the 297\s+bus/);
     });
 
-    it("should convert horizontal rules", () => {
-      // TurndownService converts <hr> to * * *
+    it("should convert horizontal rules (<hr>) to '* * *'", () => {
       expect(markdown).toMatch(/\* \* \*/);
     });
 
@@ -158,18 +155,15 @@ describe("HTML to Markdown Conversion", () => {
       expect(markdown).toMatch(/Guide to Tunbridge\s+Wells Circular Walk/);
     });
 
-    it("should not contain excessive whitespace", () => {
-      // Allow a few blank lines but avoid large gaps
+    it("should allow a few blank lines but no gaps of six or more", () => {
       expect(markdown).not.toMatch(/\n{6,}/);
     });
 
-    it("should not contain HTML entities that should be decoded", () => {
-      // TurndownService should decode &nbsp; to spaces
+    it("should decode HTML entities such as &nbsp; to spaces", () => {
       expect(markdown).not.toMatch(/&nbsp;/);
     });
 
-    it("should produce markdown that is significantly shorter than HTML", () => {
-      // Markdown should be more concise (removing style tags, attributes, etc.)
+    it("should produce markdown shorter than HTML by stripping style tags and attributes", () => {
       expect(markdown.length).toBeLessThan(html.length * 0.8);
     });
   });

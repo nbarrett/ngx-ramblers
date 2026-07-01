@@ -17,6 +17,13 @@ import { adminConfigFromEnvironment, copyStandardAssets, validateAwsAdminCredent
 import { createEnvironment, listSessions, sessionStatus, validateSetupRequest } from "../environment-setup-service";
 import { EnvironmentSetupRequest, RamblersAreaLookup, RamblersGroupLookup } from "../types";
 import { configuredEnvironments, findEnvironmentFromDatabase } from "../../environments/environments-config";
+import { extendedGroupEvent } from "../../mongo/models/extended-group-event";
+import { pageContent as pageContentModel } from "../../mongo/models/page-content";
+import { liteHomeTemplatePageContent, LITE_HOME_TEMPLATE_PATH } from "../../../../projects/ngx-ramblers/src/app/models/home-content.model";
+import { PageContent } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { GroupEventField, DocumentField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { EventSource } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
+import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { buildMongoUri, extractClusterFromUri, extractUsernameFromUri, parseMongoUri } from "../../shared/mongodb-uri";
 import { resumeEnvironment } from "../../cli/commands/environment";
 import { destroyEnvironment } from "../../cli/commands/destroy";
@@ -38,6 +45,7 @@ import { appIpAddresses } from "../../fly/fly-certificates";
 import { booleanOf } from "../../shared/string-utils";
 import * as systemConfig from "../../config/system-config";
 import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 import { ADMIN_SET_PASSWORD_PATH } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { keys } from "es-toolkit/compat";
 import {
@@ -50,6 +58,7 @@ import {
 import AdmZip from "adm-zip";
 import { buildContributorBundle } from "../../contributor-environment/contributor-bundle";
 import { cloneDatabase, databaseHasCollections } from "../../contributor-environment/clone-database";
+import { isBoolean } from "es-toolkit/compat";
 
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:routes"));
@@ -253,14 +262,105 @@ router.get("/sessions", (req: Request, res: Response) => {
   res.json(sessions);
 });
 
-router.get("/status", (req: Request, res: Response) => {
-  const platformAdminEnabled = isSetupEnabled();
+async function localSocialEventsExist(): Promise<boolean> {
+  try {
+    const count = await extendedGroupEvent.countDocuments({
+      [DocumentField.SOURCE]: EventSource.LOCAL,
+      [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_EVENT
+    });
+    return count > 0;
+  } catch (error) {
+    debugLog("Failed to determine local social events:", error);
+    return false;
+  }
+}
+
+async function resolveNgxLite(): Promise<boolean> {
+  try {
+    const system = await systemConfig.systemConfig();
+    if (isBoolean(system?.ngxLite)) {
+      return system.ngxLite;
+    }
+  } catch (error) {
+    debugLog("Failed to read ngxLite from system config:", error);
+  }
+  try {
+    const mongoUri = envConfig.mongo().uri;
+    const parsedMongo = parseMongoUri(mongoUri);
+    const currentEnvironment = (parsedMongo?.database || "").replace(/^ngx-ramblers-/, "");
+    if (currentEnvironment) {
+      const environmentsConfig = await configuredEnvironments();
+      const currentEnvConfig = environmentsConfig.environments?.find(
+        env => env.environment === currentEnvironment
+      );
+      return currentEnvConfig?.ngxLite === true;
+    }
+  } catch (error) {
+    debugLog("Failed to determine ngxLite status:", error);
+  }
+  return false;
+}
+
+router.get("/status", async (_req: Request, res: Response) => {
+  const setupEnabled = isSetupEnabled();
+  const ngxLite = await resolveNgxLite();
+  const platformAdminEnabled = setupEnabled && !ngxLite;
+  const hasLocalSocialEvents = await localSocialEventsExist();
   res.json({
     enabled: platformAdminEnabled,
     platformAdminEnabled,
     requiresApiKey: Boolean(process.env[Environment.ENVIRONMENT_SETUP_API_KEY]),
-    awsAdminConfigured: Boolean(adminConfigFromEnvironment())
+    awsAdminConfigured: Boolean(adminConfigFromEnvironment()),
+    ngxLite,
+    hasLocalSocialEvents
   });
+});
+
+async function liteHomeTemplate(): Promise<PageContent> {
+  const stored = await pageContentModel.findOne({ path: LITE_HOME_TEMPLATE_PATH }).lean<PageContent>();
+  return stored?.rows?.length ? stored : liteHomeTemplatePageContent();
+}
+
+async function applyLiteToEnvironment(environment: string, ngxLite: boolean, template: PageContent): Promise<void> {
+  const context = await loadEnvironmentContext(environment);
+  const connection = await connectToEnvironmentMongo(context.envConfigData);
+  try {
+    await connection.db.collection("config").updateOne(
+      { key: ConfigKey.SYSTEM },
+      { $set: { "value.ngxLite": ngxLite } }
+    );
+    if (ngxLite) {
+      await connection.db.collection("pageContent").updateOne(
+        { path: LITE_HOME_TEMPLATE_PATH },
+        { $set: { path: LITE_HOME_TEMPLATE_PATH, rows: template.rows } },
+        { upsert: true }
+      );
+    }
+  } finally {
+    await connection.client.close();
+  }
+}
+
+router.post("/sync-ngx-lite", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+  try {
+    const environments = (await configuredEnvironments()).environments || [];
+    const template = await liteHomeTemplate();
+    const outcomes = await Promise.allSettled(environments.map(env =>
+      applyLiteToEnvironment(env.environment, env.ngxLite === true, template)));
+    const zipped = environments.map((env, index) => ({ env, status: outcomes[index].status }));
+    const applied = zipped
+      .filter(item => item.status === "fulfilled")
+      .map(item => ({ environment: item.env.environment, ngxLite: item.env.ngxLite === true }));
+    const failed = zipped
+      .filter(item => item.status === "rejected")
+      .map(item => item.env.environment);
+    debugLog("sync-ngx-lite applied to %d environments, %d unreachable", applied.length, failed.length);
+    res.json({ applied, failed });
+  } catch (error) {
+    debugLog("Failed to sync ngxLite:", error.message);
+    res.status(500).json({ error: `Failed to sync NGX-Lite: ${error.message}` });
+  }
 });
 
 router.get("/defaults", async (req: Request, res: Response) => {

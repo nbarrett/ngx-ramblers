@@ -327,8 +327,8 @@ export class CloudflareWebAnalyticsDashboard {
 
   onRangeChange(range: DateRange): void {
     this.selectedPresetLabel = this.presetLabelForRange(range);
-    this.fromDate = DateTime.fromMillis(range.from).toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
-    this.toDate = DateTime.fromMillis(range.to).toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
+    this.fromDate = this.dateUtils.asDateTime(range.from).toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
+    this.toDate = this.dateUtils.asDateTime(range.to).toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
     this.sliderRange = range;
     this.loadAnalytics();
   }

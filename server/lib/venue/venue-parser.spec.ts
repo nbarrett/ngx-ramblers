@@ -312,8 +312,6 @@ describe("venue-parser.documented issues", () => {
   });
 
   it("should filter RHDR navigation menu pattern", () => {
-    // This test validates that nav menu items are filtered even when in body text.
-    // The key assertion is that "Plan Your Visit", "Things to Do" etc are NOT extracted.
     const text = "Plan Your Visit\nThings to Do\nSpecial Events\nAbout Us\nDungeness Station\nTN29 9NA";
     const result = parseVenueFromText(text);
     expect(result.venue.name).toEqual("Dungeness Station");
@@ -352,7 +350,6 @@ describe("venue-parser.documented issues", () => {
     const result = parseVenueFromText(text);
     expect(result.venue.name).toEqual("The Duke of Cumberland");
     expect(result.venue.address1).not.toContain("Explore");
-    // address2 may be undefined if only one address line found
     if (result.venue.address2) {
       expect(result.venue.address2).not.toContain("versatile");
     }

@@ -124,6 +124,16 @@ describe("inbox-aliases", () => {
       expect(roleMatchesMessageAddresses("treasurer", "treasurer@ekwg.co.uk", ["treasurer@ekwg.co.uk"], identityEmailsByType)).toEqual(true);
     });
 
+    it("does not match an excluded Gmail inbox address", () => {
+      const identities = new Map<string, Set<string>>([["chairman", new Set(["chairman@ekwg.co.uk", "walks@ekwg.co.uk"])]]);
+      expect(roleMatchesMessageAddresses("chairman", "chairman@ekwg.co.uk", ["walks@ekwg.co.uk"], identities, ["walks@ekwg.co.uk"])).toEqual(false);
+    });
+
+    it("still matches a role address when the Gmail inbox address is also present", () => {
+      const identities = new Map<string, Set<string>>([["chairman", new Set(["chairman@ekwg.co.uk", "walks@ekwg.co.uk"])]]);
+      expect(roleMatchesMessageAddresses("chairman", "chairman@ekwg.co.uk", ["walks@ekwg.co.uk", "chairman@ekwg.co.uk"], identities, ["walks@ekwg.co.uk"])).toEqual(true);
+    });
+
   });
 
   describe("connectionIdentifier", () => {

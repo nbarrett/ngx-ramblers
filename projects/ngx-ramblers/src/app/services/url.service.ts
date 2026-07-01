@@ -2,6 +2,7 @@ import { DOCUMENT, Location } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import { ActivatedRoute, Params, QueryParamsHandling, Router } from "@angular/router";
 import { first, isEmpty, isUndefined, last, tail } from "es-toolkit/compat";
+import { adminParentPath } from "../models/admin-route-paths.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PathSegment } from "../models/content-text.model";
 import {
@@ -76,6 +77,15 @@ export class UrlService {
       this.logger.debug("activated:", activated, "area is now:", this.area());
       return activated;
     });
+  }
+
+  backToAdmin(): void {
+    if (window.history.length > 1) {
+      this.location.back();
+    } else {
+      const parent = adminParentPath(this.router.url);
+      this.router.navigate(["/" + parent]);
+    }
   }
 
   navigateToUrl(url: string, $event: MouseEvent) {

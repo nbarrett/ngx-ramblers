@@ -197,9 +197,10 @@ export function messageRecipientEmails(message: InboxMessage): string[] {
     .map(address => normaliseEmail(address.email));
 }
 
-export function roleMatchesMessageAddresses(roleType: string, roleEmail: string, messageEmails: string[], identityEmailsByType: Map<string, Set<string>>): boolean {
+export function roleMatchesMessageAddresses(roleType: string, roleEmail: string, messageEmails: string[], identityEmailsByType: Map<string, Set<string>>, excludedEmails: string[] = []): boolean {
   const identityEmails = identityEmailsByType.get(roleType) ?? new Set([normaliseEmail(roleEmail)]);
-  return messageEmails.some(email => identityEmails.has(email));
+  const excludedEmailSet = new Set(excludedEmails.map(normaliseEmail));
+  return messageEmails.some(email => !excludedEmailSet.has(email) && identityEmails.has(email));
 }
 
 export async function collaborativeRoleTypes(tenantSlug: string): Promise<string[]> {
@@ -209,6 +210,6 @@ export async function collaborativeRoleTypes(tenantSlug: string): Promise<string
     .map(connectionIdentifier));
   const aliases = await derivedAliases();
   return aliases
-    .filter(alias => alias.mailboxConnectionId && collaborativeConnectionIds.has(alias.mailboxConnectionId))
+    .filter(alias => alias.mailboxConnectionId && collaborativeConnectionIds.has(alias.mailboxConnectionId) && !isInboxGeneralRoleType(alias.roleType))
     .map(alias => alias.roleType);
 }

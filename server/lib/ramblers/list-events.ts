@@ -31,8 +31,7 @@ import {
   identifierCanBeConvertedToSlug,
   identifierMatchesSlugFormat
 } from "../mongo/controllers/extended-group-event";
-import { dateTimeFromIso } from "../shared/dates";
-import { DateTime } from "luxon";
+import { dateTimeFromIso, dateTimeFromMillis } from "../shared/dates";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { cacheEventIfNotFound, cacheEventsWithStats, toExtendedGroupEvent } from "../walks/walks-manager-cache";
 
@@ -221,8 +220,8 @@ export async function fetchMappedEvents(config: SystemConfig, fromDate: number, 
   const params = [
     optionalParameter("groups", uniqueCommaDelimitedList(config?.group?.groupCode)),
     optionalParameter("types", [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT].join(",")),
-    optionalParameter("date", DateTime.fromMillis(fromDate).toFormat(DateFormat.WALKS_MANAGER_API)),
-    optionalParameter("date_end", DateTime.fromMillis(toDate).toFormat(DateFormat.WALKS_MANAGER_API)),
+    optionalParameter("date", dateTimeFromMillis(fromDate).toFormat(DateFormat.WALKS_MANAGER_API)),
+    optionalParameter("date_end", dateTimeFromMillis(toDate).toFormat(DateFormat.WALKS_MANAGER_API)),
     optionalParameter("limit", MAXIMUM_PAGE_SIZE)
   ].filter(item => !isEmpty(item)).join("&");
 

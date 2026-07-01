@@ -14,7 +14,6 @@ export interface VenueTestFixture {
 }
 
 export const PUB_FIXTURES: VenueTestFixture[] = [
-  // Kings Arms pubs across UK
   { url: "https://www.thekingsarmslondon.co.uk/", expectedType: "pub", expectedNameContains: "Kings Arms", region: "London" },
   { url: "https://www.thekingsarmspub.com/", expectedType: "pub", expectedNameContains: "Kings Arms", region: "London" },
   { url: "https://www.thekingsarmscardington.co.uk/", expectedType: "pub", expectedNameContains: "Kings Arms", region: "Bedford" },
@@ -25,7 +24,6 @@ export const PUB_FIXTURES: VenueTestFixture[] = [
   { url: "https://www.thekingsarmsbexleyheath.co.uk/", expectedType: "pub", expectedNameContains: "Kings Arms", region: "London" },
   { url: "https://www.thekingsarmsegham.co.uk/", expectedType: "pub", expectedNameContains: "Kings Arms", region: "Surrey" },
 
-  // Red Lion pubs
   { url: "https://www.redlionwestminster.co.uk/", expectedType: "pub", expectedNameContains: "Red Lion", region: "London" },
   { url: "https://www.redlionmayfair.co.uk/", expectedType: "pub", expectedNameContains: "Red Lion", region: "London" },
   { url: "https://www.redlionoxford.co.uk/", expectedType: "pub", expectedNameContains: "Red Lion", region: "Oxford" },
@@ -36,7 +34,6 @@ export const PUB_FIXTURES: VenueTestFixture[] = [
   { url: "https://www.redlionlacock.co.uk/", expectedType: "pub", expectedNameContains: "Red Lion", region: "Wiltshire" },
   { url: "https://theoldredlion.uk/", expectedType: "pub", expectedNameContains: "Red Lion", region: "London" },
 
-  // Crown Inn pubs
   { url: "https://crowninnenstone.co.uk/", expectedType: "pub", expectedNameContains: "Crown", region: "Cotswolds" },
   { url: "https://www.crowninn.net/", expectedType: "pub", expectedNameContains: "Crown", region: "Suffolk" },
   { url: "https://www.the-crowninn.co.uk/", expectedType: "pub", expectedNameContains: "Crown", region: "Southampton" },
@@ -47,7 +44,6 @@ export const PUB_FIXTURES: VenueTestFixture[] = [
   { url: "https://www.crowninnatfinglesham.co.uk/", expectedType: "pub", expectedNameContains: "Crown", region: "Kent" },
   { url: "https://www.crown-inn.co.uk/", expectedType: "pub", expectedNameContains: "Crown", region: "Buckinghamshire" },
 
-  // White Horse pubs
   { url: "https://www.thewhitehorserichmond.co.uk/", expectedType: "pub", expectedNameContains: "White Horse", region: "London" },
   { url: "https://whitehorsepub.co.uk/", expectedType: "pub", expectedNameContains: "White Horse", region: "Heathrow" },
   { url: "https://www.whitehorseradlett.co.uk/", expectedType: "pub", expectedNameContains: "White Horse", region: "Hertfordshire" },
@@ -58,7 +54,6 @@ export const PUB_FIXTURES: VenueTestFixture[] = [
   { url: "https://www.whitehorsewestbourne.co.uk/", expectedType: "pub", expectedNameContains: "White Horse", region: "Hampshire" },
   { url: "https://www.whitehorseharrow.co.uk/", expectedType: "pub", expectedNameContains: "White Horse", region: "London" },
 
-  // Plough Inn pubs
   { url: "https://www.ploughinn.com/", expectedType: "pub", expectedNameContains: "Plough", region: "Surrey" },
   { url: "https://www.theploughinnford.co.uk/", expectedType: "pub", expectedNameContains: "Plough", region: "Worcestershire" },
   { url: "https://www.theploughpublangley.co.uk/", expectedType: "pub", expectedNameContains: "Plough", region: "Kent" },
@@ -70,7 +65,6 @@ export const PUB_FIXTURES: VenueTestFixture[] = [
   { url: "https://www.theploughellington.co.uk/", expectedType: "pub", expectedNameContains: "Plough", region: "Northumberland" },
   { url: "https://www.theploughinncobham.co.uk/", expectedType: "pub", expectedNameContains: "Plough", region: "Surrey" },
 
-  // Anchor Inn pubs
   { url: "https://www.anchorhastings.co.uk/", expectedType: "pub", expectedNameContains: "Anchor", region: "East Sussex" },
   { url: "https://www.theanchorcowes.co.uk/", expectedType: "pub", expectedNameContains: "Anchor", region: "Isle of Wight" },
   { url: "https://www.theanchorinnseatown.co.uk/", expectedType: "pub", expectedNameContains: "Anchor", region: "Dorset" },
@@ -82,7 +76,6 @@ export const PUB_FIXTURES: VenueTestFixture[] = [
   { url: "https://anchorinn-totton.co.uk/", expectedType: "pub", expectedNameContains: "Anchor", region: "Hampshire" },
   { url: "https://theanchorinn-sidmouth.co.uk/", expectedType: "pub", expectedNameContains: "Anchor", region: "Devon" },
 
-  // Original test cases from user
   { url: "https://dukeofcumberland.co.uk/", expectedType: "pub", expectedNameContains: "Duke", region: "Kent", notes: "Footer legal links issue" },
   { url: "https://www.newflyinghorsewye.co.uk/", expectedType: "pub", expectedNameContains: "Flying Horse", region: "Kent", notes: "Opening hours issue" },
 ];

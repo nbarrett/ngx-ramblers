@@ -142,12 +142,10 @@ async function migrateCommitteePage(db: Db) {
   const shortName = config?.area?.shortName || "the group";
   const introText = introductionText?.text || `Welcome to the ${shortName} Committee page. Here, you'll find events related to the Committee, AGM and Annual Financial Returns for the group.`;
 
-  // Extract image sources from existing fragment action-button columns before converting
   const fragmentColumns: any[] = (yearsFragment?.rows || [])
     .filter((row: any) => row?.type === PageContentType.ACTION_BUTTONS || row?.type === "slides")
     .flatMap((row: any) => row.columns || []);
 
-  // Convert or create the fragment with an index row instead of action buttons
   const indexFragmentRows = [createCommitteeYearsIndexRow()];
 
   if (yearsFragment) {
@@ -159,7 +157,6 @@ async function migrateCommitteePage(db: Db) {
     debugLog("Created committee years fragment with index row at %s", COMMITTEE_YEARS_FRAGMENT_PATH);
   }
 
-  // Build root page
   const existingRoot = await pageContentCollection.findOne({path: COMMITTEE_ROOT_PATH});
   const hasCommitteeDocumentsRow = (existingRoot?.rows || []).some((row: any) => row?.type === PageContentType.COMMITTEE_DOCUMENTS);
 
@@ -209,7 +206,6 @@ async function migrateCommitteePage(db: Db) {
     debugLog("Created committee root page with %d rows", rootRows.length);
   }
 
-  // Create year pages with committee documents rows
   for (const year of years) {
     const yearPath = `${COMMITTEE_ROOT_PATH}/${year}`;
     const fileIds = filesByYear[year];

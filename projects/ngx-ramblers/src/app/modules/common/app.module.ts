@@ -51,6 +51,7 @@ import {
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { checkMigrationStatus } from "../../services/site-maintenance-initializer";
+import { NgxLiteService } from "../../services/ngx-lite.service";
 import { LastConfirmedDateDisplayed } from "../../pipes/last-confirmed-date-displayed.pipe";
 import { LineFeedsToBreaksPipe } from "../../pipes/line-feeds-to-breaks.pipe";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
@@ -171,7 +172,8 @@ import { ngxIconPack } from "../../icons/custom-icon-pack";
       const initializerFn = initializeCloudflareBeacon(inject(SystemConfigService), inject(LoggerFactory));
       return initializerFn();
     }),
-    provideAppInitializer(checkMigrationStatus)
+    provideAppInitializer(checkMigrationStatus),
+    provideAppInitializer(() => inject(NgxLiteService).loadStatus())
   ]
 })
 export class AppModule implements DoBootstrap {

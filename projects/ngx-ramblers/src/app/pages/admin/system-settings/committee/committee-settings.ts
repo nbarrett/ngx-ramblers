@@ -1,4 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { AdminPlatformPath } from "../../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import {
   faAdd,
@@ -139,7 +140,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                           <span class="ms-2">Cloudflare Email Routing could not be contacted. To enable
                             email forwarding for committee roles:
                             <ol class="mt-1 mb-0">
-                              <li>Open <a routerLink="/admin/environment-setup" [queryParams]="environmentSetupGlobalQueryParams">Global Settings</a> and ensure
+                              <li>Open <a [routerLink]="'/' + adminPlatformEnvironmentManagementSetupPath" [queryParams]="environmentSetupGlobalQueryParams">Global Settings</a> and ensure
                                 the Cloudflare section has a valid <strong>API Token</strong>,
                                 <strong>Zone ID</strong>, and <strong>Base Domain</strong></li>
                               <li>The <a [href]="cloudflareApiTokensUrl"
@@ -654,6 +655,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
     imports: [PageComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton]
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
+  adminPlatformEnvironmentManagementSetupPath = AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP;
 
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeSettingsComponent", NgxLoggerLevel.ERROR);
   stringUtils = inject(StringUtilsService);

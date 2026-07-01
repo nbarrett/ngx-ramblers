@@ -1,5 +1,7 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { RouterLink } from "@angular/router";
+import { AdminPath } from "../../../../models/admin-route-paths.model";
 import { SystemConfig } from "../../../../models/system.model";
 import {
   GoogleCloudProvisioningStepStatus,
@@ -60,7 +62,7 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
       @if (systemConfigInternal?.googleInbox) {
         <div class="col-sm-12">
           <p class="text-muted mb-3 small">
-            The Inbox (<a href="/admin/inbox">Admin &rarr; Inbox</a>) lets committee members read replies sent to their role
+            The Inbox (<a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a>) lets committee members read replies sent to their role
             addresses and reply from the role address. Work through the steps below in order: <strong>Step 1 is done once
             per deployment</strong> and provides the OAuth doorway used by all Gmail accounts; <strong>Step 2 is repeated
             for each Gmail account</strong> you want to read mail from; <strong>Step 3</strong> shows which committee
@@ -292,10 +294,12 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
     SecretInputComponent,
     SystemInboxMailboxConnectionsComponent,
     SystemInboxRoleMailboxesComponent,
-    StepperModule
+    StepperModule,
+    RouterLink
   ]
 })
 export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
+  adminInboxPath = AdminPath.INBOX;
 
   protected systemConfigInternal: SystemConfig;
   private logger = inject(LoggerFactory).createLogger("SystemGmailInboxSettingsComponent", NgxLoggerLevel.ERROR);

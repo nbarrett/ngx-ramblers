@@ -1,3 +1,4 @@
+import { AdminSettingsPath } from "../../../../models/admin-route-paths.model";
 import { values, keys } from "es-toolkit/compat";
 import { Component, EventEmitter, inject, OnDestroy, OnInit, Output } from "@angular/core";
 import {
@@ -351,7 +352,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                 @if (isBookingConfig()) {
                   <p class="mb-3 text-muted">
                     This is the global booking email wording. Per-event booking email overrides live in
-                    <a routerLink="/admin/bookings" [queryParams]="{tab: 'per-event-detail'}"><strong>Admin &gt; Bookings &gt; Per-Event Detail</strong></a>.
+                    <a [routerLink]="'/' + adminSettingsBookingsPath" [queryParams]="{tab: 'per-event-detail'}"><strong>Admin &gt; Settings &gt; Bookings &gt; Per-Event Detail</strong></a>.
                   </p>
                   <app-content-block-editor [notificationConfig]="notificationConfig"
                                             [blockKeys]="discoveredContentBlockKeys"
@@ -492,6 +493,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
 })
 
 export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
+  adminSettingsBookingsPath = AdminSettingsPath.BOOKINGS;
   private logger: Logger = inject(LoggerFactory).createLogger("MailNotificationTemplateEditor", NgxLoggerLevel.ERROR);
 
   memberSelections: KeyValue<string>[] = [KEY_NULL_VALUE_NONE].concat(enumKeyValues(MemberSelection));
