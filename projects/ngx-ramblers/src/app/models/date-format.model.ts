@@ -34,7 +34,9 @@ export enum UIDateFormat {
   DAY_MONTH_YEAR_DASHED_ZERO_PADDED = "dd-MMM-yyyy",
   DISPLAY_DATE_AT_TIME = "cccc, d MMMM yyyy 'at' h:mm a",
   FILE_TIMESTAMP_COMPACT = "yyyyMMdd-HHmmss",
-  WEEKDAY_DAY_MONTH_YEAR_ABBREVIATED = "ccc, d MMM yyyy"
+  YEAR = "yyyy",
+  WEEKDAY_DAY_MONTH_YEAR_ABBREVIATED = "ccc, d MMM yyyy",
+  UTC_TIMESTAMP_WITH_MILLIS = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
 }
 
 export enum BsDatepickerFormat {

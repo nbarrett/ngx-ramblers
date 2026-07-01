@@ -1,8 +1,10 @@
+import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ReplaySubject } from "rxjs";
 import { ConfigKey } from "../models/config.model";
 import { AWS_DEFAULTS, EnvironmentsConfig } from "../models/environment-config.model";
+import { NgxLiteSyncResponse } from "../models/environment-setup.model";
 import { ConfigService } from "./config.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 
@@ -13,6 +15,7 @@ export class EnvironmentConfigService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("EnvironmentConfigService", NgxLoggerLevel.ERROR);
   private config = inject(ConfigService);
+  private http = inject(HttpClient);
   private subject = new ReplaySubject<EnvironmentsConfig>();
   private cachedConfig: EnvironmentsConfig;
 
@@ -67,5 +70,12 @@ export class EnvironmentConfigService {
 
   cachedEnvironmentsConfig(): EnvironmentsConfig | null {
     return this.cachedConfig || null;
+  }
+
+  async syncNgxLite(): Promise<NgxLiteSyncResponse> {
+    this.logger.info("syncNgxLite:started");
+    const response = await this.http.post<NgxLiteSyncResponse>("/api/environment-setup/sync-ngx-lite", {}).toPromise();
+    this.logger.info("syncNgxLite:response", response);
+    return response;
   }
 }

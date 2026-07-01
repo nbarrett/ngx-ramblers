@@ -7,7 +7,7 @@ import { ImageMessage } from "../../../../models/images.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { UrlService } from "../../../../services/url.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import { NgClass, NgStyle } from "@angular/common";
+import { NgClass, NgStyle, NgTemplateOutlet } from "@angular/common";
 import { RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MediaQueryService } from "../../../../services/committee/media-query.service";
@@ -23,48 +23,61 @@ import { FocalPoint } from "../../../../models/image-cropper.model";
     selector: "app-card-image",
     template: `
     @if (displayImage()) {
-      @if (hasFocalPoint()) {
-        <div class="card-image-focal-wrapper" [ngStyle]="focalPointWrapperStyles()">
-          <img class="card-img-top card-img-focal"
-               (load)="imageLoaded($event)"
-               (error)="imageError($event)"
-               [ngStyle]="focalPointImageStyles()"
-               [src]="urlService.imageSource(imageSource, false, false)"
-               [alt]="fileUtils.altFrom(alt, imageSource)"
-               [class.card-img-clickable]="urlService.routerLinkUrl(imageLink)"
-               [routerLink]="urlService.routerLinkUrl(imageLink)">
-        </div>
+      @if (externalImageLink()) {
+        <a class="card-image-link"
+           [href]="externalImageLink()"
+           target="_blank"
+           rel="noopener noreferrer">
+          <ng-container [ngTemplateOutlet]="imageContent"/>
+        </a>
       }
-      @if (!hasFocalPoint() && hasCropperPosition()) {
-        <div class="card-image-cropper" [ngStyle]="cropperWrapperStyles()">
+      @if (routerImageLink()) {
+        <a class="card-image-link"
+           [routerLink]="routerImageLink()">
+          <ng-container [ngTemplateOutlet]="imageContent"/>
+        </a>
+      }
+      @if (!externalImageLink() && !routerImageLink()) {
+        <ng-container [ngTemplateOutlet]="imageContent"/>
+      }
+      <ng-template #imageContent>
+        @if (hasFocalPoint()) {
+          <div class="card-image-focal-wrapper" [ngStyle]="focalPointWrapperStyles()">
+            <img class="card-img-top card-img-focal"
+                 (load)="imageLoaded($event)"
+                 (error)="imageError($event)"
+                 [ngStyle]="focalPointImageStyles()"
+                 [src]="urlService.imageSource(imageSource, false, false)"
+                 [alt]="fileUtils.altFrom(alt, imageSource)">
+          </div>
+        }
+        @if (!hasFocalPoint() && hasCropperPosition()) {
+          <div class="card-image-cropper" [ngStyle]="cropperWrapperStyles()">
+            <img class="card-img-top" (load)="imageLoaded($event)"
+                 (error)="imageError($event)"
+                 [ngStyle]="cropperImageStyles()"
+                 [src]="urlService.imageSource(imageSource, false, false)"
+                 [alt]="fileUtils.altFrom(alt, imageSource)">
+          </div>
+        }
+        @if (!hasFocalPoint() && !hasCropperPosition() && unconstrainedHeight) {
           <img class="card-img-top" (load)="imageLoaded($event)"
                (error)="imageError($event)"
-               [ngStyle]="cropperImageStyles()"
+               [ngStyle]="imageStyles()"
+               [ngClass]="{'card-img-fixed-height': fixedHeight}"
                [src]="urlService.imageSource(imageSource, false, false)"
-               [alt]="fileUtils.altFrom(alt, imageSource)"
-               [class.card-img-clickable]="urlService.routerLinkUrl(imageLink)"
-               [routerLink]="urlService.routerLinkUrl(imageLink)">
-        </div>
-      }
-      @if (!hasFocalPoint() && !hasCropperPosition() && unconstrainedHeight) {
-        <img class="card-img-top" (load)="imageLoaded($event)"
-             (error)="imageError($event)"
-             [ngStyle]="imageStyles()"
-             [ngClass]="{'card-img-fixed-height': fixedHeight, 'card-img-clickable': urlService.routerLinkUrl(imageLink)}"
-             [src]="urlService.imageSource(imageSource, false, false)"
-             [alt]="fileUtils.altFrom(alt, imageSource)"
-             [routerLink]="urlService.routerLinkUrl(imageLink)">
-      }
-      @if (!hasFocalPoint() && !hasCropperPosition() && !unconstrainedHeight) {
-        <img class="card-img-top" [height]="constrainedHeight"
-             (load)="imageLoaded($event)"
-             (error)="imageError($event)"
-             [ngStyle]="imageStyles()"
-             [ngClass]="{'card-img-fixed-height': fixedHeight, 'card-img-clickable': urlService.routerLinkUrl(imageLink)}"
-             [src]="urlService.imageSource(imageSource, false, false)"
-             [alt]="fileUtils.altFrom(alt, imageSource)"
-             [routerLink]="urlService.routerLinkUrl(imageLink)">
-      }
+               [alt]="fileUtils.altFrom(alt, imageSource)">
+        }
+        @if (!hasFocalPoint() && !hasCropperPosition() && !unconstrainedHeight) {
+          <img class="card-img-top" [height]="constrainedHeight"
+               (load)="imageLoaded($event)"
+               (error)="imageError($event)"
+               [ngStyle]="imageStyles()"
+               [ngClass]="{'card-img-fixed-height': fixedHeight}"
+               [src]="urlService.imageSource(imageSource, false, false)"
+               [alt]="fileUtils.altFrom(alt, imageSource)">
+        }
+      </ng-template>
     }
     @if (cardMissingImage() || cardShouldHaveIcon()) {
       <div class="row no-image"
@@ -79,7 +92,7 @@ import { FocalPoint } from "../../../../models/image-cropper.model";
     }`,
     styleUrls: ["./card-image.sass"],
     host: {class: "d-block w-100"},
-    imports: [NgStyle, NgClass, RouterLink, FontAwesomeModule]
+    imports: [NgStyle, NgClass, NgTemplateOutlet, RouterLink, FontAwesomeModule]
 })
 export class CardImageComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CardImageComponent", NgxLoggerLevel.ERROR);
@@ -165,6 +178,14 @@ export class CardImageComponent implements OnInit {
 
   cardImageLoadError(): boolean {
     return this.imageText === ImageMessage.IMAGE_LOAD_ERROR;
+  }
+
+  routerImageLink(): string {
+    return this.externalImageLink() ? null : this.urlService.routerLinkUrl(this.imageLink);
+  }
+
+  externalImageLink(): string {
+    return this.imageLink && this.urlService.isRemoteUrl(this.imageLink) ? this.imageLink : null;
   }
 
   ngOnInit() {

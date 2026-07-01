@@ -464,7 +464,6 @@ function extractAddressLines(lines: string[], postcode: string | null): { name: 
 
   const allParts: string[] = [];
   lines.forEach(line => {
-    // Skip junk lines early
     if (isJunkLine(line)) {
       return;
     }
@@ -718,7 +717,6 @@ function extractFooterContent(html: string): string {
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
       .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, "");
     const footerText = decodeHtmlEntities(stripHtmlTags(footerHtml));
-    // Filter out junk lines from footer
     const cleanedLines = footerText
       .split("\n")
       .filter(line => !isJunkLine(line.trim()))
@@ -748,7 +746,6 @@ function cleanVenueName(name: string): string {
     }
   }
 
-  // Remove common tagline phrases that follow venue names
   const taglinePatterns = [
     /\s+(traditional|classic|historic|modern|contemporary|award[- ]winning)\s+(country\s+)?(pub|inn|hotel|restaurant|cafe|bar|gastropub).*$/i,
     /\s+in\s+the\s+heart\s+of\s+.*$/i,

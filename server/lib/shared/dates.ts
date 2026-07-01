@@ -21,6 +21,10 @@ export function dateTimeFromIso(value: string): DateTime {
   return DateTime.fromISO(value, {zone: "Europe/London"});
 }
 
+export function dateTimeFromIsoWithZone(value: string): DateTime {
+  return DateTime.fromISO(value, {setZone: true});
+}
+
 export function dateTimeFromJsDate(value: Date): DateTime {
   return DateTime.fromJSDate(value).setZone("Europe/London");
 }

@@ -7,10 +7,21 @@ import { Link } from "../models/page.model";
 import { AccessLevelService } from "../services/access-level.service";
 import { BroadcastService } from "../services/broadcast-service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
+import { NgxLiteService } from "../services/ngx-lite.service";
 import { PageService } from "../services/page.service";
 import { UrlService } from "../services/url.service";
 import { NgClass } from "@angular/common";
 import { RouterLink } from "@angular/router";
+
+const NGX_LITE_SOCIAL_PATHS = ["social-events", "group-events"];
+
+const NGX_LITE_ALLOWED_PATHS = [
+  "",
+  "admin",
+  "walks",
+  "committee",
+  ...NGX_LITE_SOCIAL_PATHS,
+];
 
 @Component({
     selector: "app-page-navigator",
@@ -26,6 +37,7 @@ export class PageNavigatorComponent implements OnInit, OnDestroy {
   private pageService = inject(PageService);
   private urlService = inject(UrlService);
   private router = inject(Router);
+  private ngxLiteService = inject(NgxLiteService);
   private subscriptions: Subscription[] = [];
 
   ngOnInit() {
@@ -57,11 +69,28 @@ export class PageNavigatorComponent implements OnInit, OnDestroy {
   }
 
   pages(): Link[] {
-    return (this.pageService?.group?.pages || []).filter(link => this.hasAccess(link));
+    return (this.pageService?.group?.pages || []).filter(link => this.hasAccess(link) && this.allowedInNgxLite(link));
   }
 
   private hasAccess(link: Link): boolean {
     return this.accessLevelService.hasAccess(link);
+  }
+
+  private allowedInNgxLite(link: Link): boolean {
+    if (!this.ngxLiteService.ngxLite) {
+      return true;
+    }
+    const href = link.href || "";
+    if (NGX_LITE_ALLOWED_PATHS.includes(href)) {
+      if (NGX_LITE_SOCIAL_PATHS.includes(href)) {
+        return this.ngxLiteService.hasLocalSocialEvents;
+      }
+      return true;
+    }
+    if (href.includes("email") || href.includes("login") || href.includes("logout")) {
+      return true;
+    }
+    return false;
   }
 
   unToggleMenu() {

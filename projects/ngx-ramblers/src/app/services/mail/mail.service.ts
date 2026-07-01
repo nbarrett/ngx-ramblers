@@ -8,6 +8,9 @@ import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import {
   Account,
+  BrevoCampaignContent,
+  CampaignRecipientsReport,
+  BrevoTransactionalAggregatedReport,
   ContactAddOrRemoveResponse,
   ContactCreatedResponse,
   ContactsAddOrRemoveRequest,
@@ -49,9 +52,10 @@ import {
   BlockedContactsResponse,
   ClearAllBlocklistResult,
   UnsubscribeActivityResponse,
-  UnsubscribeHistoryEntry
+  UnsubscribeHistoryEntry,
+  BrevoTransactionalEmailListResponse
 } from "../../models/mail.model";
-import { BrevoCampaignQueueSummary } from "../../models/brevo-campaign-queue.model";
+import { BrevoCampaignProgress, BrevoCampaignQueueSummary } from "../../models/brevo-campaign-queue.model";
 import { SortDirection } from "../../models/sort.model";
 
 @Injectable({
@@ -64,8 +68,11 @@ export class MailService {
   private commonDataService = inject(CommonDataService);
   private BASE_URL = "api/mail";
 
-  async campaignQueueSummary(): Promise<BrevoCampaignQueueSummary> {
-    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/campaign/queue`))).response;
+  async campaignQueueSummary(startDate?: string, endDate?: string): Promise<BrevoCampaignQueueSummary> {
+    const params = startDate || endDate
+      ? this.commonDataService.toHttpParams({startDate, endDate})
+      : undefined;
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/campaign/queue`, {params}))).response;
   }
 
   async releaseCampaign(campaignId: number): Promise<BrevoCampaignQueueSummary> {
@@ -74,6 +81,31 @@ export class MailService {
 
   async cancelCampaign(campaignId: number): Promise<BrevoCampaignQueueSummary> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/campaign/${campaignId}/cancel`, {}))).response;
+  }
+
+  async transactionalAggregatedReport(startDate: string, endDate: string): Promise<BrevoTransactionalAggregatedReport> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/transactional/aggregated-report`, {
+      params: this.commonDataService.toHttpParams({startDate, endDate})
+    }))).response;
+  }
+
+  async transactionalEmails(startDate: string, endDate: string): Promise<BrevoTransactionalEmailListResponse> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/transactional/emails`, {
+      params: this.commonDataService.toHttpParams({startDate, endDate, limit: 100})
+    }))).response;
+  }
+
+  async campaignStats(campaignId: number): Promise<BrevoCampaignProgress> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/campaigns/${campaignId}/stats`, {}))).response;
+  }
+
+  async campaignRecipients(campaignId: number, type: string): Promise<CampaignRecipientsReport> {
+    const params = this.commonDataService.toHttpParams(pickBy({type}));
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/campaigns/${campaignId}/recipients`, {params}))).response;
+  }
+
+  async campaignContent(campaignId: number): Promise<BrevoCampaignContent> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/campaigns/${campaignId}/content`, {}))).response;
   }
 
   async createList(listCreateRequest: ListCreateRequest): Promise<ListCreateResponse> {

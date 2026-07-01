@@ -159,12 +159,17 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
       environments: this.propagateWorkerSecrets(this.editableConfig.environments, this.editableConfig.uploadWorker)
     };
 
-    this.environmentConfigService.saveConfig(config).then(() => {
+    this.environmentConfigService.saveConfig(config).then(async () => {
       this.editableConfig.environments = config.environments;
       this.configJson = JSON.stringify(config, null, 2);
+      const sync = await this.environmentConfigService.syncNgxLite().catch(error => {
+        this.logger.warn("syncNgxLite failed:", error);
+        return null;
+      });
+      const unreachable = sync?.failed?.length ? ` (NGX-Lite not yet applied to: ${sync.failed.join(", ")})` : "";
       this.notify.success({
         title: "Configuration Saved",
-        message: "Environment configuration has been saved successfully"
+        message: `Environment configuration has been saved successfully${unreachable}`
       });
     }).catch(err => {
       this.configError = `Error saving config: ${err.message}`;

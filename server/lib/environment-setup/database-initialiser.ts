@@ -13,6 +13,7 @@ import { createCommitteeConfig } from "./templates/committee-config-template";
 import { createWalksConfig } from "./templates/walks-config-template";
 import { createAdminMember, createSystemMember } from "./templates/sample-data/admin-member-template";
 import { createAllSamplePageContent } from "./templates/sample-data/page-content-templates";
+import { committeeRootPageContent, committeeYearsFragmentPageContent } from "./templates/sample-data/committee-page-template";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { buildMongoUri as buildMongoUriFromConfig } from "../shared/mongodb-uri";
 import { closeMigrationConnection, MigrationRunner } from "../mongo/migrations/migrations-runner";
@@ -230,7 +231,7 @@ export async function initialiseDatabase(
   }
 }
 
-const INCORRECT_PAGE_PATHS = ["walks", "admin", "home", "committee"];
+const INCORRECT_PAGE_PATHS = ["walks", "admin", "home"];
 
 export async function cleanIncorrectPageContent(db: Db): Promise<void> {
   const pageContentCollection = db.collection(COLLECTIONS.PAGE_CONTENT);
@@ -280,7 +281,32 @@ export async function seedSamplePages(db: Db, groupName: string, groupShortName:
     }
     debugLog("Upserted page content:", pageContent.path);
   }
-  return { upsertedCount, totalCount: pageContents.length };
+  const committeePagesSeeded = await seedCommitteePages(db, groupName);
+  return { upsertedCount: upsertedCount + committeePagesSeeded, totalCount: pageContents.length + committeePagesSeeded };
+}
+
+export async function seedCommitteePages(db: Db, groupName: string): Promise<number> {
+  const pageContentCollection = db.collection(COLLECTIONS.PAGE_CONTENT);
+  const fragment = committeeYearsFragmentPageContent();
+  const fragmentResult = await pageContentCollection.updateOne(
+    { path: fragment.path },
+    { $setOnInsert: fragment },
+    { upsert: true }
+  );
+  const fragmentDocument = await pageContentCollection.findOne({ path: fragment.path });
+  const rootPage = committeeRootPageContent(groupName, fragmentDocument._id.toString());
+  const rootResult = await pageContentCollection.updateOne(
+    { path: rootPage.path },
+    { $setOnInsert: rootPage },
+    { upsert: true }
+  );
+  const seededCount = fragmentResult.upsertedCount + rootResult.upsertedCount;
+  if (seededCount > 0) {
+    debugLog("Seeded committee page content:", rootPage.path, "and", fragment.path);
+  } else {
+    debugLog("Committee page content already present - left untouched");
+  }
+  return seededCount;
 }
 
 export async function seedNotificationConfigs(db: Db): Promise<{ seededCount: number; skippedCount: number }> {

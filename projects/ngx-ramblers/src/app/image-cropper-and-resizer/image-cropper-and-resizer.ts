@@ -190,7 +190,6 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
             this.fileNameData = awsFileUploadResponseData?.fileNameData;
             this.fileNameData.title = this?.existingTitle;
             this.notify.success({title: "File uploaded", message: this.fileNameData.title});
-            // extra bit from other handler
             const awsFileName = `${awsFileUploadResponseData?.fileNameData?.rootFolder}/${awsFileUploadResponseData?.fileNameData?.awsFileName}`;
             this.croppedFile.awsFileName = awsFileName;
             this.logger.info("received response:", awsFileUploadResponseData, "awsFileName:", awsFileName, "local originalFile.name:", this.originalFile.name, "aws originalFileName", awsFileUploadResponseData?.fileNameData.originalFileName);
@@ -198,7 +197,6 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
             this.notify.success({title: "File upload", message: "image was saved successfully"});
             this.quit.emit();
             this.action = null;
-            // end of extra bit from other handler
         }));
         if (this.preloadImage) {
             this.imageSource = this.preloadImage;
@@ -316,10 +314,10 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
 
     private isValidCropperPosition(position: CropperPosition): boolean {
         if (!position) return false;
+        const minimumCropDimensionPx = 10;
         const width = position.x2 - position.x1;
         const height = position.y2 - position.y1;
-        // Minimum 10px crop area
-        return width > 10 && height > 10;
+        return width > minimumCropDimensionPx && height > minimumCropDimensionPx;
     }
 
     error(errorEvent: ErrorEvent) {

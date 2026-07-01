@@ -5,6 +5,7 @@ import { first, kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
+import { AdminSettingsPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -186,7 +187,7 @@ import {
                     <div markdown class="list-arrow mb-3">
                       <ul>
                         <li>Choose which links appear inside the Related Links box on individual walk pages.</li>
-                        <li>The Related Links box itself can be hidden per event type in <a routerLink="/admin/system-settings" [queryParams]="{tab: 'area-group'}"><strong>Admin &gt; System Settings &gt; Group / Area Configuration</strong></a>.</li>
+                        <li>The Related Links box itself can be hidden per event type in <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="{tab: 'area-group'}"><strong>Admin &gt; Settings &gt; System Settings &gt; Group / Area Configuration</strong></a>.</li>
                       </ul>
                     </div>
                   </div>
@@ -313,6 +314,7 @@ import {
   imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, MarkdownEditorComponent, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink]
 })
 export class WalkConfigComponent implements OnInit, OnDestroy {
+  adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkConfigComponent", NgxLoggerLevel.ERROR);
   private location = inject(Location);

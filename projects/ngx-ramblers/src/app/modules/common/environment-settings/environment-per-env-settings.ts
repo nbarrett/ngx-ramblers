@@ -2,6 +2,7 @@ import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges }
 import { Location } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, RouterLink } from "@angular/router";
+import { AdminSettingsPath, AdminPlatformPath } from "../../../models/admin-route-paths.model";
 import { Subscription } from "rxjs";
 import { isString } from "es-toolkit/compat";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -157,7 +158,7 @@ import { toKebabCase } from "../../../functions/strings";
             }
           </div>
           <div class="row">
-            <div class="col-md-12 mb-3">
+            <div class="col-md-6 mb-3">
               <label class="form-label">Environment Name</label>
               <input type="text"
                      class="form-control"
@@ -165,6 +166,19 @@ import { toKebabCase } from "../../../functions/strings";
                      name="envName"
                      autocomplete="off"
                      placeholder="e.g., staging, production">
+            </div>
+            <div class="col-md-6 mb-3 d-flex align-items-end">
+              <div class="form-check">
+                <input type="checkbox"
+                       class="form-check-input"
+                       id="ngxLite"
+                       [(ngModel)]="currentEnvironment.ngxLite"
+                       name="ngxLite">
+                <label class="form-check-label" for="ngxLite">
+                  NGX-Lite Mode
+                </label>
+                <small class="form-text text-muted d-block">Email-only mode for groups that don't run a full public site. Trims the public nav bar to essentials (Walks always; Social only when local social events exist) and hides admin content with no email purpose. Platform Admin visibility is separate, controlled by PLATFORM_ADMIN_ENABLED.</small>
+              </div>
             </div>
           </div>
         </div>
@@ -356,7 +370,7 @@ import { toKebabCase } from "../../../functions/strings";
                 name="envCloudflareAccountId"
                 [size]="InputSize.SM">
               </app-secret-input>
-              <small class="form-text text-muted">Leave empty to use <a routerLink="/admin/environment-setup" [queryParams]="environmentSetupGlobalQueryParams">global</a> account</small>
+              <small class="form-text text-muted">Leave empty to use <a [routerLink]="'/' + adminPlatformEnvironmentManagementSetupPath" [queryParams]="environmentSetupGlobalQueryParams">global</a> account</small>
             </div>
             <div class="col-md-6 mb-2">
               <label class="form-label">API Token (override)</label>
@@ -365,10 +379,10 @@ import { toKebabCase } from "../../../functions/strings";
                 name="envCloudflareApiToken"
                 [size]="InputSize.SM">
               </app-secret-input>
-              <small class="form-text text-muted">Leave empty to use <a routerLink="/admin/environment-setup" [queryParams]="environmentSetupGlobalQueryParams">global</a> token</small>
+              <small class="form-text text-muted">Leave empty to use <a [routerLink]="'/' + adminPlatformEnvironmentManagementSetupPath" [queryParams]="environmentSetupGlobalQueryParams">global</a> token</small>
             </div>
           </div>
-          <small class="form-text text-muted">Zone ID for email routing. The base domain is derived from the <a routerLink="/admin/system-settings" [queryParams]="systemSettingsAreaGroupQueryParams">Web URL</a>. API credentials are inherited from the <a routerLink="/admin/environment-setup" [queryParams]="environmentSetupGlobalQueryParams">global Cloudflare config</a> and encrypted during deployment.</small>
+          <small class="form-text text-muted">Zone ID for email routing. The base domain is derived from the <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="systemSettingsAreaGroupQueryParams">Web URL</a>. API credentials are inherited from the <a [routerLink]="'/' + adminPlatformEnvironmentManagementSetupPath" [queryParams]="environmentSetupGlobalQueryParams">global Cloudflare config</a> and encrypted during deployment.</small>
         </div>
         <div class="row thumbnail-heading-frame">
           <div class="thumbnail-heading">Application Secrets (Overrides)</div>
@@ -396,6 +410,8 @@ import { toKebabCase } from "../../../functions/strings";
   `
 })
 export class EnvironmentPerEnvSettings implements OnChanges, OnInit, OnDestroy {
+  adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
+  adminPlatformEnvironmentManagementSetupPath = AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP;
 
   private systemConfigService = inject(SystemConfigService);
   private cloudflareUrl = inject(CloudflareUrlService);

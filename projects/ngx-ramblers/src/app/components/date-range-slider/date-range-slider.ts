@@ -280,8 +280,8 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   }
 
   setRange(range: DateRange, emit = true) {
-    const fromDate = DateTime.fromMillis(range.from);
-    const toDate = DateTime.fromMillis(range.to);
+    const fromDate = this.dateUtils.asDateTime(range.from);
+    const toDate = this.dateUtils.asDateTime(range.to);
     const boundedFrom = fromDate < this.minDate ? this.minDate : fromDate;
     const boundedTo = toDate > this.maxDate ? this.maxDate : toDate;
 
@@ -327,7 +327,7 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   }
 
   private configureBounds() {
-    const fallback = DateTime.now().startOf("day");
+    const fallback = this.dateUtils.dateTimeNow().startOf("day");
     if (!this.minDate) {
       this.minDate = fallback;
     }

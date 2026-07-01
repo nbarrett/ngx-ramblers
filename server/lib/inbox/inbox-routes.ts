@@ -935,7 +935,8 @@ async function resolveInboxRoleTypeForThread(connection: InboxMailboxConnection,
   const realAliases = (await derivedAliases()).filter(alias => !isInboxGeneralRoleType(alias.roleType) && alias.mailboxConnectionId === connectionId(connection));
   const identityEmailsByType = await roleIdentityEmailsByType();
   const messageEmails = messages.flatMap(messageAddressEmails);
-  const matched = realAliases.find(alias => roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageEmails, identityEmailsByType));
+  const mailboxEmails = connection.gmailAccountEmail ? [connection.gmailAccountEmail] : [];
+  const matched = realAliases.find(alias => roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageEmails, identityEmailsByType, mailboxEmails));
   return matched ? matched.roleType : currentRoleType;
 }
 

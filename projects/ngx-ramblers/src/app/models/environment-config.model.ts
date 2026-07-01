@@ -55,6 +55,7 @@ export interface EnvironmentConfig {
   cloudflare?: PerEnvironmentCloudflareConfig;
   customDomains?: CustomDomainEntry[];
   secrets?: Record<string, string>;
+  ngxLite?: boolean;
 }
 
 export interface UploadWorkerConfig {

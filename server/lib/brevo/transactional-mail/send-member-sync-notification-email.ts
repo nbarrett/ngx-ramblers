@@ -20,6 +20,7 @@ import { logBrevoError } from "../common/error-log";
 import { accountMergeFieldsFor } from "../account/account";
 import { configuredBrevo } from "../brevo-config";
 import { notificationConfig } from "../../mongo/models/notification-config";
+import { AdminProfilePath } from "../../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 
 const messageType = "brevo:send-member-sync-notification-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -128,7 +129,7 @@ export async function sendMemberSyncNotificationEmail(member: Member, notificati
   const replyTo = emailAddressForRole(committeeRoles, notifConfig.replyToRole) || sender;
   const groupHref = systemCfg?.group?.href || "";
   const allBanners: BannerConfig[] = await banner.find({}).lean().then(docs => docs.map(transforms.toObjectWithId));
-  const contactDetailsUrl = `${groupHref}/admin/contact-details`;
+  const contactDetailsUrl = `${groupHref}/${AdminProfilePath.CONTACT_DETAILS}`;
   const firstName = member.firstName || member.displayName?.split(" ")?.[0] || "there";
   const params = {
     messageMergeFields: {

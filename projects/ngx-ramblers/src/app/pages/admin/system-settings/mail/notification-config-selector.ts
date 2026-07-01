@@ -1,5 +1,6 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faQuestion, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { AdminPath } from "../../../../models/admin-route-paths.model";
 import { RouterLink } from "@angular/router";
 import { kebabCase } from "es-toolkit";
 import { StoredValue } from "../../../../models/ui-actions";
@@ -45,7 +46,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
               </select>
               @if (notificationConfig?.id) {
                 <a class="text-decoration-none"
-                   routerLink="/admin/mail-settings"
+                   [routerLink]="'/' + adminMailSettingsPath"
                    [queryParams]="emailTypeQueryParams()"
                    target="_blank">
                   <app-button-wrapper button variant="quiet" [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Settings'">
@@ -70,7 +71,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
                 </select>
                 @if (selectedBannerSlug()) {
                   <a class="text-decoration-none"
-                     routerLink="/admin/banners"
+                     [routerLink]="'/' + adminBannersPath"
                      [queryParams]="bannerQueryParams()"
                      target="_blank">
                     <app-button-wrapper button variant="quiet" [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Banner'">
@@ -124,6 +125,8 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
 })
 
 export class NotificationConfigSelectorComponent implements OnInit {
+  adminMailSettingsPath = AdminPath.MAIL_SETTINGS;
+  adminBannersPath = AdminPath.BANNERS;
 
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("NotificationConfigSelectorComponent", NgxLoggerLevel.OFF);

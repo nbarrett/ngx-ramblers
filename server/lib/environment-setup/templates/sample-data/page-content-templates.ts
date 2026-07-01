@@ -2,11 +2,13 @@ import { PageContent, PageContentRow, PageContentType } from "../../../../../pro
 import { AccessLevel } from "../../../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { FilterCriteria, SortOrder } from "../../../../../projects/ngx-ramblers/src/app/models/api-request.model";
 import { RamblersEventType } from "../../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { liteHomePageContent } from "../../../../../projects/ngx-ramblers/src/app/models/home-content.model";
 import { dateTimeNow } from "../../../shared/dates";
 
 export interface PageContentTemplateParams {
   groupName: string;
   groupShortName: string;
+  ngxLite?: boolean;
 }
 
 function createTextRow(contentText: string, columns: number = 12): PageContentRow {
@@ -202,6 +204,15 @@ By using our website, you hereby consent to our Privacy Policy and agree to its 
 }
 
 export function createAllSamplePageContent(params: PageContentTemplateParams): PageContent[] {
+  if (params.ngxLite) {
+    return [
+      liteHomePageContent(params.groupName),
+      createContactUsPageContent(params),
+      createAboutUsPageContent(params),
+      createAdminActionButtons(params),
+      createPrivacyPolicyPage(params)
+    ];
+  }
   return [
     createHomeContent(params),
     createWalksPage(params),
@@ -213,4 +224,4 @@ export function createAllSamplePageContent(params: PageContentTemplateParams): P
   ];
 }
 
-export const INCORRECT_PATHS_TO_CLEANUP = ["walks", "admin", "home", "committee"];
+export const INCORRECT_PATHS_TO_CLEANUP = ["walks", "admin", "home"];

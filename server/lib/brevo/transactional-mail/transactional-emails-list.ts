@@ -23,10 +23,6 @@ function parsePositiveInt(value: any, fallback: number, max?: number): number {
 export async function transactionalEmailsList(req: Request, res: Response): Promise<void> {
   try {
     const email = isString(req.query.email) ? req.query.email.trim() : "";
-    if (!email) {
-      res.status(400).json({ error: "email query parameter is required" });
-      return;
-    }
     const limit = parsePositiveInt(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
     const offset = parsePositiveInt(req.query.offset, 0) || 0;
     const templateId = req.query.templateId ? parsePositiveInt(req.query.templateId, 0) : undefined;
@@ -35,7 +31,7 @@ export async function transactionalEmailsList(req: Request, res: Response): Prom
     const endDate = isString(req.query.endDate) ? req.query.endDate : undefined;
     const client = await brevoClient();
     const response = await scheduleBrevo(() => client.transactionalEmails.getTransacEmailsList({
-      email,
+      email: email || undefined,
       templateId,
       messageId,
       startDate,

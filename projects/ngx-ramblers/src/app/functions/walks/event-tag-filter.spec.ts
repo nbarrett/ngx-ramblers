@@ -65,12 +65,15 @@ describe("eventMatchesTagCriteria", () => {
   });
 
   describe("both filters", () => {
-    it("must satisfy both", () => {
-      // tagged with 1, required to have 1, must not have 9 → pass
+    it("accepts an event with a required tag and none of the excluded tags", () => {
       expect(eventMatchesTagCriteria([1], [1], [9])).toBe(true);
-      // tagged with 1 and 9, required to have 1 (ok), must not have 9 → fail on exclude
+    });
+
+    it("rejects an event with an excluded tag even though it has a required tag", () => {
       expect(eventMatchesTagCriteria([1, 9], [1], [9])).toBe(false);
-      // tagged with 2, required to have 1 → fail on tagsAny
+    });
+
+    it("rejects an event that has none of the required tags", () => {
       expect(eventMatchesTagCriteria([2], [1], [9])).toBe(false);
     });
   });

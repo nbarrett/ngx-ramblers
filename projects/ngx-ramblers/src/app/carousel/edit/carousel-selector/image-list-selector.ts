@@ -6,6 +6,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { AlertTarget } from "../../../models/alert-target.model";
 import { ContentMetadata } from "../../../models/content-metadata.model";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
+import { AdminContentPath } from "../../../models/admin-route-paths.model";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { UrlService } from "../../../services/url.service";
 import { MemberResourcesPermissions } from "../../../models/member-resource.model";
@@ -146,7 +147,6 @@ export class ImageListSelectorComponent implements OnInit {
     this.contentMetadataService.contentMetadataNotifications().subscribe(item => {
       const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.name, item);
       this.contentMetadataItems = allAndSelectedContentMetaData.contentMetadataItems;
-      // Initialize as array
       this.selectedContentMetadata = allAndSelectedContentMetaData.contentMetadata ? [allAndSelectedContentMetaData.contentMetadata] : [];
       this.notify.clearBusy();
     });
@@ -154,7 +154,7 @@ export class ImageListSelectorComponent implements OnInit {
 
   navigateToSelected(): Promise<boolean> {
     if (this.selectedContentMetadata.length === 1) {
-      return this.urlService.navigateUnconditionallyTo(["admin", "carousel-editor"], {[StoredValue.CAROUSEL]: this.selectedContentMetadata[0].name});
+      return this.urlService.navigateUnconditionallyTo(AdminContentPath.CAROUSEL_EDITOR.split("/"), {[StoredValue.CAROUSEL]: this.selectedContentMetadata[0].name});
     }
     this.notify.warning({title: "Image List View", message: "Please select only one image list to view."});
     return Promise.resolve(false);

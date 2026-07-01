@@ -11,7 +11,8 @@ import {
   ListCreateRequest,
   ListCreateResponse,
   MailMessagingConfig,
-  MailSettingsTab
+  MailSettingsTab,
+  MAIL_SETTINGS_TAB_REDIRECTS
 } from "../../../../models/mail.model";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { Subscription } from "rxjs";
@@ -37,12 +38,17 @@ import { NgClass, NgStyle } from "@angular/common";
 import { MailListEditorComponent } from "./list-editor";
 import { MailListSettingsComponent } from "./mail-list-settings";
 import { MailSendersListComponent } from "./mail-senders-list";
+import { MailDomainsListComponent } from "./mail-domains-list";
 import { MailUnsubscribesListComponent } from "./mail-unsubscribes-list";
 import { faExclamationTriangle, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 import { InputSize } from "../../../../models/ui-size.model";
 import { brevoEmailsSentToday, brevoRemainingDailyEmailCredits } from "../../../../functions/brevo-campaigns";
+import { SystemConfig } from "../../../../models/system.model";
+import { SystemConfigService } from "../../../../services/system/system-config.service";
+import { MailProviderSettingsComponent } from "../mail-provider/mail-provider-settings";
+import { SystemGmailInboxSettingsComponent } from "../external/system-gmail-inbox-settings";
 
 @Component({
     selector: "app-mail-settings",
@@ -86,6 +92,84 @@ import { brevoEmailsSentToday, brevoRemainingDailyEmailCredits } from "../../../
                   }
                 </div>
               </tab>
+              <tab [active]="tabActive(MailSettingsTab.MAIL_LIST_SETTINGS)"
+                (selectTab)="selectTab(MailSettingsTab.MAIL_LIST_SETTINGS)"
+                [heading]="MailSettingsTab.MAIL_LIST_SETTINGS">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  @if (mailMessagingConfig?.mailConfig) {
+                    <div class="thumbnail-heading-frame">
+                      <div class="thumbnail-heading">List Settings</div>
+                      <div class="col-sm-12 mb-3">
+                        <app-markdown-editor standalone category="admin" name="mail-settings-list-settings"/>
+                      </div>
+                      <div class="px-3">
+                        <div class="row">
+                          <div class="col">
+                            <h5>{{ stringUtilsService.pluraliseWithCount(mailMessagingConfig?.brevo?.lists?.count, "list") }} {{ stringUtilsService.pluralise(mailMessagingConfig?.brevo?.lists?.count, "exists", "exist") }} in Brevo</h5>
+                          </div>
+                          @if (!listCreateRequest) {
+                            <div class="col-auto">
+                              <div class="float-end">
+                                <app-brevo-button button title="Create New List" [disabled]="createNewListDisabled()" (click)="createNewList()"/>
+                              </div>
+                            </div>
+                          }
+                        </div>
+                        @if (listCreateRequest) {
+                          <app-list-editor [listCreateRequest]="listCreateRequest"></app-list-editor>
+                          <div class="row">
+                            <div class="col-sm-12">
+                              <app-brevo-button button title="Confirm Create List" (click)="confirmCreateList()" [disabled]="listCreateDisabled()"/>
+                              <app-brevo-button button title="Cancel Create List" class="ms-2" (click)="listCreateRequest=null"/>
+                            </div>
+                          </div>
+                        }
+                        @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list.id) {
+                          <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig" [notify]="notify" [list]="list" [members]="members"></app-mail-list-settings>
+                        }
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
+                  }
+                </div>
+              </tab>
+              <tab [active]="tabActive(MailSettingsTab.MAIL_PROVIDER)"
+                (selectTab)="selectTab(MailSettingsTab.MAIL_PROVIDER)"
+                [heading]="MailSettingsTab.MAIL_PROVIDER">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  @if (systemConfig) {
+                    <app-mail-provider-settings [config]="systemConfig"/>
+                  } @else {
+                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
+                  }
+                </div>
+              </tab>
+              <tab [active]="tabActive(MailSettingsTab.GMAIL_INBOX)"
+                (selectTab)="selectTab(MailSettingsTab.GMAIL_INBOX)"
+                [heading]="MailSettingsTab.GMAIL_INBOX">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  @if (systemConfig) {
+                    <app-system-gmail-inbox-settings [config]="systemConfig"/>
+                  } @else {
+                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
+                  }
+                </div>
+              </tab>
+              <tab [active]="tabActive(MailSettingsTab.SENDERS)"
+                (selectTab)="selectTab(MailSettingsTab.SENDERS)"
+                [heading]="MailSettingsTab.SENDERS">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <app-mail-senders-list/>
+                </div>
+              </tab>
+              <tab [active]="tabActive(MailSettingsTab.DOMAINS)"
+                (selectTab)="selectTab(MailSettingsTab.DOMAINS)"
+                [heading]="MailSettingsTab.DOMAINS">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <app-mail-domains-list/>
+                </div>
+              </tab>
               <tab [active]="tabActive(MailSettingsTab.MAIL_API_SETTINGS)"
                 (selectTab)="selectTab(MailSettingsTab.MAIL_API_SETTINGS)"
                 [heading]="MailSettingsTab.MAIL_API_SETTINGS">
@@ -119,7 +203,7 @@ import { brevoEmailsSentToday, brevoRemainingDailyEmailCredits } from "../../../
                         <div class="form-check mt-2">
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.respectEmailBlocks"
                             type="checkbox" class="form-check-input" id="respect-email-blocks">
-                          <label class="form-check-label" for="respect-email-blocks">Respect unsubscribes and blocks (off by default) - members who have <strong>unsubscribed or been blocked</strong> show disabled in the composer picker and are skipped at send. Off by default because a local unsubscribe only reaches Brevo when you run Update Brevo Mailing Lists.</label>
+                          <label class="form-check-label" for="respect-email-blocks">Respect unsubscribes and blocks (off by default) - members who have <strong>unsubscribed or been blocked</strong> show disabled in the composer picker and are skipped at send. Off by default because saved subscription changes sync to Brevo automatically but silently skip on failure; run Update Brevo Mailing Lists to reconcile before relying on this.</label>
                         </div>
                       </div>
                       <div class="form-group">
@@ -316,55 +400,6 @@ import { brevoEmailsSentToday, brevoRemainingDailyEmailCredits } from "../../../
                 }
                 </div>
               </tab>
-              <tab [active]="tabActive(MailSettingsTab.MAIL_LIST_SETTINGS)"
-                (selectTab)="selectTab(MailSettingsTab.MAIL_LIST_SETTINGS)"
-                [heading]="MailSettingsTab.MAIL_LIST_SETTINGS">
-                <div class="img-thumbnail thumbnail-admin-edit">
-                  @if (mailMessagingConfig?.mailConfig) {
-                    <div class="thumbnail-heading-frame">
-                      <div class="thumbnail-heading">List Settings</div>
-                      <div class="col-sm-12 mb-3">
-                        <app-markdown-editor standalone category="admin" name="mail-settings-list-settings"/>
-                      </div>
-                      <div class="px-3">
-                        <div class="row">
-                          <div class="col">
-                            <h5>{{ stringUtilsService.pluraliseWithCount(mailMessagingConfig?.brevo?.lists?.count, "list") }} {{ stringUtilsService.pluralise(mailMessagingConfig?.brevo?.lists?.count, "exists", "exist") }} in Brevo</h5>
-                          </div>
-                          @if (!listCreateRequest) {
-                            <div class="col-auto">
-                              <div class="float-end">
-                                <app-brevo-button button title="Create New List" [disabled]="createNewListDisabled()" (click)="createNewList()"/>
-                              </div>
-                            </div>
-                          }
-                        </div>
-                        @if (listCreateRequest) {
-                          <app-list-editor [listCreateRequest]="listCreateRequest"></app-list-editor>
-                          <div class="row">
-                            <div class="col-sm-12">
-                              <app-brevo-button button title="Confirm Create List" (click)="confirmCreateList()" [disabled]="listCreateDisabled()"/>
-                              <app-brevo-button button title="Cancel Create List" class="ms-2" (click)="listCreateRequest=null"/>
-                            </div>
-                          </div>
-                        }
-                        @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list.id) {
-                          <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig" [notify]="notify" [list]="list" [members]="members"></app-mail-list-settings>
-                        }
-                      </div>
-                    </div>
-                  } @else {
-                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
-                  }
-                </div>
-              </tab>
-              <tab [active]="tabActive(MailSettingsTab.SENDERS)"
-                (selectTab)="selectTab(MailSettingsTab.SENDERS)"
-                [heading]="MailSettingsTab.SENDERS">
-                <div class="img-thumbnail thumbnail-admin-edit">
-                  <app-mail-senders-list/>
-                </div>
-              </tab>
               <tab [active]="tabActive(MailSettingsTab.UNSUBSCRIBES)"
                 (selectTab)="selectTab(MailSettingsTab.UNSUBSCRIBES)"
                 [heading]="MailSettingsTab.UNSUBSCRIBES">
@@ -383,7 +418,7 @@ import { brevoEmailsSentToday, brevoRemainingDailyEmailCredits } from "../../../
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailUnsubscribesListComponent, FontAwesomeModule, NgClass, SecretInputComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, FontAwesomeModule, NgClass, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];
@@ -417,6 +452,15 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   protected readonly MailSettingsTab = MailSettingsTab;
   protected readonly InputSize = InputSize;
   protected readonly faSpinner = faSpinner;
+  private readonly tabRedirects: Record<string, string> = {
+    "built-in-process-mappings": kebabCase(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS),
+    "mail-api-settings": kebabCase(MailSettingsTab.MAIL_API_SETTINGS),
+    "mail-list-settings": kebabCase(MailSettingsTab.MAIL_LIST_SETTINGS),
+    "notifications": kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS)
+  };
+
+  public systemConfig: SystemConfig;
+  private systemConfigService = inject(SystemConfigService);
 
   ngOnInit() {
     this.logger.debug("constructed");
@@ -425,9 +469,18 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.refreshMembers();
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
       const defaultValue = kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS);
-      const tabParameter = params[StoredValue.TAB];
+      let tabParameter = params[StoredValue.TAB];
       this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue);
       if (tabParameter) {
+        const redirect = this.tabRedirects[tabParameter];
+        if (redirect) {
+          this.logger.info("redirecting old tab value:", tabParameter, "to:", redirect);
+          tabParameter = redirect;
+          this.router.navigate([], {
+            queryParams: {[StoredValue.TAB]: redirect},
+            queryParamsHandling: "merge"
+          });
+        }
         this.tab = tabParameter;
       } else {
         this.tab = defaultValue;
@@ -436,6 +489,9 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
           queryParamsHandling: "merge"
         });
       }
+    }));
+    this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
+      this.systemConfig = systemConfig;
     }));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       if (!this.mailMessagingConfig || this.acceptNextConfigEmission) {

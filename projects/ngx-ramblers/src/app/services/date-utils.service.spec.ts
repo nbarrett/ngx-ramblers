@@ -7,7 +7,7 @@ import { ExtendedGroupEvent } from "../models/group-event.model";
 import { DateFormat } from "../models/ramblers-walks-manager";
 
 function dateTimeFor(startDate: string): DateTime {
-    return DateTime.fromISO(startDate).setZone("Europe/London");
+    return TestBed.inject(DateUtilsService).asDateTime(startDate);
 }
 
 describe("DateUtilsService", () => {
@@ -73,7 +73,7 @@ describe("DateUtilsService", () => {
             const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
             const dateValue = dateUtils.asDateValue(1402614000000);
             expect(dateValue.value).toEqual(1402614000000);
-            const london = DateTime.fromMillis(dateValue.value).setZone("Europe/London");
+            const london = dateUtils.asDateTime(dateValue.value);
             expect(london.day).toEqual(13);
             expect(london.month).toEqual(6);
             expect(london.year).toEqual(2014);
@@ -82,7 +82,7 @@ describe("DateUtilsService", () => {
         it("should support a Date as an argument", () => {
             const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
             const dateValue = dateUtils.asDateValue(dateUtils.asDateTime("2014-06-13").toJSDate());
-            const london = DateTime.fromMillis(dateValue.value).setZone("Europe/London");
+            const london = dateUtils.asDateTime(dateValue.value);
             expect(london.day).toEqual(13);
             expect(london.month).toEqual(6);
             expect(london.year).toEqual(2014);

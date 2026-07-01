@@ -1,4 +1,5 @@
 import { AsyncPipe, CommonModule } from "@angular/common";
+import { AdminPath } from "../../../models/admin-route-paths.model";
 import { Component, inject, ViewEncapsulation } from "@angular/core";
 import { RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -14,7 +15,7 @@ import { InboxUnreadRole } from "../../../models/inbox.model";
   template: `
     @if ((inboxNotificationService.total$ | async); as total) {
       @if (total > 0) {
-        <a class="inbox-notification-badge" routerLink="/admin/inbox"
+        <a class="inbox-notification-badge" [routerLink]="'/' + adminInboxPath"
            [attr.aria-label]="tooltipFor(total, (inboxNotificationService.breakdown$ | async))"
            [tooltip]="tooltipFor(total, (inboxNotificationService.breakdown$ | async))"
            containerClass="inbox-unread-tooltip"
@@ -61,6 +62,7 @@ import { InboxUnreadRole } from "../../../models/inbox.model";
   encapsulation: ViewEncapsulation.None
 })
 export class InboxNotificationBadgeComponent {
+  adminInboxPath = AdminPath.INBOX;
 
   protected inboxNotificationService = inject(InboxNotificationService);
   protected readonly faInbox = faInbox;

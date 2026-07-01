@@ -9,6 +9,7 @@ import { CommitteeAuthGuard } from "./guards/committee-auth-guard";
 import { GroupEventAuthGuard } from "./guards/group-event-auth-guard";
 import { PageAccessGuard } from "./guards/page-access-guard";
 import { SystemHealthyGuard } from "./guards/system-healthy-guard";
+import { AdminContentPath } from "./models/admin-route-paths.model";
 
 const routes: Routes = [
   {
@@ -70,7 +71,7 @@ const routes: Routes = [
   },
   {
     path: "fragments",
-    redirectTo: "/admin/content-templates",
+    redirectTo: "/" + AdminContentPath.CONTENT_TEMPLATES,
     pathMatch: "full"
   },
   {

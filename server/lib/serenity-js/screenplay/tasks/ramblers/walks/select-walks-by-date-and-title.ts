@@ -9,6 +9,7 @@ import debug from "debug";
 import { envConfig } from "../../../../../env-config/env-config";
 import { DateTime } from "luxon";
 import { UIDateFormat } from "../../../../../../../projects/ngx-ramblers/src/app/models/date-format.model";
+import { dateTimeFromIso, dateTimeInTimezone } from "../../../../../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("SelectWalksByDateAndTitle"));
 debugLog.enabled = true;
@@ -26,17 +27,17 @@ const normalizeDate = (dateStr: string): string => {
 
   let parsed: DateTime | null = null;
 
-  parsed = DateTime.fromFormat(dateStr, UIDateFormat.WEEKDAY_DAY_MONTH_YEAR_ABBREVIATED, { zone: "Europe/London" });
+  parsed = dateTimeInTimezone(dateStr, UIDateFormat.WEEKDAY_DAY_MONTH_YEAR_ABBREVIATED);
   if (parsed.isValid) {
     return parsed.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
   }
 
-  parsed = DateTime.fromFormat(dateStr, UIDateFormat.DAY_MONTH_YEAR_WITH_SLASHES, { zone: "Europe/London" });
+  parsed = dateTimeInTimezone(dateStr, UIDateFormat.DAY_MONTH_YEAR_WITH_SLASHES);
   if (parsed.isValid) {
     return parsed.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
   }
 
-  parsed = DateTime.fromISO(dateStr, { zone: "Europe/London" });
+  parsed = dateTimeFromIso(dateStr);
   if (parsed.isValid) {
     return parsed.toFormat(UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
   }

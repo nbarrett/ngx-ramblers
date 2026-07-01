@@ -7,6 +7,7 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
 import { FormsModule, ReactiveFormsModule } from "@angular/forms";
 import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 import { HttpClient } from "@angular/common/http";
+import { AdminSettingsPath } from "../../../../models/admin-route-paths.model";
 import { RouterLink } from "@angular/router";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -151,7 +152,7 @@ import { InputSize } from "../../../../models/ui-size.model";
                 <div class="alert alert-warning">
                   <fa-icon [icon]="faInfoCircle" class="me-2"/>
                   Sync is disabled — group code is not configured. Go to
-                  <a routerLink="/admin/system-settings" [queryParams]="{tab: 'area-group'}">Area &amp; Group settings</a>
+                  <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="{tab: 'area-group'}">Area &amp; Group settings</a>
                   to add it.
                 </div>
               </div>
@@ -234,7 +235,7 @@ import { InputSize } from "../../../../models/ui-size.model";
               <div class="alert alert-warning">
                 <fa-icon [icon]="faInfoCircle" class="me-2"/>
                 <strong>Sync Disabled:</strong> Walk Population is set to Local. Change to Walks Manager in
-                <a routerLink="/admin/system-settings" [queryParams]="{tab: 'area-group'}">Area &amp; Group settings</a>
+                <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="{tab: 'area-group'}">Area &amp; Group settings</a>
                 to enable syncing from Walks Manager.
               </div>
             </div>
@@ -246,6 +247,7 @@ import { InputSize } from "../../../../models/ui-size.model";
   imports: [ReactiveFormsModule, FormsModule, SecretInputComponent, FontAwesomeModule, RouterLink]
 })
 export class RamblersSettings implements OnInit, OnDestroy {
+  adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
 
   private logger: Logger = inject(LoggerFactory).createLogger("RamblersSettings", NgxLoggerLevel.ERROR);
   protected systemConfigService = inject(SystemConfigService);

@@ -1,14 +1,19 @@
 import { Request, Response } from "express";
 import debug from "debug";
 import { Brevo, BrevoClient } from "@getbrevo/brevo";
+import { DateTime } from "luxon";
+import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { envConfig } from "../../env-config/env-config";
 import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { fetchBrevoAccount } from "../account/account";
-import { dateTimeNow } from "../../shared/dates";
+import { dateTimeFromIso, dateTimeNow } from "../../shared/dates";
+import { isString } from "es-toolkit/compat";
 import { pluraliseWithCount } from "../../shared/string-utils";
+import { clampDateRange } from "../common/date-range";
 import { handleError } from "../common/messages";
 import {
+  BrevoCampaignAggregateStats,
   BrevoCampaignProgress,
   BrevoCampaignQueueSummary,
   NGX_BREVO_CAMPAIGN_TAG
@@ -22,6 +27,16 @@ type CampaignItem = Brevo.GetEmailCampaignsResponse.Campaigns.Item;
 const debugLog = debug(envConfig.logNamespace("brevo:campaign-queue"));
 debugLog.enabled = true;
 const brevoCancellationStatus = Brevo.UpdateCampaignStatus.Status.Cancel;
+
+export function campaignDateTimeFilter(startDate: string, endDate: string, now: DateTime = dateTimeNow()): { startDate: string; endDate: string } {
+  const start = dateTimeFromIso(startDate).startOf("day").toUTC();
+  const end = dateTimeFromIso(endDate).endOf("day").toUTC();
+  const endCappedAtNow = end > now.toUTC() ? now.toUTC() : end;
+  return {
+    startDate: start.toFormat(UIDateFormat.UTC_TIMESTAMP_WITH_MILLIS),
+    endDate: endCappedAtNow.toFormat(UIDateFormat.UTC_TIMESTAMP_WITH_MILLIS)
+  };
+}
 
 async function campaignsApi(): Promise<BrevoClient> {
   return brevoClient();
@@ -37,9 +52,34 @@ export function campaignProgress(campaign: CampaignItem): BrevoCampaignProgress 
     sent: statistics?.sent ?? 0,
     delivered: statistics?.delivered ?? 0,
     remaining: campaign.statistics?.remaining ?? 0,
+    uniqueClicks: statistics?.uniqueClicks ?? 0,
+    viewed: statistics?.viewed ?? 0,
+    uniqueViews: statistics?.uniqueViews ?? 0,
+    hardBounces: statistics?.hardBounces ?? 0,
+    softBounces: statistics?.softBounces ?? 0,
+    unsubscriptions: statistics?.unsubscriptions ?? 0,
+    complaints: statistics?.complaints ?? 0,
     createdAt: campaign.createdAt,
     modifiedAt: campaign.modifiedAt,
-    sentDate: campaign.sentDate ?? null
+    sentDate: campaign.sentDate ?? null,
+    sender: campaign.sender ? {name: campaign.sender.name, email: campaign.sender.email} : undefined,
+    replyTo: campaign.replyTo,
+    listIds: campaign.recipients?.lists ?? []
+  };
+}
+
+function campaignAggregateStats(completedCampaigns: BrevoCampaignProgress[]): BrevoCampaignAggregateStats {
+  return {
+    totalSent: completedCampaigns.reduce((sum, c) => sum + c.sent, 0),
+    totalDelivered: completedCampaigns.reduce((sum, c) => sum + c.delivered, 0),
+    totalViewed: completedCampaigns.reduce((sum, c) => sum + c.viewed, 0),
+    totalUniqueViews: completedCampaigns.reduce((sum, c) => sum + c.uniqueViews, 0),
+    totalUniqueClicks: completedCampaigns.reduce((sum, c) => sum + c.uniqueClicks, 0),
+    totalHardBounces: completedCampaigns.reduce((sum, c) => sum + c.hardBounces, 0),
+    totalSoftBounces: completedCampaigns.reduce((sum, c) => sum + c.softBounces, 0),
+    totalUnsubscriptions: completedCampaigns.reduce((sum, c) => sum + c.unsubscriptions, 0),
+    totalComplaints: completedCampaigns.reduce((sum, c) => sum + c.complaints, 0),
+    campaignCount: completedCampaigns.length
   };
 }
 
@@ -56,13 +96,14 @@ export function brevoRemainingDailyAllowance(account: Account): number | null {
   return campaignDailyAllowance(account);
 }
 
-export async function campaignQueueSummary(): Promise<BrevoCampaignQueueSummary> {
+export async function campaignQueueSummary(startDate?: string, endDate?: string): Promise<BrevoCampaignQueueSummary> {
   const client = await campaignsApi();
-  const completionFrom = dateTimeNow().minus({days: 7}).startOf("day").toISO()!;
-  const completionTo = dateTimeNow().toISO()!;
+  const completionFrom = startDate ?? dateTimeNow().minus({days: 7}).startOf("day").toISODate()!;
+  const completionTo = endDate ?? dateTimeNow().toISODate()!;
+  const completionFilter = campaignDateTimeFilter(completionFrom, completionTo);
   const [pendingResponse, completedResponse] = await Promise.all([
     scheduleBrevo(() => client.emailCampaigns.getEmailCampaigns({type: "classic", status: "suspended", statistics: "globalStats", limit: 100, offset: 0, sort: "desc", excludeHtmlContent: true})),
-    scheduleBrevo(() => client.emailCampaigns.getEmailCampaigns({type: "classic", status: "sent", statistics: "globalStats", startDate: completionFrom, endDate: completionTo, limit: 100, offset: 0, sort: "desc", excludeHtmlContent: true}))
+    scheduleBrevo(() => client.emailCampaigns.getEmailCampaigns({type: "classic", status: "sent", statistics: "globalStats", startDate: completionFilter.startDate, endDate: completionFilter.endDate, limit: 100, offset: 0, sort: "desc", excludeHtmlContent: true}))
   ]);
   const suspendedCampaigns = pendingResponse?.campaigns ?? [];
   const sentCampaigns = completedResponse?.campaigns ?? [];
@@ -85,7 +126,8 @@ export async function campaignQueueSummary(): Promise<BrevoCampaignQueueSummary>
     emailsSentToday: account ? brevoEmailsSentToday(account) : null,
     remainingAllowanceToday,
     pendingCampaigns,
-    completedCampaigns
+    completedCampaigns,
+    aggregateStats: campaignAggregateStats(completedCampaigns)
   };
 }
 
@@ -118,7 +160,10 @@ export async function releasePendingCampaigns(): Promise<void> {
 
 export async function queueSummaryRoute(req: Request, res: Response): Promise<void> {
   try {
-    res.status(200).json({response: await campaignQueueSummary()});
+    const rawStartDate = isString(req.query.startDate) ? req.query.startDate : undefined;
+    const rawEndDate = isString(req.query.endDate) ? req.query.endDate : undefined;
+    const {startDate, endDate} = clampDateRange(rawStartDate, rawEndDate);
+    res.status(200).json({response: await campaignQueueSummary(startDate, endDate)});
   } catch (error) {
     handleError(req, res, "brevo:campaign-queue", debugLog, error);
   }

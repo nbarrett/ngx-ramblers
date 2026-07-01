@@ -2,19 +2,14 @@ import {
   GeocodeMatchData,
   GeocodeMatchType,
   GeocodeSourceField,
-  GridReferenceLookupApiResponse,
-  GridReferenceLookupResponse,
-  NominatimPlaceResult
+  GridReferenceLookupResponse
 } from "../../../../projects/ngx-ramblers/src/app/models/address-model";
 import { EventType, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { WalkEvent } from "../../../../projects/ngx-ramblers/src/app/models/walk-event.model";
-import { gridReferenceLookupFromLatLng } from "../../addresses/reverse-geocode";
+import { nominatimGridReferenceLookup } from "../../addresses/nominatim-lookup";
 import { bestLocation, extractLocations } from "../../../../projects/ngx-ramblers/src/app/common/locations/location-extractor";
-import * as messageHandlers from "../../shared/message-handlers";
 import { walkEventDataFrom } from "./migration-walk-event";
 import { isArray, isNumber } from "es-toolkit/compat";
-import url from "url";
-import querystring from "querystring";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
 import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -41,138 +36,24 @@ export type GridReferenceAuditResult = {
   unsetPayload: Record<string, string>;
 };
 
-const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org";
-const nominatimUrl = url.parse(NOMINATIM_ENDPOINT, false);
-
-function toNominatimPlace(response: any): NominatimPlaceResult[] {
-  let places: NominatimPlaceResult[] = [];
-  if (isArray(response)) {
-    places = response;
-  } else {
-    places = [];
-  }
-  return places;
-}
-
-function placeTypeScore(place: NominatimPlaceResult): number {
-  let score = 0;
-  if (place.address?.city) {
-    score = 3;
-  } else if (place.address?.town) {
-    score = 2;
-  } else if (place.address?.village) {
-    score = 1;
-  } else {
-    score = 0;
-  }
-  return score;
-}
-
-function selectNominatimPlace(places: NominatimPlaceResult[], preferredCounty?: string): NominatimPlaceResult | undefined {
-  let selected: NominatimPlaceResult | undefined;
-  if (places.length === 0) {
-    selected = undefined;
-  } else if (places.length === 1) {
-    selected = places[0];
-  } else {
-    const ukPlaces = places.filter(place =>
-      place.address?.country_code === "gb" ||
-      place.display_name.includes("UK") ||
-      place.display_name.includes("United Kingdom")
-    );
-
-    const placesToSearch = ukPlaces.length > 0 ? ukPlaces : places;
-
-    selected = placesToSearch.slice().sort((a, b) => {
-      if (preferredCounty) {
-        const aMatchesCounty = a.address?.county?.toLowerCase().includes(preferredCounty.toLowerCase()) ||
-                               a.display_name.toLowerCase().includes(preferredCounty.toLowerCase());
-        const bMatchesCounty = b.address?.county?.toLowerCase().includes(preferredCounty.toLowerCase()) ||
-                               b.display_name.toLowerCase().includes(preferredCounty.toLowerCase());
-        if (aMatchesCounty && !bMatchesCounty) return -1;
-        if (!aMatchesCounty && bMatchesCounty) return 1;
-      }
-
-      const placeTypeDiff = placeTypeScore(b) - placeTypeScore(a);
-      if (placeTypeDiff !== 0) return placeTypeDiff;
-
-      const importanceDiff = (b.importance || 0) - (a.importance || 0);
-      if (Math.abs(importanceDiff) > 0.01) return importanceDiff;
-
-      const aAdmin = [a.address?.county, a.address?.state, a.address?.region].filter(Boolean).length;
-      const bAdmin = [b.address?.county, b.address?.state, b.address?.region].filter(Boolean).length;
-      return bAdmin - aAdmin;
-    })[0];
-  }
-  return selected;
-}
-
-function extractGridReference(response: GridReferenceLookupApiResponse): GridReferenceLookupResponse | undefined {
-  const payload = response?.response;
-  let gridReference: GridReferenceLookupResponse | undefined;
-  if (isArray(payload)) {
-    gridReference = payload[0];
-  } else {
-    gridReference = payload as GridReferenceLookupResponse;
-  }
-  return gridReference;
-}
-
 async function lookupPlaceName(query: string, preferredCounty: string | null, debugLog: any): Promise<GridReferenceLookupResponse | null> {
-  let result: GridReferenceLookupResponse | null = null;
   if (!query || query.length < 3) {
-    result = null;
-  } else {
-    debugLog(`lookupPlaceName: searching for "${query}"${preferredCounty ? ` (preferring ${preferredCounty})` : ""}`);
-
-    try {
-      const nominatimResponse = await messageHandlers.httpRequest({
-        apiRequest: {
-          hostname: nominatimUrl.hostname,
-          protocol: nominatimUrl.protocol,
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "User-Agent": "ngx-ramblers-migration/1.0"
-          },
-          method: "get",
-          path: `/search?format=jsonv2&limit=5&countrycodes=gb&q=${querystring.escape(query)}`
-        },
-        mapper: toNominatimPlace,
-        successStatusCodes: [200, 404],
-        res: undefined,
-        req: undefined,
-        debug: debugLog
-      }) as { apiStatusCode: number; response: NominatimPlaceResult[] };
-
-      debugLog(`lookupPlaceName: Nominatim returned ${nominatimResponse.response?.length || 0} results for "${query}"`);
-
-      const place = selectNominatimPlace(nominatimResponse.response, preferredCounty);
-      if (!place) {
-        debugLog(`lookupPlaceName: no suitable place found for "${query}"`);
-        result = null;
-      } else {
-        debugLog(`lookupPlaceName: selected "${place.display_name}" at lat=${place.lat}, lng=${place.lon}`);
-
-        const latlng = { lat: parseFloat(place.lat), lng: parseFloat(place.lon) };
-        const gridReferenceResponse = await gridReferenceLookupFromLatLng(latlng);
-        const gridReference = extractGridReference(gridReferenceResponse);
-
-        result = {
-          gridReference6: gridReference?.gridReference6,
-          gridReference8: gridReference?.gridReference8,
-          gridReference10: gridReference?.gridReference10,
-          distance: gridReference?.distance,
-          postcode: gridReference?.postcode || place.address?.postcode,
-          latlng,
-          description: place.display_name
-        };
-      }
-    } catch (error) {
-      debugLog(`lookupPlaceName error for "${query}":`, error);
-      result = null;
-    }
+    return null;
   }
-  return result;
+  debugLog(`lookupPlaceName: searching for "${query}"${preferredCounty ? ` (preferring ${preferredCounty})` : ""}`);
+  try {
+    const result = await nominatimGridReferenceLookup({
+      query,
+      preferredCounty: preferredCounty || undefined,
+      userAgent: "ngx-ramblers-migration/1.0",
+      logPrefix: "lookupPlaceName",
+      debugLog
+    });
+    return result.response || null;
+  } catch (error) {
+    debugLog(`lookupPlaceName error for "${query}":`, error);
+    return null;
+  }
 }
 
 function cleanPlaceName(value: string): string {

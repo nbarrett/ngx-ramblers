@@ -39,7 +39,7 @@ describe("PageService", () => {
     });
 
     it("should handle a deeply nested path", () => {
-      expect(service.titleFromPath("admin/system-settings")).toBe("Admin / System Settings");
+      expect(service.titleFromPath("admin/settings/system-settings")).toBe("Admin / Settings / System Settings");
     });
 
     it("should handle an empty string", () => {

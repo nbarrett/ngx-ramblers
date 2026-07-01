@@ -7,15 +7,26 @@ import { SortDirection } from "./sort.model";
 import { CommitteeReferenceDataLike } from "./committee-reference-data.model";
 import { NotificationHost } from "./notification-host.model";
 import { DateRangeUnit, NotificationTimeUnit } from "./search.model";
+import { kebabCase } from "es-toolkit/compat";
 
 export enum MailSettingsTab {
   EMAIL_CONFIGURATIONS = "Email Configurations",
-  BUILT_IN_PROCESS_MAPPINGS = "Built-in Process Mappings",
-  MAIL_API_SETTINGS = "Mail API Settings",
-  MAIL_LIST_SETTINGS = "Mail List Settings",
+  BUILT_IN_PROCESS_MAPPINGS = "Built-in Processes",
+  MAIL_LIST_SETTINGS = "Lists",
+  MAIL_PROVIDER = "Provider",
+  GMAIL_INBOX = "Inbox",
   SENDERS = "Senders",
+  DOMAINS = "Domains",
+  MAIL_API_SETTINGS = "API",
   UNSUBSCRIBES = "Unsubscribes"
 }
+
+export const MAIL_SETTINGS_TAB_REDIRECTS: Record<string, string> = {
+  "built-in-process-mappings": kebabCase(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS),
+  "mail-api-settings": kebabCase(MailSettingsTab.MAIL_API_SETTINGS),
+  "mail-list-settings": kebabCase(MailSettingsTab.MAIL_LIST_SETTINGS),
+  "notifications": kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS)
+};
 
 export interface NotificationSubject {
   prefixParameter: string;
@@ -905,6 +916,48 @@ export interface BrevoEmailEventReport {
   events: BrevoEmailEvent[];
 }
 
+export interface CampaignRecipient {
+  email: string;
+  date: string;
+  name?: string;
+  links?: string[];
+}
+
+export interface CampaignRecipientsReport {
+  recipients: CampaignRecipient[];
+  truncated: boolean;
+}
+
+export interface MailReportStatTile {
+  key: string;
+  label: string;
+  value: number | string;
+  eventType?: string;
+}
+
+export interface MailPerformanceCard {
+  label: string;
+  value: number;
+  rate: string;
+  rateLabel: string;
+  eventType: string;
+}
+
+export interface BrevoTransactionalAggregatedReport {
+  tag?: string;
+  sentCount: number;
+  deliveredCount: number;
+  openedCount: number;
+  clickedCount: number;
+  bouncedCount: number;
+  unsubscribedCount: number;
+  complaintsCount: number;
+  hardBouncesCount: number;
+  softBouncesCount: number;
+  spamReportCount: number;
+  blockedCount: number;
+}
+
 export interface BrevoContactSnapshot {
   id?: string;
   email: string;
@@ -1357,4 +1410,10 @@ export enum UnsubscribeState {
   Confirmed = "confirmed",
   FeedbackSent = "feedback-sent",
   Error = "error"
+}
+
+export enum RecipientSortField {
+  SUBSCRIBER = "subscriber",
+  DATE = "date",
+  CLICKED = "clicked"
 }

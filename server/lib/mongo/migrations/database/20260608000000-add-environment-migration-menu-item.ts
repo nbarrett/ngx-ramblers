@@ -4,7 +4,7 @@ import { ensureActionButton } from "../shared/page-content-actions";
 import { ENVIRONMENT_MIGRATION_MENU_ITEM } from "../shared/admin-menu-items";
 
 const debugLog = createMigrationLogger("add-environment-migration-menu-item");
-const TARGET_PATH = "admin/environment-management#action-buttons";
+const TARGET_PATH = "admin/platform/environment-management#action-buttons";
 
 export async function up(db: Db, client: MongoClient) {
   debugLog("Adding Environment Migration menu item");

@@ -2,6 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { ContentMetadataItem } from "../../../models/content-metadata.model";
+import { AdminContentPath } from "../../../models/admin-route-paths.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { GroupEventDisplayService } from "../group-event-display.service";
@@ -18,6 +19,7 @@ export class GroupEventInformation implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupEventInformation", NgxLoggerLevel.ERROR);
   display = inject(GroupEventDisplayService);
   protected dateUtils = inject(DateUtilsService);
+  protected carouselEditorPath = AdminContentPath.CAROUSEL_EDITOR;
 
   @Input()
   public notifyTarget: AlertTarget;

@@ -7,7 +7,7 @@ import { PAGE_CONTENT_COLLECTION } from "../shared/collection-names";
 
 const debugLog = createMigrationLogger("add-environment-management-section");
 const ADMIN_PATH = "admin#action-buttons";
-const ENVIRONMENT_MANAGEMENT_PATH = "admin/environment-management#action-buttons";
+const ENVIRONMENT_MANAGEMENT_PATH = "admin/platform/environment-management#action-buttons";
 
 export async function up(db: Db, client: MongoClient) {
   await createEnvironmentManagementPage(db);
@@ -59,7 +59,7 @@ async function addEnvironmentManagementToAdminMenu(db: Db) {
     accessLevel: "environmentAdmin",
     title: "Environment Management",
     icon: "faServer",
-    href: "admin/environment-management",
+    href: "admin/platform/environment-management",
     contentText: "Manage environment setup, backups, environments monitoring, and maintenance"
   }, debugLog);
 

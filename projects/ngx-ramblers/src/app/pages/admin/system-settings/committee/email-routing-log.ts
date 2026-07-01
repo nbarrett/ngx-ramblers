@@ -367,8 +367,8 @@ export class EmailRoutingLogComponent implements OnInit {
   }
 
   private async refreshEmailRoutingLogs() {
-    const fromDate = DateTime.fromMillis(this.logDateRange.from);
-    const toDate = DateTime.fromMillis(this.logDateRange.to);
+    const fromDate = this.dateUtils.asDateTime(this.logDateRange.from);
+    const toDate = this.dateUtils.asDateTime(this.logDateRange.to);
     try {
       this.emailRoutingLogs = await this.cloudflareEmailRoutingService.queryEmailRoutingLogs({
         startDate: fromDate.toISO(),
@@ -383,8 +383,8 @@ export class EmailRoutingLogComponent implements OnInit {
   }
 
   private async refreshWorkerLogs() {
-    const fromDate = DateTime.fromMillis(this.logDateRange.from);
-    const toDate = DateTime.fromMillis(this.logDateRange.to);
+    const fromDate = this.dateUtils.asDateTime(this.logDateRange.from);
+    const toDate = this.dateUtils.asDateTime(this.logDateRange.to);
     try {
       this.workerLogs = await this.cloudflareEmailRoutingService.queryWorkerLogs({
         startDate: fromDate.toISO(),
@@ -497,7 +497,7 @@ export class EmailRoutingLogComponent implements OnInit {
     if (!this.workerLogs?.length || !emailDateTime) {
       return false;
     }
-    const emailTime = DateTime.fromISO(emailDateTime);
+    const emailTime = this.dateUtils.asDateTime(emailDateTime);
     if (!emailTime.isValid) {
       return false;
     }
@@ -505,7 +505,7 @@ export class EmailRoutingLogComponent implements OnInit {
       if (!workerLog.errors || workerLog.errors <= 0) {
         return false;
       }
-      const workerTime = DateTime.fromISO(workerLog.datetime);
+      const workerTime = this.dateUtils.asDateTime(workerLog.datetime);
       if (!workerTime.isValid) {
         return false;
       }

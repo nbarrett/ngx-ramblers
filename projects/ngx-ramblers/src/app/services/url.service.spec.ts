@@ -92,25 +92,25 @@ describe("UrlService", () => {
 
         it("should return the url of an expense in the sub-area of admin", () => {
             const object: LinkConfig = {
-                subArea: "expenses",
+                subArea: "profile/expenses",
                 area: "admin",
                 id: "1234-567"
             };
 
             const service: UrlService = TestBed.inject(UrlService);
-            expect(service.linkUrl(object)).toBe("https://www.example.co.uk/admin/expenses/1234-567");
+            expect(service.linkUrl(object)).toBe("https://www.example.co.uk/admin/profile/expenses/1234-567");
         });
 
         it("should return the url without the baseUrl if relative supplied true", () => {
             const object: LinkConfig = {
-                subArea: "expenses",
+                subArea: "profile/expenses",
                 area: "admin",
                 id: "1234-567",
                 relative: true
             };
 
             const service: UrlService = TestBed.inject(UrlService);
-            expect(service.linkUrl(object)).toBe("admin/expenses/1234-567");
+            expect(service.linkUrl(object)).toBe("admin/profile/expenses/1234-567");
         });
 
         it("should return the aws url if name supplied", () => {

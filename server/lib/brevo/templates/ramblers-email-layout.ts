@@ -1,4 +1,5 @@
 import { RAMBLERS_EMAIL_TOKENS as T } from "./ramblers-design-tokens";
+import { AdminProfilePath } from "../../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 
 const W = T.maxWidth;
 
@@ -103,7 +104,7 @@ function footer(): string {
         <td class="email-footer-inner" align="center" style="padding: 0 20px 30px; color: ${T.footerTextColor}; font-family: ${T.fontFamily}; font-size: ${T.footerFontSize}; line-height: 1.6;">
           {{params.systemMergeFields.APP_LONGNAME}}<br>
           Ramblers Charity England &amp; Wales No: 1093577 Scotland No: SC039799<br><br>
-          You can <a href="{{params.systemMergeFields.APP_URL}}/admin/email-subscriptions" style="color: ${T.footerTextColor}; text-decoration: underline;" target="_blank">update your email subscriptions</a>.<br><br>
+          You can <a href="{{params.systemMergeFields.APP_URL}}/${AdminProfilePath.EMAIL_SUBSCRIPTIONS}" style="color: ${T.footerTextColor}; text-decoration: underline;" target="_blank">update your email subscriptions</a>.<br><br>
           {{params.accountMergeFields.STREET}}, {{params.accountMergeFields.POSTCODE}}, {{params.accountMergeFields.TOWN}}
         </td>
       </tr>

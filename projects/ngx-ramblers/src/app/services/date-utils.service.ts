@@ -51,7 +51,7 @@ export class DateUtilsService {
   }
 
   yearFromDate(dateValue: number): number {
-    return dateValue ? asNumber(this.asString(dateValue, undefined, "yyyy")) : null;
+    return dateValue ? asNumber(this.asString(dateValue, undefined, UIDateFormat.YEAR)) : null;
   }
 
   isDate(value) {
@@ -230,7 +230,7 @@ export class DateUtilsService {
   }
 
   currentYear(): number {
-    return +this.asString(this.dateTimeNow().toMillis(), undefined, "yyyy");
+    return +this.asString(this.dateTimeNow().toMillis(), undefined, UIDateFormat.YEAR);
   }
 
   formatDuration(fromTime: number, toTime: number) {

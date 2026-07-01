@@ -191,6 +191,6 @@ export class MemberLoginAuditComponent implements OnInit, OnDestroy {
   }
 
   backToAdmin() {
-    this.urlService.navigateTo(["admin"]);
+    this.urlService.backToAdmin();
   }
 }

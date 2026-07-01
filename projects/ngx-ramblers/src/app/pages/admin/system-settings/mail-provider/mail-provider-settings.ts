@@ -43,7 +43,7 @@ import { MailchimpButton } from "../../../../modules/common/third-parties/mailch
               <div class="form-group">
                 <label for="mail-provider">Mail Provider</label>
                 <select [(ngModel)]="config.mailDefaults.mailProvider"
-                  (ngModelChange)="changeMailProvider()"
+                  [disabled]="true"
                   class="form-control" id="mail-provider">
                   @for (mailProvider of mailProviders; track mailProvider.key) {
                     <option
@@ -120,6 +120,9 @@ export class MailProviderSettingsComponent implements OnInit, OnDestroy {
       this.mailMessagingConfig = mailMessagingConfig;
       this.groupMembers = (await this.memberService.all()).filter(this.memberService.filterFor.GROUP_MEMBERS);
       this.mailchimpConfig = await this.mailchimpConfigService.getConfig();
+      if (!this.config?.mailDefaults?.mailProvider || this.config.mailDefaults.mailProvider === MailProvider.MAILCHIMP) {
+        this.config.mailDefaults.mailProvider = MailProvider.BREVO;
+      }
       this.calculateListKeyValues();
       this.list = first(this.listKeyValues);
       this.calculateMailProviderStats();
