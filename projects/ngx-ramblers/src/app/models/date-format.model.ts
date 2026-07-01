@@ -13,6 +13,7 @@ export enum RamblersInsightHubDateFormat {
 
 export enum UIDateFormat {
   RAMBLERS_TIME = "HH:mm",
+  DAY_MONTH_ABBREVIATED_TIME = "dd MMM HH:mm",
   DISPLAY_TIME = "h:mm a",
   DISPLAY_TIME_WITH_SECONDS = "h:mm:ss a",
   DISPLAY_DATE_AND_TIME = "cccc, d MMMM yyyy, h:mm:ss a",

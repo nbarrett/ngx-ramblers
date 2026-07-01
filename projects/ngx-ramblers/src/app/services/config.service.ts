@@ -5,6 +5,7 @@ import { ApiResponse } from "../models/api-response.model";
 import { ConfigDocument, ConfigKey } from "../models/config.model";
 import { CommonDataService } from "./common-data-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
+import { extractErrorMessage } from "../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -43,7 +44,7 @@ export class ConfigService {
           return defaultOnEmpty;
         }
         this.logger.error(`Query of ${key} config failed:`, error);
-        return Promise.reject(`Query of ${key} config failed: ${error}`);
+        return Promise.reject(`Query of ${key} config failed: ${extractErrorMessage(error)}`);
       });
   }
 

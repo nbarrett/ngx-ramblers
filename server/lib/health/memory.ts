@@ -1,4 +1,6 @@
 import { Request, Response } from "express";
+import { isString } from "es-toolkit/compat";
+import { FlyTargetApp } from "../../../projects/ngx-ramblers/src/app/models/health.model";
 import * as v8 from "v8";
 import { S3 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
@@ -6,13 +8,12 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNow } from "../shared/dates";
 import { DateFormat } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { flyMachineMemoryStats, flyMetricHistory } from "../fly/fly-metrics";
+import { currentMachineState, restartCurrentMachine } from "../fly/fly-machines";
+import { toMb } from "../shared/units";
 
 const debugLog = debug(envConfig.logNamespace("health:memory"));
 debugLog.enabled = true;
-
-function toMb(bytes: number): number {
-  return Math.round((bytes / 1048576) * 10) / 10;
-}
 
 function s3(): S3 {
   const awsConfig = envConfig.aws();
@@ -84,5 +85,53 @@ export async function heapSnapshot(_req: Request, res: Response): Promise<void> 
   } catch (error) {
     debugLog("Heap snapshot failed:", error);
     res.status(500).json({ error: error?.message || "Heap snapshot failed" });
+  }
+}
+
+function targetAppFrom(req: Request): FlyTargetApp {
+  return req.query.app === FlyTargetApp.WORKER ? FlyTargetApp.WORKER : FlyTargetApp.ENVIRONMENT;
+}
+
+export async function flyStats(req: Request, res: Response): Promise<void> {
+  try {
+    const stats = await flyMachineMemoryStats(targetAppFrom(req));
+    res.status(200).json(stats);
+  } catch (error) {
+    debugLog("Fly stats query failed:", error);
+    res.status(500).json({ available: false, error: error?.message || "Failed to query Fly stats" });
+  }
+}
+
+export async function flyMemoryHistory(req: Request, res: Response): Promise<void> {
+  try {
+    const requested = Number(req.query.minutes);
+    const minutes = Math.min(Math.max(Number.isFinite(requested) && requested > 0 ? Math.round(requested) : 1440, 15), 10080);
+    const metric = isString(req.query.metric) ? req.query.metric : "memory";
+    const history = await flyMetricHistory(metric, minutes, targetAppFrom(req));
+    res.status(200).json(history);
+  } catch (error) {
+    debugLog("Fly metric history query failed:", error);
+    res.status(500).json({ available: false, error: error?.message || "Failed to query Fly metric history", series: [] });
+  }
+}
+
+export async function flyMachineState(req: Request, res: Response): Promise<void> {
+  try {
+    const machineState = await currentMachineState(targetAppFrom(req));
+    res.status(200).json(machineState);
+  } catch (error) {
+    debugLog("Fly machine state query failed:", error);
+    res.status(500).json({ available: false, error: error?.message || "Failed to query Fly machine state" });
+  }
+}
+
+export async function restartMachine(req: Request, res: Response): Promise<void> {
+  const result = await restartCurrentMachine(targetAppFrom(req));
+  if (result.ok) {
+    debugLog(`Restart triggered for ${envConfig.env}`);
+    res.status(200).json({ message: "Restart triggered" });
+  } else {
+    debugLog(`Restart request rejected for ${envConfig.env}: ${result.error}`);
+    res.status(503).json({ error: result.error });
   }
 }

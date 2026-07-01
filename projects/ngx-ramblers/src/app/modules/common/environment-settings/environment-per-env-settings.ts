@@ -338,6 +338,15 @@ import { toKebabCase } from "../../../functions/strings";
                      autocomplete="off"
                      placeholder="Fly.io organisation/team name">
             </div>
+            <div class="col-md-12 mb-2">
+              <label class="form-label">Metrics Token</label>
+              <app-secret-input
+                [(ngModel)]="currentEnvironment.flyio.metricsToken"
+                name="flyMetricsToken"
+                [size]="InputSize.SM">
+              </app-secret-input>
+              <small class="form-text text-muted">Org-scoped read-only token used for the Memory diagnostics charts</small>
+            </div>
           </div>
         </div>
         <div class="row thumbnail-heading-frame">

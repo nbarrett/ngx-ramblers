@@ -11,18 +11,9 @@ debugLog.enabled = true;
 
 const router = express.Router();
 
-router.get("/", authConfig.authenticate(), async (req: Request, res: Response) => {
+router.get("/", authConfig.authenticate(), authConfig.requireAdmin, async (_req: Request, res: Response) => {
   if (!booleanOf(process.env[Environment.PLATFORM_ADMIN_ENABLED])) {
     res.status(403).json({ error: "Cross-environment health monitoring is not enabled on this environment" });
-    return;
-  }
-
-  const user = req.user as any;
-  const isAdmin = !!(user?.memberAdmin || user?.contentAdmin || user?.fileAdmin ||
-    user?.walkAdmin || user?.socialAdmin || user?.treasuryAdmin || user?.financeAdmin);
-
-  if (!isAdmin) {
-    res.status(403).json({ error: "Admin access required" });
     return;
   }
 

@@ -3,6 +3,66 @@ export interface FlyConfig {
   appName: string;
 }
 
+export interface FlyRuntimeConfig extends FlyConfig {
+  machineId: string;
+  organisation: string;
+  metricsToken: string;
+}
+
+export interface FlyMetricSeriesDefinition {
+  label: string;
+  dashed?: boolean;
+  scale: number;
+  promQuery: (appName: string, machineId: string, rateWindowSeconds: number) => string;
+}
+
+export interface FlyMetricDefinition {
+  key: string;
+  unit: string;
+  series: FlyMetricSeriesDefinition[];
+}
+
+export interface FlyAppDetailsResponse {
+  organization?: { slug: string };
+}
+
+export interface FlyMachineSummary {
+  id: string;
+  state: string;
+  updated_at?: string;
+}
+
+export interface FlySecureConfig {
+  apiToken: string;
+  appName?: string;
+  metricsToken?: string;
+}
+
+export interface FlyRestartResult {
+  ok: boolean;
+  error?: string;
+}
+
+export interface PrometheusResult {
+  metric: Record<string, string>;
+  value: [number, string];
+}
+
+export interface PrometheusResponse {
+  status: string;
+  data: { result: PrometheusResult[] };
+}
+
+export interface PrometheusRangeResult {
+  metric: Record<string, string>;
+  values: [number, string][];
+}
+
+export interface PrometheusRangeResponse {
+  status: string;
+  data: { result: PrometheusRangeResult[] };
+}
+
 export interface CertificateInfo {
   hostname: string;
   clientStatus: string;
