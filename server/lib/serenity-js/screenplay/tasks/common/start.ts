@@ -1,4 +1,4 @@
-import { Task } from "@serenity-js/core/lib/screenplay/Task";
+import { Task } from "@serenity-js/core";
 import { Navigate } from "@serenity-js/web";
 import { StartWithNavigation } from "./start-with-navigation";
 import { Accept } from "../ramblers/common/accept-cookie-prompt";

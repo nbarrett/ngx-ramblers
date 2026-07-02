@@ -73,7 +73,7 @@ CMD ["npm", "run", "server", "--prefix", "server"]
 # =============================================================================
 # Worker stage (Ramblers upload worker - Serenity/JS Playwright base)
 # =============================================================================
-FROM --platform=linux/amd64 ghcr.io/serenity-js/playwright:v1.58.1-noble AS worker
+FROM --platform=linux/amd64 ghcr.io/serenity-js/playwright:v1.60.0-noble AS worker
 
 ARG NODE_VERSION=24.14.0
 ARG NPM_VERSION=11.9.0

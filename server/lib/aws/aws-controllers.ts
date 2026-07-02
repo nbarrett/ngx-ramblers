@@ -181,13 +181,9 @@ export function getConfig(req: Request, res: Response) {
 }
 
 export function listBuckets(req: Request, res: Response) {
-  s3().listBuckets((err, data) => {
-    if (!err) {
-      return res.status(200).send(data);
-    } else {
-      return res.status(500).send(err);
-    }
-  });
+  s3().listBuckets()
+    .then(data => res.status(200).send(data))
+    .catch(error => res.status(500).send(error));
 }
 
 export type UploadProgressCallback = (progress: { loaded: number; total: number }) => void;
