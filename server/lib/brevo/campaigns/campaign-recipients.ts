@@ -43,6 +43,7 @@ const cardTypeSelectors: Record<string, RecipientSelector> = {
 };
 
 const rowsCache = new Map<number, CachedRows>();
+const MAX_CACHED_CAMPAIGNS = 3;
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -125,7 +126,11 @@ async function allRecipientRows(campaignId: number): Promise<RecipientRow[] | nu
   }
   const csv = await (await fetch(exportUrl)).text();
   const rows = parseRows(csv);
+  rowsCache.delete(campaignId);
   rowsCache.set(campaignId, {rows, cachedAt: dateTimeNow().toMillis()});
+  Array.from(rowsCache.keys())
+    .slice(0, Math.max(0, rowsCache.size - MAX_CACHED_CAMPAIGNS))
+    .forEach(evictableCampaignId => rowsCache.delete(evictableCampaignId));
   return rows;
 }
 

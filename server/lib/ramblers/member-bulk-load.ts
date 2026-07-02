@@ -4,7 +4,6 @@ import debug from "debug";
 import * as fs from "fs";
 import { find, first, isEmpty, isObject, trim } from "es-toolkit/compat";
 import * as path from "path";
-import * as xlsx from "xlsx";
 import { UploadedFile } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import {
   MemberBulkLoadAudit,
@@ -160,10 +159,11 @@ export function uploadRamblersData(req, res) {
     debugLog(`Reading members from ${uploadedWorkbook}`);
     bulkUploadResponse.files.data = `${uploadSessionFolder}/${userFileName}`;
     aws.putObjectDirect(uploadSessionFolder, userFileName, uploadedWorkbook)
-      .then(response => {
+      .then(async response => {
         if (isAwsUploadErrorResponse(response)) {
           return response;
         } else {
+          const xlsx = await import("xlsx");
           const workbook = xlsx.readFile(uploadedWorkbook);
           workbook.SheetNames.forEach(sheet => debugLog("sheet", sheet));
           const matchedSheet = workbook.SheetNames.find(sheet => sheet.includes("Full List"));

@@ -1,10 +1,11 @@
-import { Browser, chromium } from "playwright";
+import type { Browser } from "playwright";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("browser-utils"));
 
 export async function launchBrowser(): Promise<Browser> {
+  const { chromium } = await import("playwright");
   return chromium.launch({
     headless: true,
     args: [

@@ -242,6 +242,17 @@ export default defineConfig([
     rules: {
       ...sharedTypescriptRulesOff,
       "no-inline-comments": "error",
+      "no-restricted-imports": [
+        "error",
+        {
+          "paths": [
+            {
+              "name": "googleapis",
+              "message": "The googleapis package costs ~60MB of heap and 200MB of disk and is not installed. Call the Google REST APIs via fetch (see gmail-inbox-reader.ts) with OAuth2Client from google-auth-library."
+            }
+          ]
+        }
+      ],
       "no-restricted-syntax": [
         "error",
         ...sharedSyntaxRestrictions,

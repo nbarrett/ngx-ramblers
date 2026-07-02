@@ -1,6 +1,3 @@
-import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
-import { JSDOM } from "jsdom";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { htmlToMarkdown } from "../migration/turndown-service-factory";
@@ -34,7 +31,8 @@ function fileExtension(fileName: string): string {
   return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
 }
 
-export function normaliseTables(html: string): string {
+export async function normaliseTables(html: string): Promise<string> {
+  const { JSDOM } = await import("jsdom");
   const dom = new JSDOM(html);
   const ownerDocument = dom.window.document;
   const tables = Array.from(ownerDocument.querySelectorAll("table"));
@@ -161,9 +159,10 @@ export function normaliseTables(html: string): string {
 }
 
 async function convertDocx(buffer: Buffer): Promise<DocumentConversionResponse> {
+  const { default: mammoth } = await import("mammoth");
   const result = await mammoth.convertToHtml({buffer});
   debugLog("mammoth messages:", result.messages);
-  const markdown = htmlToMarkdown(normaliseTables(result.value), undefined, true);
+  const markdown = htmlToMarkdown(await normaliseTables(result.value), undefined, true);
   return postProcessConvertedMarkdown(markdown);
 }
 
@@ -195,6 +194,7 @@ async function convertPdf(buffer: Buffer, imageUploader?: PdfImageUploader): Pro
     const response = pdfResponseFrom(styled.markdown, styled.pageCount);
     return {...response, markdown: replacePdfImagePlaceholders(response.markdown, imagePaths)};
   } else {
+    const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({data: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)});
     try {
       const result = await parser.getText({parseHyperlinks: true});

@@ -185,6 +185,7 @@ export enum FlyRestartStatus {
   IDLE = "idle",
   RESTARTING = "restarting",
   DONE = "done",
+  SESSION_EXPIRED = "session-expired",
   FAILED = "failed"
 }
 
