@@ -1,4 +1,3 @@
-import { PDFParse } from "pdf-parse";
 import * as crypto from "crypto";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
@@ -154,6 +153,7 @@ function isTablePage(lines: StyledLine[]): boolean {
 }
 
 export async function extractStyledPdfMarkdown(buffer: Buffer): Promise<StyledPdfExtraction> {
+  const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({data: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)});
   try {
     await parser.getInfo();

@@ -10,7 +10,7 @@ import { NumberUtilsService } from "./number-utils.service";
 import { isDateValue } from "./type-guards";
 import { ExtendedGroupEvent } from "../models/group-event.model";
 import { StringUtilsService } from "./string-utils.service";
-import { UIDateFormat } from "../models/date-format.model";
+import { RamblersWalksManagerDateFormat, UIDateFormat } from "../models/date-format.model";
 import { asNumber } from "../functions/numbers";
 
 type DateInput = string | number | Date | DateValue | DateTime;
@@ -279,7 +279,9 @@ export class DateUtilsService {
   }
 
   public parseCsvDate(dateValue: string, timeValue: string) {
-    return this.startTimeFrom(timeValue, this.asDateTime(dateValue).toMillis());
+    const isoDate = this.asDateTime(dateValue);
+    const parsedDate = isoDate.isValid ? isoDate : this.asDateTime(dateValue, RamblersWalksManagerDateFormat.WALKS_MANAGER_CSV);
+    return this.startTimeFrom(timeValue, parsedDate.toMillis());
   }
 
   public parseTime(startTime: string): Time {

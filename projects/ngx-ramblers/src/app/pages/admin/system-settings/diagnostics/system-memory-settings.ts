@@ -28,7 +28,64 @@ import { SectionToggle } from "../../../../shared/components/section-toggle";
 @Component({
   selector: "app-system-memory-settings",
   imports: [FontAwesomeModule, BaseChartDirective, SectionToggle],
+  styles: [`
+    .history-refresh
+      margin-bottom: 0.75rem
+  `],
   template: `
+    <div class="row thumbnail-heading-frame">
+      <div class="thumbnail-heading">Fly Machine History</div>
+      <div class="col-sm-12">
+        <p>Host-level metrics from Fly for this environment's machines, over a selectable time range. Use this to spot memory creep, CPU saturation or traffic spikes — and to watch the effect of a restart or a big job as it happens. Choose the website or the integration worker, pick a metric, and refresh to pull the latest samples.</p>
+        <div class="row mb-3">
+          <div class="col-12">
+            <div class="d-flex flex-wrap align-items-end gap-3 mb-3">
+              <div class="form-group">
+                <label class="d-block">App</label>
+                <app-section-toggle [tabs]="targetTabLabels" [selectedTab]="selectedTargetLabel"
+                                    [queryParamKey]="'app'"
+                                    (selectedTabChange)="selectTarget($event)"/>
+              </div>
+              <div class="form-group">
+                <label class="d-block">Metric</label>
+                <app-section-toggle [tabs]="metricTabLabels" [selectedTab]="selectedMetricLabel"
+                                    [queryParamKey]="'metric'"
+                                    (selectedTabChange)="selectMetric($event)"/>
+              </div>
+              <div class="form-group">
+                <label class="d-block">Range</label>
+                <app-section-toggle [tabs]="historyPresetLabels" [selectedTab]="selectedHistoryPreset"
+                                    [queryParamKey]="'range'"
+                                    (selectedTabChange)="selectHistoryPreset($event)"/>
+              </div>
+              <div class="form-group">
+                <button type="button" class="btn btn-primary history-refresh" [disabled]="historyLoading" (click)="loadFlyHistory()">
+                  <fa-icon [icon]="historyLoading ? faSpinner : faRefresh" [animation]="historyLoading ? 'spin' : null"/>
+                  Refresh
+                </button>
+              </div>
+            </div>
+            @if (historyError) {
+              <div class="small text-muted">Fly machine history unavailable: {{ historyError }}</div>
+            } @else {
+              <div class="chart-container" style="position: relative; height: 280px;">
+                @if (historyChart.datasets.length && historyChart.datasets[0].data.length) {
+                  <canvas baseChart
+                          [data]="historyChart"
+                          [options]="historyOptions"
+                          type="line">
+                  </canvas>
+                } @else {
+                  <div class="d-flex justify-content-center align-items-center h-100">
+                    <span class="text-muted">No data in this range yet.</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Memory Diagnostics</div>
       <div class="col-sm-12">
@@ -89,6 +146,12 @@ import { SectionToggle } from "../../../../shared/components/section-toggle";
           <div class="alert alert-success">
             <fa-icon [icon]="faCheck" class="me-2"/>
             <strong>Machine restarted</strong> and is back up. Figures below are up to date.
+          </div>
+        }
+        @if (restartStatus === FlyRestartStatus.SESSION_EXPIRED) {
+          <div class="alert alert-success">
+            <fa-icon [icon]="faCheck" class="me-2"/>
+            <strong>Machine restarted</strong> — but your login session did not survive it, so the figures below can't refresh. Log in again to see up-to-date figures.
           </div>
         }
         @if (restartStatus === FlyRestartStatus.FAILED) {
@@ -182,50 +245,9 @@ import { SectionToggle } from "../../../../shared/components/section-toggle";
             </div>
           </div>
         }
-        <div class="row mb-3">
-          <div class="col-12">
-            <h5>Fly machine history</h5>
-            <div class="d-flex flex-wrap align-items-end gap-3 mb-3">
-              <div class="form-group">
-                <label class="d-block">App</label>
-                <app-section-toggle [tabs]="targetTabLabels" [selectedTab]="selectedTargetLabel"
-                                    [queryParamKey]="'app'"
-                                    (selectedTabChange)="selectTarget($event)"/>
-              </div>
-              <div class="form-group">
-                <label class="d-block">Metric</label>
-                <app-section-toggle [tabs]="metricTabLabels" [selectedTab]="selectedMetricLabel"
-                                    [queryParamKey]="'metric'"
-                                    (selectedTabChange)="selectMetric($event)"/>
-              </div>
-              <div class="form-group">
-                <label class="d-block">Range</label>
-                <app-section-toggle [tabs]="historyPresetLabels" [selectedTab]="selectedHistoryPreset"
-                                    [queryParamKey]="'range'"
-                                    (selectedTabChange)="selectHistoryPreset($event)"/>
-              </div>
-            </div>
-            @if (historyError) {
-              <div class="small text-muted">Fly machine history unavailable: {{ historyError }}</div>
-            } @else {
-              <div class="chart-container" style="position: relative; height: 280px;">
-                @if (historyChart.datasets.length && historyChart.datasets[0].data.length) {
-                  <canvas baseChart
-                          [data]="historyChart"
-                          [options]="historyOptions"
-                          type="line">
-                  </canvas>
-                } @else {
-                  <div class="d-flex justify-content-center align-items-center h-100">
-                    <span class="text-muted">No data in this range yet.</span>
-                  </div>
-                }
-              </div>
-            }
-          </div>
-        </div>
       </div>
-    </div>`
+    </div>
+`
 })
 export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("SystemMemorySettings", NgxLoggerLevel.ERROR);
@@ -244,7 +266,10 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
 
   protected flyStats: FlyMachineStats | null = null;
   protected historyError: string | null = null;
+  protected historyLoading = false;
   protected readonly historyPresets: FlyHistoryPreset[] = [
+    {label: "15m", minutes: 15},
+    {label: "30m", minutes: 30},
     {label: "1h", minutes: 60},
     {label: "6h", minutes: 360},
     {label: "24h", minutes: 1440},
@@ -430,8 +455,9 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
 
   async loadFlyHistory(): Promise<void> {
     try {
+      this.historyLoading = true;
       this.historyError = null;
-      const preset = this.historyPresets.find(candidate => candidate.label === this.selectedHistoryPreset) || this.historyPresets[2];
+      const preset = this.historyPresets.find(candidate => candidate.label === this.selectedHistoryPreset) || this.historyPresets.find(candidate => candidate.label === "24h");
       const metric = this.metricTabs.find(candidate => candidate.label === this.selectedMetricLabel) || this.metricTabs[0];
       const history = await firstValueFrom(this.http.get<FlyMetricHistory>(`/api/health/memory/fly-history?${this.targetQuery()}metric=${metric.key}&minutes=${preset.minutes}`));
       if (!history.available) {
@@ -472,6 +498,8 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
       this.logger.error("fly machine history failed", error);
       this.historyError = error?.error?.error || error?.error?.message || error?.message || "Failed to read Fly machine history";
       this.historyChart = {labels: [], datasets: []};
+    } finally {
+      this.historyLoading = false;
     }
   }
 
@@ -538,11 +566,16 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
         } else {
           this.scheduleNextPollOrFail(generation, restartInitiated);
         }
-      } catch {
+      } catch (error) {
         if (generation !== this.restartPollGeneration) {
           return;
         }
-        this.scheduleNextPollOrFail(generation, restartInitiated);
+        if (error?.status === 401 && !this.targetQuery()) {
+          this.clearRestartPollTimer();
+          this.restartStatus = FlyRestartStatus.SESSION_EXPIRED;
+        } else {
+          this.scheduleNextPollOrFail(generation, restartInitiated);
+        }
       }
     }, SystemMemorySettingsComponent.RESTART_POLL_INTERVAL_MS);
   }
