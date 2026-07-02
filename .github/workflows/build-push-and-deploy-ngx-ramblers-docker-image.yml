@@ -113,6 +113,9 @@ jobs:
       - name: Run server unit tests
         run: npm run test:server
 
+      - name: Verify Serenity scenario discovery (worker load path)
+        run: npm run test:serenity-discovery --prefix server
+
   deploy:
     needs: [resolve, test]
     runs-on: ubuntu-latest

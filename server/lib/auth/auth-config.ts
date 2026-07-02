@@ -33,10 +33,6 @@ function initialisePassport() {
     done(null, jwtPayload);
   }));
 
-  passport.serializeUser((user: Member, done) => {
-    done(null, user.userName);
-  });
-
   passportInitialised = true;
 }
 
@@ -64,7 +60,7 @@ export function compareValue(inputValue: string, storedValue: string) {
 
 export function authenticate() {
   initialisePassport();
-  return passport.authenticate("jwt");
+  return passport.authenticate("jwt", {session: false});
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {

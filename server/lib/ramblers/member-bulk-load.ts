@@ -164,7 +164,7 @@ export function uploadRamblersData(req, res) {
           return response;
         } else {
           const xlsx = await import("xlsx");
-          const workbook = xlsx.readFile(uploadedWorkbook);
+          const workbook = xlsx.read(fs.readFileSync(uploadedWorkbook));
           workbook.SheetNames.forEach(sheet => debugLog("sheet", sheet));
           const matchedSheet = workbook.SheetNames.find(sheet => sheet.includes("Full List"));
           const ramblersSheet = matchedSheet ?? first(workbook.SheetNames);
@@ -184,6 +184,10 @@ export function uploadRamblersData(req, res) {
             returnResponse();
           }
         }
+      })
+      .catch(error => {
+        debugAndError(`Failed to process workbook ${userFileName}: ${error?.message || error}`);
+        returnResponse();
       });
   }
 

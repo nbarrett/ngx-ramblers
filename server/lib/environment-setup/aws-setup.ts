@@ -1,6 +1,8 @@
 import {
+  BucketLocationConstraint,
   CopyObjectCommand,
   CreateBucketCommand,
+  CreateBucketCommandInput,
   HeadBucketCommand,
   PutBucketCorsCommand,
   PutPublicAccessBlockCommand,
@@ -159,13 +161,13 @@ export async function createS3Bucket(
     return;
   }
 
-  const createBucketParams: { Bucket: string; CreateBucketConfiguration?: { LocationConstraint: string } } = {
+  const createBucketParams: CreateBucketCommandInput = {
     Bucket: bucketName
   };
 
   if (region !== "us-east-1") {
     createBucketParams.CreateBucketConfiguration = {
-      LocationConstraint: region as any
+      LocationConstraint: region as BucketLocationConstraint
     };
   }
 
