@@ -99,6 +99,8 @@ export function buildSecretsFromDatabaseConfig(
     }
   }
 
+  secrets.NGX_LITE = envConfig.ngxLite === true ? "true" : "false";
+
   if (envConfig.secrets) {
     entries(envConfig.secrets).forEach(([key, value]) => {
       if (value) secrets[key] = value;

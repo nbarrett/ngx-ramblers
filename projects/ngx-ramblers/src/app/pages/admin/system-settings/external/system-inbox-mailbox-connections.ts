@@ -225,13 +225,17 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
     return this.aliases.filter(alias => alias.mailboxConnectionId === mailboxConnectionId).length;
   }
 
+  private connectErrorMessage(error: any): string {
+    return error?.error?.error || error?.error?.message || error?.message || "Failed to connect Gmail";
+  }
+
   async connectNewGmail(): Promise<void> {
     this.busy = true;
     try {
       const connection = await this.inboxService.createMailboxConnection();
       window.location.href = await this.inboxService.startOauth(connection.id);
     } catch (error) {
-      this.notify.error({title: "Connect Gmail", message: (error as Error).message});
+      this.notify.error({title: "Connect Gmail", message: this.connectErrorMessage(error)});
       this.busy = false;
     }
   }
@@ -241,7 +245,7 @@ export class SystemInboxMailboxConnectionsComponent implements OnInit {
     try {
       window.location.href = await this.inboxService.startOauth(connection.id);
     } catch (error) {
-      this.notify.error({title: "Connect Gmail", message: (error as Error).message});
+      this.notify.error({title: "Connect Gmail", message: this.connectErrorMessage(error)});
       this.busy = false;
     }
   }

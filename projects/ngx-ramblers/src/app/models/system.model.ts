@@ -384,7 +384,6 @@ export interface SystemConfig {
     autoSubscribeNewMembers: boolean;
   }
   activeChangelogCollection?: string;
-  ngxLite?: boolean;
 }
 
 export interface GoogleAnalyticsConfig {
