@@ -13,8 +13,9 @@ import {
   RedirectMappingStatus,
   SortDirection
 } from "../../../models/legacy-url-redirect.model";
-import { ActivatedRoute, Router } from "@angular/router";
-import { StoredValue } from "../../../models/ui-actions";
+import { ActivatedRoute } from "@angular/router";
+import { StoredValue, StoredValueQueryParameters } from "../../../models/ui-actions";
+import { UiActionsService } from "../../../services/ui-actions.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { PageComponent } from "../../../page/page.component";
@@ -393,7 +394,7 @@ export class LegacyRedirectsComponent implements OnInit, OnDestroy {
   private legacyScrapeRunService = inject(LegacyScrapeRunService);
   private webSocketClientService = inject(WebSocketClientService);
   private notifierService = inject(NotifierService);
-  private router = inject(Router);
+  private uiActions = inject(UiActionsService);
   private activatedRoute = inject(ActivatedRoute);
   private stringUtils = inject(StringUtilsService);
   dateUtils = inject(DateUtilsService);
@@ -577,8 +578,8 @@ export class LegacyRedirectsComponent implements OnInit, OnDestroy {
     }
   }
 
-  private replaceQueryParams(params: Record<string, string | null>): void {
-    this.router.navigate([], {queryParams: params, queryParamsHandling: "merge", replaceUrl: true});
+  private replaceQueryParams(params: StoredValueQueryParameters): void {
+    this.uiActions.updateQueryParameters(params);
   }
 
   filtersChanged(): void {

@@ -1,7 +1,8 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faSearch, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { isArray } from "es-toolkit/compat";
 import { sortBy } from "es-toolkit/compat";
+import { toPairs } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
@@ -10,13 +11,14 @@ import { ApiAction, ApiResponse } from "../../../models/api-response.model";
 import { DateValue } from "../../../models/date.model";
 import { Member, MemberAuthAudit } from "../../../models/member.model";
 import { ASCENDING, DESCENDING, MEMBER_SORT, MemberAuthAuditTableFilter } from "../../../models/table-filtering.model";
-import { Confirm, ConfirmType } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberAuthAuditService } from "../../../services/member/member-auth-audit.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
+import { StoredValue } from "../../../models/ui-actions";
+import { UiActionsService } from "../../../services/ui-actions.service";
 import { UrlService } from "../../../services/url.service";
 import { ProfileService } from "../profile/profile.service";
 import { PageComponent } from "../../../page/page.component";
@@ -26,6 +28,14 @@ import { FormsModule } from "@angular/forms";
 import { DatePicker } from "../../../date-and-time/date-picker";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
+
+const SORT_FIELD_FOR_ALIAS: Record<string, string> = {
+  "login-time": "loginTime",
+  "user-name": "userName",
+  member: "member",
+  "login-successful": "loginResponse.memberLoggedIn",
+  "login-response": "loginResponse.alertMessage"
+};
 
 @Component({
     selector: "app-member-admin",
@@ -42,6 +52,7 @@ export class MemberLoginAuditComponent implements OnInit, OnDestroy {
   private urlService = inject(UrlService);
   private memberAuthAuditService = inject(MemberAuthAuditService);
   private profileService = inject(ProfileService);
+  private uiActions = inject(UiActionsService);
   private searchChangeObservable: Subject<string> = new Subject<string>();
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -51,10 +62,10 @@ export class MemberLoginAuditComponent implements OnInit, OnDestroy {
   private memberFilterUploaded: any;
   private subscriptions: Subscription[] = [];
   private memberAudits: MemberAuthAudit[] = [];
-  public confirm = new Confirm();
   filterDateValue: DateValue;
   faSearch = faSearch;
-  protected readonly ConfirmType = ConfirmType;
+  protected readonly faCheck = faCheck;
+  protected readonly faXmark = faXmark;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -64,11 +75,15 @@ export class MemberLoginAuditComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(250))
       .pipe(distinctUntilChanged())
       .subscribe(searchTerm => this.applyFilterToAudits(searchTerm)));
+    const requestedSortAlias = this.uiActions.queryParameter(StoredValue.SORT);
+    const requestedSortField = (requestedSortAlias && SORT_FIELD_FOR_ALIAS[requestedSortAlias]) || "loginTime";
+    const requestedSortDirection = this.uiActions.queryParameter(StoredValue.SORT_ORDER);
+    const reverseSort = requestedSortDirection ? requestedSortDirection !== "ascending" : true;
     this.auditFilter = {
-      sortField: "loginTime",
-      sortFunction: MEMBER_SORT,
-      reverseSort: true,
-      sortDirection: DESCENDING,
+      sortField: requestedSortField,
+      sortFunction: requestedSortField === "memberName" ? MEMBER_SORT : requestedSortField,
+      reverseSort,
+      sortDirection: reverseSort ? DESCENDING : ASCENDING,
       results: []
     };
     this.logger.debug("this.memberFilter:", this.auditFilter);
@@ -86,20 +101,6 @@ export class MemberLoginAuditComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
-  }
-
-  deleteSelectedMemberAuditConfirm() {
-    const recordCount = this.auditFilter.results.length;
-    this.notifyProgress(`Deleting ${recordCount} member audit record(s)...`);
-    const removePromises = this.auditFilter.results.map(record => {
-      return this.memberAuthAuditService.delete(record);
-    });
-
-    Promise.all(removePromises).then(() => {
-      this.notifyProgress(`Deleted ${recordCount} member audit record(s)`);
-      this.notify.clearBusy();
-      this.confirm.clear();
-    });
   }
 
   refreshMemberAudit() {
@@ -158,7 +159,15 @@ export class MemberLoginAuditComponent implements OnInit, OnDestroy {
     filterSource.reverseSort = !filterSource.reverseSort;
     filterSource.sortDirection = filterSource.reverseSort ? DESCENDING : ASCENDING;
     this.logger.debug("sorting by field", field, "new value of filterSource", filterSource);
+    this.uiActions.updateQueryParameters({
+      [StoredValue.SORT]: this.sortAliasFor(filterSource.sortField),
+      [StoredValue.SORT_ORDER]: filterSource.reverseSort ? "descending" : "ascending"
+    });
     this.applyFilterToAudits();
+  }
+
+  private sortAliasFor(sortField: string): string {
+    return toPairs(SORT_FIELD_FOR_ALIAS).find(([, field]) => field === sortField)?.[0] || sortField;
   }
 
   sortMembersUploadedBy(field) {

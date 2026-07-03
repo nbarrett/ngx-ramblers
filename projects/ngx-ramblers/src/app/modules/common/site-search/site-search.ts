@@ -12,6 +12,7 @@ import { SiteSearchService } from "../../../services/search/site-search.service"
 import { UrlService } from "../../../services/url.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
+import { StoredValue } from "../../../models/ui-actions";
 
 const MIN_QUERY_LENGTH = 2;
 const INDEXING_POLL_MS = 600;
@@ -333,15 +334,15 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
     const query = this.query.trim();
     this.siteSearchService.addRecentSearch(query);
     this.closeSearch();
-    const queryParams: Record<string, string> = {q: query};
+    const queryParams: Record<string, string> = {[StoredValue.Q]: query};
     if (this.scopePath) {
-      queryParams.section = this.scopePath;
+      queryParams[StoredValue.SECTION] = this.scopePath;
       if (this.scopeActive) {
-        queryParams.scope = "1";
+        queryParams[StoredValue.SCOPE] = "1";
       }
     }
     if (this.phraseMode) {
-      queryParams.exact = "1";
+      queryParams[StoredValue.EXACT] = "1";
     }
     this.router.navigate(["/search"], {queryParams});
   }

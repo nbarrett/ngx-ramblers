@@ -24,8 +24,8 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { PageComponent } from "../../../page/page.component";
 import { FullNamePipe } from "../../../pipes/full-name.pipe";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { ActivatedRoute, Params, Router } from "@angular/router";
-import { StoredValue } from "../../../models/ui-actions";
+import { StoredValue, StoredValueQueryParameters } from "../../../models/ui-actions";
+import { UiActionsService } from "../../../services/ui-actions.service";
 import { UIDateFormat } from "../../../models/date-format.model";
 
 const FILTER_ALL = "all";
@@ -45,8 +45,7 @@ export class MemberSyncNotificationsComponent implements OnInit, OnDestroy {
   private fullNamePipe = inject(FullNamePipe);
   protected dateUtils = inject(DateUtilsService);
   protected stringUtils = inject(StringUtilsService);
-  private router = inject(Router);
-  private route = inject(ActivatedRoute);
+  private uiActions = inject(UiActionsService);
 
   protected readonly faPaperPlane = faPaperPlane;
   protected readonly faChevronRight = faChevronRight;
@@ -147,29 +146,28 @@ export class MemberSyncNotificationsComponent implements OnInit, OnDestroy {
   }
 
   private restoreFromQueryParams() {
-    const params = this.route.snapshot.queryParamMap;
-    const status = params.get(StoredValue.STATUS);
+    const status = this.uiActions.queryParameter(StoredValue.STATUS);
     if (status !== null) {
       this.statusFilter = status === FILTER_ALL ? "" : status as MemberSyncNotificationStatus;
     }
-    const field = params.get(StoredValue.FIELD);
+    const field = this.uiActions.queryParameter(StoredValue.FIELD);
     if (field !== null) {
       this.fieldNameFilter = field;
     }
-    const search = params.get(StoredValue.SEARCH);
+    const search = this.uiActions.queryParameter(StoredValue.SEARCH);
     if (search !== null) {
       this.nameSearch = search;
     }
-    const preset = params.get(StoredValue.DATE_RANGE_PRESET);
+    const preset = this.uiActions.queryParameter(StoredValue.DATE_RANGE_PRESET);
     if (preset !== null) {
       this.datePreset = preset;
     }
-    const from = params.get(StoredValue.DATE_FROM);
-    const to = params.get(StoredValue.DATE_TO);
+    const from = this.uiActions.queryParameter(StoredValue.DATE_FROM);
+    const to = this.uiActions.queryParameter(StoredValue.DATE_TO);
     if (from !== null && to !== null) {
       this.dateFilterRange = {from: this.dayParamToMillis(from), to: this.dayParamToMillis(to)};
     }
-    const expanded = params.get(StoredValue.EXPANDED);
+    const expanded = this.uiActions.queryParameter(StoredValue.EXPANDED);
     if (expanded !== null) {
       this.expandedMemberIds = new Set(expanded.split(",").filter(memberId => memberId));
     }
@@ -177,7 +175,7 @@ export class MemberSyncNotificationsComponent implements OnInit, OnDestroy {
 
   private syncQueryParams() {
     const customRange = this.datePreset !== FILTER_ALL;
-    const queryParams: Params = {
+    const queryParams: StoredValueQueryParameters = {
       [StoredValue.STATUS]: this.statusFilter || FILTER_ALL,
       [StoredValue.FIELD]: this.fieldNameFilter || null,
       [StoredValue.SEARCH]: this.nameSearch.trim() || null,
@@ -186,7 +184,7 @@ export class MemberSyncNotificationsComponent implements OnInit, OnDestroy {
       [StoredValue.DATE_TO]: customRange ? this.millisToDayParam(this.dateFilterRange?.to) : null,
       [StoredValue.EXPANDED]: this.expandedMemberIds.size ? Array.from(this.expandedMemberIds).join(",") : null
     };
-    this.router.navigate([], {relativeTo: this.route, queryParams, queryParamsHandling: "merge", replaceUrl: true});
+    this.uiActions.updateQueryParameters(queryParams);
   }
 
   private millisToDayParam(millis?: number): string | null {

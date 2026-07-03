@@ -16,7 +16,8 @@ const QUICK_SEARCH_FIELDS: string[] = [
   GroupEventField.WALK_LEADER_NAME,
   EventField.CONTACT_DETAILS_DISPLAY_NAME,
   EventField.CONTACT_DETAILS_PHONE,
-  EventField.CONTACT_DETAILS_MEMBER_ID
+  EventField.CONTACT_DETAILS_MEMBER_ID,
+  EventField.MIGRATED_FROM_ID
 ];
 
 export function quickSearchCriteria(searchTerm: string): MongoCriteria | null {

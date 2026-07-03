@@ -65,6 +65,7 @@ export class WalksConfigService {
   default(): WalksConfig {
     return {
       milesPerHour: 2.13,
+      mapZoomOutLevels: 2,
       requireRiskAssessment: true,
       requireFinishTime: true,
       requireWalkLeaderDisplayName: true,

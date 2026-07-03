@@ -3,7 +3,8 @@ import { ChangeDetectorRef, Component, ElementRef, inject, OnDestroy, OnInit, Qu
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { Subscription, timer } from "rxjs";
+import { firstValueFrom, Subscription, timer } from "rxjs";
+import { HttpClient } from "@angular/common/http";
 import { switchMap } from "rxjs/operators";
 import { isArray, isNumber, isString, isUndefined, kebabCase, keys, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -29,6 +30,7 @@ import {
   faFolderOpen,
   faGripLines,
   faGripVertical,
+  faPaperclip,
   faPaperPlane,
   faPlus,
   faSignature,
@@ -93,6 +95,7 @@ import {
   ValidationErrorWithLink
 } from "../../models/email-composer.model";
 import {
+  BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS,
   CreateCampaignRequest,
   ListInfo,
   MailMessagingConfig,
@@ -132,7 +135,10 @@ import { NotificationConfigSelectorComponent } from "../admin/system-settings/ma
 import { SenderRepliesAndSignoff } from "../admin/send-emails/sender-replies-and-signoff";
 import { EmailPreviewComponent } from "../../modules/common/email-preview/email-preview.component";
 import { NotificationDirective } from "../../notifications/common/notification.directive";
-import { SystemConfig } from "../../models/system.model";
+import { RootFolder, SystemConfig } from "../../models/system.model";
+import { S3_BASE_URL } from "../../models/content-metadata.model";
+import { AwsFileUploadResponse } from "../../models/aws-object.model";
+import { NumberUtilsService } from "../../services/number-utils.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { CommitteeQueryService } from "../../services/committee/committee-query.service";
 import { WalksAndEventsService } from "../../services/walks-and-events/walks-and-events.service";
@@ -942,6 +948,33 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
         </fieldset>
 
         <fieldset class="email-composer-fieldset">
+          <legend>Attachments</legend>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            @for (attachment of state.attachments ?? []; track attachment.url; let index = $index) {
+              <span class="composer-attachment">
+                <fa-icon [icon]="faPaperclip"/>
+                <span class="composer-attachment-name">{{ attachment.name }}</span>
+                <span class="text-muted">{{ numberUtils.humanFileSize(attachment.sizeBytes) }}</span>
+                <button type="button" class="composer-attachment-remove" tooltip="Remove attachment" container="body"
+                        (click)="removeAttachment(index)">
+                  <fa-icon [icon]="faXmark"/>
+                </button>
+              </span>
+            }
+            <input #attachmentFileElement class="d-none" type="file" multiple (change)="onAttachmentFilesSelected($event)">
+            <button type="button" class="btn btn-sm btn-quiet" [disabled]="attachmentUploading"
+                    (click)="attachmentFileElement.click()">
+              <fa-icon [icon]="attachmentUploading ? faSpinner : faPaperclip"
+                       [animation]="attachmentUploading ? 'spin' : null" class="me-1"/>
+              {{ attachmentUploading ? "Uploading…" : "Add attachment" }}
+            </button>
+          </div>
+          @if (state.sendingChannel === SendingChannel.CAMPAIGN && (state.attachments ?? []).length > 1) {
+            <small class="text-muted d-block mt-1">Emails sent to an entire list include only the first attachment — send to selected members or external recipients to include them all.</small>
+          }
+        </fieldset>
+
+        <fieldset class="email-composer-fieldset">
           <legend>Salutation</legend>
           <label>Greeting</label>
           <div>
@@ -1700,6 +1733,9 @@ export class EmailComposer implements OnInit, OnDestroy {
   protected urlService = inject(UrlService);
   private compositionsService = inject(EmailCompositionsService);
   private scheduledTaskService = inject(ScheduledTaskService);
+  private http = inject(HttpClient);
+  protected numberUtils = inject(NumberUtilsService);
+  protected attachmentUploading = false;
 
   @ViewChild("emailPreview") emailPreview!: EmailPreviewComponent;
   @ViewChild("eventsContent") eventsContent!: ElementRef<HTMLDivElement>;
@@ -1793,6 +1829,8 @@ export class EmailComposer implements OnInit, OnDestroy {
   private turndownService = new TurndownService({headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced"});
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly faPlus = faPlus;
+  protected readonly faPaperclip = faPaperclip;
+  protected readonly SendingChannel = SendingChannel;
   protected readonly faTrash = faTrash;
   protected readonly faGripLines = faGripLines;
 
@@ -2588,7 +2626,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (titled) {
       event.consume();
       this.state.subject = titled.title;
-      this.state.introMarkdown = titled.body;
+      this.state.introMarkdown = this.introEditor?.unwrapIfEnabled(titled.body) ?? titled.body;
       this.state.addresseeType = AddresseeType.NONE;
       this.pendingForwardedHeaderLines = [];
       queueMicrotask(() => this.introEditor?.focusAtStart());
@@ -2613,7 +2651,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       const hasExistingIntro = existingIntro.trim().length > 0;
       if (parsed.subject && !this.state.subject?.trim()) this.state.subject = parsed.subject;
       if (!hasExistingIntro) this.state.addresseeType = AddresseeType.NONE;
-      this.state.introMarkdown = existingIntro + this.buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, parsed.body);
+      const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
+      this.state.introMarkdown = existingIntro + this.buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, unwrappedBody);
       this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
       queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
     }
@@ -4856,6 +4895,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       createAsDraft: false,
       templateName: this.state.notificationConfig!.templateName,
       htmlContent: campaignCombined,
+      attachmentUrl: this.state.attachments?.[0]?.url,
       inlineImageActivation: false,
       mirrorActive: false,
       name: this.state.subject,
@@ -4929,6 +4969,49 @@ export class EmailComposer implements OnInit, OnDestroy {
     }
   }
 
+  protected async onAttachmentFilesSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const selectedFiles = Array.from(input.files ?? []);
+    input.value = "";
+    const unsupported = selectedFiles.filter(file => !BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS.includes(file.name.split(".").pop()?.toLowerCase() ?? ""));
+    if (unsupported.length) {
+      this.notify.warning({
+        title: "Attachments",
+        message: `${unsupported.map(file => file.name).join(", ")} can't be sent by email — the mail platform doesn't support ${unsupported.map(file => file.name.split(".").pop()).join(", ")} files. Zip the file and attach the zip instead.`
+      });
+    }
+    const files = selectedFiles.filter(file => !unsupported.includes(file));
+    if (!files.length) {
+      return;
+    }
+    this.attachmentUploading = true;
+    try {
+      await files.reduce(async (previous: Promise<void>, file: File) => {
+        await previous;
+        const formData = new FormData();
+        formData.append("file", file, file.name);
+        const response = await firstValueFrom(this.http.post<AwsFileUploadResponse>(`${S3_BASE_URL}/file-upload?root-folder=${RootFolder.emailAttachments}`, formData));
+        const fileNameData = response?.responses?.[0]?.fileNameData;
+        if (fileNameData) {
+          const relative = this.urlService.resourceRelativePathForAWSFileName(`${fileNameData.rootFolder}/${fileNameData.awsFileName}`);
+          const url = `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${relative}`;
+          this.state.attachments = [...(this.state.attachments ?? []), {name: file.name, url, sizeBytes: file.size}];
+        } else {
+          this.notify.warning({title: "Attachments", message: `${file.name} failed to upload`});
+        }
+      }, Promise.resolve());
+    } catch (error) {
+      this.logger.error("attachment upload failed:", error);
+      this.notify.warning({title: "Attachments", message: "Attachment upload failed — please try again"});
+    } finally {
+      this.attachmentUploading = false;
+    }
+  }
+
+  protected removeAttachment(index: number): void {
+    this.state.attachments = (this.state.attachments ?? []).filter((_, attachmentIndex) => attachmentIndex !== index);
+  }
+
   private async startBatchTransactionalSend(): Promise<void> {
     await this.resolveCommitteeFileLinksForSend();
     const { top, bottom, combined } = this.composedBodyParts();
@@ -4952,7 +5035,8 @@ export class EmailComposer implements OnInit, OnDestroy {
       bccRolesOverride: isUnbranded ? [] : (this.state.notificationConfig!.bccRoles ?? this.state.notificationConfig!.ccRoles ?? []),
       brandingMode: this.state.brandingMode,
       unbrandedSenderRoleType: isUnbranded ? this.resolvedUnbrandedRole()?.type : undefined,
-      inboxReplyContext: this.inboxReplyContext ?? undefined
+      inboxReplyContext: this.inboxReplyContext ?? undefined,
+      attachments: this.state.attachments?.length ? this.state.attachments : undefined
     };
     const start = await this.sendService.startBatch(request);
     this.batchSendJobId = start.jobId;

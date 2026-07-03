@@ -12,6 +12,7 @@ import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
+import { WalksConfig } from "../../../models/walks-config.model";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
 import { DEFAULT_OS_STYLE, LocationType, MapProvider } from "../../../models/map.model";
@@ -55,6 +56,11 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     this.readonly = coerceBooleanProperty(value);
     this.logger.info("readonly:", this.readonly);
   }
+
+  @Input() initialZoomOffset: number | null = null;
+  @Output() zoomOutLevelsChange = new EventEmitter<number>();
+  private walksConfig: WalksConfig;
+  private referenceZoom: number | null = null;
 
   @Input("locationDetails")
   set initialiseWalk(locationDetails: LocationDetails) {
@@ -127,6 +133,10 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     }
   }
 
+  private effectiveZoomOffset(): number {
+    return this.initialZoomOffset ?? -(this.walksConfig?.mapZoomOutLevels ?? 2);
+  }
+
   private initializeSubscriptions() {
     this.subscriptions.push(
       this.mailMessagingService.events().subscribe(config => {
@@ -134,6 +144,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
       }),
       this.walksConfigService.events().subscribe(config => {
         this.logger.info("WalksConfig updated:", config);
+        this.walksConfig = config;
       })
     );
   }
@@ -191,7 +202,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     const base = this.mapTiles.createBaseLayer(provider, style);
     const crs = this.mapTiles.crsForStyle(provider, style);
     const maxZoom = this.mapTiles.maxZoomForStyle(provider, style);
-    const initialZoom = Math.max(1, Math.min(15, maxZoom) - 1);
+    const initialZoom = Math.max(1, Math.min(15, maxZoom) - 1 + this.effectiveZoomOffset());
 
     let center = L.latLng(latitude, longitude);
     let bounds: L.LatLngBounds | undefined;
@@ -312,6 +323,9 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
           if (!this.showCombinedMap && !this.gpxFile?.awsFileName && this.locationDetails?.latitude && this.locationDetails?.longitude) {
             map.panTo(L.latLng(this.locationDetails.latitude, this.locationDetails.longitude));
           }
+          if (this.referenceZoom != null) {
+            this.zoomOutLevelsChange.emit(this.referenceZoom - zoomLevel);
+          }
         });
       });
       this.logger.info("Map ready:", map, "detectChanges called");
@@ -322,7 +336,9 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
           this.mapZoom.applyBoundsToMap(map, this.fitBounds, { maxZoom: 15 });
         } else if (!this.gpxFile?.awsFileName) {
           const { latitude, longitude } = this.locationDetails;
-          const zoom = this.mapZoom.calculateSinglePointZoom(map, { defaultZoom: 15, mapMaxZoom: map.getMaxZoom() });
+          const baseZoom = this.mapZoom.calculateSinglePointZoom(map, { defaultZoom: 15, mapMaxZoom: map.getMaxZoom() });
+          this.referenceZoom = Math.min(baseZoom, map.getMaxZoom());
+          const zoom = Math.max(1, this.referenceZoom + this.effectiveZoomOffset());
           map.setView(L.latLng(latitude, longitude), zoom);
         }
       }, 100);

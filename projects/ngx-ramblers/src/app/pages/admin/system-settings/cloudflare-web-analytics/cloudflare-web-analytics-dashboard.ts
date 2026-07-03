@@ -18,6 +18,7 @@ import { SectionToggle } from "../../../../shared/components/section-toggle";
 import { DateRange, DateRangeSlider } from "../../../../components/date-range-slider/date-range-slider";
 import { AnalyticsBreakdownTable } from "./analytics-breakdown-table";
 import { DateTime } from "luxon";
+import { StoredValue } from "../../../../models/ui-actions";
 
 interface PresetRange {
   label: string;
@@ -76,7 +77,7 @@ const CUSTOM_RANGE_LABEL = "Custom";
               <app-section-toggle
                 [tabs]="presetLabels"
                 [selectedTab]="selectedPresetLabel"
-                [queryParamKey]="'analytics-range'"
+                [queryParamKey]="StoredValue.ANALYTICS_RANGE"
                 (selectedTabChange)="selectPresetByLabel($event)"/>
             </div>
             <div class="form-group flex-grow-1">
@@ -244,6 +245,7 @@ export class CloudflareWebAnalyticsDashboard {
   protected toDate: string;
   protected busy = false;
   protected errorMessage: string = null;
+  protected readonly StoredValue = StoredValue;
   protected readonly faRotate = faRotate;
   protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly presets: PresetRange[] = [

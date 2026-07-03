@@ -58,7 +58,7 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
 import { ServerDownloadStatusService } from "../../../services/walks/download-status.service";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { StoredValue } from "../../../models/ui-actions";
+import { StoredValue, StoredValueQueryParameters } from "../../../models/ui-actions";
 import { SortDirection } from "../../../models/sort.model";
 
 const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
@@ -580,7 +580,7 @@ export class WalkExport implements OnInit, OnDestroy {
       if (tabParam && values(WalkExportTab).includes(tabParam)) {
         this.activeTabId = tabParam as WalkExportTab;
       }
-      this.pendingSessionParam = params["session"];
+      this.pendingSessionParam = params[StoredValue.SESSION];
       const sortParam = params[StoredValue.SORT];
       if (sortParam && AUDIT_SORT_FIELD_MAPPING[sortParam]) {
         this.auditSortField = sortParam as StoredValue;
@@ -1226,13 +1226,13 @@ export class WalkExport implements OnInit, OnDestroy {
   }
 
   private updateUrl(): void {
-    const queryParams: any = {
-      tab: this.activeTabId,
+    const queryParams: StoredValueQueryParameters = {
+      [StoredValue.TAB]: this.activeTabId,
       [StoredValue.SORT]: this.auditSortField,
       [StoredValue.SORT_ORDER]: this.auditSortOrder
     };
     if (this.fileName?.fileName) {
-      queryParams.session = this.sessionToUrlParam(this.fileName.fileName);
+      queryParams[StoredValue.SESSION] = this.sessionToUrlParam(this.fileName.fileName);
     }
     this.logger.info("updateUrl:queryParams:", queryParams);
     this.router.navigate([], {

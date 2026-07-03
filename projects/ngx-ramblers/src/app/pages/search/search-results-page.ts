@@ -13,6 +13,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { PageService } from "../../services/page.service";
 import { SiteSearchService } from "../../services/search/site-search.service";
 import { StringUtilsService } from "../../services/string-utils.service";
+import { StoredValue } from "../../models/ui-actions";
 
 const MIN_QUERY_LENGTH = 2;
 const INDEXING_POLL_MS = 600;
@@ -165,11 +166,11 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
     this.pageService.setTitle("Search");
     this.loadStatus();
     this.subscriptions.push(this.route.queryParamMap.subscribe(params => {
-      this.query = params.get("q") || "";
-      this.scopePath = params.get("section") || "";
+      this.query = params.get(StoredValue.Q) || "";
+      this.scopePath = params.get(StoredValue.SECTION) || "";
       this.scopeLabel = this.scopePath ? this.stringUtils.asTitle(this.stringUtils.lastItemFrom(this.scopePath)) : "";
-      this.scopeActive = params.get("scope") === "1";
-      this.phraseMode = params.get("exact") === "1";
+      this.scopeActive = params.get(StoredValue.SCOPE) === "1";
+      this.phraseMode = params.get(StoredValue.EXACT) === "1";
       this.runSearch(this.query);
     }));
   }
@@ -188,15 +189,15 @@ export class SearchResultsPageComponent implements OnInit, OnDestroy {
   }
 
   private navigateWith(scopeActive: boolean, phraseMode: boolean): void {
-    const queryParams: Record<string, string> = {q: this.query.trim()};
+    const queryParams: Record<string, string> = {[StoredValue.Q]: this.query.trim()};
     if (this.scopePath) {
-      queryParams.section = this.scopePath;
+      queryParams[StoredValue.SECTION] = this.scopePath;
       if (scopeActive) {
-        queryParams.scope = "1";
+        queryParams[StoredValue.SCOPE] = "1";
       }
     }
     if (phraseMode) {
-      queryParams.exact = "1";
+      queryParams[StoredValue.EXACT] = "1";
     }
     this.router.navigate(["/search"], {queryParams});
   }

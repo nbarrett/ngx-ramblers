@@ -14,6 +14,7 @@ import { PageComponent } from "../../../page/page.component";
 import { WalkEditComponent } from "../walk-edit/walk-edit.component";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
+import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-walk-edit-full-page",
@@ -62,7 +63,7 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
             this.logger.info("found walk", walk);
             this.eventDefaultsService.migrateOldWalkData(walk);
             this.displayedWalk = this.display.toDisplayedWalk(walk);
-            const requestedMode = this.route.snapshot.queryParamMap.get("as");
+            const requestedMode = this.route.snapshot.queryParamMap.get(StoredValue.AS);
             if (requestedMode === WalksReferenceService.walkAccessModes.edit.caption && this.displayedWalk?.walkAccessMode?.walkWritable) {
               this.displayedWalk.walkAccessMode = {...WalksReferenceService.walkAccessModes.edit, walkWritable: true};
             }

@@ -162,7 +162,7 @@ export class CommitteeDocumentPage implements OnInit, OnDestroy {
       this.notFound = !this.allowViewing;
       if (this.allowViewing && !this.autoPrintTriggered
         && this.display.isComposedDocument(this.committeeFile)
-        && this.route.snapshot.queryParamMap.get("print") === "true") {
+        && this.route.snapshot.queryParamMap.get(StoredValue.PRINT) === "true") {
         this.autoPrintTriggered = true;
         setTimeout(() => this.print(), 500);
       }

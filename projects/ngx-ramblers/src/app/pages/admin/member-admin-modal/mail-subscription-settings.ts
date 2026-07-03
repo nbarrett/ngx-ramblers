@@ -28,7 +28,8 @@ import { SectionToggle, SectionToggleTab } from "../../../shared/components/sect
 import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
 import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
 import { SortableTableColumn } from "../../../modules/common/sortable-table/sortable-table.model";
-import { BREVO_TAB_SUB_TAB_QUERY_PARAM, BrevoTabSubTab } from "../../../models/mail.model";
+import { BrevoTabSubTab } from "../../../models/mail.model";
+import { StoredValue } from "../../../models/ui-actions";
 import { DESCENDING } from "../../../models/table-filtering.model";
 
 @Component({
@@ -148,7 +149,7 @@ export class MailSubscriptionSettingsComponent implements OnInit {
   @Input() public members: Member[];
 
   protected activeSubTab: BrevoTabSubTab = BrevoTabSubTab.ACTIVITY;
-  protected readonly subTabQueryParam: string = BREVO_TAB_SUB_TAB_QUERY_PARAM;
+  protected readonly subTabQueryParam: StoredValue = StoredValue.BREVO_SECTION;
   protected readonly subTabs: SectionToggleTab[] = [
     { value: BrevoTabSubTab.ACTIVITY, label: "Brevo activity" },
     { value: BrevoTabSubTab.AUDIT_LOG, label: "Subscription audit" }

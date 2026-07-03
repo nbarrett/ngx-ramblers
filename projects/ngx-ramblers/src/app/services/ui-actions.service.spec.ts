@@ -1,4 +1,5 @@
 import { TestBed } from "@angular/core/testing";
+import { provideRouter } from "@angular/router";
 import { keys } from "es-toolkit/compat";
 import { vi } from "vitest";
 import { UiActionsService } from "./ui-actions.service";
@@ -31,6 +32,7 @@ describe("UiActionsService", () => {
         TestBed.configureTestingModule({
             providers: [
                 UiActionsService,
+                provideRouter([]),
                 { provide: LoggerFactory, useValue: loggerSpy }
             ]
         });

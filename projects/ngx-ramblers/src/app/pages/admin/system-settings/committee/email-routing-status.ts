@@ -14,6 +14,7 @@ import {
   EmailRoutingStatus,
   NonSensitiveCloudflareConfig
 } from "../../../../models/cloudflare-email-routing.model";
+import { StoredValue } from "../../../../models/ui-actions";
 import {
   destinationVerificationStatusFor,
   multiRecipientVerificationDetails,
@@ -251,7 +252,7 @@ function mapResolutionToRouteType(resolution: RoutingResolution): EmailRouteType
                 <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
                 <strong class="ms-2">SMTP credentials not set</strong>
                 <span class="ms-2">Brevo re-send needs an SMTP login and key before it can deliver. Set both in
-                  <a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="{tab: mailApiSettingsTab}">Mail Settings &rarr; Mail API Settings</a>, then return here to deploy.</span>
+                  <a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="mailApiSettingsQueryParams">Mail Settings &rarr; Mail API Settings</a>, then return here to deploy.</span>
               </alert>
             </div>
           }
@@ -387,7 +388,7 @@ export class EmailRoutingStatusComponent implements OnInit, OnDestroy {
   public deployedForwardingMode: EmailForwardingMode | null = null;
   public deployedScriptIsOutOfDate = false;
   public brevoSmtpConfigured = true;
-  protected readonly mailApiSettingsTab = kebabCase(MailSettingsTab.MAIL_API_SETTINGS);
+  protected readonly mailApiSettingsQueryParams = {[StoredValue.TAB]: kebabCase(MailSettingsTab.MAIL_API_SETTINGS)};
 
   @Input() memberEmail: string;
   @Input() showRecipientStatus = true;

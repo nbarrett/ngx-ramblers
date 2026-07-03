@@ -15,6 +15,7 @@ import { PageComponent } from "../../../../page/page.component";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { MailService } from "../../../../services/mail/mail.service";
+import { StoredValue } from "../../../../models/ui-actions";
 
 @Component({
   selector: "app-campaign-detail",
@@ -43,7 +44,7 @@ import { MailService } from "../../../../services/mail/mail.service";
               <div class="text-muted small mt-1">{{ campaignDisplayName }}</div>
             }
           </div>
-          <a [routerLink]="['/' + AdminPath.MAIL_REPORTS]" [queryParams]="{startDate: startDate, endDate: endDate}" class="btn btn-quiet ms-3 text-nowrap campaign-back-button">
+          <a [routerLink]="['/' + AdminPath.MAIL_REPORTS]" [queryParams]="backToReportsQueryParams()" class="btn btn-quiet ms-3 text-nowrap campaign-back-button">
             <fa-icon [icon]="faArrowLeft"/> Back
           </a>
         </div>
@@ -420,6 +421,10 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
   protected startDate: string | null = null;
   protected endDate: string | null = null;
 
+  protected backToReportsQueryParams(): Record<string, string | null> {
+    return {[StoredValue.CAMPAIGN_START_DATE]: this.startDate, [StoredValue.CAMPAIGN_END_DATE]: this.endDate};
+  }
+
   private readonly eventTypeLabels: Record<string, string> = {
     delivered: "Delivered",
     opened: "Opens",
@@ -492,9 +497,9 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.activatedRoute.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
-      this.startDate = params["startDate"] || null;
-      this.endDate = params["endDate"] || null;
-      const campaignId = Number(params["campaignId"]);
+      this.startDate = params[StoredValue.CAMPAIGN_START_DATE] || null;
+      this.endDate = params[StoredValue.CAMPAIGN_END_DATE] || null;
+      const campaignId = Number(params[StoredValue.CAMPAIGN_ID]);
       if (!Number.isFinite(campaignId)) {
         this.error = "Invalid campaign ID";
         this.loading = false;

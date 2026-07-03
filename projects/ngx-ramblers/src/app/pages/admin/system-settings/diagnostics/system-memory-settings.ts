@@ -24,6 +24,7 @@ import {
 import { ALERT_ERROR } from "../../../../models/alert-target.model";
 import { UIDateFormat } from "../../../../models/date-format.model";
 import { SectionToggle } from "../../../../shared/components/section-toggle";
+import { StoredValue } from "../../../../models/ui-actions";
 
 @Component({
   selector: "app-system-memory-settings",
@@ -43,19 +44,19 @@ import { SectionToggle } from "../../../../shared/components/section-toggle";
               <div class="form-group">
                 <label class="d-block">App</label>
                 <app-section-toggle [tabs]="targetTabLabels" [selectedTab]="selectedTargetLabel"
-                                    [queryParamKey]="'app'"
+                                    [queryParamKey]="StoredValue.APP"
                                     (selectedTabChange)="selectTarget($event)"/>
               </div>
               <div class="form-group">
                 <label class="d-block">Metric</label>
                 <app-section-toggle [tabs]="metricTabLabels" [selectedTab]="selectedMetricLabel"
-                                    [queryParamKey]="'metric'"
+                                    [queryParamKey]="StoredValue.METRIC"
                                     (selectedTabChange)="selectMetric($event)"/>
               </div>
               <div class="form-group">
                 <label class="d-block">Range</label>
                 <app-section-toggle [tabs]="historyPresetLabels" [selectedTab]="selectedHistoryPreset"
-                                    [queryParamKey]="'range'"
+                                    [queryParamKey]="StoredValue.RANGE"
                                     (selectedTabChange)="selectHistoryPreset($event)"/>
               </div>
               <div class="form-group">
@@ -267,6 +268,7 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
   protected flyStats: FlyMachineStats | null = null;
   protected historyError: string | null = null;
   protected historyLoading = false;
+  protected readonly StoredValue = StoredValue;
   protected readonly historyPresets: FlyHistoryPreset[] = [
     {label: "15m", minutes: 15},
     {label: "30m", minutes: 30},

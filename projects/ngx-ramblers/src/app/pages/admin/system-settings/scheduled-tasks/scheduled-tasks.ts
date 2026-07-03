@@ -25,6 +25,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { SectionToggle, SectionToggleTab } from "../../../../shared/components/section-toggle";
 import { MailCampaignQueueComponent } from "../mail/mail-campaign-queue";
 import { BackupsTaskSettingsComponent } from "./backups-task-settings";
+import { StoredValue } from "../../../../models/ui-actions";
 
 @Component({
   selector: "app-scheduled-tasks",
@@ -33,7 +34,7 @@ import { BackupsTaskSettingsComponent } from "./backups-task-settings";
     <app-section-toggle
       [tabs]="scheduledTaskSubTabs"
       [(selectedTab)]="scheduledTaskSubTab"
-      [queryParamKey]="'task-sub-tab'"/>
+      [queryParamKey]="StoredValue.TASK_SUB_TAB"/>
     <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Scheduled Tasks</div>
       <div class="col-sm-12">
@@ -206,6 +207,7 @@ export class ScheduledTasksComponent implements OnInit, OnDestroy {
   protected busy = false;
   protected error: string | null = null;
   protected editingTaskId: string | null = null;
+  protected readonly StoredValue = StoredValue;
   protected readonly faPlay = faPlay;
   protected readonly faPencil = faPencil;
   protected readonly faRefresh = faRefresh;

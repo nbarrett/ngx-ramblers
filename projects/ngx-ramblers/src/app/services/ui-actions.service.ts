@@ -1,7 +1,8 @@
 import { inject, Injectable } from "@angular/core";
+import { Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
-import { isObject, isString } from "es-toolkit/compat";
-import { StoredValue } from "../models/ui-actions";
+import { isObject, isString, kebabCase } from "es-toolkit/compat";
+import { StoredValue, StoredValueQueryParameters } from "../models/ui-actions";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { booleanOf as sharedBooleanOf } from "../functions/strings";
 
@@ -11,6 +12,28 @@ import { booleanOf as sharedBooleanOf } from "../functions/strings";
 export class UiActionsService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("UiActionsService", NgxLoggerLevel.ERROR);
+  private router = inject(Router);
+
+  queryParameter(parameter: StoredValue): string | null {
+    return this.router.routerState.snapshot.root.queryParamMap.get(parameter);
+  }
+
+  updateQueryParameter(parameter: StoredValue, value: string | number | boolean | null, replaceUrl = true): Promise<boolean> {
+    return this.updateQueryParameters({[parameter]: value}, replaceUrl);
+  }
+
+  updateQueryParameters(parameters: StoredValueQueryParameters, replaceUrl = true): Promise<boolean> {
+    this.logger.debug("updateQueryParameters:", parameters, "replaceUrl:", replaceUrl);
+    return this.router.navigate([], {queryParams: parameters, queryParamsHandling: "merge", replaceUrl});
+  }
+
+  queryValueAliasFor(value: string): string {
+    return kebabCase(value);
+  }
+
+  queryValueForAlias(alias: string | null, allowedValues: string[]): string | null {
+    return alias ? allowedValues.find(value => value === alias || kebabCase(value) === alias) || null : null;
+  }
 
   initialValueFor(parameter: string, defaultValue?: any): string {
     const localStorageValue = localStorage.getItem(parameter);

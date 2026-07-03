@@ -1,6 +1,6 @@
 import { toPairs, isObject } from "es-toolkit/compat";
 import { Member, MemberFilterSelection } from "./member.model";
-import { BrandingMode, ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
+import { BrandingMode, EmailAttachment, ListInfo, MemberSelection, NotificationConfig, NotificationConfigListing, SendSmtpEmailParams } from "./mail.model";
 import { ApiResponse } from "./api-response.model";
 import { GroupEventSummary, GroupEventsFilter } from "./committee.model";
 import { ExtendedGroupEvent } from "./group-event.model";
@@ -216,6 +216,7 @@ export interface EmailComposerState {
   articleBlocks: ArticleBlock[];
   attachmentUrl: string | null;
   attachmentFilename: string | null;
+  attachments: EmailAttachment[];
   sendingChannel: SendingChannel;
   eventInclusion: EventInclusionMode;
   groupEventsFilter: GroupEventsFilter | null;
@@ -367,6 +368,7 @@ export interface BatchTransactionalSendRequest {
   htmlBodyTop?: string;
   htmlBodyBottom?: string;
   attachmentUrl?: string;
+  attachments?: EmailAttachment[];
   memberIds: string[];
   narrowListId?: number | null;
   externalRecipients?: ComposerExternalRecipient[];
@@ -629,6 +631,7 @@ export function defaultEmailComposerState(): EmailComposerState {
     articleBlocks: [],
     attachmentUrl: null,
     attachmentFilename: null,
+    attachments: [],
     sendingChannel: SendingChannel.CAMPAIGN,
     eventInclusion: EventInclusionMode.NONE,
     groupEventsFilter: null,

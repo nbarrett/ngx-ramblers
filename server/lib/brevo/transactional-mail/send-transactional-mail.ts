@@ -112,6 +112,9 @@ export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailR
   if (emailRequest.bcc?.length > 0) {
     sendSmtpEmail.bcc = emailRequest.bcc;
   }
+  if (emailRequest.attachments?.length > 0) {
+    sendSmtpEmail.attachment = emailRequest.attachments.map(attachment => ({url: attachment.url, name: attachment.name}));
+  }
   const { apiUrl: apiUnsubscribeUrl } = await injectUnsubscribeContext(emailRequest, unsubscribeBaseUrlOverride);
   sendSmtpEmail.headers = mergeHeaders(emailRequest.headers, emailRequest, apiUnsubscribeUrl) as Record<string, unknown>;
   sendSmtpEmail.params = emailRequest.params as unknown as Record<string, unknown>;

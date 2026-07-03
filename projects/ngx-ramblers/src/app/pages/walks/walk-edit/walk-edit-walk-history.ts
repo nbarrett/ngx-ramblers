@@ -1,5 +1,6 @@
 import { Component, inject, Input } from "@angular/core";
 import { DisplayedWalk, EventType, GroupEventField } from "../../../models/walk.model";
+import { InputSource } from "../../../models/group-event.model";
 import { WalkDisplayService } from "../walk-display.service";
 import { DisplayedEvent } from "../../../models/walk-displayed-event.model";
 import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
@@ -175,7 +176,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
         @if (displayedWalk?.walk?.fields?.migratedFromId) {
           <strong class="ms-2">Migrated From Id:</strong> {{ displayedWalk?.walk?.fields?.migratedFromId}}
         }
-        @if (!display.walkPopulationLocal()) {
+        @if (displayedWalk?.walk?.fields?.inputSource === InputSource.WALKS_MANAGER_CACHE) {
           <strong class="ms-2">Synced Version:</strong> {{ displayedWalk?.walk?.syncedVersion || "N/A" }}
           <strong class="ms-2">Last
             Synced:</strong> {{ displayedWalk?.walk?.lastSyncedAt ? (displayedWalk?.walk?.lastSyncedAt | displayDateAndTime) : "N/A" }}
@@ -248,6 +249,7 @@ export class WalkEditHistoryComponent {
   @Input() displayedWalk!: DisplayedWalk;
   private expandedEventIds = new Set<string>();
   protected readonly faRotateLeft = faRotateLeft;
+  protected readonly InputSource = InputSource;
 
   private walksReferenceService = inject(WalksReferenceService);
   private memberIdToFullNamePipe = inject(MemberIdToFullNamePipe);

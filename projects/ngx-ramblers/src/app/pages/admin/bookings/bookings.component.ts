@@ -310,7 +310,7 @@ export enum BookingTab {
                     <h6>Per-event email overrides (optional)</h6>
                     <p class="mb-2 text-muted">
                       These overrides apply only to the selected event. Global booking email wording is configured in
-                      <a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="{tab: 'email-configurations', configuration: 'booking-notification'}"><strong>Admin &gt; Mail Settings &gt; Email Configurations &gt; Booking Notification</strong></a>.
+                      <a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="bookingNotificationQueryParams"><strong>Admin &gt; Mail Settings &gt; Email Configurations &gt; Booking Notification</strong></a>.
                     </p>
                     <div appStickyControls class="d-flex align-items-start gap-2 mb-2 pt-2">
                       <app-section-toggle [tabs]="emailTemplateTabs" [selectedTab]="selectedEventEmailOverrideType" (selectedTabChange)="onEmailTypeTabChange($event)"/>
@@ -643,6 +643,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   bookingPreviewVisible = false;
   bookingConfig: BookingConfig = this.bookingConfigService.default();
   bookingEventTypes = enabledBookingEventTypes(this.bookingConfig);
+  protected readonly bookingNotificationQueryParams = {[StoredValue.TAB]: "email-configurations", [StoredValue.CONFIGURATION]: "booking-notification"};
   protected readonly BookingScope = BookingScope;
   protected readonly StoredValue = StoredValue;
   protected readonly BOOKING_MERGE_FIELD_CATALOGUE = BOOKING_MERGE_FIELD_CATALOGUE;

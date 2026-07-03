@@ -93,7 +93,7 @@ import { RouterLink } from "@angular/router";
               </dd>
             </dl>
           }
-          @if (display.hasWalkLeader(displayedWalk.walk)) {
+          @if (display.hasVisibleLeaderContactDetails(displayedWalk.walk)) {
             <dl (click)="ignoreClicks($event)" class="d-flex mb-1">
               <dt class="font-weight-bold me-2">Leader:</dt>
               <dd>

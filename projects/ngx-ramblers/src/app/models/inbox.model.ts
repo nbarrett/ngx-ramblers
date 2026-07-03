@@ -143,6 +143,14 @@ export interface InboxAttachment {
   contentId?: string | null;
 }
 
+export enum AttachmentPreviewKind {
+  IMAGE = "image",
+  PDF = "pdf",
+  CSV = "csv",
+  TEXT = "text",
+  NONE = "none"
+}
+
 export interface InboxThread extends Identifiable {
   tenantSlug: string;
   roleType: string;

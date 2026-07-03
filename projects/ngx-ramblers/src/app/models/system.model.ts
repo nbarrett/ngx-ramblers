@@ -337,7 +337,8 @@ export enum RootFolder {
   gpxRoutes = "gpx-routes",
   socialEventsImages = "images-social-events",
   esriRoutes = "esri-routes",
-  inboxAttachments = "inbox-attachments"
+  inboxAttachments = "inbox-attachments",
+  emailAttachments = "email-attachments"
 }
 
 export enum NavBarLocation {

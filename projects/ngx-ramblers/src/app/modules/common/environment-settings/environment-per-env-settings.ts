@@ -440,8 +440,8 @@ export class EnvironmentPerEnvSettings implements OnChanges, OnInit, OnDestroy {
   protected environmentSiteTag: string | null = null;
 
   protected readonly InputSize = InputSize;
-  protected readonly environmentSetupGlobalQueryParams = {tab: toKebabCase(EnvironmentSetupTab.SETTINGS), "sub-tab": EnvironmentSettingsSubTab.GLOBAL};
-  protected readonly systemSettingsAreaGroupQueryParams = {tab: toKebabCase(SystemSettingsTab.AREA_AND_GROUP)};
+  protected readonly environmentSetupGlobalQueryParams = {[StoredValue.TAB]: toKebabCase(EnvironmentSetupTab.SETTINGS), [StoredValue.SUB_TAB]: EnvironmentSettingsSubTab.GLOBAL};
+  protected readonly systemSettingsAreaGroupQueryParams = {[StoredValue.TAB]: toKebabCase(SystemSettingsTab.AREA_AND_GROUP)};
   protected readonly faBackward = faBackward;
   protected readonly faForward = faForward;
   protected readonly faCopy = faCopy;

@@ -17,6 +17,7 @@ import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ALERT_WARNING } from "../../../../models/alert-target.model";
 import { EM_DASH } from "../../../../models/content-text.model";
+import { StoredValue } from "../../../../models/ui-actions";
 import { HttpClient } from "@angular/common/http";
 import { EventTypeSettingsComponent } from "./event-type-settings";
 import { TagManagerComponent } from "../../../tag/tag-manager.component";
@@ -156,7 +157,7 @@ import { RouterLink } from "@angular/router";
     <div class="row thumbnail-heading-frame mt-3">
       <div class="thumbnail-heading">Event Configuration</div>
       <div class="col-sm-12">
-        <p class="mb-3">Per-link toggles for the Related Links box live in <a routerLink="/walks/admin/config" [queryParams]="{tab: 'walk-view'}"><strong>Admin &gt; Walks &gt; Walk Configuration &gt; Walk View</strong></a>.</p>
+        <p class="mb-3">Per-link toggles for the Related Links box live in <a routerLink="/walks/admin/config" [queryParams]="walkViewQueryParams"><strong>Admin &gt; Walks &gt; Walk Configuration &gt; Walk View</strong></a>.</p>
         <div class="row">
           <div class="col-md-6">
             <app-event-type-settings [config]="config" [eventType]="RamblersEventType.GROUP_WALK"/>
@@ -218,6 +219,7 @@ export class AreaAndGroupSettingsComponent implements OnInit {
   selectedGroups: RamblersGroupsApiResponse[] = [];
   areaGroup: RamblersGroupsApiResponse;
   public selectionMode: string;
+  protected readonly walkViewQueryParams = {[StoredValue.TAB]: "walk-view"};
   protected readonly Status = Status;
   protected areaQueryStatus: Status = Status.INFO;
   protected groupQueryStatus: Status = Status.INFO;

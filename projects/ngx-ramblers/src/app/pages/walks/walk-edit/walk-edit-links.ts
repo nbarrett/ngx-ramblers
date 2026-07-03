@@ -23,6 +23,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { isBoolean, isNull, isUndefined } from "es-toolkit/compat";
 import { enumValues } from "../../../functions/enums";
 import { SectionToggle } from "../../../shared/components/section-toggle";
+import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-walk-edit-related-links",
@@ -41,7 +42,7 @@ import { SectionToggle } from "../../../shared/components/section-toggle";
           <div class="col-sm-12">
             <app-section-toggle [tabs]="tabs"
                                 [(selectedTab)]="selectedTab"
-                                [queryParamKey]="'sub-tab'"/>
+                                [queryParamKey]="StoredValue.SUB_TAB"/>
             <div class="img-thumbnail thumbnail-walk-edit mt-3">
               @if (selectedTab === RelatedLinksTab.RAMBLERS) {
                 <div class="thumbnail-heading">Ramblers</div>
@@ -259,6 +260,7 @@ export class WalkEditRelatedLinksComponent implements OnInit {
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private linksService = inject(LinksService);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditRelatedLinksComponent", NgxLoggerLevel.ERROR);
+  protected readonly StoredValue = StoredValue;
   protected readonly LinkSource = LinkSource;
   protected readonly RelatedLinksTab = RelatedLinksTab;
   protected walkSignal: WritableSignal<ExtendedGroupEvent>;

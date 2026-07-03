@@ -30,7 +30,7 @@ import { ProfileConfirmationService } from "../../../services/profile-confirmati
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
-import { MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM, MailListAudit, MailMessagingConfig, MemberAdminModalTab } from "../../../models/mail.model";
+import { MailListAudit, MailMessagingConfig, MemberAdminModalTab } from "../../../models/mail.model";
 import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
@@ -119,12 +119,12 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    const initialTab = this.activatedRoute.snapshot.queryParams[MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM];
+    const initialTab = this.activatedRoute.snapshot.queryParams[StoredValue.MODAL_TAB];
     if (initialTab && values(MemberAdminModalTab).includes(initialTab)) {
       this.activeTabKey = initialTab as MemberAdminModalTab;
     }
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
-      const paramValue = params[MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM];
+      const paramValue = params[StoredValue.MODAL_TAB];
       if (paramValue && values(MemberAdminModalTab).includes(paramValue)) {
         this.activeTabKey = paramValue as MemberAdminModalTab;
       }
@@ -218,7 +218,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     }
     this.activeTabKey = tab;
     this.router.navigate([], {
-      queryParams: { [MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM]: tab },
+      queryParams: { [StoredValue.MODAL_TAB]: tab },
       queryParamsHandling: "merge"
     });
   }
@@ -269,7 +269,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
 
   goToUnsubscribesPage() {
     this.bsModalRef.hide();
-    this.router.navigate(["/" + AdminPath.MAIL_SETTINGS], { queryParams: { tab: "unsubscribes" } });
+    this.router.navigate(["/" + AdminPath.MAIL_SETTINGS], { queryParams: { [StoredValue.TAB]: "unsubscribes" } });
   }
 
   onMembershipDateChange(dateValue: DateValue) {

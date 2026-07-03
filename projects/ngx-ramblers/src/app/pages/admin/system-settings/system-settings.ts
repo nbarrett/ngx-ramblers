@@ -86,7 +86,7 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
                   <app-section-toggle
                     [tabs]="mediaSubTabs"
                     [(selectedTab)]="mediaSubTab"
-                    [queryParamKey]="'media-sub-tab'"/>
+                    [queryParamKey]="StoredValue.MEDIA_SUB_TAB"/>
                   @if (mediaSubTab === MediaSubTab.BACKGROUNDS) {
                     <div app-image-collection-settings
                          [rootFolder]="backgrounds"
@@ -344,7 +344,7 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
                     <app-section-toggle
                       [tabs]="externalSystemSubTabs"
                       [(selectedTab)]="externalSystemSubTab"
-                      [queryParamKey]="'sub-tab'"
+                      [queryParamKey]="StoredValue.SUB_TAB"
                       [fullWidth]="true"/>
                     @if (showSubTab(ExternalSystemsSubTab.RAMBLERS)) {
                         <app-ramblers-settings [config]="config" (syncingChange)="walksManagerSyncBusy=$event"/>
@@ -466,6 +466,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   protected readonly colourSelectorsDarkLight = colourSelectorsDarkLight;
   protected readonly colourSelectors = colourSelectors;
   private tab: SystemSettingsTab = SystemSettingsTab.AREA_AND_GROUP;
+  protected readonly StoredValue = StoredValue;
   protected readonly SystemSettingsTab = SystemSettingsTab;
   protected readonly ExternalSystemsSubTab = ExternalSystemsSubTab;
   protected readonly MediaSubTab = MediaSubTab;
@@ -511,7 +512,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     });
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
       const defaultValue = kebabCase(SystemSettingsTab.AREA_AND_GROUP);
-      const tabParameter = params["tab"];
+      const tabParameter = params[StoredValue.TAB];
       const tab = tabParameter || defaultValue;
       const mediaSubTab = this.legacyMediaSubTab(tab);
       this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue, "selectTab:", tab);

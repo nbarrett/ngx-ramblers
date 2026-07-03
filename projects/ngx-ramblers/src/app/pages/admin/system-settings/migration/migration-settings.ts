@@ -50,7 +50,7 @@ import { ContentTemplateType, EM_DASH_WITH_SPACES, PageContent } from "../../../
 import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
 import { ClipboardService } from "../../../../services/clipboard.service";
 import { UiActionsService } from "../../../../services/ui-actions.service";
-import { StoredValue } from "../../../../models/ui-actions";
+import { StoredValue, StoredValueQueryParameters } from "../../../../models/ui-actions";
 import { PageContentService } from "../../../../services/page-content.service";
 
 type SitePasteState = { active: boolean; value: string; error?: string };
@@ -805,9 +805,9 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
     });
     this.activityNotifier = this.notifierService.createAlertInstance(this.activityTarget);
     this.route.queryParams.subscribe(params => {
-      const tab = params["tab"];
+      const tab = params[StoredValue.TAB];
       this.activeTabId = tab && values(this.MigrationTab).includes(tab) ? tab : this.MigrationTab.SETTINGS;
-      this.pendingSessionParam = params["session"];
+      this.pendingSessionParam = params[StoredValue.SESSION];
     });
     this.webSocketClientService.connect().then(() => {
       this.subscriptions.push(this.webSocketClientService.receiveMessages<any>(MessageType.PROGRESS).subscribe((data: any) => {
@@ -1264,9 +1264,9 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
   }
 
   private updateUrl(): void {
-    const queryParams: any = { tab: this.activeTabId };
+    const queryParams: StoredValueQueryParameters = { [StoredValue.TAB]: this.activeTabId };
     if (this.selectedHistory?.createdDate) {
-      queryParams.session = this.sessionToUrlParam(this.selectedHistory.createdDate);
+      queryParams[StoredValue.SESSION] = this.sessionToUrlParam(this.selectedHistory.createdDate);
     }
 
     this.router.navigate([], {
