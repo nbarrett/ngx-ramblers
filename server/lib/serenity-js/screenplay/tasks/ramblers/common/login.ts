@@ -13,11 +13,12 @@ import {
 import { Accept } from "./accept-cookie-prompt";
 import { Environment } from "../../../../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { DEFAULT_WAIT_TIMEOUT } from "../../../../config/serenity-timeouts";
+import { Retry } from "../../common/retry";
 
 export class Login extends Task {
 
   static toRamblers() {
-    return new Login("#actor logs into Walks and Events Manager");
+    return Retry.times(2).each(new Login("#actor logs into Walks and Events Manager"));
   }
 
   performAs(actor: PerformsActivities & AnswersQuestions): Promise<void> {
