@@ -45,7 +45,6 @@ import { appIpAddresses } from "../../fly/fly-certificates";
 import { booleanOf } from "../../shared/string-utils";
 import * as systemConfig from "../../config/system-config";
 import { FLYIO_DEFAULTS } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
-import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 import { ADMIN_SET_PASSWORD_PATH } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { keys } from "es-toolkit/compat";
 import {
@@ -58,7 +57,6 @@ import {
 import AdmZip from "adm-zip";
 import { buildContributorBundle } from "../../contributor-environment/contributor-bundle";
 import { cloneDatabase, databaseHasCollections } from "../../contributor-environment/clone-database";
-import { isBoolean } from "es-toolkit/compat";
 
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:routes"));
@@ -276,13 +274,8 @@ async function localSocialEventsExist(): Promise<boolean> {
 }
 
 async function resolveNgxLite(): Promise<boolean> {
-  try {
-    const system = await systemConfig.systemConfig();
-    if (isBoolean(system?.ngxLite)) {
-      return system.ngxLite;
-    }
-  } catch (error) {
-    debugLog("Failed to read ngxLite from system config:", error);
+  if (process.env[Environment.NGX_LITE] !== undefined) {
+    return booleanOf(process.env[Environment.NGX_LITE]);
   }
   try {
     const mongoUri = envConfig.mongo().uri;
@@ -321,21 +314,15 @@ async function liteHomeTemplate(): Promise<PageContent> {
   return stored?.rows?.length ? stored : liteHomeTemplatePageContent();
 }
 
-async function applyLiteToEnvironment(environment: string, ngxLite: boolean, template: PageContent): Promise<void> {
+async function applyLiteTemplateToEnvironment(environment: string, template: PageContent): Promise<void> {
   const context = await loadEnvironmentContext(environment);
   const connection = await connectToEnvironmentMongo(context.envConfigData);
   try {
-    await connection.db.collection("config").updateOne(
-      { key: ConfigKey.SYSTEM },
-      { $set: { "value.ngxLite": ngxLite } }
+    await connection.db.collection("pageContent").updateOne(
+      { path: LITE_HOME_TEMPLATE_PATH },
+      { $set: { path: LITE_HOME_TEMPLATE_PATH, rows: template.rows } },
+      { upsert: true }
     );
-    if (ngxLite) {
-      await connection.db.collection("pageContent").updateOne(
-        { path: LITE_HOME_TEMPLATE_PATH },
-        { $set: { path: LITE_HOME_TEMPLATE_PATH, rows: template.rows } },
-        { upsert: true }
-      );
-    }
   } finally {
     await connection.client.close();
   }
@@ -344,22 +331,22 @@ async function applyLiteToEnvironment(environment: string, ngxLite: boolean, tem
 router.post("/sync-ngx-lite", async (req: Request, res: Response) => {
   if (!validateSetupAccess(req, res)) return;
   try {
-    const environments = (await configuredEnvironments()).environments || [];
+    const liteEnvironments = ((await configuredEnvironments()).environments || []).filter(env => env.ngxLite === true);
     const template = await liteHomeTemplate();
-    const outcomes = await Promise.allSettled(environments.map(env =>
-      applyLiteToEnvironment(env.environment, env.ngxLite === true, template)));
-    const zipped = environments.map((env, index) => ({ env, status: outcomes[index].status }));
+    const outcomes = await Promise.allSettled(liteEnvironments.map(env =>
+      applyLiteTemplateToEnvironment(env.environment, template)));
+    const zipped = liteEnvironments.map((env, index) => ({ env, status: outcomes[index].status }));
     const applied = zipped
       .filter(item => item.status === "fulfilled")
-      .map(item => ({ environment: item.env.environment, ngxLite: item.env.ngxLite === true }));
+      .map(item => ({ environment: item.env.environment, ngxLite: true }));
     const failed = zipped
       .filter(item => item.status === "rejected")
       .map(item => item.env.environment);
-    debugLog("sync-ngx-lite applied to %d environments, %d unreachable", applied.length, failed.length);
+    debugLog("sync-ngx-lite template applied to %d lite environments, %d unreachable", applied.length, failed.length);
     res.json({ applied, failed });
   } catch (error) {
-    debugLog("Failed to sync ngxLite:", error.message);
-    res.status(500).json({ error: `Failed to sync NGX-Lite: ${error.message}` });
+    debugLog("Failed to sync NGX-Lite template:", error.message);
+    res.status(500).json({ error: `Failed to sync NGX-Lite template: ${error.message}` });
   }
 });
 

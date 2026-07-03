@@ -36,7 +36,7 @@ import { AlertInstance } from "../../../services/notifier.service";
                  [(ngModel)]="importTypeOptions.importType"/>
           <label class="form-check-label me-3 text-nowrap"
                  for="area-selection-mode">Import to Existing Group</label>
-          <app-group-selector class="flex-grow-1" [disabled]="importTypeOptions.importType===ImportType.UNLISTED_GROUP"
+          <app-group-selector class="flex-grow-1" dropdownPosition="top" [disabled]="importTypeOptions.importType===ImportType.UNLISTED_GROUP"
                               [areaCode]="systemConfig.area.groupCode"
                               [groupCode]="importTypeOptions.existingGroupCodeAndName.group_code"
                               (groupChanged)="groupChange($event)"/>

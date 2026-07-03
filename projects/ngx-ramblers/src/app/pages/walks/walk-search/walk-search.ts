@@ -160,10 +160,10 @@ interface DateRangePreset {
         }
         @if (alertInline() && showAlerts && notifyTarget.showAlert) {
           <div class="mb-2 mb-lg-0 flex-lg-fill d-flex justify-content-end">
-            <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center">
+            <div class="alert {{notifyTarget.alertClass}} my-0 d-flex align-items-center flex-shrink-0 text-nowrap">
               <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
               <span class="flex-shrink-0 ms-2"><strong>{{ notifyTarget.alertTitle }}</strong></span>
-              <span class="ms-1">{{ notifyTarget.alertMessage }}</span>
+              <span class="ms-1 text-nowrap">{{ notifyTarget.alertMessage }}</span>
             </div>
           </div>
         }

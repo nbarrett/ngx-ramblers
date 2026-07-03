@@ -2,7 +2,7 @@ import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { GroupEventField } from "../../../models/walk.model";
 import { RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../models/ramblers-walks-manager";
-import { NgSelectComponent } from "@ng-select/ng-select";
+import { DropdownPosition, NgSelectComponent } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -19,6 +19,7 @@ import { NgTemplateOutlet } from "@angular/common";
     <ng-template #select>
       <ng-select id="group-select"
                  [appendTo]="'body'"
+                 [dropdownPosition]="dropdownPosition"
                  [items]="availableGroups"
                  bindLabel="ngSelectAttributes.label"
                  bindValue="group_code"
@@ -55,6 +56,7 @@ export class GroupSelector implements OnInit {
   @Output() groupChanged: EventEmitter<RamblersGroupsApiResponse> = new EventEmitter();
   @Output() areaChanged: EventEmitter<RamblersGroupsApiResponse> = new EventEmitter();
   @Input() disabled!: boolean;
+  @Input() dropdownPosition: DropdownPosition = "auto";
 
   async ngOnInit() {
     this.logger.info("ngOnInit:areaCode:", this.areaCode, "groupCode(s):", this.groupCode, "firstGroupCode:", this.firstGroupCode());

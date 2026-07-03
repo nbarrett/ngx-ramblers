@@ -34,6 +34,9 @@ import { StepperModule } from "primeng/stepper";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../../models/ui-actions";
 import { isUndefined } from "es-toolkit/compat";
+import { Subject, Subscription } from "rxjs";
+import { debounceTime } from "rxjs/operators";
+import { SystemConfigService } from "../../../../services/system/system-config.service";
 
 export enum GmailInboxSetupStepKey {
   CLOUD_PROJECT = "cloud-project",
@@ -98,6 +101,7 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                             <div class="form-group">
                               <label for="google-inbox-client-id">OAuth Client ID</label>
                               <input [(ngModel)]="systemConfigInternal.googleInbox.clientId"
+                                     (ngModelChange)="onOAuthFieldChange()"
                                      type="text" class="form-control input-sm" id="google-inbox-client-id"
                                      name="googleInboxClientId"
                                      placeholder="Enter the Google OAuth web client ID">
@@ -108,6 +112,7 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                               <label for="google-inbox-client-secret">OAuth Client Secret</label>
                               <app-secret-input
                                 [(ngModel)]="systemConfigInternal.googleInbox.clientSecret"
+                                (ngModelChange)="onOAuthFieldChange()"
                                 id="google-inbox-client-secret"
                                 name="googleInboxClientSecret"
                                 [size]="InputSize.SM"
@@ -119,6 +124,7 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                             <div class="form-group">
                               <label for="google-inbox-redirect-uri">OAuth Redirect URI</label>
                               <input [(ngModel)]="systemConfigInternal.googleInbox.redirectUri"
+                                     (ngModelChange)="onOAuthFieldChange()"
                                      type="text" class="form-control input-sm" id="google-inbox-redirect-uri"
                                      name="googleInboxRedirectUri"
                                      placeholder="https://this-deployment-host/api/inbox/oauth/callback">
@@ -128,6 +134,22 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                             </div>
                           </div>
                         </div>
+                        @if (oauthSaving) {
+                          <div class="mb-2">
+                            <small class="text-muted"><fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>Saving OAuth
+                              web-client…</small>
+                          </div>
+                        } @else if (oauthSaveError) {
+                          <div class="alert alert-warning py-2 small mb-2">
+                            <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                            <strong>OAuth web-client not saved:</strong> {{ oauthSaveError }}
+                          </div>
+                        } @else if (oauthSaved) {
+                          <div class="mb-2">
+                            <small class="text-success"><fa-icon [icon]="faCircleCheck" class="me-1"/>OAuth web-client saved
+                              automatically. There's no separate Save to press.</small>
+                          </div>
+                        }
                         @if (oAuthClientConfigured()) {
                           <div class="mb-2">
                             @if (!clearConfirmPending) {
@@ -138,9 +160,9 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                             } @else {
                               <div class="alert alert-warning py-2 small mb-0">
                                 <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
-                                This blanks the OAuth Client ID, Secret, Redirect URI and any Pub/Sub setup below.
-                                <strong>Save the system configuration afterwards</strong> to persist it. Connected Gmail
-                                accounts are not affected &mdash; remove those individually in step 2.
+                                This blanks the OAuth Client ID, Secret, Redirect URI and any Pub/Sub setup below, and
+                                <strong>saves the change immediately</strong>. Connected Gmail accounts are not affected
+                                &mdash; remove those individually in step 2.
                                 <div class="mt-2">
                                   <button class="btn btn-outline-danger btn-sm me-2" type="button"
                                           (click)="clearOAuthClient()">Clear OAuth client</button>
@@ -305,6 +327,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   private logger = inject(LoggerFactory).createLogger("SystemGmailInboxSettingsComponent", NgxLoggerLevel.ERROR);
   private inboxService = inject(InboxService);
   private notifierService = inject(NotifierService);
+  private systemConfigService = inject(SystemConfigService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   protected readonly InputSize = InputSize;
@@ -323,6 +346,13 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected topicNameInput = "ngx-inbox-events";
   protected projectOverride = "";
   protected clearConfirmPending = false;
+  protected oauthSaving = false;
+  protected oauthSaved = false;
+  protected oauthSaveError: string | null = null;
+  private oauthDirty = false;
+  private oauthEditVersion = 0;
+  private oauthSave$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
   protected busy = false;
   protected statusTitle: string | null = null;
   protected statusMessage: string | null = null;
@@ -370,6 +400,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit(): Promise<void> {
+    this.subscriptions.push(this.oauthSave$.pipe(debounceTime(1000)).subscribe(() => this.autoSaveOAuthClient()));
     await this.refreshSetupStatus();
     this.clearSetupStartedParam();
   }
@@ -381,6 +412,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
     if (this.setupPollTimer) {
       clearTimeout(this.setupPollTimer);
       this.setupPollTimer = null;
@@ -455,8 +487,41 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     this.topicNameInput = "ngx-inbox-events";
     this.clearConfirmPending = false;
     this.errorMessage = null;
-    this.statusTitle = "OAuth client cleared";
-    this.statusMessage = "Save the system configuration to persist the change.";
+    this.statusTitle = null;
+    this.statusMessage = null;
+    this.oauthDirty = true;
+    this.oauthEditVersion++;
+    this.oauthSaved = false;
+    this.oauthSaveError = null;
+    void this.autoSaveOAuthClient();
+  }
+
+  onOAuthFieldChange(): void {
+    this.oauthDirty = true;
+    this.oauthEditVersion++;
+    this.oauthSaved = false;
+    this.oauthSaveError = null;
+    this.oauthSave$.next();
+  }
+
+  private async autoSaveOAuthClient(): Promise<void> {
+    if (!this.systemConfigInternal) {
+      return;
+    }
+    const versionAtSaveStart = this.oauthEditVersion;
+    this.oauthSaving = true;
+    this.oauthSaveError = null;
+    try {
+      await this.systemConfigService.saveConfig(this.systemConfigInternal);
+      if (this.oauthEditVersion === versionAtSaveStart) {
+        this.oauthDirty = false;
+        this.oauthSaved = true;
+      }
+    } catch (error) {
+      this.oauthSaveError = (error as Error)?.message || "Save failed - try again or use the page Save button.";
+    } finally {
+      this.oauthSaving = false;
+    }
   }
 
   async runSetup(): Promise<void> {
@@ -514,7 +579,11 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   }
 
   private handleConfigChange(systemConfig: SystemConfig) {
+    const preservedGoogleInbox = this.oauthDirty ? this.systemConfigInternal?.googleInbox : null;
     this.systemConfigInternal = systemConfig;
+    if (this.systemConfigInternal && preservedGoogleInbox) {
+      this.systemConfigInternal.googleInbox = preservedGoogleInbox;
+    }
     if (this.systemConfigInternal && !this.systemConfigInternal.googleInbox) {
       this.systemConfigInternal.googleInbox = {clientId: "", clientSecret: "", redirectUri: ""};
     }
