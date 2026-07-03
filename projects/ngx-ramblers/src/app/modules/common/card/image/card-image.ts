@@ -2,7 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { faImage, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ImageType } from "../../../../models/content-text.model";
+import { ImageFit, ImageType } from "../../../../models/content-text.model";
 import { ImageMessage } from "../../../../models/images.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { UrlService } from "../../../../services/url.service";
@@ -16,7 +16,7 @@ import { DescribedDimensions } from "../../../../models/aws-object.model";
 import { FileUtilsService } from "../../../../file-utils.service";
 import { isUndefined } from "es-toolkit/compat";
 import { CropperDebugOffsets, ImageCropperPosition } from "../../../../models/image-cropper.model";
-import { cropperImageStyles, cropperWrapperStyles } from "../../../../functions/image-cropper-styles";
+import { cropperImageStyles, cropperWrapperStyles, isUsefulCropperPosition } from "../../../../functions/image-cropper-styles";
 import { FocalPoint } from "../../../../models/image-cropper.model";
 
 @Component({
@@ -142,6 +142,15 @@ export class CardImageComponent implements OnInit {
   @Input() public icon: IconProp;
   @Input() public borderRadius: number;
   @Input() public aspectRatio: DescribedDimensions;
+  @Input("padding") set paddingValue(padding: number) {
+    this.padding = padding || 0;
+  }
+  @Input("showBorder") set showBorderValue(showBorder: boolean) {
+    this.showBorder = coerceBooleanProperty(showBorder);
+  }
+  @Input("imageFit") set imageFitValue(imageFit: ImageFit) {
+    this.imageFit = imageFit || ImageFit.COVER;
+  }
   @Input("objectPositionY") set objectPositionYValue(objectPositionY: number) {
     this.objectPositionY = isUndefined(objectPositionY) ? null : objectPositionY;
   }
@@ -161,6 +170,9 @@ export class CardImageComponent implements OnInit {
   public objectPositionY: number = null;
   public cropperPosition: ImageCropperPosition = null;
   public focalPoint: FocalPoint = null;
+  public padding = 0;
+  public showBorder = false;
+  public imageFit = ImageFit.COVER;
 
   faSearch = faSearch;
 
@@ -221,17 +233,20 @@ export class CardImageComponent implements OnInit {
     if (!this.noBorderRadius) {
       styles["border-radius.px"] = !isUndefined(this.borderRadius) ? this.borderRadius : 6;
     }
+    this.applyFrameStyles(styles);
     if (this.aspectRatio) {
       styles["aspect-ratio"] = `${this.aspectRatio.width} / ${this.aspectRatio.height}`;
-      styles["object-fit"] = "cover";
+      styles["object-fit"] = this.imageFit;
     }
     if (this.focalPoint) {
-      styles["object-fit"] = "cover";
+      styles["object-fit"] = this.imageFit;
       styles["object-position"] = `${this.focalPoint.x}% ${this.focalPoint.y}%`;
     } else if (this.objectPositionY !== null) {
       const clampedObjectPosition = Math.max(0, Math.min(100, this.objectPositionY));
-      styles["object-fit"] = "cover";
+      styles["object-fit"] = this.imageFit;
       styles["object-position"] = `50% ${clampedObjectPosition}%`;
+    } else if (this.fixedHeight || this.constrainedHeight) {
+      styles["object-fit"] = this.imageFit;
     }
     return styles;
   }
@@ -254,6 +269,7 @@ export class CardImageComponent implements OnInit {
     if (!this.noBorderRadius) {
       styles["border-radius.px"] = !isUndefined(this.borderRadius) ? this.borderRadius : 6;
     }
+    this.applyFrameStyles(styles);
     return styles;
   }
 
@@ -262,7 +278,7 @@ export class CardImageComponent implements OnInit {
     const styles: any = {
       width: "100%",
       height: "100%",
-      "object-fit": "cover",
+      "object-fit": this.imageFit,
       "object-position": `${this.focalPoint.x}% ${this.focalPoint.y}%`
     };
     if (zoom > 1) {
@@ -273,10 +289,27 @@ export class CardImageComponent implements OnInit {
   }
 
   cropperWrapperStyles(): any {
-    return cropperWrapperStyles(this.constrainedHeight, this.borderRadius, this.noBorderRadius);
+    const styles = cropperWrapperStyles(this.constrainedHeight, this.borderRadius, this.noBorderRadius);
+    this.applyFrameStyles(styles);
+    return styles;
   }
 
   cropperImageStyles(): any {
-    return cropperImageStyles(this.cropperPosition, this.constrainedHeight, this.cropperDebugOffsets);
+    const styles = cropperImageStyles(this.cropperPosition, this.constrainedHeight, this.cropperDebugOffsets);
+    if (!isUsefulCropperPosition(this.cropperPosition)) {
+      styles["object-fit"] = this.imageFit;
+    }
+    return styles;
+  }
+
+  private applyFrameStyles(styles: any) {
+    if (this.padding > 0) {
+      styles["padding.px"] = this.padding;
+      styles["box-sizing"] = "border-box";
+      styles["background-color"] = "#fff";
+    }
+    if (this.showBorder) {
+      styles["border-bottom"] = "1px solid rgba(0, 0, 0, 0.12)";
+    }
   }
 }

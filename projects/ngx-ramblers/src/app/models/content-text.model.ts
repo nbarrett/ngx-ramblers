@@ -282,6 +282,9 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   youtubeId?: string;
   alt?: string;
   imageBorderRadius?: number;
+  imageBorder?: boolean;
+  imagePadding?: number;
+  imageFit?: ImageFit;
   imageHeight?: number;
   imageVerticalPosition?: number;
   imageCropperPosition?: ImageCropperPosition | null;

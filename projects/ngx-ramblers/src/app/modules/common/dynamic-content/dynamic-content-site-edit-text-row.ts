@@ -320,10 +320,14 @@ import { ClipboardService } from "../../../services/clipboard.service";
                         <div>
                           <app-card-image class="w-100"
                                           [borderRadius]="column.imageBorderRadius"
+                                          [showBorder]="column.imageBorder"
+                                          [padding]="column.imagePadding"
+                                          [imageFit]="column.imageFit"
                                           [aspectRatio]="column.imageAspectRatio"
                                           [alt]="column.alt"
                                           [unconstrainedHeight]="!column.imageHeight"
                                           [height]="column.imageHeight"
+                                          [focalPoint]="column.imageFocalPoint"
                                           [imageSource]="imageDisplay(rowIndex, columnIndex, column).url"/>
                           @if (controlsShown(column) && column.imageSource) {
                             <app-resizer orientation="vertical" variant="tab"
@@ -949,6 +953,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   removeImage(column: PageContentColumn) {
     column.imageSource = null;
     column.imageCropperPosition = null;
+    column.imageFocalPoint = null;
   }
 
   replaceImage(column: PageContentColumn, rowIndex: number, columnIndex: number) {
@@ -1090,28 +1095,26 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     $event.preventDefault();
     $event.stopPropagation();
     if (this.actions.draggedColumnIsNested !== this.isNestedLevel()) { return; }
+    if (this.actions.isActionButtons(this.actions.draggedColumnSourceRow)) { return; }
     const sourceColumnIndex = this.actions.draggedColumnIndex;
     const sourceRow = this.actions.draggedColumnSourceRow;
     const targetRow = this.row;
     if (isNull(sourceRow) || isNull(sourceColumnIndex)) { return; }
     const insertAfter = this.actions.dragInsertAfter && this.actions.dragOverColumnRowIndex === this.rowIndex && this.actions.dragOverColumnIndex === targetColumnIndex;
-    let insertionIndex = targetColumnIndex + (insertAfter ? 1 : 0);
     if (sourceRow === targetRow && sourceColumnIndex === targetColumnIndex && !insertAfter) {
       this.actions.clearColumnDragState();
       return;
     }
     if (sourceRow === targetRow) {
-      const cols = targetRow.columns;
-      const [item] = cols.splice(sourceColumnIndex, 1);
-      if (insertionIndex > sourceColumnIndex) { insertionIndex--; }
-      cols.splice(insertionIndex, 0, item);
+      this.actions.moveColumnWithinRow(targetRow.columns, sourceColumnIndex, targetColumnIndex, insertAfter);
     } else {
-      this.actions.moveColumnBetweenRows(sourceRow, sourceColumnIndex, targetRow, insertionIndex);
+      this.actions.moveColumnBetweenRows(sourceRow, sourceColumnIndex, targetRow, targetColumnIndex + (insertAfter ? 1 : 0));
     }
     this.actions.clearColumnDragState();
   }
 
   onEmptyRowDrop() {
+    if (this.actions.isActionButtons(this.actions.draggedColumnSourceRow)) { return; }
     const sourceColumnIndex = this.actions.draggedColumnIndex;
     const sourceRow = this.actions.draggedColumnSourceRow;
     const targetRow = this.row;
@@ -1124,6 +1127,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     $event.preventDefault();
     $event.stopPropagation();
     if (this.actions.draggedColumnIsNested !== this.isNestedLevel()) { return; }
+    if (this.actions.isActionButtons(this.actions.draggedColumnSourceRow)) { return; }
     const dx = ($event?.clientX || 0) - (this.actions.dragStartX || 0);
     const dy = ($event?.clientY || 0) - (this.actions.dragStartY || 0);
     if (!this.actions.dragHasMoved && (Math.abs(dx) + Math.abs(dy) > 3)) { this.actions.dragHasMoved = true; }
