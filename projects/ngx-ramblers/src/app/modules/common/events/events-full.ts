@@ -15,7 +15,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { LoginResponse } from "../../../models/member.model";
 import { DeviceSize } from "../../../models/page.model";
 import { EventPopulation } from "../../../models/system.model";
-import { DisplayedWalk, EventEventField, EventField, GroupEventField, WalkListView } from "../../../models/walk.model";
+import { DisplayedWalk, EventEventField, EventField, GroupEventField, PUBLIC_GROUP_EVENT_SELECT, WalkListView } from "../../../models/walk.model";
 import { EventsData } from "../../../models/group-events.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -465,6 +465,9 @@ export class EventsFull implements OnInit, OnDestroy {
       } else {
         dataQueryOptions.page = this.pageNumber;
         dataQueryOptions.limit = this.pageSize;
+        if (!this.memberLoginService.memberLoggedIn()) {
+          dataQueryOptions.select = PUBLIC_GROUP_EVENT_SELECT;
+        }
       }
       const response = await this.localWalksAndEventsService.allWithPagination(dataQueryOptions);
       if (thisSearchId === this.latestSearchId) {

@@ -530,3 +530,31 @@ export enum DetailsTab {
   ROUTE = "Route",
   ROUTE_AND_VENUE = "Route & Venue"
 }
+
+export const PUBLIC_GROUP_EVENT_SELECT: Record<string, number> = {
+  [GroupEventField.ID]: 1,
+  [GroupEventField.TITLE]: 1,
+  [GroupEventField.ITEM_TYPE]: 1,
+  [GroupEventField.START_DATE]: 1,
+  [GroupEventField.START_LOCATION]: 1,
+  [GroupEventField.DESCRIPTION]: 1,
+  [GroupEventField.MEDIA]: 1,
+  [GroupEventField.URL]: 1,
+  [GroupEventField.GROUP_CODE]: 1,
+  [GroupEventField.DIFFICULTY]: 1,
+  [GroupEventField.DISTANCE_MILES]: 1,
+  [GroupEventField.DISTANCE_KM]: 1,
+  [GroupEventField.ASCENT_FEET]: 1,
+  [GroupEventField.ASCENT_METRES]: 1,
+  [GroupEventField.STATUS]: 1,
+  [GroupEventField.CANCELLATION_REASON]: 1,
+  [GroupEventField.LOCATION]: 1,
+  [GroupEventField.END_LOCATION]: 1,
+  [GroupEventField.SHAPE]: 1,
+  [GroupEventField.END_DATE_TIME]: 1,
+  [GroupEventField.EVENT_ORGANISER]: 1,
+  [EventField.CONTACT_DETAILS]: 1,
+  [EventField.ATTACHMENT]: 1,
+  [EventField.INPUT_SOURCE]: 1,
+  [EventField.IMAGE_CONFIG]: 1,
+};
