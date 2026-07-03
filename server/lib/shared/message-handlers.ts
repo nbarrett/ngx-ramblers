@@ -7,6 +7,7 @@ import { MessageHandlerOptions } from "../../../projects/ngx-ramblers/src/app/mo
 import { isArray } from "es-toolkit/compat";
 
 const logRawData = false;
+const DEFAULT_UPSTREAM_TIMEOUT_MILLIS = 15000;
 export function optionalParameter(key: string, value: any): string {
   if (key && value) {
     const appliedValue = isArray(value) ? value.join(",") : value;
@@ -81,6 +82,9 @@ export function httpRequest(options: MessageHandlerOptions) {
         options.debug(debugPrefix, ":", JSON.stringify(resolvedResponse));
         resolve(resolvedResponse);
       });
+    });
+    request.setTimeout(options.timeoutMillis || DEFAULT_UPSTREAM_TIMEOUT_MILLIS, () => {
+      request.destroy(new Error(`upstream request to ${options.apiRequest?.hostname}${options.apiRequest?.path} timed out after ${options.timeoutMillis || DEFAULT_UPSTREAM_TIMEOUT_MILLIS}ms`));
     });
     request.on("error", error => {
       const rejectedResponse = {

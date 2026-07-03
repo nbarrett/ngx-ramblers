@@ -91,11 +91,13 @@ describe("WalksImportService Walks Manager matching", () => {
 
     const localWalksAndEventsService = {
         all: vi.fn().mockName("LocalWalksAndEventsService.all"),
+        allWithPagination: vi.fn().mockName("LocalWalksAndEventsService.allWithPagination"),
         urlFromTitle: vi.fn().mockName("LocalWalksAndEventsService.urlFromTitle"),
         update: vi.fn().mockName("LocalWalksAndEventsService.update"),
         create: vi.fn().mockName("LocalWalksAndEventsService.create")
     };
     localWalksAndEventsService.all.mockResolvedValue([]);
+    localWalksAndEventsService.allWithPagination.mockResolvedValue({ response: [], pagination: { total: 0 } });
     localWalksAndEventsService.urlFromTitle.mockResolvedValue("test-walk-url");
     localWalksAndEventsService.update.mockImplementation(async (walk) => walk);
     localWalksAndEventsService.create.mockImplementation(async (walk) => walk);
@@ -103,7 +105,9 @@ describe("WalksImportService Walks Manager matching", () => {
     const dateUtilsService = {
         displayDate: (value: string) => value,
         parseCsvDate: (dateValue: string, timeValue: string) => dateValue && timeValue ? `${dateValue}T${timeValue}` : dateValue || null,
-        asDateTime: (value: string) => DateTime.fromISO(value || "1970-01-01")
+        asDateTime: (value: string) => DateTime.fromISO(value || "1970-01-01"),
+        durationInMsecsForDistanceInMiles: (distance: string | number, milesPerHour: number) => (Number(distance) / milesPerHour) * 60 * 60 * 1000,
+        isoDateTime: (value: number) => DateTime.fromMillis(Number(value)).toISO()
     };
 
     const numberUtilsService = {
@@ -191,7 +195,8 @@ describe("WalksImportService Walks Manager matching", () => {
     }));
 
     const extendedGroupEventQueryService = {
-        dataQueryOptions: () => ({ criteria: {}, sort: { walkDate: 1 } })
+        dataQueryOptions: () => ({ criteria: {}, sort: { walkDate: 1 } }),
+        dataQueryOptionsFrom: (eventQueryParameters: any) => eventQueryParameters?.dataQueryOptions ?? { criteria: {} }
     };
 
     const eventDefaultsService = {
@@ -322,7 +327,8 @@ describe("WalksImportService Walks Manager matching", () => {
         const service = TestBed.inject(WalksImportService);
         const notify = {
             warning: vi.fn().mockName("notify.warning"),
-            success: vi.fn().mockName("notify.success")
+            success: vi.fn().mockName("notify.success"),
+            progress: vi.fn().mockName("notify.progress")
         } as unknown as AlertInstance;
         const walk = walksManagerWalk({
             fields: {
@@ -502,7 +508,8 @@ describe("WalksImportService Walks Manager matching", () => {
             const service = TestBed.inject(WalksImportService);
             const notify = {
                 warning: vi.fn().mockName("notify.warning"),
-                success: vi.fn().mockName("notify.success")
+                success: vi.fn().mockName("notify.success"),
+                progress: vi.fn().mockName("notify.progress")
             } as unknown as AlertInstance;
             const walk = fileImportWalk("Sarah Mitchell; Tom Gamble");
             await service.saveImportedWalks(importDataWithMatchedWalk(service, walk, []), notify);
@@ -520,7 +527,8 @@ describe("WalksImportService Walks Manager matching", () => {
             const service = TestBed.inject(WalksImportService);
             const notify = {
                 warning: vi.fn().mockName("notify.warning"),
-                success: vi.fn().mockName("notify.success")
+                success: vi.fn().mockName("notify.success"),
+                progress: vi.fn().mockName("notify.progress")
             } as unknown as AlertInstance;
             const walk = fileImportWalk("Sarah Mitchell");
             await service.saveImportedWalks(importDataWithMatchedWalk(service, walk, []), notify);
@@ -535,7 +543,8 @@ describe("WalksImportService Walks Manager matching", () => {
             const service = TestBed.inject(WalksImportService);
             const notify = {
                 warning: vi.fn().mockName("notify.warning"),
-                success: vi.fn().mockName("notify.success")
+                success: vi.fn().mockName("notify.success"),
+                progress: vi.fn().mockName("notify.progress")
             } as unknown as AlertInstance;
             const existingWalk = fileImportWalk("Sarah Mitchell; Tom Gamble", { id: "existing-1" });
             existingWalk.fields.contactDetails = {

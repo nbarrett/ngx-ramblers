@@ -3,7 +3,7 @@ import { parse } from "csv-parse/browser/esm/sync";
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable, Injector } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EventField, EventType, ImageSource, ImportData, ImportStage, WalkImageRow } from "../../models/walk.model";
+import { EventField, EventType, GroupEventField, ImageSource, ImportData, ImportStage, WalkImageRow } from "../../models/walk.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
 import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
@@ -57,6 +57,8 @@ import { DistanceValidationService } from "./distance-validation.service";
 import { AddressQueryService } from "./address-query.service";
 import { GridReferenceLookupResponse } from "../../models/address-model";
 import { MediaQueryService } from "../committee/media-query.service";
+import { WalksConfigService } from "../system/walks-config.service";
+import { WalksConfig } from "../../models/walks-config.model";
 import { S3_BASE_URL } from "../../models/content-metadata.model";
 import { FileUtilsService } from "../../file-utils.service";
 
@@ -84,9 +86,11 @@ export class WalksImportService {
   private addressQueryService = inject(AddressQueryService);
   private readonly locationLookupCache = new Map<string, GridReferenceLookupResponse>();
   private mediaQueryService = inject(MediaQueryService);
+  private walksConfigService = inject(WalksConfigService);
   private injector = inject(Injector);
   public group: Organisation;
   private systemConfig: SystemConfig;
+  private walksConfig: WalksConfig;
   private turndownService = new TurndownService();
   private enrichWalkLeaders = false;
   private performMatches = false;
@@ -110,6 +114,23 @@ export class WalksImportService {
       this.systemConfig = systemConfig;
       this.logger.info("systemConfig:", this.systemConfig);
     });
+    this.walksConfigService.events().subscribe(walksConfig => {
+      this.walksConfig = walksConfig;
+      this.logger.info("walksConfig:", this.walksConfig);
+    });
+  }
+
+  private deriveEndDateTime(csv: Record<WalkUploadColumnHeading, string>, startDateTime: string, distanceMiles: number): string {
+    const suppliedFinishTime = csv[WalkUploadColumnHeading.EST_FINISH_TIME]?.trim();
+    const parsedEnd = suppliedFinishTime ? this.dateUtils.parseCsvDate(csv[WalkUploadColumnHeading.DATE], suppliedFinishTime) : null;
+    if (parsedEnd && this.dateUtils.asDateTime(parsedEnd).toMillis() > this.dateUtils.asDateTime(startDateTime).toMillis()) {
+      return parsedEnd;
+    }
+    const milesPerHour = this.walksConfig?.milesPerHour || 2;
+    const durationMillis = this.dateUtils.durationInMsecsForDistanceInMiles(distanceMiles, milesPerHour);
+    const derivedEnd = this.dateUtils.isoDateTime(this.dateUtils.asDateTime(startDateTime).toMillis() + durationMillis);
+    this.logger.info("deriveEndDateTime: supplied finish time", suppliedFinishTime || "(none)", "unusable for start", startDateTime, "- derived", derivedEnd, "from", distanceMiles, "miles at", milesPerHour, "mph");
+    return derivedEnd;
   }
 
   private htmlToMarkdown(html: string): string {
@@ -161,15 +182,7 @@ export class WalksImportService {
     this.logger.info("firstWalk:", firstWalk, "on", this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time), "lastWalk:", lastWalk, "on", this.dateUtils.displayDate(lastWalk?.groupEvent?.start_date_time), "walksWithContactId:", walksWithContactId);
     importData.messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time)}`);
     importData.messages.push(`Last walk is on ${this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time)}`);
-    const existingWalks: ExtendedGroupEvent[] = await this.localWalksAndEventsService.all({
-      inputSource: importData.inputSource,
-      suppressEventLinking: true,
-      groupCode: importData.groupCodeAndName.group_code, types: [RamblersEventType.GROUP_WALK],
-      dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions({
-        ascending: true,
-        selectType: FilterCriteria.DATE_RANGE
-      }, firstWalk?.groupEvent?.start_date_time, lastWalk?.groupEvent?.start_date_time)
-    });
+    const existingWalks: ExtendedGroupEvent[] = await this.allExistingWalksWithinRange(importData, firstWalk, lastWalk);
     importData.existingWalksWithinRange = existingWalks.filter(walk => {
       const withinRange = importData.groupCodeAndName.group_code === walk.groupEvent.group_code
         && walk.groupEvent.start_date_time >= firstWalk.groupEvent.start_date_time
@@ -209,6 +222,39 @@ export class WalksImportService {
     this.optionallyPerformMatching(bulkLoadMembersAndMatchesToWalks, walksToImport);
     this.logger.info("bulkLoadMemberAndMatches:", bulkLoadMembersAndMatchesToWalks, "importData.messages:", importData.messages);
     return Promise.resolve(importData);
+  }
+
+  private async allExistingWalksWithinRange(importData: ImportData, firstWalk: ExtendedGroupEvent, lastWalk: ExtendedGroupEvent): Promise<ExtendedGroupEvent[]> {
+    const dataQueryOptions: DataQueryOptions = this.extendedGroupEventQueryService.dataQueryOptionsFrom({
+      inputSource: importData.inputSource,
+      suppressEventLinking: true,
+      groupCode: importData.groupCodeAndName.group_code,
+      types: [RamblersEventType.GROUP_WALK],
+      dataQueryOptions: {
+        ...this.extendedGroupEventQueryService.dataQueryOptions({
+          ascending: true,
+          selectType: FilterCriteria.DATE_RANGE
+        }, firstWalk?.groupEvent?.start_date_time, lastWalk?.groupEvent?.start_date_time),
+        select: {
+          fields: 1,
+          [GroupEventField.ID]: 1,
+          [GroupEventField.TITLE]: 1,
+          [GroupEventField.START_DATE]: 1,
+          [GroupEventField.GROUP_CODE]: 1
+        }
+      }
+    });
+    return this.existingWalksPage(dataQueryOptions, 1);
+  }
+
+  private async existingWalksPage(dataQueryOptions: DataQueryOptions, page: number): Promise<ExtendedGroupEvent[]> {
+    const pageSize = 500;
+    const response = await this.localWalksAndEventsService.allWithPagination({...dataQueryOptions, page, limit: pageSize});
+    const events = (response.response as ExtendedGroupEvent[]) ?? [];
+    const total = response.pagination?.total ?? events.length;
+    const totalPages = Math.ceil(total / pageSize) || 1;
+    this.logger.info("existingWalksPage: page", page, "of", totalPages, "returned", events.length, "of", total, "existing walks within import range");
+    return page >= totalPages ? events : events.concat(await this.existingWalksPage(dataQueryOptions, page + 1));
   }
 
   private optionallyPerformMatching(bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalk[], walksToImport: ExtendedGroupEvent[]) {
@@ -373,9 +419,13 @@ export class WalksImportService {
       existingById.get(incomingWalk.groupEvent?.id)
       || existingByMigratedFromId.get(incomingWalk.fields?.migratedFromId)
       || existingByNaturalKey.get(naturalKeyFor(incomingWalk));
-    await Promise.all(importData.bulkLoadMembersAndMatchesToWalks
-      .filter(item => item.include)
-      .map(async bulkLoadMemberAndMatchToWalks => {
+    const itemsToSave = importData.bulkLoadMembersAndMatchesToWalks.filter(item => item.include);
+    let processedWalks = 0;
+    await chunk(itemsToSave, 5).reduce(async (previousBatch: Promise<void>, batch: BulkLoadMemberAndMatchToWalk[]) => {
+      await previousBatch;
+      notify.progress({title: "Walks Import", message: `Saving walks ${processedWalks + 1} to ${processedWalks + batch.length} of ${itemsToSave.length}`}, true);
+      processedWalks += batch.length;
+      await Promise.all(batch.map(async bulkLoadMemberAndMatchToWalks => {
       const member = bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.member;
         const overwriteContactDetailsWithMember = importData.inputSource === InputSource.FILE_IMPORT;
         if (this.isAMatchFor(bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch)) {
@@ -437,7 +487,8 @@ export class WalksImportService {
           }
           return Promise.resolve();
       }
-    }));
+      }));
+    }, Promise.resolve());
     const successMessage = `${this.stringUtils.pluraliseWithCount(createdMembers, "new member")} created, ${this.stringUtils.pluraliseWithCount(createdWalks, "walk")} imported`;
     if (failedWalks > 0) {
       notify.warning({
@@ -553,6 +604,8 @@ export class WalksImportService {
     const walkId = csv[WalkUploadColumnHeading.WALK_ID];
     const distanceMiles = this.numberUtils.asNumber(csv[WalkUploadColumnHeading.DISTANCE_MILES]);
     const distanceKm = this.numberUtils.asNumber(csv[WalkUploadColumnHeading.DISTANCE_KM]);
+    const effectiveDistanceMiles = distanceMiles || (distanceKm ? this.distanceValidationService.convertKmToMiles(distanceKm) : 0);
+    const startDateTime = this.dateUtils.parseCsvDate(csv[WalkUploadColumnHeading.DATE], csv[WalkUploadColumnHeading.START_TIME]);
     const groupEvent: GroupEvent = {
       additional_details: this.htmlToMarkdown(csv[WalkUploadColumnHeading.ADDITIONAL_DETAILS]),
       area_code: "",
@@ -575,8 +628,8 @@ export class WalksImportService {
       walk_leader: this.eventDefaultsService.nameToContact(normalisedWalkLeaderName(csv[WalkUploadColumnHeading.WALK_LEADERS])),
       title: csv[WalkUploadColumnHeading.TITLE],
       description: this.htmlToMarkdown(csv[WalkUploadColumnHeading.DESCRIPTION]),
-      start_date_time: this.dateUtils.parseCsvDate(csv[WalkUploadColumnHeading.DATE], csv[WalkUploadColumnHeading.START_TIME]),
-      end_date_time: this.dateUtils.parseCsvDate(csv[WalkUploadColumnHeading.DATE], csv[WalkUploadColumnHeading.EST_FINISH_TIME]),
+      start_date_time: startDateTime,
+      end_date_time: this.deriveEndDateTime(csv, startDateTime, effectiveDistanceMiles),
       start_location: {
         postcode: csv[WalkUploadColumnHeading.STARTING_POSTCODE],
         grid_reference_10: csv[WalkUploadColumnHeading.STARTING_GRIDREF],
@@ -598,7 +651,7 @@ export class WalksImportService {
         w3w: null
       },
       difficulty: {description: csv[WalkUploadColumnHeading.DIFFICULTY]},
-      distance_miles: distanceMiles || (distanceKm ? this.distanceValidationService.convertKmToMiles(distanceKm) : 0),
+      distance_miles: effectiveDistanceMiles,
       distance_km: distanceKm || (distanceMiles ? this.distanceValidationService.convertMilesToKm(distanceMiles) : 0),
       ascent_metres: this.numberUtils.asNumber(csv[WalkUploadColumnHeading.ASCENT_METRES]),
       ascent_feet: this.numberUtils.asNumber(csv[WalkUploadColumnHeading.ASCENT_FEET]),
@@ -718,7 +771,8 @@ export class WalksImportService {
     const savedWalks = await this.localWalksAndEventsService.all({
       inputSource: importData.inputSource,
       suppressEventLinking: true,
-      groupCode: importData.groupCodeAndName.group_code
+      groupCode: importData.groupCodeAndName.group_code,
+      dataQueryOptions: {criteria: {[EventField.MIGRATED_FROM_ID]: {$in: migratedWalkIds}}}
     });
 
     const walkIdToWalk = new Map<string, ExtendedGroupEvent>();

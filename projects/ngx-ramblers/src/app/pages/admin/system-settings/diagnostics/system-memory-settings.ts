@@ -313,6 +313,8 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
   private restartPollGeneration = 0;
   private static readonly MAX_RESTART_POLL_ATTEMPTS = 40;
   private static readonly RESTART_POLL_INTERVAL_MS = 3000;
+  private static readonly MAX_RESTART_REQUEST_ATTEMPTS = 5;
+  private static readonly RESTART_REQUEST_RETRY_MS = 5000;
 
   protected readonly faRefresh = faRefresh;
   protected readonly faCamera = faCamera;
@@ -528,14 +530,19 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
     this.restartConfirmPending = false;
     this.restartError = null;
     this.restartStatus = FlyRestartStatus.RESTARTING;
+    await this.requestRestartWithRetries(1);
+  }
+
+  private async requestRestartWithRetries(attempt: number): Promise<void> {
     try {
       await firstValueFrom(this.http.post<FlyRestartResponse>(`/api/health/memory/restart?${this.targetQuery()}`.replace(/[?&]$/, ""), {}));
       this.pollUntilBackUp();
     } catch (error) {
-      this.logger.error("restart failed", error);
-      const rejectedByServer = [401, 403, 503].includes(error?.status);
-      if (rejectedByServer) {
-        this.restartError = error?.error?.error || error?.message || "Failed to trigger restart";
+      this.logger.error("restart attempt", attempt, "failed", error);
+      if (error?.status === 503 && attempt < SystemMemorySettingsComponent.MAX_RESTART_REQUEST_ATTEMPTS) {
+        setTimeout(() => this.requestRestartWithRetries(attempt + 1), SystemMemorySettingsComponent.RESTART_REQUEST_RETRY_MS);
+      } else if ([401, 403, 503].includes(error?.status)) {
+        this.restartError = error?.error?.error || `the server was too unresponsive to accept the restart request after ${attempt} attempts — restart the machine from the Fly dashboard instead`;
         this.restartStatus = FlyRestartStatus.FAILED;
       } else {
         this.pollUntilBackUp();

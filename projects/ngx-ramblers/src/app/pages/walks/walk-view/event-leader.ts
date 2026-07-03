@@ -18,6 +18,7 @@ import { WalkShareRowComponent } from "./walk-share-row";
     <div class="event-panel rounded event-panel-inner">
       <app-event-group [displayedWalk]="displayedWalk" [groupEvent]="groupEvent"/>
       <div class="row">
+        @if (hasVisibleContactDetails()) {
         <div class="col-md-6">
           <h1>{{ heading() }}</h1>
           <div class="row">
@@ -56,6 +57,7 @@ import { WalkShareRowComponent } from "./walk-share-row";
             }
           </div>
         </div>
+        }
         @if (display.showWalkShareInHeader() && displayedWalk?.walkLink) {
           <div class="col-md-6">
             <h1>Sharing</h1>
@@ -86,6 +88,12 @@ export class EventLeaderComponent {
 
   resolvedEvent(): ExtendedGroupEvent {
     return this.groupEvent || this.displayedWalk?.walk;
+  }
+
+  hasVisibleContactDetails(): boolean {
+    const contactDetails = this.resolvedEvent()?.fields?.contactDetails;
+    return !!contactDetails?.email
+      || (this.display.walkContactDetailsPublic() && !!(contactDetails?.phone || contactDetails?.displayName));
   }
 
   heading(): string {

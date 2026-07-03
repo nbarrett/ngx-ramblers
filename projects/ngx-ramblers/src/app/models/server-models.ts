@@ -30,6 +30,7 @@ export interface MessageHandlerOptions {
   successStatusCodes?: number[];
   res?: any;
   debug: (...args: any) => void;
+  timeoutMillis?: number;
 }
 
 export interface MailchimpMarketingApiClient {

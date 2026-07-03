@@ -139,6 +139,7 @@ export function mergeFieldsOnSync(existingFields: ExtendedFields, freshFields: E
     ...existingFields,
     inputSource: freshFields.inputSource,
     contactDetails,
+    migratedFromId: existingFields?.migratedFromId || freshFields?.migratedFromId || null,
     links: mergeLinksOnSync(existingFields?.links, freshFields?.links)
   };
 }

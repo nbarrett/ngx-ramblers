@@ -15,6 +15,18 @@ import { gridReferenceLookupFromLatLng } from "./reverse-geocode";
 export const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org";
 const nominatimUrl = url.parse(NOMINATIM_ENDPOINT, false);
 
+const NOMINATIM_REQUEST_SPACING_MILLISECONDS = 1100;
+
+const nominatimThrottle: { chain: Promise<void> } = { chain: Promise.resolve() };
+
+function throttledNominatimRequest<T>(lookup: () => Promise<T>): Promise<T> {
+  const result = nominatimThrottle.chain.then(lookup);
+  nominatimThrottle.chain = result
+    .catch(() => undefined)
+    .then(() => new Promise<void>(resolve => setTimeout(resolve, NOMINATIM_REQUEST_SPACING_MILLISECONDS)));
+  return result;
+}
+
 function toNominatimPlace(response: any): NominatimPlaceResult[] {
   return isArray(response) ? response : [];
 }
@@ -80,7 +92,7 @@ export function extractGridReference(response: GridReferenceLookupApiResponse): 
 
 export async function nominatimGridReferenceLookup(options: NominatimLookupOptions): Promise<NominatimLookupResult> {
   const {query, preferredCounty, userAgent, logPrefix, debugLog} = options;
-  const nominatimResponse = await messageHandlers.httpRequest({
+  const nominatimResponse = await throttledNominatimRequest(() => messageHandlers.httpRequest({
     apiRequest: {
       hostname: nominatimUrl.hostname,
       protocol: nominatimUrl.protocol,
@@ -96,7 +108,7 @@ export async function nominatimGridReferenceLookup(options: NominatimLookupOptio
     res: undefined,
     req: undefined,
     debug: debugLog
-  }) as { apiStatusCode: number; response: NominatimPlaceResult[] };
+  })) as { apiStatusCode: number; response: NominatimPlaceResult[] };
   debugLog(`${logPrefix}: Nominatim returned ${nominatimResponse.response?.length || 0} results for "${query}"${preferredCounty ? ` (preferring ${preferredCounty})` : ""}`);
   const place = selectNominatimPlace(nominatimResponse.response, preferredCounty);
   if (!place) {
