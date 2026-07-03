@@ -119,10 +119,14 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                 @if (showImageBeforeText(column)) {
                   <app-card-image
                     [borderRadius]="column.imageBorderRadius"
+                    [showBorder]="column.imageBorder"
+                    [padding]="column.imagePadding"
+                    [imageFit]="column.imageFit"
                     [aspectRatio]="column.imageAspectRatio"
                     [alt]="altFor(column)"
                     [unconstrainedHeight]="!column.imageHeight"
                     [height]="column.imageHeight"
+                    [focalPoint]="column.imageFocalPoint"
                     [cropperPosition]="column.imageCropperPosition"
                     [imageLink]="imageLinkFor(column)"
                     [imageSource]="imageSourceFor(column)">
@@ -145,10 +149,14 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                 @if (showImageAfterText(column)) {
                   <app-card-image
                     [borderRadius]="column.imageBorderRadius"
+                    [showBorder]="column.imageBorder"
+                    [padding]="column.imagePadding"
+                    [imageFit]="column.imageFit"
                     [aspectRatio]="column.imageAspectRatio"
                     [alt]="altFor(column)"
                     [unconstrainedHeight]="!column.imageHeight"
                     [height]="column.imageHeight"
+                    [focalPoint]="column.imageFocalPoint"
                     [cropperPosition]="column.imageCropperPosition"
                     [imageLink]="imageLinkFor(column)"
                     [imageSource]="imageSourceFor(column)">

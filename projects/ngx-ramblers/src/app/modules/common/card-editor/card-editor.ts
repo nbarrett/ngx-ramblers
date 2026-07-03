@@ -1,8 +1,9 @@
-import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
-import { faPencil } from "@fortawesome/free-solid-svg-icons";
+import { Component, EventEmitter, HostListener, inject, Input, OnInit, Output } from "@angular/core";
+import { faArrowDown, faArrowsUpDown, faArrowUp, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.model";
 import {
+  ImageFit,
   ImageType,
   PageContent,
   PageContentColumn,
@@ -34,11 +35,53 @@ import { FALLBACK_MEDIA } from "../../../models/walk.model";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
 import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
+import { FocalPoint, FocalPointPickerComponent } from "../focal-point-picker/focal-point-picker";
+import { ClipboardService } from "../../../services/clipboard.service";
+import { FileUtilsService } from "../../../file-utils.service";
 
 @Component({
     selector: "app-card-editor",
   template: `
-    <div class="card shadow clickable h-100 mb-4">
+    <div class="card shadow clickable h-100 mb-4 action-button-card-editor"
+         (dragover)="onActionButtonDragOver($event)"
+         (drop)="onActionButtonDrop($event)"
+         (dragend)="onActionButtonDragEnd()">
+      @if (actionButtonControlsVisible()) {
+        <div class="action-button-card-controls">
+          <button type="button"
+                  class="badge-button action-button-card-control"
+                  [attr.draggable]="true"
+                  tooltip="Drag action button"
+                  container="body"
+                  (click)="$event.stopPropagation()"
+                  (dragstart)="onActionButtonDragStart($event)">
+            <fa-icon [icon]="faArrowsUpDown"></fa-icon>
+          </button>
+          <button type="button"
+                  class="badge-button action-button-card-control"
+                  [disabled]="!canMoveActionButtonUp()"
+                  tooltip="Move action button up"
+                  container="body"
+                  (click)="moveActionButtonUp($event)">
+            <fa-icon [icon]="faArrowUp"></fa-icon>
+          </button>
+          <button type="button"
+                  class="badge-button action-button-card-control"
+                  [disabled]="!canMoveActionButtonDown()"
+                  tooltip="Move action button down"
+                  container="body"
+                  (click)="moveActionButtonDown($event)">
+            <fa-icon [icon]="faArrowDown"></fa-icon>
+          </button>
+          <button type="button"
+                  class="badge-button action-button-card-control text-danger"
+                  tooltip="Delete action button"
+                  container="body"
+                  (click)="deleteActionButton($event)">
+            <fa-icon [icon]="faRemove"></fa-icon>
+          </button>
+        </div>
+      }
       <app-card-image noBorderRadius
         [smallIconContainer]="smallIconContainer"
         [imageType]="imageType"
@@ -48,6 +91,9 @@ import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
         [objectPositionY]="column?.imageVerticalPosition"
         [cropperPosition]="column?.imageCropperPosition"
         [focalPoint]="column?.imageFocalPoint"
+        [showBorder]="column?.imageBorder"
+        [padding]="column?.imagePadding"
+        [imageFit]="column?.imageFit"
         [cropperDebugOffsets]="cropperDebugOffsets"
         [fixedHeight]="actions.isActionButtons(row)"
         [height]="actions.isActionButtons(row) ? (row?.carousel?.coverImageHeight || 200) : null"
@@ -68,7 +114,7 @@ import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
         @if (pageContentEdit?.editActive) {
           <app-image-cropper-and-resizer
             [selectAspectRatio]="column?.imageAspectRatio?.description"
-            [preloadImage]="column?.imageSource"
+            [preloadImage]="awsFileData?.image || column?.imageSource"
             (imageChange)="imageChanged($event)"
             (quit)="exitImageEdit()"
             (save)="imagedSaved($event)"/>
@@ -136,6 +182,60 @@ import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
                      class="form-control input-sm" placeholder="Enter image source value"
                      type="text">
             </div>
+            @if (imageSourceOrPreview()) {
+              <div class="form-group">
+                <label class="form-label"
+                       [for]="idFor('image-fit')">Image Fit</label>
+                <select [ngModel]="imageFit()"
+                        (ngModelChange)="onImageFitChanged($event)"
+                        [id]="idFor('image-fit')"
+                        class="form-control input-sm">
+                  <option [ngValue]="ImageFit.COVER">Crop to fill</option>
+                  <option [ngValue]="ImageFit.CONTAIN">Show entire image</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <div class="form-check form-check-inline">
+                  <input [id]="idFor('image-padding')"
+                         type="checkbox"
+                         class="form-check-input"
+                         [checked]="imagePaddingEnabled()"
+                         (change)="onImagePaddingChanged($event)">
+                  <label class="form-check-label"
+                         [for]="idFor('image-padding')">
+                    Image padding</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input [id]="idFor('image-border')"
+                         type="checkbox"
+                         class="form-check-input"
+                         [(ngModel)]="column.imageBorder">
+                  <label class="form-check-label"
+                         [for]="idFor('image-border')">
+                    Image border</label>
+                </div>
+              </div>
+              @if (imagePaddingEnabled()) {
+                <div class="form-group">
+                  <label class="form-label"
+                         [for]="idFor('image-padding-size')">Padding Size</label>
+                  <input [(ngModel)]="column.imagePadding"
+                         [id]="idFor('image-padding-size')"
+                         min="0"
+                         max="48"
+                         class="form-control input-sm"
+                         type="number">
+                </div>
+              }
+              <div class="form-group">
+                <label class="form-label">Focal Point</label>
+                <app-focal-point-picker
+                  [imageSrc]="imageSourceOrPreview()"
+                  [focalPoint]="column.imageFocalPoint || defaultFocalPoint"
+                  (focalPointChange)="onFocalPointChange($event)">
+                </app-focal-point-picker>
+              </div>
+            }
             <div class="form-group">
               <div class="form-check form-check-inline mb-0">
                 <input [name]="generateUniqueCheckboxId('show-placeholder-image')"
@@ -196,11 +296,37 @@ import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
   `,
   styleUrls: ["./../dynamic-content/dynamic-content.sass"],
   styles: [`
+    .action-button-card-editor
+      position: relative
+
+    .action-button-card-controls
+      position: absolute
+      top: 8px
+      right: 8px
+      z-index: 3
+      display: flex
+      gap: 4px
+      flex-wrap: wrap
+      justify-content: flex-end
+
+    .action-button-card-control
+      width: 32px
+      height: 32px
+      min-height: 32px
+      padding: 0
+      display: inline-flex
+      align-items: center
+      justify-content: center
+
+      &:disabled
+        opacity: 0.45
+        cursor: not-allowed
+
     .card-body-styled
       border-bottom-left-radius: 0.375rem
       border-bottom-right-radius: 0.375rem
   `],
-  imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, AspectRatioSelectorComponent, SiteLinkInputComponent]
+  imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, AspectRatioSelectorComponent, SiteLinkInputComponent, FocalPointPickerComponent]
 })
 export class CardEditorComponent implements OnInit {
 
@@ -228,6 +354,8 @@ export class CardEditorComponent implements OnInit {
   actions = inject(PageContentActionsService);
   private numberUtils = inject(NumberUtilsService);
   private youtubeService = inject(YouTubeService);
+  private clipboardService = inject(ClipboardService);
+  private fileUtils = inject(FileUtilsService);
 
   @Input() public pageContent: PageContent;
   @Input() public column: PageContentColumn;
@@ -242,12 +370,18 @@ export class CardEditorComponent implements OnInit {
   public row: PageContentRow;
   public awsFileData: AwsFileData;
   public faPencil: IconDefinition = faPencil;
+  public faArrowUp: IconDefinition = faArrowUp;
+  public faArrowDown: IconDefinition = faArrowDown;
+  public faArrowsUpDown: IconDefinition = faArrowsUpDown;
+  public faRemove: IconDefinition = faRemove;
   public imageType: ImageType;
   public routerLink: string;
   private uniqueCheckboxId: string;
   protected readonly PageContentType = PageContentType;
 
   protected readonly ImageType = ImageType;
+  protected readonly ImageFit = ImageFit;
+  protected readonly defaultFocalPoint: FocalPoint = { x: 50, y: 50, zoom: 1 };
 
   columnClass(): string {
     const custom = this.column?.styles?.class;
@@ -260,6 +394,87 @@ export class CardEditorComponent implements OnInit {
 
   imageBorderRadius(column: PageContentColumn): number | undefined {
     return column?.imageBorderRadius;
+  }
+
+  actionButtonControlsVisible(): boolean {
+    return this.siteEditActive() && this.actions.isActionButtons(this.row);
+  }
+
+  canMoveActionButtonUp(): boolean {
+    return this.columnIndex > 0;
+  }
+
+  canMoveActionButtonDown(): boolean {
+    return this.columnIndex < (this.row?.columns?.length || 0) - 1;
+  }
+
+  moveActionButtonUp(event: Event) {
+    event.stopPropagation();
+    if (this.canMoveActionButtonUp()) {
+      this.actions.moveColumnLeft(this.row.columns, this.columnIndex);
+    }
+  }
+
+  moveActionButtonDown(event: Event) {
+    event.stopPropagation();
+    if (this.canMoveActionButtonDown()) {
+      this.actions.moveColumnRight(this.row.columns, this.columnIndex, this.pageContent);
+    }
+  }
+
+  deleteActionButton(event: Event) {
+    event.stopPropagation();
+    this.actions.deleteColumn(this.row, this.columnIndex, this.pageContent);
+  }
+
+  onActionButtonDragStart(event: DragEvent) {
+    if (this.actionButtonControlsVisible()) {
+      event.stopPropagation();
+      this.actions.draggedColumnRowIndex = this.rowIndex;
+      this.actions.draggedColumnIndex = this.columnIndex;
+      this.actions.draggedColumnSourceRow = this.row;
+      this.actions.draggedRowIndex = null;
+      this.actions.draggedColumnIsNested = false;
+      this.actions.draggedColumnParentColumnIndex = null;
+      this.actions.dragStartX = event?.clientX;
+      this.actions.dragStartY = event?.clientY;
+      this.actions.dragHasMovedEvent(event);
+    }
+  }
+
+  onActionButtonDragOver(event: DragEvent) {
+    if (this.actionButtonControlsVisible() && this.actions.draggedColumnSourceRow === this.row) {
+      event.preventDefault();
+      event.stopPropagation();
+      const dx = (event?.clientX || 0) - (this.actions.dragStartX || 0);
+      const dy = (event?.clientY || 0) - (this.actions.dragStartY || 0);
+      if (!this.actions.dragHasMoved && (Math.abs(dx) + Math.abs(dy) > 3)) {
+        this.actions.dragHasMoved = true;
+      }
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      const y = event.clientY - rect.top;
+      this.actions.dragOverColumnRowIndex = this.rowIndex;
+      this.actions.dragOverColumnIndex = this.columnIndex;
+      this.actions.dragInsertAfter = y > rect.height / 2;
+    }
+  }
+
+  onActionButtonDrop(event: DragEvent) {
+    if (this.actionButtonControlsVisible() && this.actions.draggedColumnSourceRow === this.row) {
+      event.preventDefault();
+      event.stopPropagation();
+      const sourceColumnIndex = this.actions.draggedColumnIndex;
+      if (sourceColumnIndex !== null) {
+        this.actions.moveColumnWithinRow(this.row.columns, sourceColumnIndex, this.columnIndex, this.actions.dragInsertAfter);
+      }
+      this.actions.clearColumnDragState();
+    }
+  }
+
+  onActionButtonDragEnd() {
+    if (this.actions.draggedColumnSourceRow === this.row) {
+      this.actions.clearColumnDragState();
+    }
   }
 
   ngOnInit() {
@@ -314,6 +529,42 @@ export class CardEditorComponent implements OnInit {
     this.column.imageAspectRatio = dimensions;
   }
 
+  imageFit(): ImageFit {
+    return this.column?.imageFit || ImageFit.COVER;
+  }
+
+  onImageFitChanged(imageFit: ImageFit) {
+    this.column.imageFit = imageFit;
+  }
+
+  imagePaddingEnabled(): boolean {
+    return (this.column?.imagePadding || 0) > 0;
+  }
+
+  onImagePaddingChanged(event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.column.imagePadding = target.checked ? (this.column.imagePadding || 16) : 0;
+  }
+
+  onFocalPointChange(focalPoint: FocalPoint) {
+    this.column.imageFocalPoint = focalPoint || null;
+  }
+
+  @HostListener("paste", ["$event"])
+  async onPaste(event: ClipboardEvent) {
+    if (this.siteEditActive()) {
+      const file = this.clipboardService.imageFileFromPasteEvent(event);
+      if (file) {
+        event.preventDefault();
+        const base64File = await this.fileUtils.loadBase64ImageFromFile(file);
+        this.awsFileData = this.fileUtils.awsFileData(file.name, base64File.base64Content, file);
+        this.imageType = ImageType.IMAGE;
+        this.column.icon = null;
+        this.pageContentEdit.editActive = true;
+        this.logAndSendEvent();
+      }
+    }
+  }
 
   imageChanged(awsFileData: AwsFileData) {
     this.logger.info("imageChanged:", awsFileData);
@@ -355,10 +606,11 @@ export class CardEditorComponent implements OnInit {
   changeImageType(value: ImageType) {
     this.imageType = value;
     this.logger.info("changeImageType:", value);
-    if (value === "image") {
+    if (value === ImageType.IMAGE) {
       this.column.icon = null;
     } else {
       this.column.imageSource = null;
+      this.column.imageFocalPoint = null;
     }
   }
 

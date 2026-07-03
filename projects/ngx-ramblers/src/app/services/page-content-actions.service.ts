@@ -518,6 +518,13 @@ export class PageContentActionsService {
     move(columns, fromIndex, toIndex);
   }
 
+  public moveColumnWithinRow(columns: PageContentColumn[], sourceColumnIndex: number, targetColumnIndex: number, insertAfter: boolean) {
+    const rawInsertionIndex = targetColumnIndex + (insertAfter ? 1 : 0);
+    const toIndex = rawInsertionIndex > sourceColumnIndex ? rawInsertionIndex - 1 : rawInsertionIndex;
+    this.logger.info("moving column within row fromIndex:", sourceColumnIndex, "toIndex:", toIndex);
+    move(columns, sourceColumnIndex, toIndex);
+  }
+
   public moveRowUp(pageContent: PageContent, rowIndex: number, rowIsNested: boolean, column: PageContentColumn) {
     move(this.rowContainer(pageContent, rowIsNested, column).rows, rowIndex, rowIndex - 1);
   }
