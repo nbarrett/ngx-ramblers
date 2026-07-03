@@ -24,33 +24,10 @@
                 </app-date-picker>
               </div>
               <div class="form-group d-flex align-items-center gap-2 flex-wrap">
-                @if (confirm.noneOutstanding()) {
-                  <input type="submit" [disabled]="notifyTarget.busy"
-                         value="Back to admin"
-                         (click)="backToAdmin()"
-                         class="btn btn-secondary">
-                }
-                @if (confirm.noneOutstanding()) {
-                  <input type="submit"
-                         [disabled]="notifyTarget.busy || auditFilter.results.length==0"
-                         value="Delete displayed audit"
-                         (click)="confirm.as(ConfirmType.DELETE);"
-                         class="btn btn-danger">
-                }
-                @if (confirm.deleteConfirmOutstanding()) {
-                  <input type="submit"
-                         [disabled]="notifyTarget.busy"
-                         value="Confirm delete of {{auditFilter.results.length}} audit records"
-                         (click)="deleteSelectedMemberAuditConfirm()"
-                         class="btn btn-danger">
-                }
-                @if (confirm.deleteConfirmOutstanding()) {
-                  <input type="submit"
-                         [disabled]="notifyTarget.busy"
-                         value="Cancel"
-                         (click)="confirm.clear();"
-                         class="btn btn-success">
-                }
+                <input type="submit" [disabled]="notifyTarget.busy"
+                       value="Back to admin"
+                       (click)="backToAdmin()"
+                       class="btn btn-secondary">
               </div>
             </div>
             <div class="row mt-2">
@@ -68,53 +45,61 @@
             </div>
           </div>
           <div class="table-responsive">
-            <table class="round tbl-green-g table-striped table-hover table-sm">
-              <thead>
-              <tr class="pointer">
-                <th (click)="sortAuditBy('loginTime')">Time
-                  @if (showAuditColumn('loginTime')) {
-                    <span class="sorting-header"
-                          [textContent]="auditFilter.sortDirection"></span>
+            <div class="ngx-data-table-card">
+              <table class="ngx-data-table">
+                <thead>
+                <tr>
+                  <th class="sortable" (click)="sortAuditBy('loginTime')">Time
+                    @if (showAuditColumn('loginTime')) {
+                      <span class="sorting-header"
+                            [textContent]="auditFilter.sortDirection"></span>
+                    }
+                  </th>
+                  <th class="sortable" (click)="sortAuditBy('userName')">User Name
+                    @if (showAuditColumn('userName')) {
+                      <span class="sorting-header"
+                            [textContent]="auditFilter.sortDirection"></span>
+                    }
+                  </th>
+                  <th class="sortable" (click)="sortAuditBy('member')">Full Name
+                    @if (showAuditColumn('member')) {
+                      <span class="sorting-header"
+                            [textContent]="auditFilter.sortDirection"></span>
+                    }
+                  </th>
+                  <th class="sortable" (click)="sortAuditBy('loginResponse.memberLoggedIn')">Login Successful
+                    @if (showAuditColumn('loginResponse.memberLoggedIn')) {
+                      <span class="sorting-header"
+                            [textContent]="auditFilter.sortDirection"></span>
+                    }
+                  </th>
+                  <th class="sortable" (click)="sortAuditBy('loginResponse.alertMessage')">Login Response
+                    @if (showAuditColumn('loginResponse.alertMessage')) {
+                      <span class="sorting-header"
+                            [textContent]="auditFilter.sortDirection"></span>
+                    }
+                  </th>
+                </tr>
+                </thead>
+                <tbody>
+                  @for (memberAudit of auditFilter.results; track memberAudit.id) {
+                    <tr>
+                      <td class="nowrap">{{ memberAudit?.loginTime | displayDateAndTime }}</td>
+                      <td>{{ memberAudit?.userName }}</td>
+                      <td>{{ memberAudit?.member | fullNameWithAlias :'' }}</td>
+                      <td class="nowrap">
+                        @if (memberAudit?.loginResponse?.memberLoggedIn) {
+                          <fa-icon [icon]="faCheck" class="text-success"/>
+                        } @else {
+                          <fa-icon [icon]="faXmark" class="text-danger"/>
+                        }
+                      </td>
+                      <td>{{ memberAudit?.loginResponse?.alertMessage }}</td>
+                    </tr>
                   }
-                </th>
-                <th (click)="sortAuditBy('userName')">User Name
-                  @if (showAuditColumn('userName')) {
-                    <span class="sorting-header"
-                          [textContent]="auditFilter.sortDirection"></span>
-                  }
-                </th>
-                <th (click)="sortAuditBy('member')">Full Name
-                  @if (showAuditColumn('member')) {
-                    <span class="sorting-header"
-                          [textContent]="auditFilter.sortDirection"></span>
-                  }
-                </th>
-                <th (click)="sortAuditBy('loginResponse.memberLoggedIn')">Login Successful
-                  @if (showAuditColumn('loginResponse.memberLoggedIn')) {
-                    <span class="sorting-header"
-                          [textContent]="auditFilter.sortDirection"></span>
-                  }
-                </th>
-                <th (click)="sortAuditBy('loginResponse.alertMessage')">Login AwsFileUploadResponseData
-                  @if (showAuditColumn('loginResponse.alertMessage')) {
-                    <span class="sorting-header"
-                          [textContent]="auditFilter.sortDirection"></span>
-                  }
-                </th>
-              </tr>
-              </thead>
-              <tbody>
-                @for (memberAudit of auditFilter.results; track memberAudit.id) {
-                  <tr>
-                    <td class="nowrap">{{ memberAudit?.loginTime | displayDateAndTime }}</td>
-                    <td>{{ memberAudit?.userName }}</td>
-                    <td>{{ memberAudit?.member | fullNameWithAlias :'' }}</td>
-                    <td [ngClass]="memberAudit?.loginResponse?.memberLoggedIn ? 'checkbox-on' : 'checkbox-off'"></td>
-                    <td>{{ memberAudit?.loginResponse?.alertMessage }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

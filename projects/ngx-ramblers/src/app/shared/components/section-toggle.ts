@@ -4,6 +4,7 @@ import { Subscription } from "rxjs";
 import { isString, kebabCase } from "es-toolkit/compat";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
+import { StoredValue } from "../../models/ui-actions";
 
 export interface SectionToggleTab {
   value: string;
@@ -82,7 +83,7 @@ export class SectionToggle<T extends string> implements OnInit, OnDestroy {
   }
 
   @Input() selectedTab: T;
-  @Input() queryParamKey: string | null = null;
+  @Input() queryParamKey: StoredValue | null = null;
   @Input() fullWidth = false;
   @Input() disabled = false;
   @Output() selectedTabChange = new EventEmitter<T>();

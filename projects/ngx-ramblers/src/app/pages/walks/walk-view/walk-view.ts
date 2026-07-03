@@ -26,7 +26,7 @@ import { MarkdownComponent } from "ngx-markdown";
 import { EventLeaderComponent } from "./event-leader";
 import { WalkFeaturesComponent } from "./walk-features";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCompress, faExpand } from "@fortawesome/free-solid-svg-icons";
+import { faCompress, faExpand, faEye, faPencil, faPersonWalking } from "@fortawesome/free-solid-svg-icons";
 import { RouterLink } from "@angular/router";
 import { GroupEventImages } from "./group-event-images";
 import { MapEditComponent } from "../walk-edit/map-edit";
@@ -89,15 +89,20 @@ import { BookingFormComponent } from "../../admin/bookings/booking-form.componen
             }
             <div class="event-description">
               @if (displayedWalk?.walkAccessMode?.walkWritable) {
-                <input type="submit"
-                       [value]="displayedWalk?.walkAccessMode?.caption"
-                       (click)="display.edit(displayedWalk)"
-                       [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
-                       class="btn btn-primary btn-sm float-end ms-2 walk-view-action">
+                <button type="button"
+                        (click)="display.edit(displayedWalk)"
+                        [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
+                        class="btn pager-btn btn-sm float-end ms-2 walk-view-action d-inline-flex align-items-center text-nowrap">
+                  <fa-icon [icon]="walkActionIcon()"/>
+                  <span class="ms-2">{{ displayedWalk?.walkAccessMode?.caption }}</span>
+                </button>
               } @else if (allowWalkAdminEdits) {
                 <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
                    tooltip="View this walk"
-                   class="btn btn-primary btn-sm float-end ms-2 walk-view-action">view</a>
+                   class="btn pager-btn btn-sm float-end ms-2 walk-view-action d-inline-flex align-items-center text-nowrap">
+                  <fa-icon [icon]="faEye"/>
+                  <span class="ms-2">view</span>
+                </a>
               }
               @if (displayedWalk?.walk?.groupEvent?.description) {
                 <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description"></p>
@@ -298,6 +303,13 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly WalkStatus = WalkStatus;
   protected readonly faCompress = faCompress;
   protected readonly faExpand = faExpand;
+  protected readonly faEye = faEye;
+  protected readonly faPencil = faPencil;
+  protected readonly faPersonWalking = faPersonWalking;
+
+  walkActionIcon() {
+    return this.displayedWalk?.walkAccessMode?.caption === "lead" ? this.faPersonWalking : this.faPencil;
+  }
   public mapExpanded = false;
   @Input() showPanelExpander = true;
 

@@ -47,6 +47,12 @@ These cause build failures - use the listed replacements:
 ## Git Workflow
 
 - **Conventional commits**: `<type>(<scope>): <description>` (feat, fix, refactor, test, docs, style, build, ci)
+- **Compound types and scopes** join with `+` when a commit genuinely spans several: `perf+fix(server+admin): ...`
+- **Ticket references**: the subject line ends with `(ref #NNN)`, or `(ref #NNN, #MMM)` for multiple tickets. Never mention external contacts or partner names in commit messages or GitHub issues - describe the scenario generically.
+- **Commit body structure** for feat/fix/perf commits (release notes are generated from these bodies via `npm run release-notes`, so write them for members reading the site's Release Notes pages):
+  - `## What's new` - a plain-English narrative paragraph of what changed and why it matters
+  - `## At a glance` - user-facing bullet points, one behaviour change each
+  - `## Technical changes` - implementation bullets for developers
 - **Trunk-based development** - all work directly on main. Never create branches or worktrees unilaterally. The only exception is Claude Swarm, which creates worktrees as part of a multi-ticket session.
 - **No literal `\n`** in commit messages - use real newlines or multiple `-m` flags
 - **Hook setup**: `npm run setup:hooks`

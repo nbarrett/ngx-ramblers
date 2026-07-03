@@ -2,6 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faEye, faPencil, faPersonWalking } from "@fortawesome/free-solid-svg-icons";
 import { MediaQueryService } from "../../../../services/committee/media-query.service";
 import { DisplayedWalk, FALLBACK_MEDIA } from "../../../../models/walk.model";
 import { WalkDisplayService } from "../../../../pages/walks/walk-display.service";
@@ -19,35 +20,45 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
   template: `
     @if (displayedWalk?.walkAccessMode?.walkWritable) {
       @if (memberLoginService.allowWalkAdminEdits() && displayedWalk?.walkAccessMode?.initialiseWalkLeader) {
-        <div class="btn-group button-container" dropdown>
+        <div class="btn-group btn-group-custom button-container" dropdown>
           <button id="walkAction-{{displayedWalk?.walk?.id}}" type="button"
-                  class="btn btn-primary"
-                  (click)="display.edit(displayedWalk)">{{ displayedWalk?.walkAccessMode?.caption }}</button>
-          <button type="button"
-                  class="btn btn-primary dropdown-toggle dropdown-toggle-split"
+                  class="dropdown-toggle btn pager-btn me-0"
                   dropdownToggle
                   aria-controls="walkAction-menu-{{displayedWalk?.walk?.id}}">
-            <span class="caret"></span>
-            <span class="visually-hidden">Toggle Dropdown</span>
+            <fa-icon [icon]="faPersonWalking"/>
+            <span class="ms-2">{{ displayedWalk?.walkAccessMode?.caption }}</span><span class="caret"></span>
           </button>
           <ul *dropdownMenu class="dropdown-menu"
               id="walkAction-menu-{{displayedWalk?.walk?.id}}" role="menu">
             <li role="menuitem">
-              <a role="button" class="dropdown-item"
-                 (click)="display.edit(displayedWalk, {bypassLeaderInit: true})">edit</a>
+              <a role="button" class="dropdown-item d-flex align-items-center"
+                 (click)="display.edit(displayedWalk)">
+                <fa-icon [icon]="faPersonWalking" class="me-2"/>{{ displayedWalk?.walkAccessMode?.caption }}
+              </a>
+            </li>
+            <li role="menuitem">
+              <a role="button" class="dropdown-item d-flex align-items-center"
+                 (click)="display.edit(displayedWalk, {bypassLeaderInit: true})">
+                <fa-icon [icon]="faPencil" class="me-2"/>edit
+              </a>
             </li>
           </ul>
         </div>
       } @else {
-        <input
-          id="walkAction-{{displayedWalk?.walk?.id}}" type="submit"
-          value="{{displayedWalk?.walkAccessMode?.caption}}"
+        <button
+          id="walkAction-{{displayedWalk?.walk?.id}}" type="button"
           (click)="display.edit(displayedWalk)"
-          class="btn btn-primary button-container">
+          class="btn pager-btn me-0 button-container">
+          <fa-icon [icon]="accessModeIcon()"/>
+          <span class="ms-2">{{ displayedWalk?.walkAccessMode?.caption }}</span>
+        </button>
       }
     } @else {
       <a [href]="navigationUrl()"
-         class="btn btn-primary button-container">view</a>
+         class="btn pager-btn me-0 button-container">
+        <fa-icon [icon]="faEye"/>
+        <span class="ms-2">view</span>
+      </a>
     }
     @if (mapFallbackActive()) {
       @if (imageNavigationEnabled) {
@@ -95,6 +106,13 @@ export class CardImageOrMap implements OnInit {
   public groupEventDisplay = inject(GroupEventDisplayService);
   public mediaQueryService = inject(MediaQueryService);
   protected memberLoginService = inject(MemberLoginService);
+  protected readonly faPencil = faPencil;
+  protected readonly faPersonWalking = faPersonWalking;
+  protected readonly faEye = faEye;
+
+  accessModeIcon() {
+    return this.displayedWalk?.walkAccessMode?.caption === "lead" ? this.faPersonWalking : this.faPencil;
+  }
   protected basicMedia: BasicMedia;
   protected imageConfig: { class: string, height: number };
   protected imageNavigationEnabled: boolean;

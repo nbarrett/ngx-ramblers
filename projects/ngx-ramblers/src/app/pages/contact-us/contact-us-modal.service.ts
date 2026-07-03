@@ -6,6 +6,7 @@ import { ContactUsModalComponent } from "./contact-us-modal.component";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { CommitteeMember } from "../../models/committee.model";
+import { StoredValue } from "../../models/ui-actions";
 
 @Injectable({
   providedIn: "root"
@@ -21,7 +22,7 @@ export class ContactUsModalService {
     this.logger.info("ModalService constructed");
 
     this.route.queryParams.pipe(
-      filter(params => !!params["contact-us"])).subscribe(queryParams => {
+      filter(params => !!params[StoredValue.CONTACT_US])).subscribe(queryParams => {
       this.logger.info("queryParams detected:", queryParams);
       this.openContactModal(queryParams);
     });
@@ -56,7 +57,7 @@ export class ContactUsModalService {
     this.modalService.show(ContactUsModalComponent, {
       class: "modal-lg",
       initialState: {
-        queryParams: this.withCurrentPath({"contact-us": true, role, subject, redirect})
+        queryParams: this.withCurrentPath({[StoredValue.CONTACT_US]: true, [StoredValue.ROLE]: role, [StoredValue.SUBJECT]: subject, [StoredValue.REDIRECT]: redirect})
       }
     }).onHidden.subscribe(() => {
       this.logger.info("Modal closed");
@@ -67,12 +68,12 @@ export class ContactUsModalService {
   private withCurrentPath(queryParams: Params): Params {
     return {
       ...queryParams,
-      redirect: queryParams["redirect"] || window.location.pathname
+      [StoredValue.REDIRECT]: queryParams[StoredValue.REDIRECT] || window.location.pathname
     };
   }
 
   redirectBackToRoute(queryParams: Params) {
-    const path = queryParams["redirect"];
+    const path = queryParams[StoredValue.REDIRECT];
     this.logger.info("Redirecting to:", path);
     this.router.navigate([path]);
   }

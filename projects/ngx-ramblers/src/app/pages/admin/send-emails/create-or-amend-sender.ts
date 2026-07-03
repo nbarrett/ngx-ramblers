@@ -14,6 +14,7 @@ import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
 import { AdminPath } from "../../../models/admin-route-paths.model";
+import { StoredValue } from "../../../models/ui-actions";
 import { RouterLink } from "@angular/router";
 import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
 
@@ -29,7 +30,7 @@ import { CommitteeConfigService } from "../../../services/committee/commitee-con
               <ul class="mb-0 mt-1">
                 <li>Brevo has: {{ senderMatchedByEmail()?.name }} ({{ senderMatchedByEmail()?.email }})</li>
                 <li>Expected: {{ expectedSenderName() }} ({{ senderCommitteeMemberInternal?.email }})</li>
-                <li><a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="{tab: 'senders'}">See existing Senders</a></li>
+                <li><a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="sendersQueryParams">See existing Senders</a></li>
               </ul>
             </alert>
           <div class="mt-2">
@@ -62,7 +63,7 @@ import { CommitteeConfigService } from "../../../services/committee/commitee-con
             <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
             <strong class="ms-2">Brevo Sender Not Yet Created</strong>
             <span class="ms-2">- Click button to create {{ senderCommitteeMemberInternal?.email }}
-              as an outbound sender in Brevo. <a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="{tab: 'senders'}">See existing Senders</a></span>
+              as an outbound sender in Brevo. <a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="sendersQueryParams">See existing Senders</a></span>
           </alert>
           <app-brevo-button class="ms-2 mt-1" [disabled]="!senderCommitteeMemberInternal || apiRequestPending" [loading]="apiRequestPending" button
             (click)="createSender()"
@@ -85,7 +86,7 @@ import { CommitteeConfigService } from "../../../services/committee/commitee-con
           <alert type="success" class="flex-grow-1">
             <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
             <strong class="ms-2">New Sender Created</strong>
-            <span class="ms-2">- {{ senderCommitteeMemberInternal?.fullName }} was added to Brevo as a sender. <a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="{tab: 'senders'}">See existing Senders</a></span>
+            <span class="ms-2">- {{ senderCommitteeMemberInternal?.fullName }} was added to Brevo as a sender. <a [routerLink]="'/' + adminMailSettingsPath" [queryParams]="sendersQueryParams">See existing Senders</a></span>
           </alert>
         </div>
       </div>
@@ -120,6 +121,7 @@ export class CreateOrAmendSenderComponent implements OnInit, OnDestroy {
 
   @Output() senderExists: EventEmitter<boolean> = new EventEmitter();
 
+  protected readonly sendersQueryParams = {[StoredValue.TAB]: "senders"};
   protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
 

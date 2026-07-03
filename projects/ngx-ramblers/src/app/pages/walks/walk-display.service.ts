@@ -48,6 +48,7 @@ import { AccessLevel } from "../../models/member-resource.model";
 import { FeaturesService } from "../../services/features.service";
 import { validEmail } from "../../functions/strings";
 import { PageService } from "../../services/page.service";
+import { StoredValue } from "../../models/ui-actions";
 
 @Injectable({
   providedIn: "root"
@@ -114,6 +115,12 @@ export class WalkDisplayService {
   public hasWalkLeader(walk: ExtendedGroupEvent): boolean {
     const contactDetails = walk?.fields?.contactDetails;
     return !!contactDetails?.memberId || !!contactDetails?.displayName || this.hasRamblersContactChannel(walk);
+  }
+
+  public hasVisibleLeaderContactDetails(walk: ExtendedGroupEvent): boolean {
+    const contactDetails = walk?.fields?.contactDetails;
+    return !!contactDetails?.email
+      || (this.walkContactDetailsPublic() && !!(contactDetails?.phone || contactDetails?.displayName));
   }
 
   public walkDetailsComplete(walk: ExtendedGroupEvent): boolean {
@@ -212,7 +219,7 @@ export class WalkDisplayService {
   }
 
   edit(walkDisplay: DisplayedWalk, options?: { bypassLeaderInit?: boolean }): void {
-    const queryParams = options?.bypassLeaderInit ? {as: WalksReferenceService.walkAccessModes.edit.caption} : undefined;
+    const queryParams = options?.bypassLeaderInit ? {[StoredValue.AS]: WalksReferenceService.walkAccessModes.edit.caption} : undefined;
     if (walkDisplay?.walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
       void this.urlService.navigateTo([this.groupEventArea(), this.editIdentifierFor(walkDisplay?.walk), PathSegment.EDIT], queryParams);
     } else {

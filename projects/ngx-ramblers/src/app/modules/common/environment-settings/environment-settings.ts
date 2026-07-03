@@ -24,6 +24,7 @@ import { EnvironmentGlobalSettings } from "./environment-global-settings";
 import { EnvironmentPerEnvSettings } from "./environment-per-env-settings";
 import { EnvironmentConfigTools } from "./environment-config-tools";
 import { Environment } from "../../../models/environment.model";
+import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-environment-settings",
@@ -42,7 +43,7 @@ import { Environment } from "../../../models/environment.model";
         <app-section-toggle
           [tabs]="settingsSubTabs"
           [(selectedTab)]="settingsSubTab"
-          [queryParamKey]="'sub-tab'"
+          [queryParamKey]="StoredValue.SUB_TAB"
           [fullWidth]="true"/>
       </div>
       @if (configError) {
@@ -83,6 +84,7 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
 
   protected readonly EnvironmentSettingsSubTab = EnvironmentSettingsSubTab;
+  protected readonly StoredValue = StoredValue;
 
   notifyTarget: AlertTarget = {};
   notify: AlertInstance;

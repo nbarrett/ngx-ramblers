@@ -1,5 +1,6 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute, Router, RouterLink } from "@angular/router";
+import { ActivatedRoute, RouterLink } from "@angular/router";
+import { values } from "es-toolkit/compat";
 import {
   faBan,
   faCheck,
@@ -51,6 +52,7 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
 import { DateRange, DateRangeSlider } from "../../../../components/date-range-slider/date-range-slider";
 import { UIDateFormat } from "../../../../models/date-format.model";
 import { DateTime } from "luxon";
+import { UiActionsService } from "../../../../services/ui-actions.service";
 
 const ALL_REASONS = "all";
 const ALL_SENDERS = "all";
@@ -469,7 +471,7 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
   private dateUtils = inject(DateUtilsService);
   private stringUtils = inject(StringUtilsService);
   private activatedRoute = inject(ActivatedRoute);
-  private router = inject(Router);
+  private uiActions = inject(UiActionsService);
   private subscriptions: Subscription[] = [];
 
   public unsubscribes: BlockedContact[] = [];
@@ -526,13 +528,13 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.activatedRoute.queryParams.subscribe(params => {
         const search = params[StoredValue.SEARCH];
-        const sort = params[StoredValue.SORT];
+        const sort = this.uiActions.queryValueForAlias(params[StoredValue.SORT], values(UnsubscribeSortField));
         const sortOrder = params[StoredValue.SORT_ORDER];
         const status = params[StoredValue.STATUS];
-        const subTab = params["sub-tab"];
-        const startDate = params["start-date"];
-        const endDate = params["end-date"];
-        const sender = params["sender"];
+        const subTab = params[StoredValue.SUB_TAB];
+        const startDate = params[StoredValue.START_DATE];
+        const endDate = params[StoredValue.END_DATE];
+        const sender = params[StoredValue.SENDER];
         if (search && !this.searchTerm) {
           this.searchTerm = search;
         }
@@ -799,19 +801,15 @@ export class MailUnsubscribesListComponent implements OnInit, OnDestroy {
 
   updateQueryParams() {
     const dateRangeOverridden = this.dateRangeOverridesDefault();
-    this.router.navigate([], {
-      relativeTo: this.activatedRoute,
-      queryParams: {
-        [StoredValue.SEARCH]: this.searchTerm || null,
-        [StoredValue.SORT]: this.sortField || null,
-        [StoredValue.SORT_ORDER]: this.sortDirection || null,
-        [StoredValue.STATUS]: this.reasonFilter === ALL_REASONS ? null : this.reasonFilter,
-        "sub-tab": this.mode || null,
-        "start-date": dateRangeOverridden ? this.formatRangeDate(this.dateFilterRange?.from) : null,
-        "end-date": dateRangeOverridden ? this.formatRangeDate(this.dateFilterRange?.to) : null,
-        sender: this.senderFilter && this.senderFilter !== ALL_SENDERS ? this.senderFilter : null
-      },
-      queryParamsHandling: "merge"
+    this.uiActions.updateQueryParameters({
+      [StoredValue.SEARCH]: this.searchTerm || null,
+      [StoredValue.SORT]: this.sortField ? this.uiActions.queryValueAliasFor(this.sortField) : null,
+      [StoredValue.SORT_ORDER]: this.sortDirection || null,
+      [StoredValue.STATUS]: this.reasonFilter === ALL_REASONS ? null : this.reasonFilter,
+      [StoredValue.SUB_TAB]: this.mode || null,
+      [StoredValue.START_DATE]: dateRangeOverridden ? this.formatRangeDate(this.dateFilterRange?.from) : null,
+      [StoredValue.END_DATE]: dateRangeOverridden ? this.formatRangeDate(this.dateFilterRange?.to) : null,
+      [StoredValue.SENDER]: this.senderFilter && this.senderFilter !== ALL_SENDERS ? this.senderFilter : null
     });
   }
 

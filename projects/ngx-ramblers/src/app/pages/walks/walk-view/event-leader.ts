@@ -91,9 +91,7 @@ export class EventLeaderComponent {
   }
 
   hasVisibleContactDetails(): boolean {
-    const contactDetails = this.resolvedEvent()?.fields?.contactDetails;
-    return !!contactDetails?.email
-      || (this.display.walkContactDetailsPublic() && !!(contactDetails?.phone || contactDetails?.displayName));
+    return this.display.hasVisibleLeaderContactDetails(this.resolvedEvent());
   }
 
   heading(): string {

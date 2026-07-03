@@ -36,6 +36,7 @@ import { MarkdownEditorComponent } from "../../../../../markdown-editor/markdown
 import { ExternalAlbumGroupComponent } from "./external-album-group";
 import { UrlService } from "../../../../../services/url.service";
 import { groupBy } from "es-toolkit/compat";
+import { StoredValue } from "../../../../../models/ui-actions";
 
 @Component({
   selector: "app-external-album-import",
@@ -46,7 +47,7 @@ import { groupBy } from "es-toolkit/compat";
           <app-section-toggle
             [tabs]="importModeTabs"
             [(selectedTab)]="importMode"
-            queryParamKey="import-mode">
+            [queryParamKey]="StoredValue.IMPORT_MODE">
           </app-section-toggle>
         </div>
       </div>
@@ -463,6 +464,7 @@ export class ExternalAlbumImportComponent implements OnInit, OnDestroy {
 
   @Output() importComplete = new EventEmitter<ExternalAlbumImportResult>();
 
+  protected readonly StoredValue = StoredValue;
   protected readonly faEye = faEye;
   protected readonly faImport = faCloudDownloadAlt;
   protected readonly faSpinner = faSpinner;

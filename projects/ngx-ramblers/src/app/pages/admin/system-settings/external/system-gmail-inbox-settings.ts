@@ -352,17 +352,17 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
       if (step !== null && !isNaN(+step)) {
         this.stepperActiveIndex = Math.min(Math.max(+step, 0), GMAIL_INBOX_STEPS.length - 1);
       }
-      const setupStarted = url.searchParams.get("setupStarted");
+      const setupStarted = url.searchParams.get(StoredValue.SETUP_STARTED);
       if (setupStarted) {
         this.showSetupRun = true;
         this.setupInProgress = true;
         this.stepperActiveIndex = 0;
       }
-      const oauthError = url.searchParams.get("oauthError");
+      const oauthError = url.searchParams.get(StoredValue.OAUTH_ERROR);
       if (oauthError) {
         this.errorMessage = oauthError;
       }
-      const connectedParam = url.searchParams.get("connected");
+      const connectedParam = url.searchParams.get(StoredValue.CONNECTED);
       if (connectedParam) {
         this.stepperActiveIndex = 1;
       }
@@ -375,8 +375,8 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   }
 
   private clearSetupStartedParam(): void {
-    if (!isUndefined(window) && new URL(window.location.href).searchParams.has("setupStarted")) {
-      void this.router.navigate([], {relativeTo: this.route, queryParams: {setupStarted: null}, queryParamsHandling: "merge", replaceUrl: true});
+    if (!isUndefined(window) && new URL(window.location.href).searchParams.has(StoredValue.SETUP_STARTED)) {
+      void this.router.navigate([], {relativeTo: this.route, queryParams: {[StoredValue.SETUP_STARTED]: null}, queryParamsHandling: "merge", replaceUrl: true});
     }
   }
 

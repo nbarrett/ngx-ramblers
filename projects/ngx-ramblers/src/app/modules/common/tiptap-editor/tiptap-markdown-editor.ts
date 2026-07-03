@@ -24,6 +24,8 @@ import {
   faQuoteRight,
   faRedo,
   faRemoveFormat,
+  faToggleOn,
+  faToggleOff,
   faUndo
 } from "@fortawesome/free-solid-svg-icons";
 import {
@@ -40,12 +42,17 @@ import { LINK_TOKEN_NODE_NAME, LinkToken } from "./link-token.extension";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { PAGE_BREAK_NODE_NAME, PageBreak } from "./page-break.extension";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
-import { AwsFileData } from "../../../models/aws-object.model";
+import { AwsFileData, AwsFileUploadResponse } from "../../../models/aws-object.model";
 import { RootFolder } from "../../../models/system.model";
+import { S3_BASE_URL } from "../../../models/content-metadata.model";
 import { UrlService } from "../../../services/url.service";
+import { FileUtilsService } from "../../../file-utils.service";
+import { hasSoftWrappedParagraph, unwrapSoftLineBreaks } from "../../../functions/unwrap-line-breaks";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FormsModule } from "@angular/forms";
+import { HttpClient } from "@angular/common/http";
+import { firstValueFrom } from "rxjs";
 import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-select";
 
 @Component({
@@ -482,6 +489,14 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
           <fa-icon [icon]="faRemoveFormat"/>
         </button>
         <span class="toolbar-divider"></span>
+        <button type="button" class="toolbar-text-toggle" [class.is-active]="unwrapLineBreaksOnPaste"
+                [tooltip]="(unwrapLineBreaksOnPaste ? 'On' : 'Off') + ': when on, line breaks within paragraphs of pasted text are unwrapped so body text flows as one paragraph; headings, lists, blank lines and code blocks are kept as they are. Click to turn ' + (unwrapLineBreaksOnPaste ? 'off' : 'on') + '.'"
+                container="body" delay=500
+                (click)="unwrapLineBreaksOnPaste = !unwrapLineBreaksOnPaste">
+          <fa-icon [icon]="unwrapLineBreaksOnPaste ? faToggleOn : faToggleOff" [class.text-success]="unwrapLineBreaksOnPaste" class="me-1"/>
+          Unwrap on paste
+        </button>
+        <span class="toolbar-divider"></span>
         <button type="button" tooltip="Undo" container="body" delay=500 (click)="undo()">
           <fa-icon [icon]="faUndo"/>
         </button>
@@ -513,6 +528,11 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
                                          [preloadImage]="cropperPreloadSrc"
                                          (quit)="cancelImageCropper()"
                                          (save)="onImageCropperSave($event)"/>
+        </div>
+      }
+      @if (pastedImageUploading) {
+        <div class="inline-input-bar" style="display:block">
+          <span class="token-editor-title">Uploading pasted image…</span>
         </div>
       }
       <div class="tiptap-content" [class.show-examples]="showExampleValues" [class.email-width]="constrainToEmailWidth && !editable">
@@ -731,6 +751,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected tokenEditorAbove: boolean = false;
   protected tokenFieldValue: string = "";
   protected readonly rootFolder = RootFolder.siteContent;
+  protected pastedImageUploading = false;
+  protected unwrapLineBreaksOnPaste = true;
+  private http = inject(HttpClient);
+  private fileUtilsService = inject(FileUtilsService);
 
   private logger: Logger = inject(LoggerFactory).createLogger("TiptapMarkdownEditor", NgxLoggerLevel.ERROR);
 
@@ -748,6 +772,8 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected readonly faRedo = faRedo;
   protected readonly faHeading = faHeading;
   protected readonly faRemoveFormat = faRemoveFormat;
+  protected readonly faToggleOn = faToggleOn;
+  protected readonly faToggleOff = faToggleOff;
 
   ngOnInit(): void {
     const extensions: any[] = [
@@ -773,6 +799,12 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
           "data-placeholder": this.placeholder ?? ""
         },
         handlePaste: (_view, event) => {
+          const pastedImage = Array.from(event.clipboardData?.files ?? []).find(file => file.type.startsWith("image/"));
+          if (pastedImage) {
+            event.preventDefault();
+            void this.uploadAndInsertPastedImage(pastedImage);
+            return true;
+          }
           const pastedHtml = event.clipboardData?.getData("text/html") ?? "";
           const internalPaste = this.isInternalPaste(pastedHtml);
           const text = event.clipboardData?.getData("text/plain") ?? "";
@@ -786,7 +818,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
           }
           if (!internalPaste && text && this.looksLikeMarkdown(text)) {
             event.preventDefault();
-            const sanitised = this.sanitiseMarkdownForPaste(text);
+            const sanitised = this.unwrapIfEnabled(this.sanitiseMarkdownForPaste(text));
             try {
               const html = this.pasteMarked.parse(sanitised, { async: false }) as string;
               const normalised = this.normaliseHtmlForInsert(html);
@@ -795,6 +827,15 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
               this.logger.error("markdown paste failed, falling back to plain text:", error);
               this.editor?.commands.insertContent(sanitised);
             }
+            return true;
+          }
+          if (!internalPaste && text && this.unwrapLineBreaksOnPaste && hasSoftWrappedParagraph(text)) {
+            event.preventDefault();
+            const html = unwrapSoftLineBreaks(text)
+              .split(/\n{2,}/)
+              .map(block => `<p>${block.replace(/\n/g, "<br>")}</p>`)
+              .join("");
+            this.editor?.commands.insertContent(html);
             return true;
           }
           return false;
@@ -902,6 +943,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     cleaned = cleaned.replace(/<\/?(?:Tabs|Tab|Note|Tip|Warning|Steps|Step|Frame|Card|CardGroup|Accordion|AccordionGroup|CodeGroup|Info|Check|Callout)\b[^>]*>/gi, "");
     cleaned = cleaned.replace(/^\s*```[a-zA-Z0-9]*\s+theme=\{null\}\s*$/gm, "```");
     return cleaned;
+  }
+
+  public unwrapIfEnabled(text: string): string {
+    return this.unwrapLineBreaksOnPaste ? unwrapSoftLineBreaks(text) : text;
   }
 
   private looksLikeMarkdown(text: string): boolean {
@@ -1288,6 +1333,46 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.imageCropperOpen = false;
     this.cropperPreloadSrc = null;
     this.replaceSelectedImageOnSave = false;
+  }
+
+  private async uploadAndInsertPastedImage(pastedImage: File): Promise<void> {
+    if (!this.editable) {
+      return;
+    }
+    this.pastedImageUploading = true;
+    try {
+      const fileName = pastedImage.name || this.fileUtilsService.pastedFilenameForMime(pastedImage.type);
+      const fileToUpload = await this.resizedForEmail(pastedImage, fileName);
+      const formData = new FormData();
+      formData.append("file", fileToUpload, fileName);
+      const response = await firstValueFrom(this.http.post<AwsFileUploadResponse>(`${S3_BASE_URL}/file-upload?root-folder=${this.rootFolder}`, formData));
+      const fileNameData = response?.responses?.[0]?.fileNameData;
+      if (fileNameData) {
+        const relative = this.urlService.resourceRelativePathForAWSFileName(`${fileNameData.rootFolder}/${fileNameData.awsFileName}`);
+        const src = `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${relative}`;
+        this.editor?.chain().focus().setImage({src, alt: ""}).run();
+      } else {
+        this.logger.error("pasted image upload returned no file data:", response);
+      }
+    } catch (error) {
+      this.logger.error("pasted image upload failed:", error);
+    } finally {
+      this.pastedImageUploading = false;
+    }
+  }
+
+  private async resizedForEmail(file: File, fileName: string): Promise<File> {
+    const maximumBytes = 300000;
+    if (file.size <= maximumBytes) {
+      return file;
+    }
+    const base64Files = await this.fileUtilsService.fileListToBase64Files([file]);
+    const base64Content = base64Files[0]?.base64Content;
+    if (!base64Content) {
+      return file;
+    }
+    const resized = await this.fileUtilsService.resizeBase64Image(base64Content, fileName, maximumBytes, 1200);
+    return resized ? this.fileUtilsService.base64ToFileWithName(resized, fileName) : file;
   }
 
   onImageCropperSave(awsFileData: AwsFileData): void {

@@ -15,6 +15,7 @@ import { WebSocketClientService } from "../../../../services/websockets/websocke
 import { EventType, MessageType } from "../../../../models/websocket.model";
 import { Subscription } from "rxjs";
 import { InputSize } from "../../../../models/ui-size.model";
+import { StoredValue } from "../../../../models/ui-actions";
 
 @Component({
   selector: "app-ramblers-settings",
@@ -152,7 +153,7 @@ import { InputSize } from "../../../../models/ui-size.model";
                 <div class="alert alert-warning">
                   <fa-icon [icon]="faInfoCircle" class="me-2"/>
                   Sync is disabled — group code is not configured. Go to
-                  <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="{tab: 'area-group'}">Area &amp; Group settings</a>
+                  <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="areaGroupQueryParams">Area &amp; Group settings</a>
                   to add it.
                 </div>
               </div>
@@ -235,7 +236,7 @@ import { InputSize } from "../../../../models/ui-size.model";
               <div class="alert alert-warning">
                 <fa-icon [icon]="faInfoCircle" class="me-2"/>
                 <strong>Sync Disabled:</strong> Walk Population is set to Local. Change to Walks Manager in
-                <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="{tab: 'area-group'}">Area &amp; Group settings</a>
+                <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="areaGroupQueryParams">Area &amp; Group settings</a>
                 to enable syncing from Walks Manager.
               </div>
             </div>
@@ -265,6 +266,7 @@ export class RamblersSettings implements OnInit, OnDestroy {
   @Input() config: SystemConfig;
   @Output() syncingChange = new EventEmitter<boolean>();
 
+  protected readonly areaGroupQueryParams = {[StoredValue.TAB]: "area-group"};
   protected readonly JSON = JSON;
 
   protected readonly RamblersSyncMode = RamblersSyncMode;

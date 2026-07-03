@@ -2,6 +2,7 @@ import { AccessLevel } from "./member-resource.model";
 
 export interface WalksConfig {
   milesPerHour: number;
+  mapZoomOutLevels?: number;
   requireRiskAssessment: boolean;
   requireFinishTime: boolean;
   requireWalkLeaderDisplayName: boolean;
@@ -20,6 +21,5 @@ export interface WalksConfig {
 export enum WalkConfigTab {
   GENERAL = "General",
   MEETUP = "Meetup",
-  PUBLISHING_DEFAULTS = "Publishing Defaults",
   WALK_VIEW = "Walk View",
 }

@@ -456,7 +456,7 @@ export class MailReportsComponent implements OnInit, OnDestroy {
 
   protected openCampaignDrillDown(campaign: BrevoCampaignProgress): void {
     void this.router.navigate(["/" + AdminPath.MAIL_REPORTS_CAMPAIGN], {
-      queryParams: { campaignId: campaign.id, startDate: this.formattedRangeStart(), endDate: this.formattedRangeEnd() }
+      queryParams: { [StoredValue.CAMPAIGN_ID]: campaign.id, [StoredValue.CAMPAIGN_START_DATE]: this.formattedRangeStart(), [StoredValue.CAMPAIGN_END_DATE]: this.formattedRangeEnd() }
     });
   }
 

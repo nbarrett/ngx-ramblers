@@ -39,7 +39,7 @@ import { ResizerComponent } from "../../../../modules/common/resizer/resizer";
 import { UiActionsService } from "../../../../services/ui-actions.service";
 import { StoredValue } from "../../../../models/ui-actions";
 import { isString } from "es-toolkit/predicate";
-import { isArray } from "es-toolkit/compat";
+import { isArray, values } from "es-toolkit/compat";
 import { asNumber } from "../../../../functions/numbers";
 import { AreaMap } from "../../../area-map/area-map";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -88,7 +88,7 @@ interface GroupBoundaryUploadResult {
           <app-section-toggle
               [tabs]="mapsSubTabs"
               [(selectedTab)]="mapsSubTab"
-              [queryParamKey]="'maps-sub-tab'"
+              [queryParamKey]="StoredValue.MAPS_SUB_TAB"
               [fullWidth]="true"/>
           @if (showMapsSubTab(MapsSubTab.MAP_PREVIEW)) {
           <div class="thumbnail-heading-frame">
@@ -930,14 +930,10 @@ export class SystemAreaMapSyncComponent implements OnInit {
   }
 
   private updateQueryParams() {
-    this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: {
-        filter: this.filterText || null,
-        sort: this.sortField !== AreaGroupSortField.GroupCode ? this.sortField : null,
-        sortAsc: this.sortAsc ? null : "false"
-      },
-      queryParamsHandling: "merge"
+    this.uiActionsService.updateQueryParameters({
+      [StoredValue.FILTER]: this.filterText || null,
+      [StoredValue.SORT]: this.sortField !== AreaGroupSortField.GroupCode ? this.uiActionsService.queryValueAliasFor(this.sortField) : null,
+      [StoredValue.SORT_ASC]: this.sortAsc ? null : "false"
     });
   }
 
@@ -945,6 +941,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
   shapefileUploadResult: GroupBoundaryUploadResult | null = null;
   shapefileErrorMessage = "";
 
+  protected readonly StoredValue = StoredValue;
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faEdit = faEdit;
   protected readonly faInfoCircle = faInfoCircle;
@@ -960,10 +957,9 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.loadAvailableDistricts();
     this.loadAvailableNeighboringAreas();
     this.loadParishAllocations();
-    const params = this.route.snapshot.queryParams;
-    this.filterText = params["filter"] || "";
-    this.sortField = (params["sort"] as AreaGroupSortField) || AreaGroupSortField.GroupCode;
-    this.sortAsc = params["sortAsc"] !== "false";
+    this.filterText = this.uiActionsService.queryParameter(StoredValue.FILTER) || "";
+    this.sortField = (this.uiActionsService.queryValueForAlias(this.uiActionsService.queryParameter(StoredValue.SORT), values(AreaGroupSortField)) as AreaGroupSortField) || AreaGroupSortField.GroupCode;
+    this.sortAsc = this.uiActionsService.queryParameter(StoredValue.SORT_ASC) !== "false";
     this.systemConfigService.events().subscribe(config => {
       this.config = config;
       this.loadAreaGroups();

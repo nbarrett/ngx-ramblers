@@ -24,6 +24,7 @@ import { SectionToggle } from "../../../shared/components/section-toggle";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { TimePicker } from "../../../date-and-time/time-picker";
 import { LocationType } from "../../../models/map.model";
+import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-walk-edit-details",
@@ -47,7 +48,7 @@ import { LocationType } from "../../../models/map.model";
         <app-section-toggle
           [tabs]="tabs"
           [(selectedTab)]="selectedTab"
-          [queryParamKey]="'sub-tab'"/>
+          [queryParamKey]="StoredValue.SUB_TAB"/>
         @if (selectedTab === DetailsTab.ROUTE || selectedTab === DetailsTab.ROUTE_AND_VENUE) {
           <div class="row thumbnail-heading-frame">
             <div class="thumbnail-heading">Route</div>
@@ -283,6 +284,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit {
 
   @ViewChildren(WalkLocationEditComponent) walkLocationEditComponents!: QueryList<WalkLocationEditComponent>;
 
+  protected readonly StoredValue = StoredValue;
   protected readonly WalkType = WalkType;
   protected readonly DetailsTab = DetailsTab;
   protected readonly LocationType = LocationType;

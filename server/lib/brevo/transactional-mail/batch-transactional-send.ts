@@ -341,7 +341,13 @@ async function performInboxReplyWriteback(request: BatchTransactionalSendRequest
       sentAt,
       externalSource: InboxReaderProvider.GMAIL_API,
       externalId: gmailMessageId,
-      attachments: []
+      attachments: (emailRequest.attachments ?? []).map(attachment => ({
+        filename: attachment.name,
+        contentType: "",
+        sizeBytes: attachment.sizeBytes ?? 0,
+        s3Key: attachment.url.split("api/aws/s3/")[1] ?? "",
+        contentId: null
+      }))
     };
     await recordOutboundReply(alias, replyMessage, context.threadId);
   } catch (error) {
@@ -555,6 +561,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           listId: notifConfig?.defaultListId,
           params,
           headers: replyHeaders,
+          attachments: request.attachments,
           brandingMode: request.brandingMode,
           ...(isUnbranded
             ? { htmlContent: request.htmlBody }
@@ -615,6 +622,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           listId: notifConfig?.defaultListId,
           params: externalParams,
           headers: externalReplyHeaders,
+          attachments: request.attachments,
           brandingMode: request.brandingMode,
           ...(isUnbranded
             ? { htmlContent: request.htmlBody }

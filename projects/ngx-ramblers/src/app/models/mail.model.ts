@@ -180,12 +180,26 @@ export interface EditableBodyResponse {
   body: string;
 }
 
+export interface EmailAttachment {
+  name: string;
+  url: string;
+  sizeBytes?: number;
+}
+
+export const BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS: string[] = [
+  "aif", "aifc", "aiff", "avi", "bmp", "cgm", "css", "csv", "doc", "docm", "docx", "eps", "ez", "flac", "gif",
+  "htm", "html", "ics", "jpeg", "jpg", "m4a", "m4v", "mkv", "mobi", "mov", "mp3", "mp4", "mpeg", "mpg", "msg",
+  "ods", "odt", "ogg", "pdf", "pkpass", "png", "ppt", "pptx", "pub", "rtf", "shtml", "tar", "tif", "tiff",
+  "txt", "wav", "wma", "wmv", "xls", "xlsm", "xlsx", "xml", "zip"
+];
+
 export interface SendSmtpEmailRequest extends EmailRequest {
   to?: EmailAddress[];
   bcc?: EmailAddress[];
   cc?: EmailAddress[];
   replyTo?: EmailAddress;
   listId?: number;
+  attachments?: EmailAttachment[];
 }
 
 export interface SendCampaignRequest {
@@ -1011,9 +1025,6 @@ export interface BrevoEmailPreviewContent {
   date: string;
   body: string;
 }
-
-export const MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM = "modal-tab";
-export const BREVO_TAB_SUB_TAB_QUERY_PARAM = "brevo-section";
 
 export enum MemberAdminModalTab {
   CONTACT = "contact",

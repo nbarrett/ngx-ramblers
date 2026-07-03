@@ -676,7 +676,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget = {};
   public notification: Notification;
   public committeeConfig: CommitteeConfig;
-  protected readonly environmentSetupGlobalQueryParams = {tab: toKebabCase(EnvironmentSetupTab.SETTINGS), "sub-tab": EnvironmentSettingsSubTab.GLOBAL};
+  protected readonly environmentSetupGlobalQueryParams = {[StoredValue.TAB]: toKebabCase(EnvironmentSetupTab.SETTINGS), [StoredValue.SUB_TAB]: EnvironmentSettingsSubTab.GLOBAL};
   protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly EmailForwardStatus = EmailForwardStatus;
   protected readonly CatchAllAction = CatchAllAction;

@@ -24,6 +24,8 @@ import { UrlService } from "../../../services/url.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { MeetupService } from "../../../services/meetup.service";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
+import { MapEditComponent } from "../walk-edit/map-edit";
+import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
@@ -47,7 +49,8 @@ import {
                  [heading]="WalkConfigTab.GENERAL">
               <div class="img-thumbnail thumbnail-admin-edit">
                 @if (walksConfig) {
-                  <div>
+                  <div class="row">
+                    <div class="col-md-6">
                     <div class="form-group mb-3">
                       <label for="miles-per-hour">Miles per hour (default walking pace)</label>
                       <input [(ngModel)]="walksConfig.milesPerHour"
@@ -57,6 +60,18 @@ import {
                              step="0.01"
                              min="0"
                              placeholder="Default miles per hour">
+                    </div>
+                    <div class="form-group mb-3">
+                      <label for="map-zoom-out-levels">Map zoom out levels — how much extra area walk maps show around the start pin (0 shows the closest view, each level roughly doubles the area)</label>
+                      <input [(ngModel)]="walksConfig.mapZoomOutLevels"
+                             (ngModelChange)="refreshMapPreview()"
+                             type="number"
+                             class="form-control input-sm"
+                             id="map-zoom-out-levels"
+                             step="1"
+                             min="0"
+                             max="6"
+                             placeholder="Levels to zoom out walk maps">
                     </div>
                     <div class="form-check mb-2">
                       <input [(ngModel)]="walksConfig.requireRiskAssessment"
@@ -106,6 +121,17 @@ import {
                         }
                       </select>
                     </div>
+                    </div>
+                    <div class="col-md-6">
+                      <label>Example walk map at the configured zoom level — zoom in or out here to set the level</label>
+                      @if (mapPreviewVisible) {
+                        <div app-map-edit readonly
+                             class="map-walk-view"
+                             [initialZoomOffset]="-(walksConfig.mapZoomOutLevels ?? 2)"
+                             (zoomOutLevelsChange)="onPreviewZoomChange($event)"
+                             [locationDetails]="exampleLocation"></div>
+                      }
+                    </div>
                   </div>
                 }
               </div>
@@ -114,7 +140,16 @@ import {
                  (selectTab)="selectTab(WalkConfigTab.MEETUP)"
                  [heading]="WalkConfigTab.MEETUP">
               <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="mb-2">
+                <div markdown class="list-arrow mb-2">
+                  <ul>
+                    <li>Here you can configure default settings that will be used when creating Meetup events.</li>
+                  </ul>
+                </div>
+                @if (meetupConfig) {
+                  <app-walk-meetup-config-parameters [config]="meetupConfig"
+                                                     [contentTextItems]="contentTextItems"/>
+                }
+                <div class="mb-2 mt-4">
                   <ul class="list-arrow">
                     <li>Here you can configure content text that will automatically be added to the beginning of
                       the walk description on Meetup events we create.
@@ -162,21 +197,6 @@ import {
                 </div>
               </div>
             </tab>
-            <tab [active]="tabActive(WalkConfigTab.PUBLISHING_DEFAULTS)"
-                 (selectTab)="selectTab(WalkConfigTab.PUBLISHING_DEFAULTS)"
-                 [heading]="WalkConfigTab.PUBLISHING_DEFAULTS">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div markdown class="list-arrow b-2">
-                  <ul>
-                    <li>Here you can configure default settings that will be used when creating Meetup events.</li>
-                  </ul>
-                </div>
-                @if (meetupConfig) {
-                  <app-walk-meetup-config-parameters [config]="meetupConfig"
-                                                     [contentTextItems]="contentTextItems"/>
-                }
-              </div>
-            </tab>
             <tab [active]="tabActive(WalkConfigTab.WALK_VIEW)"
                  (selectTab)="selectTab(WalkConfigTab.WALK_VIEW)"
                  [heading]="WalkConfigTab.WALK_VIEW">
@@ -187,7 +207,7 @@ import {
                     <div markdown class="list-arrow mb-3">
                       <ul>
                         <li>Choose which links appear inside the Related Links box on individual walk pages.</li>
-                        <li>The Related Links box itself can be hidden per event type in <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="{tab: 'area-group'}"><strong>Admin &gt; Settings &gt; System Settings &gt; Group / Area Configuration</strong></a>.</li>
+                        <li>The Related Links box itself can be hidden per event type in <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="areaGroupQueryParams"><strong>Admin &gt; Settings &gt; System Settings &gt; Group / Area Configuration</strong></a>.</li>
                       </ul>
                     </div>
                   </div>
@@ -311,7 +331,7 @@ import {
     </app-page>
   `,
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, MarkdownEditorComponent, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink]
+  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, MarkdownEditorComponent, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink, MapEditComponent]
 })
 export class WalkConfigComponent implements OnInit, OnDestroy {
   adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
@@ -334,6 +354,18 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   addNew: boolean;
   public meetupConfig: MeetupConfig;
   public walksConfig: WalksConfig;
+  protected mapPreviewVisible = true;
+  private mapPreviewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  protected readonly exampleLocation: LocationDetails = {
+    latitude: 51.48158,
+    longitude: -1.10079,
+    description: "Example start point",
+    postcode: "RG8 7AR",
+    grid_reference_6: null,
+    grid_reference_8: null,
+    grid_reference_10: null,
+    w3w: null
+  };
   public weekdayOptions: { label: string; value: number }[] = [];
   public accessLevels: AccessLevel[] = enumValues(AccessLevel);
   public accessLevelDescriptions: Record<AccessLevel, string> = {
@@ -349,6 +381,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   private tab: WalkConfigTab = WalkConfigTab.GENERAL;
   private subscriptions: Subscription[] = [];
 
+  protected readonly areaGroupQueryParams = {[StoredValue.TAB]: "area-group"};
   protected readonly View = View;
   protected readonly WalkConfigTab = WalkConfigTab;
 
@@ -378,6 +411,24 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+    if (this.mapPreviewRefreshTimer) {
+      clearTimeout(this.mapPreviewRefreshTimer);
+    }
+  }
+
+  refreshMapPreview(): void {
+    this.mapPreviewVisible = false;
+    if (this.mapPreviewRefreshTimer) {
+      clearTimeout(this.mapPreviewRefreshTimer);
+    }
+    this.mapPreviewRefreshTimer = setTimeout(() => this.mapPreviewVisible = true, 150);
+  }
+
+  onPreviewZoomChange(levels: number): void {
+    const clamped = Math.max(0, Math.min(6, Math.round(levels)));
+    if (clamped !== this.walksConfig.mapZoomOutLevels) {
+      this.walksConfig.mapZoomOutLevels = clamped;
+    }
   }
 
   tabActive(tab: WalkConfigTab): boolean {

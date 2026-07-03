@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnDestroy, OnInit, Type, ViewChild } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
-import { faCopy, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faCheck, faCopy, faEnvelope, faEraser, faFloppyDisk, faPaperPlane, faPencil, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep, isEmpty, isEqual, isString, isUndefined, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -197,85 +197,108 @@ import TurndownService from "turndown";
       <div class="d-flex flex-wrap align-items-center mb-4 gap-3">
         <div class="d-inline-flex align-items-center flex-wrap align-middle">
           @if (allowClose()) {
-            <input [disabled]="saveInProgress" type="submit"
-                   value="Close"
-                   (click)="closeEditView()" title="Close and go back to walks list"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="closeEditView()" title="Close and go back to walks list"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faArrowLeft"/><span class="ms-2">Close</span>
+            </button>
           }
           @if (allowSave()) {
-            <input [disabled]="saveInProgress" type="submit" value="Save"
-                   (click)="saveWalkDetails()" title="Save these walk details"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="saveWalkDetails()" title="Save these walk details"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faFloppyDisk"/><span class="ms-2">Save</span>
+            </button>
           }
           @if (allowCancel()) {
-            <input [disabled]="saveInProgress" type="submit"
-                   value="Cancel"
-                   (click)="cancelWalkDetails()" title="Cancel and don't save"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="cancelWalkDetails()" title="Cancel and don't save"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faXmark"/><span class="ms-2">Cancel</span>
+            </button>
           }
           @if (pendingCancel()) {
-            <input [disabled]="saveInProgress" type="submit"
-                   value="Confirm" (click)="confirmCancelWalkDetails()"
-                   title="Confirm losing my changes and closing this form"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="confirmCancelWalkDetails()"
+                    title="Confirm losing my changes and closing this form"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faCheck"/><span class="ms-2">Confirm</span>
+            </button>
           }
           @if (allowDelete()) {
-            <input [disabled]="saveInProgress" type="submit"
-                   value="Delete"
-                   (click)="deleteWalkDetails()" title="Delete these walk details"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="deleteWalkDetails()" title="Delete these walk details"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faTrash"/><span class="ms-2">Delete</span>
+            </button>
           }
           @if (pendingDelete()) {
-            <input [disabled]="saveInProgress" type="submit"
-                   value="Confirm Deletion" (click)="confirmDeleteWalkDetails()"
-                   title="Confirm Delete of these walk details"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="confirmDeleteWalkDetails()"
+                    title="Confirm Delete of these walk details"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faTrash"/><span class="ms-2">Confirm Deletion</span>
+            </button>
           }
           @if (allowRequestApproval()) {
-            <input [disabled]="saveInProgress" type="submit"
-                   value="Request Approval" (click)="requestApproval()"
-                   title="Mark walk details complete and request approval"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="requestApproval()"
+                    title="Mark walk details complete and request approval"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faPaperPlane"/><span class="ms-2">Request Approval</span>
+            </button>
           }
           @if (allowApprove()) {
-            <input [disabled]="saveInProgress" type="submit"
-                   value="Approve" (click)="approveWalkDetails()"
-                   title="Approve walk and publish"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="approveWalkDetails()"
+                    title="Approve walk and publish"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faCheck"/><span class="ms-2">Approve</span>
+            </button>
           }
           @if (pendingRequestApproval()) {
-            <input [disabled]="saveInProgress"
-                   type="submit"
-                   value="Confirm Request Approval" (click)="confirmRequestApproval()"
-                   title="Confirm walk details complete and request approval"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="confirmRequestApproval()"
+                    title="Confirm walk details complete and request approval"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faPaperPlane"/><span class="ms-2">Confirm Request Approval</span>
+            </button>
           }
           @if (allowContactOther()) {
-            <input [disabled]="saveInProgress" type="submit"
-                   value=""
-                   (click)="contactOther()" title="Contact {{personToNotify()}}"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="contactOther()" title="Contact {{personToNotify()}}"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faEnvelope"/><span class="ms-2">Contact {{ personToNotify() }}</span>
+            </button>
           }
           @if (pendingContactOther()) {
-            <input [disabled]="saveInProgress" type="submit"
-                   value="Contact {{personToNotify()}}" (click)="confirmContactOther()"
-                   title="Contact {{personToNotify()}} via email"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="confirmContactOther()"
+                    title="Contact {{personToNotify()}} via email"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faEnvelope"/><span class="ms-2">Contact {{ personToNotify() }}</span>
+            </button>
           }
           @if (pendingClearWalkLeader()) {
-            <input [disabled]="saveInProgress" type="submit"
-                   value="Keep Walk Details" (click)="confirmClearWalkLeaderKeepDetails()"
-                   title="Clear walk leader but keep all walk details"
-                   class="btn btn-primary me-2">
-            <input [disabled]="saveInProgress" type="submit"
-                   value="Free Slot" (click)="confirmClearWalkLeaderFreeSlot()"
-                   title="Reset walk to empty slot and clear all details"
-                   class="btn btn-primary me-2">
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="confirmClearWalkLeaderKeepDetails()"
+                    title="Clear walk leader but keep all walk details"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faCheck"/><span class="ms-2">Keep Walk Details</span>
+            </button>
+            <button [disabled]="saveInProgress" type="button"
+                    (click)="confirmClearWalkLeaderFreeSlot()"
+                    title="Reset walk to empty slot and clear all details"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faEraser"/><span class="ms-2">Free Slot</span>
+            </button>
           }
           @if (pendingConfirmation()) {
-            <input type="submit" value="Cancel" (click)="cancelConfirmableAction()"
-                   title="Cancel this action"
-                   class="btn btn-primary me-2">
+            <button type="button" (click)="cancelConfirmableAction()"
+                    title="Cancel this action"
+                    class="btn pager-btn me-2">
+              <fa-icon [icon]="faXmark"/><span class="ms-2">Cancel</span>
+            </button>
           }
           @if (allowNotifyConfirmation() && !saveInProgress) {
             <div class="form-check">
@@ -395,6 +418,14 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   @ViewChild(WalkEditDetailsComponent) walkEditDetailsComponent: WalkEditDetailsComponent;
   protected readonly RootFolder = RootFolder;
   protected readonly faCopy = faCopy;
+  protected readonly faArrowLeft = faArrowLeft;
+  protected readonly faCheck = faCheck;
+  protected readonly faEnvelope = faEnvelope;
+  protected readonly faEraser = faEraser;
+  protected readonly faFloppyDisk = faFloppyDisk;
+  protected readonly faPaperPlane = faPaperPlane;
+  protected readonly faTrash = faTrash;
+  protected readonly faXmark = faXmark;
   protected readonly WalkEditTab = WalkEditTab;
 
   async ngOnInit() {

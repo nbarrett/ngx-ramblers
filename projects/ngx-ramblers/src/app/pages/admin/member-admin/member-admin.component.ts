@@ -33,7 +33,7 @@ import { ProfileService } from "../profile/profile.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
-import { ListInfo, MailMessagingConfig, MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM, MemberAdminModalTab, UnsubscribeHistoryEntry } from "../../../models/mail.model";
+import { ListInfo, MailMessagingConfig, MemberAdminModalTab, UnsubscribeHistoryEntry } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { MailService } from "../../../services/mail/mail.service";
 import { uniq } from "es-toolkit/compat";
@@ -408,14 +408,14 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.notify.hide();
     const memberIdentifier = member.membershipNumber || member.id;
     this.lastOpenedMembershipNumber = memberIdentifier || null;
-    const needsModalTab = !this.route.snapshot.queryParamMap.get(MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM);
+    const needsModalTab = !this.route.snapshot.queryParamMap.get(StoredValue.MODAL_TAB);
     if (memberIdentifier || needsModalTab) {
       const queryParams: Record<string, string> = {};
       if (memberIdentifier) {
         queryParams[this.stringUtilsService.kebabCase(StoredValue.MEMBER_ID)] = memberIdentifier;
       }
       if (needsModalTab) {
-        queryParams[MEMBER_ADMIN_MODAL_TAB_QUERY_PARAM] = MemberAdminModalTab.CONTACT;
+        queryParams[StoredValue.MODAL_TAB] = MemberAdminModalTab.CONTACT;
       }
       await this.router.navigate([], {
         relativeTo: this.route,

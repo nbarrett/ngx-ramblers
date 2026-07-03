@@ -27,6 +27,7 @@ import { DisplayDateAndTimePipe } from "../../pipes/display-date-and-time.pipe";
 import { UrlService } from "../../services/url.service";
 import { ContactInteractionService } from "../../services/contact-interaction.service";
 import { ContactInteractionStatus } from "../../models/booking.model";
+import { StoredValue } from "../../models/ui-actions";
 
 @Component({
     selector: "app-contact-modal",
@@ -275,16 +276,16 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
       if (this.committeeMemberOverride) {
         this.committeeMember = this.committeeMemberOverride;
       } else {
-        this.committeeMember = data.committeeMemberForRole(this.queryParams["role"]);
+        this.committeeMember = data.committeeMemberForRole(this.queryParams[StoredValue.ROLE]);
       }
       if (!this.committeeMember) {
         this.notify.error({
           title: "Failed to initialise Contact Us form",
-          message: "No committee member found for role: " + this.queryParams["role"]
+          message: "No committee member found for role: " + this.queryParams[StoredValue.ROLE]
         });
       }
 
-      this.contactFormDetails.subject = this.queryParams["subject"] || "Website Enquiry";
+      this.contactFormDetails.subject = this.queryParams[StoredValue.SUBJECT] || "Website Enquiry";
       this.logger.info("ngOnInit - queryParams:", this.queryParams, "bsModalRef:", this.bsModalRef, "committeeMember:", this.committeeMember);
       this.rejectIfRoleIsSender();
     }));
@@ -452,7 +453,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   pageUrl(): string {
-    const path = this.queryParams?.["redirect"] || window.location.pathname;
+    const path = this.queryParams?.[StoredValue.REDIRECT] || window.location.pathname;
     const normalised = path.startsWith("/") ? path : `/${path}`;
     return `${this.urlService.publicBaseUrl()}${normalised}`;
   }

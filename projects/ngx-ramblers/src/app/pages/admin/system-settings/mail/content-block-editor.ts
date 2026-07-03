@@ -12,6 +12,7 @@ import {
 import { MergeFieldGroup } from "../../../../models/email-composer.model";
 import { TiptapMarkdownEditor } from "../../../../modules/common/tiptap-editor/tiptap-markdown-editor";
 import { SectionToggle, SectionToggleTab } from "../../../../shared/components/section-toggle";
+import { StoredValue } from "../../../../models/ui-actions";
 
 export function contentBlockStateTabs(omitAllowed: boolean): SectionToggleTab[] {
   const tabs: SectionToggleTab[] = [
@@ -145,7 +146,7 @@ export class ContentBlockEditorComponent {
   @Input() blockKeys: string[] = [];
   @Input() blockDefaults: Record<string, string> = {};
   @Input() omitAllowed: boolean = true;
-  @Input() stateQueryParamKey: string | null = null;
+  @Input() stateQueryParamKey: StoredValue | null = null;
   @Input() frameless: boolean = false;
   @Input() mergeFieldCatalogue: MergeFieldGroup[] | undefined;
   @Input() showStateToggle: boolean = true;
