@@ -135,6 +135,7 @@ export interface FlyMachineStats {
   machineId?: string;
   memoryUsedMb?: number;
   memoryTotalMb?: number;
+  integrationWorkerAvailable?: boolean;
 }
 
 export interface FlyMetricSample {

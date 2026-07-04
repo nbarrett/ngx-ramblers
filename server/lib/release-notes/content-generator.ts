@@ -423,6 +423,7 @@ interface IndexEntry {
   remainder: string;
   originalLabel: string;
   issueNumber: string | null;
+  buildNumber: string | null;
   hasCamera: boolean;
 }
 
@@ -441,7 +442,10 @@ function parseIndexLine(line: string): IndexEntry | null {
   const [, label, rawPath, cameraSuffix] = match;
   const path = rawPath.replace(/^\//, "");
   const [dateSegment, ...rest] = label.split(" — ");
-  const remainder = rest.join(" — ").trim();
+  const buildFromLabel = rest[0]?.trim().match(/^build (\d+)$/i)?.[1] || null;
+  const remainderParts = buildFromLabel ? rest.slice(1) : rest;
+  const remainder = remainderParts.join(" — ").trim();
+  const buildNumber = buildFromLabel || path.match(/-build-(\d+)/)?.[1] || null;
   const issueNumberFromLabel = remainder.match(/^#(\d+)\b/)?.[1] || null;
   const issueNumberFromPath = path.match(/-issue-(\d+)$/)?.[1] || null;
   const issueNumber = issueNumberFromLabel || issueNumberFromPath;
@@ -457,6 +461,7 @@ function parseIndexLine(line: string): IndexEntry | null {
     remainder,
     originalLabel: label.trim(),
     issueNumber,
+    buildNumber,
     hasCamera: Boolean(cameraSuffix)
   };
 }
@@ -469,10 +474,14 @@ function formatIndexLine(entry: IndexEntry): string {
 
 function buildIndexLabel(entry: IndexEntry): string {
   const display = entry.displayDate || entry.date || entry.originalLabel;
-  if (entry.remainder) {
-    return `${display} — ${entry.remainder}`;
+  const parts = [display];
+  if (entry.buildNumber) {
+    parts.push(`build ${entry.buildNumber}`);
   }
-  return display;
+  if (entry.remainder) {
+    parts.push(entry.remainder);
+  }
+  return parts.join(" — ");
 }
 
 function compareIndexEntries(a: IndexEntry, b: IndexEntry): number {
@@ -485,6 +494,12 @@ function compareIndexEntries(a: IndexEntry, b: IndexEntry): number {
     return -1;
   } else if (b.date) {
     return 1;
+  }
+
+  const buildA = a.buildNumber ? parseInt(a.buildNumber, 10) : NaN;
+  const buildB = b.buildNumber ? parseInt(b.buildNumber, 10) : NaN;
+  if (!isNaN(buildA) && !isNaN(buildB) && buildA !== buildB) {
+    return buildB - buildA;
   }
 
   return b.path.localeCompare(a.path);
@@ -568,7 +583,7 @@ export function generatePageContent(data: ReleaseNotesData, githubRepo: string, 
 
 export function updateIndexPageContent(
   existingContent: PageContent,
-  newEntry: { date: string; title: string; path: string; issueNumber: string | null },
+  newEntry: { date: string; title: string; path: string; issueNumber: string | null; buildNumber?: string | null },
   options?: { allowUnassigned?: boolean }
 ): PageContent {
   const allowUnassigned = Boolean(options?.allowUnassigned);
@@ -583,6 +598,7 @@ export function updateIndexPageContent(
     remainder: remainderText,
     originalLabel: baseLabel,
     issueNumber: newEntry.issueNumber,
+    buildNumber: newEntry.buildNumber ?? null,
     hasCamera: false
   };
 
@@ -629,6 +645,7 @@ export function updateIndexPageContent(
   const existingForNewEntry = entries.get(indexEntryKey(newIndexEntry));
   entries.set(indexEntryKey(newIndexEntry), {
     ...newIndexEntry,
+    buildNumber: newIndexEntry.buildNumber ?? existingForNewEntry?.buildNumber ?? null,
     hasCamera: existingForNewEntry?.hasCamera ?? newIndexEntry.hasCamera
   });
 
@@ -658,10 +675,11 @@ export function updateIndexPageContent(
  */
 export function refreshIndexPageContent(
   existingContent: PageContent,
-  options?: { allowUnassigned?: boolean; imageStatusByPath?: Map<string, boolean> }
+  options?: { allowUnassigned?: boolean; imageStatusByPath?: Map<string, boolean>; buildNumberByPath?: Map<string, string> }
 ): PageContent {
   const allowUnassigned = Boolean(options?.allowUnassigned);
   const imageStatusByPath = options?.imageStatusByPath;
+  const buildNumberByPath = options?.buildNumberByPath;
   if (!existingContent.rows || existingContent.rows.length === 0) {
     return existingContent;
   }
@@ -684,6 +702,9 @@ export function refreshIndexPageContent(
     .filter(entry => allowUnassigned || !entry.path.endsWith("-other"))
     .map(entry => imageStatusByPath?.has(entry.path)
       ? { ...entry, hasCamera: imageStatusByPath.get(entry.path)! }
+      : entry)
+    .map(entry => buildNumberByPath?.has(entry.path)
+      ? { ...entry, buildNumber: buildNumberByPath.get(entry.path)! }
       : entry);
 
   const entries = new Map<string, IndexEntry>();

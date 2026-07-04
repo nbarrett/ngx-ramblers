@@ -303,9 +303,8 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                   </div>
                 </div>
                 @if (isMessageExpanded(message)) {
-                  <app-html-frame class="inbox-message-body" [html]="renderableBody(message)"/>
                   @if (visibleAttachments(message).length) {
-                    <div class="inbox-attachments d-flex flex-wrap gap-2">
+                    <div class="inbox-attachments d-flex flex-wrap gap-2 mb-3">
                       @for (attachment of visibleAttachments(message); track attachment.s3Key) {
                         <div class="btn-group" dropdown>
                           <button dropdownToggle type="button" class="inbox-attachment dropdown-toggle">
@@ -329,6 +328,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                       }
                     </div>
                   }
+                  <app-html-frame class="inbox-message-body" [html]="renderableBody(message)"/>
                 }
               </div>
             }

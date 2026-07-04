@@ -422,7 +422,8 @@ async function generateReleaseNote(
       date: data.date,
       title: data.title,
       path: releasePath,
-      issueNumber: data.issueNumber
+      issueNumber: data.issueNumber,
+      buildNumber: data.buildNumber
     },
     { allowUnassigned }
   );
