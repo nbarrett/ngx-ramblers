@@ -40,9 +40,18 @@ export async function flyRuntimeConfig(target: FlyTargetApp = FlyTargetApp.ENVIR
   };
 }
 
+let integrationWorkerAvailableCache: boolean | undefined;
+
 export async function isIntegrationWorkerAvailable(): Promise<boolean> {
-  const config = await flyRuntimeConfig(FlyTargetApp.WORKER);
-  return !!(config.apiToken && config.appName && config.metricsToken);
+  if (integrationWorkerAvailableCache === undefined) {
+    try {
+      const config = await flyRuntimeConfig(FlyTargetApp.WORKER);
+      integrationWorkerAvailableCache = !!(config.apiToken && config.appName && config.metricsToken);
+    } catch {
+      integrationWorkerAvailableCache = false;
+    }
+  }
+  return integrationWorkerAvailableCache;
 }
 
 function encryptedBundleConfig(): FlySecureConfig | null {
