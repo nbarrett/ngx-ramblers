@@ -14,6 +14,7 @@ import { GroupEventDisplayService } from "../../../../pages/group-events/group-e
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { isEqual } from "es-toolkit/compat";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
+import { VisibilityObserverDirective } from "../../../../notifications/common/visibility-observer.directive";
 
 @Component({
   selector: "app-card-image-or-map",
@@ -61,23 +62,29 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
       </a>
     }
     @if (mapFallbackActive()) {
-      @if (imageNavigationEnabled) {
-        <a [href]="navigationUrl()" class="d-block">
-          <div app-map-edit readonly
-               [class]="this.imageConfig.class"
-               [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
-               [walkStatus]="displayedWalk.walk?.groupEvent?.status"
-               [gpxFile]="displayedWalk.walk?.fields?.gpxFile"
-               [notify]="notify"></div>
-        </a>
-      } @else {
-        <div app-map-edit readonly
-             [class]="this.imageConfig.class"
-             [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
-             [walkStatus]="displayedWalk.walk?.groupEvent?.status"
-             [gpxFile]="displayedWalk.walk?.fields?.gpxFile"
-             [notify]="notify"></div>
-      }
+      <div [app-visibility-observer]="'walk-map-' + displayedWalk?.walk?.id" (visible)="mapVisible = true">
+        @if (mapVisible) {
+          @if (imageNavigationEnabled) {
+            <a [href]="navigationUrl()" class="d-block">
+              <div app-map-edit readonly
+                   [class]="this.imageConfig.class"
+                   [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
+                   [walkStatus]="displayedWalk.walk?.groupEvent?.status"
+                   [gpxFile]="displayedWalk.walk?.fields?.gpxFile"
+                   [notify]="notify"></div>
+            </a>
+          } @else {
+            <div app-map-edit readonly
+                 [class]="this.imageConfig.class"
+                 [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
+                 [walkStatus]="displayedWalk.walk?.groupEvent?.status"
+                 [gpxFile]="displayedWalk.walk?.fields?.gpxFile"
+                 [notify]="notify"></div>
+          }
+        } @else {
+          <div [class]="this.imageConfig.class"></div>
+        }
+      </div>
     }
     @if (!mapFallbackActive() && display.displayImage(displayedWalk.walk)) {
       @if (imageNavigationEnabled) {
@@ -98,7 +105,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
     }
   `,
   styleUrls: ["./card-image.sass"],
-  imports: [FontAwesomeModule, MapEditComponent, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective]
+  imports: [FontAwesomeModule, MapEditComponent, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, VisibilityObserverDirective]
 })
 export class CardImageOrMap implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CardImageOrMap", NgxLoggerLevel.ERROR);
@@ -109,6 +116,7 @@ export class CardImageOrMap implements OnInit {
   protected readonly faPencil = faPencil;
   protected readonly faPersonWalking = faPersonWalking;
   protected readonly faEye = faEye;
+  protected mapVisible = false;
 
   accessModeIcon() {
     return this.displayedWalk?.walkAccessMode?.caption === "lead" ? this.faPersonWalking : this.faPencil;
