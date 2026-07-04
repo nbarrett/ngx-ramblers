@@ -50,6 +50,7 @@ import http from "http";
 import { Server } from "node:http";
 import { health, systemStatus } from "./health/health";
 import { flyMachineState, flyMemoryHistory, flyStats, heapSnapshot, memoryUsage, restartMachine } from "./health/memory";
+import { startMemoryWatchdog } from "./health/memory-watchdog";
 import * as authConfig from "./auth/auth-config";
 import { crossEnvironmentHealthRoutes } from "./health/cross-environment-health-routes";
 import { download } from "./files/files";
@@ -294,6 +295,8 @@ async function startServer() {
     server.listen(port, "::", () => {
       debugLog(`🚀 Server is listening on port for ${envConfig.env} environment`, port);
     });
+
+    startMemoryWatchdog();
 
     server.timeout = 600000;
     server.keepAliveTimeout = 610000;
