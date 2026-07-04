@@ -4,6 +4,7 @@ import { firstValueFrom, Subscription } from "rxjs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faRefresh, faCamera, faSpinner, faStop, faCheck, faPowerOff } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
+import { isBoolean } from "es-toolkit/compat";
 import { BaseChartDirective } from "ng2-charts";
 import { Chart, ChartConfiguration, registerables } from "chart.js";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -37,16 +38,18 @@ import { StoredValue } from "../../../../models/ui-actions";
     <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Fly Machine History</div>
       <div class="col-sm-12">
-        <p>Host-level metrics from Fly for this environment's machines, over a selectable time range. Use this to spot memory creep, CPU saturation or traffic spikes — and to watch the effect of a restart or a big job as it happens. Choose the website or the integration worker, pick a metric, and refresh to pull the latest samples.</p>
+        <p>Host-level metrics from Fly for this environment's machines, over a selectable time range. Use this to spot memory creep, CPU saturation or traffic spikes — and to watch the effect of a restart or a big job as it happens. Pick a metric and time range, then refresh to pull the latest samples.</p>
         <div class="row mb-3">
           <div class="col-12">
             <div class="d-flex flex-wrap align-items-end gap-3 mb-3">
-              <div class="form-group">
-                <label class="d-block">App</label>
-                <app-section-toggle [tabs]="targetTabLabels" [selectedTab]="selectedTargetLabel"
-                                    [queryParamKey]="StoredValue.APP"
-                                    (selectedTabChange)="selectTarget($event)"/>
-              </div>
+              @if (integrationWorkerAvailable) {
+                <div class="form-group">
+                  <label class="d-block">App</label>
+                  <app-section-toggle [tabs]="targetTabLabels" [selectedTab]="selectedTargetLabel"
+                                      [queryParamKey]="StoredValue.APP"
+                                      (selectedTabChange)="selectTarget($event)"/>
+                </div>
+              }
               <div class="form-group">
                 <label class="d-block">Metric</label>
                 <app-section-toggle [tabs]="metricTabLabels" [selectedTab]="selectedMetricLabel"
@@ -286,6 +289,7 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
   ];
   protected readonly targetTabLabels: string[] = this.targetTabs.map(tab => tab.label);
   protected selectedTargetLabel = "Website";
+  protected integrationWorkerAvailable = false;
   protected readonly metricTabs: FlyMetricTab[] = [
     {label: "Memory", key: "memory"},
     {label: "CPU", key: "cpu"},
@@ -510,6 +514,9 @@ export class SystemMemorySettingsComponent implements OnInit, OnDestroy {
   async refreshFlyStats(): Promise<void> {
     try {
       this.flyStats = await firstValueFrom(this.http.get<FlyMachineStats>(`/api/health/memory/fly-stats?${this.targetQuery()}`.replace(/[?&]$/, "")));
+      if (isBoolean(this.flyStats?.integrationWorkerAvailable)) {
+        this.integrationWorkerAvailable = this.flyStats.integrationWorkerAvailable;
+      }
     } catch (error) {
       this.logger.error("fly stats refresh failed", error);
       this.flyStats = { available: false, error: error?.error?.error || error?.error?.message || error?.message || "Failed to read Fly stats" };

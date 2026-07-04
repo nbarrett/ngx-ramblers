@@ -40,6 +40,11 @@ export async function flyRuntimeConfig(target: FlyTargetApp = FlyTargetApp.ENVIR
   };
 }
 
+export async function isIntegrationWorkerAvailable(): Promise<boolean> {
+  const config = await flyRuntimeConfig(FlyTargetApp.WORKER);
+  return !!(config.apiToken && config.appName && config.metricsToken);
+}
+
 function encryptedBundleConfig(): FlySecureConfig | null {
   const encrypted = envConfig.value(Environment.FLY_CONFIG);
   const encryptionKey = envConfig.value(Environment.ENVIRONMENT_SETUP_API_KEY);

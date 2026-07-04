@@ -192,6 +192,31 @@ describe("content-generator updateIndexPageContent", () => {
     expect(content).toContain("- [01-Apr-2026 — C](how-to/committee/release-notes/2026-04-01)");
     expect(content).toContain("- [04-Apr-2026 — Inserted](how-to/committee/release-notes/2026-04-04)");
   });
+
+  it("shows the build number in the label and orders same-date entries newest build first", () => {
+    const existing = makeIndexPage(
+      [
+        "# Release Notes",
+        "",
+        "- [03-Jul-2026 — build 733 — #306 — Attachments](how-to/committee/release-notes/2026-07-03-issue-306) 📸"
+      ].join("\n")
+    );
+
+    const updated = updateIndexPageContent(existing, {
+      date: "2026-07-03",
+      title: "Walks display tweaks",
+      path: "how-to/committee/release-notes/2026-07-03",
+      issueNumber: "302",
+      buildNumber: "735"
+    });
+
+    const content = extractContent(updated);
+    const entryLines = content.split("\n").filter(line => line.startsWith("- ["));
+    expect(entryLines[0]).toContain("build 735");
+    expect(entryLines[0]).toContain("(how-to/committee/release-notes/2026-07-03)");
+    expect(entryLines[1]).toContain("build 733");
+    expect(content.indexOf("build 735")).toBeLessThan(content.indexOf("build 733"));
+  });
 });
 
 describe("content-generator generateMarkdown commit body paragraphs", () => {

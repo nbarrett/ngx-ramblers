@@ -9,6 +9,7 @@ import { envConfig } from "../env-config/env-config";
 import { dateTimeNow } from "../shared/dates";
 import { DateFormat } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { flyMachineMemoryStats, flyMetricHistory } from "../fly/fly-metrics";
+import { isIntegrationWorkerAvailable } from "../fly/fly-runtime-config";
 import { currentMachineState, restartCurrentMachine } from "../fly/fly-machines";
 import { toMb } from "../shared/units";
 
@@ -94,8 +95,12 @@ function targetAppFrom(req: Request): FlyTargetApp {
 
 export async function flyStats(req: Request, res: Response): Promise<void> {
   try {
-    const stats = await flyMachineMemoryStats(targetAppFrom(req));
-    res.status(200).json(stats);
+    const target = targetAppFrom(req);
+    const stats = await flyMachineMemoryStats(target);
+    const withWorkerFlag = target === FlyTargetApp.ENVIRONMENT
+      ? { ...stats, integrationWorkerAvailable: await isIntegrationWorkerAvailable() }
+      : stats;
+    res.status(200).json(withWorkerFlag);
   } catch (error) {
     debugLog("Fly stats query failed:", error);
     res.status(500).json({ available: false, error: error?.message || "Failed to query Fly stats" });
