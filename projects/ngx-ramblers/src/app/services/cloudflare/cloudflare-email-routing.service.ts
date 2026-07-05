@@ -110,6 +110,12 @@ export class CloudflareEmailRoutingService {
     this.invalidateCache();
   }
 
+  async resendDestinationVerification(email: string): Promise<DestinationAddress> {
+    const address: DestinationAddress = (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/destination-addresses/resend`, {email}))).response;
+    this.invalidateCache();
+    return address;
+  }
+
   destinationAddressesNotifications(): BehaviorSubject<DestinationAddress[]> {
     return this.destinationAddressesSubject;
   }

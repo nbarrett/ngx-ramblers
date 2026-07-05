@@ -28,6 +28,8 @@ import {
 import { Member } from "../../../../models/member.model";
 import {
   CatchAllAction,
+  DestinationAddress,
+  DestinationVerificationStatus,
   EmailForwardStatus,
   EmailRoutingActionType,
   EmailRoutingMatcherField,
@@ -48,6 +50,7 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
 import { UrlService } from "../../../../services/url.service";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
+import { destinationVerificationStatusFor } from "./email-routing-view-resolver";
 import { CloudflareUrlService } from "../../../../services/cloudflare/cloudflare-url.service";
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
 import { InboxService } from "../../../../services/inbox/inbox.service";
@@ -498,6 +501,29 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                            placeholder="recipient@example.com">
                                   }
                                 </div>
+                                @if (catchAllForwardDestinationUnverified()) {
+                                  <div class="col-sm-12 mt-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                      <div class="alert alert-warning mb-0 flex-grow-1">
+                                        <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+                                        @if (catchAllDestinationVerificationStatus() === DestinationVerificationStatus.NOT_REGISTERED) {
+                                          <strong class="ms-2">Destination not verified</strong>
+                                          <span class="ms-2">{{ catchAllDraftSingleDestination }} is not yet a verified forwarding destination, so Cloudflare cannot deliver mail to it. Register and verify it first.</span>
+                                        } @else {
+                                          <strong class="ms-2">Verification pending</strong>
+                                          <span class="ms-2">{{ catchAllDraftSingleDestination }} has not yet confirmed the verification email from Cloudflare, so mail cannot be delivered there yet.</span>
+                                        }
+                                      </div>
+                                      <app-cloudflare-button button
+                                        [disabled]="catchAllVerifying" [loading]="catchAllVerifying"
+                                        (click)="registerOrResendCatchAllDestination()"
+                                        [title]="catchAllVerifyButtonTitle()"></app-cloudflare-button>
+                                    </div>
+                                    @if (catchAllVerificationMessage) {
+                                      <div class="small text-muted mt-1">{{ catchAllVerificationMessage }}</div>
+                                    }
+                                  </div>
+                                }
                               }
                               @if (catchAllDraftAction === CatchAllAction.WORKER) {
                                 <div class="col-sm-12 mt-2">
@@ -709,6 +735,10 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   catchAllDeployedRecipients: string[] = [];
   catchAllDeployedScriptOutOfDate = false;
   catchAllRedeploying = false;
+  destinationAddresses: DestinationAddress[] = [];
+  catchAllVerifying = false;
+  catchAllVerificationMessage: string | null = null;
+  protected readonly DestinationVerificationStatus = DestinationVerificationStatus;
   workerScripts: EmailWorkerScript[] = [];
   workerDeletePending: string | null = null;
   baseDomain = "";
@@ -728,6 +758,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
           this.cloudflareEmailRoutingService.queryRules().catch(err => this.logger.error("Email routing rules not available:", err));
           this.cloudflareEmailRoutingService.queryCatchAllRule().catch(err => this.logger.error("Catch-all rule not available:", err));
           this.cloudflareEmailRoutingService.queryWorkers().catch(err => this.logger.error("Cloudflare workers not available:", err));
+          this.cloudflareEmailRoutingService.queryDestinationAddresses().catch(err => this.logger.error("Cloudflare destination addresses not available:", err));
         }
       })
       .catch(err => this.logger.error("Cloudflare config not available:", err));
@@ -773,6 +804,9 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       this.cloudflareEmailRoutingService.catchAllNotifications().subscribe(rule => {
         this.catchAllRule = rule;
         this.refreshDeployedCatchAllWorkerInfo();
+      }),
+      this.cloudflareEmailRoutingService.destinationAddressesNotifications().subscribe(addresses => {
+        this.destinationAddresses = addresses || [];
       }),
       this.cloudflareEmailRoutingService.workersNotifications().subscribe(workers => {
         this.workerScripts = workers;
@@ -1181,6 +1215,8 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   async startEditCatchAll(): Promise<void> {
     this.editingCatchAll = true;
     this.catchAllError = null;
+    this.catchAllVerificationMessage = null;
+    this.cloudflareEmailRoutingService.queryDestinationAddresses().catch(err => this.logger.error("Cloudflare destination addresses not available:", err));
     this.catchAllDraftAction = this.catchAllResolvedAction();
     const action = this.catchAllRule?.actions?.[0];
     const isForward = action?.type === EmailRoutingActionType.FORWARD;
@@ -1196,8 +1232,49 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   cancelEditCatchAll(): void {
     this.editingCatchAll = false;
     this.catchAllError = null;
+    this.catchAllVerificationMessage = null;
     this.catchAllDraftSingleDestination = "";
     this.catchAllDraftMultipleDestinations = [];
+  }
+
+  catchAllDestinationVerificationStatus(): DestinationVerificationStatus | null {
+    return destinationVerificationStatusFor(this.catchAllDraftSingleDestination, this.destinationAddresses);
+  }
+
+  catchAllForwardDestinationUnverified(): boolean {
+    return this.catchAllDraftAction === CatchAllAction.FORWARD
+      && !!(this.catchAllDraftSingleDestination || "").trim()
+      && this.catchAllDestinationVerificationStatus() !== DestinationVerificationStatus.VERIFIED;
+  }
+
+  catchAllVerifyButtonTitle(): string {
+    return this.catchAllDestinationVerificationStatus() === DestinationVerificationStatus.NOT_REGISTERED
+      ? "Register & Verify"
+      : "Resend Verification";
+  }
+
+  async registerOrResendCatchAllDestination(): Promise<void> {
+    const email = (this.catchAllDraftSingleDestination || "").trim();
+    if (!email || this.catchAllVerifying) {
+      return;
+    }
+    this.catchAllVerifying = true;
+    this.catchAllError = null;
+    this.catchAllVerificationMessage = null;
+    try {
+      if (this.catchAllDestinationVerificationStatus() === DestinationVerificationStatus.NOT_REGISTERED) {
+        await this.cloudflareEmailRoutingService.createDestinationAddress(email);
+      } else {
+        await this.cloudflareEmailRoutingService.resendDestinationVerification(email);
+      }
+      await this.cloudflareEmailRoutingService.queryDestinationAddresses();
+      this.catchAllVerificationMessage = `Verification email sent to ${email}. Open that inbox, click the Cloudflare link, then Save catch-all.`;
+    } catch (err) {
+      this.logger.error("Failed to register or resend catch-all destination verification:", err);
+      this.catchAllError = extractErrorMessage(err) || "Could not send the verification email.";
+    } finally {
+      this.catchAllVerifying = false;
+    }
   }
 
   private async loadConnectedGmailInboxes(): Promise<void> {

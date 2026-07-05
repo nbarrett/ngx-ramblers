@@ -279,6 +279,34 @@ router.post("/destination-addresses", authConfig.authenticate(), asyncRoute(mess
   }
 }));
 
+router.post("/destination-addresses/resend", authConfig.authenticate(), asyncRoute(messageType, async (req: Request, res: Response) => {
+  const cloudflareConfig = await configuredCloudflare();
+  const normalisedEmail = String(req.body?.email || "").trim().toLowerCase();
+  if (!normalisedEmail) {
+    throw new HttpError(400, "email is required");
+  }
+  const existing = (await listDestinationAddresses(cloudflareConfig))
+    .find(a => a.email?.trim().toLowerCase() === normalisedEmail);
+  if (existing?.verified) {
+    debugLog("Destination address %s already verified - nothing to resend", normalisedEmail);
+    res.json({request: {messageType}, response: existing});
+    return;
+  }
+  if (existing) {
+    debugLog("Removing unverified destination address %s (id=%s) before re-issuing verification", normalisedEmail, existing.id);
+    await deleteDestinationAddress(cloudflareConfig, existing.id);
+  }
+  try {
+    const address = await createDestinationAddress(cloudflareConfig, normalisedEmail);
+    res.json({request: {messageType}, response: address});
+  } catch (error) {
+    if (/verification email has been sent too recently/i.test(error.message || "")) {
+      throw new HttpError(429, `Cloudflare sent a verification email to ${normalisedEmail} too recently. Check that inbox for the link, then try again in a few minutes.`, "RateLimited");
+    }
+    throw error;
+  }
+}));
+
 router.delete("/destination-addresses/:addressId", authConfig.authenticate(), asyncRoute(messageType, async (req: Request, res: Response) => {
   const cloudflareConfig = await configuredCloudflare();
   await deleteDestinationAddress(cloudflareConfig, req.params.addressId);
