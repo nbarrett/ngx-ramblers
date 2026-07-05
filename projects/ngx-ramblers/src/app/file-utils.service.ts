@@ -302,11 +302,20 @@ export class FileUtilsService {
 
   public applyBase64ToFile(base64Image: string, originalFile: File, renamedFile?: string, newType?: string): File {
     const type = newType || originalFile?.type;
-    this.logger.info("applyBase64ToFile:base64Image:", this.stringUtils.truncate(base64Image, 50), "originalFile:", originalFile, "renamedFile:", this.stringUtils.truncate(renamedFile, 50), "type:", type);
-    return new File([base64ToFile(base64Image)], renamedFile || originalFile?.name, {
+    const fileName = this.safeUploadFileName(renamedFile || originalFile?.name, type);
+    this.logger.info("applyBase64ToFile:base64Image:", this.stringUtils.truncate(base64Image, 50), "originalFile:", originalFile, "renamedFile:", this.stringUtils.truncate(renamedFile, 50), "fileName:", fileName, "type:", type);
+    return new File([base64ToFile(base64Image)], fileName, {
       lastModified: originalFile?.lastModified,
       type
     });
+  }
+
+  public safeUploadFileName(requestedName: string, mime: string): string {
+    const isDataUrl = !!requestedName && (requestedName.startsWith("data:") || this.urlService.isBase64Image(requestedName));
+    if (!requestedName || isDataUrl || requestedName.length > 255) {
+      return this.pastedFilenameForMime(mime || IMAGE_JPEG);
+    }
+    return requestedName;
   }
 
   basename(path: string) {

@@ -176,7 +176,15 @@ export class FileUploadService {
       });
       return {responses: [], errors: []} as any;
     } else {
-      return JSON.parse(response);
+      try {
+        return JSON.parse(response);
+      } catch (parseError) {
+        this.throwOrNotifyError({
+          title: "Upload failed",
+          message: "The server returned an unexpected response, so the upload could not be completed. The image may be too large - please try a smaller image or a different file."
+        }, logger, notify);
+        return {responses: [], errors: []} as any;
+      }
     }
   }
 
