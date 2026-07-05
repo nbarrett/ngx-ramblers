@@ -13,7 +13,8 @@ import { hasFileExtension } from "../shared/string-utils";
 import * as aws from "./aws-controllers";
 import debug from "debug";
 import { createFileNameData, generateAwsFileName, isAwsUploadErrorResponse } from "./aws-utils";
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
+import multer from "multer";
 import * as fs from "fs";
 import proj4 from "proj4";
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
@@ -21,7 +22,19 @@ import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("s3-file-upload"));
 debugLog.enabled = false;
-export { uploadFile };
+const multerUpload = multer({dest: envConfig.server.uploadDir}).any();
+export { uploadFile, receiveFileUpload };
+
+function receiveFileUpload(req: Request, res: Response, next: NextFunction) {
+  multerUpload(req, res, (error: any) => {
+    if (error) {
+      debugLog("File upload rejected before processing:", error?.message);
+      res.status(400).json({responses: [], errors: [{responseData: {message: error?.message || "File upload failed"}}]});
+    } else {
+      next();
+    }
+  });
+}
 
 function uploadFile(req: Request, res: Response) {
 

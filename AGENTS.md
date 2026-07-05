@@ -98,6 +98,13 @@ When fixing a problem discovered after committing:
 - No empty catch blocks - always log or return a safe default
 - Prefer small, targeted try/catch blocks
 
+## Backend / Express Patterns
+
+- **Routes are declarative** - a `*-routes.ts` file maps `path + verb` to middleware and named handler functions, nothing else. No inline `(req, res) => {...}` handlers, no branching, no response building, and no `multer`/config wiring in the route. Put the logic in a named, exported function in the matching controller/handler module (`*-controllers.ts`, or the feature module e.g. `file-upload.ts`) and reference it by name.
+  - Bad: `router.post("/x", (req, res) => { if (bad) { res.status(400).json(...) } })`
+  - Good: `router.post("/x", authenticate(), receiveUpload, handleX)` with `receiveUpload`/`handleX` exported from the controller module.
+- Not yet ESLint-enforced: ~50 legacy inline handlers across 10 `*-routes.ts` files predate this rule. New or touched routes must follow it; the backlog needs a dedicated refactor before an `error`-level lint rule can be switched on.
+
 ## Angular Patterns
 
 - **Standalone components** with explicit imports
