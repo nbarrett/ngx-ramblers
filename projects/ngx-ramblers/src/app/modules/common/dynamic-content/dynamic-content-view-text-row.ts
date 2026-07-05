@@ -119,7 +119,6 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                 @if (showImageBeforeText(column)) {
                   <app-card-image
                     [borderRadius]="column.imageBorderRadius"
-                    [showBorder]="column.imageBorder"
                     [padding]="column.imagePadding"
                     [imageFit]="column.imageFit"
                     [aspectRatio]="column.imageAspectRatio"
@@ -149,7 +148,6 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                 @if (showImageAfterText(column)) {
                   <app-card-image
                     [borderRadius]="column.imageBorderRadius"
-                    [showBorder]="column.imageBorder"
                     [padding]="column.imagePadding"
                     [imageFit]="column.imageFit"
                     [aspectRatio]="column.imageAspectRatio"

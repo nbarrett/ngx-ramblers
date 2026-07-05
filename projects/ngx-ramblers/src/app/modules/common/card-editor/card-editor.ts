@@ -1,5 +1,5 @@
 import { Component, EventEmitter, HostListener, inject, Input, OnInit, Output } from "@angular/core";
-import { faArrowDown, faArrowsUpDown, faArrowUp, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDown, faArrowsUpDown, faArrowUp, faPencil, faRemove, faRotateLeft } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.model";
 import {
@@ -74,7 +74,7 @@ import { FileUtilsService } from "../../../file-utils.service";
             <fa-icon [icon]="faArrowDown"></fa-icon>
           </button>
           <button type="button"
-                  class="badge-button action-button-card-control text-danger"
+                  class="badge-button action-button-card-control"
                   tooltip="Delete action button"
                   container="body"
                   (click)="deleteActionButton($event)">
@@ -91,7 +91,6 @@ import { FileUtilsService } from "../../../file-utils.service";
         [objectPositionY]="column?.imageVerticalPosition"
         [cropperPosition]="column?.imageCropperPosition"
         [focalPoint]="column?.imageFocalPoint"
-        [showBorder]="column?.imageBorder"
         [padding]="column?.imagePadding"
         [imageFit]="column?.imageFit"
         [cropperDebugOffsets]="cropperDebugOffsets"
@@ -205,15 +204,6 @@ import { FileUtilsService } from "../../../file-utils.service";
                          [for]="idFor('image-padding')">
                     Image padding</label>
                 </div>
-                <div class="form-check form-check-inline">
-                  <input [id]="idFor('image-border')"
-                         type="checkbox"
-                         class="form-check-input"
-                         [(ngModel)]="column.imageBorder">
-                  <label class="form-check-label"
-                         [for]="idFor('image-border')">
-                    Image border</label>
-                </div>
               </div>
               @if (imagePaddingEnabled()) {
                 <div class="form-group">
@@ -230,11 +220,25 @@ import { FileUtilsService } from "../../../file-utils.service";
               <div class="form-group">
                 <label class="form-label">Focal Point</label>
                 <app-focal-point-picker
-                  [imageSrc]="imageSourceOrPreview()"
+                  [imageSrc]="focalPointImageSource()"
+                  [minZoom]="0.2"
+                  [maxPreviewHeight]="260"
                   [focalPoint]="column.imageFocalPoint || defaultFocalPoint"
                   (focalPointChange)="onFocalPointChange($event)">
                 </app-focal-point-picker>
               </div>
+              @if (imageSettingsChanged()) {
+                <div class="form-group">
+                  <button type="button"
+                          class="badge-button"
+                          tooltip="Reset image fit, padding and focal point to their defaults"
+                          container="body"
+                          (click)="resetImageSettings()">
+                    <fa-icon [icon]="faRotateLeft"></fa-icon>
+                    <span>Back to default</span>
+                  </button>
+                </div>
+              }
             }
             <div class="form-group">
               <div class="form-check form-check-inline mb-0">
@@ -374,6 +378,7 @@ export class CardEditorComponent implements OnInit {
   public faArrowDown: IconDefinition = faArrowDown;
   public faArrowsUpDown: IconDefinition = faArrowsUpDown;
   public faRemove: IconDefinition = faRemove;
+  public faRotateLeft: IconDefinition = faRotateLeft;
   public imageType: ImageType;
   public routerLink: string;
   private uniqueCheckboxId: string;
@@ -513,6 +518,10 @@ export class CardEditorComponent implements OnInit {
     }
   }
 
+  focalPointImageSource(): string {
+    return this.urlService.imageSource(this.imageSourceOrPreview());
+  }
+
   onShowPlaceholderImageChanged(event: Event) {
     const target = event.target as HTMLInputElement;
     this.column.showPlaceholderImage = target.checked;
@@ -548,6 +557,16 @@ export class CardEditorComponent implements OnInit {
 
   onFocalPointChange(focalPoint: FocalPoint) {
     this.column.imageFocalPoint = focalPoint || null;
+  }
+
+  imageSettingsChanged(): boolean {
+    return !!this.column?.imageFit || (this.column?.imagePadding || 0) > 0 || !!this.column?.imageFocalPoint;
+  }
+
+  resetImageSettings() {
+    this.column.imageFit = null;
+    this.column.imagePadding = null;
+    this.column.imageFocalPoint = null;
   }
 
   @HostListener("paste", ["$event"])
