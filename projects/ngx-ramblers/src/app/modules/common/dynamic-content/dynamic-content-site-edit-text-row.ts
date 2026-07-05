@@ -320,7 +320,6 @@ import { ClipboardService } from "../../../services/clipboard.service";
                         <div>
                           <app-card-image class="w-100"
                                           [borderRadius]="column.imageBorderRadius"
-                                          [showBorder]="column.imageBorder"
                                           [padding]="column.imagePadding"
                                           [imageFit]="column.imageFit"
                                           [aspectRatio]="column.imageAspectRatio"

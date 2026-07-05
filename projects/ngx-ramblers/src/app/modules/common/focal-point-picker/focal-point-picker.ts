@@ -126,6 +126,7 @@ export class FocalPointPickerComponent {
   @Input() minZoom = 1;
   @Input() maxZoom = 10;
   @Input() height: number = null;
+  @Input() maxPreviewHeight: number = null;
   @Input() borderRadius: number = null;
   @Input() showZoomSlider = true;
   @Input() resizable = false;
@@ -158,6 +159,8 @@ export class FocalPointPickerComponent {
     const h = this.resizable ? this.effectiveHeight : this.height;
     if (h) {
       styles["height.px"] = h;
+    } else if (this.maxPreviewHeight) {
+      styles["max-height.px"] = this.maxPreviewHeight;
     }
     if (this.borderRadius !== null) {
       styles["border-radius.px"] = this.borderRadius;
@@ -170,6 +173,9 @@ export class FocalPointPickerComponent {
     const h = this.resizable ? this.effectiveHeight : this.height;
     if (h) {
       styles["height.px"] = h;
+    } else if (this.maxPreviewHeight) {
+      styles["max-height.px"] = this.maxPreviewHeight;
+      styles["object-fit"] = "contain";
     }
     if (this.borderRadius !== null) {
       styles["border-radius.px"] = this.borderRadius;

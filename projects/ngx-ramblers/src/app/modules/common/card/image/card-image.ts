@@ -19,6 +19,8 @@ import { CropperDebugOffsets, ImageCropperPosition } from "../../../../models/im
 import { cropperImageStyles, cropperWrapperStyles, isUsefulCropperPosition } from "../../../../functions/image-cropper-styles";
 import { FocalPoint } from "../../../../models/image-cropper.model";
 
+const FIXED_CARD_IMAGE_HEIGHT = 200;
+
 @Component({
     selector: "app-card-image",
     template: `
@@ -145,9 +147,6 @@ export class CardImageComponent implements OnInit {
   @Input("padding") set paddingValue(padding: number) {
     this.padding = padding || 0;
   }
-  @Input("showBorder") set showBorderValue(showBorder: boolean) {
-    this.showBorder = coerceBooleanProperty(showBorder);
-  }
   @Input("imageFit") set imageFitValue(imageFit: ImageFit) {
     this.imageFit = imageFit || ImageFit.COVER;
   }
@@ -171,7 +170,6 @@ export class CardImageComponent implements OnInit {
   public cropperPosition: ImageCropperPosition = null;
   public focalPoint: FocalPoint = null;
   public padding = 0;
-  public showBorder = false;
   public imageFit = ImageFit.COVER;
 
   faSearch = faSearch;
@@ -264,7 +262,7 @@ export class CardImageComponent implements OnInit {
       overflow: "hidden",
       position: "relative",
       width: "100%",
-      height: `${this.constrainedHeight || 200}px`
+      height: `${this.fixedHeight ? FIXED_CARD_IMAGE_HEIGHT : (this.constrainedHeight || FIXED_CARD_IMAGE_HEIGHT)}px`
     };
     if (!this.noBorderRadius) {
       styles["border-radius.px"] = !isUndefined(this.borderRadius) ? this.borderRadius : 6;
@@ -281,7 +279,7 @@ export class CardImageComponent implements OnInit {
       "object-fit": this.imageFit,
       "object-position": `${this.focalPoint.x}% ${this.focalPoint.y}%`
     };
-    if (zoom > 1) {
+    if (zoom !== 1) {
       styles["transform"] = `scale(${zoom})`;
       styles["transform-origin"] = `${this.focalPoint.x}% ${this.focalPoint.y}%`;
     }
@@ -307,9 +305,6 @@ export class CardImageComponent implements OnInit {
       styles["padding.px"] = this.padding;
       styles["box-sizing"] = "border-box";
       styles["background-color"] = "#fff";
-    }
-    if (this.showBorder) {
-      styles["border-bottom"] = "1px solid rgba(0, 0, 0, 0.12)";
     }
   }
 }
