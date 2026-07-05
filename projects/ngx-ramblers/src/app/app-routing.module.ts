@@ -5,7 +5,7 @@ import { Logger, LoggerFactory } from "./services/logger-factory.service";
 import { hasDynamicPath, hasEditSubPath, hasEmailComposerPath, hasSendNotificationPath, hasTrailingEditPath, hasTrailingNewPath, hasUnsubscribePath, hasViewSubPath } from "./services/path-matchers";
 import { contactUsGuard } from "./pages/contact-us/contact-us.guard";
 import { AreaExistsGuard } from "./guards/area-exists-guard";
-import { CommitteeAuthGuard } from "./guards/committee-auth-guard";
+import { EmailComposerAuthGuard } from "./guards/email-composer-auth-guard";
 import { GroupEventAuthGuard } from "./guards/group-event-auth-guard";
 import { PageAccessGuard } from "./guards/page-access-guard";
 import { SystemHealthyGuard } from "./guards/system-healthy-guard";
@@ -78,13 +78,13 @@ const routes: Routes = [
     matcher: hasSendNotificationPath,
     loadComponent: () => import("./pages/email-composer/email-composer")
       .then(m => m.EmailComposer),
-    canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
+    canActivate: [SystemHealthyGuard, EmailComposerAuthGuard]
   },
   {
     matcher: hasEmailComposerPath,
     loadComponent: () => import("./pages/email-composer/email-composer")
       .then(m => m.EmailComposer),
-    canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
+    canActivate: [SystemHealthyGuard, EmailComposerAuthGuard]
   },
   {
     matcher: hasEditSubPath,
