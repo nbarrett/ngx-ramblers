@@ -3,6 +3,7 @@ import { RouterModule } from "@angular/router";
 import { LoggedInGuard } from "../../guards/admin-login-guard";
 import { hasDynamicPath, hasEmailComposerPath, hasSendNotificationPath } from "../../services/path-matchers";
 import { CommitteeAuthGuard } from "../../guards/committee-auth-guard";
+import { EmailComposerAuthGuard } from "../../guards/email-composer-auth-guard";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
 import { AdminAuthGuard, MemberAdminAuthGuard } from "../../guards/admin-auth-guard";
 import { EnvironmentAdminGuard } from "../../guards/environment-admin-guard";
@@ -303,13 +304,13 @@ const rp = adminRelativePath;
       matcher: hasSendNotificationPath,
       loadComponent: () => import("../../pages/email-composer/email-composer")
         .then(m => m.EmailComposer),
-      canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
+      canActivate: [SystemHealthyGuard, EmailComposerAuthGuard]
     },
     {
       matcher: hasEmailComposerPath,
       loadComponent: () => import("../../pages/email-composer/email-composer")
         .then(m => m.EmailComposer),
-      canActivate: [SystemHealthyGuard, CommitteeAuthGuard]
+      canActivate: [SystemHealthyGuard, EmailComposerAuthGuard]
     },
     {
       matcher: hasDynamicPath, loadComponent: () => import("../common/dynamic-content-page/dynamic-content-page")
