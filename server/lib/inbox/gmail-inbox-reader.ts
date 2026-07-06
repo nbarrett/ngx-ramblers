@@ -13,6 +13,7 @@ import {
 import { dateTimeNow } from "../shared/dates";
 import { isString } from "es-toolkit/compat";
 import { decryptInboxRefreshToken } from "./inbox-oauth-token-crypto";
+import { storeInboxAttachmentBuffer } from "./inbox-attachment-store";
 import { systemConfig } from "../config/system-config";
 import {
   GMAIL_API_ROOT,
@@ -244,22 +245,7 @@ async function downloadAttachmentToS3(connection: InboxMailboxConnection, gmailM
       return metadataOnly;
     }
     const buffer = Buffer.from(data, "base64url");
-    const [
-      {RootFolder},
-      {putBufferDirect},
-      {generateAwsFileName, isAwsUploadErrorResponse}
-    ] = await Promise.all([
-      import("../../../projects/ngx-ramblers/src/app/models/system.model"),
-      import("../aws/aws-controllers"),
-      import("../aws/aws-utils")
-    ]);
-    const awsFileName = generateAwsFileName(ref.filename || `attachment-${ref.attachmentId}`);
-    const uploadResult = await putBufferDirect(RootFolder.inboxAttachments, awsFileName, buffer, ref.contentType);
-    if (isAwsUploadErrorResponse(uploadResult)) {
-      debugLog("attachment upload to S3 failed for", ref.filename, "->", uploadResult.error);
-      return {...metadataOnly, sizeBytes: ref.sizeBytes || buffer.length};
-    }
-    return {filename: ref.filename, contentType: ref.contentType, sizeBytes: ref.sizeBytes || buffer.length, s3Key: `${RootFolder.inboxAttachments}/${awsFileName}`, contentId: ref.contentId};
+    return storeInboxAttachmentBuffer(ref.filename || `attachment-${ref.attachmentId}`, ref.contentType, buffer, ref.contentId, ref.sizeBytes || buffer.length);
   } catch (error) {
     debugLog("attachment download failed for", ref.filename, "->", (error as Error).message);
     return metadataOnly;

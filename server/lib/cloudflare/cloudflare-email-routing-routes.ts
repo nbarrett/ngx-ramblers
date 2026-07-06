@@ -2,6 +2,7 @@ import debug from "debug";
 import { createErrorDebugLog } from "../shared/error-debug-log";
 import express, { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import * as authConfig from "../auth/auth-config";
 import { configuredCloudflare, nonSensitiveCloudflareConfig } from "./cloudflare-config";
 import {
@@ -27,18 +28,21 @@ import {
   deleteWorkerScript,
   fetchWorkerScriptContent,
   firstDifference,
+  generateRouterWorkerScript,
   generateWorkerScript,
   listWorkerScripts,
   parseRecipientsFromScript,
   parseWorkerScriptInfo,
+  ROUTER_WORKER_NAME,
   scriptsMatchIgnoringWhitespace,
   uploadWorkerScript,
   uploadWorkerSecret,
   workerScriptName
 } from "./cloudflare-email-workers";
-import { ensureInboundWebhookConfigured } from "../brevo/inbound-webhook-config";
+import { ensureInboundInboxWebhookConfigured, ensureInboundWebhookConfigured } from "../brevo/inbound-webhook-config";
 import { configuredBrevo } from "../brevo/brevo-config";
 import { handleInboundMime } from "./inbound-mime-handler";
+import { handleInboundInbox } from "./inbound-inbox-handler";
 import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { asyncRoute } from "../shared/async-route";
 import { HttpError } from "../shared/http-error";
@@ -71,6 +75,26 @@ async function brevoSmtpCredentialsMissing(): Promise<boolean> {
     errorDebugLog("Failed to read Brevo config when checking SMTP credentials:", (error as Error).message);
     return true;
   }
+}
+
+async function webhookContextForMode(mode: EmailForwardingMode): Promise<{ webhookUrl: string; secret: string } | null> {
+  if (mode === EmailForwardingMode.BREVO_RESEND) {
+    return ensureInboundWebhookConfigured();
+  }
+  if (mode === EmailForwardingMode.NGX_INBOX) {
+    return ensureInboundInboxWebhookConfigured();
+  }
+  return null;
+}
+
+function forwardingModeLabel(mode: EmailForwardingMode): string {
+  if (mode === EmailForwardingMode.BREVO_RESEND) {
+    return "Brevo re-send";
+  }
+  if (mode === EmailForwardingMode.NGX_INBOX) {
+    return "Direct to inbox";
+  }
+  return "Worker forward";
 }
 
 const router = express.Router();
@@ -153,15 +177,13 @@ async function planCatchAllRule(
     };
   }
   if (action === CatchAllAction.WORKER) {
-    if (destinations.length === 0) {
+    if (forwardingMode !== EmailForwardingMode.NGX_INBOX && destinations.length === 0) {
       throw new HttpError(400, "WORKER action requires at least one destination");
     }
     if (forwardingMode === EmailForwardingMode.BREVO_RESEND && await brevoSmtpCredentialsMissing()) {
       throw new HttpError(400, BREVO_SMTP_REQUIRED_MESSAGE);
     }
-    const webhookContext = forwardingMode === EmailForwardingMode.BREVO_RESEND
-      ? await ensureInboundWebhookConfigured()
-      : null;
+    const webhookContext = await webhookContextForMode(forwardingMode);
     const scriptContent = generateWorkerScript(destinations, forwardingMode, {
       roleEmail: `*@${baseDomain}`,
       roleName: "catch-all",
@@ -171,19 +193,34 @@ async function planCatchAllRule(
     if (webhookContext?.secret) {
       await uploadWorkerSecret(cloudflareConfig, catchAllScriptName, "NGX_INBOUND_SECRET", webhookContext.secret);
     }
-    const modeLabel = forwardingMode === EmailForwardingMode.BREVO_RESEND ? "Brevo re-send" : "Worker forward";
+    const modeLabel = forwardingModeLabel(forwardingMode);
     return {
       enabled: true,
       actions: [{type: EmailRoutingActionType.WORKER, value: [catchAllScriptName]}],
-      nameSuffix: `${modeLabel} (${destinations.length} recipients)`
+      nameSuffix: forwardingMode === EmailForwardingMode.NGX_INBOX ? modeLabel : `${modeLabel} (${destinations.length} recipients)`
     };
   }
   throw new HttpError(400, `Unknown catch-all action: ${action}`);
 }
 
+async function assertCatchAllOwnedByThisSite(cloudflareConfig: CloudflareConfig, baseDomain: string): Promise<void> {
+  const host = (baseDomain || "").replace(/^www\./, "").trim().toLowerCase();
+  if (!host) {
+    return;
+  }
+  const zone = await zoneForHostname(cloudflareConfig.apiToken, host);
+  const zoneName = (zone?.name || "").trim().toLowerCase();
+  if (zoneName && host !== zoneName && host.endsWith(`.${zoneName}`)) {
+    throw new HttpError(403,
+      `The catch-all belongs to the ${zoneName} Cloudflare zone, which is shared by every site on that domain (including staging). This site (${host}) is a subdomain of it, so changing the catch-all here would affect the whole zone and every other site on it. Manage the catch-all from the ${zoneName} site instead.`,
+      "SubdomainCatchAllForbidden");
+  }
+}
+
 router.put("/rules/catch-all", authConfig.authenticate(), asyncRoute(messageType, async (req: Request, res: Response) => {
   const cloudflareConfig = await configuredCloudflare();
   const nsConfig = await nonSensitiveCloudflareConfig();
+  await assertCatchAllOwnedByThisSite(cloudflareConfig, nsConfig.baseDomain || "");
   const request: UpdateCatchAllRequest = req.body;
   const destinations = (request.destinations || []).map(d => String(d || "").trim()).filter(Boolean);
   const existingRule = await catchAllRule(cloudflareConfig);
@@ -215,6 +252,44 @@ router.put("/rules/catch-all", authConfig.authenticate(), asyncRoute(messageType
   }
 
   res.json({request: {messageType}, response: updated});
+}));
+
+async function ensureRouterWorker(cloudflareConfig: CloudflareConfig): Promise<string> {
+  const secret = envConfig.value(Environment.NGX_INBOUND_ROUTER_SECRET)?.trim();
+  if (!secret) {
+    throw new HttpError(400, "No shared inbound router secret is configured (NGX_INBOUND_ROUTER_SECRET). Set it in the platform admin shared secrets and redeploy this site before routing mail to inboxes.", "RouterSecretMissing");
+  }
+  await uploadWorkerScript(cloudflareConfig, ROUTER_WORKER_NAME, generateRouterWorkerScript());
+  await uploadWorkerSecret(cloudflareConfig, ROUTER_WORKER_NAME, "NGX_INBOUND_SECRET", secret);
+  return ROUTER_WORKER_NAME;
+}
+
+function literalMatcherValue(rule: { matchers?: { type: EmailRoutingMatcherType; field?: EmailRoutingMatcherField; value?: string }[] }): string | undefined {
+  return rule.matchers?.find(m => m.type === EmailRoutingMatcherType.LITERAL)?.value;
+}
+
+router.post("/route-to-inbox", authConfig.authenticate(), asyncRoute(messageType, async (req: Request, res: Response) => {
+  const cloudflareConfig = await configuredCloudflare();
+  const nsConfig = await nonSensitiveCloudflareConfig();
+  const baseDomain = (nsConfig.baseDomain || "").trim().toLowerCase();
+  if (!baseDomain) {
+    throw new HttpError(400, "Cloudflare baseDomain not available for this site.");
+  }
+  const scriptName = await ensureRouterWorker(cloudflareConfig);
+  const rules = await listEmailRoutingRules(cloudflareConfig);
+  const siteRules = rules.filter(rule => Boolean(rule.id) && rule.matchers?.some(m =>
+    m.type === EmailRoutingMatcherType.LITERAL
+    && m.field === EmailRoutingMatcherField.TO
+    && (m.value || "").trim().toLowerCase().endsWith(`@${baseDomain}`)));
+  await Promise.all(siteRules.map(rule => updateEmailRoutingRule(cloudflareConfig, rule.id, {
+    name: `Inbox ${literalMatcherValue(rule) || ""}`.slice(0, 100),
+    enabled: true,
+    matchers: rule.matchers,
+    actions: [{type: EmailRoutingActionType.WORKER, value: [scriptName]}]
+  })));
+  const routed = siteRules.map(literalMatcherValue).filter(Boolean);
+  debugLog("Routed %d address(es) for %s to the inbox router: %o", routed.length, baseDomain, routed);
+  res.json({request: {messageType}, response: {scriptName, routed}});
 }));
 
 router.post("/rules", authConfig.authenticate(), asyncRoute(messageType, async (req: Request, res: Response) => {
@@ -339,15 +414,11 @@ router.get("/workers/:scriptName/info", authConfig.authenticate(), asyncRoute(me
   const roleEmail = req.query.roleEmail as string | undefined;
   const roleName = req.query.roleName as string | undefined;
   if (roleEmail) {
-    let webhookUrl: string | undefined;
-    if (info.forwardingMode === EmailForwardingMode.BREVO_RESEND) {
-      const inboundConfig = await ensureInboundWebhookConfigured();
-      webhookUrl = inboundConfig.webhookUrl;
-    }
+    const webhookContext = await webhookContextForMode(info.forwardingMode);
     const expected = generateWorkerScript(info.recipients, info.forwardingMode, {
       roleEmail,
       roleName: roleName || "",
-      webhookUrl
+      webhookUrl: webhookContext?.webhookUrl
     });
     upToDate = scriptsMatchIgnoringWhitespace(expected, scriptContent);
     if (!upToDate) {
@@ -367,27 +438,21 @@ router.post("/workers", authConfig.authenticate(), asyncRoute(messageType, async
   const forwardingMode = request.forwardingMode || EmailForwardingMode.CLOUDFLARE_FORWARD;
   const scriptName = workerScriptName(nsConfig.baseDomain, request.roleType);
 
-  let webhookUrl: string | undefined;
-  let inboundWebhookSecret: string | undefined;
-  if (forwardingMode === EmailForwardingMode.BREVO_RESEND) {
-    if (await brevoSmtpCredentialsMissing()) {
-      throw new HttpError(400, BREVO_SMTP_REQUIRED_MESSAGE);
-    }
-    const inboundConfig = await ensureInboundWebhookConfigured();
-    webhookUrl = inboundConfig.webhookUrl;
-    inboundWebhookSecret = inboundConfig.secret;
+  if (forwardingMode === EmailForwardingMode.BREVO_RESEND && await brevoSmtpCredentialsMissing()) {
+    throw new HttpError(400, BREVO_SMTP_REQUIRED_MESSAGE);
   }
+  const webhookContext = await webhookContextForMode(forwardingMode);
 
   const scriptContent = generateWorkerScript(request.recipients, forwardingMode, {
     roleEmail: request.roleEmail,
     roleName: request.roleName,
-    webhookUrl
+    webhookUrl: webhookContext?.webhookUrl
   });
 
   await uploadWorkerScript(cloudflareConfig, scriptName, scriptContent);
 
-  if (forwardingMode === EmailForwardingMode.BREVO_RESEND && inboundWebhookSecret) {
-    await uploadWorkerSecret(cloudflareConfig, scriptName, "NGX_INBOUND_SECRET", inboundWebhookSecret);
+  if (webhookContext?.secret) {
+    await uploadWorkerSecret(cloudflareConfig, scriptName, "NGX_INBOUND_SECRET", webhookContext.secret);
   }
 
   const rules = await listEmailRoutingRules(cloudflareConfig);
@@ -395,7 +460,7 @@ router.post("/workers", authConfig.authenticate(), asyncRoute(messageType, async
     rule.matchers?.some(m => m.type === EmailRoutingMatcherType.LITERAL && m.field === EmailRoutingMatcherField.TO && m.value === request.roleEmail)
   );
 
-  const modeLabel = forwardingMode === EmailForwardingMode.BREVO_RESEND ? "Brevo re-send" : "Worker forward";
+  const modeLabel = forwardingModeLabel(forwardingMode);
   const workerRule = {
     name: `${modeLabel} ${request.roleName} (${request.recipients.length} recipients)`,
     enabled: request.enabled,
@@ -564,6 +629,8 @@ router.delete("/mx-records/:recordId", authConfig.authenticate(), asyncRoute(mes
 }));
 
 router.post("/inbound-mime", handleInboundMime);
+
+router.post("/inbound-inbox", handleInboundInbox);
 
 router.get("/auth-records", authConfig.authenticate(), asyncRoute(messageType, async (req: Request, res: Response) => {
   const nsConfig = await nonSensitiveCloudflareConfig();

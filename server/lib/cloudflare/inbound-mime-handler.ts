@@ -1,11 +1,10 @@
-import crypto from "crypto";
 import debug from "debug";
 import { createErrorDebugLog } from "../shared/error-debug-log";
 import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
-import { configuredBrevo } from "../brevo/brevo-config";
 import { relayRawMime } from "../brevo/smtp-relay";
 import { RecipientDeliveryStatus } from "./cloudflare.model";
+import { inboundWebhookSecret, verifyHmac } from "./inbound-signature";
 
 const messageType = "cloudflare:inbound-mime";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -103,21 +102,6 @@ function rewriteHeaders(rawMime: string, opts: {
   return newHeaders.join("\r\n") + body;
 }
 
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  const mismatch = Array.from(a).reduce(
-    (acc, _, i) => acc | (a.charCodeAt(i) ^ b.charCodeAt(i)),
-    0
-  );
-  return mismatch === 0;
-}
-
-function verifyHmac(rawBody: string, signatureHeader: string | undefined, secret: string): boolean {
-  if (!signatureHeader || !secret) return false;
-  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
-  return constantTimeEqual(expected.toLowerCase(), signatureHeader.toLowerCase());
-}
-
 function escapeMimeDisplayName(name: string): string {
   if (!name) return "";
   if (/^[\x20-\x7E]+$/.test(name) && !/[<>"@,;]/.test(name)) {
@@ -135,8 +119,7 @@ export async function handleInboundMime(req: Request, res: Response): Promise<vo
     return;
   }
   try {
-    const brevo = await configuredBrevo();
-    const secret = brevo.inboundWebhookSecret;
+    const secret = await inboundWebhookSecret();
     if (!secret) {
       errorDebugLog("inboundWebhookSecret not configured in Brevo config");
       res.status(500).json({ request: { messageType }, error: { message: "Inbound webhook secret not configured on server" } });

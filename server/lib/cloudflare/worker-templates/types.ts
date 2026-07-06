@@ -10,4 +10,8 @@ export interface BrevoResendEnv {
   NGX_INBOUND_SECRET: string;
 }
 
+export interface NgxInboxEnv {
+  NGX_INBOUND_SECRET: string;
+}
+
 export type CloudflareForwardEnv = Record<string, never>;
