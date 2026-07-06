@@ -1,3 +1,4 @@
+import { InboxReaderProvider } from "./inbox.model";
 import { Link } from "./page.model";
 import { HasClass, HasColour } from "./banner-configuration.model";
 import { GoogleMapsConfig, WalkListView } from "./walk.model";
@@ -378,6 +379,7 @@ export interface SystemConfig {
   cloudflareWebAnalytics: CloudflareWebAnalyticsConfig
   googleSearchConsole: GoogleSearchConsoleConfig
   googleInbox?: GoogleInboxConfig
+  inbox?: InboxSettingsConfig
   inboxPush?: InboxPushConfig
   mailDefaults: {
     mailProvider: MailProvider;
@@ -408,6 +410,10 @@ export interface GoogleInboxConfig {
   pubsubProjectId?: string;
   pubsubTopicName?: string;
   pubsubSubscriptionName?: string;
+}
+
+export interface InboxSettingsConfig {
+  provider: InboxReaderProvider;
 }
 
 export interface InboxPushConfig {

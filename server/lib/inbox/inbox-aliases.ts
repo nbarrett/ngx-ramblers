@@ -58,18 +58,33 @@ export function generalAliasFor(connection: InboxMailboxConnection, tenantSlug: 
   };
 }
 
-function aliasFor(role: CommitteeMember, connection: InboxMailboxConnection, tenantSlug: string): InboxAliasConfig {
+function roleAliasWith(role: CommitteeMember, mailboxConnectionId: string | null, tenantSlug: string): InboxAliasConfig {
   return {
     id: role.type,
     tenantSlug,
     roleType: role.type,
     roleEmail: role.email,
-    mailboxConnectionId: connectionIdentifier(connection),
+    mailboxConnectionId,
     enabled: true,
     inboxMessageNotifications: role.inboxMessageNotifications === true,
     inboxNotificationEmail: role.inboxNotificationEmail?.trim() || null,
     memberId: role.memberId ?? null
   };
+}
+
+function aliasFor(role: CommitteeMember, connection: InboxMailboxConnection, tenantSlug: string): InboxAliasConfig {
+  return roleAliasWith(role, connectionIdentifier(connection), tenantSlug);
+}
+
+export async function cloudflareIngressAliasesForMessage(message: InboxMessage, mailboxConnectionId: string | null): Promise<InboxAliasConfig[]> {
+  const tenantSlug = defaultTenantSlug();
+  const roles = await committeeRoles();
+  const identityEmailsByType = await roleIdentityEmailsByType();
+  const recipientEmails = messageRecipientEmails(message);
+  return roles.reduce<InboxAliasConfig[]>((aliases, role) => {
+    const matches = roleMatchesMessageAddresses(role.type, role.email, recipientEmails, identityEmailsByType);
+    return matches ? aliases.concat(roleAliasWith(role, mailboxConnectionId, tenantSlug)) : aliases;
+  }, []);
 }
 
 async function connectedMailboxesByEmail(tenantSlug: string): Promise<Map<string, InboxMailboxConnection>> {

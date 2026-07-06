@@ -76,14 +76,28 @@ export function generateWorkerScript(
       __WEBHOOK_URL__: JSON.stringify(options?.webhookUrl || "")
     });
   }
+  if (mode === EmailForwardingMode.NGX_INBOX) {
+    return marker + substitutePlaceholders(loadTranspiledTemplate("ngx-inbox"), {
+      __WEBHOOK_URL__: JSON.stringify(options?.webhookUrl || "")
+    });
+  }
   return marker + substitutePlaceholders(loadTranspiledTemplate("cloudflare-forward"), {
     __RECIPIENTS__: JSON.stringify(recipients)
   });
 }
 
+export const ROUTER_WORKER_NAME = "email-inbox-router";
+
+export function generateRouterWorkerScript(): string {
+  return `${MODE_MARKER_PREFIX} ngx-inbox-router\n` + loadTranspiledTemplate("ngx-inbox-router");
+}
+
 export function detectForwardingMode(scriptContent: string): EmailForwardingMode {
   if (scriptContent.includes(`${MODE_MARKER_PREFIX} ${EmailForwardingMode.BREVO_RESEND}`)) {
     return EmailForwardingMode.BREVO_RESEND;
+  }
+  if (scriptContent.includes(`${MODE_MARKER_PREFIX} ${EmailForwardingMode.NGX_INBOX}`)) {
+    return EmailForwardingMode.NGX_INBOX;
   }
   return EmailForwardingMode.CLOUDFLARE_FORWARD;
 }

@@ -8,6 +8,7 @@ import {
   GoogleCloudProvisioningStepView,
   GoogleCloudSetupStatusValue,
   GoogleCloudSetupStatusView,
+  InboxReaderProvider,
   InboxRoleNotificationSetting
 } from "../../../../models/inbox.model";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
@@ -18,6 +19,7 @@ import { InputSize } from "../../../../models/ui-size.model";
 import { SystemInboxMailboxConnectionsComponent } from "./system-inbox-mailbox-connections";
 import { SystemInboxRoleMailboxesComponent } from "./system-inbox-role-mailboxes";
 import { InboxService } from "../../../../services/inbox/inbox.service";
+import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -61,8 +63,57 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
   standalone: true,
   template: `
     <div class="row thumbnail-heading-frame">
-      <div class="thumbnail-heading">Gmail Inbox</div>
-      @if (systemConfigInternal?.googleInbox) {
+      <div class="thumbnail-heading">Inbox</div>
+      <div class="col-sm-12">
+        <h6 class="section-heading">How this inbox receives mail</h6>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" id="inbox-provider-gmail"
+            name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.GMAIL_API"
+            (change)="selectInboxProvider(InboxReaderProvider.GMAIL_API)">
+          <label class="form-check-label" for="inbox-provider-gmail">Gmail account (read via the Gmail API)</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" id="inbox-provider-cloudflare"
+            name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS"
+            (change)="selectInboxProvider(InboxReaderProvider.CLOUDFLARE_INGRESS)">
+          <label class="form-check-label" for="inbox-provider-cloudflare">Direct to inbox &mdash; via Cloudflare Email Routing, no Gmail account</label>
+        </div>
+        <div class="small text-muted mt-1">
+          @if (inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
+            Mail sent to this site's committee addresses is delivered straight into this inbox through Cloudflare Email Routing. There's no Gmail account, OAuth or Google Cloud project to set up.
+          } @else {
+            Committee members read replies through a connected Gmail account. Work through the setup steps below.
+          }
+        </div>
+      </div>
+      @if (inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
+        <div class="col-sm-12">
+          <div class="mt-3">
+            <h6 class="mb-2"><fa-icon [icon]="faCircleCheck" class="me-2"/>No Gmail setup needed</h6>
+            <p class="text-muted small mb-2">
+              With direct delivery there's nothing to connect here. To finish setting it up:
+            </p>
+            <ol class="text-muted small">
+              <li>Make sure Cloudflare Email Routing and the MX records are in place for your domain, and that your committee addresses exist as routing rules.</li>
+              <li>Click below to point this site's committee addresses at the inbox.</li>
+              <li>Replies then appear in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a> for whoever holds each role.</li>
+            </ol>
+            <button type="button" class="btn btn-primary btn-sm" [disabled]="directDeliverySaving" (click)="enableDirectDelivery()">
+              @if (directDeliverySaving) {
+                <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"/>
+              }
+              Route this site's committee mail into the inbox
+            </button>
+            @if (directDeliveryMessage) {
+              <div class="small text-success mt-2">{{ directDeliveryMessage }}</div>
+            }
+            @if (directDeliveryError) {
+              <div class="small text-danger mt-2">{{ directDeliveryError }}</div>
+            }
+          </div>
+        </div>
+      }
+      @if (inboxProvider === InboxReaderProvider.GMAIL_API && systemConfigInternal?.googleInbox) {
         <div class="col-sm-12">
           <p class="text-muted mb-3 small">
             The Inbox (<a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a>) lets committee members read replies sent to their role
@@ -326,6 +377,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected systemConfigInternal: SystemConfig;
   private logger = inject(LoggerFactory).createLogger("SystemGmailInboxSettingsComponent", NgxLoggerLevel.ERROR);
   private inboxService = inject(InboxService);
+  private cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   private notifierService = inject(NotifierService);
   private systemConfigService = inject(SystemConfigService);
   private router = inject(Router);
@@ -340,9 +392,13 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected readonly faSpinner = faSpinner;
   protected readonly steps = GMAIL_INBOX_STEPS;
   protected readonly GmailInboxSetupStepKey = GmailInboxSetupStepKey;
+  protected readonly InboxReaderProvider = InboxReaderProvider;
   protected readonly GoogleCloudProvisioningStepStatus = GoogleCloudProvisioningStepStatus;
 
   protected stepperActiveIndex = 0;
+  protected directDeliverySaving = false;
+  protected directDeliveryMessage: string | null = null;
+  protected directDeliveryError: string | null = null;
   protected topicNameInput = "ngx-inbox-events";
   protected projectOverride = "";
   protected clearConfirmPending = false;
@@ -524,6 +580,40 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     }
   }
 
+  get inboxProvider(): InboxReaderProvider {
+    return this.systemConfigInternal?.inbox?.provider ?? InboxReaderProvider.GMAIL_API;
+  }
+
+  async selectInboxProvider(provider: InboxReaderProvider): Promise<void> {
+    if (!this.systemConfigInternal || this.inboxProvider === provider) {
+      return;
+    }
+    this.systemConfigInternal.inbox = {provider};
+    this.directDeliveryMessage = null;
+    this.directDeliveryError = null;
+    try {
+      await this.systemConfigService.saveConfig(this.systemConfigInternal);
+    } catch (error) {
+      this.errorMessage = (error as Error)?.message || "Could not save the inbox provider - try again.";
+    }
+  }
+
+  async enableDirectDelivery(): Promise<void> {
+    this.directDeliverySaving = true;
+    this.directDeliveryMessage = null;
+    this.directDeliveryError = null;
+    try {
+      const result = await this.cloudflareEmailRoutingService.routeToInbox();
+      this.directDeliveryMessage = result.routed?.length
+        ? `Direct delivery is active. Mail for ${result.routed.length} address${result.routed.length === 1 ? "" : "es"} (${result.routed.join(", ")}) now arrives in this inbox.`
+        : "No committee addresses were found for this site's domain yet. Add the committee role addresses in Cloudflare Email Routing first, then try again.";
+    } catch (error) {
+      this.directDeliveryError = (error as Error)?.message || "Could not enable direct delivery. Check that Cloudflare Email Routing and the MX records are set up for your domain.";
+    } finally {
+      this.directDeliverySaving = false;
+    }
+  }
+
   async runSetup(): Promise<void> {
     const projectId = this.effectiveProjectId();
     if (!projectId) {
@@ -586,6 +676,9 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     }
     if (this.systemConfigInternal && !this.systemConfigInternal.googleInbox) {
       this.systemConfigInternal.googleInbox = {clientId: "", clientSecret: "", redirectUri: ""};
+    }
+    if (this.systemConfigInternal && !this.systemConfigInternal.inbox) {
+      this.systemConfigInternal.inbox = {provider: InboxReaderProvider.GMAIL_API};
     }
     const existingTopic = this.systemConfigInternal?.googleInbox?.pubsubTopicName;
     if (existingTopic && !this.topicNameInput) {
