@@ -45,6 +45,11 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgTemplateOutlet } from "@angular/common";
 import { SectionToggle } from "../../../../shared/components/section-toggle";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { AlertComponent } from "ngx-bootstrap/alert";
+import { RouterLink } from "@angular/router";
+import { AdminPath } from "../../../../models/admin-route-paths.model";
+import { InboxReaderProvider } from "../../../../models/inbox.model";
+import { SystemConfigService } from "../../../../services/system/system-config.service";
 
 export enum CommitteeMemberTab {
   ROLE_DETAILS = "Role Details",
@@ -347,16 +352,28 @@ export enum CommitteeMemberTab {
             </div>
           }
           @case (CommitteeMemberTab.INBOUND_FORWARDING) {
-            <app-markdown-editor standalone category="admin" name="committee-inbound-forwarding-help" description="Inbound forwarding help"/>
-            <hr/>
-<div class="row">
-              <ng-container *ngTemplateOutlet="forwardTargetControls; context: {label: 'Forward incoming emails to'}"></ng-container>
-              <div class="col-sm-12 mt-3" app-email-routing-status
-                [committeeMember]="committeeMember"
-                [memberEmail]="resolvedForwardEmail()"
-                [memberEmails]="resolvedForwardEmails()"
-                [forceMultiRecipient]="committeeMember.forwardEmailTarget === ForwardEmailTarget.MULTIPLE"></div>
-            </div>
+            @if (internalInbox) {
+              <div class="row">
+                <div class="col-sm-12">
+                  <alert type="success" class="mb-0">
+                    <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
+                    <strong class="ms-2">Delivered to the internal inbox</strong>
+                    <span class="ms-2">This site delivers committee mail straight into the inbox (set in Mail Settings &rarr; Inbox). Mail sent to <strong>{{ committeeMember.email }}</strong> arrives in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a> for whoever holds this role &mdash; there's no per-role forwarding to configure here.</span>
+                  </alert>
+                </div>
+              </div>
+            } @else {
+              <app-markdown-editor standalone category="admin" name="committee-inbound-forwarding-help" description="Inbound forwarding help"/>
+              <hr/>
+              <div class="row">
+                <ng-container *ngTemplateOutlet="forwardTargetControls; context: {label: 'Forward incoming emails to'}"></ng-container>
+                <div class="col-sm-12 mt-3" app-email-routing-status
+                  [committeeMember]="committeeMember"
+                  [memberEmail]="resolvedForwardEmail()"
+                  [memberEmails]="resolvedForwardEmails()"
+                  [forceMultiRecipient]="committeeMember.forwardEmailTarget === ForwardEmailTarget.MULTIPLE"></div>
+              </div>
+            }
           }
           @case (CommitteeMemberTab.CONTACT_US) {
             <app-markdown-editor standalone category="admin" name="committee-contact-us-help" description="Contact Us help"/>
@@ -445,7 +462,7 @@ export enum CommitteeMemberTab {
     }
     `,
     styleUrls: ["./committee-member.sass"],
-  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, EmailRoutingLogComponent, CopyIconComponent, MarkdownComponent, MarkdownEditorComponent, SectionToggle, RecipientMultiSelect, NgTemplateOutlet]
+  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, EmailRoutingLogComponent, CopyIconComponent, MarkdownComponent, MarkdownEditorComponent, SectionToggle, RecipientMultiSelect, NgTemplateOutlet, AlertComponent, RouterLink]
 })
 export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeMemberEditor", NgxLoggerLevel.ERROR);
@@ -457,6 +474,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   private committeeQueryService = inject(CommitteeQueryService);
   private inboxService = inject(InboxService);
+  private systemConfigService = inject(SystemConfigService);
   public committeeMember: CommitteeMember;
   protected readonly CommitteeMemberTab = CommitteeMemberTab;
   protected readonly StoredValue = StoredValue;
@@ -500,6 +518,8 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   protected readonly BuiltInRole = BuiltInRole;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
+  protected readonly adminInboxPath = AdminPath.INBOX;
+  protected internalInbox = false;
   baseDomain = "";
   private subscriptions: Subscription[] = [];
   private destinationAddresses: DestinationAddress[] = [];
@@ -537,6 +557,11 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       this.cloudflareEmailRoutingService.cloudflareConfigNotifications().subscribe((config: NonSensitiveCloudflareConfig) => {
         this.baseDomain = config?.baseDomain || "";
         this.syncEmailDerivationFromEmail();
+      })
+    );
+    this.subscriptions.push(
+      this.systemConfigService.events().subscribe(config => {
+        this.internalInbox = config?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS;
       })
     );
     this.subscriptions.push(

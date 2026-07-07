@@ -13,7 +13,7 @@ import {
   faTrash
 } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ALERT_ERROR, AlertTarget } from "../../../../models/alert-target.model";
+import { ALERT_ERROR, ALERT_SUCCESS, AlertTarget } from "../../../../models/alert-target.model";
 import {
   BuiltInRole,
   CommitteeConfig,
@@ -54,8 +54,12 @@ import { destinationVerificationStatusFor } from "./email-routing-view-resolver"
 import { CloudflareUrlService } from "../../../../services/cloudflare/cloudflare-url.service";
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
 import { InboxService } from "../../../../services/inbox/inbox.service";
-import { InboxAliasConnectionStatus } from "../../../../models/inbox.model";
-import { Subscription } from "rxjs";
+import { InboxAliasConnectionStatus, InboxReaderProvider } from "../../../../models/inbox.model";
+import { SystemConfigService } from "../../../../services/system/system-config.service";
+import { filter, Subscription } from "rxjs";
+import { ConfigKey } from "../../../../models/config.model";
+import { MessageType } from "../../../../models/websocket.model";
+import { WebSocketClientService } from "../../../../services/websockets/websocket-client.service";
 import { cloneDeep, isBoolean, isEqual, isString } from "es-toolkit/compat";
 import { PageComponent } from "../../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
@@ -452,6 +456,13 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                           <span class="badge {{ catchAllStatusBadgeClass() }}">{{ catchAllStatusLabel() }}</span>
                         </div>
                         <div class="card-body">
+                          @if (internalInbox) {
+                            <div class="alert alert-success mb-0">
+                              <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
+                              <strong class="ms-2">Delivered to the internal inbox</strong>
+                              <span class="ms-2">This site delivers mail straight into the inbox (Mail Settings &rarr; Inbox). Any address on <strong>{{ baseDomain }}</strong> that doesn't match a committee role goes to the inbox too &mdash; there's no catch-all forwarding to configure here.</span>
+                            </div>
+                          } @else {
                           <p class="small text-muted mb-2">
                             The catch-all decides what happens to mail sent to addresses on
                             <strong>{{ baseDomain }}</strong> that don't match a specific role rule.
@@ -562,6 +573,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                 </div>
                               }
                             </div>
+                          }
                           }
                         </div>
                       </div>
@@ -696,6 +708,10 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   private committeeQueryService = inject(CommitteeQueryService);
   private environmentSetupService = inject(EnvironmentSetupService);
   private inboxService = inject(InboxService);
+  private systemConfigService = inject(SystemConfigService);
+  private webSocketClientService = inject(WebSocketClientService);
+  protected internalInbox = false;
+  protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
   private subscriptions: Subscription[] = [];
   private pendingEditType: string | null = null;
   private notify: AlertInstance;
@@ -749,6 +765,18 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   committeeRolesAlertDismissed = false;
 
   ngOnInit() {
+    this.cloudflareEmailRoutingService.invalidateCache();
+    this.committeeConfigService.refreshConfig();
+    this.webSocketClientService.connect().catch(() => this.logger.info("WebSocket unavailable for live config updates"));
+    this.subscriptions.push(this.webSocketClientService.receiveMessages<{key: string}>(MessageType.CONFIG_UPDATED)
+      .pipe(filter(event => event?.key === ConfigKey.COMMITTEE))
+      .subscribe(() => {
+        this.logger.info("committee config updated by another user — refreshing");
+        this.cloudflareEmailRoutingService.invalidateCache();
+        this.committeeConfigService.refreshConfig();
+      }));
+    this.subscriptions.push(this.systemConfigService.events().subscribe(config =>
+      this.internalInbox = config?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS));
     this.committeeQueryService.queryCommitteeMembers()
       .then(() => this.committeeMembersLoaded = true)
       .catch(err => this.logger.error("Committee members not available:", err));

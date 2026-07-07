@@ -55,6 +55,7 @@ export enum MessageType {
   INBOX_NEW_MESSAGE = "inbox-new-message",
   INBOX_THREAD_UPDATED = "inbox-thread-updated",
   SCHEDULED_TASK_UPDATED = "scheduled-task-updated",
+  CONFIG_UPDATED = "config-updated",
 }
 
 export const allowableStatusCodes: number[] = [1000, 1005];

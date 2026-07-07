@@ -33,13 +33,13 @@ import {
   listWorkerScripts,
   parseRecipientsFromScript,
   parseWorkerScriptInfo,
-  ROUTER_WORKER_NAME,
+  routerWorkerScriptName,
   scriptsMatchIgnoringWhitespace,
   uploadWorkerScript,
   uploadWorkerSecret,
   workerScriptName
 } from "./cloudflare-email-workers";
-import { ensureInboundInboxWebhookConfigured, ensureInboundWebhookConfigured } from "../brevo/inbound-webhook-config";
+import { ensureInboundInboxWebhookConfigured, ensureInboundWebhookConfigured, inboundInboxWebhookUrl } from "../brevo/inbound-webhook-config";
 import { configuredBrevo } from "../brevo/brevo-config";
 import { handleInboundMime } from "./inbound-mime-handler";
 import { handleInboundInbox } from "./inbound-inbox-handler";
@@ -59,6 +59,7 @@ import {
   UpdateCatchAllRequest,
   WorkerLogsRequest
 } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
+import { configuredEnvironments } from "../environments/environments-config";
 
 const messageType = "cloudflare:email-routing";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -254,14 +255,24 @@ router.put("/rules/catch-all", authConfig.authenticate(), asyncRoute(messageType
   res.json({request: {messageType}, response: updated});
 }));
 
-async function ensureRouterWorker(cloudflareConfig: CloudflareConfig): Promise<string> {
-  const secret = envConfig.value(Environment.NGX_INBOUND_ROUTER_SECRET)?.trim();
+async function inboundRouterSecret(): Promise<string | null> {
+  const environmentSecret = envConfig.value(Environment.NGX_INBOUND_ROUTER_SECRET)?.trim();
+  if (environmentSecret) {
+    return environmentSecret;
+  }
+  const environmentsConfig = await configuredEnvironments();
+  return environmentsConfig.secrets?.[Environment.NGX_INBOUND_ROUTER_SECRET]?.trim() || null;
+}
+
+async function ensureRouterWorker(cloudflareConfig: CloudflareConfig, baseDomain: string): Promise<string> {
+  const secret = await inboundRouterSecret();
   if (!secret) {
     throw new HttpError(400, "No shared inbound router secret is configured (NGX_INBOUND_ROUTER_SECRET). Set it in the platform admin shared secrets and redeploy this site before routing mail to inboxes.", "RouterSecretMissing");
   }
-  await uploadWorkerScript(cloudflareConfig, ROUTER_WORKER_NAME, generateRouterWorkerScript());
-  await uploadWorkerSecret(cloudflareConfig, ROUTER_WORKER_NAME, "NGX_INBOUND_SECRET", secret);
-  return ROUTER_WORKER_NAME;
+  const scriptName = routerWorkerScriptName(baseDomain);
+  await uploadWorkerScript(cloudflareConfig, scriptName, generateRouterWorkerScript(await inboundInboxWebhookUrl()));
+  await uploadWorkerSecret(cloudflareConfig, scriptName, "NGX_INBOUND_SECRET", secret);
+  return scriptName;
 }
 
 function literalMatcherValue(rule: { matchers?: { type: EmailRoutingMatcherType; field?: EmailRoutingMatcherField; value?: string }[] }): string | undefined {
@@ -275,7 +286,7 @@ router.post("/route-to-inbox", authConfig.authenticate(), asyncRoute(messageType
   if (!baseDomain) {
     throw new HttpError(400, "Cloudflare baseDomain not available for this site.");
   }
-  const scriptName = await ensureRouterWorker(cloudflareConfig);
+  const scriptName = await ensureRouterWorker(cloudflareConfig, baseDomain);
   const rules = await listEmailRoutingRules(cloudflareConfig);
   const siteRules = rules.filter(rule => Boolean(rule.id) && rule.matchers?.some(m =>
     m.type === EmailRoutingMatcherType.LITERAL

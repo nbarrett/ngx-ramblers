@@ -1,11 +1,12 @@
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { CommitteeConfig, CommitteeMember, ForwardEmailTarget } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { InboxAccessMode, InboxAliasConfig, inboxGeneralRoleTypeFor, InboxMailboxConnection, InboxMessage, isInboxGeneralRoleType } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { InboxAccessMode, InboxAliasConfig, inboxGeneralRoleTypeFor, InboxMailboxConnection, InboxMessage, InboxReaderProvider, isInboxGeneralRoleType } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import * as config from "../mongo/controllers/config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { member as memberModel } from "../mongo/models/member";
 import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { systemConfig } from "../config/system-config";
 
 export function defaultTenantSlug(): string {
   return envConfig.value("APP_NAME" as never) ?? "default";
@@ -76,15 +77,20 @@ function aliasFor(role: CommitteeMember, connection: InboxMailboxConnection, ten
   return roleAliasWith(role, connectionIdentifier(connection), tenantSlug);
 }
 
-export async function cloudflareIngressAliasesForMessage(message: InboxMessage, mailboxConnectionId: string | null): Promise<InboxAliasConfig[]> {
+export function cloudflareIngressAliasesFromMessage(message: InboxMessage, connection: InboxMailboxConnection, roles: CommitteeMember[], identityEmailsByType: Map<string, Set<string>>, tenantSlug: string): InboxAliasConfig[] {
+  const recipientEmails = messageRecipientEmails(message);
+  const roleAliases = roles.reduce<InboxAliasConfig[]>((aliases, role) => {
+    const matches = roleMatchesMessageAddresses(role.type, role.email, recipientEmails, identityEmailsByType);
+    return matches ? aliases.concat(roleAliasWith(role, connectionIdentifier(connection), tenantSlug)) : aliases;
+  }, []);
+  return roleAliases.length > 0 ? roleAliases : [generalAliasFor(connection, tenantSlug)];
+}
+
+export async function cloudflareIngressAliasesForMessage(message: InboxMessage, connection: InboxMailboxConnection): Promise<InboxAliasConfig[]> {
   const tenantSlug = defaultTenantSlug();
   const roles = await committeeRoles();
   const identityEmailsByType = await roleIdentityEmailsByType();
-  const recipientEmails = messageRecipientEmails(message);
-  return roles.reduce<InboxAliasConfig[]>((aliases, role) => {
-    const matches = roleMatchesMessageAddresses(role.type, role.email, recipientEmails, identityEmailsByType);
-    return matches ? aliases.concat(roleAliasWith(role, mailboxConnectionId, tenantSlug)) : aliases;
-  }, []);
+  return cloudflareIngressAliasesFromMessage(message, connection, roles, identityEmailsByType, tenantSlug);
 }
 
 async function connectedMailboxesByEmail(tenantSlug: string): Promise<Map<string, InboxMailboxConnection>> {
@@ -116,16 +122,44 @@ export function deriveAliasesFrom(connectionsByEmail: Map<string, InboxMailboxCo
   return roleAliases.concat(generalAliases);
 }
 
+export async function cloudflareIngressProviderActive(): Promise<boolean> {
+  return (await systemConfig())?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS;
+}
+
+export async function cloudflareIngressConnectionId(tenantSlug: string): Promise<string | null> {
+  const connection = await inboxMailboxConnectionModel.findOne({
+    tenantSlug,
+    provider: InboxReaderProvider.CLOUDFLARE_INGRESS
+  }).lean() as InboxMailboxConnection | null;
+  return connection ? connectionIdentifier(connection) : null;
+}
+
 export async function derivedAliases(): Promise<InboxAliasConfig[]> {
   const tenantSlug = defaultTenantSlug();
-  const connectionsByEmail = await connectedMailboxesByEmail(tenantSlug);
   const roles = await committeeRoles();
+  if (await cloudflareIngressProviderActive()) {
+    const connection = await inboxMailboxConnectionModel.findOne({
+      tenantSlug,
+      provider: InboxReaderProvider.CLOUDFLARE_INGRESS
+    }).lean() as InboxMailboxConnection | null;
+    const connectionId = connection ? connectionIdentifier(connection) : null;
+    const roleAliases = roles.map(role => roleAliasWith(role, connectionId, tenantSlug));
+    return connection ? roleAliases.concat(generalAliasFor(connection, tenantSlug)) : roleAliases;
+  }
+  const connectionsByEmail = await connectedMailboxesByEmail(tenantSlug);
   return deriveAliasesFrom(connectionsByEmail, roles, tenantSlug);
 }
 
 export async function derivedAliasForRoleType(roleType: string): Promise<InboxAliasConfig | null> {
   if (isInboxGeneralRoleType(roleType)) {
     const tenantSlug = defaultTenantSlug();
+    if (await cloudflareIngressProviderActive()) {
+      const connection = await inboxMailboxConnectionModel.findOne({
+        tenantSlug,
+        provider: InboxReaderProvider.CLOUDFLARE_INGRESS
+      }).lean() as InboxMailboxConnection | null;
+      return connection && inboxGeneralRoleTypeFor(connectionIdentifier(connection)) === roleType ? generalAliasFor(connection, tenantSlug) : null;
+    }
     const connectionsByEmail = await connectedMailboxesByEmail(tenantSlug);
     const ownerConnection = Array.from(connectionsByEmail.values())
       .find(connection => connection.importAllMessages && inboxGeneralRoleTypeFor(connectionIdentifier(connection)) === roleType);

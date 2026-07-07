@@ -21,7 +21,8 @@ import { SystemInboxRoleMailboxesComponent } from "./system-inbox-role-mailboxes
 import { InboxService } from "../../../../services/inbox/inbox.service";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
-import { AlertTarget } from "../../../../models/alert-target.model";
+import { ALERT_ERROR, ALERT_SUCCESS, AlertTarget } from "../../../../models/alert-target.model";
+import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
   faCircleCheck,
@@ -105,10 +106,18 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
               Route this site's committee mail into the inbox
             </button>
             @if (directDeliveryMessage) {
-              <div class="small text-success mt-2">{{ directDeliveryMessage }}</div>
+              <alert type="success" class="mt-3 mb-0">
+                <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
+                <strong class="ms-2">Direct delivery active</strong>
+                <span class="ms-2">{{ directDeliveryMessage }}</span>
+              </alert>
             }
             @if (directDeliveryError) {
-              <div class="small text-danger mt-2">{{ directDeliveryError }}</div>
+              <alert type="danger" class="mt-3 mb-0">
+                <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+                <strong class="ms-2">Direct delivery not enabled</strong>
+                <span class="ms-2">{{ directDeliveryError }}</span>
+              </alert>
             }
           </div>
         </div>
@@ -368,7 +377,8 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
     SystemInboxMailboxConnectionsComponent,
     SystemInboxRoleMailboxesComponent,
     StepperModule,
-    RouterLink
+    RouterLink,
+    AlertComponent
   ]
 })
 export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
@@ -383,6 +393,8 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   protected readonly InputSize = InputSize;
+  protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
+  protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly faGear = faGear;
   protected readonly faUserPlus = faUserPlus;
   protected readonly faList = faList;
@@ -604,9 +616,11 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     this.directDeliveryError = null;
     try {
       const result = await this.cloudflareEmailRoutingService.routeToInbox();
-      this.directDeliveryMessage = result.routed?.length
-        ? `Direct delivery is active. Mail for ${result.routed.length} address${result.routed.length === 1 ? "" : "es"} (${result.routed.join(", ")}) now arrives in this inbox.`
-        : "No committee addresses were found for this site's domain yet. Add the committee role addresses in Cloudflare Email Routing first, then try again.";
+      if (result.routed?.length) {
+        this.directDeliveryMessage = `Mail for ${result.routed.length} address${result.routed.length === 1 ? "" : "es"} (${result.routed.join(", ")}) now arrives in this inbox.`;
+      } else {
+        this.directDeliveryError = "No committee addresses were found for this site's domain yet. Add the committee role addresses in Cloudflare Email Routing first, then try again.";
+      }
     } catch (error) {
       this.directDeliveryError = (error as Error)?.message || "Could not enable direct delivery. Check that Cloudflare Email Routing and the MX records are set up for your domain.";
     } finally {
