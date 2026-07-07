@@ -3,7 +3,6 @@ import debug from "debug";
 import { ConfigKey, ConfigDocument } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { MailConfig } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { envConfig } from "../env-config/env-config";
-import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import * as config from "../mongo/controllers/config";
 import { systemConfig } from "../config/system-config";
 
@@ -20,20 +19,12 @@ function newSecret(): string {
 }
 
 async function deriveWebhookUrl(inboundPath: string): Promise<string> {
-  const callbackBase = (envConfig.value(Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL) || "").replace(/\/+$/, "");
-  if (callbackBase) {
-    return `${callbackBase}/api/cloudflare/email-routing/${inboundPath}`;
-  }
   const sys = await systemConfig();
   const base = (sys?.group?.href || "").replace(/\/+$/, "");
   if (!base) {
     throw new Error("System config group.href not set; cannot derive webhook URL");
   }
   return `${base}/api/cloudflare/email-routing/${inboundPath}`;
-}
-
-export async function inboundInboxWebhookUrl(): Promise<string> {
-  return deriveWebhookUrl("inbound-inbox");
 }
 
 async function ensureInboundSecret(): Promise<string> {
