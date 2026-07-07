@@ -1,8 +1,8 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { CommitteeMember, ForwardEmailTarget } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { InboxMailboxConnection, InboxMessage, inboxGeneralRoleTypeFor } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { connectionIdentifier, deriveAliasesFrom, generalAliasFor, messageAddressEmails, roleMatchesMessageAddresses } from "./inbox-aliases";
+import { InboxMailboxConnection, InboxMessage, InboxReaderProvider, inboxGeneralRoleTypeFor } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { cloudflareIngressAliasesFromMessage, connectionIdentifier, deriveAliasesFrom, generalAliasFor, messageAddressEmails, roleMatchesMessageAddresses } from "./inbox-aliases";
 
 function connection(overrides: Partial<InboxMailboxConnection>): InboxMailboxConnection {
   return {
@@ -31,6 +31,24 @@ function connectionsByEmail(connections: InboxMailboxConnection[]): Map<string, 
 }
 
 describe("inbox-aliases", () => {
+
+  describe("cloudflareIngressAliasesForMessage", () => {
+
+    it("maps role-address mail to the matching role alias", async () => {
+      const connectionRecord = connection({id: "cf1", gmailAccountEmail: null, provider: InboxReaderProvider.CLOUDFLARE_INGRESS});
+      const message = {to: [{email: "secretary@ekwg.co.uk"}], cc: []} as InboxMessage;
+      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@ekwg.co.uk"})], new Map<string, Set<string>>(), "ekwg");
+      expect(result.map(alias => alias.roleType)).toEqual(["secretary"]);
+    });
+
+    it("maps unmatched catch-all mail to the general alias", async () => {
+      const connectionRecord = connection({id: "cf1", gmailAccountEmail: null, provider: InboxReaderProvider.CLOUDFLARE_INGRESS});
+      const message = {to: [{email: "unknown@ekwg.co.uk"}], cc: []} as InboxMessage;
+      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@ekwg.co.uk"})], new Map<string, Set<string>>(), "ekwg");
+      expect(result.map(alias => alias.roleType)).toEqual([inboxGeneralRoleTypeFor("cf1")]);
+    });
+
+  });
 
   describe("deriveAliasesFrom", () => {
 

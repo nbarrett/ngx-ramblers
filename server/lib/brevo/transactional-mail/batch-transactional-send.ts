@@ -339,7 +339,7 @@ async function performInboxReplyWriteback(request: BatchTransactionalSendRequest
       bodyText: null,
       receivedAt: null,
       sentAt,
-      externalSource: InboxReaderProvider.GMAIL_API,
+      externalSource: mailboxConnectionDoc?.provider ?? InboxReaderProvider.GMAIL_API,
       externalId: gmailMessageId,
       attachments: (emailRequest.attachments ?? []).map(attachment => ({
         filename: attachment.name,

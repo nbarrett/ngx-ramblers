@@ -54,8 +54,10 @@ export async function permittedInboxRoleTypesForMember(authenticatedMember: Part
 async function generalInboxRoleTypes(): Promise<string[]> {
   const connections = await inboxMailboxConnectionModel.find({
     tenantSlug: defaultTenantSlug(),
-    provider: InboxReaderProvider.GMAIL_API,
-    importAllMessages: true,
+    $or: [
+      {provider: InboxReaderProvider.GMAIL_API, importAllMessages: true},
+      {provider: InboxReaderProvider.CLOUDFLARE_INGRESS}
+    ],
     enabled: true
   }).select("_id").lean() as unknown as InboxMailboxConnection[];
   return connections.map(connection => inboxGeneralRoleTypeFor((connection as unknown as {_id: {toString(): string}})._id.toString()));

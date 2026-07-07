@@ -86,17 +86,26 @@ export function generateWorkerScript(
   });
 }
 
-export const ROUTER_WORKER_NAME = "email-inbox-router";
+export function routerWorkerScriptName(baseDomain: string): string {
+  const sanitisedDomain = baseDomain.replace(/\./g, "-");
+  return `email-inbox-router-${sanitisedDomain}`;
+}
 
-export function generateRouterWorkerScript(): string {
-  return `${MODE_MARKER_PREFIX} ngx-inbox-router\n` + loadTranspiledTemplate("ngx-inbox-router");
+export function generateRouterWorkerScript(webhookUrl: string): string {
+  return `${MODE_MARKER_PREFIX} ngx-inbox-router\n` + substitutePlaceholders(loadTranspiledTemplate("ngx-inbox-router"), {
+    __WEBHOOK_URL__: JSON.stringify(webhookUrl)
+  });
+}
+
+function hasModeMarker(scriptContent: string, mode: EmailForwardingMode): boolean {
+  return new RegExp(`${MODE_MARKER_PREFIX} ${mode}(\\r?\\n|$)`).test(scriptContent);
 }
 
 export function detectForwardingMode(scriptContent: string): EmailForwardingMode {
-  if (scriptContent.includes(`${MODE_MARKER_PREFIX} ${EmailForwardingMode.BREVO_RESEND}`)) {
+  if (hasModeMarker(scriptContent, EmailForwardingMode.BREVO_RESEND)) {
     return EmailForwardingMode.BREVO_RESEND;
   }
-  if (scriptContent.includes(`${MODE_MARKER_PREFIX} ${EmailForwardingMode.NGX_INBOX}`)) {
+  if (hasModeMarker(scriptContent, EmailForwardingMode.NGX_INBOX)) {
     return EmailForwardingMode.NGX_INBOX;
   }
   return EmailForwardingMode.CLOUDFLARE_FORWARD;

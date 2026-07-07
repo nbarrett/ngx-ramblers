@@ -10,6 +10,8 @@ import { createDocumentRequest, parseError, toObjectWithId } from "./transforms"
 import { enumForKey, enumValues } from "../../../../projects/ngx-ramblers/src/app/functions/enums";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { isArray, isNull, isObject, isString, isUndefined, keys } from "es-toolkit/compat";
+import { broadcast } from "../../websockets/websocket-broadcaster";
+import { MessageType } from "../../../../projects/ngx-ramblers/src/app/models/websocket.model";
 
 const debugLog = debug(envConfig.logNamespace("config"));
 debugLog.enabled = false;
@@ -117,6 +119,7 @@ export async function createOrUpdate(req: Request, res: Response) {
       action: ApiAction.UPDATE,
       response: toObjectWithId(result)
     });
+    setTimeout(() => broadcast(MessageType.CONFIG_UPDATED, {key: req.body?.key}), 0);
   } catch (error) {
     return res.status(500).json({
       message: `Update of ${config.modelName} failed`,

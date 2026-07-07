@@ -1,5 +1,7 @@
 import { ForwardableEmailMessage, NgxInboxEnv } from "./types";
 
+declare const __WEBHOOK_URL__: string;
+
 export default {
   async email(message: ForwardableEmailMessage, env: NgxInboxEnv, _ctx: unknown): Promise<void> {
     const sharedSecret = env.NGX_INBOUND_SECRET;
@@ -7,14 +9,7 @@ export default {
       console.error("NGX_INBOUND_SECRET not configured on worker");
       return;
     }
-    const recipient = message.to || "";
-    const atIndex = recipient.lastIndexOf("@");
-    const domain = atIndex >= 0 ? recipient.slice(atIndex + 1).trim().toLowerCase() : "";
-    if (!domain) {
-      console.error("Could not derive recipient domain from " + recipient);
-      return;
-    }
-    const webhookUrl = "https://" + domain + "/api/cloudflare/email-routing/inbound-inbox";
+    const webhookUrl: string = __WEBHOOK_URL__;
     const buf = await new Response(message.raw).arrayBuffer();
     const bytes = new Uint8Array(buf);
     const chunkSize = 0x8000;
@@ -39,7 +34,7 @@ export default {
     });
     if (!response.ok) {
       const text = await response.text();
-      const reason = "NGX inbound-inbox router webhook failed for " + domain + ": " + response.status + " " + text;
+      const reason = "NGX inbound-inbox router webhook failed: " + response.status + " " + text;
       console.error(reason);
       throw new Error(reason);
     }

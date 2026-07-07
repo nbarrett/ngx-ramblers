@@ -30,6 +30,7 @@ import {
   InboxThreadFolder,
   InboxViewScope,
   InboxReadFilter,
+  InboxReaderProvider,
   isInboxGeneralRoleType
 } from "../../../models/inbox.model";
 import { MemberLoginService } from "../../../services/member/member-login.service";
@@ -42,6 +43,7 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
 import { PageComponent } from "../../../page/page.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
@@ -129,15 +131,20 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
       @if (aliases.length === 0) {
         <div class="alert alert-warning inbox-alert">
           <fa-icon [icon]="faTriangleExclamation"/>
-          <strong class="ms-2">No role mailboxes connected -</strong>
-          <span class="ms-1">An administrator can connect a mailbox in <a [routerLink]="['/' + adminSettingsSystemSettingsPath]" [queryParams]="mailSettingsQueryParams">System Settings &rarr; External Systems &rarr; Mail</a>, then point each committee role's Inbound Forwarding at it. Roles forwarding to a connected mailbox appear here automatically.</span>
+          @if (internalInbox) {
+            <strong class="ms-2">No committee roles with addresses -</strong>
+            <span class="ms-1">This site delivers mail straight to the inbox. Add committee roles with email addresses in Committee Settings and they'll appear here automatically.</span>
+          } @else {
+            <strong class="ms-2">No role mailboxes connected -</strong>
+            <span class="ms-1">An administrator can connect a mailbox in <a [routerLink]="['/' + adminSettingsSystemSettingsPath]" [queryParams]="mailSettingsQueryParams">System Settings &rarr; External Systems &rarr; Mail</a>, then point each committee role's Inbound Forwarding at it. Roles forwarding to a connected mailbox appear here automatically.</span>
+          }
         </div>
       }
       @if (selectedAlias(); as alias) {
         <div class="alert alert-success py-2 inbox-alert">
           <fa-icon [icon]="faEnvelope" class="me-2"/>
           <strong>Viewing mail for {{alias.roleEmail}}</strong>
-          @if (!alias.mailboxConnection?.hasRefreshToken) {
+          @if (!internalInbox && !alias.mailboxConnection?.hasRefreshToken) {
             <span class="ms-1">This mailbox is not connected yet.</span>
           }
         </div>
@@ -439,6 +446,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected readonly faBell = faBell;
   protected readonly faBellSlash = faBellSlash;
   private webSocketClientService = inject(WebSocketClientService);
+  private systemConfigService = inject(SystemConfigService);
+  protected internalInbox = false;
   private notifierService = inject(NotifierService);
   protected stringUtils = inject(StringUtilsService);
   private router = inject(Router);
@@ -553,6 +562,8 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.subscriptions.push(this.systemConfigService.events().subscribe(config =>
+      this.internalInbox = config?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS));
     this.updateMobile();
     this.restoreLayout();
     await this.refresh();

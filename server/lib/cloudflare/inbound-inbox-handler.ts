@@ -17,7 +17,6 @@ import { storeInboundMessage } from "../inbox/inbox-message-import";
 import { storeInboxAttachmentBuffer } from "../inbox/inbox-attachment-store";
 import {
   cloudflareIngressAliasesForMessage,
-  connectionIdentifier,
   messageRecipientEmails
 } from "../inbox/inbox-aliases";
 import { ensureCloudflareIngressConnection } from "./cloudflare-ingress-connection";
@@ -112,15 +111,15 @@ export async function handleInboundInbox(req: Request, res: Response): Promise<v
     return;
   }
   try {
-    const routerSecret = envConfig.value(Environment.NGX_INBOUND_ROUTER_SECRET)?.trim() || null;
-    const secret = routerSecret || await inboundWebhookSecret();
-    if (!secret) {
+    const secrets = [envConfig.value(Environment.NGX_INBOUND_ROUTER_SECRET)?.trim(), await inboundWebhookSecret()]
+      .filter(Boolean);
+    if (secrets.length === 0) {
       errorDebugLog("no shared router secret or per-site inbound webhook secret configured");
       res.status(500).json({request: {messageType}, error: {message: "Inbound webhook secret not configured on server"}});
       return;
     }
     const signatureHeader = req.header("X-NGX-Signature");
-    if (!verifyHmac(rawBody, signatureHeader, secret)) {
+    if (!secrets.some(secret => verifyHmac(rawBody, signatureHeader, secret))) {
       errorDebugLog("HMAC signature verification failed");
       res.status(401).json({request: {messageType}, error: {message: "Signature verification failed"}});
       return;
@@ -132,10 +131,11 @@ export async function handleInboundInbox(req: Request, res: Response): Promise<v
     }
     const parsed = await simpleParser(Buffer.from(payload.rawMimeBase64, "base64"));
     const message = withEnvelopeRecipient(await parsedToInboxMessage(parsed), payload.envelopeTo);
+    debugLog("inbound-inbox: signature OK; recipients %o envelopeTo=%s subject=%o", messageRecipientEmails(message), payload.envelopeTo, message.subject);
     const connection = await ensureCloudflareIngressConnection();
-    const aliases = await cloudflareIngressAliasesForMessage(message, connectionIdentifier(connection));
+    const aliases = await cloudflareIngressAliasesForMessage(message, connection);
     if (aliases.length === 0) {
-      debugLog("No committee role matched recipients %o for message %s; nothing stored", messageRecipientEmails(message), message.messageId);
+      errorDebugLog("inbound-inbox: NO committee role matched recipients %o for message %s; nothing stored", messageRecipientEmails(message), message.messageId);
       res.status(200).json({request: {messageType}, response: {stored: 0, matched: 0}});
       return;
     }
