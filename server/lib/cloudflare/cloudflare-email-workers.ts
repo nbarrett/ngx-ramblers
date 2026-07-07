@@ -86,15 +86,10 @@ export function generateWorkerScript(
   });
 }
 
-export function routerWorkerScriptName(baseDomain: string): string {
-  const sanitisedDomain = baseDomain.replace(/\./g, "-");
-  return `email-inbox-router-${sanitisedDomain}`;
-}
+export const ROUTER_WORKER_NAME = "email-inbox-router";
 
-export function generateRouterWorkerScript(webhookUrl: string): string {
-  return `${MODE_MARKER_PREFIX} ngx-inbox-router\n` + substitutePlaceholders(loadTranspiledTemplate("ngx-inbox-router"), {
-    __WEBHOOK_URL__: JSON.stringify(webhookUrl)
-  });
+export function generateRouterWorkerScript(): string {
+  return `${MODE_MARKER_PREFIX} ngx-inbox-router\n` + loadTranspiledTemplate("ngx-inbox-router");
 }
 
 function hasModeMarker(scriptContent: string, mode: EmailForwardingMode): boolean {

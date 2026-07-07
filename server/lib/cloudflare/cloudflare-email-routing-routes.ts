@@ -33,13 +33,13 @@ import {
   listWorkerScripts,
   parseRecipientsFromScript,
   parseWorkerScriptInfo,
-  routerWorkerScriptName,
+  ROUTER_WORKER_NAME,
   scriptsMatchIgnoringWhitespace,
   uploadWorkerScript,
   uploadWorkerSecret,
   workerScriptName
 } from "./cloudflare-email-workers";
-import { ensureInboundInboxWebhookConfigured, ensureInboundWebhookConfigured, inboundInboxWebhookUrl } from "../brevo/inbound-webhook-config";
+import { ensureInboundInboxWebhookConfigured, ensureInboundWebhookConfigured } from "../brevo/inbound-webhook-config";
 import { configuredBrevo } from "../brevo/brevo-config";
 import { handleInboundMime } from "./inbound-mime-handler";
 import { handleInboundInbox } from "./inbound-inbox-handler";
@@ -264,15 +264,14 @@ async function inboundRouterSecret(): Promise<string | null> {
   return environmentsConfig.secrets?.[Environment.NGX_INBOUND_ROUTER_SECRET]?.trim() || null;
 }
 
-async function ensureRouterWorker(cloudflareConfig: CloudflareConfig, baseDomain: string): Promise<string> {
+async function ensureRouterWorker(cloudflareConfig: CloudflareConfig): Promise<string> {
   const secret = await inboundRouterSecret();
   if (!secret) {
     throw new HttpError(400, "No shared inbound router secret is configured (NGX_INBOUND_ROUTER_SECRET). Set it in the platform admin shared secrets and redeploy this site before routing mail to inboxes.", "RouterSecretMissing");
   }
-  const scriptName = routerWorkerScriptName(baseDomain);
-  await uploadWorkerScript(cloudflareConfig, scriptName, generateRouterWorkerScript(await inboundInboxWebhookUrl()));
-  await uploadWorkerSecret(cloudflareConfig, scriptName, "NGX_INBOUND_SECRET", secret);
-  return scriptName;
+  await uploadWorkerScript(cloudflareConfig, ROUTER_WORKER_NAME, generateRouterWorkerScript());
+  await uploadWorkerSecret(cloudflareConfig, ROUTER_WORKER_NAME, "NGX_INBOUND_SECRET", secret);
+  return ROUTER_WORKER_NAME;
 }
 
 function literalMatcherValue(rule: { matchers?: { type: EmailRoutingMatcherType; field?: EmailRoutingMatcherField; value?: string }[] }): string | undefined {
@@ -286,7 +285,7 @@ router.post("/route-to-inbox", authConfig.authenticate(), asyncRoute(messageType
   if (!baseDomain) {
     throw new HttpError(400, "Cloudflare baseDomain not available for this site.");
   }
-  const scriptName = await ensureRouterWorker(cloudflareConfig, baseDomain);
+  const scriptName = await ensureRouterWorker(cloudflareConfig);
   const rules = await listEmailRoutingRules(cloudflareConfig);
   const siteRules = rules.filter(rule => Boolean(rule.id) && rule.matchers?.some(m =>
     m.type === EmailRoutingMatcherType.LITERAL
