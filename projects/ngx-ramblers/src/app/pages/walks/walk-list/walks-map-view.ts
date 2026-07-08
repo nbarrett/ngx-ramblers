@@ -516,12 +516,16 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
     return points;
   }
 
+  private leaderName(dw: DisplayedWalk): string {
+    return (dw?.walk?.fields?.contactDetails?.displayName || dw?.walk?.groupEvent?.walk_leader?.name)?.replace(/\.$/, "");
+  }
+
   private popupHtml(dw: DisplayedWalk, linkId: string): string {
     const title = dw?.walk?.groupEvent?.title || "Walk";
     const start = dw?.walk?.groupEvent?.start_date_time;
     const time = start ? `${this.dateUtils.displayDay(start)}${EM_DASH_WITH_SPACES}${this.dateUtils.displayTime(start)}` : "";
     const group = dw?.walk?.groupEvent?.group_name || "";
-    const leader = dw?.walk?.groupEvent?.walk_leader?.name?.replace(/\.$/, "");
+    const leader = this.leaderName(dw);
     const groupWithLeader = leader ? `${group} (${leader})` : group;
     const distance = this.distanceValidationService.walkDistances(dw?.walk);
     const postcode = dw?.walk?.groupEvent?.start_location?.postcode || "";
@@ -560,7 +564,7 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
       const start = dw?.walk?.groupEvent?.start_date_time;
       const time = start ? `${this.dateUtils.displayDay(start)}${EM_DASH_WITH_SPACES}${this.dateUtils.displayTime(start)}` : "";
       const groupName = dw?.walk?.groupEvent?.group_name || "";
-      const leader = dw?.walk?.groupEvent?.walk_leader?.name?.replace(/\.$/, "");
+      const leader = this.leaderName(dw);
       const groupWithLeader = leader ? `${groupName} (${leader})` : groupName;
       const distance = this.distanceValidationService.walkDistances(dw?.walk);
       const postcode = dw?.walk?.groupEvent?.start_location?.postcode || "";

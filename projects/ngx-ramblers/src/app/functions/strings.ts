@@ -1,10 +1,14 @@
 import { isBoolean, isString, kebabCase } from "es-toolkit/compat";
 
+export function transliterated(value: any): any {
+  return isString(value) ? value.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : value;
+}
+
 export function toKebabCase(...strings: any[]) {
   return strings
     .flat()
     .filter(item => item)
-    .map(item => kebabCase(item))
+    .map(item => kebabCase(transliterated(item)))
     .join("-");
 }
 
@@ -24,7 +28,7 @@ export function toSlug(input: string): string {
   if (!input) {
     return "";
   } else {
-    return input
+    return transliterated(input)
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-")

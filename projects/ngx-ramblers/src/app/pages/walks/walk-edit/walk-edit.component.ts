@@ -79,6 +79,7 @@ import {
   priorMatchesFromWalks,
   shouldAutoLinkLeaderMatch
 } from "../../../functions/walks/walk-leader-member-match";
+import { firstWalkLeaderName } from "../../../functions/walks/joint-walk-leaders";
 import {
   PriorContactMemberMatch,
   WalkLeaderMatchConfidence,
@@ -990,7 +991,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   private async syncWalksManagerContactNameToMember(): Promise<void> {
     const memberId = this.displayedWalk?.walk?.fields?.contactDetails?.memberId;
-    const contactName = this.displayedWalk?.walk?.fields?.publishing?.ramblers?.contactName?.trim();
+    const contactName = firstWalkLeaderName(this.displayedWalk?.walk?.fields?.publishing?.ramblers?.contactName?.trim());
     if (!memberId || !contactName) {
       return;
     }

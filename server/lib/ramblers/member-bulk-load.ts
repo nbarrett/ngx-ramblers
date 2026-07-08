@@ -17,6 +17,7 @@ import { envConfig } from "../env-config/env-config";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
 import { dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
+import { STANDARD_CSV_PARSE_OPTIONS } from "../../../projects/ngx-ramblers/src/app/functions/csv";
 
 const BULK_LOAD_SUFFIX = "MemberList.csv";
 const NEW_MEMBER_SUFFIX = "new.csv";
@@ -258,7 +259,7 @@ export function uploadRamblersData(req, res) {
     bulkUploadResponse.files.data = `${uploadSessionFolder}/${userFileName}`;
     const content = fs.readFileSync(localFileName);
     try {
-      parse.parse(content, {columns: true, delimiter: ",", escape: "\"", record_delimiter: ["\r\n", "\n", "\r"], bom: true}).map((data: any[]) => {
+      parse.parse(content, STANDARD_CSV_PARSE_OPTIONS).map((data: any[]) => {
         extractMemberDataFromArray(data, userFileName);
         returnResponse();
       });

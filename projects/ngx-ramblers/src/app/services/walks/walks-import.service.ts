@@ -1,5 +1,6 @@
 import TurndownService from "turndown";
 import { parse } from "csv-parse/browser/esm/sync";
+import { STANDARD_CSV_PARSE_OPTIONS } from "../../functions/csv";
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable, Injector } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -35,9 +36,9 @@ import {
   HasGroupCodeAndName,
   InputSource
 } from "../../models/group-event.model";
-import { AwsFileUploadResponse, AwsFileUploadResponseData, ServerFileNameData } from "../../models/aws-object.model";
+import { AwsFileUploadResponse, AwsFileUploadResponseData } from "../../models/aws-object.model";
 import { enumValues, TypedKeyValue } from "../../functions/enums";
-import { mergeFieldsOnSync } from "../../functions/walks/ramblers-event.mapper";
+import { defaultDisplayName, mergeFieldsOnSync } from "../../functions/walks/ramblers-event.mapper";
 import { extractErrorMessage } from "../../functions/strings";
 import {
   firstWalkLeaderName,
@@ -99,13 +100,7 @@ export class WalksImportService {
   }
 
   private csvRows(csvText: string): Record<string, string>[] {
-    return parse(csvText, {
-      columns: true,
-      skip_empty_lines: true,
-      relax_column_count: true,
-      record_delimiter: ["\r\n", "\n", "\r"],
-      bom: true
-    }) as Record<string, string>[];
+    return parse(csvText, STANDARD_CSV_PARSE_OPTIONS) as Record<string, string>[];
   }
 
   private applyConfig() {
@@ -193,7 +188,7 @@ export class WalksImportService {
     importData.messages.push(`${this.stringUtils.pluraliseWithCount(importData.existingWalksWithinRange.length, "existing walk")} within range of import will be updated; new walks will be added`);
     this.logger.info("existingWalks:", existingWalks, "walks to import within range");
     const bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalk[] = walksToImport.map(event => {
-      const contact: Contact = this.eventDefaultsService.nameToContact(firstWalkLeaderName(event.fields.contactDetails?.displayName));
+      const contact: Contact = this.eventDefaultsService.nameToContact(firstWalkLeaderName(event.fields.publishing?.ramblers?.contactName || event.fields.contactDetails?.displayName));
       const firstAndLastName = this.memberNamingService.firstAndLastNameFrom(contact.name);
       const ramblersMember: RamblersMember = {
         mobileNumber: contact.telephone,
@@ -539,44 +534,23 @@ export class WalksImportService {
   }
 
   private applyMemberContactDetailsPreservingJointLeaders(walk: ExtendedGroupEvent, member: Member): void {
-    const importedLeaderName = walk.fields?.contactDetails?.displayName || walk.groupEvent?.walk_leader?.name;
+    const importedLeaderName = [walk.groupEvent?.walk_leader?.name, walk.fields?.contactDetails?.displayName].find(name => isJointWalkLeaderName(name));
     const memberContact = this.eventDefaultsService.memberToContact(member);
     const memberContactDetails = this.eventDefaultsService.contactDetailsFrom(member);
-    const jointLeaderName = isJointWalkLeaderName(importedLeaderName) ? normalisedWalkLeaderName(importedLeaderName) : null;
+    const jointLeaderName = importedLeaderName ? normalisedWalkLeaderName(importedLeaderName) : null;
     walk.groupEvent.walk_leader = jointLeaderName ? {...memberContact, name: jointLeaderName} : memberContact;
-    walk.fields.contactDetails = jointLeaderName ? {...memberContactDetails, displayName: jointLeaderName} : memberContactDetails;
+    walk.fields.contactDetails = jointLeaderName ? {...memberContactDetails, displayName: defaultDisplayName(jointLeaderName)} : memberContactDetails;
   }
 
-  public importWalksFromFile(file: File, fileNameData: ServerFileNameData): Promise<Record<string, string>[]> {
-    this.logger.info("importWalksFromFile:file:", file, "fileNameData:", fileNameData, "original file size:", this.numberUtils.humanFileSize(file.size));
+  public csvRowsFromFile(file: File): Promise<Record<string, string>[]> {
+    this.logger.info("csvRowsFromFile:file:", file, "original file size:", this.numberUtils.humanFileSize(file.size));
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async (event: any) => {
         const csvText = event.target.result;
         try {
           const rows = this.csvRows(csvText);
-          this.logger.info("importWalksFromFile:file:", file, "rows:", rows);
-          resolve(rows);
-        } catch (error) {
-          this.logger.error("CSV parse errors were found:", error);
-          reject(error);
-          return;
-        }
-      };
-      reader.onerror = (err) => reject(err);
-      reader.readAsText(file);
-    });
-  }
-
-  public importImagesFromFile(file: File): Promise<Record<string, string>[]> {
-    this.logger.info("importImagesFromFile:file:", file, "original file size:", this.numberUtils.humanFileSize(file.size));
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = async (event: any) => {
-        const csvText = event.target.result;
-        try {
-          const rows = this.csvRows(csvText);
-          this.logger.info("importImagesFromFile:file:", file, "rows:", rows);
+          this.logger.info("csvRowsFromFile:file:", file, "rows:", rows);
           resolve(rows);
         } catch (error) {
           this.logger.error("CSV parse errors were found:", error);
@@ -670,11 +644,7 @@ export class WalksImportService {
         (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.TOILETS_AVAILABLE]) ? this.ramblersWalksAndEventsService.toFeature(Feature.TOILETS) : null),
       ].filter(Boolean)
     };
-    const extendedGroupEvent = this.ramblersWalksAndEventsService.toExtendedGroupEvent(groupEvent, InputSource.FILE_IMPORT, walkId);
-    if (isJointWalkLeaderName(groupEvent.walk_leader?.name)) {
-      extendedGroupEvent.fields.contactDetails.displayName = groupEvent.walk_leader.name;
-    }
-    return extendedGroupEvent;
+    return this.ramblersWalksAndEventsService.toExtendedGroupEvent(groupEvent, InputSource.FILE_IMPORT, walkId);
   }
 
   private isAMatchFor(memberMatch: MemberAction) {

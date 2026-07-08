@@ -11,6 +11,7 @@ import { EventType } from "../../models/walk.model";
 import { LoggerFactory } from "../logger-factory.service";
 import { MemberService } from "../member/member.service";
 import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
+import { defaultDisplayName } from "../../functions/walks/ramblers-event.mapper";
 import { WalksImportService } from "./walks-import.service";
 import { SystemConfigService } from "../system/system-config.service";
 import { DateUtilsService } from "../date-utils.service";
@@ -176,12 +177,12 @@ describe("WalksImportService Walks Manager matching", () => {
             contactDetails: {
                 contactId: null,
                 memberId: null,
-                displayName: null,
+                displayName: groupEvent?.walk_leader?.name ? defaultDisplayName(groupEvent.walk_leader.name) : null,
                 email: null,
                 phone: null
             },
             publishing: {
-                ramblers: { publish: true, contactName: null },
+                ramblers: { publish: true, contactName: groupEvent?.walk_leader?.name || null },
                 meetup: { publish: false, contactName: null }
             },
             links: [],
@@ -442,18 +443,18 @@ describe("WalksImportService Walks Manager matching", () => {
 
         const groupCodeAndName = { group_code: "EKWG", group_name: "East Kent Weekend Group" };
 
-        it("normalises joint walk leaders from csv rows into walk_leader name and contact display name", () => {
+        it("normalises joint walk leaders from csv rows into walk_leader name and abbreviates the contact display name", () => {
             const service = TestBed.inject(WalksImportService);
             const result = service.csvRowToExtendedGroupEvent(csvRow("Sarah Mitchell;Tom Gamble"), groupCodeAndName);
             expect(result.groupEvent.walk_leader.name).toEqual("Sarah Mitchell; Tom Gamble");
-            expect(result.fields.contactDetails.displayName).toEqual("Sarah Mitchell; Tom Gamble");
+            expect(result.fields.contactDetails.displayName).toEqual("Sarah M; Tom G");
         });
 
-        it("leaves single walk leader names unchanged from csv rows", () => {
+        it("abbreviates single walk leader names from csv rows", () => {
             const service = TestBed.inject(WalksImportService);
             const result = service.csvRowToExtendedGroupEvent(csvRow("Sarah Mitchell"), groupCodeAndName);
             expect(result.groupEvent.walk_leader.name).toEqual("Sarah Mitchell");
-            expect(result.fields.contactDetails.displayName).toBeNull();
+            expect(result.fields.contactDetails.displayName).toEqual("Sarah M");
         });
 
         it("matches the first listed joint leader to a member in prepareImportOfEvents", async () => {
@@ -504,7 +505,7 @@ describe("WalksImportService Walks Manager matching", () => {
             };
         }
 
-        it("applies matched member contact details but preserves the joint display name when saving a new walk", async () => {
+        it("applies matched member contact details but preserves the joint leader pairing when saving a new walk", async () => {
             const service = TestBed.inject(WalksImportService);
             const notify = {
                 warning: vi.fn().mockName("notify.warning"),
@@ -515,7 +516,7 @@ describe("WalksImportService Walks Manager matching", () => {
             await service.saveImportedWalks(importDataWithMatchedWalk(service, walk, []), notify);
             expect(localWalksAndEventsService.create).toHaveBeenCalledTimes(1);
             const createdWalk = vi.mocked(localWalksAndEventsService.create).mock.lastCall[0];
-            expect(createdWalk.fields.contactDetails.displayName).toEqual("Sarah Mitchell; Tom Gamble");
+            expect(createdWalk.fields.contactDetails.displayName).toEqual("Sarah M; Tom G");
             expect(createdWalk.fields.contactDetails.memberId).toEqual(sarahMitchell.id);
             expect(createdWalk.fields.contactDetails.email).toEqual(sarahMitchell.email);
             expect(createdWalk.fields.contactDetails.phone).toEqual(sarahMitchell.mobileNumber);
@@ -539,7 +540,7 @@ describe("WalksImportService Walks Manager matching", () => {
             expect(createdWalk.groupEvent.walk_leader.name).toEqual(sarahMitchell.displayName);
         });
 
-        it("preserves the joint display name when re-importing over an existing walk", async () => {
+        it("preserves the joint leader pairing when re-importing over an existing walk", async () => {
             const service = TestBed.inject(WalksImportService);
             const notify = {
                 warning: vi.fn().mockName("notify.warning"),
@@ -559,7 +560,7 @@ describe("WalksImportService Walks Manager matching", () => {
             expect(localWalksAndEventsService.update).toHaveBeenCalledTimes(1);
             const updatedWalk = vi.mocked(localWalksAndEventsService.update).mock.lastCall[0];
             expect(updatedWalk.id).toEqual("existing-1");
-            expect(updatedWalk.fields.contactDetails.displayName).toEqual("Sarah Mitchell; Tom Gamble");
+            expect(updatedWalk.fields.contactDetails.displayName).toEqual("Sarah M; Tom G");
             expect(updatedWalk.fields.contactDetails.memberId).toEqual(sarahMitchell.id);
             expect(updatedWalk.fields.contactDetails.email).toEqual(sarahMitchell.email);
             expect(updatedWalk.groupEvent.walk_leader.name).toEqual("Sarah Mitchell; Tom Gamble");
@@ -642,7 +643,7 @@ describe("WalksImportService Walks Manager matching", () => {
         });
     });
 
-    describe("importWalksFromFile line ending handling", () => {
+    describe("csvRowsFromFile line ending handling", () => {
         const header = "Date,Title,Description";
         const dataRows = [
             "01/02/2026,Walk one,First",
@@ -657,7 +658,7 @@ describe("WalksImportService Walks Manager matching", () => {
 
         async function importedRows(content: string): Promise<Record<string, string>[]> {
             const service = TestBed.inject(WalksImportService);
-            return service.importWalksFromFile(csvFile(content), null);
+            return service.csvRowsFromFile(csvFile(content));
         }
 
         it("parses all rows in an LF-only file", async () => {

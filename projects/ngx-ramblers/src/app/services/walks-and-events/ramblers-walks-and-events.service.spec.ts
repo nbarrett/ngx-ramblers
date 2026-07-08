@@ -37,7 +37,8 @@ describe("RamblersWalksAndEventsService", () => {
         provide: WalkDisplayService,
         useValue: {
           gridReferenceFrom: () => null,
-          toDisplayedWalk: walk => ({walk})
+          toDisplayedWalk: walk => ({walk}),
+          walkPublicLink: walk => `https://example.com/walks/${walk?.groupEvent?.url || "test-walk"}`
         }
       },
       StringUtilsService,
@@ -150,6 +151,60 @@ describe("RamblersWalksAndEventsService", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       const walkExport = service.toWalkExport(exportableWalkWithContactName("12345") as any);
       expect(walkExport.validationMessages).toContain("Walk leader has an old Ramblers contact Id (12345) setup on their member record. This needs to be updated to an Walks Manager Contact Name. This can be entered on the Walk Leader tab");
+    });
+
+    it("should allow joint leaders when every name is full", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(exportableWalkWithContactName("Tom Gamble; Sarah Mitchell") as any);
+      expect(walkExport.validationMessages.find(message => message.includes("appears to be abbreviated"))).toBeUndefined();
+    });
+
+    it("should flag joint leaders whose first-listed name is abbreviated", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(exportableWalkWithContactName("Tom G; Sarah Mitchell") as any);
+      expect(walkExport.validationMessages).toContain("Walk leader Walks Manager Contact Name (Tom G) appears to be abbreviated. Enter the full first name and surname used in Walks Manager. This can be entered on the Walk Leader tab");
+    });
+
+    it("should flag joint leaders whose second-listed name is abbreviated", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(exportableWalkWithContactName("Tom Gamble; Sarah M") as any);
+      expect(walkExport.validationMessages).toContain("Walk leader Walks Manager Contact Name (Sarah M) appears to be abbreviated. Enter the full first name and surname used in Walks Manager. This can be entered on the Walk Leader tab");
+    });
+
+    it("should flag a website link containing accented characters", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walk = exportableWalkWithContactName("Jenny Brown");
+      (walk.localWalk.groupEvent as any).url = "community-café-walk";
+      const walkExport = service.toWalkExport(walk as any);
+      expect(walkExport.validationMessages.find(message => message.includes("contains accented or special characters"))).toBeDefined();
+    });
+
+    it("should not flag a plain ascii website link", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(exportableWalkWithContactName("Jenny Brown") as any);
+      expect(walkExport.validationMessages.find(message => message.includes("contains accented or special characters"))).toBeUndefined();
+    });
+  });
+
+  describe("walkLeader", () => {
+    it("returns all joint walk leaders semicolon-separated, matching the Walks Manager CSV template format", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      expect(service.walkLeader({fields: {publishing: {ramblers: {contactName: "Tom Gamble; Sarah Mitchell"}}}} as any)).toBe("Tom Gamble; Sarah Mitchell");
+    });
+
+    it("normalises separator spacing in joint walk leaders", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      expect(service.walkLeader({fields: {publishing: {ramblers: {contactName: "Tom Gamble;Sarah Mitchell"}}}} as any)).toBe("Tom Gamble; Sarah Mitchell");
+    });
+
+    it("returns a single leader unchanged", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      expect(service.walkLeader({fields: {publishing: {ramblers: {contactName: "Tom Gamble"}}}} as any)).toBe("Tom Gamble");
+    });
+
+    it("returns empty string when no contact name is present", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      expect(service.walkLeader({} as any)).toBe("");
     });
   });
 
@@ -364,6 +419,33 @@ describe("RamblersWalksAndEventsService", () => {
       const walkExport = service.toWalkExport(publishedWalkWithDescriptions(
         "A walk beside the River Colne and Grand Union Canal",
         "A walk beside the River Colne &amp; Grand Union Canal") as any);
+      expect(walkExport.publishStatus.messages.find(message => message.includes("Description difference"))).toBeUndefined();
+      expect(walkExport.publishStatus.publish).toBe(false);
+    });
+
+    it("does not flag a description difference when Ramblers holds a double-encoded ampersand", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalkWithDescriptions(
+        "Turn off the A4155 at Mill End, signposted Hambleden, Skirmett and Fingest",
+        "Turn off the A4155 at Mill End, signposted Hambleden, Skirmett &amp;amp; Fingest") as any);
+      expect(walkExport.publishStatus.messages.find(message => message.includes("Description difference"))).toBeUndefined();
+      expect(walkExport.publishStatus.publish).toBe(false);
+    });
+
+    it("does not flag a description difference when the website holds an en-dash that Walks Manager downgraded to a hyphen", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalkWithDescriptions(
+        "Park in Mapledurham Playing Fields free car park, off Upper Woodcote Road. - nearest post code RG4 7LB",
+        "Park in Mapledurham Playing Fields free car park, off Upper Woodcote Road. – nearest post code RG4 7LB") as any);
+      expect(walkExport.publishStatus.messages.find(message => message.includes("Description difference"))).toBeUndefined();
+      expect(walkExport.publishStatus.publish).toBe(false);
+    });
+
+    it("does not flag a description difference when the website holds an em-dash that Walks Manager downgraded to a hyphen", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalkWithDescriptions(
+        "Officers 2023-24 - Chairman - Colin",
+        "Officers 2023-24 — Chairman — Colin") as any);
       expect(walkExport.publishStatus.messages.find(message => message.includes("Description difference"))).toBeUndefined();
       expect(walkExport.publishStatus.publish).toBe(false);
     });

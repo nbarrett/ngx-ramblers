@@ -2,6 +2,7 @@ import { inject, Injectable } from "@angular/core";
 import { first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { abbreviatedWalksManagerContactName, memberFullName } from "../../functions/member-names";
+import { defaultDisplayName } from "../../functions/walks/ramblers-event.mapper";
 import { FirstAndLastName, HasEmailFirstAndLastName, Member, RamblersMember } from "../../models/member.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 
@@ -13,12 +14,7 @@ export class MemberNamingService {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberNamingService", NgxLoggerLevel.ERROR);
 
   createDisplayNameFromContactName(contactName: string): string {
-    if (contactName) {
-      const {firstName, lastName} = this.firstAndLastNameFrom(contactName);
-      return this.createDisplayName(firstName, lastName);
-    } else {
-      return null;
-    }
+    return contactName ? defaultDisplayName(contactName) : null;
   }
 
   public firstAndLastNameFrom(contactName: string): FirstAndLastName {

@@ -2,6 +2,7 @@ import debug from "debug";
 import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import { parse } from "csv-parse/sync";
+import { STANDARD_CSV_PARSE_OPTIONS } from "../../../projects/ngx-ramblers/src/app/functions/csv";
 import { parishAllocation } from "../mongo/models/parish-allocation";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { ParishAllocation, ParishStatus } from "../../../projects/ngx-ramblers/src/app/models/parish-map.model";
@@ -57,15 +58,7 @@ export async function importParishAllocations(req: Request, res: Response) {
       return res.status(400).json({error: "csvData and groupCode are required"});
     }
 
-    const rows: CsvRow[] = parse(csvData, {
-      columns: true,
-      delimiter: ",",
-      escape: "\"",
-      skip_empty_lines: true,
-      trim: true,
-      record_delimiter: ["\r\n", "\n", "\r"],
-      bom: true
-    });
+    const rows: CsvRow[] = parse(csvData, STANDARD_CSV_PARSE_OPTIONS) as CsvRow[];
 
     debugLog(`Parsed ${rows.length} rows from CSV for group ${groupCode}`);
 

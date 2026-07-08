@@ -572,7 +572,7 @@ export class WalkImport implements OnInit, OnDestroy {
     this.notify.progress({title: "Images Import", message: `Loading ${csvFile.name}...`});
 
     try {
-      this.importData.imageImportRows = await this.walksImportService.importImagesFromFile(csvFile) as any;
+      this.importData.imageImportRows = await this.walksImportService.csvRowsFromFile(csvFile) as any;
       this.logger.info("Loaded", this.importData.imageImportRows.length, "image records");
       this.notify.success({
         title: "Images Import",

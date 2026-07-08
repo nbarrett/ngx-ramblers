@@ -1,7 +1,7 @@
 import debug from "debug";
 import { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
-import { isEmpty, isString, kebabCase } from "es-toolkit/compat";
+import { isEmpty, isString } from "es-toolkit/compat";
 import { extendedGroupEvent } from "../models/extended-group-event";
 import * as crudController from "./crud-controller";
 import { EventSource, ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
@@ -13,6 +13,8 @@ import {
   GroupEventField
 } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { isMongoIdString, parseError } from "./transforms";
+import { toKebabCase } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
+import { slugPatternFor } from "../../shared/slug-matching";
 import { dateTimeFromIso, dateTimeNow } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
 
@@ -29,7 +31,7 @@ const LOCAL_ACTIVE_FILTER = {
 export function convertTitleToSlug(title: string) {
   if (title) {
     const stopwords = new Set(["a", "an", "the", "to", "by", "via", "in", "of", "from"]);
-    return kebabCase(title).split("-").filter(item => !stopwords.has(item)).join("-");
+    return toKebabCase(title).split("-").filter(item => !stopwords.has(item)).join("-");
   } else {
     return title;
   }
@@ -270,7 +272,7 @@ export async function queryWalkLeaders(req: Request, res: Response) {
       const sortedLabels: string[] = labels.sort((a: string, b: string) => b.length - a.length);
       let bestLabel = sortedLabels[0];
       const uniqueLabels: string[] = [...new Set(sortedLabels)];
-      const finalId = isMongoIdString(item._id) ? item._id : kebabCase(item._id);
+      const finalId = isMongoIdString(item._id) ? item._id : toKebabCase(item._id);
 
       if (showGroupName && item.source !== EventSource.LOCAL && item.groupName) {
         bestLabel = `${bestLabel} (${item.groupName})`;
@@ -382,13 +384,8 @@ export function identifierMatchesSlugFormat(identifier: string): boolean {
   return looksLikeASlug;
 }
 
-export function escapeSlugForRegex(slug: string): string {
-  return (slug || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 export function slugRegexFor(identifier: string): RegExp {
-  const escapedSlug = escapeSlugForRegex(identifier);
-  return new RegExp(`(?:/)?${escapedSlug}$`, "i");
+  return new RegExp(slugPatternFor(identifier), "i");
 }
 
 export function identifierCanBeConvertedToSlug(identifier: string): boolean {
