@@ -21,3 +21,8 @@ export function firstWalkLeaderName(walkLeaderNames: string): string {
   const names = jointWalkLeaderNames(walkLeaderNames);
   return names.length > 0 ? names[0] : walkLeaderNames;
 }
+
+export function jointWalkLeaderDisplayName(walkLeaderNames: string, displayNameFor: (name: string) => string): string {
+  const displayNames = jointWalkLeaderNames(walkLeaderNames).map(displayNameFor).filter(name => !!name);
+  return displayNames.length > 0 ? displayNames.join(JOINT_LEADER_DISPLAY_SEPARATOR) : null;
+}

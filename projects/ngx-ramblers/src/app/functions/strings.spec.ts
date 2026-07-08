@@ -42,6 +42,10 @@ describe("strings", () => {
     it("should handle mixed case", () => {
       expect(toSlug("UPPER lower MiXeD")).toBe("upper-lower-mixed");
     });
+
+    it("should transliterate accented characters rather than deleting them", () => {
+      expect(toSlug("Community Café Walk")).toBe("community-cafe-walk");
+    });
   });
 
   describe("toKebabCase", () => {
@@ -55,6 +59,12 @@ describe("strings", () => {
 
     it("should handle camelCase input", () => {
       expect(toKebabCase("helloWorld")).toBe("hello-world");
+    });
+
+    it("should transliterate accented characters to plain ascii", () => {
+      expect(toKebabCase("Community Café Walk")).toBe("community-cafe-walk");
+      expect(toKebabCase("Community Cafe\u0301 Walk")).toBe("community-cafe-walk");
+      expect(toKebabCase("Señor's Zürich Sørensen walk")).toBe("senors-zurich-sorensen-walk");
     });
   });
 

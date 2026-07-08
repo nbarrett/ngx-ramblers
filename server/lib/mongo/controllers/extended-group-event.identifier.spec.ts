@@ -1,6 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { escapeSlugForRegex, identifierCanBeConvertedToSlug, identifierMatchesSlugFormat, slugRegexFor } from "./extended-group-event";
+import { identifierCanBeConvertedToSlug, identifierMatchesSlugFormat, slugRegexFor } from "./extended-group-event";
+import { escapeSlugForRegex } from "../../shared/slug-matching";
 
 const slugFormatCases: { value: string; isSlug: boolean; convertible: boolean; description: string }[] = [
   {value: "aldington", isSlug: true, convertible: true, description: "simple lowercase word"},
@@ -88,5 +89,17 @@ describe("slugRegexFor", () => {
   it("does not match other slugs", () => {
     const regex = slugRegexFor("bromley-green-walk-4");
     expect(regex.test("https://www.ramblers.org.uk/go-walking/group-walks/other-walk")).toBe(false);
+  });
+
+  it("does not match a longer slug that merely ends with the queried slug", () => {
+    const regex = slugRegexFor("community-cafe-walk");
+    expect(regex.test("caversham-community-cafe-walk")).toBe(false);
+    expect(regex.test("https://www.ramblers.org.uk/go-walking/group-walks/caversham-community-cafe-walk")).toBe(false);
+  });
+
+  it("still matches the exact slug when a longer sibling exists", () => {
+    const regex = slugRegexFor("community-cafe-walk");
+    expect(regex.test("community-cafe-walk")).toBe(true);
+    expect(regex.test("https://pang-valley.ngx-ramblers.org.uk/walks/community-cafe-walk")).toBe(true);
   });
 });

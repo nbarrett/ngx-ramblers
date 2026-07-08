@@ -158,7 +158,7 @@ export class WalkImportFromFile implements OnInit, OnDestroy {
     this.notify.setBusy();
     this.notify.progress({title: "Walks Import Initialisation", message: `importing file ${firstFile.name}...`});
     this.messages = [];
-    this.importData.fileImportRows = await this.walksImportService.importWalksFromFile(firstFile, this.fileNameData);
+    this.importData.fileImportRows = await this.walksImportService.csvRowsFromFile(firstFile);
     this.logger.info("importData.importData:", this.importData);
     const extendedGroupEvents: ExtendedGroupEvent[] = this.importData.fileImportRows.map(row => this.walksImportService.csvRowToExtendedGroupEvent(row, this.importData.groupCodeAndName));
     const importData: ImportData = await this.walksImportService.prepareImportOfEvents(this.importData, extendedGroupEvents);

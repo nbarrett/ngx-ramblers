@@ -2,6 +2,7 @@ import { ExtendedFields, ExtendedGroupEvent, GroupEvent, InputSource } from "../
 import { LinkSource, LinkWithSource } from "../../models/walk.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { isArray } from "es-toolkit/compat";
+import { jointWalkLeaderDisplayName } from "./joint-walk-leaders";
 
 export function isMeetupUrl(url: string): boolean {
   return !!url?.includes("meetup.com");
@@ -73,11 +74,13 @@ export function defaultDisplayName(contactName: string): string {
   if (!contactName) {
     return "";
   }
-  const parts = contactName.trim().split(/\s+/);
-  const firstName = parts[0] || "";
-  const lastName = parts.slice(1).join(" ");
-  const initial = (lastName || "").trim().substring(0, 1).toUpperCase();
-  return `${firstName} ${initial}`.trim();
+  return jointWalkLeaderDisplayName(contactName, (singleContactName: string) => {
+    const parts = singleContactName.trim().split(/\s+/);
+    const firstName = parts[0] || "";
+    const lastName = parts.slice(1).join(" ");
+    const initial = (lastName || "").trim().substring(0, 1).toUpperCase();
+    return `${firstName} ${initial}`.trim();
+  }) || "";
 }
 
 function contactDetailsFrom(groupEvent: GroupEvent, displayNameBuilder?: (contactName: string) => string): ContactDetailsResult {

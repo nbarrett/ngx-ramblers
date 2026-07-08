@@ -5,6 +5,7 @@ import type { AuthResponse } from "../../../projects/ngx-ramblers/src/app/models
 import { pluraliseWithCount } from "./string-utils";
 import { isArray, keys } from "es-toolkit/compat";
 import { dateTimeFromIsoWithZone } from "./dates";
+import { slugPatternFor } from "./slug-matching";
 
 const debugLog = debug(envConfig.logNamespace("shared:cms-client"));
 debugLog.enabled = true;
@@ -258,7 +259,7 @@ export async function groupEventsByCriteria(baseUrl: string, criteria: any): Pro
 }
 
 export async function groupEventBySlug(baseUrl: string, slug: string): Promise<any | null> {
-  const events = await groupEventsByCriteria(baseUrl, { "groupEvent.url": { $regex: slug, $options: "i" } });
+  const events = await groupEventsByCriteria(baseUrl, { "groupEvent.url": { $regex: slugPatternFor(slug), $options: "i" } });
   return events[0] || null;
 }
 

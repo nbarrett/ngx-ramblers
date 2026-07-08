@@ -79,6 +79,7 @@ import { ALL_DESCRIBED_FEATURES, DescribedFeature, Feature } from "../../models/
 import { marked } from "marked";
 import { ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
 import { mapRamblersEventToExtendedGroupEvent } from "../../functions/walks/ramblers-event.mapper";
+import { jointWalkLeaderNames, normalisedWalkLeaderName } from "../../functions/walks/joint-walk-leaders";
 import { MemberNamingService } from "../member/member-naming.service";
 import { UrlService } from "../url.service";
 import { FeaturesService } from "../features.service";
@@ -548,8 +549,13 @@ export class RamblersWalksAndEventsService {
         validationMessages.push(`Walk leader has no Walks Manager Contact Name entered on their member record. ${contactIdMessage}`);
       } else if (!isNaN(+walk?.fields?.publishing?.ramblers?.contactName)) {
         validationMessages.push(`Walk leader has an old Ramblers contact Id (${walk?.fields.publishing.ramblers.contactName}) setup on their member record. This needs to be updated to an Walks Manager Contact Name. ${contactIdMessage}`);
-      } else if (this.memberNamingService.abbreviatedWalksManagerContactName(walk?.fields?.publishing?.ramblers?.contactName)) {
-        validationMessages.push(`Walk leader Walks Manager Contact Name (${walk.fields.publishing.ramblers.contactName}) appears to be abbreviated. Enter the full first name and surname used in Walks Manager. ${contactIdMessage}`);
+      } else if (this.abbreviatedWalkLeaderNames(walk).length > 0) {
+        validationMessages.push(`Walk leader Walks Manager Contact Name (${this.abbreviatedWalkLeaderNames(walk).join(", ")}) appears to be abbreviated. Enter the full first name and surname used in Walks Manager. ${contactIdMessage}`);
+      }
+
+      const websiteLink = this.walkDisplayService.walkPublicLink(walk);
+      if (/[^\x20-\x7E]/.test(websiteLink)) {
+        validationMessages.push(`Website link (${websiteLink}) contains accented or special characters that Walks Manager will not accept. Edit the walk title so the web page address uses plain letters, or correct the address on the Related Links tab`);
       }
       if (this.walksConfigService.walksConfig()?.requireFinishTime !== false) {
         if (!walk?.groupEvent?.end_date_time) {
@@ -681,7 +687,12 @@ export class RamblersWalksAndEventsService {
   }
 
   walkLeader(walk: ExtendedGroupEvent): string {
-    return walk?.fields?.publishing?.ramblers?.contactName || "";
+    return normalisedWalkLeaderName(walk?.fields?.publishing?.ramblers?.contactName) || "";
+  }
+
+  abbreviatedWalkLeaderNames(walk: ExtendedGroupEvent): string[] {
+    return jointWalkLeaderNames(walk?.fields?.publishing?.ramblers?.contactName)
+      .filter(name => this.memberNamingService.abbreviatedWalksManagerContactName(name));
   }
 
   private contractionMap: Record<string, string> = {
@@ -711,7 +722,8 @@ export class RamblersWalksAndEventsService {
       ?.replace(/â€¦/g, "…")
       ?.replace(/â€“/g, "–")
       ?.replace(/â€™/g, "’")
-      ?.replace(/â€œ/g, "“") : "";
+      ?.replace(/â€œ/g, "“")
+      ?.replace(/[–—]/g, "-") : "";
   }
 
   private descriptionDiff(ramblersDesc: string, websiteDesc: string): string {

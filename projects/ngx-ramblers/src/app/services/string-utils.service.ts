@@ -143,7 +143,12 @@ StringUtilsService {
       .replace(/<br\s*\/?>/gi, " ")
       .replace(/<\/(p|div|li|ul|ol|h[1-6]|tr|table)>/gi, " ")
       .replace(/<[^>]+>/g, "");
-    return he.decode(withoutTags).replace(/\s+/g, " ").trim();
+    return this.fullyDecoded(withoutTags).replace(/\s+/g, " ").trim();
+  }
+
+  private fullyDecoded(value: string): string {
+    const decoded = he.decode(value);
+    return decoded === value ? decoded : this.fullyDecoded(decoded);
   }
 
   truncate(str: string, chars: number = 20) {
