@@ -19,7 +19,10 @@ export enum UIDateFormat {
   DISPLAY_DATE_AND_TIME = "cccc, d MMMM yyyy, h:mm:ss a",
   DISPLAY_DATE_TH = "MMMM d, yyyy",
   DISPLAY_DATE = "cccc, d MMMM yyyy",
+  DISPLAY_DATE_NO_COMMA = "cccc d MMMM yyyy",
   DISPLAY_DATE_NO_DAY = "d MMMM yyyy",
+  DAY_MONTH_ABBREVIATED_YEAR = "d MMM yyyy",
+  DAY_MONTH_YEAR_WITH_SLASHES_COMPACT = "d/M/yyyy",
   DISPLAY_DAY = "cccc MMMM d, yyyy",
   DAY_NAME = "cccc",
   DAY_MONTH_YEAR_WITH_SLASHES = "dd/MM/yyyy",
@@ -43,5 +46,17 @@ export enum UIDateFormat {
 }
 
 export enum BsDatepickerFormat {
-  DATE_INPUT = "DD-MMM-YYYY"
+  DATE_INPUT = "dddd, D MMMM YYYY"
 }
+
+export const TYPED_DATE_INPUT_FORMATS: UIDateFormat[] = [
+  UIDateFormat.DISPLAY_DATE,
+  UIDateFormat.DISPLAY_DATE_NO_COMMA,
+  UIDateFormat.WEEKDAY_DAY_MONTH_YEAR,
+  UIDateFormat.WEEKDAY_DAY_MONTH_YEAR_ABBREVIATED,
+  UIDateFormat.DISPLAY_DATE_NO_DAY,
+  UIDateFormat.DAY_MONTH_ABBREVIATED_YEAR,
+  UIDateFormat.DAY_MONTH_YEAR_DASHED,
+  UIDateFormat.DAY_MONTH_YEAR_WITH_SLASHES_COMPACT,
+  UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES
+];

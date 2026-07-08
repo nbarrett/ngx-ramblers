@@ -1,13 +1,10 @@
 import { Component, HostListener, inject, OnDestroy, OnInit } from "@angular/core";
-import { parse } from "csv-parse/browser/esm/sync";
-import { HttpClient } from "@angular/common/http";
-import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
-import { firstValueFrom, Subscription } from "rxjs";
+import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faInbox, faListCheck, faPaperclip, faReply, faReplyAll, faRotateRight, faSearch, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faInbox, faListCheck, faPaperclip, faReply, faReplyAll, faRotateRight, faSearch, faShare, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { AdminSettingsPath, AdminPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, values } from "es-toolkit/compat";
@@ -18,7 +15,6 @@ import { InboxPushSubscriptionService } from "../../../services/inbox/inbox-push
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { MessageType } from "../../../models/websocket.model";
 import {
-  AttachmentPreviewKind,
   InboxAddress,
   InboxAttachment,
   InboxMessage,
@@ -47,14 +43,14 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { PageComponent } from "../../../page/page.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
-import { CdkDrag, CdkDragHandle } from "@angular/cdk/drag-drop";
+import { AttachmentPreviewComponent } from "../../../modules/common/attachment-preview/attachment-preview";
 import { HtmlFrameComponent } from "../../../modules/common/html-frame/html-frame.component";
 import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../../modules/common/resizer/resizer";
 import { MaximisablePanelComponent } from "../../../modules/common/maximisable-panel/maximisable-panel";
 
 @Component({
   selector: "app-inbox",
-  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, CdkDrag, CdkDragHandle],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent],
   styleUrls: ["./inbox.component.sass"],
   template: `
     <app-page pageTitle="Email inbox" [showTitle]="!mobile" [showBreadcrumb]="!mobile">
@@ -307,6 +303,11 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                         <span class="inbox-reply-label">Reply all</span>
                       </button>
                     }
+                    <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
+                            tooltip="Forward in email composer with attachments" placement="left" container="body" (click)="$event.stopPropagation(); prepareForward(message)">
+                      <fa-icon [icon]="faShare"/>
+                      <span class="inbox-reply-label">Forward</span>
+                    </button>
                   </div>
                 </div>
                 @if (isMessageExpanded(message)) {
@@ -321,7 +322,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                           </button>
                           <ul *dropdownMenu class="dropdown-menu" role="menu">
                             <li role="menuitem">
-                              <button class="dropdown-item" type="button" (click)="openPreview(attachment)">
+                              <button class="dropdown-item" type="button" (click)="attachmentPreview.open({filename: attachment.filename, url: attachmentUrl(attachment), contentType: attachment.contentType})">
                                 <fa-icon [icon]="faEye" class="me-2"/>Preview
                               </button>
                             </li>
@@ -358,80 +359,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
           </div>
         </div>
       }
-      @if (previewedAttachment) {
-        <div class="modal fade show d-block inbox-preview-modal" tabindex="-1" (mousedown)="onPreviewBackdropMouseDown($event)">
-          <div class="modal-dialog modal-lg" cdkDrag cdkDragBoundary=".inbox-preview-modal">
-            <div class="modal-content">
-              <div class="modal-header" cdkDragHandle>
-                <h5 class="modal-title">
-                  <fa-icon [icon]="faPaperclip" class="me-2"/>{{ previewedAttachment.filename }}
-                </h5>
-                <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="closePreview()"></button>
-              </div>
-              <div class="modal-body">
-                @switch (previewKind) {
-                  @case ("image") {
-                    <img [src]="attachmentUrl(previewedAttachment)" [alt]="previewedAttachment.filename" class="img-fluid">
-                  }
-                  @case ("pdf") {
-                    <iframe [src]="previewSafeUrl" class="inbox-attachment-preview-frame" [title]="previewedAttachment.filename"></iframe>
-                  }
-                  @case ("csv") {
-                    @if (previewCsvRows === null) {
-                      <div class="text-muted">Loading preview...</div>
-                    } @else {
-                      @if (previewCsvTotalRows > previewCsvRows.length) {
-                        <div class="small text-muted mb-2">Showing the first {{ previewCsvRows.length }} of {{ previewCsvTotalRows }} rows — download for the full file.</div>
-                      }
-                      <div class="inbox-attachment-preview-table">
-                        <table class="table table-sm table-striped">
-                          <thead>
-                            <tr>
-                              @for (heading of previewCsvHeadings; track $index) {
-                                <th>{{ heading }}</th>
-                              }
-                            </tr>
-                          </thead>
-                          <tbody>
-                            @for (row of previewCsvRows; track $index) {
-                              <tr>
-                                @for (cell of row; track $index) {
-                                  <td>{{ cell }}</td>
-                                }
-                              </tr>
-                            }
-                          </tbody>
-                        </table>
-                      </div>
-                    }
-                  }
-                  @case ("text") {
-                    @if (previewText === null) {
-                      <div class="text-muted">Loading preview...</div>
-                    } @else {
-                      <pre class="inbox-attachment-preview-text">{{ previewText }}</pre>
-                    }
-                  }
-                  @default {
-                    <div class="alert alert-warning">
-                      <fa-icon [icon]="faTriangleExclamation"/>
-                      <strong class="ms-2">No preview available</strong>
-                      <span class="ms-1">— this file type can't be shown here. Use Download instead.</span>
-                    </div>
-                  }
-                }
-              </div>
-              <div class="modal-footer">
-                <a class="btn btn-primary" [href]="attachmentUrl(previewedAttachment)" [attr.download]="previewedAttachment.filename">
-                  <fa-icon [icon]="faDownload" class="me-2"/>Download
-                </a>
-                <button type="button" class="btn btn-secondary" (click)="closePreview()">Close</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-backdrop fade show"></div>
-      }
+      <app-attachment-preview #attachmentPreview/>
     </app-page>
   `
 })
@@ -455,16 +383,6 @@ export class InboxComponent implements OnInit, OnDestroy {
   private memberLoginService = inject(MemberLoginService);
   private urlService = inject(UrlService);
   protected numberUtils = inject(NumberUtilsService);
-  private http = inject(HttpClient);
-  private sanitiser = inject(DomSanitizer);
-  protected previewedAttachment: InboxAttachment | null = null;
-  protected previewKind: AttachmentPreviewKind = AttachmentPreviewKind.NONE;
-  protected previewText: string | null = null;
-  protected previewCsvRows: string[][] | null = null;
-  protected previewCsvHeadings: string[] = [];
-  protected previewCsvTotalRows = 0;
-  protected previewSafeUrl: SafeResourceUrl | null = null;
-
   protected readonly faInbox = faInbox;
   protected readonly faReply = faReply;
   protected readonly faRotateRight = faRotateRight;
@@ -483,6 +401,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected readonly faEye = faEye;
   protected readonly faDownload = faDownload;
   protected readonly faReplyAll = faReplyAll;
+  protected readonly faShare = faShare;
   protected readonly faArrowDownWideShort = faArrowDownWideShort;
   protected readonly faArrowUpWideShort = faArrowUpWideShort;
   protected readonly faArrowLeft = faArrowLeft;
@@ -1043,27 +962,36 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   async prepareReplyAll(message: InboxMessage): Promise<void> {
-    await this.prepareReply(message, true);
+    await this.prepareOutboundCompose(message, {replyAll: true});
   }
 
   async prepareReply(message?: InboxMessage, replyAll = false): Promise<void> {
+    await this.prepareOutboundCompose(message, {replyAll});
+  }
+
+  async prepareForward(message: InboxMessage): Promise<void> {
+    await this.prepareOutboundCompose(message, {forward: true});
+  }
+
+  private async prepareOutboundCompose(message: InboxMessage | undefined, options: { replyAll?: boolean; forward?: boolean }): Promise<void> {
+    const actionTitle = options.forward ? "Forward" : "Reply";
     if (!this.selectedThread || this.selectedMessages.length === 0) {
       return;
     }
     const target = message ?? this.selectedMessages[this.selectedMessages.length - 1];
     if (!target) {
-      this.notify.warning({title: "Reply", message: "No message on this thread to reply to"});
+      this.notify.warning({title: actionTitle, message: `No message on this thread to ${actionTitle.toLowerCase()}`});
       return;
     }
     try {
       const threadId = this.selectedThreadId ?? "";
-      const reply = await this.inboxService.composeReply(threadId, {threadId, messageId: target.messageId});
-      if (replyAll) {
+      const reply = await this.inboxService.composeReply(threadId, {threadId, messageId: target.messageId, forward: options.forward});
+      if (options.replyAll) {
         reply.cc = this.replyAllRecipients(reply, target);
         reply.replyAll = true;
       }
       this.inboxReplyHandoff.queue(reply);
-      this.logger.info("Reply queued, navigating to composer:", reply);
+      this.logger.info(actionTitle, "queued, navigating to composer:", reply);
       const maximised = this.route.snapshot.queryParams[StoredValue.MAXIMISE] === "true";
       await this.router.navigate(["/" + AdminPath.EMAIL_COMPOSER], {
         queryParams: {
@@ -1073,8 +1001,8 @@ export class InboxComponent implements OnInit, OnDestroy {
         }
       });
     } catch (error) {
-      this.notify.error({title: "Reply", message: (error as Error).message});
-      this.logger.error("Failed to prepare reply:", error);
+      this.notify.error({title: actionTitle, message: (error as Error).message});
+      this.logger.error("Failed to prepare", actionTitle.toLowerCase(), ":", error);
     }
   }
 
@@ -1217,82 +1145,6 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   protected attachmentUrl(attachment: InboxAttachment): string {
     return this.urlService.resourceRelativePathForAWSFileName(attachment.s3Key);
-  }
-
-  private previewKindFor(attachment: InboxAttachment): AttachmentPreviewKind {
-    const contentType = (attachment.contentType || "").toLowerCase();
-    const filename = (attachment.filename || "").toLowerCase();
-    if (contentType.startsWith("image/")) {
-      return AttachmentPreviewKind.IMAGE;
-    }
-    if (contentType === "application/pdf" || filename.endsWith(".pdf")) {
-      return AttachmentPreviewKind.PDF;
-    }
-    if (contentType.includes("csv") || filename.endsWith(".csv")) {
-      return AttachmentPreviewKind.CSV;
-    }
-    const textExtensions = [".txt", ".json", ".md", ".log", ".ics"];
-    if (contentType.startsWith("text/") || contentType.includes("json") || textExtensions.some(extension => filename.endsWith(extension))) {
-      return AttachmentPreviewKind.TEXT;
-    }
-    return AttachmentPreviewKind.NONE;
-  }
-
-  protected async openPreview(attachment: InboxAttachment): Promise<void> {
-    this.previewedAttachment = attachment;
-    this.previewKind = this.previewKindFor(attachment);
-    this.previewText = null;
-    this.previewCsvRows = null;
-    this.previewCsvHeadings = [];
-    this.previewCsvTotalRows = 0;
-    this.previewSafeUrl = this.previewKind === AttachmentPreviewKind.PDF ? this.sanitiser.bypassSecurityTrustResourceUrl(this.attachmentUrl(attachment)) : null;
-    if (this.previewKind === AttachmentPreviewKind.CSV) {
-      await this.loadCsvPreview(attachment);
-    } else if (this.previewKind === AttachmentPreviewKind.TEXT) {
-      await this.loadTextPreview(attachment);
-    }
-  }
-
-  private async loadCsvPreview(attachment: InboxAttachment): Promise<void> {
-    try {
-      const text = await firstValueFrom(this.http.get(this.attachmentUrl(attachment), {responseType: "text"}));
-      const rows = parse(text, {relax_column_count: true, skip_empty_lines: true, bom: true, record_delimiter: ["\r\n", "\n", "\r"]}) as string[][];
-      const maximumPreviewRows = 200;
-      this.previewCsvHeadings = rows[0] ?? [];
-      const dataRows = rows.slice(1);
-      this.previewCsvTotalRows = dataRows.length;
-      this.previewCsvRows = dataRows.slice(0, maximumPreviewRows);
-    } catch (error) {
-      this.logger.error("csv attachment preview failed for", attachment, "falling back to text:", error);
-      this.previewKind = AttachmentPreviewKind.TEXT;
-      await this.loadTextPreview(attachment);
-    }
-  }
-
-  private async loadTextPreview(attachment: InboxAttachment): Promise<void> {
-    try {
-      const text = await firstValueFrom(this.http.get(this.attachmentUrl(attachment), {responseType: "text"}));
-      const maximumPreviewCharacters = 100000;
-      this.previewText = text.length > maximumPreviewCharacters ? `${text.substring(0, maximumPreviewCharacters)}\n… (truncated — download for the full file)` : text;
-    } catch (error) {
-      this.logger.error("attachment preview failed for", attachment, error);
-      this.previewText = "Preview failed to load — use Download instead.";
-    }
-  }
-
-  protected onPreviewBackdropMouseDown(event: MouseEvent): void {
-    if (event.target === event.currentTarget) {
-      this.closePreview();
-    }
-  }
-
-  protected closePreview(): void {
-    this.previewedAttachment = null;
-    this.previewText = null;
-    this.previewCsvRows = null;
-    this.previewCsvHeadings = [];
-    this.previewCsvTotalRows = 0;
-    this.previewSafeUrl = null;
   }
 
   private resolveInlineImages(html: string, attachments: InboxAttachment[]): string {

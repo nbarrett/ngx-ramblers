@@ -15,14 +15,6 @@ import { RouterLink } from "@angular/router";
 
 const NGX_LITE_SOCIAL_PATHS = ["social-events", "group-events"];
 
-const NGX_LITE_ALLOWED_PATHS = [
-  "",
-  "admin",
-  "walks",
-  "committee",
-  ...NGX_LITE_SOCIAL_PATHS,
-];
-
 @Component({
     selector: "app-page-navigator",
     templateUrl: "./page-navigator.component.html",
@@ -80,17 +72,10 @@ export class PageNavigatorComponent implements OnInit, OnDestroy {
     if (!this.ngxLiteService.ngxLite) {
       return true;
     }
-    const href = link.href || "";
-    if (NGX_LITE_ALLOWED_PATHS.includes(href)) {
-      if (NGX_LITE_SOCIAL_PATHS.includes(href)) {
-        return this.ngxLiteService.hasLocalSocialEvents;
-      }
-      return true;
+    if (NGX_LITE_SOCIAL_PATHS.includes(link.href || "")) {
+      return this.ngxLiteService.hasLocalSocialEvents;
     }
-    if (href.includes("email") || href.includes("login") || href.includes("logout")) {
-      return true;
-    }
-    return false;
+    return true;
   }
 
   unToggleMenu() {

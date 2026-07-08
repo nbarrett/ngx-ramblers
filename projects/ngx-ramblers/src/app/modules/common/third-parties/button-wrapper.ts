@@ -17,7 +17,7 @@ import { DockedTo } from "../../../models/docking.model";
       opacity: 0.65
   `],
     template: `
-    <div [tooltip]="showTooltip? (disabled ? 'Not available to ' : 'Click to ') + title : null" placement="auto"
+    <div [tooltip]="tooltipText()" placement="auto"
          (click)="blockClick($event)"
          [ngClass]="{
            'btn d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2 text-nowrap': button,
@@ -34,7 +34,9 @@ import { DockedTo } from "../../../models/docking.model";
       } @else {
         <ng-content/>
       }
-      <div [ngClass]="{'is-disabled-text': disabled || loading}">{{ title }}</div>
+      @if (!iconOnly) {
+        <div [ngClass]="{'is-disabled-text': disabled || loading}">{{ title }}</div>
+      }
     </div>`,
     imports: [TooltipDirective, NgClass, FontAwesomeModule]
 })
@@ -46,6 +48,7 @@ export class ButtonWrapper implements OnInit {
   public button: boolean;
   public loading: boolean;
   public showTooltip: boolean;
+  public iconOnly: boolean;
   public title: string;
   public variant: string = "primary";
   @Input() dockedTo: DockedTo | null = null;
@@ -73,12 +76,26 @@ export class ButtonWrapper implements OnInit {
     this.showTooltip = coerceBooleanProperty(value);
   }
 
+  @Input("iconOnly") set iconOnlyValue(value: boolean) {
+    this.iconOnly = coerceBooleanProperty(value);
+  }
+
   @Input("variant") set variantValue(value: string) {
     this.variant = value || "primary";
   }
 
   ngOnInit(): void {
     this.logger.info("initialised with title:", this.title, "disabled:", this.disabled,"showTooltip:", this.showTooltip, "button:", this.button);
+  }
+
+  tooltipText(): string {
+    if (this.showTooltip) {
+      return (this.disabled ? "Not available to " : "Click to ") + this.title;
+    }
+    if (this.iconOnly) {
+      return this.title;
+    }
+    return null;
   }
 
   blockClick(event: Event) {

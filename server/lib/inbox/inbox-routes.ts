@@ -41,7 +41,7 @@ import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/memb
 import { fetchFullMessage, findGmailMessageIdByRfcHeader, markMessagesRead, markMessagesUnread, registerGmailWatch, removeSpamLabel, stopGmailWatch, trashMessage } from "./gmail-inbox-reader";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
-import { buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
+import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
 import { assignedInboxRoleTypesForMember, inboxConfigurationAdministrator, permittedInboxRoleTypes, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
 import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
@@ -866,7 +866,7 @@ router.post("/threads/:id/compose-reply", authConfig.authenticate(), async (req:
       .filter(connectionAlias => connectionAlias.roleEmail.toLowerCase() !== (connection.gmailAccountEmail ?? "").toLowerCase())
       .filter(connectionAlias => rolesByType.has(connectionAlias.roleType))
       .map(connectionAlias => ({name: rolesByType.get(connectionAlias.roleType)?.description ?? null, email: connectionAlias.roleEmail}));
-    const reply = buildComposeResponse(hydratedMessage, thread.externalAddress, req.params.id, aliasId, connectionId(sourceConnection), thread.roleType, otherRoleCc);
+    const reply = buildComposeResponse(hydratedMessage, thread.externalAddress, req.params.id, aliasId, connectionId(sourceConnection), thread.roleType, otherRoleCc, composeRequest?.forward === true);
     res.json({request: {messageType}, response: reply});
   } catch (error) {
     errorDebugLog("Error composing reply:", (error as Error).message);
@@ -962,20 +962,21 @@ router.post("/mailbox-connections/:id/sync", authConfig.authenticate(), async (r
   }
 });
 
-function buildComposeResponse(selectedMessage: InboxMessage, replyTo: InboxAddress, threadId: string, aliasId: string, mailboxConnectionId: string, senderRoleType: string, cc: InboxAddress[]): InboxReplyComposeResponse {
-  const {inReplyTo, references, subject} = buildReplyHeaders(selectedMessage);
+function buildComposeResponse(selectedMessage: InboxMessage, replyTo: InboxAddress, threadId: string, aliasId: string, mailboxConnectionId: string, senderRoleType: string, cc: InboxAddress[], forward = false): InboxReplyComposeResponse {
+  const {inReplyTo, references, subject} = buildReplyHeaders(selectedMessage, forward);
   return {
     to: replyTo,
-    cc,
+    cc: forward ? [] : cc,
     subject,
     inReplyTo,
     references,
-    quotedHtml: buildQuotedReplyHtml(selectedMessage),
+    quotedHtml: forward ? buildQuotedForwardHtml(selectedMessage) : buildQuotedReplyHtml(selectedMessage),
     senderRoleType,
     threadId,
     aliasId,
     mailboxConnectionId,
-    inboxMessageId: selectedMessage.messageId
+    inboxMessageId: selectedMessage.messageId,
+    ...(forward ? {forward: true, attachments: selectedMessage.attachments ?? []} : {})
   };
 }
 

@@ -696,6 +696,7 @@ export interface SegmentsResponse {
 }
 
 export interface CreateContactRequest {
+  id?: number;
   email?: string;
   extId?: string;
   emailBlacklisted?: boolean;
@@ -707,6 +708,13 @@ export interface CreateContactRequest {
 
 export interface CreateContactRequestWithAttributes extends CreateContactRequest {
   attributes?: Attributes;
+}
+
+export interface ContactUpdateRequest {
+  id: number;
+  email: string;
+  extId?: string;
+  attributes?: ObjectAttributes;
 }
 
 export interface CreateContactRequestWithObjectAttributes extends CreateContactRequest {

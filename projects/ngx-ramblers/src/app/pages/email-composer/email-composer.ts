@@ -1,6 +1,6 @@
 import { AdminPath } from "../../models/admin-route-paths.model";
 import { ChangeDetectorRef, Component, ElementRef, inject, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from "@angular/core";
-import { ActivatedRoute, ParamMap, Router } from "@angular/router";
+import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
 import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { firstValueFrom, Subscription, timer } from "rxjs";
@@ -125,10 +125,11 @@ import { MemberMultiSelect } from "../../modules/common/member-multi-select/memb
 import { RecipientFieldComponent } from "../../modules/common/recipient-field/recipient-field";
 import { ArticleBlockSingleEditor } from "../../modules/common/article-blocks/article-block-single-editor";
 import { SectionDividerSelectComponent } from "../../modules/common/section-divider-select/section-divider-select";
+import { AttachmentPreviewComponent } from "../../modules/common/attachment-preview/attachment-preview";
 import { EmailComposerRenderingService } from "../../services/email-composer/email-composer-rendering.service";
 import { EmailComposerSendService } from "../../services/email-composer/email-composer-send.service";
 import { InboxReplyHandoffService } from "../../services/inbox/inbox-reply-handoff.service";
-import { InboxReplyOutboundContext } from "../../models/inbox.model";
+import { InboxAttachment, InboxReplyOutboundContext } from "../../models/inbox.model";
 import TurndownService from "turndown";
 import { EmailCompositionsService } from "../../services/email-composer/email-compositions.service";
 import { NotificationConfigSelectorComponent } from "../admin/system-settings/mail/notification-config-selector";
@@ -226,7 +227,9 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
     CommitteeNotificationDetailsComponent,
     CommitteeNotificationRamblersMessageItemComponent,
     DisplayDatePipe,
-    FullNameWithAliasPipe
+    FullNameWithAliasPipe,
+    RouterLink,
+    AttachmentPreviewComponent
   ],
   template: `
     <app-page autoTitle pageTitle="Email Composer" [showTitle]="false">
@@ -248,18 +251,17 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
           </button>
         </div>
       </div>
-      @if (notifyTarget.showAlert) {
-        <div class="alert {{notifyTarget.alertClass}} composer-workspace-alert">
-          <fa-icon [icon]="notifyTarget.alert.icon"/>
-          @if (notifyTarget.alertTitle) {
-            <strong>{{ notifyTarget.alertTitle }}: </strong>
-          }
-          {{ notifyTarget.alertMessage }}
-        </div>
-      }
       @let recipientsValidationVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && (recipientsStepErrors().length > 0 || priorSendExclusions.length > 0);
-      @if (postSendActionWarningVisible() || recipientsValidationVisible) {
+      @if (notifyTarget.showAlert || postSendActionWarningVisible() || recipientsValidationVisible) {
         <div class="email-composer-validation-summary">
+          @if (notifyTarget.showAlert) {
+            @if (notifyTarget.alertTitle) {
+              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ notifyTarget.alertTitle }}</h5>
+            }
+            <ul class="list-arrow">
+              <li>{{ notifyTarget.alertMessage }}</li>
+            </ul>
+          }
           @if (bulkDeletionPending()) {
             <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow deletes its recipients</h5>
             <ul class="list-arrow">
@@ -591,6 +593,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
       </div>
       </app-maximisable-panel>
     </app-page>
+    <app-attachment-preview #attachmentPreview/>
 
     <ng-template #recipientsStep>
       <div class="email-composer-section">
@@ -952,9 +955,12 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
           <div class="d-flex flex-wrap align-items-center gap-2">
             @for (attachment of state.attachments ?? []; track attachment.url; let index = $index) {
               <span class="composer-attachment">
-                <fa-icon [icon]="faPaperclip"/>
-                <span class="composer-attachment-name">{{ attachment.name }}</span>
-                <span class="text-muted">{{ numberUtils.humanFileSize(attachment.sizeBytes) }}</span>
+                <button type="button" class="composer-attachment-open" [tooltip]="attachment.name" container="body"
+                        (click)="attachmentPreview.open({filename: attachment.name, url: attachment.url})">
+                  <fa-icon [icon]="faPaperclip" class="composer-attachment-icon"/>
+                  <span class="composer-attachment-name">{{ attachment.name }}</span>
+                  <span class="composer-attachment-size text-muted">{{ numberUtils.humanFileSize(attachment.sizeBytes) }}</span>
+                </button>
                 <button type="button" class="composer-attachment-remove" tooltip="Remove attachment" container="body"
                         (click)="removeAttachment(index)">
                   <fa-icon [icon]="faXmark"/>
@@ -3006,18 +3012,23 @@ export class EmailComposer implements OnInit, OnDestroy {
     this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
     this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
     this.state.addresseeType = AddresseeType.NONE;
-    const recipient = {email: reply.to.email, name: reply.to.name ?? undefined, saveForReuse: false};
-    const alreadyPresent = this.state.externalRecipients.some(existing => existing.email.toLowerCase() === reply.to.email.toLowerCase());
-    if (!alreadyPresent) {
-      this.state.externalRecipients = [recipient, ...this.state.externalRecipients];
-    }
-    const replyCc = (reply.cc ?? []).map(address => ({email: address.email, name: address.name ?? undefined, saveForReuse: false}));
-    if (reply.replyAll) {
-      const existingCc = new Set(this.state.ccRecipients.map(existing => existing.email.toLowerCase()));
-      this.state.ccRecipients = [...this.state.ccRecipients, ...replyCc.filter(address => !existingCc.has(address.email.toLowerCase()))];
+    if (reply.forward) {
       this.replyCcSuggestion = [];
+      this.applyForwardedAttachments(reply.attachments ?? []);
     } else {
-      this.replyCcSuggestion = replyCc;
+      const recipient = {email: reply.to.email, name: reply.to.name ?? undefined, saveForReuse: false};
+      const alreadyPresent = this.state.externalRecipients.some(existing => existing.email.toLowerCase() === reply.to.email.toLowerCase());
+      if (!alreadyPresent) {
+        this.state.externalRecipients = [recipient, ...this.state.externalRecipients];
+      }
+      const replyCc = (reply.cc ?? []).map(address => ({email: address.email, name: address.name ?? undefined, saveForReuse: false}));
+      if (reply.replyAll) {
+        const existingCc = new Set(this.state.ccRecipients.map(existing => existing.email.toLowerCase()));
+        this.state.ccRecipients = [...this.state.ccRecipients, ...replyCc.filter(address => !existingCc.has(address.email.toLowerCase()))];
+        this.replyCcSuggestion = [];
+      } else {
+        this.replyCcSuggestion = replyCc;
+      }
     }
     this.state.subject = reply.subject;
     if (reply.senderRoleType) {
@@ -3044,6 +3055,30 @@ export class EmailComposer implements OnInit, OnDestroy {
     } else {
       this.pendingIntroFocus = true;
     }
+  }
+
+  private applyForwardedAttachments(attachments: InboxAttachment[]): void {
+    const unsupported = attachments.filter(attachment => !this.attachmentExtensionSupported(attachment.filename));
+    if (unsupported.length) {
+      this.notify.warning({
+        title: "Attachments",
+        message: `${unsupported.map(attachment => attachment.filename).join(", ")} can't be forwarded by email — the mail platform doesn't support ${unsupported.map(attachment => attachment.filename.split(".").pop()).join(", ")} files.`
+      });
+    }
+    const existingUrls = new Set((this.state.attachments ?? []).map(attachment => attachment.url));
+    const forwarded = attachments
+      .filter(attachment => this.attachmentExtensionSupported(attachment.filename))
+      .map(attachment => ({
+        name: attachment.filename,
+        url: `${this.urlService.publicBaseUrl().replace(/\/$/, "")}/${this.urlService.resourceRelativePathForAWSFileName(attachment.s3Key)}`,
+        sizeBytes: attachment.sizeBytes
+      }))
+      .filter(attachment => !existingUrls.has(attachment.url));
+    this.state.attachments = [...(this.state.attachments ?? []), ...forwarded];
+  }
+
+  private attachmentExtensionSupported(fileName: string): boolean {
+    return BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS.includes(fileName.split(".").pop()?.toLowerCase() ?? "");
   }
 
   private htmlToReplyMarkdown(html: string | null | undefined): string {
@@ -4363,6 +4398,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     restored.bccRecipients = restored.bccRecipients ?? [];
     restored.selectedMemberIds = restored.selectedMemberIds ?? [];
     restored.signoffRoles = restored.signoffRoles ?? [];
+    restored.attachments = restored.attachments ?? [];
     restored.fragmentOrder = restored.fragmentOrder ?? [];
     restored.articleBlocks = restored.articleBlocks ?? [];
     if (restored.groupEventsFilter) {
@@ -4973,7 +5009,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     const selectedFiles = Array.from(input.files ?? []);
     input.value = "";
-    const unsupported = selectedFiles.filter(file => !BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS.includes(file.name.split(".").pop()?.toLowerCase() ?? ""));
+    const unsupported = selectedFiles.filter(file => !this.attachmentExtensionSupported(file.name));
     if (unsupported.length) {
       this.notify.warning({
         title: "Attachments",

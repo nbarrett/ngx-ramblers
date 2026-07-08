@@ -102,6 +102,9 @@ export class MailListUpdaterService {
         .map((member: Member) => this.toCreateContactRequest(member));
       this.logger.info("prepared", this.stringUtils.pluraliseWithCount(createContactRequests.length, "create contact request"), createContactRequests);
 
+      const matchedMembers: Member[] = Array.from(new Set(contactsToMembers.filter(item => item.member).map(item => item.member)));
+      const failedEmailChangeMembers: Member[] = this.performUpdates ? await this.processContactEmailChanges(matchedMembers, notify) : [];
+
       const updateContactRequests: CreateContactRequestWithObjectAttributes[] = contactsToMembers
         .filter((contactToMember: ContactToMember) => contactToMember.member && this.brevoEligibleForAnyList(contactToMember.member) && this.memberToContactMismatch(contactToMember))
         .map((contactToMember: ContactToMember) => this.toCreateContactRequestWithObjectAttributes(contactToMember.member));
@@ -139,7 +142,7 @@ export class MailListUpdaterService {
         await this.processUpdateContactRequests(updateContactRequests, notify);
         await this.processContactRemoveRequests(contactRemoveRequests, notify);
         await this.processMailListAuditing();
-        await this.stampBrevoSyncStateFor(membersRequiringSync);
+        await this.stampBrevoSyncStateFor(membersRequiringSync.filter(member => !failedEmailChangeMembers.includes(member)));
       } else {
         this.logger.info("Not performing updates as performUpdates is false");
       }
@@ -244,27 +247,61 @@ export class MailListUpdaterService {
       return;
     }
     notify.success({title: "Brevo updates", message: `Synchronising ${this.stringUtils.pluraliseWithCount(changedMembers.length, "member")} with Brevo`}, true);
-    const createContactRequests: CreateContactRequest[] = changedMembers
-      .filter(member => !isNumber(member?.mail?.id) && this.brevoEligibleForAnyList(member))
-      .map(member => this.toCreateContactRequest(member));
-    const updateContactRequests: CreateContactRequestWithObjectAttributes[] = changedMembers
-      .filter(member => isNumber(member?.mail?.id) && this.brevoEligibleForAnyList(member))
-      .map(member => this.toCreateContactRequestWithObjectAttributes(member));
-    const deletableMembers: Member[] = changedMembers
-      .filter(member => isNumber(member?.mail?.id) && !this.brevoEligibleForAnyList(member));
-    const deleteContactIds: NumberOrString[] = deletableMembers.map(member => member.mail.id);
-    const contactRemoveRequests: ContactsAddOrRemoveRequest[] = this.buildListRemovalRequests(
-      changedMembers.filter(member => !deletableMembers.includes(member)));
     if (this.performUpdates) {
+      const failedEmailChangeMembers: Member[] = await this.processContactEmailChanges(changedMembers, notify);
+      const createContactRequests: CreateContactRequest[] = changedMembers
+        .filter(member => !isNumber(member?.mail?.id) && this.brevoEligibleForAnyList(member))
+        .map(member => this.toCreateContactRequest(member));
+      const updateContactRequests: CreateContactRequestWithObjectAttributes[] = changedMembers
+        .filter(member => isNumber(member?.mail?.id) && this.brevoEligibleForAnyList(member))
+        .map(member => this.toCreateContactRequestWithObjectAttributes(member));
+      const deletableMembers: Member[] = changedMembers
+        .filter(member => isNumber(member?.mail?.id) && !this.brevoEligibleForAnyList(member));
+      const deleteContactIds: NumberOrString[] = deletableMembers.map(member => member.mail.id);
+      const contactRemoveRequests: ContactsAddOrRemoveRequest[] = this.buildListRemovalRequests(
+        changedMembers.filter(member => !deletableMembers.includes(member)));
       await this.processCreateContactRequests(createContactRequests, members, notify);
       await this.processUpdateContactRequests(updateContactRequests, notify);
       await this.processDeleteContactsRequests(deleteContactIds, members, notify);
       await this.processContactRemoveRequests(contactRemoveRequests, notify);
       await this.processMailListAuditing();
-      await this.stampBrevoSyncStateFor(changedMembers);
+      await this.stampBrevoSyncStateFor(changedMembers.filter(member => !failedEmailChangeMembers.includes(member)));
     }
     notify.success({title: "Brevo updates", message: "Member Brevo sync complete"});
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAIL_SUBSCRIPTION_CHANGED, changedMembers));
+  }
+
+  private async processContactEmailChanges(changedMembers: Member[], notify: AlertInstance): Promise<Member[]> {
+    const emailChangedMembers: Member[] = changedMembers.filter(member => isNumber(member?.mail?.id)
+      && this.brevoEligibleForAnyList(member)
+      && !!member?.email
+      && this.cleanEmail(member.mail.email) !== this.cleanEmail(member.email));
+    if (emailChangedMembers.length === 0) {
+      return [];
+    }
+    notify.success({title: "Brevo updates", message: `Updating email address for ${this.stringUtils.pluraliseWithCount(emailChangedMembers.length, "changed contact")}`}, true);
+    const failedMembers: Member[] = [];
+    await emailChangedMembers.reduce<Promise<void>>(async (previous, member) => {
+      await previous;
+      const previousEmail = this.cleanEmail(member.mail.email) ?? "(not previously recorded)";
+      const newEmail = this.cleanEmail(member.email);
+      try {
+        await this.mailService.updateContact({id: member.mail.id, email: newEmail, extId: member.id, attributes: this.toCreateContactRequestWithObjectAttributes(member).attributes});
+        member.mail.email = newEmail;
+        this.pendingMailListAudits.push(this.mailListAuditService.createMailListAudit(
+          `Contact email updated in Brevo from ${previousEmail} to ${newEmail}`, AuditStatus.info, member.id, first(this.subscribedListIds(member))));
+      } catch (error) {
+        failedMembers.push(member);
+        this.logger.warn("updateContactEmail failed for contact", member.mail.id, "from", previousEmail, "to", newEmail, error);
+        notify.warning({
+          title: "Brevo updates",
+          message: `The email address change from ${previousEmail} to ${newEmail} could not be applied in Brevo - it will be retried on the next save`
+        });
+        this.pendingMailListAudits.push(this.mailListAuditService.createMailListAudit(
+          `Contact email update in Brevo from ${previousEmail} to ${newEmail} failed: ${this.stringUtils.stringifyObject(error)}`, AuditStatus.error, member.id, first(this.subscribedListIds(member))));
+      }
+    }, Promise.resolve());
+    return failedMembers;
   }
 
   public memberSubscribed(member: Member, listId: number): boolean {
@@ -375,6 +412,7 @@ export class MailListUpdaterService {
           const member = members.find((member) => this.cleanEmail(member?.email) === this.cleanEmail(contactCreatedResponse?.id));
           if (member && contactCreatedResponse?.responseBody?.id) {
             member.mail.id = contactCreatedResponse.responseBody.id;
+            member.mail.email = this.cleanEmail(member.email);
             const matchingRequest = createContactRequests.find(request => request.extId === member.id);
             const auditMessage = matchingRequest
               ? `Contact created in Brevo: ${this.contactDetails(matchingRequest)}`
@@ -557,7 +595,8 @@ export class MailListUpdaterService {
   public toCreateContactRequestWithObjectAttributes(member: Member): CreateContactRequestWithObjectAttributes {
     const memberMergeFields = this.mailMessagingService.toMemberMergeVariables(member);
     return {
-      email: this.cleanEmail(member.mail.email),
+      ...(isNumber(member.mail.id) ? {id: member.mail.id} : {}),
+      email: this.cleanEmail(member.mail.email) ?? this.cleanEmail(member.email),
       extId: member.id,
       attributes: {
         EMAIL: this.cleanEmail(member.email) as any,

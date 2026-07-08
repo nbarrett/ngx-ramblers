@@ -53,6 +53,7 @@ import { FormatAuditPipe } from "../../../pipes/format-audit-pipe";
 import { DeletedMemberService } from "../../../services/member/deleted-member.service";
 import { InputSize } from "../../../models/ui-size.model";
 import { MemberAuditHistoryComponent } from "./member-audit-history";
+import { LowercaseInputDirective } from "../../../modules/common/lowercase-input/lowercase-input.directive";
 
 @Component({
   selector: "app-member-admin-modal",
@@ -61,7 +62,7 @@ import { MemberAuditHistoryComponent } from "./member-audit-history";
   providers: [FormatAuditPipe],
   imports: [TabsetComponent, TabDirective, FormsModule, DatePicker, MarkdownEditorComponent, TooltipDirective,
     FontAwesomeModule, MailChimpSubscriptionSettingsComponent, MailSubscriptionSettingsComponent, SwitchIconComponent,
-    SecretInputComponent, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, DisplayDatePipe, FullNamePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe, MemberAuditHistoryComponent]
+    SecretInputComponent, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, DisplayDatePipe, FullNamePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe, MemberAuditHistoryComponent, LowercaseInputDirective]
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberAdminModalComponent", NgxLoggerLevel.ERROR);
@@ -277,8 +278,14 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     this.member.membershipExpiryDate = dateValue?.value || null;
   }
 
+  protected lowercase(value: string): string {
+    return value?.toLowerCase();
+  }
+
   saveMemberDetails() {
     this.saveInProgress = true;
+    this.member.email = this.lowercase(this.member.email)?.trim();
+    this.member.userName = this.lowercase(this.member.userName)?.trim();
 
     if (!this.member.userName) {
       this.member.userName = this.memberNamingService.createUniqueUserName(this.member, this.members);

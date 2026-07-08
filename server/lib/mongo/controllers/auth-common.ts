@@ -15,13 +15,18 @@ import * as transforms from "./transforms";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import * as crudController from "./crud-controller";
 import { member } from "../models/member";
-import { isUndefined } from "es-toolkit/compat";
+import { escapeRegExp, isUndefined } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("database:auth:common"));
 export const pleaseTryAgain = `. Please try again or`;
 export const please = `. Please`;
 debugLog.enabled = false;
 const controller = crudController.create<Member>(member);
+
+export function userNameOrEmailCriteria(userName: string): object {
+  const caseInsensitiveExactMatch = new RegExp(`^${escapeRegExp((userName ?? "").trim())}$`, "i");
+  return {$or: [{userName: caseInsensitiveExactMatch}, {email: caseInsensitiveExactMatch}]};
+}
 
 export interface ReturnTokenOnSuccessParams {
   status?: number;

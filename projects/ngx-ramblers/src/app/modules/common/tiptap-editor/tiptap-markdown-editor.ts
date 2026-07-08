@@ -15,6 +15,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
   faBold,
   faBolt,
+  faChevronDown,
+  faChevronUp,
   faHeading,
   faImage,
   faItalic,
@@ -24,6 +26,7 @@ import {
   faQuoteRight,
   faRedo,
   faRemoveFormat,
+  faSliders,
   faToggleOn,
   faToggleOff,
   faUndo
@@ -149,6 +152,22 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       display: flex
       gap: 6px
 
+    .tiptap-toolbar-toggle
+      display: none
+      align-items: center
+      width: 100%
+      padding: 8px 10px
+      border: none
+      border-bottom: 1px solid #e9ecef
+      background-color: #f8f9fa
+      color: #495057
+      font-size: 0.85rem
+      font-weight: 600
+
+    .tiptap-toolbar-toggle span
+      flex: 1 1 auto
+      text-align: left
+
     .tiptap-toolbar
       display: flex
       flex-wrap: wrap
@@ -156,6 +175,13 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
       padding: 6px
       border-bottom: 1px solid #e9ecef
       background-color: #f8f9fa
+
+    @media (max-width: 767px)
+      .tiptap-toolbar-toggle
+        display: flex
+
+      .tiptap-toolbar.tiptap-toolbar-collapsed
+        display: none
 
     .tiptap-toolbar button
       background: transparent
@@ -405,7 +431,14 @@ import { NgSelectComponent, NgOptionTemplateDirective } from "@ng-select/ng-sele
   template: `
     <div class="tiptap-editor-shell" [class.tiptap-editor-shell-disabled]="!editable" [attr.aria-disabled]="!editable">
       @if (editable) {
-      <div class="tiptap-toolbar" [class.tiptap-toolbar-sticky]="stickyToolbar" role="toolbar" (mousedown)="onToolbarMousedown($event)">
+      <button type="button" class="tiptap-toolbar-toggle" (click)="toolbarExpanded = !toolbarExpanded"
+              [attr.aria-expanded]="toolbarExpanded">
+        <fa-icon [icon]="faSliders" class="me-1"/>
+        <span>Formatting tools</span>
+        <fa-icon [icon]="toolbarExpanded ? faChevronUp : faChevronDown" class="ms-1"/>
+      </button>
+      <div class="tiptap-toolbar" [class.tiptap-toolbar-sticky]="stickyToolbar"
+           [class.tiptap-toolbar-collapsed]="!toolbarExpanded" role="toolbar" (mousedown)="onToolbarMousedown($event)">
         <button type="button" tooltip="Bold" container="body" delay=500 (click)="toggle(TiptapMark.Bold)" [class.is-active]="isActive('bold')">
           <fa-icon [icon]="faBold"/>
         </button>
@@ -774,6 +807,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected readonly faRemoveFormat = faRemoveFormat;
   protected readonly faToggleOn = faToggleOn;
   protected readonly faToggleOff = faToggleOff;
+  protected readonly faSliders = faSliders;
+  protected readonly faChevronDown = faChevronDown;
+  protected readonly faChevronUp = faChevronUp;
+  protected toolbarExpanded = false;
 
   ngOnInit(): void {
     const extensions: any[] = [
