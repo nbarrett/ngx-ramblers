@@ -88,8 +88,11 @@ export enum CatchAllAction {
   DISABLED = "disabled",
   DROP = "drop",
   FORWARD = "forward",
-  WORKER = "worker"
+  WORKER = "worker",
+  SHARED_ROUTER = "shared-router"
 }
+
+export const SHARED_INBOX_ROUTER_WORKER_NAME = "email-inbox-router";
 
 export interface UpdateCatchAllRequest {
   action: CatchAllAction;
@@ -125,6 +128,8 @@ export interface NonSensitiveCloudflareConfig {
   accountId?: string;
   zoneId?: string;
   baseDomain?: string;
+  ownsZone?: boolean;
+  zoneName?: string;
 }
 
 export interface MxRecordDetail {

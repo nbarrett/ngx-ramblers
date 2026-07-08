@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { RouterLink } from "@angular/router";
 import { AdminPath } from "../../../../models/admin-route-paths.model";
@@ -8,8 +8,7 @@ import {
   GoogleCloudProvisioningStepView,
   GoogleCloudSetupStatusValue,
   GoogleCloudSetupStatusView,
-  InboxReaderProvider,
-  InboxRoleNotificationSetting
+  InboxReaderProvider
 } from "../../../../models/inbox.model";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -20,6 +19,7 @@ import { SystemInboxMailboxConnectionsComponent } from "./system-inbox-mailbox-c
 import { SystemInboxRoleMailboxesComponent } from "./system-inbox-role-mailboxes";
 import { InboxService } from "../../../../services/inbox/inbox.service";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
+import { NonSensitiveCloudflareConfig } from "../../../../models/cloudflare-email-routing.model";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { ALERT_ERROR, ALERT_SUCCESS, AlertTarget } from "../../../../models/alert-target.model";
 import { AlertComponent } from "ngx-bootstrap/alert";
@@ -68,6 +68,12 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
       <div class="col-sm-12">
         <h6 class="section-heading">How this inbox receives mail</h6>
         <div class="form-check">
+          <input class="form-check-input" type="radio" id="inbox-provider-none"
+            name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.NONE"
+            (change)="selectInboxProvider(InboxReaderProvider.NONE)">
+          <label class="form-check-label" for="inbox-provider-none">No inbox</label>
+        </div>
+        <div class="form-check">
           <input class="form-check-input" type="radio" id="inbox-provider-gmail"
             name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.GMAIL_API"
             (change)="selectInboxProvider(InboxReaderProvider.GMAIL_API)">
@@ -80,7 +86,9 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
           <label class="form-check-label" for="inbox-provider-cloudflare">Direct to inbox &mdash; via Cloudflare Email Routing, no Gmail account</label>
         </div>
         <div class="small text-muted mt-1">
-          @if (inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
+          @if (inboxProvider === InboxReaderProvider.NONE) {
+            This site has no NGX inbox. Committee replies won't appear in Admin &rarr; Inbox &mdash; choose Gmail or Direct-to-inbox above if you want them to.
+          } @else if (inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
             Mail sent to this site's committee addresses is delivered straight into this inbox through Cloudflare Email Routing. There's no Gmail account, OAuth or Google Cloud project to set up.
           } @else {
             Committee members read replies through a connected Gmail account. Work through the setup steps below.
@@ -91,34 +99,70 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
         <div class="col-sm-12">
           <div class="mt-3">
             <h6 class="mb-2"><fa-icon [icon]="faCircleCheck" class="me-2"/>No Gmail setup needed</h6>
-            <p class="text-muted small mb-2">
-              With direct delivery there's nothing to connect here. To finish setting it up:
-            </p>
-            <ol class="text-muted small">
-              <li>Make sure Cloudflare Email Routing and the MX records are in place for your domain, and that your committee addresses exist as routing rules.</li>
-              <li>Click below to point this site's committee addresses at the inbox.</li>
-              <li>Replies then appear in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a> for whoever holds each role.</li>
-            </ol>
-            <button type="button" class="btn btn-primary btn-sm" [disabled]="directDeliverySaving" (click)="enableDirectDelivery()">
-              @if (directDeliverySaving) {
-                <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"/>
+            @if (isSharedZoneSubdomain()) {
+              <p class="text-muted small mb-2">
+                This site is a subdomain of the <strong>{{ parentZoneName() }}</strong> Cloudflare zone, which it shares with other sites. Direct delivery for this subdomain is provided by that zone's shared inbox router, not by anything you configure here.
+              </p>
+              <ol class="text-muted small">
+                <li>On the <strong>{{ parentZoneName() }}</strong> site, set the catch-all to <strong>Shared inbox router</strong> (Committee Settings &rarr; Email routing).</li>
+                <li>Keep this site's provider set to <strong>Direct to inbox</strong> (above). The router then delivers any <code>&#64;{{ cloudflareConfig?.baseDomain }}</code> mail straight here.</li>
+                <li>Replies appear in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a> for whoever holds each role.</li>
+              </ol>
+              <alert type="warning" class="d-block mt-3 mb-0">
+                <fa-icon [icon]="faTriangleExclamation"/>
+                <strong class="ms-2">Managed at the parent domain</strong>
+                <span class="ms-2">There are no Cloudflare rules to add for this subdomain, and no catch-all to change here &mdash; the shared router on {{ parentZoneName() }} routes mail to this inbox by recipient domain.</span>
+              </alert>
+            } @else if (ownsZoneConfirmed()) {
+              <p class="text-muted small mb-2">
+                With direct delivery there's nothing to connect here. To finish setting it up:
+              </p>
+              <ol class="text-muted small">
+                <li>Make sure Cloudflare Email Routing and the MX records are in place for your domain, and that your committee addresses exist as routing rules.</li>
+                <li>Click below to point this site's committee addresses at the inbox.</li>
+                <li>Replies then appear in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a> for whoever holds each role.</li>
+              </ol>
+              <button type="button" class="btn btn-primary btn-sm" [disabled]="directDeliverySaving" (click)="enableDirectDelivery()">
+                @if (directDeliverySaving) {
+                  <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"/>
+                }
+                Route this site's committee mail into the inbox
+              </button>
+              @if (directDeliveryMessage) {
+                <alert type="success" class="d-block mt-3 mb-0">
+                  <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
+                  <strong class="ms-2">Direct delivery active</strong>
+                  <span class="ms-2">{{ directDeliveryMessage }}</span>
+                </alert>
               }
-              Route this site's committee mail into the inbox
-            </button>
-            @if (directDeliveryMessage) {
-              <alert type="success" class="mt-3 mb-0">
-                <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
-                <strong class="ms-2">Direct delivery active</strong>
-                <span class="ms-2">{{ directDeliveryMessage }}</span>
+              @if (directDeliveryError) {
+                <alert type="danger" class="d-block mt-3 mb-0">
+                  <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+                  <strong class="ms-2">Direct delivery not enabled</strong>
+                  <span class="ms-2">{{ directDeliveryError }}</span>
+                </alert>
+              }
+            } @else {
+              <alert type="warning" class="d-block mb-0">
+                <fa-icon [icon]="faTriangleExclamation"/>
+                <strong class="ms-2">Cloudflare zone not resolved</strong>
+                <span class="ms-2">Couldn't determine whether this site owns its Cloudflare zone or shares one, so there's nothing to set up here yet. If this is a subdomain of a shared zone, direct delivery is handled by the parent zone's shared inbox router. If this site owns its own zone, make sure Cloudflare is configured, then reload.</span>
               </alert>
             }
-            @if (directDeliveryError) {
-              <alert type="danger" class="mt-3 mb-0">
-                <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
-                <strong class="ms-2">Direct delivery not enabled</strong>
-                <span class="ms-2">{{ directDeliveryError }}</span>
-              </alert>
-            }
+          </div>
+          <div class="mt-4">
+            <h6 class="mb-2"><fa-icon [icon]="faList" class="me-2"/>Role mailboxes</h6>
+            <app-system-inbox-role-mailboxes [refreshToken]="inboxRefreshToken"/>
+          </div>
+        </div>
+      }
+      @if (inboxProvider === InboxReaderProvider.NONE) {
+        <div class="col-sm-12">
+          <div class="mt-3">
+            <h6 class="mb-2"><fa-icon [icon]="faCircleCheck" class="me-2"/>No inbox set up</h6>
+            <p class="text-muted small mb-0">
+              This site has no NGX inbox &mdash; the default until a group moves to one. Committee replies don't appear in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a>. Pick Gmail or Direct-to-inbox above when you want them to.
+            </p>
           </div>
         </div>
       }
@@ -352,8 +396,7 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
                       <div class="mt-3">
                         <h6 class="mb-2"><fa-icon [icon]="faList" class="me-2"/>Role mailboxes</h6>
                         <app-system-inbox-role-mailboxes
-                          [refreshToken]="inboxRefreshToken"
-                          (pendingChanges)="inboxNotificationsPendingSave.emit($event)"/>
+                          [refreshToken]="inboxRefreshToken"/>
                         <div class="mt-3 d-flex justify-content-start">
                           <button class="btn btn-sm btn-quiet" type="button" (click)="goToStep(1)">
                             &larr; Back: Connected Gmail accounts
@@ -404,6 +447,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected readonly faSpinner = faSpinner;
   protected readonly steps = GMAIL_INBOX_STEPS;
   protected readonly GmailInboxSetupStepKey = GmailInboxSetupStepKey;
+  protected cloudflareConfig: NonSensitiveCloudflareConfig;
   protected readonly InboxReaderProvider = InboxReaderProvider;
   protected readonly GoogleCloudProvisioningStepStatus = GoogleCloudProvisioningStepStatus;
 
@@ -433,7 +477,6 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected notifyTarget: AlertTarget = {};
 
   @Input() inboxRefreshToken: number | null = null;
-  @Output() inboxNotificationsPendingSave = new EventEmitter<InboxRoleNotificationSetting[]>();
 
   @Input({
     alias: "config",
@@ -470,7 +513,22 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     this.subscriptions.push(this.oauthSave$.pipe(debounceTime(1000)).subscribe(() => this.autoSaveOAuthClient()));
     await this.refreshSetupStatus();
+    this.cloudflareEmailRoutingService.queryCloudflareConfig().catch(error => this.logger.warn("Cloudflare config not available:", error));
+    this.subscriptions.push(this.cloudflareEmailRoutingService.cloudflareConfigNotifications()
+      .subscribe(config => this.cloudflareConfig = config));
     this.clearSetupStartedParam();
+  }
+
+  protected isSharedZoneSubdomain(): boolean {
+    return this.cloudflareConfig?.ownsZone === false;
+  }
+
+  protected ownsZoneConfirmed(): boolean {
+    return this.cloudflareConfig?.ownsZone === true;
+  }
+
+  protected parentZoneName(): string {
+    return this.cloudflareConfig?.zoneName || "the parent domain";
   }
 
   private clearSetupStartedParam(): void {
@@ -593,7 +651,11 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   }
 
   get inboxProvider(): InboxReaderProvider {
-    return this.systemConfigInternal?.inbox?.provider ?? InboxReaderProvider.GMAIL_API;
+    const configured = this.systemConfigInternal?.inbox?.provider;
+    if (configured) {
+      return configured;
+    }
+    return this.oAuthClientConfigured() ? InboxReaderProvider.GMAIL_API : InboxReaderProvider.NONE;
   }
 
   async selectInboxProvider(provider: InboxReaderProvider): Promise<void> {
@@ -690,9 +752,6 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     }
     if (this.systemConfigInternal && !this.systemConfigInternal.googleInbox) {
       this.systemConfigInternal.googleInbox = {clientId: "", clientSecret: "", redirectUri: ""};
-    }
-    if (this.systemConfigInternal && !this.systemConfigInternal.inbox) {
-      this.systemConfigInternal.inbox = {provider: InboxReaderProvider.GMAIL_API};
     }
     const existingTopic = this.systemConfigInternal?.googleInbox?.pubsubTopicName;
     if (existingTopic && !this.topicNameInput) {

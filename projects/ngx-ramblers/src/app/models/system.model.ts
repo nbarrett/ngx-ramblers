@@ -1,4 +1,4 @@
-import { InboxReaderProvider } from "./inbox.model";
+import { InboxCatchAllPolicy, InboxReaderProvider } from "./inbox.model";
 import { Link } from "./page.model";
 import { HasClass, HasColour } from "./banner-configuration.model";
 import { GoogleMapsConfig, WalkListView } from "./walk.model";
@@ -414,6 +414,7 @@ export interface GoogleInboxConfig {
 
 export interface InboxSettingsConfig {
   provider: InboxReaderProvider;
+  catchAll?: InboxCatchAllPolicy;
 }
 
 export interface InboxPushConfig {

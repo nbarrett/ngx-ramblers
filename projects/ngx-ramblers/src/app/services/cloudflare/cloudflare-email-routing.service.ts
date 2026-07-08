@@ -84,6 +84,12 @@ export class CloudflareEmailRoutingService {
     return rule;
   }
 
+  async redeployRouterWorker(): Promise<{ scriptName: string }> {
+    const response = (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/rules/catch-all/router/redeploy`, {}))).response;
+    this.invalidateCache();
+    return response;
+  }
+
   async routeToInbox(): Promise<{ scriptName: string; routed: string[] }> {
     const response = (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/route-to-inbox`, {}))).response;
     this.invalidateCache();

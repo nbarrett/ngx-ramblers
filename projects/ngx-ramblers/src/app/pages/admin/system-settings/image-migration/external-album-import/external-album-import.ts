@@ -29,7 +29,8 @@ import {
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { StringUtilsService } from "../../../../../services/string-utils.service";
 import { MemberLoginService } from "../../../../../services/member/member-login.service";
-import { SectionToggle, SectionToggleTab } from "../../../../../shared/components/section-toggle";
+import { SectionToggle } from "../../../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../../../models/section-toggle.model";
 import { TemplateSelectEvent, TemplateSelectorComponent } from "../../../../../modules/common/dynamic-content/template-selector";
 import { PageContent } from "../../../../../models/content-text.model";
 import { MarkdownEditorComponent } from "../../../../../markdown-editor/markdown-editor.component";

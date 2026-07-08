@@ -3,14 +3,8 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { Subscription } from "rxjs";
 import { isString, kebabCase } from "es-toolkit/compat";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { StoredValue } from "../../models/ui-actions";
-
-export interface SectionToggleTab {
-  value: string;
-  label: string;
-  icon?: IconDefinition;
-}
+import { SectionToggleTab } from "../../models/section-toggle.model";
 
 @Component({
   selector: "app-section-toggle",

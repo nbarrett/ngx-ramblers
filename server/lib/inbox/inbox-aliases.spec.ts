@@ -37,15 +37,26 @@ describe("inbox-aliases", () => {
     it("maps role-address mail to the matching role alias", async () => {
       const connectionRecord = connection({id: "cf1", gmailAccountEmail: null, provider: InboxReaderProvider.CLOUDFLARE_INGRESS});
       const message = {to: [{email: "secretary@ekwg.co.uk"}], cc: []} as InboxMessage;
-      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@ekwg.co.uk"})], new Map<string, Set<string>>(), "ekwg");
+      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@ekwg.co.uk"})], "ekwg");
       expect(result.map(alias => alias.roleType)).toEqual(["secretary"]);
     });
 
     it("maps unmatched catch-all mail to the general alias", async () => {
       const connectionRecord = connection({id: "cf1", gmailAccountEmail: null, provider: InboxReaderProvider.CLOUDFLARE_INGRESS});
       const message = {to: [{email: "unknown@ekwg.co.uk"}], cc: []} as InboxMessage;
-      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@ekwg.co.uk"})], new Map<string, Set<string>>(), "ekwg");
+      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, [role({type: "secretary", email: "secretary@ekwg.co.uk"})], "ekwg");
       expect(result.map(alias => alias.roleType)).toEqual([inboxGeneralRoleTypeFor("cf1")]);
+    });
+
+    it("maps mail only to the role whose address matches, not other roles held by the same member", async () => {
+      const connectionRecord = connection({id: "cf1", gmailAccountEmail: null, provider: InboxReaderProvider.CLOUDFLARE_INGRESS});
+      const message = {to: [{email: "nick.barrett@ekwg.co.uk"}], cc: []} as InboxMessage;
+      const roles = [
+        role({type: "membership", email: "nick.barrett@ekwg.co.uk", memberId: "member-nick"}),
+        role({type: "walks", email: "walks@ekwg.co.uk", memberId: "member-nick"})
+      ];
+      const result = cloudflareIngressAliasesFromMessage(message, connectionRecord, roles, "ekwg");
+      expect(result.map(alias => alias.roleType)).toEqual(["membership"]);
     });
 
   });

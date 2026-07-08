@@ -63,7 +63,8 @@ import { NotificationConfigService } from "../../../services/notification-config
 import { GroupEventField } from "../../../models/walk.model";
 import { EventQueryParameters, RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
+import { SectionToggle } from "../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../models/section-toggle.model";
 
 export enum BookingTab {
   SUMMARY = "Summary",

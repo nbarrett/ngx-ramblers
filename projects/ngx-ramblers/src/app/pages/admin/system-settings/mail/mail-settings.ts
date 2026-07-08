@@ -139,7 +139,8 @@ import { SystemGmailInboxSettingsComponent } from "../external/system-gmail-inbo
                 [heading]="MailSettingsTab.MAIL_PROVIDER">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   @if (systemConfig) {
-                    <app-mail-provider-settings [config]="systemConfig"/>
+                    <app-mail-provider-settings [config]="systemConfig"
+                                                (membersPendingSave)="membersPendingSave = $event"/>
                   } @else {
                     <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
                   }
@@ -439,6 +440,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   protected mailService: MailService = inject(MailService);
   private memberService: MemberService = inject(MemberService);
   protected members: Member[] = [];
+  protected membersPendingSave: Member[] = [];
   private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   private router: Router = inject(Router);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
@@ -582,12 +584,22 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   save() {
     this.logger.info("saving config", this.mailMessagingConfig?.mailConfig);
     this.acceptNextConfigEmission = true;
-    return this.mailMessagingService.saveConfig(this.mailMessagingConfig, this.deletedConfigs)
+    return this.savePendingMembers()
+      .then(() => this.systemConfig ? this.systemConfigService.saveConfig(this.systemConfig) : undefined)
+      .then(() => this.mailMessagingService.saveConfig(this.mailMessagingConfig, this.deletedConfigs))
       .then(response => {
         this.pendingApiKeyValidation = false;
         return response;
       })
       .catch((error) => this.notify.error(error));
+  }
+
+  private async savePendingMembers(): Promise<void> {
+    if (this.membersPendingSave.length > 0) {
+      this.logger.info("saving", this.membersPendingSave.length, "pending member(s)");
+      await this.memberService.createOrUpdateAll(this.membersPendingSave);
+      this.membersPendingSave = [];
+    }
   }
 
   saveAndExit() {

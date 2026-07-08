@@ -11,7 +11,8 @@ import {
 } from "../../../../models/mail.model";
 import { MergeFieldGroup } from "../../../../models/email-composer.model";
 import { TiptapMarkdownEditor } from "../../../../modules/common/tiptap-editor/tiptap-markdown-editor";
-import { SectionToggle, SectionToggleTab } from "../../../../shared/components/section-toggle";
+import { SectionToggle } from "../../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../../models/section-toggle.model";
 import { StoredValue } from "../../../../models/ui-actions";
 
 export function contentBlockStateTabs(omitAllowed: boolean): SectionToggleTab[] {

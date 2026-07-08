@@ -22,7 +22,8 @@ import { StoredValue } from "../../../models/ui-actions";
 import { isEmpty } from "es-toolkit/compat";
 import { VenueAutocompleteComponent } from "./venue-autocomplete";
 import { VenueMapSelectorComponent } from "./venue-map-selector";
-import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
+import { SectionToggle } from "../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../models/section-toggle.model";
 
 export enum VenueLookupMode {
   SEARCH = "search",

@@ -36,9 +36,10 @@ import {
   EmailRoutingMatcherType,
   EmailRoutingRule,
   EmailWorkerScript,
-  NonSensitiveCloudflareConfig
+  NonSensitiveCloudflareConfig,
+  SHARED_INBOX_ROUTER_WORKER_NAME
 } from "../../../../models/cloudflare-email-routing.model";
-import { EnvironmentSettingsSubTab } from "../../../../models/system.model";
+import { EnvironmentSettingsSubTab, SystemConfig } from "../../../../models/system.model";
 import { EnvironmentSetupTab } from "../../../../models/environment-setup.model";
 import { StoredValue } from "../../../../models/ui-actions";
 import { sortBy } from "../../../../functions/arrays";
@@ -54,7 +55,7 @@ import { destinationVerificationStatusFor } from "./email-routing-view-resolver"
 import { CloudflareUrlService } from "../../../../services/cloudflare/cloudflare-url.service";
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
 import { InboxService } from "../../../../services/inbox/inbox.service";
-import { InboxAliasConnectionStatus, InboxReaderProvider } from "../../../../models/inbox.model";
+import { InboxAliasConnectionStatus, InboxCatchAllMode, InboxReaderProvider } from "../../../../models/inbox.model";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { filter, Subscription } from "rxjs";
 import { ConfigKey } from "../../../../models/config.model";
@@ -125,6 +126,9 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
       :host ::ng-deep .email-forward-tooltip .tooltip-inner
         max-width: none
         white-space: nowrap
+      :host ::ng-deep alert.zone-catch-all-note .alert
+        margin-top: 1rem
+        margin-bottom: 0.25rem
     `],
     template: `
     <app-page autoTitle>
@@ -441,7 +445,23 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                         </tbody>
                       </table>
                     </div>
-                    @if (cloudflareEmailRoutingService.emailForwardingAvailable() && baseDomain) {
+                  } @else {
+                    <div class="thumbnail-heading-frame">
+                      <div class="thumbnail-heading">
+                        {{ editingRoleHeading() }}
+                      </div>
+                      <app-committee-member [committeeMember]="editingRoleDraft"
+                                            [roles]="committeeConfig.roles"
+                                            [index]="editingRoleIndex()"/>
+                      <div class="d-flex justify-content-end gap-2 mt-3 pe-2">
+                        <button type="button" class="btn btn-outline-secondary"
+                          (click)="cancelRoleEdit()">Cancel</button>
+                        <button type="button" class="btn btn-success"
+                          (click)="saveRoleEdit()">Save</button>
+                      </div>
+                    </div>
+                  }
+                  @if (cloudflareEmailRoutingService.emailForwardingAvailable() && baseDomain) {
                       <div class="card ngx-data-card mb-3 mt-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
                           <div>
@@ -456,7 +476,49 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                           <span class="badge {{ catchAllStatusBadgeClass() }}">{{ catchAllStatusLabel() }}</span>
                         </div>
                         <div class="card-body">
-                          @if (internalInbox) {
+                          @if (isSharedZoneSubdomain()) {
+                            <p class="small text-muted mb-2">
+                              This subdomain shares the <strong>{{ parentZoneName() }}</strong> zone, so the Cloudflare catch-all rule itself is set once on the {{ parentZoneName() }} site (it must be pointed at the shared inbox router). What you set here is what that shared router does with any <code>&#64;{{ baseDomain }}</code> address that doesn't match a committee role rule:
+                            </p>
+                            <div class="form-check">
+                              <input class="form-check-input" type="radio" name="site-catch-all-mode" id="site-catch-all-inbox"
+                                     [checked]="siteCatchAllMode === InboxCatchAllMode.INBOX" (change)="siteCatchAllMode = InboxCatchAllMode.INBOX; editingSiteCatchAll = true">
+                              <label class="form-check-label" for="site-catch-all-inbox">Deliver to this site's inbox (general mailbox)</label>
+                            </div>
+                            <div class="form-check">
+                              <input class="form-check-input" type="radio" name="site-catch-all-mode" id="site-catch-all-forward"
+                                     [checked]="siteCatchAllMode === InboxCatchAllMode.FORWARD" (change)="siteCatchAllMode = InboxCatchAllMode.FORWARD; editingSiteCatchAll = true">
+                              <label class="form-check-label" for="site-catch-all-forward">Forward to an address</label>
+                            </div>
+                            @if (siteCatchAllMode === InboxCatchAllMode.FORWARD) {
+                              <input type="email" class="form-control form-control-sm mt-1 mb-2"
+                                     [(ngModel)]="siteCatchAllForwardTo" (ngModelChange)="editingSiteCatchAll = true"
+                                     name="site-catch-all-forward-to"
+                                     placeholder="e.g. committee@gmail.com">
+                              <div class="small text-muted mb-2">Must be a verified Cloudflare forwarding destination. If the router can't reach it, mail falls back to the zone's shared fallback rather than being lost.</div>
+                            }
+                            <div class="form-check">
+                              <input class="form-check-input" type="radio" name="site-catch-all-mode" id="site-catch-all-drop"
+                                     [checked]="siteCatchAllMode === InboxCatchAllMode.DROP" (change)="siteCatchAllMode = InboxCatchAllMode.DROP; editingSiteCatchAll = true">
+                              <label class="form-check-label" for="site-catch-all-drop">Drop (don't deliver unmatched mail)</label>
+                            </div>
+                            <div class="mt-3 d-flex gap-2">
+                              <button class="btn btn-success btn-sm" type="button" (click)="saveSiteCatchAll()" [disabled]="siteCatchAllSaving">
+                                {{ siteCatchAllSaving ? "Saving..." : "Save catch-all" }}
+                              </button>
+                            </div>
+                            <alert type="warning" class="zone-catch-all-note">
+                              <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+                              <strong class="ms-2">Depends on the zone catch-all</strong>
+                              <span class="ms-2">This only applies while {{ parentZoneName() }} routes unmatched mail through the shared inbox router. The zone catch-all is currently <strong>{{ catchAllStatusLabel() }}</strong>.</span>
+                            </alert>
+                            @if (siteCatchAllError) {
+                              <div class="alert alert-warning mt-2 mb-0">
+                                <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+                                <span class="ms-2">{{ siteCatchAllError }}</span>
+                              </div>
+                            }
+                          } @else if (internalInbox) {
                             <div class="alert alert-success mb-0">
                               <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
                               <strong class="ms-2">Delivered to the internal inbox</strong>
@@ -489,8 +551,46 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                   <option [ngValue]="CatchAllAction.DROP">Drop (return undeliverable)</option>
                                   <option [ngValue]="CatchAllAction.FORWARD">Forward to one address</option>
                                   <option [ngValue]="CatchAllAction.WORKER">Forward to multiple addresses</option>
+                                  <option [ngValue]="CatchAllAction.SHARED_ROUTER">Shared inbox router (deliver to inboxes, forward the rest)</option>
                                 </select>
                               </div>
+                              @if (catchAllDraftAction === CatchAllAction.SHARED_ROUTER) {
+                                <div class="col-sm-8">
+                                  <label class="form-label">Safety-net forward address</label>
+                                  <input type="email" class="form-control form-control-sm"
+                                         [(ngModel)]="catchAllDraftSingleDestination"
+                                         name="catch-all-router-fallback"
+                                         placeholder="only used if a site can't be reached, e.g. nick.barrett36@gmail.com">
+                                  <div class="small text-muted mt-1">
+                                    A safety net, not a routing choice: mail only comes here if a site on this zone can't be reached (its inbox endpoint is down or errors), so nothing is ever lost. Committee addresses with their own routing rules are unaffected.
+                                  </div>
+                                </div>
+                                <div class="col-sm-12 mt-2">
+                                  <h6 class="border-top pt-3 mb-1">This site's unmatched mail</h6>
+                                  <div class="small text-muted mb-2">Where <code>&#64;{{ baseDomain }}</code> addresses that don't match a committee role rule go &mdash; this site's own destination, separate from the safety net above. (Each subdomain sets its own in its Committee Settings.)</div>
+                                  <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="apex-site-catch-all-mode" id="apex-site-catch-all-inbox"
+                                           [checked]="siteCatchAllMode === InboxCatchAllMode.INBOX" (change)="siteCatchAllMode = InboxCatchAllMode.INBOX">
+                                    <label class="form-check-label" for="apex-site-catch-all-inbox">Deliver to this site's inbox (general mailbox)</label>
+                                  </div>
+                                  <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="apex-site-catch-all-mode" id="apex-site-catch-all-forward"
+                                           [checked]="siteCatchAllMode === InboxCatchAllMode.FORWARD" (change)="siteCatchAllMode = InboxCatchAllMode.FORWARD">
+                                    <label class="form-check-label" for="apex-site-catch-all-forward">Forward to an address</label>
+                                  </div>
+                                  @if (siteCatchAllMode === InboxCatchAllMode.FORWARD) {
+                                    <input type="email" class="form-control form-control-sm mt-1 mb-2"
+                                           [(ngModel)]="siteCatchAllForwardTo"
+                                           name="apex-site-catch-all-forward-to"
+                                           placeholder="e.g. committee@gmail.com">
+                                  }
+                                  <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="apex-site-catch-all-mode" id="apex-site-catch-all-drop"
+                                           [checked]="siteCatchAllMode === InboxCatchAllMode.DROP" (change)="siteCatchAllMode = InboxCatchAllMode.DROP">
+                                    <label class="form-check-label" for="apex-site-catch-all-drop">Drop (don't deliver unmatched mail)</label>
+                                  </div>
+                                </div>
+                              }
                               @if (catchAllDraftAction === CatchAllAction.FORWARD) {
                                 <div class="col-sm-8">
                                   <label class="form-label">Destination email</label>
@@ -578,23 +678,6 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                         </div>
                       </div>
                     }
-                  }
-                  @if (editingRoleDraft) {
-                    <div class="thumbnail-heading-frame">
-                      <div class="thumbnail-heading">
-                        {{ editingRoleHeading() }}
-                      </div>
-                      <app-committee-member [committeeMember]="editingRoleDraft"
-                                            [roles]="committeeConfig.roles"
-                                            [index]="editingRoleIndex()"/>
-                      <div class="d-flex justify-content-end gap-2 mt-3 pe-2">
-                        <button type="button" class="btn btn-outline-secondary"
-                          (click)="cancelRoleEdit()">Cancel</button>
-                        <button type="button" class="btn btn-success"
-                          (click)="saveRoleEdit()">Save</button>
-                      </div>
-                    </div>
-                  }
                 </div>
               </tab>
               <tab heading="File Types">
@@ -760,6 +843,15 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   baseDomain = "";
   cloudflareAccountId: string = "";
   cloudflareZoneId: string = "";
+  cloudflareOwnsZone: boolean;
+  cloudflareZoneName = "";
+  private systemConfigInternal: SystemConfig;
+  protected editingSiteCatchAll = false;
+  protected siteCatchAllMode: InboxCatchAllMode;
+  protected siteCatchAllForwardTo = "";
+  protected siteCatchAllSaving = false;
+  protected siteCatchAllError: string = null;
+  protected readonly InboxCatchAllMode = InboxCatchAllMode;
   platformAdminEnabled = false;
   committeeMembersLoaded = false;
   committeeRolesAlertDismissed = false;
@@ -775,8 +867,14 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         this.cloudflareEmailRoutingService.invalidateCache();
         this.committeeConfigService.refreshConfig();
       }));
-    this.subscriptions.push(this.systemConfigService.events().subscribe(config =>
-      this.internalInbox = config?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS));
+    this.subscriptions.push(this.systemConfigService.events().subscribe(config => {
+      this.systemConfigInternal = config;
+      this.internalInbox = config?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS;
+      if (!this.editingSiteCatchAll && !this.editingCatchAll) {
+        this.siteCatchAllForwardTo = config?.inbox?.catchAll?.forwardTo || "";
+        this.siteCatchAllMode = config?.inbox?.catchAll?.mode ?? InboxCatchAllMode.INBOX;
+      }
+    }));
     this.committeeQueryService.queryCommitteeMembers()
       .then(() => this.committeeMembersLoaded = true)
       .catch(err => this.logger.error("Committee members not available:", err));
@@ -843,6 +941,8 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         this.baseDomain = config?.baseDomain || "";
         this.cloudflareAccountId = config?.accountId || "";
         this.cloudflareZoneId = config?.zoneId || "";
+        this.cloudflareOwnsZone = config?.ownsZone;
+        this.cloudflareZoneName = config?.zoneName || "";
       })
     );
   }
@@ -1117,7 +1217,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     if (matchingRule) {
       const workerAction = matchingRule.actions?.find(a => a.type === EmailRoutingActionType.WORKER);
       if (workerAction) {
-        return EmailForwardStatus.WORKER;
+        return role.forwardEmailTarget === ForwardEmailTarget.MULTIPLE ? EmailForwardStatus.WORKER : EmailForwardStatus.ACTIVE;
       }
       const forwardAction = matchingRule.actions?.find(a => a.type === EmailRoutingActionType.FORWARD);
       const currentDest = forwardAction?.value?.[0];
@@ -1200,6 +1300,43 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     return workerAction?.value?.[0] || null;
   }
 
+  isSharedZoneSubdomain(): boolean {
+    return this.cloudflareOwnsZone === false;
+  }
+
+  async saveSiteCatchAll(): Promise<void> {
+    this.siteCatchAllError = null;
+    if (this.siteCatchAllMode === InboxCatchAllMode.FORWARD && !this.siteCatchAllForwardTo.trim()) {
+      this.siteCatchAllError = "Enter a forward address for the Forward option.";
+      return;
+    }
+    this.siteCatchAllSaving = true;
+    try {
+      await this.persistSiteCatchAllPolicy();
+    } catch (err) {
+      this.logger.error("Failed to save site catch-all policy:", err);
+      this.siteCatchAllError = extractErrorMessage(err) || "Failed to save catch-all policy.";
+    } finally {
+      this.siteCatchAllSaving = false;
+    }
+  }
+
+  private async persistSiteCatchAllPolicy(): Promise<void> {
+    const config = this.systemConfigInternal;
+    config.inbox = {
+      ...(config.inbox || {provider: InboxReaderProvider.GMAIL_API}),
+      catchAll: this.siteCatchAllMode === InboxCatchAllMode.FORWARD
+        ? {mode: InboxCatchAllMode.FORWARD, forwardTo: this.siteCatchAllForwardTo.trim()}
+        : {mode: this.siteCatchAllMode}
+    };
+    await this.systemConfigService.saveConfig(config);
+    this.editingSiteCatchAll = false;
+  }
+
+  parentZoneName(): string {
+    return this.cloudflareZoneName || "the parent domain";
+  }
+
   catchAllResolvedAction(): CatchAllAction {
     if (!this.catchAllRule || !this.catchAllRule.enabled) {
       return CatchAllAction.DISABLED;
@@ -1209,7 +1346,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       return CatchAllAction.FORWARD;
     }
     if (action?.type === EmailRoutingActionType.WORKER) {
-      return CatchAllAction.WORKER;
+      return action.value?.[0] === SHARED_INBOX_ROUTER_WORKER_NAME ? CatchAllAction.SHARED_ROUTER : CatchAllAction.WORKER;
     }
     return CatchAllAction.DROP;
   }
@@ -1221,6 +1358,8 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         return `Forward -> ${this.catchAllDestination() || "?"}`;
       case CatchAllAction.WORKER:
         return "Multiple recipients (Worker)";
+      case CatchAllAction.SHARED_ROUTER:
+        return "Shared inbox router";
       case CatchAllAction.DROP:
         return "Drop";
       case CatchAllAction.DISABLED:
@@ -1231,7 +1370,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
   catchAllStatusBadgeClass(): string {
     const resolved = this.catchAllResolvedAction();
-    if (resolved === CatchAllAction.FORWARD || resolved === CatchAllAction.WORKER) {
+    if (resolved === CatchAllAction.FORWARD || resolved === CatchAllAction.WORKER || resolved === CatchAllAction.SHARED_ROUTER) {
       return "text-style-sunset";
     }
     if (resolved === CatchAllAction.DROP) {
@@ -1248,13 +1387,21 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.catchAllDraftAction = this.catchAllResolvedAction();
     const action = this.catchAllRule?.actions?.[0];
     const isForward = action?.type === EmailRoutingActionType.FORWARD;
-    const isWorker = action?.type === EmailRoutingActionType.WORKER;
-    this.catchAllDraftSingleDestination = isForward ? (action.value?.[0] || "") : "";
-    if (isWorker) {
+    if (this.catchAllDraftAction === CatchAllAction.SHARED_ROUTER) {
+      this.catchAllDraftSingleDestination = this.sharedRouterFallbackFromRuleName();
+      this.catchAllDraftMultipleDestinations = [""];
+    } else if (this.catchAllDraftAction === CatchAllAction.WORKER) {
+      this.catchAllDraftSingleDestination = "";
       this.catchAllDraftMultipleDestinations = await this.recipientsForExistingCatchAllWorker();
     } else {
+      this.catchAllDraftSingleDestination = isForward ? (action?.value?.[0] || "") : "";
       this.catchAllDraftMultipleDestinations = [""];
     }
+  }
+
+  private sharedRouterFallbackFromRuleName(): string {
+    const match = /\(fallback\s+(.+?)\)\s*$/.exec(this.catchAllRule?.name || "");
+    return match ? match[1].trim() : "";
   }
 
   cancelEditCatchAll(): void {
@@ -1263,6 +1410,9 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.catchAllVerificationMessage = null;
     this.catchAllDraftSingleDestination = "";
     this.catchAllDraftMultipleDestinations = [];
+    this.editingSiteCatchAll = false;
+    this.siteCatchAllForwardTo = this.systemConfigInternal?.inbox?.catchAll?.forwardTo || "";
+    this.siteCatchAllMode = this.systemConfigInternal?.inbox?.catchAll?.mode ?? InboxCatchAllMode.INBOX;
   }
 
   catchAllDestinationVerificationStatus(): DestinationVerificationStatus | null {
@@ -1343,7 +1493,8 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.catchAllError = null;
     this.catchAllSaving = true;
     try {
-      const destinations = this.catchAllDraftAction === CatchAllAction.FORWARD
+      const singleDestinationActions = [CatchAllAction.FORWARD, CatchAllAction.SHARED_ROUTER];
+      const destinations = singleDestinationActions.includes(this.catchAllDraftAction)
         ? [this.catchAllDraftSingleDestination]
         : this.catchAllDraftMultipleDestinations;
       const cleaned = destinations.map(d => (d || "").trim()).filter(Boolean);
@@ -1351,14 +1502,26 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         this.catchAllError = "Enter a single destination email for the Forward action.";
         return;
       }
+      if (this.catchAllDraftAction === CatchAllAction.SHARED_ROUTER && cleaned.length !== 1) {
+        this.catchAllError = "Enter a single fallback forward address for the shared inbox router.";
+        return;
+      }
       if (this.catchAllDraftAction === CatchAllAction.WORKER && cleaned.length === 0) {
         this.catchAllError = "Add at least one destination email for the Multiple action.";
+        return;
+      }
+      if (this.catchAllDraftAction === CatchAllAction.SHARED_ROUTER
+        && this.siteCatchAllMode === InboxCatchAllMode.FORWARD && !this.siteCatchAllForwardTo.trim()) {
+        this.catchAllError = "Enter a forward address for this site's 'Forward to an address' option.";
         return;
       }
       await this.cloudflareEmailRoutingService.updateCatchAllRule({
         action: this.catchAllDraftAction,
         destinations: cleaned
       });
+      if (this.catchAllDraftAction === CatchAllAction.SHARED_ROUTER) {
+        await this.persistSiteCatchAllPolicy();
+      }
       this.editingCatchAll = false;
       await this.refreshDeployedCatchAllWorkerInfo();
     } catch (err) {
@@ -1437,13 +1600,17 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.catchAllRedeploying = true;
     this.catchAllError = null;
     try {
-      const recipients = this.catchAllDeployedRecipients?.length
-        ? this.catchAllDeployedRecipients
-        : await this.cloudflareEmailRoutingService.queryWorkerRecipients(scriptName);
-      await this.cloudflareEmailRoutingService.updateCatchAllRule({
-        action: CatchAllAction.WORKER,
-        destinations: recipients
-      });
+      if (this.catchAllResolvedAction() === CatchAllAction.SHARED_ROUTER) {
+        await this.cloudflareEmailRoutingService.redeployRouterWorker();
+      } else {
+        const recipients = this.catchAllDeployedRecipients?.length
+          ? this.catchAllDeployedRecipients
+          : await this.cloudflareEmailRoutingService.queryWorkerRecipients(scriptName);
+        await this.cloudflareEmailRoutingService.updateCatchAllRule({
+          action: CatchAllAction.WORKER,
+          destinations: recipients
+        });
+      }
       await this.refreshDeployedCatchAllWorkerInfo();
     } catch (err) {
       this.logger.error("Failed to redeploy catch-all worker:", err);
