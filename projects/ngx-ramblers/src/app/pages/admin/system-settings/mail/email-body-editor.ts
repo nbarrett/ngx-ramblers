@@ -6,7 +6,8 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
 import { NotificationConfig } from "../../../../models/mail.model";
 import { MemberMergeFieldHint, registerExampleValues, registerLinkDestinations } from "../../../../models/email-composer.model";
 import { TiptapMarkdownEditor } from "../../../../modules/common/tiptap-editor/tiptap-markdown-editor";
-import { SectionToggle, SectionToggleTab } from "../../../../shared/components/section-toggle";
+import { SectionToggle } from "../../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../../models/section-toggle.model";
 import { MailService } from "../../../../services/mail/mail.service";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { LegacyUrlMappingService } from "../../../../services/legacy-redirect/legacy-url-mapping.service";

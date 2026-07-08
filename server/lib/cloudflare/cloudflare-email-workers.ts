@@ -7,6 +7,7 @@ import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/
 import {
   EmailForwardingMode,
   EmailWorkerScript,
+  SHARED_INBOX_ROUTER_WORKER_NAME,
   WorkerScriptRecipientsInfo
 } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
 import { cloudflareApi, CloudflareResponse } from "./cloudflare.model";
@@ -86,7 +87,7 @@ export function generateWorkerScript(
   });
 }
 
-export const ROUTER_WORKER_NAME = "email-inbox-router";
+export const ROUTER_WORKER_NAME = SHARED_INBOX_ROUTER_WORKER_NAME;
 
 export function generateRouterWorkerScript(): string {
   return `${MODE_MARKER_PREFIX} ngx-inbox-router\n` + loadTranspiledTemplate("ngx-inbox-router");

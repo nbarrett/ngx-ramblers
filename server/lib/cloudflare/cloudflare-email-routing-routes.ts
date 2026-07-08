@@ -102,6 +102,18 @@ const router = express.Router();
 
 router.get("/config", authConfig.authenticate(), asyncRoute(messageType, async (req: Request, res: Response) => {
   const config = await nonSensitiveCloudflareConfig();
+  const host = (config.baseDomain || "").replace(/^www\./, "").trim().toLowerCase();
+  if (config.configured && host) {
+    try {
+      const cloudflareConfig = await configuredCloudflare();
+      const zone = await zoneForHostname(cloudflareConfig.apiToken, host);
+      const zoneName = (zone?.name || "").trim().toLowerCase();
+      config.zoneName = zoneName || undefined;
+      config.ownsZone = zoneName ? host === zoneName : undefined;
+    } catch (zoneError) {
+      debugLog("Could not resolve zone ownership for %s: %s", host, (zoneError as Error).message);
+    }
+  }
   res.json({request: {messageType}, response: config});
 }));
 
@@ -175,6 +187,19 @@ async function planCatchAllRule(
       enabled: true,
       actions: [{type: EmailRoutingActionType.FORWARD, value: [destinations[0]]}],
       nameSuffix: `Forward to ${destinations[0]}`
+    };
+  }
+  if (action === CatchAllAction.SHARED_ROUTER) {
+    if (destinations.length !== 1) {
+      throw new HttpError(400, "SHARED_ROUTER action requires exactly one fallback forward destination (where non-inbox mail goes).");
+    }
+    await ensureForwardDestinationVerified(cloudflareConfig, destinations[0]);
+    const scriptName = await ensureRouterWorker(cloudflareConfig);
+    await uploadWorkerSecret(cloudflareConfig, scriptName, "NGX_FALLBACK_FORWARD", destinations[0]);
+    return {
+      enabled: true,
+      actions: [{type: EmailRoutingActionType.WORKER, value: [scriptName]}],
+      nameSuffix: `Shared inbox router (fallback ${destinations[0]})`
     };
   }
   if (action === CatchAllAction.WORKER) {
@@ -253,6 +278,14 @@ router.put("/rules/catch-all", authConfig.authenticate(), asyncRoute(messageType
   }
 
   res.json({request: {messageType}, response: updated});
+}));
+
+router.post("/rules/catch-all/router/redeploy", authConfig.authenticate(), asyncRoute(messageType, async (req: Request, res: Response) => {
+  const cloudflareConfig = await configuredCloudflare();
+  const nsConfig = await nonSensitiveCloudflareConfig();
+  await assertCatchAllOwnedByThisSite(cloudflareConfig, nsConfig.baseDomain || "");
+  const scriptName = await ensureRouterWorker(cloudflareConfig);
+  res.json({request: {messageType}, response: {scriptName}});
 }));
 
 async function inboundRouterSecret(): Promise<string | null> {
@@ -423,7 +456,17 @@ router.get("/workers/:scriptName/info", authConfig.authenticate(), asyncRoute(me
   let upToDate: boolean | undefined;
   const roleEmail = req.query.roleEmail as string | undefined;
   const roleName = req.query.roleName as string | undefined;
-  if (roleEmail) {
+  const isRouterCatchAllContext = req.params.scriptName === ROUTER_WORKER_NAME
+    && (roleName === "catch-all" || (roleEmail || "").trim().startsWith("*@"));
+  if (isRouterCatchAllContext) {
+    const expected = generateRouterWorkerScript();
+    upToDate = scriptsMatchIgnoringWhitespace(expected, scriptContent);
+    if (!upToDate) {
+      const diff = firstDifference(expected, scriptContent);
+      debugLog("Router worker out of sync for %s. First diff at idx %d\n  expected[..]: %s\n  deployed[..]: %s",
+        req.params.scriptName, diff?.index, diff?.aAround, diff?.bAround);
+    }
+  } else if (roleEmail) {
     const webhookContext = await webhookContextForMode(info.forwardingMode);
     const expected = generateWorkerScript(info.recipients, info.forwardingMode, {
       roleEmail,
@@ -433,7 +476,7 @@ router.get("/workers/:scriptName/info", authConfig.authenticate(), asyncRoute(me
     upToDate = scriptsMatchIgnoringWhitespace(expected, scriptContent);
     if (!upToDate) {
       const diff = firstDifference(expected, scriptContent);
-      debugLog("Worker drift detected for %s. First diff at idx %d\n  expected[..]: %s\n  deployed[..]: %s",
+      debugLog("Worker out of sync for %s. First diff at idx %d\n  expected[..]: %s\n  deployed[..]: %s",
         req.params.scriptName, diff?.index, diff?.aAround, diff?.bAround);
     }
   }

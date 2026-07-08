@@ -12,6 +12,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { InboxService } from "../../../services/inbox/inbox.service";
 import { InboxReplyHandoffService } from "../../../services/inbox/inbox-reply-handoff.service";
 import { InboxPushSubscriptionService } from "../../../services/inbox/inbox-push-subscription.service";
+import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { MessageType } from "../../../models/websocket.model";
 import {
@@ -369,6 +370,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private inboxService = inject(InboxService);
   private inboxReplyHandoff = inject(InboxReplyHandoffService);
   private pushSubscriptionService = inject(InboxPushSubscriptionService);
+  private inboxNotificationService = inject(InboxNotificationService);
   protected readonly mailSettingsQueryParams = {[StoredValue.TAB]: "external-systems", [StoredValue.SUB_TAB]: "mail"};
   protected readonly pushStatus$ = this.pushSubscriptionService.status$;
   protected readonly faBell = faBell;
@@ -624,6 +626,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.logger.error("Failed to refresh inbox:", error);
     } finally {
       this.busy = false;
+      void this.inboxNotificationService.resync();
     }
   }
 
@@ -850,10 +853,10 @@ export class InboxComponent implements OnInit, OnDestroy {
     return kebabCase(sanitised) || String(thread.firstSeenAt ?? thread.lastSeenAt ?? "");
   }
 
-  private syncThreadToUrl(thread: InboxThread): void {
+  private syncThreadToUrl(thread: InboxThread | null): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {[StoredValue.THREAD]: this.threadSlug(thread)},
+      queryParams: {[StoredValue.THREAD]: thread ? this.threadSlug(thread) : null},
       queryParamsHandling: "merge",
       replaceUrl: true
     });
@@ -949,6 +952,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         thread.unread = false;
         this.threadListUnreadCount = Math.max(0, this.threadListUnreadCount - 1);
         this.inboxService.markThreadRead(threadId)
+          .then(() => this.inboxNotificationService.resync())
           .catch(error => this.logger.error("mark-read failed:", error));
       }
     } catch (error) {
@@ -956,9 +960,22 @@ export class InboxComponent implements OnInit, OnDestroy {
         return;
       }
       this.loadingThread = false;
+      if (this.threadNoLongerExists(error)) {
+        this.selectedThreadId = null;
+        this.selectedThread = null;
+        this.selectedMessages = [];
+        this.syncThreadToUrl(null);
+        return;
+      }
       this.notify.error({title: "Open thread", message: (error as Error).message});
       this.logger.error("Failed to open thread:", error);
     }
+  }
+
+  private threadNoLongerExists(error: unknown): boolean {
+    const status = (error as { status?: number; error?: { status?: number } })?.status
+      ?? (error as { error?: { status?: number } })?.error?.status;
+    return status === 404 || /:\s*404\b/.test((error as Error)?.message || "");
   }
 
   async prepareReplyAll(message: InboxMessage): Promise<void> {

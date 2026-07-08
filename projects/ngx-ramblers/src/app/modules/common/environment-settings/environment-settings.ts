@@ -19,7 +19,8 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { AlertTarget } from "../../../models/alert-target.model";
 import { sortBy } from "../../../functions/arrays";
 import { UrlService } from "../../../services/url.service";
-import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
+import { SectionToggle } from "../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { EnvironmentGlobalSettings } from "./environment-global-settings";
 import { EnvironmentPerEnvSettings } from "./environment-per-env-settings";
 import { EnvironmentConfigTools } from "./environment-config-tools";

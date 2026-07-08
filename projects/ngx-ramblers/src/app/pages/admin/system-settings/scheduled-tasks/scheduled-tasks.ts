@@ -22,7 +22,8 @@ import { WebSocketClientService } from "../../../../services/websockets/websocke
 import { EventType, MessageType } from "../../../../models/websocket.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { SectionToggle, SectionToggleTab } from "../../../../shared/components/section-toggle";
+import { SectionToggle } from "../../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../../models/section-toggle.model";
 import { MailCampaignQueueComponent } from "../mail/mail-campaign-queue";
 import { BackupsTaskSettingsComponent } from "./backups-task-settings";
 import { StoredValue } from "../../../../models/ui-actions";

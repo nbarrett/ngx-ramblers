@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import { ensureModel } from "../utils/model-utils";
-import uniqueValidator from "mongoose-unique-validator";
 import { InboxMailboxConnection } from "../../../../projects/ngx-ramblers/src/app/models/inbox.model";
 
 const inboxMailboxConnectionSchema = new mongoose.Schema({
@@ -28,6 +27,6 @@ const inboxMailboxConnectionSchema = new mongoose.Schema({
 
 inboxMailboxConnectionSchema.index({tenantSlug: 1, gmailAccountEmail: 1}, {unique: true, partialFilterExpression: {gmailAccountEmail: {$type: "string"}}});
 
-inboxMailboxConnectionSchema.plugin(uniqueValidator);
+inboxMailboxConnectionSchema.index({tenantSlug: 1, provider: 1}, {unique: true, partialFilterExpression: {gmailAccountEmail: {$type: "null"}}});
 
 export const inboxMailboxConnection: mongoose.Model<InboxMailboxConnection> = ensureModel<InboxMailboxConnection>("inbox-mailbox-connection", inboxMailboxConnectionSchema);

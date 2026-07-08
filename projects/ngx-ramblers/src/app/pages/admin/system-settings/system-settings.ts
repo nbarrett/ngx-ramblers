@@ -22,10 +22,6 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
-import { Member } from "../../../models/member.model";
-import { MemberService } from "../../../services/member/member.service";
-import { InboxService } from "../../../services/inbox/inbox.service";
-import { InboxRoleNotificationSetting } from "../../../models/inbox.model";
 import { isString, kebabCase } from "es-toolkit/compat";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../models/ui-actions";
@@ -34,7 +30,6 @@ import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FormsModule } from "@angular/forms";
 import { LinksEditComponent } from "../../../modules/common/links-edit/links-edit";
 import { ColourSelectorComponent } from "../../banner/colour-selector";
-import { MailProviderSettingsComponent } from "./mail-provider/mail-provider-settings";
 import { SystemMeetupSettingsComponent } from "./external/system-meetup-settings";
 import { SystemRecaptchaSettingsComponent } from "./external/system-recaptcha-settings";
 import { SystemGoogleAnalyticsSettings } from "./google-analytics/system-google-analytics-settings";
@@ -52,12 +47,12 @@ import { InstagramSettings } from "./external/system-instagram-settings";
 import { RamblersSettings } from "./external/ramblers-settings";
 import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
 import { SystemGoogleMapsSettingsComponent } from "./external/system-google-maps-settings";
-import { SystemGmailInboxSettingsComponent } from "./external/system-gmail-inbox-settings";
 import { FlickrSettings } from "./external/system-flickr-settings";
 import { SystemCloudflareSettingsComponent } from "./external/system-cloudflare-settings";
 import { SystemCloudflareWebAnalyticsSettings } from "./cloudflare-web-analytics/system-cloudflare-web-analytics-settings";
 import { CloudflareWebAnalyticsDashboard } from "./cloudflare-web-analytics/cloudflare-web-analytics-dashboard";
-import { SectionToggle, SectionToggleTab } from "../../../shared/components/section-toggle";
+import { SectionToggle } from "../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { FooterLinkSetting } from "./footer-link-setting";
 import { SalesforceSettings } from "./salesforce/salesforce-settings";
 import { SalesforceConfigService } from "../../../services/salesforce/salesforce-config.service";
@@ -349,13 +344,6 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
                     @if (showSubTab(ExternalSystemsSubTab.RAMBLERS)) {
                         <app-ramblers-settings [config]="config" (syncingChange)="walksManagerSyncBusy=$event"/>
                     }
-                    @if (showSubTab(ExternalSystemsSubTab.MAIL)) {
-                        <app-mail-provider-settings [config]="config"
-                                                    (membersPendingSave)="membersPendingSave=$event"/>
-                        <app-system-gmail-inbox-settings [config]="config"
-                                                         [inboxRefreshToken]="inboxRefreshToken"
-                                                         (inboxNotificationsPendingSave)="inboxRoleNotificationsPendingSave=$event"/>
-                    }
                     @if (showSubTab(ExternalSystemsSubTab.SOCIAL)) {
                         <app-system-instagram-settings/>
                         <app-system-flickr-settings/>
@@ -431,7 +419,7 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemGmailInboxSettingsComponent, SystemMemorySettingsComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, InstagramSettings, FlickrSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemGoogleSearchConsoleSettings, SystemOsMapsSettings, SystemGoogleMapsSettingsComponent, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent, SectionToggle, SystemCloudflareSettingsComponent, SystemCloudflareWebAnalyticsSettings, CloudflareWebAnalyticsDashboard, FooterLinkSetting, SalesforceSettings, MemberSyncPolicySettings, ScheduledTasksComponent, SystemMemorySettingsComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -442,13 +430,8 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   public logos: RootFolder = RootFolder.logos;
   public backgrounds: RootFolder = RootFolder.backgrounds;
   private subscriptions: Subscription[] = [];
-  public membersPendingSave: Member[] = [];
-  public inboxRoleNotificationsPendingSave: InboxRoleNotificationSetting[] = [];
-  public inboxRefreshToken = 0;
   public areaMapSyncBusy = false;
   public walksManagerSyncBusy = false;
-  private memberService: MemberService = inject(MemberService);
-  private inboxService: InboxService = inject(InboxService);
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private salesforceConfigService: SalesforceConfigService = inject(SalesforceConfigService);
   private memberSyncPolicyService: MemberSyncPolicyService = inject(MemberSyncPolicyService);
@@ -492,7 +475,6 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   externalSystemSubTabs: SectionToggleTab[] = [
     {value: ExternalSystemsSubTab.ALL, label: "All"},
     {value: ExternalSystemsSubTab.RAMBLERS, label: "Ramblers"},
-    {value: ExternalSystemsSubTab.MAIL, label: "Mail"},
     {value: ExternalSystemsSubTab.SOCIAL, label: "Social Media"},
     {value: ExternalSystemsSubTab.MAPS, label: "Maps"},
     {value: ExternalSystemsSubTab.SALESFORCE, label: "Salesforce"},
@@ -544,8 +526,6 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     this.systemConfigService.refresh();
     this.salesforceConfigService.refresh();
     this.memberSyncPolicyService.refresh();
-    this.inboxRoleNotificationsPendingSave = [];
-    this.inboxRefreshToken++;
   }
 
   ngOnDestroy(): void {
@@ -581,33 +561,8 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     }
   }
 
-  savePendingMembers() {
-    if (this.membersPendingSave.length > 0) {
-      this.logger.info("saving", this.stringUtils.pluraliseWithCount(this.membersPendingSave.length, "member"), "pending save");
-      return this.memberService.createOrUpdateAll(this.membersPendingSave).catch((error) => this.notify.error({
-        title: "Error saving changed members",
-        message: error
-      }));
-    }
-  }
-
-  async saveInboxRoleNotifications() {
-    if (this.inboxRoleNotificationsPendingSave.length === 0) {
-      return;
-    }
-    try {
-      await this.inboxService.setAliasNotificationsBulk(this.inboxRoleNotificationsPendingSave);
-      this.inboxRoleNotificationsPendingSave = [];
-      this.inboxRefreshToken++;
-    } catch (error) {
-      this.notify.error({title: "Error saving inbox notification settings", message: error});
-    }
-  }
-
   async save() {
     this.logger.debug("saving config", this.config);
-    await this.savePendingMembers();
-    await this.saveInboxRoleNotifications();
     await this.systemConfigService.saveConfig(this.config)
       .catch((error) => this.notify.error({title: "Error saving system config", message: error}));
     if (this.salesforceConfigService.hasLoaded()) {

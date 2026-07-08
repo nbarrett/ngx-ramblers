@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -7,7 +7,7 @@ import { RouterLink } from "@angular/router";
 import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { InboxService } from "../../../../services/inbox/inbox.service";
-import { InboxAliasConfigView, InboxNotifyMode, InboxRoleNotificationSetting, isInboxGeneralRoleType } from "../../../../models/inbox.model";
+import { InboxAliasConfigView, InboxNotifyMode, isInboxGeneralRoleType } from "../../../../models/inbox.model";
 
 @Component({
   selector: "app-system-inbox-role-mailboxes",
@@ -15,29 +15,28 @@ import { InboxAliasConfigView, InboxNotifyMode, InboxRoleNotificationSetting, is
   template: `
     <div>
       <p class="text-muted">
-        Role mailboxes appear here when a committee role's Inbound Forwarding (in <a routerLink="../committee-settings">Committee Settings</a>)
-        points at one of the connected Gmail accounts. The mailbox mapping is read-only; choose whether to leave a role
-        with no notification, email the assigned member at their own address, or send to a different address whenever new
-        mail arrives for it.
+        Choose whether to notify the member assigned to each committee role when new mail arrives for it — no notification,
+        email the member at their own address, or send to a different address. This applies however the inbox receives mail,
+        whether directly via Cloudflare Email Routing or through a connected Gmail account. Roles and their assigned members
+        are set in <a routerLink="../committee-settings">Committee Settings</a>; changes here save automatically.
       </p>
       @if (aliases.length === 0) {
         <div class="alert alert-warning mb-0" role="alert">
           <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
-          <strong>No role mailboxes mapped yet.</strong>
-          Open <a routerLink="../committee-settings">Committee Settings</a> and set each role's Inbound
-          Forwarding to point at the Gmail account that should receive its mail.
+          <strong>No committee role mailboxes yet.</strong>
+          Add committee roles and assign members in <a routerLink="../committee-settings">Committee Settings</a>.
         </div>
       } @else {
         <div class="d-flex align-items-end gap-3 mb-2 small fw-bold text-muted">
           <span class="role-column">Role address</span>
-          <span class="mailbox-column">Receiving Gmail account</span>
+          <span class="mailbox-column">Delivered to</span>
           <span class="notify-column">Notify assigned member</span>
         </div>
         @for (alias of aliases; track alias.id) {
           @if (!isInboxGeneralRoleType(alias.roleType)) {
             <div class="d-flex align-items-start gap-3 py-2 border-top">
               <span class="role-column">{{alias.roleEmail}}</span>
-              <span class="mailbox-column text-muted">{{alias.mailboxConnection?.gmailAccountEmail}}</span>
+              <span class="mailbox-column text-muted">{{alias.mailboxConnection?.gmailAccountEmail || "This site's inbox"}}</span>
               <span class="notify-column">
                 @if (alias.memberId) {
                   <div class="small fw-semibold mb-1">{{alias.assignedMemberName || "Assigned member"}}</div>
@@ -68,7 +67,10 @@ import { InboxAliasConfigView, InboxNotifyMode, InboxRoleNotificationSetting, is
                     <input type="email" class="form-control form-control-sm mt-1" [id]="'notify-email-' + alias.roleType"
                            placeholder="personal email"
                            [(ngModel)]="alias.inboxNotificationEmail"
-                           (ngModelChange)="markDirty(alias)">
+                           (change)="persist(alias)">
+                  }
+                  @if (savedRoles.has(alias.roleType)) {
+                    <div class="small text-success mt-1">Saved</div>
                   }
                 } @else {
                   <span class="small text-muted fst-italic">No member assigned</span>
@@ -77,8 +79,10 @@ import { InboxAliasConfigView, InboxNotifyMode, InboxRoleNotificationSetting, is
             </div>
           }
         }
-        @if (hasPendingChanges()) {
-          <div class="small text-muted mt-2">Notification changes apply when you <strong>Save</strong> below.</div>
+        @if (saveError) {
+          <div class="alert alert-warning mt-2 mb-0" role="alert">
+            <fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ saveError }}
+          </div>
         }
       }
     </div>`,
@@ -106,11 +110,10 @@ export class SystemInboxRoleMailboxesComponent implements OnInit {
   protected readonly InboxNotifyMode = InboxNotifyMode;
 
   public aliases: InboxAliasConfigView[] = [];
+  protected savedRoles = new Set<string>();
+  protected saveError: string | null = null;
   private selectedMode = new Map<string, InboxNotifyMode>();
-  private dirtyRoles = new Set<string>();
   private refreshTokenValue: number | null = null;
-
-  @Output() pendingChanges = new EventEmitter<InboxRoleNotificationSetting[]>();
 
   @Input() set refreshToken(value: number | null) {
     const changed = this.refreshTokenValue !== null && value !== this.refreshTokenValue;
@@ -132,8 +135,8 @@ export class SystemInboxRoleMailboxesComponent implements OnInit {
       this.aliases = [];
     }
     this.selectedMode.clear();
-    this.dirtyRoles.clear();
-    this.emitPending();
+    this.savedRoles.clear();
+    this.saveError = null;
   }
 
   notifyMode(alias: InboxAliasConfigView): InboxNotifyMode {
@@ -153,27 +156,20 @@ export class SystemInboxRoleMailboxesComponent implements OnInit {
     if (mode === InboxNotifyMode.MEMBER) {
       alias.inboxNotificationEmail = null;
     }
-    this.markDirty(alias);
+    if (mode !== InboxNotifyMode.OVERRIDE || (alias.inboxNotificationEmail?.trim())) {
+      void this.persist(alias);
+    }
   }
 
-  markDirty(alias: InboxAliasConfigView): void {
-    this.dirtyRoles.add(alias.roleType);
-    this.emitPending();
-  }
-
-  hasPendingChanges(): boolean {
-    return this.dirtyRoles.size > 0;
-  }
-
-  private emitPending(): void {
-    const changes = Array.from(this.dirtyRoles).reduce<InboxRoleNotificationSetting[]>((list, roleType) => {
-      const alias = this.aliases.find(candidate => candidate.roleType === roleType);
-      if (!alias) {
-        return list;
-      }
-      const inboxNotificationEmail = alias.inboxMessageNotifications ? (alias.inboxNotificationEmail?.trim() || null) : null;
-      return list.concat({roleType, inboxMessageNotifications: alias.inboxMessageNotifications, inboxNotificationEmail});
-    }, []);
-    this.pendingChanges.emit(changes);
+  async persist(alias: InboxAliasConfigView): Promise<void> {
+    const inboxNotificationEmail = alias.inboxMessageNotifications ? (alias.inboxNotificationEmail?.trim() || null) : null;
+    this.saveError = null;
+    try {
+      await this.inboxService.setAliasNotificationsBulk([{roleType: alias.roleType, inboxMessageNotifications: alias.inboxMessageNotifications, inboxNotificationEmail}]);
+      this.savedRoles.add(alias.roleType);
+    } catch (error) {
+      this.logger.error("Failed to save notification setting:", error);
+      this.saveError = (error as Error)?.message || "Could not save the notification setting - try again.";
+    }
   }
 }

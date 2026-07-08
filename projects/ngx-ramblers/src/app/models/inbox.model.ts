@@ -6,9 +6,21 @@ export enum InboxMessageDirection {
 }
 
 export enum InboxReaderProvider {
+  NONE = "none",
   GMAIL_API = "gmail-api",
   BREVO_INBOUND_PARSE = "brevo-inbound-parse",
   CLOUDFLARE_INGRESS = "cloudflare-ingress"
+}
+
+export enum InboxCatchAllMode {
+  INBOX = "inbox",
+  FORWARD = "forward",
+  DROP = "drop"
+}
+
+export interface InboxCatchAllPolicy {
+  mode: InboxCatchAllMode;
+  forwardTo?: string;
 }
 
 export enum InboxSyncMode {

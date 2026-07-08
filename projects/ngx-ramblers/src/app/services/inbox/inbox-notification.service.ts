@@ -69,6 +69,13 @@ export class InboxNotificationService implements OnDestroy {
       .catch(error => this.logger.info("WebSocket connect for inbox notifications failed; it will reconnect automatically:", (error as Error).message));
   }
 
+  public async resync(): Promise<void> {
+    if (!this.memberLoginService.loggedInMember()?.memberId) {
+      return;
+    }
+    await this.refreshFromServer();
+  }
+
   private async refreshFromServer(): Promise<void> {
     try {
       const [counts, aliases] = await Promise.all([this.inboxService.unreadCounts(InboxViewScope.ASSIGNED_ROLES), this.inboxService.listAliases()]);

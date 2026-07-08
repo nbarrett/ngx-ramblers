@@ -77,10 +77,10 @@ function aliasFor(role: CommitteeMember, connection: InboxMailboxConnection, ten
   return roleAliasWith(role, connectionIdentifier(connection), tenantSlug);
 }
 
-export function cloudflareIngressAliasesFromMessage(message: InboxMessage, connection: InboxMailboxConnection, roles: CommitteeMember[], identityEmailsByType: Map<string, Set<string>>, tenantSlug: string): InboxAliasConfig[] {
+export function cloudflareIngressAliasesFromMessage(message: InboxMessage, connection: InboxMailboxConnection, roles: CommitteeMember[], tenantSlug: string): InboxAliasConfig[] {
   const recipientEmails = messageRecipientEmails(message);
   const roleAliases = roles.reduce<InboxAliasConfig[]>((aliases, role) => {
-    const matches = roleMatchesMessageAddresses(role.type, role.email, recipientEmails, identityEmailsByType);
+    const matches = recipientEmails.includes(normaliseEmail(role.email));
     return matches ? aliases.concat(roleAliasWith(role, connectionIdentifier(connection), tenantSlug)) : aliases;
   }, []);
   return roleAliases.length > 0 ? roleAliases : [generalAliasFor(connection, tenantSlug)];
@@ -89,8 +89,7 @@ export function cloudflareIngressAliasesFromMessage(message: InboxMessage, conne
 export async function cloudflareIngressAliasesForMessage(message: InboxMessage, connection: InboxMailboxConnection): Promise<InboxAliasConfig[]> {
   const tenantSlug = defaultTenantSlug();
   const roles = await committeeRoles();
-  const identityEmailsByType = await roleIdentityEmailsByType();
-  return cloudflareIngressAliasesFromMessage(message, connection, roles, identityEmailsByType, tenantSlug);
+  return cloudflareIngressAliasesFromMessage(message, connection, roles, tenantSlug);
 }
 
 async function connectedMailboxesByEmail(tenantSlug: string): Promise<Map<string, InboxMailboxConnection>> {
@@ -179,6 +178,12 @@ export async function derivedAliasesForConnection(connection: InboxMailboxConnec
   const connectionId = connectionIdentifier(connection);
   return deriveAliasesFrom(connectionsByEmail, roles, tenantSlug)
     .filter(alias => alias.mailboxConnectionId === connectionId);
+}
+
+export async function generalInboxForwardAddress(tenantSlug: string): Promise<string | null> {
+  const connections = Array.from((await connectedMailboxesByEmail(tenantSlug)).values());
+  const chosen = connections.find(connection => connection.importAllMessages) ?? (connections.length === 1 ? connections[0] : null);
+  return chosen?.gmailAccountEmail ?? null;
 }
 
 export async function catchAllConnectionEmail(tenantSlug: string): Promise<string | null> {
