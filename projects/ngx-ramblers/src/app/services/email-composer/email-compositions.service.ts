@@ -1,7 +1,8 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EmailComposerState, EmailComposition, EmailCompositionDocumentDto, EmailCompositionListResponse, EmailCompositionSingleResponse, EmailCompositionStatus, EmailCompositionSummary, EmailCompositionSummaryDto, EmailCompositionSummaryListResponse } from "../../models/email-composer.model";
+import { ComposerExternalRecipient, ComposerFragment, EmailComposerState, EmailComposition, EmailCompositionDocumentDto, EmailCompositionListResponse, EmailCompositionSingleResponse, EmailCompositionStatus, EmailCompositionSummary, EmailCompositionSummaryDto, EmailCompositionSummaryListResponse } from "../../models/email-composer.model";
+import { EmailAttachment } from "../../models/mail.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 
@@ -77,7 +78,9 @@ export class EmailCompositionsService {
       includeContact: state.groupEventsFilter.includeContact ?? false,
       includeWalks: state.groupEventsFilter.includeWalks ?? false,
       includeSocialEvents: state.groupEventsFilter.includeSocialEvents ?? false,
-      includeCommitteeEvents: state.groupEventsFilter.includeCommitteeEvents ?? false
+      includeCommitteeEvents: state.groupEventsFilter.includeCommitteeEvents ?? false,
+      eventIds: state.groupEventsFilter.eventIds ? [...state.groupEventsFilter.eventIds] : null,
+      sortBy: state.groupEventsFilter.sortBy ?? null
     } : null;
     return {
       context: state.context ? { ...state.context } : null,
@@ -87,6 +90,9 @@ export class EmailCompositionsService {
       selectedListId: state.selectedListId,
       narrowListId: state.narrowListId,
       selectedMemberIds: [...(state.selectedMemberIds ?? [])],
+      externalRecipients: this.serialiseExternalRecipients(state.externalRecipients),
+      ccRecipients: this.serialiseExternalRecipients(state.ccRecipients),
+      bccRecipients: this.serialiseExternalRecipients(state.bccRecipients),
       preFilterKey: state.preFilterKey,
       notificationConfig: state.notificationConfig?.id ? { id: state.notificationConfig.id } : null,
       notificationConfigListing: null,
@@ -99,6 +105,7 @@ export class EmailCompositionsService {
       articleBlocks: safeArticleBlocks,
       attachmentUrl: state.attachmentUrl,
       attachmentFilename: state.attachmentFilename,
+      attachments: this.serialiseAttachments(state.attachments),
       sendingChannel: state.sendingChannel,
       eventInclusion: state.eventInclusion,
       groupEventsFilter: filter,
@@ -109,12 +116,7 @@ export class EmailCompositionsService {
       signoffDividerAfter: state.signoffDividerAfter,
       betweenArticlesDivider: state.betweenArticlesDivider,
       betweenEventsDivider: state.betweenEventsDivider,
-      fragmentOrder: (state.fragmentOrder ?? []).map(f => ({
-        kind: f.kind,
-        id: f.id,
-        dividerAfter: f.dividerAfter,
-        ...(f.committeeFileIds ? { committeeFileIds: [...f.committeeFileIds] } : {})
-      })),
+      fragmentOrder: (state.fragmentOrder ?? []).map(f => this.serialiseFragment(f)),
       selectedGroupEventIds: (state.groupEvents ?? [])
         .filter(event => (event as any).selected)
         .map(event => event.id)
@@ -122,6 +124,33 @@ export class EmailCompositionsService {
       groupEventMediaIndexById: (state.groupEvents ?? [])
         .filter(event => (event as any).selected && !!event.id && ((event as any).selectedMediaIndex ?? 0) > 0)
         .reduce((indexById, event) => ({ ...indexById, [event.id!]: (event as any).selectedMediaIndex }), {} as Record<string, number>)
+    };
+  }
+
+  private serialiseExternalRecipients(recipients: ComposerExternalRecipient[] | undefined): ComposerExternalRecipient[] {
+    return (recipients ?? []).map(recipient => ({
+      email: recipient.email,
+      ...(recipient.name ? { name: recipient.name } : {}),
+      ...(recipient.existingId ? { existingId: recipient.existingId } : {})
+    }));
+  }
+
+  private serialiseAttachments(attachments: EmailAttachment[] | undefined): EmailAttachment[] {
+    return (attachments ?? []).map(attachment => ({
+      name: attachment.name,
+      url: attachment.url,
+      ...(attachment.sizeBytes !== undefined ? { sizeBytes: attachment.sizeBytes } : {})
+    }));
+  }
+
+  private serialiseFragment(fragment: ComposerFragment): ComposerFragment {
+    return {
+      kind: fragment.kind,
+      id: fragment.id,
+      dividerAfter: fragment.dividerAfter,
+      ...(fragment.columnGapPx !== undefined ? { columnGapPx: fragment.columnGapPx } : {}),
+      ...(fragment.columns ? { columns: fragment.columns.map(column => column.map(columnFragment => this.serialiseFragment(columnFragment))) } : {}),
+      ...(fragment.committeeFileIds ? { committeeFileIds: [...fragment.committeeFileIds] } : {})
     };
   }
 

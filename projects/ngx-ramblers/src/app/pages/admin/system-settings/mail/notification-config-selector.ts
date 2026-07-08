@@ -49,7 +49,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
                    [routerLink]="'/' + adminMailSettingsPath"
                    [queryParams]="emailTypeQueryParams()"
                    target="_blank">
-                  <app-button-wrapper button variant="quiet" [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Settings'">
+                  <app-button-wrapper button variant="quiet" iconOnly [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Settings'">
                     <fa-icon [icon]="faPencil"/>
                   </app-button-wrapper>
                 </a>
@@ -74,7 +74,7 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
                      [routerLink]="'/' + adminBannersPath"
                      [queryParams]="bannerQueryParams()"
                      target="_blank">
-                    <app-button-wrapper button variant="quiet" [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Banner'">
+                    <app-button-wrapper button variant="quiet" iconOnly [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Banner'">
                       <fa-icon [icon]="faPencil"/>
                     </app-button-wrapper>
                   </a>

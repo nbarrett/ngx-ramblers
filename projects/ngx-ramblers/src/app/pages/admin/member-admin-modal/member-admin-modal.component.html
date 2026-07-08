@@ -91,6 +91,7 @@
                 <form class="form-group">
                   <label for="contact-email">Contact Email</label>
                   <input autocomplete="new-password" name="email" [disabled]="!allowEdits" [(ngModel)]="member.email"
+                         appLowercaseInput
                          type="text"
                          class="form-control input-sm" id="contact-email"
                          placeholder="Enter contact email here">
@@ -150,7 +151,7 @@
                   <form class="form-group">
                     <label for="login-user-name">Login User Name</label>
                     <input autocomplete="new-password" name="userName" [disabled]="!allowEdits"
-                           [(ngModel)]="member.userName" type="text"
+                           [(ngModel)]="member.userName" appLowercaseInput type="text"
                            class="form-control input-sm" id="login-user-name"
                            placeholder="Enter login user name here">
                   </form>

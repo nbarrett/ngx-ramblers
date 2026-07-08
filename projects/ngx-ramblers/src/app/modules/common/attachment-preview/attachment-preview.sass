@@ -1,0 +1,52 @@
+.attachment-preview-modal .modal-title
+  color: #fff
+
+.attachment-preview-modal .modal-dialog
+  max-width: none
+  width: fit-content
+  margin-left: auto
+  margin-right: auto
+  transition: none
+
+.attachment-preview-modal .modal-content
+  resize: both
+  overflow: hidden
+  width: min(800px, 95vw)
+  min-width: 340px
+  min-height: 220px
+  max-width: 95vw
+  max-height: 90vh
+
+.attachment-preview-modal .modal-header
+  cursor: move
+
+.attachment-preview-modal .modal-body
+  flex: 1 1 auto
+  max-height: 60vh
+  overflow: auto
+
+.attachment-preview-modal .modal-content[style] .modal-body
+  max-height: none
+
+.attachment-preview-modal .modal-content[style] .attachment-preview-frame
+  height: 100%
+
+.attachment-preview-frame
+  width: 100%
+  height: 55vh
+  border: none
+
+.attachment-preview-table
+  overflow-x: auto
+  font-size: 0.85rem
+  th, td
+    white-space: nowrap
+    max-width: 20rem
+    overflow: hidden
+    text-overflow: ellipsis
+
+.attachment-preview-text
+  white-space: pre-wrap
+  overflow-wrap: anywhere
+  font-size: 0.85rem
+  margin-bottom: 0

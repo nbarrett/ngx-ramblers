@@ -13,6 +13,7 @@ import {
   BrevoTransactionalAggregatedReport,
   ContactAddOrRemoveResponse,
   ContactCreatedResponse,
+  ContactUpdateRequest,
   ContactsAddOrRemoveRequest,
   ContactsDeleteRequest,
   ContactsListResponse,
@@ -162,6 +163,10 @@ export class MailService {
 
   async contactsBatchUpdate(createContactRequests: CreateContactRequestWithObjectAttributes[]): Promise<StatusMappedResponseMultipleInputs> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/contacts/batch-update`, createContactRequests))).response;
+  }
+
+  async updateContact(contactUpdateRequest: ContactUpdateRequest): Promise<any> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/contacts/update`, contactUpdateRequest))).response;
   }
 
   async contactsRemoveFromList(contactRemoveFromListRequest: ContactsAddOrRemoveRequest[]): Promise<ContactAddOrRemoveResponse> {

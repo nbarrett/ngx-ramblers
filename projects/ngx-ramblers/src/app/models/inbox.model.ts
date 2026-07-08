@@ -151,6 +151,12 @@ export enum AttachmentPreviewKind {
   NONE = "none"
 }
 
+export interface AttachmentPreview {
+  filename: string;
+  url: string;
+  contentType?: string;
+}
+
 export interface InboxThread extends Identifiable {
   tenantSlug: string;
   roleType: string;
@@ -207,6 +213,7 @@ export interface InboxThreadMessagesResponse {
 export interface InboxReplyComposeRequest {
   threadId: string;
   messageId: string;
+  forward?: boolean;
 }
 
 export interface InboxReplyComposeResponse {
@@ -222,6 +229,8 @@ export interface InboxReplyComposeResponse {
   mailboxConnectionId: string;
   inboxMessageId: string;
   replyAll?: boolean;
+  forward?: boolean;
+  attachments?: InboxAttachment[];
 }
 
 export interface InboxReplyOutboundContext {

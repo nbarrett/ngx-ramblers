@@ -49,7 +49,7 @@ import {
   InboxReaderProvider
 } from "../../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { insertSentCopy } from "../../inbox/gmail-inbox-reader";
-import { recordOutboundReply } from "../../inbox/inbox-message-import";
+import { recordOutboundMessage, recordOutboundReply } from "../../inbox/inbox-message-import";
 
 interface AuthenticatedRequest extends Request {
   user?: { memberId?: string; userName?: string };
@@ -244,6 +244,7 @@ interface ResolvedSenderAddresses {
   sender: EmailAddress;
   replyTo: EmailAddress;
   bcc: EmailAddress[];
+  senderRoleType: string | null;
 }
 
 function resolveUnbrandedRole(request: BatchTransactionalSendRequest, committeeRoles: CommitteeMember[], currentMemberId: string | null): CommitteeMember | undefined {
@@ -262,7 +263,7 @@ function resolveSenderAddresses(request: BatchTransactionalSendRequest, committe
       return { error: "Cannot send unbranded email - you are not linked to a committee role with a valid email on this site. Unbranded sends must come from a verified committee role address." };
     }
     const fromAddress: EmailAddress = { name: role.fullName ?? "", email: role.email };
-    return { sender: fromAddress, replyTo: fromAddress, bcc: [] };
+    return { sender: fromAddress, replyTo: fromAddress, bcc: [], senderRoleType: role.type ?? null };
   }
   const senderRole = request.senderRoleOverride || notifConfig!.senderRole;
   const replyToRole = request.replyToRoleOverride || notifConfig!.replyToRole;
@@ -272,7 +273,8 @@ function resolveSenderAddresses(request: BatchTransactionalSendRequest, committe
   return {
     sender: emailAddressForRole(committeeRoles, senderRole),
     replyTo: emailAddressForRole(committeeRoles, replyToRole),
-    bcc: emailAddressesForRoles(committeeRoles, bccRoles)
+    bcc: emailAddressesForRoles(committeeRoles, bccRoles),
+    senderRoleType: senderRole ?? null
   };
 }
 
@@ -296,21 +298,22 @@ function contentHasMemberMergeFields(request: BatchTransactionalSendRequest): bo
     .some(value => String(value).includes("memberMergeFields"));
 }
 
-async function performInboxReplyWriteback(request: BatchTransactionalSendRequest, emailRequest: SendSmtpEmailRequest, brevoMessageId: string | null, transactionalDebugLog: debug.Debugger): Promise<void> {
+async function performInboxWriteback(request: BatchTransactionalSendRequest, emailRequest: SendSmtpEmailRequest, brevoMessageId: string | null, transactionalDebugLog: debug.Debugger, senderRoleType: string | null): Promise<void> {
   const context = request.inboxReplyContext;
-  if (!context) {
+  const writebackRoleType = context?.aliasId ?? senderRoleType;
+  if (!writebackRoleType) {
     return;
   }
   try {
-    const alias = await derivedAliasForRoleType(context.aliasId);
+    const alias = await derivedAliasForRoleType(writebackRoleType);
     if (!alias) {
-      transactionalDebugLog("inbox writeback: no alias found for roleType", context.aliasId);
+      transactionalDebugLog("inbox writeback: no alias found for roleType", writebackRoleType);
       return;
     }
-    const mailboxConnectionDoc = context.mailboxConnectionId
-      ? await inboxMailboxConnectionModel.findById(context.mailboxConnectionId).lean()
+    const mailboxConnectionId = context?.mailboxConnectionId ?? alias.mailboxConnectionId ?? null;
+    const mailboxConnectionDoc = mailboxConnectionId
+      ? await inboxMailboxConnectionModel.findById(mailboxConnectionId).lean()
       : null;
-    const recipient = emailRequest.to?.[0];
     const outboundMessageId = brevoMessageId
       ? (brevoMessageId.startsWith("<") ? brevoMessageId : `<${brevoMessageId}>`)
       : `<${randomUUID()}@ngx-ramblers.org.uk>`;
@@ -318,21 +321,21 @@ async function performInboxReplyWriteback(request: BatchTransactionalSendRequest
     let gmailMessageId: string | null = null;
     if (mailboxConnectionDoc?.oauthRefreshTokenEncrypted && mailboxConnectionDoc.provider === InboxReaderProvider.GMAIL_API) {
       try {
-        const rfc822 = buildRfc822(emailRequest, outboundMessageId, context.inReplyTo, context.references, sentAt);
+        const rfc822 = buildRfc822(emailRequest, outboundMessageId, context?.inReplyTo ?? "", context?.references ?? [], sentAt);
         gmailMessageId = await insertSentCopy(mailboxConnectionDoc, rfc822);
       } catch (writeBackError) {
         transactionalDebugLog("inbox writeback: insertSentCopy failed", (writeBackError as Error).message);
       }
     }
-    const replyMessage: InboxMessage = {
-      threadId: context.threadId,
-      mailboxConnectionId: context.mailboxConnectionId,
+    const outboundMessage: InboxMessage = {
+      threadId: context?.threadId ?? "",
+      mailboxConnectionId,
       direction: InboxMessageDirection.OUTBOUND,
       messageId: outboundMessageId,
-      inReplyTo: context.inReplyTo,
-      references: context.references,
+      inReplyTo: context?.inReplyTo ?? null,
+      references: context?.references ?? [],
       from: {name: emailRequest.sender?.name ?? null, email: emailRequest.sender?.email ?? ""},
-      to: recipient ? [{name: recipient.name ?? null, email: recipient.email}] : [],
+      to: (emailRequest.to ?? []).map(address => ({name: address.name ?? null, email: address.email})),
       cc: (emailRequest.cc ?? []).map(address => ({name: address.name ?? null, email: address.email})),
       subject: emailRequest.subject,
       bodyHtml: emailRequest.htmlContent ?? null,
@@ -349,7 +352,11 @@ async function performInboxReplyWriteback(request: BatchTransactionalSendRequest
         contentId: null
       }))
     };
-    await recordOutboundReply(alias, replyMessage, context.threadId);
+    if (context) {
+      await recordOutboundReply(alias, outboundMessage, context.threadId);
+    } else {
+      await recordOutboundMessage(alias, outboundMessage);
+    }
   } catch (error) {
     transactionalDebugLog("inbox writeback failed:", (error as Error).message);
   }
@@ -360,9 +367,9 @@ function buildRfc822(emailRequest: SendSmtpEmailRequest, messageId: string, inRe
   const fromHeader = senderName.length > 0
     ? `From: ${escapeHeaderName(senderName)} <${emailRequest.sender?.email}>`
     : `From: ${emailRequest.sender?.email}`;
-  const recipient = emailRequest.to?.[0];
-  const toHeader = recipient
-    ? (recipient.name ? `To: ${escapeHeaderName(recipient.name)} <${recipient.email}>` : `To: ${recipient.email}`)
+  const recipients = emailRequest.to ?? [];
+  const toHeader = recipients.length
+    ? `To: ${recipients.map(recipient => recipient.name ? `${escapeHeaderName(recipient.name)} <${recipient.email}>` : recipient.email).join(", ")}`
     : "";
   const lines = [
     fromHeader,
@@ -370,8 +377,8 @@ function buildRfc822(emailRequest: SendSmtpEmailRequest, messageId: string, inRe
     `Subject: ${emailRequest.subject}`,
     `Date: ${dateTimeFromMillis(sentAt).toUTC().toRFC2822()}`,
     `Message-ID: ${messageId}`,
-    `In-Reply-To: ${inReplyTo}`,
-    `References: ${references.join(" ")}`,
+    ...(inReplyTo ? [`In-Reply-To: ${inReplyTo}`] : []),
+    ...(references.length ? [`References: ${references.join(" ")}`] : []),
     "MIME-Version: 1.0",
     "Content-Type: text/html; charset=UTF-8",
     "",
@@ -454,7 +461,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
       progress.completedAt = dateTimeNow().toMillis();
       return;
     }
-    const { sender, replyTo, bcc } = addresses;
+    const { sender, replyTo, bcc, senderRoleType } = addresses;
     const bannerImageSrc = bannerSourceFor(allBanners, request.bannerId, groupHref);
     const accountFields = await accountMergeFieldsFor();
     const externalRecipients = (request.externalRecipients ?? []).filter(item => !!item?.email?.trim());
@@ -571,8 +578,8 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         entry.status = BatchSendEntryStatus.Sent;
         entry.sentAt = dateTimeNow().toMillis();
         progress.sentCount += 1;
-        if (request.inboxReplyContext) {
-          await performInboxReplyWriteback(request, emailRequest, sendResult?.body?.messageId ?? null, debugLog);
+        if (request.inboxReplyContext || item.kind === "external") {
+          await performInboxWriteback(request, emailRequest, sendResult?.body?.messageId ?? null, debugLog, senderRoleType);
         }
         if (item.kind === "external" && currentMemberId) {
           await recordSendUsage({
@@ -632,9 +639,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         const sentAt = dateTimeNow().toMillis();
         externalEntries.forEach(entry => { entry.status = BatchSendEntryStatus.Sent; entry.sentAt = sentAt; });
         progress.sentCount += externalEntries.length;
-        if (request.inboxReplyContext) {
-          await performInboxReplyWriteback(request, externalEmailRequest, externalSendResult?.body?.messageId ?? null, debugLog);
-        }
+        await performInboxWriteback(request, externalEmailRequest, externalSendResult?.body?.messageId ?? null, debugLog, senderRoleType);
         if (currentMemberId) {
           await externalRecipients.reduce<Promise<void>>(async (acc, recipient) => {
             await acc;

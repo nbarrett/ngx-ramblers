@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewChild } from "@angular/core";
 import { faCalendar } from "@fortawesome/free-solid-svg-icons";
 import { kebabCase, isString, isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -21,7 +21,7 @@ type SupportedInputTypes = DateValue | number | string;
       @if (label && !prependLabel) {
         <label [for]="id">{{ label }}</label>
       }
-      <div class="input-group">
+      <div class="input-group" #dateInputGroup>
         @if (label && prependLabel) {
           <span class="input-group-text" [attr.aria-expanded]="dp.isOpen">{{ label }}:</span>
         }
@@ -44,7 +44,7 @@ type SupportedInputTypes = DateValue | number | string;
     styleUrls: ["./date-picker.sass"],
     imports: [BsDatepickerInputDirective, FormsModule, BsDatepickerDirective, FontAwesomeModule]
 })
-export class DatePicker implements OnInit {
+export class DatePicker implements OnInit, AfterViewInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DatePicker", NgxLoggerLevel.ERROR);
   private dateUtils: DateUtilsService = inject(DateUtilsService);
   private numberUtilsService: NumberUtilsService = inject(NumberUtilsService);
@@ -68,6 +68,10 @@ export class DatePicker implements OnInit {
   }
 
   @Output() change: EventEmitter<DateValue> = new EventEmitter();
+  @ViewChild("dp") private datepickerDirective: BsDatepickerDirective;
+  @ViewChild("dp", {read: ElementRef}) private dateInputRef: ElementRef<HTMLInputElement>;
+  @ViewChild("dateInputGroup") private dateInputGroupRef: ElementRef<HTMLElement>;
+  private readonly interceptTypedDateListener = (event: Event) => this.interceptTypedDate(event);
   public startOfDay = false;
   faCalendar = faCalendar;
   protected readonly UIDateFormat = UIDateFormat;
@@ -81,6 +85,27 @@ export class DatePicker implements OnInit {
       this.setValue(this.value);
     }
     this.logger.info("ngOnInit of value: ", this.value, "of type:", typeof this.value, "dateValue:", this.dateValue, "with id:", this.id);
+  }
+
+  ngAfterViewInit(): void {
+    this.dateInputGroupRef?.nativeElement.addEventListener("change", this.interceptTypedDateListener, true);
+  }
+
+  ngOnDestroy(): void {
+    this.dateInputGroupRef?.nativeElement.removeEventListener("change", this.interceptTypedDateListener, true);
+  }
+
+  private interceptTypedDate(event: Event): void {
+    if (event.target !== this.dateInputRef?.nativeElement) {
+      return;
+    }
+    const typedValue = (event.target as HTMLInputElement).value;
+    const parsed = this.dateUtils.parseTypedDate(typedValue);
+    this.logger.info("interceptTypedDate:", typedValue, "parsed:", parsed);
+    if (parsed) {
+      event.stopPropagation();
+      this.datepickerDirective.bsValue = parsed.toJSDate();
+    }
   }
 
   private setValue(value: SupportedInputTypes) {
@@ -127,4 +152,5 @@ export class DatePicker implements OnInit {
     this.change.next(dateValue);
     this.lastEmittedValue = dateValue;
   }
+
 }

@@ -10,7 +10,7 @@ import { NumberUtilsService } from "./number-utils.service";
 import { isDateValue } from "./type-guards";
 import { ExtendedGroupEvent } from "../models/group-event.model";
 import { StringUtilsService } from "./string-utils.service";
-import { RamblersWalksManagerDateFormat, UIDateFormat } from "../models/date-format.model";
+import { RamblersWalksManagerDateFormat, TYPED_DATE_INPUT_FORMATS, UIDateFormat } from "../models/date-format.model";
 import { asNumber } from "../functions/numbers";
 
 type DateInput = string | number | Date | DateValue | DateTime;
@@ -98,6 +98,16 @@ export class DateUtilsService {
 
   dateTimeNow(): DateTime {
     return this.asDateTime();
+  }
+
+  parseTypedDate(input: string): DateTime | null {
+    const trimmed = input?.trim();
+    if (!trimmed) {
+      return null;
+    }
+    return TYPED_DATE_INPUT_FORMATS
+      .map(format => DateTime.fromFormat(trimmed, format, {zone: "Europe/London"}))
+      .find(dateTime => dateTime.isValid) ?? null;
   }
 
   asString(dateValue, inputFormat, outputFormat): string {
