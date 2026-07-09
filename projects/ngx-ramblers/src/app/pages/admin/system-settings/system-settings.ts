@@ -330,7 +330,9 @@ import { SystemMemorySettingsComponent } from "./diagnostics/system-memory-setti
                 <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.MAPS)}}"
                      [active]="tabActive(SystemSettingsTab.MAPS)"
                      (selectTab)="selectTab(SystemSettingsTab.MAPS)">
-                  <app-area-map-sync-settings [config]="config" [tabActive]="tabActive(SystemSettingsTab.MAPS)" (busyChange)="areaMapSyncBusy=$event"/>
+                  @if (mapsTabActivated) {
+                    <app-area-map-sync-settings [config]="config" [tabActive]="tabActive(SystemSettingsTab.MAPS)" (busyChange)="areaMapSyncBusy=$event"/>
+                  }
                 </tab>
                 <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.EXTERNAL_SYSTEMS)}}"
                      [active]="tabActive(SystemSettingsTab.EXTERNAL_SYSTEMS)"
@@ -432,6 +434,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   public areaMapSyncBusy = false;
   public walksManagerSyncBusy = false;
+  protected mapsTabActivated = false;
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private salesforceConfigService: SalesforceConfigService = inject(SalesforceConfigService);
   private memberSyncPolicyService: MemberSyncPolicyService = inject(MemberSyncPolicyService);
@@ -503,6 +506,9 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
         this.tab = SystemSettingsTab.MEDIA;
       } else {
         this.tab = tab as SystemSettingsTab;
+      }
+      if (this.tabActive(SystemSettingsTab.MAPS)) {
+        this.mapsTabActivated = true;
       }
     }));
     this.subscriptions.push(this.systemConfigService.events()
