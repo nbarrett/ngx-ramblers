@@ -6,7 +6,6 @@ export interface FlyConfig {
 export interface FlyRuntimeConfig extends FlyConfig {
   machineId: string;
   organisation: string;
-  metricsToken: string;
 }
 
 export interface FlyMetricSeriesDefinition {
@@ -35,7 +34,6 @@ export interface FlyMachineSummary {
 export interface FlySecureConfig {
   apiToken: string;
   appName?: string;
-  metricsToken?: string;
 }
 
 export interface FlyRestartResult {

@@ -116,8 +116,7 @@ export function buildSecretsFromDatabaseConfig(
     if (flyEncryptionKey) {
       secrets.FLY_CONFIG = encryptJsonConfig<FlySecureConfig>({
         apiToken: envConfig.flyio.apiKey,
-        appName: envConfig.flyio.appName,
-        metricsToken: envConfig.flyio.metricsToken
+        appName: envConfig.flyio.appName
       }, flyEncryptionKey);
       debugLog("Added encrypted FLY_CONFIG for environment:", envConfig.environment);
     }

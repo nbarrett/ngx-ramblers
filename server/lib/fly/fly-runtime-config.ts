@@ -18,25 +18,23 @@ export async function flyRuntimeConfig(target: FlyTargetApp = FlyTargetApp.ENVIR
     return workerFallback();
   }
   const fromEnv = envConfig.fly();
-  if (fromEnv.apiToken && fromEnv.appName && fromEnv.metricsToken) {
+  if (fromEnv.apiToken && fromEnv.appName) {
     return fromEnv;
   }
   const fromBundle = encryptedBundleConfig();
   const withBundle: FlyRuntimeConfig = {
     ...fromEnv,
     apiToken: fromEnv.apiToken || fromBundle?.apiToken || "",
-    appName: fromEnv.appName || fromBundle?.appName || "",
-    metricsToken: fromEnv.metricsToken || fromBundle?.metricsToken || ""
+    appName: fromEnv.appName || fromBundle?.appName || ""
   };
-  if (withBundle.apiToken && withBundle.appName && withBundle.metricsToken) {
+  if (withBundle.apiToken && withBundle.appName) {
     return withBundle;
   }
   const fromDatabase = await databaseFallback();
   return {
     ...withBundle,
     apiToken: withBundle.apiToken || fromDatabase.apiToken,
-    appName: withBundle.appName || fromDatabase.appName,
-    metricsToken: withBundle.metricsToken || fromDatabase.metricsToken
+    appName: withBundle.appName || fromDatabase.appName
   };
 }
 
@@ -46,7 +44,7 @@ export async function isIntegrationWorkerAvailable(): Promise<boolean> {
   if (integrationWorkerAvailableCache === undefined) {
     try {
       const config = await flyRuntimeConfig(FlyTargetApp.WORKER);
-      integrationWorkerAvailableCache = !!(config.apiToken && config.appName && config.metricsToken);
+      integrationWorkerAvailableCache = !!(config.apiToken && config.appName);
     } catch {
       integrationWorkerAvailableCache = false;
     }
@@ -73,7 +71,7 @@ async function databaseFallback(): Promise<FlyRuntimeConfig> {
   if (databaseFallbackCache.value) {
     return databaseFallbackCache.value;
   }
-  const empty: FlyRuntimeConfig = {apiToken: "", appName: "", machineId: "", organisation: "", metricsToken: ""};
+  const empty: FlyRuntimeConfig = {apiToken: "", appName: "", machineId: "", organisation: ""};
   try {
     const parsedMongo = parseMongoUri(envConfig.mongo().uri);
     const databaseName = parsedMongo?.database || "";
@@ -84,8 +82,7 @@ async function databaseFallback(): Promise<FlyRuntimeConfig> {
     databaseFallbackCache.value = dbEnv?.flyio ? {
       ...empty,
       apiToken: dbEnv.flyio.apiKey || "",
-      appName: dbEnv.flyio.appName || "",
-      metricsToken: dbEnv.flyio.metricsToken || ""
+      appName: dbEnv.flyio.appName || ""
     } : empty;
     debugLog(`Resolved fly config for database ${databaseName} (environment ${dbEnv?.environment || "(unmatched)"}) from environments config: appName ${databaseFallbackCache.value.appName || "(none)"}`);
   } catch (error) {
@@ -99,7 +96,7 @@ async function workerFallback(): Promise<FlyRuntimeConfig> {
   if (workerFallbackCache.value) {
     return workerFallbackCache.value;
   }
-  const empty: FlyRuntimeConfig = {apiToken: "", appName: "", machineId: "", organisation: "", metricsToken: ""};
+  const empty: FlyRuntimeConfig = {apiToken: "", appName: "", machineId: "", organisation: ""};
   try {
     const environmentsConfig = await configuredEnvironments();
     const uploadWorker = environmentsConfig.uploadWorker;
