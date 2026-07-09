@@ -18,7 +18,6 @@ export interface FlyioConfig {
   memory?: string;
   scaleCount?: number;
   organisation?: string;
-  metricsToken?: string;
 }
 
 export interface CloudflareConfig {
@@ -136,8 +135,7 @@ export function createDefaultFlyioConfig(): FlyioConfig {
     appName: "",
     memory: FLYIO_DEFAULTS.MEMORY,
     scaleCount: FLYIO_DEFAULTS.SCALE_COUNT,
-    organisation: "",
-    metricsToken: ""
+    organisation: ""
   };
 }
 

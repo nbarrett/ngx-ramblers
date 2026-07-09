@@ -71,7 +71,6 @@ function fly(): FlyRuntimeConfig {
     appName: environmentVariable(Environment.FLY_APP_NAME),
     machineId: environmentVariable(Environment.FLY_MACHINE_ID),
     organisation: environmentVariable(Environment.FLY_ORGANISATION),
-    metricsToken: environmentVariable(Environment.FLY_METRICS_TOKEN),
   };
 }
 

@@ -297,12 +297,13 @@ import { toKebabCase } from "../../../functions/strings";
           </div>
           <div class="row">
             <div class="col-md-12 mb-2">
-              <label class="form-label">API Key</label>
+              <label class="form-label">API Token</label>
               <app-secret-input
                 [(ngModel)]="currentEnvironment.flyio.apiKey"
                 name="flyApiKey"
                 [size]="InputSize.SM">
               </app-secret-input>
+              <small class="form-text text-muted">Org-scoped Fly token — used for deploy, restart and the Memory diagnostics charts</small>
             </div>
             <div class="col-md-4 mb-2">
               <label class="form-label">App Name</label>
@@ -337,15 +338,6 @@ import { toKebabCase } from "../../../functions/strings";
                      name="flyOrg"
                      autocomplete="off"
                      placeholder="Fly.io organisation/team name">
-            </div>
-            <div class="col-md-12 mb-2">
-              <label class="form-label">Metrics Token</label>
-              <app-secret-input
-                [(ngModel)]="currentEnvironment.flyio.metricsToken"
-                name="flyMetricsToken"
-                [size]="InputSize.SM">
-              </app-secret-input>
-              <small class="form-text text-muted">Org-scoped read-only token used for the Memory diagnostics charts</small>
             </div>
           </div>
         </div>

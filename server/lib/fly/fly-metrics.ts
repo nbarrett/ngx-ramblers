@@ -20,7 +20,7 @@ debugLog.enabled = true;
 const BYTES_PER_KB = 1024;
 const BYTES_PER_MB = 1048576;
 const resolvedOrganisations = new Map<string, string>();
-const APP_SCOPED_TOKEN_ERROR = "This environment's Fly API token can manage the app but is not authorised to read metrics (403 from Fly Prometheus). Replace this environment's flyio apiKey with an org-scoped token to enable metrics - restart is unaffected.";
+const APP_SCOPED_TOKEN_ERROR = "This environment's Fly API token can manage the app but is not authorised to read metrics (403 from Fly Prometheus). Replace this environment's flyio API token with an org-scoped token to enable metrics - restart is unaffected.";
 
 function selector(appName: string, machineId: string, extra?: string): string {
   const parts = [`app="${appName}"`, machineId ? `instance="${machineId}"` : null, extra].filter(Boolean);
@@ -152,8 +152,7 @@ async function queryPrometheusRange(organisation: string, apiToken: string, prom
 }
 
 export async function flyMachineMemoryStats(target: FlyTargetApp = FlyTargetApp.ENVIRONMENT): Promise<FlyMachineStats> {
-  const { apiToken, metricsToken, appName, organisation, machineId } = await flyRuntimeConfig(target);
-  const token = metricsToken || apiToken;
+  const { apiToken: token, appName, organisation, machineId } = await flyRuntimeConfig(target);
   const missing = missingFlyConfig({ FLY_API_TOKEN: token, FLY_APP_NAME: appName });
   if (missing) {
     return { available: false, error: `Fly stats are not configured for this environment (missing ${missing})` };
@@ -193,8 +192,7 @@ export async function flyMetricHistory(metricKey: string, minutes: number, targe
   if (!definition) {
     return { available: false, error: `Unknown metric ${metricKey}`, series: [] };
   }
-  const { apiToken, metricsToken, appName, organisation, machineId } = await flyRuntimeConfig(target);
-  const token = metricsToken || apiToken;
+  const { apiToken: token, appName, organisation, machineId } = await flyRuntimeConfig(target);
   const missing = missingFlyConfig({ FLY_API_TOKEN: token, FLY_APP_NAME: appName });
   if (missing) {
     return { available: false, error: `Fly stats are not configured for this environment (missing ${missing})`, series: [] };
