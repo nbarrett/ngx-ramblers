@@ -198,7 +198,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                           ({{ committeeMembersWithoutRole.length }})
                         }
                       </button>
-                      <button class="btn btn-outline-secondary btn-sm" [disabled]="!!editingRoleDraft || !catchAllRule?.enabled || clearForwardsPending || clearForwardsConfirmPending"
+                      <button class="btn btn-outline-secondary btn-sm" [disabled]="!!editingRoleDraft || !catchAllRule?.enabled || clearForwardsPending || clearForwardsConfirmPending || !domainForwardRules().length"
                               (click)="requestClearAllForwards()" tooltip="Delete every per-role Cloudflare forwarding rule for this domain so all role emails route via the single catch-all">
                         <fa-icon [icon]="faTrash" class="me-1"></fa-icon>Clear all forwards
                       </button>

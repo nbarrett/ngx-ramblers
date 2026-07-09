@@ -55,7 +55,7 @@ const ramblersGroupsCache = new Map<string, RamblersGroupsApiResponse[] | null>(
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const GEO_CACHE_IDLE_MS = 10 * 60 * 1000;
 
-const bundledGeoJson: IdleCached<GeoJSON.FeatureCollection<GeoJSON.Polygon>> = idleCached(async () => {
+async function loadBundledAreaGeoJson(): Promise<GeoJSON.FeatureCollection<GeoJSON.Polygon>> {
   const geojsonPath = path.join(__dirname, "areas.geojson");
   const exists = await fs.pathExists(geojsonPath);
   if (!exists) {
@@ -63,7 +63,9 @@ const bundledGeoJson: IdleCached<GeoJSON.FeatureCollection<GeoJSON.Polygon>> = i
   }
   debugLog("Loading area GeoJSON from local file", geojsonPath);
   return fs.readJson(geojsonPath) as Promise<GeoJSON.FeatureCollection<GeoJSON.Polygon>>;
-}, GEO_CACHE_IDLE_MS);
+}
+
+const bundledGeoJson: IdleCached<GeoJSON.FeatureCollection<GeoJSON.Polygon>> = idleCached(loadBundledAreaGeoJson, GEO_CACHE_IDLE_MS);
 
 const s3GeoJson: IdleCached<GeoJSON.FeatureCollection<GeoJSON.Polygon>> = idleCached(async () => {
   const key = await resolveAreaMapKey();
@@ -478,18 +480,14 @@ function extractDistrictNamesFromGroups(groups: AreaGroupConfig[]): string[] {
   return [...new Set(allOnsDistricts)].filter(d => d && d.trim().length > 0) as string[];
 }
 
-function filterGeoJsonByDistricts(
-  geojson: GeoJSON.FeatureCollection<GeoJSON.Polygon>,
-  districts: string[]
-): GeoJSON.FeatureCollection<GeoJSON.Polygon> {
-  const filteredFeatures = geojson.features.filter(feature =>
-    districts.includes(feature.properties?.LAD23NM)
-  );
+function districtNamesFromIndex(featureIndex: Map<string, GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>>): string[] {
+  return Array.from(featureIndex.keys()).sort();
+}
 
-  return {
-    type: "FeatureCollection",
-    features: filteredFeatures
-  };
+function featureCountForDistricts(featureIndex: Map<string, GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>>, districts: string[]): number {
+  return Array.from(featureIndex.entries())
+    .filter(([name, feature]) => districts.includes(name) || districts.includes(feature.properties?.LAD23NM))
+    .length;
 }
 
 function availableDistrictList(geojson: GeoJSON.FeatureCollection<GeoJSON.Polygon>): string[] {
@@ -513,8 +511,23 @@ function transformFeatureToWgs84(feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJ
   } as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
 }
 
+const DISTRICT_INDEX_SIMPLIFY_TOLERANCE_METRES = 10;
+
+function toSimplifiedWgs84Feature(feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> {
+  try {
+    const simplified = turf.simplify(feature, {
+      tolerance: DISTRICT_INDEX_SIMPLIFY_TOLERANCE_METRES,
+      highQuality: false
+    }) as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
+    return transformFeatureToWgs84(simplified);
+  } catch (error) {
+    debugLog(`Simplification failed for ${feature.properties?.LAD24NM || feature.properties?.LAD23NM}: ${error.message}`);
+    return transformFeatureToWgs84(feature);
+  }
+}
+
 const districtIndex: IdleCached<Map<string, GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>>> = idleCached(async () => {
-  const geojson = await bundledGeoJson.get();
+  const geojson = await loadBundledAreaGeoJson();
   const index = new Map<string, GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>>();
 
   geojson.features.forEach(feature => {
@@ -522,9 +535,10 @@ const districtIndex: IdleCached<Map<string, GeoJSON.Feature<GeoJSON.Polygon | Ge
     if (!name) {
       return;
     }
-    index.set(name, transformFeatureToWgs84(feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>));
+    index.set(name, toSimplifiedWgs84Feature(feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>));
   });
 
+  debugLog(`Built simplified WGS84 district index for ${index.size} districts`);
   return index;
 }, GEO_CACHE_IDLE_MS);
 
@@ -715,9 +729,8 @@ async function fetchRamblersGroups(areaCode: string): Promise<RamblersGroupsApiR
 
 export async function previewAreaDistricts(req: Request, res: Response) {
   try {
-    const geojson = await bundledGeoJson.get();
-    const allDistrictsList = availableDistrictList(geojson);
     const featureIndex = await districtFeatures();
+    const allDistrictsList = districtNamesFromIndex(featureIndex);
     const areaNameParam = isString(req.query.areaName) ? req.query.areaName.trim() : "";
     const areaCodeParam = isString(req.query.areaCode) ? req.query.areaCode.trim().toUpperCase() : "";
     const areaCodesParam = isString(req.query.areaCodes) ? req.query.areaCodes.trim().toUpperCase() : "";
@@ -726,7 +739,7 @@ export async function previewAreaDistricts(req: Request, res: Response) {
     if (!areaNameParam && !areaCodeParam && !areaCodesParam) {
       return res.status(200).json({
         districts: allDistrictsList,
-        featureCount: geojson.features.length
+        featureCount: featureIndex.size
       });
     }
 
@@ -767,11 +780,10 @@ export async function previewAreaDistricts(req: Request, res: Response) {
         });
 
         const inferredList = Array.from(inferredDistricts).sort();
-        const inferredFeatures = filterGeoJsonByDistricts(geojson, inferredList);
 
         return res.status(200).json({
           districts: allDistrictsList,
-          featureCount: inferredFeatures.features.length,
+          featureCount: featureCountForDistricts(featureIndex, inferredList),
           groupDistrictMap
         });
       } catch (error) {
@@ -816,10 +828,9 @@ export async function previewAreaDistricts(req: Request, res: Response) {
 
           if (inferredDistricts.size > 0) {
             districtsToUse = Array.from(inferredDistricts).sort();
-            const inferredFeatures = filterGeoJsonByDistricts(geojson, districtsToUse);
             return res.status(200).json({
               districts: districtsToUse,
-              featureCount: inferredFeatures.features.length,
+              featureCount: featureCountForDistricts(featureIndex, districtsToUse),
               areaCode: code
             });
           }
@@ -833,11 +844,9 @@ export async function previewAreaDistricts(req: Request, res: Response) {
       districtsToUse = allDistrictsList.filter(d => d.toLowerCase().includes(areaNameLower));
     }
 
-    const filteredFeatures = filterGeoJsonByDistricts(geojson, districtsToUse);
-
     res.status(200).json({
       districts: districtsToUse,
-      featureCount: filteredFeatures.features.length
+      featureCount: featureCountForDistricts(featureIndex, districtsToUse)
     });
   } catch (error) {
     debugLog(`Failed to preview area districts: ${error.message}`);
