@@ -86,8 +86,8 @@
   </div>
   <div class="row">
     <div class="col-sm-12">
-      <div class="table-responsive">
-      <table class="round tbl-green-g table-striped table-hover table-sm align-middle">
+      <div class="ngx-data-table-card">
+      <table class="ngx-data-table align-middle">
         <thead>
           <tr>
             <th>
@@ -126,9 +126,10 @@
               <td>{{ group.notifications.length }}</td>
             </tr>
             @if (isExpanded(group.memberId)) {
-              <tr>
+              <tr class="detail-row">
                 <td colspan="6">
-                  <table class="table table-sm table-striped table-hover mb-0">
+                  <div class="ngx-data-table-card">
+                  <table class="ngx-data-table">
                     <thead>
                       <tr>
                         <th>Field</th>
@@ -158,6 +159,7 @@
                       }
                     </tbody>
                   </table>
+                  </div>
                 </td>
               </tr>
             }

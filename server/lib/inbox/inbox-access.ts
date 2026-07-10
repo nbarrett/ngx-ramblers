@@ -1,11 +1,13 @@
 import { Request, Response } from "express";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { CommitteeConfig } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { specialVisibilityGrants } from "./inbox-visibility-rules";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import * as config from "../mongo/controllers/config";
 import { collaborativeRoleTypes, defaultTenantSlug } from "./inbox-aliases";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
-import { inboxGeneralRoleTypeFor, InboxMailboxConnection, InboxReaderProvider } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { inboxGeneralRoleTypeFor, InboxMailboxConnection, InboxPrivacyMode, InboxReaderProvider } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { systemConfig } from "../config/system-config";
 
 function member(req: Request): Partial<MemberCookie> {
   return (req.user ?? {}) as Partial<MemberCookie>;
@@ -35,20 +37,43 @@ export async function assignedInboxRoleTypesForMember(authenticatedMember: Parti
     .map(role => role.type);
 }
 
+export async function inboxPrivacyMode(): Promise<InboxPrivacyMode> {
+  return (await systemConfig())?.inbox?.privacyMode ?? InboxPrivacyMode.CONFIGURABLE;
+}
+
+export async function permittedToReadJunk(req: Request): Promise<boolean> {
+  if (await inboxPrivacyMode() === InboxPrivacyMode.PRIVATE) {
+    return false;
+  }
+  const assignedRoleTypes = await assignedInboxRoleTypesForMember(member(req));
+  const junkVisibility = (await systemConfig())?.inbox?.specialVisibility?.junk;
+  return specialVisibilityGrants(junkVisibility, assignedRoleTypes);
+}
+
 export async function permittedInboxRoleTypesForMember(authenticatedMember: Partial<MemberCookie>): Promise<string[]> {
   const committeeConfigDocument = await config.queryKey(ConfigKey.COMMITTEE);
   const committeeConfig: CommitteeConfig = committeeConfigDocument?.value;
   const roles = committeeConfig?.roles ?? [];
-  if (authenticatedMember.memberAdmin === true) {
-    const generalRoleTypes = await generalInboxRoleTypes();
-    return [...new Set([...roles.map(role => role.type), ...generalRoleTypes])];
-  }
   const assignedRoleTypes = await assignedInboxRoleTypesForMember(authenticatedMember);
+  if (await inboxPrivacyMode() === InboxPrivacyMode.PRIVATE) {
+    return assignedRoleTypes;
+  }
   if (assignedRoleTypes.length === 0) {
     return [];
   }
-  const collaborative = await collaborativeRoleTypes(defaultTenantSlug());
-  return [...new Set(assignedRoleTypes.concat(collaborative))];
+  const generalRoleTypes = await generalInboxRoleTypes();
+  const otherVisibility = (await systemConfig())?.inbox?.specialVisibility?.other;
+  const otherGranted = specialVisibilityGrants(otherVisibility, assignedRoleTypes);
+  const visibleToEveryoneRoleTypes = roles
+    .filter(role => role.inboxVisibleToAllRoles !== false)
+    .map(role => role.type);
+  const sharedWithAssignedRoleTypes = roles
+    .filter(role => (role.inboxVisibleToRoleTypes ?? []).some(roleType => assignedRoleTypes.includes(roleType)))
+    .map(role => role.type);
+  const restrictedRoleTypes = new Set(roles.filter(role => role.inboxVisibleToAllRoles === false).map(role => role.type));
+  const collaborative = (await collaborativeRoleTypes(defaultTenantSlug())).filter(roleType => !restrictedRoleTypes.has(roleType));
+  const accessibleRoleTypes = [...new Set([...assignedRoleTypes, ...visibleToEveryoneRoleTypes, ...sharedWithAssignedRoleTypes, ...collaborative])];
+  return otherGranted ? [...new Set([...accessibleRoleTypes, ...generalRoleTypes])] : accessibleRoleTypes;
 }
 
 async function generalInboxRoleTypes(): Promise<string[]> {

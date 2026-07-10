@@ -169,7 +169,7 @@ const rp = adminRelativePath;
       path: rp(AdminSettingsPath.COMMITTEE_SETTINGS),
       loadComponent: () => import("../../pages/admin/system-settings/committee/committee-settings")
         .then(m => m.CommitteeSettingsComponent),
-      canActivate: [SystemHealthyGuard, AdminAuthGuard]
+      canActivate: [SystemHealthyGuard, MemberAdminAuthGuard]
     },
     {
       path: rp(AdminSettingsPath.MIGRATION_SETTINGS),

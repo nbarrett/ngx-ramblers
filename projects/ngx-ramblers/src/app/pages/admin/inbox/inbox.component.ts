@@ -4,7 +4,7 @@ import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faInbox, faListCheck, faPaperclip, faReply, faReplyAll, faRotateRight, faSearch, faShare, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faInbox, faLayerGroup, faListCheck, faPaperclip, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { AdminSettingsPath, AdminPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, values } from "es-toolkit/compat";
@@ -30,7 +30,6 @@ import {
   InboxReaderProvider,
   isInboxGeneralRoleType
 } from "../../../models/inbox.model";
-import { MemberLoginService } from "../../../services/member/member-login.service";
 import { BrandingMode } from "../../../models/mail.model";
 import { EmailComposerStepKey } from "../../../models/email-composer.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -70,14 +69,17 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                 <option [ngValue]="InboxViewScope.ASSIGNED_ROLES">Show my inbox messages</option>
               }
               @for (alias of aliases; track alias.id) {
-                <option [ngValue]="alias.roleType">{{ isInboxGeneralRoleType(alias.roleType) ? "Other inbox mail" : alias.roleEmail }}</option>
+                <option [ngValue]="alias.roleType">{{ aliasLabel(alias) }}</option>
               }
-              @if (isInboxAdmin) {
+              @if (canReadJunk) {
                 <option [ngValue]="InboxThreadFolder.JUNK">Junk mail</option>
               }
             </select>
           }
           <div class="ms-auto d-flex align-items-center gap-2 inbox-toolbar-actions">
+          <button class="btn btn-primary d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openComposer()" tooltip="Start a new email in the Email Composer">
+            <fa-icon [icon]="faPenToSquare"/>Compose
+          </button>
           @if (mobile && mobileShowDetail) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="backToList()" tooltip="Back to inbox">
               <fa-icon [icon]="faArrowLeft"/>Inbox
@@ -125,7 +127,12 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
           }
           </div>
       </div>
-      @if (aliases.length === 0) {
+      @if (!loadedOnce) {
+        <div class="alert alert-warning inbox-alert d-flex align-items-center">
+          <fa-icon [icon]="faRotateRight" [animation]="'spin'"/>
+          <strong class="ms-2">Loading your inbox&hellip;</strong>
+        </div>
+      } @else if (aliases.length === 0) {
         <div class="alert alert-warning inbox-alert">
           <fa-icon [icon]="faTriangleExclamation"/>
           @if (internalInbox) {
@@ -140,7 +147,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
       @if (selectedAlias(); as alias) {
         <div class="alert alert-success py-2 inbox-alert">
           <fa-icon [icon]="faEnvelope" class="me-2"/>
-          <strong>Viewing mail for {{alias.roleEmail}}</strong>
+          <strong>Viewing mail for {{aliasLabel(alias)}}</strong>
           @if (!internalInbox && !alias.mailboxConnection?.hasRefreshToken) {
             <span class="ms-1">This mailbox is not connected yet.</span>
           }
@@ -208,18 +215,23 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
           @for (thread of filteredThreads; track threadIdOf(thread)) {
             <div class="inbox-thread-row d-flex align-items-center gap-2"
                  [class.active]="threadIdOf(thread) === selectedThreadId"
-                 [class.unread]="thread.unread"
+                 [class.unread]="conversationUnread(thread)"
                  [attr.data-thread-id]="threadIdOf(thread)"
                  (click)="selectThread(thread)">
               <input type="checkbox" class="form-check-input flex-shrink-0 m-0"
-                     [checked]="selectedThreadIds.has(threadIdOf(thread))"
+                     [checked]="conversationSelected(thread)"
                      (click)="$event.stopPropagation(); toggleThreadSelection(thread)">
               <div class="flex-grow-1 min-w-0">
                 <div class="d-flex align-items-center gap-2">
-                  @if (thread.unread) {
+                  @if (conversationUnread(thread)) {
                     <span class="inbox-unread-dot flex-shrink-0" aria-label="Unread"></span>
                   }
                   <div class="inbox-thread-from flex-grow-1 text-truncate">{{thread.externalAddress.name ?? thread.externalAddress.email}}</div>
+                  @if (conversationThreadCount(thread) > 1) {
+                    <span class="small text-muted flex-shrink-0" tooltip="Grouped across {{conversationThreadCount(thread)}} role inboxes">
+                      <fa-icon [icon]="faLayerGroup"/> {{conversationThreadCount(thread)}}
+                    </span>
+                  }
                   <div class="inbox-thread-time flex-shrink-0">{{thread.lastSeenAt | date: "short"}}</div>
                 </div>
                 <div class="inbox-thread-subject text-truncate">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
@@ -382,10 +394,11 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected stringUtils = inject(StringUtilsService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private memberLoginService = inject(MemberLoginService);
   private urlService = inject(UrlService);
   protected numberUtils = inject(NumberUtilsService);
   protected readonly faInbox = faInbox;
+  protected readonly faLayerGroup = faLayerGroup;
+  protected readonly faPenToSquare = faPenToSquare;
   protected readonly faReply = faReply;
   protected readonly faRotateRight = faRotateRight;
   protected readonly faEnvelope = faEnvelope;
@@ -418,10 +431,6 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected readonly ResizerVariant = ResizerVariant;
   protected readonly isInboxGeneralRoleType = isInboxGeneralRoleType;
 
-  get isInboxAdmin(): boolean {
-    return this.memberLoginService.allowMemberAdminEdits();
-  }
-
   get displayMessages(): InboxMessage[] {
     return [...this.selectedMessages].sort((left, right) => {
       const leftAt = left.receivedAt ?? left.sentAt ?? 0;
@@ -443,6 +452,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   public aliases: InboxAliasConfigView[] = [];
+  public canReadJunk = false;
   public threads: InboxThread[] = [];
   public conversationSearchTerm = "";
   public readFilter: InboxReadFilter = InboxReadFilter.ALL;
@@ -455,6 +465,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   public loadingThread = false;
   public selectedMailboxView: string = InboxViewScope.ALL_ACCESSIBLE;
   public busy = false;
+  public loadedOnce = false;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
 
@@ -585,13 +596,15 @@ export class InboxComponent implements OnInit, OnDestroy {
   async refresh(): Promise<void> {
     this.busy = true;
     try {
-      this.aliases = await this.inboxService.listAliases();
+      const [aliases, canReadJunk] = await Promise.all([this.inboxService.listAliases(), this.inboxService.junkAccessible()]);
+      this.aliases = aliases;
+      this.canReadJunk = canReadJunk;
       if (!this.mailboxViewInitialised) {
         this.applyMailboxViewFromUrl();
         this.applyReadFilterFromUrl();
         this.mailboxViewInitialised = true;
       }
-      if (this.viewingJunk && this.isInboxAdmin) {
+      if (this.viewingJunk && this.canReadJunk) {
         const junkResponse = await this.inboxService.listThreads(null, null, false, null, InboxThreadFolder.JUNK);
         this.threads = junkResponse.threads;
         this.threadListUnreadCount = 0;
@@ -626,12 +639,17 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.logger.error("Failed to refresh inbox:", error);
     } finally {
       this.busy = false;
+      this.loadedOnce = true;
       void this.inboxNotificationService.resync();
     }
   }
 
   selectedAlias(): InboxAliasConfigView | null {
     return this.aliases.find(alias => alias.roleType === this.selectedMailboxView) ?? null;
+  }
+
+  aliasLabel(alias: InboxAliasConfigView): string {
+    return isInboxGeneralRoleType(alias.roleType) ? "Other inbox mail" : alias.roleEmail;
   }
 
   selectedRoleType(): string | null {
@@ -681,15 +699,58 @@ export class InboxComponent implements OnInit, OnDestroy {
     return (thread.id ?? (thread as unknown as {_id: {toString(): string}})._id ?? "").toString();
   }
 
-  get filteredThreads(): InboxThread[] {
-    const byReadState = this.threads.filter(thread =>
-      this.readFilter === InboxReadFilter.ALL || (this.readFilter === InboxReadFilter.UNREAD ? thread.unread : !thread.unread));
-    const term = this.conversationSearchTerm?.trim().toLowerCase();
-    const matched = !term ? byReadState : byReadState.filter(thread =>
-      (thread.normalisedSubject ?? "").toLowerCase().includes(term)
+  siblingConversationThreads(thread: InboxThread): InboxThread[] {
+    const key = thread.conversationKey;
+    return key ? this.threads.filter(candidate => candidate.conversationKey === key) : [thread];
+  }
+
+  private representativeThread(threads: InboxThread[]): InboxThread {
+    return threads.reduce((latest, candidate) =>
+      (candidate.lastSeenAt ?? candidate.firstSeenAt ?? 0) > (latest.lastSeenAt ?? latest.firstSeenAt ?? 0) ? candidate : latest);
+  }
+
+  private conversationRepresentatives(threads: InboxThread[]): InboxThread[] {
+    const byKey = new Map<string, InboxThread[]>();
+    const singles: InboxThread[] = [];
+    threads.forEach(thread => {
+      if (thread.conversationKey) {
+        byKey.set(thread.conversationKey, [...(byKey.get(thread.conversationKey) ?? []), thread]);
+      } else {
+        singles.push(thread);
+      }
+    });
+    const grouped = Array.from(byKey.values()).map(group => this.representativeThread(group));
+    return [...grouped, ...singles];
+  }
+
+  conversationUnread(thread: InboxThread): boolean {
+    return this.siblingConversationThreads(thread).some(candidate => candidate.unread);
+  }
+
+  conversationThreadCount(thread: InboxThread): number {
+    return this.siblingConversationThreads(thread).length;
+  }
+
+  conversationSelected(thread: InboxThread): boolean {
+    return this.siblingConversationThreads(thread).every(candidate => this.selectedThreadIds.has(this.threadIdOf(candidate)));
+  }
+
+  private conversationMatchesTerm(thread: InboxThread, term: string): boolean {
+    return (thread.normalisedSubject ?? "").toLowerCase().includes(term)
       || (thread.externalAddress?.name ?? "").toLowerCase().includes(term)
       || (thread.externalAddress?.email ?? "").toLowerCase().includes(term)
-      || (thread.roleType ?? "").toLowerCase().includes(term));
+      || (thread.roleType ?? "").toLowerCase().includes(term);
+  }
+
+  get filteredThreads(): InboxThread[] {
+    const representatives = this.conversationRepresentatives(this.threads);
+    const byReadState = representatives.filter(representative =>
+      this.readFilter === InboxReadFilter.ALL
+      || this.siblingConversationThreads(representative).some(candidate =>
+        this.readFilter === InboxReadFilter.UNREAD ? candidate.unread : !candidate.unread));
+    const term = this.conversationSearchTerm?.trim().toLowerCase();
+    const matched = !term ? byReadState : byReadState.filter(representative =>
+      this.siblingConversationThreads(representative).some(candidate => this.conversationMatchesTerm(candidate, term)));
     return [...matched].sort((left, right) => {
       const leftAt = left.lastSeenAt ?? left.firstSeenAt ?? 0;
       const rightAt = right.lastSeenAt ?? right.firstSeenAt ?? 0;
@@ -715,12 +776,16 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   toggleThreadSelection(thread: InboxThread): void {
-    const id = this.threadIdOf(thread);
-    if (this.selectedThreadIds.has(id)) {
-      this.selectedThreadIds.delete(id);
-    } else {
-      this.selectedThreadIds.add(id);
-    }
+    const siblings = this.siblingConversationThreads(thread);
+    const currentlySelected = siblings.every(candidate => this.selectedThreadIds.has(this.threadIdOf(candidate)));
+    siblings.forEach(candidate => {
+      const id = this.threadIdOf(candidate);
+      if (currentlySelected) {
+        this.selectedThreadIds.delete(id);
+      } else {
+        this.selectedThreadIds.add(id);
+      }
+    });
   }
 
   allSelected(): boolean {
@@ -927,31 +992,35 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   async openThread(thread: InboxThread, markRead = true): Promise<void> {
-    const threadId = this.threadIdOf(thread);
+    const siblings = this.siblingConversationThreads(thread);
+    const representative = this.representativeThread(siblings);
+    const threadId = this.threadIdOf(representative);
     const requestId = this.openThreadRequestId + 1;
     this.openThreadRequestId = requestId;
     this.selectedThreadId = threadId;
-    this.selectedThread = thread;
+    this.selectedThread = representative;
     this.selectedMessages = [];
     this.loadingThread = true;
-    this.syncThreadToUrl(thread);
+    this.syncThreadToUrl(representative);
     try {
-      const response = await this.inboxService.getThread(threadId);
+      const responses = await Promise.all(siblings.map(sibling => this.inboxService.getThread(this.threadIdOf(sibling))));
       if (requestId !== this.openThreadRequestId) {
         return;
       }
-      this.selectedThread = response.thread;
-      this.selectedMessages = this.collapseSends(response.messages);
+      const representativeResponse = responses.find(response => this.threadIdOf(response.thread) === threadId) ?? responses[0];
+      this.selectedThread = representativeResponse.thread;
+      this.selectedMessages = this.collapseSends(responses.flatMap(response => response.messages));
       const newestMessage = this.selectedMessages.length
         ? this.selectedMessages.reduce((latest, candidate) =>
           (candidate.receivedAt ?? candidate.sentAt ?? 0) > (latest.receivedAt ?? latest.sentAt ?? 0) ? candidate : latest)
         : null;
       this.expandedMessageIds = new Set(newestMessage ? [newestMessage.messageId] : []);
       this.loadingThread = false;
-      if (markRead && thread.unread) {
-        thread.unread = false;
-        this.threadListUnreadCount = Math.max(0, this.threadListUnreadCount - 1);
-        this.inboxService.markThreadRead(threadId)
+      const unreadSiblings = markRead ? siblings.filter(sibling => sibling.unread) : [];
+      if (unreadSiblings.length > 0) {
+        unreadSiblings.forEach(sibling => sibling.unread = false);
+        this.threadListUnreadCount = Math.max(0, this.threadListUnreadCount - unreadSiblings.length);
+        Promise.all(unreadSiblings.map(sibling => this.inboxService.markThreadRead(this.threadIdOf(sibling))))
           .then(() => this.inboxNotificationService.resync())
           .catch(error => this.logger.error("mark-read failed:", error));
       }
@@ -980,6 +1049,13 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   async prepareReplyAll(message: InboxMessage): Promise<void> {
     await this.prepareOutboundCompose(message, {replyAll: true});
+  }
+
+  openComposer(): void {
+    const maximised = this.route.snapshot.queryParams[StoredValue.MAXIMISE] === "true";
+    void this.router.navigate(["/" + AdminPath.EMAIL_COMPOSER], {
+      queryParams: maximised ? {[StoredValue.MAXIMISE]: "true"} : {}
+    });
   }
 
   async prepareReply(message?: InboxMessage, replyAll = false): Promise<void> {
@@ -1139,6 +1215,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     const aliasEmail = this.recipientForThread(this.selectedThread);
     if (aliasEmail) {
       return aliasEmail;
+    }
+    if (isInboxGeneralRoleType(this.selectedThread.roleType)) {
+      return "Other inbox mail";
     }
     const firstInbound = this.selectedMessages.find(message => message.direction === InboxMessageDirection.INBOUND);
     return firstInbound?.to?.length ? this.formatAddresses(firstInbound.to) : null;

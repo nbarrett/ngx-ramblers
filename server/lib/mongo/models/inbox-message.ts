@@ -34,7 +34,8 @@ const inboxMessageSchema = new mongoose.Schema({
   externalSource: {type: String, required: true},
   externalId: {type: String, default: null},
   attachments: [{type: inboxAttachment}],
-  notifiedAt: {type: Number, default: null}
+  notifiedAt: {type: Number, default: null},
+  conversationKey: {type: String, default: null, index: true}
 }, {collection: "inboxMessages"});
 
 inboxMessageSchema.plugin(uniqueValidator);

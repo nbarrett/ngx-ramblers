@@ -404,6 +404,9 @@ export class MailMessagingService {
     const subject = createSendSmtpEmailRequest.emailSubject || this.toSubject(createSendSmtpEmailRequest.notificationConfig.subject, emailRequest);
     emailRequest.subject = subject;
     emailRequest.params.messageMergeFields.subject = subject;
+    if (createSendSmtpEmailRequest.conversationKey) {
+      emailRequest.headers = {...emailRequest.headers, "X-NGX-Conversation-Key": createSendSmtpEmailRequest.conversationKey};
+    }
     this.logger.info("createEmailRequest ->", emailRequest);
     return emailRequest;
   }

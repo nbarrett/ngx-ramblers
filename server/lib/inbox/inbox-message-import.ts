@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import {
@@ -22,11 +23,54 @@ import { CommitteeConfig } from "../../../projects/ngx-ramblers/src/app/models/c
 const debugLog = debug(envConfig.logNamespace("inbox-message-import"));
 debugLog.enabled = true;
 
+const SUBJECT_LINK_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+
+function isReplyMessage(message: InboxMessage): boolean {
+  return Boolean(message.inReplyTo) || (message.references?.length ?? 0) > 0 || /^\s*(re|fwd?|aw)\s*:/i.test(message.subject ?? "");
+}
+
+async function conversationKeyBySubject(tenantSlug: string, message: InboxMessage, seenAt: number): Promise<string | null> {
+  if (message.conversationKey) {
+    return message.conversationKey;
+  }
+  if (!isReplyMessage(message)) {
+    return null;
+  }
+  const normalisedSubject = normaliseSubject(message.subject);
+  if (!normalisedSubject) {
+    return null;
+  }
+  const candidates = await inboxThreadModel.find({
+    tenantSlug,
+    folder: {$ne: InboxThreadFolder.JUNK},
+    normalisedSubject,
+    lastSeenAt: {$gte: seenAt - SUBJECT_LINK_WINDOW_MS}
+  }).lean() as unknown as InboxThread[];
+  if (candidates.length === 0) {
+    return null;
+  }
+  const existingKey = candidates.map(candidate => candidate.conversationKey).find(Boolean);
+  const conversationKey = existingKey ?? `subject:${randomUUID()}`;
+  const idsToStamp = candidates
+    .filter(candidate => candidate.conversationKey !== conversationKey)
+    .map(candidate => (candidate as unknown as {_id: unknown})._id);
+  if (idsToStamp.length > 0) {
+    await inboxThreadModel.updateMany({_id: {$in: idsToStamp}}, {$set: {conversationKey}});
+  }
+  return conversationKey;
+}
+
 export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder = InboxThreadFolder.INBOX): Promise<InboxMessage> {
   const isJunk = folder === InboxThreadFolder.JUNK;
-  const existingThread = await findExistingThread(aliasConfig, message, folder);
   const now = dateTimeNow().toMillis();
   const messageAt = message.receivedAt ?? message.sentAt ?? now;
+  if (!isJunk) {
+    const resolvedKey = await conversationKeyBySubject(aliasConfig.tenantSlug, message, messageAt);
+    if (resolvedKey) {
+      message.conversationKey = resolvedKey;
+    }
+  }
+  const existingThread = await findExistingThread(aliasConfig, message, folder);
   const thread = existingThread ?? await createThread(aliasConfig, message, messageAt, folder);
   const threadId = thread.id ?? thread["_id"]?.toString() ?? "";
   const alreadyStored = await inboxMessageModel.findOne({threadId, messageId: message.messageId}).lean();
@@ -39,7 +83,8 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
     $set: {
       lastDirection: InboxMessageDirection.INBOUND,
       unread: !isJunk,
-      ...(isJunk ? {} : {readByMemberIds: []})
+      ...(isJunk ? {} : {readByMemberIds: []}),
+      ...(message.conversationKey ? {conversationKey: message.conversationKey} : {})
     },
     $max: {lastSeenAt: messageAt},
     $min: {firstSeenAt: messageAt},
@@ -129,6 +174,17 @@ async function findExistingThread(aliasConfig: InboxAliasConfig, message: InboxM
   const folderFilter = folder === InboxThreadFolder.JUNK
     ? {folder: InboxThreadFolder.JUNK}
     : {folder: {$ne: InboxThreadFolder.JUNK}};
+  if (message.conversationKey) {
+    const threadByKey = await inboxThreadModel.findOne({
+      tenantSlug: aliasConfig.tenantSlug,
+      roleType: aliasConfig.roleType,
+      ...folderFilter,
+      conversationKey: message.conversationKey
+    });
+    if (threadByKey) {
+      return threadByKey.toObject();
+    }
+  }
   const messageIdsToTry = [message.inReplyTo, ...message.references].filter((value): value is string => Boolean(value));
   if (messageIdsToTry.length > 0) {
     const threadByReference = await inboxThreadModel.findOne({
@@ -161,6 +217,7 @@ async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage
     normalisedSubject: normaliseSubject(message.subject),
     folder,
     messageIds: [message.messageId],
+    conversationKey: message.conversationKey ?? null,
     firstSeenAt: seenAt,
     lastSeenAt: seenAt,
     lastDirection,

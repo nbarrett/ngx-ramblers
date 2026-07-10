@@ -201,7 +201,8 @@ export class WalkNotificationService {
         memberIds: [walkNotification.walk?.fields?.contactDetails?.memberId],
         notificationText,
         emailSubject: `Your walk on ${walkDate}`,
-        destination: "walk leader"
+        destination: "walk leader",
+        conversationKey: this.walkConversationKey(walkNotification)
       });
     }
     this.logger.info("not sending leader notification");
@@ -221,7 +222,8 @@ export class WalkNotificationService {
           memberIds: walkChangeNotificationMemberIds,
           notificationText,
           emailSubject: `${walkLeaderName}'s walk on ${walkDate}`,
-          destination: "walk co-ordinators"
+          destination: "walk co-ordinators",
+          conversationKey: this.walkConversationKey(displayedWalk)
         });
       } else {
         this.logger.info("not sending coordinator notifications as none are configured with walkChangeNotifications");
@@ -229,6 +231,11 @@ export class WalkNotificationService {
     } else {
       this.logger.info("not sending coordinator notifications as event type is", walkEventType.eventType);
     }
+  }
+
+  private walkConversationKey(walkNotification: WalkNotification): string | undefined {
+    const walkId = walkNotification?.walk?.id;
+    return walkId ? `walk:${walkId}` : undefined;
   }
 
   private async sendNotificationsTo(walkMailMessageConfiguration: WalkMailMessageConfiguration) {
@@ -251,7 +258,8 @@ export class WalkNotificationService {
       notificationConfig: walkMailMessageConfiguration.notificationConfig,
       notificationDirective,
       bodyContent: walkMailMessageConfiguration.notificationText,
-      emailSubject: qualifiedSubject
+      emailSubject: qualifiedSubject,
+      conversationKey: walkMailMessageConfiguration.conversationKey
     })).then(() => {
         notify.progress({
           title: "Sending Notifications", message: `Sending of ${qualifiedSubject} was successful`

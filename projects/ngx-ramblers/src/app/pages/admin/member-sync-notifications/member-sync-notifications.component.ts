@@ -34,6 +34,13 @@ const FILTER_ALL = "all";
   selector: "app-member-sync-notifications",
   imports: [PageComponent, FormsModule, FontAwesomeModule, DateRangeSlider, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective],
   providers: [FullNamePipe],
+  styles: [`
+    tr.detail-row,
+    tr.detail-row:hover
+      background-color: transparent !important
+    tr.detail-row > td
+      padding: 0.5rem 1rem 1rem
+  `],
   templateUrl: "./member-sync-notifications.component.html"
 })
 export class MemberSyncNotificationsComponent implements OnInit, OnDestroy {

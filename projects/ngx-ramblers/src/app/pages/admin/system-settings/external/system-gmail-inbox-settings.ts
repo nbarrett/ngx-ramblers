@@ -2,12 +2,13 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { RouterLink } from "@angular/router";
 import { AdminPath } from "../../../../models/admin-route-paths.model";
-import { SystemConfig } from "../../../../models/system.model";
+import { InboxRoleVisibility, SystemConfig } from "../../../../models/system.model";
 import {
   GoogleCloudProvisioningStepStatus,
   GoogleCloudProvisioningStepView,
   GoogleCloudSetupStatusValue,
   GoogleCloudSetupStatusView,
+  InboxPrivacyMode,
   InboxReaderProvider
 } from "../../../../models/inbox.model";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
@@ -38,8 +39,13 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../../models/ui-actions";
 import { isUndefined } from "es-toolkit/compat";
 import { Subject, Subscription } from "rxjs";
+import { InboxVisibilityComponent } from "./inbox-visibility";
+import { SectionToggle } from "../../../../shared/components/section-toggle";
+import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
+import { CommitteeConfig, CommitteeMember, RoleType } from "../../../../models/committee.model";
 import { debounceTime } from "rxjs/operators";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
+import { MemberLoginService } from "../../../../services/member/member-login.service";
 
 export enum GmailInboxSetupStepKey {
   CLOUD_PROJECT = "cloud-project",
@@ -59,42 +65,77 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
   { key: GmailInboxSetupStepKey.ROLE_MAILBOXES, label: "Role mailboxes", hint: "Review which committee roles route to which Gmail." }
 ];
 
+export enum InboxSettingsTab {
+  SETTINGS = "Inbox settings",
+  VISIBILITY = "Visibility"
+}
+
 @Component({
   selector: "app-system-gmail-inbox-settings",
   standalone: true,
   template: `
     <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Inbox</div>
-      <div class="col-sm-12">
-        <h6 class="section-heading">How this inbox receives mail</h6>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" id="inbox-provider-none"
-            name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.NONE"
-            (change)="selectInboxProvider(InboxReaderProvider.NONE)">
-          <label class="form-check-label" for="inbox-provider-none">No inbox</label>
+      @if (inboxProvider !== InboxReaderProvider.NONE && memberAdmin) {
+        <div class="col-sm-12 mt-2 mb-2">
+          <app-section-toggle [tabs]="inboxSettingsTabs" [(selectedTab)]="selectedInboxTab" [queryParamKey]="StoredValue.SUB_TAB"/>
         </div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" id="inbox-provider-gmail"
-            name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.GMAIL_API"
-            (change)="selectInboxProvider(InboxReaderProvider.GMAIL_API)">
-          <label class="form-check-label" for="inbox-provider-gmail">Gmail account (read via the Gmail API)</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" id="inbox-provider-cloudflare"
-            name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS"
-            (change)="selectInboxProvider(InboxReaderProvider.CLOUDFLARE_INGRESS)">
-          <label class="form-check-label" for="inbox-provider-cloudflare">Direct to inbox &mdash; via Cloudflare Email Routing, no Gmail account</label>
-        </div>
-        <div class="small text-muted mt-1">
-          @if (inboxProvider === InboxReaderProvider.NONE) {
-            This site has no NGX inbox. Committee replies won't appear in Admin &rarr; Inbox &mdash; choose Gmail or Direct-to-inbox above if you want them to.
-          } @else if (inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
-            Mail sent to this site's committee addresses is delivered straight into this inbox through Cloudflare Email Routing. There's no Gmail account, OAuth or Google Cloud project to set up.
-          } @else {
-            Committee members read replies through a connected Gmail account. Work through the setup steps below.
-          }
-        </div>
-      </div>
+      }
+      @switch (activeInboxTab) {
+        @case (InboxSettingsTab.VISIBILITY) {
+          <div class="col-sm-12 mt-3">
+            <h6 class="section-heading">Who can read committee mail</h6>
+            <div class="form-group">
+              <select class="form-control input-sm"
+                [ngModel]="inboxPrivacyMode" (ngModelChange)="selectPrivacyMode($event)"
+                name="inbox-privacy-mode" id="inbox-privacy-mode">
+                <option [ngValue]="InboxPrivacyMode.CONFIGURABLE">Configurable &mdash; each role decides who can read it (all committee roles by default)</option>
+                <option [ngValue]="InboxPrivacyMode.PRIVATE">Private &mdash; every member sees only their own role</option>
+              </select>
+              <small class="text-muted d-block mt-1">
+                @if (inboxPrivacyMode === InboxPrivacyMode.PRIVATE) {
+                  Every member, member administrators included, sees only the inboxes for the roles they hold. Nothing is shared across roles and the per-role settings do not apply.
+                } @else {
+                  Each role's inbox is readable by all committee role-holders by default. Use the grid below to limit one &mdash; share a role's inbox with specific roles, or lock it to whoever holds the role.
+                }
+              </small>
+            </div>
+            @if (inboxPrivacyMode === InboxPrivacyMode.CONFIGURABLE && matrixRoles.length) {
+              <app-inbox-visibility [roles]="matrixRoles" (visibilityChanged)="onInboxVisibilityChanged()"/>
+            }
+          </div>
+        }
+        @default {
+          <div class="col-sm-12">
+            <h6 class="section-heading">How this inbox receives mail</h6>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" id="inbox-provider-none"
+                name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.NONE"
+                (change)="selectInboxProvider(InboxReaderProvider.NONE)">
+              <label class="form-check-label" for="inbox-provider-none">No inbox</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" id="inbox-provider-gmail"
+                name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.GMAIL_API"
+                (change)="selectInboxProvider(InboxReaderProvider.GMAIL_API)">
+              <label class="form-check-label" for="inbox-provider-gmail">Gmail account (<a href="https://www.ngx-ramblers.org.uk/how-to/technical-articles/2026-05-29-gmail-inbox-setup" target="_blank" (click)="$event.stopPropagation()">read the user guide</a>)</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" id="inbox-provider-cloudflare"
+                name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS"
+                (change)="selectInboxProvider(InboxReaderProvider.CLOUDFLARE_INGRESS)">
+              <label class="form-check-label" for="inbox-provider-cloudflare">Direct to inbox &mdash; via Cloudflare Email Routing, no Gmail account</label>
+            </div>
+            <div class="small text-muted mt-1">
+              @if (inboxProvider === InboxReaderProvider.NONE) {
+                This site has no NGX inbox. Committee replies won't appear in Admin &rarr; Inbox &mdash; choose Gmail or Direct-to-inbox above if you want them to.
+              } @else if (inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
+                Mail sent to this site's committee addresses is delivered straight into this inbox through Cloudflare Email Routing. There's no Gmail account, OAuth or Google Cloud project to set up.
+              } @else {
+                Committee members read replies through a connected Gmail account. Work through the setup steps below.
+              }
+            </div>
+          </div>
       @if (inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
         <div class="col-sm-12">
           <div class="mt-3">
@@ -411,11 +452,15 @@ const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
           </p-stepper>
         </div>
       }
+        }
+      }
     </div>`,
   imports: [
     CommonModule,
     FormsModule,
     FontAwesomeModule,
+    InboxVisibilityComponent,
+    SectionToggle,
     SecretInputComponent,
     SystemInboxMailboxConnectionsComponent,
     SystemInboxRoleMailboxesComponent,
@@ -433,8 +478,19 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   private cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   private notifierService = inject(NotifierService);
   private systemConfigService = inject(SystemConfigService);
+  private memberLoginService = inject(MemberLoginService);
+  private committeeConfigService = inject(CommitteeConfigService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  public committeeConfig: CommitteeConfig;
+  private visibilitySave$ = new Subject<void>();
+  private junkRow: CommitteeMember = null;
+  private otherRow: CommitteeMember = null;
+  public matrixRoles: CommitteeMember[] = [];
+  protected readonly InboxSettingsTab = InboxSettingsTab;
+  protected readonly StoredValue = StoredValue;
+  public inboxSettingsTabs: InboxSettingsTab[] = [InboxSettingsTab.SETTINGS, InboxSettingsTab.VISIBILITY];
+  public selectedInboxTab: InboxSettingsTab = InboxSettingsTab.SETTINGS;
   protected readonly InputSize = InputSize;
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
   protected readonly ALERT_ERROR = ALERT_ERROR;
@@ -449,6 +505,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected readonly GmailInboxSetupStepKey = GmailInboxSetupStepKey;
   protected cloudflareConfig: NonSensitiveCloudflareConfig;
   protected readonly InboxReaderProvider = InboxReaderProvider;
+  protected readonly InboxPrivacyMode = InboxPrivacyMode;
   protected readonly GoogleCloudProvisioningStepStatus = GoogleCloudProvisioningStepStatus;
 
   protected stepperActiveIndex = 0;
@@ -516,7 +573,54 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     this.cloudflareEmailRoutingService.queryCloudflareConfig().catch(error => this.logger.warn("Cloudflare config not available:", error));
     this.subscriptions.push(this.cloudflareEmailRoutingService.cloudflareConfigNotifications()
       .subscribe(config => this.cloudflareConfig = config));
+    this.subscriptions.push(this.committeeConfigService.committeeConfigEvents()
+      .subscribe(committeeConfig => {
+        this.committeeConfig = committeeConfig;
+        this.rebuildMatrixRoles();
+      }));
+    this.subscriptions.push(this.visibilitySave$.pipe(debounceTime(1000))
+      .subscribe(() => {
+        this.committeeConfigService.saveConfig(this.committeeConfig);
+        this.systemConfigService.saveConfig(this.systemConfigInternal);
+      }));
+    this.committeeConfigService.refreshConfig();
     this.clearSetupStartedParam();
+  }
+
+  private specialRow(type: string, label: string, entry: InboxRoleVisibility | undefined): CommitteeMember {
+    return {
+      type,
+      fullName: label,
+      description: "",
+      email: "",
+      roleType: RoleType.SYSTEM_ROLE,
+      inboxVisibleToAllRoles: entry?.inboxVisibleToAllRoles ?? false,
+      inboxVisibleToRoleTypes: entry?.inboxVisibleToRoleTypes ?? []
+    } as CommitteeMember;
+  }
+
+  private rebuildMatrixRoles(): void {
+    const special = this.systemConfigInternal?.inbox?.specialVisibility;
+    if (!this.junkRow) {
+      this.junkRow = this.specialRow("junk", "Junk mail", special?.junk);
+    }
+    if (!this.otherRow) {
+      this.otherRow = this.specialRow("other", "Other inbox mail", special?.other);
+    }
+    this.matrixRoles = [...(this.committeeConfig?.roles ?? []), this.junkRow, this.otherRow];
+  }
+
+  onInboxVisibilityChanged(): void {
+    if (this.junkRow && this.otherRow && this.systemConfigInternal) {
+      this.systemConfigInternal.inbox = {
+        ...this.systemConfigInternal.inbox,
+        specialVisibility: {
+          junk: {inboxVisibleToAllRoles: this.junkRow.inboxVisibleToAllRoles, inboxVisibleToRoleTypes: this.junkRow.inboxVisibleToRoleTypes},
+          other: {inboxVisibleToAllRoles: this.otherRow.inboxVisibleToAllRoles, inboxVisibleToRoleTypes: this.otherRow.inboxVisibleToRoleTypes}
+        }
+      };
+    }
+    this.visibilitySave$.next();
   }
 
   protected isSharedZoneSubdomain(): boolean {
@@ -658,17 +762,41 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     return this.oAuthClientConfigured() ? InboxReaderProvider.GMAIL_API : InboxReaderProvider.NONE;
   }
 
+  get activeInboxTab(): InboxSettingsTab {
+    return this.inboxProvider !== InboxReaderProvider.NONE && this.memberAdmin ? this.selectedInboxTab : InboxSettingsTab.SETTINGS;
+  }
+
   async selectInboxProvider(provider: InboxReaderProvider): Promise<void> {
     if (!this.systemConfigInternal || this.inboxProvider === provider) {
       return;
     }
-    this.systemConfigInternal.inbox = {provider};
+    this.systemConfigInternal.inbox = {...this.systemConfigInternal.inbox, provider};
     this.directDeliveryMessage = null;
     this.directDeliveryError = null;
     try {
       await this.systemConfigService.saveConfig(this.systemConfigInternal);
     } catch (error) {
       this.errorMessage = (error as Error)?.message || "Could not save the inbox provider - try again.";
+    }
+  }
+
+  get memberAdmin(): boolean {
+    return this.memberLoginService.allowMemberAdminEdits();
+  }
+
+  get inboxPrivacyMode(): InboxPrivacyMode {
+    return this.systemConfigInternal?.inbox?.privacyMode ?? InboxPrivacyMode.CONFIGURABLE;
+  }
+
+  async selectPrivacyMode(privacyMode: InboxPrivacyMode): Promise<void> {
+    if (!this.systemConfigInternal || this.inboxPrivacyMode === privacyMode) {
+      return;
+    }
+    this.systemConfigInternal.inbox = {...this.systemConfigInternal.inbox, provider: this.inboxProvider, privacyMode};
+    try {
+      await this.systemConfigService.saveConfig(this.systemConfigInternal);
+    } catch (error) {
+      this.errorMessage = (error as Error)?.message || "Could not save the inbox privacy setting - try again.";
     }
   }
 
@@ -759,5 +887,6 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
       this.topicNameInput = segments[segments.length - 1] ?? existingTopic;
     }
     this.logger.info("handleConfigChange:googleInbox:", this.systemConfigInternal?.googleInbox);
+    this.rebuildMatrixRoles();
   }
 }

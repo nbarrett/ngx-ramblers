@@ -42,7 +42,7 @@ import { fetchFullMessage, findGmailMessageIdByRfcHeader, markMessagesRead, mark
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders } from "./inbox-message-import";
-import { assignedInboxRoleTypesForMember, inboxConfigurationAdministrator, permittedInboxRoleTypes, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
+import { assignedInboxRoleTypesForMember, inboxConfigurationAdministrator, permittedInboxRoleTypes, permittedToReadJunk, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
 import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
 import { ensurePushVerificationToken, pushReceiverUrl, pushVerificationToken } from "./inbox-push";
@@ -113,10 +113,10 @@ async function accessibleThread(req: Request, res: Response, threadId: string): 
     return null;
   }
   if ((thread as InboxThread).folder === InboxThreadFolder.JUNK) {
-    if (inboxConfigurationAdministrator(req)) {
+    if (await permittedToReadJunk(req)) {
       return thread as InboxThread;
     }
-    res.status(403).json({request: {messageType}, error: "Member administrator access is required to view junk mail"});
+    res.status(403).json({request: {messageType}, error: "You do not have access to junk mail"});
     return null;
   }
   const accessible = await requireInboxRoleAccess(req, res, thread.roleType);
@@ -562,9 +562,7 @@ router.get("/aliases", authConfig.authenticate(), async (req: Request, res: Resp
     const isConfigAdministrator = inboxConfigurationAdministrator(req);
     const allowedRoleTypes = await permittedInboxRoleTypes(req);
     const aliases = await derivedAliases();
-    const visibleAliases = isConfigAdministrator
-      ? aliases
-      : aliases.filter(alias => allowedRoleTypes.includes(alias.roleType));
+    const visibleAliases = aliases.filter(alias => allowedRoleTypes.includes(alias.roleType));
     const connections = await inboxMailboxConnectionModel.find({tenantSlug: defaultTenantSlug()}).lean() as InboxMailboxConnection[];
     const views = visibleAliases.map(alias => {
       const connection = connections.find(candidate => connectionId(candidate) === alias.mailboxConnectionId) ?? null;
@@ -574,6 +572,15 @@ router.get("/aliases", authConfig.authenticate(), async (req: Request, res: Resp
     res.json({request: {messageType}, response: await withAssignedMemberNames(views)});
   } catch (error) {
     errorDebugLog("Error listing inbox aliases:", (error as Error).message);
+    res.status(500).json({request: {messageType}, error: errorResponse(error)});
+  }
+});
+
+router.get("/junk-access", authConfig.authenticate(), async (req: Request, res: Response) => {
+  try {
+    res.json({request: {messageType}, response: {canReadJunk: await permittedToReadJunk(req)}});
+  } catch (error) {
+    errorDebugLog("Error checking inbox junk access:", (error as Error).message);
     res.status(500).json({request: {messageType}, error: errorResponse(error)});
   }
 });
@@ -705,8 +712,8 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
   try {
     const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string, 10) || 50, 200) : 50;
     if (req.query.folder === InboxThreadFolder.JUNK) {
-      if (!inboxConfigurationAdministrator(req)) {
-        res.status(403).json({request: {messageType}, error: "Member administrator access is required to view junk mail"});
+      if (!(await permittedToReadJunk(req))) {
+        res.status(403).json({request: {messageType}, error: "You do not have access to junk mail"});
         return;
       }
       const junkThreads = await inboxThreadModel.find({tenantSlug: defaultTenantSlug(), folder: InboxThreadFolder.JUNK}).sort({lastSeenAt: -1}).limit(limit).lean();

@@ -136,7 +136,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
         <div class="col-sm-12">
           @if (committeeConfig) {
             <tabset class="custom-tabset">
-              <tab heading="Committee Members">
+              <tab heading="Committee Members" [active]="tabActive('committee-members')" (selectTab)="selectTab('committee-members')">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="col-sm-12 mt-2 mb-2">
                     <app-markdown-editor standalone category="admin" name="committee-roles-help"
@@ -680,7 +680,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                     }
                 </div>
               </tab>
-              <tab heading="File Types">
+              <tab heading="File Types" [active]="tabActive('file-types')" (selectTab)="selectTab('file-types')">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="row">
                     <div class="col-sm-12 mt-2 mb-2">
@@ -724,7 +724,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                   }
                 </div>
               </tab>
-              <tab heading="Expenses">
+              <tab heading="Expenses" [active]="tabActive('expenses')" (selectTab)="selectTab('expenses')">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="row">
                     <div class="col-sm-12 mt-2 mb-2">
@@ -801,6 +801,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget = {};
   public notification: Notification;
   public committeeConfig: CommitteeConfig;
+  protected selectedTab = "committee-members";
   protected readonly environmentSetupGlobalQueryParams = {[StoredValue.TAB]: toKebabCase(EnvironmentSetupTab.SETTINGS), [StoredValue.SUB_TAB]: EnvironmentSettingsSubTab.GLOBAL};
   protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly EmailForwardStatus = EmailForwardStatus;
@@ -906,6 +907,10 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         }
         if (sortOrder === SortDirection.ASC || sortOrder === SortDirection.DESC) {
           this.sortDirection = sortOrder;
+        }
+        const tab = params[StoredValue.TAB];
+        if (tab) {
+          this.selectedTab = tab;
         }
         if (editType && this.committeeConfig) {
           this.openEditorForType(editType);
@@ -1749,6 +1754,15 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     this.save()
       .then(() => this.urlService.navigateTo(["admin"]))
       .catch((error) => this.notify.error(error));
+  }
+
+  tabActive(tab: string): boolean {
+    return this.selectedTab === tab;
+  }
+
+  selectTab(tab: string): void {
+    this.selectedTab = tab;
+    void this.router.navigate([], {relativeTo: this.activatedRoute, queryParams: {[StoredValue.TAB]: tab}, queryParamsHandling: "merge"});
   }
 
   save() {

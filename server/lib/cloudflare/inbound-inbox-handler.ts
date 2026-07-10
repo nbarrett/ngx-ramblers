@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import debug from "debug";
 import { Request, Response } from "express";
 import { AddressObject, Attachment, ParsedMail, simpleParser } from "mailparser";
-import { isArray } from "es-toolkit/compat";
+import { isArray, isString } from "es-toolkit/compat";
 import { createErrorDebugLog } from "../shared/error-debug-log";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNow } from "../shared/dates";
@@ -78,6 +78,8 @@ async function uploadAttachments(attachments: Attachment[]): Promise<InboxAttach
 async function parsedToInboxMessage(parsed: ParsedMail): Promise<InboxMessage> {
   const attachments = await uploadAttachments(parsed.attachments ?? []);
   const receivedAt = parsed.date ? parsed.date.getTime() : dateTimeNow().toMillis();
+  const conversationKeyHeader = parsed.headers?.get("x-ngx-conversation-key");
+  const conversationKey = isString(conversationKeyHeader) ? conversationKeyHeader : null;
   return {
     threadId: "",
     mailboxConnectionId: null,
@@ -95,7 +97,8 @@ async function parsedToInboxMessage(parsed: ParsedMail): Promise<InboxMessage> {
     sentAt: null,
     externalSource: InboxReaderProvider.CLOUDFLARE_INGRESS,
     externalId: parsed.messageId ?? null,
-    attachments
+    attachments,
+    conversationKey
   };
 }
 

@@ -45,6 +45,11 @@ export enum InboxViewScope {
   ASSIGNED_ROLES = "assigned-roles"
 }
 
+export enum InboxPrivacyMode {
+  CONFIGURABLE = "configurable",
+  PRIVATE = "private"
+}
+
 export enum InboxReadFilter {
   ALL = "all",
   UNREAD = "unread",
@@ -98,6 +103,10 @@ export interface InboxAliasConfig extends Identifiable {
   inboxMessageNotifications: boolean;
   inboxNotificationEmail: string | null;
   memberId: string | null;
+}
+
+export interface InboxJunkAccess {
+  canReadJunk: boolean;
 }
 
 export interface InboxAliasConfigView extends InboxAliasConfig {
@@ -182,6 +191,7 @@ export interface InboxThread extends Identifiable {
   lastDirection: InboxMessageDirection;
   unread: boolean;
   readByMemberIds?: string[];
+  conversationKey?: string | null;
 }
 
 export interface InboxMessage extends Identifiable {
@@ -203,6 +213,7 @@ export interface InboxMessage extends Identifiable {
   externalId: string | null;
   attachments: InboxAttachment[];
   notifiedAt?: number | null;
+  conversationKey?: string | null;
 }
 
 export interface InboxThreadListRequest {
