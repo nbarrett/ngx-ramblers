@@ -1,4 +1,4 @@
-import { InboxCatchAllPolicy, InboxReaderProvider } from "./inbox.model";
+import { InboxCatchAllPolicy, InboxPrivacyMode, InboxReaderProvider } from "./inbox.model";
 import { Link } from "./page.model";
 import { HasClass, HasColour } from "./banner-configuration.model";
 import { GoogleMapsConfig, WalkListView } from "./walk.model";
@@ -412,9 +412,19 @@ export interface GoogleInboxConfig {
   pubsubSubscriptionName?: string;
 }
 
+export interface InboxRoleVisibility {
+  inboxVisibleToAllRoles?: boolean;
+  inboxVisibleToRoleTypes?: string[];
+}
+
 export interface InboxSettingsConfig {
   provider: InboxReaderProvider;
   catchAll?: InboxCatchAllPolicy;
+  privacyMode?: InboxPrivacyMode;
+  specialVisibility?: {
+    junk?: InboxRoleVisibility;
+    other?: InboxRoleVisibility;
+  };
 }
 
 export interface InboxPushConfig {

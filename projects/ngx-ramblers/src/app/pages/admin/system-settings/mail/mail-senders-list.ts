@@ -33,44 +33,23 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
 @Component({
   selector: "app-mail-senders-list",
   styles: [`
-    .table-container
-      max-height: calc(100vh - 520px)
-      overflow-y: auto
-      overflow-x: hidden
-      border: 1px solid #dee2e6
-      border-radius: 4px
     th.sortable
       cursor: pointer
       user-select: none
     th.sortable:hover
-      background-color: rgba(0, 0, 0, 0.05)
+      background: rgba(155, 200, 171, 0.4)
     th .sort-icon
       margin-left: 0.25rem
       opacity: 0.5
     th.sorted .sort-icon
       opacity: 1
-    thead.sticky-top
-      background-color: #f8f9fa
-      border-top: 2px solid #dee2e6
-      border-bottom: 2px solid #dee2e6
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1)
-    thead th
-      font-weight: 600
-      padding-top: 0.75rem
-      padding-bottom: 0.75rem
     td.truncate
       max-width: 250px
       white-space: nowrap
       overflow: hidden
       text-overflow: ellipsis
     tr.no-hover,
-    tr.no-hover:hover,
-    tr.no-hover > td,
-    tr.no-hover:hover > td
-      --bs-table-bg-type: transparent !important
-      --bs-table-bg-state: transparent !important
-      --bs-table-accent-bg: transparent !important
-      --bs-table-striped-bg: transparent !important
+    tr.no-hover:hover
       background-color: white !important
       cursor: default
   `],
@@ -146,9 +125,9 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
           <div class="alert alert-danger mb-3">{{ addError }}</div>
         }
       }
-      <div class="table-responsive table-container">
-        <table class="table table-striped table-hover">
-          <thead class="sticky-top">
+      <div class="ngx-data-table-card">
+        <table class="ngx-data-table">
+          <thead>
             <tr>
               <th class="sortable" [class.sorted]="sortField === SenderSortField.NAME"
                 (click)="toggleSort(SenderSortField.NAME)">

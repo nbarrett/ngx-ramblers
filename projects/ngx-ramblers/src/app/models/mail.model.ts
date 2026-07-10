@@ -138,6 +138,7 @@ export interface CreateSendSmtpEmailRequest {
   sender?: EmailAddress;
   to?: EmailAddress[];
   replyTo?: EmailAddress;
+  conversationKey?: string;
 }
 
 export enum BrandingMode {

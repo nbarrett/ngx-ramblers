@@ -62,7 +62,8 @@ export enum GmailHeader {
   TO = "to",
   CC = "cc",
   SUBJECT = "subject",
-  DATE = "date"
+  DATE = "date",
+  CONVERSATION_KEY = "x-ngx-conversation-key"
 }
 
 export enum GmailMimeType {

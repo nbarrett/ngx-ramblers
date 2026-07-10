@@ -358,7 +358,7 @@ export enum CommitteeMemberTab {
                   <alert type="success" class="mb-0">
                     <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
                     <strong class="ms-2">Delivered to the internal inbox</strong>
-                    <span class="ms-2">This site delivers committee mail straight into the inbox (set in Mail Settings &rarr; Inbox). Mail sent to <strong>{{ committeeMember.email }}</strong> arrives in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a> for whoever holds this role &mdash; there's no per-role forwarding to configure here.</span>
+                    <span class="ms-2">This site delivers committee mail straight into the inbox (set in Mail Settings &rarr; Inbox). Mail sent to <strong>{{ committeeMember.email }}</strong> arrives in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a> for whoever holds this role &mdash; there's no per-role forwarding to configure here. To choose who else can read this inbox, open the <a [routerLink]="'/' + mailSettingsPath" [queryParams]="inboxVisibilityQueryParams">Inbox visibility settings</a> (Mail Settings &rarr; Inbox).</span>
                   </alert>
                 </div>
               </div>
@@ -519,6 +519,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
   protected readonly adminInboxPath = AdminPath.INBOX;
+  protected readonly mailSettingsPath = AdminPath.MAIL_SETTINGS;
   protected internalInbox = false;
   baseDomain = "";
   private subscriptions: Subscription[] = [];
@@ -973,6 +974,10 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     } else if (!this.committeeMember?.contactUsTarget && this.roleHasActiveInboundRule()) {
       this.committeeMember.contactUsTarget = ForwardEmailTarget.ROLE_EMAIL;
     }
+  }
+
+  get inboxVisibilityQueryParams(): Record<string, string> {
+    return {[StoredValue.TAB]: "inbox"};
   }
 
   deleteRole() {

@@ -161,6 +161,8 @@ export interface CommitteeMember {
   contactUsRecipients?: string[];
   inboxMessageNotifications?: boolean;
   inboxNotificationEmail?: string;
+  inboxVisibleToAllRoles?: boolean;
+  inboxVisibleToRoleTypes?: string[];
 }
 
 export interface CommitteeRecipientOption {

@@ -32,4 +32,5 @@ export interface WalkMailMessageConfiguration {
   notificationConfig: NotificationConfig;
   emailSubject: string;
   destination: string;
+  conversationKey?: string;
 }
