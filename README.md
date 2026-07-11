@@ -56,7 +56,7 @@ There's a comprehensive [How-To](https://ngx-ramblers.org.uk/how-to/committee) d
 
 ## Technologies used by NGX-Ramblers
 You don't need to understand any of these technologies to use NGX-Ramblers, but if you're interested, here's a list of the main technologies used in the project:
-- [Angular 20](https://angular.dev/) with [RxJS](https://rxjs.dev/) and [es-toolkit](https://github.com/es-toolkit/es-toolkit) — the modern frontend stack powering all modules.
+- [Angular 21](https://angular.dev/) with [RxJS](https://rxjs.dev/) and [es-toolkit](https://github.com/es-toolkit/es-toolkit) — the modern frontend stack powering all modules.
 - [PrimeNG](https://primeng.org/), [PrimeIcons](https://primeng.org/icons), [PrimeUIX](https://primeng.org/uix), and [ngx-bootstrap](https://valor-software.com/ngx-bootstrap) — component suites layered on top of [Bootstrap 5](https://getbootstrap.com/) and custom Sass tokens.
 - [Leaflet](https://leafletjs.com/), [@bluehalo/ngx-leaflet](https://www.bluehalo.com/), [leaflet.markercluster](https://github.com/Leaflet/Leaflet.markercluster), [proj4](https://proj.org/), and [proj4leaflet](https://github.com/kartena/Proj4Leaflet) — geospatial rendering for walks, routes, and start locations.
 - [Chart.js](https://www.chartjs.org/) with [ng2-charts](https://valor-software.com/ng2-charts/) — analytics and insight visualisations.

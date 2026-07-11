@@ -22,7 +22,17 @@ import { RequestParameters } from "../screenplay/questions/ramblers/request-para
 
 const debugLog = debug(envConfig.logNamespace("serenity-walks-upload"));
 debugLog.enabled = false;
-const actor = "Walks Admin";
+
+function resolveActorName(): string {
+  try {
+    return RequestParameterExtractor.extract().ramblersUser?.trim() || "Walks Admin";
+  } catch (error) {
+    debugLog("unable to resolve actor name from metadata, defaulting to Walks Admin:", error.message);
+    return "Walks Admin";
+  }
+}
+
+const actor = resolveActorName();
 debugLog("About to run Walks Upload scenario for", actor);
 
 describe("Walks Upload", () => {

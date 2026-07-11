@@ -12,6 +12,7 @@ import { Member } from "../../models/member.model";
 import { CommitteeDisplayService } from "../../pages/committee/committee-display.service";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { sortBy } from "../../functions/arrays";
+import { eventSlug } from "../../functions/walks/event-slug";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
@@ -103,7 +104,7 @@ export class CommitteeQueryService {
           .then((extendedGroupEvents: ExtendedGroupEvent[]) => extendedGroupEvents?.forEach(event => events.push({
             id: event.id || event?.groupEvent?.id,
             ramblersEventType: event?.groupEvent?.item_type || RamblersEventType.GROUP_WALK,
-            slug: this.stringUtilsService.lastItemFrom(event?.groupEvent?.url || this.stringUtilsService.kebabCase(event?.groupEvent?.title)),
+            slug: eventSlug(event),
             selected: true,
             eventType: this.display.groupEventType(event),
             eventDate: this.dateUtils.asDateTime(event?.groupEvent?.start_date_time).toMillis(),

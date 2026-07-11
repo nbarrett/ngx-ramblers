@@ -4,7 +4,7 @@ import { isString } from "es-toolkit/compat";
 import { envConfig } from "../../env-config/env-config";
 import { dateTimeFromMillis, dateTimeNow } from "../../shared/dates";
 import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
-import { handleError, successfulResponse, withNormalisedOverrideImageHosts } from "../common/messages";
+import { handleError, successfulResponse } from "../common/messages";
 import { sendTransactionalEmailRequest } from "./send-transactional-mail";
 import {
   BLOCKED_CONTACT_REASON_LABELS,
@@ -572,7 +572,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           brandingMode: request.brandingMode,
           ...(isUnbranded
             ? { htmlContent: request.htmlBody }
-            : { templateName: notifConfig!.templateName, templateOverrides: withNormalisedOverrideImageHosts(notifConfig!.templateOverrides, groupHref), body: notifConfig!.body })
+            : { templateName: notifConfig!.templateName, templateOverrides: notifConfig!.templateOverrides, body: notifConfig!.body })
         };
         const sendResult = await sendTransactionalEmailRequest(emailRequest, debugLog, baseUrl);
         entry.status = BatchSendEntryStatus.Sent;
@@ -633,7 +633,7 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
           brandingMode: request.brandingMode,
           ...(isUnbranded
             ? { htmlContent: request.htmlBody }
-            : { templateName: notifConfig!.templateName, templateOverrides: withNormalisedOverrideImageHosts(notifConfig!.templateOverrides, groupHref), body: notifConfig!.body })
+            : { templateName: notifConfig!.templateName, templateOverrides: notifConfig!.templateOverrides, body: notifConfig!.body })
         };
         const externalSendResult = await sendTransactionalEmailRequest(externalEmailRequest, debugLog, baseUrl);
         const sentAt = dateTimeNow().toMillis();

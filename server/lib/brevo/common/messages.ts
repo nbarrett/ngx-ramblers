@@ -244,9 +244,10 @@ export function renderBrandedTemplate(rawHtml: string,
                                      params: any,
                                      templateOverrides?: TemplateOverrides,
                                      campaign: boolean = false): string {
-  const withContentBlocks = applyContentBlocks(rawHtml ?? "", templateOverrides);
+  const overrides = withNormalisedOverrideImageHosts(templateOverrides, params?.systemMergeFields?.APP_URL);
+  const withContentBlocks = applyContentBlocks(rawHtml ?? "", overrides);
   const sanitisedHtml = sanitiseBrevoTemplate(withContentBlocks);
-  const overriddenHtml = applyTemplateOverrides(sanitisedHtml, templateOverrides);
+  const overriddenHtml = applyTemplateOverrides(sanitisedHtml, overrides);
   const wrappedHtml = ramblersEmailLayout(overriddenHtml);
   const personalisedHtml = campaign ? toCampaignContactTokens(wrappedHtml) : wrappedHtml;
   const substitutedHtmlContent = substituteTemplateParameters(personalisedHtml, params);

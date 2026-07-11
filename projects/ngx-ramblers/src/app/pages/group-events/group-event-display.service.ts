@@ -11,6 +11,7 @@ import { Confirm } from "../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { MemberIdToFullNamePipe } from "../../pipes/member-id-to-full-name.pipe";
 import { sortBy } from "../../functions/arrays";
+import { eventSlug } from "../../functions/walks/event-slug";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { ContentMetadataService } from "../../services/content-metadata.service";
@@ -169,7 +170,7 @@ export class GroupEventDisplayService {
   }
 
   groupEventLink(extendedGroupEvent: ExtendedGroupEvent, relative: boolean): string {
-    const eventId: string = this.stringUtils.lastItemFrom(extendedGroupEvent?.groupEvent?.url) || this.stringUtils.kebabCase(extendedGroupEvent?.groupEvent?.title) || extendedGroupEvent?.groupEvent?.id || extendedGroupEvent?.id;
+    const eventId: string = eventSlug(extendedGroupEvent);
     const segments = this.urlService.pathSegments();
     const last = segments[segments.length - 1];
     const areaSegments = last === PathSegment.EDIT ? segments.slice(0, -2) : (last === PathSegment.NEW || last === eventId ? segments.slice(0, -1) : segments);

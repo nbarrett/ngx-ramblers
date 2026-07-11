@@ -28,6 +28,7 @@ export class RequestParameterExtractor {
 
       return {
         fileName: metadata.fileName,
+        ramblersUser: metadata.ramblersUser,
         walkCount: metadata.walkCount,
         walkDeletions: metadata.walkDeletions,
         walkUploads: metadata.walkUploads || [],

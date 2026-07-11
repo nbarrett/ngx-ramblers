@@ -9,6 +9,7 @@ import { SystemConfigService } from "../system/system-config.service";
 import { EventQueryParameters } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEvent, ExtendedGroupEventApiResponse } from "../../models/group-event.model";
 import { SearchDateRange } from "../../models/search.model";
+import { DateUtilsService } from "../date-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -18,6 +19,7 @@ export class WalksAndEventsService {
   private logger: Logger = inject(LoggerFactory).createLogger("WalksAndEventsService", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
   private localWalksAndEventsService = inject(LocalWalksAndEventsService);
+  private dateUtils = inject(DateUtilsService);
   public group: Organisation;
 
   constructor() {
@@ -38,6 +40,13 @@ export class WalksAndEventsService {
 
   urlFromTitle(title: string, id?: string): Promise<string> {
     return this.localWalksAndEventsService.urlFromTitle(title, id);
+  }
+
+  async urlFor(walk: ExtendedGroupEvent): Promise<string> {
+    const title = walk?.groupEvent?.title;
+    return title
+      ? this.urlFromTitle(title, walk?.id)
+      : this.dateUtils.yearMonthDayWithDashes(walk?.groupEvent?.start_date_time);
   }
 
   async all(eventQueryParameters: EventQueryParameters): Promise<ExtendedGroupEvent[]> {

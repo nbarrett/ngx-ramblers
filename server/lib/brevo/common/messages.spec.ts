@@ -254,6 +254,23 @@ describe("brevo messages", () => {
       const result = renderBrandedTemplate(template, paramsFor(passwordResetLink));
       expect(result).toContain(`href="${passwordResetLink}"`);
     });
+
+    it("normalises a relative image override to an absolute URL using APP_URL so it loads in email clients", () => {
+      const template = `<p>{{override.HOME_PAGE_IMAGE}}</p>`;
+      const result = renderBrandedTemplate(template, paramsFor(""), {
+        HOME_PAGE_IMAGE: imageOverride("api/aws/s3/site-content/example.jpeg")
+      });
+      expect(result).toContain(`src="https://example.org.uk/api/aws/s3/site-content/example.jpeg"`);
+      expect(result).not.toContain(`src="api/aws/s3/site-content/example.jpeg"`);
+    });
+
+    it("leaves an already-absolute image override URL unchanged", () => {
+      const template = `<p>{{override.HOME_PAGE_IMAGE}}</p>`;
+      const result = renderBrandedTemplate(template, paramsFor(""), {
+        HOME_PAGE_IMAGE: imageOverride("https://cdn.example.com/home.png")
+      });
+      expect(result).toContain(`src="https://cdn.example.com/home.png"`);
+    });
   });
 
   describe("escapeUnknownTemplateExpressions", () => {

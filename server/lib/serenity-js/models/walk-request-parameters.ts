@@ -2,6 +2,7 @@ import { WalkCancellation, WalkUploadInfo } from "../../models/walk-upload-metad
 
 export interface WalkRequestParameters {
   fileName: string;
+  ramblersUser: string;
   walkDeletions: string[];
   walkCancellations: WalkCancellation[];
   walkUncancellations: string[];

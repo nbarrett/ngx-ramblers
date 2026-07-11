@@ -982,6 +982,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.normaliseWalkFieldsForEdit();
     this.ensureImageConfig();
     await this.syncWalksManagerContactNameToMember();
+    if (!this.displayedWalk.walk.groupEvent.url) {
+      this.displayedWalk.walk.groupEvent.url = await this.walksAndEventsService.urlFor(this.displayedWalk.walk);
+      this.logger.info("saveAndCloseIfNotSent:generated missing url:", this.displayedWalk.walk.groupEvent.url);
+    }
     const savedWalk: ExtendedGroupEvent = await this.walksAndEventsService.createOrUpdate(this.displayedWalk.walk);
     await this.persistVenueToCollection();
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_SAVED, savedWalk));

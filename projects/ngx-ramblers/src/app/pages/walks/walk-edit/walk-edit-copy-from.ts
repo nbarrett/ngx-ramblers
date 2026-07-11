@@ -348,6 +348,8 @@ export class WalkEditCopyFromComponent implements OnInit, OnDestroy {
           groupEvent,
           fields
         };
+        this.displayedWalk.walk.groupEvent.url = await this.walksAndEventsService.urlFor(this.displayedWalk.walk);
+        this.logger.info("copyDetailsFromPreviousWalk:generated unique url:", this.displayedWalk.walk.groupEvent.url);
 
         this.logger.info("copyDetailsFromPreviousWalk:Walk is now:", this.displayedWalk.walk);
         this.logger.info("copyDetailsFromPreviousWalk:start_date_time:", this.displayedWalk.walk.groupEvent.start_date_time);

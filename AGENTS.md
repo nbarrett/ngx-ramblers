@@ -11,7 +11,7 @@
 
 ## Project Overview
 
-- **Architecture**: Angular 20 + Node/Express + MongoDB Atlas, hosted on Fly.io
+- **Architecture**: Angular 21 + Node/Express + MongoDB Atlas, hosted on Fly.io
 - **Repository**: https://github.com/nbarrett/ngx-ramblers
 - **Node.js**: v24.14.0, npm 11.9.0
 - **Frontend**: `projects/ngx-ramblers/src/app/`
