@@ -157,6 +157,7 @@ import { CommitteeFileMultiSelectComponent } from "../../modules/common/committe
 import { ExternalRecipient } from "../../models/external-recipient.model";
 import { ExternalRecipientService } from "../../services/external-recipient/external-recipient.service";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { eventSlug } from "../../functions/walks/event-slug";
 import { DateValue } from "../../models/date.model";
 import { DatePicker } from "../../date-and-time/date-picker";
 import { DateRange, DateRangeSlider } from "../../components/date-range-slider/date-range-slider";
@@ -1987,7 +1988,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     return {
       id: event.id || event?.groupEvent?.id,
       ramblersEventType: event?.groupEvent?.item_type || RamblersEventType.GROUP_WALK,
-      slug: this.stringUtils.lastItemFrom(event?.groupEvent?.url || this.stringUtils.kebabCase(event?.groupEvent?.title)),
+      slug: eventSlug(event),
       selected: true,
       eventType: this.committeeDisplayService.groupEventType(event),
       eventDate: event?.groupEvent?.start_date_time

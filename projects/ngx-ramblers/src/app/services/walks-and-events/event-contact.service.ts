@@ -3,6 +3,7 @@ import { Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { EventLeaderContactMethod, Organisation } from "../../models/system.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { eventSlug } from "../../functions/walks/event-slug";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { SystemConfigService } from "../system/system-config.service";
@@ -160,21 +161,13 @@ export class EventContactService {
   }
 
   private eventRouterLink(event: ExtendedGroupEvent): string {
-    const slug = this.eventSlug(event);
+    const slug = eventSlug(event);
     const area = this.isGroupEvent(event) ? this.groupEventArea() : this.walksArea();
     if (!area || !slug) {
       return null;
     }
     const relativeUrl = this.urlService.linkUrl({area, id: slug, relative: true});
     return this.urlService.routerLinkUrl(relativeUrl);
-  }
-
-  private eventSlug(event: ExtendedGroupEvent): string {
-    const urlToUse = event?.groupEvent?.url
-      || this.stringUtils.kebabCase(event?.groupEvent?.title, this.dateUtils.yearMonthDayWithDashes(event?.groupEvent?.start_date_time))
-      || event?.groupEvent?.id
-      || event?.id;
-    return this.stringUtils.lastItemFrom(urlToUse);
   }
 
   private walksArea(): string {

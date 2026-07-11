@@ -1,24 +1,9 @@
-import type { Browser } from "playwright";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 
-const debugLog = debug(envConfig.logNamespace("browser-utils"));
+export { launchChromium as launchBrowser } from "../shared/playwright-browser";
 
-export async function launchBrowser(): Promise<Browser> {
-  const { chromium } = await import("playwright");
-  return chromium.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
-      "--no-first-run",
-      "--no-zygote",
-      "--disable-gpu"
-    ]
-  });
-}
+const debugLog = debug(envConfig.logNamespace("browser-utils"));
 
 export function deriveBaseUrl(pageUrl: string, docBaseHref?: string): string {
   try {

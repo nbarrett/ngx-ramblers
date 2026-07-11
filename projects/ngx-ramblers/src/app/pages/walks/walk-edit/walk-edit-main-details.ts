@@ -287,8 +287,8 @@ export class WalkEditMainDetailsComponent implements OnInit {
       this.logger.info("afterTitleChange:walk already published to Ramblers (id:", this.displayedWalk.walk.groupEvent.id, "), URL will not be changed");
       return;
     }
-    const url = await this.walksAndEventsService.urlFromTitle(this.displayedWalk.walk.groupEvent.title, this.displayedWalk.walk.id);
-    this.logger.info("afterTitleChange:generated URL from title:", url);
+    const url = await this.walksAndEventsService.urlFor(this.displayedWalk.walk);
+    this.logger.info("afterTitleChange:generated URL:", url);
     this.displayedWalk.walk.groupEvent.url = url;
   }
 }

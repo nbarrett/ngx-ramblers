@@ -784,8 +784,8 @@ export class GroupEventEdit implements OnInit, OnDestroy {
   }
 
   async onTitleChange(title: string) {
-    const url = await this.walksAndEventsService.urlFromTitle(title, this.groupEvent.id);
-    this.logger.info("onTitleChange:updating groupEvent groupEvent url based on title:", title, "from:", this.groupEvent?.groupEvent?.url, "to:", url);
+    const url = await this.walksAndEventsService.urlFor(this.groupEvent);
+    this.logger.info("onTitleChange:updating groupEvent url based on title:", title, "from:", this.groupEvent?.groupEvent?.url, "to:", url);
     this.groupEvent.groupEvent.url = url;
   }
 }

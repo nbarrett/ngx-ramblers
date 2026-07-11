@@ -47,6 +47,7 @@ import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model"
 import { AccessLevel } from "../../models/member-resource.model";
 import { FeaturesService } from "../../services/features.service";
 import { validEmail } from "../../functions/strings";
+import { eventSlug } from "../../functions/walks/event-slug";
 import { PageService } from "../../services/page.service";
 import { StoredValue } from "../../models/ui-actions";
 
@@ -369,11 +370,7 @@ export class WalkDisplayService {
   }
 
   walkSlug(extendedGroupEvent: ExtendedGroupEvent): string {
-    const urlToUse = extendedGroupEvent?.groupEvent?.url
-      || this.stringUtils.kebabCase(extendedGroupEvent?.groupEvent?.title, this.dateUtils.yearMonthDayWithDashes(extendedGroupEvent?.groupEvent?.start_date_time))
-      || extendedGroupEvent?.groupEvent?.id
-      || extendedGroupEvent?.id;
-    return this.stringUtils.lastItemFrom(urlToUse);
+    return eventSlug(extendedGroupEvent);
   }
 
   walkLink(extendedGroupEvent: ExtendedGroupEvent): string {

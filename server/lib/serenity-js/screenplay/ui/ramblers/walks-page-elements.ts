@@ -3,7 +3,7 @@ import { By, PageElement, PageElements } from "@serenity-js/web";
 export class WalksPageElements {
 
   public static cookieBannerContainer = PageElement.located(By.css(".cky-consent-container"))
-    .describedAs("cookie banner accept button");
+    .describedAs("cookie banner");
 
   public static cookieBannerAccept = PageElement.located(By.css(".cky-notice-btn-wrapper button.cky-btn.cky-btn-accept"))
     .describedAs("cookie banner accept button");

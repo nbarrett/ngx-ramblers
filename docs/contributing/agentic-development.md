@@ -113,7 +113,7 @@ Other useful CLI commands:
 
 | Path | What lives there |
 |------|------------------|
-| `projects/ngx-ramblers/src/app/` | Angular 20 frontend — all components and services |
+| `projects/ngx-ramblers/src/app/` | Angular 21 frontend — all components and services |
 | `server/` | Node/Express backend (TypeScript only) |
 | `server/lib/mongo/` | MongoDB models and controllers |
 | `server/lib/brevo/`, `server/lib/ramblers/`, `server/lib/meetup/` | Third-party integrations |

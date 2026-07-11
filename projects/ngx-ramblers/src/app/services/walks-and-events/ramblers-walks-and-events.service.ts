@@ -429,6 +429,7 @@ export class RamblersWalksAndEventsService {
     this.logger.debug("sourceData", walkExports);
     const rows: WalkUploadRow[] = await this.walkUploadRows(walkExports);
     const fileName = this.exportWalksFileName();
+    const loggedInMember = this.memberLoginService.loggedInMember();
     return {
       headings: this.walkUploadHeadings(),
       rows,
@@ -437,7 +438,7 @@ export class RamblersWalksAndEventsService {
       walkIdUploadList,
       walkCancellations,
       walkUncancellations,
-      ramblersUser: this.memberLoginService.loggedInMember().firstName
+      ramblersUser: loggedInMember?.firstName || loggedInMember?.userName
     };
   }
 

@@ -56,10 +56,11 @@ export class Accept {
   }
 
   static dismissCookieBanners(): Task {
-    return Task.where("#actor dismisses cookie banners",
-      Accept.disableCookieBannerPermanently(),
-      Accept.forceDismissCookieBanners(),
-      Accept.cookieBannerIfVisible());
+    return Check.whether(WalksPageElements.cookieBannerContainer, isVisible())
+      .andIfSo(
+        Accept.disableCookieBannerPermanently(),
+        Accept.forceDismissCookieBanners(),
+        Accept.cookieBannerIfVisible());
   }
 
   static forceDismissCookieBanners(): Task {

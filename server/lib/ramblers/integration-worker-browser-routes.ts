@@ -1,8 +1,9 @@
 import debug from "debug";
 import { isString } from "es-toolkit/compat";
 import express, { Request, Response } from "express";
-import { Browser, chromium, Page } from "playwright";
+import { Browser, Page } from "playwright";
 import { verifyRamblersUploadSignature } from "./integration-worker-crypto";
+import { launchChromium } from "../shared/playwright-browser";
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { FlickrScrapedAlbumSummary, FlickrScrapedUserAlbumsData } from "../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -60,7 +61,7 @@ router.post("/html-fetch", async (req: Request, res: Response) => {
   const waitUntil = body?.waitUntil || "domcontentloaded";
   let browser: Browser | null = null;
   try {
-    browser = await launchHeadlessChromium();
+    browser = await launchChromium();
     const page = await newBrowserPage(browser);
     await page.goto(url, { waitUntil, timeout: timeoutMs });
     const html = await page.content();
@@ -92,7 +93,7 @@ router.post("/flickr-user-albums", async (req: Request, res: Response) => {
   const url = `https://www.flickr.com/photos/${userId}/albums`;
   let browser: Browser | null = null;
   try {
-    browser = await launchHeadlessChromium();
+    browser = await launchChromium();
     const page = await newBrowserPage(browser);
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
@@ -251,21 +252,6 @@ router.post("/flickr-user-albums", async (req: Request, res: Response) => {
     await closeBrowserQuietly(browser);
   }
 });
-
-async function launchHeadlessChromium(): Promise<Browser> {
-  return chromium.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
-      "--no-first-run",
-      "--no-zygote",
-      "--disable-gpu"
-    ]
-  });
-}
 
 async function closeBrowserQuietly(browser: Browser | null): Promise<void> {
   if (!browser) {
