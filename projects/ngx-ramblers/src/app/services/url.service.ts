@@ -155,6 +155,18 @@ export class UrlService {
     return decodeURIComponent(new URL(optionalUrl || this.absoluteUrl()).pathname.substring(1));
   }
 
+  sameOriginUrl(url: string): string {
+    try {
+      const current = new URL(this.absoluteUrl());
+      const parsed = new URL(url, current.origin);
+      return parsed.pathname.startsWith("/api/")
+        ? `${current.origin}${parsed.pathname}${parsed.search}`
+        : url;
+    } catch {
+      return url;
+    }
+  }
+
   area(): string {
     return this.firstPathSegment();
   }

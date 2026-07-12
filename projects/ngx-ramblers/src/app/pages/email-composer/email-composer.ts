@@ -538,6 +538,11 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
               }
             }
           }
+          @if (stepperActiveTab !== EmailComposerStepKey.SEND && !sendDisabled() && !hasSendBlockers()) {
+            <button type="button" class="btn btn-sunset text-nowrap" (click)="goToSendAndConfirm()" [title]="'Send ' + sendingChannelLabel()">
+              <fa-icon [icon]="faPaperPlane"/> Send
+            </button>
+          }
         </div>
       </div>
       <div class="d-none">
@@ -4881,6 +4886,11 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   protected cancelSendConfirm(): void {
     this.sendConfirm.clear();
+  }
+
+  protected goToSendAndConfirm(): void {
+    this.goToStepKey(EmailComposerStepKey.SEND);
+    void this.confirmAndSend();
   }
 
   async confirmAndSend(): Promise<void> {

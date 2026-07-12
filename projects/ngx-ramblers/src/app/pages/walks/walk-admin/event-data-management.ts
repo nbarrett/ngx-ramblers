@@ -15,7 +15,7 @@ import { FormsModule } from "@angular/forms";
 import { SystemConfig } from "../../../models/system.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { WalkGroupAdminService } from "../walk-import/walk-group-admin-service";
-import { EditableEventStats, InputSource } from "../../../models/group-event.model";
+import { EditableEventStats, ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { Confirm, ConfirmType } from "../../../models/ui-actions";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
@@ -25,6 +25,20 @@ import { Location, TitleCasePipe } from "@angular/common";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { sortBy } from "../../../functions/arrays";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
+import { csvContentFrom, CsvOptions } from "../../../csv-export/csv-export";
+import { LocalWalksAndEventsService } from "../../../services/walks-and-events/local-walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
+import {
+  CsvZipFileWithCount,
+  CsvZipRequest,
+  WalkUploadColumnHeading,
+  WalkUploadRow
+} from "../../../models/ramblers-walks-manager";
+import { HttpClient } from "@angular/common/http";
+import { firstValueFrom } from "rxjs";
+
+const EXPORT_EVENT_QUERY_LIMIT = 100000;
+import { EventField, GroupEventField, WALK_IMAGE_CSV_COLUMN_HEADINGS, WalkImageRow } from "../../../models/walk.model";
 
 @Component({
   selector: "app-event-data-management",
@@ -67,9 +81,17 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
           }
           <input type="submit" value="Back To Walks Admin" (click)="navigateBackToAdmin()"
                  class="btn btn-primary me-2">
-          @if (!oneOrMoreEdited && !oneOrMoreSelectedForDelete) {
-            <input type="submit" value="Recreate Group Event Index" (click)="recreateGroupEventsIndex()"
-                   [disabled]="oneOrMoreEdited || oneOrMoreSelectedForDelete" class="btn btn-danger">
+          @if (!oneOrMoreEdited) {
+            <input type="submit" [value]="exportButtonLabel()" (click)="exportWalksManagerCsv()"
+                   [disabled]="exporting || selectedEventStats.length === 0" class="btn btn-primary me-2">
+            <div class="form-check form-check-inline">
+              <input id="include-walk-ids" type="checkbox" class="form-check-input" [(ngModel)]="includeWalkIds">
+              <label class="form-check-label" for="include-walk-ids">Include Walk IDs</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input id="include-images" type="checkbox" class="form-check-input" [(ngModel)]="includeImages">
+              <label class="form-check-label" for="include-images">Include Images</label>
+            </div>
           }
         </div>
       </div>
@@ -85,7 +107,8 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
       </div>
       <div class="row">
         <div class="col-sm-12">
-          <table class="styled-table table-striped table-hover table-sm table-pointer">
+          <div class="ngx-data-table-card">
+          <table class="ngx-data-table">
             <thead>
             <tr>
               <th>
@@ -96,56 +119,56 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
                   <label class="form-check-label" for="select-all"></label>
                 </div>
               </th>
-              <th (click)="sortBy('itemType')" class="pointer">
+              <th class="sortable" (click)="sortBy('itemType')">
                 Event Type
                 @if (sortField === 'itemType') {
                   <span class="sorting-header">{{ sortDirection }}</span>
                 }
               </th>
               <th>Edit</th>
-              <th (click)="sortBy('groupCode')" class="pointer">
+              <th class="sortable" (click)="sortBy('groupCode')">
                 Group Code
                 @if (sortField === 'groupCode') {
                   <span class="sorting-header">{{ sortDirection }}</span>
                 }
               </th>
-              <th (click)="sortBy('groupName')" class="pointer">
+              <th class="sortable" (click)="sortBy('groupName')">
                 Group Name
                 @if (sortField === 'groupName') {
                   <span class="sorting-header">{{ sortDirection }}</span>
                 }
               </th>
-              <th (click)="sortBy('inputSource')" class="pointer">
+              <th class="sortable" (click)="sortBy('inputSource')">
                 Input Source
                 @if (sortField === 'inputSource') {
                   <span class="sorting-header">{{ sortDirection }}</span>
                 }
               </th>
-              <th (click)="sortBy('eventCount')" class="pointer">
+              <th class="sortable" (click)="sortBy('eventCount')">
                 Event Count
                 @if (sortField === 'eventCount') {
                   <span class="sorting-header">{{ sortDirection }}</span>
                 }
               </th>
-              <th (click)="sortBy('duplicateCount')" class="pointer">
+              <th class="sortable" (click)="sortBy('duplicateCount')">
                 Duplicates
                 @if (sortField === 'duplicateCount') {
                   <span class="sorting-header">{{ sortDirection }}</span>
                 }
               </th>
-              <th (click)="sortBy('minDate')" class="pointer">
+              <th class="sortable" (click)="sortBy('minDate')">
                 From
                 @if (sortField === 'minDate') {
                   <span class="sorting-header">{{ sortDirection }}</span>
                 }
               </th>
-              <th (click)="sortBy('maxDate')" class="pointer">
+              <th class="sortable" (click)="sortBy('maxDate')">
                 To
                 @if (sortField === 'maxDate') {
                   <span class="sorting-header">{{ sortDirection }}</span>
                 }
               </th>
-              <th (click)="sortBy('lastSyncedAt')" class="pointer">
+              <th class="sortable" (click)="sortBy('lastSyncedAt')">
                 Last Updated
                 @if (sortField === 'lastSyncedAt') {
                   <span class="sorting-header">{{ sortDirection }}</span>
@@ -214,6 +237,7 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
               }
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </app-page>
@@ -230,6 +254,9 @@ export class EventDataManagement implements OnInit, OnDestroy {
   private urlService = inject(UrlService);
   protected stringUtilsService = inject(StringUtilsService);
   private walkGroupAdminService = inject(WalkGroupAdminService);
+  private localWalksAndEventsService = inject(LocalWalksAndEventsService);
+  private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
+  private http = inject(HttpClient);
   protected alertTarget: AlertTarget = {};
   protected notify: AlertInstance;
   public confirm: Confirm = new Confirm();
@@ -237,6 +264,9 @@ export class EventDataManagement implements OnInit, OnDestroy {
   protected systemConfig: SystemConfig;
   protected editableEventStats: EditableEventStats[] = [];
   protected allSelected = false;
+  protected includeWalkIds = false;
+  protected includeImages = false;
+  protected exporting = false;
   faEdit = faEdit;
   faUndo = faUndo;
   inputSources: KeyValue<string>[] = enumKeyValues(InputSource);
@@ -360,9 +390,135 @@ export class EventDataManagement implements OnInit, OnDestroy {
     this.location.back();
   }
 
-  recreateGroupEventsIndex() {
-    this.walkGroupAdminService.recreateGroupEventsIndex()
-      .subscribe(response => this.notify.warning({title: "Recreate Index", message: response}));
+  exportButtonLabel(): string {
+    if (this.exporting) {
+      return "Exporting...";
+    }
+    return this.selectedEventStats.length > 0
+      ? `Export ${this.stringUtilsService.pluraliseWithCount(this.selectedEventStats.length, "Selected Group")} To CSV`
+      : "Export Selected Groups To CSV";
+  }
+
+  async exportWalksManagerCsv() {
+    this.exporting = true;
+    try {
+      const files = await this.selectedEventStats.reduce(async (previous: Promise<CsvZipFileWithCount[]>, stat) => {
+        const collected = await previous;
+        return [...collected, ...await this.csvFilesFor(stat)];
+      }, Promise.resolve([] as CsvZipFileWithCount[]));
+      const totalEvents = files.reduce((sum, file) => sum + file.eventCount, 0);
+      if (files.length === 1) {
+        this.downloadBlob(new Blob([files[0].content], {type: "text/csv;charset=utf8;"}), files[0].name);
+      } else {
+        const zipFileName = `${this.ramblersWalksAndEventsService.exportWalksFileName(true)}.zip`;
+        const zip = await firstValueFrom(this.http.post(`api/database/walks/csv-zip`, {
+          fileName: zipFileName,
+          files: files.map(file => ({name: file.name, content: file.content}))
+        } as CsvZipRequest, {responseType: "blob"}));
+        this.downloadBlob(zip, zipFileName);
+      }
+      this.notify.success({
+        title: "Export To CSV",
+        message: `${this.stringUtilsService.pluraliseWithCount(totalEvents, "event")} exported to ${this.stringUtilsService.pluraliseWithCount(files.length, "file")} in a single download`
+      });
+    } catch (error) {
+      this.notify.error({title: "Export To CSV", message: error});
+    } finally {
+      this.exporting = false;
+    }
+  }
+
+  private async csvFilesFor(stat: EditableEventStats): Promise<CsvZipFileWithCount[]> {
+    const events = (await this.localWalksAndEventsService.all({
+      inputSource: stat.inputSource,
+      suppressEventLinking: true,
+      groupCode: stat.groupCode,
+      types: [stat.itemType],
+      dataQueryOptions: {
+        criteria: {[EventField.INPUT_SOURCE]: stat.inputSource},
+        sort: {[GroupEventField.START_DATE]: 1},
+        limit: EXPORT_EVENT_QUERY_LIMIT
+      }
+    })).sort(sortBy(GroupEventField.START_DATE));
+    const rows: WalkUploadRow[] = await Promise.all(events.map(async event => {
+      const row = await this.ramblersWalksAndEventsService.walkToWalkUploadRow(event);
+      return this.includeWalkIds ? {...row, [WalkUploadColumnHeading.WALK_ID]: this.walkIdFor(event)} : row;
+    }));
+    const walksFile: CsvZipFileWithCount = {
+      name: `${this.exportFileNameFor(stat)}.csv`,
+      content: csvContentFrom(rows, this.csvOptionsFor(this.ramblersWalksAndEventsService.walkUploadHeadings(this.includeWalkIds))),
+      eventCount: rows.length
+    };
+    const imageRows: WalkImageRow[] = this.includeImages ? events.flatMap(event => this.walkImageRowsFor(event)) : [];
+    return imageRows.length > 0
+      ? [walksFile, {
+        name: `${this.exportFileNameFor(stat)}-images.csv`,
+        content: csvContentFrom(imageRows, this.csvOptionsFor(WALK_IMAGE_CSV_COLUMN_HEADINGS)),
+        eventCount: 0
+      }]
+      : [walksFile];
+  }
+
+  private walkImageRowsFor(event: ExtendedGroupEvent): WalkImageRow[] {
+    return (event.groupEvent?.media || [])
+      .map(media => media.styles?.find(style => style.style === "medium")?.url || media.styles?.[0]?.url)
+      .filter(url => !!url)
+      .map(url => this.urlService.imageSource(url, true))
+      .map((absoluteUrl, index) => ({
+        "Walk ID": this.walkIdFor(event),
+        "Image GUID": absoluteUrl,
+        "Local Filename": this.fileNameFromUrl(absoluteUrl),
+        "Image Order": `${index + 1}`
+      }));
+  }
+
+  private walkIdFor(event: ExtendedGroupEvent): string {
+    return event.groupEvent?.id || event.id;
+  }
+
+  private fileNameFromUrl(url: string): string {
+    try {
+      return decodeURIComponent(new URL(url).pathname.split("/").pop() || "");
+    } catch {
+      return url.split("?")[0].split("/").pop() || "";
+    }
+  }
+
+  private downloadBlob(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  private exportFileNameFor(stat: EditableEventStats): string {
+    return [
+      this.ramblersWalksAndEventsService.exportWalksFileName(true),
+      stat.groupCode,
+      this.stringUtilsService.kebabCase(stat.groupName),
+      this.stringUtilsService.kebabCase(stat.itemType),
+      this.stringUtilsService.kebabCase(stat.inputSource)
+    ].filter(part => !!part).join("-");
+  }
+
+  private csvOptionsFor(headings: string[]): CsvOptions {
+    return {
+      decimalSeparator: "",
+      filename: "",
+      showLabels: false,
+      title: "",
+      fieldSeparator: ",",
+      quoteStrings: "\"",
+      headers: headings,
+      keys: headings,
+      showTitle: false,
+      useBom: false,
+      removeNewLines: true
+    };
   }
 
   cancelConfirmAndAlert() {

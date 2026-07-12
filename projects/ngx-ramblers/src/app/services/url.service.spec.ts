@@ -60,6 +60,29 @@ describe("UrlService", () => {
         expect(service.publicBaseUrl()).toBe("https://www.bishopsbourne-ramblers.org.uk");
     });
 
+    describe("sameOriginUrl", () => {
+        it("rewrites a cross-origin (non-www) api url onto the actual browser origin", () => {
+            LOCATION_VALUE.location.href = "https://www.ngx-ramblers.org.uk/admin/inbox";
+            const service: UrlService = TestBed.inject(UrlService);
+            expect(service.sameOriginUrl("https://ngx-ramblers.org.uk/api/aws/s3/email-attachments/x.csv"))
+                .toBe("https://www.ngx-ramblers.org.uk/api/aws/s3/email-attachments/x.csv");
+        });
+
+        it("resolves a relative api path onto the actual browser origin", () => {
+            LOCATION_VALUE.location.href = "https://www.ngx-ramblers.org.uk/admin/inbox";
+            const service: UrlService = TestBed.inject(UrlService);
+            expect(service.sameOriginUrl("/api/aws/s3/email-attachments/x.csv"))
+                .toBe("https://www.ngx-ramblers.org.uk/api/aws/s3/email-attachments/x.csv");
+        });
+
+        it("leaves non-api urls untouched", () => {
+            LOCATION_VALUE.location.href = "https://www.ngx-ramblers.org.uk/admin/inbox";
+            const service: UrlService = TestBed.inject(UrlService);
+            expect(service.sameOriginUrl("https://cdn.example.com/image.png"))
+                .toBe("https://cdn.example.com/image.png");
+        });
+    });
+
     describe("area", () => {
 
         it("should return first url segment minus the slash", () => {

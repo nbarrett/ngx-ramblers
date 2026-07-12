@@ -10,6 +10,7 @@ import { firstValueFrom } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AttachmentPreview, AttachmentPreviewKind } from "../../../models/inbox.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { UrlService } from "../../../services/url.service";
 
 @Component({
   selector: "app-attachment-preview",
@@ -97,6 +98,7 @@ export class AttachmentPreviewComponent {
   private logger: Logger = inject(LoggerFactory).createLogger("AttachmentPreviewComponent", NgxLoggerLevel.ERROR);
   private http = inject(HttpClient);
   private sanitiser = inject(DomSanitizer);
+  private urlService = inject(UrlService);
 
   @Input() maximumPreviewRows = 200;
   @Input() maximumPreviewCharacters = 100000;
@@ -120,7 +122,7 @@ export class AttachmentPreviewComponent {
     this.previewCsvRows = null;
     this.previewCsvHeadings = [];
     this.previewCsvTotalRows = 0;
-    this.previewSafeUrl = this.previewKind === AttachmentPreviewKind.PDF ? this.sanitiser.bypassSecurityTrustResourceUrl(attachment.url) : null;
+    this.previewSafeUrl = this.previewKind === AttachmentPreviewKind.PDF ? this.sanitiser.bypassSecurityTrustResourceUrl(this.urlService.sameOriginUrl(attachment.url)) : null;
     if (this.previewKind === AttachmentPreviewKind.CSV) {
       await this.loadCsvPreview(attachment);
     } else if (this.previewKind === AttachmentPreviewKind.TEXT) {
@@ -164,7 +166,7 @@ export class AttachmentPreviewComponent {
 
   private async loadCsvPreview(attachment: AttachmentPreview): Promise<void> {
     try {
-      const text = await firstValueFrom(this.http.get(attachment.url, {responseType: "text"}));
+      const text = await firstValueFrom(this.http.get(this.urlService.sameOriginUrl(attachment.url), {responseType: "text"}));
       const rows = parse(text, {relax_column_count: true, skip_empty_lines: true, bom: true, record_delimiter: ["\r\n", "\n", "\r"]}) as string[][];
       this.previewCsvHeadings = rows[0] ?? [];
       const dataRows = rows.slice(1);
@@ -179,7 +181,7 @@ export class AttachmentPreviewComponent {
 
   private async loadTextPreview(attachment: AttachmentPreview): Promise<void> {
     try {
-      const text = await firstValueFrom(this.http.get(attachment.url, {responseType: "text"}));
+      const text = await firstValueFrom(this.http.get(this.urlService.sameOriginUrl(attachment.url), {responseType: "text"}));
       this.previewText = text.length > this.maximumPreviewCharacters ? `${text.substring(0, this.maximumPreviewCharacters)}\n… (truncated — download for the full file)` : text;
     } catch (error) {
       this.logger.error("attachment preview failed for", attachment, error);
