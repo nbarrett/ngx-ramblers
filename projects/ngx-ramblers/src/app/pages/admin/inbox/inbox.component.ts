@@ -4,7 +4,7 @@ import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faInbox, faLayerGroup, faListCheck, faPaperclip, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faInbox, faListCheck, faPaperclip, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { AdminSettingsPath, AdminPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, values } from "es-toolkit/compat";
@@ -227,11 +227,6 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                     <span class="inbox-unread-dot flex-shrink-0" aria-label="Unread"></span>
                   }
                   <div class="inbox-thread-from flex-grow-1 text-truncate">{{thread.externalAddress.name ?? thread.externalAddress.email}}</div>
-                  @if (conversationThreadCount(thread) > 1) {
-                    <span class="small text-muted flex-shrink-0" tooltip="Grouped across {{conversationThreadCount(thread)}} role inboxes">
-                      <fa-icon [icon]="faLayerGroup"/> {{conversationThreadCount(thread)}}
-                    </span>
-                  }
                   <div class="inbox-thread-time flex-shrink-0">{{thread.lastSeenAt | date: "short"}}</div>
                 </div>
                 <div class="inbox-thread-subject text-truncate">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
@@ -397,7 +392,6 @@ export class InboxComponent implements OnInit, OnDestroy {
   private urlService = inject(UrlService);
   protected numberUtils = inject(NumberUtilsService);
   protected readonly faInbox = faInbox;
-  protected readonly faLayerGroup = faLayerGroup;
   protected readonly faPenToSquare = faPenToSquare;
   protected readonly faReply = faReply;
   protected readonly faRotateRight = faRotateRight;
@@ -727,9 +721,6 @@ export class InboxComponent implements OnInit, OnDestroy {
     return this.siblingConversationThreads(thread).some(candidate => candidate.unread);
   }
 
-  conversationThreadCount(thread: InboxThread): number {
-    return this.siblingConversationThreads(thread).length;
-  }
 
   conversationSelected(thread: InboxThread): boolean {
     return this.siblingConversationThreads(thread).every(candidate => this.selectedThreadIds.has(this.threadIdOf(candidate)));

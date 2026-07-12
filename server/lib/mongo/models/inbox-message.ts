@@ -10,9 +10,9 @@ const inboxAddress = new Schema({
 
 const inboxAttachment = new Schema({
   filename: {type: String, required: true},
-  contentType: {type: String, required: true},
-  sizeBytes: {type: Number, required: true},
-  s3Key: {type: String, required: true},
+  contentType: {type: String, default: null},
+  sizeBytes: {type: Number, default: 0},
+  s3Key: {type: String, default: null},
   contentId: {type: String, default: null}
 }, {_id: false});
 

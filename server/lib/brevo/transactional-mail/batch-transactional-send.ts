@@ -346,7 +346,7 @@ async function performInboxWriteback(request: BatchTransactionalSendRequest, ema
       externalId: gmailMessageId,
       attachments: (emailRequest.attachments ?? []).map(attachment => ({
         filename: attachment.name,
-        contentType: "",
+        contentType: "application/octet-stream",
         sizeBytes: attachment.sizeBytes ?? 0,
         s3Key: attachment.url.split("api/aws/s3/")[1] ?? "",
         contentId: null

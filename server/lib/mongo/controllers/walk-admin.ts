@@ -3,8 +3,9 @@ import { extendedGroupEvent } from "../models/extended-group-event";
 import { socialEvent } from "../models/social-event";
 import { memberBulkLoadAudit } from "../models/member-bulk-load-audit";
 import { deletedMember } from "../models/deleted-member";
-import { EventField, GroupEventField, EventType, EventEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { EventField, GroupEventField, EventType } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { CsvZipRequest, RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import AdmZip from "adm-zip";
 import { UIDateFormat } from "../../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
@@ -23,7 +24,7 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { PipelineStage } from "mongoose";
 import * as transforms from "./transforms";
-import { isArray, isNull, isNumber, isUndefined, kebabCase, keys } from "es-toolkit/compat";
+import { isArray, isNull, isNumber, isUndefined, kebabCase } from "es-toolkit/compat";
 import { sortBy } from "../../../../projects/ngx-ramblers/src/app/functions/arrays";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone, dateTimeNow, dateTimeNowAsValue } from "../../shared/dates";
 import { systemConfig } from "../../config/system-config";
@@ -219,34 +220,17 @@ export async function bulkUpdateEvents(req: Request, res: Response) {
   }
 }
 
-export async function recreateIndex(req: Request, res: Response) {
+export async function csvZip(req: Request, res: Response) {
   try {
-    debugLog("recreateIndex: starting");
-    const oldIndexFields = [GroupEventField.START_DATE, GroupEventField.ITEM_TYPE, GroupEventField.GROUP_CODE];
-    const indexes = await extendedGroupEvent.collection.indexInformation();
-    debugLog("recreateIndex: existing indexes:", JSON.stringify(indexes, null, 2));
-
-    const oldIndexName = keys(indexes).find(name => {
-      const indexKeyObj = Object.fromEntries(indexes[name]);
-      const indexFields = keys(indexKeyObj).sort();
-      const hasExactlyTheseFields = indexFields.length === oldIndexFields.length &&
-        oldIndexFields.every(field => indexKeyObj[field] === 1);
-      debugLog(`recreateIndex: checking index ${name}:`, indexKeyObj, "matches old:", hasExactlyTheseFields);
-      return hasExactlyTheseFields;
-    });
-
-    if (oldIndexName) {
-      await extendedGroupEvent.collection.dropIndex(oldIndexName);
-      debugLog("recreateIndex: Dropped old index:", oldIndexName);
-    } else {
-      debugLog("recreateIndex: No old index found to drop");
-    }
-
-    await extendedGroupEvent.syncIndexes();
-    debugLog("recreateIndex: New index synchronized successfully");
-    res.json({ message: "Index recreated successfully" });
+    const request: CsvZipRequest = req.body;
+    const zip = new AdmZip();
+    (request.files || []).forEach(file => zip.addFile(file.name, Buffer.from(file.content, "utf8")));
+    debugLog("csvZip:", request.files?.length, "files zipped as", request.fileName);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${request.fileName || "export.zip"}"`);
+    res.send(zip.toBuffer());
   } catch (error) {
-    debugLog("recreateIndex error:", error);
+    debugLog("csvZip error:", error);
     res.status(500).json({ error: error.message });
   }
 }

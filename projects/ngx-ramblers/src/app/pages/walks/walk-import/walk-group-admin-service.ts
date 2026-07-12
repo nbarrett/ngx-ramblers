@@ -30,8 +30,4 @@ export class WalkGroupAdminService {
   bulkUpdateEvents(updates: EditableEventStats[]): Observable<void> {
     return this.http.post<void>(`api/database/walks/bulk-update`, updates);
   }
-
-  recreateGroupEventsIndex(): Observable<void> {
-    return this.http.post<void>(`api/database/walks/recreate-index`, {});
-  }
 }

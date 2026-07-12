@@ -251,5 +251,19 @@ export type WalkUploadRow = {
   [column in keyof WalkUploadColumnHeading]?: string;
 }
 
+export interface CsvZipFile {
+  name: string;
+  content: string;
+}
+
+export interface CsvZipRequest {
+  fileName: string;
+  files: CsvZipFile[];
+}
+
+export interface CsvZipFileWithCount extends CsvZipFile {
+  eventCount: number;
+}
+
 export const ALL_EVENT_TYPES: RamblersEventType[] = [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT, RamblersEventType.WELLBEING_WALK];
 export const MAXIMUM_PAGE_SIZE = 300;

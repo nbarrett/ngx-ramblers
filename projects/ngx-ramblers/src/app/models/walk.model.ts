@@ -472,6 +472,8 @@ export interface WalkImageRow {
   "Image Order": string;
 }
 
+export const WALK_IMAGE_CSV_COLUMN_HEADINGS: string[] = ["Walk ID", "Image GUID", "Local Filename", "Image Order"];
+
 export interface GpxFileListItem {
   fileData: FileNameData;
   startLat: number;

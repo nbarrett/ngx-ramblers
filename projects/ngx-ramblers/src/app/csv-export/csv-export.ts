@@ -48,6 +48,47 @@ export const ConfigDefaults: CsvOptions = {
   removeNewLines: CsvConfigConsts.DEFAULT_REMOVE_NEW_LINES
 };
 
+export function csvContentFrom(data: any[], options: CsvOptions): string {
+  const prefix = `${options.useBom ? CsvConfigConsts.BOM : ""}${options.showTitle ? options.title + "\r\n\n" : ""}`;
+  return `${prefix}${csvHeadersFrom(options)}${csvBodyFrom(data, options)}`;
+}
+
+function csvHeadersFrom(options: CsvOptions): string {
+  return options.headers.length > 0 ? options.headers.join(options.fieldSeparator) + CsvConfigConsts.EOL : "";
+}
+
+function csvBodyFrom(data: any[], options: CsvOptions): string {
+  return (data || []).map(dataRow => {
+    const values = options.keys && options.keys.length > 0
+      ? options.keys.map(key => formatCsvData(dataRow[key], options))
+      : dataRow.map((value: any) => formatCsvData(value, options));
+    return values.join(options.fieldSeparator) + CsvConfigConsts.EOL;
+  }).join("");
+}
+
+function formatCsvData(data: any, options: CsvOptions) {
+  if (options.decimalSeparator === "locale" && isFloatValue(data)) {
+    return data.toLocaleString();
+  }
+  if (options.decimalSeparator !== "." && isFloatValue(data)) {
+    return data.toString().replace(".", options.decimalSeparator);
+  }
+  if (isString(data)) {
+    const escaped = data.replace(/"/g, "\"\"");
+    return options.quoteStrings || escaped.indexOf(",") > -1 || escaped.indexOf("\n") > -1 || escaped.indexOf("\r") > -1
+      ? options.quoteStrings + escaped + options.quoteStrings
+      : escaped;
+  }
+  if (isBoolean(data)) {
+    return data ? "TRUE" : "FALSE";
+  }
+  return data;
+}
+
+function isFloatValue(input: any) {
+  return +input === input && (!isFinite(input) || Boolean(input % 1));
+}
+
 @Component({
     selector: "app-csv-export",
     template: ""
@@ -77,17 +118,7 @@ export class CsvExportComponent {
 
   generateCsv(): void {
     this.logger.info("generateCsv:options:", this._options);
-
-    if (this._options.useBom) {
-      this.csv += CsvConfigConsts.BOM;
-    }
-
-    if (this._options.showTitle) {
-      this.csv += this._options.title + "\r\n\n";
-    }
-
-    this.generateHeaders();
-    this.generateBody();
+    this.csv = csvContentFrom(this.data, this._options);
 
     if (this.csv === "") {
       this.logger.warn("Invalid data");
@@ -101,7 +132,6 @@ export class CsvExportComponent {
       const filename = this._options.filename.replace(/ /g, "_") + ".csv";
       navigatorAny.msSaveBlob(blob, filename);
     } else {
-      const uri = "data:attachment/csv;charset=utf-8," + encodeURI(this.csv);
       const link: HTMLAnchorElement = this.document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.setAttribute("visibility", "hidden");
@@ -111,67 +141,5 @@ export class CsvExportComponent {
       this.logger.info("link:", link, "this._options.filename:", this._options.filename);
       this.document.body.removeChild(link);
     }
-  }
-
-  private generateHeaders(): void {
-    if (this._options.headers.length > 0) {
-      let row = "";
-      for (const column of this._options.headers) {
-        row += column + this._options.fieldSeparator;
-      }
-
-      row = row.slice(0, -1);
-      this.csv += row + CsvConfigConsts.EOL;
-    }
-  }
-
-  private generateBody() {
-
-    for (const dataRow of this.data) {
-      let row = "";
-      if (this._options.keys && this._options.keys.length > 0) {
-        for (const key of this._options.keys) {
-          row += this.formatData(dataRow[key]) + this._options.fieldSeparator;
-        }
-        row = row.slice(0, -1);
-        this.csv += row + CsvConfigConsts.EOL;
-
-      } else {
-        for (const data of dataRow) {
-          row += this.formatData(data) + this._options.fieldSeparator;
-        }
-        row = row.slice(0, -1);
-        this.csv += row + CsvConfigConsts.EOL;
-      }
-    }
-  }
-
-  private formatData(data: any) {
-
-    if (this._options.decimalSeparator === "locale" && this.isFloat(data)) {
-      return data.toLocaleString();
-    }
-
-    if (this._options.decimalSeparator !== "." && this.isFloat(data)) {
-      return data.toString().replace(".", this._options.decimalSeparator);
-    }
-
-    if (isString(data)) {
-      data = data.replace(/"/g, "\"\"");
-      if (this._options.quoteStrings || data.indexOf(",") > -1
-        || data.indexOf("\n") > -1 || data.indexOf("\r") > -1) {
-        data = this._options.quoteStrings + data + this._options.quoteStrings;
-      }
-      return data;
-    }
-
-    if (isBoolean(data)) {
-      return data ? "TRUE" : "FALSE";
-    }
-    return data;
-  }
-
-  private isFloat(input: any) {
-    return +input === input && (!isFinite(input) || Boolean(input % 1));
   }
 }

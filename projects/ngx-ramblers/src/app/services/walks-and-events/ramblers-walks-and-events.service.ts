@@ -498,8 +498,8 @@ export class RamblersWalksAndEventsService {
     return transformed;
   }
 
-  private walkUploadHeadings() {
-    return enumValues(WalkUploadColumnHeading).filter(heading => heading !== WalkUploadColumnHeading.WALK_ID);
+  public walkUploadHeadings(includeWalkId = false) {
+    return enumValues(WalkUploadColumnHeading).filter(heading => includeWalkId || heading !== WalkUploadColumnHeading.WALK_ID);
   }
 
   public toWalkExport(localAndRamblersWalk: LocalAndRamblersWalk): WalkExportData {
@@ -658,8 +658,8 @@ export class RamblersWalksAndEventsService {
 
   private longerDescriptionPlusSuffixes(walk: ExtendedGroupEvent) {
     const assistanceDogsDescribedFeature: DescribedFeature = ALL_DESCRIBED_FEATURES.find(item => item.code === Feature.ASSISTANCE_DOGS);
-    const walkDescription = walk.groupEvent.description.trim();
-    if (this.featureSelected(Feature.ASSISTANCE_DOGS, walk) && !walk.groupEvent.description.includes(assistanceDogsDescribedFeature.description)) {
+    const walkDescription = (walk.groupEvent.description || "").trim();
+    if (this.featureSelected(Feature.ASSISTANCE_DOGS, walk) && !walkDescription.includes(assistanceDogsDescribedFeature.description)) {
       const delimiter = this.stringUtilsService.right(walkDescription, 1) === "." ? " " : ". ";
       return `${walkDescription}${delimiter}${assistanceDogsDescribedFeature.description}.`;
     } else {
@@ -798,7 +798,7 @@ export class RamblersWalksAndEventsService {
     csvRecord[WalkUploadColumnHeading.FINISHING_POSTCODE] = this.walkFinishPostcode(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.FINISHING_GRIDREF] = this.walkFinishGridReference(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.FINISHING_LOCATION_DETAILS] = this.finishingLocationDetails(extendedGroupEvent);
-    csvRecord[WalkUploadColumnHeading.DIFFICULTY] = this.asString(extendedGroupEvent?.groupEvent?.difficulty.description);
+    csvRecord[WalkUploadColumnHeading.DIFFICULTY] = this.asString(extendedGroupEvent?.groupEvent?.difficulty?.description);
     csvRecord[WalkUploadColumnHeading.DISTANCE_KM] = walkDistance.kilometres.valueAsString;
     csvRecord[WalkUploadColumnHeading.DISTANCE_MILES] = walkDistance.miles.valueAsString;
     csvRecord[WalkUploadColumnHeading.ASCENT_METRES] = walkAscent.metres.valueAsString;
