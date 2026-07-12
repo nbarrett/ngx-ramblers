@@ -69,6 +69,7 @@ export class WalksConfigService {
       requireRiskAssessment: true,
       requireFinishTime: true,
       requireWalkLeaderDisplayName: true,
+      rematchWalkLeadersOnMemberChange: true,
       showRepeatedPagination: true,
       relatedLinkShowOnRamblers: true,
       relatedLinkShowThisWalk: true,

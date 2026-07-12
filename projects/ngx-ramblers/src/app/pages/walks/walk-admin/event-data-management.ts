@@ -84,6 +84,8 @@ import { EventField, GroupEventField, WALK_IMAGE_CSV_COLUMN_HEADINGS, WalkImageR
           @if (!oneOrMoreEdited) {
             <input type="submit" [value]="exportButtonLabel()" (click)="exportWalksManagerCsv()"
                    [disabled]="exporting || selectedEventStats.length === 0" class="btn btn-primary me-2">
+            <input type="submit" [value]="rematching ? 'Re-matching Walk Leaders...' : 'Re-match Walk Leaders'"
+                   (click)="rematchWalkLeaders()" [disabled]="rematching" class="btn btn-primary me-2">
             <div class="form-check form-check-inline">
               <input id="include-walk-ids" type="checkbox" class="form-check-input" [(ngModel)]="includeWalkIds">
               <label class="form-check-label" for="include-walk-ids">Include Walk IDs</label>
@@ -267,6 +269,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
   protected includeWalkIds = false;
   protected includeImages = false;
   protected exporting = false;
+  protected rematching = false;
   faEdit = faEdit;
   faUndo = faUndo;
   inputSources: KeyValue<string>[] = enumKeyValues(InputSource);
@@ -388,6 +391,24 @@ export class EventDataManagement implements OnInit, OnDestroy {
 
   navigateBackToAdmin() {
     this.location.back();
+  }
+
+  async rematchWalkLeaders() {
+    this.rematching = true;
+    try {
+      const summary = await firstValueFrom(this.walkGroupAdminService.rematchWalkLeaders());
+      const outcome = [
+        `${this.stringUtilsService.pluraliseWithCount(summary.matched, "event")} newly matched to a member`,
+        `${summary.unmatchedWithName} with leader details but no confident member match`,
+        `${summary.noNameToMatchOn} with no leader details to match on`,
+        `${summary.alreadyLinked} already linked`
+      ].join(", ");
+      this.notify.success({title: "Walk Leader Re-match", message: outcome});
+    } catch (error) {
+      this.notify.error({title: "Walk Leader Re-match", message: error?.error?.message || error});
+    } finally {
+      this.rematching = false;
+    }
   }
 
   exportButtonLabel(): string {

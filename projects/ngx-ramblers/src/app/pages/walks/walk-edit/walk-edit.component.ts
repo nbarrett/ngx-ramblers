@@ -75,6 +75,7 @@ import { WalkEditHistoryComponent } from "./walk-edit-walk-history";
 import { WalkEditCopyFromComponent } from "./walk-edit-copy-from";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import {
+  contactDetailsForLeaderRematch,
   leaderMatchResult,
   priorMatchesFromWalks,
   shouldAutoLinkLeaderMatch
@@ -808,27 +809,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  private validEmail(value: unknown): boolean {
-    const normalised = isString(value) ? value.trim().toLowerCase() : "";
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalised);
-  }
-
   private contactDetailsForRematch() {
-    const contactDetails = this.displayedWalk?.walk?.fields?.contactDetails;
-    const ramblersContactName = this.displayedWalk?.walk?.fields?.publishing?.ramblers?.contactName || null;
-    const walkLeader = this.displayedWalk?.walk?.groupEvent?.walk_leader;
-    const sourcedDisplayName = walkLeader?.name || null;
-    const sourcedPhone = walkLeader?.telephone || null;
-    const sourcedEmailCandidate = walkLeader?.email_form || null;
-    const existingEmail = this.validEmail(contactDetails?.email) ? contactDetails?.email : null;
-    const sourcedEmail = this.validEmail(sourcedEmailCandidate) ? sourcedEmailCandidate : null;
-    return {
-      ...contactDetails,
-      contactId: contactDetails?.contactId || ramblersContactName,
-      displayName: sourcedDisplayName || contactDetails?.displayName || ramblersContactName,
-      phone: sourcedPhone || contactDetails?.phone || null,
-      email: sourcedEmail || existingEmail
-    };
+    return contactDetailsForLeaderRematch(this.displayedWalk?.walk);
   }
 
   private ensureImageConfig() {

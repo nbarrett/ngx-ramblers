@@ -302,3 +302,21 @@ export function priorMatchesFromWalks(walks: ExtendedGroupEvent[]): PriorContact
 export function matchedMemberForWalkLeader(members: Member[], contactDetails: ContactDetails): Member | null {
   return currentSignalMatch(members, contactDetails).member;
 }
+
+export function contactDetailsForLeaderRematch(event: ExtendedGroupEvent): ContactDetails {
+  const contactDetails = event?.fields?.contactDetails;
+  const ramblersContactName = event?.fields?.publishing?.ramblers?.contactName || null;
+  const walkLeader = event?.groupEvent?.walk_leader;
+  const sourcedDisplayName = walkLeader?.name || null;
+  const sourcedPhone = walkLeader?.telephone || null;
+  const sourcedEmailCandidate = walkLeader?.email_form || null;
+  const existingEmail = validEmail(contactDetails?.email) ? contactDetails?.email : null;
+  const sourcedEmail = validEmail(sourcedEmailCandidate) ? sourcedEmailCandidate : null;
+  return {
+    ...contactDetails,
+    contactId: contactDetails?.contactId || ramblersContactName,
+    displayName: sourcedDisplayName || contactDetails?.displayName || ramblersContactName,
+    phone: sourcedPhone || contactDetails?.phone || null,
+    email: sourcedEmail || existingEmail
+  };
+}

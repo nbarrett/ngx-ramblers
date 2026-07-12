@@ -33,3 +33,13 @@ export interface PriorContactMemberMatch {
   memberId: string;
   count: number;
 }
+
+export interface WalkLeaderBulkRematchSummary {
+  eventsWithoutLeaderLink: number;
+  matched: number;
+  unmatchedWithName: number;
+  noNameToMatchOn: number;
+  alreadyLinked: number;
+  completedAt: string;
+  trigger: string;
+}

@@ -220,7 +220,7 @@ async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, i
   }
 }
 
-async function membersForLeaderMatching(): Promise<Member[]> {
+export async function membersForLeaderMatching(): Promise<Member[]> {
   const members = await member.find({}, {
     displayName: 1,
     email: 1,
@@ -240,7 +240,7 @@ async function membersForLeaderMatching(): Promise<Member[]> {
   }));
 }
 
-async function priorMatchesForLeaderMatching(): Promise<PriorContactMemberMatch[]> {
+export async function priorMatchesForLeaderMatching(): Promise<PriorContactMemberMatch[]> {
   const matchedWalks = await extendedGroupEvent.find({
     [EventField.CONTACT_DETAILS_CONTACT_ID]: {$ne: null},
     [EventField.CONTACT_DETAILS_MEMBER_ID]: {$ne: null}
