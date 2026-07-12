@@ -95,6 +95,13 @@ import {
                       <label class="form-check-label" for="require-walk-leader-display-name">Require walk leader display name to be entered</label>
                     </div>
                     <div class="form-check mb-2">
+                      <input [(ngModel)]="walksConfig.rematchWalkLeadersOnMemberChange"
+                             type="checkbox"
+                             class="form-check-input"
+                             id="rematch-walk-leaders-on-member-change">
+                      <label class="form-check-label" for="rematch-walk-leaders-on-member-change">Automatically re-match walk leaders to members whenever member records are loaded or updated</label>
+                    </div>
+                    <div class="form-check mb-2">
                       <input [(ngModel)]="walksConfig.showRepeatedPagination"
                              type="checkbox"
                              class="form-check-input"

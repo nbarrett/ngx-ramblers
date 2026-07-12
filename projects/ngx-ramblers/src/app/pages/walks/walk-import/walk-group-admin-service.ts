@@ -2,6 +2,7 @@ import { Injectable, inject } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { map, Observable } from "rxjs";
 import { EditableEventStats, EventStats } from "../../../models/group-event.model";
+import { WalkLeaderBulkRematchSummary } from "../../../models/walk-leader-match.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 
 @Injectable({
@@ -29,5 +30,9 @@ export class WalkGroupAdminService {
 
   bulkUpdateEvents(updates: EditableEventStats[]): Observable<void> {
     return this.http.post<void>(`api/database/walks/bulk-update`, updates);
+  }
+
+  rematchWalkLeaders(): Observable<WalkLeaderBulkRematchSummary> {
+    return this.http.post<WalkLeaderBulkRematchSummary>(`api/database/walks/leader-rematch`, {});
   }
 }

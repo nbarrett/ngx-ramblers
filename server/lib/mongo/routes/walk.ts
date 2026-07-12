@@ -8,6 +8,7 @@ import { Walk } from "../../../../projects/ngx-ramblers/src/app/models/deprecate
 import { uploadWalkGpx } from "../../walks/walk-gpx-upload";
 import { listWalkGpxFiles } from "../../walks/walk-gpx-list";
 import { syncWalksManagerData, getLastSyncTimestamp } from "../../walks/walks-manager-sync";
+import { handleWalkLeaderRematch } from "../controllers/walk-leader-rematch";
 import { systemConfig } from "../../config/system-config";
 import multer from "multer";
 import { envConfig } from "../../env-config/env-config";
@@ -37,6 +38,8 @@ router.get("/sync/status", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to get sync status", message: error.message });
   }
 });
+
+router.post("/leader-rematch", authConfig.authenticate(), handleWalkLeaderRematch);
 
 router.post("/gpx/upload", authConfig.authenticate(), upload.single("file"), uploadWalkGpx);
 router.get("/gpx/list", listWalkGpxFiles);

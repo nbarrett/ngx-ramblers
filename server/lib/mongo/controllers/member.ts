@@ -14,6 +14,7 @@ import { pluraliseWithCount } from "../../shared/string-utils";
 import { auditSubscriptionChanges } from "./member-subscription-audit";
 import { writeBackFullOptOuts } from "../../salesforce/member-consent-writeback";
 import { bulkDeleteMembersCascade } from "./member-bulk-delete";
+import { scheduleWalkLeaderRematch } from "../../walks/walk-leader-rematch";
 import { MailSubscription, MemberSubscriptionChange } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const debugLog = debug(envConfig.logNamespace("member"));
@@ -89,6 +90,7 @@ export async function createOrUpdateAll(req: Request, res: Response) {
     }));
     await auditSubscriptionChanges(subscriptionChanges, actingUser(req));
     await writeBackFullOptOuts(createOrUpdatedMembers, priorById, actingUser(req));
+    scheduleWalkLeaderRematch("member-create-or-update-all");
     debugLog("createOrUpdateAll:for:", message, "returning:", createOrUpdatedMembers);
     res.status(200).json({
       action: ApiAction.UPSERT,
@@ -129,6 +131,7 @@ export async function update(req: Request, res: Response) {
       next: response.mail?.subscriptions
     }], actingUser(req));
     await writeBackFullOptOuts([response], priorById, actingUser(req));
+    scheduleWalkLeaderRematch("member-update");
     res.status(200).json({action: ApiAction.UPDATE, response});
   } catch (error) {
     res.status(500).json({message: "Update of member failed", error: transforms.parseError(error)});
@@ -144,6 +147,7 @@ export async function create(req: Request, res: Response) {
       prior: undefined,
       next: response.mail?.subscriptions
     }], actingUser(req));
+    scheduleWalkLeaderRematch("member-create");
     res.status(201).json({action: ApiAction.CREATE, response});
   } catch (error) {
     res.status(500).json({message: "Creation of member failed", error: transforms.parseError(error)});
