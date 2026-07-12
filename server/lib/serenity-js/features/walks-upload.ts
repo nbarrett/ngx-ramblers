@@ -10,7 +10,7 @@ import { Publish } from "../screenplay/tasks/ramblers/walks/publish";
 import { Unpublish } from "../screenplay/tasks/ramblers/walks/unpublish";
 import { UploadWalks } from "../screenplay/tasks/ramblers/walks/upload-walks";
 import { SelectWalks } from "../screenplay/tasks/ramblers/walks/select-walks";
-import { afterEach, describe, it } from "@serenity-js/playwright-test";
+import { afterEach, beforeEach, describe, it } from "@serenity-js/playwright-test";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { dateTimeNow } from "../../shared/dates";
