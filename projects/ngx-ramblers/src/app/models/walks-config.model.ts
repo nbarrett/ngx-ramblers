@@ -6,6 +6,7 @@ export interface WalksConfig {
   requireRiskAssessment: boolean;
   requireFinishTime: boolean;
   requireWalkLeaderDisplayName: boolean;
+  matchWalkLeadersOnWalksManagerSync?: boolean;
   rematchWalkLeadersOnMemberChange?: boolean;
   showRepeatedPagination?: boolean;
   relatedLinkShowOnRamblers?: boolean;

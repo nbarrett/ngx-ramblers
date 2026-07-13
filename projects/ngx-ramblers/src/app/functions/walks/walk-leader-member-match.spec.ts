@@ -1,7 +1,7 @@
 import { ContactDetails } from "../../models/group-event.model";
 import { Member } from "../../models/member.model";
 import { WalkLeaderMatchConfidence, WalkLeaderMatchType } from "../../models/walk-leader-match.model";
-import { leaderMatchResult, matchedMemberForWalkLeader, priorMatchesFromWalks, shouldAutoLinkLeaderMatch } from "./walk-leader-member-match";
+import { contactDetailsForLeaderRematch, contactDetailsWithLeaderMatch, leaderMatchResult, matchedMemberForWalkLeader, memberContactDetailsForLeaderMatch, priorMatchesFromWalks, shouldAutoLinkLeaderMatch } from "./walk-leader-member-match";
 
 function member(overrides?: Partial<Member>): Member {
     return {
@@ -23,6 +23,39 @@ function contactDetails(overrides?: Partial<ContactDetails>): ContactDetails {
         ...overrides
     };
 }
+
+describe("memberContactDetailsForLeaderMatch", () => {
+    it("uses the matched member email and mobile number", () => {
+        expect(memberContactDetailsForLeaderMatch(member({
+            email: "alex@example.org",
+            mobileNumber: "07123456789"
+        }))).toEqual({
+            contactId: "Alex Example",
+            memberId: "member-1",
+            email: "alex@example.org",
+            phone: "07123456789"
+        });
+    });
+});
+
+describe("contactDetailsWithLeaderMatch", () => {
+    it("preserves event-specific valid contact details while applying member identity", () => {
+        const existing = contactDetails({email: "walk@example.org", phone: "07000 111222"});
+        const result = contactDetailsWithLeaderMatch(existing, member({email: "member@example.org", mobileNumber: "07000 999888"}));
+        expect(result.email).toEqual("walk@example.org");
+        expect(result.phone).toEqual("07000 111222");
+        expect(result.memberId).toEqual("member-1");
+        expect(result.contactId).toEqual("Alex Example");
+    });
+
+    it("replaces a contact-page URL with the member email without replacing the event phone", () => {
+        const existing = contactDetails({email: "https://www.ramblers.org.uk/walk#contact", phone: "07000 111222"});
+        const result = contactDetailsWithLeaderMatch(existing, member({email: "member@example.org", mobileNumber: "07000 999888"}));
+        expect(result.email).toEqual("member@example.org");
+        expect(result.phone).toEqual("07000 111222");
+    });
+
+});
 
 describe("matchedMemberForWalkLeader", () => {
     it("matches by unique email", () => {
@@ -149,6 +182,23 @@ describe("leaderMatchResult", () => {
 
         expect(result.member?.id).toEqual("member-1");
         expect(result.confidence).toEqual(WalkLeaderMatchConfidence.HIGH);
+        expect(shouldAutoLinkLeaderMatch(result)).toBe(true);
+    });
+
+    it("uses a valid current match when the prior member no longer exists", () => {
+        const members = [
+            member({id: "current-member", firstName: "Steve", lastName: "Brown", displayName: "Steve Brown"})
+        ];
+        const result = leaderMatchResult(members, contactDetails({
+            contactId: "Steve Brown",
+            displayName: "Steve B",
+            email: null,
+            phone: null
+        }), [{contactId: "Steve Brown", memberId: "restored-away-member", count: 2}]);
+
+        expect(result.member?.id).toEqual("current-member");
+        expect(result.matchType).toEqual(WalkLeaderMatchType.NAME_INITIAL_PATTERN);
+        expect(result.confidence).toEqual(WalkLeaderMatchConfidence.MEDIUM);
         expect(shouldAutoLinkLeaderMatch(result)).toBe(true);
     });
 
@@ -307,5 +357,31 @@ describe("priorMatchesFromWalks", () => {
 
         expect(wm1member1?.count).toEqual(2);
         expect(wm1member2?.count).toEqual(1);
+    });
+});
+
+describe("contactDetailsForLeaderRematch", () => {
+    it("does not use the outbound Walks Manager contact name for member matching", () => {
+        const event = {
+            fields: {
+                contactDetails: contactDetails({
+                    contactId: null,
+                    displayName: "Kevin H",
+                    email: "https://www.ramblers.org.uk/walk#contact",
+                    phone: "07925 517877"
+                }),
+                publishing: {ramblers: {contactName: "Steve B."}}
+            },
+            groupEvent: {walk_leader: null}
+        } as any;
+        const members = [
+            member({id: "kevin", firstName: "Kevin", lastName: "Hall", displayName: "Kevin Hall"}),
+            member({id: "steve", firstName: "Steve", lastName: "Brown", displayName: "Steve Brown"})
+        ];
+
+        const result = leaderMatchResult(members, contactDetailsForLeaderRematch(event));
+
+        expect(result.member?.id).toEqual("kevin");
+        expect(result.matchType).toEqual(WalkLeaderMatchType.NAME_INITIAL_PATTERN);
     });
 });

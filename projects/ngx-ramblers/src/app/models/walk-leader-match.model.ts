@@ -37,6 +37,7 @@ export interface PriorContactMemberMatch {
 export interface WalkLeaderBulkRematchSummary {
   eventsWithoutLeaderLink: number;
   matched: number;
+  contactDetailsRefreshed: number;
   unmatchedWithName: number;
   noNameToMatchOn: number;
   alreadyLinked: number;

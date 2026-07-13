@@ -7,10 +7,11 @@ import {
   GroupEvent,
   InputSource
 } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
-import { RamblersEventType } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { Contact, RamblersEventType } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { EventField, GroupEventField, LinkSource } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { isMeetupUrl, mapRamblersEventToExtendedGroupEvent, mergeFieldsOnSync } from "../../../projects/ngx-ramblers/src/app/functions/walks/ramblers-event.mapper";
-import { leaderMatchResult, priorMatchesFromWalks, shouldAutoLinkLeaderMatch } from "../../../projects/ngx-ramblers/src/app/functions/walks/walk-leader-member-match";
+import { contactDetailsWithLeaderMatch, leaderMatchResult, priorMatchesFromWalks, shouldAutoLinkLeaderMatch } from "../../../projects/ngx-ramblers/src/app/functions/walks/walk-leader-member-match";
+import { memberFullName, trimmedNamePart } from "../../../projects/ngx-ramblers/src/app/functions/member-names";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { PriorContactMemberMatch } from "../../../projects/ngx-ramblers/src/app/models/walk-leader-match.model";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
@@ -18,6 +19,9 @@ import { member } from "../mongo/models/member";
 import { envConfig } from "../env-config/env-config";
 import { dateTimeNow, dateTimeFromJsDate } from "../shared/dates";
 import { CacheActionType, CacheStats, CleanupStats } from "./walks-manager.model";
+import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
+import { WalksConfig } from "../../../projects/ngx-ramblers/src/app/models/walks-config.model";
+import { queryKey } from "../mongo/controllers/config";
 
 const debugLog = debug(envConfig.logNamespace("walks-manager-cache"));
 debugLog.enabled = false;
@@ -25,6 +29,15 @@ debugLog.enabled = false;
 interface CacheAction {
   document: mongoose.Document | null;
   action: CacheActionType;
+}
+
+function sameWalksManagerContact(existingContact: Contact, incomingContact: Contact): boolean {
+  const existingId = trimmedNamePart(existingContact?.id);
+  const incomingId = trimmedNamePart(incomingContact?.id);
+  if (existingId && incomingId) {
+    return existingId === incomingId;
+  }
+  return trimmedNamePart(existingContact?.name)?.toLowerCase() === trimmedNamePart(incomingContact?.name)?.toLowerCase();
 }
 
 function groupNameFrom(config: SystemConfig, event: GroupEvent): string {
@@ -57,9 +70,18 @@ export function toExtendedGroupEvent(config: SystemConfig, event: GroupEvent, in
 }
 
 async function upsertEvent(config: SystemConfig, event: GroupEvent, inputSource: InputSource): Promise<CacheAction> {
-  const members = await membersForLeaderMatching();
-  const priorMatches = await priorMatchesForLeaderMatching();
+  const matchingEnabled = await walkLeaderMatchingEnabled(inputSource);
+  const members = matchingEnabled ? await membersForLeaderMatching() : [];
+  const priorMatches = matchingEnabled ? await priorMatchesForLeaderMatching() : [];
   return upsertEventWithMembers(config, event, inputSource, members, priorMatches);
+}
+
+async function walkLeaderMatchingEnabled(inputSource: InputSource): Promise<boolean> {
+  if (inputSource !== InputSource.WALKS_MANAGER_CACHE) {
+    return true;
+  }
+  const walksConfig: WalksConfig = (await queryKey(ConfigKey.WALKS))?.value;
+  return walksConfig?.matchWalkLeadersOnWalksManagerSync !== false;
 }
 
 export async function cacheEventIfNotFound(config: SystemConfig, event: GroupEvent, inputSource: InputSource = InputSource.WALKS_MANAGER_CACHE): Promise<mongoose.Document | null> {
@@ -137,8 +159,9 @@ export async function cleanupDuplicatesByRamblersId(): Promise<CleanupStats> {
 }
 
 export async function cacheEventsWithStats(config: SystemConfig, events: GroupEvent[], inputSource: InputSource): Promise<CacheStats> {
-  const members = await membersForLeaderMatching();
-  const priorMatches = await priorMatchesForLeaderMatching();
+  const matchingEnabled = await walkLeaderMatchingEnabled(inputSource);
+  const members = matchingEnabled ? await membersForLeaderMatching() : [];
+  const priorMatches = matchingEnabled ? await priorMatchesForLeaderMatching() : [];
   const results = await Promise.all(events.map(event => upsertEventWithMembers(config, event, inputSource, members, priorMatches)));
   return {
     added: results.filter(result => result.action === "added").length,
@@ -164,6 +187,8 @@ async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, i
       }).exec();
       debugLog("Fallback search by date/title/group found:", !!existingEvent);
     }
+    const existingExtendedEvent = existingEvent ? existingEvent.toObject() as ExtendedGroupEvent : null;
+    const existingFields = existingExtendedEvent?.fields || null;
 
     const mappedEvent = toExtendedGroupEvent(config, event, inputSource);
     const groupEvent = {
@@ -182,8 +207,10 @@ async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, i
       displayName: freshFields?.contactDetails?.displayName || freshFields?.publishing?.ramblers?.contactName || null
     };
     const match = leaderMatchResult(members, contactDetailsForMatch, priorMatches);
-    if (shouldAutoLinkLeaderMatch(match)) {
-      freshFields.contactDetails.memberId = match.member.id;
+    const leaderAlreadyLinked = !!existingFields?.contactDetails?.memberId;
+    if (!leaderAlreadyLinked && shouldAutoLinkLeaderMatch(match)) {
+      freshFields.contactDetails = contactDetailsWithLeaderMatch(freshFields.contactDetails, match.member);
+      freshFields.publishing.ramblers.contactName = memberFullName(match.member);
     }
     const syncMetadata = {
       source: sourceFromInputSource(inputSource),
@@ -192,8 +219,14 @@ async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, i
     };
 
     if (existingEvent) {
-      const existingFields = (existingEvent.toObject() as ExtendedGroupEvent).fields || {} as ExtendedGroupEvent["fields"];
-      const fields = mergeFieldsOnSync(existingFields, freshFields);
+      const existingWalksManagerContact = existingExtendedEvent.groupEvent.item_type === RamblersEventType.GROUP_EVENT
+        ? existingExtendedEvent.groupEvent.event_organiser
+        : existingExtendedEvent.groupEvent.walk_leader;
+      const incomingWalksManagerContact = groupEvent.item_type === RamblersEventType.GROUP_EVENT
+        ? groupEvent.event_organiser
+        : groupEvent.walk_leader;
+      const preserveMatchedContactDetails = !!existingFields.contactDetails?.memberId && sameWalksManagerContact(existingWalksManagerContact, incomingWalksManagerContact);
+      const fields = mergeFieldsOnSync(existingFields, freshFields, preserveMatchedContactDetails);
       await extendedGroupEvent.updateOne(
         {_id: existingEvent._id},
         {
@@ -242,6 +275,7 @@ export async function membersForLeaderMatching(): Promise<Member[]> {
 
 export async function priorMatchesForLeaderMatching(): Promise<PriorContactMemberMatch[]> {
   const matchedWalks = await extendedGroupEvent.find({
+    [EventField.INPUT_SOURCE]: InputSource.WALKS_MANAGER_CACHE,
     [EventField.CONTACT_DETAILS_CONTACT_ID]: {$ne: null},
     [EventField.CONTACT_DETAILS_MEMBER_ID]: {$ne: null}
   }, {

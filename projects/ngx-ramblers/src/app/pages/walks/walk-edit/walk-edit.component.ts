@@ -64,6 +64,8 @@ import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.mod
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { NotificationComponent } from "../../../notifications/common/notification.component";
 import { WalkDataAudit } from "../../../models/walk-data-audit.model";
+import { ChangedItem } from "../../../models/changed-item.model";
+import { walkEventDataSnapshot, walkEventSnapshotEvent, walkWithUserChanges } from "../../../functions/walks/walk-event-snapshot";
 import { WalkEditMainDetailsComponent } from "./walk-edit-main-details";
 import { WalkEditDetailsComponent } from "./walk-edit-details";
 import { WalkRiskAssessmentComponent } from "../walk-risk-assessment/walk-risk-assessment.component";
@@ -193,7 +195,7 @@ import TurndownService from "turndown";
     @if (displayedWalk?.walk) {
       @if (showChangedItems) {
         <pre>
-        changedItems: {{ walkEventService.walkDataAuditFor(this.displayedWalk?.walk, status(), true)?.changedItems | json }}
+        changedItems: {{ changedItemsForDisplay() | json }}
       </pre>
       }
       <div class="d-flex flex-wrap align-items-center mb-4 gap-3">
@@ -344,16 +346,17 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   @Input("displayedWalk")
   set initialiseWalk(displayedWalk: DisplayedWalk) {
     this.logger.info("initialiseWalk:displayedWalk displayedWalk input:", displayedWalk);
-    if (displayedWalk?.walk?.groupEvent && !displayedWalk.walk.groupEvent.start_location) {
+    this.persistedWalk = cloneDeep(displayedWalk?.walk);
+    this.displayedWalk = cloneDeep(displayedWalk);
+    if (this.displayedWalk?.walk?.groupEvent && !this.displayedWalk.walk.groupEvent.start_location) {
       this.logger.info("initialiseWalk:initialising walk start location with:", INITIALISED_LOCATION);
-      displayedWalk.walk.groupEvent.start_location = cloneDeep(INITIALISED_LOCATION);
+      this.displayedWalk.walk.groupEvent.start_location = cloneDeep(INITIALISED_LOCATION);
     }
-    if (displayedWalk?.walk?.fields && !displayedWalk.walk.fields.contactDetails) {
+    if (this.displayedWalk?.walk?.fields && !this.displayedWalk.walk.fields.contactDetails) {
       const contactDetails = this.eventDefaultsService.defaultContactDetails();
       this.logger.info("initialiseWalk:initialising walk contactDetails with:", contactDetails);
-      displayedWalk.walk.fields.contactDetails = contactDetails;
+      this.displayedWalk.walk.fields.contactDetails = contactDetails;
     }
-    this.displayedWalk = cloneDeep(displayedWalk);
     this.initialiseMilesPerHour();
     this.rematchPreviewMessage = null;
     this.rematchPreviewClass = ALERT_WARNING.class;
@@ -416,6 +419,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   public rematchPreviewMessage: string | null = null;
   public rematchPreviewClass = ALERT_WARNING.class;
   public walkDataAudit: WalkDataAudit;
+  private persistedWalk: ExtendedGroupEvent;
+  private initialisedWalk: ExtendedGroupEvent;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   @ViewChild(WalkEditDetailsComponent) walkEditDetailsComponent: WalkEditDetailsComponent;
   protected readonly RootFolder = RootFolder;
@@ -794,6 +799,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       };
       this.displayedWalk.latestEventType = this.display.latestEventTypeFor(this.displayedWalk.walk);
     }
+    this.initialisedWalk = cloneDeep(this.displayedWalk.walk);
   }
 
   private updateGoogleMapsUrl() {
@@ -940,6 +946,16 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   createEventAndSendNotifications(): Promise<boolean> {
     this.saveInProgress = true;
+    this.displayedWalk.walk = this.walkWithUserChanges();
+    if (this.persistedWalkWithoutHistory()) {
+      this.displayedWalk.walk.events = [walkEventSnapshotEvent(
+        this.persistedWalk,
+        this.priorStatus || this.status(),
+        this.dateUtils.nowAsValue() - 1,
+        "system",
+        "Baseline captured before first walk edit"
+      )];
+    }
     const sendNotificationsGivenWalkLeader: boolean = this.sendNotifications && !!this.displayedWalk.walk?.fields?.contactDetails?.memberId;
     return this.walkNotificationService.createEventAndSendNotifications(this.notify, this.display.members, this.notificationDirective, this.displayedWalk, sendNotificationsGivenWalkLeader);
   }
@@ -961,8 +977,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   private async saveAndCloseIfNotSent(notificationSent: boolean): Promise<boolean> {
     this.logger.debug("saveAndCloseIfNotSent:saving walk:notificationSent", notificationSent);
-    this.normaliseWalkFieldsForEdit();
-    this.ensureImageConfig();
     await this.syncWalksManagerContactNameToMember();
     if (!this.displayedWalk.walk.groupEvent.url) {
       this.displayedWalk.walk.groupEvent.url = await this.walksAndEventsService.urlFor(this.displayedWalk.walk);
@@ -1297,12 +1311,34 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   notificationRequired() {
-    const audit: WalkDataAudit = this.walkEventService.walkDataAuditFor(this.displayedWalk.walk, this.status(), true);
+    if (this.persistedWalkWithoutHistory()) {
+      return this.changedItemsForDisplay().length > 0 || (!!this.priorStatus && this.status() !== this.priorStatus);
+    }
+    const audit: WalkDataAudit = this.walkEventService.walkDataAuditFor(this.walkWithUserChanges(), this.status(), true);
     if (!isEqual(this.walkDataAudit, audit)) {
       const notificationRequired = audit.notificationRequired;
       this.logger.info("dataHasChanged:", notificationRequired, "walkDataAudit:", audit);
       this.walkDataAudit = audit;
     }
     return audit.notificationRequired;
+  }
+
+  changedItemsForDisplay(): ChangedItem[] {
+    const walk = this.walkWithUserChanges();
+    if (this.persistedWalkWithoutHistory()) {
+      return this.walkEventService.changedItemsBetween(walkEventDataSnapshot(walk), walkEventDataSnapshot(this.persistedWalk));
+    }
+    return this.walkEventService.walkDataAuditFor(walk, this.status(), true)?.changedItems || [];
+  }
+
+  private persistedWalkWithoutHistory(): boolean {
+    return !!this.persistedWalk?.id && (this.persistedWalk.events || []).length === 0;
+  }
+
+  private walkWithUserChanges(): ExtendedGroupEvent {
+    if (!this.persistedWalk?.id || !this.initialisedWalk) {
+      return this.displayedWalk.walk;
+    }
+    return walkWithUserChanges(this.persistedWalk, this.initialisedWalk, this.displayedWalk.walk);
   }
 }

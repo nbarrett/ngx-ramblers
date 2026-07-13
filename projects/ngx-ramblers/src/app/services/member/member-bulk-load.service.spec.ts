@@ -13,6 +13,9 @@ import { MemberNamingService } from "./member-naming.service";
 import { NumberUtilsService } from "../number-utils.service";
 import { StringUtilsService } from "../string-utils.service";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
+import { MemberSyncPolicyMode } from "../../models/member-sync-policy.model";
+import { MemberSyncNotificationContext, MemberSyncNotificationResolution } from "../../models/member-sync-notification.model";
+import { WalkLeaderRematchService } from "../walks/walk-leader-rematch.service";
 
 describe("MemberBulkLoadService", () => {
     let service: MemberBulkLoadService;
@@ -38,6 +41,9 @@ describe("MemberBulkLoadService", () => {
         };
         const memberServiceSpy = {
             createOrUpdate: vi.fn().mockName("MemberService.createOrUpdate")
+        };
+        const walkLeaderRematchServiceSpy = {
+            rematchAfterMemberBulkLoad: vi.fn().mockResolvedValue(null)
         };
         const memberDefaultsServiceSpy = {
             resetUpdateStatusForMember: vi.fn().mockName("MemberDefaultsService.resetUpdateStatusForMember"),
@@ -73,6 +79,7 @@ describe("MemberBulkLoadService", () => {
                 { provide: MemberUpdateAuditService, useValue: memberUpdateAuditServiceSpy },
                 { provide: MemberBulkLoadAuditService, useValue: memberBulkLoadAuditServiceSpy },
                 { provide: MemberService, useValue: memberServiceSpy },
+                { provide: WalkLeaderRematchService, useValue: walkLeaderRematchServiceSpy },
                 { provide: MemberDefaultsService, useValue: memberDefaultsServiceSpy },
                 { provide: MemberNamingService, useValue: memberNamingServiceSpy },
                 { provide: NumberUtilsService, useValue: numberUtilsServiceSpy },
@@ -86,6 +93,30 @@ describe("MemberBulkLoadService", () => {
 
     it("should be created", () => {
         expect(service).toBeTruthy();
+    });
+
+    describe("member sync notifications", () => {
+        it("does not queue notifications for Head Office values applied automatically", () => {
+            const context: MemberSyncNotificationContext = {candidates: [], processedMemberIds: []};
+
+            (service as any).collectSyncNotification(context, {id: "member-1"}, "email", MemberSyncPolicyMode.ALWAYS_APPLY_HEAD_OFFICE, true, true, "old@example.org", "new@example.org");
+
+            expect(context.candidates).toEqual([]);
+        });
+
+        it("queues notifications when a differing local value is retained", () => {
+            const context: MemberSyncNotificationContext = {candidates: [], processedMemberIds: []};
+
+            (service as any).collectSyncNotification(context, {id: "member-1"}, "email", MemberSyncPolicyMode.USE_LEGACY_RULES, true, false, "local@example.org", "head-office@example.org");
+
+            expect(context.candidates).toEqual([{
+                memberId: "member-1",
+                fieldName: "email",
+                localValue: "local@example.org",
+                headOfficeValue: "head-office@example.org",
+                resolution: MemberSyncNotificationResolution.KEPT_LOCAL_DIVERGENCE
+            }]);
+        });
     });
 
     describe("member matching", () => {

@@ -193,6 +193,31 @@ describe("mergeFieldsOnSync", () => {
     expect(result.contactDetails.displayName).toEqual("New Leader");
   });
 
+  it("preserves event-specific matched contact details when the Walks Manager leader is unchanged", () => {
+    const existing = baseFields({
+      contactDetails: {
+        contactId: "Lee Person",
+        memberId: "member-1",
+        displayName: "Lee P",
+        email: "lee@ngx-ramblers.org.uk",
+        phone: "07700 900000"
+      }
+    });
+    const fresh = baseFields({
+      contactDetails: {
+        contactId: "walks-manager-contact-1",
+        memberId: null,
+        displayName: "Lee P",
+        email: "https://www.ramblers.org.uk/walk#contact",
+        phone: "07700 900999"
+      }
+    });
+
+    const result = mergeFieldsOnSync(existing, fresh, true);
+
+    expect(result.contactDetails).toEqual(existing.contactDetails);
+  });
+
   it("uses mergeLinksOnSync for links field", () => {
     const existing = baseFields({
       links: [

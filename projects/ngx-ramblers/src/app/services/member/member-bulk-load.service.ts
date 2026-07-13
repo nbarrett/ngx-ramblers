@@ -43,6 +43,7 @@ import {
 } from "../../models/member-sync-notification.model";
 import { SalesforceConfigService } from "../salesforce/salesforce-config.service";
 import { booleanOf } from "../../functions/strings";
+import { WalkLeaderRematchService } from "../walks/walk-leader-rematch.service";
 
 
 @Injectable({
@@ -63,6 +64,7 @@ export class MemberBulkLoadService {
   private memberSyncPolicyService = inject(MemberSyncPolicyService);
   private memberSyncNotificationService = inject(MemberSyncNotificationService);
   private salesforceConfigService = inject(SalesforceConfigService);
+  private walkLeaderRematchService = inject(WalkLeaderRematchService);
 
   public async processResponse(mailMessagingConfig: MailMessagingConfig, systemConfig: SystemConfig, memberBulkLoadResponse: MemberBulkLoadAudit, existingMembers: Member[], notify: AlertInstance): Promise<any> {
     notify.setBusy();
@@ -72,6 +74,7 @@ export class MemberBulkLoadService {
     const auditResponse: MemberBulkLoadAudit = await this.memberBulkLoadAuditService.create(memberBulkLoadResponse);
     const uploadSessionId = auditResponse.id;
     const result = await this.processBulkLoadResponses(mailMessagingConfig, systemConfig, uploadSessionId, memberBulkLoadResponse.members, existingMembers, notify, notificationContext);
+    await this.walkLeaderRematchService.rematchAfterMemberBulkLoad(uploadSessionId);
     await this.reconcileSyncNotifications(notificationContext);
     return result;
   }
@@ -239,7 +242,7 @@ export class MemberBulkLoadService {
     const summary = this.summariseFieldChanges(fieldChanges);
     const qualifier = `for membership ${member.membershipNumber}`;
 
-    return this.memberService.createOrUpdate(member)
+    return this.memberService.createOrUpdate(member, uploadSessionId)
       .then((savedMember: Member) => {
         audit.memberId = savedMember.id;
         member.id = savedMember.id;
@@ -402,15 +405,7 @@ export class MemberBulkLoadService {
     if (!dataDifferent) {
       return;
     }
-    if (effectiveMode === MemberSyncPolicyMode.ALWAYS_APPLY_HEAD_OFFICE) {
-      notificationContext.candidates.push({
-        memberId: member.id,
-        fieldName,
-        localValue: this.notificationValue(oldFormattedValue),
-        headOfficeValue: this.notificationValue(newFormattedValue),
-        resolution: MemberSyncNotificationResolution.APPLIED_FROM_HEAD_OFFICE
-      });
-    } else if (!performMemberUpdate) {
+    if (effectiveMode !== MemberSyncPolicyMode.ALWAYS_APPLY_HEAD_OFFICE && !performMemberUpdate) {
       notificationContext.candidates.push({
         memberId: member.id,
         fieldName,
@@ -459,14 +454,13 @@ export class MemberBulkLoadService {
   }
 
   private async processBulkLoadResponses(mailMessagingConfig: MailMessagingConfig, systemConfig: SystemConfig, uploadSessionId: string, ramblersMembers: RamblersMember[], existingMembers: Member[], notify: AlertInstance, notificationContext: MemberSyncNotificationContext) {
-    const updatedPromises = [];
-    ramblersMembers.map(ramblersMember => {
-      const recordIndex = ramblersMembers.indexOf(ramblersMember);
-      this.createOrUpdateMember(mailMessagingConfig, systemConfig, uploadSessionId, recordIndex, ramblersMember, updatedPromises, existingMembers, notify, notificationContext);
-    });
-    await Promise.all(updatedPromises);
-    this.logger.info("performed total of", updatedPromises.length, "audit or member updates");
-    return updatedPromises;
+    const auditPromises = [];
+    const memberUpdatePromises = ramblersMembers.map((ramblersMember, recordIndex) =>
+      this.createOrUpdateMember(mailMessagingConfig, systemConfig, uploadSessionId, recordIndex, ramblersMember, auditPromises, existingMembers, notify, notificationContext));
+    await Promise.all(memberUpdatePromises);
+    await Promise.all(auditPromises);
+    this.logger.info("performed", memberUpdatePromises.length, "member updates and", auditPromises.length, "audit writes");
+    return auditPromises;
   };
 
   private formatValue(value: any, auditField: AuditField) {

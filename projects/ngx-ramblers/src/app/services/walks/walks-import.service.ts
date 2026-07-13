@@ -10,7 +10,7 @@ import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-
 import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
 import { Organisation, RootFolder, SystemConfig } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
-import { chunk, toPairs, first, groupBy, isEqual, last, omit } from "es-toolkit/compat";
+import { chunk, cloneDeep, toPairs, first, groupBy, isEqual, last, omit } from "es-toolkit/compat";
 import { DateUtilsService } from "../date-utils.service";
 import { GroupEventService } from "../walks-and-events/group-event.service";
 import { MemberService } from "../member/member.service";
@@ -504,8 +504,16 @@ export class WalksImportService {
       const mergedWalk: ExtendedGroupEvent = {
         ...omit(incomingWalk, ["_id", "id"]) as ExtendedGroupEvent,
         id: existingWalk.id,
-        fields: mergeFieldsOnSync(existingWalk.fields, incomingWalk.fields)
+        fields: mergeFieldsOnSync(existingWalk.fields, incomingWalk.fields),
+        events: cloneDeep(existingWalk.events) || []
       };
+      if (mergedWalk.events.length === 0) {
+        const baselineEvent = this.walkEventService.createEventIfRequired(existingWalk, EventType.APPROVED, "Baseline captured before CSV import update");
+        if (baselineEvent) {
+          baselineEvent.date = (baselineEvent.date || this.dateUtils.nowAsValue()) - 1;
+        }
+        this.walkEventService.writeEventIfRequired(mergedWalk, baselineEvent);
+      }
       if (member) {
         if (overwriteContactDetailsWithMember) {
           this.applyMemberContactDetailsPreservingJointLeaders(mergedWalk, member);

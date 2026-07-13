@@ -95,11 +95,18 @@ import {
                       <label class="form-check-label" for="require-walk-leader-display-name">Require walk leader display name to be entered</label>
                     </div>
                     <div class="form-check mb-2">
+                      <input [(ngModel)]="walksConfig.matchWalkLeadersOnWalksManagerSync"
+                             type="checkbox"
+                             class="form-check-input"
+                             id="match-walk-leaders-on-walks-manager-sync">
+                      <label class="form-check-label" for="match-walk-leaders-on-walks-manager-sync">Automatically match unmatched walk leaders to members when Walks Manager Sync is run</label>
+                    </div>
+                    <div class="form-check mb-2">
                       <input [(ngModel)]="walksConfig.rematchWalkLeadersOnMemberChange"
                              type="checkbox"
                              class="form-check-input"
                              id="rematch-walk-leaders-on-member-change">
-                      <label class="form-check-label" for="rematch-walk-leaders-on-member-change">Automatically re-match walk leaders to members whenever member records are loaded or updated</label>
+                      <label class="form-check-label" for="rematch-walk-leaders-on-member-change">Automatically match unmatched walk leaders to members when Member Bulk Load is run</label>
                     </div>
                     <div class="form-check mb-2">
                       <input [(ngModel)]="walksConfig.showRepeatedPagination"
