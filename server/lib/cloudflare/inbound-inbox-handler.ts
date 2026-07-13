@@ -119,7 +119,7 @@ export async function handleInboundInbox(req: Request, res: Response): Promise<v
     return;
   }
   try {
-    const routerSecret = envConfig.value(Environment.NGX_INBOUND_ROUTER_SECRET)?.trim() || null;
+    const routerSecret = envConfig.value(Environment.NGX_INBOUND_SECRET)?.trim() || null;
     const secret = routerSecret || await inboundWebhookSecret();
     if (!secret) {
       errorDebugLog("no shared router secret or per-site inbound webhook secret configured");

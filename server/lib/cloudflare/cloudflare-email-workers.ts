@@ -38,7 +38,8 @@ const TEMPLATE_DIR = path.join(__dirname, "worker-templates");
 function loadTranspiledTemplate(templateBaseName: string): string {
   const tsPath = path.join(TEMPLATE_DIR, `${templateBaseName}.template.ts`);
   const tsSource = fs.readFileSync(tsPath, "utf-8");
-  const result = ts.transpileModule(tsSource, {
+  const inlined = resolveLocalImports(tsPath, tsSource);
+  const result = ts.transpileModule(inlined, {
     compilerOptions: {
       target: ts.ScriptTarget.ES2022,
       module: ts.ModuleKind.ESNext,
@@ -46,14 +47,39 @@ function loadTranspiledTemplate(templateBaseName: string): string {
       isolatedModules: true
     }
   });
-  return stripImports(result.outputText);
+  return validateTranspiledTemplate(result.outputText, templateBaseName);
 }
 
-function stripImports(source: string): string {
-  return source
-    .split("\n")
-    .filter(line => !/^\s*import\s/.test(line) && !/^\s*export\s+\{\s*\}/.test(line))
-    .join("\n");
+const LOCAL_IMPORT_RE = /^import\s+\{[^}]+\}\s+from\s+["']\.\/([\w-]+)["'];?\s*$/;
+
+function resolveLocalImports(filePath: string, source: string): string {
+  return source.split("\n").flatMap(line => {
+    const match = line.match(LOCAL_IMPORT_RE);
+    if (match) {
+      const modulePath = path.join(path.dirname(filePath), `${match[1]}.ts`);
+      if (!fs.existsSync(modulePath)) {
+        throw new Error(`Worker template import not found: ${modulePath}`);
+      }
+      const moduleSource = fs.readFileSync(modulePath, "utf-8");
+      const resolvedModule = resolveLocalImports(modulePath, moduleSource)
+        .replace(/^export\s+(?=(?:async\s+)?function|const|let|class|interface|type|enum)/gm, "");
+      return resolvedModule.split("\n");
+    } else {
+      return [line];
+    }
+  }).join("\n");
+}
+
+function validateTranspiledTemplate(source: string, templateBaseName: string): string {
+  const lines = source.split("\n");
+  const unresolvedImport = lines.find(line => /^\s*import\s/.test(line));
+  if (unresolvedImport) {
+    throw new Error(`Worker template ${templateBaseName} contains an unresolved import: ${unresolvedImport.trim()}`);
+  } else {
+    return lines
+      .filter(line => !/^\s*export\s+\{\s*\}/.test(line))
+      .join("\n");
+  }
 }
 
 function substitutePlaceholders(source: string, values: Record<string, string>): string {

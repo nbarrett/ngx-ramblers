@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { RouterLink } from "@angular/router";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { AdminPath } from "../../../../models/admin-route-paths.model";
 import { InboxRoleVisibility, SystemConfig } from "../../../../models/system.model";
 import {
@@ -20,7 +20,13 @@ import { SystemInboxMailboxConnectionsComponent } from "./system-inbox-mailbox-c
 import { SystemInboxRoleMailboxesComponent } from "./system-inbox-role-mailboxes";
 import { InboxService } from "../../../../services/inbox/inbox.service";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
-import { NonSensitiveCloudflareConfig } from "../../../../models/cloudflare-email-routing.model";
+import {
+  GMAIL_INBOX_STEPS,
+  GmailInboxSetupStepKey,
+  inboxSettingsForProvider,
+  InboxSettingsTab,
+  NonSensitiveCloudflareConfig
+} from "../../../../models/cloudflare-email-routing.model";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { ALERT_ERROR, ALERT_SUCCESS, AlertTarget } from "../../../../models/alert-target.model";
 import { AlertComponent } from "ngx-bootstrap/alert";
@@ -35,7 +41,6 @@ import {
   faUserPlus
 } from "@fortawesome/free-solid-svg-icons";
 import { StepperModule } from "primeng/stepper";
-import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../../models/ui-actions";
 import { isUndefined } from "es-toolkit/compat";
 import { Subject, Subscription } from "rxjs";
@@ -47,28 +52,6 @@ import { debounceTime } from "rxjs/operators";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { MemberLoginService } from "../../../../services/member/member-login.service";
 
-export enum GmailInboxSetupStepKey {
-  CLOUD_PROJECT = "cloud-project",
-  GMAIL_ACCOUNTS = "gmail-accounts",
-  ROLE_MAILBOXES = "role-mailboxes"
-}
-
-interface GmailInboxStepMeta {
-  key: GmailInboxSetupStepKey;
-  label: string;
-  hint: string;
-}
-
-const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
-  { key: GmailInboxSetupStepKey.CLOUD_PROJECT, label: "Google Cloud project", hint: "Set up once. OAuth client + optional Pub/Sub." },
-  { key: GmailInboxSetupStepKey.GMAIL_ACCOUNTS, label: "Connected Gmail accounts", hint: "Add one per Gmail account you want to read mail from." },
-  { key: GmailInboxSetupStepKey.ROLE_MAILBOXES, label: "Role mailboxes", hint: "Review which committee roles route to which Gmail." }
-];
-
-export enum InboxSettingsTab {
-  SETTINGS = "Inbox settings",
-  VISIBILITY = "Visibility"
-}
 
 @Component({
   selector: "app-system-gmail-inbox-settings",
@@ -770,7 +753,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     if (!this.systemConfigInternal || this.inboxProvider === provider) {
       return;
     }
-    this.systemConfigInternal.inbox = {...this.systemConfigInternal.inbox, provider};
+    this.systemConfigInternal.inbox = inboxSettingsForProvider(this.systemConfigInternal.inbox ?? null, provider);
     this.directDeliveryMessage = null;
     this.directDeliveryError = null;
     try {
@@ -808,6 +791,8 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
       const result = await this.cloudflareEmailRoutingService.routeToInbox();
       if (result.routed?.length) {
         this.directDeliveryMessage = `Mail for ${result.routed.length} address${result.routed.length === 1 ? "" : "es"} (${result.routed.join(", ")}) now arrives in this inbox.`;
+      } else if (result.catchAllRouted) {
+        this.directDeliveryMessage = `The shared catch-all now routes unmatched @${this.cloudflareConfig?.baseDomain} mail, including committee addresses without individual Cloudflare rules, into this inbox.`;
       } else {
         this.directDeliveryError = "No committee addresses were found for this site's domain yet. Add the committee role addresses in Cloudflare Email Routing first, then try again.";
       }

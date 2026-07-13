@@ -14,6 +14,7 @@ import {
   EmailWorkerScript,
   MxRecordStatus,
   NonSensitiveCloudflareConfig,
+  RouteToInboxResponse,
   UpdateCatchAllRequest,
   WorkerInvocationSummary,
   WorkerLogsRequest,
@@ -90,7 +91,7 @@ export class CloudflareEmailRoutingService {
     return response;
   }
 
-  async routeToInbox(): Promise<{ scriptName: string; routed: string[] }> {
+  async routeToInbox(): Promise<RouteToInboxResponse> {
     const response = (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/route-to-inbox`, {}))).response;
     this.invalidateCache();
     return response;
