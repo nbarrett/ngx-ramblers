@@ -7,6 +7,7 @@ import {
   WalkLeaderMatchConfidence,
   WalkLeaderMatchType
 } from "../../models/walk-leader-match.model";
+import { memberFullName } from "../member-names";
 
 function normaliseText(value: string): string {
   return isString(value) ? value.trim().toLowerCase() : "";
@@ -263,7 +264,9 @@ export function leaderMatchResult(members: Member[], contactDetails: ContactDeta
     const priorMatch = priorMatchesForContact[0];
     const priorMember = memberLookup(members).get(normaliseId(priorMatch?.memberId)) || null;
     if (!priorMember) {
-      return { member: null, confidence: WalkLeaderMatchConfidence.LOW, matchType: WalkLeaderMatchType.PRIOR_MISSING_MEMBER };
+      return currentMatch.member
+        ? currentMatch
+        : { member: null, confidence: WalkLeaderMatchConfidence.LOW, matchType: WalkLeaderMatchType.PRIOR_MISSING_MEMBER };
     }
     if (currentMatch.member && normaliseId(currentMatch.member.id) !== normaliseId(priorMember.id)) {
       return { member: null, confidence: WalkLeaderMatchConfidence.LOW, matchType: WalkLeaderMatchType.PRIOR_CURRENT_CONFLICT };
@@ -280,6 +283,26 @@ export function leaderMatchResult(members: Member[], contactDetails: ContactDeta
 
 export function shouldAutoLinkLeaderMatch(result: LeaderMemberMatchResult): boolean {
   return !!result?.member && (result.confidence === WalkLeaderMatchConfidence.HIGH || result.confidence === WalkLeaderMatchConfidence.MEDIUM);
+}
+
+export function memberContactDetailsForLeaderMatch(member: Member): Partial<ContactDetails> {
+  return {
+    contactId: memberFullName(member),
+    memberId: member.id,
+    email: member.email ?? null,
+    phone: member.mobileNumber ?? null
+  };
+}
+
+export function contactDetailsWithLeaderMatch(contactDetails: ContactDetails, member: Member): ContactDetails {
+  const memberContactDetails = memberContactDetailsForLeaderMatch(member);
+  const replaceInvalidEmail = /^https?:\/\//i.test(normaliseText(contactDetails?.email));
+  return {
+    ...contactDetails,
+    contactId: memberContactDetails.contactId,
+    memberId: memberContactDetails.memberId,
+    email: replaceInvalidEmail ? memberContactDetails.email : contactDetails?.email
+  };
 }
 
 export function priorMatchesFromWalks(walks: ExtendedGroupEvent[]): PriorContactMemberMatch[] {
@@ -305,7 +328,6 @@ export function matchedMemberForWalkLeader(members: Member[], contactDetails: Co
 
 export function contactDetailsForLeaderRematch(event: ExtendedGroupEvent): ContactDetails {
   const contactDetails = event?.fields?.contactDetails;
-  const ramblersContactName = event?.fields?.publishing?.ramblers?.contactName || null;
   const walkLeader = event?.groupEvent?.walk_leader;
   const sourcedDisplayName = walkLeader?.name || null;
   const sourcedPhone = walkLeader?.telephone || null;
@@ -314,9 +336,9 @@ export function contactDetailsForLeaderRematch(event: ExtendedGroupEvent): Conta
   const sourcedEmail = validEmail(sourcedEmailCandidate) ? sourcedEmailCandidate : null;
   return {
     ...contactDetails,
-    contactId: contactDetails?.contactId || ramblersContactName,
-    displayName: sourcedDisplayName || contactDetails?.displayName || ramblersContactName,
-    phone: sourcedPhone || contactDetails?.phone || null,
-    email: sourcedEmail || existingEmail
+    contactId: contactDetails?.contactId || walkLeader?.id || null,
+    displayName: contactDetails?.displayName || sourcedDisplayName,
+    phone: contactDetails?.phone || sourcedPhone || null,
+    email: existingEmail || sourcedEmail
   };
 }

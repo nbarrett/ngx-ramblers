@@ -36,12 +36,22 @@ export class MemberSelector implements OnInit {
   @Input() selectedMember: Member | null = null;
   @Input() placeholder = "Select member";
   @Input() disabled = false;
+  @Input("members") set memberList(members: Member[]) {
+    this.membersProvided = true;
+    this.refreshMembers(members || []);
+  }
   @Output() selectedMemberChange = new EventEmitter<Member | null>();
 
   public membersWithLabel: MemberWithLabel[] = [];
+  private membersProvided = false;
 
   async ngOnInit() {
-    const members = await this.memberService.all();
+    if (!this.membersProvided) {
+      this.refreshMembers(await this.memberService.all());
+    }
+  }
+
+  private refreshMembers(members: Member[]): void {
     this.membersWithLabel = members.map(member => ({
       ...member,
       ngSelectAttributes: {label: this.fullNamePipe.transform(member)}

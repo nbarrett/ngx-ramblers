@@ -124,16 +124,18 @@ export class MemberService {
     return apiResponse.response as Member;
   }
 
-  async create(member: Member): Promise<Member> {
+  async create(member: Member, uploadSessionId?: string): Promise<Member> {
     this.logger.debug("create:requested:", member);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<MemberApiResponse>(this.BASE_URL, this.dbUtils.performAudit(member)), this.memberChanges);
+    const url = uploadSessionId ? `${this.BASE_URL}?uploadSessionId=${encodeURIComponent(uploadSessionId)}` : this.BASE_URL;
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<MemberApiResponse>(url, this.dbUtils.performAudit(member)), this.memberChanges);
     this.logger.debug("created:received:", apiResponse);
     return apiResponse.response as Member;
   }
 
-  async update(member: Member): Promise<Member> {
+  async update(member: Member, uploadSessionId?: string): Promise<Member> {
     this.logger.debug("updating", member);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<MemberApiResponse>(this.BASE_URL + "/" + member.id, this.dbUtils.performAudit(member)), this.memberChanges);
+    const query = uploadSessionId ? `?uploadSessionId=${encodeURIComponent(uploadSessionId)}` : "";
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<MemberApiResponse>(this.BASE_URL + "/" + member.id + query, this.dbUtils.performAudit(member)), this.memberChanges);
     this.logger.debug("updated", member, "- received", apiResponse);
     return apiResponse.response as Member;
   }
@@ -183,11 +185,11 @@ export class MemberService {
     return member;
   }
 
-  async createOrUpdate(member: Member): Promise<Member> {
+  async createOrUpdate(member: Member, uploadSessionId?: string): Promise<Member> {
     if (member.id) {
-      return this.update(member);
+      return this.update(member, uploadSessionId);
     } else {
-      return this.create(member);
+      return this.create(member, uploadSessionId);
     }
   }
 

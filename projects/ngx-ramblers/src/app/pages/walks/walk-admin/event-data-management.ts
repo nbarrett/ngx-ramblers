@@ -399,6 +399,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
       const summary = await firstValueFrom(this.walkGroupAdminService.rematchWalkLeaders());
       const outcome = [
         `${this.stringUtilsService.pluraliseWithCount(summary.matched, "event")} newly matched to a member`,
+        `${this.stringUtilsService.pluraliseWithCount(summary.contactDetailsRefreshed, "linked event")} had contact details refreshed`,
         `${summary.unmatchedWithName} with leader details but no confident member match`,
         `${summary.noNameToMatchOn} with no leader details to match on`,
         `${summary.alreadyLinked} already linked`

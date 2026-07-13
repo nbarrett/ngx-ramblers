@@ -133,9 +133,11 @@ export function mergeLinksOnSync(existingLinks: LinkWithSource[], freshLinks: Li
   return [...localLinks, ...wmLinks];
 }
 
-export function mergeFieldsOnSync(existingFields: ExtendedFields, freshFields: ExtendedFields): ExtendedFields {
+export function mergeFieldsOnSync(existingFields: ExtendedFields, freshFields: ExtendedFields, preserveMatchedContactDetails = false): ExtendedFields {
   const contactIdChanged = freshFields?.contactDetails?.contactId !== existingFields?.contactDetails?.contactId;
-  const contactDetails = contactIdChanged
+  const contactDetails = preserveMatchedContactDetails
+    ? existingFields.contactDetails
+    : contactIdChanged
     ? freshFields.contactDetails
     : { ...freshFields.contactDetails, memberId: existingFields?.contactDetails?.memberId };
   return {

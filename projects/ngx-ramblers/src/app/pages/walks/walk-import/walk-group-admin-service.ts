@@ -4,12 +4,15 @@ import { map, Observable } from "rxjs";
 import { EditableEventStats, EventStats } from "../../../models/group-event.model";
 import { WalkLeaderBulkRematchSummary } from "../../../models/walk-leader-match.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
+import { from } from "rxjs";
+import { WalkLeaderRematchService } from "../../../services/walks/walk-leader-rematch.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class WalkGroupAdminService {
   private dateUtils = inject(DateUtilsService);
+  private walkLeaderRematchService = inject(WalkLeaderRematchService);
   constructor(private http: HttpClient) {}
 
   eventStats(): Observable<EventStats[]> {
@@ -33,6 +36,6 @@ export class WalkGroupAdminService {
   }
 
   rematchWalkLeaders(): Observable<WalkLeaderBulkRematchSummary> {
-    return this.http.post<WalkLeaderBulkRematchSummary>(`api/database/walks/leader-rematch`, {});
+    return from(this.walkLeaderRematchService.rematchOnDemand());
   }
 }

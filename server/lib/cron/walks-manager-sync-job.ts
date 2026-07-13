@@ -2,8 +2,8 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { systemConfig } from "../config/system-config";
 import { syncWalksManagerData } from "../walks/walks-manager-sync";
-import { EventPopulation } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { registerScheduledTask, setScheduledTaskEnabled } from "./scheduled-task-registry";
+import { walksManagerSyncEnabled } from "../../../projects/ngx-ramblers/src/app/functions/walks/walks-manager-sync-config";
 
 const debugLog = debug(envConfig.logNamespace("cron:walks-manager-sync"));
 debugLog.enabled = true;
@@ -17,7 +17,7 @@ export async function scheduleWalksManagerSync() {
       name: "Walks Manager sync",
       description: "Imports walk changes from Ramblers Walks Manager.",
       cronExpression,
-      enabled: config.group.walkPopulation === EventPopulation.WALKS_MANAGER,
+      enabled: walksManagerSyncEnabled(config),
       run: async () => {
         debugLog("Starting scheduled WALKS_MANAGER sync");
         const config = await systemConfig();

@@ -36,8 +36,9 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
   pageTitle: string;
   private subscriptions: Subscription[] = [];
 
-  ngOnInit() {
+  async ngOnInit() {
     this.logger.debug("ngOnInit");
+    await this.display.refreshCachedData();
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       if (paramMap.has("add")) {
         this.displayedWalk = {

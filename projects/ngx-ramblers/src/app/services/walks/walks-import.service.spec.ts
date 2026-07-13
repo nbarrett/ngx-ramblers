@@ -117,8 +117,8 @@ describe("WalksImportService Walks Manager matching", () => {
     };
 
     const groupEventService = {
-        createEventIfRequired: () => ({ eventType: EventType.APPROVED }),
-        writeEventIfRequired: () => null
+        createEventIfRequired: vi.fn((_event: any, _status: EventType, _reason: string) => ({ eventType: EventType.APPROVED, date: 100 })),
+        writeEventIfRequired: vi.fn((_event: any, _walkEvent: any) => null)
     };
 
     const stringUtilsService = {
@@ -306,6 +306,8 @@ describe("WalksImportService Walks Manager matching", () => {
         });
         localWalksAndEventsService.create.mockClear();
         localWalksAndEventsService.update.mockClear();
+        groupEventService.createEventIfRequired.mockClear();
+        groupEventService.writeEventIfRequired.mockClear();
         memberService.createOrUpdate.mockClear();
         addressQueryService.placeNameLookup.mockReset();
         addressQueryService.gridReferenceLookup.mockReset();
@@ -564,6 +566,10 @@ describe("WalksImportService Walks Manager matching", () => {
             expect(updatedWalk.fields.contactDetails.memberId).toEqual(sarahMitchell.id);
             expect(updatedWalk.fields.contactDetails.email).toEqual(sarahMitchell.email);
             expect(updatedWalk.groupEvent.walk_leader.name).toEqual("Sarah Mitchell; Tom Gamble");
+            expect(groupEventService.createEventIfRequired).toHaveBeenCalledTimes(2);
+            expect(groupEventService.createEventIfRequired.mock.calls[0][0]).toBe(existingWalk);
+            expect(groupEventService.createEventIfRequired.mock.calls[0][2]).toEqual("Baseline captured before CSV import update");
+            expect(groupEventService.writeEventIfRequired.mock.calls[0][1].date).toEqual(99);
         });
     });
 

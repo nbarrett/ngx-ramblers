@@ -1,7 +1,7 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, signal } from "@angular/core";
 import { faAdd, faSync, faClock, faCheckCircle, faTimesCircle, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EventPopulation, RamblersSyncMode, SystemConfig, WalksManagerSyncStats, WalksManagerSyncStatusResponse } from "../../../../models/system.model";
+import { RamblersSyncMode, SystemConfig, WalksManagerSyncStats, WalksManagerSyncStatusResponse } from "../../../../models/system.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { FormsModule, ReactiveFormsModule } from "@angular/forms";
@@ -16,6 +16,7 @@ import { EventType, MessageType } from "../../../../models/websocket.model";
 import { Subscription } from "rxjs";
 import { InputSize } from "../../../../models/ui-size.model";
 import { StoredValue } from "../../../../models/ui-actions";
+import { walksManagerSyncEnabled } from "../../../../functions/walks/walks-manager-sync-config";
 
 @Component({
   selector: "app-ramblers-settings",
@@ -361,7 +362,6 @@ export class RamblersSettings implements OnInit, OnDestroy {
   }
 
   syncEnabled(): boolean {
-    const walkPopulation = this.config?.group?.walkPopulation;
-    return walkPopulation === EventPopulation.WALKS_MANAGER;
+    return walksManagerSyncEnabled(this.config);
   }
 }

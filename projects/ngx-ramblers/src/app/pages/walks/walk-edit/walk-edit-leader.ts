@@ -80,6 +80,7 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
               <label for="contact-member">Walk Leader</label>
               @if (allowDetailView) {
                 <app-member-selector
+                  [members]="memberLookup"
                   [selectedMember]="selectedWalkLeader"
                   [disabled]="inputDisabled"
                   (selectedMemberChange)="onWalkLeaderChange($event)"
@@ -238,7 +239,14 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
     this.logger.info("ngOnInit:displayedWalk:", this.displayedWalk);
     const previousWalkLeaderIds = await this.walksAndEventsService.queryWalkLeaders();
     this.walkStatuses = this.walksReferenceService.walkEventTypes();
-    this.membersWithAliasOrMe = this.display.members.sort(sortBy("firstName", "lastName")).map(member => ({
+    this.refreshMembers(this.display.members, previousWalkLeaderIds);
+    this.subscriptions.push(this.display.memberEvents().subscribe(members => {
+      this.refreshMembers(members, previousWalkLeaderIds);
+    }));
+  }
+
+  private refreshMembers(members: Member[], previousWalkLeaderIds: string[]): void {
+    this.membersWithAliasOrMe = members.sort(sortBy("firstName", "lastName")).map(member => ({
       memberId: member.id,
       name: this.fullNameWithAliasOrMePipe.transform(member),
       contactId: member.contactId,
@@ -247,13 +255,10 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
       lastName: member.lastName,
       membershipNumber: member.membershipNumber
     }));
-    this.subscriptions.push(this.display.memberEvents().subscribe(members => {
-      this.refreshContactIds();
-    }));
-
-    this.previousWalkLeaderCount = previousWalkLeaderIds?.length || 0;
     this.previousWalkLeadersWithAliasOrMe = this.membersWithAliasOrMe
       .filter(member => previousWalkLeaderIds?.includes(member.memberId));
+    this.previousWalkLeaderCount = this.previousWalkLeadersWithAliasOrMe.length;
+    this.refreshContactIds();
   }
 
   ngOnDestroy(): void {

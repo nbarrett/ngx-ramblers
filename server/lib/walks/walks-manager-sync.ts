@@ -3,10 +3,9 @@ import { DateTime } from "luxon";
 import WebSocket from "ws";
 import {
   DateFormat,
-  RamblersEventType,
   RamblersEventsApiResponse
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
-import { EventPopulation, SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { envConfig } from "../env-config/env-config";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import {
@@ -21,6 +20,7 @@ import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/webso
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import * as requestDefaults from "../ramblers/request-defaults";
 import { isEmpty, isNumber, isString } from "es-toolkit/compat";
+import { walksManagerSyncEventTypes } from "../../../projects/ngx-ramblers/src/app/functions/walks/walks-manager-sync-config";
 
 const debugLog = debug(envConfig.logNamespace("walks-manager-sync"));
 debugLog.enabled = false;
@@ -100,13 +100,14 @@ export async function syncWalksManagerData(
     debugLog("Starting WALKS_MANAGER sync with options:", options);
     sendProgress(ws, 0, "Starting sync...");
 
-    if (config.group.walkPopulation === EventPopulation.LOCAL) {
-      debugLog("Walk population is LOCAL, skipping sync");
-      sendProgress(ws, 100, "Sync skipped: walk population is LOCAL");
+    const eventTypes = walksManagerSyncEventTypes(config);
+    if (eventTypes.length === 0) {
+      debugLog("Walk and group event populations are LOCAL, skipping sync");
+      sendProgress(ws, 100, "Sync skipped: no event types use Walks Manager");
       sendComplete(ws, {
         ...result,
         percent: 100,
-        message: "Sync skipped: walk population is LOCAL"
+        message: "Sync skipped: no event types use Walks Manager"
       });
       return result;
     }
@@ -159,7 +160,7 @@ export async function syncWalksManagerData(
     ): Promise<GroupEvent[]> => {
       const buildParameters = () => [
         optionalParameter("groups", groupCode),
-        optionalParameter("types", [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT]),
+        optionalParameter("types", eventTypes),
         optionalParameter("limit", limit),
         optionalParameter("offset", offset),
         optionalParameter("sort", "date"),
