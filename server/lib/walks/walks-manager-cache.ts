@@ -9,7 +9,13 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { Contact, RamblersEventType } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { EventField, GroupEventField, LinkSource } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { isMeetupUrl, mapRamblersEventToExtendedGroupEvent, mergeFieldsOnSync } from "../../../projects/ngx-ramblers/src/app/functions/walks/ramblers-event.mapper";
+import {
+  isMeetupUrl,
+  mapRamblersEventToExtendedGroupEvent,
+  mergeFieldsOnSync,
+  preserveUndisclosedWalksManagerContact,
+  walksManagerContactDisclosed
+} from "../../../projects/ngx-ramblers/src/app/functions/walks/ramblers-event.mapper";
 import { contactDetailsWithLeaderMatch, leaderMatchResult, priorMatchesFromWalks, shouldAutoLinkLeaderMatch } from "../../../projects/ngx-ramblers/src/app/functions/walks/walk-leader-member-match";
 import { memberFullName, trimmedNamePart } from "../../../projects/ngx-ramblers/src/app/functions/member-names";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
@@ -202,15 +208,20 @@ async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, i
       ...mappedEvent.fields,
       inputSource
     };
-    const contactDetailsForMatch = {
-      ...freshFields.contactDetails,
-      displayName: freshFields?.contactDetails?.displayName || freshFields?.publishing?.ramblers?.contactName || null
-    };
-    const match = leaderMatchResult(members, contactDetailsForMatch, priorMatches);
-    const leaderAlreadyLinked = !!existingFields?.contactDetails?.memberId;
-    if (!leaderAlreadyLinked && shouldAutoLinkLeaderMatch(match)) {
-      freshFields.contactDetails = contactDetailsWithLeaderMatch(freshFields.contactDetails, match.member);
-      freshFields.publishing.ramblers.contactName = memberFullName(match.member);
+    const incomingContactDisclosed = walksManagerContactDisclosed(groupEvent);
+    let matchedMemberId: string = null;
+    if (incomingContactDisclosed) {
+      const contactDetailsForMatch = {
+        ...freshFields.contactDetails,
+        displayName: freshFields?.contactDetails?.displayName || freshFields?.publishing?.ramblers?.contactName || null
+      };
+      const match = leaderMatchResult(members, contactDetailsForMatch, priorMatches);
+      matchedMemberId = match.member?.id || null;
+      const leaderAlreadyLinked = !!existingFields?.contactDetails?.memberId;
+      if (!leaderAlreadyLinked && shouldAutoLinkLeaderMatch(match)) {
+        freshFields.contactDetails = contactDetailsWithLeaderMatch(freshFields.contactDetails, match.member);
+        freshFields.publishing.ramblers.contactName = memberFullName(match.member);
+      }
     }
     const syncMetadata = {
       source: sourceFromInputSource(inputSource),
@@ -225,12 +236,16 @@ async function upsertEventWithMembers(config: SystemConfig, event: GroupEvent, i
       const incomingWalksManagerContact = groupEvent.item_type === RamblersEventType.GROUP_EVENT
         ? groupEvent.event_organiser
         : groupEvent.walk_leader;
-      const preserveMatchedContactDetails = !!existingFields.contactDetails?.memberId && sameWalksManagerContact(existingWalksManagerContact, incomingWalksManagerContact);
-      const fields = mergeFieldsOnSync(existingFields, freshFields, preserveMatchedContactDetails);
+      const existingMemberId = existingFields.contactDetails?.memberId;
+      const incomingMatchesExistingMember = !!existingMemberId && matchedMemberId === existingMemberId;
+      const preserveExistingContactDetails = !incomingContactDisclosed ||
+        !!existingMemberId && (sameWalksManagerContact(existingWalksManagerContact, incomingWalksManagerContact) || incomingMatchesExistingMember);
+      const fields = mergeFieldsOnSync(existingFields, freshFields, preserveExistingContactDetails);
+      const groupEventForPersistence = preserveUndisclosedWalksManagerContact(existingExtendedEvent.groupEvent, groupEvent);
       await extendedGroupEvent.updateOne(
         {_id: existingEvent._id},
         {
-          $set: {groupEvent, fields, ...syncMetadata},
+          $set: {groupEvent: groupEventForPersistence, fields, ...syncMetadata},
           $inc: {syncedVersion: 1}
         }
       ).exec();

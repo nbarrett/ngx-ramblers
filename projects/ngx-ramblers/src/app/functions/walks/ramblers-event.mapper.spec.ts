@@ -1,49 +1,57 @@
-import { mapRamblersEventToExtendedGroupEvent, defaultDisplayName, mergeLinksOnSync, mergeFieldsOnSync } from "./ramblers-event.mapper";
+import {
+  defaultDisplayName,
+  mapRamblersEventToExtendedGroupEvent,
+  mergeFieldsOnSync,
+  mergeLinksOnSync,
+  preserveUndisclosedWalksManagerContact,
+  walksManagerContactDisclosed
+} from "./ramblers-event.mapper";
 import { ExtendedFields, GroupEvent, InputSource } from "../../models/group-event.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { LinkSource, LinkWithSource } from "../../models/walk.model";
 
+function baseEvent(overrides: Partial<GroupEvent> = {}): GroupEvent {
+  return {
+    id: "123",
+    area_code: "KT",
+    group_code: "KT01",
+    group_name: "Kent",
+    item_type: RamblersEventType.GROUP_WALK,
+    title: "Morning Walk",
+    description: "Along the coast",
+    additional_details: "",
+    start_date_time: "2026-01-04T10:00:00Z",
+    end_date_time: "2026-01-04T12:00:00Z",
+    meeting_date_time: "2026-01-04T09:30:00Z",
+    event_organiser: null,
+    location: null,
+    start_location: { latitude: 0, longitude: 0, grid_reference_6: "", grid_reference_8: "", grid_reference_10: "", postcode: "", description: "", w3w: "" },
+    meeting_location: null,
+    end_location: null,
+    distance_km: 10,
+    distance_miles: 6.2,
+    ascent_feet: 0,
+    ascent_metres: 0,
+    difficulty: null,
+    shape: "",
+    duration: 2,
+    walk_leader: { id: "leader-1", name: "Lee P", telephone: "07700 900000", has_email: true, email_form: "mailto:lee@example.com", is_overridden: false },
+    url: "https://ramblers.org/walk",
+    external_url: "https://meetup.com/walk",
+    status: null,
+    cancellation_reason: "",
+    accessibility: [],
+    facilities: [],
+    transport: [],
+    media: [],
+    linked_event: "",
+    date_created: "",
+    date_updated: "",
+    ...overrides
+  };
+}
+
 describe("mapRamblersEventToExtendedGroupEvent", () => {
-  function baseEvent(overrides: Partial<GroupEvent> = {}): GroupEvent {
-    return {
-      id: "123",
-      area_code: "KT",
-      group_code: "KT01",
-      group_name: "Kent",
-      item_type: RamblersEventType.GROUP_WALK,
-      title: "Morning Walk",
-      description: "Along the coast",
-      additional_details: "",
-      start_date_time: "2026-01-04T10:00:00Z",
-      end_date_time: "2026-01-04T12:00:00Z",
-      meeting_date_time: "2026-01-04T09:30:00Z",
-      event_organiser: null,
-      location: null,
-      start_location: { latitude: 0, longitude: 0, grid_reference_6: "", grid_reference_8: "", grid_reference_10: "", postcode: "", description: "", w3w: "" },
-      meeting_location: null,
-      end_location: null,
-      distance_km: 10,
-      distance_miles: 6.2,
-      ascent_feet: 0,
-      ascent_metres: 0,
-      difficulty: null,
-      shape: "",
-      duration: 2,
-      walk_leader: { id: "leader-1", name: "Lee P", telephone: "07700 900000", has_email: true, email_form: "mailto:lee@example.com", is_overridden: false },
-      url: "https://ramblers.org/walk",
-      external_url: "https://meetup.com/walk",
-      status: null,
-      cancellation_reason: "",
-      accessibility: [],
-      facilities: [],
-      transport: [],
-      media: [],
-      linked_event: "",
-      date_created: "",
-      date_updated: "",
-      ...overrides
-    };
-  }
 
   it("populates contact details and links when helpers provided", () => {
     const event = baseEvent();
@@ -83,6 +91,51 @@ describe("mapRamblersEventToExtendedGroupEvent", () => {
       href: event.url,
       source: LinkSource.RAMBLERS
     });
+  });
+});
+
+describe("Walks Manager contact disclosure", () => {
+  const undisclosedContact = {
+    id: null,
+    name: "",
+    telephone: "",
+    has_email: true,
+    email_form: "https://www.ramblers.org.uk/go-walking/group-walks/morning-walk#contact",
+    is_overridden: false
+  };
+
+  it("does not treat a contact-page URL as disclosed leader details", () => {
+    expect(walksManagerContactDisclosed(baseEvent({walk_leader: undisclosedContact}))).toBe(false);
+  });
+
+  it("treats an identity, telephone or direct email as disclosed leader details", () => {
+    expect(walksManagerContactDisclosed(baseEvent({walk_leader: {...undisclosedContact, id: "leader-1"}}))).toBe(true);
+    expect(walksManagerContactDisclosed(baseEvent({walk_leader: {...undisclosedContact, name: "Lee P"}}))).toBe(true);
+    expect(walksManagerContactDisclosed(baseEvent({walk_leader: {...undisclosedContact, telephone: "07700 900000"}}))).toBe(true);
+    expect(walksManagerContactDisclosed(baseEvent({walk_leader: {...undisclosedContact, email_form: "lee@example.com"}}))).toBe(true);
+  });
+
+  it("preserves an existing walk leader when incoming details are undisclosed", () => {
+    const existing = baseEvent();
+    const incoming = baseEvent({walk_leader: undisclosedContact});
+
+    expect(preserveUndisclosedWalksManagerContact(existing, incoming).walk_leader).toEqual(existing.walk_leader);
+  });
+
+  it("preserves an existing event organiser when incoming details are undisclosed", () => {
+    const existingOrganiser = {...baseEvent().walk_leader, name: "Event Organiser"};
+    const existing = baseEvent({item_type: RamblersEventType.GROUP_EVENT, event_organiser: existingOrganiser});
+    const incoming = baseEvent({item_type: RamblersEventType.GROUP_EVENT, event_organiser: undisclosedContact});
+
+    expect(preserveUndisclosedWalksManagerContact(existing, incoming).event_organiser).toEqual(existingOrganiser);
+  });
+
+  it("uses incoming contact details when they are disclosed", () => {
+    const existing = baseEvent();
+    const incomingLeader = {...undisclosedContact, name: "New Leader"};
+    const incoming = baseEvent({walk_leader: incomingLeader});
+
+    expect(preserveUndisclosedWalksManagerContact(existing, incoming).walk_leader).toEqual(incomingLeader);
   });
 });
 

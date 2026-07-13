@@ -1,6 +1,6 @@
 import { ExtendedFields, ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
 import { LinkSource, LinkWithSource } from "../../models/walk.model";
-import { RamblersEventType } from "../../models/ramblers-walks-manager";
+import { Contact, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { isArray } from "es-toolkit/compat";
 import { jointWalkLeaderDisplayName } from "./joint-walk-leaders";
 
@@ -26,6 +26,27 @@ interface ContactDetailsResult {
 
 function normalisedContact<T>(value: T | T[]): T {
   return isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
+export function contactFromWalksManagerEvent(groupEvent: GroupEvent): Contact {
+  return groupEvent?.item_type === RamblersEventType.GROUP_EVENT ? groupEvent?.event_organiser : groupEvent?.walk_leader;
+}
+
+export function walksManagerContactDisclosed(groupEvent: GroupEvent): boolean {
+  const contact = contactFromWalksManagerEvent(groupEvent);
+  const email = contact?.email_form?.trim();
+  const directEmail = !!email && !/^https?:\/\//i.test(email);
+  return !!contact?.id?.trim() || !!contact?.name?.trim() || !!contact?.telephone?.trim() || directEmail;
+}
+
+export function preserveUndisclosedWalksManagerContact(existingGroupEvent: GroupEvent, incomingGroupEvent: GroupEvent): GroupEvent {
+  if (walksManagerContactDisclosed(incomingGroupEvent)) {
+    return incomingGroupEvent;
+  } else if (incomingGroupEvent.item_type === RamblersEventType.GROUP_EVENT) {
+    return {...incomingGroupEvent, event_organiser: existingGroupEvent?.event_organiser};
+  } else {
+    return {...incomingGroupEvent, walk_leader: existingGroupEvent?.walk_leader};
+  }
 }
 
 export function mapRamblersEventToExtendedGroupEvent(groupEvent: GroupEvent, options: RamblersEventMapperOptions): ExtendedGroupEvent {
