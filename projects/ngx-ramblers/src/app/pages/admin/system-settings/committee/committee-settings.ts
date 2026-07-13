@@ -13,7 +13,7 @@ import {
   faTrash
 } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ALERT_ERROR, ALERT_SUCCESS, AlertTarget } from "../../../../models/alert-target.model";
+import { ALERT_ERROR, AlertTarget } from "../../../../models/alert-target.model";
 import {
   BuiltInRole,
   CommitteeConfig,
@@ -518,12 +518,6 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                 <span class="ms-2">{{ siteCatchAllError }}</span>
                               </div>
                             }
-                          } @else if (internalInbox) {
-                            <div class="alert alert-success mb-0">
-                              <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
-                              <strong class="ms-2">Delivered to the internal inbox</strong>
-                              <span class="ms-2">This site delivers mail straight into the inbox (Mail Settings &rarr; Inbox). Any address on <strong>{{ baseDomain }}</strong> that doesn't match a committee role goes to the inbox too &mdash; there's no catch-all forwarding to configure here.</span>
-                            </div>
                           } @else {
                           <p class="small text-muted mb-2">
                             The catch-all decides what happens to mail sent to addresses on
@@ -550,7 +544,7 @@ import { EnvironmentSetupService } from "../../../../services/environment-setup/
                                   <option [ngValue]="CatchAllAction.DISABLED">Disabled (no rule active)</option>
                                   <option [ngValue]="CatchAllAction.DROP">Drop (return undeliverable)</option>
                                   <option [ngValue]="CatchAllAction.FORWARD">Forward to one address</option>
-                                  <option [ngValue]="CatchAllAction.WORKER">Forward to multiple addresses</option>
+                                  <option [ngValue]="CatchAllAction.WORKER">{{ catchAllWorkerScriptName() || "Worker" }}</option>
                                   <option [ngValue]="CatchAllAction.SHARED_ROUTER">Shared inbox router (deliver to inboxes, forward the rest)</option>
                                 </select>
                               </div>
@@ -793,8 +787,6 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   private inboxService = inject(InboxService);
   private systemConfigService = inject(SystemConfigService);
   private webSocketClientService = inject(WebSocketClientService);
-  protected internalInbox = false;
-  protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
   private subscriptions: Subscription[] = [];
   private pendingEditType: string | null = null;
   private notify: AlertInstance;
@@ -870,7 +862,6 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       }));
     this.subscriptions.push(this.systemConfigService.events().subscribe(config => {
       this.systemConfigInternal = config;
-      this.internalInbox = config?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS;
       if (!this.editingSiteCatchAll && !this.editingCatchAll) {
         this.siteCatchAllForwardTo = config?.inbox?.catchAll?.forwardTo || "";
         this.siteCatchAllMode = config?.inbox?.catchAll?.mode ?? InboxCatchAllMode.INBOX;
@@ -1362,7 +1353,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       case CatchAllAction.FORWARD:
         return `Forward -> ${this.catchAllDestination() || "?"}`;
       case CatchAllAction.WORKER:
-        return "Multiple recipients (Worker)";
+        return this.catchAllWorkerScriptName() || "Worker";
       case CatchAllAction.SHARED_ROUTER:
         return "Shared inbox router";
       case CatchAllAction.DROP:

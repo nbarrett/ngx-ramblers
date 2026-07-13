@@ -1,3 +1,6 @@
+import { InboxSettingsConfig } from "./system.model";
+import { InboxCatchAllMode, InboxReaderProvider } from "./inbox.model";
+
 export enum EmailRoutingMatcherType {
   LITERAL = "literal",
   ALL = "all"
@@ -98,6 +101,18 @@ export interface UpdateCatchAllRequest {
   action: CatchAllAction;
   destinations?: string[];
   forwardingMode?: EmailForwardingMode;
+}
+
+export interface RouteToInboxResponse {
+  scriptName: string;
+  routed: string[];
+  catchAllRouted: boolean;
+}
+
+export interface CatchAllRulePlan {
+  enabled: boolean;
+  actions: EmailRoutingAction[];
+  nameSuffix: string;
 }
 
 export interface CatchAllResolution {
@@ -262,7 +277,51 @@ export interface WorkerLogsRequest {
   limit?: number;
 }
 
-export enum EmailRoutingLogTab {
-  EMAIL_ROUTING = "email-routing",
-  WORKER_INVOCATIONS = "worker-invocations"
+export function inboxSettingsForProvider(current: InboxSettingsConfig | null, provider: InboxReaderProvider): InboxSettingsConfig {
+    if (provider === InboxReaderProvider.GMAIL_API) {
+        return {...(current ?? {}), provider, catchAll: current?.catchAll ?? {mode: InboxCatchAllMode.INBOX}};
+    } else {
+        return {...(current ?? {}), provider};
+    }
+}
+
+export function sharedInboxRouterRuleActive(rule: EmailRoutingRule | null): boolean {
+  return rule?.enabled === true
+    && rule.actions?.some(action => action.type === EmailRoutingActionType.WORKER
+      && action.value?.includes(SHARED_INBOX_ROUTER_WORKER_NAME));
+}
+
+export enum GmailInboxSetupStepKey {
+    CLOUD_PROJECT = "cloud-project",
+    GMAIL_ACCOUNTS = "gmail-accounts",
+    ROLE_MAILBOXES = "role-mailboxes"
+}
+
+interface GmailInboxStepMeta {
+    key: GmailInboxSetupStepKey;
+    label: string;
+    hint: string;
+}
+
+export const GMAIL_INBOX_STEPS: GmailInboxStepMeta[] = [
+    {
+        key: GmailInboxSetupStepKey.CLOUD_PROJECT,
+        label: "Google Cloud project",
+        hint: "Set up once. OAuth client + optional Pub/Sub."
+    },
+    {
+        key: GmailInboxSetupStepKey.GMAIL_ACCOUNTS,
+        label: "Connected Gmail accounts",
+        hint: "Add one per Gmail account you want to read mail from."
+    },
+    {
+        key: GmailInboxSetupStepKey.ROLE_MAILBOXES,
+        label: "Role mailboxes",
+        hint: "Review which committee roles route to which Gmail."
+    }
+];
+
+export enum InboxSettingsTab {
+    SETTINGS = "Inbox settings",
+    VISIBILITY = "Visibility"
 }

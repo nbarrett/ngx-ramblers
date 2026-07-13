@@ -85,7 +85,7 @@ export enum CommitteeMemberTab {
                 <div class="col-sm-6">
                   <div class="form-group">
                     @if (committeeMember.forwardEmailTarget === ForwardEmailTarget.CATCHALL) {
-                      <label class="control-label">Catchall routing (auto)</label>
+                      <label class="control-label">{{ catchAllSummary() || "Catchall" }} (auto)</label>
                       <input type="text" class="form-control" [value]="catchAllSummary() || ''" disabled>
                       @if (!catchAllExists()) {
                         <small class="text-muted">No Cloudflare catch-all rule found yet - configure a catch-all rule pointing at your inbox mailbox.</small>
@@ -170,7 +170,7 @@ export enum CommitteeMemberTab {
                 <div class="col-sm-6">
                   <div class="form-group">
                     @if (committeeMember.contactUsTarget === ForwardEmailTarget.CATCHALL) {
-                      <label class="control-label">Catchall routing (auto)</label>
+                      <label class="control-label">{{ catchAllSummary() || "Catchall" }} (auto)</label>
                       <input type="text" class="form-control" [value]="catchAllSummary() || ''" disabled>
                       @if (catchAllExists()) {
                         <small class="text-muted">Sent to the catch-all, addressed to this role; no address is stored on the role.</small>
@@ -717,7 +717,8 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       return forwardAddress;
     }
     if (this.catchAllRule?.actions?.some(action => action.type === EmailRoutingActionType.WORKER)) {
-      return "Multiple recipients (Worker)";
+      const workerAction = this.catchAllRule.actions.find(a => a.type === EmailRoutingActionType.WORKER);
+      return workerAction?.value?.[0] || "Worker";
     }
     return null;
   }
@@ -779,6 +780,10 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       case ForwardEmailTarget.CATCHALL: {
         const email = this.catchAllAddress();
         return email ? `${label} (${email})` : label;
+      }
+      case ForwardEmailTarget.MULTIPLE: {
+        const name = this.activeWorkerScriptName();
+        return name || label;
       }
       default:
         return label;
@@ -883,6 +888,10 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       case ForwardEmailTarget.ROLE_EMAIL: {
         const email = this.committeeMember?.email;
         return email ? `${label} (${email})` : label;
+      }
+      case ForwardEmailTarget.MULTIPLE: {
+        const name = this.activeWorkerScriptName();
+        return name || label;
       }
       default:
         return label;
