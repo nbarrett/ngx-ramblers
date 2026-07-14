@@ -17,6 +17,7 @@ export function buildRamblersUploadJob(request: RamblersWalksUploadRequest): Ram
     headings: request.headings,
     rows: request.rows,
     ramblersUser: request.ramblersUser,
+    walkImageUploads: request.walkImageUploads || [],
     feature: "walks-upload.ts"
   };
 

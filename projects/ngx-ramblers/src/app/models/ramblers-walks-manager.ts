@@ -19,6 +19,19 @@ export interface WalkUploadInfo {
   title: string;
 }
 
+export interface WalkImageUploadSource {
+  alternativeText: string;
+  fileName: string;
+  sourceUrl: string;
+}
+
+export interface WalkImagesUpload {
+  date: string;
+  images: WalkImageUploadSource[];
+  walkId: string | null;
+  title: string;
+}
+
 export interface RamblersWalksUploadRequest {
   fileName: string;
   walkIdDeletionList: string[];
@@ -28,6 +41,7 @@ export interface RamblersWalksUploadRequest {
   headings: string[];
   rows: WalkUploadRow[];
   ramblersUser: string;
+  walkImageUploads: WalkImagesUpload[];
 }
 
 export interface PublishStatus {

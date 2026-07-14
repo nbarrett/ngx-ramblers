@@ -9,6 +9,18 @@ export interface WalkUploadInfo {
   title: string;
 }
 
+export interface WalkImageUpload {
+  alternativeText: string;
+  filePath: string;
+}
+
+export interface WalkImagesUpload {
+  date: string;
+  images: WalkImageUpload[];
+  walkId: string | null;
+  title: string;
+}
+
 export interface WalkUploadMetadata {
   fileName: string;
   walkCount: number;
@@ -17,4 +29,5 @@ export interface WalkUploadMetadata {
   walkCancellations: WalkCancellation[];
   walkUncancellations: string[];
   walkUploads: WalkUploadInfo[];
+  walkImageUploads: WalkImagesUpload[];
 }

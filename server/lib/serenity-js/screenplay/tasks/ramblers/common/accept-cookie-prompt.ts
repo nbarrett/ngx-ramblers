@@ -8,6 +8,31 @@ import { envConfig } from "../../../../../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("accept-cookie-prompt"));
 export class Accept {
+  static acceptCookieBannerWhenAvailable(): Task {
+    return Task.where("#actor accepts the cookie banner when available",
+      ExecuteScript.sync(() => {
+        const acceptBanner = () => {
+          const selectorMatch = document.querySelector(".cky-btn-accept, [data-cky-tag='accept-button']") as HTMLElement;
+          const textMatch = [...document.querySelectorAll("button")]
+            .find(button => button.textContent?.trim() === "Accept All") as HTMLElement;
+          const acceptButton = selectorMatch || textMatch;
+          if (acceptButton) {
+            acceptButton.click();
+          }
+          return !!acceptButton;
+        };
+        if (!acceptBanner()) {
+          const observer = new MutationObserver(() => {
+            if (acceptBanner()) {
+              observer.disconnect();
+            }
+          });
+          observer.observe(document.documentElement, { childList: true, subtree: true });
+          window.setTimeout(() => observer.disconnect(), 10000);
+        }
+      }));
+  }
+
   static disableCookieBannerPermanently(): Task {
     return Task.where("#actor disables cookie banner persistently",
       ExecuteScript.sync(() => {
@@ -57,9 +82,10 @@ export class Accept {
 
   static dismissCookieBanners(): Task {
     return Task.where("#actor dismisses cookie banners",
+      Accept.acceptCookieBannerWhenAvailable(),
+      Accept.cookieBannerIfVisible(),
       Accept.disableCookieBannerPermanently(),
-      Accept.forceDismissCookieBanners(),
-      Accept.cookieBannerIfVisible());
+      Accept.forceDismissCookieBanners());
   }
 
   static forceDismissCookieBanners(): Task {

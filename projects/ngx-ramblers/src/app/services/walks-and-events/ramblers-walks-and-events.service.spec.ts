@@ -25,6 +25,7 @@ import { WalksConfigService } from "../system/walks-config.service";
 import { LinkSource } from "../../models/walk.model";
 import { MemberLoginService } from "../member/member-login.service";
 import { WALK_PUBLISHED_AND_MATCHING, WALK_PUBLISHED_WITH_PROBLEMS } from "../../models/ramblers-walks-manager";
+import { vi } from "vitest";
 
 describe("RamblersWalksAndEventsService", () => {
   beforeEach(() => TestBed.configureTestingModule({
@@ -38,6 +39,7 @@ describe("RamblersWalksAndEventsService", () => {
         useValue: {
           gridReferenceFrom: () => null,
           toDisplayedWalk: walk => ({walk}),
+          walkPopulationLocal: () => false,
           walkPublicLink: walk => `https://example.com/walks/${walk?.groupEvent?.url || "test-walk"}`
         }
       },
@@ -91,6 +93,49 @@ describe("RamblersWalksAndEventsService", () => {
   it("should be created", () => {
     const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
     expect(service).toBeTruthy();
+  });
+
+  describe("walkImageUploads", () => {
+    const selectedWalk = {
+      selected: true,
+      displayedWalk: {
+        walk: {
+          groupEvent: {
+            title: "Woodland walk",
+            start_date_time: "2026-07-15T18:30:00.000Z",
+            status: "confirmed",
+            media: [{
+              alt: "A woodland path",
+              title: "Woodland",
+              styles: [{style: "medium", url: "https://example.com/images/path.jpeg"}]
+            }]
+          },
+          fields: {publishing: {ramblers: {publish: true}}}
+        }
+      }
+    };
+
+    it("includes ordered media for local walk population", () => {
+      const service = TestBed.inject(RamblersWalksAndEventsService);
+      const display = TestBed.inject(WalkDisplayService);
+      vi.spyOn(display, "walkPopulationLocal").mockReturnValue(true);
+
+      expect(service.walkImageUploads([selectedWalk] as any)).toEqual([{
+        date: "15/07/2026",
+        images: [{
+          alternativeText: "A woodland path",
+          fileName: "path.jpeg",
+          sourceUrl: "https://example.com/images/path.jpeg"
+        }],
+        title: "Woodland walk",
+        walkId: null
+      }]);
+    });
+
+    it("excludes media for Walks Manager population", () => {
+      const service = TestBed.inject(RamblersWalksAndEventsService);
+      expect(service.walkImageUploads([selectedWalk] as any)).toEqual([]);
+    });
   });
 
   describe("toWalkExport", () => {
@@ -321,6 +366,59 @@ describe("RamblersWalksAndEventsService", () => {
       expect(walkExport.validationMessages).toContain("Distance is missing");
       expect(walkExport.publishStatus.messages).toEqual([WALK_PUBLISHED_WITH_PROBLEMS]);
       expect(walkExport.selected).toBe(false);
+    });
+
+    it("preselects an image-only mismatch without scheduling CSV replacement", async () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const localMedia = [{alt: "Castle view", title: "Castle", styles: [{style: "medium", url: "https://example.com/castle.jpeg"}]}];
+      const walkExport = service.toWalkExport(publishedWalk({media: localMedia}, {media: [], walksManagerUrl: "https://walks-manager.ramblers.org.uk/walks-manager/walk/basic-information/walk-123"}) as any);
+
+      expect(walkExport.selected).toBe(true);
+      expect(walkExport.imageUploadOnly).toBe(true);
+      expect(walkExport.publishStatus.messages).toContain("Ramblers images differ from the 1 image on the group website");
+      expect(await service.walkUploadRows([walkExport])).toEqual([]);
+      expect(service.walkUploadList([walkExport])).toEqual([]);
+      expect(service.walkDeletionList([walkExport])).toEqual([]);
+      expect(service.walkImageUploads([walkExport])[0].walkId).toEqual("https://walks-manager.ramblers.org.uk/walks-manager/walk/basic-information/walk-123");
+    });
+
+    it("preselects removal when Ramblers has images but the local walk has none", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const ramblersMedia = [{alt: "Old image", title: "Old", styles: [{style: "medium", url: "https://example.com/old.jpeg"}]}];
+      const walkExport = service.toWalkExport(publishedWalk({media: []}, {media: ramblersMedia, walksManagerUrl: "https://walks-manager.ramblers.org.uk/walks-manager/walk/basic-information/walk-123"}) as any);
+
+      expect(walkExport.selected).toBe(true);
+      expect(walkExport.imageUploadOnly).toBe(true);
+      expect(service.walkImageUploads([walkExport])).toEqual([{
+        date: "04/07/2026",
+        images: [],
+        title: "Coastal walk",
+        walkId: "https://walks-manager.ramblers.org.uk/walks-manager/walk/basic-information/walk-123"
+      }]);
+    });
+
+    it("does not select a walk when ordered image alternative text matches", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const media = [{alt: "Castle view", title: "Castle", styles: [{style: "medium", url: "https://example.com/castle.jpeg"}]}];
+      const walkExport = service.toWalkExport(publishedWalk({media}, {media}) as any);
+
+      expect(walkExport.selected).toBe(false);
+      expect(walkExport.imageUploadOnly).toBe(false);
+      expect(walkExport.publishStatus.messages).toEqual([WALK_PUBLISHED_AND_MATCHING]);
+    });
+
+    it("keeps ordinary mismatches in the CSV replacement workflow when images also differ", async () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const localMedia = [{alt: "Castle view", title: "Castle", styles: [{style: "medium", url: "https://example.com/castle.jpeg"}]}];
+      const walkExport = service.toWalkExport(publishedWalk({media: localMedia}, {title: "Different title", media: []}) as any);
+
+      expect(walkExport.selected).toBe(true);
+      expect(walkExport.imageUploadOnly).toBe(false);
+      expect((await service.walkUploadRows([walkExport])).length).toBe(1);
     });
   });
 

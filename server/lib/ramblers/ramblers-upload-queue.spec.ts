@@ -67,6 +67,7 @@ function createJob(jobId: string, fileName: string): RamblersUploadJob {
       headings: [],
       rows: [],
       ramblersUser: "nick@example.com",
+      walkImageUploads: [],
       feature: "walks-upload.ts"
     }
   };

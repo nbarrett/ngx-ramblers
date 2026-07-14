@@ -6,19 +6,16 @@ import { Status } from "../../../projects/ngx-ramblers/src/app/models/ramblers-u
 import WebSocket from "ws";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import * as auditNotifier from "./ramblers-upload-audit-notifier";
-import fs from "fs";
 import * as stringDecoder from "string_decoder";
-import { stringify } from "csv-stringify/sync";
 import { downloadStatusManager } from "./download-status-manager";
 import { ServerDownloadStatusType } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
-import { WalkUploadMetadata } from "../models/walk-upload-metadata";
 import { RamblersUploadJob } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-job.model";
 import { RamblersUploadCredentials } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
+import { prepareRamblersUploadJobFiles, removeRamblersUploadJobFiles } from "./ramblers-upload-job-files";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = true;
-const path = "/tmp/ramblers/";
 const StringDecoder = stringDecoder.StringDecoder;
 const decoder = new StringDecoder("utf8");
 
@@ -28,34 +25,16 @@ export async function executeRamblersUploadJob(ws: WebSocket, job: RamblersUploa
   debugLog("request made with ramblers upload job:", job.jobId, job.data.fileName);
 
   const fileName = job.data.fileName;
-  const csvData = stringify(job.data.rows, {header: true, columns: job.data.headings});
-  const filePath = path + fileName;
-  const metadataPath = path + fileName.replace(".csv", "-metadata.json");
-  debugLog("saving CSV to:", filePath);
-  if (!fs.existsSync(path)) {
-    fs.mkdirSync(path);
-  }
-
-  const metadata: WalkUploadMetadata = {
-    fileName: filePath,
-    walkCount: job.data.rows.length,
-    ramblersUser: job.data.ramblersUser,
-    walkDeletions: job.data.walkIdDeletionList,
-    walkUploads: job.data.walkIdUploadList || [],
-    walkCancellations: job.data.walkCancellations,
-    walkUncancellations: job.data.walkUncancellations || []
-  };
-
+  let preparedFiles;
   try {
-    fs.writeFileSync(filePath, csvData);
-    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+    preparedFiles = await prepareRamblersUploadJobFiles(job);
   } catch (error) {
     auditNotifier.reportErrorAndClose(error, ws);
     return;
   }
 
   downloadStatusManager.startDownload(fileName);
-  process.env[Environment.RAMBLERS_METADATA_FILE] = metadataPath;
+  process.env[Environment.RAMBLERS_METADATA_FILE] = preparedFiles.metadataPath;
   process.env[Environment.RAMBLERS_FEATURE] = job.data.feature;
   process.env[Environment.RAMBLERS_USERNAME] = credentials?.userName || job.data.ramblersUser;
   if (credentials?.password) {
@@ -111,6 +90,7 @@ export async function executeRamblersUploadJob(ws: WebSocket, job: RamblersUploa
     debugLog(`subprocess error job=${job.jobId}:`, error.message);
     downloadStatusManager.completeDownload(ServerDownloadStatusType.ERROR);
     auditNotifier.reportErrorAndClose(error, ws);
+    removeRamblersUploadJobFiles(preparedFiles.jobPath);
   });
 
   subprocess.on("exit", (code: number, signal) => {
@@ -126,6 +106,7 @@ export async function executeRamblersUploadJob(ws: WebSocket, job: RamblersUploa
       parserFunction: auditParser.parseExit,
       status
     }, job.jobId);
+    removeRamblersUploadJobFiles(preparedFiles.jobPath);
   });
 
   subprocess.on("close", (code, signal) => {

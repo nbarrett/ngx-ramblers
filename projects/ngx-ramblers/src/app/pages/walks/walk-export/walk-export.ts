@@ -774,7 +774,8 @@ export class WalkExport implements OnInit, OnDestroy {
     const cancellationCount = this.ramblersWalksAndEventsService.walkCancellationList(this.exportableWalks()).length;
     const deletionCount = this.ramblersWalksAndEventsService.walkDeletionList(this.exportableWalks()).length;
     const uncancelCount = this.ramblersWalksAndEventsService.walkUncancellationList(this.exportableWalks()).length;
-    const nothingToProcess = (rowsCount + cancellationCount + deletionCount + uncancelCount) === 0;
+    const imageUpdateCount = this.exportableWalks().filter(walkExport => walkExport.imageUploadOnly).length;
+    const nothingToProcess = (rowsCount + cancellationCount + deletionCount + uncancelCount + imageUpdateCount) === 0;
     return nothingToProcess || this.exportInProgress || !this.downloadConflict.allowed;
   }
 
@@ -1086,7 +1087,8 @@ export class WalkExport implements OnInit, OnDestroy {
         const cancels = this.ramblersWalksAndEventsService.walkCancellationList(single).length;
         const deletes = this.ramblersWalksAndEventsService.walkDeletionList(single).length;
         const uncancels = this.ramblersWalksAndEventsService.walkUncancellationList(single).length;
-        map[key] = (uploads.length + cancels + deletes + uncancels) > 0;
+        const imageUpdates = this.ramblersWalksAndEventsService.walkImageUploads(single).length;
+        map[key] = (uploads.length + cancels + deletes + uncancels + imageUpdates) > 0;
       } catch {
         map[key] = false;
       }
@@ -1108,6 +1110,7 @@ export class WalkExport implements OnInit, OnDestroy {
     const cancellationCount = this.ramblersWalksAndEventsService.walkCancellationList(this.exportableWalks()).length;
     const deletionCount = this.ramblersWalksAndEventsService.walkDeletionList(this.exportableWalks()).length;
     const uncancelCount = this.ramblersWalksAndEventsService.walkUncancellationList(this.exportableWalks()).length;
+    const imageUpdateCount = this.exportableWalks().filter(walkExport => walkExport.imageUploadOnly).length;
     if (this.downloadConflict.allowed && rowsCount > 0) {
       this.walkExportNotifier.success({
         title: "Walks Export Initialisation",
@@ -1119,14 +1122,15 @@ export class WalkExport implements OnInit, OnDestroy {
         message: `${this.downloadConflict.reason} ${this.stringUtils.pluraliseWithCount(rowsCount, "walk")} selected but cannot be uploaded until resolved.`
       });
     } else if (rowsCount === 0) {
-      if (cancellationCount > 0 || deletionCount > 0 || uncancelCount > 0) {
+      if (cancellationCount > 0 || deletionCount > 0 || uncancelCount > 0 || imageUpdateCount > 0) {
         const parts = [] as string[];
         if (cancellationCount > 0) { parts.push(`${this.stringUtils.pluraliseWithCount(cancellationCount, "cancellation")}`); }
         if (deletionCount > 0) { parts.push(`${this.stringUtils.pluraliseWithCount(deletionCount, "deletion")}`); }
         if (uncancelCount > 0) { parts.push(`${this.stringUtils.pluraliseWithCount(uncancelCount, "uncancellation")}`); }
+        if (imageUpdateCount > 0) { parts.push(`${this.stringUtils.pluraliseWithCount(imageUpdateCount, "image update")}`); }
         this.walkExportNotifier.success({
           title: "Actions To Process",
-          message: `0 walks will be uploaded; ${parts.join(" and ")} ${this.stringUtils.pluralise(cancellationCount + deletionCount, "will", "will")} be processed.`
+          message: `0 walks will be uploaded; ${parts.join(" and ")} will be processed.`
         });
       } else {
         this.walkExportNotifier.warning({
@@ -1160,19 +1164,22 @@ export class WalkExport implements OnInit, OnDestroy {
     const cancels = this.ramblersWalksAndEventsService.walkCancellationList(this.exportableWalks()).length;
     const deletes = this.ramblersWalksAndEventsService.walkDeletionList(this.exportableWalks()).length;
     const uncancels = this.ramblersWalksAndEventsService.walkUncancellationList(this.exportableWalks()).length;
+    const imageUpdates = this.exportableWalks().filter(walkExport => walkExport.imageUploadOnly).length;
     if (rows > 0) {
       const extras: string[] = [];
       if (deletes > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(deletes, "deletion")}`); }
       if (cancels > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(cancels, "cancellation")}`); }
       if (uncancels > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(uncancels, "uncancellation")}`); }
+      if (imageUpdates > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(imageUpdates, "image update")}`); }
       const extraText = extras.length ? ` (+ ${extras.join(", ")})` : "";
       return `Upload ${this.stringUtils.pluraliseWithCount(rows, "walk")} to Ramblers${extraText}`;
     }
-    if (cancels > 0 || deletes > 0 || uncancels > 0) {
+    if (cancels > 0 || deletes > 0 || uncancels > 0 || imageUpdates > 0) {
       const parts: string[] = [];
       if (deletes > 0) { parts.push(this.stringUtils.pluraliseWithCount(deletes, "deletion")); }
       if (cancels > 0) { parts.push(this.stringUtils.pluraliseWithCount(cancels, "cancellation")); }
       if (uncancels > 0) { parts.push(this.stringUtils.pluraliseWithCount(uncancels, "uncancellation")); }
+      if (imageUpdates > 0) { parts.push(this.stringUtils.pluraliseWithCount(imageUpdates, "image update")); }
       return `Process ${parts.join(" and ")}`;
     }
     return `Upload ${this.stringUtils.pluraliseWithCount(rows, "walk")} to Ramblers`;

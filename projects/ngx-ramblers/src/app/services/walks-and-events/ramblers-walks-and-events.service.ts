@@ -24,6 +24,7 @@ import {
   WALK_PUBLISHED_AND_MATCHING,
   WALK_PUBLISHED_WITH_PROBLEMS,
   WalkCancellation,
+  WalkImagesUpload,
   WalkLeaderContact,
   WALKS_MANAGER_GO_LIVE_DATE,
   WalkStatus,
@@ -276,6 +277,7 @@ export class RamblersWalksAndEventsService {
     );
     return await Promise.all(
       this.selectedExportableWalks(walkExports)
+        .filter(walkExport => !walkExport.imageUploadOnly)
         .map(walkExport => walkExport.displayedWalk.walk)
         .filter(walk => !!walk?.fields?.publishing?.ramblers?.publish)
         .filter(walk => walk?.groupEvent?.status !== WalkStatus.CANCELLED)
@@ -438,8 +440,45 @@ export class RamblersWalksAndEventsService {
       walkIdUploadList,
       walkCancellations,
       walkUncancellations,
+      walkImageUploads: this.walkImageUploads(walkExports),
       ramblersUser: loggedInMember?.firstName || loggedInMember?.userName
     };
+  }
+
+  public walkImageUploads(walkExports: WalkExportData[]): WalkImagesUpload[] {
+    if (!this.walkDisplayService.walkPopulationLocal()) {
+      return [];
+    }
+
+    const uncancelSet = new Set(this.walkUncancellationList(walkExports));
+    return this.selectedExportableWalks(walkExports)
+      .map(walkExport => ({walk: walkExport.displayedWalk.walk, walkId: walkExport.imageUploadOnly ? walkExport.ramblersUrl : null}))
+      .filter(item => !!item.walk?.fields?.publishing?.ramblers?.publish)
+      .filter(item => item.walk?.groupEvent?.status !== WalkStatus.CANCELLED)
+      .filter(item => !uncancelSet.has(this.transformUrl(item.walk)))
+      .map(item => ({
+        date: this.walkDate(item.walk, DateFormat.WALKS_MANAGER_CSV),
+        images: (item.walk.groupEvent?.media || [])
+          .map(media => ({media, sourceUrl: media.styles?.find(style => style.style === "medium")?.url || media.styles?.[0]?.url}))
+          .filter(image => !!image.sourceUrl)
+          .slice(0, 5)
+          .map(image => ({
+            alternativeText: image.media.alt || image.media.title || this.walkTitle(item.walk),
+            fileName: this.imageFileName(image.sourceUrl),
+            sourceUrl: this.urlService.imageSource(image.sourceUrl, true)
+          })),
+        title: this.walkTitle(item.walk),
+        walkId: item.walkId
+      }))
+      .filter(upload => upload.images.length > 0 || !!upload.walkId);
+  }
+
+  private imageFileName(url: string): string {
+    try {
+      return decodeURIComponent(new URL(url).pathname.split("/").pop() || "walk-image.jpeg");
+    } catch {
+      return url?.split("?")[0].split("/").pop() || "walk-image.jpeg";
+    }
   }
 
   public walkDeletionList(walkExports: WalkExportData[]): string[] {
@@ -457,6 +496,7 @@ export class RamblersWalksAndEventsService {
 
   public walkUploadList(walkExports: WalkExportData[]): WalkUploadInfo[] {
     return this.selectedExportableWalks(walkExports)
+      .filter(walkExport => !walkExport.imageUploadOnly)
       .filter(w => !!w?.displayedWalk?.walk?.fields?.publishing?.ramblers?.publish)
       .filter(w => !!(w?.ramblersUrl || w?.displayedWalk?.walk?.groupEvent?.url))
       .map(w => {
@@ -595,6 +635,14 @@ export class RamblersWalksAndEventsService {
       }
     }
     const publishStatus = this.toPublishStatus(localAndRamblersWalk);
+    const nonImagePublishRequired = publishStatus.publish;
+    const imageMismatch = this.walkDisplayService.walkPopulationLocal() && this.walkImageMismatch(walk, localAndRamblersWalk.ramblersWalk);
+    if (imageMismatch) {
+      publishStatus.messages = publishStatus.messages.filter(message => message !== WALK_PUBLISHED_AND_MATCHING);
+      publishStatus.messages.push(`Ramblers images differ from the ${this.stringUtilsService.pluraliseWithCount(walk.groupEvent.media?.length || 0, "image")} on the group website`);
+      publishStatus.publish = true;
+      publishStatus.actionRequired = true;
+    }
     const isCancelledLocally = walk?.groupEvent?.status === WalkStatus.CANCELLED;
     const ramblersStatus = localAndRamblersWalk.ramblersWalk?.status;
     const needsCancellationOnRamblers = isCancelledLocally && !!localAndRamblersWalk.ramblersWalk && ramblersStatus !== WalkStatus.CANCELLED;
@@ -626,10 +674,31 @@ export class RamblersWalksAndEventsService {
       publishedOnRamblers: walk && !isEmpty(walk.groupEvent.id),
       selected: (needsCancellationOnRamblers || needsUncancelOnRamblers || publishStatus.publish) && validationMessages.length === 0,
       ramblersStatus,
+      imageUploadOnly: imageMismatch && !nonImagePublishRequired && !!localAndRamblersWalk.ramblersWalk,
       ramblersUrl: localAndRamblersWalk.ramblersWalk?.walksManagerUrl || localAndRamblersWalk.ramblersWalk?.url
     };
     this.logger.info("toWalkExport:localAndRamblersWalk:", localAndRamblersWalk, "returnValue:", returnValue);
     return returnValue;
+  }
+
+  private walkImageMismatch(walk: ExtendedGroupEvent, ramblersWalk: RamblersEventSummaryResponse): boolean {
+    if (!ramblersWalk) {
+      return false;
+    }
+
+    const localImages = (walk.groupEvent?.media || [])
+      .filter(media => media.styles?.some(style => !!style.url))
+      .slice(0, 5)
+      .map(media => this.normalisedImageAlternativeText(media.alt || media.title || this.walkTitle(walk)));
+    const ramblersImages = (ramblersWalk.media || [])
+      .slice(0, 5)
+      .map(media => this.normalisedImageAlternativeText(media.alt || media.title || this.walkTitle(walk)));
+
+    return !isEqual(localImages, ramblersImages);
+  }
+
+  private normalisedImageAlternativeText(value: string): string {
+    return this.plainTextForUpload(value || "").trim().toLowerCase().replace(/\s+/g, " ");
   }
 
   startingLocationDetails(walk: ExtendedGroupEvent) {

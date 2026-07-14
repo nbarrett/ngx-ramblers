@@ -4,20 +4,20 @@ import { PageElement } from "@serenity-js/web";
 
 export class SetFileInput extends Interaction {
 
-  static to(filePath: string) {
+  static to(filePaths: string | string[]) {
     return {
-      from: (target: Answerable<PageElement>) => new SetFileInput(filePath, target)
+      from: (target: Answerable<PageElement>) => new SetFileInput(filePaths, target)
     };
   }
 
-  constructor(private readonly filePath: string, private readonly target: Answerable<PageElement>) {
-    super(`#actor uploads file ${filePath} using ${target}`);
+  constructor(private readonly filePaths: string | string[], private readonly target: Answerable<PageElement>) {
+    super(`#actor uploads files ${filePaths} using ${target}`);
   }
 
   async performAs(actor: UsesAbilities & AnswersQuestions): Promise<void> {
     const element = await actor.answer(this.target);
     const nativeElement = await element.nativeElement();
 
-    await nativeElement.setInputFiles(this.filePath);
+    await nativeElement.setInputFiles(this.filePaths);
   }
 }
