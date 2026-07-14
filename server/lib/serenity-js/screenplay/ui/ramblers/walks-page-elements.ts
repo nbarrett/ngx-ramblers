@@ -127,20 +127,85 @@ export class WalksPageElements {
   public static walkImageRemoveButtons = PageElements.located(By.xpath("//table[.//input[contains(@name, '[alt]')]]//button[normalize-space()='Remove'] | //table[.//input[contains(@name, '[alt]')]]//input[@value='Remove']"))
     .describedAs("walk image remove buttons");
 
+  public static walkImageRowLink(tableRow: PageElement) {
+    return PageElement.located(By.css("a[href]:not([href$='#'])")).of(tableRow).describedAs("walk image file link");
+  }
+
+  public static walkImageRowAlternativeTextField(tableRow: PageElement) {
+    return PageElement.located(By.css("input[name*='[alt]']")).of(tableRow).describedAs("walk image alternative text field");
+  }
+
+  public static walkImageRowRemoveButton(tableRow: PageElement) {
+    return PageElement.located(By.css("input[value='Remove']")).of(tableRow).describedAs("walk image remove button");
+  }
+
+  public static walkImageRowWeightSelect(tableRow: PageElement) {
+    return PageElement.located(By.css("select[name*='[_weight]']")).of(tableRow).describedAs("walk image display order");
+  }
+
+  public static walkTitleField = PageElement.located(By.id("edit-title-0-value"))
+    .describedAs("walk title");
+
+  public static walkDateField = PageElement.located(By.id("edit-field-date-0-value-date"))
+    .describedAs("walk date");
+
+  public static walkStartTimeField = PageElement.located(By.id("edit-field-date-0-value-time"))
+    .describedAs("walk start time");
+
+  public static walkDescriptionEditor = PageElement.located(By.css(".field--name-field-basic-description-2 .ck-editor__editable"))
+    .describedAs("walk description");
+
+  public static walkAdditionalDetailsEditor = PageElement.located(By.css(".field--name-field-additional-details .ck-editor__editable"))
+    .describedAs("walk additional details");
+
+  public static walkWebsiteLinkField = PageElement.located(By.id("edit-field-walk-website-link-0-uri"))
+    .describedAs("walk website link");
+
+  public static walkMeetingTimeField = PageElement.located(By.id("edit-field-meeting-time-0-value"))
+    .describedAs("walk meeting time");
+
+  public static walkDistanceKilometresField = PageElement.located(By.css("input[name='field_walk_distance[0][value]']"))
+    .describedAs("walk distance in kilometres");
+
+  public static walkDistanceMilesField = PageElement.located(By.css("input[name='field_walk_distance[0][alternative]']"))
+    .describedAs("walk distance in miles");
+
+  public static walkAscentMetresField = PageElement.located(By.css("input[name='field_walk_ascent[0][value]']"))
+    .describedAs("walk ascent in metres");
+
+  public static walkAscentFeetField = PageElement.located(By.css("input[name='field_walk_ascent[0][alternative]']"))
+    .describedAs("walk ascent in feet");
+
+  public static walkFinishTimeField = PageElement.located(By.id("edit-field-estimated-finishing-time-0-value"))
+    .describedAs("walk estimated finishing time");
+
+  public static walkOptionLabelled(optionLabel: string) {
+    return PageElement.located(By.xpath(`//form//label[normalize-space()='${optionLabel}']`))
+      .describedAs(`${optionLabel} option`);
+  }
+
+  public static saveChangesButton = PageElement.located(By.id("save_action"))
+    .describedAs("Save changes button");
+
   public static saveAndContinueButton = PageElement.located(By.css("input[value='Save and continue'], button[value='Save and continue']"))
     .describedAs("Save and continue button");
 
-  public static publishChangesButton = PageElement.located(By.xpath("//button[normalize-space()='Publish changes']"))
+  public static publishChangesButton = PageElement.located(By.css("label[for='save_publish_action']"))
     .describedAs("Publish changes button");
 
   public static manageWalkButton = PageElement.located(By.id("ramled_manage"))
     .describedAs("Manage walk button");
 
-  public static editWalkLink = PageElement.located(By.css(".dropdown-menu[aria-labelledby='ramled_manage'] a.dropdown-item"))
+  public static editWalkLink = PageElement.located(By.css("a[href*='/walks-manager/walk/basic-information/']"))
     .describedAs("Edit walk link");
 
   public static descriptionStepLink = PageElement.located(By.xpath("//a[normalize-space()='Description' and contains(@href, '/walks-manager/walk/description/')]"))
     .describedAs("Description step link");
+
+  public static walkStepLink(step: string) {
+    return PageElement.located(By.xpath(`//a[contains(@href, '/walks-manager/walk/${step}/')]`))
+      .describedAs(`${step} step link`);
+  }
 
   public static columnsForRow(result: PageElement) {
     return PageElements.located(By.css(".views-field-views-bulk-operations-bulk-form,.views-field-ramled-title-field,.views-field-field-date,.views-field-ram-content-moderation-views-field-states")

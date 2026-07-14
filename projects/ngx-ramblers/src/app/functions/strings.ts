@@ -113,3 +113,23 @@ export function booleanOf(value: any, fallback: boolean = false): boolean {
     return fallback;
   }
 }
+
+const TRAILING_ELLIPSIS = /(…|\.\.\.)$/;
+
+export function normalisedForComparison(value: string): string {
+  return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function endsWithEllipsis(value: string): boolean {
+  return TRAILING_ELLIPSIS.test((value || "").trim());
+}
+
+export function matchesAllowingTruncation(possiblyTruncated: string, full: string): boolean {
+  const truncated = normalisedForComparison(possiblyTruncated);
+  const complete = normalisedForComparison(full);
+  if (truncated === complete) {
+    return true;
+  }
+  const withoutEllipsis = truncated.replace(TRAILING_ELLIPSIS, "").trim();
+  return endsWithEllipsis(truncated) && withoutEllipsis.length > 0 && complete.startsWith(withoutEllipsis);
+}

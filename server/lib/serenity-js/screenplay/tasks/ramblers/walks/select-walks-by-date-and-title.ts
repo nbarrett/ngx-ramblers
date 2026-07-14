@@ -9,18 +9,11 @@ import debug from "debug";
 import { envConfig } from "../../../../../env-config/env-config";
 import { DateTime } from "luxon";
 import { UIDateFormat } from "../../../../../../../projects/ngx-ramblers/src/app/models/date-format.model";
+import { matchesAllowingTruncation, normalisedForComparison } from "../../../../../../../projects/ngx-ramblers/src/app/functions/strings";
 import { dateTimeFromIso, dateTimeInTimezone } from "../../../../../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("SelectWalksByDateAndTitle"));
 debugLog.enabled = true;
-
-export const normalizeWalkTitle = (title: string): string => {
-  if (!title) return "";
-  return title
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-};
 
 export const normalizeWalkDate = (dateStr: string): string => {
   if (!dateStr) {
@@ -54,7 +47,7 @@ export class SelectWalksByDateAndTitle extends Task {
       walkId: w.walkId,
       date: w.date,
       title: w.title,
-      normalizedTitle: normalizeWalkTitle(w.title),
+      normalizedTitle: normalisedForComparison(w.title),
       normalizedDate: normalizeWalkDate(w.date)
     })));
 
@@ -74,9 +67,9 @@ export class SelectWalksByDateAndTitle extends Task {
             const normalizedWalkDate = normalizeWalkDate(walk.walkDate);
             const normalizedUploadDate = normalizeWalkDate(w.date);
             const dateMatches = normalizedWalkDate === normalizedUploadDate;
-            const normalizedWalkTitle = normalizeWalkTitle(walk.title);
-            const normalizedUploadTitle = normalizeWalkTitle(w.title);
-            const titleMatches = normalizedWalkTitle === normalizedUploadTitle;
+            const normalizedWalkTitle = normalisedForComparison(walk.title);
+            const normalizedUploadTitle = normalisedForComparison(w.title);
+            const titleMatches = matchesAllowingTruncation(walk.title, w.title);
 
             if (dateMatches && titleMatches) {
               debugLog(`✓ Date/Title match for walk ${walk.walkId}:`, {
