@@ -283,7 +283,8 @@ function transformEventsResponse(config: SystemConfig): (response: RamblersGroup
         end_location: event.end_location,
         media: event.media,
         status: event.status,
-        cancellation_reason: event.cancellation_reason
+        cancellation_reason: event.cancellation_reason,
+        groupEvent: event
       };
       debugLog("transformedEvent:", transformedEvent);
       return transformedEvent;

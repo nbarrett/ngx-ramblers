@@ -77,7 +77,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
             </select>
           }
           <div class="ms-auto d-flex align-items-center gap-2 inbox-toolbar-actions">
-          <button class="btn btn-primary d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openComposer()" tooltip="Start a new email in the Email Composer">
+          <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openComposer()" tooltip="Start a new email in the Email Composer">
             <fa-icon [icon]="faPenToSquare"/>Compose
           </button>
           @if (mobile && mobileShowDetail) {

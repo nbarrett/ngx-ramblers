@@ -9,6 +9,7 @@ import {
   MetadataDescription,
   PublishStatus,
   RamblersEventSummaryResponse,
+  WalkFieldChange,
   WalkLeaderContact,
   WalkStatus
 } from "./ramblers-walks-manager";
@@ -168,6 +169,25 @@ export interface WalkExportData {
   ramblersStatus?: WalkStatus;
   ramblersUrl?: string;
   imageUploadOnly?: boolean;
+  editInPlace?: boolean;
+  locationChanged?: boolean;
+  fieldChanges?: WalkFieldChange[];
+}
+
+export interface RamblersWalksReconciliation {
+  localWalks: number;
+  walksOnRamblers: number;
+  missingFromRamblers: number;
+}
+
+export interface WalkExportActionCounts {
+  walks: number;
+  edits: number;
+  images: number;
+  deletions: number;
+  cancellations: number;
+  uncancellations: number;
+  total: number;
 }
 
 

@@ -1,6 +1,39 @@
-import { booleanOf, firstLinkHref, firstLinkText, isQuoted, plainText, toKebabCase, toSlug, unquote } from "./strings";
+import { booleanOf, endsWithEllipsis, firstLinkHref, firstLinkText, isQuoted, matchesAllowingTruncation, plainText, toKebabCase, toSlug, unquote } from "./strings";
 
 describe("strings", () => {
+
+  describe("endsWithEllipsis", () => {
+    it("detects a trailing unicode ellipsis or three full stops", () => {
+      expect(endsWithEllipsis("Circular walk via Biddenden…")).toBe(true);
+      expect(endsWithEllipsis("Circular walk via Biddenden...")).toBe(true);
+      expect(endsWithEllipsis("Circular walk via Biddenden")).toBe(false);
+      expect(endsWithEllipsis(null as unknown as string)).toBe(false);
+    });
+  });
+
+  describe("matchesAllowingTruncation", () => {
+    it("matches identical text ignoring case and whitespace", () => {
+      expect(matchesAllowingTruncation("Challock 9 mile circular", "challock  9 MILE circular")).toBe(true);
+    });
+
+    it("matches a value truncated with an ellipsis against the full text", () => {
+      expect(matchesAllowingTruncation(
+        "Evening Walk: New Luckhurst Wood - an evening…",
+        "Evening Walk: New Luckhurst Wood - an evening walk round a new forest-to-be")).toBe(true);
+    });
+
+    it("matches a value truncated with three full stops", () => {
+      expect(matchesAllowingTruncation("Circular walk via Biddenden, Cranbrook and...", "Circular walk via Biddenden, Cranbrook and Sissinghurst Castle")).toBe(true);
+    });
+
+    it("does not match a truncated value from different text", () => {
+      expect(matchesAllowingTruncation("Circular walk via Biddenden, Cranbrook and…", "Evening Walk: New Luckhurst Wood")).toBe(false);
+    });
+
+    it("does not match different text of the same length", () => {
+      expect(matchesAllowingTruncation("Grove Ferry 13 mile circular", "Lympne, Pedlinge and Brockhill")).toBe(false);
+    });
+  });
 
   describe("toSlug", () => {
     it("should convert title with spaces to slug", () => {

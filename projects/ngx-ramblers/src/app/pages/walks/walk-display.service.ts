@@ -15,11 +15,13 @@ import {
   DisplayedWalk,
   EventType,
   GoogleMapsConfig,
+  LinkSource,
   WALK_GRADES,
   WalkGrade,
   WalkType,
   WalkViewMode
 } from "../../models/walk.model";
+import { LinksService } from "../../services/links.service";
 import { enumValueForKey, enumValues } from "../../functions/enums";
 import { GoogleMapsService } from "../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
@@ -59,6 +61,7 @@ export class WalkDisplayService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkDisplayService", NgxLoggerLevel.ERROR);
   mediaQueryService = inject(MediaQueryService);
+  private linksService = inject(LinksService);
   featuresService = inject(FeaturesService);
   private systemConfigService = inject(SystemConfigService);
   private googleMapsService = inject(GoogleMapsService);
@@ -403,7 +406,7 @@ export class WalkDisplayService {
   }
 
   ramblersLink(walk: ExtendedGroupEvent): string {
-    return walk?.groupEvent?.url;
+    return this.linksService.linkWithSourceFrom(walk?.fields, LinkSource.RAMBLERS)?.href || "";
   }
 
   contactEmailHref(email: string): string {

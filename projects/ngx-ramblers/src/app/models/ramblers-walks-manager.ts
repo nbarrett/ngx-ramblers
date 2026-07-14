@@ -30,6 +30,7 @@ export interface WalkImagesUpload {
   images: WalkImageUploadSource[];
   walkId: string | null;
   title: string;
+  fieldChanges: WalkFieldChange[];
 }
 
 export interface RamblersWalksUploadRequest {
@@ -66,7 +67,55 @@ export interface RamblersEventSummaryResponse {
   media: Media[];
   status: WalkStatus;
   cancellation_reason: string;
+  groupEvent: GroupEvent;
 }
+
+export enum WalkEditField {
+  TITLE = "title",
+  DATE = "date",
+  START_TIME = "start time",
+  DESCRIPTION = "description",
+  ADDITIONAL_DETAILS = "additional details",
+  WEBSITE_LINK = "website link",
+  WALK_TYPE = "linear or circular",
+  MEETING_TIME = "meeting time",
+  DIFFICULTY = "difficulty",
+  DISTANCE_KM = "distance km",
+  DISTANCE_MILES = "distance miles",
+  ASCENT_METRES = "ascent metres",
+  ASCENT_FEET = "ascent feet",
+  FINISH_TIME = "estimated finish time"
+}
+
+export interface WalkFieldChange {
+  field: WalkEditField;
+  value: string;
+  existingValue: string;
+}
+
+export enum WalkEditStep {
+  BASIC_INFORMATION = "basic-information",
+  DESCRIPTION = "description",
+  LOCATION = "meet-start-point",
+  GRADING = "details"
+}
+
+export const WALK_EDIT_FIELD_STEPS: Record<WalkEditField, WalkEditStep> = {
+  [WalkEditField.TITLE]: WalkEditStep.BASIC_INFORMATION,
+  [WalkEditField.DATE]: WalkEditStep.BASIC_INFORMATION,
+  [WalkEditField.START_TIME]: WalkEditStep.BASIC_INFORMATION,
+  [WalkEditField.DESCRIPTION]: WalkEditStep.DESCRIPTION,
+  [WalkEditField.ADDITIONAL_DETAILS]: WalkEditStep.DESCRIPTION,
+  [WalkEditField.WEBSITE_LINK]: WalkEditStep.DESCRIPTION,
+  [WalkEditField.WALK_TYPE]: WalkEditStep.LOCATION,
+  [WalkEditField.MEETING_TIME]: WalkEditStep.LOCATION,
+  [WalkEditField.DIFFICULTY]: WalkEditStep.GRADING,
+  [WalkEditField.DISTANCE_KM]: WalkEditStep.GRADING,
+  [WalkEditField.DISTANCE_MILES]: WalkEditStep.GRADING,
+  [WalkEditField.ASCENT_METRES]: WalkEditStep.GRADING,
+  [WalkEditField.ASCENT_FEET]: WalkEditStep.GRADING,
+  [WalkEditField.FINISH_TIME]: WalkEditStep.GRADING
+};
 
 export interface RamblersEventSummaryApiResponse extends ApiResponse {
   request: any;

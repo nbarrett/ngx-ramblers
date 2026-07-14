@@ -24,7 +24,7 @@ import { of } from "rxjs";
 import { WalksConfigService } from "../system/walks-config.service";
 import { LinkSource } from "../../models/walk.model";
 import { MemberLoginService } from "../member/member-login.service";
-import { WALK_PUBLISHED_AND_MATCHING, WALK_PUBLISHED_WITH_PROBLEMS } from "../../models/ramblers-walks-manager";
+import { WALK_PUBLISHED_AND_MATCHING, WALK_PUBLISHED_WITH_PROBLEMS, WalkEditField } from "../../models/ramblers-walks-manager";
 import { vi } from "vitest";
 
 describe("RamblersWalksAndEventsService", () => {
@@ -122,6 +122,7 @@ describe("RamblersWalksAndEventsService", () => {
 
       expect(service.walkImageUploads([selectedWalk] as any)).toEqual([{
         date: "15/07/2026",
+        fieldChanges: [],
         images: [{
           alternativeText: "A woodland path",
           fileName: "path.jpeg",
@@ -135,6 +136,57 @@ describe("RamblersWalksAndEventsService", () => {
     it("excludes media for Walks Manager population", () => {
       const service = TestBed.inject(RamblersWalksAndEventsService);
       expect(service.walkImageUploads([selectedWalk] as any)).toEqual([]);
+    });
+  });
+
+  describe("ramblersWalksReconciliation", () => {
+    const walkExport = (title: string, publish: boolean, ramblersUrl?: string) => ({
+      selected: false,
+      ramblersUrl,
+      displayedWalk: {
+        walk: {
+          groupEvent: {title, id: ramblersUrl ? `${title}-id` : null, start_date_time: "2026-07-15T18:30:00.000Z"},
+          fields: {publishing: {ramblers: {publish}}}
+        }
+      }
+    });
+
+    it("reports local walks, walks found on ramblers and those missing", () => {
+      const service = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExports = [
+        walkExport("Biddenden", true, "https://walks-manager.ramblers.org.uk/walk/1"),
+        walkExport("Chilham", true, "https://walks-manager.ramblers.org.uk/walk/2"),
+        walkExport("Farnborough", true, "https://walks-manager.ramblers.org.uk/walk/3"),
+        walkExport("Wye", true)
+      ];
+      expect(service.ramblersWalksReconciliation(walkExports as any)).toEqual({
+        localWalks: 4,
+        walksOnRamblers: 3,
+        missingFromRamblers: 1
+      });
+    });
+
+    it("excludes walks that are not configured for ramblers publishing", () => {
+      const service = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExports = [
+        walkExport("Biddenden", true, "https://walks-manager.ramblers.org.uk/walk/1"),
+        walkExport("Local only", false)
+      ];
+      expect(service.ramblersWalksReconciliation(walkExports as any)).toEqual({
+        localWalks: 1,
+        walksOnRamblers: 1,
+        missingFromRamblers: 0
+      });
+    });
+
+    it("reports every walk as missing when none exist on ramblers", () => {
+      const service = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExports = [walkExport("Biddenden", true), walkExport("Chilham", true)];
+      expect(service.ramblersWalksReconciliation(walkExports as any)).toEqual({
+        localWalks: 2,
+        walksOnRamblers: 0,
+        missingFromRamblers: 2
+      });
     });
   });
 
@@ -269,11 +321,12 @@ describe("RamblersWalksAndEventsService", () => {
 
   describe("updateWalksWithRamblersWalkData date change handling", () => {
     const ramblersUrl = "https://www.ramblers.org.uk/sunday-walk";
+    const localSlug = "coastal-walk";
     const linkedLocalWalk = () => ({
       id: "local-mongo-id",
       groupEvent: {
         id: "ramblers-123",
-        url: ramblersUrl,
+        url: localSlug,
         title: "Coastal walk",
         start_date_time: "2026-07-04T10:00:00.000Z",
         media: []
@@ -285,6 +338,18 @@ describe("RamblersWalksAndEventsService", () => {
       events: []
     });
 
+    const unlinkedLocalWalk = () => ({
+      id: "local-mongo-id",
+      groupEvent: {
+        title: "Coastal walk",
+        url: localSlug,
+        start_date_time: "2026-07-04T10:00:00.000Z",
+        media: []
+      },
+      fields: {riskAssessment: [], links: []},
+      events: []
+    });
+
     it("keeps a still-linked walk linked when its date no longer matches the Ramblers entry", async () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       (service as any).dryRun = true;
@@ -292,8 +357,30 @@ describe("RamblersWalksAndEventsService", () => {
       const ramblersResponse = {id: "ramblers-123", url: ramblersUrl, title: "Coastal walk", startDate: "Sun 28-Jun-2026", media: []};
       await service.updateWalksWithRamblersWalkData([ramblersResponse] as any, [localWalk] as any);
       expect(localWalk.groupEvent.id).toEqual("ramblers-123");
-      expect(localWalk.groupEvent.url).toEqual(ramblersUrl);
+      expect(localWalk.groupEvent.url).toEqual(localSlug);
       expect(localWalk.fields.links.find(link => link.source === LinkSource.RAMBLERS)).toBeTruthy();
+    });
+
+    it("records the Ramblers url as a link without overwriting the local slug", async () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      (service as any).dryRun = true;
+      const localWalk = unlinkedLocalWalk();
+      const ramblersResponse = {id: "ramblers-123", url: ramblersUrl, title: "Coastal walk", startDate: "Saturday, 4 July 2026", media: []};
+      await service.updateWalksWithRamblersWalkData([ramblersResponse] as any, [localWalk] as any);
+      expect(localWalk.groupEvent.url).toEqual(localSlug);
+      expect((localWalk.groupEvent as any).id).toEqual("ramblers-123");
+      expect(localWalk.fields.links.find(link => link.source === LinkSource.RAMBLERS).href).toEqual(ramblersUrl);
+    });
+
+    it("finds the Ramblers url of a linked walk from its link rather than its slug", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      expect(service.ramblersUrlFor(linkedLocalWalk() as any)).toEqual(ramblersUrl);
+    });
+
+    it("treats a walk with no Ramblers link as unlinked, leaving the next export to re-establish it", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkWithoutLink = {groupEvent: {url: ramblersUrl}, fields: {links: []}};
+      expect(service.ramblersUrlFor(walkWithoutLink as any)).toEqual("");
     });
 
     it("unlinks a walk whose Ramblers entry no longer exists", async () => {
@@ -302,7 +389,7 @@ describe("RamblersWalksAndEventsService", () => {
       const localWalk = linkedLocalWalk();
       await service.updateWalksWithRamblersWalkData([], [localWalk] as any);
       expect(localWalk.groupEvent.id).toBeUndefined();
-      expect(localWalk.groupEvent.url).toBeUndefined();
+      expect(localWalk.groupEvent.url).toEqual(localSlug);
       expect(localWalk.fields.links.find(link => link.source === LinkSource.RAMBLERS)).toBeUndefined();
     });
   });
@@ -333,7 +420,18 @@ describe("RamblersWalksAndEventsService", () => {
         description: "A coastal walk",
         startDate: "Saturday, 4 July 2026",
         start_location: {postcode: "CT1 1AA"},
-        ...ramblersWalkOverrides
+        ...ramblersWalkOverrides,
+        groupEvent: {
+          title: "Coastal walk",
+          start_date_time: "2026-07-04T10:00:00.000Z",
+          end_date_time: "12:30",
+          difficulty: "Leisurely",
+          description: "A coastal walk",
+          distance_miles: 5,
+          start_location: {postcode: "CT1 1AA"},
+          shape: "Circular",
+          ...ramblersWalkOverrides
+        }
       }
     });
 
@@ -393,6 +491,7 @@ describe("RamblersWalksAndEventsService", () => {
       expect(walkExport.imageUploadOnly).toBe(true);
       expect(service.walkImageUploads([walkExport])).toEqual([{
         date: "04/07/2026",
+        fieldChanges: [],
         images: [],
         title: "Coastal walk",
         walkId: "https://walks-manager.ramblers.org.uk/walks-manager/walk/basic-information/walk-123"
@@ -410,15 +509,87 @@ describe("RamblersWalksAndEventsService", () => {
       expect(walkExport.publishStatus.messages).toEqual([WALK_PUBLISHED_AND_MATCHING]);
     });
 
-    it("keeps ordinary mismatches in the CSV replacement workflow when images also differ", async () => {
+    it("edits the walk in place rather than replacing it when details and images both differ", async () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
       const localMedia = [{alt: "Castle view", title: "Castle", styles: [{style: "medium", url: "https://example.com/castle.jpeg"}]}];
       const walkExport = service.toWalkExport(publishedWalk({media: localMedia}, {title: "Different title", media: []}) as any);
 
       expect(walkExport.selected).toBe(true);
-      expect(walkExport.imageUploadOnly).toBe(false);
+      expect(walkExport.editInPlace).toBe(true);
+      expect(walkExport.fieldChanges.map(change => change.field)).toEqual([WalkEditField.TITLE]);
+      expect(await service.walkUploadRows([walkExport])).toEqual([]);
+      expect(service.walkDeletionList([walkExport])).toEqual([]);
+      expect(service.walkUploadList([walkExport])).toEqual([]);
+    });
+
+    it("ignores the walk leader, which Ramblers abbreviates to an initial and cannot be compared", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk({}, {walk_leader: {name: "Jenny B."}}) as any);
+
+      expect(walkExport.locationChanged).toBe(false);
+      expect(walkExport.editInPlace).toBe(false);
+      expect(walkExport.publishStatus.messages).toEqual([WALK_PUBLISHED_AND_MATCHING]);
+    });
+
+    it("ignores a website link that differs only by the site it was generated from", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const display = TestBed.inject(WalkDisplayService);
+      vi.spyOn(display, "walkPublicLink").mockReturnValue("http://localhost:4200/walks/coastal-walk");
+      const walkExport = service.toWalkExport(publishedWalk({}, {external_url: "https://www.ekwg.co.uk/walks/coastal-walk"}) as any);
+
+      expect(walkExport.fieldChanges).toEqual([]);
+      expect(walkExport.editInPlace).toBe(false);
+    });
+
+    it("reports a website link that points at a different walk", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const display = TestBed.inject(WalkDisplayService);
+      vi.spyOn(display, "walkPublicLink").mockReturnValue("https://www.ekwg.co.uk/walks/coastal-walk-revised");
+      const walkExport = service.toWalkExport(publishedWalk({}, {external_url: "https://www.ekwg.co.uk/walks/coastal-walk"}) as any);
+
+      expect(walkExport.fieldChanges.map(change => change.field)).toEqual([WalkEditField.WEBSITE_LINK]);
+    });
+
+    it("tolerates the rounding Ramblers applies to distance and ascent", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk({distance_miles: 9.5, ascent_feet: 407}, {distance_miles: 9.5, distance_km: 15.3, ascent_feet: 407, ascent_metres: 124}) as any);
+
+      expect(walkExport.fieldChanges).toEqual([]);
+      expect(walkExport.editInPlace).toBe(false);
+    });
+
+    it("ignores the lower case walk shape that Ramblers returns", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk({shape: "Circular"}, {shape: "circular"}) as any);
+
+      expect(walkExport.fieldChanges).toEqual([]);
+    });
+
+    it("ignores a finish location that Ramblers does not report", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk({end_location: {postcode: "CT3 3CC"}}, {end_location: null}) as any);
+
+      expect(walkExport.locationChanged).toBe(false);
+    });
+
+    it("replaces the walk through CSV when its start postcode has changed, because the form cannot geocode it", async () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      vi.spyOn(TestBed.inject(WalkDisplayService), "walkPopulationLocal").mockReturnValue(true);
+      const walkExport = service.toWalkExport(publishedWalk({start_location: {postcode: "CT2 2BB"}}) as any);
+
+      expect(walkExport.selected).toBe(true);
+      expect(walkExport.locationChanged).toBe(true);
+      expect(walkExport.editInPlace).toBe(false);
       expect((await service.walkUploadRows([walkExport])).length).toBe(1);
+    });
+
+    it("edits a walk in place when only its distance has changed", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(publishedWalk({distance_miles: 7}) as any);
+
+      expect(walkExport.editInPlace).toBe(true);
+      expect(walkExport.fieldChanges.map(change => change.field)).toContain(WalkEditField.DISTANCE_MILES);
     });
   });
 

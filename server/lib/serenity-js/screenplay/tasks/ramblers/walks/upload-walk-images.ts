@@ -11,8 +11,9 @@ import { Accept } from "../common/accept-cookie-prompt";
 
 export class UploadWalkImages {
 
-  static from(images: WalkImageUpload[]) {
+  static from(images: WalkImageUpload[], publishChanges: boolean) {
     const filePaths = images.map(image => image.filePath);
+    const saveButton = publishChanges ? WalksPageElements.publishChangesButton : WalksPageElements.saveAndContinueButton;
 
     return Task.where(`#actor uploads ${images.length} walk images`,
       Accept.dismissCookieBanners(),
@@ -26,7 +27,7 @@ export class UploadWalkImages {
       Wait.until(WalksPageElements.walkImagesUploadProgress, not(isVisible())),
       EnterWalkImageAlternativeText.for(images),
       Accept.dismissCookieBanners(),
-      Scroll.to(WalksPageElements.saveAndContinueButton),
-      ClickWhenReady.on(WalksPageElements.saveAndContinueButton));
+      Scroll.to(saveButton),
+      ClickWhenReady.on(saveButton));
   }
 }

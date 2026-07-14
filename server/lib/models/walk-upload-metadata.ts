@@ -1,3 +1,5 @@
+import { WalkFieldChange } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+
 export interface WalkCancellation {
   walkId: string;
   reason: string;
@@ -11,7 +13,22 @@ export interface WalkUploadInfo {
 
 export interface WalkImageUpload {
   alternativeText: string;
+  fileName: string;
   filePath: string;
+}
+
+export interface ExistingWalkImage {
+  fileName: string;
+  alternativeText: string;
+}
+
+export interface WalkImageDelta {
+  fullReplace: boolean;
+  removalIndexes: number[];
+  additions: WalkImageUpload[];
+  unchanged: number;
+  alternativeTextUpdates: number;
+  reorderRequired: boolean;
 }
 
 export interface WalkImagesUpload {
@@ -19,6 +36,7 @@ export interface WalkImagesUpload {
   images: WalkImageUpload[];
   walkId: string | null;
   title: string;
+  fieldChanges: WalkFieldChange[];
 }
 
 export interface WalkUploadMetadata {
