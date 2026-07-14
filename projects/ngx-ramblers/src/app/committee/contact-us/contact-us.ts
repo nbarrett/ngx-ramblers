@@ -18,7 +18,7 @@ import { NgStyle } from "@angular/common";
           <li
           [ngStyle]="{
           'font-weight': 'normal',
-          'background-image': 'url('+ urlService.baseUrl() + '/assets/images/ramblers/icons/ramblers_icon_2_arrow_forward_rgb.png)',
+          'background-image': 'url('+ urlService.publicBaseUrl() + '/assets/images/ramblers/icons/ramblers_icon_2_arrow_forward_rgb.png)',
           'padding': '3px 0px 9px 24px',
           'list-style': 'none outside',
           'background-repeat': 'no-repeat',

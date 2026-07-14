@@ -1,7 +1,7 @@
 import { booleanAttribute, Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewEncapsulation } from "@angular/core";
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { HtmlBold, HtmlItalic } from "./html-marks.extension";
+import { HtmlBold, HtmlItalic, markdownMarksForClipboard } from "./html-marks.extension";
 import Link from "@tiptap/extension-link";
 import { ImageAlign, ImageSpacing, SpacedImage } from "./spaced-image.extension";
 import { Markdown } from "@tiptap/markdown";
@@ -9,7 +9,6 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
-import { Marked } from "marked";
 import { TiptapEditorDirective } from "ngx-tiptap";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
@@ -739,7 +738,6 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected editor: Editor | null = null;
   private pendingValue: string = "";
   private urlService = inject(UrlService);
-  private pasteMarked = new Marked();
   private _mergeFieldCatalogue: MergeFieldGroup[] = MERGE_FIELD_CATALOGUE;
   @Input() set mergeFieldCatalogue(value: MergeFieldGroup[] | undefined) {
     this._mergeFieldCatalogue = value ?? MERGE_FIELD_CATALOGUE;
@@ -835,6 +833,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         attributes: {
           "data-placeholder": this.placeholder ?? ""
         },
+        clipboardTextSerializer: content => markdownMarksForClipboard(this.editor?.markdown?.serialize({
+          type: "doc",
+          content: content.content.toJSON()
+        }) ?? ""),
         handlePaste: (_view, event) => {
           const pastedImage = Array.from(event.clipboardData?.files ?? []).find(file => file.type.startsWith("image/"));
           if (pastedImage) {
@@ -857,9 +859,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
             event.preventDefault();
             const sanitised = this.unwrapIfEnabled(this.sanitiseMarkdownForPaste(text));
             try {
-              const html = this.pasteMarked.parse(sanitised, { async: false }) as string;
-              const normalised = this.normaliseHtmlForInsert(html);
-              this.editor?.commands.insertContent(normalised);
+              this.editor?.commands.insertContent(sanitised, {contentType: "markdown"});
             } catch (error) {
               this.logger.error("markdown paste failed, falling back to plain text:", error);
               this.editor?.commands.insertContent(sanitised);
@@ -960,13 +960,6 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     }
   }
 
-  private normaliseHtmlForInsert(html: string): string {
-    return html
-      .replace(/<\/?thead[^>]*>/gi, "")
-      .replace(/<\/?tbody[^>]*>/gi, "")
-      .replace(/>\s+</g, "><");
-  }
-
   private sanitiseMarkdownForPaste(text: string): string {
     let cleaned = text;
     if (cleaned.startsWith("---\n")) {
@@ -996,6 +989,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     if (/^```/m.test(text)) score += 2;
     if (/!\[[^\]]*\]\([^)]+\)/.test(text)) score += 2;
     if (/^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/m.test(text)) score += 2;
+    if (/\{\{\s*[^}]+?\s*\}\}/.test(text)) score += 2;
     if (/\*\*\S[^*]*\S\*\*/.test(text)) score += 1;
     if (/`[^`\n]+`/.test(text)) score += 1;
     if (/\[[^\]]+\]\([^)]+\)/.test(text)) score += 1;
