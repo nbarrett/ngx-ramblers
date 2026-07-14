@@ -141,6 +141,9 @@
     "webpack-bundle-analyzer": "5.3.0",
     "winston": "3.19.0"
   },
+  "overrides": {
+    "@babel/core": "7.29.7"
+  },
   "engines": {
     "node": "v24.14.0",
     "npm": "11.9.0"
