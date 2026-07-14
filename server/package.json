@@ -100,6 +100,7 @@
     "dotenv": "17.2.3",
     "errorhandler": "1.5.1",
     "es-toolkit": "1.39.10",
+    "exceljs": "4.4.0",
     "expect": "30.0.5",
     "express": "4.22.2",
     "fs-extra": "11.3.2",
@@ -140,8 +141,7 @@
     "turndown-plugin-gfm": "1.0.2",
     "typescript": "5.7.3",
     "web-push": "3.6.7",
-    "ws": "8.21.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+    "ws": "8.21.0"
   },
   "engines": {
     "node": "v24.14.0",

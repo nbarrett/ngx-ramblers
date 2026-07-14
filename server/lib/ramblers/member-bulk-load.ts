@@ -2,13 +2,12 @@ import * as childProcess from "child_process";
 import parse from "csv-parse/sync";
 import debug from "debug";
 import * as fs from "fs";
-import { find, first, isEmpty, isObject, trim } from "es-toolkit/compat";
+import { find, first, isEmpty, isObject } from "es-toolkit/compat";
 import * as path from "path";
 import { UploadedFile } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import {
   MemberBulkLoadAudit,
   MemberBulkLoadAuditApiResponse,
-  MemberTerm,
   RamblersMember
 } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { DateFormat } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
@@ -18,6 +17,9 @@ import { isAwsUploadErrorResponse } from "../aws/aws-utils";
 import { dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { STANDARD_CSV_PARSE_OPTIONS } from "../../../projects/ngx-ramblers/src/app/functions/csv";
+import { membershipSecretariesInsightHubFormat, ramblersMemberFrom } from "./ramblers-member-mapper";
+import { extractWorkbook } from "./workbook-reader";
+import { WorkbookExtract } from "./workbook-reader.model";
 
 const BULK_LOAD_SUFFIX = "MemberList.csv";
 const NEW_MEMBER_SUFFIX = "new.csv";
@@ -164,23 +166,21 @@ export function uploadRamblersData(req, res) {
         if (isAwsUploadErrorResponse(response)) {
           return response;
         } else {
-          const xlsx = await import("xlsx");
-          const workbook = xlsx.read(fs.readFileSync(uploadedWorkbook));
-          workbook.SheetNames.forEach(sheet => debugLog("sheet", sheet));
-          const matchedSheet = workbook.SheetNames.find(sheet => sheet.includes("Full List"));
-          const ramblersSheet = matchedSheet ?? first(workbook.SheetNames);
-          debugLog("Importing data from workbook sheet", ramblersSheet, "(matched 'Full List':", !!matchedSheet, ")");
+          const extract: WorkbookExtract = await extractWorkbook(fs.readFileSync(uploadedWorkbook));
+          extract.sheetNames.forEach(sheet => debugLog("sheet", sheet));
+          const ramblersSheet = extract.selectedSheet;
+          debugLog("Importing data from workbook sheet", ramblersSheet, "(matched 'Full List':", extract.matchedPreferredSheet, ")");
           if (!ramblersSheet) {
             debugAndError(`Excel workbook ${userFileName} contains no sheets`);
             returnResponse();
             return;
           }
-          const json = xlsx.utils.sheet_to_json(workbook.Sheets[ramblersSheet]);
+          const json = extract.rows;
           if (json.length > 0) {
             extractMemberDataFromArray(json, userFileName);
             return returnResponse();
           } else {
-            const availableSheets = workbook.SheetNames.map(name => `"${name}"`).join(", ") || "(none)";
+            const availableSheets = extract.sheetNames.map(name => `"${name}"`).join(", ") || "(none)";
             debugAndError(`Excel workbook ${userFileName} sheet [${ramblersSheet}] contains no data rows. Available sheets: ${availableSheets}`);
             returnResponse();
           }
@@ -190,10 +190,6 @@ export function uploadRamblersData(req, res) {
         debugAndError(`Failed to process workbook ${userFileName}: ${error?.message || error}`);
         returnResponse();
       });
-  }
-
-  function membershipSecratariesInsightHubFormat(dataRow) {
-    return dataRow["Mem No."];
   }
 
   function extractFromFile(extractedFiles, fileNameSuffix, res) {
@@ -221,24 +217,8 @@ export function uploadRamblersData(req, res) {
     try {
       const memberDataRows: RamblersMember[] = json.map(dataRow => {
         currentDataRow = dataRow;
-        if (membershipSecratariesInsightHubFormat(dataRow)) {
-          return {
-            membershipExpiryDate: trim(dataRow["Expiry date"]),
-            membershipNumber: trim(dataRow["Mem No."]),
-            mobileNumber: trim(dataRow["Mobile Telephone"]),
-            email: trim(dataRow["Email Address"]),
-            firstName: trim(dataRow["Forenames"] || dataRow["Initials"]),
-            lastName: trim(dataRow["Surname"] || dataRow["Last Name"]),
-            postcode: trim(dataRow["Postcode"]),
-            jointWith: trim(dataRow["Joint With"]),
-            title: trim(dataRow["Title"]),
-            type: trim(dataRow["Type"]),
-            memberStatus: trim(dataRow["Member Status"]),
-            memberTerm: mapMemberTerm(trim(dataRow["Member Term"])),
-            landlineTelephone: trim(dataRow["Landline Telephone"]),
-            emailMarketingConsent: trim(dataRow["Email Marketing Consent"]),
-            emailPermissionLastUpdated: trim(dataRow["Email Permission Last Updated"])
-          };
+        if (membershipSecretariesInsightHubFormat(dataRow)) {
+          return ramblersMemberFrom(dataRow);
         } else {
           debugAndError(`Loading of data from ${userFileName} failed processing data row ${JSON.stringify(currentDataRow)} due to membership record type not being recognised`);
         }
@@ -267,17 +247,6 @@ export function uploadRamblersData(req, res) {
       debugAndError("Data could not be extracted from", localFileName, error);
       returnResponse();
     }
-  }
-
-  function mapMemberTerm(value: string): MemberTerm {
-    const lower = value?.toLowerCase();
-    if (lower === MemberTerm.LIFE) {
-      return MemberTerm.LIFE;
-    }
-    if (lower === MemberTerm.ANNUAL) {
-      return MemberTerm.ANNUAL;
-    }
-    return null;
   }
 
 }
