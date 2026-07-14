@@ -18,7 +18,7 @@ import {
   IntegrationWorkerReportUploadConfig,
   IntegrationWorkerResultCallbackRequest
 } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
-import { prepareRamblersUploadJobFiles } from "./ramblers-upload-job-files";
+import { prepareRamblersUploadJobFiles, removeRamblersUploadJobFiles } from "./ramblers-upload-job-files";
 import {
   clearRemoteRamblersUploadExecutionState,
   remoteRamblersUploadExecutionState,
@@ -156,7 +156,7 @@ export async function executeRamblersUploadJobOnWorker(
   awsCredentials?: IntegrationWorkerAwsCredentials
 ): Promise<void> {
   const jobStartedAt = dateTimeNowAsValue();
-  const preparedFiles = prepareRamblersUploadJobFiles(job);
+  const preparedFiles = await prepareRamblersUploadJobFiles(job);
   process.env[Environment.RAMBLERS_METADATA_FILE] = preparedFiles.metadataPath;
   process.env[Environment.RAMBLERS_FEATURE] = job.data.feature;
   process.env[Environment.RAMBLERS_USERNAME] = credentials.userName;
@@ -223,6 +223,7 @@ export async function executeRamblersUploadJobOnWorker(
     subprocess.on("error", error => {
       void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, IntegrationWorkerEventType.ERROR, Status.ERROR, error.message, jobStartedAt)
         .finally(() => {
+          removeRamblersUploadJobFiles(preparedFiles.jobPath);
           clearRemoteRamblersUploadExecutionState();
           reject(error);
         });
@@ -235,6 +236,7 @@ export async function executeRamblersUploadJobOnWorker(
       const payload = `Upload completed with ${status} for ${job.data.fileName}${code === 0 ? "" : ` with code ${code}`} [${elapsed}]`;
       void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, type, status, payload, jobStartedAt)
         .finally(() => {
+          removeRamblersUploadJobFiles(preparedFiles.jobPath);
           clearRemoteRamblersUploadExecutionState();
           if (code === 0) {
             resolve();

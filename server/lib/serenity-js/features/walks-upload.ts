@@ -19,6 +19,7 @@ import { CheckAndReportOn } from "../screenplay/tasks/ramblers/walks/check-and-r
 import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-source";
 import { RequestParameterExtractor } from "../screenplay/tasks/ramblers/common/request-parameter-extractor";
 import { RequestParameters } from "../screenplay/questions/ramblers/request-parameters";
+import { UploadImagesForWalks } from "../screenplay/tasks/ramblers/walks/upload-images-for-walks";
 
 const debugLog = debug(envConfig.logNamespace("serenity-walks-upload"));
 debugLog.enabled = false;
@@ -65,7 +66,10 @@ describe("Walks Upload", () => {
           UploadWalks.requested(),
           CheckAndReportOn.uploadErrors()
         ),
-      Publish.walksInDraftState()
+      Check.whether(RequestParameters.hasWalkImageUploads(), equals(true))
+        .andIfSo(UploadImagesForWalks.requested()),
+      Check.whether(RequestParameters.hasWalkCount(), equals(true))
+        .andIfSo(Publish.walksInDraftState())
     );
   });
 });

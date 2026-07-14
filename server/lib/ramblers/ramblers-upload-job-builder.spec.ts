@@ -14,6 +14,12 @@ describe("buildRamblersUploadJob", () => {
       walkUncancellations: ["4"],
       headings: ["Title"],
       rows: [{}],
+      walkImageUploads: [{
+        date: "2026-03-14",
+        walkId: null,
+        title: "Test walk",
+        images: [{alternativeText: "Woodland", fileName: "woodland.jpeg", sourceUrl: "https://example.com/woodland.jpeg"}]
+      }],
       ramblersUser: "nick@example.com"
     };
 
@@ -27,5 +33,6 @@ describe("buildRamblersUploadJob", () => {
     expect(result.data.walkIdDeletionList).toEqual(["1"]);
     expect(result.data.walkUncancellations).toEqual(["4"]);
     expect(result.data.walkIdUploadList[0].title).toEqual("Test walk");
+    expect(result.data.walkImageUploads[0].images[0].alternativeText).toEqual("Woodland");
   });
 });

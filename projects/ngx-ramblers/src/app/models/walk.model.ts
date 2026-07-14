@@ -167,6 +167,7 @@ export interface WalkExportData {
   selected: boolean;
   ramblersStatus?: WalkStatus;
   ramblersUrl?: string;
+  imageUploadOnly?: boolean;
 }
 
 

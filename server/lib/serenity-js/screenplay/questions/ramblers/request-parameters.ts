@@ -23,4 +23,11 @@ export class RequestParameters {
       return (params.walkCount || 0) > 0;
     });
   }
+
+  static hasWalkImageUploads(): Question<Promise<boolean>> {
+    return Question.about("request has walk image uploads", async () => {
+      const params = RequestParameterExtractor.extract();
+      return (params.walkImageUploads?.length || 0) > 0;
+    });
+  }
 }

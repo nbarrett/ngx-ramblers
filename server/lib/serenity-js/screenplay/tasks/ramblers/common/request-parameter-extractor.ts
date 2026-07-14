@@ -32,6 +32,7 @@ export class RequestParameterExtractor {
         walkCount: metadata.walkCount,
         walkDeletions: metadata.walkDeletions,
         walkUploads: metadata.walkUploads || [],
+        walkImageUploads: metadata.walkImageUploads || [],
         walkCancellations: metadata.walkCancellations,
         walkUncancellations: metadata.walkUncancellations,
       };

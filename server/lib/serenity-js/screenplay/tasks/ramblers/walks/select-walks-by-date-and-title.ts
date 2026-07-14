@@ -14,7 +14,7 @@ import { dateTimeFromIso, dateTimeInTimezone } from "../../../../../shared/dates
 const debugLog = debug(envConfig.logNamespace("SelectWalksByDateAndTitle"));
 debugLog.enabled = true;
 
-const normalizeTitle = (title: string): string => {
+export const normalizeWalkTitle = (title: string): string => {
   if (!title) return "";
   return title
     .trim()
@@ -22,7 +22,7 @@ const normalizeTitle = (title: string): string => {
     .replace(/\s+/g, " ");
 };
 
-const normalizeDate = (dateStr: string): string => {
+export const normalizeWalkDate = (dateStr: string): string => {
   if (!dateStr) {
     return "";
   }
@@ -54,8 +54,8 @@ export class SelectWalksByDateAndTitle extends Task {
       walkId: w.walkId,
       date: w.date,
       title: w.title,
-      normalizedTitle: normalizeTitle(w.title),
-      normalizedDate: normalizeDate(w.date)
+      normalizedTitle: normalizeWalkTitle(w.title),
+      normalizedDate: normalizeWalkDate(w.date)
     })));
 
     return RamblersWalkSummaries.displayed().answeredBy(actor)
@@ -71,11 +71,11 @@ export class SelectWalksByDateAndTitle extends Task {
           }
 
           const dateAndTitleMatch = this.walks.some(w => {
-            const normalizedWalkDate = normalizeDate(walk.walkDate);
-            const normalizedUploadDate = normalizeDate(w.date);
+            const normalizedWalkDate = normalizeWalkDate(walk.walkDate);
+            const normalizedUploadDate = normalizeWalkDate(w.date);
             const dateMatches = normalizedWalkDate === normalizedUploadDate;
-            const normalizedWalkTitle = normalizeTitle(walk.title);
-            const normalizedUploadTitle = normalizeTitle(w.title);
+            const normalizedWalkTitle = normalizeWalkTitle(walk.title);
+            const normalizedUploadTitle = normalizeWalkTitle(w.title);
             const titleMatches = normalizedWalkTitle === normalizedUploadTitle;
 
             if (dateMatches && titleMatches) {

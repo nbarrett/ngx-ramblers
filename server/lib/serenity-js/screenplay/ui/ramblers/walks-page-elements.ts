@@ -107,6 +107,41 @@ export class WalksPageElements {
   public static uploadErrorListItems = PageElements.located(By.css(".alert-error .item-list ul li"))
     .describedAs("Upload Error List Items");
 
+  public static walkImagesFileInput = PageElement.located(By.css("input[type=file][multiple]"))
+    .describedAs("walk images file input");
+
+  public static walkImagesUploadProgress = PageElement.located(By.css(".ajax-progress, .ajax-progress-throbber"))
+    .describedAs("walk images upload progress");
+
+  public static walkImageAlternativeTextFields = PageElements.located(By.css("input[name*='[alt]']"))
+    .describedAs("walk image alternative text fields");
+
+  public static walkImageAlternativeTextField(index: number) {
+    return PageElement.located(By.xpath(`(//input[contains(@name, '[alt]')])[${index + 1}]`))
+      .describedAs(`walk image ${index + 1} alternative text field`);
+  }
+
+  public static walkImageManagedRows = PageElements.located(By.xpath("//table//tr[.//input[contains(@name, '[alt]')] and (.//button[normalize-space()='Remove'] or .//input[@value='Remove']) and .//a[@href and not(substring(@href, string-length(@href)) = '#')]]"))
+    .describedAs("completed managed walk image rows");
+
+  public static walkImageRemoveButtons = PageElements.located(By.xpath("//table[.//input[contains(@name, '[alt]')]]//button[normalize-space()='Remove'] | //table[.//input[contains(@name, '[alt]')]]//input[@value='Remove']"))
+    .describedAs("walk image remove buttons");
+
+  public static saveAndContinueButton = PageElement.located(By.css("input[value='Save and continue'], button[value='Save and continue']"))
+    .describedAs("Save and continue button");
+
+  public static publishChangesButton = PageElement.located(By.xpath("//button[normalize-space()='Publish changes']"))
+    .describedAs("Publish changes button");
+
+  public static manageWalkButton = PageElement.located(By.id("ramled_manage"))
+    .describedAs("Manage walk button");
+
+  public static editWalkLink = PageElement.located(By.css(".dropdown-menu[aria-labelledby='ramled_manage'] a.dropdown-item"))
+    .describedAs("Edit walk link");
+
+  public static descriptionStepLink = PageElement.located(By.xpath("//a[normalize-space()='Description' and contains(@href, '/walks-manager/walk/description/')]"))
+    .describedAs("Description step link");
+
   public static columnsForRow(result: PageElement) {
     return PageElements.located(By.css(".views-field-views-bulk-operations-bulk-form,.views-field-ramled-title-field,.views-field-field-date,.views-field-ram-content-moderation-views-field-states")
       .describedAs("columns for row"))

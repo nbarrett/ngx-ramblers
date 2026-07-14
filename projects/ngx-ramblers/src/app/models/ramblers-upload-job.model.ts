@@ -1,5 +1,5 @@
 import { Status } from "./ramblers-upload-audit.model";
-import { WalkCancellation, WalkUploadInfo, WalkUploadRow } from "./ramblers-walks-manager";
+import { WalkCancellation, WalkImagesUpload, WalkUploadInfo, WalkUploadRow } from "./ramblers-walks-manager";
 
 export enum RamblersUploadJobState {
   QUEUED = "queued",
@@ -18,6 +18,7 @@ export interface RamblersUploadJobData {
   headings: string[];
   rows: WalkUploadRow[];
   ramblersUser: string;
+  walkImageUploads: WalkImagesUpload[];
   feature: string;
 }
 
