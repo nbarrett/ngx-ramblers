@@ -59,6 +59,7 @@ import { PathSegment } from "../../../../models/content-text.model";
 import { ContentBlockEditorComponent } from "./content-block-editor";
 import { EmailBodyEditorComponent } from "./email-body-editor";
 import { BOOKING_EMAIL_BLOCK_KEYS, DEFAULT_BOOKING_EMAIL_BLOCKS } from "../../../../models/booking-config.model";
+import { BOOKING_MERGE_FIELD_CATALOGUE } from "../../../../models/email-composer.model";
 import { toKebabCase } from "../../../../functions/strings";
 import { ImageActionsDropdownComponent } from "../../../../modules/common/dynamic-content/image-actions-dropdown";
 
@@ -357,6 +358,7 @@ import { ImageActionsDropdownComponent } from "../../../../modules/common/dynami
                   <app-content-block-editor [notificationConfig]="notificationConfig"
                                             [blockKeys]="discoveredContentBlockKeys"
                                             [blockDefaults]="discoveredContentBlockDefaults"
+                                            [mergeFieldCatalogue]="BOOKING_MERGE_FIELD_CATALOGUE"
                                             [omitAllowed]="!isBookingConfig()"/>
                 } @else if (notificationConfig) {
                   <app-email-body-editor [notificationConfig]="notificationConfig" [isBuiltInProcess]="isWorkflowConfig"/>
@@ -540,6 +542,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   public discoveredOverrideKeys: string[] = [];
   public discoveredContentBlockKeys: string[] = [];
   public discoveredContentBlockDefaults: Record<string, string> = {};
+  protected readonly BOOKING_MERGE_FIELD_CATALOGUE = BOOKING_MERGE_FIELD_CATALOGUE;
   private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   private location: Location = inject(Location);
   private configurationParam: string = null;

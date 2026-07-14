@@ -53,6 +53,7 @@ import {
   AddresseeType,
   ArticleBlock,
   ArticleBlockPosition,
+  BatchSendEntryStatus,
   BatchSendProgress,
   BatchSendStatus,
   BatchTransactionalSendRequest,
@@ -1634,7 +1635,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
         }
         @if (sendInProgress) {
           <div class="email-composer-validation-summary">
-            <h5><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Sending: in progress…</h5>
+            <h5><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>{{ sendProgressDescription() }}</h5>
           </div>
         }
         @if (batchProgress) {
@@ -1645,7 +1646,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                      role="progressbar"
                      [style.width.%]="batchProgressPercent()"
                      [ngClass]="batchProgressBarClass()">
-                  {{ batchProgress.sentCount }} / {{ batchProgress.totalRecipients }}
+                  {{ batchProcessedCount() }} / {{ batchProgress.totalRecipients }}
                 </div>
               </div>
               <div>
@@ -5124,8 +5125,23 @@ export class EmailComposer implements OnInit, OnDestroy {
 
   batchProgressPercent(): number {
     if (!this.batchProgress || this.batchProgress.totalRecipients === 0) return 0;
-    const processed = this.batchProgress.sentCount + this.batchProgress.failedCount + (this.batchProgress.skippedCount ?? 0);
-    return Math.round(processed * 100 / this.batchProgress.totalRecipients);
+    return Math.round(this.batchProcessedCount() * 100 / this.batchProgress.totalRecipients);
+  }
+
+  batchProcessedCount(): number {
+    if (!this.batchProgress) return 0;
+    return this.batchProgress.sentCount + this.batchProgress.failedCount + (this.batchProgress.skippedCount ?? 0);
+  }
+
+  sendProgressDescription(): string {
+    if (!this.batchProgress) {
+      const campaignSend = this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.state.brandingMode !== BrandingMode.UNBRANDED;
+      return campaignSend ? "Preparing campaign for Brevo…" : "Preparing personalised emails…";
+    }
+    const currentEntry = this.batchProgress.entries.find(entry => entry.status === BatchSendEntryStatus.Pending);
+    const currentNumber = Math.min(this.batchProcessedCount() + 1, this.batchProgress.totalRecipients);
+    const recipient = currentEntry?.fullName || currentEntry?.email || "recipient";
+    return `Sending ${currentNumber} of ${this.batchProgress.totalRecipients} — ${recipient}`;
   }
 
   batchProgressBarClass(): string {
