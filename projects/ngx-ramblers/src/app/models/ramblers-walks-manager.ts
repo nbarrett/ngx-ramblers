@@ -31,6 +31,7 @@ export interface WalkImagesUpload {
   walkId: string | null;
   title: string;
   fieldChanges: WalkFieldChange[];
+  imagesChanged: boolean;
 }
 
 export interface RamblersWalksUploadRequest {

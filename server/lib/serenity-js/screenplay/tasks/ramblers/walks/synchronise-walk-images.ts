@@ -1,6 +1,6 @@
-import { equals, not } from "@serenity-js/assertions";
+import { equals, isPresent, not } from "@serenity-js/assertions";
 import { AnswersQuestions, Duration, PerformsActivities, Task, UsesAbilities, Wait } from "@serenity-js/core";
-import { Attribute, Enter, isVisible, PageElement, Scroll, Select, Value } from "@serenity-js/web";
+import { Attribute, Enter, isVisible, PageElement, Scroll, Value } from "@serenity-js/web";
 import debug from "debug";
 import { envConfig } from "../../../../../env-config/env-config";
 import { ExistingWalkImage, WalkImageDelta, WalkImageUpload } from "../../../../../models/walk-upload-metadata";
@@ -11,17 +11,19 @@ import { SetFileInput } from "../../common/set-file-input";
 import { Accept } from "../common/accept-cookie-prompt";
 import { EnterWalkImageAlternativeText } from "./enter-walk-image-alternative-text";
 import { UploadWalkImages } from "./upload-walk-images";
+import { SelectOptionViaScript } from "./select-option-via-script";
+import { AwaitWalkImageRows } from "./await-walk-image-rows";
 
 const debugLog = debug(envConfig.logNamespace("SynchroniseWalkImages"));
 debugLog.enabled = true;
 
 export class SynchroniseWalkImages extends Task {
 
-  static to(images: WalkImageUpload[], publishChanges: boolean): SynchroniseWalkImages {
-    return new SynchroniseWalkImages(images, publishChanges);
+  static to(images: WalkImageUpload[]): SynchroniseWalkImages {
+    return new SynchroniseWalkImages(images);
   }
 
-  constructor(private readonly images: WalkImageUpload[], private readonly publishChanges: boolean) {
+  constructor(private readonly images: WalkImageUpload[]) {
     super(`#actor synchronises ${images.length} walk images`);
   }
 
@@ -35,7 +37,7 @@ export class SynchroniseWalkImages extends Task {
 
     if (this.images.length > 0 && (delta.fullReplace || existingImages.length === 0)) {
       debugLog("uploading all", this.images.length, "walk images");
-      await actor.attemptsTo(UploadWalkImages.from(this.images, this.publishChanges));
+      await actor.attemptsTo(UploadWalkImages.from(this.images));
       return;
     }
 
@@ -45,11 +47,8 @@ export class SynchroniseWalkImages extends Task {
     await this.applyDisplayOrder(actor, delta);
 
     await actor.attemptsTo(
-      Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImageManagedRows.count(), equals(this.images.length)),
-      Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImagesUploadProgress, not(isVisible())),
-      Accept.dismissCookieBanners(),
-      Scroll.to(this.saveButton()),
-      ClickWhenReady.on(this.saveButton()));
+      AwaitWalkImageRows.toNumber(this.images.length),
+      Accept.dismissCookieBanners());
   }
 
   private async removeImages(actor: PerformsActivities & UsesAbilities & AnswersQuestions, delta: WalkImageDelta, existingCount: number): Promise<void> {
@@ -66,8 +65,7 @@ export class SynchroniseWalkImages extends Task {
       await actor.attemptsTo(
         Scroll.to(WalksPageElements.walkImageRowRemoveButton(rows[removalIndex])),
         ClickWhenReady.on(WalksPageElements.walkImageRowRemoveButton(rows[removalIndex])),
-        Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImageManagedRows.count(), equals(expectedCount)),
-        Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImagesUploadProgress, not(isVisible())));
+        AwaitWalkImageRows.toNumber(expectedCount));
     }, Promise.resolve());
   }
 
@@ -78,14 +76,9 @@ export class SynchroniseWalkImages extends Task {
     }
     debugLog("uploading", delta.additions.length, "new walk images:", delta.additions.map(image => image.fileName));
     await actor.attemptsTo(
-      Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImagesFileInput, isVisible()),
+      Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImagesFileInput, isPresent()),
       SetFileInput.to(delta.additions.map(image => image.filePath)).from(WalksPageElements.walkImagesFileInput),
-      Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImageAlternativeTextFields.count(), equals(this.images.length)),
-      Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImageManagedRows.count(), equals(this.images.length)),
-      Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImagesUploadProgress, not(isVisible())),
-      Wait.for(Duration.ofSeconds(3)),
-      Wait.until(WalksPageElements.walkImageManagedRows.count(), equals(this.images.length)),
-      Wait.until(WalksPageElements.walkImagesUploadProgress, not(isVisible())));
+      AwaitWalkImageRows.toNumber(this.images.length));
   }
 
   private async enterAlternativeText(actor: PerformsActivities & UsesAbilities & AnswersQuestions): Promise<void> {
@@ -127,15 +120,9 @@ export class SynchroniseWalkImages extends Task {
       const desiredPosition = this.images.findIndex(image => imageIdentity(image.fileName) === imageIdentity(currentImage.fileName));
       const position = desiredPosition < 0 ? index : desiredPosition;
       debugLog("setting display order of", currentImage.fileName, "to", position);
-      const rows: PageElement[] = await actor.answer(WalksPageElements.walkImageManagedRows);
       await actor.attemptsTo(
-        Select.option(`${position}`).from(WalksPageElements.walkImageRowWeightSelect(rows[index])),
-        Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.walkImagesUploadProgress, not(isVisible())));
+        SelectOptionViaScript.on(`select[name="field_walk_image[${index}][_weight]"]`, `sets image ${index + 1} display order to ${position + 1}`).toValue(`${position}`));
     }, Promise.resolve());
-  }
-
-  private saveButton() {
-    return this.publishChanges ? WalksPageElements.publishChangesButton : WalksPageElements.saveAndContinueButton;
   }
 
   private desiredImageFor(currentImage: ExistingWalkImage, index: number): WalkImageUpload {

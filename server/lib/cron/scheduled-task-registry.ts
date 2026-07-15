@@ -1,4 +1,5 @@
 import * as cron from "node-cron";
+import { pluraliseWithCount } from "../shared/string-utils";
 import debug from "debug";
 import { BrevoError } from "@getbrevo/brevo";
 import { envConfig } from "../env-config/env-config";
@@ -153,7 +154,7 @@ async function migrateRunHistory(fromTaskId: string, toTaskId: string): Promise<
   try {
     const result = await scheduledTaskRun.updateMany({taskId: fromTaskId}, {$set: {taskId: toTaskId}});
     if (result.modifiedCount > 0) {
-      debugLog(`Migrated ${result.modifiedCount} run history record(s) from "${fromTaskId}" to "${toTaskId}"`);
+      debugLog(`Migrated ${pluraliseWithCount(result.modifiedCount, "run history record")} from "${fromTaskId}" to "${toTaskId}"`);
     }
   } catch (error) {
     debugLog(`Failed to migrate run history from "${fromTaskId}" to "${toTaskId}":`, error);

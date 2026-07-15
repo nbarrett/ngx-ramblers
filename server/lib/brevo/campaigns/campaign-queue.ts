@@ -119,7 +119,7 @@ export async function campaignQueueSummary(startDate?: string, endDate?: string)
   const completedCampaigns = sentCampaigns
     .filter(isNgx)
     .map(campaignProgress);
-  debugLog(`campaignQueueSummary: ${pendingCampaigns.length} pending and ${completedCampaigns.length} completed campaign(s) after NGX match and remaining>0 filters`);
+  debugLog(`campaignQueueSummary: ${pendingCampaigns.length} pending and ${pluraliseWithCount(completedCampaigns.length, "completed campaign")} after NGX match and remaining>0 filters`);
   const account = await fetchBrevoAccount();
   const remainingAllowanceToday = account ? brevoRemainingDailyAllowance(account) : null;
   return {

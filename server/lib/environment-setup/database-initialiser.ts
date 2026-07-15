@@ -1,4 +1,5 @@
 import debug from "debug";
+import { pluraliseWithCount } from "../shared/string-utils";
 import { toPairs, keys } from "es-toolkit/compat";
 import { Db, MongoClient } from "mongodb";
 import { envConfig } from "../env-config/env-config";
@@ -251,7 +252,7 @@ export async function runMigrations(mongoUri: string, reportProgress: (step: str
     const runner = new MigrationRunner();
     const result = await runner.runPendingMigrations();
     if (result.success) {
-      reportProgress("Running database migrations", SetupStepStatus.Completed, `Applied ${result.appliedFiles.length} migration(s)`);
+      reportProgress("Running database migrations", SetupStepStatus.Completed, `Applied ${pluraliseWithCount(result.appliedFiles.length, "migration")}`);
     } else {
       reportProgress("Running database migrations", SetupStepStatus.Failed, result.error);
       throw new Error(`Migration failed: ${result.error}`);

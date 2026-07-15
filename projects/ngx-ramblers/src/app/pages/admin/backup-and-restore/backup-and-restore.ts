@@ -356,7 +356,7 @@ const HISTORY_INVOCATION_GAP_MS = 15 * 60 * 1000;
                               <button type="button" class="btn btn-danger"
                                       (click)="confirmDeleteSelectedBackups()">
                                 <fa-icon [icon]="faTrash"></fa-icon>
-                                Confirm delete of {{ selectedBackups.length }} backup(s)
+                                Confirm delete of {{ stringUtils.pluraliseWithCount(selectedBackups.length, "backup") }}
                               </button>
                               <button type="button" class="btn btn-secondary"
                                       (click)="backupDeleteConfirm.clear()">
@@ -366,7 +366,7 @@ const HISTORY_INVOCATION_GAP_MS = 15 * 60 * 1000;
                               <button type="button" class="btn btn-danger"
                                       (click)="deleteSelectedBackups()">
                                 <fa-icon [icon]="faTrash"></fa-icon>
-                                Delete {{ selectedBackups.length }} Backup(s)
+                                Delete {{ stringUtils.pluraliseWithCount(selectedBackups.length, "Backup") }}
                               </button>
                             }
                           </div>
@@ -1544,7 +1544,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
             if (deletedCount > 0) {
               this.notify.success({
                 title: "Backups Deleted",
-                message: `${deletedCount} backup(s) deleted`
+                message: `${this.stringUtils.pluraliseWithCount(deletedCount, "backup")} deleted`
               });
             }
             if (errorCount > 0) {
@@ -1734,12 +1734,12 @@ export class BackupAndRestore implements OnInit, OnDestroy {
           if (failed.length > 0) {
             this.notify.error({
               title: "S3 Restore Failed",
-              message: `${failed.length} site(s) failed to restore`
+              message: `${this.stringUtils.pluraliseWithCount(failed.length, "site")} failed to restore`
             });
           } else {
             this.notify.success({
               title: "S3 Restore Completed",
-              message: `${results.length} site(s) restored successfully`
+              message: `${this.stringUtils.pluraliseWithCount(results.length, "site")} restored successfully`
             });
           }
           this.loadS3Manifests();
@@ -1767,7 +1767,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
           if (result.deleted > 0) {
             this.notify.success({
               title: "Manifest Deleted",
-              message: `${result.deleted} manifest(s) deleted`
+              message: `${this.stringUtils.pluraliseWithCount(result.deleted, "manifest")} deleted`
             });
           }
           if (result.blocked?.length > 0) {

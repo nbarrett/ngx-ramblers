@@ -242,11 +242,15 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
                         }
                       </dl>
                       <div>
-                        <fa-icon class="me-1"
-                                 [class.yellow-icon]="walkExport.publishStatus.actionRequired"
-                                 [class.green-icon]="!walkExport.publishStatus.actionRequired"
-                                 [icon]="walkExport.publishStatus.actionRequired?faExclamationCircle:faCheckCircle"/>
-                        <span [innerHTML]="walkExport.publishStatus.messages.join('<br>')"></span>
+                        @for (message of walkExport.publishStatus.messages; track message) {
+                          <div class="d-flex align-items-baseline mb-1">
+                            <fa-icon class="me-1 flex-shrink-0"
+                                     [class.yellow-icon]="walkExport.publishStatus.actionRequired"
+                                     [class.green-icon]="!walkExport.publishStatus.actionRequired"
+                                     [icon]="walkExport.publishStatus.actionRequired?faExclamationCircle:faCheckCircle"/>
+                            <span [innerHTML]="message"></span>
+                          </div>
+                        }
                       </div>
                     </div>
                   </div>
@@ -781,6 +785,17 @@ export class WalkExport implements OnInit, OnDestroy {
       this.currentDownload = await this.downloadStatusService.getCurrentServerDownloadStatus();
       this.downloadConflict = await this.downloadStatusService.canStartNewDownload();
 
+      const uploadIsActive = !!this.currentDownload && (this.currentDownload.status === ServerDownloadStatusType.ACTIVE || this.currentDownload.status === ServerDownloadStatusType.HUNG);
+      if (uploadIsActive && !this.exportInProgress) {
+        this.logger.info("adopting in-progress upload started elsewhere:", this.currentDownload.fileName);
+        this.exportInProgress = true;
+        this.fileName = {fileName: this.currentDownload.fileName, status: Status.ACTIVE};
+        if (!this.fileNames.find(item => item.fileName === this.currentDownload.fileName)) {
+          this.fileNames = [this.fileName].concat(this.fileNames);
+        }
+        await this.refreshAuditForCurrentSession();
+        this.startAuditRefreshLoop();
+      }
       if (this.currentDownload && this.currentDownload.status === ServerDownloadStatusType.ACTIVE) {
         this.walkExportNotifier.warning({
           title: "Active Download Detected",

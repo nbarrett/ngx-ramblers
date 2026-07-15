@@ -117,14 +117,14 @@ export class WalksPageElements {
     .describedAs("walk image alternative text fields");
 
   public static walkImageAlternativeTextField(index: number) {
-    return PageElement.located(By.xpath(`(//input[contains(@name, '[alt]')])[${index + 1}]`))
+    return PageElement.located(By.css(`input[name$='[${index}][alt]']`))
       .describedAs(`walk image ${index + 1} alternative text field`);
   }
 
-  public static walkImageManagedRows = PageElements.located(By.xpath("//table//tr[.//input[contains(@name, '[alt]')] and (.//button[normalize-space()='Remove'] or .//input[@value='Remove']) and .//a[@href and not(substring(@href, string-length(@href)) = '#')]]"))
+  public static walkImageManagedRows = PageElements.located(By.css("table tr:has(input[name*='[alt]']):has(input[value='Remove']):has(a[href]:not([href$='#']))"))
     .describedAs("completed managed walk image rows");
 
-  public static walkImageRemoveButtons = PageElements.located(By.xpath("//table[.//input[contains(@name, '[alt]')]]//button[normalize-space()='Remove'] | //table[.//input[contains(@name, '[alt]')]]//input[@value='Remove']"))
+  public static walkImageRemoveButtons = PageElements.located(By.css("table:has(input[name*='[alt]']) input[value='Remove']"))
     .describedAs("walk image remove buttons");
 
   public static walkImageRowLink(tableRow: PageElement) {
@@ -199,11 +199,11 @@ export class WalksPageElements {
   public static editWalkLink = PageElement.located(By.css("a[href*='/walks-manager/walk/basic-information/']"))
     .describedAs("Edit walk link");
 
-  public static descriptionStepLink = PageElement.located(By.xpath("//a[normalize-space()='Description' and contains(@href, '/walks-manager/walk/description/')]"))
+  public static descriptionStepLink = PageElement.located(By.css("a[href*='/walks-manager/walk/description/']"))
     .describedAs("Description step link");
 
   public static walkStepLink(step: string) {
-    return PageElement.located(By.xpath(`//a[contains(@href, '/walks-manager/walk/${step}/')]`))
+    return PageElement.located(By.css(`a[href*='/walks-manager/walk/${step}/']`))
       .describedAs(`${step} step link`);
   }
 
@@ -220,7 +220,7 @@ export class WalksPageElements {
   }
 
   public static hrefForRow(result: PageElement) {
-    return PageElement.located(By.css(".views-field-ramled-title-field a").describedAs("anchor for row")).of(result);
+    return PageElement.located(By.css(".views-field-ramled-title-field a")).of(result).describedAs("walk edit link");
   }
 
   public static emphasisedWithin(pageElement: PageElement) {

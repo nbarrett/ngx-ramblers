@@ -19,7 +19,8 @@ export async function downloadWalkImages(uploads: WalkImagesUploadSource[], dire
       }))),
       title: upload.title,
       walkId: upload.walkId,
-      fieldChanges: upload.fieldChanges || []
+      fieldChanges: upload.fieldChanges || [],
+      imagesChanged: !!upload.imagesChanged
     };
   }));
 }

@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import { pluraliseWithCount } from "../../shared/string-utils";
 import * as authConfig from "../../auth/auth-config";
 import {
   migrationRunner,
@@ -27,7 +28,7 @@ router.post("/retry", authConfig.authenticate(), async (req: Request, res: Respo
     res.json({
       success: result.success,
       message: result.success
-        ? `Successfully applied ${result.appliedFiles.length} migration(s)`
+        ? `Successfully applied ${pluraliseWithCount(result.appliedFiles.length, "migration")}`
         : "Migration failed",
       appliedFiles: result.appliedFiles,
       error: result.error

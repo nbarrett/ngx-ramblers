@@ -569,7 +569,8 @@ export class RamblersWalksAndEventsService {
       .map(walkExport => ({
         walk: walkExport.displayedWalk.walk,
         walkId: walkExport.editInPlace ? walkExport.ramblersUrl : null,
-        fieldChanges: walkExport.editInPlace ? walkExport.fieldChanges || [] : []
+        fieldChanges: walkExport.editInPlace ? walkExport.fieldChanges || [] : [],
+        imagesChanged: walkExport.editInPlace ? !!walkExport.imageMismatch : false
       }))
       .filter(item => !!item.walk?.fields?.publishing?.ramblers?.publish)
       .filter(item => item.walk?.groupEvent?.status !== WalkStatus.CANCELLED)
@@ -579,7 +580,8 @@ export class RamblersWalksAndEventsService {
         images: this.localWalkImages(item.walk),
         title: this.walkTitle(item.walk),
         walkId: item.walkId,
-        fieldChanges: item.fieldChanges
+        fieldChanges: item.fieldChanges,
+        imagesChanged: item.imagesChanged
       }))
       .filter(upload => upload.images.length > 0 || !!upload.walkId);
   }
@@ -804,6 +806,7 @@ export class RamblersWalksAndEventsService {
       selected: (needsCancellationOnRamblers || needsUncancelOnRamblers || publishStatus.publish) && validationMessages.length === 0,
       ramblersStatus,
       editInPlace,
+      imageMismatch,
       locationChanged,
       fieldChanges,
       imageUploadOnly: editInPlace && fieldChanges.length === 0,
@@ -929,7 +932,7 @@ export class RamblersWalksAndEventsService {
       ?.replace(/[–—]/g, "-") : "";
   }
 
-  private descriptionDiff(ramblersDesc: string, websiteDesc: string): string {
+  private wordDiff(ramblersDesc: string, websiteDesc: string): string {
     const wordsA = ramblersDesc.split(/\s+/);
     const wordsB = websiteDesc.split(/\s+/);
     const table = [Array(wordsB.length + 1).fill(0)];
@@ -1142,7 +1145,7 @@ export class RamblersWalksAndEventsService {
           const ourTitle = this.walkTitle(walk);
           const ramblersTitle = this.plainTextForUpload(ramblersWalk?.title);
           if (ourTitle !== ramblersTitle) {
-            publishStatus.messages.push(`Ramblers title is ${ramblersTitle} but website title is ${ourTitle}`);
+            publishStatus.messages.push(`Title difference: ${this.wordDiff(ramblersTitle, ourTitle)}`);
             publishStatus.publish = publishRequired;
           }
         }
@@ -1150,7 +1153,7 @@ export class RamblersWalksAndEventsService {
           const ourDescription = this.transformMarkdownLinks(this.plainTextForUpload(this.longerDescriptionPlusSuffixes(walk)));
           const ramblersDescription = this.plainTextForUpload(ramblersWalk?.description);
           if (ourDescription !== ramblersDescription) {
-            publishStatus.messages.push(`Description difference: ${this.descriptionDiff(ramblersDescription, ourDescription)}`);
+            publishStatus.messages.push(`Description difference: ${this.wordDiff(ramblersDescription, ourDescription)}`);
             publishStatus.publish = publishRequired;
           }
         }

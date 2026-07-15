@@ -1,6 +1,6 @@
 import { AnswersQuestions, Duration, PerformsActivities, Task, UsesAbilities, Wait } from "@serenity-js/core";
 import { isPresent } from "@serenity-js/assertions";
-import { Scroll } from "@serenity-js/web";
+import { BrowseTheWeb, Scroll } from "@serenity-js/web";
 import {
   WALK_EDIT_FIELD_STEPS,
   WalkEditStep,
@@ -31,12 +31,18 @@ export class EditWalkDetails extends Task {
     if (this.fieldChanges.length === 0) {
       return;
     }
+    const currentPage = await BrowseTheWeb.as(actor).currentPage();
+    const currentUrl: string = (await currentPage.url()).toString();
+    const alreadyOnStep: boolean = currentUrl.includes(`/walks-manager/walk/${this.step}/`);
+    if (!alreadyOnStep) {
+      await actor.attemptsTo(
+        ClickWhenReady.on(WalksPageElements.walkStepLink(this.step)),
+        Accept.dismissCookieBanners());
+    }
     await actor.attemptsTo(
-      ClickWhenReady.on(WalksPageElements.walkStepLink(this.step)),
-      Accept.dismissCookieBanners(),
       ApplyWalkFieldChanges.to(this.fieldChanges),
-      Scroll.to(WalksPageElements.publishChangesButton),
-      ClickWhenReady.on(WalksPageElements.publishChangesButton),
+      Scroll.to(WalksPageElements.saveChangesButton),
+      ClickWhenReady.on(WalksPageElements.saveChangesButton),
       Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.alertMessage, isPresent()));
   }
 }

@@ -1,4 +1,5 @@
 import debug from "debug";
+import { pluraliseWithCount } from "../shared/string-utils";
 import { ChildProcess, spawn } from "child_process";
 import * as fs from "fs/promises";
 import { createWriteStream } from "fs";
@@ -400,12 +401,12 @@ export class BackupAndRestoreService {
       await this.addLog(sessionId, "Checking S3 backup manifests before Mongo dump");
       const result = await externaliseEmbeddedManifestEntries("", 0, (message) => this.addLog(sessionId, message));
       if (result.externalised > 0) {
-        await this.addLog(sessionId, `Optimised ${result.externalised} embedded S3 manifest(s) before Mongo dump`);
+        await this.addLog(sessionId, `Optimised ${pluraliseWithCount(result.externalised, "embedded S3 manifest")} before Mongo dump`);
       } else if (result.failed === 0) {
         await this.addLog(sessionId, "S3 backup manifests already optimised");
       }
       if (result.failed > 0) {
-        await this.addLog(sessionId, `Warning: ${result.failed} S3 manifest(s) could not be optimised before Mongo dump`);
+        await this.addLog(sessionId, `Warning: ${pluraliseWithCount(result.failed, "S3 manifest")} could not be optimised before Mongo dump`);
       }
     } catch (error: any) {
       await this.addLog(sessionId, `Warning: S3 manifest optimisation skipped before Mongo dump: ${error.message}`);

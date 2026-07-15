@@ -935,7 +935,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     } else if (eventType.mustPassValidation && walkValidations.length > 0) {
       this.notify.warning(
         {
-          title: `This walk is not ready to be ${eventType.readyToBe} yet due to the following ${walkValidations.length} reasons(s)`,
+          title: `This walk is not ready to be ${eventType.readyToBe} yet due to the following ${this.stringUtils.pluraliseWithCount(walkValidations.length, "reason")}`,
           message: `${walkValidations.join(", ")}. You can still save this walk, then come back later on to complete the rest of the details.`
         });
       return false;

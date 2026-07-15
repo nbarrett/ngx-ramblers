@@ -167,6 +167,14 @@ const sharedSyntaxRestrictions = [
     "message": "console.log is not allowed. Use Logger (frontend) or debugLog (backend) instead."
   },
   {
+    "selector": "Literal[value=/\\(s\\)/]",
+    "message": "Manual plural like 'walk(s)' is not allowed. Use pluraliseWithCount(count, noun) - server: shared/string-utils; client: StringUtilsService.pluraliseWithCount - so counts read '1 walk' / '2 walks'."
+  },
+  {
+    "selector": "TemplateElement[value.raw=/\\(s\\)/]",
+    "message": "Manual plural like 'walk(s)' is not allowed. Use pluraliseWithCount(count, noun) - server: shared/string-utils; client: StringUtilsService.pluraliseWithCount - so counts read '1 walk' / '2 walks'."
+  },
+  {
     "selector": "ForStatement",
     "message": "Imperative for loops are not allowed. Use declarative array operations (map, reduce, filter, etc.) instead for side-effect free code."
   },
@@ -209,12 +217,47 @@ const sharedSyntaxRestrictions = [
   ...typeofRestrictions
 ];
 
+const serverDateRestrictions = [
+  {
+    "selector": "NewExpression[callee.name='Date']",
+    "message": "Direct use of 'new Date()' is not allowed. Use dateTimeNow() from server/lib/shared/dates.ts instead."
+  },
+  {
+    "selector": "CallExpression[callee.object.name='DateTime'][callee.property.name='now']",
+    "message": "Direct use of 'DateTime.now()' is not allowed. Use dateTimeNow() from server/lib/shared/dates.ts instead."
+  },
+  {
+    "selector": "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+    "message": "Direct use of 'Date.now()' is not allowed. Use dateTimeNowAsValue() from server/lib/shared/dates.ts instead."
+  }
+];
+
+const fixedDelayRestrictions = [
+  {
+    "selector": "CallExpression[callee.object.name='Wait'][callee.property.name='for']",
+    "message": "Fixed-delay Wait.for(...) is banned: sleeps paper over unknown readiness and cause flaky, slow automation. Express the condition as a Question and Wait.upTo(...).until(question, expectation) instead."
+  },
+  {
+    "selector": "CallExpression[callee.property.name='waitForTimeout']",
+    "message": "Playwright's waitForTimeout(...) is a fixed sleep and is banned. Express the condition as a Question and Wait.upTo(...).until(question, expectation) instead."
+  }
+];
+
+const bareSetTimeoutRestriction = [
+  {
+    "selector": "CallExpression[callee.name='setTimeout']",
+    "message": "Bare setTimeout is banned in Serenity code: it is a sleep in disguise. Express the condition as a Question and Wait.until(...) it; browser-side code inside executeScript uses window.setTimeout with a bounded attempt count."
+  }
+];
+
 export default defineConfig([
   {
     ignores: [
       "projects/ngx-ramblers/src/brevo/templates/**",
       "server/ts-gen/**",
       "server/lib/cli/**",
+      "server/lib/mongo/migrations/**",
+      "server/lib/scripts/**",
       "server/lib/environments/environments-config.ts",
       "server/deploy/mongo-cli-interactive.ts",
     ],
@@ -256,23 +299,25 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...sharedSyntaxRestrictions,
-        {
-          "selector": "NewExpression[callee.name='Date']",
-          "message": "Direct use of 'new Date()' is not allowed. Use dateTimeNow() from server/lib/shared/dates.ts instead."
-        },
-        {
-          "selector": "CallExpression[callee.object.name='DateTime'][callee.property.name='now']",
-          "message": "Direct use of 'DateTime.now()' is not allowed. Use dateTimeNow() from server/lib/shared/dates.ts instead."
-        },
-        {
-          "selector": "CallExpression[callee.object.name='Date'][callee.property.name='now']",
-          "message": "Direct use of 'Date.now()' is not allowed. Use dateTimeNowAsValue() from server/lib/shared/dates.ts instead."
-        }
+        ...serverDateRestrictions
       ],
     },
   },
   {
-    files: ["projects/ngx-ramblers/**/*.ts", "!projects/ngx-ramblers/**/*.spec.ts"],
+    files: ["server/lib/serenity-js/**/*.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...sharedSyntaxRestrictions,
+        ...serverDateRestrictions,
+        ...fixedDelayRestrictions,
+        ...bareSetTimeoutRestriction
+      ],
+    },
+  },
+  {
+    files: ["projects/ngx-ramblers/**/*.ts"],
+    ignores: ["projects/ngx-ramblers/**/*.spec.ts"],
     extends: [
       eslint.configs.recommended,
       tseslint.configs.recommended,

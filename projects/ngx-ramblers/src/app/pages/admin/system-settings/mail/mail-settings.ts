@@ -596,7 +596,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
 
   private async savePendingMembers(): Promise<void> {
     if (this.membersPendingSave.length > 0) {
-      this.logger.info("saving", this.membersPendingSave.length, "pending member(s)");
+      this.logger.info("saving", this.stringUtilsService.pluraliseWithCount(this.membersPendingSave.length, "pending member"));
       await this.memberService.createOrUpdateAll(this.membersPendingSave);
       this.membersPendingSave = [];
     }

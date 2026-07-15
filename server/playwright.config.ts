@@ -12,6 +12,10 @@ const TWENTY_MINUTES_IN_MILLIS = 20 * 60 * 1000;
 const selectedFeature = process.env[Environment.RAMBLERS_FEATURE] || "*.ts";
 const testMatch = selectedFeature.includes("/") ? selectedFeature : `**/${ selectedFeature }`;
 const headless = resolveHeadless();
+const realtimeReportingActive = !!(process.env[Environment.INTEGRATION_WORKER_CALLBACK_BASE_URL]
+  && process.env[Environment.INTEGRATION_WORKER_CALLBACK_PROGRESS_PATH]
+  && process.env[Environment.INTEGRATION_WORKER_CALLBACK_SECRET]
+  && process.env[Environment.INTEGRATION_WORKER_JOB_ID]);
 
 export default defineConfig<SerenityFixtures, SerenityWorkerFixtures>({
   testDir: featuresDirectory,
@@ -23,7 +27,7 @@ export default defineConfig<SerenityFixtures, SerenityWorkerFixtures>({
   reporter: [
     ["@serenity-js/playwright-test", {
       crew: [
-        ConsoleReporter.forDarkTerminals(),
+        ...(realtimeReportingActive ? [] : [ConsoleReporter.forDarkTerminals()]),
         ["@serenity-js/serenity-bdd", { specDirectory: featuresDirectory }],
         ["@serenity-js/web:Photographer", { strategy: "TakePhotosOfFailures" }],
         ["@serenity-js/core:ArtifactArchiver", { outputDirectory }]

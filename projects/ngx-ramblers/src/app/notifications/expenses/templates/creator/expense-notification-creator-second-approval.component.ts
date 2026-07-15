@@ -14,8 +14,7 @@ import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name
         [textContent]="display.expenseClaimCreatedEvent(expenseClaim).date | displayDate" ></span>
       to a status of <strong
         [textContent]="display.expenseClaimLatestEvent(expenseClaim).eventType.description"></strong>.
-      For reference, the claim contains the following <span [textContent]="expenseClaim.expenseItems.length"></span>
-      item(s):
+      For reference, the claim contains the following {{ stringUtilsService.pluraliseWithCount(expenseClaim.expenseItems.length, "item") }}:
     </p>
     <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
     <p>Our Treasurer {{ display.committeeReferenceData.contactUsFieldForBuiltInRole(BuiltInRole.TREASURER, "fullName") }} has also been

@@ -25,7 +25,7 @@ import { SelectAllHeaderComponent } from "./select-all-header";
       [clearable]="true"
       [appendTo]="'body'"
       [dropdownPosition]="'bottom'"
-      [placeholder]="placeholder || (multiple ? 'Select environment(s)...' : 'Select environment...')"
+      [placeholder]="placeholder || (multiple ? 'Select environments...' : 'Select environment...')"
       [bindLabel]="'ngSelectAttributes.label'"
       [bindValue]="multiple ? undefined : 'name'"
       [(ngModel)]="ngModelValue"

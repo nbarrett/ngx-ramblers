@@ -17,6 +17,7 @@ import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { MemberService } from "../member/member.service";
+import { StringUtilsService } from "../string-utils.service";
 import { AlertInstance } from "../notifier.service";
 import { MailchimpListAuditService } from "./mailchimp-list-audit.service";
 import { MailchimpListService } from "./mailchimp-list.service";
@@ -31,6 +32,7 @@ export class MailchimpListSubscriptionService {
   private dateUtils = inject(DateUtilsService);
   private mailchimpListAuditService = inject(MailchimpListAuditService);
   private mailchimpListService = inject(MailchimpListService);
+  private stringUtilsService = inject(StringUtilsService);
   private memberLoginService = inject(MemberLoginService);
 
   setMailchimpSubscriptionsStateFor(members: Member[], subscribedState: boolean, notify: AlertInstance): Promise<any> {
@@ -91,10 +93,10 @@ export class MailchimpListSubscriptionService {
           this.processValidResponses(listType, response.updated_members.concat(response.new_members), batchedMembers, savePromises);
           this.processErrorResponses(listType, response.errors, batchedMembers, savePromises);
           const totalResponseCount = response.total_created + response.total_updated + response.error_count;
-          this.logger.info(`Send of ${subscriptionRequests.length} ${listType} members completed - processing ${totalResponseCount} Mailchimp response(s)`);
+          this.logger.info(`Send of ${subscriptionRequests.length} ${listType} members completed - processing ${this.stringUtilsService.pluraliseWithCount(totalResponseCount, "Mailchimp response")}`);
           return Promise.all(savePromises).then(() => {
             return this.refreshMembersIfAdmin().then(refreshedMembers => {
-              this.logger.info(`Send of ${subscriptionRequests.length} members to ${listType} list completed with ${response.total_created} member(s) added, ${response.total_updated} updated and ${response.error_count} error(s)`);
+              this.logger.info(`Send of ${subscriptionRequests.length} members to ${listType} list completed with ${this.stringUtilsService.pluraliseWithCount(response.total_created, "member")} added, ${response.total_updated} updated and ${this.stringUtilsService.pluraliseWithCount(response.error_count, "error")}`);
               return refreshedMembers;
             });
           });

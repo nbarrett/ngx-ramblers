@@ -1,8 +1,13 @@
-import { AnswersQuestions, Duration, Interaction, PerformsActivities, UsesAbilities, Wait } from "@serenity-js/core";
+import { AnswersQuestions, Interaction, PerformsActivities, UsesAbilities, Wait } from "@serenity-js/core";
 import { equals, not } from "@serenity-js/assertions";
 import { Enter, isVisible, Scroll, Value } from "@serenity-js/web";
+import debug from "debug";
+import { envConfig } from "../../../../../env-config/env-config";
 import { WalkImageUpload } from "../../../../../models/walk-upload-metadata";
 import { WalksPageElements } from "../../../ui/ramblers/walks-page-elements";
+
+const debugLog = debug(envConfig.logNamespace("EnterWalkImageAlternativeText"));
+debugLog.enabled = true;
 
 export class EnterWalkImageAlternativeText extends Interaction {
 
@@ -21,23 +26,34 @@ export class EnterWalkImageAlternativeText extends Interaction {
       throw new Error(`Expected ${this.images.length} walk image alternative text fields but found ${fields.length}`);
     }
 
-    for (const [index, image] of this.images.entries()) {
-      const currentField = WalksPageElements.walkImageAlternativeTextField(index);
+    await this.images.reduce(async (previousImage: Promise<void>, image: WalkImageUpload, index: number) => {
+      await previousImage;
+      await this.enterUntilHeld(actor, image, index);
+      await this.verifyEarlierEntriesStillHeld(actor, index);
+    }, Promise.resolve());
+  }
+
+  private async enterUntilHeld(actor: PerformsActivities & UsesAbilities & AnswersQuestions, image: WalkImageUpload, index: number): Promise<void> {
+    const field = WalksPageElements.walkImageAlternativeTextField(index);
+    await actor.attemptsTo(
+      Scroll.to(field),
+      Enter.theValue(image.alternativeText).into(field),
+      Wait.until(WalksPageElements.walkImagesUploadProgress, not(isVisible())));
+    const heldValue = await actor.answer(Value.of(field));
+    if (heldValue !== image.alternativeText) {
+      debugLog(`alternative text for image ${index + 1} was reset by a form refresh, re-entering`);
       await actor.attemptsTo(
-        Scroll.to(currentField),
-        Enter.theValue(image.alternativeText).into(currentField),
-        Wait.for(Duration.ofSeconds(1)),
+        Enter.theValue(image.alternativeText).into(field),
         Wait.until(WalksPageElements.walkImagesUploadProgress, not(isVisible())),
-        Scroll.to(WalksPageElements.walkImageAlternativeTextField(index)),
-        Enter.theValue(image.alternativeText).into(WalksPageElements.walkImageAlternativeTextField(index)),
-        Wait.for(Duration.ofSeconds(1)),
-        Wait.until(WalksPageElements.walkImagesUploadProgress, not(isVisible()))
-      );
-      for (const [enteredIndex, enteredImage] of this.images.slice(0, index + 1).entries()) {
-        await actor.attemptsTo(
-          Wait.until(Value.of(WalksPageElements.walkImageAlternativeTextField(enteredIndex)), equals(enteredImage.alternativeText))
-        );
-      }
+        Wait.until(Value.of(field), equals(image.alternativeText)));
     }
+  }
+
+  private async verifyEarlierEntriesStillHeld(actor: PerformsActivities & UsesAbilities & AnswersQuestions, index: number): Promise<void> {
+    await this.images.slice(0, index + 1).reduce(async (previousEntry: Promise<void>, enteredImage: WalkImageUpload, enteredIndex: number) => {
+      await previousEntry;
+      await actor.attemptsTo(
+        Wait.until(Value.of(WalksPageElements.walkImageAlternativeTextField(enteredIndex)), equals(enteredImage.alternativeText)));
+    }, Promise.resolve());
   }
 }

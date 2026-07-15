@@ -19,6 +19,7 @@ describe("downloadWalkImages", () => {
     const result = await downloadWalkImages([{
       date: "15/07/2026",
       walkId: null,
+      imagesChanged: false,
       title: "Woodland walk",
       fieldChanges: [],
       images: [
@@ -30,6 +31,7 @@ describe("downloadWalkImages", () => {
     expect(result).toEqual([{
       date: "15/07/2026",
       walkId: null,
+      imagesChanged: false,
       title: "Woodland walk",
       fieldChanges: [],
       images: [
@@ -50,6 +52,7 @@ describe("downloadWalkImages", () => {
     await expect(downloadWalkImages([{
       date: "15/07/2026",
       walkId: null,
+      imagesChanged: false,
       title: "Woodland walk",
       fieldChanges: [],
       images: [{alternativeText: "Missing", fileName: "missing.jpeg", sourceUrl: "https://example.com/missing"}]

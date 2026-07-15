@@ -1,4 +1,5 @@
 import debug from "debug";
+import { pluraliseWithCount } from "../shared/string-utils";
 import mongoose from "mongoose";
 import {
   CopyObjectCommand,
@@ -792,7 +793,7 @@ async function enrichDeletability(candidate: S3BackupManifest): Promise<S3Backup
     ...manifest,
     deletable: blockingCount === 0,
     ...(blockingCount > 0
-      ? { blockReason: `${blockingCount} later snapshot(s) reference objects physically stored in this one — deleting would orphan them` }
+      ? { blockReason: `${pluraliseWithCount(blockingCount, "later snapshot")} reference objects physically stored in this one — deleting would orphan them` }
       : {})
   };
 }
@@ -875,7 +876,7 @@ export async function deleteManifests(ids: string[]): Promise<{ deleted: number;
     if (blockingCount > 0) {
       blocked.push({
         id: candidate._id!.toString(),
-        reason: `${blockingCount} later snapshot(s) reference objects physically stored in this one`
+        reason: `${pluraliseWithCount(blockingCount, "later snapshot")} reference objects physically stored in this one`
       });
     } else {
       deletable.push(candidate._id!.toString());
@@ -958,7 +959,7 @@ export async function externaliseEmbeddedManifestEntries(site?: string, limit?: 
       }
       externalised++;
       if (externalised % 25 === 0) {
-        await onProgress?.(`Optimised ${externalised} embedded S3 manifest(s) so far`);
+        await onProgress?.(`Optimised ${pluraliseWithCount(externalised, "embedded S3 manifest")} so far`);
       }
       debugLog(`[${candidate.site}] Externalised ${entries.length} entries for manifest ${candidate.timestamp} to ${entriesObjectKey}`);
     } catch (error: any) {

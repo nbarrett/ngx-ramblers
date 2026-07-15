@@ -105,7 +105,7 @@ export async function runInboxMessageDigest(): Promise<number> {
 
   if (itemsByMember.size === 0) {
     await markMessagesNotified(messages, now);
-    debugLog(`${messages.length} message(s) had no opted-in committee recipient; marked notified`);
+    debugLog(`${pluraliseWithCount(messages.length, "message")} had no opted-in committee recipient; marked notified`);
     return 0;
   }
 

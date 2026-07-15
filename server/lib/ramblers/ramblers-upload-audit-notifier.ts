@@ -1,5 +1,6 @@
 import { envConfig } from "../env-config/env-config";
 import debug from "debug";
+import { broadcast } from "../websockets/websocket-broadcaster";
 import { ramblersUploadAudit } from "../mongo/models/ramblers-upload-audit";
 import * as mongooseClient from "../mongo/mongoose-client";
 import {
@@ -74,11 +75,7 @@ export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadPara
     }
     const audits: RamblersUploadAudit[] = unfilteredAuditRecords.filter((item): item is RamblersUploadAudit => item !== null);
     const response: RamblersUploadAuditProgressResponse = {audits};
-    try {
-      ws.send(JSON.stringify({ type: props.messageType, data: response }));
-    } catch (wsError) {
-      debugLog("sendAudit ws.send failed:", (wsError as Error).message);
-    }
+    broadcast(props.messageType, response);
     if (props.messageType === MessageType.COMPLETE) {
       try {
         ws.close();
@@ -108,12 +105,7 @@ export async function recordLifecycleEvent(jobId: string, message: string): Prom
     status: Status.SUCCESS,
     message
   }, debugLog);
-  if (session.ws && session.ws.readyState === session.ws.OPEN) {
-    session.ws.send(JSON.stringify({
-      type: MessageType.PROGRESS,
-      data: { audits: [audit] }
-    }));
-  }
+  broadcast(MessageType.PROGRESS, { audits: [audit] });
 }
 
 export async function recordReportLocation(jobId: string, bucket: string, keyPrefix: string): Promise<void> {
@@ -134,24 +126,16 @@ export async function recordReportLocation(jobId: string, bucket: string, keyPre
     reportKeyPrefix: keyPrefix,
     reportBucket: bucket
   }, debugLog);
-  if (session.ws && session.ws.readyState === session.ws.OPEN) {
-    session.ws.send(JSON.stringify({
-      type: MessageType.PROGRESS,
-      data: { audits: [reportAudit] }
-    }));
-  }
+  broadcast(MessageType.PROGRESS, { audits: [reportAudit] });
 }
 
 export function reportErrorAndClose(error, ws: WebSocket) {
   debugLog(`❌ Ramblers walks upload failed:`, (error as Error).message);
-  ws.send(JSON.stringify({
-    type: MessageType.ERROR,
-    data: {
-      responseData: [],
-      error,
-      information: "Ramblers walks upload failed"
-    }
-  }));
+  broadcast(MessageType.ERROR, {
+    responseData: [],
+    error,
+    information: "Ramblers walks upload failed"
+  });
   ws.close();
 }
 

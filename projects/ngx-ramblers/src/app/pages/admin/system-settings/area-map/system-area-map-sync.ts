@@ -354,7 +354,7 @@ interface GroupBoundaryUploadResult {
                               Upload a shapefile (.zip) containing custom group boundary polygons. Features are matched
                               to groups by GROUP_CODE or GROUP_NAME properties.
                               @if (customGeometryCount > 0) {
-                                  <strong>{{ customGeometryCount }} group(s)</strong> currently use custom boundaries.
+                                  <strong>{{ stringUtils.pluraliseWithCount(customGeometryCount, "group") }}</strong> currently use custom boundaries.
                               }
                           </p>
                           <div class="d-flex align-items-center mb-3" style="gap: 0.75rem;">
@@ -1233,7 +1233,7 @@ export class SystemAreaMapSyncComponent implements OnInit {
     this.http.delete<{ message: string; deletedKeys: string[] }>("api/areas/s3-data", { headers }).subscribe({
       next: response => {
         const count = response.deletedKeys?.length || 0;
-        this.logger.debug(`Deleted ${count} area map object(s):`, response.deletedKeys);
+        this.logger.debug(`Deleted ${this.stringUtils.pluraliseWithCount(count, "area map object")}:`, response.deletedKeys);
         this.geoSuccessMessage = `Successfully reset area map data`;
         this.refreshKey();
         this.loadAvailableDistricts();

@@ -30,6 +30,7 @@ import { CommonDataService } from "../common-data-service";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberService } from "../member/member.service";
+import { StringUtilsService } from "../string-utils.service";
 import { AlertInstance } from "../notifier.service";
 import { MergeFields } from "../../models/mail.model";
 import { MailProviderStats } from "../../models/system.model";
@@ -46,6 +47,7 @@ export class MailchimpListService {
   private dateUtils = inject(DateUtilsService);
   private commonDataService = inject(CommonDataService);
   private memberService = inject(MemberService);
+  private stringUtilsService = inject(StringUtilsService);
   private BASE_URL = "api/mailchimp/lists";
   private notifications = new Subject<ApiResponse>();
 
@@ -132,7 +134,7 @@ export class MailchimpListService {
         }
       });
       Promise.all(updatedMembers).then(() => {
-        notify.success({title: "Remove Subscriber", message: "Successfully unsubscribed " + updatedMembers.length + " member(s) from " + listType + " list"});
+        notify.success({title: "Remove Subscriber", message: "Successfully unsubscribed " + this.stringUtilsService.pluraliseWithCount(updatedMembers.length, "member") + " from " + listType + " list"});
         return updatedMembers;
       });
     };

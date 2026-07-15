@@ -8,6 +8,7 @@ import { Log } from "../common/log";
 import { ClickWhenReady } from "../../common/click-when-ready";
 import { Enter } from "@serenity-js/web";
 import { CountOfWalks } from "../../../questions/ramblers/count-of-walks";
+import { pluraliseWithCount } from "../../../../../shared/string-utils";
 import { WaitFor } from "../common/wait-for";
 import { WalkCancellation } from "../../../../../models/walk-upload-metadata";
 
@@ -22,7 +23,7 @@ export class CancelWalks {
 export class CancelWalksWithReasons extends Task {
 
   constructor(private walkCancellations: WalkCancellation[]) {
-    super(`#actor cancels ${walkCancellations.length} walk(s) with individual reasons`);
+    super(`#actor cancels ${pluraliseWithCount(walkCancellations.length, "walk")} with individual reasons`);
   }
 
   async performAs(actor: PerformsActivities): Promise<void> {
@@ -36,7 +37,7 @@ export class CancelWalksWithReasons extends Task {
 
     for (const [reason, walkIds] of toPairs(groupedByReason)) {
       await actor.attemptsTo(
-        Log.message(`Cancelling ${walkIds.length} walk(s) with reason: "${reason}"`),
+        Log.message(`Cancelling ${pluraliseWithCount(walkIds.length, "walk")} with reason: "${reason}"`),
         Wait.until(WalksPageElements.walkListTable, isPresent()),
         SelectWalks.withIds(...walkIds),
         Check.whether(CountOfWalks.selected(), isGreaterThan(0))

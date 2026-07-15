@@ -17,6 +17,7 @@ describe("buildRamblersUploadJob", () => {
       walkImageUploads: [{
         date: "2026-03-14",
         walkId: null,
+        imagesChanged: false,
         title: "Test walk",
         fieldChanges: [],
         images: [{alternativeText: "Woodland", fileName: "woodland.jpeg", sourceUrl: "https://example.com/woodland.jpeg"}]
