@@ -7,7 +7,7 @@ import * as config from "../mongo/controllers/config";
 import { collaborativeRoleTypes, defaultTenantSlug } from "./inbox-aliases";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { inboxGeneralRoleTypeFor, InboxMailboxConnection, InboxPrivacyMode, InboxReaderProvider } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { systemConfig } from "../config/system-config";
+import { systemConfigWithoutGeometry } from "../config/system-config";
 
 function member(req: Request): Partial<MemberCookie> {
   return (req.user ?? {}) as Partial<MemberCookie>;
@@ -38,7 +38,7 @@ export async function assignedInboxRoleTypesForMember(authenticatedMember: Parti
 }
 
 export async function inboxPrivacyMode(): Promise<InboxPrivacyMode> {
-  return (await systemConfig())?.inbox?.privacyMode ?? InboxPrivacyMode.CONFIGURABLE;
+  return (await systemConfigWithoutGeometry())?.inbox?.privacyMode ?? InboxPrivacyMode.CONFIGURABLE;
 }
 
 export async function permittedToReadJunk(req: Request): Promise<boolean> {
@@ -46,7 +46,7 @@ export async function permittedToReadJunk(req: Request): Promise<boolean> {
     return false;
   }
   const assignedRoleTypes = await assignedInboxRoleTypesForMember(member(req));
-  const junkVisibility = (await systemConfig())?.inbox?.specialVisibility?.junk;
+  const junkVisibility = (await systemConfigWithoutGeometry())?.inbox?.specialVisibility?.junk;
   return specialVisibilityGrants(junkVisibility, assignedRoleTypes);
 }
 
@@ -62,7 +62,7 @@ export async function permittedInboxRoleTypesForMember(authenticatedMember: Part
     return [];
   }
   const generalRoleTypes = await generalInboxRoleTypes();
-  const otherVisibility = (await systemConfig())?.inbox?.specialVisibility?.other;
+  const otherVisibility = (await systemConfigWithoutGeometry())?.inbox?.specialVisibility?.other;
   const otherGranted = specialVisibilityGrants(otherVisibility, assignedRoleTypes);
   const visibleToEveryoneRoleTypes = roles
     .filter(role => role.inboxVisibleToAllRoles !== false)
