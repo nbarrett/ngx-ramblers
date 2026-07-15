@@ -132,7 +132,7 @@ export function uploadRamblersData(req, res) {
               .filter(file => file.includes(inflateToken))
               .map(file => file.replace(inflateToken, "").trim());
             debugAndInfo("Unzip process completed successfully after processing", receivedZipFileName, "and extracted",
-              extractedFiles.length, "file(s):", extractedFiles.join(", "));
+              pluraliseWithCount(extractedFiles.length, "file") + ":", extractedFiles.join(", "));
             if (extractedFiles.length === 0) {
               debugAndError(`No files could be unzipped from ${userZipFileName}`);
               returnResponse();

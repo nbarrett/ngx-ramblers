@@ -494,7 +494,7 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                       <span>
                         <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
                         <strong>Remove the NGX subdomain ({{ selectedExistingEnv.name }}.ngx-ramblers.org.uk)?</strong>
-                        This deletes its DNS records and Fly certificate. The app will only be reachable via its attached custom domain(s).
+                        This deletes its DNS records and Fly certificate. The app will only be reachable via its attached custom domains.
                       </span>
                       <div class="btn-group btn-group-sm ms-3">
                         <button type="button" class="btn btn-danger" [disabled]="removingNgxSubdomain"

@@ -1,4 +1,5 @@
 import debug from "debug";
+import { pluraliseWithCount } from "../../shared/string-utils";
 import { isNumber } from "es-toolkit/compat";
 import { BrevoError } from "@getbrevo/brevo";
 import { envConfig } from "../../env-config/env-config";
@@ -80,7 +81,7 @@ export async function auditSubscriptionChanges(changes: MemberSubscriptionChange
       audit: auditMessageFor(transition, namesById)
     })));
     await mailListAudit.insertMany(rows);
-    debugLog("wrote", rows.length, "subscription audit rows for", withTransitions.length, "member(s) by", createdBy);
+    debugLog("wrote", rows.length, "subscription audit rows for", pluraliseWithCount(withTransitions.length, "member"), "by", createdBy);
   } catch (error: any) {
     debugLog("auditSubscriptionChanges:failed", error?.message ?? error);
   }

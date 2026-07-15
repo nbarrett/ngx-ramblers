@@ -1,6 +1,7 @@
 import WebSocket, { Server as WebSocketServer } from "ws";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
+import { pluraliseWithCount } from "../shared/string-utils";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 
 const debugLog = debug(envConfig.logNamespace("websocket-broadcaster"));
@@ -21,6 +22,6 @@ export function broadcast(messageType: MessageType, data: unknown): number {
   const payload = JSON.stringify({type: messageType, data});
   const recipients = Array.from(registeredServer.clients).filter(client => client.readyState === WebSocket.OPEN);
   recipients.forEach(client => client.send(payload));
-  debugLog(`✅ broadcast ${messageType} to ${recipients.length} client(s)`);
+  debugLog(`✅ broadcast ${messageType} to ${pluraliseWithCount(recipients.length, "client")}`);
   return recipients.length;
 }

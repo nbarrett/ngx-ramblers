@@ -170,6 +170,7 @@ export interface WalkExportData {
   ramblersUrl?: string;
   imageUploadOnly?: boolean;
   editInPlace?: boolean;
+  imageMismatch?: boolean;
   locationChanged?: boolean;
   fieldChanges?: WalkFieldChange[];
 }

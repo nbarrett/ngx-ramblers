@@ -10,6 +10,7 @@ import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass, DatePipe } from "@angular/common";
 import { DateUtilsService } from "../../../services/date-utils.service";
+import { StringUtilsService } from "../../../services/string-utils.service";
 import { MaintenanceMigrationFile, MigrationFileStatus, MigrationSortColumn } from "../../../models/mongo-migration-model";
 import { sortBy } from "../../../functions/arrays";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
@@ -288,6 +289,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
   private memberLoginService = inject(MemberLoginService);
   private siteMaintenanceService = inject(SiteMaintenanceService);
   protected dateUtils = inject(DateUtilsService);
+  private stringUtilsService = inject(StringUtilsService);
 
   faExclamationTriangle = faExclamationTriangle;
   faCheckCircle = faCheckCircle;
@@ -407,7 +409,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
       const result = await this.siteMaintenanceService.clearFailedMigrations();
       await this.checkStatus();
       this.lastRetrySuccess = true;
-      this.lastRetryMessage = `Cleared ${result.deletedCount} failed migration(s)`;
+      this.lastRetryMessage = `Cleared ${this.stringUtilsService.pluraliseWithCount(result.deletedCount, "failed migration")}`;
     } catch (error: any) {
       this.lastRetrySuccess = false;
       this.lastRetryMessage = error.message || "Failed to clear failed migrations";

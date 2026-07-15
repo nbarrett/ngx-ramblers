@@ -33,6 +33,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
+import { StringUtilsService } from "../../../services/string-utils.service";
 import { ExpenseDetailModalComponent } from "./modals/expense-detail-modal.component";
 import { ExpensePaidModalComponent } from "./modals/expense-paid-modal.component";
 import { ExpenseReturnModalComponent } from "./modals/expense-return-modal.component";
@@ -71,6 +72,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   private mailMessagingService = inject(MailMessagingService);
   private route = inject(ActivatedRoute);
   private urlService = inject(UrlService);
+  private stringUtilsService = inject(StringUtilsService);
   display = inject(ExpenseDisplayService);
   notifications = inject(ExpenseNotificationService);
 
@@ -168,7 +170,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
 
   private applyExpensesToView(apiResponse: ApiResponse) {
     const expenseClaims: ExpenseClaim[] = isArray(apiResponse.response) ? apiResponse.response : [apiResponse.response];
-    this.logger.debug("Received", expenseClaims.length, "expense", apiResponse.action, "notification(s)");
+    this.logger.debug("Received", expenseClaims.length, "expense", apiResponse.action, this.stringUtilsService.pluralise(expenseClaims.length, "notification"));
     if (apiResponse.action === ApiAction.QUERY) {
       this.unfilteredExpenseClaims = expenseClaims;
     } else {
@@ -196,7 +198,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
         const expenseClaimLatestEvent = this.display.expenseClaimLatestEvent(expenseClaim);
         return expenseClaimLatestEvent ? expenseClaimLatestEvent.date : true;
       }).value().reverse();
-    const outcome = `found ${this.expenseClaims.length} expense claim(s)`;
+    const outcome = `found ${this.stringUtilsService.pluraliseWithCount(this.expenseClaims.length, "expense claim")}`;
     this.notify.progress({title: this.selected.filter.description, message: outcome});
     this.logger.debug("query finished", outcome);
     this.notify.clearBusy();

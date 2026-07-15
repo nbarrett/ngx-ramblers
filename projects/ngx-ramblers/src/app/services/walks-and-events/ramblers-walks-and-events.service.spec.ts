@@ -123,6 +123,7 @@ describe("RamblersWalksAndEventsService", () => {
       expect(service.walkImageUploads([selectedWalk] as any)).toEqual([{
         date: "15/07/2026",
         fieldChanges: [],
+        imagesChanged: false,
         images: [{
           alternativeText: "A woodland path",
           fileName: "path.jpeg",
@@ -492,6 +493,7 @@ describe("RamblersWalksAndEventsService", () => {
       expect(service.walkImageUploads([walkExport])).toEqual([{
         date: "04/07/2026",
         fieldChanges: [],
+        imagesChanged: true,
         images: [],
         title: "Coastal walk",
         walkId: "https://walks-manager.ramblers.org.uk/walks-manager/walk/basic-information/walk-123"
@@ -606,14 +608,14 @@ describe("RamblersWalksAndEventsService", () => {
     it("does not flag a title difference when the only difference is an ampersand cleaned on upload", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       const walkExport = service.toWalkExport(publishedWalkWith("Hythe & Saltwood circular", "Hythe and Saltwood circular") as any);
-      expect(walkExport.publishStatus.messages.find(message => message.includes("Ramblers title is"))).toBeUndefined();
+      expect(walkExport.publishStatus.messages.find(message => message.includes("Title difference:"))).toBeUndefined();
       expect(walkExport.publishStatus.publish).toBe(false);
     });
 
     it("does not flag a title difference when the only difference is an apostrophe cleaned on upload", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       const walkExport = service.toWalkExport(publishedWalkWith("Dover to St Margaret's Bay on the White Cliffs", "Dover to St Margarets Bay on the White Cliffs") as any);
-      expect(walkExport.publishStatus.messages.find(message => message.includes("Ramblers title is"))).toBeUndefined();
+      expect(walkExport.publishStatus.messages.find(message => message.includes("Title difference:"))).toBeUndefined();
       expect(walkExport.publishStatus.publish).toBe(false);
     });
 
@@ -622,14 +624,14 @@ describe("RamblersWalksAndEventsService", () => {
       const walkExport = service.toWalkExport(publishedWalkWith(
         "Iver to West Drayton via River Colne and Grand Union Canal",
         "Iver to West Drayton via River Colne & Grand Union Canal") as any);
-      expect(walkExport.publishStatus.messages.find(message => message.includes("Ramblers title is"))).toBeUndefined();
+      expect(walkExport.publishStatus.messages.find(message => message.includes("Title difference:"))).toBeUndefined();
       expect(walkExport.publishStatus.publish).toBe(false);
     });
 
     it("still flags a genuine title difference and marks the walk for republishing", () => {
       const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
       const walkExport = service.toWalkExport(publishedWalkWith("Hythe and Saltwood extended circular", "Hythe and Saltwood circular") as any);
-      expect(walkExport.publishStatus.messages.some(message => message.startsWith("Ramblers title is"))).toBe(true);
+      expect(walkExport.publishStatus.messages.some(message => message.startsWith("Title difference:"))).toBe(true);
       expect(walkExport.publishStatus.publish).toBe(true);
     });
 

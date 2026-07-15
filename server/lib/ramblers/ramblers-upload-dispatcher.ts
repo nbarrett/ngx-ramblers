@@ -14,6 +14,7 @@ import { RamblersUploadQueueItem } from "../models/ramblers-upload-execution.mod
 import { executeRamblersUploadJob } from "./ramblers-upload-walks";
 import { RamblersUploadQueue } from "./ramblers-upload-queue";
 import { RamblersUploadCredentials } from "../../../projects/ngx-ramblers/src/app/models/integration-worker.model";
+import { downloadStatusManager } from "./download-status-manager";
 
 const debugLog = debug(envConfig.logNamespace("ramblers-upload-dispatcher"));
 debugLog.enabled = true;
@@ -54,6 +55,7 @@ export async function dispatchRamblersWalksUpload(ws: WebSocket, request: Ramble
     const workerUrl = envConfig.value(Environment.INTEGRATION_WORKER_URL);
     if (workerUrl) {
       debugLog("routing to REMOTE worker at", workerUrl, "for job", job.jobId);
+      downloadStatusManager.startDownload(job.data.fileName);
       const credentials = await queryRamblersUploadCredentials();
       const result = await submitRamblersUploadJobToWorker(job, credentials);
 

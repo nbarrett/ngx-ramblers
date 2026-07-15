@@ -1,4 +1,5 @@
 import debug from "debug";
+import { pluraliseWithCount } from "../shared/string-utils";
 import { envConfig } from "../env-config/env-config";
 import { googleInboxConfigured } from "../inbox/inbox-runtime";
 import { registerScheduledTask } from "./scheduled-task-registry";
@@ -23,7 +24,7 @@ export async function scheduleInboxMessageDigest(): Promise<void> {
         }
         const { runInboxMessageDigest } = await import("../inbox/inbox-message-digest");
         const count = await runInboxMessageDigest();
-        debugLog(`inbox message digest completed: ${count} message(s) covered`);
+        debugLog(`inbox message digest completed: ${pluraliseWithCount(count, "message")} covered`);
       }
     });
     debugLog(`inbox message digest cron scheduled: ${cronExpression}`);

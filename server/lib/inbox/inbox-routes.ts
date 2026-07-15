@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import { pluraliseWithCount } from "../shared/string-utils";
 import debug from "debug";
 import { createErrorDebugLog } from "../shared/error-debug-log";
 import { isArray, isBoolean, isString } from "es-toolkit/compat";
@@ -317,7 +318,7 @@ router.put("/mailbox-connections/:id/import-all", authConfig.authenticate(), asy
     if (importAllMessages) {
       try {
         const pollResult = await pollConnection(updatedConnection);
-        debugLog(`import-all: immediate poll of ${updatedConnection.gmailAccountEmail} imported ${pollResult.importedCount} message(s)${pollResult.error ? ` (error: ${pollResult.error})` : ""}`);
+        debugLog(`import-all: immediate poll of ${updatedConnection.gmailAccountEmail} imported ${pluraliseWithCount(pollResult.importedCount, "message")}${pollResult.error ? ` (error: ${pollResult.error})` : ""}`);
         res.json({request: {messageType}, response: {connection: sanitiseConnection(updatedConnection), importedCount: pollResult.importedCount, pollError: pollResult.error}});
         return;
       } catch (pollError) {
@@ -368,7 +369,7 @@ router.post("/mailbox-connections/:id/rescan-general", authConfig.authenticate()
       pollError = (pollFailure as Error).message;
       errorDebugLog("rescan-general: immediate poll failed:", pollError);
     }
-    debugLog(`rescan-general: ${connection.gmailAccountEmail} deleted ${deletedThreads} thread(s) / ${deletedMessages} message(s), imported ${importedCount}`);
+    debugLog(`rescan-general: ${connection.gmailAccountEmail} deleted ${pluraliseWithCount(deletedThreads, "thread")} / ${pluraliseWithCount(deletedMessages, "message")}, imported ${importedCount}`);
     res.json({request: {messageType}, response: {deletedThreads, deletedMessages, importedCount, pollError, connection: sanitiseConnection(refreshed)}});
   } catch (error) {
     errorDebugLog("Error rescanning general mailbox:", (error as Error).message);

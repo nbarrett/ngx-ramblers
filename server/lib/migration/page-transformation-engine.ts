@@ -43,7 +43,7 @@ import {
 import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { LocationDetails } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import * as exclusions from "./text-exclusions";
-import { humaniseFileStemFromUrl } from "../shared/string-utils";
+import { humaniseFileStemFromUrl, pluraliseWithCount } from "../shared/string-utils";
 import { DateTime } from "luxon";
 import { dateTimeNow } from "../shared/dates";
 import { bestLocation, extractLocations } from "../../../projects/ngx-ramblers/src/app/common/locations/location-extractor";
@@ -655,7 +655,7 @@ export class PageTransformationEngine {
         });
         if (lines.length !== text.split("\n").length) {
           text = lines.join("\n").trim();
-          debugLog(`   Removed heading line(s) from multi-line segment: "${ctx.extractedHeading}"`);
+          debugLog(`   Removed heading lines from multi-line segment: "${ctx.extractedHeading}"`);
         }
       }
 
@@ -1184,7 +1184,7 @@ export class PageTransformationEngine {
 
     const baseValue = this.normaliseLocationCandidate(searchValue);
     const searchVariations = this.generateSearchVariations(baseValue, searchValue);
-    debugLog(`  Trying ${searchVariations.length} search variation(s) for: ${searchValue}`);
+    debugLog(`  Trying ${pluraliseWithCount(searchVariations.length, "search variation")} for: ${searchValue}`);
 
     for (const query of searchVariations) {
       try {
@@ -1446,11 +1446,11 @@ export class PageTransformationEngine {
     }
     const match = this.unusedImageSegments(ctx).find(info => {
       const filename = this.filenameFromUrl(info.image.src || "");
-      debugLog(`   Checking image: ${filename} against pattern(s): ${matcher.filenamePattern}`);
+      debugLog(`   Checking image: ${filename} against patterns: ${matcher.filenamePattern}`);
       return this.matchesGlobList(filename, matcher.filenamePattern);
     });
     if (!match) {
-      debugLog(`   ⚠️ No image matched pattern(s): ${matcher.filenamePattern}`);
+      debugLog(`   ⚠️ No image matched patterns: ${matcher.filenamePattern}`);
       return null;
     }
     const imageSource = await uploadImageFn(match.image);
@@ -1919,7 +1919,7 @@ export class PageTransformationEngine {
 
         if (mapData.routes.length === 0 && mapData.markers.length > 0) {
           mapData.autoFitBounds = false;
-          debugLog(`  Disabled autoFitBounds (no routes, but has ${mapData.markers.length} marker(s))`);
+          debugLog(`  Disabled autoFitBounds (no routes, but has ${pluraliseWithCount(mapData.markers.length, "marker")})`);
         }
       } else {
         debugLog(`  ⚠️ No valid location data found for map`);
@@ -2082,7 +2082,7 @@ export class PageTransformationEngine {
     for (const [rowIndex, templateRow] of template.rows.entries()) {
       const mappings = template.migrationTemplate?.mappings?.filter(m => m.targetRowIndex === rowIndex) || [];
       this.log(`   Processing row ${rowIndex} (type: ${templateRow.type})`);
-      this.log(`   Found ${mappings.length} mapping(s) for this row`);
+      this.log(`   Found ${pluraliseWithCount(mappings.length, "mapping")} for this row`);
       if (!mappings.length || mappings.every(m => m.sourceType === "static")) {
         const clonedRow = this.cloneRow(templateRow);
         if (this.replacePlaceholdersInRow(clonedRow, ctx)) {

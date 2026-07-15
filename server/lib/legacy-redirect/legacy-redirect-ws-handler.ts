@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { pluraliseWithCount } from "../shared/string-utils";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
@@ -22,7 +23,7 @@ export async function reconcileOrphanedScrapeRuns(): Promise<void> {
       }
     );
     if (result.modifiedCount > 0) {
-      debugLog(`reconcileOrphanedScrapeRuns: marked ${result.modifiedCount} interrupted scrape run(s) as failed`);
+      debugLog(`reconcileOrphanedScrapeRuns: marked ${pluraliseWithCount(result.modifiedCount, "interrupted scrape run")} as failed`);
     }
   } catch (error) {
     debugLog("reconcileOrphanedScrapeRuns error:", error);

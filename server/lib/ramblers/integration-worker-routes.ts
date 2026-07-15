@@ -18,6 +18,8 @@ import * as auditNotifier from "./ramblers-upload-audit-notifier";
 import * as auditParser from "./ramblers-audit-parser";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { Status } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
+import { ServerDownloadStatusType } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { downloadStatusManager } from "./download-status-manager";
 import { activateRamblersUploadSession, currentRamblersUploadSession } from "./ramblers-upload-session-registry";
 import { IntegrationWorkerQueuedUploadJob } from "../models/ramblers-upload-execution.model";
 import { integrationWorkerHeavyJobQueue } from "./integration-worker-heavy-job-queue";
@@ -106,6 +108,7 @@ router.post("/progress", async (req: Request, res: Response) => {
     }
 
     activateRamblersUploadSession(request.jobId);
+    downloadStatusManager.updateActivity();
     res.json({ success: true });
     if (request.type === IntegrationWorkerEventType.LIFECYCLE) {
       void auditNotifier.recordLifecycleEvent(request.jobId, request.payload).catch(error => {
@@ -168,6 +171,7 @@ router.post("/result", async (req: Request, res: Response) => {
       parserFunction: auditParser.parseExit,
       status: (request.status as Status) || Status.INFO
     }, request.jobId);
+    downloadStatusManager.completeDownload(request.status === Status.SUCCESS ? ServerDownloadStatusType.COMPLETED : ServerDownloadStatusType.ERROR);
     debugLog("POST /result forwarded to session for jobId:", incomingJobId, "reportKeyPrefix:", request.reportKeyPrefix);
     res.json({ success: true });
   } catch (error) {

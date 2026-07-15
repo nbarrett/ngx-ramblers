@@ -388,11 +388,11 @@ export class WalksImportService {
       const skippedTitles = duplicates.map(d => d.key.title).join(", ");
       notify.warning({
         title: "Duplicate walks detected",
-        message: `Skipping ${duplicates.length} duplicate walk(s): ${skippedTitles}`
+        message: `Skipping ${this.stringUtils.pluraliseWithCount(duplicates.length, "duplicate walk")}: ${skippedTitles}`
       });
       importData.bulkLoadMembersAndMatchesToWalks = importData.bulkLoadMembersAndMatchesToWalks
         .filter(item => this.includeWalk(item.event, duplicates));
-      importData.messages.push(`Skipped ${duplicates.length} duplicate walk(s): ${skippedTitles}`);
+      importData.messages.push(`Skipped ${this.stringUtils.pluraliseWithCount(duplicates.length, "duplicate walk")}: ${skippedTitles}`);
     }
     const existingById = new Map<string, ExtendedGroupEvent>(
       importData.existingWalksWithinRange

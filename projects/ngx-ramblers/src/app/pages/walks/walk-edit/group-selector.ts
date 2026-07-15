@@ -59,7 +59,7 @@ export class GroupSelector implements OnInit {
   @Input() dropdownPosition: DropdownPosition = "auto";
 
   async ngOnInit() {
-    this.logger.info("ngOnInit:areaCode:", this.areaCode, "groupCode(s):", this.groupCode, "firstGroupCode:", this.firstGroupCode());
+    this.logger.info("ngOnInit:areaCode:", this.areaCode, "groupCodes:", this.groupCode, "firstGroupCode:", this.firstGroupCode());
     if (this.areaCode) {
       await this.queryGroups(this.areaCode);
       this.updateSelectedGroupCodes();

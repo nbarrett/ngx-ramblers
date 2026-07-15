@@ -248,8 +248,8 @@ export enum BookingTab {
                       <table class="table table-striped table-hover">
                         <thead>
                         <tr>
-                          <th>Attendee(s)</th>
-                          <th>Email(s)</th>
+                          <th>Attendees</th>
+                          <th>Emails</th>
                           <th>Phone</th>
                           <th>Booked</th>
                           <th>Status</th>
@@ -404,8 +404,8 @@ export enum BookingTab {
                       <table class="table table-striped table-hover">
                         <thead>
                         <tr>
-                          <th>Attendee(s)</th>
-                          <th>Email(s)</th>
+                          <th>Attendees</th>
+                          <th>Emails</th>
                           <th>Phone</th>
                           <th>Booked</th>
                           <th>Status</th>
@@ -1197,10 +1197,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   downloadDetailCsv() {
-    const csvHeaders = ["Attendee(s)", "Email(s)", "Phone", "Booked", "Status", "Places"];
+    const csvHeaders = ["Attendees", "Emails", "Phone", "Booked", "Status", "Places"];
     this.csvData = this.eventBookings.map(booking => ({
-      "Attendee(s)": this.attendeeDisplayNames(booking),
-      "Email(s)": this.attendeeEmailList(booking),
+      "Attendees": this.attendeeDisplayNames(booking),
+      "Emails": this.attendeeEmailList(booking),
       "Phone": this.attendeePhone(booking),
       "Booked": this.dateUtils.displayDate(booking.createdAt),
       "Status": booking.status === BookingStatus.WAITLISTED ? "Waitlisted" : "Active",

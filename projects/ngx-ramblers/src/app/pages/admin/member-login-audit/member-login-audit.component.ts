@@ -20,6 +20,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { StoredValue } from "../../../models/ui-actions";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { UrlService } from "../../../services/url.service";
+import { StringUtilsService } from "../../../services/string-utils.service";
 import { ProfileService } from "../profile/profile.service";
 import { PageComponent } from "../../../page/page.component";
 import { NgClass } from "@angular/common";
@@ -50,6 +51,7 @@ export class MemberLoginAuditComponent implements OnInit, OnDestroy {
   private notifierService = inject(NotifierService);
   private dateUtils = inject(DateUtilsService);
   private urlService = inject(UrlService);
+  private stringUtilsService = inject(StringUtilsService);
   private memberAuthAuditService = inject(MemberAuthAuditService);
   private profileService = inject(ProfileService);
   private uiActions = inject(UiActionsService);
@@ -109,7 +111,7 @@ export class MemberLoginAuditComponent implements OnInit, OnDestroy {
 
   private addAuditItemsToView(apiResponse: ApiResponse) {
     const authAudits: MemberAuthAudit[] = isArray(apiResponse.response) ? apiResponse.response : [apiResponse.response];
-    this.logger.debug("Received", authAudits.length, "member auth audit", apiResponse.action, "notification(s)");
+    this.logger.debug("Received", authAudits.length, "member auth audit", apiResponse.action, this.stringUtilsService.pluralise(authAudits.length, "notification"));
     if (apiResponse.action === ApiAction.QUERY) {
       this.memberAudits = authAudits;
     } else {

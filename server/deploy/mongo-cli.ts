@@ -50,7 +50,7 @@ async function main() {
 
   program
     .command("backup")
-    .description("Backup DB/collections from env(s)")
+    .description("Backup DB/collections from envs")
     .requiredOption("--env <env>", "Env name (e.g., ekwg-prod) or \"all\" for all envs")
     .option("--db <db>", "Specific DB (default: from config)")
     .option("--collections <list>", "Comma-separated collections (default: all)")

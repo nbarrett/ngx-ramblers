@@ -1,4 +1,5 @@
 import { execSync } from "child_process";
+import { pluraliseWithCount } from "../lib/shared/string-utils";
 import fs from "fs";
 import madge from "madge";
 import path from "path";
@@ -169,7 +170,7 @@ async function main(): Promise<void> {
   const sinceLabel = result.baseSource === BaseSource.WORKER_DEPLOYED ? "last deploy" : "previous commit (no worker-deployed ref yet)";
 
   if (result.ignoredTypeOnly.length > 0) {
-    console.error(`Ignoring ${result.ignoredTypeOnly.length} worker-graph file(s) with type-only changes (identical emitted JS):`);
+    console.error(`Ignoring ${pluraliseWithCount(result.ignoredTypeOnly.length, "worker-graph file")} with type-only changes (identical emitted JS):`);
     result.ignoredTypeOnly.forEach(f => console.error(`  ${f}`));
   }
 

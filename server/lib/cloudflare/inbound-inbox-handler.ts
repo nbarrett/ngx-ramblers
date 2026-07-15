@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { pluraliseWithCount } from "../shared/string-utils";
 import debug from "debug";
 import { Request, Response } from "express";
 import { AddressObject, Attachment, ParsedMail, simpleParser } from "mailparser";
@@ -178,7 +179,7 @@ export async function handleInboundInbox(req: Request, res: Response): Promise<v
       }
     }
     await Promise.all(aliases.map(alias => storeInboundMessage(alias, message)));
-    debugLog("Stored inbound message %s under %d role(s): %o", message.messageId, aliases.length, aliases.map(alias => alias.roleType));
+    debugLog("Stored inbound message %s under %s: %o", message.messageId, pluraliseWithCount(aliases.length, "role"), aliases.map(alias => alias.roleType));
     res.status(200).json({request: {messageType}, response: {action: "store", stored: aliases.length, roleTypes: aliases.map(alias => alias.roleType)}});
   } catch (error) {
     const messageText = (error as Error).message || String(error);

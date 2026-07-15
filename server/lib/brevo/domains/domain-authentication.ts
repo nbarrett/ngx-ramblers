@@ -1,4 +1,5 @@
 import debug from "debug";
+import { pluraliseWithCount } from "../../shared/string-utils";
 import { envConfig } from "../../env-config/env-config";
 import { configuredCloudflare } from "../../cloudflare/cloudflare-config";
 import { CloudflareDnsConfig, DnsRecordType } from "../../cloudflare/cloudflare.model";
@@ -139,7 +140,7 @@ async function ensureTxtRecord(cfDnsConfig: CloudflareDnsConfig, record: BrevoDn
   const fqdn = record.hostName.endsWith(baseDomain) ? record.hostName : `${record.hostName}.${baseDomain}`;
   const staleCount = await cleanupStaleTxtRecords(cfDnsConfig, fqdn, record.value);
   if (staleCount > 0) {
-    debugLog("Cleaned up", staleCount, "stale TXT record(s) for:", fqdn);
+    debugLog("Cleaned up", pluraliseWithCount(staleCount, "stale TXT record"), "for:", fqdn);
   }
 
   const current = await listDnsRecords(cfDnsConfig, fqdn, DnsRecordType.TXT);

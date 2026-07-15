@@ -1,6 +1,6 @@
 import { AnswersQuestions, Duration, PerformsActivities, Task, UsesAbilities, Wait } from "@serenity-js/core";
-import { isGreaterThan, isPresent } from "@serenity-js/assertions";
-import { Attribute } from "@serenity-js/web";
+import { isGreaterThan, isPresent, not } from "@serenity-js/assertions";
+import { Attribute, BrowseTheWeb } from "@serenity-js/web";
 import debug from "debug";
 import { envConfig } from "../../../../../env-config/env-config";
 import { WalkImagesUpload } from "../../../../../models/walk-upload-metadata";
@@ -13,11 +13,17 @@ import { normalizeWalkDate } from "./select-walks-by-date-and-title";
 import { matchesAllowingTruncation } from "../../../../../../../projects/ngx-ramblers/src/app/functions/strings";
 import { SynchroniseWalkImages } from "./synchronise-walk-images";
 import { ApplyWalkFieldChanges } from "./apply-walk-field-changes";
-import { changesForStep, EditWalkDetails, STEPS_EDITED_BEFORE_IMAGES } from "./edit-walk-details";
-import { WalkEditStep } from "../../../../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { changesForStep } from "./edit-walk-details";
+import { WalkEditStep, WalkFieldChange } from "../../../../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { ClickWhenReady } from "../../common/click-when-ready";
 import { WalkFilters } from "./select-walks";
 import { Accept } from "../common/accept-cookie-prompt";
+import { AllowNavigationAwayFromEdit } from "./allow-navigation-away-from-edit";
+import { ClickViaScript } from "./click-via-script";
+import { SaveAndContinue } from "./save-and-continue";
+import { pluraliseWithCount } from "../../../../../shared/string-utils";
+
+const WIZARD_STEPS: WalkEditStep[] = [WalkEditStep.BASIC_INFORMATION, WalkEditStep.DESCRIPTION, WalkEditStep.LOCATION, WalkEditStep.GRADING];
 
 const debugLog = debug(envConfig.logNamespace("UploadImagesForWalks"));
 debugLog.enabled = true;
@@ -32,26 +38,77 @@ export class UploadImagesForWalks extends Task {
   }
 
   constructor(private readonly uploads: WalkImagesUpload[]) {
-    super(`#actor synchronises ${uploads.length} walks with Ramblers`);
+    super(`#actor synchronises ${pluraliseWithCount(uploads.length, "walk")} with Ramblers`);
   }
 
   async performAs(actor: PerformsActivities & UsesAbilities & AnswersQuestions): Promise<void> {
     const walksListUrl = listUrlFor(this.uploads);
     await this.uploads.reduce(async (previousUploads: Promise<void>, upload: WalkImagesUpload) => {
       await previousUploads;
-      await openWalkForEditing(actor, upload, walksListUrl);
-      await STEPS_EDITED_BEFORE_IMAGES.reduce(async (previousSteps: Promise<void>, step: WalkEditStep) => {
-        await previousSteps;
-        await actor.attemptsTo(EditWalkDetails.forStep(step, upload.fieldChanges));
-      }, Promise.resolve());
-      await actor.attemptsTo(
-        ClickWhenReady.on(WalksPageElements.descriptionStepLink),
-        Accept.dismissCookieBanners(),
-        ApplyWalkFieldChanges.to(changesForStep(upload.fieldChanges, WalkEditStep.DESCRIPTION)),
-        SynchroniseWalkImages.to(upload.images, !!upload.walkId));
+      await editWalkInPlace(actor, upload, walksListUrl);
     }, Promise.resolve());
 
     await actor.attemptsTo(NavigateWithDomLoaded.to(walksListUrl));
+  }
+}
+
+async function editWalkInPlace(actor: PerformsActivities & UsesAbilities & AnswersQuestions, upload: WalkImagesUpload, walksListUrl: string): Promise<void> {
+  const fieldSteps: WalkEditStep[] = WIZARD_STEPS.filter(step => changesForStep(upload.fieldChanges, step).length > 0);
+  const includeImages: boolean = !!upload.imagesChanged;
+  const stepsToVisit: WalkEditStep[] = WIZARD_STEPS.filter(step => fieldSteps.includes(step) || (step === WalkEditStep.DESCRIPTION && includeImages));
+  const shouldPublish: boolean = !!upload.walkId;
+  debugLog(`editing "${upload.title}": field steps ${fieldSteps.join(", ") || "none"}, imagesChanged=${includeImages}, publish=${shouldPublish}, visiting ${stepsToVisit.join(", ") || "nothing"}`);
+
+  if (stepsToVisit.length === 0) {
+    debugLog(`no changes to apply for "${upload.title}", skipping`);
+    return;
+  }
+
+  await openWalkForEditing(actor, upload, walksListUrl);
+
+  await stepsToVisit.reduce(async (previousStep: Promise<void>, step: WalkEditStep, stepIndex: number) => {
+    await previousStep;
+    await ensureOnStep(actor, step);
+    const changes: WalkFieldChange[] = changesForStep(upload.fieldChanges, step);
+    if (changes.length > 0) {
+      debugLog(`applying ${pluraliseWithCount(changes.length, "field change")} on the ${step} step`);
+      await actor.attemptsTo(ApplyWalkFieldChanges.to(changes));
+    }
+    if (step === WalkEditStep.DESCRIPTION && includeImages) {
+      debugLog(`synchronising images on the ${step} step`);
+      await actor.attemptsTo(SynchroniseWalkImages.to(upload.images));
+    }
+    const lastStep: boolean = stepIndex === stepsToVisit.length - 1;
+    if (lastStep) {
+      await publishEditedWalk(actor, shouldPublish, step);
+    } else {
+      await saveAndContinue(actor, step);
+    }
+  }, Promise.resolve());
+}
+
+async function ensureOnStep(actor: PerformsActivities & UsesAbilities & AnswersQuestions, step: WalkEditStep): Promise<void> {
+  const currentPage = await BrowseTheWeb.as(actor).currentPage();
+  const currentUrl: string = (await currentPage.url()).toString();
+  if (!currentUrl.includes(`/walks-manager/walk/${step}/`)) {
+    await actor.attemptsTo(
+      ClickWhenReady.on(WalksPageElements.walkStepLink(step)),
+      Accept.dismissCookieBanners());
+  }
+}
+
+async function saveAndContinue(actor: PerformsActivities & UsesAbilities & AnswersQuestions, step: WalkEditStep): Promise<void> {
+  debugLog(`saving the ${step} step before moving on`);
+  await actor.attemptsTo(SaveAndContinue.awayFromPath(`/walks-manager/walk/${step}/`));
+}
+
+async function publishEditedWalk(actor: PerformsActivities & UsesAbilities & AnswersQuestions, shouldPublish: boolean, step: WalkEditStep): Promise<void> {
+  if (shouldPublish) {
+    await actor.attemptsTo(
+      ClickViaScript.on("label[for='save_publish_action']", "publishes the walk"),
+      Wait.upTo(Duration.ofMinutes(2)).until(WalksPageElements.saveAndContinueButton, not(isPresent())));
+  } else {
+    await actor.attemptsTo(SaveAndContinue.awayFromPath(`/walks-manager/walk/${step}/`));
   }
 }
 
@@ -64,11 +121,12 @@ async function openWalkForEditing(actor: PerformsActivities & AnswersQuestions &
   debugLog(`opening walk "${upload.title}" on ${upload.date} for editing at ${editWalkHref}`);
   await actor.attemptsTo(
     NavigateWithDomLoaded.to(new URL(editWalkHref, WALKS_MANAGER_BASE_URL).toString()),
-    Accept.dismissCookieBanners());
+    Accept.dismissCookieBanners(),
+    AllowNavigationAwayFromEdit.now());
 }
 
 async function findWalk(actor: PerformsActivities & AnswersQuestions & UsesAbilities, upload: WalkImagesUpload, walksListUrl: string): Promise<RamblersWalkSummary> {
-  const attempts: number[] = Array.from({length: WALK_LOOKUP_ATTEMPTS}, (value, index) => index);
+  const attempts: number[] = Array.from({length: WALK_LOOKUP_ATTEMPTS}, (_value, index) => index);
   const matchedWalk: RamblersWalkSummary = await attempts.reduce(async (previousAttempt: Promise<RamblersWalkSummary>, attempt: number) => {
     const alreadyMatched = await previousAttempt;
     if (alreadyMatched) {
@@ -81,8 +139,7 @@ async function findWalk(actor: PerformsActivities & AnswersQuestions & UsesAbili
     const displayedWalks: RamblersWalkSummary[] = await RamblersWalkSummaries.displayed().answeredBy(actor);
     const walk: RamblersWalkSummary = matchingWalk(displayedWalks, upload);
     if (!walk && attempt < WALK_LOOKUP_ATTEMPTS - 1) {
-      debugLog(`walk "${upload.title}" on ${upload.date} not listed on attempt ${attempt + 1} of ${WALK_LOOKUP_ATTEMPTS}: retrying`);
-      await actor.attemptsTo(Wait.for(Duration.ofSeconds(5)));
+      debugLog(`walk "${upload.title}" on ${upload.date} not listed on attempt ${attempt + 1} of ${WALK_LOOKUP_ATTEMPTS}: reloading the walks list`);
     }
     return walk;
   }, Promise.resolve<RamblersWalkSummary>(null));
