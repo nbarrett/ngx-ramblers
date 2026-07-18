@@ -96,6 +96,9 @@ jobs:
       - name: Run lint checks (frontend + server)
         run: npm run lint:all
 
+      - name: Typecheck server
+        run: npm run typecheck:server
+
       - name: Setup Chrome for headless tests
         uses: browser-actions/setup-chrome@v2
         with:

@@ -23,7 +23,7 @@ export function excelSerialFromDate(date: Date): number {
 export async function extractWorkbook(workbookContents: Buffer, preferredSheetToken: string = RAMBLERS_SHEET_TOKEN): Promise<WorkbookExtract> {
   const {Workbook, ValueType: cellValueTypes} = exceljsFrom(await import("exceljs"));
   const workbook = new Workbook();
-  await workbook.xlsx.load(workbookContents);
+  await workbook.xlsx.load(workbookContents as unknown as ArrayBuffer);
   const sheetNames: string[] = workbook.worksheets.map(worksheet => worksheet.name);
   const matchedSheet = sheetNames.find(sheet => sheet.includes(preferredSheetToken));
   const selectedSheet = matchedSheet ?? first(sheetNames);
