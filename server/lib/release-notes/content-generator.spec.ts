@@ -311,6 +311,37 @@ describe("content-generator generateMarkdown commit body paragraphs", () => {
     expect(markdown).toContain("example subject line");
   });
 
+  it("keeps a bullet containing a spaced dash as one bullet rather than splitting it mid-sentence", () => {
+    const body = "- Walks whose images already match are left alone - the image step is skipped entirely.";
+    const data = createReleaseNotesData([makeCommit(body)], null, "owner/repo");
+    const markdown = generateMarkdown(data, "owner/repo");
+
+    expect(markdown).toContain("- Walks whose images already match are left alone - the image step is skipped entirely.");
+    expect(markdown).not.toContain("- the image step is skipped entirely.\n");
+  });
+
+  it("omits the Technical changes section from the committee-facing note but keeps the sections around it", () => {
+    const body = [
+      "## What's new",
+      "Something a committee member cares about.",
+      "",
+      "## Technical changes",
+      "- Extract Cloudflare email-routing controllers from the route declarations",
+      "- Inline shared worker template dependencies",
+      "",
+      "## At a glance",
+      "- A user visible bullet"
+    ].join("\n");
+
+    const data = createReleaseNotesData([makeCommit(body)], null, "owner/repo");
+    const markdown = generateMarkdown(data, "owner/repo");
+
+    expect(markdown).toContain("Something a committee member cares about.");
+    expect(markdown).toContain("- A user visible bullet");
+    expect(markdown).not.toContain("Technical changes");
+    expect(markdown).not.toContain("Extract Cloudflare email-routing controllers");
+  });
+
   it("collapses a spaced-dash divider line into a single horizontal rule rather than expanding it into many empty bullets", () => {
     const body = [
       "Code fix - some/file.ts",
@@ -346,9 +377,15 @@ describe("plain-text build-heading linking", () => {
   it("rewrites a plain-text build heading into a link to the workflow run, leaving the rest untouched", () => {
     const content = `# 20-06-2026 — A title\n\n${plainHeading}\n\n_____\n\n- some change`;
     const result = linkPlaintextBuildLine(content, "https://github.com/owner/repo/actions/runs/123");
-    expect(result).toContain("## [GitHub #706](https://github.com/owner/repo/actions/runs/123) — [commit abc1234](https://github.com/owner/repo/commit/abc1234def5678901234567890123456789012ab)");
+    expect(result).toContain("## [build 706](https://github.com/owner/repo/actions/runs/123) — [commit abc1234](https://github.com/owner/repo/commit/abc1234def5678901234567890123456789012ab)");
     expect(result).toContain("# 20-06-2026 — A title");
     expect(result).toContain("- some change");
+  });
+
+  it("leaves an already-linked build heading in the newer build wording unchanged", () => {
+    const linked = "## [build 706](https://github.com/owner/repo/actions/runs/123) — [commit abc1234](https://github.com/owner/repo/commit/abc1234def5678901234567890123456789012ab)";
+    expect(linkPlaintextBuildLine(linked, "https://github.com/owner/repo/actions/runs/999")).toEqual(linked);
+    expect(extractPlaintextBuildRef(linked)).toBeNull();
   });
 
   it("leaves an already-linked build heading unchanged", () => {
