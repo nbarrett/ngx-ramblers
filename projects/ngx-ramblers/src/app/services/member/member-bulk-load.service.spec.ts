@@ -16,6 +16,7 @@ import { FullNamePipe } from "../../pipes/full-name.pipe";
 import { MemberSyncPolicyMode } from "../../models/member-sync-policy.model";
 import { MemberSyncNotificationContext, MemberSyncNotificationResolution } from "../../models/member-sync-notification.model";
 import { WalkLeaderRematchService } from "../walks/walk-leader-rematch.service";
+import { abbreviatedWalksManagerContactName } from "../../functions/member-names";
 
 describe("MemberBulkLoadService", () => {
     let service: MemberBulkLoadService;
@@ -189,6 +190,39 @@ describe("MemberBulkLoadService", () => {
             expect(result.member).not.toBe(existingMember);
             expect(result.memberMatch).toBe(MemberAction.created);
             expect(result.member.nameAlias).toBe("2");
+        });
+    });
+
+    describe("Walks Manager contact name", () => {
+        it("should set contactId to the full name so that created members pass walk export validation", () => {
+            memberNamingServiceSpy.createUserName.mockReturnValue("gillian.smith");
+            memberNamingServiceSpy.createUniqueUserName.mockReturnValue("gillian.smith");
+            memberNamingServiceSpy.createUniqueDisplayName.mockReturnValue("Gillian S");
+            const ramblersMember = {
+                firstName: "Gillian",
+                lastName: "Smith",
+                title: "Miss",
+                membershipNumber: "3158100"
+            } as RamblersMember;
+
+            const result = service.bulkLoadMemberAndMatchFor({ramblersMember, contact: null}, [], {} as any);
+
+            expect(result.memberMatch).toBe(MemberAction.created);
+            expect(result.member.displayName).toBe("Gillian S");
+            expect(result.member.contactId).toBe("Gillian Smith");
+            expect(abbreviatedWalksManagerContactName(result.member.contactId)).toBe(false);
+        });
+
+        it("should fall back to the display name when the imported row has no usable name", () => {
+            memberNamingServiceSpy.createUserName.mockReturnValue("");
+            memberNamingServiceSpy.createUniqueUserName.mockReturnValue("member2");
+            memberNamingServiceSpy.createUniqueDisplayName.mockReturnValue("Member 2");
+            const ramblersMember = {membershipNumber: "3158101"} as RamblersMember;
+
+            const result = service.bulkLoadMemberAndMatchFor({ramblersMember, contact: null}, [], {} as any);
+
+            expect(result.memberMatch).toBe(MemberAction.created);
+            expect(result.member.contactId).toBe("Member 2");
         });
     });
 

@@ -14,7 +14,6 @@ import { pluraliseWithCount } from "../../shared/string-utils";
 import { auditSubscriptionChanges } from "./member-subscription-audit";
 import { writeBackFullOptOuts } from "../../salesforce/member-consent-writeback";
 import { bulkDeleteMembersCascade } from "./member-bulk-delete";
-import { rematchWalkLeadersAfterMemberChange } from "../../walks/walk-leader-rematch";
 import { MailSubscription, MemberSubscriptionChange } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const debugLog = debug(envConfig.logNamespace("member"));
@@ -90,9 +89,6 @@ export async function createOrUpdateAll(req: Request, res: Response) {
     }));
     await auditSubscriptionChanges(subscriptionChanges, actingUser(req));
     await writeBackFullOptOuts(createOrUpdatedMembers, priorById, actingUser(req));
-    if (!isString(req.query.uploadSessionId)) {
-      await rematchWalkLeadersAfterMemberChange("member-create-or-update-all");
-    }
     debugLog("createOrUpdateAll:for:", message, "returning:", createOrUpdatedMembers);
     res.status(200).json({
       action: ApiAction.UPSERT,

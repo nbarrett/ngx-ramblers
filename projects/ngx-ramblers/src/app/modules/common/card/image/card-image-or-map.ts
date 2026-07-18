@@ -21,7 +21,8 @@ import { VisibilityObserverDirective } from "../../../../notifications/common/vi
   template: `
     @if (displayedWalk?.walkAccessMode?.walkWritable) {
       @if (memberLoginService.allowWalkAdminEdits() && displayedWalk?.walkAccessMode?.initialiseWalkLeader) {
-        <div class="btn-group btn-group-custom button-container" dropdown>
+        <div class="btn-group btn-group-custom button-container" dropdown
+             (click)="$event.stopPropagation()">
           <button id="walkAction-{{displayedWalk?.walk?.id}}" type="button"
                   class="dropdown-toggle btn pager-btn me-0"
                   dropdownToggle
@@ -48,7 +49,7 @@ import { VisibilityObserverDirective } from "../../../../notifications/common/vi
       } @else {
         <button
           id="walkAction-{{displayedWalk?.walk?.id}}" type="button"
-          (click)="display.edit(displayedWalk)"
+          (click)="$event.stopPropagation(); display.edit(displayedWalk)"
           class="btn pager-btn me-0 button-container">
           <fa-icon [icon]="accessModeIcon()"/>
           <span class="ms-2">{{ displayedWalk?.walkAccessMode?.caption }}</span>

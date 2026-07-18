@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, DoCheck, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { Subscription } from "rxjs";
 import {
   CopyFrom,
@@ -125,7 +125,7 @@ import { isMongoId } from "../../../services/mongo-utils";
     }
   `
 })
-export class WalkEditCopyFromComponent implements OnInit, OnDestroy {
+export class WalkEditCopyFromComponent implements OnInit, DoCheck, OnDestroy {
 
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
     this.inputDisabled = coerceBooleanProperty(inputDisabled);
@@ -151,6 +151,7 @@ export class WalkEditCopyFromComponent implements OnInit, OnDestroy {
   private previousWalkLeaderIds: string[] = [];
   private leaderLabelMap: Map<string, string> = new Map();
   private subscriptions: Subscription[] = [];
+  private lastSyncedWalkLeaderMemberId: string = null;
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditCopyFromComponent", NgxLoggerLevel.ERROR);
   private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
@@ -174,6 +175,18 @@ export class WalkEditCopyFromComponent implements OnInit, OnDestroy {
     this.display.refreshCachedData();
     this.populateCopySourceFromWalkLeaderMemberId();
     await this.populateWalkTemplates();
+  }
+
+  ngDoCheck(): void {
+    const walkLeaderMemberId = this.displayedWalk?.walk?.fields?.contactDetails?.memberId || null;
+    if (walkLeaderMemberId && walkLeaderMemberId !== this.lastSyncedWalkLeaderMemberId) {
+      this.logger.info("walk leader changed to", walkLeaderMemberId, "- syncing copy source");
+      this.lastSyncedWalkLeaderMemberId = walkLeaderMemberId;
+      this.copySourceFromWalkLeaderMemberId = walkLeaderMemberId;
+      if (this.copySource === WalkCopyOption.COPY_SELECTED_WALK_LEADER) {
+        this.populateWalkTemplates();
+      }
+    }
   }
 
   ngOnDestroy(): void {
@@ -407,5 +420,6 @@ export class WalkEditCopyFromComponent implements OnInit, OnDestroy {
   private populateCopySourceFromWalkLeaderMemberId() {
     this.copySourceFromWalkLeaderMemberId = this.displayedWalk.walk?.fields?.contactDetails?.memberId
       || this.memberLoginService.loggedInMember().memberId;
+    this.lastSyncedWalkLeaderMemberId = this.copySourceFromWalkLeaderMemberId;
   }
 }

@@ -3,8 +3,7 @@ import { DisplayedWalk, EventType } from "../../../models/walk.model";
 import { FormsModule } from "@angular/forms";
 import { WalkDisplayService } from "../walk-display.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
-import { DisplayMember, Member } from "../../../models/member.model";
-import { FullNameWithAliasOrMePipe } from "../../../pipes/full-name-with-alias-or-me.pipe";
+import { Member } from "../../../models/member.model";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { sortBy } from "../../../functions/arrays";
@@ -51,7 +50,7 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
                        [disabled]="inputDisabled"
                        [(ngModel)]="showOnlyWalkLeaders" [value]="false">
                 <label class="form-check-label" for="showOnlyWalkLeadersFalse">
-                  Show All Members ({{ membersWithAliasOrMe.length }})</label>
+                  Show All Members ({{ allMembers.length }})</label>
               </div>
             </div>
           </div>
@@ -220,9 +219,9 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   @Output() rematchWalkLeaderRequest = new EventEmitter<void>();
   @Output() rematchPreviewRequest = new EventEmitter<void>();
   showOnlyWalkLeaders = true;
-  previousWalkLeadersWithAliasOrMe: DisplayMember[] = [];
+  previousWalkLeaders: Member[] = [];
   previousWalkLeaderCount = 0;
-  membersWithAliasOrMe: DisplayMember[] = [];
+  allMembers: Member[] = [];
   walkStatuses: any[] = [];
   myContactId: string;
   walkLeadContactId: string;
@@ -231,7 +230,6 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   private memberLoginService = inject(MemberLoginService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private walksReferenceService = inject(WalksReferenceService);
-  private fullNameWithAliasOrMePipe = inject(FullNameWithAliasOrMePipe);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditLeaderComponent", NgxLoggerLevel.ERROR);
   protected readonly faCircleInfo = faCircleInfo;
 
@@ -246,18 +244,10 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   }
 
   private refreshMembers(members: Member[], previousWalkLeaderIds: string[]): void {
-    this.membersWithAliasOrMe = members.sort(sortBy("firstName", "lastName")).map(member => ({
-      memberId: member.id,
-      name: this.fullNameWithAliasOrMePipe.transform(member),
-      contactId: member.contactId,
-      displayName: member.displayName,
-      firstName: member.firstName,
-      lastName: member.lastName,
-      membershipNumber: member.membershipNumber
-    }));
-    this.previousWalkLeadersWithAliasOrMe = this.membersWithAliasOrMe
-      .filter(member => previousWalkLeaderIds?.includes(member.memberId));
-    this.previousWalkLeaderCount = this.previousWalkLeadersWithAliasOrMe.length;
+    this.allMembers = members.slice().sort(sortBy("firstName", "lastName"));
+    this.previousWalkLeaders = this.allMembers
+      .filter(member => previousWalkLeaderIds?.includes(member.id));
+    this.previousWalkLeaderCount = this.previousWalkLeaders.length;
     this.refreshContactIds();
   }
 
@@ -265,8 +255,8 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  get memberLookup(): DisplayMember[] {
-    return this.showOnlyWalkLeaders ? this.previousWalkLeadersWithAliasOrMe : this.membersWithAliasOrMe;
+  get memberLookup(): Member[] {
+    return this.showOnlyWalkLeaders ? this.previousWalkLeaders : this.allMembers;
   }
 
   get allowDetailView(): boolean {

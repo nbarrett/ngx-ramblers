@@ -43,6 +43,7 @@ import {
 } from "../../models/member-sync-notification.model";
 import { SalesforceConfigService } from "../salesforce/salesforce-config.service";
 import { booleanOf } from "../../functions/strings";
+import { memberFullName } from "../../functions/member-names";
 import { WalkLeaderRematchService } from "../walks/walk-leader-rematch.service";
 
 
@@ -124,7 +125,7 @@ export class MemberBulkLoadService {
         socialMember: true,
         userName: this.memberNamingService.createUniqueUserName(ramblersMember, existingMembers),
         displayName,
-        contactId: displayName,
+        contactId: memberFullName(ramblersMember) || displayName,
         expiredPassword: true
       };
       if (ramblersMemberAndContact?.contact) {

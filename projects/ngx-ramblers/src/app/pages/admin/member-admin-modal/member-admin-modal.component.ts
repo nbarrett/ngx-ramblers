@@ -300,10 +300,13 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     return Promise.resolve(this.notify.success("Saving member", true))
       .then(() => this.preProcessMemberBeforeSave())
       .then(() => this.memberService.createOrUpdate(this.member))
-      .then((savedMember: Member) => this.syncSavedMemberToBrevo(savedMember))
-      .then(() => this.bsModalRef.hide())
-      .then(() => this.notify.success("Member saved successfully"))
+      .then((savedMember: Member) => this.closeThenSyncSavedMemberToBrevo(savedMember))
       .catch((error) => this.handleSaveError(error));
+  }
+
+  private closeThenSyncSavedMemberToBrevo(savedMember: Member): Promise<void> {
+    this.bsModalRef.hide();
+    return this.syncSavedMemberToBrevo(savedMember);
   }
 
   private syncSavedMemberToBrevo(savedMember: Member): Promise<void> {

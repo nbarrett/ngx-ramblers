@@ -16,6 +16,7 @@ import { sortBy } from "../../functions/arrays";
       [disabled]="disabled"
       [searchable]="true"
       [clearable]="true"
+      [compareWith]="compareMembers"
       dropdownPosition="bottom"
       [placeholder]="placeholder"
       [(ngModel)]="selectedMember"
@@ -56,6 +57,10 @@ export class MemberSelector implements OnInit {
       ...member,
       ngSelectAttributes: {label: this.fullNamePipe.transform(member)}
     })).sort(sortBy("ngSelectAttributes.label"));
+  }
+
+  compareMembers(first: Member, second: Member): boolean {
+    return first?.id === second?.id;
   }
 
   onMemberChange(member: Member | null) {
