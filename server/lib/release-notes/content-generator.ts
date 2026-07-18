@@ -10,7 +10,7 @@ import {
   PageContentRow,
   PageContentType
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { capitalise, joinWithAnd, pluralise, pluraliseWithCount, splitOnDashSegments, textBeforeSeparators, truncateWithEllipsis } from "../shared/string-utils";
+import { capitalise, joinWithAnd, pluralise, pluraliseWithCount, textBeforeSeparators, truncateWithEllipsis } from "../shared/string-utils";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone } from "../shared/dates";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 
@@ -197,8 +197,8 @@ export function generateMarkdown(data: ReleaseNotesData, githubRepo: string): st
   const headerLines = [`# ${formattedDate} — ${linkedTitle.text}${issueLink}`];
   const buildLine = data.buildNumber
     ? data.buildUrl
-      ? `## [GitHub #${data.buildNumber}](${data.buildUrl}) — [commit ${data.commitHash.substring(0, 7)}](${data.commitUrl})`
-      : `## GitHub #${data.buildNumber} — [commit ${data.commitHash.substring(0, 7)}](${data.commitUrl})`
+      ? `## [build ${data.buildNumber}](${data.buildUrl}) — [commit ${data.commitHash.substring(0, 7)}](${data.commitUrl})`
+      : `## build ${data.buildNumber} — [commit ${data.commitHash.substring(0, 7)}](${data.commitUrl})`
     : `## [Commit ${data.commitHash.substring(0, 7)}](${data.commitUrl})`;
 
   const commitSections = data.groups
@@ -305,7 +305,7 @@ function formatCommitBody(body: string): string {
     return "";
   }
 
-  const paragraphs = body
+  const paragraphs = withoutTechnicalChanges(body)
     .split(/\n\s*\n/)
     .map(paragraph => paragraph
       .split("\n")
@@ -318,13 +318,28 @@ function formatCommitBody(body: string): string {
   return paragraphs.join("\n\n");
 }
 
+const TECHNICAL_CHANGES_HEADING = /^#{1,6}\s*technical changes\s*$/i;
+const ANY_HEADING = /^#{1,6}\s+\S/;
+
+export function withoutTechnicalChanges(body: string): string {
+  const lines = body.split("\n");
+  const startIndex = lines.findIndex(line => TECHNICAL_CHANGES_HEADING.test(line.trim()));
+  if (startIndex < 0) {
+    return body;
+  }
+  const remainder = lines.slice(startIndex + 1);
+  const nextHeadingOffset = remainder.findIndex(line => ANY_HEADING.test(line.trim()));
+  const resumeIndex = nextHeadingOffset < 0 ? lines.length : startIndex + 1 + nextHeadingOffset;
+  return lines.slice(0, startIndex).concat(lines.slice(resumeIndex)).join("\n").trim();
+}
+
 function formatBodyLine(line: string): string[] {
   if (line.startsWith("- ") || line.startsWith("* ")) {
     const stripped = line.replace(/^[-*]\s+/, "");
     if (/^[-\s]*$/.test(stripped)) {
       return ["---"];
     }
-    return splitOnDashSegments(stripped).map(segment => `- ${segment}`);
+    return [`- ${stripped}`];
   }
   return [line];
 }
@@ -739,16 +754,16 @@ export function extractExistingBuildMetadata(page: PageContent | null): { buildN
 
     const contentText = textColumns
       .map(column => column.contentText || "")
-      .find(text => text.includes("Build #") || text.includes("GitHub #") || text.includes("## [#") || text.includes("## #"));
+      .find(text => BUILD_LINE_ANYWHERE.test(text));
 
     if (contentText) {
       const buildLine = contentText
         .split("\n")
         .map(line => line.trim())
-        .find(line => line.startsWith("## [Build #") || line.startsWith("## [#") || line.startsWith("## #") || line.startsWith("## [GitHub #") || line.startsWith("## GitHub #"));
+        .find(line => BUILD_LINE_START.test(line));
 
       if (buildLine) {
-        const linkedMatch = buildLine.match(/## \[(?:GitHub |Build )?#(\d+)\]\(([^)]+)\)/);
+        const linkedMatch = buildLine.match(/## \[(?:(?:GitHub |Build )?#|build )(\d+)\]\(([^)]+)\)/i);
         if (linkedMatch) {
           metadata = {
             buildNumber: linkedMatch[1],
@@ -770,8 +785,10 @@ export function extractExistingBuildMetadata(page: PageContent | null): { buildN
   return metadata;
 }
 
-const PLAINTEXT_BUILD_LINE = /^##\s+(?:GitHub |Build )?#(\d+)\b/;
-const LINKED_BUILD_LINE = /^##\s+\[(?:GitHub |Build )?#\d+]/;
+const PLAINTEXT_BUILD_LINE = /^##\s+(?:(?:GitHub |Build )?#|build )(\d+)\b/i;
+const LINKED_BUILD_LINE = /^##\s+\[(?:(?:GitHub |Build )?#|build )\d+]/i;
+const BUILD_LINE_START = /^##\s+\[?(?:(?:GitHub |Build )?#|build )\d+/i;
+const BUILD_LINE_ANYWHERE = /##\s+\[?(?:(?:GitHub |Build )?#|build )\d+/i;
 const COMMIT_SHA_IN_LINE = /\/commit\/([0-9a-fA-F]{7,40})/;
 
 export interface PlaintextBuildRef {
@@ -800,7 +817,7 @@ export function extractPlaintextBuildRef(contentText: string | null | undefined)
   return null;
 }
 
-// Rewrite a plain-text build heading into a `[GitHub #NNN](buildUrl)` link, leaving every other line
+// Rewrite a plain-text build heading into a `[build NNN](buildUrl)` link, leaving every other line
 // (and any already-linked heading) untouched.
 export function linkPlaintextBuildLine(contentText: string, buildUrl: string): string {
   return contentText.split("\n").map(line => {
@@ -808,7 +825,7 @@ export function linkPlaintextBuildLine(contentText: string, buildUrl: string): s
     if (LINKED_BUILD_LINE.test(trimmed) || !PLAINTEXT_BUILD_LINE.test(trimmed)) {
       return line;
     }
-    return line.replace(/(##\s+)(?:GitHub |Build )?#(\d+)/, (_match, prefix, number) => `${prefix}[GitHub #${number}](${buildUrl})`);
+    return line.replace(/(##\s+)(?:(?:GitHub |Build )?#|build )(\d+)/i, (_match, prefix, number) => `${prefix}[build ${number}](${buildUrl})`);
   }).join("\n");
 }
 

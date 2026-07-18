@@ -1,7 +1,7 @@
 import { execSync } from "child_process";
 import type { ConventionalCommit, IssueReference } from "./models.js";
 
-const CONVENTIONAL_COMMIT_REGEX = /^(\w+)(?:\(([^)]+)\))?(!)?:\s*(.+)$/;
+const CONVENTIONAL_COMMIT_REGEX = /^(\w+(?:[+/]\w+)*)(?:\(([^)]+)\))?(!)?:\s*(.+)$/;
 const KEYWORD_ISSUE_REGEX = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|ref(?:erence)?(?:s)?|see):?\s*(?:#|https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/)(\d+)/gi;
 const STANDALONE_ISSUE_REGEX = /(?:^|[\s(])#(\d{1,5})(?=[\s).,;:]|$)/gm;
 

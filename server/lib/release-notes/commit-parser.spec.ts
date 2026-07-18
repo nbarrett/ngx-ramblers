@@ -132,6 +132,14 @@ describe("commit-parser", () => {
         expect(result?.subject).toEqual("add login feature");
       });
 
+      it("should strip a compound type and scope so the raw prefix never reaches the release-note title", () => {
+        const raw = createRawCommit("fix+refactor(inbox+server): stabilise direct inbox routing");
+        const result = parseCommit(raw);
+        expect(result?.type).toEqual("fix+refactor");
+        expect(result?.scope).toEqual("inbox+server");
+        expect(result?.subject).toEqual("stabilise direct inbox routing");
+      });
+
       it("should parse type without scope", () => {
         const raw = createRawCommit("fix: resolve bug");
         const result = parseCommit(raw);
