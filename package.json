@@ -26,6 +26,7 @@
     "lint:frontend": "npm run lint",
     "lint:server": "npm run build:eslint-config --silent && eslint --config .eslint-config/eslint.config.js \"server/**/*.ts\"",
     "lint:all": "npm run build:eslint-config --silent && eslint --config .eslint-config/eslint.config.js \"projects/ngx-ramblers/**/*.{ts,html}\" \"server/**/*.ts\"",
+    "typecheck:server": "tsc --noEmit -p server/tsconfig.json",
     "lintfix": "npm run build:eslint-config --silent && eslint --config .eslint-config/eslint.config.js \"projects/ngx-ramblers/**/*.{ts,html}\" --fix",
     "postbuild": "npm install --prefix server",
     "serve": "ng serve --project ngx-ramblers --configuration development --verbose",
