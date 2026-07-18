@@ -1,7 +1,7 @@
 import debug from "debug";
 import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
-import { systemConfigWithoutGeometry } from "../config/system-config";
+import { systemConfig } from "../config/system-config";
 import { queryAWSConfig } from "../aws/aws-controllers";
 import { migrationRunner } from "../mongo/migrations/migrations-runner";
 import { HealthResponse, HealthStatus } from "../../../projects/ngx-ramblers/src/app/models/health.model";
@@ -51,14 +51,14 @@ export async function systemStatus(req: Request, res: Response<Partial<HealthRes
     const startedAtMs = dateTimeNow().toMillis();
     const awsConfig = queryAWSConfig();
     const awsConfigMs = dateTimeNow().toMillis();
-    const config = await systemConfigWithoutGeometry();
+    const config = await systemConfig();
     const systemConfigMs = dateTimeNow().toMillis();
 
     const migrationStatus = await migrationStatusCached();
     const migrationStatusMs = dateTimeNow().toMillis();
     timingLog("systemStatus timings(ms):",
       "queryAWSConfig=", awsConfigMs - startedAtMs,
-      "systemConfigWithoutGeometry=", systemConfigMs - awsConfigMs,
+      "systemConfig=", systemConfigMs - awsConfigMs,
       "migrationStatusCached=", migrationStatusMs - systemConfigMs,
       "total=", migrationStatusMs - startedAtMs);
 

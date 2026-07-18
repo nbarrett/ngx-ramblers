@@ -78,12 +78,12 @@ export class InboxNotificationService implements OnDestroy {
 
   private async refreshFromServer(): Promise<void> {
     try {
-      const [counts, aliases] = await Promise.all([this.inboxService.unreadCounts(InboxViewScope.ASSIGNED_ROLES), this.inboxService.listAliases()]);
+      const [counts, aliases] = await Promise.all([this.inboxService.unreadCounts(InboxViewScope.ALL_ACCESSIBLE), this.inboxService.listAliases()]);
       this.roleLabels.clear();
       aliases.forEach(alias => this.roleLabels.set(alias.roleType, isInboxGeneralRoleType(alias.roleType) ? "Other inbox mail" : alias.roleEmail));
       this.perRoleUnread.clear();
       counts.byRole.forEach(row => this.perRoleUnread.set(row.roleType, row.unreadCount));
-      this.publishTotal();
+      this.publishTotal(counts.total);
     } catch (error) {
       this.resetState();
     }
@@ -104,11 +104,10 @@ export class InboxNotificationService implements OnDestroy {
 
   private resetState(): void {
     this.perRoleUnread.clear();
-    this.publishTotal();
+    this.publishTotal(0);
   }
 
-  private publishTotal(): void {
-    const total = Array.from(this.perRoleUnread.values()).reduce((sum, value) => sum + value, 0);
+  private publishTotal(total: number): void {
     this.totalSubject.next(total);
     this.breakdownSubject.next(this.buildBreakdown());
     this.applyTitle(total);

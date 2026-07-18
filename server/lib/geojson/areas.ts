@@ -9,7 +9,7 @@ import proj4 from "proj4";
 import path from "path";
 import { DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
-import { systemConfig } from "../config/system-config";
+import { systemConfigWithGeometry } from "../config/system-config";
 import { queryKey, createOrUpdateKey } from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { isArray, isFunction, isNumber, isString, keys } from "es-toolkit/compat";
@@ -461,7 +461,7 @@ function memberGroupGeometryFeatureCollection(
 }
 
 async function areaGroupsFromConfig(): Promise<AreaGroupConfig[]> {
-  const config: SystemConfig = await systemConfig();
+  const config: SystemConfig = await systemConfigWithGeometry();
 
   if (!config?.area?.groups) {
     return [];
@@ -793,7 +793,7 @@ export async function previewAreaDistricts(req: Request, res: Response) {
     }
 
     const areaNameLower = areaNameParam.toLowerCase();
-    const config = await systemConfig();
+    const config = await systemConfigWithGeometry();
     let districtsToUse: string[] = [];
 
     if (config?.area?.shortName && config.area.shortName.toLowerCase() === areaNameLower) {
@@ -881,7 +881,7 @@ export async function configureAreaGroups(req: Request, res: Response) {
   debugLog(`Processed groups:`, JSON.stringify(processedGroups, null, 2));
 
   try {
-    const config: SystemConfig = await systemConfig();
+    const config: SystemConfig = await systemConfigWithGeometry();
 
     if (!config.area) {
       const defaultArea: Organisation = {
@@ -962,7 +962,7 @@ export async function uploadGroupBoundaries(req: Request, res: Response) {
     const groupCodeProperty = detectGroupCodeProperty(features);
     const groupNameProperty = detectGroupNameProperty(features);
 
-    const config: SystemConfig = await systemConfig();
+    const config: SystemConfig = await systemConfigWithGeometry();
     const areaGroups = config?.area?.groups || [];
     const matched: { groupCode: string; groupName: string; featureIndex: number; matched: boolean }[] = [];
     let matchedCount = 0;
@@ -1023,7 +1023,7 @@ export async function clearGroupBoundary(req: Request, res: Response) {
       return res.status(400).json({error: "groupCode is required"});
     }
 
-    const config: SystemConfig = await systemConfig();
+    const config: SystemConfig = await systemConfigWithGeometry();
     const areaGroups = config?.area?.groups || [];
     const group = areaGroups.find(g => g.groupCode === groupCode);
 
@@ -1047,7 +1047,7 @@ export async function clearGroupBoundary(req: Request, res: Response) {
 
 export async function clearAllGroupBoundaries(req: Request, res: Response) {
   try {
-    const config: SystemConfig = await systemConfig();
+    const config: SystemConfig = await systemConfigWithGeometry();
     const areaGroups = config?.area?.groups || [];
     let clearedCount = 0;
 

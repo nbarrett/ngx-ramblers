@@ -4,7 +4,7 @@ import webpush from "web-push";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { InboxPushConfig, SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { envConfig } from "../env-config/env-config";
-import { systemConfig } from "../config/system-config";
+import { systemConfigWithGeometry } from "../config/system-config";
 import * as config from "../mongo/controllers/config";
 import { inboxPushSubscription as inboxPushSubscriptionModel } from "../mongo/models/inbox-push-subscription";
 import { InboxPushSubscription } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
@@ -18,7 +18,7 @@ const errorDebugLog = createErrorDebugLog("inbox-web-push");
 const DEFAULT_VAPID_SUBJECT = "mailto:noreply@ngx-ramblers.org.uk";
 
 export async function ensureVapidConfig(): Promise<InboxPushConfig> {
-  const current: SystemConfig = await systemConfig();
+  const current: SystemConfig = await systemConfigWithGeometry();
   if (!current) {
     throw new Error("System configuration is not initialised; cannot generate VAPID keys");
   }

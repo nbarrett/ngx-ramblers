@@ -7,6 +7,7 @@ import { faInbox } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
 import { InboxUnreadRole } from "../../../models/inbox.model";
+import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
   selector: "app-inbox-notification-badge",
@@ -65,15 +66,16 @@ export class InboxNotificationBadgeComponent {
   adminInboxPath = AdminPath.INBOX;
 
   protected inboxNotificationService = inject(InboxNotificationService);
+  protected stringUtils = inject(StringUtilsService);
   protected readonly faInbox = faInbox;
 
   tooltipFor(total: number, breakdown: InboxUnreadRole[] | null): string {
-    const heading = `${total} unread inbox message${total === 1 ? "" : "s"}`;
+    const heading = `${this.stringUtils.pluraliseWithCount(total, "unread conversation")} in your inbox`;
     if (!breakdown || breakdown.length === 0) {
       return heading;
     }
     if (breakdown.length === 1) {
-      return `${heading} for ${breakdown[0].label}`;
+      return `${heading}: ${breakdown[0].label}`;
     }
     const roleLines = breakdown.map(role => `${role.label} (${role.unreadCount})`);
     return [heading, ...roleLines].join("\n");

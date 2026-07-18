@@ -1,6 +1,6 @@
 import { Db } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
-import { systemConfig } from "../../../config/system-config";
+import { systemConfigWithGeometry } from "../../../config/system-config";
 import { createOrUpdateKey } from "../../controllers/config";
 import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 import { AccessLevel } from "../../../../../projects/ngx-ramblers/src/app/models/member-resource.model";
@@ -9,7 +9,7 @@ const debugLog = createMigrationLogger("backfill-navbar-access-levels");
 const DEFAULT_ACCESS_LEVEL = AccessLevel.PUBLIC;
 
 export async function up(_db: Db) {
-  const config = await systemConfig();
+  const config = await systemConfigWithGeometry();
 
   if (!config?.group?.pages) {
     debugLog("No group pages found in system config — skipping");
@@ -35,7 +35,7 @@ export async function up(_db: Db) {
 }
 
 export async function down(_db: Db) {
-  const config = await systemConfig();
+  const config = await systemConfigWithGeometry();
 
   if (!config?.group?.pages) {
     return;

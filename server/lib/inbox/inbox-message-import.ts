@@ -14,6 +14,7 @@ import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/webso
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
 import { broadcast } from "../websockets/websocket-broadcaster";
+import { unreadConversationCountForRole } from "./inbox-unread-counts";
 import { dateTimeFromMillis, dateTimeNow } from "../shared/dates";
 import { sendInboxPushToMember } from "./inbox-web-push";
 import * as config from "../mongo/controllers/config";
@@ -94,11 +95,7 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
     debugLog(`✅ stored junk message ${message.messageId} on thread ${persistedMessage.threadId}`);
     return persistedMessage.toObject();
   }
-  const unreadCountForRole = await inboxThreadModel.countDocuments({
-    tenantSlug: aliasConfig.tenantSlug,
-    roleType: aliasConfig.roleType,
-    unread: true
-  });
+  const unreadCountForRole = await unreadConversationCountForRole(aliasConfig.roleType, null);
   const event: InboxNewMessageEvent = {
     threadId: persistedMessage.threadId,
     messageId: message.messageId,
@@ -155,11 +152,7 @@ export async function recordOutboundReply(aliasConfig: InboxAliasConfig, replyMe
     },
     $addToSet: {messageIds: replyMessage.messageId}
   });
-  const unreadCountForRole = await inboxThreadModel.countDocuments({
-    tenantSlug: aliasConfig.tenantSlug,
-    roleType: aliasConfig.roleType,
-    unread: true
-  });
+  const unreadCountForRole = await unreadConversationCountForRole(aliasConfig.roleType, null);
   broadcast(MessageType.INBOX_THREAD_UPDATED, {
     threadId: originalThreadId,
     messageId: replyMessage.messageId,

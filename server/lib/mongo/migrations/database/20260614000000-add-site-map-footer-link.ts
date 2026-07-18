@@ -1,6 +1,6 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
-import { systemConfig } from "../../../config/system-config";
+import { systemConfigWithGeometry } from "../../../config/system-config";
 import { createOrUpdateKey } from "../../controllers/config";
 import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
@@ -13,7 +13,7 @@ function isSiteMapLink(link: { href?: string }): boolean {
 }
 
 export async function up(_db: Db, _client: MongoClient) {
-  const config = await systemConfig();
+  const config = await systemConfigWithGeometry();
   if (config) {
     config.footer = config.footer || {appDownloads: {apple: null, google: null}, legals: [], pages: [], quickLinks: []};
     config.footer.quickLinks = (config.footer.quickLinks || []).filter(link => !isSiteMapLink(link));
@@ -26,7 +26,7 @@ export async function up(_db: Db, _client: MongoClient) {
 }
 
 export async function down(_db: Db, _client: MongoClient) {
-  const config = await systemConfig();
+  const config = await systemConfigWithGeometry();
   if (config?.footer?.quickLinks) {
     config.footer.quickLinks = config.footer.quickLinks.filter(link => !isSiteMapLink(link));
     await createOrUpdateKey(ConfigKey.SYSTEM, config);
