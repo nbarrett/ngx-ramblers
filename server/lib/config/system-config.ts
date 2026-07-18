@@ -8,9 +8,9 @@ const debugLog = debug(envConfig.logNamespace("system-config"));
 debugLog.enabled = false;
 
 export async function systemConfig(): Promise<SystemConfig> {
-  return (await config.queryKey(ConfigKey.SYSTEM))?.value;
+  return (await config.queryKeyProjected(ConfigKey.SYSTEM, config.SYSTEM_GEOMETRY_EXCLUSION))?.value;
 }
 
-export async function systemConfigWithoutGeometry(): Promise<SystemConfig> {
-  return (await config.queryKeyProjected(ConfigKey.SYSTEM, config.SYSTEM_GEOMETRY_EXCLUSION))?.value;
+export async function systemConfigWithGeometry(): Promise<SystemConfig> {
+  return (await config.queryKey(ConfigKey.SYSTEM))?.value;
 }

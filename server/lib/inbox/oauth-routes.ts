@@ -10,7 +10,7 @@ import { buildOauthConsentUrl, exchangeOauthCodeForAccessToken, exchangeOauthCod
 import { GOOGLE_CLOUD_SCOPES, GoogleInboxOauthStateKind, GoogleInboxSetupStatePayload, OauthAccessType, ProvisioningStepStatus, VerifiedGoogleInboxOauthState } from "./gmail-inbox.model";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { GoogleInboxConfig, SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { systemConfig } from "../config/system-config";
+import { systemConfigWithGeometry } from "../config/system-config";
 import * as config from "../mongo/controllers/config";
 import { pushReceiverUrl } from "./inbox-push";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
@@ -221,7 +221,7 @@ async function runGoogleCloudSetupJob(accessToken: string, payload: GoogleInboxS
       pushReceiverUrl: receiverUrl
     });
     const anyStepFailed = result.steps.some(step => step.status === ProvisioningStepStatus.FAILED);
-    const current: SystemConfig = await systemConfig();
+    const current: SystemConfig = await systemConfigWithGeometry();
     if (current && !anyStepFailed) {
       const googleInbox: GoogleInboxConfig = {
         clientId: current.googleInbox?.clientId ?? "",

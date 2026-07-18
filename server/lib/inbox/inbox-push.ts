@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { GoogleInboxConfig, SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { systemConfig } from "../config/system-config";
+import { systemConfig, systemConfigWithGeometry } from "../config/system-config";
 import * as config from "../mongo/controllers/config";
 import { InboxPushEndpoint } from "./gmail-inbox.model";
 
@@ -10,7 +10,7 @@ export async function pushVerificationToken(): Promise<string | null> {
 }
 
 export async function ensurePushVerificationToken(): Promise<string> {
-  const current: SystemConfig = await systemConfig();
+  const current: SystemConfig = await systemConfigWithGeometry();
   if (!current) {
     throw new Error("System configuration is not initialised; cannot generate an inbox push token");
   }

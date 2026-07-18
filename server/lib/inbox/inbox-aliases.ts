@@ -6,7 +6,7 @@ import * as config from "../mongo/controllers/config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { member as memberModel } from "../mongo/models/member";
 import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
-import { systemConfigWithoutGeometry } from "../config/system-config";
+import { systemConfig } from "../config/system-config";
 
 export function defaultTenantSlug(): string {
   return envConfig.value("APP_NAME" as never) ?? "default";
@@ -122,7 +122,7 @@ export function deriveAliasesFrom(connectionsByEmail: Map<string, InboxMailboxCo
 }
 
 export async function cloudflareIngressProviderActive(): Promise<boolean> {
-  return (await systemConfigWithoutGeometry())?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS;
+  return (await systemConfig())?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS;
 }
 
 export async function cloudflareIngressConnectionId(tenantSlug: string): Promise<string | null> {

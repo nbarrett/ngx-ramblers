@@ -270,12 +270,28 @@
   .inbox-toolbar-actions
     display: grid !important
     grid-template-columns: 1fr 1fr
-  .inbox-toolbar-actions .btn:last-child:nth-child(odd)
+  .inbox-toolbar-actions .btn:first-child
     grid-column: 1 / -1
+  .inbox-toolbar
+    transition: max-height 0.18s ease, opacity 0.18s ease
+    max-height: 22rem
+    overflow: hidden
+  :host(.inbox-chrome-hidden) .inbox-toolbar
+    max-height: 0
+    opacity: 0
+    row-gap: 0
+    pointer-events: none
   .inbox-layout
-    height: calc(100dvh - 188px)
+    height: calc(100dvh - var(--inbox-chrome, 188px))
     min-height: 440px
     margin-top: 0.5rem
+    transition: height 0.18s ease
+  :host(.inbox-reading) .inbox-layout
+    --inbox-chrome: 96px
+    min-height: 0
+  :host(.inbox-chrome-hidden) .inbox-layout
+    --inbox-chrome: 34px
+    min-height: 0
   .inbox-pane-messages
     padding-top: 0.75rem
   .inbox-thread-row

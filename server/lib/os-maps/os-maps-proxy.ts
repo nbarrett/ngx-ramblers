@@ -14,7 +14,7 @@ export async function tileProxy(req: Request, res: Response) {
   debugLog("Tile proxy request received:", {layer, z, x, y});
 
   try {
-    const config = await systemConfig.systemConfigWithoutGeometry();
+    const config = await systemConfig.systemConfig();
     debugLog("System config retrieved:", {
       hasConfig: !!config,
       hasExternalSystems: !!config?.externalSystems,

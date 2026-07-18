@@ -5,7 +5,7 @@ import {
   createPrivacyPolicyPage,
   PRIVACY_POLICY_PATH
 } from "../../../environment-setup/templates/sample-data/page-content-templates";
-import { systemConfig } from "../../../config/system-config";
+import { systemConfigWithGeometry } from "../../../config/system-config";
 import { createOrUpdateKey } from "../../controllers/config";
 import { ConfigKey } from "../../../../../projects/ngx-ramblers/src/app/models/config.model";
 
@@ -21,7 +21,7 @@ function hrefMatchesPrivacy(legal: { href?: string }): boolean {
 export async function up(db: Db, _client: MongoClient) {
   const pageContentCollection = db.collection(PAGE_CONTENT_COLLECTION);
 
-  const config = await systemConfig();
+  const config = await systemConfigWithGeometry();
   const groupName = config?.group?.longName || config?.group?.shortName || "Our Group";
   const groupShortName = config?.group?.shortName || "our-group";
 
@@ -45,7 +45,7 @@ export async function down(db: Db, _client: MongoClient) {
   await pageContentCollection.deleteOne({path: PRIVACY_POLICY_PATH});
   debugLog("Removed default privacy policy page");
 
-  const config = await systemConfig();
+  const config = await systemConfigWithGeometry();
   if (config?.footer?.legals) {
     config.footer.legals = config.footer.legals.filter(legal => !hrefMatchesPrivacy(legal));
     await createOrUpdateKey(ConfigKey.SYSTEM, config);

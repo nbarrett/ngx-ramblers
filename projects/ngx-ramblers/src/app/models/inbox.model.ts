@@ -226,6 +226,7 @@ export interface InboxThreadListRequest {
 export interface InboxThreadListResponse {
   threads: InboxThread[];
   unreadCount: number;
+  totalCount: number;
 }
 
 export interface InboxThreadMessagesResponse {

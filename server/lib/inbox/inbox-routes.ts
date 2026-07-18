@@ -31,7 +31,6 @@ import {
   InboxThread,
   InboxThreadFolder,
   InboxThreadListResponse,
-  InboxUnreadCountByRole,
   InboxUnreadCountsResponse,
   InboxThreadMessagesResponse,
   InboxViewScope,
@@ -46,6 +45,14 @@ import { buildQuotedForwardHtml, buildQuotedReplyHtml, buildReplyHeaders } from 
 import { assignedInboxRoleTypesForMember, inboxConfigurationAdministrator, permittedInboxRoleTypes, permittedToReadJunk, requireInboxConfigurationAdministrator, requireInboxRoleAccess } from "./inbox-access";
 import { assignedMembersByMemberId, derivedAliasForRoleType, derivedAliases, derivedAliasesForConnection, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import { checkConnectionHealth, pollConnection, syncConnectionCoalesced } from "./inbox-poller";
+import {
+  conversationCount,
+  conversationCountsByRole,
+  threadUnreadForMember,
+  unreadConditionForMember,
+  unreadConversationCountForRole,
+  unreadConversationFilter
+} from "./inbox-unread-counts";
 import { ensurePushVerificationToken, pushReceiverUrl, pushVerificationToken } from "./inbox-push";
 import { registerPushSubscription, unregisterPushSubscription, vapidPublicKey } from "./inbox-web-push";
 import { dateTimeNow } from "../shared/dates";
@@ -69,22 +76,6 @@ function requestingMemberId(req: Request): string | null {
   return (req.user as Partial<MemberCookie>).memberId ?? null;
 }
 
-function threadUnreadForMember(thread: InboxThread, memberId: string | null): boolean {
-  return memberId ? !(thread.readByMemberIds ?? []).includes(memberId) : thread.unread;
-}
-
-function unreadConditionForMember(memberId: string | null): Record<string, unknown> {
-  return memberId ? {readByMemberIds: {$ne: memberId}} : {unread: true};
-}
-
-async function unreadThreadCountForRole(roleType: string, memberId: string | null): Promise<number> {
-  return inboxThreadModel.countDocuments({
-    tenantSlug: defaultTenantSlug(),
-    roleType,
-    folder: {$ne: InboxThreadFolder.JUNK},
-    ...unreadConditionForMember(memberId)
-  });
-}
 
 function sanitiseConnection(record: InboxMailboxConnection): InboxMailboxConnectionView {
   const {oauthRefreshTokenEncrypted, ...safe} = record;
@@ -561,8 +552,7 @@ function decodePushNotification(body: any): { emailAddress?: string; historyId?:
 router.get("/aliases", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
     const isConfigAdministrator = inboxConfigurationAdministrator(req);
-    const allowedRoleTypes = await permittedInboxRoleTypes(req);
-    const aliases = await derivedAliases();
+    const [allowedRoleTypes, aliases] = await Promise.all([permittedInboxRoleTypes(req), derivedAliases()]);
     const visibleAliases = aliases.filter(alias => allowedRoleTypes.includes(alias.roleType));
     const connections = await inboxMailboxConnectionModel.find({tenantSlug: defaultTenantSlug()}).lean() as InboxMailboxConnection[];
     const views = visibleAliases.map(alias => {
@@ -685,8 +675,10 @@ router.put("/aliases/notifications", authConfig.authenticate(), async (req: Requ
 
 router.get("/unread-counts", authConfig.authenticate(), async (req: Request, res: Response) => {
   try {
-    const allowedRoleTypes = await permittedInboxRoleTypes(req);
-    const assignedRoleTypes = await assignedInboxRoleTypesForMember(req.user as Partial<MemberCookie>);
+    const [allowedRoleTypes, assignedRoleTypes] = await Promise.all([
+      permittedInboxRoleTypes(req),
+      assignedInboxRoleTypesForMember(req.user as Partial<MemberCookie>)
+    ]);
     const scopeRoleTypes = req.query.scope === InboxViewScope.ASSIGNED_ROLES
       ? assignedRoleTypes.filter(assignedRoleType => allowedRoleTypes.includes(assignedRoleType))
       : allowedRoleTypes;
@@ -695,12 +687,8 @@ router.get("/unread-counts", authConfig.authenticate(), async (req: Request, res
       res.json({request: {messageType}, response: empty});
       return;
     }
-    const counts = await inboxThreadModel.aggregate([
-      {$match: {tenantSlug: defaultTenantSlug(), roleType: {$in: scopeRoleTypes}, folder: {$ne: InboxThreadFolder.JUNK}, ...unreadConditionForMember(requestingMemberId(req))}},
-      {$group: {_id: "$roleType", unreadCount: {$sum: 1}}}
-    ]);
-    const byRole: InboxUnreadCountByRole[] = counts.map(row => ({roleType: row._id, unreadCount: row.unreadCount}));
-    const total = byRole.reduce((sum, row) => sum + row.unreadCount, 0);
+    const unreadFilter = unreadConversationFilter(scopeRoleTypes, requestingMemberId(req));
+    const [byRole, total] = await Promise.all([conversationCountsByRole(unreadFilter), conversationCount(unreadFilter)]);
     const response: InboxUnreadCountsResponse = {total, byRole};
     res.json({request: {messageType}, response});
   } catch (error) {
@@ -717,12 +705,20 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
         res.status(403).json({request: {messageType}, error: "You do not have access to junk mail"});
         return;
       }
-      const junkThreads = await inboxThreadModel.find({tenantSlug: defaultTenantSlug(), folder: InboxThreadFolder.JUNK}).sort({lastSeenAt: -1}).limit(limit).lean();
-      res.json({request: {messageType}, response: {threads: junkThreads as InboxThread[], unreadCount: 0}});
+      const junkFilter = {tenantSlug: defaultTenantSlug(), folder: InboxThreadFolder.JUNK};
+      const junkThreads = await inboxThreadModel.find(junkFilter).sort({lastSeenAt: -1}).limit(limit).lean();
+      const junkResponse: InboxThreadListResponse = {
+        threads: junkThreads as InboxThread[],
+        unreadCount: 0,
+        totalCount: await conversationCount(junkFilter)
+      };
+      res.json({request: {messageType}, response: junkResponse});
       return;
     }
-    const allowedRoleTypes = await permittedInboxRoleTypes(req);
-    const assignedRoleTypes = await assignedInboxRoleTypesForMember(req.user as Partial<MemberCookie>);
+    const [allowedRoleTypes, assignedRoleTypes] = await Promise.all([
+      permittedInboxRoleTypes(req),
+      assignedInboxRoleTypesForMember(req.user as Partial<MemberCookie>)
+    ]);
     const roleType = req.query.roleType;
     if (isString(roleType) && !allowedRoleTypes.includes(roleType)) {
       res.status(403).json({request: {messageType}, error: "You do not have access to this role mailbox"});
@@ -732,18 +728,21 @@ router.get("/threads", authConfig.authenticate(), async (req: Request, res: Resp
       ? assignedRoleTypes.filter(assignedRoleType => allowedRoleTypes.includes(assignedRoleType))
       : allowedRoleTypes;
     const memberId = requestingMemberId(req);
-    const filter: Record<string, unknown> = {
+    const scopeFilter: Record<string, unknown> = {
       tenantSlug: defaultTenantSlug(),
       roleType: isString(roleType) ? roleType : {$in: scopeRoleTypes},
       folder: {$ne: InboxThreadFolder.JUNK}
     };
-    if (req.query.unreadOnly === "true") {
-      Object.assign(filter, unreadConditionForMember(memberId));
-    }
-    const threads = await inboxThreadModel.find(filter).sort({lastSeenAt: -1}).limit(limit).lean();
+    const filter = req.query.unreadOnly === "true"
+      ? {...scopeFilter, ...unreadConditionForMember(memberId)}
+      : scopeFilter;
+    const [threads, unreadCount, totalCount] = await Promise.all([
+      inboxThreadModel.find(filter).sort({lastSeenAt: -1}).limit(limit).lean(),
+      conversationCount({...scopeFilter, ...unreadConditionForMember(memberId)}),
+      conversationCount(scopeFilter)
+    ]);
     const threadsForMember = (threads as InboxThread[]).map(thread => ({...thread, unread: threadUnreadForMember(thread, memberId)}));
-    const unreadCount = await inboxThreadModel.countDocuments({...filter, ...unreadConditionForMember(memberId)});
-    const response: InboxThreadListResponse = {threads: threadsForMember, unreadCount};
+    const response: InboxThreadListResponse = {threads: threadsForMember, unreadCount, totalCount};
     res.json({request: {messageType}, response});
   } catch (error) {
     errorDebugLog("Error listing inbox threads:", (error as Error).message);
@@ -802,7 +801,7 @@ async function updateThreadReadState(req: Request, res: Response, unread: boolea
     ? (unread ? {$pull: {readByMemberIds: memberId}} : {$addToSet: {readByMemberIds: memberId}})
     : {$set: {unread}};
   await inboxThreadModel.updateOne({_id: req.params.id}, readStateUpdate);
-  const unreadCountForRole = await unreadThreadCountForRole(thread.roleType, memberId);
+  const unreadCountForRole = await unreadConversationCountForRole(thread.roleType, memberId);
   broadcast(MessageType.INBOX_THREAD_UPDATED, {threadId: req.params.id, messageId: "", roleType: thread.roleType, unreadCountForRole} as InboxNewMessageEvent);
   res.json({request: {messageType}, response: {marked: true}});
   Array.from(idsByConnection.entries()).reduce<Promise<void>>(async (acc, [cid, ids]) => {

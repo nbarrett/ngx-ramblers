@@ -27,7 +27,7 @@ import {
 import { ensureCloudflareIngressConnection } from "./cloudflare-ingress-connection";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { inboundWebhookSecret, verifyHmac } from "./inbound-signature";
-import { systemConfigWithoutGeometry } from "../config/system-config";
+import { systemConfig } from "../config/system-config";
 
 const messageType = "cloudflare:inbound-inbox";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -138,7 +138,7 @@ export async function handleInboundInbox(req: Request, res: Response): Promise<v
       res.status(400).json({request: {messageType}, error: {message: "Missing required field: rawMimeBase64"}});
       return;
     }
-    const inboxSettings = (await systemConfigWithoutGeometry())?.inbox;
+    const inboxSettings = (await systemConfig())?.inbox;
     const provider = inboxSettings?.provider;
     if (provider !== InboxReaderProvider.CLOUDFLARE_INGRESS) {
       const catchAll = inboxSettings?.catchAll;
