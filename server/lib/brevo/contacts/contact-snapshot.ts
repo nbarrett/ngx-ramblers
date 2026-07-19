@@ -28,7 +28,7 @@ async function fetchAllEvents(client: BrevoClient, email: string): Promise<Brevo
       days: EVENT_LOOKBACK_DAYS,
       email,
       sort: "desc"
-    }));
+    }), "transactionalEmails.getEmailEventReport");
     const events: BrevoEmailEvent[] = data.events ?? [];
     all.push(...events);
     if (events.length < EVENTS_PER_PAGE) {
@@ -38,24 +38,26 @@ async function fetchAllEvents(client: BrevoClient, email: string): Promise<Brevo
   return all;
 }
 
-export async function snapshotBrevoContact(identifier: NumberOrString, snapshotBy?: string): Promise<void> {
+async function contactInfoOrNull(client: BrevoClient, identifierString: string): Promise<Brevo.GetContactInfoResponse | null> {
+  try {
+    return await scheduleBrevo(() => client.contacts.getContactInfo({identifier: identifierString}), "contacts.getContactInfo");
+  } catch (error: any) {
+    debugLog("snapshotBrevoContact:getContactInfo failed", identifierString, error?.message || error);
+    return null;
+  }
+}
+
+export async function snapshotBrevoContact(identifier: NumberOrString, snapshotBy?: string, includeEvents = true): Promise<void> {
   try {
     const client = await brevoClient();
     const identifierString = isString(identifier) ? identifier : identifier.toString();
-    let contactDetails: Brevo.GetContactInfoResponse | null = null;
-    let email: string | null = identifierString.includes("@") ? identifierString : null;
-    try {
-      const info = await scheduleBrevo(() => client.contacts.getContactInfo({identifier: identifierString}));
-      contactDetails = info;
-      email = contactDetails?.email || email;
-    } catch (error: any) {
-      debugLog("snapshotBrevoContact:getContactInfo failed", identifierString, error?.message || error);
-    }
+    const contactDetails: Brevo.GetContactInfoResponse | null = await contactInfoOrNull(client, identifierString);
+    const email: string | null = contactDetails?.email || (identifierString.includes("@") ? identifierString : null);
     if (!email) {
       debugLog("snapshotBrevoContact:no email resolved - skipping", identifierString);
       return;
     }
-    const events = await fetchAllEvents(client, email);
+    const events = includeEvents ? await fetchAllEvents(client, email) : [];
     const memberDoc = await member.findOne({ email: email.toLowerCase() }, { _id: 1 }).lean().exec() as any;
     await brevoContactSnapshot.updateOne(
       { email: email.toLowerCase() },

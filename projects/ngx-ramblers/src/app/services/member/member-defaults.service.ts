@@ -8,6 +8,9 @@ import { MailchimpListUpdaterService } from "../mailchimp/mailchimp-list-updater
 import { AlertInstance } from "../notifier.service";
 import { LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
+import { startCase } from "es-toolkit/compat";
+import { BroadcastService } from "../broadcast-service";
+import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 
 @Injectable({
   providedIn: "root"
@@ -17,6 +20,7 @@ export class MemberDefaultsService {
   private mailchimpListUpdaterService: MailchimpListUpdaterService = inject(MailchimpListUpdaterService);
   private mailchimpListService: MailchimpListService = inject(MailchimpListService);
   private mailListUpdaterService: MailListUpdaterService = inject(MailListUpdaterService);
+  private broadcastService: BroadcastService<any> = inject(BroadcastService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("MemberDefaultsService", NgxLoggerLevel.OFF);
 
@@ -41,7 +45,18 @@ export class MemberDefaultsService {
       });
   }
 
-  public updateLists(systemConfig: SystemConfig, notify: AlertInstance, members: Member[]): Promise<any> {
+  public updateListsTitle(systemConfig: SystemConfig): string {
+    const provider = systemConfig?.mailDefaults?.mailProvider;
+    return provider ? `Sync with ${startCase(provider)}` : "Sync Mailing Lists";
+  }
+
+  public async updateLists(systemConfig: SystemConfig, notify: AlertInstance, members: Member[]): Promise<any> {
+    const result = await this.updateListsForProvider(systemConfig, notify, members);
+    this.broadcastService.broadcast(NamedEvent.named(NamedEventType.MAIL_SUBSCRIPTION_CHANGED));
+    return result;
+  }
+
+  private updateListsForProvider(systemConfig: SystemConfig, notify: AlertInstance, members: Member[]): Promise<any> {
     switch (systemConfig?.mailDefaults?.mailProvider) {
       case MailProvider.BREVO:
         return this.updateBrevoLists(notify, members);

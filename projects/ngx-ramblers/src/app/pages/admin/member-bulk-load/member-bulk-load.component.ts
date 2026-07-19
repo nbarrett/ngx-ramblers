@@ -4,6 +4,7 @@ import { ActivatedRoute, ParamMap } from "@angular/router";
 import { faEnvelopesBulk, faSearch, faCloudArrowDown } from "@fortawesome/free-solid-svg-icons";
 import { first } from "es-toolkit/compat";
 import { isString } from "es-toolkit/compat";
+import { extractErrorMessage } from "../../../functions/strings";
 import { groupBy } from "es-toolkit/compat";
 import { map } from "es-toolkit/compat";
 import { reduce } from "es-toolkit/compat";
@@ -763,7 +764,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       await this.salesforceConfigService.refresh();
     } catch (error) {
       this.logger.error("Salesforce sync error", error);
-      this.notify.error({title: "Salesforce sync failed", message: error instanceof Error ? error.message : String(error)});
+      this.notify.error({title: "Salesforce sync failed", message: this.salesforceErrorText(error)});
     } finally {
       this.salesforceSyncing = false;
       this.clearBusy();
@@ -775,7 +776,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       return error;
     }
     const record = error as Record<string, string>;
-    return record?.errorMessage || record?.message || record?.errorCode || JSON.stringify(error);
+    return record?.errorMessage || record?.errorCode || extractErrorMessage(error);
   }
 
   private filterLists(searchTerm?: string) {

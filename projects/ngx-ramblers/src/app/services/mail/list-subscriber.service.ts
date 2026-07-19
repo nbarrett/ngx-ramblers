@@ -1,6 +1,5 @@
 import { inject, Injectable } from "@angular/core";
 import { Member } from "../../models/member.model";
-import { MemberService } from "../member/member.service";
 import { MailListUpdaterService } from "./mail-list-updater.service";
 import { StringUtilsService } from "../string-utils.service";
 
@@ -9,14 +8,11 @@ const TOOLTIP_NAME_PREVIEW_LIMIT = 30;
 @Injectable({providedIn: "root"})
 export class ListSubscriberService {
 
-  private memberService = inject(MemberService);
   private mailListUpdaterService = inject(MailListUpdaterService);
   private stringUtils = inject(StringUtilsService);
 
   private subscribedMembers(members: Member[], listId: number): Member[] {
-    return (members ?? [])
-      .filter(this.memberService.filterFor.GROUP_MEMBERS)
-      .filter(member => this.mailListUpdaterService.memberSubscribed(member, listId));
+    return this.mailListUpdaterService.subscribedMembers(members, listId);
   }
 
   subscriberCount(members: Member[], listId: number): number {

@@ -20,6 +20,7 @@ import { MailLinkService } from "../../../../services/mail/mail-link.service";
 import { MailService } from "../../../../services/mail/mail.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { MemberService } from "../../../../services/member/member.service";
+import { MemberDefaultsService } from "../../../../services/member/member-defaults.service";
 import { Member } from "../../../../models/member.model";
 import { Confirm, StoredValue } from "../../../../models/ui-actions";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -37,6 +38,7 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
 import { NgClass, NgStyle } from "@angular/common";
 import { MailListEditorComponent } from "./list-editor";
 import { MailListSettingsComponent } from "./mail-list-settings";
+import { ListSubscriptionImportExportComponent } from "./list-subscription-import-export";
 import { MailSendersListComponent } from "./mail-senders-list";
 import { MailDomainsListComponent } from "./mail-domains-list";
 import { MailUnsubscribesListComponent } from "./mail-unsubscribes-list";
@@ -109,7 +111,10 @@ import { SystemGmailInboxSettingsComponent } from "../external/system-gmail-inbo
                           </div>
                           @if (!listCreateRequest) {
                             <div class="col-auto">
-                              <div class="float-end">
+                              <div class="float-end d-flex gap-2">
+                                <app-brevo-button button [title]="updateListsTitle()"
+                                                  [disabled]="syncingLists" [loading]="syncingLists"
+                                                  (click)="updateLists()"/>
                                 <app-brevo-button button title="Create New List" [disabled]="createNewListDisabled()" (click)="createNewList()"/>
                               </div>
                             </div>
@@ -125,8 +130,11 @@ import { SystemGmailInboxSettingsComponent } from "../external/system-gmail-inbo
                           </div>
                         }
                         @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list.id) {
-                          <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig" [notify]="notify" [list]="list" [members]="members"></app-mail-list-settings>
+                          <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig" [notify]="notify" [notifyTarget]="notifyTarget" [list]="list" [members]="members"></app-mail-list-settings>
                         }
+                        <app-list-subscription-import-export [mailMessagingConfig]="mailMessagingConfig"
+                                                             [members]="members" [notify]="notify"
+                                                             [notifyTarget]="notifyTarget"/>
                       </div>
                     </div>
                   } @else {
@@ -419,7 +427,7 @@ import { SystemGmailInboxSettingsComponent } from "../external/system-gmail-inbo
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, FontAwesomeModule, NgClass, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, FontAwesomeModule, NgClass, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent, ListSubscriptionImportExportComponent]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];
@@ -439,6 +447,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   protected dateUtils: DateUtilsService = inject(DateUtilsService);
   protected mailService: MailService = inject(MailService);
   private memberService: MemberService = inject(MemberService);
+  private memberDefaultsService: MemberDefaultsService = inject(MemberDefaultsService);
   protected members: Member[] = [];
   protected membersPendingSave: Member[] = [];
   private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
@@ -462,6 +471,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   };
 
   public systemConfig: SystemConfig;
+  public syncingLists = false;
   private systemConfigService = inject(SystemConfigService);
 
   ngOnInit() {
@@ -570,6 +580,19 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   createNewList() {
     if (!this.createNewListDisabled()) {
       this.listCreateRequest = {name: "", folderId: first(this.mailMessagingConfig?.brevo?.folders?.folders)?.id};
+    }
+  }
+
+  updateListsTitle(): string {
+    return this.memberDefaultsService.updateListsTitle(this.systemConfig);
+  }
+
+  async updateLists() {
+    this.syncingLists = true;
+    try {
+      await this.memberDefaultsService.updateLists(this.systemConfig, this.notify, this.members);
+    } finally {
+      this.syncingLists = false;
     }
   }
 
