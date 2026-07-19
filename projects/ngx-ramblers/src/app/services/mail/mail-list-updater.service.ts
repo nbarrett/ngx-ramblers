@@ -1,6 +1,26 @@
 import { inject, Injectable } from "@angular/core";
+import { HttpClient } from "@angular/common/http";
 import { NgxLoggerLevel } from "ngx-logger";
+import { firstValueFrom } from "rxjs";
 import { Member } from "../../models/member.model";
+import { ApiResponse } from "../../models/api-response.model";
+import { downloadBlob } from "../../functions/file-download";
+import {
+  APPLIED_OUTCOMES,
+  ListSubscriptionChangeCount,
+  ListSubscriptionExportRequest,
+  ListSubscriptionImportSummary,
+  ListSubscriptionOutcome,
+  ListSubscriptionParseResponse,
+  ListSubscriptionResult,
+  ListSubscriptionRow,
+  RetrospectiveApplyChange,
+  RetrospectiveApplyPreview,
+  SUBSCRIBED_NO,
+  SUBSCRIBED_YES
+} from "../../models/mail-list-subscription.model";
+import { CommonDataService } from "../common-data-service";
+import { DateUtilsService } from "../date-utils.service";
 import { LoggerFactory } from "../logger-factory.service";
 import { AlertInstance } from "../notifier.service";
 import { StringUtilsService } from "../string-utils.service";
@@ -42,10 +62,17 @@ import { BroadcastService } from "../broadcast-service";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 
 
+const AFFIRMATIVE_VALUES = ["yes", "y", "true", "1", "subscribed"];
+const NEGATIVE_VALUES = ["no", "n", "false", "0", "unsubscribed"];
+
 @Injectable({
   providedIn: "root"
 })
 export class MailListUpdaterService {
+  private readonly SUBSCRIPTIONS_URL = "api/mail/lists/subscriptions";
+  private http: HttpClient = inject(HttpClient);
+  private commonDataService: CommonDataService = inject(CommonDataService);
+  private dateUtils: DateUtilsService = inject(DateUtilsService);
   private performUpdates = true;
   public pendingMailListAudits: MailListAudit[] = [];
   public mailMessagingConfig: MailMessagingConfig;
@@ -488,8 +515,209 @@ export class MailListUpdaterService {
     return match;
   }
 
+  public subscribedMembers(members: Member[], listId: number): Member[] {
+    return (members ?? []).filter(member => this.memberSubscribed(member, listId));
+  }
+
+  public subscriptionFor(member: Member, listId: number): MailSubscription {
+    return member?.mail?.subscriptions?.find(subscription => subscription.id === listId);
+  }
+
+  public subscribedToList(member: Member, listId: number): boolean {
+    return !!this.subscriptionFor(member, listId)?.subscribed;
+  }
+
+  public setSubscription(member: Member, listId: number, subscribed: boolean): void {
+    if (!member.mail) {
+      member.mail = {subscriptions: [], email: member.email, id: null};
+    }
+    if (!member.mail.subscriptions) {
+      member.mail.subscriptions = [];
+    }
+    const existing: MailSubscription = this.subscriptionFor(member, listId);
+    const wasSubscribed = !!existing?.subscribed;
+    const subscription: MailSubscription = existing || this.mapIdToSubscription(listId, subscribed);
+    subscription.subscribed = subscribed;
+    if (subscribed) {
+      subscription.unsubscribedAt = undefined;
+    } else if (wasSubscribed) {
+      subscription.unsubscribedAt = this.dateUtils.nowAsValue();
+    }
+    if (!existing) {
+      member.mail.subscriptions.push(subscription);
+    }
+  }
+
+  public rowsFrom(members: Member[], lists: ListInfo[]): ListSubscriptionRow[] {
+    return members
+      .flatMap(member => lists.map(list => ({
+        email: member.email || "",
+        listName: list.name,
+        subscribed: this.subscribedToList(member, list.id) ? SUBSCRIBED_YES : SUBSCRIBED_NO
+      })))
+      .sort((left, right) => this.normalisedText(left.email).localeCompare(this.normalisedText(right.email))
+        || left.listName.localeCompare(right.listName));
+  }
+
+  public async downloadSpreadsheet(members: Member[], lists: ListInfo[], fileName: string): Promise<number> {
+    const request: ListSubscriptionExportRequest = {fileName, rows: this.rowsFrom(members, lists)};
+    this.logger.info("downloading", request.rows.length, "rows as", fileName);
+    const blob = await firstValueFrom(this.http.post(`${this.SUBSCRIPTIONS_URL}/export`, request, {responseType: "blob"}));
+    downloadBlob(blob, fileName);
+    return request.rows.length;
+  }
+
+  public async parseFile(file: File): Promise<ListSubscriptionRow[]> {
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+    const parseResponse: ListSubscriptionParseResponse =
+      (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.SUBSCRIPTIONS_URL}/parse`, formData))).response;
+    this.logger.info("parsed", parseResponse?.rows?.length, "rows from", file.name);
+    return parseResponse?.rows || [];
+  }
+
+  public applyRows(rows: ListSubscriptionRow[], members: Member[], lists: ListInfo[]): ListSubscriptionImportSummary {
+    const changedMembers = new Map<string, Member>();
+    const results: ListSubscriptionResult[] = rows.map(row => this.resultForRow(row, members, lists, changedMembers));
+    return {results, membersChanged: Array.from(changedMembers.values())};
+  }
+
+  private resultForRow(row: ListSubscriptionRow, members: Member[], lists: ListInfo[], changedMembers: Map<string, Member>): ListSubscriptionResult {
+    if (!row.email) {
+      return {row, outcome: ListSubscriptionOutcome.NO_EMAIL_ADDRESS};
+    }
+    const list = this.listMatching(row.listName, lists);
+    if (!list) {
+      return {row, outcome: ListSubscriptionOutcome.UNKNOWN_LIST};
+    }
+    const requested = this.requestedSubscription(row.subscribed);
+    if (requested === null) {
+      return {row, outcome: ListSubscriptionOutcome.UNRECOGNISED_SUBSCRIBED_VALUE};
+    }
+    const matches = this.membersMatching(row.email, members);
+    if (matches.length === 0) {
+      return {row, outcome: ListSubscriptionOutcome.NO_MATCHING_MEMBER};
+    }
+    if (matches.length > 1) {
+      return {row, outcome: ListSubscriptionOutcome.AMBIGUOUS_MEMBER_MATCH};
+    }
+    const member = matches[0];
+    if (this.subscribedToList(member, list.id) === requested) {
+      return {row, outcome: ListSubscriptionOutcome.UNCHANGED};
+    }
+    this.setSubscription(member, list.id, requested);
+    changedMembers.set(member.id, member);
+    return {row, outcome: requested ? ListSubscriptionOutcome.SUBSCRIBED : ListSubscriptionOutcome.UNSUBSCRIBED};
+  }
+
+  public changeCountsByList(results: ListSubscriptionResult[], membersBefore: Member[], membersAfter: Member[], lists: ListInfo[]): ListSubscriptionChangeCount[] {
+    const counts = results
+      .filter(result => APPLIED_OUTCOMES.includes(result.outcome))
+      .reduce((accumulator, result) => {
+        const listName = result.row.listName || "";
+        const existing = accumulator.get(listName)
+          || {listName, subscribersBefore: 0, subscribing: 0, unsubscribing: 0, subscribersAfter: 0};
+        const subscribing = result.outcome === ListSubscriptionOutcome.SUBSCRIBED;
+        accumulator.set(listName, {
+          ...existing,
+          subscribing: existing.subscribing + (subscribing ? 1 : 0),
+          unsubscribing: existing.unsubscribing + (subscribing ? 0 : 1)
+        });
+        return accumulator;
+      }, new Map<string, ListSubscriptionChangeCount>());
+    return Array.from(counts.values())
+      .map(count => {
+        const listId = this.listMatching(count.listName, lists)?.id;
+        return {
+          ...count,
+          subscribersBefore: this.subscribedMembers(membersBefore, listId).length,
+          subscribersAfter: this.subscribedMembers(membersAfter, listId).length
+        };
+      })
+      .sort((left, right) => left.listName.localeCompare(right.listName));
+  }
+
+  public retrospectivePreview(list: ListInfo, listSetting: ListSetting, members: Member[]): RetrospectiveApplyPreview {
+    const wanted: RetrospectiveApplyChange[] = members
+      .map(member => this.retrospectiveChangeFor(member, list, listSetting))
+      .filter(change => !!change);
+    const changes: RetrospectiveApplyChange[] = wanted.filter(change => !this.keptUnsubscribed(change, list));
+    this.logger.info("retrospectivePreview for list", list?.name, "produced", changes.length, "changes and kept",
+      wanted.length - changes.length, "members unsubscribed");
+    return {
+      listId: list?.id,
+      listName: list?.name,
+      changes,
+      subscribingCount: changes.filter(change => change.subscribed).length,
+      unsubscribingCount: changes.filter(change => !change.subscribed).length,
+      keptUnsubscribedCount: wanted.length - changes.length
+    };
+  }
+
+  private keptUnsubscribed(change: RetrospectiveApplyChange, list: ListInfo): boolean {
+    return change.subscribed && this.previouslyUnsubscribed(change.member, list?.id);
+  }
+
+  public applyRetrospective(preview: RetrospectiveApplyPreview): Member[] {
+    return preview.changes.map(change => {
+      this.setSubscription(change.member, preview.listId, change.subscribed);
+      return change.member;
+    });
+  }
+
+  public async saveAndSyncChanges(notify: AlertInstance, changedMembers: Member[], allMembers: Member[]): Promise<void> {
+    if (changedMembers.length === 0) {
+      return;
+    }
+    this.logger.info("saving", changedMembers.length, "changed members and syncing to the mail provider");
+    await this.memberService.createOrUpdateAll(changedMembers);
+    await this.syncChangedMembersToBrevo(notify, allMembers);
+  }
+
+  private retrospectiveChangeFor(member: Member, list: ListInfo, listSetting: ListSetting): RetrospectiveApplyChange {
+    const subscribed = !!this.mailMessagingService.subscribed(listSetting, member);
+    if (this.subscribedToList(member, list?.id) === subscribed) {
+      return null;
+    }
+    return {member, subscribed};
+  }
+
+  private previouslyUnsubscribed(member: Member, listId: number): boolean {
+    return isNumber(this.listUnsubscribedAt(member, listId));
+  }
+
+  private membersMatching(email: string, members: Member[]): Member[] {
+    return members.filter(member => this.sameText(member.email, email));
+  }
+
+  private listMatching(listName: string, lists: ListInfo[]): ListInfo {
+    return lists?.find(list => this.sameText(list.name, listName));
+  }
+
+  private requestedSubscription(value: string): boolean {
+    const normalised = this.normalisedText(value);
+    if (!normalised) {
+      return false;
+    }
+    if (AFFIRMATIVE_VALUES.includes(normalised)) {
+      return true;
+    }
+    if (NEGATIVE_VALUES.includes(normalised)) {
+      return false;
+    }
+    return null;
+  }
+
+  private sameText(left: string, right: string): boolean {
+    return !!left && !!right && this.normalisedText(left) === this.normalisedText(right);
+  }
+
+  private normalisedText(value: string): string {
+    return value?.toLowerCase()?.trim();
+  }
+
   private cleanEmail(email: string) {
-    return email?.toLowerCase()?.trim();
+    return this.normalisedText(email);
   }
 
   private notifyIntegrationNotEnabled(notify: AlertInstance) {

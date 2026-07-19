@@ -75,7 +75,7 @@ export interface MailchimpSegmentIds {
   walkCoordinator?: number;
 }
 
-interface MailSettings extends MailIdentifiers {
+export interface MailSettings extends MailIdentifiers {
   subscriptions: MailSubscription[];
   lastSyncedSignature?: string;
   lastSyncedListIds?: number[];

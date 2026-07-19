@@ -2,7 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { DateUtilsService } from "../../../services/date-utils.service";
+import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
 import { Member } from "../../../models/member.model";
 import { MailConfig, MailMessagingConfig, MailSubscription } from "../../../models/mail.model";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -31,7 +31,7 @@ export class MailSubscriptionSettingComponent implements OnInit {
 
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
-  protected dateUtils: DateUtilsService = inject(DateUtilsService);
+  private mailListUpdaterService: MailListUpdaterService = inject(MailListUpdaterService);
   private mailMessagingService: MailMessagingService = inject(MailMessagingService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("MailSubscriptionSettingComponent", NgxLoggerLevel.ERROR);
@@ -53,7 +53,7 @@ export class MailSubscriptionSettingComponent implements OnInit {
   }
 
   subscriptionChange(subscriptionChangedState: any) {
-    this.subscription.unsubscribedAt = subscriptionChangedState ? undefined : this.dateUtils.nowAsValue();
+    this.mailListUpdaterService.setSubscription(this.member, this.subscription.id, subscriptionChangedState);
     this.logger.info("subscriptionChanged:subscription", this.subscription, "subscriptionChangedState:", subscriptionChangedState);
   }
 }

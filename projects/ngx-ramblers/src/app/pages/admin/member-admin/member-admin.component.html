@@ -42,7 +42,7 @@
                        (click)="showSendEmailsDialog()" title="Send Emails"
                        class="rsm-btn-ghost">
                 <input [disabled]="notifyTarget.busy" type="submit"
-                       value="Update {{systemConfig?.mailDefaults?.mailProvider| titlecase}} Mailing Lists"
+                       [value]="updateListsTitle()"
                        (click)="updateLists()"
                        class="rsm-btn-ghost">
               }

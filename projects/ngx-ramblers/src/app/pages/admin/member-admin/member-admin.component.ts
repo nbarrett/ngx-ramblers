@@ -25,8 +25,6 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
-import { BroadcastService } from "../../../services/broadcast-service";
-import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-modal.component";
 import { ProfileService } from "../profile/profile.service";
@@ -74,7 +72,6 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private apiResponseProcessorLogger: Logger = this.loggerFactory.createLogger("MemberAdminComponentResponseProcessor", NgxLoggerLevel.ERROR);
   protected stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private mailchimpConfigService = inject(MailchimpConfigService);
-  private broadcastService: BroadcastService<any> = inject(BroadcastService);
   private memberService = inject(MemberService);
   private apiResponseProcessor = inject(ApiResponseProcessor);
   private mailListUpdaterService = inject(MailListUpdaterService);
@@ -536,12 +533,15 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
       this.logger.info("deletedMembers:", deletedMembers);
       await this.refreshMembers();
       await this.updateLists();
-      this.broadcastService.broadcast(NamedEvent.named(NamedEventType.MAIL_SUBSCRIPTION_CHANGED));
     } finally {
       this.confirm.clear();
       this.bulkDeleteMarkedMemberIds = [];
       this.notify.clearBusy();
     }
+  }
+
+  updateListsTitle(): string {
+    return this.memberDefaultsService.updateListsTitle(this.systemConfig);
   }
 
   public async updateLists() {
