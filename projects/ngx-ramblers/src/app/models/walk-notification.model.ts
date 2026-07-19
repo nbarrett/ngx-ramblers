@@ -4,10 +4,9 @@ import { EventType } from "./walk.model";
 import { WalkEventType } from "./walk-event-type.model";
 import { NotificationConfig } from "./mail.model";
 import { ExtendedGroupEvent } from "./group-event.model";
-import { Walk } from "./deprecated";
-import { WalkConfigTab, WalksConfig } from "./walks-config.model";
 import { NotificationHost } from "./notification-host.model";
 import { AlertLike } from "./alert.model";
+import { Member } from "./member.model";
 
 export interface WalkNotification {
   walk: ExtendedGroupEvent;
@@ -15,6 +14,7 @@ export interface WalkNotification {
   event: WalkEvent;
   walkDataAudit: WalkDataAudit;
   validationMessages: string[];
+  recipientMemberId?: string;
   reason?: string;
 }
 
@@ -28,7 +28,7 @@ export interface WalkMailMessageConfiguration {
   notify: AlertLike;
   walkEventType: WalkEventType;
   memberIds: string[];
-  notificationText: string;
+  notificationTextForMember: (member: Member) => Promise<string>;
   notificationConfig: NotificationConfig;
   emailSubject: string;
   destination: string;

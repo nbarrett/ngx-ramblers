@@ -1,6 +1,5 @@
 import { Component } from "@angular/core";
 import { WalkNotificationDetailsComponent } from "./walk-notification-details.component";
-import { HumanisePipe } from "../../../../pipes/humanise.pipe";
 
 
 @Component({
@@ -12,16 +11,16 @@ import { HumanisePipe } from "../../../../pipes/humanise.pipe";
         <th width="40%" style="border:1px solid lightgrey; font-weight: bold; padding: 6px">From</th>
         <th width="40%" style="border:1px solid lightgrey; font-weight: bold; padding: 6px">To</th>
       </tr>
-      @for (item of walkDataAudit?.changedItems; track item.fieldName) {
+      @for (item of walkDataAudit?.notificationChangedItems; track item.field) {
         <tr>
-          <td style="border:1px solid lightgrey; padding: 6px">{{ item.fieldName | humanise }}</td>
-          <td style="border:1px solid lightgrey; padding: 6px" [innerHTML]="renderMarked(item.previousValue)"></td>
-          <td style="border:1px solid lightgrey; padding: 6px" [innerHTML]="renderMarked(item.currentValue) "></td>
+          <td style="border:1px solid lightgrey; padding: 6px">{{ item.label }}</td>
+          <td style="border:1px solid lightgrey; padding: 6px" [innerHTML]="renderMarked(item.from)"></td>
+          <td style="border:1px solid lightgrey; padding: 6px" [innerHTML]="renderMarked(item.to) "></td>
         </tr>
       }
     </table>
   `,
-    imports: [HumanisePipe]
+    imports: []
 })
 export class WalkNotificationChangesComponent extends WalkNotificationDetailsComponent {
 

@@ -316,6 +316,7 @@ export enum GroupEventField {
   TITLE = "groupEvent.title",
   TRANSPORT = "groupEvent.transport",
   URL = "groupEvent.url",
+  WALK_LEADER = "groupEvent.walk_leader",
   WALK_LEADER_EMAIL = "groupEvent.walk_leader.email",
   WALK_LEADER_ID = "groupEvent.walk_leader.id",
   WALK_LEADER_NAME = "groupEvent.walk_leader.name",

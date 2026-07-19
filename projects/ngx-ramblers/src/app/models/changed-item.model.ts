@@ -1,12 +1,9 @@
-export interface ChangedItem {
-  fieldName: string;
-  previousValue?: any;
-  currentValue: any;
+import { FieldChange } from "./field-change.model";
+
+export type ChangedItem = FieldChange<string, any>;
+
+export interface DescribedChangedItem extends FieldChange<string, string> {
+  label: string;
 }
 
-export interface ChangedItemDisplay {
-  fieldName: string;
-  field: string;
-  from: string;
-  to: string;
-}
+export type NotificationChangedItem = DescribedChangedItem;

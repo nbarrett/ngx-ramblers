@@ -24,7 +24,11 @@ import { of } from "rxjs";
 import { WalksConfigService } from "../system/walks-config.service";
 import { LinkSource } from "../../models/walk.model";
 import { MemberLoginService } from "../member/member-login.service";
-import { WALK_PUBLISHED_AND_MATCHING, WALK_PUBLISHED_WITH_PROBLEMS, WalkEditField } from "../../models/ramblers-walks-manager";
+import {
+  WALK_PUBLISHED_AND_MATCHING,
+  WALK_PUBLISHED_WITH_PROBLEMS,
+  WalkEditField
+} from "../../models/ramblers-walks-manager";
 import { vi } from "vitest";
 
 describe("RamblersWalksAndEventsService", () => {
@@ -520,6 +524,12 @@ describe("RamblersWalksAndEventsService", () => {
       expect(walkExport.selected).toBe(true);
       expect(walkExport.editInPlace).toBe(true);
       expect(walkExport.fieldChanges.map(change => change.field)).toEqual([WalkEditField.TITLE]);
+      expect(walkExport.fieldChanges[0]).toEqual(expect.objectContaining({
+        field: WalkEditField.TITLE,
+        existingValue: "Different title"
+      }));
+      expect(walkExport.fieldChanges[0]).not.toHaveProperty("from");
+      expect(walkExport.fieldChanges[0]).not.toHaveProperty("to");
       expect(await service.walkUploadRows([walkExport])).toEqual([]);
       expect(service.walkDeletionList([walkExport])).toEqual([]);
       expect(service.walkUploadList([walkExport])).toEqual([]);

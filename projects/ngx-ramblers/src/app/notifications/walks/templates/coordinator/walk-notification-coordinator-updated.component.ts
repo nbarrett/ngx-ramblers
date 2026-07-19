@@ -11,7 +11,7 @@ import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe
     selector: "app-walk-notification-coordinator-updated",
     template: `
     <p>This email is a notification that at <strong [textContent]="event.date | displayDateAndTime"></strong>,
-    <strong [textContent]="event.memberId | memberIdToFullName : members"></strong>
+    <strong [textContent]="actorName()"></strong>
     made the following changes to the walk led by <strong
     [textContent]="walk?.fields?.contactDetails?.memberId | memberIdToFullName : members : walk?.fields?.contactDetails?.displayName"></strong>
     on <strong [textContent]="walk.groupEvent.start_date_time | displayDate"></strong>:

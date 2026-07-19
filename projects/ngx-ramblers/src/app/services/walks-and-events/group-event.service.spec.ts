@@ -8,10 +8,13 @@ import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-
 import { StringUtilsService } from "../string-utils.service";
 import { GroupEventService } from "./group-event.service";
 import { DateUtilsService } from "../date-utils.service";
-import { EventType, GroupEventField } from "../../models/walk.model";
+import { EventField, EventType, GroupEventField, LinkSource } from "../../models/walk.model";
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { WalksConfigService } from "../system/walks-config.service";
 import { createExtendedGroupEvent } from "../../testing/create-extended-group-event";
+import { AUDITED_FIELDS } from "../../models/walk-event.model";
+import { WALK_NOTIFICATION_FIELDS } from "../../models/walk-notification-fields";
+import { WalkNotificationValueService } from "./walk-notification-value.service";
 
 const memberLoginServiceStub = {
     memberLoggedIn: () => true,
@@ -82,10 +85,222 @@ describe("GroupEventService", () => {
         const currentWalk = walkWithContact(null);
         currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
         const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
-        expect(audit.changedItems.find(item => item.fieldName === "fields.contactDetails")).toBeUndefined();
+      expect(audit.changedItems.find(item => item.field === EventField.CONTACT_DETAILS)).toBeUndefined();
     });
 
-    it("treats equivalent ISO timestamps as unchanged", () => {
+    it("configures a recipient-facing descriptor for every audited field", () => {
+        expect(AUDITED_FIELDS.filter(fieldName => !WALK_NOTIFICATION_FIELDS[fieldName])).toEqual([]);
+    });
+
+  it("summarises changed contact details as one recipient-facing field", () => {
+        const service = TestBed.inject(GroupEventService);
+        const changedItems = service.changedItemsBetween({
+            fields: {
+                contactDetails: {
+                    contactId: "Jane Bloggs",
+                    displayName: "Jane B",
+                    email: "jane@example.com",
+                    memberId: "member-id"
+                }
+            }
+        }, {
+            fields: {
+                contactDetails: {
+                    displayName: "Jane A",
+                    email: "jane@example.com",
+                    memberId: "member-id"
+                }
+            }
+        });
+        const notificationChangedItems = service.notificationChangedItems(changedItems);
+
+        expect(notificationChangedItems).toEqual([{
+          field: EventField.CONTACT_DETAILS,
+          label: "Leader contact details",
+          from: "Jane A, jane@example.com",
+          to: "Jane B, jane@example.com"
+        }]);
+    });
+
+  it("summarises image changes without exposing URLs, dimensions or credits", () => {
+    const service = TestBed.inject(GroupEventService);
+    const changedItems = service.changedItemsBetween({
+      groupEvent: {
+        media: [{
+          title: "Woodland path",
+          alt: "Trees beside a path",
+          credit: "Jane Smith",
+          caption: "",
+          styles: [{style: "large", url: "https://internal/new.jpg", width: 1200, height: 800}]
+        }, {
+          title: "View from the ridge",
+          alt: "A view",
+          credit: "Jane Smith",
+          caption: "",
+          styles: [{style: "large", url: "https://internal/ridge.jpg", width: 1200, height: 800}]
+        }]
+      }
+    }, {
+      groupEvent: {
+        media: [{
+          title: "Woodland path",
+          alt: "Trees beside a path",
+          credit: "Jane Smith",
+          caption: "",
+          styles: [{style: "large", url: "https://internal/old.jpg", width: 600, height: 400}]
+        }]
+      }
+    });
+
+    expect(service.notificationChangedItems(changedItems)).toEqual([{
+      field: GroupEventField.MEDIA,
+      label: "Walk images",
+      from: "1 image: “Woodland path”, description “Trees beside a path”",
+      to: "2 images: “Woodland path”, description “Trees beside a path”; “View from the ridge”, description “A view”"
+    }]);
+  });
+
+  it("groups images with matching recipient-facing details", () => {
+    const formatter = TestBed.inject(WalkNotificationValueService);
+
+    const formatted = formatter.format(GroupEventField.MEDIA, [{
+      title: "Circular walk",
+      alt: "Circular walk"
+    }, {
+      title: "Circular walk",
+      alt: "Circular walk"
+    }, {
+      title: "Circular walk",
+      alt: "Circular walk"
+    }, {
+      title: "Castle view",
+      alt: "Castle view"
+    }]);
+
+    expect(formatted).toBe("4 images: 3 × “Circular walk”; “Castle view”");
+  });
+
+    it("retains internal-only changes in the audit without requiring a recipient-facing change", () => {
+        const service = TestBed.inject(GroupEventService);
+        const previousWalk = walkWithContact(null);
+        const currentWalk = walkWithContact(null);
+        currentWalk.fields.contactDetails.contactId = "Jane Bloggs";
+        currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
+
+        const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
+
+    expect(audit.changedItems.find(item => item.field === EventField.CONTACT_DETAILS)).toBeDefined();
+        expect(audit.notificationChangedItems).toEqual([]);
+        expect(audit.dataChanged).toBe(true);
+    });
+
+    it("suppresses technical history changes when their friendly summaries are identical", () => {
+        const service = TestBed.inject(GroupEventService);
+        const changedItems = [{
+            field: EventField.RISK_ASSESSMENT,
+            from: [{confirmed: true, riskAssessmentKey: "traffic"}],
+            to: [{confirmed: true, riskAssessmentKey: "traffic", riskAssessmentSection: "Traffic"}]
+        }];
+
+        expect(service.describedChangedItems(changedItems)).toEqual([]);
+        expect(service.notificationChangedItems(changedItems)).toEqual([]);
+    });
+
+    it("expresses date and time changes with both the date and time", () => {
+    const formatter = TestBed.inject(WalkNotificationValueService);
+
+    const formatted = formatter.format(GroupEventField.START_DATE, "2026-08-16T10:30:00+01:00");
+
+    expect(formatted).toContain("Sunday, 16 August 2026");
+    expect(formatted).toContain("10:30:00 am");
+  });
+
+  it("expresses locations without exposing coordinates", () => {
+    const formatter = TestBed.inject(WalkNotificationValueService);
+
+    const formatted = formatter.format(GroupEventField.START_LOCATION, {
+      description: "Ashdown Forest car park",
+      postcode: "TN22 3JD",
+      grid_reference_8: "TQ 4567 3210",
+      latitude: 51.0712,
+      longitude: 0.0315,
+      w3w: "walks.paths.views"
+    });
+
+    expect(formatted).toBe("Ashdown Forest car park, TN22 3JD, grid reference TQ 4567 3210, what3words walks.paths.views");
+    expect(formatted).not.toContain("51.0712");
+  });
+
+  it("describes the generated local link as the group website", () => {
+    const formatter = TestBed.inject(WalkNotificationValueService);
+
+    const formatted = formatter.format(EventField.LINKS, [{
+      source: LinkSource.LOCAL,
+      title: "this walk",
+      href: "/walks/example"
+    }]);
+
+    expect(formatted).toBe("Group website: link to this walk");
+  });
+
+  it("expresses expected walking speed in miles and kilometres per hour", () => {
+    const formatter = TestBed.inject(WalkNotificationValueService);
+
+    expect(formatter.format(EventField.MILES_PER_HOUR, 2.5)).toBe("2.5 mph / 4 km/h");
+    expect(formatter.format(EventField.MILES_PER_HOUR, 2.6)).toBe("2.6 mph / 4.2 km/h");
+  });
+
+  it("expresses publishing changes without exposing contact identifiers", () => {
+    const service = TestBed.inject(GroupEventService);
+    const changedItems = service.changedItemsBetween({
+      fields: {publishing: {ramblers: {publish: true, contactName: "internal-new"}, meetup: {publish: false}}}
+    }, {
+      fields: {publishing: {ramblers: {publish: false, contactName: "internal-old"}, meetup: {publish: false}}}
+    });
+
+    expect(service.notificationChangedItems(changedItems)).toEqual([{
+      field: EventField.PUBLISHING,
+      label: "Publishing",
+      from: "Ramblers: not selected for publishing; Meetup: not selected for publishing",
+      to: "Ramblers: will be published; Meetup: not selected for publishing"
+    }]);
+  });
+
+  it("suppresses a publishing change that only alters an internal contact reference", () => {
+    const service = TestBed.inject(GroupEventService);
+    const changedItems = service.changedItemsBetween({
+      fields: {publishing: {ramblers: {publish: true, contactName: "internal-new"}, meetup: {publish: false}}}
+    }, {
+      fields: {publishing: {ramblers: {publish: true, contactName: "internal-old"}, meetup: {publish: false}}}
+    });
+
+    expect(service.notificationChangedItems(changedItems)).toEqual([]);
+  });
+
+  it("expresses risk assessment progress without exposing member identifiers", () => {
+    const formatter = TestBed.inject(WalkNotificationValueService);
+
+    const formatted = formatter.format(EventField.RISK_ASSESSMENT, [{
+      riskAssessmentSection: "Route",
+      riskAssessmentKey: "route",
+      confirmed: true,
+      confirmationText: "Steep descent after rain",
+      memberId: "internal-member-id",
+      confirmationDate: 12345
+    }, {
+      riskAssessmentSection: "Weather",
+      riskAssessmentKey: "weather",
+      confirmed: false,
+      memberId: "internal-member-id",
+      confirmationDate: null
+    }]);
+
+    expect(formatted).toBe("2 sections, 1 confirmed — Route: confirmed; notes “Steep descent after rain”; Weather: awaiting confirmation");
+    expect(formatted).not.toContain("internal-member-id");
+    expect(formatted).not.toContain("12345");
+  });
+
+  it("treats equivalent ISO timestamps as unchanged", () => {
         const service = TestBed.inject(GroupEventService);
         const dateUtils = TestBed.inject(DateUtilsService);
         const previousWalk = walkWithContact(null);
@@ -94,7 +309,7 @@ describe("GroupEventService", () => {
         currentWalk.groupEvent.start_date_time = "2025-11-02T00:00:00+00:00";
         currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
         const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
-        expect(audit.changedItems.find(item => item.fieldName === GroupEventField.START_DATE)).toBeUndefined();
+    expect(audit.changedItems.find(item => item.field === GroupEventField.START_DATE)).toBeUndefined();
     });
 
     it("treats trimmed description and additional details as unchanged", () => {
@@ -107,8 +322,8 @@ describe("GroupEventService", () => {
         currentWalk.groupEvent.additional_details = "\nAdditional details\n";
         currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
         const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
-        expect(audit.changedItems.find(item => item.fieldName === "groupEvent.description")).toBeUndefined();
-        expect(audit.changedItems.find(item => item.fieldName === "groupEvent.additional_details")).toBeUndefined();
+      expect(audit.changedItems.find(item => item.field === GroupEventField.DESCRIPTION)).toBeUndefined();
+      expect(audit.changedItems.find(item => item.field === GroupEventField.ADDITIONAL_DETAILS)).toBeUndefined();
     });
 
     it("treats walk leader empty telephone and null as unchanged", () => {
@@ -131,7 +346,7 @@ describe("GroupEventService", () => {
         };
         currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
         const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
-        expect(audit.changedItems.find(item => item.fieldName === "groupEvent.walk_leader")).toBeUndefined();
+      expect(audit.changedItems.find(item => item.field === GroupEventField.WALK_LEADER)).toBeUndefined();
     });
 
     it("treats links with omitted optional title and undefined title as unchanged", () => {
@@ -149,7 +364,7 @@ describe("GroupEventService", () => {
             } as any];
         currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
         const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
-        expect(audit.changedItems.find(item => item.fieldName === "fields.links")).toBeUndefined();
+      expect(audit.changedItems.find(item => item.field === EventField.LINKS)).toBeUndefined();
     });
 
     describe("statusFor", () => {
@@ -222,7 +437,7 @@ describe("GroupEventService", () => {
             const currentWalk = walkWithVenue(true);
             currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
             const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
-            const venueChange = audit.changedItems.find(item => item.fieldName === "fields.venue");
+          const venueChange = audit.changedItems.find(item => item.field === EventField.VENUE);
             expect(venueChange).toBeDefined();
             expect(audit.dataChanged).toBe(true);
         });
@@ -233,7 +448,7 @@ describe("GroupEventService", () => {
             const currentWalk = walkWithVenue(false);
             currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
             const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
-            const venueChange = audit.changedItems.find(item => item.fieldName === "fields.venue");
+          const venueChange = audit.changedItems.find(item => item.field === EventField.VENUE);
             expect(venueChange).toBeDefined();
             expect(audit.dataChanged).toBe(true);
         });
@@ -244,7 +459,7 @@ describe("GroupEventService", () => {
             const currentWalk = walkWithVenue(false);
             currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
             const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
-            const venueChange = audit.changedItems.find(item => item.fieldName === "fields.venue");
+          const venueChange = audit.changedItems.find(item => item.field === EventField.VENUE);
             expect(venueChange).toBeUndefined();
         });
 
@@ -289,7 +504,7 @@ describe("GroupEventService", () => {
             currentWalk.events = [walkEventFromFullDeepCopy(previousWalk)];
 
             const audit = service.walkDataAuditFor(currentWalk, EventType.AWAITING_APPROVAL, true);
-            const venueChange = audit.changedItems.find(item => item.fieldName === "fields.venue");
+          const venueChange = audit.changedItems.find(item => item.field === EventField.VENUE);
 
             expect(venueChange).toBeDefined();
             expect(audit.dataChanged).toBe(true);
