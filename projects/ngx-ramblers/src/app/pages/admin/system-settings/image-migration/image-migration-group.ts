@@ -194,7 +194,7 @@ import { AdminContentPath } from "../../../../models/admin-route-paths.model";
       border-bottom: 1px solid #e9ecef
 
     .migration-images-table th
-      background: linear-gradient(to bottom, rgba(155, 200, 171, 0.3), rgba(155, 200, 171, 0.15))
+      background: var(--rsm-table-header-bg)
       color: #495057
       font-weight: 600
       text-align: left

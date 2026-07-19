@@ -3,6 +3,7 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { CrossEnvironmentHealthResponse, EnvironmentHealthCheck, HealthWebAnalytics } from "../models/health.model";
+import { CrossEnvironmentHostnameHealth } from "../models/environment-setup.model";
 
 @Injectable({
   providedIn: "root"
@@ -20,6 +21,18 @@ export class CrossEnvironmentHealthService {
       return response;
     } catch (error: any) {
       this.logger.error("Failed to get cross-environment health:", error);
+      throw error;
+    }
+  }
+
+  async hostnameHealth(forceRefresh?: boolean): Promise<CrossEnvironmentHostnameHealth> {
+    try {
+      const url = forceRefresh ? "/api/health/hostnames?refresh=true" : "/api/health/hostnames";
+      const response = await this.http.get<CrossEnvironmentHostnameHealth>(url).toPromise();
+      this.logger.debug("Cross-environment hostname health:", response);
+      return response;
+    } catch (error: any) {
+      this.logger.error("Failed to get cross-environment hostname health:", error);
       throw error;
     }
   }

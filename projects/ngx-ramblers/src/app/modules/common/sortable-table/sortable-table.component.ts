@@ -104,7 +104,7 @@ import {
       margin-bottom: 0
 
     .sortable-table th
-      background: linear-gradient(to bottom, rgba(155, 200, 171, 0.3), rgba(155, 200, 171, 0.15))
+      background: var(--rsm-table-header-bg)
       color: #495057
       font-weight: 600
       text-align: left

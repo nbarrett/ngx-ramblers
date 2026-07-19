@@ -5,6 +5,7 @@ import { Environment } from "../../../projects/ngx-ramblers/src/app/models/envir
 import { booleanOf } from "../shared/string-utils";
 import * as authConfig from "../auth/auth-config";
 import { crossEnvironmentHealth } from "./cross-environment-health";
+import { allHostnameHealth } from "../environment-setup/hostname-health-controllers";
 
 const debugLog = debug(envConfig.logNamespace("cross-environment-health:routes"));
 debugLog.enabled = true;
@@ -26,5 +27,7 @@ router.get("/", authConfig.authenticate(), authConfig.requireAdmin, async (_req:
     res.status(500).json({ error: error.message });
   }
 });
+
+router.get("/hostnames", authConfig.authenticate(), authConfig.requireAdmin, allHostnameHealth);
 
 export const crossEnvironmentHealthRoutes = router;

@@ -217,7 +217,7 @@ enum CampaignSortField {
   `,
   styles: [`
     .stat-tile
-      background: linear-gradient(to bottom, rgba(155, 200, 171, 0.3), rgba(155, 200, 171, 0.15))
+      background: var(--rsm-table-header-bg)
       border: 1px solid rgba(155, 200, 171, 0.4)
       border-radius: 8px
       padding: 0.75rem 0.5rem

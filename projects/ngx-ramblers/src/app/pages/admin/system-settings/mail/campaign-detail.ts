@@ -256,7 +256,7 @@ import { StoredValue } from "../../../../models/ui-actions";
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr))
 
     .perf-card
-      background: linear-gradient(to bottom, rgba(155, 200, 171, 0.3), rgba(155, 200, 171, 0.15))
+      background: var(--rsm-table-header-bg)
       border: 1px solid rgba(155, 200, 171, 0.4)
       border-radius: 8px
       padding: 1rem 1.1rem
@@ -330,7 +330,7 @@ import { StoredValue } from "../../../../models/ui-actions";
         grid-template-columns: 1fr
 
     .panel-header
-      background: linear-gradient(to bottom, rgba(155, 200, 171, 0.3), rgba(155, 200, 171, 0.15))
+      background: var(--rsm-table-header-bg)
       color: #495057
       font-weight: 600
       font-size: 0.85rem
