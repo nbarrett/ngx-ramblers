@@ -9,10 +9,9 @@ import { EventNotePipe } from "../../../pipes/event-note.pipe";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { sortBy } from "../../../functions/arrays";
 import { GroupEventService } from "../../../services/walks-and-events/group-event.service";
-import { set, startCase } from "es-toolkit/compat";
-import { AuditDeltaValuePipe } from "../../../pipes/audit-delta-value.pipe";
+import { set } from "es-toolkit/compat";
 import { AUDITED_FIELDS, WalkEvent } from "../../../models/walk-event.model";
-import { ChangedItemDisplay } from "../../../models/changed-item.model";
+import { DescribedChangedItem } from "../../../models/changed-item.model";
 import { VisibilityToggleButton } from "../../../shared/components/visibility-toggle-button";
 import { HumanisePipe } from "../../../pipes/humanise.pipe";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -226,7 +225,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                       <tbody>
                         @for (change of event.changes; track change.field + "-" + change.to) {
                           <tr>
-                            <td>{{ change.field }}</td>
+                            <td>{{ change.label }}</td>
                             <td>{{ change.from }}</td>
                             <td>{{ change.to }}</td>
                           </tr>
@@ -257,7 +256,6 @@ export class WalkEditHistoryComponent {
   private eventNotePipe = inject(EventNotePipe);
   protected display = inject(WalkDisplayService);
   private groupEventService = inject(GroupEventService);
-  private auditDeltaValuePipe = inject(AuditDeltaValuePipe);
 
   get walkEvents(): DisplayedEvent[] {
     const events = [...(this.displayedWalk?.walk?.events || [])].sort(sortBy("-date"));
@@ -306,18 +304,13 @@ export class WalkEditHistoryComponent {
     return event.changes.length > 0;
   }
 
-  private changesFor(event: WalkEvent, previousEvent?: WalkEvent): ChangedItemDisplay[] {
+  private changesFor(event: WalkEvent, previousEvent?: WalkEvent): DescribedChangedItem[] {
     if (!event?.data) {
       return [];
     }
-    return this.groupEventService.changedItemsBetween(event.data, previousEvent?.data)
-      .filter(change => this.isRelevantChange(event, change.fieldName))
-      .map(change => ({
-        fieldName: change.fieldName,
-        field: startCase(change.fieldName.replace(/\./g, " ")),
-        from: this.auditDeltaValuePipe.transform(change.previousValue, change.fieldName, this.display.members, "(none)"),
-        to: this.auditDeltaValuePipe.transform(change.currentValue, change.fieldName, this.display.members, "(none)")
-      }));
+    const relevantChanges = this.groupEventService.changedItemsBetween(event.data, previousEvent?.data)
+      .filter(change => this.isRelevantChange(event, change.field));
+    return this.groupEventService.describedChangedItems(relevantChanges);
   }
 
   private isRelevantChange(event: WalkEvent, fieldName: string): boolean {
@@ -346,30 +339,24 @@ export class WalkEditHistoryComponent {
     return [];
   }
 
-  private notesFor(event: WalkEvent, changes: ChangedItemDisplay[]): string {
-    const pipeResult = this.eventNotePipe.transform(event);
-    if (pipeResult) {
-      return pipeResult;
-    }
-    if (changes.length > 0) {
-      const fields = changes.map(change => change.field).join(", ");
-      return `Changed: ${fields}`;
-    }
-    const statusChangeNote = this.statusChangeNoteFor(event.eventType);
-    if (statusChangeNote) {
-      return statusChangeNote;
-    }
+  private notesFor(event: WalkEvent, changes: DescribedChangedItem[]): string {
     if (!event?.data) {
-      return "No data snapshot recorded";
+      return this.eventNotePipe.transform(event) || "No data snapshot recorded";
     }
-    return "No data changes";
+    const changedFields = changes.map(change => change.label);
+    if (this.statusChangeFor(event.eventType)) {
+      changedFields.push("Status");
+    }
+    const changeNote = changedFields.length > 0 ? `Changed: ${changedFields.join(", ")}` : null;
+    const notes = [changeNote, event.reason].filter(Boolean);
+    if (notes.length > 0) {
+      return notes.join(", ");
+    }
+    return "No meaningful field changes";
   }
 
-  private statusChangeNoteFor(eventType: EventType): string | null {
+  private statusChangeFor(eventType: EventType): boolean {
     const eventTypeDetails = this.walksReferenceService.toWalkEventType(eventType);
-    if (!eventTypeDetails?.statusChange) {
-      return null;
-    }
-    return "Changed: Status";
+    return !!eventTypeDetails?.statusChange;
   }
 }

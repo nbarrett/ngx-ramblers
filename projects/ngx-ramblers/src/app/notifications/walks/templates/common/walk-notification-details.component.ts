@@ -8,14 +8,16 @@ import { EventType } from "../../../../models/walk.model";
 import { WalkDisplayService } from "../../../../pages/walks/walk-display.service";
 import { GoogleMapsService } from "../../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
-import { AuditDeltaValuePipe } from "../../../../pipes/audit-delta-value.pipe";
-import { ChangedItem } from "../../../../models/changed-item.model";
 import { marked } from "marked";
 import { ValueOrDefaultPipe } from "../../../../pipes/value-or-default.pipe";
 import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
 import { ExtendedGroupEvent } from "../../../../models/group-event.model";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { EventContactService } from "../../../../services/walks-and-events/event-contact.service";
+import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name.pipe";
+import { walkNotificationActorName } from "../../../../functions/walks/walk-notification";
+import { DisplayTimePipe } from "../../../../pipes/display-time.pipe";
+import { DistanceValidationService } from "../../../../services/walks/distance-validation.service";
 
 @Component({
     selector: "app-walk-notification-details",
@@ -27,7 +29,7 @@ import { EventContactService } from "../../../../services/walks-and-events/event
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Start Time:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk?.groupEvent?.start_date_time | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk?.groupEvent?.start_date_time | displayTime }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Description:</td>
@@ -39,7 +41,7 @@ import { EventContactService } from "../../../../services/walks-and-events/event
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Distance:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.distance_miles | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ distanceValidationService.walkDistances(walk) | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Starting Location:</td>
@@ -47,7 +49,7 @@ import { EventContactService } from "../../../../services/walks-and-events/event
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Grade:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.difficulty | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.difficulty?.description | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Grid Ref:</td>
@@ -74,16 +76,17 @@ import { EventContactService } from "../../../../services/walks-and-events/event
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk?.fields?.contactDetails?.phone }}</td>
       </tr>
     </table>`,
-    imports: [DisplayDatePipe, ValueOrDefaultPipe]
+    imports: [DisplayDatePipe, DisplayTimePipe, ValueOrDefaultPipe]
 })
 export class WalkNotificationDetailsComponent implements OnInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkNotificationDetailsComponent", NgxLoggerLevel.ERROR);
   private valueOrDefaultPipe = inject(ValueOrDefaultPipe);
-  private auditDeltaValuePipe = inject(AuditDeltaValuePipe);
+  private memberIdToFullNamePipe = inject(MemberIdToFullNamePipe);
   googleMapsService = inject(GoogleMapsService);
   display = inject(WalkDisplayService);
   eventContactService = inject(EventContactService);
+  distanceValidationService = inject(DistanceValidationService);
   protected stringUtils = inject(StringUtilsService);
   public data: WalkNotification;
   public walk: ExtendedGroupEvent;
@@ -93,6 +96,7 @@ export class WalkNotificationDetailsComponent implements OnInit {
   public validationMessages: string[];
   public reason: string;
   public members: Member[];
+  public recipientMemberId: string;
 
   @Input("data") set walkNotificationValue(data: WalkNotification) {
     this.data = data;
@@ -112,11 +116,7 @@ export class WalkNotificationDetailsComponent implements OnInit {
       this.status = this.data.status;
       this.event = this.data.event;
       this.walkDataAudit = this.data.walkDataAudit;
-      this.walkDataAudit.changedItems = this.walkDataAudit.changedItems.map((changedItem: ChangedItem) => ({
-        fieldName: changedItem.fieldName,
-        previousValue: this.auditedValue(changedItem.previousValue, changedItem.fieldName),
-        currentValue: this.auditedValue(changedItem.currentValue, changedItem.fieldName)
-      }));
+      this.recipientMemberId = this.data.recipientMemberId;
       this.validationMessages = this.data.validationMessages;
       this.reason = this.data.reason;
     }
@@ -132,10 +132,9 @@ export class WalkNotificationDetailsComponent implements OnInit {
     }
   }
 
-  auditedValue(previousValue: any, fieldName: string): string {
-    const transformedValue = this.auditDeltaValuePipe.transform(previousValue, fieldName, this.members, "(none)");
-    this.logger.info("audit:previousValue ->", previousValue, "fieldName ->", fieldName, "transformedValue:", transformedValue);
-    return transformedValue?.toString();
+  public actorName(): string {
+    const memberName = this.memberIdToFullNamePipe.transform(this.event?.memberId, this.members);
+    return walkNotificationActorName(this.event?.memberId, this.recipientMemberId, memberName);
   }
 
 }

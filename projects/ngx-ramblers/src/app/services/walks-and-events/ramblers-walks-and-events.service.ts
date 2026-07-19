@@ -35,6 +35,8 @@ import {
   WalkUploadInfo,
   WalkUploadRow
 } from "../../models/ramblers-walks-manager";
+import { FieldChange } from "../../models/field-change.model";
+import { changedFieldValues } from "../../functions/field-change";
 import { Ramblers } from "../../models/system.model";
 import { UIDateFormat } from "../../models/date-format.model";
 import { SortDirection } from "../../models/sort.model";
@@ -479,39 +481,75 @@ export class RamblersWalksAndEventsService {
     const ramblersDistance: WalkDistance = this.distanceValidationService.parse(ramblersEvent);
     const localAscent: WalkAscent = this.ascentValidationService.parse(walk);
     const ramblersAscent: WalkAscent = this.ascentValidationService.parse(ramblersEvent);
-    const candidateChanges: WalkFieldChange[] = [
-      {field: WalkEditField.TITLE, value: this.walkTitle(walk), existingValue: this.walkTitle(ramblersEvent)},
-      {field: WalkEditField.DATE, value: this.walkDate(walk, DateFormat.WALKS_MANAGER_API), existingValue: this.walkDate(ramblersEvent, DateFormat.WALKS_MANAGER_API)},
-      {field: WalkEditField.START_TIME, value: this.walkStartTime(walk), existingValue: this.walkStartTime(ramblersEvent)},
-      {field: WalkEditField.MEETING_TIME, value: this.meetingTime(walk), existingValue: this.meetingTime(ramblersEvent)},
-      {field: WalkEditField.FINISH_TIME, value: this.walkFinishTimeOrDefault(walk, milesPerHour), existingValue: this.walkFinishTimeOrDefault(ramblersEvent, milesPerHour)},
-      {field: WalkEditField.DESCRIPTION, value: this.walkDescriptionForEditor(walk), existingValue: this.plainTextForUpload(ramblersWalk.description)},
-      {field: WalkEditField.ADDITIONAL_DETAILS, value: this.plainTextForUpload(walk?.groupEvent?.additional_details), existingValue: this.plainTextForUpload(ramblersWalk.groupEvent?.additional_details)},
+    const candidates: FieldChange<WalkEditField, string>[] = [
+      {field: WalkEditField.TITLE, from: this.walkTitle(ramblersEvent), to: this.walkTitle(walk)},
+      {
+        field: WalkEditField.DATE,
+        from: this.walkDate(ramblersEvent, DateFormat.WALKS_MANAGER_API),
+        to: this.walkDate(walk, DateFormat.WALKS_MANAGER_API)
+      },
+      {field: WalkEditField.START_TIME, from: this.walkStartTime(ramblersEvent), to: this.walkStartTime(walk)},
+      {field: WalkEditField.MEETING_TIME, from: this.meetingTime(ramblersEvent), to: this.meetingTime(walk)},
+      {
+        field: WalkEditField.FINISH_TIME,
+        from: this.walkFinishTimeOrDefault(ramblersEvent, milesPerHour),
+        to: this.walkFinishTimeOrDefault(walk, milesPerHour)
+      },
+      {
+        field: WalkEditField.DESCRIPTION,
+        from: this.plainTextForUpload(ramblersWalk.description),
+        to: this.walkDescriptionForEditor(walk)
+      },
+      {
+        field: WalkEditField.ADDITIONAL_DETAILS,
+        from: this.plainTextForUpload(ramblersWalk.groupEvent?.additional_details),
+        to: this.plainTextForUpload(walk?.groupEvent?.additional_details)
+      },
       ...(isUndefined(ramblersWalk.groupEvent?.external_url) ? [] : [{
         field: WalkEditField.WEBSITE_LINK,
-        value: this.walkDisplayService.walkPublicLink(walk),
-        existingValue: this.asString(ramblersWalk.groupEvent.external_url)
+        from: this.asString(ramblersWalk.groupEvent.external_url),
+        to: this.walkDisplayService.walkPublicLink(walk)
       }]),
-      {field: WalkEditField.WALK_TYPE, value: this.walkType(walk), existingValue: this.walkType(ramblersEvent)},
-      {field: WalkEditField.DIFFICULTY, value: this.asString(walk?.groupEvent?.difficulty?.description), existingValue: this.asString(ramblersWalk.groupEvent?.difficulty?.description)},
-      {field: WalkEditField.DISTANCE_KM, value: localDistance.kilometres.valueAsString, existingValue: ramblersDistance.kilometres.valueAsString},
-      {field: WalkEditField.DISTANCE_MILES, value: localDistance.miles.valueAsString, existingValue: ramblersDistance.miles.valueAsString},
-      {field: WalkEditField.ASCENT_METRES, value: localAscent.metres.valueAsString, existingValue: ramblersAscent.metres.valueAsString},
-      {field: WalkEditField.ASCENT_FEET, value: localAscent.feet.valueAsString, existingValue: ramblersAscent.feet.valueAsString}
+      {field: WalkEditField.WALK_TYPE, from: this.walkType(ramblersEvent), to: this.walkType(walk)},
+      {
+        field: WalkEditField.DIFFICULTY,
+        from: this.asString(ramblersWalk.groupEvent?.difficulty?.description),
+        to: this.asString(walk?.groupEvent?.difficulty?.description)
+      },
+      {
+        field: WalkEditField.DISTANCE_KM,
+        from: ramblersDistance.kilometres.valueAsString,
+        to: localDistance.kilometres.valueAsString
+      },
+      {
+        field: WalkEditField.DISTANCE_MILES,
+        from: ramblersDistance.miles.valueAsString,
+        to: localDistance.miles.valueAsString
+      },
+      {
+        field: WalkEditField.ASCENT_METRES,
+        from: ramblersAscent.metres.valueAsString,
+        to: localAscent.metres.valueAsString
+      },
+      {field: WalkEditField.ASCENT_FEET, from: ramblersAscent.feet.valueAsString, to: localAscent.feet.valueAsString}
     ];
-    const changes = candidateChanges.filter(change => this.fieldValueChanged(change));
+    const changes = changedFieldValues(candidates, change => this.fieldValuesEqual(change)).map(change => ({
+      field: change.field,
+      existingValue: change.from,
+      value: change.to
+    }));
     this.logger.info("walkFieldChanges:", this.displayDate.transform(walk?.groupEvent?.start_date_time), "changes:", changes);
     return changes;
   }
 
-  private fieldValueChanged(change: WalkFieldChange): boolean {
+  private fieldValuesEqual(change: FieldChange<WalkEditField, string>): boolean {
     const numericFields: WalkEditField[] = [WalkEditField.DISTANCE_KM, WalkEditField.DISTANCE_MILES, WalkEditField.ASCENT_METRES, WalkEditField.ASCENT_FEET];
     if (numericFields.includes(change.field)) {
-      return this.numericValueChanged(change.value, change.existingValue);
+      return !this.numericValueChanged(change.to, change.from);
     } else if (change.field === WalkEditField.WEBSITE_LINK) {
-      return this.websiteLinkPath(change.value) !== this.websiteLinkPath(change.existingValue);
+      return this.websiteLinkPath(change.to) === this.websiteLinkPath(change.from);
     } else {
-      return this.normalisedFieldValue(change.value) !== this.normalisedFieldValue(change.existingValue);
+      return this.normalisedFieldValue(change.to) === this.normalisedFieldValue(change.from);
     }
   }
 

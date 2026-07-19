@@ -1,18 +1,7 @@
-import {
-  cloneDeep,
-  compact,
-  get,
-  isArray,
-  isNull,
-  isObject,
-  isString,
-  isUndefined,
-  keys,
-  take
-} from "es-toolkit/compat";
+import { cloneDeep, get, isArray, isNull, isObject, isString, isUndefined, keys, take } from "es-toolkit/compat";
 import { AUDITED_FIELDS, WalkEvent } from "../../models/walk-event.model";
 import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-items.pipe";
-import { ChangedItem } from "../../models/changed-item.model";
+import { ChangedItem, DescribedChangedItem, NotificationChangedItem } from "../../models/changed-item.model";
 import { CurrentPreviousData } from "../../models/walk-notification.model";
 import { DateUtilsService } from "../date-utils.service";
 import { EventType } from "../../models/walk.model";
@@ -25,6 +14,9 @@ import { WalksReferenceService } from "../walks/walks-reference-data.service";
 import { inject, Injectable } from "@angular/core";
 import { sortBy } from "../../functions/arrays";
 import { normaliseWalkEventSnapshot, walkEventDataSnapshot } from "../../functions/walks/walk-event-snapshot";
+import { WALK_NOTIFICATION_FIELDS } from "../../models/walk-notification-fields";
+import { WalkNotificationValueService } from "./walk-notification-value.service";
+import { changedFieldValues, mapFieldChangeValues } from "../../functions/field-change";
 
 @Injectable({
   providedIn: "root"
@@ -36,6 +28,7 @@ export class GroupEventService {
   private dateUtils = inject(DateUtilsService);
   private walksReferenceService = inject(WalksReferenceService);
   private auditDeltaChangedItems = inject(AuditDeltaChangedItemsPipePipe);
+  private notificationValue = inject(WalkNotificationValueService);
 
   public latestEventWithStatusChange(extendedGroupEvent: ExtendedGroupEvent): WalkEvent {
     const eventType = this.eventsLatestFirst(extendedGroupEvent).find((event) => {
@@ -67,12 +60,14 @@ export class GroupEventService {
         previousData
       } = this.currentPreviousData(eventsLatestFirst, extendedGroupEvent, basedOnUnsavedData);
       const changedItems = this.calculateChangedItems(currentData, previousData);
+      const notificationChangedItems = this.notificationChangedItems(changedItems);
       const eventExists = this.latestEventWithStatusChangeIs(extendedGroupEvent, status);
       const dataChanged = changedItems.length > 0;
       return {
         currentData,
         previousData,
         changedItems,
+        notificationChangedItems,
         eventExists,
         dataChanged,
         notificationRequired: dataChanged || !eventExists || this.latestEvent(extendedGroupEvent)?.eventType === EventType.WALK_DETAILS_COPIED,
@@ -138,6 +133,16 @@ export class GroupEventService {
     return this.calculateChangedItems(current, previous);
   }
 
+  public notificationChangedItems(changedItems: ChangedItem[]): NotificationChangedItem[] {
+    const recipientFacingChanges = changedItems.filter(changedItem => WALK_NOTIFICATION_FIELDS[changedItem.field]?.notify);
+    return this.describedChangedItems(recipientFacingChanges);
+  }
+
+  public describedChangedItems(changedItems: ChangedItem[]): DescribedChangedItem[] {
+    const describedChanges = changedItems.flatMap(changedItem => this.describedChangedItemFor(changedItem));
+    return changedFieldValues(describedChanges, change => change.from === change.to);
+  }
+
   private currentPreviousData(eventsLatestFirst: WalkEvent[], extendedGroupEvent: ExtendedGroupEvent, basedOnUnsavedData: boolean): CurrentPreviousData {
     if (basedOnUnsavedData) {
       const currentData = walkEventDataSnapshot(extendedGroupEvent);
@@ -161,17 +166,22 @@ export class GroupEventService {
   }
 
   private calculateChangedItems(currentData: object, previousData: object): ChangedItem[] {
-    return compact(AUDITED_FIELDS.map((key) => {
-      const currentValue = get(currentData, key.split("."));
-      const previousValue = get(previousData, key.split("."));
-      if (!this.valuesEqual(previousValue, currentValue)) {
-        return {
-          fieldName: key,
-          previousValue,
-          currentValue
-        };
-      }
+    const candidates: ChangedItem[] = AUDITED_FIELDS.map(field => ({
+      field,
+      from: get(previousData, field.split(".")),
+      to: get(currentData, field.split("."))
     }));
+    return changedFieldValues(candidates, change => this.valuesEqual(change.from, change.to));
+  }
+
+  private describedChangedItemFor(changedItem: ChangedItem): DescribedChangedItem[] {
+    const descriptor = WALK_NOTIFICATION_FIELDS[changedItem.field];
+    if (!descriptor) {
+      return [];
+    } else {
+      const formatted = mapFieldChangeValues(changedItem, value => this.notificationValue.format(changedItem.field, value));
+      return [{...formatted, label: descriptor.label}];
+    }
   }
 
   private valuesEqual(previousValue: any, currentValue: any): boolean {

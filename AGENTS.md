@@ -49,10 +49,12 @@ These cause build failures - use the listed replacements:
 - **Conventional commits**: `<type>(<scope>): <description>` (feat, fix, refactor, test, docs, style, build, ci)
 - **Compound types and scopes** join with `+` when a commit genuinely spans several: `perf+fix(server+admin): ...`
 - **Ticket references**: the subject line ends with `(ref #NNN)`, or `(ref #NNN, #MMM)` for multiple tickets. Never mention external contacts or partner names in commit messages or GitHub issues - describe the scenario generically.
-- **Commit body structure** for feat/fix/perf commits (release notes are generated from these bodies via `npm run release-notes`, so write them for members reading the site's Release Notes pages):
+- **Commit bodies are Markdown** for every feat/fix/perf commit (release notes are generated from them via `npm run release-notes`, so write them for members reading the site's Release Notes pages). Use this exact structure, with a blank line after each heading and before each list:
   - `## What's new` - a plain-English narrative paragraph of what changed and why it matters
   - `## At a glance` - user-facing bullet points, one behaviour change each
   - `## Technical changes` - implementation bullets for developers
+- **Markdown formatting in commit bodies**: wrap code identifiers, filenames, paths, commands, endpoints, configuration keys and literal technical values in backticks. Use `-` for unordered lists. Do not flatten headings into plain text.
+- **Verify the stored message after every commit, amend or rebase** with `git log -1 --format=%B`. Git's default editor cleanup can remove Markdown headings beginning with `#`; when an editor is involved, use a cleanup mode that preserves them or commit from a message file, then confirm all three headings remain in the stored message.
 - **Trunk-based development** - all work directly on main. Never create branches or worktrees unilaterally. The only exception is Claude Swarm, which creates worktrees as part of a multi-ticket session.
 - **No literal `\n`** in commit messages - use real newlines or multiple `-m` flags
 - **Hook setup**: `npm run setup:hooks`

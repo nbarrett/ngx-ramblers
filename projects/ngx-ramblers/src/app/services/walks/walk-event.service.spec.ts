@@ -2,7 +2,7 @@ import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
-import { EventType } from "../../models/walk.model";
+import { EventType, GroupEventField } from "../../models/walk.model";
 import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-items.pipe";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
@@ -64,9 +64,9 @@ describe("WalksEventService", () => {
       walk.events = events;
       const actual: ChangedItem[] = service.walkDataAuditFor(walk, EventType.AWAITING_APPROVAL, true).changedItems;
       const expected: ChangedItem[] = [{
-        fieldName: "groupEvent.start_location",
-        previousValue: undefined,
-        currentValue: {
+        field: GroupEventField.START_LOCATION,
+        from: undefined,
+        to: {
           grid_reference_10: "123", postcode: "TN26 3HF", description: "this",
           latitude: 0,
           longitude: 0

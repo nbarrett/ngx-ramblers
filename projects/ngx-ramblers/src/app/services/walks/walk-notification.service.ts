@@ -88,8 +88,10 @@ export class WalkNotificationService {
   public async createEventAndSendNotifications(notify: AlertInstance, members: Member[], notificationDirective: NotificationDirective,
                                                displayedWalk: DisplayedWalk, sendNotification: boolean, reason?: string): Promise<boolean> {
     notify.setBusy();
+    const pendingAudit = this.walkEventService.walkDataAuditFor(displayedWalk.walk, displayedWalk.status, true);
     const event = this.walkEventService.createEventIfRequired(displayedWalk.walk, displayedWalk.status, reason);
-    if (event && sendNotification) {
+    const recipientVisibleChange = event?.eventType !== EventType.WALK_DETAILS_UPDATED || pendingAudit.notificationChangedItems.length > 0;
+    if (event && sendNotification && recipientVisibleChange) {
       const notificationConfig = this.mailMessagingService.queryNotificationConfig(notify, this.mailMessagingConfig, "walkNotificationConfigId");
         const walkEventType = this.walksReferenceService.toWalkEventType(event.eventType);
         this.logger.info("walkEventType", walkEventType, "from event:", event);
@@ -192,14 +194,16 @@ export class WalkNotificationService {
   private async sendLeaderNotifications(notificationConfig: NotificationConfig, notify: AlertInstance,
                                   notificationDirective: NotificationDirective, walkNotification: WalkNotification, walkEventType: WalkEventType, walkDate: string): Promise<any> {
     if (walkEventType.notifyLeader) {
-      const notificationText = await this.generateNotificationHTML(walkNotification, notificationDirective, this.walkEventNotificationMappingsFor(walkEventType.eventType).notifyLeader);
       return this.sendNotificationsTo({
         notificationDirective,
         notify,
         walkEventType,
         notificationConfig,
         memberIds: [walkNotification.walk?.fields?.contactDetails?.memberId],
-        notificationText,
+        notificationTextForMember: member => this.generateNotificationHTML({
+          ...walkNotification,
+          recipientMemberId: member.id
+        }, notificationDirective, this.walkEventNotificationMappingsFor(walkEventType.eventType).notifyLeader),
         emailSubject: `Your walk on ${walkDate}`,
         destination: "walk leader",
         conversationKey: this.walkConversationKey(walkNotification)
@@ -211,7 +215,6 @@ export class WalkNotificationService {
   private async sendCoordinatorNotifications(notificationConfig: NotificationConfig, notify: AlertInstance, member: Member, members: Member[],
                                        notificationDirective: NotificationDirective, displayedWalk: WalkNotification, walkEventType: WalkEventType, walkLeaderName: string, walkDate: string): Promise<any> {
     if (walkEventType.notifyCoordinator) {
-      const notificationText = await this.generateNotificationHTML(displayedWalk, notificationDirective, this.walkEventNotificationMappingsFor(walkEventType.eventType).notifyCoordinator);
       const walkChangeNotificationMemberIds = this.memberService.allMemberIdsWithPrivilege("walkChangeNotifications", members);
       if (walkChangeNotificationMemberIds.length > 0) {
         return this.sendNotificationsTo({
@@ -220,7 +223,10 @@ export class WalkNotificationService {
           walkEventType,
           notificationConfig,
           memberIds: walkChangeNotificationMemberIds,
-          notificationText,
+          notificationTextForMember: recipient => this.generateNotificationHTML({
+            ...displayedWalk,
+            recipientMemberId: recipient.id
+          }, notificationDirective, this.walkEventNotificationMappingsFor(walkEventType.eventType).notifyCoordinator),
           emailSubject: `${walkLeaderName}'s walk on ${walkDate}`,
           destination: "walk co-ordinators",
           conversationKey: this.walkConversationKey(displayedWalk)
@@ -245,19 +251,23 @@ export class WalkNotificationService {
     } else {
       const qualifiedSubject = `${walkMailMessageConfiguration.emailSubject} (${walkEventType.description})`;
       const members: Member[] = await Promise.all(walkMailMessageConfiguration.memberIds.map(memberId => this.memberService.getById(memberId)));
-      const responses = await Promise.all(members.map(member => this.sendEmailMessage(notificationDirective, notify, member, qualifiedSubject, walkMailMessageConfiguration)));
+      const responses = await Promise.all(members.map(async member => {
+        const notificationText = await walkMailMessageConfiguration.notificationTextForMember(member);
+        return this.sendEmailMessage(notificationDirective, notify, member, qualifiedSubject, notificationText, walkMailMessageConfiguration);
+      }));
       this.logger.info("sendNotificationsTo:", walkMailMessageConfiguration, "responses:", responses);
       return this.notifyEmailSendComplete(notify, qualifiedSubject);
     }
   }
 
-  private sendEmailMessage(notificationDirective: NotificationHost, notify: AlertLike, member: Member, qualifiedSubject: string, walkMailMessageConfiguration: WalkMailMessageConfiguration): Promise<void> {
+  private sendEmailMessage(notificationDirective: NotificationHost, notify: AlertLike, member: Member, qualifiedSubject: string,
+                           notificationText: string, walkMailMessageConfiguration: WalkMailMessageConfiguration): Promise<void> {
     notify.progress({title: "Sending Notifications", message: `Sending ${qualifiedSubject}`});
     return this.mailService.sendTransactionalMessage(this.mailMessagingService.createEmailRequest({
       member,
       notificationConfig: walkMailMessageConfiguration.notificationConfig,
       notificationDirective,
-      bodyContent: walkMailMessageConfiguration.notificationText,
+      bodyContent: notificationText,
       emailSubject: qualifiedSubject,
       conversationKey: walkMailMessageConfiguration.conversationKey
     })).then(() => {

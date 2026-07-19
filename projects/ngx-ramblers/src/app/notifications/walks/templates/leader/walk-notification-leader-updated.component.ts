@@ -4,7 +4,6 @@ import { WalkNotificationChangesComponent } from "../common/walk-notification-ch
 import { WalkNotificationFooterComponent } from "../common/walk-notification-footer.component";
 import { DisplayDateAndTimePipe } from "../../../../pipes/display-date-and-time.pipe";
 import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
-import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name.pipe";
 import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe";
 
 @Component({
@@ -12,7 +11,7 @@ import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe
     template: `
     <p>Thanks again for offering to lead the walk on <strong [textContent]="walk?.groupEvent?.start_date_time | displayDate"></strong>!</p>
     <p>This email is a notification that at <strong [textContent]="event.date | displayDateAndTime"></strong>,
-    <strong [textContent]="event.memberId | memberIdToFullName : members"></strong>
+    <strong [textContent]="actorName()"></strong>
     made the following changes to your walk:
     </p>
     <app-walk-notification-changes [data]="data"/>
@@ -25,7 +24,7 @@ import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe
       <p [textContent]="event.reason"></p>
     }
     <app-walk-notification-footer [data]="data"/>`,
-    imports: [WalkNotificationChangesComponent, WalkNotificationFooterComponent, DisplayDateAndTimePipe, DisplayDatePipe, MemberIdToFullNamePipe, WalkValidationsListPipe]
+  imports: [WalkNotificationChangesComponent, WalkNotificationFooterComponent, DisplayDateAndTimePipe, DisplayDatePipe, WalkValidationsListPipe]
 })
 export class WalkNotificationLeaderUpdatedComponent extends WalkNotificationDetailsComponent {
 
