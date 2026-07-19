@@ -178,10 +178,26 @@ describe("MailListUpdaterService", () => {
             expect(rows.length).toBe(4);
         });
 
-        it("should produce a row with an empty email for a member who has none", () => {
+        it("should leave out a member with no email address, as no row could be matched back to them", () => {
             const rows = service.rowsFrom([member({email: null})], lists);
 
-            expect(rows[0].email).toBe("");
+            expect(rows).toEqual([]);
+        });
+
+        it("should leave out a member whose email is blank space", () => {
+            const rows = service.rowsFrom([member({email: "   "})], lists);
+
+            expect(rows).toEqual([]);
+        });
+
+        it("should keep members who have an email when others do not", () => {
+            const withEmail = member({id: "member-1", email: "joanne@example.com"});
+            const withoutEmail = member({id: "member-2", email: null});
+
+            const rows = service.rowsFrom([withEmail, withoutEmail], lists);
+
+            expect(rows.every(row => row.email === "joanne@example.com")).toBe(true);
+            expect(rows.length).toBe(lists.length);
         });
 
         it("should sort rows by email then list name, whatever order they arrive in", () => {

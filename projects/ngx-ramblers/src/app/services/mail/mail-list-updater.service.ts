@@ -550,8 +550,9 @@ export class MailListUpdaterService {
 
   public rowsFrom(members: Member[], lists: ListInfo[]): ListSubscriptionRow[] {
     return members
+      .filter(member => !!this.normalisedText(member.email))
       .flatMap(member => lists.map(list => ({
-        email: member.email || "",
+        email: member.email,
         listName: list.name,
         subscribed: this.subscribedToList(member, list.id) ? SUBSCRIBED_YES : SUBSCRIBED_NO
       })))
