@@ -29,6 +29,8 @@ export function redirectRuleDescription(fromHost: string): string {
   return `${REDIRECT_RULE_PREFIX}: ${fromHost}`;
 }
 
+const RECOVERABLE_REDIRECT_STATUS_CODE = 302;
+
 function writableRule(rule: DynamicRedirectRule): DynamicRedirectRule {
   return {
     action: rule.action,
@@ -89,7 +91,7 @@ export async function ensureHostRedirectRule(
   const existing = await getDynamicRedirectRules(config);
   const alreadyPresent = existing.some(rule => rule.description === description);
   const others = existing.filter(rule => rule.description !== description).map(writableRule);
-  const rules = [...others, hostRedirectRule(fromHost, toHost, options.statusCode ?? 301)];
+  const rules = [...others, hostRedirectRule(fromHost, toHost, options.statusCode ?? RECOVERABLE_REDIRECT_STATUS_CODE)];
   debugLog("%s redirect rule %s -> %s", alreadyPresent ? "Updating" : "Creating", fromHost, toHost);
   await putDynamicRedirectRules(config, rules);
   return { action: alreadyPresent ? RedirectRuleAction.UPDATED : RedirectRuleAction.CREATED };

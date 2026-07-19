@@ -3,6 +3,7 @@ import { envConfig } from "../env-config/env-config";
 import { configuredEnvironments } from "../environments/environments-config";
 import { listDnsRecords, zoneForHostname } from "../cloudflare/cloudflare-dns";
 import { getDynamicRedirectRules } from "../cloudflare/cloudflare-redirect-rules";
+import { apexWwwSibling } from "../cloudflare/hostname-siblings";
 import { CloudflareDnsConfig, CloudflareZone, DnsRecordResult, DynamicRedirectRule } from "../cloudflare/cloudflare.model";
 import { connectToEnvironmentMongo } from "./environment-context";
 import { dateTimeNowAsValue } from "../shared/dates";
@@ -23,10 +24,6 @@ const HTTP_PROBE_TIMEOUT_MS = 8000;
 interface HostnameCandidate {
   hostname: string;
   origin: HostnameOrigin;
-}
-
-export function siblingHostname(hostname: string): string {
-  return hostname.startsWith("www.") ? hostname.slice(4) : `www.${hostname}`;
 }
 
 function hostnameFromUrl(url: string): string {
@@ -52,16 +49,6 @@ function primaryCandidates(siteHostname: string, customDomains: CustomDomainEntr
   return environmentSubdomainRelevant
     ? addCandidate(withCustomDomains, environmentSubdomain, HostnameOrigin.ENVIRONMENT_SUBDOMAIN)
     : withCustomDomains;
-}
-
-function siblingWorthChecking(hostname: string, zone: CloudflareZone): string {
-  if (hostname === zone.name) {
-    return `www.${zone.name}`;
-  } else if (hostname === `www.${zone.name}`) {
-    return zone.name;
-  } else {
-    return "";
-  }
 }
 
 async function siteHostnameFor(environmentEntry: EnvironmentConfig): Promise<string> {
@@ -114,12 +101,17 @@ function classify(hostname: string, records: DnsRecordResult[], redirectRuleTarg
   } else if (redirectRuleTarget) {
     return {
       health: HostnameHealth.REDIRECTING,
-      message: `Redirects to https://${redirectRuleTarget}`
+      message: `Redirects to https://${redirectRuleTarget} via a Cloudflare rule`
+    };
+  } else if (httpStatus >= 300 && httpStatus < 400 && httpRedirectLocation) {
+    return {
+      health: HostnameHealth.REDIRECTING,
+      message: `Redirects to ${httpRedirectLocation} — sent by the site itself, not a Cloudflare rule, so nothing needs setting up here`
     };
   } else if (httpStatus >= 200 && httpStatus < 400) {
     return {
       health: HostnameHealth.SERVING,
-      message: httpRedirectLocation ? `Serving, redirecting to ${httpRedirectLocation}` : "Serving the site"
+      message: "Serving the site"
     };
   } else if (httpStatus === 0) {
     return {
@@ -183,6 +175,27 @@ async function statusFor(candidate: HostnameCandidate, apiToken: string, zoneCac
   };
 }
 
+export function validateRedirectTargets(statuses: HostnameStatus[]): HostnameStatus[] {
+  return statuses.map(status => {
+    if (status.health !== HostnameHealth.REDIRECTING) {
+      return status;
+    }
+    const target = statuses.find(candidate => candidate.hostname === status.redirectRuleTarget);
+    if (!target) {
+      return status;
+    }
+    if (target.healthy) {
+      return status;
+    }
+    return {
+      ...status,
+      health: HostnameHealth.REDIRECT_TARGET_MISSING,
+      healthy: false,
+      message: `Redirects to https://${status.redirectRuleTarget}, but that hostname is not working: ${target.message}`
+    };
+  });
+}
+
 export async function environmentHostnameHealth(environmentName: string): Promise<HostnameHealthReport> {
   const environmentsConfig = await configuredEnvironments();
   const apiToken = environmentsConfig?.cloudflare?.apiToken;
@@ -209,7 +222,7 @@ export async function environmentHostnameHealth(environmentName: string): Promis
     const zone = await zoneForHostname(apiToken, candidate.hostname);
     if (zone) {
       zoneCache.set(candidate.hostname, zone);
-      const sibling = siblingWorthChecking(candidate.hostname, zone);
+      const sibling = apexWwwSibling(candidate.hostname, zone);
       return sibling ? addCandidate(collected, sibling, HostnameOrigin.SIBLING) : collected;
     } else {
       return collected;
@@ -220,9 +233,21 @@ export async function environmentHostnameHealth(environmentName: string): Promis
     primaries);
   debugLog("Checking %s hostnames for environment %s", candidates.length, environmentName);
   const settled = await Promise.allSettled(candidates.map(candidate => statusFor(candidate, apiToken, zoneCache, rulesCache)));
-  const hostnames = settled
+  const checked = settled
     .filter((result): result is PromiseFulfilledResult<HostnameStatus> => result.status === "fulfilled")
     .map(result => result.value);
+
+  const uncheckedTargets = checked.reduce((accumulator: HostnameCandidate[], status) =>
+      status.redirectRuleTarget && !checked.some(existing => existing.hostname === status.redirectRuleTarget)
+        ? addCandidate(accumulator, status.redirectRuleTarget, HostnameOrigin.REDIRECT_TARGET)
+        : accumulator,
+    []);
+  const targetSettled = await Promise.allSettled(uncheckedTargets.map(candidate => statusFor(candidate, apiToken, zoneCache, rulesCache)));
+  const targetStatuses = targetSettled
+    .filter((result): result is PromiseFulfilledResult<HostnameStatus> => result.status === "fulfilled")
+    .map(result => result.value);
+  const hostnames = validateRedirectTargets([...checked, ...targetStatuses]);
+
   return {
     environmentName,
     siteUrl: siteHostname,
