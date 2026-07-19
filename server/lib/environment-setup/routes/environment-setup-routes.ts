@@ -1,6 +1,6 @@
 import debug from "debug";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
-import express, { Request, Response } from "express";
+import express, { NextFunction, Request, Response } from "express";
 import * as jwt from "jsonwebtoken";
 import { envConfig } from "../../env-config/env-config";
 import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
@@ -40,7 +40,8 @@ import { authenticateSendingDomain } from "../../brevo/domains/domain-authentica
 import { findDomainByName } from "../../brevo/domains/domain-management";
 import { listTemplates } from "../../brevo/templates/template-management";
 import { seedBrevoTemplatesFromLocal } from "../../brevo/templates/template-seeding";
-import { listDnsRecords } from "../../cloudflare/cloudflare-dns";
+import { hostnameHealth } from "../hostname-health-controllers";
+import { environmentHostnameHealth } from "../hostname-health";
 import { appIpAddresses } from "../../fly/fly-certificates";
 import { booleanOf } from "../../shared/string-utils";
 import * as systemConfig from "../../config/system-config";
@@ -102,6 +103,12 @@ const validateSetupAccess = (req: Request, res: Response): boolean => {
 
   res.status(401).json({ error: "Invalid or missing setup API key" });
   return false;
+};
+
+const requireSetupAccess = (req: Request, res: Response, next: NextFunction): void => {
+  if (validateSetupAccess(req, res)) {
+    next();
+  }
 };
 
 router.post("/ramblers/groups-by-area", async (req: Request, res: Response) => {
@@ -518,14 +525,12 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
         return { flyAppDeployed: !!(ips.ipv4 || ips.ipv6) };
       })(),
       (async () => {
-        const baseDomain = environmentsConfig.cloudflare?.baseDomain;
-        const apiToken = environmentsConfig.cloudflare?.apiToken;
-        const zoneId = environmentsConfig.cloudflare?.zoneId;
-        if (!baseDomain || !apiToken || !zoneId) return { subdomainConfigured: false };
-        const fullHostname = `${environmentName}.${baseDomain}`;
-        const records = await listDnsRecords({ apiToken, zoneId }, fullHostname);
-        const hasARecord = records.some(r => r.type === "A");
-        return { subdomainConfigured: hasARecord };
+        const report = await environmentHostnameHealth(environmentName);
+        const servingHostnames = report.hostnames.filter(hostname => hostname.healthy);
+        return {
+          subdomainConfigured: servingHostnames.length > 0,
+          hostnameProblemCount: report.problemCount
+        };
       })(),
       (async () => {
         const brevoKey = brevoConfig?.apiKey || "";
@@ -564,7 +569,8 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
       standardAssetsPresent: false,
       subdomainConfigured: false,
       brevoTemplatesPresent: false,
-      brevoDomainAuthenticated: false
+      brevoDomainAuthenticated: false,
+      hostnameProblemCount: 0
     };
 
     checks.forEach(result => {
@@ -584,6 +590,8 @@ router.get("/environment-status/:environmentName", async (req: Request, res: Res
     res.status(500).json({ error: error.message });
   }
 });
+
+router.get("/hostname-status/:environmentName", requireSetupAccess, hostnameHealth);
 
 router.get("/existing-environments", async (req: Request, res: Response) => {
   if (!validateSetupAccess(req, res)) return;

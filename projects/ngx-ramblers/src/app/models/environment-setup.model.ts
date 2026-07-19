@@ -540,7 +540,71 @@ export interface EnvironmentStatus {
   subdomainConfigured: boolean;
   brevoTemplatesPresent: boolean;
   brevoDomainAuthenticated: boolean;
+  hostnameProblemCount: number;
 }
+
+export enum HostnameHealth {
+  SERVING = "serving",
+  REDIRECTING = "redirecting",
+  NO_DNS = "no-dns",
+  REDIRECT_TARGET_MISSING = "redirect-target-missing",
+  UNREACHABLE = "unreachable",
+  ZONE_NOT_FOUND = "zone-not-found",
+  UNKNOWN = "unknown"
+}
+
+export enum HostnameOrigin {
+  SITE_URL = "site-url",
+  CUSTOM_DOMAIN = "custom-domain",
+  SIBLING = "sibling",
+  ENVIRONMENT_SUBDOMAIN = "environment-subdomain"
+}
+
+export interface HostnameStatus {
+  hostname: string;
+  origin: HostnameOrigin;
+  health: HostnameHealth;
+  healthy: boolean;
+  dnsRecordType: string;
+  dnsContent: string;
+  proxied: boolean;
+  redirectRuleTarget: string;
+  httpStatus: number;
+  httpRedirectLocation: string;
+  message: string;
+}
+
+export interface HostnameHealthReport {
+  environmentName: string;
+  siteUrl: string;
+  hostnames: HostnameStatus[];
+  problemCount: number;
+  checkedAt: number;
+}
+
+export interface CrossEnvironmentHostnameHealth {
+  environments: HostnameHealthReport[];
+  totalProblemCount: number;
+  checkedAt: number;
+  fromCache: boolean;
+}
+
+export const hostnameHealthLabels: Record<HostnameHealth, string> = {
+  [HostnameHealth.SERVING]: "Serving",
+  [HostnameHealth.REDIRECTING]: "Redirecting",
+  [HostnameHealth.NO_DNS]: "No DNS record",
+  [HostnameHealth.REDIRECT_TARGET_MISSING]: "Redirect missing",
+  [HostnameHealth.UNREACHABLE]: "Unreachable",
+  [HostnameHealth.ZONE_NOT_FOUND]: "No Cloudflare zone",
+  [HostnameHealth.UNKNOWN]: "Unknown"
+};
+
+export const hostnameOriginLabels: Record<HostnameOrigin, string> = {
+  [HostnameOrigin.SITE_URL]: "Site URL",
+  [HostnameOrigin.CUSTOM_DOMAIN]: "Custom domain",
+  [HostnameOrigin.SIBLING]: "apex/www variant",
+  [HostnameOrigin.ENVIRONMENT_SUBDOMAIN]: "Environment subdomain"
+};
 
 export enum EnvironmentSetupTab {
   CREATE = "Create or Modify",

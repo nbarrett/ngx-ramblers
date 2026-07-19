@@ -39,7 +39,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       grid-template-columns: 28px 190px 130px 200px 1fr
       gap: 12px
       padding: 10px 16px
-      background-color: var(--rsm-table-header-bg)
+      background: var(--rsm-table-header-bg)
       border-bottom: 1px solid var(--rsm-border)
       font-size: 0.88rem
       color: var(--rsm-table-header-text)
@@ -147,7 +147,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       border-bottom: 1px solid #e9ecef
 
     .history-changes-table th
-      background: linear-gradient(to bottom, rgba(155, 200, 171, 0.3), rgba(155, 200, 171, 0.15))
+      background: var(--rsm-table-header-bg)
       color: #495057
       font-weight: 600
       text-align: left

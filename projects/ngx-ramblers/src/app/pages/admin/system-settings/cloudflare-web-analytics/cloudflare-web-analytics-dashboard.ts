@@ -45,7 +45,7 @@ const CUSTOM_RANGE_LABEL = "Custom";
       font-size: 0.88rem
 
     .analytics-table thead th
-      background-color: var(--rsm-table-header-bg)
+      background: var(--rsm-table-header-bg)
       color: var(--rsm-table-header-text)
       font-weight: 600
       padding: 10px 16px

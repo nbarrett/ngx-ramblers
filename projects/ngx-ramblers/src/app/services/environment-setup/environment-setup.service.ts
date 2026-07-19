@@ -11,6 +11,7 @@ import {
   EnvironmentDefaults,
   EnvironmentSetupRequest,
   EnvironmentStatus,
+  HostnameHealthReport,
   ExistingEnvironmentsResponse,
   GroupsByAreaResponse,
   MongoClusterInfo,
@@ -297,6 +298,15 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as EnvironmentStatus;
+  }
+
+  async hostnameHealth(environmentName: string): Promise<HostnameHealthReport> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.get<ApiResponse>(`${this.BASE_URL}/hostname-status/${environmentName}`, this.opts),
+      this.notifications
+    );
+    return response as unknown as HostnameHealthReport;
   }
 
   async setupSubdomain(environmentName: string): Promise<{ success: boolean; message: string; hostname?: string }> {

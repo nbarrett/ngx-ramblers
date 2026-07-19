@@ -2,6 +2,9 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 
 import { DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import { ActivatedRoute, Router } from "@angular/router";
+import { values } from "es-toolkit/compat";
+import { StoredValue } from "../../../models/ui-actions";
 import { Subscription } from "rxjs";
 import { sortBy } from "../../../functions/arrays";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -25,7 +28,17 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { EnvironmentSetupService } from "../../../services/environment-setup/environment-setup.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { EnvironmentStatus, ExistingEnvironment, ManageAction, OperationInProgress } from "../../../models/environment-setup.model";
+import {
+  EnvironmentStatus,
+  ExistingEnvironment,
+  HostnameHealth,
+  hostnameHealthLabels,
+  HostnameHealthReport,
+  hostnameOriginLabels,
+  HostnameStatus,
+  ManageAction,
+  OperationInProgress
+} from "../../../models/environment-setup.model";
 import { CustomDomainEntry, CustomDomainStatus } from "../../../models/environment-config.model";
 import { EventType, MessageType } from "../../../models/websocket.model";
 import { SessionLogsComponent } from "../../../shared/components/session-logs";
@@ -77,6 +90,14 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
 
     :host ::ng-deep .custom-domains-table .fa-icon-globe
       color: var(--ramblers-colour-mintcake)
+
+    :host ::ng-deep .hostname-health-table td,
+    :host ::ng-deep .hostname-health-table th
+      white-space: nowrap
+
+    :host ::ng-deep .hostname-health-table .domain-status-detail
+      white-space: nowrap
+      word-break: normal
   `],
   template: `
     @if (!enabled) {
@@ -288,14 +309,16 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                   <strong>Action:</strong>
                   <div class="form-check mt-2">
                     <input class="form-check-input" type="radio" name="manageAction" id="actionModify"
-                           [value]="ManageAction.MODIFY" [(ngModel)]="manageAction">
+                           [value]="ManageAction.MODIFY" [ngModel]="manageAction"
+                           (ngModelChange)="setManageAction($event)">
                     <label class="form-check-label" for="actionModify">
                       <fa-icon [icon]="faCog" class="me-1"></fa-icon> Modify Environment
                     </label>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="manageAction" id="actionDestroy"
-                           [value]="ManageAction.DESTROY" [(ngModel)]="manageAction">
+                           [value]="ManageAction.DESTROY" [ngModel]="manageAction"
+                           (ngModelChange)="setManageAction($event)">
                     <label class="form-check-label text-danger" for="actionDestroy">
                       <fa-icon [icon]="faTrash" class="me-1"></fa-icon> Destroy Environment
                     </label>
@@ -342,6 +365,76 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                         <app-session-logs [messages]="customDomainMessages"></app-session-logs>
                       </div>
                     }
+                    <div class="mt-4">
+                      <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="fw-bold">Hostname health</div>
+                        <button class="btn btn-sm btn-outline-secondary"
+                                (click)="refreshHostnameHealth()"
+                                [disabled]="loadingHostnameHealth || operationBusy || customDomainBusy">
+                          @if (loadingHostnameHealth) {
+                            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                          } @else {
+                            <fa-icon [icon]="faRedo" class="me-1"></fa-icon>
+                          }
+                          Re-check
+                        </button>
+                      </div>
+                      <p class="small text-muted mb-2">
+                        Live state of every hostname this environment answers on, checked against Cloudflare DNS,
+                        redirect rules and an HTTPS request.
+                      </p>
+                      @if (loadingHostnameHealth) {
+                        <div class="small text-muted">Checking hostnames…</div>
+                      } @else if (hostnameStatuses().length === 0) {
+                        <div class="small text-muted">No hostnames could be resolved for this environment.</div>
+                      } @else {
+                        @if (hostnameProblems().length > 0) {
+                          <div class="alert alert-warning">
+                            <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                            <strong>{{ hostnameProblems().length }} hostname{{ hostnameProblems().length === 1 ? "" : "s" }} need attention.</strong>
+                            <ul class="mb-0 mt-2">
+                              @for (problem of hostnameProblems(); track problem.hostname) {
+                                <li>{{ problem.hostname }} — {{ problem.message }}</li>
+                              }
+                            </ul>
+                          </div>
+                        }
+                        <div class="table-responsive">
+                          <table class="table table-sm align-middle mb-0 custom-domains-table hostname-health-table">
+                            <thead>
+                              <tr>
+                                <th scope="col">Hostname</th>
+                                <th scope="col">Source</th>
+                                <th scope="col">State</th>
+                                <th scope="col">DNS</th>
+                                <th scope="col">HTTPS</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              @for (hostname of hostnameStatuses(); track hostname.hostname) {
+                                <tr>
+                                  <td>
+                                    <fa-icon [icon]="faGlobe" class="me-2 fa-icon-globe"></fa-icon>
+                                    <a [href]="'https://' + hostname.hostname" target="_blank">{{ hostname.hostname }}</a>
+                                  </td>
+                                  <td class="small text-muted">{{ hostnameOriginLabel(hostname) }}</td>
+                                  <td>
+                                    <span class="badge" [class]="hostnameBadgeClass(hostname)">{{ hostnameHealthLabel(hostname) }}</span>
+                                    @if (!hostname.healthy) {
+                                      <div class="small text-muted mt-1 domain-status-detail">{{ hostname.message }}</div>
+                                    } @else if (hostname.redirectRuleTarget) {
+                                      <div class="small text-muted mt-1 domain-status-detail">→ {{ hostname.redirectRuleTarget }}</div>
+                                    }
+                                  </td>
+                                  <td class="small text-muted">{{ hostnameDnsSummary(hostname) }}</td>
+                                  <td class="small text-muted">{{ hostname.httpStatus || "no response" }}</td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      }
+                    </div>
                     @if (customDomains().length > 0) {
                       <div class="table-responsive mt-3">
                         <table class="table table-sm align-middle mb-0 custom-domains-table">
@@ -570,6 +663,8 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   private notifierService = inject(NotifierService);
   private environmentSetupService = inject(EnvironmentSetupService);
   private websocketService = inject(WebSocketClientService);
+  private activatedRoute = inject(ActivatedRoute);
+  private router = inject(Router);
 
   private subscriptions: Subscription[] = [];
   private notify: AlertInstance;
@@ -622,6 +717,9 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   apexRedirectBusy = false;
   apexRedirectError: string | null = null;
   apexRedirectMessages: string[] = [];
+  hostnameHealthReport: HostnameHealthReport | null = null;
+  loadingHostnameHealth = false;
+  protected readonly HostnameHealth = HostnameHealth;
 
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faCog = faCog;
@@ -654,11 +752,35 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
       if (this.enabled) {
         await this.loadExistingEnvironments();
         await this.connectWebSocket();
+        await this.applyStateFromQueryParams();
       }
     } catch (error) {
       this.logger.error("Failed to check setup status:", error);
       this.enabled = false;
     }
+  }
+
+  private async applyStateFromQueryParams(): Promise<void> {
+    const params = this.activatedRoute.snapshot.queryParams;
+    const environmentParameter = params[StoredValue.ENVIRONMENT];
+    const matched = this.existingEnvironments.find(environment => environment.name === environmentParameter);
+    if (matched) {
+      this.selectedExistingEnv = matched;
+      await this.onExistingEnvironmentSelected(matched);
+    }
+    const manageActionParameter = params[StoredValue.MANAGE_ACTION];
+    if (manageActionParameter && values(ManageAction).includes(manageActionParameter)) {
+      this.manageAction = manageActionParameter;
+    }
+  }
+
+  private updateQueryParams(queryParams: Record<string, string | null>): void {
+    this.router.navigate([], { queryParams, queryParamsHandling: "merge" });
+  }
+
+  setManageAction(action: ManageAction): void {
+    this.manageAction = action;
+    this.updateQueryParams({ [StoredValue.MANAGE_ACTION]: action });
   }
 
   private async connectWebSocket(): Promise<void> {
@@ -731,15 +853,71 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
 
   async onExistingEnvironmentSelected(env: ExistingEnvironment): Promise<void> {
     this.clearState();
+    this.updateQueryParams({ [StoredValue.ENVIRONMENT]: env?.name || null });
     if (env) {
+      await Promise.all([this.probeEnvironmentStatus(env.name), this.probeHostnameHealth(env.name)]);
       this.apexRedirectHostname = this.suggestedApexRedirectHostname(env);
-      await this.probeEnvironmentStatus(env.name);
     }
   }
 
   private suggestedApexRedirectHostname(env: ExistingEnvironment): string {
+    const serving = (this.hostnameHealthReport?.hostnames || []).find(hostname => hostname.health === HostnameHealth.SERVING);
     const attached = (env.customDomains || []).find(domain => domain.status === CustomDomainStatus.ATTACHED);
-    return attached?.hostname || "";
+    return serving?.hostname || attached?.hostname || "";
+  }
+
+  private async probeHostnameHealth(environmentName: string): Promise<void> {
+    this.loadingHostnameHealth = true;
+    this.hostnameHealthReport = null;
+    try {
+      this.hostnameHealthReport = await this.environmentSetupService.hostnameHealth(environmentName);
+      this.logger.info("Hostname health:", this.hostnameHealthReport);
+    } catch (error) {
+      this.logger.error("Failed to probe hostname health:", error);
+    } finally {
+      this.loadingHostnameHealth = false;
+    }
+  }
+
+  hostnameStatuses(): HostnameStatus[] {
+    return this.hostnameHealthReport?.hostnames || [];
+  }
+
+  hostnameProblems(): HostnameStatus[] {
+    return this.hostnameStatuses().filter(hostname => !hostname.healthy);
+  }
+
+  hostnameBadgeClass(hostname: HostnameStatus): string {
+    if (hostname.healthy) {
+      return "bg-success";
+    } else if (hostname.health === HostnameHealth.NO_DNS || hostname.health === HostnameHealth.REDIRECT_TARGET_MISSING) {
+      return "bg-danger";
+    } else {
+      return "bg-warning text-dark";
+    }
+  }
+
+  hostnameHealthLabel(hostname: HostnameStatus): string {
+    return hostnameHealthLabels[hostname.health] || hostname.health;
+  }
+
+  hostnameOriginLabel(hostname: HostnameStatus): string {
+    return hostnameOriginLabels[hostname.origin] || hostname.origin;
+  }
+
+  hostnameDnsSummary(hostname: HostnameStatus): string {
+    if (!hostname.dnsRecordType) {
+      return "no record";
+    } else {
+      const proxyState = hostname.proxied ? "proxied" : "DNS only";
+      return `${hostname.dnsRecordType} ${hostname.dnsContent} (${proxyState})`;
+    }
+  }
+
+  async refreshHostnameHealth(): Promise<void> {
+    if (this.selectedExistingEnv) {
+      await this.probeHostnameHealth(this.selectedExistingEnv.name);
+    }
   }
 
   private async probeEnvironmentStatus(environmentName: string): Promise<void> {
@@ -795,6 +973,8 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     this.apexRedirectBusy = false;
     this.apexRedirectError = null;
     this.apexRedirectMessages = [];
+    this.hostnameHealthReport = null;
+    this.loadingHostnameHealth = false;
   }
 
   customDomains(): CustomDomainEntry[] {

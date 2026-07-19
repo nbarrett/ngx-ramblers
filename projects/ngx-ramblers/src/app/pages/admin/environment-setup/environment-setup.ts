@@ -3,7 +3,7 @@ import { HttpClient } from "@angular/common/http";
 import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, Subscription } from "rxjs";
-import { kebabCase } from "es-toolkit/compat";
+import { kebabCase, values } from "es-toolkit/compat";
 import { sortBy } from "../../../functions/arrays";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -993,7 +993,11 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       const defaultValue = kebabCase(EnvironmentSetupTab.CREATE);
       const tabParameter = params[StoredValue.TAB];
       this.tab = tabParameter || defaultValue;
-      this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue);
+      const setupModeParameter = params[StoredValue.SETUP_MODE];
+      if (setupModeParameter && values(SetupMode).includes(setupModeParameter)) {
+        this.setupMode = setupModeParameter;
+      }
+      this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue, "setupMode:", setupModeParameter);
     }));
     try {
       const status = await this.environmentSetupService.status();
@@ -1120,6 +1124,14 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       this.cloneSourceEnv = null;
       this.loadExistingEnvironments();
     }
+    this.router.navigate([], {
+      queryParams: {
+        [StoredValue.SETUP_MODE]: mode,
+        [StoredValue.ENVIRONMENT]: mode === SetupMode.MANAGE ? this.activatedRoute.snapshot.queryParams[StoredValue.ENVIRONMENT] || null : null,
+        [StoredValue.MANAGE_ACTION]: mode === SetupMode.MANAGE ? this.activatedRoute.snapshot.queryParams[StoredValue.MANAGE_ACTION] || null : null
+      },
+      queryParamsHandling: "merge"
+    });
   }
 
   setCloneType(type: CloneType): void {

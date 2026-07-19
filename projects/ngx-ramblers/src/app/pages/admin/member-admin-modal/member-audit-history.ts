@@ -32,7 +32,7 @@ interface MemberAuditRow {
       grid-template-columns: 28px 200px 120px 1fr
       gap: 12px
       padding: 10px 16px
-      background-color: var(--rsm-table-header-bg)
+      background: var(--rsm-table-header-bg)
       border-bottom: 1px solid var(--rsm-border)
       font-size: 0.88rem
       color: var(--rsm-table-header-text)
@@ -102,8 +102,8 @@ interface MemberAuditRow {
       border-bottom: 1px solid #e9ecef
 
     .history-changes-table th
-      background: linear-gradient(to bottom, rgba(155, 200, 171, 0.3), rgba(155, 200, 171, 0.15))
-      color: #495057
+      background: var(--rsm-table-header-bg)
+      color: var(--rsm-table-header-text)
       font-weight: 600
       text-align: left
 

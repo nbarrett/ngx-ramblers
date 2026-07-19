@@ -26,6 +26,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass, DatePipe } from "@angular/common";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { MigrationFileStatus } from "../../../models/mongo-migration-model";
+import { CrossEnvironmentHostnameHealth, HostnameHealthReport } from "../../../models/environment-setup.model";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
   selector: "app-migration-health",
@@ -128,6 +130,7 @@ import { MigrationFileStatus } from "../../../models/mongo-migration-model";
                       <fa-icon [icon]="sortDirection === ASCENDING ? faChevronUp : faChevronDown" class="ms-1" size="xs"/>
                     }
                   </th>
+                  <th class="text-center">Hostnames</th>
                   <th class="text-center">Actions</th>
                 </tr>
               </thead>
@@ -182,6 +185,18 @@ import { MigrationFileStatus } from "../../../models/mongo-migration-model";
                       <span class="response-time">{{ formatResponseTime(env.responseTimeMs) }}</span>
                     </td>
                     <td class="text-center">
+                      @if (loadingHostnameHealth) {
+                        <span class="text-muted">…</span>
+                      } @else if (hostnameReportFor(env.environment); as report) {
+                        <span class="status-badge" [ngClass]="hostnameBadgeClass(report)"
+                              [tooltip]="hostnameTooltip(report)" container="body">
+                          {{ report.problemCount === 0 ? report.hostnames.length + " ok" : report.problemCount + " of " + report.hostnames.length }}
+                        </span>
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                    <td class="text-center">
                       <a [href]="env.adminUrl" target="_blank" rel="noopener" class="admin-link">
                         <fa-icon [icon]="faExternalLinkAlt" class="me-1"/>Admin
                       </a>
@@ -189,7 +204,7 @@ import { MigrationFileStatus } from "../../../models/mongo-migration-model";
                   </tr>
                   @if (isDegraded(env) && env.healthResponse?.migrations?.files?.length) {
                     <tr class="detail-row">
-                      <td colspan="8">
+                      <td colspan="9">
                         <div class="detail-alert detail-alert-danger">
                           <strong>Failed migrations:</strong>
                           @for (file of failedFiles(env); track file.fileName) {
@@ -206,7 +221,7 @@ import { MigrationFileStatus } from "../../../models/mongo-migration-model";
                   }
                   @if (isUnreachable(env)) {
                     <tr class="detail-row">
-                      <td colspan="8">
+                      <td colspan="9">
                         <div class="detail-alert detail-alert-warning">
                           <strong>Connection error:</strong> {{ env.error }}
                         </div>
@@ -326,7 +341,7 @@ import { MigrationFileStatus } from "../../../models/mongo-migration-model";
       margin-bottom: 0
 
     .health-table th
-      background: linear-gradient(to bottom, rgba(155, 200, 171, 0.3), rgba(155, 200, 171, 0.15))
+      background: var(--rsm-table-header-bg)
       color: #495057
       font-weight: 600
       text-align: left
@@ -480,7 +495,7 @@ import { MigrationFileStatus } from "../../../models/mongo-migration-model";
       font-size: 0.85rem
       color: #6c757d
   `],
-  imports: [PageComponent, FontAwesomeModule, NgClass, DatePipe]
+  imports: [PageComponent, FontAwesomeModule, NgClass, DatePipe, TooltipDirective]
 })
 export class MigrationHealthComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger(MigrationHealthComponent, NgxLoggerLevel.ERROR);
@@ -505,6 +520,8 @@ export class MigrationHealthComponent implements OnInit {
   error: string | null = null;
   sortColumn: HealthSortColumn = HealthSortColumn.ENVIRONMENT;
   sortDirection: string = ASCENDING;
+  hostnameHealth: CrossEnvironmentHostnameHealth | null = null;
+  loadingHostnameHealth = false;
 
   ngOnInit() {
     this.refresh();
@@ -522,6 +539,33 @@ export class MigrationHealthComponent implements OnInit {
     } finally {
       this.loading = false;
     }
+    this.refreshHostnameHealth();
+  }
+
+  private async refreshHostnameHealth(forceRefresh?: boolean): Promise<void> {
+    this.loadingHostnameHealth = true;
+    try {
+      this.hostnameHealth = await this.crossEnvironmentHealthService.hostnameHealth(forceRefresh);
+      this.logger.debug("Hostname health:", this.hostnameHealth);
+    } catch (error: any) {
+      this.logger.error("Hostname health check failed:", error);
+    } finally {
+      this.loadingHostnameHealth = false;
+    }
+  }
+
+  hostnameReportFor(environmentName: string): HostnameHealthReport | null {
+    return this.hostnameHealth?.environments?.find(report => report.environmentName === environmentName) || null;
+  }
+
+  hostnameBadgeClass(report: HostnameHealthReport): string {
+    return report.problemCount === 0 ? "badge-healthy" : "badge-unreachable";
+  }
+
+  hostnameTooltip(report: HostnameHealthReport): string {
+    return report.hostnames
+      .map(hostname => `${hostname.hostname}: ${hostname.message}`)
+      .join("\n");
   }
 
   statusIcon(env: EnvironmentHealthCheck) {
