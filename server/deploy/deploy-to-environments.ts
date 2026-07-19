@@ -7,7 +7,8 @@ import {
   ensureScale,
   flyTomlAbsolutePath,
   runCommand,
-  runCommandWithRetry
+  runCommandWithRetry,
+  waitForImageAvailable
 } from "../lib/fly/fly-commands";
 import fs from "fs";
 import os from "os";
@@ -163,6 +164,7 @@ async function deployToEnvironments(environmentsFilter: string[]): Promise<void>
     deleteVolumeIfExists(environmentConfig.appName, config.region);
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
     await importSecrets(environmentConfig.name, environmentConfig.appName);
+    await waitForImageAvailable(environmentConfig.appName, config.dockerImage);
     await runCommandWithRetry(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling --wait-timeout 600`);
     await ensureScale(environmentConfig.appName, environmentConfig.scaleCount, environmentConfig.memory);
   }

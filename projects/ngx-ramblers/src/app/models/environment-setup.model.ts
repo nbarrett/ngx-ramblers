@@ -557,7 +557,8 @@ export enum HostnameOrigin {
   SITE_URL = "site-url",
   CUSTOM_DOMAIN = "custom-domain",
   SIBLING = "sibling",
-  ENVIRONMENT_SUBDOMAIN = "environment-subdomain"
+  ENVIRONMENT_SUBDOMAIN = "environment-subdomain",
+  REDIRECT_TARGET = "redirect-target"
 }
 
 export interface HostnameStatus {
@@ -603,7 +604,8 @@ export const hostnameOriginLabels: Record<HostnameOrigin, string> = {
   [HostnameOrigin.SITE_URL]: "Site URL",
   [HostnameOrigin.CUSTOM_DOMAIN]: "Custom domain",
   [HostnameOrigin.SIBLING]: "apex/www variant",
-  [HostnameOrigin.ENVIRONMENT_SUBDOMAIN]: "Environment subdomain"
+  [HostnameOrigin.ENVIRONMENT_SUBDOMAIN]: "Environment subdomain",
+  [HostnameOrigin.REDIRECT_TARGET]: "Redirect target"
 };
 
 export enum EnvironmentSetupTab {

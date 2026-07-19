@@ -363,4 +363,13 @@ export class EnvironmentSetupService {
     return response as unknown as ApexRedirectResponse;
   }
 
+  async removeApexRedirect(environmentName: string, hostname: string): Promise<ApexRedirectResponse> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/remove-apex-redirect/${environmentName}`, {hostname}, this.opts),
+      this.notifications
+    );
+    return response as unknown as ApexRedirectResponse;
+  }
+
 }

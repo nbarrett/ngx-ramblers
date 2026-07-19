@@ -7,7 +7,7 @@ import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation }
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { resolveClientPath } from "../shared/path-utils";
 import { envConfig } from "../env-config/env-config";
-import { StreamingCommandResult } from "./fly.model";
+import { FlyImageQueryResponse, StreamingCommandResult } from "./fly.model";
 
 export type OutputCallback = (line: string) => void;
 
@@ -44,6 +44,50 @@ export async function runCommandWithRetry(command: string, attempts: number = 3,
     await sleep(backoffMs);
     return runCommandWithRetry(command, attempts, initialDelayMs, attempt + 1);
   }
+}
+
+const IMAGE_QUERY = "query($appName: String!, $imageRef: String!) { app(name: $appName) { id image(ref: $imageRef) { id digest ref } } }";
+
+async function imageResolvableByFly(appName: string, image: string): Promise<boolean> {
+  const token = process.env[Environment.FLY_API_TOKEN];
+  if (!token) {
+    debugLog(`No ${Environment.FLY_API_TOKEN} available to check image availability for ${image} - proceeding to deploy`);
+    return true;
+  }
+  try {
+    const response = await fetch("https://api.fly.io/graphql", {
+      method: "POST",
+      headers: {"Authorization": `Bearer ${token}`, "Content-Type": "application/json"},
+      body: JSON.stringify({query: IMAGE_QUERY, variables: {appName, imageRef: image}})
+    });
+    if (!response.ok) {
+      debugLog(`Fly image query for ${image} returned ${response.status} - image not yet resolvable`);
+      return false;
+    }
+    const body: FlyImageQueryResponse = await response.json();
+    return !!body?.data?.app?.image?.id;
+  } catch (error) {
+    debugLog(`Fly image query for ${image} failed:`, error);
+    return false;
+  }
+}
+
+export async function waitForImageAvailable(appName: string, image: string, timeoutMs: number = 900000, pollIntervalMs: number = 15000): Promise<boolean> {
+  const start = dateTimeNowAsValue();
+  const poll = async (): Promise<boolean> => {
+    if (await imageResolvableByFly(appName, image)) {
+      debugLog(`Image ${image} is resolvable by Fly for ${appName} - proceeding to deploy`);
+      return true;
+    }
+    if (dateTimeNowAsValue() - start >= timeoutMs) {
+      debugLog(`waitForImageAvailable: timeout after ${timeoutMs}ms waiting for ${image} on ${appName}; attempting deploy anyway`);
+      return false;
+    }
+    debugLog(`waitForImageAvailable: ${image} not yet available to Fly for ${appName} - polling again in ${pollIntervalMs}ms`);
+    await sleep(pollIntervalMs);
+    return poll();
+  };
+  return poll();
 }
 
 interface MachineSummary {

@@ -91,13 +91,33 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
     :host ::ng-deep .custom-domains-table .fa-icon-globe
       color: var(--ramblers-colour-mintcake)
 
-    :host ::ng-deep .hostname-health-table td,
-    :host ::ng-deep .hostname-health-table th
+    :host ::ng-deep .hostname-health-table
+      width: 100%
+      cursor: default
+
+    :host ::ng-deep .hostname-health-table th,
+    :host ::ng-deep .hostname-health-table td
+      white-space: normal
+      word-break: normal
+      vertical-align: top
+
+    :host ::ng-deep .hostname-health-table .fa-icon-globe
+      color: var(--ramblers-colour-mintcake)
+
+    :host ::ng-deep .hostname-health-table th.col-hostname,
+    :host ::ng-deep .hostname-health-table td.col-hostname
+      width: 1%
       white-space: nowrap
+      padding-right: 1.5rem
+
+    :host ::ng-deep .hostname-health-table .health-line
+      white-space: nowrap
+      line-height: 1.35
 
     :host ::ng-deep .hostname-health-table .domain-status-detail
-      white-space: nowrap
+      white-space: normal
       word-break: normal
+      line-height: 1.35
   `],
   template: `
     @if (!enabled) {
@@ -385,6 +405,13 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                       </p>
                       @if (loadingHostnameHealth) {
                         <div class="small text-muted">Checking hostnames…</div>
+                      } @else if (hostnameHealthError) {
+                        <div class="alert alert-warning">
+                          <fa-icon [icon]="faExclamationTriangle" class="me-2"></fa-icon>
+                          <strong>The hostname check did not complete.</strong>
+                          <div class="mt-2">{{ hostnameHealthError }}</div>
+                          <div class="mt-2">This says nothing about whether the hostnames are healthy — press Re-check to try again.</div>
+                        </div>
                       } @else if (hostnameStatuses().length === 0) {
                         <div class="small text-muted">No hostnames could be resolved for this environment.</div>
                       } @else {
@@ -400,34 +427,40 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                           </div>
                         }
                         <div class="table-responsive">
-                          <table class="table table-sm align-middle mb-0 custom-domains-table hostname-health-table">
+                          <table class="rounded table styled-table table-hover table-sm align-middle mb-0 hostname-health-table">
                             <thead>
                               <tr>
-                                <th scope="col">Hostname</th>
-                                <th scope="col">Source</th>
+                                <th scope="col" class="col-hostname">Hostname</th>
                                 <th scope="col">State</th>
-                                <th scope="col">DNS</th>
-                                <th scope="col">HTTPS</th>
                               </tr>
                             </thead>
                             <tbody>
                               @for (hostname of hostnameStatuses(); track hostname.hostname) {
                                 <tr>
-                                  <td>
-                                    <fa-icon [icon]="faGlobe" class="me-2 fa-icon-globe"></fa-icon>
-                                    <a [href]="'https://' + hostname.hostname" target="_blank">{{ hostname.hostname }}</a>
+                                  <td class="col-hostname">
+                                    <div class="health-line">
+                                      <fa-icon [icon]="faGlobe" class="me-2 fa-icon-globe"></fa-icon>
+                                      <a [href]="'https://' + hostname.hostname" target="_blank">{{ hostname.hostname }}</a>
+                                    </div>
+                                    <div class="health-line small text-muted">{{ hostnameOriginLabel(hostname) }}</div>
                                   </td>
-                                  <td class="small text-muted">{{ hostnameOriginLabel(hostname) }}</td>
                                   <td>
-                                    <span class="badge" [class]="hostnameBadgeClass(hostname)">{{ hostnameHealthLabel(hostname) }}</span>
-                                    @if (!hostname.healthy) {
-                                      <div class="small text-muted mt-1 domain-status-detail">{{ hostname.message }}</div>
-                                    } @else if (hostname.redirectRuleTarget) {
-                                      <div class="small text-muted mt-1 domain-status-detail">→ {{ hostname.redirectRuleTarget }}</div>
+                                    <div class="health-line">
+                                      <span class="badge" [class]="hostnameBadgeClass(hostname)">{{ hostnameHealthLabel(hostname) }}</span>
+                                    </div>
+                                    @if (hostnameDetail(hostname)) {
+                                      <div class="small text-muted mt-1 domain-status-detail">{{ hostnameDetail(hostname) }}</div>
+                                    }
+                                    <div class="health-line small text-muted mt-1">{{ hostnameDnsSummary(hostname) }}</div>
+                                    <div class="health-line small text-muted">HTTPS {{ hostname.httpStatus || "no response" }}</div>
+                                    @if (hostname.redirectRuleTarget) {
+                                      <button class="btn btn-sm btn-outline-secondary mt-2"
+                                              (click)="removeApexRedirect(hostname)"
+                                              [disabled]="apexRedirectBusy || operationBusy || customDomainBusy">
+                                        Remove redirect
+                                      </button>
                                     }
                                   </td>
-                                  <td class="small text-muted">{{ hostnameDnsSummary(hostname) }}</td>
-                                  <td class="small text-muted">{{ hostname.httpStatus || "no response" }}</td>
                                 </tr>
                               }
                             </tbody>
@@ -499,9 +532,12 @@ import { SessionLogsComponent } from "../../../shared/components/session-logs";
                     <div class="mt-4">
                       <div class="fw-bold">Apex / www redirect</div>
                       <p class="small text-muted mb-2">
-                        Make the bare apex (or <code>www.</code>) variant of a domain 301-redirect to the host the
+                        Make the bare apex (or <code>www.</code>) variant of a domain redirect to the host the
                         site is served on. The redirect runs at Cloudflare's edge — enter the hostname the site is
-                        served on and the other variant is pointed at it.
+                        served on and the other variant is pointed at it. Only needed when one variant does not
+                        resolve: if both already work, leave this alone. A 302 is used rather than a 301 so that
+                        removing the redirect takes effect immediately, instead of visitors' browsers caching it
+                        permanently.
                       </p>
                       <div class="d-flex gap-2 align-items-start flex-wrap">
                         <input type="text" class="form-control" style="max-width: 320px;"
@@ -718,6 +754,7 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   apexRedirectError: string | null = null;
   apexRedirectMessages: string[] = [];
   hostnameHealthReport: HostnameHealthReport | null = null;
+  hostnameHealthError: string | null = null;
   loadingHostnameHealth = false;
   protected readonly HostnameHealth = HostnameHealth;
 
@@ -869,14 +906,21 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
   private async probeHostnameHealth(environmentName: string): Promise<void> {
     this.loadingHostnameHealth = true;
     this.hostnameHealthReport = null;
+    this.hostnameHealthError = null;
     try {
       this.hostnameHealthReport = await this.environmentSetupService.hostnameHealth(environmentName);
       this.logger.info("Hostname health:", this.hostnameHealthReport);
     } catch (error) {
+      this.hostnameHealthError = this.extractErrorDetail(error);
       this.logger.error("Failed to probe hostname health:", error);
     } finally {
       this.loadingHostnameHealth = false;
     }
+  }
+
+  hostnameDetail(hostname: HostnameStatus): string {
+    const worthExplaining = !hostname.healthy || hostname.health === HostnameHealth.REDIRECTING;
+    return worthExplaining ? hostname.message : "";
   }
 
   hostnameStatuses(): HostnameStatus[] {
@@ -974,6 +1018,7 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
     this.apexRedirectError = null;
     this.apexRedirectMessages = [];
     this.hostnameHealthReport = null;
+    this.hostnameHealthError = null;
     this.loadingHostnameHealth = false;
   }
 
@@ -1133,6 +1178,36 @@ export class EnvironmentManagement implements OnInit, OnDestroy {
       this.apexRedirectError = this.extractErrorDetail(error);
       this.apexRedirectMessages = [...this.apexRedirectMessages, `Error: ${this.apexRedirectError}`];
       this.logger.error("Apex redirect setup failed:", error);
+    } finally {
+      this.apexRedirectBusy = false;
+    }
+  }
+
+  async removeApexRedirect(hostname: HostnameStatus): Promise<void> {
+    if (!this.selectedExistingEnv) {
+      this.notify.warning({ title: "No Environment Selected", message: "Please select an environment first" });
+      return;
+    }
+    this.apexRedirectBusy = true;
+    this.apexRedirectError = null;
+    this.apexRedirectMessages = [`Removing redirect for ${hostname.hostname}`];
+    try {
+      const response = await this.environmentSetupService.removeApexRedirect(this.selectedExistingEnv.name, hostname.hostname);
+      if (response.success) {
+        this.apexRedirectMessages = response.logs?.length
+          ? [...this.apexRedirectMessages, ...response.logs]
+          : [...this.apexRedirectMessages, response.message];
+        await this.refreshHostnameHealth();
+      } else {
+        this.apexRedirectError = response.message || "Redirect removal failed";
+        if (response.logs?.length) {
+          this.apexRedirectMessages = [...this.apexRedirectMessages, ...response.logs];
+        }
+      }
+    } catch (error) {
+      this.apexRedirectError = this.extractErrorDetail(error);
+      this.apexRedirectMessages = [...this.apexRedirectMessages, `Error: ${this.apexRedirectError}`];
+      this.logger.error("Redirect removal failed:", error);
     } finally {
       this.apexRedirectBusy = false;
     }

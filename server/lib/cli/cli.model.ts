@@ -51,6 +51,14 @@ export interface ApexRedirectOperationResult {
   logs: string[];
 }
 
+export interface ApexRedirectRemovalResult {
+  redirectFrom: string;
+  zoneId?: string;
+  redirectRemoved: boolean;
+  placeholderRecordsRemoved: number;
+  logs: string[];
+}
+
 export interface LocalRunConfig {
   environmentName: string;
   mode: "dev" | "prod";

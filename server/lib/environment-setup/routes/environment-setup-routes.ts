@@ -32,6 +32,7 @@ import {
   checkCustomDomainStatus,
   removeCustomDomainForEnvironment,
   removeSubdomainForEnvironment,
+  removeApexRedirectForEnvironment,
   setupApexRedirectForEnvironment,
   setupSubdomainForEnvironment
 } from "../../cli/commands/subdomain";
@@ -1031,6 +1032,40 @@ router.post("/setup-apex-redirect/:environmentName", async (req: Request, res: R
       return;
     }
     errorDebugLog("Error setting up apex redirect:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/remove-apex-redirect/:environmentName", async (req: Request, res: Response) => {
+  if (!validateSetupAccess(req, res)) return;
+
+  try {
+    const { environmentName } = req.params;
+    const { hostname } = req.body || {};
+    debugLog("Remove apex redirect request received for:", environmentName, hostname);
+
+    if (!hostname) {
+      res.status(400).json({ success: false, message: "hostname is required" });
+      return;
+    }
+
+    await loadEnvironmentContext(environmentName);
+    const result = await removeApexRedirectForEnvironment(environmentName, hostname);
+
+    res.json({
+      success: true,
+      message: result.redirectRemoved
+        ? `Redirect removed: ${result.redirectFrom} now serves directly`
+        : `No redirect rule existed for ${result.redirectFrom}`,
+      redirectFrom: result.redirectFrom,
+      logs: result.logs
+    });
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+      return;
+    }
+    errorDebugLog("Error removing apex redirect:", error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });

@@ -89,3 +89,11 @@ export enum IpAddressType {
   SharedV4 = "shared_v4",
   PrivateV6 = "private_v6",
 }
+
+export interface FlyImageQueryResponse {
+  data?: {
+    app?: {
+      image?: { id?: string; digest?: string; ref?: string };
+    };
+  };
+}

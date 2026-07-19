@@ -24,7 +24,8 @@ import {
   CustomDomainStatus,
   EnvironmentsConfig
 } from "../../../../projects/ngx-ramblers/src/app/models/environment-config.model";
-import { ApexRedirectOperationResult, CustomDomainOperationResult, SubdomainRemovalResult } from "../cli.model";
+import { ApexRedirectOperationResult, ApexRedirectRemovalResult, CustomDomainOperationResult, SubdomainRemovalResult } from "../cli.model";
+import { apexWwwSibling } from "../../cloudflare/hostname-siblings";
 import { dateTimeNowAsValue } from "../../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("cli:subdomain"));
@@ -584,10 +585,6 @@ async function reconcileCnameRecord(
 
 const REDIRECT_PLACEHOLDER_IPV4 = "192.0.2.1";
 
-function siblingHostname(hostname: string): string {
-  return hostname.startsWith("www.") ? hostname.slice(4) : `www.${hostname}`;
-}
-
 function redirectErrorDetail(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -646,9 +643,9 @@ async function applyDomainRedirectHygiene(
     step(`  ⚠ Could not check redirect rules for ${attachedHostname}: ${redirectErrorDetail(error)}`);
   }
 
-  const sibling = siblingHostname(attachedHostname);
-  if (sibling !== zone.name && !sibling.endsWith(`.${zone.name}`)) {
-    step(`  - ${sibling} is outside zone ${zone.name} — no redirect created`);
+  const sibling = apexWwwSibling(attachedHostname, zone);
+  if (!sibling) {
+    step(`  - ${attachedHostname} is not the apex or www of ${zone.name} — no apex/www redirect applies`);
     return;
   }
   if (siblingAttachedToEnvironment(environmentsConfig, environmentName, sibling)) {
@@ -660,7 +657,7 @@ async function applyDomainRedirectHygiene(
     const recordName = subdomainLabelForHostname(sibling, zone);
     const existingRecords = await listDnsRecords(cloudflareConfig, sibling);
     await reconcileRedirectPlaceholderRecord(step, cloudflareConfig, recordName, sibling, existingRecords);
-    step(`  ✓ Redirect rule ${result.action}: ${sibling} -> https://${attachedHostname} (301, path + query preserved)`);
+    step(`  ✓ Redirect rule ${result.action}: ${sibling} -> https://${attachedHostname} (302, path + query preserved)`);
   } catch (error) {
     step(`  ⚠ Could not set up the ${sibling} redirect: ${redirectErrorDetail(error)}`);
   }
@@ -672,8 +669,8 @@ async function removeSiblingRedirect(
   zone: CloudflareZone,
   removedHostname: string
 ): Promise<void> {
-  const sibling = siblingHostname(removedHostname);
-  if (sibling !== zone.name && !sibling.endsWith(`.${zone.name}`)) {
+  const sibling = apexWwwSibling(removedHostname, zone);
+  if (!sibling) {
     return;
   }
   try {
@@ -696,8 +693,7 @@ export async function setupApexRedirectForEnvironment(environmentName: string, p
   const step = (msg: string) => { logs.push(msg); log(msg); };
 
   const primaryHostname = validateHostname(primaryHostnameInput);
-  const redirectFrom = siblingHostname(primaryHostname);
-  step(`Setting up redirect ${redirectFrom} -> ${primaryHostname} for environment ${environmentName}`);
+  step(`Setting up apex/www redirect to ${primaryHostname} for environment ${environmentName}`);
 
   const envConfig = await findEnvironmentFromDatabase(environmentName);
   if (!envConfig) {
@@ -725,6 +721,23 @@ export async function setupApexRedirectForEnvironment(environmentName: string, p
 
   const cloudflareConfig: CloudflareDnsConfig = { apiToken: environmentsConfig.cloudflare.apiToken, zoneId: zone.id };
 
+  const redirectFrom = apexWwwSibling(primaryHostname, zone);
+  if (!redirectFrom) {
+    throw new Error(`${primaryHostname} is not the apex or www of zone ${zone.name}, so there is no apex/www pair to redirect. Only ${zone.name} and www.${zone.name} can be paired this way.`);
+  }
+  step(`  ✓ Redirect pair: ${redirectFrom} -> ${primaryHostname}`);
+
+  step(`Checking ${primaryHostname} can serve the site before redirecting to it...`);
+  const primaryRecords = await listDnsRecords(cloudflareConfig, primaryHostname);
+  const primaryServingRecord = primaryRecords.find(record => ["A", "AAAA", "CNAME"].includes(record.type));
+  if (!primaryServingRecord) {
+    throw new Error(`${primaryHostname} has no A, AAAA or CNAME record, so it does not resolve. Redirecting ${redirectFrom} to it would take the site offline. Attach ${primaryHostname} as a custom domain first.`);
+  }
+  if (primaryServingRecord.content === REDIRECT_PLACEHOLDER_IPV4) {
+    throw new Error(`${primaryHostname} points at the redirect placeholder ${REDIRECT_PLACEHOLDER_IPV4}, so it cannot serve the site. Redirecting ${redirectFrom} to it would take the site offline.`);
+  }
+  step(`  ✓ ${primaryHostname} resolves (${primaryServingRecord.type} ${primaryServingRecord.content})`);
+
   if (siblingAttachedToEnvironment(environmentsConfig, environmentName, redirectFrom)) {
     step(`  - ${redirectFrom} is attached as its own custom domain — it serves the site directly, no redirect created`);
     return { primaryHostname, redirectFrom, zoneId: zone.id, redirectCreated: false, logs };
@@ -732,7 +745,7 @@ export async function setupApexRedirectForEnvironment(environmentName: string, p
 
   step(`Creating Cloudflare redirect rule ${redirectFrom} -> https://${primaryHostname}...`);
   const result = await ensureHostRedirectRule(cloudflareConfig, { fromHost: redirectFrom, toHost: primaryHostname });
-  step(`  ✓ Redirect rule ${result.action} (301, path + query preserved)`);
+  step(`  ✓ Redirect rule ${result.action} (302, path + query preserved)`);
 
   step(`Ensuring ${redirectFrom} reaches Cloudflare's edge...`);
   const recordName = subdomainLabelForHostname(redirectFrom, zone);
@@ -741,6 +754,48 @@ export async function setupApexRedirectForEnvironment(environmentName: string, p
 
   step(`Done: https://${redirectFrom} now redirects to https://${primaryHostname}`);
   return { primaryHostname, redirectFrom, zoneId: zone.id, redirectCreated: true, logs };
+}
+
+export async function removeApexRedirectForEnvironment(environmentName: string, redirectFromInput: string): Promise<ApexRedirectRemovalResult> {
+  const logs: string[] = [];
+  const step = (msg: string) => { logs.push(msg); log(msg); };
+
+  const redirectFrom = validateHostname(redirectFromInput);
+  step(`Removing redirect rule for ${redirectFrom} in environment ${environmentName}`);
+
+  const environmentsConfig = await environmentsConfigFromDatabase();
+  if (!environmentsConfig?.cloudflare?.apiToken) {
+    throw new Error("Cloudflare API token not configured. Add cloudflare.apiToken to environments config.");
+  }
+
+  const zone = await zoneForHostname(environmentsConfig.cloudflare.apiToken, redirectFrom);
+  if (!zone) {
+    throw new Error(`No Cloudflare zone found that covers hostname ${redirectFrom}`);
+  }
+  step(`  ✓ Zone ${zone.name} (${zone.id})`);
+
+  const cloudflareConfig: CloudflareDnsConfig = { apiToken: environmentsConfig.cloudflare.apiToken, zoneId: zone.id };
+
+  const redirectRemoved = await removeHostRedirectRule(cloudflareConfig, redirectFrom);
+  if (redirectRemoved) {
+    step(`  ✓ Removed redirect rule for ${redirectFrom}`);
+  } else {
+    step(`  - No redirect rule found for ${redirectFrom}`);
+  }
+
+  const existingRecords = await listDnsRecords(cloudflareConfig, redirectFrom);
+  const placeholders = existingRecords.filter(record => record.type === "A" && record.content === REDIRECT_PLACEHOLDER_IPV4);
+  await Promise.all(placeholders.map(async placeholder => {
+    await deleteDnsRecord(cloudflareConfig, placeholder.id);
+    step(`  ✓ Removed redirect-only placeholder A record for ${redirectFrom}`);
+  }));
+
+  if (redirectRemoved && placeholders.length === existingRecords.filter(record => record.type === "A").length && placeholders.length > 0) {
+    step(`  ⚠ ${redirectFrom} now has no A record, so it will stop resolving. Attach it as a custom domain if it should serve the site.`);
+  }
+
+  step(`Done: ${redirectFrom} no longer redirects`);
+  return { redirectFrom, zoneId: zone.id, redirectRemoved, placeholderRecordsRemoved: placeholders.length, logs };
 }
 
 function extractCertId(dnsValidationTarget: string | undefined): string | undefined {
@@ -964,7 +1019,7 @@ export function createSubdomainCommand(): Command {
 
   subdomain
     .command("apex-redirect <environment> <hostname>")
-    .description("Redirect the apex/www sibling of a hostname to it via a Cloudflare edge 301")
+    .description("Redirect the apex/www sibling of a hostname to it via a Cloudflare edge 302")
     .action(async (environment, hostname) => {
       try {
         await setupApexRedirectForEnvironment(environment, hostname);
