@@ -176,7 +176,7 @@ jobs:
         run: echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
 
       - name: Build the Docker image
-        run: docker build . --file Dockerfile --target website --tag ngx-ramblers:${{ github.run_number }}
+        run: docker build . --build-arg BUILD_NUMBER=${{ github.run_number }} --file Dockerfile --target website --tag ngx-ramblers:${{ github.run_number }}
 
       - name: Tag the Docker image (latest)
         if: github.ref_name == 'main'

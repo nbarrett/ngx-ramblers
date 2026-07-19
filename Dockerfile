@@ -73,6 +73,9 @@ EXPOSE 5001
 
 WORKDIR /usr/src/app
 
+ARG BUILD_NUMBER=development
+ENV BUILD_NUMBER=${BUILD_NUMBER}
+
 CMD ["npm", "run", "server", "--prefix", "server"]
 
 # =============================================================================
