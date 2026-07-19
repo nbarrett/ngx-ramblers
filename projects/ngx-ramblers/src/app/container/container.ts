@@ -7,6 +7,7 @@ import { NavbarComponent } from "../modules/common/navbar/navbar";
 import { RouterOutlet } from "@angular/router";
 import { FooterComponent } from "../footer/footer";
 import { DataPopulationService } from "../pages/admin/data-population.service";
+import { VersionCheckService } from "../services/version-check.service";
 
 @Component({
     selector: "app-root",
@@ -26,11 +27,13 @@ import { DataPopulationService } from "../pages/admin/data-population.service";
 export class ContainerComponent implements OnInit, OnDestroy {
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private dataPopulationService = inject(DataPopulationService);
+  private versionCheckService = inject(VersionCheckService);
   private subscriptions: Subscription[] = [];
   protected config: SystemConfig;
 
   ngOnInit() {
     this.dataPopulationService.clearLegacyLocalStorage();
+    this.versionCheckService.initialise();
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
         this.config = config;
