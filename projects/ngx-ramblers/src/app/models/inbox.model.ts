@@ -194,6 +194,14 @@ export interface InboxThread extends Identifiable {
   conversationKey?: string | null;
 }
 
+export interface InboxPendingDelete {
+  threadId: string;
+  removedThreads: InboxThread[];
+  insertionIndex: number;
+  selectedThread: InboxThread | null;
+  timer: ReturnType<typeof setTimeout>;
+}
+
 export interface InboxMessage extends Identifiable {
   threadId: string;
   mailboxConnectionId: string | null;

@@ -4,7 +4,7 @@ import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronRight, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faInbox, faListCheck, faPaperclip, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faTableColumns, faTableList, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faInbox, faListCheck, faPaperclip, faPenToSquare, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo } from "@fortawesome/free-solid-svg-icons";
 import { AdminSettingsPath, AdminPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, values } from "es-toolkit/compat";
@@ -21,6 +21,7 @@ import {
   InboxMessage,
   InboxMessageDirection,
   InboxNewMessageEvent,
+  InboxPendingDelete,
   InboxAliasConfigView,
   InboxReplyComposeResponse,
   InboxThread,
@@ -54,7 +55,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
   styleUrls: ["./inbox.component.sass"],
   template: `
     <app-page pageTitle="Email inbox" [showTitle]="!mobile" [showBreadcrumb]="!mobile">
-      <app-maximisable-panel #panel="maximisablePanel" [showToggleButton]="false">
+      <app-maximisable-panel #panel="maximisablePanel" class="inbox-scroll-contained" [showToggleButton]="false">
       <div panelControls class="d-flex gap-2 align-items-center flex-grow-1 inbox-toolbar">
           @if (!readingOnMobile) {
             <div class="d-flex align-items-center gap-2 flex-shrink-0 inbox-toolbar-brand">
@@ -78,25 +79,44 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
               }
             </select>
           }
-          <div class="ms-auto d-flex align-items-center gap-2 inbox-toolbar-actions">
+          <div class="ms-auto d-flex align-items-center gap-2 inbox-toolbar-actions" [class.inbox-reading-actions]="readingOnMobile">
           @if (!readingOnMobile) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openComposer()" tooltip="Start a new email in the Email Composer">
               <fa-icon [icon]="faPenToSquare"/>Compose
             </button>
+            @if (mobile) {
+              <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="mobileFiltersOpen = !mobileFiltersOpen">
+                <fa-icon [icon]="faSliders"/>Filter and sort
+              </button>
+            }
           }
           @if (mobile && mobileShowDetail) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="backToList()" tooltip="Back to inbox">
               <fa-icon [icon]="faArrowLeft"/>Inbox
             </button>
+            <button class="btn btn-grey-danger d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="deleteCurrentThread()" [disabled]="busy" tooltip="Delete this conversation and show the next one">
+              <fa-icon [icon]="faTrash"/>Delete
+            </button>
+            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openAdjacentConversation(-1)" [disabled]="!hasAdjacentConversation(-1)" tooltip="Previous conversation">
+              <fa-icon [icon]="faChevronLeft"/>Previous
+            </button>
+            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openAdjacentConversation(1)" [disabled]="!hasAdjacentConversation(1)" tooltip="Next conversation">
+              Next<fa-icon [icon]="faChevronRight"/>
+            </button>
+            @if (nextUnreadConversation()) {
+              <button class="btn btn-quiet inbox-next-unread d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openNextUnread()" tooltip="Next unread conversation">
+                <fa-icon [icon]="faEnvelope"/>Next unread
+              </button>
+            }
           }
-          @if (threadListTotalCount > 0 && !readingOnMobile) {
+          @if (threadListTotalCount > 0 && !mobile) {
             <button type="button" class="btn btn-quiet inbox-filter-toggle d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" [class.active]="readFilter === InboxReadFilter.UNREAD"
                     (click)="toggleUnreadFilter()"
                     [tooltip]="readFilter === InboxReadFilter.UNREAD ? 'Showing unread only — click to show all' : 'Show unread only'">
               <fa-icon [icon]="faFilter"/>{{ readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All conversations' }}
             </button>
           }
-          @if (threads.length > 0 && !readingOnMobile) {
+          @if (threads.length > 0 && !mobile) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="toggleMessageSort()"
                     [tooltip]="messageSortDescending ? 'Showing newest first — click for oldest first' : 'Showing oldest first — click for newest first'">
               <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort"/>{{ messageSortDescending ? 'Newest first' : 'Oldest first' }}
@@ -109,7 +129,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
             </button>
           }
           @if ((pushStatus$ | async); as pushStatus) {
-            @if (pushStatus.supported && !readingOnMobile) {
+            @if (pushStatus.supported && !mobile) {
               @if (pushStatus.subscribed) {
                 <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="disableBrowserNotifications()" [disabled]="busy" tooltip="Stop showing browser notifications for new inbox messages">
                   <fa-icon [icon]="faBellSlash"/>Notifications
@@ -121,7 +141,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
               }
             }
           }
-          @if (!readingOnMobile) {
+          @if (!mobile) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="refresh()" [disabled]="busy" tooltip="Refresh the inbox">
               <fa-icon [icon]="faRotateRight"/>Refresh
             </button>
@@ -133,6 +153,30 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
           }
           </div>
       </div>
+      @if (mobile && mobileFiltersOpen && !mobileShowDetail) {
+        <div class="inbox-mobile-filters">
+          <button type="button" class="btn btn-quiet inbox-filter-toggle" [class.active]="readFilter === InboxReadFilter.UNREAD" (click)="toggleUnreadFilter()">
+            <fa-icon [icon]="faFilter" class="me-1"/>{{readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All conversations'}}
+          </button>
+          <button type="button" class="btn btn-quiet" (click)="toggleMessageSort()">
+            <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort" class="me-1"/>{{messageSortDescending ? 'Newest first' : 'Oldest first'}}
+          </button>
+          <button type="button" class="btn btn-quiet" (click)="refresh()" [disabled]="busy">
+            <fa-icon [icon]="faRotateRight" class="me-1"/>Refresh
+          </button>
+          @if ((pushStatus$ | async); as pushStatus) {
+            @if (pushStatus.supported && pushStatus.subscribed) {
+              <button type="button" class="btn btn-quiet" (click)="disableBrowserNotifications()" [disabled]="busy">
+                <fa-icon [icon]="faBellSlash" class="me-1"/>Disable notifications
+              </button>
+            } @else if (pushStatus.supported && pushStatus.permission !== 'denied') {
+              <button type="button" class="btn btn-quiet" (click)="enableBrowserNotifications()" [disabled]="busy">
+                <fa-icon [icon]="faBell" class="me-1"/>Enable notifications
+              </button>
+            }
+          }
+        </div>
+      }
       @if (!loadedOnce) {
         <div class="alert alert-warning inbox-alert d-flex align-items-center">
           <fa-icon [icon]="faRotateRight" [animation]="'spin'"/>
@@ -207,7 +251,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
               }
             </div>
           }
-          <div class="inbox-thread-list" tabindex="0" (keydown)="onThreadListKeydown($event)">
+          <div class="inbox-thread-list" tabindex="0" (keydown)="onThreadListKeydown($event)" (scroll)="rememberListPosition($event)">
           @if (threadListTotalCount === 0) {
             <div class="p-3 text-muted">No conversations yet. Once an alias is connected and synced, threads will appear here.</div>
           } @else if (filteredThreads.length === 0) {
@@ -227,6 +271,8 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                  [class.active]="threadIdOf(thread) === selectedThreadId"
                  [class.unread]="conversationUnread(thread)"
                  [attr.data-thread-id]="threadIdOf(thread)"
+                 (touchstart)="startThreadSwipe($event)"
+                 (touchend)="finishThreadSwipe($event, thread)"
                  (click)="selectThread(thread)">
               <input type="checkbox" class="form-check-input flex-shrink-0 m-0"
                      [checked]="conversationSelected(thread)"
@@ -239,7 +285,8 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                   <div class="inbox-thread-from flex-grow-1 text-truncate">{{thread.externalAddress.name ?? thread.externalAddress.email}}</div>
                   <div class="inbox-thread-time flex-shrink-0">{{thread.lastSeenAt | date: "short"}}</div>
                 </div>
-                <div class="inbox-thread-subject text-truncate">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
+                <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
+                <div class="inbox-thread-preview">{{thread.lastDirection === InboxMessageDirection.OUTBOUND ? 'Last message sent by you' : 'Latest incoming message'}} · Swipe right to {{conversationUnread(thread) ? 'mark read' : 'mark unread'}}, left to delete</div>
                 @if (recipientForThread(thread); as roleEmail) {
                   <div class="inbox-thread-recipient text-truncate">to {{roleEmail}}</div>
                 }
@@ -261,7 +308,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
         @if (!mobile || mobileShowDetail) {
         <div class="thumbnail-heading-frame-compact inbox-pane inbox-pane-messages">
           @if (selectedThread) {
-            <div class="d-flex align-items-start gap-2 mb-3 inbox-detail-header">
+            <div class="d-flex align-items-start gap-2 mb-3 inbox-detail-header" [class.compact]="compactDetailHeader">
               <div class="me-auto">
                 <h5 class="mb-1">{{selectedThread.subject || selectedThread.normalisedSubject || "(no subject)"}}</h5>
                 <small class="text-muted d-block">From {{ formatAddress(selectedThread.externalAddress) }}</small>
@@ -281,7 +328,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
               }
             </div>
           }
-          <div class="inbox-detail" (scroll)="onDetailScroll($event)">
+          <div class="inbox-detail" (scroll)="onMessageScroll($event)">
           @if (!selectedThread) {
             <div class="text-muted">Select a conversation to read it.</div>
           } @else if (loadingThread) {
@@ -360,10 +407,25 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
             }
           }
           </div>
+          @if (mobile && latestActionMessage(); as actionMessage) {
+            <div class="inbox-sticky-actions">
+              <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareReply(actionMessage)"><fa-icon [icon]="faReply"/> Reply</button>
+              @if (hasMultipleRecipients(actionMessage)) {
+                <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareReplyAll(actionMessage)"><fa-icon [icon]="faReplyAll"/> Reply all</button>
+              }
+              <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareForward(actionMessage)"><fa-icon [icon]="faShare"/> Forward</button>
+            </div>
+          }
         </div>
         }
       </div>
       </app-maximisable-panel>
+      @if (pendingDelete) {
+        <div class="inbox-undo-bar" role="status">
+          <span>Conversation deleted</span>
+          <button class="btn btn-sm btn-primary" type="button" (click)="undoPendingDelete()"><fa-icon [icon]="faUndo" class="me-1"/>Undo</button>
+        </div>
+      }
       @if (notifyTarget.showAlert) {
         <div class="row mt-3">
           <div class="col-sm-12">
@@ -415,6 +477,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected readonly faFilter = faFilter;
   protected readonly faListCheck = faListCheck;
   protected readonly faChevronDown = faChevronDown;
+  protected readonly faChevronLeft = faChevronLeft;
   protected readonly faChevronRight = faChevronRight;
   protected readonly faPaperclip = faPaperclip;
   protected readonly faEye = faEye;
@@ -426,6 +489,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   protected readonly faArrowLeft = faArrowLeft;
   protected readonly faExpand = faExpand;
   protected readonly faCompress = faCompress;
+  protected readonly faSliders = faSliders;
+  protected readonly faUndo = faUndo;
   public messageSortDescending = true;
   protected readonly InboxMessageDirection = InboxMessageDirection;
   protected readonly InboxViewScope = InboxViewScope;
@@ -450,29 +515,6 @@ export class InboxComponent implements OnInit, OnDestroy {
   @HostBinding("class.inbox-reading")
   get readingOnMobile(): boolean {
     return this.mobile && this.mobileShowDetail;
-  }
-
-  @HostBinding("class.inbox-chrome-hidden")
-  get chromeHiddenWhileReading(): boolean {
-    return this.chromeHidden && this.readingOnMobile;
-  }
-
-  onDetailScroll(event: Event): void {
-    if (!this.mobile) {
-      return;
-    }
-    const scrollTop = (event.target as HTMLElement).scrollTop;
-    const movement = scrollTop - this.lastDetailScrollTop;
-    if (Math.abs(movement) < InboxComponent.SCROLL_INTENT_PX) {
-      return;
-    }
-    this.lastDetailScrollTop = scrollTop;
-    this.chromeHidden = scrollTop > InboxComponent.CHROME_RELEASE_PX && movement > 0;
-  }
-
-  private revealChrome(): void {
-    this.chromeHidden = false;
-    this.lastDetailScrollTop = 0;
   }
 
   private matchingThread(threads: InboxThread[], slugOrId: string): InboxThread | null {
@@ -531,14 +573,19 @@ export class InboxComponent implements OnInit, OnDestroy {
   public stackedLayout = false;
   public mobile = false;
   public mobileShowDetail = false;
-  public chromeHidden = false;
-  private lastDetailScrollTop = 0;
+  public mobileFiltersOpen = false;
+  public compactDetailHeader = false;
+  public pendingDelete: InboxPendingDelete | null = null;
   public listSize = 352;
   public readonly minListSize = 140;
   private static readonly LAYOUT_KEY = "inbox-layout";
   private static readonly SIZE_KEY = "inbox-list-size";
-  private static readonly SCROLL_INTENT_PX = 6;
-  private static readonly CHROME_RELEASE_PX = 48;
+  private static readonly DELETE_UNDO_MS = 6000;
+  private static readonly SWIPE_THRESHOLD_PX = 72;
+  private listScrollTop = 0;
+  private touchStartX = 0;
+  private touchStartY = 0;
+  private suppressThreadClick = false;
 
   adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
   private subscriptions: Subscription[] = [];
@@ -596,6 +643,10 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+    if (this.pendingDelete) {
+      clearTimeout(this.pendingDelete.timer);
+      void this.commitPendingDelete();
+    }
   }
 
   get gridTemplateColumns(): string {
@@ -611,16 +662,118 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   selectThread(thread: InboxThread): void {
+    if (this.suppressThreadClick) {
+      this.suppressThreadClick = false;
+      return;
+    }
     if (this.mobile) {
       this.mobileShowDetail = true;
-      this.revealChrome();
+      this.mobileFiltersOpen = false;
+      this.compactDetailHeader = false;
     }
     void this.openThread(thread);
   }
 
   backToList(): void {
     this.mobileShowDetail = false;
-    this.revealChrome();
+    this.compactDetailHeader = false;
+    if (!isUndefined(window)) {
+      window.requestAnimationFrame(() => {
+        const list = window.document.querySelector<HTMLElement>(".inbox-thread-list");
+        if (list) {
+          list.scrollTop = this.listScrollTop;
+        }
+      });
+    }
+  }
+
+  rememberListPosition(event: Event): void {
+    this.listScrollTop = (event.target as HTMLElement).scrollTop;
+  }
+
+  onMessageScroll(event: Event): void {
+    this.compactDetailHeader = this.mobile && (event.target as HTMLElement).scrollTop > 32;
+  }
+
+  private currentConversationIndex(): number {
+    return this.filteredThreads.findIndex(thread => this.threadIdOf(thread) === this.selectedThreadId);
+  }
+
+  hasAdjacentConversation(offset: number): boolean {
+    const index = this.currentConversationIndex();
+    return index >= 0 && Boolean(this.filteredThreads[index + offset]);
+  }
+
+  openAdjacentConversation(offset: number): void {
+    const thread = this.filteredThreads[this.currentConversationIndex() + offset];
+    if (thread) {
+      this.compactDetailHeader = false;
+      void this.openThread(thread);
+    }
+  }
+
+  nextUnreadConversation(): InboxThread | null {
+    const list = this.filteredThreads;
+    const currentIndex = this.currentConversationIndex();
+    return [...list.slice(currentIndex + 1), ...list.slice(0, Math.max(0, currentIndex + 1))]
+      .find(thread => this.conversationUnread(thread)) ?? null;
+  }
+
+  openNextUnread(): void {
+    const thread = this.nextUnreadConversation();
+    if (thread) {
+      this.compactDetailHeader = false;
+      void this.openThread(thread);
+    }
+  }
+
+  latestActionMessage(): InboxMessage | null {
+    return this.selectedMessages.reduce<InboxMessage | null>((latest, message) => {
+      if (!latest) {
+        return message;
+      }
+      const latestAt = latest.receivedAt ?? latest.sentAt ?? 0;
+      const messageAt = message.receivedAt ?? message.sentAt ?? 0;
+      return messageAt > latestAt ? message : latest;
+    }, null);
+  }
+
+  startThreadSwipe(event: TouchEvent): void {
+    const touch = event.changedTouches[0];
+    this.touchStartX = touch?.clientX ?? 0;
+    this.touchStartY = touch?.clientY ?? 0;
+  }
+
+  finishThreadSwipe(event: TouchEvent, thread: InboxThread): void {
+    const touch = event.changedTouches[0];
+    const horizontalMovement = (touch?.clientX ?? this.touchStartX) - this.touchStartX;
+    const verticalMovement = Math.abs((touch?.clientY ?? this.touchStartY) - this.touchStartY);
+    if (Math.abs(horizontalMovement) >= InboxComponent.SWIPE_THRESHOLD_PX && Math.abs(horizontalMovement) > verticalMovement) {
+      this.suppressThreadClick = true;
+      setTimeout(() => this.suppressThreadClick = false, 500);
+      if (horizontalMovement < 0) {
+        void this.scheduleConversationDelete(thread);
+      } else {
+        void this.toggleConversationReadState(thread);
+      }
+    }
+  }
+
+  private async toggleConversationReadState(thread: InboxThread): Promise<void> {
+    const markUnread = !this.conversationUnread(thread);
+    const siblings = this.siblingConversationThreads(thread);
+    this.busy = true;
+    try {
+      await Promise.all(siblings.map(sibling => markUnread
+        ? this.inboxService.markThreadUnread(this.threadIdOf(sibling))
+        : this.inboxService.markThreadRead(this.threadIdOf(sibling))));
+      await this.refresh();
+      this.notify.success({title: "Inbox", message: `Conversation marked as ${markUnread ? "unread" : "read"}`});
+    } catch (error) {
+      this.notify.error({title: "Inbox", message: (error as Error).message});
+    } finally {
+      this.busy = false;
+    }
   }
 
   get maxListSize(): number {
@@ -695,7 +848,6 @@ export class InboxComponent implements OnInit, OnDestroy {
       if (!this.selectedThreadId && (requestedThread || this.threads.length > 0)) {
         if (this.mobile && requestedThread) {
           this.mobileShowDetail = true;
-          this.revealChrome();
         }
         await this.openThread(requestedThread ?? this.threads[0], false);
       }
@@ -955,7 +1107,6 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.selectedThreadId = null;
       this.selectedMessages = [];
       this.mobileShowDetail = false;
-      this.revealChrome();
       await this.refresh();
       this.notify.success({title: "Inbox", message: "Moved out of junk into the inbox"});
     } catch (error) {
@@ -967,26 +1118,89 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   async deleteCurrentThread(): Promise<void> {
-    if (!this.selectedThreadId) {
+    if (!this.selectedThread) {
       return;
     }
-    const threadId = this.selectedThreadId;
-    this.busy = true;
-    try {
-      await this.inboxService.deleteThread(threadId);
-      this.selectedThread = null;
-      this.selectedThreadId = null;
-      this.selectedMessages = [];
-      this.selectedThreadIds.delete(threadId);
+    await this.scheduleConversationDelete(this.selectedThread);
+  }
+
+  private async scheduleConversationDelete(thread: InboxThread): Promise<void> {
+    if (this.pendingDelete) {
+      await this.commitPendingDelete();
+    }
+    const threadId = this.threadIdOf(thread);
+    const list = this.filteredThreads;
+    const currentIndex = list.findIndex(thread => this.threadIdOf(thread) === threadId);
+    const nextThread = list[currentIndex + 1] ?? list[currentIndex - 1] ?? null;
+    const insertionIndex = this.threads.findIndex(candidate => this.threadIdOf(candidate) === threadId);
+    const removedThreads = this.threads.filter(candidate => this.threadIdOf(candidate) === threadId);
+    const wasUnread = this.conversationUnread(thread);
+    this.threads = this.threads.filter(candidate => this.threadIdOf(candidate) !== threadId);
+    this.threadListTotalCount = Math.max(0, this.threadListTotalCount - 1);
+    if (wasUnread) {
+      this.threadListUnreadCount = Math.max(0, this.threadListUnreadCount - 1);
+    }
+    this.selectedThreadIds.delete(threadId);
+    this.selectedThread = nextThread;
+    this.selectedThreadId = nextThread ? this.threadIdOf(nextThread) : null;
+    this.selectedMessages = [];
+    this.pendingDelete = {
+      threadId,
+      removedThreads,
+      insertionIndex,
+      selectedThread: thread,
+      timer: setTimeout(() => void this.commitPendingDelete(), InboxComponent.DELETE_UNDO_MS)
+    };
+    if (nextThread) {
+      await this.openThread(nextThread);
+    } else {
       this.mobileShowDetail = false;
-      this.revealChrome();
-      await this.refresh();
+      this.syncThreadToUrl(null);
+    }
+  }
+
+  undoPendingDelete(): void {
+    const pending = this.pendingDelete;
+    if (!pending) {
+      return;
+    }
+    clearTimeout(pending.timer);
+    const insertionIndex = Math.max(0, pending.insertionIndex);
+    this.threads = [
+      ...this.threads.slice(0, insertionIndex),
+      ...pending.removedThreads,
+      ...this.threads.slice(insertionIndex)
+    ];
+    this.threadListTotalCount += 1;
+    if (pending.selectedThread && this.conversationUnread(pending.selectedThread)) {
+      this.threadListUnreadCount += 1;
+    }
+    this.pendingDelete = null;
+    if (pending.selectedThread) {
+      this.mobileShowDetail = this.mobile;
+      void this.openThread(pending.selectedThread, false);
+    }
+  }
+
+  private async commitPendingDelete(): Promise<void> {
+    const pending = this.pendingDelete;
+    if (!pending) {
+      return;
+    }
+    clearTimeout(pending.timer);
+    this.pendingDelete = null;
+    try {
+      await this.inboxService.deleteThread(pending.threadId);
       this.notify.success({title: "Inbox", message: "Conversation deleted"});
     } catch (error) {
+      const insertionIndex = Math.max(0, pending.insertionIndex);
+      this.threads = [...this.threads.slice(0, insertionIndex), ...pending.removedThreads, ...this.threads.slice(insertionIndex)];
+      this.threadListTotalCount += 1;
+      if (pending.selectedThread && this.conversationUnread(pending.selectedThread)) {
+        this.threadListUnreadCount += 1;
+      }
       this.notify.error({title: "Delete", message: (error as Error).message});
       this.logger.error("Failed to delete conversation:", error);
-    } finally {
-      this.busy = false;
     }
   }
 
