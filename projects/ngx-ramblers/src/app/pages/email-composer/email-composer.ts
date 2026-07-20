@@ -626,10 +626,13 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
                 [(saveForReuse)]="newExternalSaveForReuse"/>
               @if (replyCcSuggestion.length > 0) {
                 <app-alert-panel class="mt-2" title="Replying from a shared inbox">
-                  Also Cc the other roles - <strong>{{ replyCcSuggestionLabel() }}</strong>?
+                  Also Cc the other roles?
                   <span alertActions>
-                    <button type="button" class="btn btn-sm btn-primary" (click)="applyReplyCcSuggestion()">Cc these roles</button>
-                    <button type="button" class="btn btn-sm btn-link text-decoration-none" (click)="replyCcSuggestion = []">Dismiss</button>
+                    <button type="button" class="btn btn-sm btn-quiet" (click)="applyReplyCcSuggestion()">Cc All</button>
+                    @for (suggestion of replyCcSuggestion; track suggestion.email) {
+                      <button type="button" class="btn btn-sm btn-quiet" (click)="applyReplyCcSuggestion(suggestion)">{{ suggestion.name || suggestion.email }}</button>
+                    }
+                    <button type="button" class="btn btn-sm btn-quiet" (click)="replyCcSuggestion = []">Dismiss</button>
                   </span>
                 </app-alert-panel>
               }
@@ -2915,13 +2918,18 @@ export class EmailComposer implements OnInit, OnDestroy {
     return this.replyCcSuggestion.map(recipient => recipient.name || recipient.email).join(", ");
   }
 
-  protected applyReplyCcSuggestion(): void {
-    const merged = this.replyCcSuggestion.reduce<ComposerExternalRecipient[]>((recipients, suggestion) =>
+  protected applyReplyCcSuggestion(single?: ComposerExternalRecipient): void {
+    const toApply = single ? [single] : this.replyCcSuggestion;
+    const merged = toApply.reduce<ComposerExternalRecipient[]>((recipients, suggestion) =>
       recipients.some(existing => existing.email.toLowerCase() === suggestion.email.toLowerCase())
         ? recipients
         : [...recipients, suggestion], this.state.ccRecipients);
     this.state.ccRecipients = merged;
-    this.replyCcSuggestion = [];
+    if (single) {
+      this.replyCcSuggestion = this.replyCcSuggestion.filter(r => r.email.toLowerCase() !== single.email.toLowerCase());
+    } else {
+      this.replyCcSuggestion = [];
+    }
   }
 
   selectList(list: ListInfo): void {
@@ -3013,6 +3021,7 @@ export class EmailComposer implements OnInit, OnDestroy {
     if (!reply) {
       return;
     }
+    this.logger.info("Inbox reply handoff consumed:", JSON.stringify({to: reply.to, subject: reply.subject, senderRoleType: reply.senderRoleType, threadId: reply.threadId, inboxMessageId: reply.inboxMessageId, forward: reply.forward}));
     if (this.state.brandingMode !== BrandingMode.UNBRANDED) {
       this.setBrandingMode(BrandingMode.UNBRANDED);
     }
@@ -3023,10 +3032,12 @@ export class EmailComposer implements OnInit, OnDestroy {
       this.replyCcSuggestion = [];
       this.applyForwardedAttachments(reply.attachments ?? []);
     } else {
-      const recipient = {email: reply.to.email, name: reply.to.name ?? undefined, saveForReuse: false};
-      const alreadyPresent = this.state.externalRecipients.some(existing => existing.email.toLowerCase() === reply.to.email.toLowerCase());
-      if (!alreadyPresent) {
-        this.state.externalRecipients = [recipient, ...this.state.externalRecipients];
+      if (reply.to) {
+        const recipient = {email: reply.to.email, name: reply.to.name ?? undefined, saveForReuse: false};
+        const alreadyPresent = this.state.externalRecipients.some(existing => existing.email.toLowerCase() === reply.to.email.toLowerCase());
+        if (!alreadyPresent) {
+          this.state.externalRecipients = [recipient, ...this.state.externalRecipients];
+        }
       }
       const replyCc = (reply.cc ?? []).map(address => ({email: address.email, name: address.name ?? undefined, saveForReuse: false}));
       if (reply.replyAll) {
@@ -3056,7 +3067,7 @@ export class EmailComposer implements OnInit, OnDestroy {
       inReplyTo: reply.inReplyTo,
       references: reply.references
     };
-    this.logger.info("Inbox reply handoff applied:", this.inboxReplyContext);
+    this.logger.info("Inbox reply handoff applied:", JSON.stringify({...this.inboxReplyContext, externalRecipients: this.state.externalRecipients}));
     if (this.introEditorRef) {
       queueMicrotask(() => this.introEditorRef?.focusAtStart());
     } else {
