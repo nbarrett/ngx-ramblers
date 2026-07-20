@@ -10,6 +10,7 @@ import {
   InboxThread,
   InboxThreadFolder
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
@@ -61,7 +62,7 @@ async function conversationKeyBySubject(tenantSlug: string, message: InboxMessag
   return conversationKey;
 }
 
-export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder = InboxThreadFolder.INBOX): Promise<InboxMessage> {
+export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message: InboxMessage, folder: InboxThreadFolder = InboxThreadFolder.INBOX, internalEmails?: Set<string>): Promise<InboxMessage> {
   const isJunk = folder === InboxThreadFolder.JUNK;
   const now = dateTimeNow().toMillis();
   const messageAt = message.receivedAt ?? message.sentAt ?? now;
@@ -72,8 +73,17 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
     }
   }
   const existingThread = await findExistingThread(aliasConfig, message, folder);
-  const thread = existingThread ?? await createThread(aliasConfig, message, messageAt, folder);
+  const thread = existingThread ?? await createThread(aliasConfig, message, messageAt, folder, undefined, InboxMessageDirection.INBOUND, internalEmails);
   const threadId = thread.id ?? thread["_id"]?.toString() ?? "";
+  if (existingThread && internalEmails && message.from?.email) {
+    const fromEmail = normaliseEmail(message.from.email);
+    const currentExternal = thread.externalAddress?.email ? normaliseEmail(thread.externalAddress.email) : null;
+    if (currentExternal && internalEmails.has(currentExternal) && !internalEmails.has(fromEmail)) {
+      await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {$set: {externalAddress: message.from}});
+      debugLog(`externalAddress corrected on thread ${threadId}: ${currentExternal} -> ${fromEmail}`);
+      thread.externalAddress = message.from;
+    }
+  }
   const alreadyStored = await inboxMessageModel.findOne({threadId, messageId: message.messageId}).lean();
   if (alreadyStored) {
     debugLog(`↩︎ message ${message.messageId} already stored on thread ${threadId}; skipping duplicate`);
@@ -175,6 +185,7 @@ async function findExistingThread(aliasConfig: InboxAliasConfig, message: InboxM
       conversationKey: message.conversationKey
     });
     if (threadByKey) {
+      debugLog(`findExistingThread: matched by conversationKey=${message.conversationKey} thread=${threadByKey._id} externalAddress=${JSON.stringify(threadByKey.externalAddress)}`);
       return threadByKey.toObject();
     }
   }
@@ -187,25 +198,34 @@ async function findExistingThread(aliasConfig: InboxAliasConfig, message: InboxM
       messageIds: {$in: messageIdsToTry}
     });
     if (threadByReference) {
+      debugLog(`findExistingThread: matched by messageIds=${JSON.stringify(messageIdsToTry)} thread=${threadByReference._id} externalAddress=${JSON.stringify(threadByReference.externalAddress)}`);
       return threadByReference.toObject();
     }
   }
   const normalisedSubject = normaliseSubject(message.subject);
+  const searchAddress = (counterparty ?? message.from).email;
   const threadByAddress = await inboxThreadModel.findOne({
     tenantSlug: aliasConfig.tenantSlug,
     roleType: aliasConfig.roleType,
     ...folderFilter,
-    "externalAddress.email": (counterparty ?? message.from).email,
+    "externalAddress.email": searchAddress,
     normalisedSubject
   });
+  if (threadByAddress) {
+    debugLog(`findExistingThread: matched by address=${searchAddress}+subject="${normalisedSubject}" thread=${threadByAddress._id} externalAddress=${JSON.stringify(threadByAddress.externalAddress)}`);
+  } else {
+    debugLog(`findExistingThread: no match for message=${message.messageId} from=${JSON.stringify(message.from)} counterparty=${JSON.stringify(counterparty)} subject="${message.subject}" normalisedSubject="${normalisedSubject}"`);
+  }
   return threadByAddress ? threadByAddress.toObject() : null;
 }
 
-async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage, seenAt: number, folder: InboxThreadFolder, counterparty?: InboxAddress, lastDirection: InboxMessageDirection = InboxMessageDirection.INBOUND): Promise<InboxThread> {
+async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage, seenAt: number, folder: InboxThreadFolder, counterparty?: InboxAddress, lastDirection: InboxMessageDirection = InboxMessageDirection.INBOUND, internalEmails?: Set<string>): Promise<InboxThread> {
+  const fromIsInternal = internalEmails && message.from?.email ? internalEmails.has(normaliseEmail(message.from.email)) : false;
+  const externalAddress = counterparty ?? (fromIsInternal ? null : message.from);
   const created = await inboxThreadModel.create({
     tenantSlug: aliasConfig.tenantSlug,
     roleType: aliasConfig.roleType,
-    externalAddress: counterparty ?? message.from,
+    externalAddress,
     subject: (message.subject ?? "").trim(),
     normalisedSubject: normaliseSubject(message.subject),
     folder,
@@ -216,6 +236,7 @@ async function createThread(aliasConfig: InboxAliasConfig, message: InboxMessage
     lastDirection,
     unread: folder !== InboxThreadFolder.JUNK && lastDirection === InboxMessageDirection.INBOUND
   });
+  debugLog(`createThread: created thread ${created._id} with externalAddress=${JSON.stringify(externalAddress)} from=${JSON.stringify(message.from)} to=${JSON.stringify(message.to)} subject="${message.subject}" counterparty=${JSON.stringify(counterparty)} fromIsInternal=${fromIsInternal}`);
   return created.toObject();
 }
 

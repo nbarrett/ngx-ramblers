@@ -873,7 +873,9 @@ router.post("/threads/:id/compose-reply", authConfig.authenticate(), async (req:
       .filter(connectionAlias => connectionAlias.roleEmail.toLowerCase() !== (connection.gmailAccountEmail ?? "").toLowerCase())
       .filter(connectionAlias => rolesByType.has(connectionAlias.roleType))
       .map(connectionAlias => ({name: rolesByType.get(connectionAlias.roleType)?.description ?? null, email: connectionAlias.roleEmail}));
-    const reply = buildComposeResponse(hydratedMessage, thread.externalAddress, req.params.id, aliasId, connectionId(sourceConnection), thread.roleType, otherRoleCc, composeRequest?.forward === true);
+    const replyTo = thread.externalAddress ?? hydratedMessage.from;
+    const reply = buildComposeResponse(hydratedMessage, replyTo, req.params.id, aliasId, connectionId(sourceConnection), thread.roleType, otherRoleCc, composeRequest?.forward === true);
+    debugLog(`compose-reply: thread ${req.params.id} externalAddress=${JSON.stringify(thread.externalAddress)} reply.to=${JSON.stringify(reply.to)} message.from=${JSON.stringify(hydratedMessage.from)} messageId=${composeRequest?.messageId ?? "latest"}`);
     res.json({request: {messageType}, response: reply});
   } catch (error) {
     errorDebugLog("Error composing reply:", (error as Error).message);

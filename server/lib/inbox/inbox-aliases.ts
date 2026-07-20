@@ -257,6 +257,15 @@ export function roleMatchesMessageAddresses(roleType: string, roleEmail: string,
   return messageEmails.some(email => !excludedEmailSet.has(email) && identityEmails.has(email));
 }
 
+export async function internalEmailsForConnection(connection: InboxMailboxConnection): Promise<Set<string>> {
+  const mailboxEmails = connection.gmailAccountEmail ? [normaliseEmail(connection.gmailAccountEmail)] : [];
+  const aliases = await derivedAliasesForConnection(connection);
+  const aliasEmails = aliases.map(alias => normaliseEmail(alias.roleEmail));
+  const identityEmailsByType = await roleIdentityEmailsByType();
+  const identityEmails = Array.from(identityEmailsByType.values()).flatMap(set => Array.from(set));
+  return new Set([...mailboxEmails, ...aliasEmails, ...identityEmails].map(normaliseEmail));
+}
+
 export async function collaborativeRoleTypes(tenantSlug: string): Promise<string[]> {
   const connectionsByEmail = await connectedMailboxesByEmail(tenantSlug);
   const collaborativeConnectionIds = new Set(Array.from(connectionsByEmail.values())

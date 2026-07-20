@@ -3,7 +3,7 @@ import { createErrorDebugLog } from "../shared/error-debug-log";
 import { envConfig } from "../env-config/env-config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
-import { derivedAliasesForConnection, generalAliasFor, messageRecipientEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
+import { derivedAliasesForConnection, generalAliasFor, internalEmailsForConnection, messageRecipientEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import {
   InboxAliasConfig,
   InboxAliasConnectionStatus,
@@ -158,6 +158,7 @@ async function processGmailMessageIds(connection: InboxMailboxConnection, aliase
   const generalAlias = aliases.find(alias => isInboxGeneralRoleType(alias.roleType)) ?? null;
   const identityEmailsByType = await roleIdentityEmailsByType();
   const mailboxEmails = connection.gmailAccountEmail ? [connection.gmailAccountEmail] : [];
+  const internalEmails = await internalEmailsForConnection(connection);
   return gmailMessageIds.reduce<Promise<string[]>>(async (acc, gmailMessageId) => {
     const accumulator = await acc;
     const parsed = await fetchFullMessage(connection, gmailMessageId);
@@ -175,7 +176,7 @@ async function processGmailMessageIds(connection: InboxMailboxConnection, aliase
         messageIds: parsed.messageId
       }).lean();
       if (!existingThread) {
-        await storeInboundMessage(alias, parsed);
+        await storeInboundMessage(alias, parsed, undefined, internalEmails);
         return true;
       }
       return existingStored;
@@ -192,6 +193,7 @@ async function pollSpamForConnection(connection: InboxMailboxConnection, aliases
   const generalAlias = generalAliasFor(connection, connection.tenantSlug);
   const identityEmailsByType = await roleIdentityEmailsByType();
   const mailboxEmails = connection.gmailAccountEmail ? [connection.gmailAccountEmail] : [];
+  const internalEmails = await internalEmailsForConnection(connection);
   const spamMessageIds = await listSpamMessageIds(connection, 50);
   return spamMessageIds.reduce<Promise<number>>(async (acc, gmailMessageId) => {
     const accumulator = await acc;
@@ -207,7 +209,7 @@ async function pollSpamForConnection(connection: InboxMailboxConnection, aliases
     const addressedRealAliases = realAliases.filter(alias =>
       roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageRecipientEmails(parsed), identityEmailsByType, mailboxEmails));
     const alias = addressedRealAliases[0] ?? generalAlias;
-    await storeInboundMessage(alias, parsed, InboxThreadFolder.JUNK);
+    await storeInboundMessage(alias, parsed, InboxThreadFolder.JUNK, internalEmails);
     return accumulator + 1;
   }, Promise.resolve(0));
 }

@@ -282,7 +282,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                   @if (conversationUnread(thread)) {
                     <span class="inbox-unread-dot flex-shrink-0" aria-label="Unread"></span>
                   }
-                  <div class="inbox-thread-from flex-grow-1 text-truncate">{{thread.externalAddress.name ?? thread.externalAddress.email}}</div>
+                  <div class="inbox-thread-from flex-grow-1 text-truncate">{{thread.externalAddress?.name ?? thread.externalAddress?.email ?? 'No external address'}}</div>
                   <div class="inbox-thread-time flex-shrink-0">{{thread.lastSeenAt | date: "short"}}</div>
                 </div>
                 <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
@@ -1378,7 +1378,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         reply.replyAll = true;
       }
       this.inboxReplyHandoff.queue(reply);
-      this.logger.info(actionTitle, "queued, navigating to composer:", reply);
+      this.logger.info(actionTitle, "queued, navigating to composer:", JSON.stringify({to: reply.to, cc: reply.cc, senderRoleType: reply.senderRoleType, threadId: reply.threadId, inboxMessageId: reply.inboxMessageId}));
       const maximised = this.route.snapshot.queryParams[StoredValue.MAXIMISE] === "true";
       await this.router.navigate(["/" + AdminPath.EMAIL_COMPOSER], {
         queryParams: {
