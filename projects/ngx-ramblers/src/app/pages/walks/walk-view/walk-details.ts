@@ -23,6 +23,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { WalkGradingComponent } from "./walk-grading";
 import { MarkdownComponent } from "ngx-markdown";
 import { enumValueForKey } from "../../../functions/enums";
+import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
 
 @Component({
     selector: "app-walk-details",
@@ -150,12 +151,12 @@ import { enumValueForKey } from "../../../functions/enums";
           }
           @if (displayedWalk?.walk?.groupEvent?.additional_details) {
             <div class="col-sm-12 mt-1 list-tick-medium">
-              <p markdown>**Additional Details** {{ displayedWalk.walk?.groupEvent?.additional_details }}</p>
+              <p markdown>**Additional Details** {{ displayedWalk.walk?.groupEvent?.additional_details | normaliseMarkdown }}</p>
             </div>
           }
         </div>
       </div>`,
-    imports: [FontAwesomeModule, TooltipDirective, RelatedLinkComponent, CopyIconComponent, WalkGradingComponent, MarkdownComponent]
+    imports: [FontAwesomeModule, TooltipDirective, RelatedLinkComponent, CopyIconComponent, WalkGradingComponent, MarkdownComponent, NormaliseMarkdownPipe]
 })
 
 export class WalkDetailsComponent implements OnInit {

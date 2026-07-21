@@ -22,6 +22,10 @@ export interface FileNameData {
   startLng?: number;
 }
 
+export function isAwsGeneratedFileName(fileName: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\.[A-Za-z0-9]+)?$/i.test(fileName || "");
+}
+
 export interface AwsFileData {
   awsFileName?: string;
   file: File;
