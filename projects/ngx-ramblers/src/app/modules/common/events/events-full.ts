@@ -459,8 +459,12 @@ export class EventsFull implements OnInit, OnDestroy {
         ? {[GroupEventField.START_DATE]: 1}
         : {[GroupEventField.START_DATE]: -1};
       const dataQueryOptions: DataQueryOptions = {criteria, sort};
+      const clientSidePagination = this.walkListView !== WalkListView.MAP && this.display.publicVisibilityFilteringActive();
       if (this.walkListView === WalkListView.MAP) {
         dataQueryOptions.select = MAP_VIEW_SELECT;
+        dataQueryOptions.limit = MAP_VIEW_MAX_EVENTS;
+      } else if (clientSidePagination) {
+        dataQueryOptions.select = PUBLIC_GROUP_EVENT_SELECT;
         dataQueryOptions.limit = MAP_VIEW_MAX_EVENTS;
       } else {
         dataQueryOptions.page = this.pageNumber;
@@ -471,20 +475,36 @@ export class EventsFull implements OnInit, OnDestroy {
       }
       const response = await this.localWalksAndEventsService.allWithPagination(dataQueryOptions);
       if (thisSearchId === this.latestSearchId) {
-        const events = isArray(response.response) ? response.response : [response.response].filter(Boolean);
-        this.serverSideTotalItems = response.pagination?.total || events.length || 0;
-        const totalPages = Math.ceil(this.serverSideTotalItems / this.pageSize);
-        if (events.length === 0 && totalPages > 0 && this.pageNumber > totalPages) {
-          this.pageNumber = 1;
-          if (this.queryParamsActive) {
-            this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: 1});
-          }
-          this.notify.clearBusy();
-          return this.performServerSideSearch();
+        let events = isArray(response.response) ? response.response : [response.response].filter(Boolean);
+        if (!this.memberLoginService.memberLoggedIn()) {
+          events = events.filter(event => !this.display.walkHiddenFromPublic(event));
         }
         const displayedWalks = events.map(event => this.display.toDisplayedWalk(event));
         this.filteredWalks = displayedWalks;
-        this.currentPageWalks = displayedWalks;
+        if (clientSidePagination) {
+          this.serverSideTotalItems = displayedWalks.length;
+          const pageCount = Math.max(1, Math.ceil(displayedWalks.length / this.pageSize));
+          if (this.pageNumber > pageCount) {
+            this.pageNumber = 1;
+            if (this.queryParamsActive) {
+              this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: 1});
+            }
+          }
+          const startIndex = (this.pageNumber - 1) * this.pageSize;
+          this.currentPageWalks = displayedWalks.slice(startIndex, startIndex + this.pageSize);
+        } else {
+          this.serverSideTotalItems = response.pagination?.total || events.length || 0;
+          const totalPages = Math.ceil(this.serverSideTotalItems / this.pageSize);
+          if (events.length === 0 && totalPages > 0 && this.pageNumber > totalPages) {
+            this.pageNumber = 1;
+            if (this.queryParamsActive) {
+              this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: 1});
+            }
+            this.notify.clearBusy();
+            return this.performServerSideSearch();
+          }
+          this.currentPageWalks = displayedWalks;
+        }
         this.updatePaginationStatus();
         if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0 && this.walkListView !== WalkListView.TABLE) {
           this.display.view(this.currentPageWalks[0].walk);

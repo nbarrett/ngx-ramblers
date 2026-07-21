@@ -72,7 +72,8 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
               this.setStatus(this.displayedWalk?.latestEventType.eventType);
             }
             this.setPageTitle();
-          });
+          })
+          .catch(error => this.logger.error("failed to load walk-id", walkId, error));
       }
     }));
   }

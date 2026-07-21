@@ -18,6 +18,8 @@ export interface WalksConfig {
   relatedLinkShowGpx?: boolean;
   regularWalkDay?: number;
   walkCreationAccessLevel?: AccessLevel;
+  hideAwaitingLeaderFromPublic?: boolean;
+  hideNonApprovedWalksFromPublic?: boolean;
 }
 
 export enum WalkConfigTab {

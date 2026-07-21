@@ -24,11 +24,16 @@ import { VisibilityObserverDirective } from "../../../../notifications/common/vi
         <div class="btn-group btn-group-custom button-container" dropdown
              (click)="$event.stopPropagation()">
           <button id="walkAction-{{displayedWalk?.walk?.id}}" type="button"
-                  class="dropdown-toggle btn pager-btn me-0"
+                  class="btn pager-btn me-0"
+                  (click)="display.edit(displayedWalk)">
+            <fa-icon [icon]="faPersonWalking"/>
+            <span class="ms-2">{{ displayedWalk?.walkAccessMode?.caption }}</span>
+          </button>
+          <button type="button"
+                  class="dropdown-toggle dropdown-toggle-split btn pager-btn"
                   dropdownToggle
                   aria-controls="walkAction-menu-{{displayedWalk?.walk?.id}}">
-            <fa-icon [icon]="faPersonWalking"/>
-            <span class="ms-2">{{ displayedWalk?.walkAccessMode?.caption }}</span><span class="caret"></span>
+            <span class="visually-hidden">Toggle walk actions</span>
           </button>
           <ul *dropdownMenu class="dropdown-menu"
               id="walkAction-menu-{{displayedWalk?.walk?.id}}" role="menu">

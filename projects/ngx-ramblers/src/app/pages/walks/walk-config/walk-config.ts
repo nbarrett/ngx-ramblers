@@ -216,16 +216,15 @@ import {
                  [heading]="WalkConfigTab.WALK_VIEW">
               <div class="img-thumbnail thumbnail-admin-edit">
                 @if (walksConfig) {
-                  <div class="mb-3">
-                    <h4 class="mb-2">Related Links box</h4>
+                  <div class="thumbnail-heading-frame">
+                    <div class="thumbnail-heading">Related Links box</div>
                     <div markdown class="list-arrow mb-3">
                       <ul>
                         <li>Choose which links appear inside the Related Links box on individual walk pages.</li>
                         <li>The Related Links box itself can be hidden per event type in <a [routerLink]="'/' + adminSettingsSystemSettingsPath" [queryParams]="areaGroupQueryParams"><strong>Admin &gt; Settings &gt; System Settings &gt; Group / Area Configuration</strong></a>.</li>
                       </ul>
                     </div>
-                  </div>
-                  <div class="row">
+                    <div class="row">
                     <div class="col-md-6">
                       <div class="form-check mb-2">
                         <input [(ngModel)]="walksConfig.relatedLinkShowOnRamblers"
@@ -316,6 +315,36 @@ import {
                               <span>Download GPX route</span>
                             </div>
                           }
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  </div>
+                }
+              </div>
+              <div class="img-thumbnail thumbnail-admin-edit mt-3">
+                @if (walksConfig) {
+                  <div class="thumbnail-heading-frame">
+                    <div class="thumbnail-heading">Public visibility</div>
+                    <div markdown class="list-arrow mb-3">
+                      <ul>
+                        <li>Choose whether non-approved walks are shown to visitors who are not logged in.</li>
+                        <li>Logged-in members and walk admins will continue to see all walks.</li>
+                      </ul>
+                    </div>
+                    <div class="row">
+                      <div class="col-md-6">
+                        <div class="form-check mb-2">
+                          <input [(ngModel)]="walksConfig.hideAwaitingLeaderFromPublic"
+                                 type="checkbox" class="form-check-input"
+                                 id="hide-awaiting-leader-from-public">
+                          <label class="form-check-label" for="hide-awaiting-leader-from-public">Hide empty walk slots (no leader assigned)</label>
+                        </div>
+                        <div class="form-check mb-2">
+                          <input [(ngModel)]="walksConfig.hideNonApprovedWalksFromPublic"
+                                 type="checkbox" class="form-check-input"
+                                 id="hide-non-approved-walks-from-public">
+                          <label class="form-check-label" for="hide-non-approved-walks-from-public">Hide walks awaiting details or approval</label>
                         </div>
                       </div>
                     </div>

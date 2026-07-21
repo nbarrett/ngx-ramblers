@@ -116,6 +116,39 @@ export class WalkDisplayService {
     return this.walkEventService.latestEvent(walk)?.eventType === EventType.AWAITING_LEADER;
   }
 
+  public publicVisibilityFilteringActive(): boolean {
+    if (this.memberLoginService.memberLoggedIn()) {
+      return false;
+    }
+    const config = this.walksConfigService.walksConfig();
+    return !!(config?.hideAwaitingLeaderFromPublic || config?.hideNonApprovedWalksFromPublic);
+  }
+
+  public walkHiddenFromPublic(walk: ExtendedGroupEvent): boolean {
+    if (this.memberLoginService.memberLoggedIn()) {
+      return false;
+    }
+    const config = this.walksConfigService.walksConfig();
+    const eventType = this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
+    if (config?.hideAwaitingLeaderFromPublic && eventType === EventType.AWAITING_LEADER) {
+      return true;
+    }
+    if (config?.hideNonApprovedWalksFromPublic) {
+      const nonApprovedTypes = [
+        EventType.AWAITING_LEADER,
+        EventType.AWAITING_WALK_DETAILS,
+        EventType.WALK_DETAILS_REQUESTED,
+        EventType.WALK_DETAILS_UPDATED,
+        EventType.WALK_DETAILS_COPIED,
+        EventType.AWAITING_APPROVAL
+      ];
+      if (nonApprovedTypes.includes(eventType)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public hasWalkLeader(walk: ExtendedGroupEvent): boolean {
     const contactDetails = walk?.fields?.contactDetails;
     return !!contactDetails?.memberId || !!contactDetails?.displayName || this.hasRamblersContactChannel(walk);
@@ -213,12 +246,16 @@ export class WalkDisplayService {
 
   async refreshCachedData() {
     if (this.memberLoginService.memberLoggedIn() && this.members.length === 0) {
-      if (this.memberLoginService.allowWalkAdminEdits()) {
-        this.members = await this.memberService.all().then(members => members.filter(this.memberService.filterFor.GROUP_MEMBERS));
-      } else {
-        this.members = await this.memberService.publicFields(this.memberService.filterFor.GROUP_MEMBERS);
+      try {
+        if (this.memberLoginService.allowWalkAdminEdits()) {
+          this.members = await this.memberService.all().then(members => members.filter(this.memberService.filterFor.GROUP_MEMBERS));
+        } else {
+          this.members = await this.memberService.publicFields(this.memberService.filterFor.GROUP_MEMBERS);
+        }
+        this.subject.next(this.members);
+      } catch (error) {
+        this.logger.info("refreshCachedData failed:", error);
       }
-      this.subject.next(this.members);
     }
   }
 

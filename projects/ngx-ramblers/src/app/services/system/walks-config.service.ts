@@ -80,7 +80,9 @@ export class WalksConfigService {
       relatedLinkShowVenue: true,
       relatedLinkShowGpx: true,
       regularWalkDay: 7,
-      walkCreationAccessLevel: AccessLevel.HIDDEN
+      walkCreationAccessLevel: AccessLevel.HIDDEN,
+      hideAwaitingLeaderFromPublic: false,
+      hideNonApprovedWalksFromPublic: false
     };
   };
 
