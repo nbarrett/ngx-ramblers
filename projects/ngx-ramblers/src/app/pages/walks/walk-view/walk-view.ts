@@ -41,6 +41,7 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 import { PageService } from "../../../services/page.service";
 import { BookingFormComponent } from "../../admin/bookings/booking-form.component";
+import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
 
 @Component({
   selector: "app-walk-view",
@@ -105,7 +106,7 @@ import { BookingFormComponent } from "../../admin/bookings/booking-form.componen
                 </a>
               }
               @if (displayedWalk?.walk?.groupEvent?.description) {
-                <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description"></p>
+                <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description | normaliseMarkdown"></p>
               }
             </div>
             @if (display.hasWalkLeader(displayedWalk.walk)) {
@@ -261,7 +262,7 @@ import { BookingFormComponent } from "../../admin/bookings/booking-form.componen
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],
-  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksComponent, DisplayTimePipe, BookingFormComponent]
+  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {

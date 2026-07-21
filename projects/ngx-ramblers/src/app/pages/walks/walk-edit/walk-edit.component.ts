@@ -66,6 +66,7 @@ import { NotificationComponent } from "../../../notifications/common/notificatio
 import { WalkDataAudit } from "../../../models/walk-data-audit.model";
 import { ChangedItem } from "../../../models/changed-item.model";
 import { walkEventDataSnapshot, walkEventSnapshotEvent, walkWithUserChanges } from "../../../functions/walks/walk-event-snapshot";
+import { normaliseMarkdownText } from "../../../functions/markdown";
 import { WalkEditMainDetailsComponent } from "./walk-edit-main-details";
 import { WalkEditDetailsComponent } from "./walk-edit-details";
 import { WalkRiskAssessmentComponent } from "../walk-risk-assessment/walk-risk-assessment.component";
@@ -88,7 +89,6 @@ import {
   WalkLeaderMatchConfidence,
   WalkLeaderMatchType
 } from "../../../models/walk-leader-match.model";
-import TurndownService from "turndown";
 
 @Component({
   selector: "app-walk-edit",
@@ -394,7 +394,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   private linksService = inject(LinksService);
   private storedVenueService = inject(StoredVenueService);
   private broadcastService = inject<BroadcastService<ExtendedGroupEvent>>(BroadcastService);
-  private turndownService = new TurndownService();
   public config: SystemConfig;
   protected renderMapEdit: boolean;
   private mailMessagingConfig: MailMessagingConfig;
@@ -466,6 +465,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }));
     this.logger.info("previousWalkLeaderIds:", this.previousWalkLeaderIds);
     this.configService.queryConfig<MeetupConfig>(ConfigKey.MEETUP).then(meetupConfig => this.meetupConfig = meetupConfig);
+    this.subscriptions.push(this.display.memberEvents().subscribe(() => this.backfillContactDetailsFromWalkLeader()));
     this.showWalk(this.displayedWalk);
     this.logger.debug("displayedWalk:", this.displayedWalk);
   }
@@ -772,6 +772,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       this.ensureImageConfig();
       this.updateGoogleMapsUrl();
       if (this.displayedWalk.walkAccessMode.initialiseWalkLeader) {
+        this.initialisedWalk = cloneDeep(this.displayedWalk.walk);
         this.setStatus(EventType.AWAITING_WALK_DETAILS);
         this.displayedWalk.walk.fields.contactDetails.memberId = this.memberLoginService.loggedInMember().memberId;
         this.walkLeaderMemberIdChanged();
@@ -788,6 +789,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
           this.priorStatus = eventType;
         }
         this.calculateAndSetFinishTimeIfNotPopulated();
+        this.initialisedWalk = cloneDeep(this.displayedWalk.walk);
+        this.backfillContactDetailsFromWalkLeader();
       }
     } else {
       this.displayedWalk = {
@@ -798,8 +801,24 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         status: EventType.AWAITING_LEADER
       };
       this.displayedWalk.latestEventType = this.display.latestEventTypeFor(this.displayedWalk.walk);
+      this.initialisedWalk = cloneDeep(this.displayedWalk.walk);
     }
-    this.initialisedWalk = cloneDeep(this.displayedWalk.walk);
+  }
+
+  private backfillContactDetailsFromWalkLeader() {
+    const walk = this.displayedWalk?.walk;
+    const walkLeaderId = walk?.groupEvent?.walk_leader?.id;
+    if (!walkLeaderId || walk?.fields?.contactDetails?.memberId || this.displayedWalk?.walkAccessMode?.initialiseWalkLeader) {
+      return;
+    }
+    const member = this.display.members.find(member => member.id === walkLeaderId);
+    if (member) {
+      this.logger.info("backfillContactDetailsFromWalkLeader:repairing contactDetails from walk_leader id:", walkLeaderId, "member:", member.displayName);
+      walk.fields.contactDetails = this.eventDefaultsService.contactDetailsFrom(member);
+      if (walk.fields.publishing?.ramblers && !walk.fields.publishing.ramblers.contactName) {
+        walk.fields.publishing.ramblers.contactName = member.contactId ?? null;
+      }
+    }
   }
 
   private updateGoogleMapsUrl() {
@@ -844,8 +863,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }
     this.ensureVenueLink();
     this.normaliseLeaderFields();
-    walk.groupEvent.description = this.normaliseMarkdownText(walk.groupEvent.description);
-    walk.groupEvent.additional_details = this.normaliseMarkdownText(walk.groupEvent.additional_details);
+    walk.groupEvent.description = normaliseMarkdownText(walk.groupEvent.description);
+    walk.groupEvent.additional_details = normaliseMarkdownText(walk.groupEvent.additional_details);
   }
 
   private normaliseLeaderFields() {
@@ -874,21 +893,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       href,
       title: venue.name
     });
-  }
-
-  private normaliseMarkdownText(value: string | null): string | null {
-    if (!isString(value)) {
-      return value;
-    }
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-    const hasHtmlTags = /<\s*[a-z][^>]*>/i.test(trimmed);
-    if (!hasHtmlTags) {
-      return trimmed;
-    }
-    return this.turndownService.turndown(trimmed).trim();
   }
 
   validateWalk(): WalkExportData {

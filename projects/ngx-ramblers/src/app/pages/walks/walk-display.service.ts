@@ -241,7 +241,8 @@ export class WalkDisplayService {
   }
 
   loggedInMemberIsLeadingWalk(walk: ExtendedGroupEvent) {
-    return this.memberLoginService.memberLoggedIn() && walk?.fields?.contactDetails?.memberId === this.memberLoginService.loggedInMember()?.memberId;
+    const memberId = this.memberLoginService.memberLoggedIn() && this.memberLoginService.loggedInMember()?.memberId;
+    return !!memberId && [walk?.fields?.contactDetails?.memberId, walk?.groupEvent?.walk_leader?.id].includes(memberId);
   }
 
   async refreshCachedData() {

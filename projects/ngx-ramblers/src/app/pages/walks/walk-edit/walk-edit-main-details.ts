@@ -18,6 +18,7 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
+import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
 
 @Component({
   selector: "app-walk-edit-main-details",
@@ -28,7 +29,8 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
     MarkdownComponent,
     TimePicker,
     EventDistanceEdit,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    NormaliseMarkdownPipe
   ],
   template: `
     @if (displayedWalk?.walk?.fields) {
@@ -121,7 +123,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
               @if (longerDescriptionPreview) {
                 <p
                   (click)="editLongerDescription()"
-                  class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent.description"
+                  class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent.description | normaliseMarkdown"
                   type="text"
                   id="longer-description-formatted"></p>
               }

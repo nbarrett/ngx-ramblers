@@ -91,6 +91,10 @@ export function plainText(text: string): string {
     .trim();
 }
 
+export function unescapeMarkdownLinks(value: string): string {
+  return isString(value) ? value.replace(/\\\[([^\]]*)\\\]\(([^)]*)\)/g, "[$1]($2)") : value;
+}
+
 export function firstLinkHref(text: string): string {
   const match = /(?<!!)\[[^\]]*]\(([^)\s]+)[^)]*\)/.exec(text || "");
   return match ? match[1] : null;

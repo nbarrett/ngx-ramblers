@@ -128,19 +128,19 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
           </div>
         }
       }
-      @if (display.allowAdminEdits()) {
-        <div class="row">
-          <div class="col-sm-5">
-            <div class="form-group">
-              <label for="display-name">Display Name (how it will be published on this walk)</label>
-              <input [(ngModel)]="displayedWalk.walk.fields.contactDetails.displayName"
-                     (blur)="rematchPreviewRequest.emit()"
-                     type="text"
-                     [disabled]="inputDisabled"
-                     class="form-control input-sm" id="display-name"
-                     placeholder="Name as displayed to the public and sent to Ramblers in CSV export file">
-            </div>
+      <div class="row">
+        <div [ngClass]="display.allowAdminEdits() ? 'col-sm-5' : 'col-sm-12'">
+          <div class="form-group">
+            <label for="display-name">Display Name (how it will be published on this walk)</label>
+            <input [(ngModel)]="displayedWalk.walk.fields.contactDetails.displayName"
+                   (blur)="rematchPreviewRequest.emit()"
+                   type="text"
+                   [disabled]="inputDisabled"
+                   class="form-control input-sm" id="display-name"
+                   placeholder="Name as displayed to the public and sent to Ramblers in CSV export file">
           </div>
+        </div>
+        @if (display.allowAdminEdits()) {
           <div class="col-sm-5">
             <div class="form-group">
               <label for="walk-leader-contact-id">Walks Manager Contact Name</label>
@@ -160,8 +160,8 @@ import { ALERT_WARNING } from "../../../models/alert-target.model";
                      class="btn btn-primary button-bottom-aligned w-100">
             </div>
           </div>
-        </div>
-      }
+        }
+      </div>
       <div class="row">
         <div class="col-sm-12">
           <div class="form-group">

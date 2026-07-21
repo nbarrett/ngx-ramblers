@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { compact, groupBy, isArray, isBoolean, isNull, isObject, isUndefined, startCase, toPairs } from "es-toolkit/compat";
-import { FileNameData } from "../../models/aws-object.model";
+import { FileNameData, isAwsGeneratedFileName } from "../../models/aws-object.model";
 import { ContactDetails, Publishing } from "../../models/group-event.model";
 import { MeetupConfig } from "../../models/meetup-config.model";
 import { Contact, LocationDetails, Media, Metadata } from "../../models/ramblers-walks-manager";
@@ -84,8 +84,17 @@ export class WalkNotificationValueService {
   }
 
   private file(value: FileNameData): string {
-    const name = value?.title || value?.originalFileName;
-    return name ? `“${name}”` : "File attached";
+    const name = [value?.title, value?.originalFileName].find(candidate => candidate && !isAwsGeneratedFileName(candidate));
+    if (!name) {
+      return "File attached";
+    }
+    const extension = this.fileExtension(value?.awsFileName) || this.fileExtension(value?.originalFileName);
+    return extension && !name.toLowerCase().endsWith(extension.toLowerCase()) ? `${name}${extension}` : name;
+  }
+
+  private fileExtension(fileName: string): string {
+    const match = /\.[A-Za-z0-9]+$/.exec(fileName || "");
+    return match ? match[0] : "";
   }
 
   private imageConfig(value: ImageConfig): string {

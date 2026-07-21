@@ -1,4 +1,3 @@
-import TurndownService from "turndown";
 import { parse } from "csv-parse/browser/esm/sync";
 import { STANDARD_CSV_PARSE_OPTIONS } from "../../functions/csv";
 import { HttpClient } from "@angular/common/http";
@@ -40,6 +39,7 @@ import { AwsFileUploadResponse, AwsFileUploadResponseData } from "../../models/a
 import { enumValues, TypedKeyValue } from "../../functions/enums";
 import { defaultDisplayName, mergeFieldsOnSync } from "../../functions/walks/ramblers-event.mapper";
 import { extractErrorMessage } from "../../functions/strings";
+import { normaliseMarkdownText } from "../../functions/markdown";
 import {
   firstWalkLeaderName,
   isJointWalkLeaderName,
@@ -92,7 +92,6 @@ export class WalksImportService {
   public group: Organisation;
   private systemConfig: SystemConfig;
   private walksConfig: WalksConfig;
-  private turndownService = new TurndownService();
   private enrichWalkLeaders = false;
   private performMatches = false;
   constructor() {
@@ -129,7 +128,7 @@ export class WalksImportService {
   }
 
   private htmlToMarkdown(html: string): string {
-    return this.turndownService.turndown(html || "");
+    return normaliseMarkdownText(html) || "";
   }
 
   importDataDefaults(inputSource: InputSource): ImportData {

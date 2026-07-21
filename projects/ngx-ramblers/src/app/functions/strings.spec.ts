@@ -1,4 +1,4 @@
-import { booleanOf, endsWithEllipsis, firstLinkHref, firstLinkText, isQuoted, matchesAllowingTruncation, plainText, toKebabCase, toSlug, unquote } from "./strings";
+import { booleanOf, endsWithEllipsis, firstLinkHref, firstLinkText, isQuoted, matchesAllowingTruncation, plainText, toKebabCase, toSlug, unescapeMarkdownLinks, unquote } from "./strings";
 
 describe("strings", () => {
 
@@ -186,6 +186,28 @@ describe("strings", () => {
       expect(firstLinkHref("just some text")).toBe(null);
       expect(firstLinkHref("")).toBe(null);
       expect(firstLinkHref(null as unknown as string)).toBe(null);
+    });
+  });
+
+  describe("unescapeMarkdownLinks", () => {
+    it("unescapes turndown-escaped markdown links", () => {
+      expect(unescapeMarkdownLinks("pillaging of the \\[Elham Valley Walks Series - Walk 4\\](https://elhamvalleywalkers.co.uk)!"))
+        .toBe("pillaging of the [Elham Valley Walks Series - Walk 4](https://elhamvalleywalkers.co.uk)!");
+    });
+
+    it("unescapes multiple links in one value", () => {
+      expect(unescapeMarkdownLinks("\\[one\\](/first) and \\[two\\](/second)"))
+        .toBe("[one](/first) and [two](/second)");
+    });
+
+    it("leaves unescaped links and plain text alone", () => {
+      expect(unescapeMarkdownLinks("[already fine](/page) and \\[no url follows\\] here"))
+        .toBe("[already fine](/page) and \\[no url follows\\] here");
+    });
+
+    it("handles null and non-string values", () => {
+      expect(unescapeMarkdownLinks(null as unknown as string)).toBe(null);
+      expect(unescapeMarkdownLinks(undefined as unknown as string)).toBe(undefined);
     });
   });
 
