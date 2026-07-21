@@ -10,6 +10,7 @@ import { AlertInstance } from "../../../services/notifier.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
+import { WalksConfigService } from "../../../services/system/walks-config.service";
 
 @Injectable({
   providedIn: "root"
@@ -24,6 +25,7 @@ export class EventDispatchService {
   protected stringUtils = inject(StringUtilsService);
   private memberLoginService = inject(MemberLoginService);
   private walkDisplayService = inject(WalkDisplayService);
+  private walksConfigService = inject(WalksConfigService);
   protected groupEvent: ExtendedGroupEvent;
 
   async eventView(notify: AlertInstance, eventType: string): Promise<EventViewDispatchWithEvent> {
@@ -46,6 +48,9 @@ export class EventDispatchService {
       const event = await this.walksAndEventsService.queryById(eventId);
       if (event) {
         this.logger.info("event found for slug:", eventId, "matched event title:", event?.groupEvent?.title, "url:", event?.groupEvent?.url, "id:", event?.id);
+        if (!this.memberLoginService.memberLoggedIn()) {
+          await this.walksConfigService.walksConfigLoaded();
+        }
         if (this.memberLoginService.memberLoggedIn() || !this.walkDisplayService.walkHiddenFromPublic(event)) {
           this.groupEvent = event;
           return {eventView: EventViewDispatch.VIEW, event: Promise.resolve(event)};

@@ -459,6 +459,9 @@ export class EventsFull implements OnInit, OnDestroy {
         ? {[GroupEventField.START_DATE]: 1}
         : {[GroupEventField.START_DATE]: -1};
       const dataQueryOptions: DataQueryOptions = {criteria, sort};
+      if (!this.memberLoginService.memberLoggedIn()) {
+        await this.walksConfigService.walksConfigLoaded();
+      }
       const clientSidePagination = this.walkListView !== WalkListView.MAP && this.display.publicVisibilityFilteringActive();
       if (this.walkListView === WalkListView.MAP) {
         dataQueryOptions.select = MAP_VIEW_SELECT;

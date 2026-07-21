@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Observable, ReplaySubject } from "rxjs";
+import { firstValueFrom, Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { ConfigKey } from "../../models/config.model";
@@ -48,6 +48,10 @@ export class WalksConfigService {
 
   public walksConfig(): WalksConfig {
     return this.cachedWalksConfig;
+  }
+
+  public async walksConfigLoaded(): Promise<WalksConfig> {
+    return firstValueFrom(this.subject);
   }
 
   public events(): Observable<WalksConfig> {
