@@ -115,8 +115,6 @@ import { VisibilityToggleButton } from "../../../../../shared/components/visibil
     :host:nth-child(even) .album-item:not(.selected)
       background-color: #f8f9fa
 
-    .album-item
-
     .album-item.expanded
       border-left: 3px solid var(--ramblers-colour-mintcake, rgb(155, 200, 171))
 

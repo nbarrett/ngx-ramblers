@@ -29,7 +29,7 @@
     "typecheck:server": "tsc --noEmit -p server/tsconfig.json",
     "lintfix": "npm run build:eslint-config --silent && eslint --config .eslint-config/eslint.config.js \"projects/ngx-ramblers/**/*.{ts,html}\" --fix",
     "postbuild": "npm install --prefix server",
-    "serve": "ng serve --project ngx-ramblers --configuration development --verbose",
+    "serve": "ng serve --project ngx-ramblers --configuration development",
     "test": "ng test --project ngx-ramblers --watch=false",
     "test:watch": "ng test --project ngx-ramblers",
     "test:server": "sh -c 'cd server && npm run unit-test:once'",
