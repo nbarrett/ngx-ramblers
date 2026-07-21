@@ -11,6 +11,7 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
+import { WalksConfigService } from "../../../services/system/walks-config.service";
 
 class MockLoggerFactory {
     createLogger() {
@@ -71,6 +72,10 @@ class MockWalkDisplayService {
     walkHiddenFromPublic = vi.fn().mockImplementation(() => this.hidden);
 }
 
+class MockWalksConfigService {
+    walksConfigLoaded = vi.fn().mockImplementation(() => Promise.resolve({}));
+}
+
 describe("EventDispatchService", () => {
     let service: EventDispatchService;
     let pageService: MockPageService;
@@ -92,7 +97,8 @@ describe("EventDispatchService", () => {
                 { provide: WalksAndEventsService, useClass: MockWalksAndEventsService },
                 { provide: StringUtilsService, useClass: MockStringUtilsService },
                 { provide: MemberLoginService, useClass: MockMemberLoginService },
-                { provide: WalkDisplayService, useClass: MockWalkDisplayService }
+                { provide: WalkDisplayService, useClass: MockWalkDisplayService },
+                { provide: WalksConfigService, useClass: MockWalksConfigService }
             ]
         });
         service = TestBed.inject(EventDispatchService);
