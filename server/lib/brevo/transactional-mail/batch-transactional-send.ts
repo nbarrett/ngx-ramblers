@@ -42,7 +42,7 @@ import { randomUUID } from "crypto";
 import { accountMergeFieldsFor } from "../account/account";
 import { generatePasswordResetIdForMemberId } from "./send-forgot-password-email";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../../mongo/models/inbox-mailbox-connection";
-import { derivedAliasForRoleType } from "../../inbox/inbox-aliases";
+import { derivedAliasForRoleType, internalEmailsForConnection } from "../../inbox/inbox-aliases";
 import {
   InboxMessage,
   InboxMessageDirection,
@@ -355,7 +355,8 @@ async function performInboxWriteback(request: BatchTransactionalSendRequest, ema
     if (context) {
       await recordOutboundReply(alias, outboundMessage, context.threadId);
     } else {
-      await recordOutboundMessage(alias, outboundMessage);
+      const internalEmails = mailboxConnectionDoc ? await internalEmailsForConnection(mailboxConnectionDoc) : undefined;
+      await recordOutboundMessage(alias, outboundMessage, internalEmails);
     }
   } catch (error) {
     transactionalDebugLog("inbox writeback failed:", (error as Error).message);

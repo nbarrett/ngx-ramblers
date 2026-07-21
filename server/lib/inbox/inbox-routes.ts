@@ -873,7 +873,7 @@ router.post("/threads/:id/compose-reply", authConfig.authenticate(), async (req:
       .filter(connectionAlias => connectionAlias.roleEmail.toLowerCase() !== (connection.gmailAccountEmail ?? "").toLowerCase())
       .filter(connectionAlias => rolesByType.has(connectionAlias.roleType))
       .map(connectionAlias => ({name: rolesByType.get(connectionAlias.roleType)?.description ?? null, email: connectionAlias.roleEmail}));
-    const replyTo = thread.externalAddress ?? hydratedMessage.from;
+    const replyTo = thread.externalAddress ?? (hydratedMessage.direction === InboxMessageDirection.OUTBOUND ? hydratedMessage.to?.[0] : hydratedMessage.from) ?? hydratedMessage.from;
     const reply = buildComposeResponse(hydratedMessage, replyTo, req.params.id, aliasId, connectionId(sourceConnection), thread.roleType, otherRoleCc, composeRequest?.forward === true);
     debugLog(`compose-reply: thread ${req.params.id} externalAddress=${JSON.stringify(thread.externalAddress)} reply.to=${JSON.stringify(reply.to)} message.from=${JSON.stringify(hydratedMessage.from)} messageId=${composeRequest?.messageId ?? "latest"}`);
     res.json({request: {messageType}, response: reply});

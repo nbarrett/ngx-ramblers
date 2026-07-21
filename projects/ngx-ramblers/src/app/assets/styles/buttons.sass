@@ -19,6 +19,10 @@
 .btn + .btn
   margin-left: var(--space-2)
 
+[class^="gap-"] > .btn + .btn,
+[class*=" gap-"] > .btn + .btn
+  margin-left: 0
+
 // Input-group docking for nested-button components (BrevoButton / ButtonWrapper).
 // Bootstrap's `.input-group > :not(:last-child)` rules reach the wrapper
 // element only, not the inner `.btn`, so the inner `.btn` keeps its full radii

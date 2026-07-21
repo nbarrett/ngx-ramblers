@@ -288,7 +288,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                 <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
                 <div class="inbox-thread-preview">{{thread.lastDirection === InboxMessageDirection.OUTBOUND ? 'Last message sent by you' : 'Latest incoming message'}} · Swipe right to {{conversationUnread(thread) ? 'mark read' : 'mark unread'}}, left to delete</div>
                 @if (recipientForThread(thread); as roleEmail) {
-                  <div class="inbox-thread-recipient text-truncate">to {{roleEmail}}</div>
+                  <div class="inbox-thread-recipient text-truncate">{{thread.lastDirection === InboxMessageDirection.OUTBOUND ? "from" : "to"}} {{roleEmail}}</div>
                 }
               </div>
             </div>
@@ -311,9 +311,16 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
             <div class="d-flex align-items-start gap-2 mb-3 inbox-detail-header" [class.compact]="compactDetailHeader">
               <div class="me-auto">
                 <h5 class="mb-1">{{selectedThread.subject || selectedThread.normalisedSubject || "(no subject)"}}</h5>
-                <small class="text-muted d-block">From {{ formatAddress(selectedThread.externalAddress) }}</small>
-                @if (selectedThreadRecipient(); as recipient) {
-                  <small class="text-muted d-block">To {{recipient}}</small>
+                @if (selectedThreadOutboundOnly()) {
+                  @if (selectedThreadRecipient(); as sender) {
+                    <small class="text-muted d-block">From {{sender}}</small>
+                  }
+                  <small class="text-muted d-block">To {{ formatAddress(selectedThread.externalAddress) }}</small>
+                } @else {
+                  <small class="text-muted d-block">From {{ formatAddress(selectedThread.externalAddress) }}</small>
+                  @if (selectedThreadRecipient(); as recipient) {
+                    <small class="text-muted d-block">To {{recipient}}</small>
+                  }
                 }
               </div>
               @if (selectedThread.folder === InboxThreadFolder.JUNK) {
@@ -1500,6 +1507,10 @@ export class InboxComponent implements OnInit, OnDestroy {
   recipientForThread(thread: InboxThread): string | null {
     const alias = this.aliases.find(candidate => candidate.roleType === thread.roleType);
     return alias && !isInboxGeneralRoleType(alias.roleType) ? alias.roleEmail : null;
+  }
+
+  selectedThreadOutboundOnly(): boolean {
+    return this.selectedMessages.length > 0 && this.selectedMessages.every(message => message.direction === InboxMessageDirection.OUTBOUND);
   }
 
   selectedThreadRecipient(): string | null {
