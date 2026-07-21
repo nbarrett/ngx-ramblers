@@ -94,6 +94,11 @@ export class AuthService {
     return localStorage.getItem(StoredValue.AUTH_TOKEN);
   }
 
+  tokenExpired(): boolean {
+    const payload: AuthPayload = this.parseAuthToken();
+    return !!payload?.exp && payload.exp * 1000 < this.dateUtils.nowAsValue();
+  }
+
   refreshToken(): string {
     return localStorage.getItem(StoredValue.REFRESH_TOKEN);
   }
@@ -157,7 +162,13 @@ export class AuthService {
   }
 
   scheduleLogout() {
+    const wasLoggedIn = !!this.authToken();
     this.removeTokens();
+    if (wasLoggedIn) {
+      const loginResponse: LoginResponse = {memberLoggedIn: false, alertMessage: "Your session has expired - please log in again"};
+      this.authResponseSubject.next(loginResponse);
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MEMBER_LOGOUT_COMPLETE, loginResponse));
+    }
   }
 
 }

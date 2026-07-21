@@ -582,4 +582,6 @@ export const PUBLIC_GROUP_EVENT_SELECT: Record<string, number> = {
   [EventField.ATTACHMENT]: 1,
   [EventField.INPUT_SOURCE]: 1,
   [EventField.IMAGE_CONFIG]: 1,
+  [EventEventField.EVENT_TYPE]: 1,
+  [EventEventField.DATE]: 1,
 };

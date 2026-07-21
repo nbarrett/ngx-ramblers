@@ -23,6 +23,7 @@ import {
   WalkLeaderOption
 } from "../../../models/search.model";
 import { MemberService } from "../../../services/member/member.service";
+import { MemberLoginService } from "../../../services/member/member-login.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { RamblersGroupWithLabel, WalkLeaderContact } from "../../../models/ramblers-walks-manager";
@@ -534,6 +535,7 @@ import { DEFAULT_OS_STYLE, MapProvider } from "../../../models/map.model";
 export class AdvancedSearchPane implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("AdvancedSearchPane", NgxLoggerLevel.ERROR);
   private memberService = inject(MemberService);
+  private memberLoginService = inject(MemberLoginService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private systemConfigService = inject(SystemConfigService);
@@ -644,7 +646,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
     });
 
     this.loadMembers();
-    await this.loadGroups();
+    this.loadGroups();
     await this.loadDateRange();
     await this.loadLeaderIds(this.dateRange);
     const config = this.systemConfigService.systemConfig();
@@ -677,6 +679,10 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
   }
 
   private loadMembers() {
+    if (!this.memberLoginService.memberLoggedIn()) {
+      this.logger.info("loadMembers: not logged in - leader options will be built from public walk leader records");
+      return;
+    }
     from(this.memberService.all()).subscribe({
       next: (members) => {
         this.members = (members || [])
@@ -686,7 +692,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
         this.logger.info("loadMembers: loaded", this.members, "eligible members");
       },
       error: (error) => {
-        this.logger.error("Failed to load members:", error);
+        this.logger.info("Failed to load members:", error);
       }
     });
   }

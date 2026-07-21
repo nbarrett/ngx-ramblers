@@ -27,7 +27,11 @@ export class CommonDataService {
       }
       return apiResponse;
     } catch (httpErrorResponse) {
-      logger.error("http error response", httpErrorResponse);
+      if ((httpErrorResponse as HttpErrorResponse)?.status === 401) {
+        logger.info("unauthorised response - session no longer valid:", httpErrorResponse);
+      } else {
+        logger.error("http error response", httpErrorResponse);
+      }
       notificationSubject.next((httpErrorResponse as HttpErrorResponse).error);
       throw httpErrorResponse;
     }

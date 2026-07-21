@@ -9,6 +9,8 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance } from "../../../services/notifier.service";
+import { MemberLoginService } from "../../../services/member/member-login.service";
+import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 
 class MockLoggerFactory {
     createLogger() {
@@ -59,12 +61,24 @@ class MockStringUtilsService {
     }
 }
 
+class MockMemberLoginService {
+    loggedIn = false;
+    memberLoggedIn = vi.fn().mockImplementation(() => this.loggedIn);
+}
+
+class MockWalkDisplayService {
+    hidden = false;
+    walkHiddenFromPublic = vi.fn().mockImplementation(() => this.hidden);
+}
+
 describe("EventDispatchService", () => {
     let service: EventDispatchService;
     let pageService: MockPageService;
     let pageContentService: MockPageContentService;
     let urlService: MockUrlService;
     let walksAndEventsService: MockWalksAndEventsService;
+    let memberLoginService: MockMemberLoginService;
+    let walkDisplayService: MockWalkDisplayService;
     const notify = { warning: vi.fn() } as unknown as AlertInstance;
 
     beforeEach(() => {
@@ -76,7 +90,9 @@ describe("EventDispatchService", () => {
                 { provide: PageService, useClass: MockPageService },
                 { provide: UrlService, useClass: MockUrlService },
                 { provide: WalksAndEventsService, useClass: MockWalksAndEventsService },
-                { provide: StringUtilsService, useClass: MockStringUtilsService }
+                { provide: StringUtilsService, useClass: MockStringUtilsService },
+                { provide: MemberLoginService, useClass: MockMemberLoginService },
+                { provide: WalkDisplayService, useClass: MockWalkDisplayService }
             ]
         });
         service = TestBed.inject(EventDispatchService);
@@ -84,6 +100,8 @@ describe("EventDispatchService", () => {
         pageContentService = TestBed.inject(PageContentService) as unknown as MockPageContentService;
         urlService = TestBed.inject(UrlService) as unknown as MockUrlService;
         walksAndEventsService = TestBed.inject(WalksAndEventsService) as unknown as MockWalksAndEventsService;
+        memberLoginService = TestBed.inject(MemberLoginService) as unknown as MockMemberLoginService;
+        walkDisplayService = TestBed.inject(WalkDisplayService) as unknown as MockWalkDisplayService;
     });
 
     it("renders walk listing when only area path is supplied", async () => {
@@ -171,5 +189,32 @@ describe("EventDispatchService", () => {
         expect(result.eventView).toBe(EventViewDispatch.DYNAMIC_CONTENT);
         expect(pageContentService.findByPath).toHaveBeenCalledWith("walks/nonexistent-event-slug");
         expect(walksAndEventsService.queryById).not.toHaveBeenCalled();
+    });
+
+    it("routes hidden walks to dynamic content for visitors who are not logged in", async () => {
+        const path = "/walks/hidden-awaiting-leader-walk";
+        urlService.setPath(path);
+        pageService.value = path.substring(1);
+        walksAndEventsService.response = { groupEvent: { title: "Hidden walk" } } as ExtendedGroupEvent;
+        memberLoginService.loggedIn = false;
+        walkDisplayService.hidden = true;
+
+        const result = await service.eventView(notify, "Walk");
+        expect(result.eventView).toBe(EventViewDispatch.DYNAMIC_CONTENT);
+        expect(walksAndEventsService.queryById).toHaveBeenCalledWith("hidden-awaiting-leader-walk");
+    });
+
+    it("shows hidden walks to logged-in members without consulting the hidden check", async () => {
+        const path = "/walks/hidden-awaiting-leader-walk";
+        urlService.setPath(path);
+        pageService.value = path.substring(1);
+        const expectedEvent = { groupEvent: { title: "Hidden walk" } } as ExtendedGroupEvent;
+        walksAndEventsService.response = expectedEvent;
+        memberLoginService.loggedIn = true;
+        walkDisplayService.hidden = true;
+
+        const result = await service.eventView(notify, "Walk");
+        expect(result.eventView).toBe(EventViewDispatch.VIEW);
+        await expect(result.event).resolves.toEqual(expectedEvent);
     });
 });

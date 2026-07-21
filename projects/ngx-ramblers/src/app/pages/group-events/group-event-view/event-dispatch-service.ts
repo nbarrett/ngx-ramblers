@@ -8,6 +8,8 @@ import { EventViewDispatch, EventViewDispatchWithEvent, ExtendedGroupEvent } fro
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { MemberLoginService } from "../../../services/member/member-login.service";
+import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 
 @Injectable({
   providedIn: "root"
@@ -20,6 +22,8 @@ export class EventDispatchService {
   protected urlService: UrlService = inject(UrlService);
   private walksAndEventsService = inject(WalksAndEventsService);
   protected stringUtils = inject(StringUtilsService);
+  private memberLoginService = inject(MemberLoginService);
+  private walkDisplayService = inject(WalkDisplayService);
   protected groupEvent: ExtendedGroupEvent;
 
   async eventView(notify: AlertInstance, eventType: string): Promise<EventViewDispatchWithEvent> {
@@ -42,8 +46,11 @@ export class EventDispatchService {
       const event = await this.walksAndEventsService.queryById(eventId);
       if (event) {
         this.logger.info("event found for slug:", eventId, "matched event title:", event?.groupEvent?.title, "url:", event?.groupEvent?.url, "id:", event?.id);
-        this.groupEvent = event;
-        return {eventView: EventViewDispatch.VIEW, event: Promise.resolve(event)};
+        if (this.memberLoginService.memberLoggedIn() || !this.walkDisplayService.walkHiddenFromPublic(event)) {
+          this.groupEvent = event;
+          return {eventView: EventViewDispatch.VIEW, event: Promise.resolve(event)};
+        }
+        this.logger.info("event hidden from public for slug:", eventId);
       }
       this.logger.info("No event or page content found for path:", path);
       return {eventView: EventViewDispatch.DYNAMIC_CONTENT};
