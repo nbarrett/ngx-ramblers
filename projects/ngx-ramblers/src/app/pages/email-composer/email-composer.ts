@@ -627,7 +627,7 @@ import { ScheduledTaskService } from "../../services/scheduled-task.service";
               @if (replyCcSuggestion.length > 0) {
                 <app-alert-panel class="mt-2" title="Replying from a shared inbox">
                   Also Cc the other roles?
-                  <span alertActions>
+                  <span alertActions class="d-flex flex-wrap gap-2">
                     <button type="button" class="btn btn-sm btn-quiet" (click)="applyReplyCcSuggestion()">Cc All</button>
                     @for (suggestion of replyCcSuggestion; track suggestion.email) {
                       <button type="button" class="btn btn-sm btn-quiet" (click)="applyReplyCcSuggestion(suggestion)">{{ suggestion.name || suggestion.email }}</button>

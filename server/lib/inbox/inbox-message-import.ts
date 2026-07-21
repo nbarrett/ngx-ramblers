@@ -138,15 +138,18 @@ async function notifyAssignedRoleMembers(aliasConfig: InboxAliasConfig, message:
   }).catch(memberError => debugLog(`push to ${memberId} failed: ${(memberError as Error).message}`))));
 }
 
-export async function recordOutboundMessage(aliasConfig: InboxAliasConfig, outboundMessage: InboxMessage): Promise<InboxMessage | null> {
-  const counterparty = outboundMessage.to?.[0];
-  if (!counterparty?.email) {
+export async function recordOutboundMessage(aliasConfig: InboxAliasConfig, outboundMessage: InboxMessage, internalEmails?: Set<string>): Promise<InboxMessage | null> {
+  const recipients = [...(outboundMessage.to ?? []), ...(outboundMessage.cc ?? [])].filter(recipient => recipient?.email);
+  if (!recipients.length) {
     debugLog("recordOutboundMessage: no recipient address on message", outboundMessage.messageId, "- skipping");
     return null;
   }
+  const counterparty = internalEmails
+    ? recipients.find(recipient => !internalEmails.has(normaliseEmail(recipient.email)))
+    : recipients[0];
   const existingThread = await findExistingThread(aliasConfig, outboundMessage, InboxThreadFolder.INBOX, counterparty);
   const now = dateTimeNow().toMillis();
-  const thread = existingThread ?? await createThread(aliasConfig, outboundMessage, outboundMessage.sentAt ?? now, InboxThreadFolder.INBOX, counterparty, InboxMessageDirection.OUTBOUND);
+  const thread = existingThread ?? await createThread(aliasConfig, outboundMessage, outboundMessage.sentAt ?? now, InboxThreadFolder.INBOX, counterparty, InboxMessageDirection.OUTBOUND, internalEmails);
   const threadId = thread.id ?? thread["_id"]?.toString() ?? "";
   return recordOutboundReply(aliasConfig, outboundMessage, threadId);
 }
