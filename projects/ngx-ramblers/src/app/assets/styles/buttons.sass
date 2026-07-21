@@ -1,3 +1,5 @@
+@use "sass:color"
+
 .btn
   display: inline-block
   font-family: "rucksack"
@@ -251,8 +253,8 @@
 
 .btn-sunset.focus, .btn-sunset:focus, .btn-sunset:hover
   color: $ramblers-colour-black
-  background-color: darken($ramblers-colour-sunset, 5%)
-  border-color: darken($ramblers-colour-sunset, 5%)
+  background-color: color.adjust($ramblers-colour-sunset, $lightness: -5%)
+  border-color: color.adjust($ramblers-colour-sunset, $lightness: -5%)
 
 .btn-sunset.focus, .btn-sunset:focus
   box-shadow: 0 0 0 .2rem rgba(240, 128, 80, .35)
@@ -264,8 +266,8 @@
 
 .btn-sunset:not(:disabled):not(.disabled).active, .btn-sunset:not(:disabled):not(.disabled):active, .show > .btn-sunset.dropdown-toggle
   color: $ramblers-colour-black
-  background-color: darken($ramblers-colour-sunset, 8%)
-  border-color: darken($ramblers-colour-sunset, 8%)
+  background-color: color.adjust($ramblers-colour-sunset, $lightness: -8%)
+  border-color: color.adjust($ramblers-colour-sunset, $lightness: -8%)
 
 .btn-sunset:not(:disabled):not(.disabled).active:focus, .btn-sunset:not(:disabled):not(.disabled):active:focus, .show > .btn-sunset.dropdown-toggle:focus
   box-shadow: 0 0 0 .2rem rgba(240, 128, 80, .35)
@@ -290,8 +292,8 @@
 
 .btn-outline-sunset:not(:disabled):not(.disabled).active, .btn-outline-sunset:not(:disabled):not(.disabled):active, .show > .btn-outline-sunset.dropdown-toggle
   color: $ramblers-colour-black
-  background-color: darken($ramblers-colour-sunset, 5%)
-  border-color: darken($ramblers-colour-sunset, 5%)
+  background-color: color.adjust($ramblers-colour-sunset, $lightness: -5%)
+  border-color: color.adjust($ramblers-colour-sunset, $lightness: -5%)
 
 .btn-sunrise
   color: $ramblers-colour-black

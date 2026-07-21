@@ -1,3 +1,4 @@
+@use "sass:color"
 @import "colours"
 
 .p-stepper
@@ -125,6 +126,6 @@
     color: $ramblers-colour-granite
 
     &:hover
-      background: darken($ramblers-colour-sunrise, 10%)
-      border-color: darken($ramblers-colour-sunrise, 10%)
+      background: color.adjust($ramblers-colour-sunrise, $lightness: -10%)
+      border-color: color.adjust($ramblers-colour-sunrise, $lightness: -10%)
 

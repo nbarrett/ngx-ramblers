@@ -125,8 +125,6 @@ import { AdminContentPath } from "../../../../models/admin-route-paths.model";
     :host:nth-child(even) .migration-item
       background-color: #f8f9fa
 
-    .migration-item
-
     .migration-item.expanded
       background-color: rgba(155, 200, 171, 0.15)
       border-left: 3px solid var(--ramblers-colour-mintcake, rgb(155, 200, 171))

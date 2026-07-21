@@ -21,14 +21,28 @@
           "builder": "@angular/build:application",
           "options": {
             "allowedCommonJsDependencies": [
+              "@braintree/sanitize-url",
+              "@fortawesome/free-solid-svg-icons",
               "@yaireo/tagify",
+              "cytoscape-cose-bilkent",
+              "cytoscape-fcose",
+              "dayjs",
+              "he",
+              "heic2any",
               "html2canvas",
               "leaflet",
               "leaflet.markercluster",
               "lodash",
               "moment-timezone",
-              "mongoose"
+              "mongoose",
+              "papaparse",
+              "proj4leaflet"
             ],
+            "stylePreprocessorOptions": {
+              "sass": {
+                "silenceDeprecations": ["import", "global-builtin"]
+              }
+            },
             "outputPath": {
               "base": "dist/ngx-ramblers",
               "browser": ""
