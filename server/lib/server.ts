@@ -98,7 +98,9 @@ import memberResource from "./mongo/routes/member-resource";
 import { legacyUrlMappingRoutes } from "./mongo/routes/legacy-url-mapping";
 import { legacyScrapeRunRoutes } from "./mongo/routes/legacy-scrape-run";
 import { redirectMiddleware, initialiseRedirectMiddleware } from "./legacy-redirect/redirect-middleware";
-import { robotsTxt, sitemapXml } from "./sitemap/sitemap-controllers";
+import { llmsTxt, robotsTxt, sitemapXml } from "./sitemap/sitemap-controllers";
+import { contentExportRoutes } from "./content-export/content-export-routes";
+import { contentExportForPageUrl } from "./content-export/content-export";
 import { reconcileOrphanedScrapeRuns } from "./legacy-redirect/legacy-redirect-ws-handler";
 
 install();
@@ -173,6 +175,7 @@ app.post("/api/health/memory/restart", authConfig.authenticate(), authConfig.req
 app.get("/api/system-status", systemStatus);
 app.get("/sitemap.xml", sitemapXml);
 app.get("/robots.txt", robotsTxt);
+app.get("/llms.txt", llmsTxt);
 app.use("/api/health/environments", crossEnvironmentHealthRoutes);
 app.use("/api/areas", geoJsonRoutes);
 app.get("/api/regions", regions);
@@ -239,6 +242,8 @@ app.use("/api/cloudflare/web-analytics", cloudflareWebAnalyticsRoutes);
 app.use("/api/inbox/oauth", lazyRouter(async () => (await import("./inbox/oauth-routes")).inboxOauthRoutes));
 app.use("/api/inbox", lazyRouter(async () => (await import("./inbox/inbox-routes")).inboxRoutes));
 app.use("/api/environment-setup", environmentSetupRoutes);
+app.use("/api/public/content", contentExportRoutes);
+app.use(contentExportForPageUrl);
 app.use(redirectMiddleware);
 const staticAssetExtensions = /\.(js|mjs|css|map|wasm|json|ico|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|eot|txt|xml)$/i;
 if (fs.existsSync(distFolder)) {
