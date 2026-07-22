@@ -564,10 +564,7 @@ export enum BookingTab {
             </tabset>
           </div>
         </div>
-        <app-csv-export hidden #csvComponent
-                        [data]="csvData"
-                        [filename]="csvFilename"
-                        [options]="csvConfig"></app-csv-export>
+        <app-csv-export hidden #csvComponent></app-csv-export>
       </app-page>`,
     styles: [`
       .cursor-pointer
@@ -651,9 +648,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
   protected readonly bookingSalutationExample = "Hi {{params.bookingMergeFields.ATTENDEE_NAME}},";
   availableEventRows: BookingSummaryRow[] = [];
   pickerEventRows: BookingSummaryRow[] = [];
-  csvData: any[] = [];
-  csvFilename = "";
-  csvConfig: CsvOptions;
   private eventsMap: Map<string, ExtendedGroupEvent> = new Map();
   private futureEventRows: BookingSummaryRow[] = [];
 
@@ -859,10 +853,16 @@ export class BookingsComponent implements OnInit, OnDestroy {
         maxCapacity: this.maxCapacityFor(event),
         orphaned
       };
-    });
+    }).sort(this.byEventDateAndTime);
     this.refreshAvailableEventRows();
     this.loadEventBookings();
   }
+
+  private byEventDateAndTime = (left: BookingSummaryRow, right: BookingSummaryRow): number => {
+    const leftValue = left.eventStartDateTime ? this.dateUtils.asValue(left.eventStartDateTime) : Number.MAX_SAFE_INTEGER;
+    const rightValue = right.eventStartDateTime ? this.dateUtils.asValue(right.eventStartDateTime) : Number.MAX_SAFE_INTEGER;
+    return leftValue - rightValue || (left.eventTitle || "").localeCompare(right.eventTitle || "");
+  };
 
   private async loadFutureEvents() {
     try {
@@ -908,7 +908,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private refreshAvailableEventRows() {
     const rowsById = new Map<string, BookingSummaryRow>();
     [...this.futureEventRows, ...this.summaryRows].forEach(row => rowsById.set(row.eventIds[0], row));
-    this.availableEventRows = [...rowsById.values()];
+    this.availableEventRows = [...rowsById.values()].sort(this.byEventDateAndTime);
     this.recomputePickerEventRows();
   }
 
@@ -1184,21 +1184,19 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   downloadSummaryCsv() {
     const csvHeaders = ["Event", "Date", "Time", "Total Booked", "Max Capacity"];
-    this.csvData = this.summaryRows.map(row => ({
+    const csvRows = this.summaryRows.map(row => ({
       "Event": row.eventTitle,
       "Date": row.eventDate,
       "Time": row.eventTime,
       "Total Booked": row.totalBooked,
       "Max Capacity": row.maxCapacity
     }));
-    this.csvFilename = "booking-summary";
-    this.csvConfig = this.buildCsvOptions(csvHeaders, csvHeaders);
-    setTimeout(() => this.csvComponent.generateCsv());
+    this.csvComponent.generateCsv(csvRows, this.buildCsvOptions("booking-summary", csvHeaders));
   }
 
   downloadDetailCsv() {
     const csvHeaders = ["Attendees", "Emails", "Phone", "Booked", "Status", "Places"];
-    this.csvData = this.eventBookings.map(booking => ({
+    const csvRows = this.eventBookings.map(booking => ({
       "Attendees": this.attendeeDisplayNames(booking),
       "Emails": this.attendeeEmailList(booking),
       "Phone": this.attendeePhone(booking),
@@ -1207,22 +1205,18 @@ export class BookingsComponent implements OnInit, OnDestroy {
       "Places": booking.attendees.length
     }));
     const eventTitle = this.eventsMap.get(this.selectedEventId)?.groupEvent?.title || "event";
-    this.csvFilename = `bookings-${eventTitle}`;
-    this.csvConfig = this.buildCsvOptions(csvHeaders, csvHeaders);
-    setTimeout(() => this.csvComponent.generateCsv());
+    this.csvComponent.generateCsv(csvRows, this.buildCsvOptions(`bookings-${eventTitle}`, csvHeaders));
   }
 
   downloadAllAttendeesCsv() {
     const csvHeaders = ["Event", "Date", "Time", "Group", "Attendee", "Email", "Phone", "Status", "Booked"];
-    const rowByEventId = new Map(this.summaryRows.map(row => [row.eventIds[0], row]));
-    this.csvData = this.allBookings.flatMap(booking =>
-      booking.eventIds.flatMap(eventId => {
-        const eventRow = rowByEventId.get(eventId);
-        const groupLabel = eventRow ? `${eventRow.groupName || ""}${eventRow.groupCode ? ` (${eventRow.groupCode})` : ""}`.trim() : "";
+    const csvRows = this.summaryRows.flatMap(eventRow =>
+      this.allBookings.filter(booking => booking.eventIds.includes(eventRow.eventId)).flatMap(booking => {
+        const groupLabel = `${eventRow.groupName || ""}${eventRow.groupCode ? ` (${eventRow.groupCode})` : ""}`.trim();
         return booking.attendees.map(attendee => ({
-          "Event": eventRow?.eventTitle || "Unknown event",
-          "Date": eventRow?.eventDate || "",
-          "Time": eventRow?.eventTime || "",
+          "Event": eventRow.eventTitle || "Unknown event",
+          "Date": eventRow.eventDate || "",
+          "Time": eventRow.eventTime || "",
           "Group": groupLabel,
           "Attendee": attendee.displayName,
           "Email": attendee.email || "",
@@ -1231,14 +1225,12 @@ export class BookingsComponent implements OnInit, OnDestroy {
           "Booked": this.dateUtils.displayDate(booking.createdAt)
         }));
       }));
-    this.csvFilename = "all-booking-attendees";
-    this.csvConfig = this.buildCsvOptions(csvHeaders, csvHeaders);
-    setTimeout(() => this.csvComponent.generateCsv());
+    this.csvComponent.generateCsv(csvRows, this.buildCsvOptions("all-booking-attendees", csvHeaders));
   }
 
-  private buildCsvOptions(headers: string[], csvKeys: string[]): CsvOptions {
+  private buildCsvOptions(filename: string, headers: string[]): CsvOptions {
     return {
-      filename: this.csvFilename,
+      filename,
       fieldSeparator: ",",
       quoteStrings: "\"",
       decimalSeparator: ".",
@@ -1247,7 +1239,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
       title: "",
       useBom: true,
       headers,
-      keys: csvKeys,
+      keys: headers,
       removeNewLines: true
     };
   }

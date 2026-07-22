@@ -107,7 +107,7 @@ export class CsvExportComponent {
   }
 
   @Input("filename") set acceptFileName(filename: string) {
-    this._options.filename = filename;
+    this._options = {...this._options, filename};
     this.logger.info("input:filename:", filename);
   }
 
@@ -116,7 +116,13 @@ export class CsvExportComponent {
     this.logger.off("input:options:", options, "this._options", this._options);
   }
 
-  generateCsv(): void {
+  generateCsv(data?: any[], options?: CsvOptions): void {
+    if (data) {
+      this.data = data;
+    }
+    if (options) {
+      this._options = {...ConfigDefaults, ...options};
+    }
     this.logger.info("generateCsv:options:", this._options);
     this.csv = csvContentFrom(this.data, this._options);
 
