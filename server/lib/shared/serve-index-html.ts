@@ -9,22 +9,30 @@ import { extractGoogleSiteVerificationId } from "../../../projects/ngx-ramblers/
 const debugLog = debug(envConfig.logNamespace("serve-index-html"));
 debugLog.enabled = false;
 
-const verificationIdCacheTtlMs = 5 * 60 * 1000;
-const verificationIdCache: { value: string; expiry: number } = {value: null, expiry: 0};
+interface HeadConfig {
+  verificationId: string;
+  baseHref: string;
+}
 
-async function googleSiteVerificationId(): Promise<string> {
-  if (dateTimeNowAsValue() < verificationIdCache.expiry) {
-    return verificationIdCache.value;
+const headConfigCacheTtlMs = 5 * 60 * 1000;
+const headConfigCache: { value: HeadConfig; expiry: number } = {value: null, expiry: 0};
+
+async function cachedHeadConfig(): Promise<HeadConfig> {
+  if (dateTimeNowAsValue() < headConfigCache.expiry) {
+    return headConfigCache.value;
   }
   try {
     const config = await systemConfig();
-    verificationIdCache.value = config?.googleSearchConsole?.verificationId || null;
+    headConfigCache.value = {
+      verificationId: config?.googleSearchConsole?.verificationId || null,
+      baseHref: (config?.group?.href || "").replace(/\/+$/, "") || null
+    };
   } catch (error) {
-    debugLog("Failed to read system config for Google site verification:", error);
-    verificationIdCache.value = null;
+    debugLog("Failed to read system config for head tags:", error);
+    headConfigCache.value = {verificationId: null, baseHref: null};
   }
-  verificationIdCache.expiry = dateTimeNowAsValue() + verificationIdCacheTtlMs;
-  return verificationIdCache.value;
+  headConfigCache.expiry = dateTimeNowAsValue() + headConfigCacheTtlMs;
+  return headConfigCache.value;
 }
 
 function withGoogleSiteVerification(html: string, verificationId: string): string {
@@ -35,9 +43,25 @@ function withGoogleSiteVerification(html: string, verificationId: string): strin
   return html.replace("</head>", `  <meta name="google-site-verification" content="${safeId}">\n</head>`);
 }
 
-export async function serveIndexHtml(indexPath: string, res: Response): Promise<void> {
+function canonicalUrlFor(baseHref: string, requestPath: string): string {
+  const normalisedPath = (requestPath || "/").replace(/\/+$/, "") || "/";
+  return normalisedPath === "/" ? baseHref : `${baseHref}${normalisedPath}`;
+}
+
+function withCanonicalLink(html: string, baseHref: string, requestPath: string): string {
+  const canonicalUrl = canonicalUrlFor(baseHref, requestPath)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  return html.replace("</head>", `  <link rel="canonical" href="${canonicalUrl}">\n</head>`);
+}
+
+export async function serveIndexHtml(indexPath: string, res: Response, requestPath?: string): Promise<void> {
   const html = fs.readFileSync(indexPath, "utf-8");
-  const verificationId = await googleSiteVerificationId();
+  const headConfig = await cachedHeadConfig();
+  const withVerification = headConfig?.verificationId ? withGoogleSiteVerification(html, headConfig.verificationId) : html;
+  const withCanonical = headConfig?.baseHref ? withCanonicalLink(withVerification, headConfig.baseHref, requestPath) : withVerification;
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.type("html").send(verificationId ? withGoogleSiteVerification(html, verificationId) : html);
+  res.type("html").send(withCanonical);
 }

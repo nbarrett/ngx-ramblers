@@ -304,6 +304,17 @@ export function searchStatus(req: Request, res: Response): void {
   });
 }
 
+export async function publicSitePaths(): Promise<string[] | null> {
+  const index = await ensureSearchIndexReady();
+  if (!index) {
+    return null;
+  }
+  const publicLevels = [AccessLevel.PUBLIC];
+  const pagePaths = index.pages.filter(entry => pageVisible(entry, publicLevels)).map(entry => entry.path);
+  const eventPaths = index.events.map(entry => entry.path);
+  return Array.from(new Set(pagePaths.concat(eventPaths)));
+}
+
 export function siteMapPages(req: Request, res: Response): void {
   const levels = accessibleLevels((req as any).user);
   const index = ensureSearchIndex();
