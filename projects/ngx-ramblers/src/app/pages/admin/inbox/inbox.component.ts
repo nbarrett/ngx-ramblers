@@ -1451,7 +1451,8 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   recipientSummary(message: InboxMessage): string {
     return [...(message.to ?? []), ...(message.cc ?? [])]
-      .map(address => address.name ? address.name.split(" ")[0] : address.email.split("@")[0])
+      .map(address => address.email?.trim())
+      .filter(email => email)
       .join(", ");
   }
 
@@ -1521,11 +1522,15 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (aliasEmail) {
       return aliasEmail;
     }
+    const firstInbound = this.selectedMessages.find(message => message.direction === InboxMessageDirection.INBOUND);
+    const deliveredTo = firstInbound?.to?.length ? this.formatAddresses(firstInbound.to) : null;
+    if (deliveredTo) {
+      return deliveredTo;
+    }
     if (isInboxGeneralRoleType(this.selectedThread.roleType)) {
       return "Other inbox mail";
     }
-    const firstInbound = this.selectedMessages.find(message => message.direction === InboxMessageDirection.INBOUND);
-    return firstInbound?.to?.length ? this.formatAddresses(firstInbound.to) : null;
+    return null;
   }
 
   renderableBody(message: InboxMessage): string {
