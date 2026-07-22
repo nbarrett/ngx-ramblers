@@ -53,6 +53,7 @@ import {
 import { PriorContactMemberMatch, WalkLeaderMatchConfidence } from "../../models/walk-leader-match.model";
 import { Feature } from "../../models/walk-feature.model";
 import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-group-event-query.service";
+import { isMongoId } from "../mongo-utils";
 import { EventDefaultsService } from "../event-defaults.service";
 import { DistanceValidationService } from "./distance-validation.service";
 import { AddressQueryService } from "./address-query.service";
@@ -393,26 +394,7 @@ export class WalksImportService {
         .filter(item => this.includeWalk(item.event, duplicates));
       importData.messages.push(`Skipped ${this.stringUtils.pluraliseWithCount(duplicates.length, "duplicate walk")}: ${skippedTitles}`);
     }
-    const existingById = new Map<string, ExtendedGroupEvent>(
-      importData.existingWalksWithinRange
-        .filter(walk => walk.groupEvent?.id)
-        .map(walk => [walk.groupEvent.id, walk])
-    );
-    const existingByMigratedFromId = new Map<string, ExtendedGroupEvent>(
-      importData.existingWalksWithinRange
-        .filter(walk => walk.fields?.migratedFromId)
-        .map(walk => [walk.fields.migratedFromId, walk])
-    );
-    const naturalKeyFor = (event: ExtendedGroupEvent): string => `${event?.groupEvent?.title?.trim()?.toLowerCase()}|${this.dateUtils.asDateTime(event?.groupEvent?.start_date_time).toMillis()}`;
-    const existingByNaturalKey = new Map<string, ExtendedGroupEvent>(
-      importData.existingWalksWithinRange
-        .filter(walk => walk.groupEvent?.title && walk.groupEvent?.start_date_time)
-        .map(walk => [naturalKeyFor(walk), walk])
-    );
-    const existingWalkFor = (incomingWalk: ExtendedGroupEvent): ExtendedGroupEvent =>
-      existingById.get(incomingWalk.groupEvent?.id)
-      || existingByMigratedFromId.get(incomingWalk.fields?.migratedFromId)
-      || existingByNaturalKey.get(naturalKeyFor(incomingWalk));
+    const existingWalkFor = this.existingWalkResolver(importData.existingWalksWithinRange);
     const itemsToSave = importData.bulkLoadMembersAndMatchesToWalks.filter(item => item.include);
     let processedWalks = 0;
     await chunk(itemsToSave, 5).reduce(async (previousBatch: Promise<void>, batch: BulkLoadMemberAndMatchToWalk[]) => {
@@ -497,15 +479,51 @@ export class WalksImportService {
     }
   }
 
+  public existingWalkResolver(existingWalks: ExtendedGroupEvent[]): (incomingWalk: ExtendedGroupEvent) => ExtendedGroupEvent {
+    const existingById = new Map<string, ExtendedGroupEvent>(
+      existingWalks
+        .filter(walk => walk.groupEvent?.id)
+        .map(walk => [walk.groupEvent.id, walk])
+    );
+    const existingByMigratedFromId = new Map<string, ExtendedGroupEvent>(
+      existingWalks
+        .filter(walk => walk.fields?.migratedFromId)
+        .map(walk => [walk.fields.migratedFromId, walk])
+    );
+    const existingByMongoId = new Map<string, ExtendedGroupEvent>(
+      existingWalks
+        .filter(walk => walk.id)
+        .map(walk => [walk.id, walk])
+    );
+    const naturalKeyFor = (event: ExtendedGroupEvent): string => `${event?.groupEvent?.title?.trim()?.toLowerCase()}|${this.dateUtils.asDateTime(event?.groupEvent?.start_date_time).toMillis()}`;
+    const existingByNaturalKey = new Map<string, ExtendedGroupEvent>(
+      existingWalks
+        .filter(walk => walk.groupEvent?.title && walk.groupEvent?.start_date_time)
+        .map(walk => [naturalKeyFor(walk), walk])
+    );
+    return (incomingWalk: ExtendedGroupEvent): ExtendedGroupEvent => {
+      const idCandidates = [incomingWalk.groupEvent?.id, incomingWalk.fields?.migratedFromId].filter(candidate => !!candidate);
+      const matchedById = idCandidates
+        .map(candidate => existingById.get(candidate)
+          || existingByMigratedFromId.get(candidate)
+          || (isMongoId(candidate) ? existingByMongoId.get(candidate) : null))
+        .find(match => !!match);
+      return matchedById || existingByNaturalKey.get(naturalKeyFor(incomingWalk));
+    };
+  }
+
   private async applyWalkLeaderIfSuppliedAndMergeWalk(incomingWalk: ExtendedGroupEvent, existingWalkFor: (incomingWalk: ExtendedGroupEvent) => ExtendedGroupEvent, member?: Member, overwriteContactDetailsWithMember = true): Promise<ExtendedGroupEvent> {
     const existingWalk = existingWalkFor(incomingWalk);
     if (existingWalk) {
-      const mergedWalk: ExtendedGroupEvent = {
-        ...omit(incomingWalk, ["_id", "id"]) as ExtendedGroupEvent,
-        id: existingWalk.id,
-        fields: mergeFieldsOnSync(existingWalk.fields, incomingWalk.fields),
-        events: cloneDeep(existingWalk.events) || []
-      };
+      const leaderOnlyUpdate = existingWalk.fields?.inputSource && existingWalk.fields.inputSource !== InputSource.FILE_IMPORT;
+      const mergedWalk: ExtendedGroupEvent = leaderOnlyUpdate
+        ? this.leaderOnlyMergedWalk(existingWalk, incomingWalk)
+        : {
+          ...omit(incomingWalk, ["_id", "id"]) as ExtendedGroupEvent,
+          id: existingWalk.id,
+          fields: mergeFieldsOnSync(existingWalk.fields, incomingWalk.fields),
+          events: cloneDeep(existingWalk.events) || []
+        };
       if (mergedWalk.events.length === 0) {
         const baselineEvent = this.walkEventService.createEventIfRequired(existingWalk, EventType.APPROVED, "Baseline captured before CSV import update");
         if (baselineEvent) {
@@ -520,8 +538,10 @@ export class WalksImportService {
           mergedWalk.fields.contactDetails.memberId = member.id;
         }
       }
-      mergedWalk.groupEvent.url = await this.localWalksAndEventsService.urlFromTitle(mergedWalk.groupEvent.title, mergedWalk.id);
-      const event = this.walkEventService.createEventIfRequired(mergedWalk, EventType.APPROVED, "Imported from Walks Manager");
+      if (!leaderOnlyUpdate) {
+        mergedWalk.groupEvent.url = await this.localWalksAndEventsService.urlFromTitle(mergedWalk.groupEvent.title, mergedWalk.id);
+      }
+      const event = this.walkEventService.createEventIfRequired(mergedWalk, EventType.APPROVED, leaderOnlyUpdate ? "Walk leader updated from CSV import" : "Imported from Walks Manager");
       this.walkEventService.writeEventIfRequired(mergedWalk, event);
       return this.localWalksAndEventsService.update(mergedWalk);
     } else {
@@ -538,6 +558,34 @@ export class WalksImportService {
       this.walkEventService.writeEventIfRequired(unsavedWalk, event);
       return this.localWalksAndEventsService.create(unsavedWalk);
     }
+  }
+
+  private leaderOnlyMergedWalk(existingWalk: ExtendedGroupEvent, incomingWalk: ExtendedGroupEvent): ExtendedGroupEvent {
+    const existing = cloneDeep(existingWalk);
+    const incomingLeaderName = incomingWalk.groupEvent?.walk_leader?.name;
+    return {
+      ...existing,
+      groupEvent: {
+        ...existing.groupEvent,
+        walk_leader: incomingLeaderName ? incomingWalk.groupEvent.walk_leader : existing.groupEvent.walk_leader
+      },
+      fields: {
+        ...existing.fields,
+        contactDetails: incomingLeaderName && incomingWalk.fields?.contactDetails?.displayName
+          ? incomingWalk.fields.contactDetails
+          : existing.fields.contactDetails,
+        publishing: incomingLeaderName
+          ? {
+            ...existing.fields.publishing,
+            ramblers: {
+              ...existing.fields.publishing?.ramblers,
+              contactName: incomingWalk.fields?.publishing?.ramblers?.contactName || incomingLeaderName
+            }
+          }
+          : existing.fields.publishing
+      },
+      events: cloneDeep(existingWalk.events) || []
+    };
   }
 
   private applyMemberContactDetailsPreservingJointLeaders(walk: ExtendedGroupEvent, member: Member): void {

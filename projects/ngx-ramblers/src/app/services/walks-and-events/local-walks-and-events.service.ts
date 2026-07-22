@@ -106,6 +106,11 @@ export class LocalWalksAndEventsService {
     const now = this.dateUtils.dateTimeNow().valueOf();
     const normalised = toSlug(slug);
     return results.sort((a, b) => {
+      const aDeleted = this.extendedGroupEventQueryService.deletedWalk(a);
+      const bDeleted = this.extendedGroupEventQueryService.deletedWalk(b);
+      if (aDeleted !== bDeleted) {
+        return aDeleted ? 1 : -1;
+      }
       const aUrl = a.groupEvent?.url || "";
       const bUrl = b.groupEvent?.url || "";
       const aExactUrl = toSlug(this.stringUtilsService.lastItemFrom(aUrl)) === normalised;
