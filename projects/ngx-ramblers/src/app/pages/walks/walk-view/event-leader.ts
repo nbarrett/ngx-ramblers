@@ -11,6 +11,7 @@ import { EventLeaderContactLinkComponent } from "./event-leader-contact-link";
 import { EventLeaderPhoneLinkComponent } from "./event-leader-phone-link";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { WalkShareRowComponent } from "./walk-share-row";
+import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
 
 @Component({
     selector: "app-event-leader",
@@ -58,7 +59,9 @@ import { WalkShareRowComponent } from "./walk-share-row";
                                  [value]="resolvedEvent()?.fields?.contactDetails?.displayName"
                                  [elementName]="'walk leader '+ resolvedEvent()?.fields?.contactDetails?.displayName"/>
                   <div content>
-                    {{ resolvedEvent()?.fields?.contactDetails?.displayName }}
+                    @for (name of resolvedEvent()?.fields?.contactDetails?.displayName | jointLeaderNames; track $index) {
+                      <span class="d-block">{{ name }}</span>
+                    }
                   </div>
                 </div>
               }
@@ -77,7 +80,7 @@ import { WalkShareRowComponent } from "./walk-share-row";
         }
       </div>
     </div>`,
-  imports: [EventGroupComponent, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent, WalkShareRowComponent]
+  imports: [EventGroupComponent, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent, WalkShareRowComponent, JointLeaderNamesPipe]
 })
 
 export class EventLeaderComponent {
