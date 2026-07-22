@@ -573,6 +573,148 @@ describe("WalksImportService Walks Manager matching", () => {
         });
     });
 
+    describe("walk id matching and selective updates", () => {
+        const mongoId = "6a4cdcfd4f133d060b14e6da";
+
+        function incomingCsvWalk(walkId: string, overrides?: any): any {
+            return {
+                id: null,
+                groupEvent: {
+                    id: null,
+                    item_type: RamblersEventType.GROUP_WALK,
+                    title: "Re-imported Title",
+                    group_code: "EKWG",
+                    group_name: "East Kent Weekend Group",
+                    area_code: "SE",
+                    start_date_time: "2026-03-10T09:00:00",
+                    end_date_time: "2026-03-10T13:00:00",
+                    url: "re-imported-title",
+                    media: [],
+                    walk_leader: {
+                        is_overridden: false,
+                        id: null,
+                        name: "Sarah Mitchell",
+                        telephone: null,
+                        has_email: false
+                    }
+                },
+                fields: {
+                    inputSource: InputSource.FILE_IMPORT,
+                    migratedFromId: walkId,
+                    attendees: [],
+                    contactDetails: {
+                        contactId: null,
+                        memberId: null,
+                        displayName: "Sarah M",
+                        email: null,
+                        phone: null
+                    },
+                    publishing: {
+                        ramblers: { publish: true, contactName: "Sarah Mitchell" },
+                        meetup: { publish: false, contactName: null }
+                    },
+                    links: [],
+                    meetup: null,
+                    milesPerHour: 3,
+                    notifications: [],
+                    riskAssessment: [],
+                    venue: null
+                },
+                events: [],
+                ...overrides
+            };
+        }
+
+        it("resolves a csv Walk ID against an existing walk's Ramblers id", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            const resolver = service.existingWalkResolver([existingWalk]);
+            expect(resolver(incomingCsvWalk("wm-1"))).toBe(existingWalk);
+        });
+
+        it("resolves a csv Walk ID against an existing walk's mongo id", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            const resolver = service.existingWalkResolver([existingWalk]);
+            expect(resolver(incomingCsvWalk(mongoId))).toBe(existingWalk);
+        });
+
+        it("resolves a csv Walk ID against an existing walk's migratedFromId", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            existingWalk.fields.migratedFromId = "old-site-3155";
+            const resolver = service.existingWalkResolver([existingWalk]);
+            expect(resolver(incomingCsvWalk("old-site-3155"))).toBe(existingWalk);
+        });
+
+        it("falls back to title and date matching when no id matches", () => {
+            const service = TestBed.inject(WalksImportService);
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            const resolver = service.existingWalkResolver([existingWalk]);
+            const incoming = incomingCsvWalk("no-such-id");
+            incoming.groupEvent.title = "Coastal Walk";
+            expect(resolver(incoming)).toBe(existingWalk);
+        });
+
+        it("returns no match when neither ids nor title and date correspond", () => {
+            const service = TestBed.inject(WalksImportService);
+            const resolver = service.existingWalkResolver([walksManagerWalk({ id: mongoId })]);
+            expect(resolver(incomingCsvWalk("no-such-id"))).toBeUndefined();
+        });
+
+        it("updates only leader details on a matched walks-manager walk, preserving its groupEvent", async () => {
+            const service = TestBed.inject(WalksImportService);
+            const notify = {
+                warning: vi.fn().mockName("notify.warning"),
+                success: vi.fn().mockName("notify.success"),
+                progress: vi.fn().mockName("notify.progress")
+            } as unknown as AlertInstance;
+            localWalksAndEventsService.urlFromTitle.mockClear();
+            const existingWalk = walksManagerWalk({ id: mongoId });
+            existingWalk.groupEvent.url = "https://www.ramblers.org.uk/go-walking/group-walks/coastal-walk";
+            existingWalk.groupEvent.media = [{ alt: "Coastal Walk", styles: [{ style: "medium", url: "coastal.png" }] }];
+            const importData = {
+                ...service.importDataDefaults(InputSource.FILE_IMPORT),
+                existingWalksWithinRange: [existingWalk],
+                bulkLoadMembersAndMatchesToWalks: [
+                    {
+                        include: true,
+                        bulkLoadMemberAndMatch: {
+                            memberMatch: MemberAction.found,
+                            memberMatchType: "contact name",
+                            member: sarahMitchell,
+                            ramblersMember: null,
+                            contact: {
+                                is_overridden: false,
+                                id: null,
+                                name: "Sarah Mitchell",
+                                telephone: null,
+                                has_email: false
+                            }
+                        },
+                        event: incomingCsvWalk("wm-1")
+                    }
+                ]
+            } as any;
+
+            await service.saveImportedWalks(importData, notify);
+
+            expect(localWalksAndEventsService.update).toHaveBeenCalledTimes(1);
+            const updatedWalk = vi.mocked(localWalksAndEventsService.update).mock.lastCall[0];
+            expect(updatedWalk.id).toEqual(mongoId);
+            expect(updatedWalk.groupEvent.title).toEqual("Coastal Walk");
+            expect(updatedWalk.groupEvent.url).toEqual("https://www.ramblers.org.uk/go-walking/group-walks/coastal-walk");
+            expect(updatedWalk.groupEvent.media).toEqual(existingWalk.groupEvent.media);
+            expect(updatedWalk.fields.inputSource).toEqual(InputSource.WALKS_MANAGER_CACHE);
+            expect(updatedWalk.groupEvent.walk_leader.name).toEqual(sarahMitchell.displayName);
+            expect(updatedWalk.fields.contactDetails.memberId).toEqual(sarahMitchell.id);
+            expect(updatedWalk.fields.publishing.ramblers.contactName).toEqual("Sarah Mitchell");
+            expect(localWalksAndEventsService.urlFromTitle).not.toHaveBeenCalled();
+            const reasons = groupEventService.createEventIfRequired.mock.calls.map(call => call[2]);
+            expect(reasons).toContain("Walk leader updated from CSV import");
+        });
+    });
+
     describe("location enrichment free-text fallback", () => {
         function importDataWithWalk(service: WalksImportService, walk: any): any {
             return {
