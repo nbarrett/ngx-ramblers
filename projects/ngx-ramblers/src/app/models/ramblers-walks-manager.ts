@@ -3,6 +3,7 @@ import { DataQueryOptions } from "./api-request.model";
 import { GroupEvent, InputSource } from "./group-event.model";
 import { RamblersWalksManagerDateFormat } from "./date-format.model";
 import { SortDirection } from "./sort.model";
+import { FocalPoint } from "./image-cropper.model";
 
 export { RamblersWalksManagerDateFormat as DateFormat } from "./date-format.model";
 
@@ -162,6 +163,7 @@ export interface Media {
   credit: string;
   caption: string;
   styles: MediaStyle[];
+  focalPoint?: FocalPoint;
 }
 
 export interface BasicMedia {

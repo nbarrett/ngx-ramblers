@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { booleanAttribute, Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -29,7 +29,7 @@ import { EventLeaderContactLinkComponent } from "./event-leader-contact-link";
 import { EventLeaderPhoneLinkComponent } from "./event-leader-phone-link";
 import { EventGroupComponent } from "./event-group";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
-import { RouterLink } from "@angular/router";
+import { Router, RouterLink } from "@angular/router";
 
 @Component({
   selector: "app-walk-card-view",
@@ -176,6 +176,8 @@ export class WalkCardViewComponent implements OnInit, OnDestroy {
   @Input() cardImageClass: string;
   @Input() mapClass: string;
   @Input() maxColumns!: number;
+  @Input({transform: booleanAttribute}) navigateOnCardClick = false;
+  private router = inject(Router);
   protected readonly faPhone = faPhone;
   protected readonly faEnvelope = faEnvelope;
   protected readonly faEye = faEye;
@@ -196,10 +198,18 @@ export class WalkCardViewComponent implements OnInit, OnDestroy {
   }
 
   toggleView() {
-    const viewMode: WalkViewMode = this.display.walkMode(this.displayedWalk.walk);
-    this.logger.info("toggling walk from current mode", viewMode);
-    const toggleTo = viewMode === WalkViewMode.LIST ? this.display.awaitingLeader(this.displayedWalk.walk) ? WalkViewMode.LIST : WalkViewMode.VIEW_SINGLE : WalkViewMode.LIST;
-    this.display.toggleExpandedViewFor(this.displayedWalk.walk, toggleTo);
+    if (this.navigateOnCardClick) {
+      const walkLink = this.display.walkRouterLink(this.displayedWalk.walk);
+      this.logger.info("navigating to walk via card click:", walkLink);
+      if (walkLink) {
+        this.router.navigateByUrl(walkLink);
+      }
+    } else {
+      const viewMode: WalkViewMode = this.display.walkMode(this.displayedWalk.walk);
+      this.logger.info("toggling walk from current mode", viewMode);
+      const toggleTo = viewMode === WalkViewMode.LIST ? this.display.awaitingLeader(this.displayedWalk.walk) ? WalkViewMode.LIST : WalkViewMode.VIEW_SINGLE : WalkViewMode.LIST;
+      this.display.toggleExpandedViewFor(this.displayedWalk.walk, toggleTo);
+    }
   }
 
 

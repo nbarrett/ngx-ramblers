@@ -60,7 +60,36 @@
   min-width: 0
   margin-top: 2px
   margin-bottom: 6px
+  display: flex
+  flex-direction: column
+
+.walk-booking-form:has(app-booking-form:not(:empty))
+  flex-grow: 1
+
+app-related-links-panel:has(~ .walk-booking-form app-booking-form:empty)
+  flex-grow: 1
+
+app-walk-features:not(:has(~ app-related-links-panel)):has(~ .walk-booking-form app-booking-form:empty)
+  flex-grow: 1
+
+app-event-leader:not(:has(~ app-related-links-panel)):not(:has(~ app-walk-features)):has(~ .walk-booking-form app-booking-form:empty)
+  flex-grow: 1
 
 .col-lg-6
   padding-left: 12px
   padding-right: 12px
+
+.map-full-screen-container
+  position: fixed
+  inset: 0
+  z-index: 1050
+  background: white
+  padding: 12px
+
+  .map-expand-btn
+    top: 40px
+    right: 37px
+
+  .map-walk-view
+    height: calc(100vh - 24px) !important
+    margin-top: 0

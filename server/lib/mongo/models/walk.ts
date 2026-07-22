@@ -63,7 +63,12 @@ export const media = new mongoose.Schema({
   title: {type: String},
   credit: {type: String},
   caption: {type: String},
-  styles: [mediaStyle]
+  styles: [mediaStyle],
+  focalPoint: {
+    x: {type: Number},
+    y: {type: Number},
+    zoom: {type: Number}
+  }
 }, {_id: false});
 
 const filterParameters = {

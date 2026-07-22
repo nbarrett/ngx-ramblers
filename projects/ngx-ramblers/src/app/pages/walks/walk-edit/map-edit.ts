@@ -29,6 +29,7 @@ import { HttpClient } from "@angular/common/http";
 import { FileNameData } from "../../../models/aws-object.model";
 import { PaletteColor } from "../../../models/content-text.model";
 import { MapZoomService } from "../../../services/maps/map-zoom.service";
+import { isUndefined } from "es-toolkit/compat";
 
 @Component({
     selector: "[app-map-edit]",
@@ -90,6 +91,9 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   protected fitBounds: LatLngBounds;
   private subscriptions: Subscription[] = [];
   private map!: L.Map;
+  private destroyed = false;
+  private resizeObserver: ResizeObserver | null = null;
+  private resizeFitTimer: ReturnType<typeof setTimeout> | null = null;
   private walksConfigService = inject(WalksConfigService);
   private mailMessagingService = inject(MailMessagingService);
   private addressQueryService = inject(AddressQueryService);
@@ -116,6 +120,11 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
 
   ngOnDestroy(): void {
     this.logger.info("ngOnDestroy fired:map:", this.map);
+    this.destroyed = true;
+    this.resizeObserver?.disconnect();
+    if (this.resizeFitTimer) {
+      clearTimeout(this.resizeFitTimer);
+    }
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
@@ -328,9 +337,13 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
           }
         });
       });
+      this.observeContainerResize(map);
       this.logger.info("Map ready:", map, "detectChanges called");
 
       setTimeout(() => {
+        if (this.destroyed || this.map !== map) {
+          return;
+        }
         map.invalidateSize();
         if (this.fitBounds) {
           this.mapZoom.applyBoundsToMap(map, this.fitBounds, { maxZoom: 15 });
@@ -426,9 +439,34 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   invalidateSize() {
-    if (this.map) {
+    if (this.map && !this.destroyed) {
       this.logger.info("Invalidating map size and reapplying bounds");
       this.mapZoom.invalidateAndApplyBounds(this.map, this.fitBounds, { maxZoom: 15 });
+    }
+  }
+
+  private observeContainerResize(map: L.Map) {
+    if (isUndefined(ResizeObserver)) {
+      return;
+    }
+    this.resizeObserver = new ResizeObserver(() => this.refitToRouteOnResize());
+    this.resizeObserver.observe(map.getContainer());
+  }
+
+  private refitToRouteOnResize() {
+    if (this.destroyed || !this.map) {
+      return;
+    }
+    this.map.invalidateSize();
+    if (this.fitBounds && this.map.getSize().x > 0) {
+      if (this.resizeFitTimer) {
+        clearTimeout(this.resizeFitTimer);
+      }
+      this.resizeFitTimer = setTimeout(() => {
+        if (!this.destroyed && this.map && this.fitBounds && this.map.getSize().x > 0) {
+          this.mapZoom.applyBoundsToMap(this.map, this.fitBounds, { maxZoom: 15 });
+        }
+      }, 150);
     }
   }
 }

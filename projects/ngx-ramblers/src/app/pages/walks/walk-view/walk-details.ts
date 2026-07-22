@@ -27,6 +27,14 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
 
 @Component({
     selector: "app-walk-details",
+    styles: [`
+      :host
+        display: flex
+        flex-direction: column
+        flex-grow: 1
+      .event-panel
+        flex: 1
+    `],
     template: `
       <div class="event-panel rounded event-panel-inner">
         <h1>

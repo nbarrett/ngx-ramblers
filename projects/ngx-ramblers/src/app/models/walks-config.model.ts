@@ -1,5 +1,20 @@
 import { AccessLevel } from "./member-resource.model";
 
+export enum WalkDetailsImageStyle {
+  CROPPED = "cropped",
+  NATURAL = "natural"
+}
+
+export enum WalkDetailsMapProvider {
+  OS_MAPS = "os-maps",
+  GOOGLE_MAPS = "google-maps"
+}
+
+export interface WalkViewPreviewGhost {
+  label: string;
+  height: number;
+}
+
 export interface WalksConfig {
   milesPerHour: number;
   mapZoomOutLevels?: number;
@@ -20,6 +35,10 @@ export interface WalksConfig {
   walkCreationAccessLevel?: AccessLevel;
   hideAwaitingLeaderFromPublic?: boolean;
   hideNonApprovedWalksFromPublic?: boolean;
+  walkDetailsImageStyle?: WalkDetailsImageStyle;
+  walkDetailsImageHeight?: number;
+  walkDetailsMapHeight?: number;
+  walkDetailsMapProvider?: WalkDetailsMapProvider;
 }
 
 export enum WalkConfigTab {

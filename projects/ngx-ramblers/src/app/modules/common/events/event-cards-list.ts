@@ -24,6 +24,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
           } @else {
             <app-walk-card-view mapClass="map-card-image-events" cardImageClass="card-img-fixed-height" [index]="index"
                                 class="card shadow clickable h-100" [maxColumns]="eventsData?.maxColumns"
+                                navigateOnCardClick
                                 [displayedWalk]="walkDisplayService.toDisplayedWalk(extendedGroupEvent)"/>
           }
         </div>
