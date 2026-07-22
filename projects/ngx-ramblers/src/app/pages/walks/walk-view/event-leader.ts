@@ -14,6 +14,14 @@ import { WalkShareRowComponent } from "./walk-share-row";
 
 @Component({
     selector: "app-event-leader",
+    styles: [`
+      :host
+        display: flex
+        flex-direction: column
+
+      .event-panel
+        flex: 1
+    `],
     template: `
     <div class="event-panel rounded event-panel-inner">
       <app-event-group [displayedWalk]="displayedWalk" [groupEvent]="groupEvent"/>

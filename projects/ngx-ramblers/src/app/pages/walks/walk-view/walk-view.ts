@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, Input, OnDestroy, OnInit, ViewChild, ViewChildren, QueryList } from "@angular/core";
+import { Component, ElementRef, HostListener, inject, Input, OnDestroy, OnInit, ViewChild, ViewChildren, QueryList } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -26,15 +26,17 @@ import { MarkdownComponent } from "ngx-markdown";
 import { EventLeaderComponent } from "./event-leader";
 import { WalkFeaturesComponent } from "./walk-features";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCompress, faExpand, faEye, faPencil, faPersonWalking } from "@fortawesome/free-solid-svg-icons";
+import { faCompress, faExpand, faEye, faMaximize, faPencil, faPersonWalking } from "@fortawesome/free-solid-svg-icons";
 import { RouterLink } from "@angular/router";
 import { GroupEventImages } from "./group-event-images";
 import { MapEditComponent } from "../walk-edit/map-edit";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
+import { WalksConfigService } from "../../../services/system/walks-config.service";
+import { WalkDetailsMapProvider } from "../../../models/walks-config.model";
 import { FormsModule } from "@angular/forms";
 import { WalkDetailsComponent } from "./walk-details";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
-import { RelatedLinksComponent } from "../../../modules/common/related-links/related-links";
+import { RelatedLinksPanelComponent } from "../../../modules/common/related-links/related-links-panel";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
@@ -116,12 +118,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
               <app-walk-features [extendedGroupEvent]="displayedWalk?.walk"/>
             }
             @if (displayLinks && display.showWalkRelatedLinks()) {
-              <div class="event-panel rounded event-panel-inner">
-                <h1>Related Links</h1>
-                <div class="row">
-                  <app-related-links [displayedWalk]="displayedWalk"/>
-                </div>
-              </div>
+              <app-related-links-panel [displayedWalk]="displayedWalk"/>
             }
             <div class="walk-booking-form">
               <app-booking-form [extendedGroupEvent]="displayedWalk?.walk" [eventLink]="displayedWalk?.walkLink"></app-booking-form>
@@ -159,22 +156,24 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
             }
             @if (display.displayMap(displayedWalk?.walk)) {
               <div class="row">
-                <div class="col-sm-12 position-relative">
+                <div class="col-sm-12" [class.position-relative]="!mapFullScreen" [class.map-full-screen-container]="mapFullScreen">
                   <button type="button" class="btn btn-sm btn-light map-expand-btn"
-                          (click)="toggleMapExpanded()"
-                          [tooltip]="mapExpanded ? 'Collapse map' : 'Expand map'"
+                          (click)="cycleMapSize()"
+                          [tooltip]="mapFullScreen ? 'Exit full screen' : (mapExpanded ? 'Full screen' : 'Expand map')"
                           placement="left">
-                    <fa-icon [icon]="mapExpanded ? faCompress : faExpand"></fa-icon>
+                    <fa-icon [icon]="mapFullScreen ? faCompress : (mapExpanded ? faMaximize : faExpand)"></fa-icon>
                   </button>
                   @if (display.mapViewReady(googleMapsUrl) && showGoogleMapsView) {
-                    <iframe allowfullscreen [class.map-walk-view-expanded]="mapExpanded"
+                    <iframe allowfullscreen [class.map-walk-view-expanded]="mapExpanded && !mapFullScreen"
                             class="map-walk-view map-walk-view-google"
+                            [style.height.px]="!mapExpanded && !mapFullScreen ? walkDetailsMapHeight : null"
                             style="border:0;border-radius: 10px;"
                             [src]="googleMapsUrl"></iframe>
                   }
                   @if (!showGoogleMapsView) {
-                    <div app-map-edit [class.map-walk-view-expanded]="mapExpanded"
+                    <div app-map-edit [class.map-walk-view-expanded]="mapExpanded && !mapFullScreen"
                          class="map-walk-view" readonly
+                         [style.height.px]="!mapExpanded && !mapFullScreen ? walkDetailsMapHeight : null"
                          [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.groupEvent?.start_location:displayedWalk?.walk?.groupEvent?.end_location"
                          [walkStatus]="displayedWalk?.walk?.groupEvent?.status"
                          [gpxFile]="displayedWalk?.walk?.fields?.gpxFile"
@@ -189,7 +188,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
                     <input class="form-check-input" type="radio" [name]="'mapView-' + index"
                            [(ngModel)]="showGoogleMapsView" [ngModelOptions]="{standalone: true}"
                            id="{{index}}-pin-view-mode-start"
-                           [value]="false" (ngModelChange)="configureMapDisplay()">
+                           [value]="false" (ngModelChange)="mapProviderChanged()">
                     <label class="form-check-label" for="{{index}}-pin-view-mode-start">
                       {{ mapViewLabel }}</label>
                   </div>
@@ -197,7 +196,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
                     <input class="form-check-input" type="radio" [name]="'mapView-' + index"
                            [(ngModel)]="showGoogleMapsView" [ngModelOptions]="{standalone: true}"
                            id="{{index}}-google-maps-mode-start"
-                           [value]="true" (ngModelChange)="configureMapDisplay()">
+                           [value]="true" (ngModelChange)="mapProviderChanged()">
                     <label class="form-check-label" for="{{index}}-google-maps-mode-start">
                       Google Maps</label>
                   </div>
@@ -262,7 +261,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],
-  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe]
+  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
@@ -291,6 +290,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected urlService = inject(UrlService);
   protected stringUtils = inject(StringUtilsService);
   private systemConfigService = inject(SystemConfigService);
+  private walksConfigService = inject(WalksConfigService);
   private notifierService = inject(NotifierService);
   private mapTiles = inject(MapTilesService);
   protected eventsMigrationService = inject(EventsMigrationService);
@@ -298,12 +298,21 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   public area = this.urlService.area();
   public showGoogleMapsView = false;
   public suppressMapToggle = false;
+  protected walkDetailsMapHeight = 380;
+  protected mapFullScreen = false;
+  private readonly mapSizeCycle = [
+    {expanded: false, fullScreen: false},
+    {expanded: true, fullScreen: false},
+    {expanded: false, fullScreen: true}
+  ];
+  private mapProviderTouched = false;
   protected readonly MapDisplay = MapDisplay;
   protected readonly EventType = EventType;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
   protected readonly WalkStatus = WalkStatus;
   protected readonly faCompress = faCompress;
   protected readonly faExpand = faExpand;
+  protected readonly faMaximize = faMaximize;
   protected readonly faEye = faEye;
   protected readonly faPencil = faPencil;
   protected readonly faPersonWalking = faPersonWalking;
@@ -345,6 +354,16 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.logger.info("systemConfigService returned systemConfig:", systemConfig);
       this.queryIfRequired();
     });
+    this.subscriptions.push(this.walksConfigService.events().subscribe(walksConfig => {
+      this.walkDetailsMapHeight = walksConfig?.walkDetailsMapHeight || 380;
+      if (!this.mapProviderTouched) {
+        const defaultToGoogleMaps = walksConfig?.walkDetailsMapProvider === WalkDetailsMapProvider.GOOGLE_MAPS;
+        if (defaultToGoogleMaps !== this.showGoogleMapsView) {
+          this.showGoogleMapsView = defaultToGoogleMaps;
+          this.configureMapDisplay();
+        }
+      }
+    }));
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => {
       this.logger.info("loginResponseObservable:", loginResponse);
       this.display.refreshCachedData();
@@ -406,6 +425,23 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     }
   }
 
+  private fullWalkQueriedIds: string[] = [];
+
+  private queryFullWalkIfRequired(displayedWalk: DisplayedWalk) {
+    const walkId = displayedWalk?.walk?.id;
+    if (walkId && !this.urlService.pathContainsEventIdOrSlug() && !this.fullWalkQueriedIds.includes(walkId)) {
+      this.fullWalkQueriedIds = this.fullWalkQueriedIds.concat(walkId);
+      this.walksAndEventsService.queryById(walkId)
+        .then(fullWalk => {
+          if (fullWalk) {
+            this.logger.info("queryFullWalkIfRequired: applying full walk for", walkId);
+            this.applyWalk(this.display.toDisplayedWalk(fullWalk));
+          }
+        })
+        .catch(error => this.logger.error("queryFullWalkIfRequired failed for", walkId, error));
+    }
+  }
+
   private applyWalk(displayedWalk: DisplayedWalk) {
     if (displayedWalk) {
       this.walkInjected = true;
@@ -413,6 +449,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.displayedWalk = displayedWalk;
       this.pageService.setTitle();
       this.displayLinks = displayedWalk?.walk?.fields?.links?.length > 0;
+      this.queryFullWalkIfRequired(displayedWalk);
       if (this.systemConfigService.systemConfig()?.enableMigration?.events) {
         this.logger.info("remigrateForComparison", displayedWalk?.walk?.fields?.migratedFromId);
         this.eventsMigrationService.migrateOneWalk(displayedWalk?.walk?.fields?.migratedFromId);
@@ -521,10 +558,37 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     setTimeout(() => this.fromPostcodeInput?.nativeElement?.focus(), 0);
   }
 
-  toggleMapExpanded() {
-    this.mapExpanded = !this.mapExpanded;
-    setTimeout(() => {
+  cycleMapSize() {
+    const currentIndex = this.mapSizeCycle.findIndex(state => state.expanded === this.mapExpanded && state.fullScreen === this.mapFullScreen);
+    const next = this.mapSizeCycle[(currentIndex + 1) % this.mapSizeCycle.length];
+    this.mapExpanded = next.expanded;
+    this.mapFullScreen = next.fullScreen;
+    this.refreshMapSize();
+  }
+
+  private refreshMapSize() {
+    [50, 300].forEach(delay => setTimeout(() => {
       this.mapEditComponent?.invalidateSize();
-    }, 50);
+      window.dispatchEvent(new Event("resize"));
+    }, delay));
+    if (this.showGoogleMapsView) {
+      setTimeout(() => {
+        this.suppressMapToggle = false;
+        this.updateGoogleMapIfApplicable();
+      }, 320);
+    }
+  }
+
+  @HostListener("document:keydown.escape")
+  exitMapFullScreen() {
+    if (this.mapFullScreen) {
+      this.mapFullScreen = false;
+      this.refreshMapSize();
+    }
+  }
+
+  mapProviderChanged() {
+    this.mapProviderTouched = true;
+    this.configureMapDisplay();
   }
 }

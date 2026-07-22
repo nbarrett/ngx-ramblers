@@ -1,4 +1,5 @@
-import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { Subscription } from "rxjs";
 import { BasicMedia, Media } from "../../../models/ramblers-walks-manager";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -12,6 +13,11 @@ import { move } from "../../../functions/arrays";
 import { last } from "es-toolkit/compat";
 import { first } from "es-toolkit/compat";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { WalksConfigService } from "../../../services/system/walks-config.service";
+import { WalkDetailsImageStyle } from "../../../models/walks-config.model";
+import { FocalPointPickerComponent } from "../../../modules/common/focal-point-picker/focal-point-picker";
+import { FocalPoint } from "../../../models/image-cropper.model";
+import { SwipeableDirective } from "../../../modules/common/swipe/swipeable.directive";
 
 @Component({
     selector: "app-group-event-images",
@@ -62,7 +68,31 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
           }
         </div>
         <div class="position-relative" [ngClass]="extendedGroupEvent?.groupEvent?.media?.length > 1 ? 'mt-2': 'mt-3'">
-          <app-card-image fixedHeight [imageSource]="imageSourceOrPreview()"/>
+          @if (swipeableImages()) {
+            <div class="swiper-viewport" appSwipeable
+                 (draggingChange)="dragging = $event"
+                 (swipeOffset)="dragOffsetX = $event"
+                 (swipeDelta)="onSwipeDelta($event)">
+              <div class="swiper-strip"
+                   [class.dragging]="dragging"
+                   [style.transform]="stripTransform"
+                   [style.transition]="dragTransition">
+                @for (basicMedia of allBasicMedia(); track basicMedia.url; let slideIndex = $index) {
+                  <div class="swiper-slide">
+                    <app-card-image [unconstrainedHeight]="naturalImageHeight"
+                                    [height]="naturalImageHeight ? null : croppedImageHeight"
+                                    [focalPoint]="naturalImageHeight ? null : mediaAt(slideIndex)?.focalPoint"
+                                    [imageSource]="basicMedia.url"/>
+                  </div>
+                }
+              </div>
+            </div>
+          } @else {
+            <app-card-image [unconstrainedHeight]="naturalImageHeight"
+                            [height]="naturalImageHeight ? null : croppedImageHeight"
+                            [focalPoint]="naturalImageHeight ? null : currentMedia()?.focalPoint"
+                            [imageSource]="imageSourceOrPreview()"/>
+          }
           @if (allowEditImage) {
             <input id="edit-image-{{extendedGroupEvent.id}}" type="submit"
                    value="edit"
@@ -70,14 +100,52 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
                    class="btn btn-primary position-absolute top-0 end-0 m-2">
           }
         </div>
+        @if (allowEditImage && !naturalImageHeight && currentMedia()) {
+          <div class="form-group mt-3">
+            <label class="form-label">Focal point for image {{ imageIndex + 1 }}</label>
+            <app-focal-point-picker
+              [imageSrc]="imageSourceOrPreview()"
+              [minZoom]="0.2"
+              [maxPreviewHeight]="260"
+              [focalPoint]="currentMedia().focalPoint || defaultFocalPoint"
+              (focalPointChange)="focalPointChanged($event)"/>
+          </div>
+        }
       </div>`,
     styleUrls: ["./walk-view.sass"],
-  imports: [TooltipDirective, SvgComponent, NgClass, CardImageComponent]
+    styles: [`
+      .swiper-viewport
+        overflow: hidden
+        -webkit-user-select: none
+        user-select: none
+
+        img
+          pointer-events: none
+          -webkit-user-drag: none
+
+      .swiper-strip
+        display: flex
+        align-items: flex-start
+        cursor: grab
+        &.dragging
+          cursor: grabbing
+
+      .swiper-slide
+        flex: 0 0 100%
+    `],
+  imports: [TooltipDirective, SvgComponent, NgClass, CardImageComponent, FocalPointPickerComponent, SwipeableDirective]
 })
 
-export class GroupEventImages implements OnInit {
+export class GroupEventImages implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupEventImages", NgxLoggerLevel.ERROR);
   mediaQueryService = inject(MediaQueryService);
+  private walksConfigService = inject(WalksConfigService);
+  private subscriptions: Subscription[] = [];
+  protected naturalImageHeight = false;
+  protected croppedImageHeight = 200;
+  protected readonly defaultFocalPoint: FocalPoint = {x: 50, y: 50, zoom: 1};
+  protected dragging = false;
+  protected dragOffsetX = 0;
   imagePreview: string;
   protected allowEditImage: boolean;
   protected imageIndex = 0;
@@ -103,6 +171,14 @@ export class GroupEventImages implements OnInit {
 
   ngOnInit() {
     this.logger.info("ngOnInit: extendedGroupEvent", this.extendedGroupEvent, "imageIndex:", this.imageIndex);
+    this.subscriptions.push(this.walksConfigService.events().subscribe(walksConfig => {
+      this.naturalImageHeight = walksConfig?.walkDetailsImageStyle === WalkDetailsImageStyle.NATURAL;
+      this.croppedImageHeight = walksConfig?.walkDetailsImageHeight || 200;
+    }));
+  }
+
+  ngOnDestroy() {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   removeImage() {
@@ -147,6 +223,41 @@ export class GroupEventImages implements OnInit {
 
   currentMedia(): Media {
     return this.extendedGroupEvent?.groupEvent?.media[this.imageIndex];
+  }
+
+  focalPointChanged(focalPoint: FocalPoint) {
+    const media = this.currentMedia();
+    if (media) {
+      media.focalPoint = focalPoint || null;
+    }
+  }
+
+  swipeableImages(): boolean {
+    return !this.imagePreview && this.extendedGroupEvent?.groupEvent?.media?.length > 1;
+  }
+
+  allBasicMedia(): BasicMedia[] {
+    return this.mediaQueryService.basicMediaFrom(this.extendedGroupEvent?.groupEvent) || [];
+  }
+
+  mediaAt(index: number): Media {
+    return this.extendedGroupEvent?.groupEvent?.media?.[index];
+  }
+
+  onSwipeDelta(deltaX: number): void {
+    if (deltaX < 0) {
+      this.next();
+    } else {
+      this.back();
+    }
+  }
+
+  get stripTransform(): string {
+    return `translateX(calc(${-this.imageIndex * 100}% + ${this.dragOffsetX}px))`;
+  }
+
+  get dragTransition(): string {
+    return this.dragging ? "none" : "transform 0.3s ease-out";
   }
 
   moveImageForward() {

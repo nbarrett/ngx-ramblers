@@ -289,7 +289,10 @@ export class EventsFull implements OnInit, OnDestroy {
       this.logger.debug("route paramMap:", paramMap);
     }));
     this.display.refreshCachedData();
-    this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => this.refreshEvents(loginResponse)));
+    this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => {
+      this.display.closeAllExpanded();
+      this.refreshEvents(loginResponse);
+    }));
     if (this.eventsData) {
       if (this.eventsData.filterCriteria) {
         this.filterParameters.selectType = this.eventsData.filterCriteria;

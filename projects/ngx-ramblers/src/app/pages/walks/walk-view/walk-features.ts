@@ -9,6 +9,14 @@ import { FeaturesService } from "../../../services/features.service";
 
 @Component({
     selector: "app-walk-features",
+    styles: [`
+      :host
+        display: flex
+        flex-direction: column
+
+      .event-panel
+        flex: 1
+    `],
     template: `
       <div class="event-panel rounded event-panel-inner">
         <h1>Features</h1>

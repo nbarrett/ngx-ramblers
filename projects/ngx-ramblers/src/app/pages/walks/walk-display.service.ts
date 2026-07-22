@@ -199,6 +199,10 @@ export class WalkDisplayService {
     return !!this.findWalk(walk);
   }
 
+  closeAllExpanded(): void {
+    this.expandedWalks = [];
+  }
+
   isEdit(walk: ExtendedGroupEvent) {
     const expandedWalk = this.findWalk(walk);
     return expandedWalk && expandedWalk.mode === WalkViewMode.EDIT;

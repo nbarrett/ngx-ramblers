@@ -202,9 +202,12 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
       }`,
     styles: [`
       :host
-        display: block
+        display: flex
+        flex-direction: column
+        flex-grow: 1
         container-type: inline-size
       .booking-panel
+        flex: 1
         padding-bottom: 12px
       .booking-panel-content
         padding-right: 11px

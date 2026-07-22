@@ -7,7 +7,7 @@ import { ConfigKey } from "../../models/config.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { WalksConfig } from "../../models/walks-config.model";
+import { WalkDetailsImageStyle, WalkDetailsMapProvider, WalksConfig } from "../../models/walks-config.model";
 import { AccessLevel } from "../../models/member-resource.model";
 
 @Injectable({
@@ -86,7 +86,11 @@ export class WalksConfigService {
       regularWalkDay: 7,
       walkCreationAccessLevel: AccessLevel.HIDDEN,
       hideAwaitingLeaderFromPublic: false,
-      hideNonApprovedWalksFromPublic: false
+      hideNonApprovedWalksFromPublic: false,
+      walkDetailsImageStyle: WalkDetailsImageStyle.CROPPED,
+      walkDetailsImageHeight: 200,
+      walkDetailsMapHeight: 380,
+      walkDetailsMapProvider: WalkDetailsMapProvider.OS_MAPS
     };
   };
 
