@@ -98,6 +98,7 @@ import memberResource from "./mongo/routes/member-resource";
 import { legacyUrlMappingRoutes } from "./mongo/routes/legacy-url-mapping";
 import { legacyScrapeRunRoutes } from "./mongo/routes/legacy-scrape-run";
 import { redirectMiddleware, initialiseRedirectMiddleware } from "./legacy-redirect/redirect-middleware";
+import { robotsTxt, sitemapXml } from "./sitemap/sitemap-controllers";
 import { reconcileOrphanedScrapeRuns } from "./legacy-redirect/legacy-redirect-ws-handler";
 
 install();
@@ -170,6 +171,8 @@ app.get("/api/health/memory/fly-history", authConfig.authenticate(), authConfig.
 app.get("/api/health/memory/machine-state", authConfig.authenticate(), authConfig.requireAdmin, flyMachineState);
 app.post("/api/health/memory/restart", authConfig.authenticate(), authConfig.requireAdmin, restartMachine);
 app.get("/api/system-status", systemStatus);
+app.get("/sitemap.xml", sitemapXml);
+app.get("/robots.txt", robotsTxt);
 app.use("/api/health/environments", crossEnvironmentHealthRoutes);
 app.use("/api/areas", geoJsonRoutes);
 app.get("/api/regions", regions);
@@ -242,7 +245,7 @@ if (fs.existsSync(distFolder)) {
   const indexPath = path.join(distFolder, "index.html");
   app.get(["/", "/index.html"], (req, res, next) => {
     if (fs.existsSync(indexPath)) {
-      serveIndexHtml(indexPath, res).catch(next);
+      serveIndexHtml(indexPath, res, "/").catch(next);
     } else {
       next();
     }
@@ -261,7 +264,7 @@ if (fs.existsSync(distFolder)) {
       return;
     }
     if (fs.existsSync(indexPath)) {
-      serveIndexHtml(indexPath, res).catch(next);
+      serveIndexHtml(indexPath, res, req.path).catch(next);
     } else {
       debugLog("⚠️ index.html not found in", distFolder, "— likely running in dev before build.");
       next();

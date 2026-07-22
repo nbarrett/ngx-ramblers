@@ -18,7 +18,7 @@ import {
   MapRouteImportResponse
 } from "../../../projects/ngx-ramblers/src/app/models/map-route-import.model";
 import { ServerFileNameData } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
-import { generateUid, pluraliseWithCount } from "../shared/string-utils";
+import { escapeXml, generateUid, pluraliseWithCount } from "../shared/string-utils";
 import { putObjectDirect } from "../aws/aws-controllers";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
 import { SpatialFeatureModel } from "../mongo/models/spatial-feature";
@@ -526,15 +526,6 @@ function convertToGpx(geoJson: FeatureCollection, name: string, simplify = true)
   }).join("\n");
 
   return `${gpxHeader}\n${gpxTracks}\n</gpx>`;
-}
-
-function escapeXml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
 }
 
 function featureToGpxTrack(feature: Feature, trackName: string): string {
