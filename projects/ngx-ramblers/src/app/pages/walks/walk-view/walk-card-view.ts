@@ -30,6 +30,7 @@ import { EventLeaderPhoneLinkComponent } from "./event-leader-phone-link";
 import { EventGroupComponent } from "./event-group";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
 import { Router, RouterLink } from "@angular/router";
+import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
 
 @Component({
   selector: "app-walk-card-view",
@@ -128,7 +129,9 @@ import { Router, RouterLink } from "@angular/router";
                                        [value]="displayedWalk?.walk?.fields?.contactDetails?.displayName"
                                        [elementName]="'walk leader '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
                         <div content>
-                          {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
+                          @for (name of displayedWalk?.walk?.fields?.contactDetails?.displayName | jointLeaderNames; track $index) {
+                            <span class="d-block">{{ name }}</span>
+                          }
                         </div>
                       </div>
                     }
@@ -151,7 +154,7 @@ import { Router, RouterLink } from "@angular/router";
       position: relative
       padding-bottom: 50px
   `],
-  imports: [WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe, DisplayTimePipe, CardImageOrMap, RouterLink, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent, EventGroupComponent]
+  imports: [WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe, DisplayTimePipe, CardImageOrMap, RouterLink, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent, EventGroupComponent, JointLeaderNamesPipe]
 })
 
 export class WalkCardViewComponent implements OnInit, OnDestroy {
