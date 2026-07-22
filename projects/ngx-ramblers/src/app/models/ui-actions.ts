@@ -81,6 +81,7 @@ export enum StoredValue {
   FIELD = "field",
   FILE = "file",
   FILTER = "filter",
+  FORMAT = "format",
   FREE_ONLY = "free-only",
   GRID_COLUMNS = "grid-columns",
   GRID_GAP = "grid-gap",
