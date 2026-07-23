@@ -7,6 +7,7 @@ export enum InboxMessageDirection {
 
 export enum InboxReaderProvider {
   NONE = "none",
+  EMAIL_COMPOSER = "email-composer",
   GMAIL_API = "gmail-api",
   BREVO_INBOUND_PARSE = "brevo-inbound-parse",
   CLOUDFLARE_INGRESS = "cloudflare-ingress"

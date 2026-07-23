@@ -35,6 +35,7 @@ export enum UIDateFormat {
   YEAR_MONTH_DAY = "yyyyMMdd",
   DAY_MONTH_YEAR_ABBREVIATED_TIME = "dd MMM yyyy HH:mm",
   DAY_MONTH_YEAR_ABBREVIATED_TIME_ZONE = "dd MMM yyyy HH:mm ZZZZ",
+  MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS = "MMM d, yyyy, h:mm:ss a",
   DAY_MONTH_YEAR_DASHED_ZERO_PADDED = "dd-MMM-yyyy",
   DISPLAY_DATE_AT_TIME = "cccc, d MMMM yyyy 'at' h:mm a",
   FILE_TIMESTAMP_COMPACT = "yyyyMMdd-HHmmss",

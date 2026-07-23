@@ -48,6 +48,7 @@ import { AttachmentPreviewComponent } from "../../../modules/common/attachment-p
 import { HtmlFrameComponent } from "../../../modules/common/html-frame/html-frame.component";
 import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../../modules/common/resizer/resizer";
 import { MaximisablePanelComponent } from "../../../modules/common/maximisable-panel/maximisable-panel";
+import { UIDateFormat } from "../../../models/date-format.model";
 
 @Component({
   selector: "app-inbox",
@@ -142,7 +143,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
             }
           }
           @if (!mobile) {
-            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="refresh()" [disabled]="busy" tooltip="Refresh the inbox">
+            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="syncAndRefresh()" [disabled]="busy" tooltip="Synchronise connected mailboxes and refresh the inbox">
               <fa-icon [icon]="faRotateRight"/>Refresh
             </button>
           }
@@ -161,7 +162,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
           <button type="button" class="btn btn-quiet" (click)="toggleMessageSort()">
             <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort" class="me-1"/>{{messageSortDescending ? 'Newest first' : 'Oldest first'}}
           </button>
-          <button type="button" class="btn btn-quiet" (click)="refresh()" [disabled]="busy">
+          <button type="button" class="btn btn-quiet" (click)="syncAndRefresh()" [disabled]="busy">
             <fa-icon [icon]="faRotateRight" class="me-1"/>Refresh
           </button>
           @if ((pushStatus$ | async); as pushStatus) {
@@ -283,7 +284,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                     <span class="inbox-unread-dot flex-shrink-0" aria-label="Unread"></span>
                   }
                   <div class="inbox-thread-from flex-grow-1 text-truncate">{{thread.externalAddress?.name ?? thread.externalAddress?.email ?? 'No external address'}}</div>
-                  <div class="inbox-thread-time flex-shrink-0">{{thread.lastSeenAt | date: "short"}}</div>
+                  <div class="inbox-thread-time flex-shrink-0">{{thread.lastSeenAt | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}</div>
                 </div>
                 <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
                 <div class="inbox-thread-preview">{{thread.lastDirection === InboxMessageDirection.OUTBOUND ? 'Last message sent by you' : 'Latest incoming message'}} · Swipe right to {{conversationUnread(thread) ? 'mark read' : 'mark unread'}}, left to delete</div>
@@ -291,6 +292,13 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                   <div class="inbox-thread-recipient text-truncate">{{thread.lastDirection === InboxMessageDirection.OUTBOUND ? "from" : "to"}} {{roleEmail}}</div>
                 }
               </div>
+            </div>
+          }
+          @if (canLoadMoreConversations) {
+            <div class="d-flex justify-content-center p-2">
+              <button type="button" class="btn btn-quiet" [disabled]="busy" (click)="loadMoreConversations()">
+                Show next {{nextConversationPageSize}}
+              </button>
             </div>
           }
           </div>
@@ -347,7 +355,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
                   <fa-icon [icon]="isMessageExpanded(message) ? faChevronDown : faChevronRight" class="mt-1 text-muted"/>
                   <div class="flex-grow-1 min-w-0">
                     <strong>{{message.direction === InboxMessageDirection.OUTBOUND ? "Sent from Email Composer — " + formatAddress(message.from) : formatAddress(message.from)}}</strong>
-                    &middot; {{(message.receivedAt ?? message.sentAt) | date: "medium"}}
+                    &middot; {{(message.receivedAt ?? message.sentAt) | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}
                     @if (isMessageExpanded(message)) {
                       @if (message.cc?.length) {
                         <div>Cc: {{ formatAddresses(message.cc) }}</div>
@@ -451,6 +459,7 @@ import { MaximisablePanelComponent } from "../../../modules/common/maximisable-p
   `
 })
 export class InboxComponent implements OnInit, OnDestroy {
+  protected readonly UIDateFormat = UIDateFormat;
 
   private logger: Logger = inject(LoggerFactory).createLogger("InboxComponent", NgxLoggerLevel.ERROR);
   private inboxService = inject(InboxService);
@@ -588,6 +597,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private static readonly LAYOUT_KEY = "inbox-layout";
   private static readonly SIZE_KEY = "inbox-list-size";
   private static readonly DELETE_UNDO_MS = 6000;
+  private static readonly THREAD_PAGE_SIZE = 50;
   private static readonly SWIPE_THRESHOLD_PX = 72;
   private listScrollTop = 0;
   private touchStartX = 0;
@@ -865,6 +875,53 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.busy = false;
       this.loadedOnce = true;
       void this.inboxNotificationService.resync();
+    }
+  }
+
+  async syncAndRefresh(): Promise<void> {
+    this.busy = true;
+    try {
+      const connectionIds = Array.from(new Set(this.aliases
+        .filter(alias => alias.mailboxConnection?.hasRefreshToken && alias.mailboxConnectionId)
+        .map(alias => alias.mailboxConnectionId as string)));
+      await Promise.all(connectionIds.map(connectionId => this.inboxService.syncConnection(connectionId)));
+    } catch (error) {
+      this.notify.error({title: "Inbox", message: (error as Error).message});
+      this.logger.error("Failed to synchronise inbox mailboxes:", error);
+    } finally {
+      this.busy = false;
+    }
+    await this.refresh();
+  }
+
+  get canLoadMoreConversations(): boolean {
+    const available = this.readFilter === InboxReadFilter.UNREAD ? this.threadListUnreadCount : this.threadListTotalCount;
+    return this.threads.length < available;
+  }
+
+  get nextConversationPageSize(): number {
+    const available = this.readFilter === InboxReadFilter.UNREAD ? this.threadListUnreadCount : this.threadListTotalCount;
+    return Math.min(InboxComponent.THREAD_PAGE_SIZE, Math.max(available - this.threads.length, 0));
+  }
+
+  async loadMoreConversations(): Promise<void> {
+    if (!this.canLoadMoreConversations || this.busy) {
+      return;
+    }
+    this.busy = true;
+    try {
+      const roleType = this.selectedRoleType();
+      const scope = roleType ? null : this.selectedMailboxView as InboxViewScope;
+      const folder = this.viewingJunk ? InboxThreadFolder.JUNK : null;
+      const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, InboxComponent.THREAD_PAGE_SIZE, folder, this.threads.length);
+      this.threads = this.threads.concat(response.threads);
+      this.threadListUnreadCount = response.unreadCount;
+      this.threadListTotalCount = response.totalCount;
+    } catch (error) {
+      this.notify.error({title: "Inbox", message: (error as Error).message});
+      this.logger.error("Failed to load more inbox conversations:", error);
+    } finally {
+      this.busy = false;
     }
   }
 

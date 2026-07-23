@@ -124,7 +124,7 @@ export class InboxService {
     return (response.response as { importedCount: number }).importedCount;
   }
 
-  async listThreads(roleType: string | null = null, scope: InboxViewScope | null = null, unreadOnly: boolean = false, limit: number | null = null, folder: InboxThreadFolder | null = null): Promise<InboxThreadListResponse> {
+  async listThreads(roleType: string | null = null, scope: InboxViewScope | null = null, unreadOnly: boolean = false, limit: number | null = null, folder: InboxThreadFolder | null = null, offset: number | null = null): Promise<InboxThreadListResponse> {
     const params: string[] = [];
     if (folder) {
       params.push(`folder=${encodeURIComponent(folder)}`);
@@ -140,6 +140,9 @@ export class InboxService {
     }
     if (limit) {
       params.push(`limit=${limit}`);
+    }
+    if (offset) {
+      params.push(`offset=${offset}`);
     }
     const query = params.length > 0 ? `?${params.join("&")}` : "";
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/threads${query}`));

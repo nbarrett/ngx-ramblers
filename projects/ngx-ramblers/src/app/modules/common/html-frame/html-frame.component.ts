@@ -37,7 +37,7 @@ export class HtmlFrameComponent implements OnDestroy {
 
   private wrap(html: string): string {
     const base = `<base href="${window.location.origin}/" target="_blank">`;
-    const reset = `<style>html,body{margin:0;padding:0;background:#fff;}img{max-width:100%;height:auto;}table{max-width:100%;}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;}body{overflow-wrap:anywhere;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5;}</style>`;
+    const reset = `<style>html,body{margin:0;padding:0;background:#fff;}img{max-width:100%;height:auto;}table{max-width:100%;}blockquote{border-left:4px solid #9bc8ab;margin:16px 0;padding:12px 20px;background-color:#f7fbf8;color:#343a40;font-style:italic;}blockquote p:first-child{margin-top:0;}blockquote p:last-child{margin-bottom:0;}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;}body{overflow-wrap:anywhere;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5;}</style>`;
     return `<!doctype html><html><head><meta charset="utf-8">${base}${reset}</head><body>${html}</body></html>`;
   }
 

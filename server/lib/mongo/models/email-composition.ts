@@ -17,5 +17,6 @@ const emailCompositionSchema = new mongoose.Schema({
 
 emailCompositionSchema.index({ ownerMemberId: 1, status: 1, updatedAt: -1 });
 emailCompositionSchema.index({ shared: 1, status: 1, updatedAt: -1 });
+emailCompositionSchema.index({ status: 1, sentAt: -1 });
 
 export const emailComposition: mongoose.Model<EmailCompositionDocument> = ensureModel<EmailCompositionDocument>("email-composition", emailCompositionSchema);
