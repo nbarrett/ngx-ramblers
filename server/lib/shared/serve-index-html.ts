@@ -129,7 +129,7 @@ export function withServerContent(html: string, descriptor: PageSeoDescriptor): 
   const contentStartsWithHeading = descriptor.contentHtml.trimStart().startsWith("<h1");
   const heading = descriptor.title && !contentStartsWithHeading ? `<h1>${escapeHtml(descriptor.title)}</h1>` : "";
   const serverContent = `<main id="server-rendered-content">${heading}${descriptor.contentHtml}</main>`;
-  const visibilityStyle = "<style>app-root:not(:empty) + #server-rendered-content{display:none}</style>";
+  const visibilityStyle = "<style>#server-rendered-content{display:none}</style><noscript><style>#server-rendered-content{display:revert}</style></noscript>";
   return html
     .replace("</head>", `  ${visibilityStyle}\n</head>`)
     .replace("<app-root></app-root>", `<app-root></app-root>\n${serverContent}`);
